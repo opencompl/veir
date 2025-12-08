@@ -1,0 +1,14 @@
+name = "VeIR"
+version = "0.1.0"
+defaultTargets = ["veir-opt"]
+
+[leanOptions]
+experimental.module = true
+
+[[lean_lib]]
+name = "Mlir"
+root = "Mlir"
+
+[[lean_exe]]
+name = "veir-opt"
+root = "Main"

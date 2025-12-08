@@ -1,0 +1,179 @@
+import Mlir.Rewriter
+import Mlir.ForLean
+
+namespace Mlir
+
+@[grind .]
+theorem Rewriter.insertOp?_inBounds_mono (ptr : GenericPtr)
+    (heq : insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
+    ptr.InBounds ctx ↔ ptr.InBounds newCtx := by
+  simp only [insertOp?] at heq
+  split at heq
+  · split at heq <;> grind
+  · grind
+
+@[grind .]
+theorem Rewriter.insertOp?_fieldsInBounds_mono
+    (heq : insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
+    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
+  simp only [insertOp?] at heq
+  grind
+
+@[grind .]
+theorem OpResultPtr.get?_insertOp? (val : OpResultPtr) (hval : val.InBounds ctx)
+    (heq : Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
+    val.get! newCtx = val.get! ctx := by
+  simp only [Rewriter.insertOp?] at heq
+  grind
+
+@[grind .]
+theorem OpResultPtr.get_insertOp? (val : OpResultPtr) (hval : val.InBounds ctx)
+    (heq : Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
+    val.get newCtx (by grind) = val.get ctx hval := by
+  simp only [Rewriter.insertOp?] at heq
+  grind
+
+@[grind .]
+theorem ValuePtr.get_insertOp? (val : ValuePtr) (hval : val.InBounds ctx)
+    (heq : Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
+    val.getFirstUse newCtx (by grind) = val.getFirstUse ctx hval := by
+  simp only [Rewriter.insertOp?] at heq
+  grind
+
+@[grind .]
+theorem OpOperandPtr.get_insertOp? (opr : OpOperandPtr) (hopr : opr.InBounds ctx)
+    (heq : Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
+    opr.get newCtx (by grind) = opr.get ctx hopr := by
+  simp only [Rewriter.insertOp?] at heq
+  grind
+
+/- replaceUse -/
+
+@[simp, grind .]
+theorem BlockOperandPtr.get_replaceUse {bop : BlockOperandPtr} {hbop} :
+    bop.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hbop =
+    bop.get ctx (by grind) := by
+  unfold Rewriter.replaceUse
+  grind [=_ BlockOperandPtr.get!_eq_get]
+
+@[simp, grind =]
+theorem BlockPtr.getFirstOp_replaceUse {b : BlockPtr} {hb} :
+    (b.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).firstOp =
+    (b.get ctx (by grind)).firstOp := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem BlockPtr.getLastOp_replaceUse {b : BlockPtr} {hb} :
+    (b.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).lastOp =
+    (b.get ctx (by grind)).lastOp := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem BlockPtr.getNext_replaceUse {b : BlockPtr} {hb} :
+    (b.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).next =
+    (b.get ctx (by grind)).next := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem BlockPtr.getPrev_replaceUse {b : BlockPtr} {hb} :
+    (b.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).prev =
+    (b.get ctx (by grind)).prev := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem BlockPtr.getParent_replaceUse {b : BlockPtr} {hb} :
+    (b.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).parent =
+    (b.get ctx (by grind)).parent := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.getParent_replaceUse {op : OperationPtr} {hop} :
+    (op.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).parent =
+    (op.get ctx (by grind)).parent := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.getNext_replaceUse {op : OperationPtr} {hop} :
+    (op.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).next =
+    (op.get ctx (by grind)).next := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.getPrev_replaceUse {op : OperationPtr} {hop} :
+    (op.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).prev =
+    (op.get ctx (by grind)).prev := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands_replaceUse :
+    (OperationPtr.get op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).operands.size =
+    (OperationPtr.get op ctx (by grind)).operands.size := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.getOperandOwner_replaceUse {i : Nat} {hi} :
+    ((OperationPtr.get op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).operands[i]'(hi)).owner =
+    ((OperationPtr.get op ctx (by grind)).operands[i]'(by grind)).owner := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.getBlockOperands_replaceUse :
+    (OperationPtr.get op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hopnd).blockOperands =
+    (OperationPtr.get op ctx (by grind)).blockOperands := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults_replaceUse :
+    OperationPtr.getNumResults! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    OperationPtr.getNumResults! op ctx := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OpResultPtr.owner_replaceUse :
+    (OpResultPtr.get opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hopr).owner =
+    (OpResultPtr.get opr ctx (by grind)).owner := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OpResultPtr.index_replaceUse :
+    (OpResultPtr.get opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hopr).index =
+    (OpResultPtr.get opr ctx (by grind)).index := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.getRegions_replaceUse :
+    (OperationPtr.get op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).regions =
+    (OperationPtr.get op ctx (by grind)).regions := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments_replaceUse :
+    (BlockPtr.get block (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).arguments.size =
+    (BlockPtr.get block ctx (by grind)).arguments.size := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem BlockPtr.getArgumentOwner_replaceUse {i : Nat} {hi} :
+    ((BlockPtr.get block (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).arguments[i]'(hi)).owner =
+    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).owner := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem BlockPtr.getArgumentIndex_replaceUse {i : Nat} {hi} :
+    ((BlockPtr.get block (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).arguments[i]'(hi)).index =
+    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).index := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem RegionPtr.get_replaceUse :
+    RegionPtr.get reg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hreg =
+    RegionPtr.get reg ctx (by grind) := by
+  grind [Rewriter.replaceUse]
+
+/- replaceValue? -/
+
+@[simp, grind .]
+theorem OperationPtr.getNumOperands_iff_replaceValue?
+    (hctx' : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some ctx') :
+    (OperationPtr.get op ctx' h_op).operands.size = (OperationPtr.get op ctx (by grind)).operands.size := by
+  grind [OpOperandPtr.inBounds_if_operand_size_eq]
