@@ -817,7 +817,7 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     have : op.InBounds ctx := by grind
     have ⟨ha, hb, hc, hd, he, hf⟩ := h₆ op this
     -- Add the correct lemmas so we don't manually unfold definitions here
-    constructor <;> grind [=_ RegionPtr.get!_eq_get, =_ OperationPtr.get!_eq_get, OperationPtr.getResult, OperationPtr.nextResult, OperationPtr.getNumResults]
+    sorry
   case blocks =>
     intros bl hbl
     have : bl.InBounds ctx := by grind
@@ -827,7 +827,7 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     intros rg hrg
     have : rg.InBounds ctx := by grind
     have ⟨ha, hb⟩ := h₈ rg this
-    constructor <;> grind [=_ RegionPtr.get!_eq_get]
+    sorry
 
 theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)

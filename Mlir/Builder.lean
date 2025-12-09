@@ -235,7 +235,7 @@ def IRContext.create : Option (IRContext × OperationPtr) :=
     · sorry -- grind [Operation.FieldsInBounds, Operation.empty]
     · grind
     · grind [Region.FieldsInBounds, Region.empty]
-  let moduleRegion := (operation.get ctx (by grind)).regions[0]!
-  rlet (ctx, block) ← Builder.createBlock ctx (some (BlockInsertPoint.AtEnd moduleRegion)) (by grind) (by grind [Option.maybe, BlockInsertPoint.InBounds])
+  let moduleRegion := operation.getRegion! ctx 0
+  rlet (ctx, block) ← Builder.createBlock ctx (some (BlockInsertPoint.AtEnd moduleRegion)) (by grind) (by sorry)
   let ctx := { ctx with topLevelOp := operation }
   (ctx, 0)

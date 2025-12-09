@@ -271,11 +271,18 @@ theorem Builder.pushOperand_OperationPtr_get_prev_mono (valuePtr : ValuePtr) (va
 
 
 @[simp, grind =]
-theorem Builder.pushOperand_OperationPtr_get_regions (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) hOp'InBounds :
-      (opPtr'.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hOp'InBounds).regions =
-        (opPtr'.get ctx (by grind)).regions := by
-  simp only [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_regions]
-  grind [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_regions]
+theorem Builder.pushOperand_OperationPtr_getNumRegions (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) hOp'InBounds :
+      opPtr'.getNumRegions (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hOp'InBounds =
+        opPtr'.getNumRegions ctx (by grind) := by
+  simp only [Builder.pushOperand, OpOperandPtr.insertIntoCurrent]
+  grind
+
+@[simp, grind =]
+theorem Builder.pushOperand_OperationPtr_getRegion (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
+      opPtr'.getRegion! (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+        opPtr'.getRegion! ctx := by
+  simp only [Builder.pushOperand, OpOperandPtr.insertIntoCurrent]
+  grind
 
 @[grind =]
 theorem Builder.pushOperand_RegionPtr_get (rgPtr : RegionPtr) hRgInBounds :

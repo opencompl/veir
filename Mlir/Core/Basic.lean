@@ -294,6 +294,15 @@ def OperationPtr.getOperand (op: OperationPtr) (ctx: IRContext) (index: Nat)
     (inBounds: op.InBounds ctx := by grind) (h: index < getNumOperands op ctx inBounds := by grind) : ValuePtr :=
   ((op.get ctx (by grind)).operands[index]'(by grind [getNumOperands])).value
 
+def OperationPtr.getOperand! (op: OperationPtr) (ctx: IRContext) (index: Nat) : ValuePtr :=
+  ((op.get! ctx).operands[index]!).value
+
+@[grind _=_]
+theorem OperationPtr.getOperand!_eq_getOperand {op : OperationPtr} {index : Nat}
+    {hin} (h: index < op.getNumOperands ctx hin) {hin'} :
+    op.getOperand! ctx index = op.getOperand ctx index hin' h := by
+  grind [getOperand, getOperand!]
+
 def OperationPtr.getNumResults (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx := by grind) : Nat :=
   (op.get ctx (by grind)).results.size
 
@@ -317,6 +326,42 @@ theorem OperationPtr.getResult_index {op : OperationPtr} {index : Nat} :
 theorem OperationPtr.getResult_op {op : OperationPtr} {index : Nat} :
     (OperationPtr.getResult op index).op = op := by
   grind [getResult]
+
+def OperationPtr.getNumRegions (op: OperationPtr) (ctx: IRContext)
+    (inBounds: op.InBounds ctx := by grind) : Nat :=
+  (op.get ctx (by grind)).regions.size
+
+def OperationPtr.getNumRegions! (op: OperationPtr) (ctx: IRContext) : Nat :=
+  (op.get! ctx).regions.size
+
+@[grind _=_]
+theorem OperationPtr.getNumRegions!_eq_getNumRegions {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getNumRegions! ctx = op.getNumRegions ctx (by grind) := by
+  grind [getNumRegions, getNumRegions!]
+
+def OperationPtr.getRegion (op: OperationPtr) (ctx: IRContext) (index: Nat)
+  (inBounds: op.InBounds ctx := by grind) (iInBounds: index < op.getNumRegions ctx inBounds := by grind) : RegionPtr :=
+  (op.get ctx (by grind)).regions[index]'(by grind [getNumRegions])
+
+@[grind funCC]
+def OperationPtr.getRegion! (op: OperationPtr) (ctx: IRContext) (index: Nat) : RegionPtr :=
+  (op.get! ctx).regions[index]!
+
+@[grind _=_]
+theorem OperationPtr.getRegion!_eq_getRegion {op : OperationPtr} {index : Nat}
+    {hin} (iInBounds : index < op.getNumRegions ctx hin) {hin'} :
+    op.getRegion! ctx index = op.getRegion ctx index hin' iInBounds := by
+  grind [getRegion, getRegion!]
+
+theorem OperationPtr.getNumRegions!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
+    op.get! ctx = op.get! ctx' →
+    op.getNumRegions! ctx = op.getNumRegions! ctx' := by
+  grind [OperationPtr.get!, OperationPtr.getNumRegions!]
+
+theorem OperationPtr.getRegion!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
+    op.get! ctx = op.get! ctx' →
+    op.getRegion! ctx = op.getRegion! ctx' := by
+  grind [OperationPtr.get!, OperationPtr.getRegion!]
 
 def OperationPtr.set (ptr: OperationPtr) (ctx: IRContext) (newOp: Operation) : IRContext :=
   {ctx with operations := ctx.operations.insert ptr newOp}
