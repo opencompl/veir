@@ -54,9 +54,9 @@ def printOpResults (ctx: IRContext) (op: OperationPtr) (hop : op.InBounds ctx :=
 def printOpOperands (ctx: IRContext) (op: OperationPtr) (hop : op.InBounds ctx := by grind) (hx : ctx.FieldsInBounds := by grind) : IO Unit := do
   let opStruct := op.get ctx (by grind)
   IO.print "("
-  if h : opStruct.operands.size ≠ 0 then
+  if h : op.getNumOperands! ctx ≠ 0 then
     printValue ctx (op.getOperand ctx 0)
-    for h : index in 1...opStruct.operands.size do
+    for h : index in 1...(op.getNumOperands! ctx) do
       IO.print ", "
       printValue ctx (op.getOperand ctx index)
   IO.print ")"

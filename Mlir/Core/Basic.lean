@@ -266,9 +266,33 @@ theorem OperationPtr.get!_eq_get {ptr : OperationPtr} (hin : ptr.InBounds ctx) :
 def OperationPtr.getOpType (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx) : Nat :=
   (op.get ctx (by grind)).opType
 
+def OperationPtr.getNumOperands (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx := by grind) : Nat :=
+  (op.get ctx (by grind)).operands.size
+
+def OperationPtr.getNumOperands! (op: OperationPtr) (ctx: IRContext) : Nat :=
+  (op.get! ctx).operands.size
+
+@[grind _=_]
+theorem OperationPtr.getNumOperands!_eq_getNumOperands {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getNumOperands! ctx = op.getNumOperands ctx (by grind) := by
+  grind [getNumOperands, getNumOperands!]
+
+def OperationPtr.getOpOperand (op: OperationPtr) (index: Nat) : OpOperandPtr :=
+  { op := op, index := index }
+
+@[simp, grind =]
+theorem OperationPtr.getOpOperand_index {op : OperationPtr} {index : Nat} :
+    (OperationPtr.getOpOperand op index).index = index := by
+  grind [getOpOperand]
+
+@[simp, grind =]
+theorem OperationPtr.getOpOperand_op {op : OperationPtr} {index : Nat} :
+    (OperationPtr.getOpOperand op index).op = op := by
+  grind [getOpOperand]
+
 def OperationPtr.getOperand (op: OperationPtr) (ctx: IRContext) (index: Nat)
-    (inBounds: op.InBounds ctx := by grind) (h: index < (op.get ctx (by grind)).operands.size := by grind) : ValuePtr :=
-  ((op.get ctx (by grind)).operands[index]'(by grind)).value
+    (inBounds: op.InBounds ctx := by grind) (h: index < getNumOperands op ctx inBounds := by grind) : ValuePtr :=
+  ((op.get ctx (by grind)).operands[index]'(by grind [getNumOperands])).value
 
 def OperationPtr.getNumResults (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx := by grind) : Nat :=
   (op.get ctx (by grind)).results.size
@@ -343,9 +367,7 @@ def OperationPtr.setProperties (op: OperationPtr) (ctx: IRContext) (newValue: UI
 @[grind]
 def OperationPtr.nextOperand (op : OperationPtr) (ctx : IRContext)
     (inBounds: op.InBounds ctx := by grind) : OpOperandPtr :=
-  let opS := (op.get ctx (by grind))
-  let index := opS.operands.size
-  .mk op index
+  .mk op (op.getNumOperands ctx (by grind))
 
 @[grind]
 def OperationPtr.nextResult (op : OperationPtr) (ctx : IRContext)
@@ -368,10 +390,10 @@ def OperationPtr.allocEmpty (ctx : IRContext) (opType : Nat) : Option (IRContext
 def OpOperandPtr.InBounds (operand: OpOperandPtr) (ctx: IRContext) : Prop :=
   ∃ h, operand.index < (operand.op.get ctx h).operands.size
 
-theorem OpOperandPtr.inBounds_def : InBounds opr ctx ↔ ∃ h, opr.index < (opr.op.get ctx h).operands.size := by
+theorem OpOperandPtr.inBounds_def : InBounds opr ctx ↔ ∃ h, opr.index < opr.op.getNumOperands ctx h := by
   rfl
 
-@[grind .]
+@[local grind .]
 theorem OpOperandPtr.inBounds_op (operand: OpOperandPtr) (ctx: IRContext) (h: operand.InBounds ctx) :
     operand.op ∈ ctx.operations := by
   unfold InBounds at h
@@ -388,7 +410,7 @@ theorem OpOperandPtr.inBounds_operand? (operand: OpOperandPtr) (ctx: IRContext) 
   cases h
   grind
 
-@[grind! .] -- is it the right one? unlear
+@[local grind! .]
 theorem OpOperandPtr.inBounds_operand (operand: OpOperandPtr) (ctx: IRContext) (h: operand.InBounds ctx) :
     operand.index < (ctx.operations[operand.op]'(by grind)).operands.size := by
   unfold InBounds at h
@@ -398,7 +420,7 @@ theorem OpOperandPtr.inBounds_operand (operand: OpOperandPtr) (ctx: IRContext) (
   grind
 
 def OpOperandPtr.get (operand: OpOperandPtr) (ctx: IRContext) (operandIn: operand.InBounds ctx := by grind) : OpOperand :=
-  (operand.op.get ctx (by grind [OpOperandPtr.InBounds])).operands[operand.index]'(by grind [OpOperandPtr.InBounds])
+  (operand.op.get ctx (by grind [OpOperandPtr.InBounds])).operands[operand.index]'(by grind [OpOperandPtr.InBounds, OperationPtr.getNumOperands])
 def OpOperandPtr.get! (operand: OpOperandPtr) (ctx: IRContext) : OpOperand :=
   (operand.op.get! ctx).operands[operand.index]!
 @[grind =]
@@ -410,10 +432,11 @@ theorem OpOperandPtr.get!_eq_of_OperationPtr_get!_eq {opr : OpOperandPtr} :
     opr.get! ctx = opr.get! ctx' := by
   grind [OperationPtr.get!, OpOperandPtr.get!]
 
+@[grind =]
 theorem OperationPtr.getOperand_eq_OpOperandPtr_get :
     OperationPtr.getOperand op ctx index opInBounds indexInBounds =
-    (OpOperandPtr.get { op := op, index := index } ctx (by grind [OpOperandPtr.InBounds, OperationPtr.get])).value := by
-  grind [OpOperandPtr.get, OperationPtr.getOperand, OperationPtr.get]
+    (OpOperandPtr.get (OperationPtr.getOpOperand op index) ctx (by grind [OperationPtr.getOpOperand, OpOperandPtr.InBounds, OperationPtr.getNumOperands])).value := by
+  grind [OpOperandPtr.get, OperationPtr.getOperand, OperationPtr.get, OperationPtr.getOpOperand]
 
 def OpOperandPtr.set (operand: OpOperandPtr) (ctx: IRContext) (newOperand: OpOperand)
     (operandIn: operand.InBounds ctx := by grind) : IRContext :=

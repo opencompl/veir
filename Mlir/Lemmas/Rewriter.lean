@@ -106,14 +106,14 @@ theorem OperationPtr.getPrev_replaceUse {op : OperationPtr} {hop} :
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands_replaceUse :
-    (OperationPtr.get op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).operands.size =
-    (OperationPtr.get op ctx (by grind)).operands.size := by
+    OperationPtr.getNumOperands op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop =
+    OperationPtr.getNumOperands op ctx (by grind) := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OperationPtr.getOperandOwner_replaceUse {i : Nat} {hi} :
-    ((OperationPtr.get op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).operands[i]'(hi)).owner =
-    ((OperationPtr.get op ctx (by grind)).operands[i]'(by grind)).owner := by
+theorem OpOperandPtr.owner_replaceUse :
+    (OpOperandPtr.get opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).owner =
+    (OpOperandPtr.get opr ctx (by grind)).owner := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
@@ -175,5 +175,6 @@ theorem RegionPtr.get_replaceUse :
 @[simp, grind .]
 theorem OperationPtr.getNumOperands_iff_replaceValue?
     (hctx' : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some ctx') :
-    (OperationPtr.get op ctx' h_op).operands.size = (OperationPtr.get op ctx (by grind)).operands.size := by
+    OperationPtr.getNumOperands op ctx' h_op =
+    OperationPtr.getNumOperands op ctx (by grind) := by
   grind [OpOperandPtr.inBounds_if_operand_size_eq]

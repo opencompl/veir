@@ -118,7 +118,7 @@ structure RegionPtr.BlockChainWellFormed (region : RegionPtr) (ctx : IRContext) 
 structure Operation.WellFormed (op : Operation) (ctx : IRContext) (opPtr : OperationPtr) hop : Prop where
   inBounds : Operation.FieldsInBounds opPtr ctx hop
   result_index i (iInBounds : i < opPtr.getNumResults ctx) : ((opPtr.getResult i).get ctx).index = i
-  operand_owner i (iInBounds : i < op.operands.size) : op.operands[i].owner = opPtr
+  operand_owner i (iInBounds : i < opPtr.getNumOperands ctx) : ((opPtr.getOpOperand i).get ctx).owner = opPtr
   blockOperand_owner i (iInBounds : i < op.blockOperands.size) : op.blockOperands[i].owner = opPtr
   regions_unique i (iInBounds : i < op.regions.size) j (jInBounds : j < op.regions.size) :
     i ≠ j → op.regions[i]'iInBounds ≠ op.regions[j]'jInBounds
@@ -262,12 +262,10 @@ theorem IRContext.Operation_WellFormed_unchanged
     (hWf : (opPtr.get ctx opPtrInBounds).WellFormed ctx opPtr opPtrInBounds)
     (hInBounds' : Operation.FieldsInBounds opPtr ctx' opPtrInBounds')
     (hSameNumOperands :
-      (opPtr.get ctx opPtrInBounds).operands.size = (opPtr.get ctx' opPtrInBounds').operands.size)
+      opPtr.getNumOperands ctx opPtrInBounds = opPtr.getNumOperands ctx' opPtrInBounds')
     (hSameOperandOwner :
-      let op := opPtr.get ctx opPtrInBounds
-      let op' := opPtr.get ctx' opPtrInBounds'
-      ∀ i (iInBounds : i < op.operands.size),
-      op.operands[i].owner = op'.operands[i].owner)
+      ∀ i (iInBounds : i < opPtr.getNumOperands ctx opPtrInBounds),
+      ((opPtr.getOpOperand i).get ctx).owner = ((opPtr.getOpOperand i).get ctx').owner)
     (hSameNumBlockOperands :
       (opPtr.get ctx opPtrInBounds).blockOperands.size = (opPtr.get ctx' opPtrInBounds').blockOperands.size)
     (hSameBlockOperandOwner :

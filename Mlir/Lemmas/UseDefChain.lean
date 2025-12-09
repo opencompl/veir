@@ -110,15 +110,16 @@ theorem OpResultPtr.index_insertIntoCurrent :
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands_insertIntoCurrent :
-    (OperationPtr.get op (OpOperandPtr.insertIntoCurrent ctx ptr h₁ h₂) hop).operands.size =
-    (OperationPtr.get op ctx (by grind)).operands.size := by
+    OperationPtr.getNumOperands op (OpOperandPtr.insertIntoCurrent ctx ptr h₁ h₂) hop =
+    OperationPtr.getNumOperands op ctx (by grind) := by
   grind [OpOperandPtr.insertIntoCurrent]
 
 @[simp, grind =]
-theorem OperationPtr.getOperandOwner_insertIntoCurrent {i : Nat} {hi} :
-    ((OperationPtr.get op (OpOperandPtr.insertIntoCurrent ctx ptr h₁ h₂) hop).operands[i]'(hi)).owner =
-    ((OperationPtr.get op ctx (by grind)).operands[i]'(by grind)).owner := by
-  grind [OpOperandPtr.insertIntoCurrent]
+theorem OpOperandPtr.owner_insertIntoCurrent :
+    (OpOperandPtr.get opr (OpOperandPtr.insertIntoCurrent ctx ptr h₁ h₂) hopr).owner =
+    (OpOperandPtr.get opr ctx (by grind)).owner := by
+  simp only [OpOperandPtr.insertIntoCurrent, ←OpOperandPtr.get!_eq_get]
+  split <;> grind
 
 @[simp, grind =]
 theorem OperationPtr.getBlockOperands_insertIntoCurrent :
@@ -411,26 +412,26 @@ theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get_num_results (opPtr : Ope
 
 @[simp, grind =]
 theorem OpOperandPtr.OperationPtr_get!_setBack_operands_size (op : OperationPtr) :
-    (op.get! (OpOperandPtr.setBack operandPtr ctx h₁ v)).operands.size =
-    (op.get! ctx).operands.size := by
+    op.getNumOperands! (OpOperandPtr.setBack operandPtr ctx h₁ v) =
+    op.getNumOperands! ctx := by
   grind [OpOperandPtr.get, OperationPtr.get!]
 
 @[simp, grind =]
 theorem OpOperandPtr.OperationPtr_get!_setNextUse_operands_size (op : OperationPtr) :
-    (op.get! (OpOperandPtr.setNextUse operandPtr ctx h₁ v)).operands.size =
-    (op.get! ctx).operands.size := by
+    op.getNumOperands! (OpOperandPtr.setNextUse operandPtr ctx h₁ v) =
+    op.getNumOperands! ctx := by
   grind [OpOperandPtr.get, OperationPtr.get!]
 
 @[simp, grind =]
 theorem OpOperandPtr.OperationPtr_get!_setFirstUse_operands_size (op : OperationPtr) :
-    (op.get! (ValuePtr.setFirstUse valuePtr ctx h₁ v)).operands.size =
-    (op.get! ctx).operands.size := by
+    op.getNumOperands! (ValuePtr.setFirstUse valuePtr ctx h₁ v) =
+    op.getNumOperands! ctx := by
   cases valuePtr <;> grind [OpOperandPtr.get, OperationPtr.get!]
 
 @[simp, grind =]
 theorem OpOperandPtr.OperationPtr_get!_insertIntoCurrent_operands_size (op : OperationPtr) :
-    (op.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).operands.size =
-    (op.get! ctx).operands.size := by
+    op.getNumOperands! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds) =
+    op.getNumOperands! ctx := by
   simp only [insertIntoCurrent]
   split <;> simp only [OpOperandPtr.OperationPtr_get!_setFirstUse_operands_size,
       OpOperandPtr.OperationPtr_get!_setNextUse_operands_size,
@@ -439,44 +440,43 @@ theorem OpOperandPtr.OperationPtr_get!_insertIntoCurrent_operands_size (op : Ope
 @[simp, grind =]
 theorem OpOperandPtr.OperationPtr_get_insertIntoCurrent_operands_size (op : OperationPtr)
     (h : op.InBounds ctx) :
-    (op.get (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).operands.size =
-    (op.get ctx).operands.size := by
+    op.getNumOperands! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds) =
+    op.getNumOperands! ctx := by
   have := @OpOperandPtr.OperationPtr_get!_insertIntoCurrent_operands_size ctx ctxInBounds operandPtr h₁ op
   grind
 
 @[simp, grind =]
-theorem OpOperandPtr.OperationPtr_get!_setBack_operands_owner (op : OperationPtr) (i : Nat) :
-    (op.get! (OpOperandPtr.setBack operandPtr ctx h₁ v)).operands[i]!.owner =
-    (op.get! ctx).operands[i]!.owner := by
+theorem OpOperandPtr.OperationPtr_get!_setBack_operands_owner (opr : OpOperandPtr) :
+    (opr.get! (OpOperandPtr.setBack operandPtr ctx h₁ v)).owner =
+    (opr.get! ctx).owner := by
   grind [OpOperandPtr.get, OperationPtr.get!]
 
 @[simp, grind =]
-theorem OpOperandPtr.OperationPtr_get!_setNextUse_operands_owner (op : OperationPtr) (i : Nat) :
-    (op.get! (OpOperandPtr.setNextUse operandPtr ctx h₁ v)).operands[i]!.owner =
-    (op.get! ctx).operands[i]!.owner := by
+theorem OpOperandPtr.OperationPtr_get!_setNextUse_operands_owner (opr : OpOperandPtr) :
+    (opr.get! (OpOperandPtr.setNextUse operandPtr ctx h₁ v)).owner =
+    (opr.get! ctx).owner := by
   grind [OpOperandPtr.get, OperationPtr.get!]
 
 @[simp, grind =]
-theorem OpOperandPtr.OperationPtr_get!_setFirstUse_operands_owner (op : OperationPtr) (i : Nat) :
-    (op.get! (ValuePtr.setFirstUse valuePtr ctx h₁ v)).operands[i]!.owner =
-    (op.get! ctx).operands[i]!.owner := by
+theorem OpOperandPtr.OperationPtr_get!_setFirstUse_operands_owner (opr : OpOperandPtr) :
+    (opr.get! (ValuePtr.setFirstUse valuePtr ctx h₁ v)).owner =
+    (opr.get! ctx).owner := by
   cases valuePtr <;> grind [OpOperandPtr.get, OperationPtr.get!]
 
 @[simp, grind =]
-theorem OpOperandPtr.OperationPtr_get!_insertIntoCurrent_operands_owner (op : OperationPtr) (i : Nat) :
-    (op.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).operands[i]!.owner =
-    (op.get! ctx).operands[i]!.owner := by
+theorem OpOperandPtr.OperationPtr_get!_insertIntoCurrent_operands_owner (opr : OpOperandPtr) :
+    (opr.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).owner =
+    (opr.get! ctx).owner := by
   simp only [insertIntoCurrent]
   split <;> simp only [OpOperandPtr.OperationPtr_get!_setFirstUse_operands_owner,
       OpOperandPtr.OperationPtr_get!_setNextUse_operands_owner,
       OpOperandPtr.OperationPtr_get!_setBack_operands_owner]
 
 @[simp, grind =]
-theorem OpOperandPtr.OperationPtr_get_insertIntoCurrent_operands_owner (op : OperationPtr) (i : Nat)
-    (h : op.InBounds ctx) (hi : i < (op.get ctx h).operands.size) :
-    ((op.get (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).operands[i]'(by grind)).owner =
-    ((op.get ctx).operands[i]'hi).owner := by
-  have := @OpOperandPtr.OperationPtr_get!_insertIntoCurrent_operands_owner ctx ctxInBounds operandPtr h₁ op i
+theorem OpOperandPtr.OperationPtr_get_insertIntoCurrent_operands_owner (opr : OpOperandPtr) :
+    (opr.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).owner =
+    (opr.get! ctx).owner := by
+  have := @OpOperandPtr.OperationPtr_get!_insertIntoCurrent_operands_owner ctx ctxInBounds operandPtr h₁ opr
   grind
 
 
@@ -679,14 +679,14 @@ theorem RegionPtr.get_removeFromCurrent {rg : RegionPtr} h₃ :
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands_removeFromCurrent :
-    (OperationPtr.get op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hop).operands.size =
-    (OperationPtr.get op ctx (by grind)).operands.size := by
+    OperationPtr.getNumOperands op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hop =
+    OperationPtr.getNumOperands op ctx (by grind) := by
   grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]
-theorem OperationPtr.getOperandOwner_removeFromCurrent {i : Nat} {hi} :
-    ((OperationPtr.get op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hop).operands[i]'(hi)).owner =
-    ((OperationPtr.get op ctx (by grind)).operands[i]'(by grind)).owner := by
+theorem OperationPtr.getOperandOwner_removeFromCurrent :
+    (OpOperandPtr.get opr (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hop).owner =
+    (OpOperandPtr.get opr ctx (by grind)).owner := by
   grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]

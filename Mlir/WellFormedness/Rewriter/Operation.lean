@@ -761,6 +761,19 @@ theorem BlockPtr.operationList_Rewriter_insertOp?
   · simp only [←BlockPtr.operationList_iff_BlockPtr_OperationChainWellFormed]
     grind [BlockPtr.OperationChainWellFormed_Rewriter_insertOp?_other]
 
+@[grind =>]
+theorem OpOperandPtr.get!_insertOp?
+    (hctx' : Rewriter.insertOp? ctx newOp ip newOpIn insIn ctxInBounds = some ctx') (opr: OpOperandPtr) :
+    opr.get! ctx' = opr.get! ctx := by
+  simp only [Rewriter.insertOp?] at hctx'
+  grind
+
+@[grind =>]
+theorem OperationPtr.getNumOperands!_insertOp?
+    (hctx' : Rewriter.insertOp? ctx newOp ip newOpIn insIn ctxInBounds = some ctx') (op: OperationPtr) :
+    op.getNumOperands! ctx' = op.getNumOperands! ctx := by
+  sorry -- We are missing some lemmas to do this
+
 theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     (newOp : OperationPtr) (ip : InsertPoint)
     (newOpIn : newOp.InBounds ctx := by grind)

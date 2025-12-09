@@ -307,23 +307,20 @@ theorem OpResultPtr.index_pushOperand :
 @[simp, grind =]
 theorem OpOperandPtr.OperationPtr_get_pushOperand_operands_size (op : OperationPtr)
     (h : op.InBounds ctx) opPtrInBounds :
-    (op.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)).operands.size =
-    if op = opPtr then (op.get ctx).operands.size + 1 else (op.get ctx).operands.size := by
+    op.getNumOperands (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+    if op = opPtr then op.getNumOperands ctx + 1 else op.getNumOperands ctx := by
   simp only [Builder.pushOperand]
-  rw [OpOperandPtr.OperationPtr_get_insertIntoCurrent_operands_size]
-  · simp
-    split
-    · simp
-      grind
-    · grind
-  · grind
+  grind
 
 @[grind =]
-theorem OpOperandPtr.OperationPtr_get_pushOperand_operands_owner (op : OperationPtr) (i : Nat)
-    (h : op.InBounds ctx) (hi : i < (op.get ctx h).operands.size) opPtrInBounds :
-    ((op.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)).operands[i]'(by grind)).owner =
-    ((op.get ctx).operands[i]'hi).owner := by
-  simp only [Builder.pushOperand]
+theorem OpOperandPtr.OperationPtr_get_pushOperand_operands_owner {opr : OpOperandPtr} {h} :
+    (opr.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) h).owner =
+    if h: opr = opPtr.nextOperand ctx then
+      opPtr
+    else
+      (opr.get ctx).owner := by
+  simp only [Builder.pushOperand, owner_insertIntoCurrent]
+  simp only [←OpOperandPtr.get!_eq_get]
   grind
 
 theorem Builder.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) (hOpWf : ctx.WellFormed) :
@@ -358,9 +355,9 @@ theorem Builder.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds 
       grind [pushOperand_OperationPtr_get_parent_mono, pushOperand_OperationPtr_get_prev_mono,
         pushOperand_OperationPtr_get_next_mono, pushOperand_BlockPtr_get_lastOp_mono, pushOperand_BlockPtr_get_firstOp_mono]
   case operations =>
-    intros opPtr opPtrInBounds
-    have ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ := hOpWf.operations opPtr (by grind)
-    constructor <;> grind [Builder.pushOperand, Operation.WellFormed]
+    intros opPtr' opPtrInBounds
+    have ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ := hOpWf.operations opPtr' (by grind)
+    constructor <;> grind [Builder.pushOperand, Operation.WellFormed, OperationPtr.getOpOperand]
   case blocks =>
     intros bl hbl
     constructor

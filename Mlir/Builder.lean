@@ -79,7 +79,7 @@ theorem Builder.initOpResults_inBounds_mono (ptr : GenericPtr) :
 protected def Builder.pushOperand (ctx : IRContext) (opPtr : OperationPtr) (valuePtr : ValuePtr)
     (opPtrInBounds : opPtr.InBounds ctx := by grind) (valueInBounds : valuePtr.InBounds ctx := by grind) (hctx : ctx.FieldsInBounds) : IRContext :=
   let op := (opPtr.get ctx (by grind))
-  let index := op.operands.size
+  let index := opPtr.getNumOperands ctx (by grind)
   let operand := { value := valuePtr, owner := opPtr, back := OpOperandPtrPtr.valueFirstUse valuePtr, nextUse := none : OpOperand}
   have : operand.FieldsInBounds ctx := by constructor <;> grind [Option.maybe]
   let ctx := opPtr.pushOperand ctx operand (by grind)
@@ -90,8 +90,8 @@ protected def Builder.pushOperand (ctx : IRContext) (opPtr : OperationPtr) (valu
 theorem Builder.pushOperand_inBounds (ptr : GenericPtr) :
     ptr.InBounds (Builder.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) ↔
     (ptr.InBounds ctx ∨
-     ptr = .opOperand ⟨opPtr, (opPtr.get ctx).operands.size⟩ ∨
-     ptr = .opOperandPtr (.operandNextUse ⟨opPtr, (opPtr.get ctx).operands.size⟩)) := by
+     ptr = .opOperand ⟨opPtr, (opPtr.getNumOperands ctx)⟩ ∨
+     ptr = .opOperandPtr (.operandNextUse ⟨opPtr, (opPtr.getNumOperands ctx)⟩)) := by
   grind [Builder.pushOperand]
 
 @[grind .]
