@@ -21,6 +21,7 @@ macro "setup_grind_for_basic_proofs" : command => `(
     OperationPtr.set BlockPtr.get BlockPtr.set RegionPtr.get RegionPtr.set RegionPtr.InBounds
     BlockOperandPtrPtr.get BlockOperandPtrPtr.set
     BlockArgumentPtr.setLoc BlockPtr.InBounds OperationPtr.getNumResults
+    OperationPtr.getNumOperands OpOperandPtr.InBounds
 )
 
 setup_grind_for_basic_proofs
@@ -59,6 +60,12 @@ theorem OperationPtr.setRegions_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setRegions op ctx newRegions h) ↔ ptr.InBounds ctx := by
   constructor <;> cases ptr <;>
     grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+
+@[grind .]
+theorem OperationPtr.getOpOperand_inBounds (op : OperationPtr)
+    (hop : op.InBounds ctx) i (h₂ : i < op.getNumOperands ctx hop) :
+    (op.getOpOperand i).InBounds ctx := by
+  grind [getOpOperand]
 
 @[grind .]
 theorem OperationPtr.getResult_inBounds (op : OperationPtr)
@@ -122,11 +129,11 @@ theorem OperationPtr.pushResult_genericPtr_mono_impl (ptr : GenericPtr) :
 
 @[grind =]
 theorem OperationPtr.setOperands_genericPtr_mono (ptr : GenericPtr)
-    (newOperandsSize : (OperationPtr.get op ctx h).operands.size < newOperands.size) :
+    (newOperandsSize : OperationPtr.getNumOperands op ctx h < newOperands.size) :
     (ptr.InBounds (setOperands op ctx newOperands h) ↔
     (ptr.InBounds ctx
-    ∨ (∃ index, ptr = GenericPtr.opOperand ⟨op, index⟩ ∧ index < newOperands.size ∧ index ≥ (OperationPtr.get op ctx h).operands.size)
-    ∨ (∃ index, ptr = GenericPtr.opOperandPtr (.operandNextUse ⟨op, index⟩) ∧ index < newOperands.size ∧ index ≥ (OperationPtr.get op ctx h).operands.size))) := by
+    ∨ (∃ index, ptr = GenericPtr.opOperand ⟨op, index⟩ ∧ index < newOperands.size ∧ index ≥ OperationPtr.getNumOperands op ctx h)
+    ∨ (∃ index, ptr = GenericPtr.opOperandPtr (.operandNextUse ⟨op, index⟩) ∧ index < newOperands.size ∧ index ≥ OperationPtr.getNumOperands op ctx h))) := by
   constructor
   · cases ptr
     case opOperand opOperandPtr =>
@@ -264,7 +271,7 @@ theorem OpOperandPtr.get_set {op : OperationPtr} (hop : op.InBounds (opOperand.s
 @[grind .]
 theorem OpOperandPtr.operation_inBounds_of_inBounds (h : opOperand.InBounds ctx) :
     opOperand.op.InBounds ctx := by
-  grind
+  grind [OpOperandPtr.InBounds]
 
 @[grind =]
 theorem OpOperandPtr.setNextUse_genericPtr_mono (ptr : GenericPtr)  :
@@ -295,7 +302,7 @@ theorem OpOperandPtr.setValue_genericPtr_mono (ptr : GenericPtr)  :
            ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
 
 theorem OpOperandPtr.inBounds_if_operand_size_eq :
-    ((OperationPtr.get opPtr ctx opIn).operands.size = (OperationPtr.get opPtr' ctx' op'In).operands.size) ↔
+    (OperationPtr.getNumOperands opPtr ctx opIn = OperationPtr.getNumOperands opPtr' ctx' op'In) ↔
     (∀ index, (OpOperandPtr.mk opPtr index).InBounds ctx ↔ (OpOperandPtr.mk opPtr' index).InBounds ctx') := by
   constructor
   · intro hsize index

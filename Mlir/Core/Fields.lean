@@ -172,12 +172,12 @@ theorem BlockOperandPtrPtr.get_inBounds (ctx: IRContext) (ptr: BlockOperandPtrPt
 theorem OperationPtr.getOperand_inBounds (ctx: IRContext) (ptr: OperationPtr)
     (ctxInBounds: ctx.FieldsInBounds)
     (h₁: ptr.InBounds ctx)
-    (h₂ : idx < (ptr.get ctx h₁).operands.size) :
+    (h₂ : idx < (ptr.getNumOperands ctx h₁)) :
     (ptr.getOperand ctx idx h₁ h₂).InBounds ctx := by
   let opr : OpOperandPtr := .mk ptr idx
   have : opr.InBounds ctx := by grind [OpOperandPtr.inBounds_def]
   have := ctxInBounds.operations_inBounds ptr h₁ |>.operands_inBounds opr this (by rfl)
-  grind [OperationPtr.getOperand_eq_OpOperandPtr_get]
+  grind
 
 
 /- Preservation theorems for FieldsInBounds -/

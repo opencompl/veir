@@ -242,7 +242,7 @@ theorem OperationPtr.getOperand_replaceValue?
   let oldValueArray := oldValue.useDefArray ctx (by grind) (by grind)
   let newValueArray := newValue.useDefArray ctx (by grind) (by grind)
   split
-  · have : { op := op, index := idx } ∈ oldValueArray := by grind [ValuePtr.useDefArray_contains_operand_use]
+  · have : op.getOpOperand idx ∈ oldValueArray := by grind [ValuePtr.useDefArray_contains_operand_use]
     have := @Rewriter.replaceValue_WellFormedUseDefChain_newValue oldValue newValue ctx
       (depth := depth) (newArray := newValueArray) (oldArray := oldValueArray)
     grind [ValuePtr.WellFormedUseDefChain]
@@ -251,11 +251,11 @@ theorem OperationPtr.getOperand_replaceValue?
       have := @Rewriter.replaceValue_WellFormedUseDefChain_newValue oldValue newValue ctx
         (depth := depth) (newArray := newValueArray) (oldArray := oldValueArray)
       grind [ValuePtr.WellFormedUseDefChain]
-    · let operand := { op := op, index := idx : OpOperandPtr}
+    · let operand := op.getOpOperand idx
       let value := (operand.get ctx (by grind)).value
       let valueArray := value.useDefArray ctx (by grind) (by grind)
       simp only [OperationPtr.getOperand_eq_OpOperandPtr_get] at h
-      have : { op := op, index := idx } ∉ oldValueArray := by grind [ValuePtr.useDefArray_contains_operand_use]
+      have : op.getOpOperand idx ∉ oldValueArray := by grind [ValuePtr.useDefArray_contains_operand_use]
       have : value.InBounds ctx := by grind
       have := @Rewriter.replaceValue_WellFormedUseDefChain_otherValue value oldValue newValue ctx
         (depth := depth) (array := valueArray) (newArray := newValueArray) (oldArray := oldValueArray)

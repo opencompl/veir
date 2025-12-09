@@ -117,10 +117,10 @@ theorem Rewriter.detachOp_fieldsInBounds (hctx : ctx.FieldsInBounds) :
 def Rewriter.eraseOpStart (ctx: IRContext) (hctx : ctx.FieldsInBounds) (op: OperationPtr) (hop : op.InBounds ctx) (hasParent: (op.get ctx hop).parent.isSome) := Id.run do
   let mut newCtx : { c : IRContext // c.FieldsInBounds ∧ ∀ (ptr : GenericPtr), ptr.InBounds ctx ↔ ptr.InBounds c} :=
     ⟨Rewriter.detachOp ctx hctx op hop hasParent, by grind⟩
-  for h : index in 0 ... (op.get ctx (by grind)).operands.size do
+  for h : index in 0 ... (op.getNumOperands ctx (by grind)) do
     let ctx' := (OpOperandPtr.mk op index).removeFromCurrent newCtx (by
        have := newCtx.property.2 (.opOperand (.mk op index))
-       grind [OperationPtr.get, OpOperandPtr.InBounds]) (by grind) -- TODO: try to not unfold `get`, maybe some lemma for op.InBounds + index < .. → (.mk op index).InBounds
+       grind [OperationPtr.getNumOperands, OpOperandPtr.InBounds]) (by grind) -- TODO: try to not unfold `get`, maybe some lemma for op.InBounds + index < .. → (.mk op index).InBounds
     newCtx := ⟨ctx', by grind⟩
   newCtx
 
