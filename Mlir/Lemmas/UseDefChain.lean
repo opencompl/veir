@@ -29,51 +29,6 @@ theorem OperationPtr.get!_ValuePtr_setFirstUse_results_size (op : OperationPtr) 
     op.getNumResults! (ValuePtr.setFirstUse val ctx h newFirstUse) = op.getNumResults! ctx := by
   cases val <;> grind [ValuePtr.setFirstUse]
 
-@[simp, grind .]
-theorem OperationPtr.get!_OpOperandPtr_setBack_blockOperands (op : OperationPtr):
-  (op.get! (OpOperandPtr.setBack operandPtr ctx h newBack)).blockOperands = (op.get! ctx).blockOperands := by
-  grind [OpOperandPtr.setBack]
-
-@[simp, grind .]
-theorem OperationPtr.get!_OpOperandPtr_setNextUse_blockOperands (op : OperationPtr):
-  (op.get! (OpOperandPtr.setNextUse operandPtr ctx h newNextUse)).blockOperands = (op.get! ctx).blockOperands := by
-  grind [OpOperandPtr.setNextUse]
-
-@[simp, grind .]
-theorem OperationPtr.get!_ValuePtr_setFirstUse_blockOperands (op : OperationPtr) :
-  (op.get! (ValuePtr.setFirstUse val ctx h newFirstUse)).blockOperands = (op.get! ctx).blockOperands := by
-  cases val <;> grind [ValuePtr.setFirstUse]
-
-@[simp, grind .]
-theorem OperationPtr.get!_OpOperandPtr_setBack_parent (op : OperationPtr):
-    (op.get! (OpOperandPtr.setBack operandPtr ctx h newBack)).parent = (op.get! ctx).parent := by
-  grind [OpOperandPtr.setBack]
-
-@[simp, grind .]
-theorem OperationPtr.get!_OpOperandPtr_setNextUse_parent (op : OperationPtr):
-    (op.get! (OpOperandPtr.setNextUse operandPtr ctx h newNextUse)).parent = (op.get! ctx).parent := by
-  grind [OpOperandPtr.setNextUse]
-
-@[simp, grind .]
-theorem OperationPtr.get!_ValuePtr_setFirstUse_parent (op : OperationPtr) :
-    (op.get! (ValuePtr.setFirstUse val ctx h newFirstUse)).parent = (op.get! ctx).parent := by
-  cases val <;> grind [ValuePtr.setFirstUse]
-
-@[simp, grind .]
-theorem OperationPtr.get!_OpOperandPtr_setBack_regions (op : OperationPtr):
-  op.getRegion! (OpOperandPtr.setBack operandPtr ctx h newBack) = op.getRegion! ctx := by
-  grind [OpOperandPtr.setBack]
-
-@[simp, grind .]
-theorem OperationPtr.get!_OpOperandPtr_setNextUse_regions (op : OperationPtr):
-  op.getRegion! (OpOperandPtr.setNextUse operandPtr ctx h newNextUse) = op.getRegion! ctx := by
-  grind [OpOperandPtr.setNextUse]
-
-@[simp, grind .]
-theorem OperationPtr.get!_ValuePtr_setFirstUse_regions (op : OperationPtr) :
-  op.getRegion! (ValuePtr.setFirstUse val ctx h newFirstUse) = op.getRegion! ctx := by
-  cases val <;> grind [ValuePtr.setFirstUse]
-
 
 @[grind .]
 theorem OperationPtr.get!_OpOperandPtr_insertIntoCurrent_results_size (op : OperationPtr) :
@@ -86,8 +41,7 @@ theorem OperationPtr.get!_OpOperandPtr_insertIntoCurrent_results_size (op : Oper
 theorem OpOperandPtr.insertIntoCurrent_preserves_parent (op : OperationPtr) :
     (op.get! (OpOperandPtr.insertIntoCurrent ctx ptr h₁ h₂)).parent = (op.get! ctx).parent := by
   simp only [insertIntoCurrent]
-  split <;>
-    simp only [OperationPtr.get!_ValuePtr_setFirstUse_parent, OperationPtr.get!_OpOperandPtr_setNextUse_parent, OperationPtr.get!_OpOperandPtr_setBack_parent]
+  split <;> simp
 
 @[simp, grind =]
 theorem OperationPtr.getNumResults_insertIntoCurrent :
@@ -122,9 +76,15 @@ theorem OpOperandPtr.owner_insertIntoCurrent :
   split <;> grind
 
 @[simp, grind =]
-theorem OperationPtr.getBlockOperands_insertIntoCurrent :
-    (OperationPtr.get op (OpOperandPtr.insertIntoCurrent ctx ptr h₁ h₂) hopnd).blockOperands =
-    (OperationPtr.get op ctx (by grind)).blockOperands := by
+theorem OperationPtr.getNumSuccessors!_insertIntoCurrent :
+    OperationPtr.getNumSuccessors! op (OpOperandPtr.insertIntoCurrent ctx ptr h₁ h₂) =
+    OperationPtr.getNumSuccessors! op ctx := by
+  grind [OpOperandPtr.insertIntoCurrent]
+
+@[simp, grind =]
+theorem BlockOperandPtr.get!_insertIntoCurrent {blockOperand : BlockOperandPtr} :
+    (blockOperand.get! (OpOperandPtr.insertIntoCurrent ctx ptr h₁ h₂)) =
+    (blockOperand.get! ctx) := by
   grind [OpOperandPtr.insertIntoCurrent]
 
 @[simp, grind .]
@@ -261,10 +221,7 @@ theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get!_regions (opPtr : Operat
     (ctxInBounds : ctx.FieldsInBounds) :
     opPtr.getRegion! (OpOperandPtr.insertIntoCurrent ctx operandPtr operandPtrInBounds ctxInBounds) =
       opPtr.getRegion! ctx := by
-  simp only [OpOperandPtr.insertIntoCurrent]
-  split <;>
-    simp only [OperationPtr.get!_ValuePtr_setFirstUse_regions, OperationPtr.get!_OpOperandPtr_setNextUse_regions, OperationPtr.get!_OpOperandPtr_setBack_regions]
-
+  grind [OpOperandPtr.insertIntoCurrent]
 
 @[grind =]
 theorem OpOperandPtr.BlockPtr_get!_insertIntoCurrent_parent (bl : BlockPtr) (h : bl.InBounds ctx) :
@@ -349,27 +306,6 @@ theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get_next_mono (opPtr : Opera
   simp only [←OperationPtr.get!_eq_get]
   simp only [OpOperandPtr.insertIntoCurrent]
   split <;> grind
-
-@[simp, grind =]
-theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get!_blockOperands (opPtr : OperationPtr) (operandPtr : OpOperandPtr)
-    (operandPtrInBounds : operandPtr.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) :
-    (opPtr.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr operandPtrInBounds ctxInBounds)).blockOperands =
-      (opPtr.get! ctx).blockOperands := by
-  simp only [OpOperandPtr.insertIntoCurrent]
-  split <;>
-    simp only [OperationPtr.get!_ValuePtr_setFirstUse_blockOperands, OperationPtr.get!_OpOperandPtr_setNextUse_blockOperands,
-      OperationPtr.get!_OpOperandPtr_setBack_blockOperands]
-
-@[grind =]
-theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get_blockOperands (opPtr : OperationPtr) (operandPtr : OpOperandPtr)
-    (operandPtrInBounds : operandPtr.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) hInBounds :
-    (opPtr.get (OpOperandPtr.insertIntoCurrent ctx operandPtr operandPtrInBounds ctxInBounds) hInBounds).blockOperands =
-      (opPtr.get ctx (by grind)).blockOperands := by
-  have := OpOperandPtr.insertIntoCurrent_OperationPtr_get!_blockOperands
-  have := OperationPtr.get!_eq_get hInBounds
-  grind
 
 @[simp, grind =]
 theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get_prev_mono (opPtr : OperationPtr) (operandPtr : OpOperandPtr)
@@ -689,9 +625,15 @@ theorem OperationPtr.getOperandOwner_removeFromCurrent :
   grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]
-theorem OperationPtr.getBlockOperands_removeFromCurrent :
-    (OperationPtr.get op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hopnd).blockOperands =
-    (OperationPtr.get op ctx (by grind)).blockOperands := by
+theorem OperationPtr.getNumSuccessors!_removeFromCurrent :
+    OperationPtr.getNumSuccessors! op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) =
+    OperationPtr.getNumSuccessors! op ctx := by
+  grind [OpOperandPtr.removeFromCurrent]
+
+@[simp, grind =]
+theorem BlockOperandPtr.get!_removeFromCurrent {blockOpr : BlockOperandPtr} :
+    (blockOpr.get! (OpOperandPtr.removeFromCurrent ctx use h₁ h₂)) =
+    (blockOpr.get! ctx) := by
   grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]

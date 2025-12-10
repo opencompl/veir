@@ -12,7 +12,7 @@ attribute [local grind cases] ValuePtr OpOperandPtrPtr GenericPtr -- does this w
 
 macro "setup_grind_for_basic_proofs" : command => `(
   attribute [local grind cases] ValuePtr OpOperandPtrPtr BlockOperandPtr
-  attribute [local grind] Option.maybe BlockOperandPtrPtr.InBounds
+  attribute [local grind] Option.maybe BlockOperandPtrPtr.InBounds BlockOperandPtr.InBounds
     BlockOperandPtrPtr.get BlockOperandPtrPtr.set
     OperationPtr.InBounds RegionPtr.InBounds OpResultPtr.get OpResultPtr.set
     OpOperandPtr.get OpOperandPtr.set BlockOperandPtr.get BlockOperandPtr.set OpResultPtr.get
@@ -21,7 +21,7 @@ macro "setup_grind_for_basic_proofs" : command => `(
     OperationPtr.set BlockPtr.get BlockPtr.set RegionPtr.get RegionPtr.set RegionPtr.InBounds
     BlockOperandPtrPtr.get BlockOperandPtrPtr.set
     BlockArgumentPtr.setLoc BlockPtr.InBounds OperationPtr.getNumResults
-    OperationPtr.getNumOperands OpOperandPtr.InBounds
+    OperationPtr.getNumOperands OpOperandPtr.InBounds OperationPtr.getNumSuccessors
 )
 
 setup_grind_for_basic_proofs
@@ -66,6 +66,12 @@ theorem OperationPtr.getOpOperand_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i < op.getNumOperands ctx hop) :
     (op.getOpOperand i).InBounds ctx := by
   grind [getOpOperand]
+
+@[grind .]
+theorem OperationPtr.getBlockOperand_inBounds (op : OperationPtr)
+    (hop : op.InBounds ctx) i (h₂ : i < op.getNumSuccessors ctx hop) :
+    (op.getBlockOperand i).InBounds ctx := by
+  grind [getBlockOperand]
 
 @[grind .]
 theorem OperationPtr.getResult_inBounds (op : OperationPtr)
