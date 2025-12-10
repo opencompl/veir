@@ -61,17 +61,17 @@ theorem OperationPtr.get!_ValuePtr_setFirstUse_parent (op : OperationPtr) :
 
 @[simp, grind .]
 theorem OperationPtr.get!_OpOperandPtr_setBack_regions (op : OperationPtr):
-  (op.get! (OpOperandPtr.setBack operandPtr ctx h newBack)).regions = (op.get! ctx).regions := by
+  op.getRegion! (OpOperandPtr.setBack operandPtr ctx h newBack) = op.getRegion! ctx := by
   grind [OpOperandPtr.setBack]
 
 @[simp, grind .]
 theorem OperationPtr.get!_OpOperandPtr_setNextUse_regions (op : OperationPtr):
-  (op.get! (OpOperandPtr.setNextUse operandPtr ctx h newNextUse)).regions = (op.get! ctx).regions := by
+  op.getRegion! (OpOperandPtr.setNextUse operandPtr ctx h newNextUse) = op.getRegion! ctx := by
   grind [OpOperandPtr.setNextUse]
 
 @[simp, grind .]
 theorem OperationPtr.get!_ValuePtr_setFirstUse_regions (op : OperationPtr) :
-  (op.get! (ValuePtr.setFirstUse val ctx h newFirstUse)).regions = (op.get! ctx).regions := by
+  op.getRegion! (ValuePtr.setFirstUse val ctx h newFirstUse) = op.getRegion! ctx := by
   cases val <;> grind [ValuePtr.setFirstUse]
 
 
@@ -259,8 +259,8 @@ theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get_parent_mono (opPtr : Ope
 theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get!_regions (opPtr : OperationPtr) (operandPtr : OpOperandPtr)
     (operandPtrInBounds : operandPtr.InBounds ctx)
     (ctxInBounds : ctx.FieldsInBounds) :
-    (opPtr.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr operandPtrInBounds ctxInBounds)).regions =
-      (opPtr.get! ctx).regions := by
+    opPtr.getRegion! (OpOperandPtr.insertIntoCurrent ctx operandPtr operandPtrInBounds ctxInBounds) =
+      opPtr.getRegion! ctx := by
   simp only [OpOperandPtr.insertIntoCurrent]
   split <;>
     simp only [OperationPtr.get!_ValuePtr_setFirstUse_regions, OperationPtr.get!_OpOperandPtr_setNextUse_regions, OperationPtr.get!_OpOperandPtr_setBack_regions]
@@ -382,12 +382,11 @@ theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get_prev_mono (opPtr : Opera
   split <;> grind
 
 @[simp, grind =]
-theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get_regions (opPtr : OperationPtr) (operandPtr : OpOperandPtr)
+theorem OpOperandPtr.insertIntoCurrent_OperationPtr_get_regions! (opPtr : OperationPtr) (operandPtr : OpOperandPtr)
     (operandPtrInBounds : operandPtr.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) hInBounds :
-    (opPtr.get (OpOperandPtr.insertIntoCurrent ctx operandPtr operandPtrInBounds ctxInBounds) hInBounds).regions =
-      (opPtr.get ctx (by grind)).regions := by
-  simp only [←OperationPtr.get!_eq_get]
+    (ctxInBounds : ctx.FieldsInBounds) :
+    opPtr.getRegion! (OpOperandPtr.insertIntoCurrent ctx operandPtr operandPtrInBounds ctxInBounds) =
+      opPtr.getRegion! ctx := by
   simp only [OpOperandPtr.insertIntoCurrent]
   split <;> grind
 
@@ -714,9 +713,9 @@ theorem OpResultPtr.index_removeFromCurrent :
   grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]
-theorem OperationPtr.getRegions_removeFromCurrent :
-    (OperationPtr.get op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hop).regions =
-    (OperationPtr.get op ctx (by grind)).regions := by
+theorem OperationPtr.getRegion!_removeFromCurrent :
+    OperationPtr.getRegion! op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) =
+    OperationPtr.getRegion! op ctx := by
   grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]

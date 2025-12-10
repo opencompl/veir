@@ -142,8 +142,8 @@ theorem OpResultPtr.index_replaceUse :
 
 @[simp, grind =]
 theorem OperationPtr.getRegions_replaceUse :
-    (OperationPtr.get op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).regions =
-    (OperationPtr.get op ctx (by grind)).regions := by
+    OperationPtr.getRegion! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    OperationPtr.getRegion! op ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]

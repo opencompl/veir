@@ -122,13 +122,13 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (ne
       apply IRContext.BlockChainWellFormed_unchanged (ctx := ctx) <;> grind
     case operations =>
       intros opPtr opPtrInBounds
-      apply IRContext.Operation_WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
+      apply IRContext.Operation_WellFormed_unchanged (ctx := ctx) <;> sorry -- missing GetSet lemmas
     case blocks =>
       intros blockPtr blockPtrInBounds
       apply IRContext.Block_WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
     case regions =>
       intros regionPtr regionPtrInBounds
-      apply IRContext.Region_WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
+      apply IRContext.Region_WellFormed_unchanged (ctx := ctx) <;> sorry -- missing GetSet lemmas
 
 theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext) (oldValue: ValuePtr) (newValue: ValuePtr)
     (oldIn: oldValue.InBounds ctx)

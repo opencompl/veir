@@ -120,10 +120,10 @@ structure Operation.WellFormed (op : Operation) (ctx : IRContext) (opPtr : Opera
   result_index i (iInBounds : i < opPtr.getNumResults ctx) : ((opPtr.getResult i).get ctx).index = i
   operand_owner i (iInBounds : i < opPtr.getNumOperands ctx) : ((opPtr.getOpOperand i).get ctx).owner = opPtr
   blockOperand_owner i (iInBounds : i < op.blockOperands.size) : op.blockOperands[i].owner = opPtr
-  regions_unique i (iInBounds : i < op.regions.size) j (jInBounds : j < op.regions.size) :
-    i ≠ j → op.regions[i]'iInBounds ≠ op.regions[j]'jInBounds
+  regions_unique i (iInBounds : i < opPtr.getNumRegions ctx) j (jInBounds : j < opPtr.getNumRegions ctx) :
+    i ≠ j → opPtr.getRegion ctx i ≠ opPtr.getRegion ctx j
   region_parent region regionInBounds :
-    (∃ i, ∃ (iInBounds : i < op.regions.size), op.regions[i] = region) ↔
+    (∃ i, ∃ (iInBounds : i < opPtr.getNumRegions ctx hop), opPtr.getRegion ctx i (by grind) (by grind) = region) ↔
     (region.get ctx regionInBounds).parent = some opPtr
 
 structure Block.WellFormed (block : Block) (ctx : IRContext) (blockPtr : BlockPtr) hbl : Prop where
@@ -133,7 +133,7 @@ structure Block.WellFormed (block : Block) (ctx : IRContext) (blockPtr : BlockPt
 
 structure Region.WellFormed (region : Region) (ctx : IRContext) (regionPtr : RegionPtr) where
   inBounds : region.FieldsInBounds ctx
-  parent_op (heq : region.parent = some op) : (op.get ctx (by grind)).regions.contains regionPtr
+  parent_op {op} (heq : region.parent = some op) : ∃ i, ∃ (hi : i < op.getNumRegions ctx (by grind)), op.getRegion ctx i (by grind) hi = regionPtr
 
 structure IRContext.WellFormed (ctx : IRContext) : Prop where
   inBounds : ctx.FieldsInBounds
@@ -286,8 +286,11 @@ theorem IRContext.Operation_WellFormed_unchanged
       ∀ (regionPtr : RegionPtr) regionInBounds', (regionPtr.get ctx' regionInBounds').parent = some opPtr →
         ∃ (regionInBounds : regionPtr.InBounds ctx),
           (regionPtr.get ctx regionInBounds).parent = (regionPtr.get ctx' regionInBounds').parent)
+    (hSameNumRegions :
+      opPtr.getNumRegions ctx opPtrInBounds = opPtr.getNumRegions ctx' opPtrInBounds')
     (hSameRegions :
-      (opPtr.get ctx opPtrInBounds).regions = (opPtr.get ctx' opPtrInBounds').regions) :
+      ∀ i (iInBounds : i < opPtr.getNumRegions ctx opPtrInBounds),
+      opPtr.getRegion ctx i = opPtr.getRegion ctx' i) :
     (opPtr.get ctx' opPtrInBounds').WellFormed ctx' opPtr opPtrInBounds' := by
   constructor <;> grind [Operation.WellFormed]
 
@@ -325,10 +328,13 @@ theorem IRContext.Region_WellFormed_unchanged
       let region := regionPtr.get ctx regionPtrInBounds
       let region' := regionPtr.get ctx' regionPtrInBounds'
       region.parent = region'.parent)
-    (hParentRegionsUnchanged :
+    -- TODO: Explain why we need to have a parent and not have this for all regions
+    (hSameNumRegions :
       ∀ parent (h : (regionPtr.get ctx regionPtrInBounds).parent = some parent),
-      (parent.get ctx (by grind)).regions = (parent.get ctx' (by grind)).regions)
-      :
+      parent.getNumRegions ctx = parent.getNumRegions ctx')
+    (hSameRegions :
+      ∀ parent (h : (regionPtr.get ctx regionPtrInBounds).parent = some parent) i (iInBounds : i < parent.getNumRegions ctx),
+      parent.getRegion ctx i = parent.getRegion ctx' i) :
     (regionPtr.get ctx' regionPtrInBounds').WellFormed ctx' regionPtr := by
   constructor <;> grind [Region.WellFormed]
 

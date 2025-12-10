@@ -45,7 +45,8 @@ structure Operation.FieldsInBounds (operation: OperationPtr) (ctx: IRContext) (h
   parent_inBounds : (operation.get ctx hin).parent.maybe BlockPtr.InBounds ctx
   blockOperands_inBounds (operand : BlockOperandPtr) (h : operand.InBounds ctx):
     operand.op = operation → BlockOperand.FieldsInBounds operand ctx h
-  regions_inBounds region: region ∈ (operation.get ctx hin).regions → region.InBounds ctx
+  regions_inBounds i (hi: i < operation.getNumRegions ctx hin) :
+    (operation.getRegion ctx i hin hi).InBounds ctx
   operands_inBounds (operand : OpOperandPtr) (h : operand.InBounds ctx):
     operand.op = operation → OpOperand.FieldsInBounds (operand.get ctx h) ctx
 
@@ -190,16 +191,18 @@ theorem Operation.FieldsInBounds_unchanged {op: OperationPtr} (ctx ctx' : IRCont
     (hSameInBounds: ∀ ptr, GenericPtr.InBounds ptr ctx ↔ GenericPtr.InBounds ptr ctx')
     (hSameOps: ∀ op opInBounds, OperationPtr.get op ctx opInBounds = OperationPtr.get op ctx' (by grind)) :
     Operation.FieldsInBounds op ctx' (by grind) := by
+  have heq : op.get! ctx = op.get! ctx' := by grind
   constructor
   · grind [OpResultPtr.get!_eq_of_OperationPtr_get!_eq]
   · grind
   · grind
   · grind
   · intros opr hopr heq
-    have : opr.op.get! ctx = opr.op.get! ctx' := by grind
     have := @BlockOperandPtr.get!_eq_of_OperationPtr_get!_eq
     constructor <;> grind
-  · grind
+  · have ha := OperationPtr.getRegion!_eq_of_OperationPtr_get!_eq heq
+    have hb := OperationPtr.getNumRegions!_eq_of_OperationPtr_get!_eq heq
+    grind (gen := 20)
   · intros opr hopr heq
     have : opr.op.get! ctx = opr.op.get! ctx' := by grind
     have := @OpOperandPtr.get!_eq_of_OperationPtr_get!_eq
@@ -264,7 +267,6 @@ macro "prove_fieldsInBounds_operation" ctx:ident : tactic => `(tactic|
    · intros block blockIn
      apply Block.FieldsInBounds_unchanged (ctx := $ctx) <;> grind
    · grind))
-
 
 -- attribute [local grind] OperationPtr.setNextOp in
 @[grind .]
@@ -349,18 +351,18 @@ theorem OperationPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx type = some
   · grind
   · intros op hop
     by_cases op = ptr'
-    · grind
-    have : op.InBounds ctx := by grind [=> OperationPtr.allocEmpty_genericPtr_iff']
-    constructor
-    · grind
-    · grind
-    · grind
-    · grind
-    · intros operand hoperand heq
-      constructor <;> grind
-    · grind
-    · rintro opr hopr heq
-      constructor <;> grind
+    · constructor <;> grind
+    · have : op.InBounds ctx := by grind [=> OperationPtr.allocEmpty_genericPtr_iff']
+      constructor
+      · grind
+      · grind
+      · grind
+      · grind
+      · intros operand hoperand heq
+        constructor <;> grind
+      · grind
+      · rintro opr hopr heq
+        constructor <;> grind
   · intros bl hbl
     constructor <;> grind
   · grind

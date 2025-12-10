@@ -198,7 +198,7 @@ def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
 -- within a program consisting of one region/block
 def rewriteFirst (ctx: IRContext) (opcode: Nat) (rewrite: Pattern) : Option IRContext := do
   let topLevelOp := ctx.topLevelOp
-  let region := (topLevelOp.get ctx (by sorry)).regions[0]!
+  let region := topLevelOp.getRegion! ctx 0
   let block := (region.get ctx (by sorry)).firstBlock.get!
   let mut op ← (block.get! ctx).firstOp
 
@@ -212,7 +212,7 @@ def rewriteFirstAddI (ctx: IRContext) (rewrite: Pattern) : Option IRContext :=
 
 def rewriteForwards (ctx: IRContext) (rewrite: Pattern) : Option IRContext := do
   let topLevelOp := ctx.topLevelOp
-  let region := (topLevelOp.get ctx (by sorry)).regions[0]!
+  let region := topLevelOp.getRegion! ctx 0
   let block := (region.get ctx (by sorry)).firstBlock.get!
 
   let mut maybeOp := (block.get! ctx).firstOp
@@ -234,7 +234,7 @@ namespace Program
 
 def empty : Option (IRContext × InsertPoint) := do
   let (ctx, topLevelOp) ← IRContext.create
-  let region := (topLevelOp.get ctx (by sorry)).regions[0]!
+  let region := topLevelOp.getRegion! ctx 0
   let block := (region.get ctx (by sorry)).firstBlock.get!
   let insertPoint := InsertPoint.AtEnd block
   (ctx, insertPoint)
@@ -347,7 +347,7 @@ def rewriteWorklist (program: IRContext) (rewriter: RewritePattern) : Option IRC
 
 def print (program: Option IRContext) : IO Unit := do
   if let some ctx := program then
-    Printer.printModule ctx ctx.topLevelOp (by sorry) (by sorry)
+    Printer.printModule ctx ctx.topLevelOp
 
 def time {α : Type} (name: String) (f: Unit → IO α) (quiet: Bool) : IO α := do
   let startTime ← IO.monoNanosNow
