@@ -1,5 +1,5 @@
 import Mlir.Core.Basic
-import Mlir.Rewriter
+import Mlir.Rewriter.Rewriter
 
 namespace Mlir
 

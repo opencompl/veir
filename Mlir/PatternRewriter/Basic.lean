@@ -1,8 +1,8 @@
 import Mlir.Prelude
 import Mlir.Core.Basic
-import Mlir.Builder
+import Mlir.Rewriter.Builder
 import Mlir.ForLean
-import Mlir.Lemmas.Builder
+import Mlir.Rewriter.BuilderInBounds
 
 open Std (HashMap)
 

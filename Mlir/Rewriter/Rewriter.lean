@@ -1,7 +1,7 @@
 import Mlir.Core.Basic
-import Mlir.UseDefChain
-import Mlir.Lemmas.GetSet
-import Mlir.Lemmas.UseDefChain
+import Mlir.Core.Fields
+import Mlir.Rewriter.LinkedList.Basic
+import Mlir.Rewriter.LinkedList.GetSet
 import Mlir.Ranges
 
 namespace Mlir

@@ -1,4 +1,4 @@
-import Mlir.Rewriter
+import Mlir.Rewriter.Rewriter
 import Mlir.ForLean
 
 namespace Mlir

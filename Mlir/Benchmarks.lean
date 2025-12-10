@@ -1,9 +1,9 @@
 import Mlir.Prelude
 import Mlir.Core.Basic
-import Mlir.Builder
+import Mlir.Rewriter.Builder
 import Mlir.Printer
-import Mlir.PatternRewriter
-import Mlir.Rewriter
+import Mlir.PatternRewriter.Basic
+import Mlir.Rewriter.Rewriter
 
 namespace Mlir.Benchmarks
 

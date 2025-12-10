@@ -1,5 +1,5 @@
-import Mlir.Builder
-import Mlir.Lemmas.Rewriter
+import Mlir.Rewriter.Builder
+import Mlir.Rewriter.RewriterGetSetInBounds
 
 namespace Mlir
 

@@ -1,11 +1,8 @@
--- pushOperand done
--- initOpOperands done
-
 import Mlir.Core.Basic
-import Mlir.Builder
-import Mlir.WellFormedness.WellFormed
-import Mlir.Lemmas.GetSet
-import Mlir.Lemmas.UseDefChain
+import Mlir.Core.WellFormed
+import Mlir.Rewriter.Builder
+import Mlir.Rewriter.BuilderInBounds
+import Mlir.Rewriter.LinkedList.GetSet
 
 namespace Mlir
 

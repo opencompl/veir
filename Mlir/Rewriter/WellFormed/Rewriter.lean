@@ -1,5 +1,5 @@
-import Mlir.WellFormedness.Rewriter.Operation
-import Mlir.WellFormedness.Rewriter.Value
+import Mlir.Rewriter.WellFormed.Rewriter.Operation
+import Mlir.Rewriter.WellFormed.Rewriter.Value
 
 namespace Mlir
 

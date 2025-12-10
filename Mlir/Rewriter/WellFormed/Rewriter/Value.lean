@@ -1,8 +1,9 @@
 import Mlir.Core.Basic
-import Mlir.WellFormedness.WellFormed
-import Mlir.WellFormedness.UseDefChain
-import Mlir.Rewriter
-import Mlir.Lemmas.Rewriter
+import Mlir.Core.WellFormed
+import Mlir.Rewriter.LinkedList.GetSet
+import Mlir.Rewriter.LinkedList.WellFormed
+import Mlir.Rewriter.Rewriter
+import Mlir.Rewriter.RewriterGetSetInBounds
 
 namespace Mlir
 

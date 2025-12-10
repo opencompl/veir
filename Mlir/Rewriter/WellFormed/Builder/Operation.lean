@@ -1,6 +1,6 @@
 import Mlir.Core.Basic
-import Mlir.WellFormedness.WellFormed
-import Mlir.Builder
+import Mlir.Core.WellFormed
+import Mlir.Rewriter.Builder
 
 namespace Mlir
 

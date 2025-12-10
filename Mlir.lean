@@ -1,8 +1,9 @@
 import Mlir.Core.Basic
-import Mlir.UseDefChain
-import Mlir.Builder
+import Mlir.Core.Fields
+import Mlir.Core.WellFormed
+import Mlir.Rewriter.LinkedList.WellFormed
+import Mlir.Rewriter.WellFormed.Builder
+import Mlir.Rewriter.WellFormed.Rewriter
 import Mlir.Printer
-import Mlir.PatternRewriter
-import Mlir.Core.Grind
-import Mlir.WellFormedness
+import Mlir.PatternRewriter.Basic
 import Mlir.Benchmarks

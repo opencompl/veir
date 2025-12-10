@@ -1,6 +1,6 @@
 import Mlir.Core.Basic
-import Mlir.WellFormedness.WellFormed
-import Mlir.Rewriter
+import Mlir.Core.WellFormed
+import Mlir.Rewriter.LinkedList.GetSet
 import Std.Data.HashSet
 import Std.Data.ExtHashSet
 
