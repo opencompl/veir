@@ -117,9 +117,15 @@ theorem OpOperandPtr.owner_replaceUse :
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OperationPtr.getBlockOperands_replaceUse :
-    (OperationPtr.get op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hopnd).blockOperands =
-    (OperationPtr.get op ctx (by grind)).blockOperands := by
+theorem OperationPtr.getNumSuccessors!_replaceUse :
+    OperationPtr.getNumSuccessors! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    OperationPtr.getNumSuccessors! op ctx := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem BlockOperandPtr.get!_replaceUse :
+    BlockOperandPtr.get! bop (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    BlockOperandPtr.get! bop ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]

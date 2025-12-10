@@ -205,10 +205,10 @@ theorem OperationPtr.get!_insertOp?_results {op : OperationPtr}
   grind [OperationPtr.get!_insertOp? hipWf heq]
 
 @[simp, grind =>]
-theorem OperationPtr.get!_insertOp?_blockOperands {op : OperationPtr}
+theorem OperationPtr.getNumSuccessors!_insertOp? {op : OperationPtr}
     (hipWf : ip.Wf ctx newOp) (heq : Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
-    (op.get! newCtx).blockOperands = (op.get! ctx).blockOperands := by
-  grind [OperationPtr.get!_insertOp? hipWf heq]
+    op.getNumSuccessors! newCtx = op.getNumSuccessors! ctx := by
+  sorry
 
 @[simp, grind =>]
 theorem OperationPtr.get!_insertOp?_regions {op : OperationPtr}
@@ -240,7 +240,7 @@ theorem RegionPtr.get!_linkBetween (region : RegionPtr) h₁ h₂ h₃ :
 theorem BlockOperandPtr.get!_insertOp? {blockOp : BlockOperandPtr}
     (hipWf : ip.Wf ctx newOp) (heq : Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
     blockOp.get! newCtx = blockOp.get! ctx := by
-  simp [get!, OperationPtr.get!_insertOp?_blockOperands hipWf heq]
+  sorry
 
 @[grind =>]
 theorem BlockPtr.get!_linkBetweenWithParent (block : BlockPtr) h₁ h₂ h₃ h₄

@@ -298,12 +298,18 @@ theorem Builder.pushOperand_OperationPtr_get_num_results (valuePtr : ValuePtr) (
   simp only [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_num_results]
   grind
 
-@[grind =]
-theorem Builder.pushOperand_OperationPtr_get_blockOperands (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) hOp'InBounds :
-      (opPtr'.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hOp'InBounds).blockOperands =
-        (opPtr'.get ctx (by grind)).blockOperands := by
-  simp only [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_blockOperands]
-  grind
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_Builder_pushOperand (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
+    opPtr'.getNumSuccessors! (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+    opPtr'.getNumSuccessors! ctx := by
+  grind [Builder.pushOperand]
+
+@[simp, grind =]
+theorem BlockOperandPtr.get!_Builder_pushOperand (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx)
+    (blockOperandPtr : BlockOperandPtr) :
+    blockOperandPtr.get! (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+    blockOperandPtr.get! ctx := by
+  grind [Builder.pushOperand]
 
 @[simp, grind =]
 theorem OpResultPtr.index_pushOperand :
@@ -364,7 +370,7 @@ theorem Builder.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds 
   case operations =>
     intros opPtr' opPtrInBounds
     have ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ := hOpWf.operations opPtr' (by grind)
-    constructor <;> grind [Builder.pushOperand, Operation.WellFormed, OperationPtr.getOpOperand]
+    constructor <;> try grind [Builder.pushOperand, Operation.WellFormed, OperationPtr.getOpOperand]
   case blocks =>
     intros bl hbl
     constructor

@@ -14,7 +14,7 @@ attribute [local grind] OpOperandPtrPtr.set OpOperandPtrPtr.get!
 attribute [local grind] ValuePtr.getFirstUse! ValuePtr.getFirstUse ValuePtr.setFirstUse ValuePtr.setType
 attribute [local grind] OpResultPtr.get! OpResultPtr.setFirstUse OpResultPtr.set OpResultPtr.setType
 attribute [local grind] BlockArgumentPtr.get! BlockArgumentPtr.setFirstUse BlockArgumentPtr.set
-attribute [local grind] OperationPtr.setOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.setProperties  OperationPtr.pushOperand OperationPtr.allocEmpty OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion!
+attribute [local grind] OperationPtr.setOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.setProperties  OperationPtr.pushOperand OperationPtr.allocEmpty OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors!
 attribute [local grind] Operation.empty
 attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty
 attribute [local grind] Option.maybe
@@ -44,12 +44,11 @@ setup_grind_for_basic_proofs
  -   * Operation.opType
  -   * Operation.attrs
  -   * Operation.properties
- -   * Operation.blockOperands with optionally a special case for:
- -     * Operation.blockOperands.size
  - * OperationPtr.getNumResults!
  - * OpResultPtr.get!
  - * OperationPtr.getNumOperands!
  - * OpOperandPtr.get!
+ - * OperationPtr.getNumSuccessors!
  - * BlockOperandPtr.get!
  - * OperationPtr.getNumRegions!
  - * OperationPtr.getRegion!
@@ -106,6 +105,13 @@ theorem OperationPtr.getNumOperands!_OperationPtr_allocEmpty {operation : Operat
 theorem OpOperandPtr.get!_OperationPtr_allocEmpty  {opOperand : OpOperandPtr}
     (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
     opOperand.get! ctx' = opOperand.get! ctx := by
+  grind
+
+@[grind =>]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_allocEmpty {operation : OperationPtr}
+    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    operation.getNumSuccessors! ctx' =
+    if operation = op' then 0 else operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind .]
@@ -223,12 +229,6 @@ theorem OperationPtr.properties!_OperationPtr_setOperands {operation : Operation
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OperationPtr_setOperands {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setOperands operation' ctx newOperands hop')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OperationPtr_setOperands {operation : OperationPtr} :
     operation.getNumResults! (OperationPtr.setOperands operation' ctx newOperands hop') =
     operation.getNumResults! ctx := by
@@ -256,6 +256,12 @@ theorem OpOperandPtr.get!_OperationPtr_setOperands {op : OperationPtr} {hop} {op
       newOperands[opOperand.index]!
     else
       opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_setOperands {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.setOperands operation' ctx newOperands hop') =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -379,12 +385,6 @@ theorem OperationPtr.properties!_OperationPtr_pushOperand {operation : Operation
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OperationPtr_pushOperand {operation : OperationPtr} :
-    (operation.get! (OperationPtr.pushOperand operation' ctx newOperand hop')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OperationPtr_pushOperand {operation : OperationPtr} :
     operation.getNumResults! (OperationPtr.pushOperand operation' ctx hop' newOperands) =
     operation.getNumResults! ctx := by
@@ -412,6 +412,12 @@ theorem OpOperandPtr.get!_OperationPtr_pushOperand {op : OperationPtr} {hop} {op
       newOperand
     else
       opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_pushOperand {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.pushOperand operation' ctx newOperand hop') =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -534,12 +540,6 @@ theorem OperationPtr.properties!_OperationPtr_setResults {operation : OperationP
     (operation.get! ctx).properties := by
   grind
 
-@[simp, grind =]
-theorem OperationPtr.blockOperands!_OperationPtr_setResults {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setResults operation' ctx newResults hop')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
 @[grind =]
 theorem OperationPtr.getNumResults!_OperationPtr_setResults {operation : OperationPtr} :
     operation.getNumResults! (OperationPtr.setResults operation' ctx newResults hop') =
@@ -568,6 +568,12 @@ theorem OperationPtr.getNumOperands!_OperationPtr_setResults {operation : Operat
 theorem OpOperandPtr.get!_OperationPtr_setResults {op : OperationPtr} {hop} {opOperand : OpOperandPtr} :
     opOperand.get! (OperationPtr.setResults op ctx newResults hop) =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_setResults {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.setResults operation' ctx newResults hop') =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -697,12 +703,6 @@ theorem OperationPtr.properties!_OperationPtr_pushResult {operation : OperationP
     (operation.get! ctx).properties := by
   grind
 
-@[simp, grind =]
-theorem OperationPtr.blockOperands!_OperationPtr_pushResult {operation : OperationPtr} :
-    (operation.get! (OperationPtr.pushResult operation' ctx newResult hop')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
 @[grind =]
 theorem OperationPtr.getNumResults!_OperationPtr_pushResult {operation : OperationPtr} :
     operation.getNumResults! (OperationPtr.pushResult operation' ctx newResult hop') =
@@ -731,6 +731,12 @@ theorem OperationPtr.getNumOperands!_OperationPtr_pushResult {operation : Operat
 theorem OpOperandPtr.get!_OperationPtr_pushResult {op : OperationPtr} {hop} {opOperand : OpOperandPtr} :
     opOperand.get! (OperationPtr.pushResult op ctx newResult hop) =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_pushResult {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.pushResult operation' ctx newResult hop') =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -856,12 +862,6 @@ theorem OperationPtr.properties!_OperationPtr_setProperties {operation : Operati
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OperationPtr_setProperties {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setProperties operation' ctx newProperties hop')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OperationPtr_setProperties {operation : OperationPtr} :
     operation.getNumResults! (OperationPtr.setProperties operation' ctx hop' newProperties) =
     operation.getNumResults! ctx := by
@@ -883,6 +883,12 @@ theorem OperationPtr.getNumOperands!_OperationPtr_setProperties {operation : Ope
 theorem OpOperandPtr.get!_OperationPtr_setProperties {opOperand : OpOperandPtr} :
     opOperand.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_setProperties {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -999,12 +1005,6 @@ theorem OperationPtr.properties!_OperationPtr_setRegions {operation : OperationP
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OperationPtr_setRegions {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setRegions operation' ctx newRegions hop')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OperationPtr_setRegions {operation : OperationPtr} :
     operation.getNumResults! (OperationPtr.setRegions operation' ctx hop' newRegions) =
     operation.getNumResults! ctx := by
@@ -1026,6 +1026,12 @@ theorem OperationPtr.getNumOperands!_OperationPtr_setRegions {operation : Operat
 theorem OpOperandPtr.get!_OperationPtr_setRegions {opOperand : OpOperandPtr} :
     opOperand.get! (OperationPtr.setRegions operation' ctx newRegions hop') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_setRegions {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.setRegions operation' ctx newRegions hop') =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -1187,6 +1193,12 @@ theorem OpOperandPtr.get!_BlockArgumentPtr_setType {opOperand : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockArgumentPtr_setType {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockArgumentPtr.setType arg' ctx newType harg') =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockOperandPtr.get!_BlockArgumentPtr_setType {blockOperand : BlockOperandPtr} :
     blockOperand.get! (BlockArgumentPtr.setType arg' ctx newType harg') =
     blockOperand.get! ctx := by
@@ -1339,6 +1351,12 @@ theorem OperationPtr.getNumOperands!_BlockArgumentPtr_setFirstUse {operation : O
 theorem OpOperandPtr.get!_BlockArgumentPtr_setFirstUse {opOperand : OpOperandPtr} :
     opOperand.get! (BlockArgumentPtr.setFirstUse arg' ctx newFirstUse harg') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockArgumentPtr_setFirstUse {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockArgumentPtr.setFirstUse arg' ctx newFirstUse harg') =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -1503,6 +1521,12 @@ theorem OpOperandPtr.get!_BlockArgumentPtr_setLoc {opOperand : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockArgumentPtr_setLoc {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockArgumentPtr.setLoc arg' ctx newLoc harg') =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockOperandPtr.get!_BlockArgumentPtr_setLoc {blockOperand : BlockOperandPtr} :
     blockOperand.get! (BlockArgumentPtr.setLoc arg' ctx newLoc harg') =
     blockOperand.get! ctx := by
@@ -1608,6 +1632,12 @@ theorem OperationPtr.getNumOperands!_BlockPtr_allocEmpty {operation : OperationP
 theorem OpOperandPtr.get!_BlockPtr_allocEmpty  {opOperand : OpOperandPtr}
     (heq : BlockPtr.allocEmpty ctx = some (ctx', bl')) :
     opOperand.get! ctx' = opOperand.get! ctx := by
+  grind
+
+@[simp, grind .]
+theorem OperationPtr.getNumSuccessors!_BlockPtr_allocEmpty {operation : OperationPtr}
+    (heq : BlockPtr.allocEmpty ctx = some (ctx', bl)) :
+    operation.getNumSuccessors! ctx' = operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind .]
@@ -1748,6 +1778,12 @@ theorem OperationPtr.getNumOperands!_BlockPtr_setParent {operation : OperationPt
 theorem OpOperandPtr.get!_BlockPtr_setParent {opOperand : OpOperandPtr} :
     opOperand.get! (BlockPtr.setParent block' ctx newParent hblock') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockPtr_setParent {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockPtr.setParent block' ctx hblock' newParent) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -1895,6 +1931,12 @@ theorem OperationPtr.getNumOperands!_BlockPtr_setFirstUse {operation : Operation
 theorem OpOperandPtr.get!_BlockPtr_setFirstUse {opOperand : OpOperandPtr} :
     opOperand.get! (BlockPtr.setFirstUse block' ctx newFirstUse hblock') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockPtr_setFirstUse {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockPtr.setFirstUse block' ctx hblock' newFirstUse) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -2048,6 +2090,12 @@ theorem OpOperandPtr.get!_BlockPtr_setFirstOp {opOperand : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockPtr_setFirstOp {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockPtr.setFirstOp block' ctx hblock' newFirstOp) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockOperandPtr.get!_BlockPtr_setFirstOp {blockOperand : BlockOperandPtr} :
     blockOperand.get! (BlockPtr.setFirstOp block' ctx newFirstOp hblock') =
     blockOperand.get! ctx := by
@@ -2195,6 +2243,12 @@ theorem OpOperandPtr.get!_BlockPtr_setLastOp {opOperand : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockPtr_setLastOp {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockPtr.setLastOp block' ctx hblock' newLastOp) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockOperandPtr.get!_BlockPtr_setLastOp {blockOperand : BlockOperandPtr} :
     blockOperand.get! (BlockPtr.setLastOp block' ctx newLastOp hblock') =
     blockOperand.get! ctx := by
@@ -2338,6 +2392,12 @@ theorem OperationPtr.getNumOperands!_BlockPtr_setNextBlock {operation : Operatio
 theorem OpOperandPtr.get!_BlockPtr_setNextBlock {opOperand : OpOperandPtr} :
     opOperand.get! (BlockPtr.setNextBlock block' ctx newNextBlock hblock') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockPtr_setNextBlock {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockPtr.setNextBlock block' ctx hblock' newNextBlock) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -2488,6 +2548,12 @@ theorem OpOperandPtr.get!_BlockPtr_setPrevBlock {opOperand : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockPtr_setPrevBlock {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockPtr.setPrevBlock block' ctx hblock' newPrevBlock) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockOperandPtr.get!_BlockPtr_setPrevBlock {blockOperand : BlockOperandPtr} :
     blockOperand.get! (BlockPtr.setPrevBlock block' ctx newPrevBlock hblock') =
     blockOperand.get! ctx := by
@@ -2603,12 +2669,6 @@ theorem OperationPtr.properties!_OpOperandPtr_setNextUse {operation : OperationP
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OpOperandPtr_setNextUse {operation : OperationPtr} :
-    (operation.get! (OpOperandPtr.setNextUse operand' ctx newNextUse hoperand')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OpOperandPtr_setNextUse {operation : OperationPtr} :
     operation.getNumResults! (OpOperandPtr.setNextUse operand' ctx hoperand' newNextUse) =
     operation.getNumResults! ctx := by
@@ -2633,6 +2693,12 @@ theorem OpOperandPtr.get!_OpOperandPtr_setNextUse {opOperand : OpOperandPtr} :
       { opOperand.get! ctx with nextUse := newNextUse }
     else
       opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OpOperandPtr_setNextUse {operation : OperationPtr} :
+    operation.getNumSuccessors! (OpOperandPtr.setNextUse operand' ctx hoperand' newNextUse) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -2753,12 +2819,6 @@ theorem OperationPtr.properties!_OpOperandPtr_setBack {operation : OperationPtr}
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OpOperandPtr_setBack {operation : OperationPtr} :
-    (operation.get! (OpOperandPtr.setBack operand' ctx newBack hoperand')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OpOperandPtr_setBack {operation : OperationPtr} :
     operation.getNumResults! (OpOperandPtr.setBack operand' ctx hoperand' newBack) =
     operation.getNumResults! ctx := by
@@ -2784,6 +2844,12 @@ theorem OpOperandPtr.get!_OpOperandPtr_setBack {opOperand : OpOperandPtr} :
     else
       opOperand.get! ctx := by
   split <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OpOperandPtr_setBack {operation : OperationPtr} :
+    operation.getNumSuccessors! (OpOperandPtr.setBack operand' ctx hoperand' newBack) =
+    operation.getNumSuccessors! ctx := by
+  grind
 
 @[simp, grind =]
 theorem BlockOperandPtr.get!_OpOperandPtr_setBack {blockOperand : BlockOperandPtr} :
@@ -2901,12 +2967,6 @@ theorem OperationPtr.properties!_OpOperandPtr_setOwner {operation : OperationPtr
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OpOperandPtr_setOwner {operation : OperationPtr} :
-    (operation.get! (OpOperandPtr.setOwner operand' ctx newOwner hoperand')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OpOperandPtr_setOwner {operation : OperationPtr} :
     operation.getNumResults! (OpOperandPtr.setOwner operand' ctx hoperand' newOwner) =
     operation.getNumResults! ctx := by
@@ -2932,6 +2992,12 @@ theorem OpOperandPtr.get!_OpOperandPtr_setOwner {opOperand : OpOperandPtr} :
     else
       opOperand.get! ctx := by
   split <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OpOperandPtr_setOwner {operation : OperationPtr} :
+    operation.getNumSuccessors! (OpOperandPtr.setOwner operand' ctx hoperand' newOwner) =
+    operation.getNumSuccessors! ctx := by
+  grind
 
 @[simp, grind =]
 theorem BlockOperandPtr.get!_OpOperandPtr_setOwner {blockOperand : BlockOperandPtr} :
@@ -3048,12 +3114,6 @@ theorem OperationPtr.properties!_OpOperandPtr_setValue {operation : OperationPtr
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OpOperandPtr_setValue {operation : OperationPtr} :
-    (operation.get! (OpOperandPtr.setValue operand' ctx newValue hoperand')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OpOperandPtr_setValue {operation : OperationPtr} :
     operation.getNumResults! (OpOperandPtr.setValue operand' ctx hoperand' newValue) =
     operation.getNumResults! ctx := by
@@ -3079,6 +3139,12 @@ theorem OpOperandPtr.get!_OpOperandPtr_setValue {opOperand : OpOperandPtr} :
     else
       opOperand.get! ctx := by
   split <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OpOperandPtr_setValue {operation : OperationPtr} :
+    operation.getNumSuccessors! (OpOperandPtr.setValue operand' ctx hoperand' newValue) =
+    operation.getNumSuccessors! ctx := by
+  grind
 
 @[simp, grind =]
 theorem BlockOperandPtr.get!_OpOperandPtr_setValue {blockOperand : BlockOperandPtr} :
@@ -3201,12 +3267,6 @@ theorem OperationPtr.results!.size_OpResultPtr_setType {operation : OperationPtr
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OpResultPtr_setType {operation : OperationPtr} :
-    (operation.get! (OpResultPtr.setType result' ctx newType hresult')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OpResultPtr_setType {operation : OperationPtr} :
     operation.getNumResults! (OpResultPtr.setType result' ctx hresult' newType) =
     operation.getNumResults! ctx := by
@@ -3231,6 +3291,12 @@ theorem OperationPtr.getNumOperands!_OpResultPtr_setType {operation : OperationP
 theorem OpOperandPtr.get!_OpResultPtr_setType {opOperand : OpOperandPtr} :
     opOperand.get! (OpResultPtr.setType result' ctx newType hresult') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OpResultPtr_setType {operation : OperationPtr} :
+    operation.getNumSuccessors! (OpResultPtr.setType result' ctx hresult' newType) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -3355,12 +3421,6 @@ theorem OperationPtr.results!.size_OpResultPtr_setFirstUse {operation : Operatio
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OpResultPtr_setFirstUse {operation : OperationPtr} :
-    (operation.get! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OpResultPtr_setFirstUse {operation : OperationPtr} :
     operation.getNumResults! (OpResultPtr.setFirstUse result' ctx hresult' newFirstUse) =
     operation.getNumResults! ctx := by
@@ -3385,6 +3445,12 @@ theorem OperationPtr.getNumOperands!_OpResultPtr_setFirstUse {operation : Operat
 theorem OpOperandPtr.get!_OpResultPtr_setFirstUse {opOperand : OpOperandPtr} :
     opOperand.get! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OpResultPtr_setFirstUse {operation : OperationPtr} :
+    operation.getNumSuccessors! (OpResultPtr.setFirstUse result' ctx hresult' newFirstUse) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -3493,6 +3559,12 @@ theorem OpOperandPtr.get!_RegionPtr_setParent {opOperand : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_RegionPtr_setParent {operation : OperationPtr} :
+    operation.getNumSuccessors! (RegionPtr.setParent region' ctx hregion' newParent) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockOperandPtr.get!_RegionPtr_setParent {blockOperand : BlockOperandPtr} :
     blockOperand.get! (RegionPtr.setParent region' ctx newParent hregion') =
     blockOperand.get! ctx := by
@@ -3591,6 +3663,12 @@ theorem OperationPtr.getNumOperands!_RegionPtr_setFirstBlock {operation : Operat
 theorem OpOperandPtr.get!_RegionPtr_setFirstBlock {opOperand : OpOperandPtr} :
     opOperand.get! (RegionPtr.setFirstBlock region' ctx hregion' newFirstBlock) =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_RegionPtr_setFirstBlock {operation : OperationPtr} :
+    operation.getNumSuccessors! (RegionPtr.setFirstBlock region' ctx hregion' newFirstBlock) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -3693,6 +3771,12 @@ theorem OperationPtr.getNumOperands!_RegionPtr_setLastBlock {operation : Operati
 theorem OpOperandPtr.get!_RegionPtr_setLastBlock {opOperand : OpOperandPtr} :
     opOperand.get! (RegionPtr.setLastBlock region' ctx newLastBlock hregion') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_RegionPtr_setLastBlock {operation : OperationPtr} :
+    operation.getNumSuccessors! (RegionPtr.setLastBlock region' ctx hregion' newLastBlock) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -3883,12 +3967,6 @@ theorem OperationPtr.results!.size_ValuePtr_setType {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_ValuePtr_setType {operation : OperationPtr} :
-    (operation.get! (ValuePtr.setType value' ctx newType hvalue')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_ValuePtr_setType {operation : OperationPtr} :
     operation.getNumResults! (ValuePtr.setType value' ctx hvalue' newType) =
     operation.getNumResults! ctx := by
@@ -3913,6 +3991,12 @@ theorem OperationPtr.getNumOperands!_ValuePtr_setType {operation : OperationPtr}
 theorem OpOperandPtr.get!_ValuePtr_setType {opOperand : OpOperandPtr} :
     opOperand.get! (ValuePtr.setType value' ctx newType hvalue') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_ValuePtr_setType {operation : OperationPtr} :
+    operation.getNumSuccessors! (ValuePtr.setType value' ctx hvalue' newType) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -4106,12 +4190,6 @@ theorem OperationPtr.results!.size_ValuePtr_setFirstUse {operation : OperationPt
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_ValuePtr_setFirstUse {operation : OperationPtr} :
-    (operation.get! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_ValuePtr_setFirstUse {operation : OperationPtr} :
     operation.getNumResults! (ValuePtr.setFirstUse value' ctx hvalue' newFirstUse) =
     operation.getNumResults! ctx := by
@@ -4136,6 +4214,12 @@ theorem OperationPtr.getNumOperands!_ValuePtr_setFirstUse {operation : Operation
 theorem OpOperandPtr.get!_ValuePtr_setFirstUse {opOperand : OpOperandPtr} :
     opOperand.get! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_ValuePtr_setFirstUse {operation : OperationPtr} :
+    operation.getNumSuccessors! (ValuePtr.setFirstUse value' ctx hvalue' newFirstUse) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -4352,12 +4436,6 @@ theorem OperationPtr.results!.size_OpOperandPtrPtr_set {operation : OperationPtr
     (operation.get! ctx).results.size := by
   grind
 
-@[simp, grind =]
-theorem OperationPtr.blockOperands!_OpOperandPtrPtr_set {operation : OperationPtr} :
-    (operation.get! (OpOperandPtrPtr.set value' ctx newPtr hvalue')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
 @[grind =]
 theorem OpOperandPtr.get!_OpOperandPtrPtr_set {opOperand : OpOperandPtr} :
     opOperand.get! (OpOperandPtrPtr.set ptr' ctx newPtr hptr') =
@@ -4392,6 +4470,12 @@ theorem OperationPtr.getNumOperands!_OpOperandPtrPtr_set {operation : OperationP
 theorem BlockOperandPtr.get!_OpOperandPtrPtr_set {blockOperand : BlockOperandPtr} :
     blockOperand.get! (OpOperandPtrPtr.set ptr' ctx newPtr hptr') =
     blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OpOperandPtrPtr_set {operation : OperationPtr} :
+    operation.getNumSuccessors! (OpOperandPtrPtr.set ptr' ctx hptr' newPtr) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -4514,12 +4598,6 @@ theorem OperationPtr.properties!_OperationPtr_setNextOp {operation : OperationPt
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OperationPtr_setNextOp {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setNextOp op' ctx newNextOp hop')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OperationPtr_setNextOp {operation : OperationPtr} :
     operation.getNumResults! (OperationPtr.setNextOp op' ctx hop' newNextOp) =
     operation.getNumResults! ctx := by
@@ -4541,6 +4619,12 @@ theorem OperationPtr.getNumOperands!_OperationPtr_setNextOp {operation : Operati
 theorem OpOperandPtr.get!_OperationPtr_setNextOp {opOperand : OpOperandPtr} :
     opOperand.get! (OperationPtr.setNextOp op' ctx newNextOp hop') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_setNextOp {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.setNextOp op' ctx hop' newNextOp) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -4662,12 +4746,6 @@ theorem OperationPtr.properties!_OperationPtr_setPrevOp {operation : OperationPt
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OperationPtr_setPrevOp {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setPrevOp op' ctx newPrevOp hop')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OperationPtr_setPrevOp {operation : OperationPtr} :
     operation.getNumResults! (OperationPtr.setPrevOp op' ctx hop' newPrevOp) =
     operation.getNumResults! ctx := by
@@ -4689,6 +4767,12 @@ theorem OperationPtr.getNumOperands!_OperationPtr_setPrevOp {operation : Operati
 theorem OpOperandPtr.get!_OperationPtr_setPrevOp {opOperand : OpOperandPtr} :
     opOperand.get! (OperationPtr.setPrevOp op' ctx newPrevOp hop') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_setPrevOp {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.setPrevOp op' ctx hop' newPrevOp) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -4808,12 +4892,6 @@ theorem OperationPtr.properties!_OperationPtr_setParent {operation : OperationPt
   grind
 
 @[simp, grind =]
-theorem OperationPtr.blockOperands!_OperationPtr_setParent {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setParent op' ctx newParent hop')).blockOperands =
-    (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.getNumResults!_OperationPtr_setParent {operation : OperationPtr} :
     operation.getNumResults! (OperationPtr.setParent op' ctx hop' newParent) =
     operation.getNumResults! ctx := by
@@ -4835,6 +4913,12 @@ theorem OperationPtr.getNumOperands!_OperationPtr_setParent {operation : Operati
 theorem OpOperandPtr.get!_OperationPtr_setParent {opOperand : OpOperandPtr} :
     opOperand.get! (OperationPtr.setParent op' ctx newParent hop') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_setParent {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.setParent op' ctx hop' newParent) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
@@ -4951,21 +5035,6 @@ theorem OperationPtr.properties!_BlockOperandPtr_setNextUse {operation : Operati
     (operation.get! ctx).properties := by
   grind
 
-@[grind =]
-theorem OperationPtr.blockOperands!_BlockOperandPtr_setNextUse {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand')).blockOperands =
-    if operand'.op = operation then
-      (operation.get! ctx).blockOperands.set! operand'.index { operand'.get! ctx with nextUse := newNextUse }
-    else
-      (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.blockOperands!.size_BlockOperandPtr_setNextUse {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand')).blockOperands.size =
-    (operation.get! ctx).blockOperands.size := by
-  grind
-
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockOperandPtr_setNextUse {operation : OperationPtr} :
     operation.getNumResults! (BlockOperandPtr.setNextUse operand' ctx hoperand' newNextUse) =
@@ -4988,6 +5057,12 @@ theorem OperationPtr.getNumOperands!_BlockOperandPtr_setNextUse {operation : Ope
 theorem OpOperandPtr.get!_BlockOperandPtr_setNextUse {operand : OpOperandPtr} :
     operand.get! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand') =
     operand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockOperandPtr_setNextUse {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockOperandPtr.setNextUse operand' ctx hoperand' newNextUse) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[grind =]
@@ -5110,21 +5185,6 @@ theorem OperationPtr.properties!_BlockOperandPtr_setBack {operation : OperationP
     (operation.get! ctx).properties := by
   grind
 
-@[grind =]
-theorem OperationPtr.blockOperands!_BlockOperandPtr_setBack {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setBack operand' ctx newBack hoperand')).blockOperands =
-    if operand'.op = operation then
-      (operation.get! ctx).blockOperands.set! operand'.index { operand'.get! ctx with back := newBack }
-    else
-      (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.blockOperands!.size_BlockOperandPtr_setBack {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setBack operand' ctx newBack hoperand')).blockOperands.size =
-    (operation.get! ctx).blockOperands.size := by
-  grind
-
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockOperandPtr_setBack {operation : OperationPtr} :
     operation.getNumResults! (BlockOperandPtr.setBack operand' ctx hoperand' newBack) =
@@ -5147,6 +5207,12 @@ theorem OperationPtr.getNumOperands!_BlockOperandPtr_setBack {operation : Operat
 theorem OpOperandPtr.get!_BlockOperandPtr_setBack {opOperand : OpOperandPtr} :
     opOperand.get! (BlockOperandPtr.setBack operand' ctx newBack hoperand') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockOperandPtr_setBack {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockOperandPtr.setBack operand' ctx hoperand' newBack) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[grind =]
@@ -5267,21 +5333,6 @@ theorem OperationPtr.properties!_BlockOperandPtr_setOwner {operation : Operation
     (operation.get! ctx).properties := by
   grind
 
-@[grind =]
-theorem OperationPtr.blockOperands!_BlockOperandPtr_setOwner {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand')).blockOperands =
-    if operand'.op = operation then
-      (operation.get! ctx).blockOperands.set! operand'.index { operand'.get! ctx with owner := newOwner }
-    else
-      (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.blockOperands!.size_BlockOperandPtr_setOwner {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand')).blockOperands.size =
-    (operation.get! ctx).blockOperands.size := by
-  grind
-
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockOperandPtr_setOwner {operation : OperationPtr} :
     operation.getNumResults! (BlockOperandPtr.setOwner operand' ctx hoperand' newOwner) =
@@ -5304,6 +5355,12 @@ theorem OperationPtr.getNumOperands!_BlockOperandPtr_setOwner {operation : Opera
 theorem OpOperandPtr.get!_BlockOperandPtr_setOwner {opOperand : OpOperandPtr} :
     opOperand.get! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockOperandPtr_setOwner {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockOperandPtr.setOwner operand' ctx hoperand' newOwner) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[grind =]
@@ -5424,21 +5481,6 @@ theorem OperationPtr.properties!_BlockOperandPtr_setValue {operation : Operation
     (operation.get! ctx).properties := by
   grind
 
-@[grind =]
-theorem OperationPtr.blockOperands!_BlockOperandPtr_setValue {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setValue operand' ctx newValue hoperand')).blockOperands =
-    if operand'.op = operation then
-      (operation.get! ctx).blockOperands.set! operand'.index { operand'.get! ctx with value := newValue }
-    else
-      (operation.get! ctx).blockOperands := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.blockOperands!.size_BlockOperandPtr_setValue {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setValue operand' ctx newValue hoperand')).blockOperands.size =
-    (operation.get! ctx).blockOperands.size := by
-  grind
-
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockOperandPtr_setValue {operation : OperationPtr} :
     operation.getNumResults! (BlockOperandPtr.setValue operand' ctx hoperand' newValue) =
@@ -5461,6 +5503,12 @@ theorem OperationPtr.getNumOperands!_BlockOperandPtr_setValue {operation : Opera
 theorem OpOperandPtr.get!_BlockOperandPtr_setValue {opOperand : OpOperandPtr} :
     opOperand.get! (BlockOperandPtr.setValue operand' ctx newValue hoperand') =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockOperandPtr_setValue {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockOperandPtr.setValue operand' ctx hoperand' newValue) =
+    operation.getNumSuccessors! ctx := by
   grind
 
 @[grind =]
@@ -5647,36 +5695,6 @@ theorem OperationPtr.getPrev_OpOperandPtrPtr_set :
 theorem OperationPtr.getPrev_OpOperandPtr_setValue :
     (operation.get (OpOperandPtr.setValue operandPtr ctx newValue h) h').prev =
     (operation.get ctx (by grind)).prev := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.getBlockOperands_OpOperandPtr_setValue :
-    (OperationPtr.get op (OpOperandPtr.setValue use ctx value operandInBounds) hopnd).blockOperands =
-    (OperationPtr.get op ctx (by grind)).blockOperands := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.getBlockOperands_OpOperandPtrPtr_set :
-    (OperationPtr.get op (OpOperandPtrPtr.set ptrPtr ctx v h₁) hopnd).blockOperands =
-    (OperationPtr.get op ctx (by grind)).blockOperands := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.getBlockOperands_OpOperandPtr_setBack :
-    (OperationPtr.get op (OpOperandPtr.setBack operandPtr ctx v h₁) hopnd).blockOperands =
-    (OperationPtr.get op ctx (by grind)).blockOperands := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.getBlockOperands_ValuePtr_setFirstUse :
-    (OperationPtr.get op (ValuePtr.setFirstUse val ctx newFirstUse h) hopnd).blockOperands =
-    (OperationPtr.get op ctx (by grind)).blockOperands := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.getBlockOperands_OpOperandPtr_setNextUse :
-    (OperationPtr.get op (OpOperandPtr.setNextUse operandPtr ctx newNextUse h) hopnd).blockOperands =
-    (OperationPtr.get op ctx (by grind)).blockOperands := by
   grind
 
 @[simp, grind =]

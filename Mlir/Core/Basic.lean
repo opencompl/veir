@@ -303,6 +303,43 @@ theorem OperationPtr.getOperand!_eq_getOperand {op : OperationPtr} {index : Nat}
     op.getOperand! ctx index = op.getOperand ctx index hin' h := by
   grind [getOperand, getOperand!]
 
+def OperationPtr.getNumSuccessors (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx := by grind) : Nat :=
+  (op.get ctx (by grind)).blockOperands.size
+
+def OperationPtr.getNumSuccessors! (op: OperationPtr) (ctx: IRContext) : Nat :=
+  (op.get! ctx).blockOperands.size
+
+@[grind _=_]
+theorem OperationPtr.getNumSuccessors!_eq_getNumSuccessors {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getNumSuccessors! ctx = op.getNumSuccessors ctx (by grind) := by
+  grind [getNumSuccessors, getNumSuccessors!]
+
+def OperationPtr.getBlockOperand (op: OperationPtr) (index: Nat) : BlockOperandPtr :=
+  { op := op, index := index }
+
+@[simp, grind =]
+theorem OperationPtr.getBlockOperand_index {op : OperationPtr} {index : Nat} :
+    (OperationPtr.getBlockOperand op index).index = index := by
+  grind [getBlockOperand]
+
+@[simp, grind =]
+theorem OperationPtr.getBlockOperand_op {op : OperationPtr} {index : Nat} :
+    (OperationPtr.getBlockOperand op index).op = op := by
+  grind [getBlockOperand]
+
+def OperationPtr.getSuccessor (op: OperationPtr) (ctx: IRContext) (index: Nat)
+    (inBounds: op.InBounds ctx := by grind) (h: index < getNumSuccessors op ctx inBounds := by grind) : BlockPtr :=
+  ((op.get ctx (by grind)).blockOperands[index]'(by grind [getNumSuccessors])).value
+
+def OperationPtr.getSuccessor! (op: OperationPtr) (ctx: IRContext) (index: Nat) : BlockPtr :=
+  ((op.get! ctx).blockOperands[index]!).value
+
+@[grind _=_]
+theorem OperationPtr.getSuccessor!_eq_getSuccessor {op : OperationPtr} {index : Nat}
+    {hin} (h: index < op.getNumSuccessors ctx hin) {hin'} :
+    op.getSuccessor! ctx index = op.getSuccessor ctx index hin' h := by
+  grind [getSuccessor, getSuccessor!]
+
 def OperationPtr.getNumResults (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx := by grind) : Nat :=
   (op.get ctx (by grind)).results.size
 
@@ -518,14 +555,14 @@ def OpOperandPtr.setValue (operand: OpOperandPtr) (ctx: IRContext) (newValue: Va
 def BlockOperandPtr.InBounds (operand: BlockOperandPtr) (ctx: IRContext) : Prop :=
   ∃ h, operand.index < (operand.op.get ctx h).blockOperands.size
 
-@[grind .]
+@[local grind .]
 theorem BlockOperandPtr.inBounds_op (operand: BlockOperandPtr) (ctx: IRContext) (h: operand.InBounds ctx) :
     operand.op ∈ ctx.operations := by
   unfold InBounds OperationPtr.InBounds at h
   cases h
   grind
 
-@[grind! <=]
+@[local grind! <=]
 theorem BlockOperandPtr.inBounds_operand? (operand: BlockOperandPtr) (ctx: IRContext) (h: operand.InBounds ctx) :
     ∀ op, ctx.operations[operand.op]? = some op →
     operand.index < op.blockOperands.size := by
@@ -535,7 +572,7 @@ theorem BlockOperandPtr.inBounds_operand? (operand: BlockOperandPtr) (ctx: IRCon
   cases h
   grind
 
-@[grind! .]
+@[local grind! .]
 theorem BlockOperandPtr.inBounds_operand (operand: BlockOperandPtr) (ctx: IRContext) (h: operand.InBounds ctx) :
     operand.index < (ctx.operations[operand.op]'(by grind)).blockOperands.size := by
   unfold InBounds at h
@@ -548,7 +585,7 @@ def BlockOperandPtr.get (operand: BlockOperandPtr) (ctx: IRContext) (operandIn: 
   (operand.op.get ctx (by grind [InBounds])).blockOperands[operand.index]'(by grind [InBounds])
 def BlockOperandPtr.get! (operand: BlockOperandPtr) (ctx: IRContext) : BlockOperand :=
   operand.op.get! ctx |>.blockOperands[operand.index]!
-@[grind =]
+@[grind _=_]
 theorem BlockOperandPtr.get!_eq_get {ptr : BlockOperandPtr} (hin : ptr.InBounds ctx) :
     ptr.get! ctx = ptr.get ctx hin := by
   grind [get, get!, OperationPtr.get!]
