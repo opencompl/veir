@@ -55,7 +55,7 @@ theorem BlockOperandPtr.get_replaceUse {bop : BlockOperandPtr} {hbop} :
     bop.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hbop =
     bop.get ctx (by grind) := by
   unfold Rewriter.replaceUse
-  grind [=_ BlockOperandPtr.get!_eq_get]
+  grind
 
 @[simp, grind =]
 theorem BlockPtr.getFirstOp_replaceUse {b : BlockPtr} {hb} :

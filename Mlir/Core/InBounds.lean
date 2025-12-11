@@ -14,7 +14,7 @@ macro "setup_grind_for_basic_proofs" : command => `(
   attribute [local grind cases] ValuePtr OpOperandPtrPtr BlockOperandPtr
   attribute [local grind] Option.maybe BlockOperandPtrPtr.InBounds BlockOperandPtr.InBounds
     BlockOperandPtrPtr.get BlockOperandPtrPtr.set
-    OperationPtr.InBounds RegionPtr.InBounds OpResultPtr.get OpResultPtr.set
+    OperationPtr.InBounds RegionPtr.InBounds OpResultPtr.get OpResultPtr.set OpResultPtr.InBounds
     OpOperandPtr.get OpOperandPtr.set BlockOperandPtr.get BlockOperandPtr.set OpResultPtr.get
     OpResultPtr.set BlockArgumentPtr.get BlockArgumentPtr.set BlockArgumentPtr.setType
     BlockArgumentPtr.setFirstUse OpOperandPtrPtr.set OperationPtr.get
