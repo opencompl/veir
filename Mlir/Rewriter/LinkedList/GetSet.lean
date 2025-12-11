@@ -303,60 +303,26 @@ theorem OpOperandPtr.BlockPtr_get!_insertIntoCurrent_prev (bl : BlockPtr) (h : b
   grind
 
 @[grind =]
-theorem OpOperandPtr.BlockPtr_get!_insertIntoCurrent_next (bl : BlockPtr) (h : bl.InBounds ctx) :
+theorem OpOperandPtr.BlockPtr_get!_insertIntoCurrent_next (bl : BlockPtr) :
     (bl.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).next = (bl.get! ctx).next := by
   simp only [insertIntoCurrent]
   grind
 
 @[grind =]
-theorem OpOperandPtr.BlockPtr_get!_insertIntoCurrent_arguments_size (bl : BlockPtr) (h : bl.InBounds ctx) :
-    (bl.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).arguments.size = (bl.get! ctx).arguments.size := by
+theorem OpOperandPtr.BlockPtr_get!_insertIntoCurrent_arguments_size (bl : BlockPtr):
+    bl.getNumArguments! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds) = bl.getNumArguments! ctx := by
   simp only [insertIntoCurrent]
-  grind
-
-@[grind =]
-theorem OpOperandPtr.BlockPtr_get_insertIntoCurrent_arguments_size (bl : BlockPtr) (h : bl.InBounds ctx) :
-    (bl.get (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).arguments.size = (bl.get ctx).arguments.size := by
-  have := OpOperandPtr.BlockPtr_get!_insertIntoCurrent_arguments_size
   grind
 
 @[simp, grind =]
-theorem OpOperandPtr.BlockPtr_get!_insertIntoCurrent_arguments_index (bl : BlockPtr) (i : Nat) :
-    (bl.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).arguments[i]!.index =
-    (bl.get! ctx).arguments[i]!.index := by
-  simp only [insertIntoCurrent]
-  split
-  · simp only [BlockPtr.get!_ValuePtr_setFirstUse, BlockPtr.get!_OpOperandPtr_setNextUse, BlockPtr.get!_OpOperandPtr_setBack]
-    split
-    · grind
-    · split <;> grind [BlockPtr.get!, BlockArgumentPtr.get]
-  · grind [BlockPtr.get!, BlockArgumentPtr.get]
+theorem OpOperandPtr.BlockPtr_get!_insertIntoCurrent_arguments_index (ba : BlockArgumentPtr):
+    (ba.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).index = (ba.get! ctx).index := by
+  grind [insertIntoCurrent]
 
 @[simp, grind =]
-theorem OpOperandPtr.BlockPtr_get!_insertIntoCurrent_arguments_owner (bl : BlockPtr) (i : Nat) :
-    (bl.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).arguments[i]!.owner =
-    (bl.get! ctx).arguments[i]!.owner := by
-  simp only [insertIntoCurrent]
-  split
-  · simp only [BlockPtr.get!_ValuePtr_setFirstUse, BlockPtr.get!_OpOperandPtr_setNextUse, BlockPtr.get!_OpOperandPtr_setBack]
-    split
-    · grind
-    · split <;> grind [BlockPtr.get!, BlockArgumentPtr.get]
-  · grind [BlockPtr.get!, BlockArgumentPtr.get]
-
-@[grind =]
-theorem OpOperandPtr.BlockPtr_get_insertIntoCurrent_arguments_index (bl : BlockPtr) (i : Nat) (h : bl.InBounds ctx) (hi : i < (bl.get ctx h).arguments.size) :
-    ((bl.get (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).arguments[i]'(by grind)).index =
-    ((bl.get ctx h).arguments[i]'hi).index := by
-  have := @OpOperandPtr.BlockPtr_get!_insertIntoCurrent_arguments_index ctx (by grind) operandPtr h₁ bl i
-  grind
-
-@[grind =]
-theorem OpOperandPtr.BlockPtr_get_insertIntoCurrent_arguments_owner (bl : BlockPtr) (i : Nat) (h : bl.InBounds ctx) (hi : i < (bl.get ctx h).arguments.size) :
-    ((bl.get (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).arguments[i]'(by grind)).owner =
-    ((bl.get ctx h).arguments[i]'hi).owner := by
-  have := @OpOperandPtr.BlockPtr_get!_insertIntoCurrent_arguments_owner ctx (by grind) operandPtr h₁ bl i
-  grind
+theorem OpOperandPtr.BlockPtr_get!_insertIntoCurrent_arguments_owner (ba : BlockArgumentPtr):
+    (ba.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr h₁ ctxInBounds)).owner = (ba.get! ctx).owner := by
+  grind [insertIntoCurrent]
 
 @[simp, grind =]
 theorem OpOperandPtr.RegionPtr_get!_pushOperand (rg : RegionPtr) :
@@ -728,21 +694,21 @@ theorem OperationPtr.getRegion!_removeFromCurrent :
   grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]
-theorem BlockPtr.getNumArguments_removeFromCurrent :
-    (BlockPtr.get block (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hb).arguments.size =
-    (BlockPtr.get block ctx (by grind)).arguments.size := by
+theorem BlockPtr.getNumArguments!_removeFromCurrent :
+    BlockPtr.getNumArguments! block (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) =
+    BlockPtr.getNumArguments! block ctx := by
   grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]
-theorem BlockPtr.getArgumentOwner_removeFromCurrent {i : Nat} {hi} :
-    ((BlockPtr.get block (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hb).arguments[i]'(hi)).owner =
-    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).owner := by
+theorem BlockArgumentPtr.index!_removeFromCurrent {ba : BlockArgumentPtr} :
+    (ba.get! (OpOperandPtr.removeFromCurrent ctx use h₁ h₂)).index =
+    (ba.get! ctx).index := by
   grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]
-theorem BlockPtr.getArgumentIndex_removeFromCurrent {i : Nat} {hi} :
-    ((BlockPtr.get block (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hb).arguments[i]'(hi)).index =
-    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).index := by
+theorem BlockArgumentPtr.owner!_removeFromCurrent {ba : BlockArgumentPtr} :
+    (ba.get! (OpOperandPtr.removeFromCurrent ctx use h₁ h₂)).owner =
+    (ba.get! ctx).owner := by
   grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]

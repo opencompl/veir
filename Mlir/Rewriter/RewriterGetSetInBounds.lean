@@ -1,4 +1,5 @@
 import Mlir.Rewriter.Rewriter
+import Mlir.Rewriter.LinkedList.GetSet
 import Mlir.ForLean
 
 namespace Mlir
@@ -154,20 +155,20 @@ theorem OperationPtr.getRegions_replaceUse :
 
 @[simp, grind =]
 theorem BlockPtr.getNumArguments_replaceUse :
-    (BlockPtr.get block (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).arguments.size =
-    (BlockPtr.get block ctx (by grind)).arguments.size := by
+    BlockPtr.getNumArguments! block (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    BlockPtr.getNumArguments! block ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem BlockPtr.getArgumentOwner_replaceUse {i : Nat} {hi} :
-    ((BlockPtr.get block (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).arguments[i]'(hi)).owner =
-    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).owner := by
+theorem BlockArgumentPtr.owner!_replaceUse :
+    (BlockArgumentPtr.get! arg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).owner =
+    (BlockArgumentPtr.get! arg ctx).owner := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem BlockPtr.getArgumentIndex_replaceUse {i : Nat} {hi} :
-    ((BlockPtr.get block (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).arguments[i]'(hi)).index =
-    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).index := by
+theorem BlockArgumentPtr.index!_replaceUse :
+    (BlockArgumentPtr.get! arg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).index =
+    (BlockArgumentPtr.get! arg ctx).index := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]

@@ -128,8 +128,8 @@ structure Operation.WellFormed (op : Operation) (ctx : IRContext) (opPtr : Opera
 
 structure Block.WellFormed (block : Block) (ctx : IRContext) (blockPtr : BlockPtr) hbl : Prop where
   inBounds : Block.FieldsInBounds blockPtr ctx hbl
-  argument i (iInBounds : i < block.arguments.size) : block.arguments[i].index = i
-  argument_owners i (iInBounds : i < block.arguments.size) : block.arguments[i].owner = blockPtr
+  argument i (iInBounds : i < blockPtr.getNumArguments ctx) : ((blockPtr.getArgument i).get ctx).index = i
+  argument_owners i (iInBounds : i < blockPtr.getNumArguments ctx) : ((blockPtr.getArgument i).get ctx).owner = blockPtr
 
 structure Region.WellFormed (region : Region) (ctx : IRContext) (regionPtr : RegionPtr) where
   inBounds : region.FieldsInBounds ctx
@@ -299,18 +299,13 @@ theorem IRContext.Block_WellFormed_unchanged
     (blockPtrInBounds' : blockPtr.InBounds ctx')
     (hWf : (blockPtr.get ctx blockPtrInBounds).WellFormed ctx blockPtr blockPtrInBounds)
     (hInBounds' : Block.FieldsInBounds blockPtr ctx' blockPtrInBounds')
-    (hSameNumArguments :
-      (blockPtr.get ctx blockPtrInBounds).arguments.size = (blockPtr.get ctx' blockPtrInBounds').arguments.size)
+    (hSameNumArguments : blockPtr.getNumArguments ctx = blockPtr.getNumArguments ctx')
     (hSameArgumentOwner :
-      let block := blockPtr.get ctx blockPtrInBounds
-      let block' := blockPtr.get ctx' blockPtrInBounds'
-      ∀ i (iInBounds : i < block.arguments.size),
-      block.arguments[i].owner = block'.arguments[i].owner)
+      ∀ i (iInBounds : i < blockPtr.getNumArguments ctx),
+      ((blockPtr.getArgument i).get ctx).owner = ((blockPtr.getArgument i).get ctx').owner)
     (hSameArgumentIndex :
-      let block := blockPtr.get ctx blockPtrInBounds
-      let block' := blockPtr.get ctx' blockPtrInBounds'
-      ∀ i (iInBounds : i < block.arguments.size),
-      block.arguments[i].index = block'.arguments[i].index) :
+      ∀ i (iInBounds : i < blockPtr.getNumArguments ctx),
+      ((blockPtr.getArgument i).get ctx).index = ((blockPtr.getArgument i).get ctx').index) :
     (blockPtr.get ctx' blockPtrInBounds').WellFormed ctx' blockPtr blockPtrInBounds':= by
   constructor <;> grind [Block.WellFormed]
 

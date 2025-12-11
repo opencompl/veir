@@ -16,7 +16,7 @@ attribute [local grind] OpResultPtr.get! OpResultPtr.setFirstUse OpResultPtr.set
 attribute [local grind] BlockArgumentPtr.get! BlockArgumentPtr.setFirstUse BlockArgumentPtr.set
 attribute [local grind] OperationPtr.setOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.setProperties  OperationPtr.pushOperand OperationPtr.allocEmpty OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors!
 attribute [local grind] Operation.empty
-attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty
+attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty BlockPtr.getNumArguments!
 attribute [local grind] Option.maybe
 attribute [local grind] OpOperandPtr.get! BlockOperandPtr.get! OpResultPtr.get! BlockArgumentPtr.get! OperationPtr.get!
 attribute [local grind] BlockOperandPtr.setBack BlockOperandPtr.setNextUse BlockOperandPtr.setOwner BlockOperandPtr.setValue
@@ -35,8 +35,6 @@ setup_grind_for_basic_proofs
  -   * Block.parent
  -   * Block.firstOp
  -   * Block.lastOp
- -   * Block.arguments with optionally a special case for:
- -     * Block.arguments.size
  - * OperationPtr.get! with optionally special cases for:
  -   * Operation.prev
  -   * Operation.next
@@ -53,6 +51,7 @@ setup_grind_for_basic_proofs
  - * OperationPtr.getNumRegions!
  - * OperationPtr.getRegion!
  - * BlockOperandPtrPtr.get!
+ - * BlockPtr.getNumArguments!
  - * BlockArgumentPtr.get!
  - * RegionPtr.get!
  - * ValuePtr.getFirstUse!
@@ -137,6 +136,12 @@ theorem OperationPtr.getRegion!_OperationPtr_allocEmpty  {operation : OperationP
 theorem BlockOperandPtrPtr.get!_OperationPtr_allocEmpty {blockOperandPtr : BlockOperandPtrPtr}
     (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
     blockOperandPtr.get! ctx' = blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem BlockPtr.getNumArguments!_OperationPtr_allocEmpty {block : BlockPtr}
+    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    block.getNumArguments! ctx' = block.getNumArguments! ctx := by
   grind
 
 @[simp, grind .]
@@ -286,6 +291,12 @@ theorem OperationPtr.getRegion!_OperationPtr_setOperands {operation : OperationP
 theorem BlockOperandPtrPtr.get!_OperationPtr_setOperands {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (OperationPtr.setOperands operation' ctx newOperands hop') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_setOperands {block : BlockPtr} {hop} :
+    block.getNumArguments! (OperationPtr.setOperands op ctx newOperands hop) =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -445,6 +456,12 @@ theorem BlockOperandPtrPtr.get!_OperationPtr_pushOperand {blockOperandPtr : Bloc
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_pushOperand {block : BlockPtr} {hop} :
+    block.getNumArguments! (OperationPtr.pushOperand op ctx newOperand hop) =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_OperationPtr_pushOperand {blockArg : BlockArgumentPtr} :
     blockArg.get! (OperationPtr.pushOperand operation' ctx newOperand hop') =
     blockArg.get! ctx := by
@@ -598,6 +615,12 @@ theorem OperationPtr.getRegion!_OperationPtr_setResults {operation : OperationPt
 theorem BlockOperandPtrPtr.get!_OperationPtr_setResults {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (OperationPtr.setResults operation' ctx newResults hop') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_setResults {block : BlockPtr} {hop} :
+    block.getNumArguments! (OperationPtr.setResults op ctx newResults hop) =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -764,6 +787,12 @@ theorem BlockOperandPtrPtr.get!_OperationPtr_pushResult {blockOperandPtr : Block
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_pushResult {block : BlockPtr} {hop} :
+    block.getNumArguments! (OperationPtr.pushResult op ctx newResult hop) =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_OperationPtr_pushResult {blockArg : BlockArgumentPtr} :
     blockArg.get! (OperationPtr.pushResult operation' ctx newResult hop') =
     blockArg.get! ctx := by
@@ -916,6 +945,12 @@ theorem BlockOperandPtrPtr.get!_OperationPtr_setProperties {blockOperandPtr : Bl
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_setProperties {block : BlockPtr} {hop} :
+    block.getNumArguments! (OperationPtr.setProperties op ctx newProperties hop) =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_OperationPtr_setProperties {blockArg : BlockArgumentPtr} :
     blockArg.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
     blockArg.get! ctx := by
@@ -1065,6 +1100,12 @@ theorem BlockOperandPtrPtr.get!_OperationPtr_setRegions {blockOperandPtr : Block
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_setRegions {block : BlockPtr} {hop} :
+    block.getNumArguments! (OperationPtr.setRegions op ctx newRegions hop) =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_OperationPtr_setRegions {blockArg : BlockArgumentPtr} :
     blockArg.get! (OperationPtr.setRegions operation' ctx newRegions hop') =
     blockArg.get! ctx := by
@@ -1147,21 +1188,6 @@ theorem BlockPtr.lastOp!_BlockArgumentPtr_setType {block : BlockPtr} :
     (block.get! ctx).lastOp := by
   grind
 
-@[grind =]
-theorem BlockPtr.arguments!_BlockArgumentPtr_setType {block : BlockPtr} :
-    (block.get! (BlockArgumentPtr.setType arg' ctx newType harg')).arguments =
-    if arg'.block = block then
-      (block.get! ctx).arguments.set! arg'.index { arg'.get! ctx with type := newType }
-    else
-      (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.arguments!.size_BlockArgumentPtr_setType {block : BlockPtr} :
-    (block.get! (BlockArgumentPtr.setType arg' ctx newType harg')).arguments.size =
-    (block.get! ctx).arguments.size := by
-  grind
-
 @[simp, grind =]
 theorem OperationPtr.get!_BlockArgumentPtr_setType {operation : OperationPtr} :
     operation.get! (BlockArgumentPtr.setType arg' ctx newType harg') =
@@ -1220,6 +1246,12 @@ theorem OperationPtr.getRegion!_BlockArgumentPtr_setType {operation : OperationP
 theorem BlockOperandPtrPtr.get!_BlockArgumentPtr_setType {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (BlockArgumentPtr.setType arg' ctx newType harg') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockArgumentPtr_setType {block : BlockPtr} {hop} :
+    block.getNumArguments! (BlockArgumentPtr.setType op ctx newType hop) =
+    block.getNumArguments! ctx := by
   grind
 
 @[grind =]
@@ -1308,21 +1340,6 @@ theorem BlockPtr.lastOp!_BlockArgumentPtr_setFirstUse {block : BlockPtr} :
     (block.get! ctx).lastOp := by
   grind
 
-@[grind =]
-theorem BlockPtr.arguments!_BlockArgumentPtr_setFirstUse {block : BlockPtr} :
-    (block.get! (BlockArgumentPtr.setFirstUse arg' ctx newFirstUse harg' )).arguments =
-    if arg'.block = block then
-      (block.get! ctx).arguments.set! arg'.index { arg'.get! ctx with firstUse := newFirstUse }
-    else
-      (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.arguments!.size_BlockArgumentPtr_setFirstUse {block : BlockPtr} :
-    (block.get! (BlockArgumentPtr.setFirstUse arg' ctx newFirstUse harg')).arguments.size =
-    (block.get! ctx).arguments.size := by
-  grind
-
 @[simp, grind =]
 theorem OperationPtr.get!_BlockArgumentPtr_setFirstUse {operation : OperationPtr} :
     operation.get! (BlockArgumentPtr.setFirstUse arg' ctx newFirstUse harg') =
@@ -1381,6 +1398,12 @@ theorem OperationPtr.getRegion!_BlockArgumentPtr_setFirstUse {operation : Operat
 theorem BlockOperandPtrPtr.get!_BlockArgumentPtr_setFirstUse {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (BlockArgumentPtr.setFirstUse arg' ctx newFirstUse harg') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockArgumentPtr_setFirstUse {block : BlockPtr} {hop} :
+    block.getNumArguments! (BlockArgumentPtr.setFirstUse op ctx newFirstUse hop) =
+    block.getNumArguments! ctx := by
   grind
 
 @[grind =]
@@ -1475,21 +1498,6 @@ theorem BlockPtr.lastOp!_BlockArgumentPtr_setLoc {block : BlockPtr} :
     (block.get! ctx).lastOp := by
   grind
 
-@[grind =]
-theorem BlockPtr.arguments!_BlockArgumentPtr_setLoc {block : BlockPtr} :
-    (block.get! (BlockArgumentPtr.setLoc arg' ctx newLoc harg')).arguments =
-    if arg'.block = block then
-      (block.get! ctx).arguments.set! arg'.index { arg'.get! ctx with loc := newLoc }
-    else
-      (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.arguments!.size_BlockArgumentPtr_setLoc {block : BlockPtr} :
-    (block.get! (BlockArgumentPtr.setLoc arg' ctx newLoc harg')).arguments.size =
-    (block.get! ctx).arguments.size := by
-  grind
-
 @[simp, grind =]
 theorem OperationPtr.get!_BlockArgumentPtr_setLoc {operation : OperationPtr} :
     operation.get! (BlockArgumentPtr.setLoc arg' ctx newLoc harg') =
@@ -1548,6 +1556,12 @@ theorem OperationPtr.getRegion!_BlockArgumentPtr_setLoc {operation : OperationPt
 theorem BlockOperandPtrPtr.get!_BlockArgumentPtr_setLoc {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (BlockArgumentPtr.setLoc arg' ctx newLoc harg') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockArgumentPtr_setLoc {block : BlockPtr} {hop} :
+    block.getNumArguments! (BlockArgumentPtr.setLoc op ctx newLoc hop) =
+    block.getNumArguments! ctx := by
   grind
 
 @[grind =]
@@ -1659,6 +1673,13 @@ theorem OperationPtr.getRegion!_BlockPtr_allocEmpty {operation : OperationPtr}
   grind
 
 @[simp, grind .]
+theorem BlockPtr.getNumArguments!_BlockPtr_allocEmpty {block : BlockPtr}
+    (heq : BlockPtr.allocEmpty ctx = some (ctx', bl')) :
+    block.getNumArguments! ctx' =
+    if block = bl' then 0 else block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind .]
 theorem BlockArgumentPtr.get!_BlockPtr_allocEmpty {blockArg : BlockArgumentPtr}
     (heq : BlockPtr.allocEmpty ctx = some (ctx', bl')) :
     blockArg.get! ctx' = blockArg.get! ctx := by
@@ -1745,12 +1766,6 @@ theorem BlockPtr.lastOp!_BlockPtr_setParent {block : BlockPtr} :
   grind
 
 @[simp, grind =]
-theorem BlockPtr.arguments!_BlockPtr_setParent {block : BlockPtr} :
-    (block.get! (BlockPtr.setParent block' ctx newParent hblock')).arguments =
-    (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.get!_BlockPtr_setParent {operation : OperationPtr} :
     operation.get! (BlockPtr.setParent block' ctx newParent hblock') =
     operation.get! ctx := by
@@ -1808,6 +1823,12 @@ theorem OperationPtr.getRegion!_BlockPtr_setParent {operation : OperationPtr} :
 theorem BlockOperandPtrPtr.get!_BlockPtr_setParent {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (BlockPtr.setParent block' ctx newParent hblock') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockPtr_setParent {block : BlockPtr} :
+    block.getNumArguments! (BlockPtr.setParent block' ctx newParent hblock') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -1898,12 +1919,6 @@ theorem BlockPtr.lastOp!_BlockPtr_setFirstUse {block : BlockPtr} :
   grind
 
 @[simp, grind =]
-theorem BlockPtr.arguments!_BlockPtr_setFirstUse {block : BlockPtr} :
-    (block.get! (BlockPtr.setFirstUse block' ctx newFirstUse hblock')).arguments =
-    (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.get!_BlockPtr_setFirstUse {operation : OperationPtr} :
     operation.get! (BlockPtr.setFirstUse block' ctx newFirstUse hblock') =
     operation.get! ctx := by
@@ -1964,6 +1979,12 @@ theorem BlockOperandPtrPtr.get!_BlockPtr_setFirstUse {blockOperandPtr : BlockOpe
       newFirstUse
     else
       blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockPtr_setFirstUse {block : BlockPtr} :
+    block.getNumArguments! (BlockPtr.setFirstUse block' ctx newFirstUse hblock') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -2054,12 +2075,6 @@ theorem BlockPtr.lastOp!_BlockPtr_setFirstOp {block : BlockPtr} :
   grind
 
 @[simp, grind =]
-theorem BlockPtr.arguments!_BlockPtr_setFirstOp {block : BlockPtr} :
-    (block.get! (BlockPtr.setFirstOp block' ctx newFirstOp hblock')).arguments =
-    (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.get!_BlockPtr_setFirstOp {operation : OperationPtr} :
     operation.get! (BlockPtr.setFirstOp block' ctx newFirstOp hblock') =
     operation.get! ctx := by
@@ -2117,6 +2132,12 @@ theorem OperationPtr.getRegion!_BlockPtr_setFirstOp {operation : OperationPtr} :
 theorem BlockOperandPtrPtr.get!_BlockPtr_setFirstOp {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (BlockPtr.setFirstOp block' ctx newFirstOp hblock') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockPtr_setFirstOp {block : BlockPtr} :
+    block.getNumArguments! (BlockPtr.setFirstOp block' ctx newFirstOp hblock') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -2207,12 +2228,6 @@ theorem BlockPtr.lastOp!_BlockPtr_setLastOp {block : BlockPtr} :
   grind
 
 @[simp, grind =]
-theorem BlockPtr.arguments!_BlockPtr_setLastOp {block : BlockPtr} :
-    (block.get! (BlockPtr.setLastOp block' ctx newLastOp hblock')).arguments =
-    (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.get!_BlockPtr_setLastOp {operation : OperationPtr} :
     operation.get! (BlockPtr.setLastOp block' ctx newLastOp hblock') =
     operation.get! ctx := by
@@ -2270,6 +2285,12 @@ theorem OperationPtr.getRegion!_BlockPtr_setLastOp {operation : OperationPtr} :
 theorem BlockOperandPtrPtr.get!_BlockPtr_setLastOp {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (BlockPtr.setLastOp block' ctx newLastOp hblock') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockPtr_setLastOp {block : BlockPtr} :
+    block.getNumArguments! (BlockPtr.setLastOp block' ctx newLastOp hblock') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -2359,12 +2380,6 @@ theorem BlockPtr.lastOp!_BlockPtr_setNextBlock {block : BlockPtr} :
   grind
 
 @[simp, grind =]
-theorem BlockPtr.arguments!_BlockPtr_setNextBlock {block : BlockPtr} :
-    (block.get! (BlockPtr.setNextBlock block' ctx newNextBlock hblock')).arguments =
-    (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.get!_BlockPtr_setNextBlock {operation : OperationPtr} :
     operation.get! (BlockPtr.setNextBlock block' ctx newNextBlock hblock') =
     operation.get! ctx := by
@@ -2422,6 +2437,12 @@ theorem OperationPtr.getRegion!_BlockPtr_setNextBlock {operation : OperationPtr}
 theorem BlockOperandPtrPtr.get!_BlockPtr_setNextBlock {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (BlockPtr.setNextBlock block' ctx newNextBlock hblock') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockPtr_setNextBlock {block : BlockPtr} :
+    block.getNumArguments! (BlockPtr.setNextBlock block' ctx newNextBlock hblock') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -2512,12 +2533,6 @@ theorem BlockPtr.lastOp!_BlockPtr_setPrevBlock {block : BlockPtr} :
   grind
 
 @[simp, grind =]
-theorem BlockPtr.arguments!_BlockPtr_setPrevBlock {block : BlockPtr} :
-    (block.get! (BlockPtr.setPrevBlock block' ctx newPrevBlock hblock')).arguments =
-    (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
 theorem OperationPtr.get!_BlockPtr_setPrevBlock {operation : OperationPtr} :
     operation.get! (BlockPtr.setPrevBlock block' ctx newPrevBlock hblock') =
     operation.get! ctx := by
@@ -2575,6 +2590,12 @@ theorem OperationPtr.getRegion!_BlockPtr_setPrevBlock {operation : OperationPtr}
 theorem BlockOperandPtrPtr.get!_BlockPtr_setPrevBlock {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (BlockPtr.setPrevBlock block' ctx newPrevBlock hblock') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockPtr_setPrevBlock {block : BlockPtr} :
+    block.getNumArguments! (BlockPtr.setPrevBlock block' ctx newPrevBlock hblock') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -2723,6 +2744,12 @@ theorem OperationPtr.getRegion!_OpOperandPtr_setNextUse {operation : OperationPt
 theorem BlockOperandPtrPtr.get!_OpOperandPtr_setNextUse {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (OpOperandPtr.setNextUse operand' ctx newNextUse hoperand') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OpOperandPtr_setNextUse {block : BlockPtr} :
+    block.getNumArguments! (OpOperandPtr.setNextUse operand' ctx newNextUse hoperand') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -2876,6 +2903,12 @@ theorem BlockOperandPtrPtr.get!_OpOperandPtr_setBack {blockOperandPtr : BlockOpe
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_OpOperandPtr_setBack {block : BlockPtr} :
+    block.getNumArguments! (OpOperandPtr.setBack operand' ctx newBack hoperand') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_OpOperandPtr_setBack {arg : BlockArgumentPtr} :
     arg.get! (OpOperandPtr.setBack operand' ctx newBack hoperand') =
     arg.get! ctx := by
@@ -3024,6 +3057,12 @@ theorem BlockOperandPtrPtr.get!_OpOperandPtr_setOwner {blockOperandPtr : BlockOp
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_OpOperandPtr_setOwner {block : BlockPtr} :
+    block.getNumArguments! (OpOperandPtr.setOwner operand' ctx newOwner hoperand') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_OpOperandPtr_setOwner {arg : BlockArgumentPtr} :
     arg.get! (OpOperandPtr.setOwner operand' ctx newOwner hoperand') =
     arg.get! ctx := by
@@ -3168,6 +3207,12 @@ theorem OperationPtr.getRegion!_OpOperandPtr_setValue {operation : OperationPtr}
 theorem BlockOperandPtrPtr.get!_OpOperandPtr_setValue {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (OpOperandPtr.setValue operand' ctx newValue hoperand') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OpOperandPtr_setValue {block : BlockPtr} :
+    block.getNumArguments! (OpOperandPtr.setValue operand' ctx newValue hoperand') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -3321,6 +3366,12 @@ theorem OperationPtr.getRegion!_OpResultPtr_setType {operation : OperationPtr} :
 theorem BlockOperandPtrPtr.get!_OpResultPtr_setType {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (OpResultPtr.setType result' ctx newType hresult') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OpResultPtr_setType {block : BlockPtr} :
+    block.getNumArguments! (OpResultPtr.setType result' ctx newType hresult') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -3478,6 +3529,12 @@ theorem BlockOperandPtrPtr.get!_OpResultPtr_setFirstUse {blockOperandPtr : Block
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_OpResultPtr_setFirstUse {block : BlockPtr} :
+    block.getNumArguments! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_OpResultPtr_setFirstUse {arg : BlockArgumentPtr} :
     arg.get! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult') =
     arg.get! ctx := by
@@ -3589,6 +3646,12 @@ theorem BlockOperandPtrPtr.get!_RegionPtr_setParent {blockOperandPtr : BlockOper
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_RegionPtr_setParent {block : BlockPtr} :
+    block.getNumArguments! (RegionPtr.setParent region' ctx newParent hregion') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_RegionPtr_setParent {arg : BlockArgumentPtr} :
     arg.get! (RegionPtr.setParent region' ctx newParent hregion') =
     arg.get! ctx := by
@@ -3693,6 +3756,12 @@ theorem OperationPtr.getRegion!_RegionPtr_setFirstBlock {operation : OperationPt
 theorem BlockOperandPtrPtr.get!_RegionPtr_setFirstBlock {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (RegionPtr.setFirstBlock region' ctx hregion' newFirstBlock) =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_RegionPtr_setFirstBlock {block : BlockPtr} :
+    block.getNumArguments! (RegionPtr.setFirstBlock region' ctx newFirstBlock hregion') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -3804,6 +3873,12 @@ theorem BlockOperandPtrPtr.get!_RegionPtr_setLastBlock {blockOperandPtr : BlockO
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_RegionPtr_setLastBlock {block : BlockPtr} :
+    block.getNumArguments! (RegionPtr.setLastBlock region' ctx newLastBlock hregion') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_RegionPtr_setLastBlock {arg : BlockArgumentPtr} :
     arg.get! (RegionPtr.setLastBlock region' ctx newLastBlock hregion') =
     arg.get! ctx := by
@@ -3891,24 +3966,6 @@ theorem BlockPtr.firstOp!_ValuePtr_setType {block : BlockPtr} :
 theorem BlockPtr.lastOp!_ValuePtr_setType {block : BlockPtr} :
     (block.get! (ValuePtr.setType value' ctx newType hvalue')).lastOp =
     (block.get! ctx).lastOp := by
-  grind
-
-@[grind =]
-theorem BlockPtr.arguments!_ValuePtr_setType {block : BlockPtr} :
-    (block.get! (ValuePtr.setType value' ctx newType hvalue')).arguments =
-    match value' with
-    | ValuePtr.opResult _ => (block.get! ctx).arguments
-    | ValuePtr.blockArgument ba =>
-      if ba.block = block then
-        (block.get! ctx).arguments.set! ba.index { ba.get! ctx with type := newType }
-      else
-        (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.arguments!.size_ValuePtr_setType {block : BlockPtr} :
-    (block.get! (ValuePtr.setType value' ctx newType hvalue')).arguments.size =
-    (block.get! ctx).arguments.size := by
   grind
 
 @[grind =]
@@ -4023,6 +4080,12 @@ theorem BlockOperandPtrPtr.get!_ValuePtr_setType {blockOperandPtr : BlockOperand
     blockOperandPtr.get! ctx := by
   grind
 
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_ValuePtr_setType {block : BlockPtr} :
+    block.getNumArguments! (ValuePtr.setType value' ctx newType hvalue') =
+    block.getNumArguments! ctx := by
+  grind
+
 @[grind =]
 theorem BlockArgumentPtr.get!_ValuePtr_setType {arg : BlockArgumentPtr} :
     arg.get! (ValuePtr.setType value' ctx newType hvalue') =
@@ -4114,24 +4177,6 @@ theorem BlockPtr.firstOp!_ValuePtr_setFirstUse {block : BlockPtr} :
 theorem BlockPtr.lastOp!_ValuePtr_setFirstUse {block : BlockPtr} :
     (block.get! (ValuePtr.setFirstUse value' ctx newType hvalue')).lastOp =
     (block.get! ctx).lastOp := by
-  grind
-
-@[grind =]
-theorem BlockPtr.arguments!_ValuePtr_setFirstUse {block : BlockPtr} :
-    (block.get! (ValuePtr.setFirstUse value' ctx newType hvalue')).arguments =
-    match value' with
-    | ValuePtr.opResult _ => (block.get! ctx).arguments
-    | ValuePtr.blockArgument ba =>
-      if ba.block = block then
-        (block.get! ctx).arguments.set! ba.index { ba.get! ctx with firstUse := newType }
-      else
-        (block.get! ctx).arguments := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.arguments!.size_ValuePtr_setFirstUse {block : BlockPtr} :
-    (block.get! (ValuePtr.setFirstUse value' ctx newType hvalue')).arguments.size =
-    (block.get! ctx).arguments.size := by
   grind
 
 @[grind =]
@@ -4246,6 +4291,12 @@ theorem BlockOperandPtrPtr.get!_ValuePtr_setFirstUse {blockOperandPtr : BlockOpe
     blockOperandPtr.get! ctx := by
   grind
 
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_ValuePtr_setFirstUse {block : BlockPtr} :
+    block.getNumArguments! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue') =
+    block.getNumArguments! ctx := by
+  grind
+
 @[grind =]
 theorem BlockArgumentPtr.get!_ValuePtr_setFirstUse {arg : BlockArgumentPtr} :
     arg.get! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue') =
@@ -4348,30 +4399,6 @@ theorem BlockPtr.firstOp!_OpOperandPtrPtr_set {block : BlockPtr} :
 theorem BlockPtr.lastOp!_OpOperandPtrPtr_set {block : BlockPtr} :
     (block.get! (OpOperandPtrPtr.set ptr' ctx hptr' newPtr)).lastOp =
     (block.get! ctx).lastOp := by
-  grind
-
-@[grind =]
-theorem BlockPtr.arguments!_OpOperandPtrPtr_set {block : BlockPtr} :
-    (block.get! (OpOperandPtrPtr.set ptr' ctx newPtr hptr')).arguments =
-    match ptr' with
-    | .valueFirstUse (.blockArgument arg) =>
-      if arg.block = block then
-        (block.get! ctx).arguments.set! arg.index { arg.get! ctx with firstUse := newPtr }
-      else
-        (block.get! ctx).arguments
-    | _ => (block.get! ctx).arguments := by
-  cases ptr'
-  · grind
-  · split
-    · grind
-    · simp only [OpOperandPtrPtr.set_valueFirstUse, get!_ValuePtr_setFirstUse,
-      Array.set!_eq_setIfInBounds]
-      split <;> grind
-
-@[simp, grind =]
-theorem BlockPtr.arguments!.size_OpOperandPtrPtr_set {block : BlockPtr} :
-    (block.get! (OpOperandPtrPtr.set ptr' ctx hptr' newPtr)).arguments.size =
-    (block.get! ctx).arguments.size := by
   grind
 
 @[grind =]
@@ -4494,6 +4521,12 @@ theorem OperationPtr.getRegion!_OpOperandPtrPtr_set {operation : OperationPtr} :
 theorem BlockOperandPtrPtr.get!_OpOperandPtrPtr_set {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (OpOperandPtrPtr.set ptr' ctx newPtr hptr') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OpOperandPtrPtr_set {block : BlockPtr} :
+    block.getNumArguments! (OpOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    block.getNumArguments! ctx := by
   grind
 
 @[grind =]
@@ -4652,6 +4685,12 @@ theorem BlockOperandPtrPtr.get!_OperationPtr_setNextOp {blockOperandPtr : BlockO
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_setNextOp {block : BlockPtr} :
+    block.getNumArguments! (OperationPtr.setNextOp op' ctx newNextOp hop') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_OperationPtr_setNextOp {arg : BlockArgumentPtr} :
     arg.get! (OperationPtr.setNextOp op' ctx newNextOp hop') =
     arg.get! ctx := by
@@ -4800,6 +4839,12 @@ theorem BlockOperandPtrPtr.get!_OperationPtr_setPrevOp {blockOperandPtr : BlockO
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_setPrevOp {block : BlockPtr} :
+    block.getNumArguments! (OperationPtr.setPrevOp op' ctx newPrevOp hop') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_OperationPtr_setPrevOp {arg : BlockArgumentPtr} :
     arg.get! (OperationPtr.setPrevOp op' ctx newPrevOp hop') =
     arg.get! ctx := by
@@ -4943,6 +4988,12 @@ theorem OperationPtr.getRegion!_OperationPtr_setParent {operation : OperationPtr
 theorem BlockOperandPtrPtr.get!_OperationPtr_setParent {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (OperationPtr.setParent op' ctx newParent hop') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_setParent {block : BlockPtr} :
+    block.getNumArguments! (OperationPtr.setParent op' ctx newParent hop') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -5096,6 +5147,12 @@ theorem BlockOperandPtrPtr.get!_BlockOperandPtr_setNextUse {blockOperandPtr : Bl
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockOperandPtr_setNextUse {block : BlockPtr} :
+    block.getNumArguments! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_BlockOperandPtr_setNextUse {arg : BlockArgumentPtr} :
     arg.get! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand') =
     arg.get! ctx := by
@@ -5240,6 +5297,12 @@ theorem OperationPtr.getRegion!_BlockOperandPtr_setBack {operation : OperationPt
 theorem BlockOperandPtrPtr.get!_BlockOperandPtr_setBack {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (BlockOperandPtr.setBack operand' ctx newBack hoperand') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockOperandPtr_setBack {block : BlockPtr} :
+    block.getNumArguments! (BlockOperandPtr.setBack operand' ctx newBack hoperand') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -5391,6 +5454,12 @@ theorem BlockOperandPtrPtr.get!_BlockOperandPtr_setOwner {blockOperandPtr : Bloc
   grind
 
 @[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockOperandPtr_setOwner {block : BlockPtr} :
+    block.getNumArguments! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
 theorem BlockArgumentPtr.get!_BlockOperandPtr_setOwner {arg : BlockArgumentPtr} :
     arg.get! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand') =
     arg.get! ctx := by
@@ -5536,6 +5605,12 @@ theorem OperationPtr.getRegion!_BlockOperandPtr_setValue {operation : OperationP
 theorem BlockOperandPtrPtr.get!_BlockOperandPtr_setValue {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (BlockOperandPtr.setValue operand' ctx newValue hoperand') =
     blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockOperandPtr_setValue {block : BlockPtr} :
+    block.getNumArguments! (BlockOperandPtr.setValue operand' ctx newValue hoperand') =
+    block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
@@ -5944,60 +6019,6 @@ theorem BlockPtr.getPrev_OpOperandPtrPtr_set :
 theorem BlockPtr.getPrev_OpOperandPtr_setValue :
     (block.get (OpOperandPtr.setValue operand ctx newValue h') h''').prev =
     (block.get ctx (by grind)).prev := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.getNumArguments_OpOperandPtr_setValue :
-    (BlockPtr.get block (OpOperandPtr.setValue use ctx value operandInBounds) hb).arguments.size =
-    (BlockPtr.get block ctx (by grind)).arguments.size := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.getArgumentOwner_OpOperandPtr_setValue {i : Nat} {hi} :
-    ((BlockPtr.get block (OpOperandPtr.setValue use ctx value operandInBounds) hb).arguments[i]'(hi)).owner =
-    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).owner := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.getArgumentIndex_OpOperandPtr_setValue {i : Nat} {hi} :
-    ((BlockPtr.get block (OpOperandPtr.setValue use ctx value operandInBounds) hb).arguments[i]'(hi)).index =
-    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).index := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.getNumArguments_OpOperandPtrPtr_set :
-    (BlockPtr.get block (OpOperandPtrPtr.set ptrPtr ctx v h₁) hb).arguments.size =
-    (BlockPtr.get block ctx (by grind)).arguments.size := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.getArgumentOwner_OpOperandPtrPtr_set {i : Nat} {hi} :
-    ((BlockPtr.get block (OpOperandPtrPtr.set ptrPtr ctx v h₁) hb).arguments[i]'(hi)).owner =
-    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).owner := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.getArgumentIndex_OpOperandPtrPtr_set {i : Nat} {hi} :
-    ((BlockPtr.get block (OpOperandPtrPtr.set ptrPtr ctx v h₁) hb).arguments[i]'(hi)).index =
-    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).index := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.getNumArguments_OpOperandPtr_setBack :
-    (BlockPtr.get block (OpOperandPtr.setBack operandPtr ctx v h₁) hb).arguments.size =
-    (BlockPtr.get block ctx (by grind)).arguments.size := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.getArgumentOwner_OpOperandPtr_setBack {i : Nat} {hi} :
-    ((BlockPtr.get block (OpOperandPtr.setBack operandPtr ctx v h₁) hb).arguments[i]'(hi)).owner =
-    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).owner := by
-  grind
-
-@[simp, grind =]
-theorem BlockPtr.getArgumentIndex_OpOperandPtr_setBack {i : Nat} {hi} :
-    ((BlockPtr.get block (OpOperandPtr.setBack operandPtr ctx v h₁) hb).arguments[i]'(hi)).index =
-    ((BlockPtr.get block ctx (by grind)).arguments[i]'(by grind)).index := by
   grind
 
 end block

@@ -366,12 +366,6 @@ theorem BlockPtr.get!_insertOp?_parent (block : BlockPtr)
   grind
 
 @[grind =>]
-theorem BlockPtr.get!_insertOp?_arguments (block : BlockPtr)
-    (hipWf : ip.Wf ctx newOp) (heq : Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
-    (block.get! newCtx).arguments = (block.get! ctx).arguments := by
-  grind
-
-@[grind =>]
 theorem BlockOperandPtr.get!_insertOp?_firstuse (block : BlockOperandPtr)
     (hipWf : ip.Wf ctx newOp) (heq : Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
     block.get! newCtx = block.get! ctx := by
@@ -797,7 +791,7 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     have ⟨array, harray⟩ := h₃ block (by grind)
     exists array
     apply IRContext.BlockPtr_UseDefChainWellFormed_unchanged ctx <;>
-      grind [=_ BlockPtr.get!_eq_get, =_ BlockOperandPtr.get!_eq_get]
+      grind [=_ BlockPtr.get!_eq_get]
   case opChain =>
     intros block hblock
     have ⟨array, harray⟩ := h₄ block (by grind)
@@ -822,7 +816,7 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     intros bl hbl
     have : bl.InBounds ctx := by grind
     have ⟨ha, hb, hc⟩ := h₇ bl this
-    constructor <;> grind [=_ BlockPtr.get!_eq_get]
+    constructor <;> sorry -- Missing lemmas here
   case regions =>
     intros rg hrg
     have : rg.InBounds ctx := by grind

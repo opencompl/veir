@@ -22,6 +22,7 @@ macro "setup_grind_for_basic_proofs" : command => `(
     BlockOperandPtrPtr.get BlockOperandPtrPtr.set
     BlockArgumentPtr.setLoc BlockPtr.InBounds OperationPtr.getNumResults
     OperationPtr.getNumOperands OpOperandPtr.InBounds OperationPtr.getNumSuccessors
+    BlockPtr.getNumArguments BlockArgumentPtr.InBounds
 )
 
 setup_grind_for_basic_proofs
@@ -413,6 +414,12 @@ attribute [local grind]
   Block.empty
 
 variable {block : BlockPtr} (h : block.InBounds ctx)
+
+@[grind .]
+theorem BlockPtr.getArgument_inBounds (block : BlockPtr)
+    (hblock : block.InBounds ctx) i (h₂ : i < block.getNumArguments ctx hblock) :
+    (block.getArgument i).InBounds ctx := by
+  grind [getArgument]
 
 @[grind =]
 theorem BlockPtr.setParent_genericPtr_mono (ptr : GenericPtr)  :

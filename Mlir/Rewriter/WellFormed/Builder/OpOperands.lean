@@ -224,25 +224,21 @@ theorem Builder.BlockPtr_get_pushOperand_next (bl : BlockPtr) (hin : bl.InBounds
   grind
 
 @[simp, grind =]
-theorem OpOperandPtr.BlockPtr_get_pushOperand_arguments_size (bl : BlockPtr) (h : bl.InBounds ctx) valuePtr valuePtrInBounds :
-    (bl.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)).arguments.size =
-    (bl.get ctx).arguments.size := by
-  unfold Builder.pushOperand
-  simp
-  rw [OpOperandPtr.BlockPtr_get_insertIntoCurrent_arguments_size] <;> grind [Builder.pushOperand]
-
-@[simp, grind =]
-theorem OpOperandPtr.BlockPtr_get_pushOperand_arguments_index (bl : BlockPtr) (h : bl.InBounds ctx) valuePtr valuePtrInBounds
-    (i : Nat) (hi : i < (bl.get ctx).arguments.size) :
-    ((bl.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)).arguments[i]'(by grind)).index =
-    ((bl.get ctx).arguments[i]'hi).index := by
+theorem BlockPtr.getNumArguments!_Builder_pushOperand :
+    BlockPtr.getNumArguments! block (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+    BlockPtr.getNumArguments! block ctx := by
   grind [Builder.pushOperand]
 
 @[simp, grind =]
-theorem OpOperandPtr.BlockPtr_get_pushOperand_arguments_owner (bl : BlockPtr) (h : bl.InBounds ctx) valuePtr valuePtrInBounds
-    (i : Nat) (hi : i < (bl.get ctx).arguments.size) :
-    ((bl.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)).arguments[i]'(by grind)).owner =
-    ((bl.get ctx).arguments[i]'hi).owner := by
+theorem BlockArgumentPtr.index!_Builder_pushOperand :
+    (BlockArgumentPtr.get! arg (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)).index =
+    (BlockArgumentPtr.get! arg ctx).index := by
+  grind [Builder.pushOperand]
+
+@[simp, grind =]
+theorem BlockArgumentPtr.owner!_Builder_pushOperand :
+    (BlockArgumentPtr.get! arg (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)).owner =
+    (BlockArgumentPtr.get! arg ctx).owner := by
   grind [Builder.pushOperand]
 
 @[grind =]

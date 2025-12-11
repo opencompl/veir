@@ -754,6 +754,30 @@ theorem BlockPtr.allocEmpty_def (heq : allocEmpty ctx = some (ctx', ptr')) :
     ctx' = BlockPtr.set ctx.nextID {ctx with nextID := ctx.nextID + 1} Block.empty := by
   grind [allocEmpty]
 
+def BlockPtr.getNumArguments (block: BlockPtr) (ctx: IRContext) (inBounds: block.InBounds ctx := by grind) : Nat :=
+  (block.get ctx (by grind)).arguments.size
+
+def BlockPtr.getNumArguments! (block: BlockPtr) (ctx: IRContext) : Nat :=
+  (block.get! ctx).arguments.size
+
+@[grind _=_]
+theorem BlockPtr.getNumArguments!_eq_getNumArguments {block : BlockPtr} (hin : block.InBounds ctx) :
+    block.getNumArguments! ctx = block.getNumArguments ctx (by grind) := by
+  grind [getNumArguments, getNumArguments!]
+
+def BlockPtr.getArgument (block: BlockPtr) (index: Nat) : BlockArgumentPtr :=
+  { block := block, index := index }
+
+@[simp, grind =]
+theorem BlockPtr.getArgument_index {block : BlockPtr} {index : Nat} :
+    (BlockPtr.getArgument block index).index = index := by
+  grind [getArgument]
+
+@[simp, grind =]
+theorem BlockPtr.getArgument_block {block : BlockPtr} {index : Nat} :
+    (BlockPtr.getArgument block index).block = block := by
+  grind [getArgument]
+
 /-
  BlockArgumentPtr accessors
 -/
@@ -761,7 +785,7 @@ theorem BlockPtr.allocEmpty_def (heq : allocEmpty ctx = some (ctx', ptr')) :
 def BlockArgumentPtr.InBounds (arg: BlockArgumentPtr) (ctx: IRContext) : Prop :=
   ∃ h, arg.index < (arg.block.get ctx h).arguments.size
 
-@[grind .]
+@[local grind .]
 theorem BlockArgumentPtr.inBounds_op (arg: BlockArgumentPtr) (ctx: IRContext) (h: arg.InBounds ctx) :
     arg.block ∈ ctx.blocks := by
   unfold InBounds at h
@@ -769,7 +793,7 @@ theorem BlockArgumentPtr.inBounds_op (arg: BlockArgumentPtr) (ctx: IRContext) (h
   cases h
   grind
 
-@[grind .]
+@[local grind .]
 theorem BlockArgumentPtr.inBounds_result? (arg: BlockArgumentPtr) (ctx: IRContext) (h: arg.InBounds ctx) :
     ∀ block, ctx.blocks[arg.block]? = some block →
     arg.index < block.arguments.size := by
@@ -779,7 +803,7 @@ theorem BlockArgumentPtr.inBounds_result? (arg: BlockArgumentPtr) (ctx: IRContex
   grind
 
 
-@[grind! .]
+@[local grind! .]
 theorem BlockArgumentPtr.inBounds_result (arg: BlockArgumentPtr) (ctx: IRContext) (h: arg.InBounds ctx) :
     arg.index < (ctx.blocks[arg.block]'(by grind)).arguments.size := by
   unfold InBounds at h
@@ -788,10 +812,10 @@ theorem BlockArgumentPtr.inBounds_result (arg: BlockArgumentPtr) (ctx: IRContext
   grind
 
 def BlockArgumentPtr.get (arg: BlockArgumentPtr) (ctx: IRContext) (argIn: arg.InBounds ctx := by grind) : BlockArgument :=
-  (ctx.blocks[arg.block]'(by grind)).arguments[arg.index]'(by grind)
+  (arg.block.get ctx (by grind [BlockArgumentPtr.InBounds])).arguments[arg.index]'(by grind [BlockArgumentPtr.InBounds])
 def BlockArgumentPtr.get! (arg: BlockArgumentPtr) (ctx: IRContext) : BlockArgument :=
-  ctx.blocks[arg.block]!.arguments[arg.index]!
-@[grind =]
+  (arg.block.get! ctx).arguments[arg.index]!
+@[grind _=_]
 theorem BlockArgumentPtr.get!_eq_get {ptr : BlockArgumentPtr} (hin : ptr.InBounds ctx) :
     ptr.get! ctx = ptr.get ctx hin := by
   grind [get, get!]
