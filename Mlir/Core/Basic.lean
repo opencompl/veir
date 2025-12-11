@@ -258,7 +258,7 @@ def OperationPtr.get (ptr: OperationPtr) (ctx: IRContext) (inBounds: ptr.InBound
 
 def OperationPtr.get! (ptr: OperationPtr) (ctx: IRContext) : Operation :=
   ctx.operations[ptr]!
-@[grind =]
+@[grind _=_]
 theorem OperationPtr.get!_eq_get {ptr : OperationPtr} (hin : ptr.InBounds ctx) :
     ptr.get! ctx = (ptr.get ctx hin) := by
   grind [get, get!, InBounds]
@@ -505,7 +505,7 @@ def OpOperandPtr.get (operand: OpOperandPtr) (ctx: IRContext) (operandIn: operan
   (operand.op.get ctx (by grind [OpOperandPtr.InBounds])).operands[operand.index]'(by grind [OpOperandPtr.InBounds, OperationPtr.getNumOperands])
 def OpOperandPtr.get! (operand: OpOperandPtr) (ctx: IRContext) : OpOperand :=
   (operand.op.get! ctx).operands[operand.index]!
-@[grind =]
+@[grind _=_]
 theorem OpOperandPtr.get!_eq_get {ptr : OpOperandPtr} (hin : ptr.InBounds ctx) :
     ptr.get! ctx = ptr.get ctx hin := by
   grind [get, get!]
@@ -705,7 +705,7 @@ def BlockPtr.InBounds (block: BlockPtr) (ctx: IRContext) : Prop :=
 def BlockPtr.get (ptr: BlockPtr) (ctx: IRContext) (inBounds: ptr.InBounds ctx := by grind) : Block :=
   ctx.blocks[ptr]'(by unfold InBounds at inBounds; grind)
 def BlockPtr.get! (ptr: BlockPtr) (ctx: IRContext) : Block := ctx.blocks[ptr]!
-@[grind =]
+@[grind _=_]
 theorem BlockPtr.get!_eq_get {ptr : BlockPtr} (hin : ptr.InBounds ctx) :
     ptr.get! ctx = ptr.get ctx hin := by
   grind [get, get!]
@@ -1007,7 +1007,7 @@ def RegionPtr.InBounds (region: RegionPtr) (ctx: IRContext) : Prop :=
 def RegionPtr.get (ptr: RegionPtr) (ctx: IRContext) (inBounds: ptr.InBounds ctx := by grind) : Region :=
   ctx.regions[ptr]'(by unfold InBounds at inBounds; grind)
 def RegionPtr.get! (ptr: RegionPtr) (ctx: IRContext) : Region := ctx.regions[ptr]!
-@[grind =]
+@[grind _=_]
 theorem RegionPtr.get!_eq_get {ptr : RegionPtr} (hin : ptr.InBounds ctx) :
     ptr.get! ctx = ptr.get ctx hin := by
   grind [get, get!]
