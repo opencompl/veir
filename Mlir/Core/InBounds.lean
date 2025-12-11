@@ -10,75 +10,55 @@ public section
 
 attribute [local grind cases] ValuePtr OpOperandPtrPtr GenericPtr -- does this work?
 
-macro "setup_grind_for_basic_proofs" : command => `(
-  attribute [local grind cases] ValuePtr OpOperandPtrPtr BlockOperandPtr
-  attribute [local grind] Option.maybe BlockOperandPtrPtr.InBounds BlockOperandPtr.InBounds
-    BlockOperandPtrPtr.get BlockOperandPtrPtr.set
-    OperationPtr.InBounds RegionPtr.InBounds OpResultPtr.get OpResultPtr.set OpResultPtr.InBounds
-    OpOperandPtr.get OpOperandPtr.set BlockOperandPtr.get BlockOperandPtr.set OpResultPtr.get
-    OpResultPtr.set BlockArgumentPtr.get BlockArgumentPtr.set BlockArgumentPtr.setType
-    BlockArgumentPtr.setFirstUse OpOperandPtrPtr.set OperationPtr.get
-    OperationPtr.set BlockPtr.get BlockPtr.set RegionPtr.get RegionPtr.set RegionPtr.InBounds
-    BlockOperandPtrPtr.get BlockOperandPtrPtr.set
-    BlockArgumentPtr.setLoc BlockPtr.InBounds OperationPtr.getNumResults
-    OperationPtr.getNumOperands OpOperandPtr.InBounds OperationPtr.getNumSuccessors
-    BlockPtr.getNumArguments BlockArgumentPtr.InBounds
-)
-
-setup_grind_for_basic_proofs
+/- Mark all get/set and InBounds definitions as transparent for grind -/
+setup_grind_with_get_set_definitions
+attribute [local grind] BlockOperandPtrPtr.InBounds BlockOperandPtr.InBounds OperationPtr.InBounds
+  RegionPtr.InBounds OpResultPtr.InBounds RegionPtr.InBounds BlockPtr.InBounds OpOperandPtr.InBounds
+  BlockArgumentPtr.InBounds
 
 variable {ctx : IRContext}
 
 section operation
-
-attribute [local grind]
-  OperationPtr.setNextOp OperationPtr.setPrevOp
-  OperationPtr.setParent OperationPtr.setRegions OperationPtr.setProperties OperationPtr.pushResult
-  OperationPtr.setOperands OperationPtr.pushOperand OperationPtr.setResults OperationPtr.allocEmpty Operation.empty
 
 variable {op : OperationPtr} (h : op.InBounds ctx)
 
 @[grind =]
 theorem OperationPtr.setNextOp_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setNextOp op ctx newNext? h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OperationPtr.setPrevOp_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setPrevOp op ctx newNext? h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OperationPtr.setParent_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setParent op ctx newNext? h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OperationPtr.setRegions_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setRegions op ctx newRegions h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind .]
 theorem OperationPtr.getOpOperand_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i < op.getNumOperands ctx hop) :
     (op.getOpOperand i).InBounds ctx := by
-  grind [getOpOperand]
+  grind
 
 @[grind .]
 theorem OperationPtr.getBlockOperand_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i < op.getNumSuccessors ctx hop) :
     (op.getBlockOperand i).InBounds ctx := by
-  grind [getBlockOperand]
+  grind
 
 @[grind .]
 theorem OperationPtr.getResult_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i < op.getNumResults ctx hop) :
     (op.getResult i).InBounds ctx := by
-  grind [getResult, getNumResults, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OperationPtr.setResults_genericPtr_mono (ptr : GenericPtr)
@@ -88,31 +68,7 @@ theorem OperationPtr.setResults_genericPtr_mono (ptr : GenericPtr)
     ∨ (∃ index, ptr = GenericPtr.opResult ⟨op, index⟩ ∧ index < newResults.size ∧ index ≥ OperationPtr.getNumResults op ctx h)
     ∨ (∃ index, ptr = GenericPtr.value (.opResult ⟨op, index⟩) ∧ index < newResults.size ∧ index ≥ OperationPtr.getNumResults op ctx h)
     ∨ (∃ index, ptr = GenericPtr.opOperandPtr (.valueFirstUse (.opResult ⟨op, index⟩)) ∧ index < newResults.size ∧ index ≥ OperationPtr.getNumResults op ctx h))) := by
-  constructor
-  · cases ptr
-    case opResult opResultPtr =>
-      rcases opResultPtr with ⟨op, index⟩
-      grind [OpResultPtr.InBounds]
-    case value value =>
-      cases value
-      case opResult resultPtr =>
-        cases resultPtr
-        grind [OpResultPtr.InBounds]
-      case blockArgument blockArg =>
-        grind [OpResultPtr.InBounds, BlockArgumentPtr.InBounds]
-    case opOperandPtr opOperandPtrPtr =>
-      cases opOperandPtrPtr
-      case operandNextUse operandPtr =>
-        grind [OpOperandPtr.InBounds]
-      case valueFirstUse value =>
-        cases value
-        case opResult resultPtr =>
-          cases resultPtr
-          grind [OpResultPtr.InBounds]
-        case blockArgument blockArg =>
-          grind [OpResultPtr.InBounds, BlockArgumentPtr.InBounds]
-    any_goals grind [OpResultPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockOperandPtr.InBounds, BlockPtr.InBounds, OpResultPtr.InBounds]
-  · cases ptr <;> grind [OpResultPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockOperandPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind .]
 theorem OperationPtr.setResults_genericPtr_mono_impl (ptr : GenericPtr)
@@ -141,20 +97,7 @@ theorem OperationPtr.setOperands_genericPtr_mono (ptr : GenericPtr)
     (ptr.InBounds ctx
     ∨ (∃ index, ptr = GenericPtr.opOperand ⟨op, index⟩ ∧ index < newOperands.size ∧ index ≥ OperationPtr.getNumOperands op ctx h)
     ∨ (∃ index, ptr = GenericPtr.opOperandPtr (.operandNextUse ⟨op, index⟩) ∧ index < newOperands.size ∧ index ≥ OperationPtr.getNumOperands op ctx h))) := by
-  constructor
-  · cases ptr
-    case opOperand opOperandPtr =>
-      cases opOperandPtr
-      grind [OpOperandPtr.InBounds]
-    case opOperandPtr opOperandPtrPtr =>
-      cases opOperandPtrPtr
-      case operandNextUse operandPtr =>
-        cases operandPtr
-        grind [OpOperandPtr.InBounds]
-      case valueFirstUse valuePtr =>
-        grind [OpResultPtr.InBounds, BlockArgumentPtr.InBounds]
-    all_goals grind [OpResultPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockOperandPtr.InBounds, BlockPtr.InBounds]
-  · cases ptr <;> grind [OpResultPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockOperandPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OperationPtr.pushOperand_genericPtr_iff (ptr : GenericPtr) :
@@ -162,77 +105,60 @@ theorem OperationPtr.pushOperand_genericPtr_iff (ptr : GenericPtr) :
     (ptr.InBounds ctx
     ∨ (ptr = GenericPtr.opOperand (op.nextOperand ctx))
     ∨ (ptr = GenericPtr.opOperandPtr (.operandNextUse (op.nextOperand ctx)))) := by
-  grind [nextOperand]
+  grind
 
 @[grind .]
 theorem OperationPtr.pushOperand_genericPtr_mono (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (pushOperand op ctx newOperand h) := by
-  grind [nextOperand]
+  grind
 
 @[grind =]
 theorem OperationPtr.setOperands_ValuePtr_InBounds_mono (ptr : ValuePtr) :
     ptr.InBounds (setOperands op ctx newOperands h) ↔ ptr.InBounds ctx := by
-  constructor
-  · cases ptr
-    case opResult opResultPtr =>
-      grind [OpResultPtr.InBounds]
-    case blockArgument blockArgumentPtr =>
-      grind [BlockArgumentPtr.InBounds]
-  · cases ptr
-    case opResult opResultPtr =>
-      grind [OpResultPtr.InBounds]
-    case blockArgument blockArgumentPtr =>
-      grind [BlockArgumentPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OperationPtr.setOperands_OpOperandPtr_InBounds_mono_ne {opOperand : OpOperandPtr} :
     opOperand.op ≠ op →
     (opOperand.InBounds (op.setOperands ctx h' newOperands) ↔ opOperand.InBounds ctx) := by
-  grind [OpOperandPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OperationPtr.setProperties_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setProperties op ctx newProperties h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind .]
 theorem OpResultPtr.allocEmpty_no_results {opResult : OpResultPtr}
     (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
     opResult.op = op' → ¬ opResult.InBounds ctx' := by
-  grind [OpResultPtr.InBounds, OperationPtr.InBounds]
+  grind
 
 @[grind .]
 theorem OpOperandPtr.allocEmpty_no_operands {opOperand : OpOperandPtr}
     (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
     opOperand.op = op' → ¬ opOperand.InBounds ctx' := by
-  grind [OpOperandPtr.InBounds, OperationPtr.InBounds]
+  grind
 
 @[grind .]
 theorem BlockOperandPtr.allocEmpty_no_operands {blockOperand : BlockOperandPtr}
     (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
     blockOperand.op = op' → ¬ blockOperand.InBounds ctx' := by
-  grind [BlockOperandPtr.InBounds, OperationPtr.InBounds]
+  grind
 
 @[grind .]
 theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx type = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ctx.nextID) := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 -- TODO: make this the main statement?
 theorem OperationPtr.allocEmpty_genericPtr_iff' (ptr : GenericPtr) (heq : allocEmpty ctx type = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 theorem OperationPtr.allocEmpty_operationPtr_iff (ptr : OperationPtr) (heq : allocEmpty ctx type = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr =  ptr') := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind . ]
 theorem OperationPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr) (heq : allocEmpty ctx type = some (ctx', ptr')) :
@@ -251,11 +177,11 @@ theorem OperationPtr.allocEmpty_newBlock_inBounds (heq : allocEmpty ctx type = s
 
 @[grind .]
 theorem OperationPtr.nextOperand_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds ctx) : ¬ (opPtr.nextOperand ctx).InBounds ctx := by
-  grind [nextOperand, OpOperandPtr.InBounds, OperationPtr.get]
+  grind
 
 @[grind .]
 theorem OperationPtr.nextResult_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds ctx) : ¬ (opPtr.nextResult ctx).InBounds ctx := by
-  grind [nextOperand, OpResultPtr.InBounds, OperationPtr.get]
+  grind
 
 end operation
 
@@ -283,44 +209,33 @@ theorem OpOperandPtr.operation_inBounds_of_inBounds (h : opOperand.InBounds ctx)
 @[grind =]
 theorem OpOperandPtr.setNextUse_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setNextUse opOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OpOperandPtr.setBack_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setBack opOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OpOperandPtr.setOwner_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setOwner opOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OpOperandPtr.setValue_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setValue opOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 theorem OpOperandPtr.inBounds_if_operand_size_eq :
     (OperationPtr.getNumOperands opPtr ctx opIn = OperationPtr.getNumOperands opPtr' ctx' op'In) ↔
     (∀ index, (OpOperandPtr.mk opPtr index).InBounds ctx ↔ (OpOperandPtr.mk opPtr' index).InBounds ctx') := by
   constructor
-  · intro hsize index
-    simp only [InBounds]
-    grind [OperationPtr.InBounds, OperationPtr.get]
+  · grind
   · intro hi
     apply Nat.eq_iff_forall_lessthan
     intros i
     have := hi i
-    simp [InBounds] at this
-    grind [OperationPtr.InBounds, OperationPtr.get]
+    grind
 
 end opoperand
 
@@ -338,20 +253,17 @@ theorem OpResultPtr.operation_inBounds_of_inBounds (h : opRes.InBounds ctx) :
 @[grind =]
 theorem OpResultPtr.setType_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setType opRes ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OpResultPtr.setFirstUse_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setFirstUse opRes ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind =]
 theorem OpResultPtr.setOwner_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setOwner opRes ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 end opresult
 
@@ -367,23 +279,17 @@ theorem BlockArgumentPtr.operation_inBounds_of_inBounds (h : ba.InBounds ctx) :
 @[grind =]
 theorem BlockArgumentPtr.setType_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setType blockArgPtr ctx newType h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds, ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem BlockArgumentPtr.setFirstUse_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setFirstUse blockArgPtr ctx newFirstUse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem BlockArgumentPtr.setLoc_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setLoc blockArgPtr ctx newLoc h) ↔ ptr.InBounds ctx := by
-  unfold setLoc
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 end blockargument
 
@@ -408,67 +314,48 @@ end value
 
 section block
 
-attribute [local grind]
-  BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setPrevBlock
-  BlockPtr.setNextBlock BlockPtr.allocEmpty
-  Block.empty
-
 variable {block : BlockPtr} (h : block.InBounds ctx)
 
 @[grind .]
 theorem BlockPtr.getArgument_inBounds (block : BlockPtr)
     (hblock : block.InBounds ctx) i (h₂ : i < block.getNumArguments ctx hblock) :
     (block.getArgument i).InBounds ctx := by
-  grind [getArgument]
+  grind
 
 @[grind =]
 theorem BlockPtr.setParent_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setParent block ctx newParent h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem BlockPtr.setFirstUse_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setFirstUse block ctx newFirstUse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem BlockPtr.setFirstOp_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setFirstOp block ctx newFirstOp h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem BlockPtr.setLastOp_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setLastOp block ctx newLastOp h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem BlockPtr.setNextBlock_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setNextBlock block ctx newNextBlock h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind =]
 theorem BlockPtr.setPrevBlock_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setPrevBlock block ctx newPrevBlock h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 @[grind .]
 theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .block ctx.nextID ∨ ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse ctx.nextID)) := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+  grind
 
 theorem BlockPtr.allocEmpty_genericPtr_iff' (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .block ptr' ∨ ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse ptr')) := by
@@ -493,39 +380,34 @@ theorem BlockPtr.allocEmpty_not_inBounds (heq : allocEmpty ctx = some (ctx', ptr
 theorem BlockPtr.allocEmpty_no_argument {ba : BlockArgumentPtr}
     (heq : allocEmpty ctx = some (ctx', ba')) :
     ba.block = ba' → ¬ ba.InBounds ctx' := by
-  grind [BlockArgumentPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 end block
 
 section region
-
-attribute [local grind] RegionPtr.setParent RegionPtr.setFirstBlock RegionPtr.setLastBlock RegionPtr.allocEmpty Region.empty
 
 variable {region : RegionPtr} (h : region.InBounds ctx)
 
 @[grind =]
 theorem RegionPtr.setParent_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setParent region ctx newParent h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind =]
 theorem RegionPtr.setFirstBlock_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setFirstBlock region ctx newFirstBlock h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind =]
 theorem RegionPtr.setLastBlock_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setLastBlock region ctx newLastBlock h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpResultPtr.InBounds, OpOperandPtr.InBounds, OpOperandPtrPtr.InBounds, BlockPtr.InBounds]
+  grind
 
 @[grind .]
 theorem RegionPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .region ctx.nextID) := by
   constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
+    try grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
            ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
 
 @[grind .]
@@ -544,17 +426,11 @@ variable {opOperandPtr : OpOperandPtrPtr} (h : opOperandPtr.InBounds ctx)
 @[grind =]
 theorem OpOperandPtrPtr.set_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (set opOperandPtr ctx newPtr h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp <;>
-    grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
-
+  grind
 
 end operandptr
 
 section blockoperand
-
-attribute [local grind] Option.maybe BlockOperandPtr.setNextUse BlockOperandPtr.setOwner
-  BlockOperandPtr.setBack BlockOperandPtr.setNextUse BlockOperandPtr.setValue
 
 variable {blockOperand : BlockOperandPtr} (h : blockOperand.InBounds ctx)
 
@@ -566,46 +442,21 @@ theorem BlockOperandPtr.operation_inBounds_of_inBounds (h : blockOperand.InBound
 @[grind =]
 theorem BlockOperandPtr.setNextUse_genericPtr_mono (ptr : GenericPtr) :
     ptr.InBounds (setNextUse blockOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp
-  case mpr.blockOperandPtr =>
-    rename_i ptr
-    intros
-    cases ptr <;> grind [BlockOperandPtr.InBounds]
-  all_goals grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-                   ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds, BlockOperandPtrPtr.InBounds]
-
+  grind
 
 @[grind =]
 theorem BlockOperandPtr.setBack_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setBack blockOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp
-  case mpr.blockOperandPtr =>
-    rename_i ptr
-    intros
-    cases ptr <;> grind [BlockOperandPtr.InBounds]
-  all_goals grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-                   ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds, BlockOperandPtrPtr.InBounds]
+  grind
 
 @[grind =]
 theorem BlockOperandPtr.setOwner_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setOwner blockOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp
-  case mpr.blockOperandPtr =>
-    rename_i ptr
-    intros
-    cases ptr <;> grind [BlockOperandPtr.InBounds]
-  all_goals grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-                   ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds, BlockOperandPtrPtr.InBounds]
+  grind
 
 @[grind =]
 theorem BlockOperandPtr.setValue_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setValue blockOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  constructor <;> cases ptr <;> simp
-  case mpr.blockOperandPtr =>
-    rename_i ptr
-    intros
-    cases ptr <;> grind [BlockOperandPtr.InBounds]
-  all_goals grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-                   ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds, BlockOperandPtrPtr.InBounds]
+  grind
 
 end blockoperand
