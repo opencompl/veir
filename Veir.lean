@@ -1,3 +1,5 @@
+import Veir.Dialects
+
 import Veir.IR.Basic
 import Veir.IR.Fields
 import Veir.IR.WellFormed
