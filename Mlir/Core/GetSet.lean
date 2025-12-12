@@ -2,7 +2,6 @@ module
 
 public import Mlir.Core.Basic
 import all Mlir.Core.Basic
-import Mlir.Core.InBounds
 
 namespace Mlir
 
