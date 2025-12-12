@@ -415,6 +415,11 @@ theorem RegionPtr.allocEmpty_newBlock_inBounds (heq : allocEmpty ctx = some (ctx
     ptr.InBounds ctx' := by
   grind [allocEmpty]
 
+@[grind .]
+theorem RegionPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
+    ptr.InBounds ctx → ptr.InBounds ctx' := by
+  grind
+
 end region
 
 section operandptr
