@@ -2,6 +2,39 @@ import Mlir.Core.Basic
 import Mlir.Core.Fields
 import Mlir.Rewriter.LinkedList.Basic
 
+/-
+ - The getters we consider are:
+ - * IRContext.topLevelOp
+ - * BlockPtr.get! optionally replaced by the following special cases:
+ -   * Block.firstUse
+ -   * Block.prev
+ -   * Block.next
+ -   * Block.parent
+ -   * Block.firstOp
+ -   * Block.lastOp
+ - * OperationPtr.get! optionally replaced by the following special cases:
+ -   * Operation.prev
+ -   * Operation.next
+ -   * Operation.parent
+ -   * Operation.opType
+ -   * Operation.attrs
+ -   * Operation.properties
+ - * OperationPtr.getNumResults!
+ - * OpResultPtr.get!
+ - * OperationPtr.getNumOperands!
+ - * OpOperandPtr.get! optionally replaced by the following special case:
+ - * OperationPtr.getNumSuccessors!
+ - * BlockOperandPtr.get!
+ - * OperationPtr.getNumRegions!
+ - * OperationPtr.getRegion!
+ - * BlockOperandPtrPtr.get!
+ - * BlockPtr.getNumArguments!
+ - * BlockArgumentPtr.get!
+ - * RegionPtr.get!
+ - * ValuePtr.getFirstUse!
+ - * ValuePtr.getType!
+ - * OpOperandPtrPtr.get!
+ -/
 namespace Mlir
 
 variable {operation operation' : OperationPtr}
@@ -12,6 +45,216 @@ variable {opOperandPtr opOperandPtr' : OpOperandPtrPtr}
 variable {blockOperand blockOperand' : BlockOperandPtr}
 variable {value value' : ValuePtr}
 
+/- OpOperandPtr.removeFromCurrent -/
+attribute [local grind] OpOperandPtr.removeFromCurrent
+
+@[simp, grind =]
+theorem IRContext.topLevelOp_OpOperandPtr_removeFromCurrent :
+    (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds).topLevelOp =
+    ctx.topLevelOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.firstUse!_OpOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).firstUse =
+    (block.get! ctx).firstUse := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.prev!_OpOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).prev =
+    (block.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_OpOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).next =
+    (block.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_OpOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).parent =
+    (block.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.firstOp!_OpOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).firstOp =
+    (block.get! ctx).firstOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.lastOp!_OpOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).lastOp =
+    (block.get! ctx).lastOp := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.prev!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).prev =
+    (operation.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).next =
+    (operation.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).parent =
+    (operation.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.opType!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).opType =
+    (operation.get! ctx).opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).attrs =
+    (operation.get! ctx).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.properties!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).properties =
+    (operation.get! ctx).properties := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getNumResults! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    operation.getNumResults! ctx := by
+  grind
+
+@[grind =]
+theorem OpResultPtr.get!_OpOperandPtr_removeFromCurrent {opResult : OpResultPtr} :
+    opResult.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    if (opOperand'.get! ctx).back = .valueFirstUse (.opResult opResult) then
+      { opResult.get! ctx with firstUse := (opOperand'.get! ctx).nextUse }
+    else
+      opResult.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getNumOperands! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    operation.getNumOperands! ctx := by
+  grind
+
+@[grind =]
+theorem OpOperandPtr.get!_OpOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
+    opOperand.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    { opOperand.get! ctx with
+        back :=
+          if (opOperand'.get! ctx).nextUse = some opOperand then
+            (opOperand'.get! ctx).back
+          else
+            (opOperand.get! ctx).back
+        nextUse :=
+          if (opOperand'.get! ctx).back = .operandNextUse opOperand then
+            (opOperand'.get! ctx).nextUse
+          else
+            (opOperand.get! ctx).nextUse
+    } := by
+  simp [removeFromCurrent]
+  split
+  · split
+    · grind
+    · split
+      · grind
+      · -- TODO: Why doesn't 'grind' work here?
+        simp only [get!_OpOperandPtrPtr_set, ite_eq_right_iff]
+        grind
+  · split
+    · grind
+    · split
+      · grind
+      · simp [OpOperandPtr.get!_OpOperandPtr_setBack]
+        split
+        · grind
+        · simp only [get!_OpOperandPtrPtr_set, ite_eq_right_iff]
+          grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getNumSuccessors! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.get!_OpOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getNumRegions! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getRegion! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    operation.getRegion! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtrPtr.get!_OpOperandPtr_removeFromCurrent {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OpOperandPtr_removeFromCurrent {block : BlockPtr} {hop} :
+    block.getNumArguments! (opOperand'.removeFromCurrent ctx newOperands hop) =
+    block.getNumArguments! ctx := by
+  grind
+
+@[grind =]
+theorem BlockArgumentPtr.get!_OpOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    if (opOperand'.get! ctx).back = .valueFirstUse (.blockArgument blockArg) then
+      { blockArg.get! ctx with firstUse := (opOperand'.get! ctx).nextUse }
+    else
+      blockArg.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.get!_OpOperandPtr_removeFromCurrent {region : RegionPtr} :
+    region.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    region.get! ctx := by
+  grind
+
+@[grind =]
+theorem ValuePtr.getFirstUse!_OpOperandPtr_removeFromCurrent {value : ValuePtr} :
+    value.getFirstUse! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    if (opOperand'.get! ctx).back = .valueFirstUse value then
+      (opOperand'.get! ctx).nextUse
+    else
+      value.getFirstUse! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_OpOperandPtr_removeFromCurrent {value : ValuePtr} :
+    value.getType! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    value.getType! ctx := by
+  grind
+
+@[grind =]
+theorem OpOperandPtrPtr.get!_OpOperandPtr_removeFromCurrent {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    if opOperandPtr = (opOperand'.get! ctx).back then
+      (opOperand'.get! ctx).nextUse
+    else
+      opOperandPtr.get! ctx := by
+  grind
 
 @[simp, grind =>]
 theorem OperationPtr.get!_OperationPtr_setParentWithCheck
@@ -163,16 +406,6 @@ theorem RegionPtr.get!_OpOperandPtr_insertIntoCurrent (r : RegionPtr) :
 theorem RegionPtr.get_OpOperandPtr_insertIntoCurrent (r : RegionPtr) (h₃ : r.InBounds ctx) :
     r.get (OpOperandPtr.insertIntoCurrent ctx opr h₁ h₂) = r.get ctx h₃ := by
   simp only [← get!_eq_get, get!_OpOperandPtr_insertIntoCurrent]
-
-@[simp, grind =]
-theorem RegionPtr.get!_OpOperandPtr_removeFromCurrent (r : RegionPtr) :
-    r.get! (OpOperandPtr.removeFromCurrent ctx opr h₁ h₂) = r.get! ctx := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem RegionPtr.get_OpOperandPtr_removeFromCurrent (r : RegionPtr) (h : r.InBounds ctx) :
-    r.get (OpOperandPtr.removeFromCurrent ctx opr h₁ h₂) = r.get ctx h := by
-  simp only [← get!_eq_get, get!_OpOperandPtr_removeFromCurrent]
 
 theorem OpOperandPtr.insertIntoCurrent_ValuePtr_getFirstUse! (operandPtr : OpOperandPtr)
     (operandPtrInBounds : operandPtr.InBounds ctx) :
@@ -521,195 +754,6 @@ theorem OpOperandPtr.OpOperandPtr_getNext_insertIntoCurrent (opd : OpOperandPtr)
   have := OpOperandPtr.OpOperandPtr_getNext!_insertIntoCurrent ctx opd newUse
   grind
 
-@[simp, grind .]
-theorem OpOperandPtr.removeFromCurrent_preserves_results_size' (op : OperationPtr) :
-    op.getNumResults! (OpOperandPtr.removeFromCurrent ctx ptr h₁ h₂) = op.getNumResults! ctx := by
-  simp [removeFromCurrent]
-  split <;> simp
-
-@[simp, grind .]
-theorem OpOperandPtr.removeFromCurrent_preserves_parent (op : OperationPtr) :
-    (op.get! (OpOperandPtr.removeFromCurrent ctx ptr h₁ h₂)).parent = (op.get! ctx).parent := by
-  simp [removeFromCurrent]
-  split <;> simp <;> grind (gen := 20) [cases ValuePtr]
-
-@[grind =]
-theorem OpOperandPtr.removeFromCurrent_OpOperandPtr_get_back
-    (use : OpOperandPtr) (operandPtr : OpOperandPtr) (useInBounds : use.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) operandPtrInBounds :
-    (operandPtr.get (OpOperandPtr.removeFromCurrent ctx use useInBounds ctxInBounds) operandPtrInBounds).back =
-    (if (use.get ctx (by grind)).nextUse = some operandPtr then
-      (use.get ctx (by grind)).back
-    else
-      (operandPtr.get ctx (by grind)).back) := by
-  grind [removeFromCurrent]
-
-@[grind =]
-theorem OpOperandPtr.removeFromCurrent_OpOperandPtr_get_nextUse
-    (use : OpOperandPtr) (operandPtr : OpOperandPtr) (useInBounds : use.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) operandPtrInBounds :
-    (operandPtr.get (OpOperandPtr.removeFromCurrent ctx use useInBounds ctxInBounds) operandPtrInBounds).nextUse =
-    if (use.get ctx (by grind)).back = OpOperandPtrPtr.operandNextUse operandPtr then
-      (use.get ctx (by grind)).nextUse
-    else
-      (operandPtr.get ctx (by grind)).nextUse := by
-  grind [removeFromCurrent]
-
-@[simp, grind =]
-theorem OpOperandPtr.removeFromCurrent_OpOperandPtr_get_value
-    (use : OpOperandPtr) (operandPtr : OpOperandPtr) (useInBounds : use.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) operandPtrInBounds :
-    (operandPtr.get (OpOperandPtr.removeFromCurrent ctx use useInBounds ctxInBounds) operandPtrInBounds).value =
-    (operandPtr.get ctx (by grind)).value := by
-  grind [removeFromCurrent]
-
-@[simp, grind =]
-theorem OpOperandPtr.removeFromCurrent_BlockPtr_getFirstUse
-    (use : OpOperandPtr) (blockPtr : BlockPtr) (useInBounds : use.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) blockPtrInBounds :
-    (blockPtr.get (OpOperandPtr.removeFromCurrent ctx use useInBounds ctxInBounds) blockPtrInBounds).firstUse =
-    (blockPtr.get ctx (by grind)).firstUse := by
-  grind [removeFromCurrent]
-
-@[simp, grind =]
-theorem OpOperandPtr.removeFromCurrent_BlockPtr_get_firstOp
-    (use : OpOperandPtr) (blockPtr : BlockPtr) (useInBounds : use.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) blockPtrInBounds :
-    (blockPtr.get (OpOperandPtr.removeFromCurrent ctx use useInBounds ctxInBounds) blockPtrInBounds).firstOp =
-    (blockPtr.get ctx (by grind)).firstOp := by
-  grind [removeFromCurrent]
-
-@[simp, grind =]
-theorem OpOperandPtr.removeFromCurrent_BlockPtr_get_lastOp
-    (use : OpOperandPtr) (blockPtr : BlockPtr) (useInBounds : use.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) blockPtrInBounds :
-    (blockPtr.get (OpOperandPtr.removeFromCurrent ctx use useInBounds ctxInBounds) blockPtrInBounds).lastOp =
-    (blockPtr.get ctx (by grind)).lastOp := by
-  grind [removeFromCurrent]
-
-@[simp, grind =]
-theorem OpOperandPtr.removeFromCurrent_BlockOperandPtr_get
-    (use : OpOperandPtr) (blockOperandPtr : BlockOperandPtr) (useInBounds : use.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) :
-    blockOperandPtr.get! (OpOperandPtr.removeFromCurrent ctx use useInBounds ctxInBounds) =
-    blockOperandPtr.get! ctx := by
-  -- TODO: add lemmas
-  unfold removeFromCurrent
-  grind
-
-@[simp, grind =]
-theorem OpOperandPtr.removeFromCurrent_OperationPtr_get_parent
-    (use : OpOperandPtr) (opPtr : OperationPtr) (useInBounds : use.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) opPtrInBounds :
-    (opPtr.get (OpOperandPtr.removeFromCurrent ctx use useInBounds ctxInBounds) opPtrInBounds).parent =
-    (opPtr.get ctx (by grind)).parent := by
-  grind [removeFromCurrent]
-
-@[simp, grind =]
-theorem OpOperandPtr.removeFromCurrent_OperationPtr_get_next
-    (use : OpOperandPtr) (opPtr : OperationPtr) (useInBounds : use.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) opPtrInBounds :
-    (opPtr.get (OpOperandPtr.removeFromCurrent ctx use useInBounds ctxInBounds) opPtrInBounds).next =
-    (opPtr.get ctx (by grind)).next := by
-  grind [removeFromCurrent]
-
-@[simp, grind =]
-theorem OpOperandPtr.removeFromCurrent_OperationPtr_get_prev
-    (use : OpOperandPtr) (opPtr : OperationPtr) (useInBounds : use.InBounds ctx)
-    (ctxInBounds : ctx.FieldsInBounds) opPtrInBounds :
-    (opPtr.get (OpOperandPtr.removeFromCurrent ctx use useInBounds ctxInBounds) opPtrInBounds).prev =
-    (opPtr.get ctx (by grind)).prev := by
-  grind [removeFromCurrent]
-
-@[simp, grind =]
-theorem BlockPtr.getNext_removeFromCurrent {bl : BlockPtr} h₃ :
-    (bl.get (OpOperandPtr.removeFromCurrent ctx ptr h₁ h₂) h₃).next =
-      (bl.get ctx (by grind)).next := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem BlockPtr.getPrev_removeFromCurrent {bl : BlockPtr} h₃ :
-    (bl.get (OpOperandPtr.removeFromCurrent ctx ptr h₁ h₂) h₃).prev =
-      (bl.get ctx (by grind)).prev := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem BlockPtr.getParent_removeFromCurrent {bl : BlockPtr} h₃ :
-    (bl.get (OpOperandPtr.removeFromCurrent ctx ptr h₁ h₂) h₃).parent =
-      (bl.get ctx (by grind)).parent := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem RegionPtr.get_removeFromCurrent {rg : RegionPtr} h₃ :
-    rg.get (OpOperandPtr.removeFromCurrent ctx ptr h₁ h₂) h₃ =
-      rg.get ctx (by grind) := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem OperationPtr.getNumOperands_removeFromCurrent :
-    OperationPtr.getNumOperands op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hop =
-    OperationPtr.getNumOperands op ctx (by grind) := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem OperationPtr.getOperandOwner_removeFromCurrent :
-    (OpOperandPtr.get opr (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hop).owner =
-    (OpOperandPtr.get opr ctx (by grind)).owner := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem OperationPtr.getNumSuccessors!_removeFromCurrent :
-    OperationPtr.getNumSuccessors! op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) =
-    OperationPtr.getNumSuccessors! op ctx := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem BlockOperandPtr.get!_removeFromCurrent {blockOpr : BlockOperandPtr} :
-    (blockOpr.get! (OpOperandPtr.removeFromCurrent ctx use h₁ h₂)) =
-    (blockOpr.get! ctx) := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem OperationPtr.getNumResults_removeFromCurrent :
-    OperationPtr.getNumResults! op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) =
-    OperationPtr.getNumResults! op ctx := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem OpResultPtr.owner_removeFromCurrent :
-    (OpResultPtr.get opr (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hopr).owner =
-    (OpResultPtr.get opr ctx (by grind)).owner := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem OpResultPtr.index_removeFromCurrent :
-    (OpResultPtr.get opr (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) hopr).index =
-    (OpResultPtr.get opr ctx (by grind)).index := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem OperationPtr.getRegion!_removeFromCurrent :
-    OperationPtr.getRegion! op (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) =
-    OperationPtr.getRegion! op ctx := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem BlockPtr.getNumArguments!_removeFromCurrent :
-    BlockPtr.getNumArguments! block (OpOperandPtr.removeFromCurrent ctx use h₁ h₂) =
-    BlockPtr.getNumArguments! block ctx := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem BlockArgumentPtr.index!_removeFromCurrent {ba : BlockArgumentPtr} :
-    (ba.get! (OpOperandPtr.removeFromCurrent ctx use h₁ h₂)).index =
-    (ba.get! ctx).index := by
-  grind [OpOperandPtr.removeFromCurrent]
-
-@[simp, grind =]
-theorem BlockArgumentPtr.owner!_removeFromCurrent {ba : BlockArgumentPtr} :
-    (ba.get! (OpOperandPtr.removeFromCurrent ctx use h₁ h₂)).owner =
-    (ba.get! ctx).owner := by
-  grind [OpOperandPtr.removeFromCurrent]
 
 @[simp, grind =]
 theorem OpResultPtr.get!_OpOperandPtr_linkBetween (res : OpResultPtr) (op : OperationPtr) (h₁ : op.InBounds ctx) :
