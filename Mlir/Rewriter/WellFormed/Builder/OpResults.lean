@@ -34,7 +34,7 @@ theorem Builder.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     have ⟨array, harray⟩ := h₄ op (by grind)
     exists array
     apply IRContext.OperationChainWellFormed_unchanged ctx <;>
-      grind [=_ OperationPtr.get!_eq_get]
+      grind
   case blockChain =>
     intros rg hrg
     have ⟨array, harray⟩ := h₅ rg (by grind)
@@ -45,7 +45,7 @@ theorem Builder.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     have : op.InBounds ctx := by grind
     have ⟨ha, hb, hc, hd, he, hf⟩ := h₆ op this
     -- Add the necessary lemmas to not manually add lemmas to grind here
-    constructor <;> grind [=_ OperationPtr.get!_eq_get, OperationPtr.getResult]
+    constructor <;> grind [OperationPtr.getResult]
   case blocks =>
     intros bl hbl
     have : bl.InBounds ctx := by grind
@@ -55,9 +55,7 @@ theorem Builder.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     intros rg hrg
     have : rg.InBounds ctx := by grind
     have ⟨ha, hb⟩ := h₈ rg this
-    constructor
-    · grind [=_ OperationPtr.get!_eq_get]
-    · grind
+    constructor <;> grind
 
 theorem Builder.initOpResults_WellFormed (ctx: IRContext) (opPtr: OperationPtr) (numResults: Nat)
     (index : Nat) (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx) (newCtx : IRContext) hIndex :

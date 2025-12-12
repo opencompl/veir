@@ -140,7 +140,7 @@ theorem OpOperandPtr.owner_insertIntoCurrent :
     (OpOperandPtr.get opr (OpOperandPtr.insertIntoCurrent ctx ptr h₁ h₂) hopr).owner =
     (OpOperandPtr.get opr ctx (by grind)).owner := by
   simp only [OpOperandPtr.insertIntoCurrent, ←OpOperandPtr.get!_eq_get]
-  split <;> grind
+  split <;> grind (gen := 20)
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_insertIntoCurrent :
@@ -455,7 +455,7 @@ theorem OpOperandPtr.OpOperandPtr_getValue!_insertIntoCurrent (opd : OpOperandPt
     (opd.get! (OpOperandPtr.insertIntoCurrent ctx operandPtr operandPtrInBounds ctxInBounds)).value =
       (opd.get! ctx).value := by
   simp only [OpOperandPtr.insertIntoCurrent]
-  split <;> grind
+  split <;> grind (gen := 20)
 
 @[simp, grind =]
 theorem OpOperandPtr.OpOperandPtr_getValue_insertIntoCurrent (opd : OpOperandPtr)
@@ -482,7 +482,7 @@ theorem OpOperandPtr.OpOperandPtr_getBack!_insertIntoCurrent (opd : OpOperandPtr
   · simp
     split <;> grind
   · simp
-    split <;> grind
+    split <;> grind (gen := 20)
 
 @[simp, grind =]
 theorem OpOperandPtr.OpOperandPtr_getBack_insertIntoCurrent (opd : OpOperandPtr)
@@ -508,7 +508,7 @@ theorem OpOperandPtr.OpOperandPtr_getNext!_insertIntoCurrent (opd : OpOperandPtr
     else
       (opd.get! ctx).nextUse := by
   simp only [insertIntoCurrent]
-  split <;> grind
+  split <;> grind (gen := 20)
 
 theorem OpOperandPtr.OpOperandPtr_getNext_insertIntoCurrent (opd : OpOperandPtr)
     (newUse : OpOperandPtr) (newUseInBounds : newUse.InBounds ctx)
@@ -799,7 +799,7 @@ theorem OperationPtr.getParent_OperationPtr_linkBetween :
     (OperationPtr.get op (OperationPtr.linkBetween op' ctx prevOp nextOp h₁ h₂ h₃) hop).parent =
       (OperationPtr.get op ctx (by grind)).parent := by
   unfold OperationPtr.linkBetween
-  split <;> split <;> simp
+  grind
 
 @[simp, grind =>]
 theorem OpResultPtr.get_OpOperandPtr_linkBetweenWithParent (res : OpResultPtr) (h : res.InBounds ctx) (op : OperationPtr) (h₁ : op.InBounds ctx)
