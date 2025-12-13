@@ -325,9 +325,7 @@ theorem OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_self
   have : (use.get ctx useInBounds).value = value := by grind [ValuePtr.WellFormedUseDefChainMissingLink]
   constructor
   case firstUseBack =>
-    let this := OpOperandPtr.get!_insertIntoCurrent (operand' := use) ctx ctxInBounds useInBounds useInBounds ctxInBounds (by grind [ValuePtr.WellFormedUseDefChainMissingLink])
-    simp only [↓reduceDIte] at this
-    grind
+    grind [ValuePtr.WellFormedUseDefChainMissingLink]
   case arrayInBounds => grind [ValuePtr.WellFormedUseDefChainMissingLink]
   case firstElem => grind
   case allUsesInChain => grind [ValuePtr.WellFormedUseDefChainMissingLink]
@@ -335,36 +333,22 @@ theorem OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_self
   case prevNextUse =>
     simp only [gt_iff_lt, Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
       Nat.zero_add]
-    simp (disch := grind) only [OpOperandPtr.OpOperandPtr_getBack_insertIntoCurrent]
+    simp only [←OpOperandPtr.get!_eq_get]
+    simp only [OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent]
     intros i iPos iInBounds
-    cases i
-    case zero => grind
-    case succ i =>
-      simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add,
-      Nat.le_add_left, Array.getElem_append_right, Nat.add_one_sub_one]
-      cases i
-      case zero =>
-        simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add,
-          Nat.lt_add_one, Array.getElem_append_left, List.getElem_toArray, List.getElem_cons_zero,
-          ite_eq_left_iff]
-        grind [ValuePtr.WellFormedUseDefChainMissingLink]
-      case succ i =>
-        simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add,
-          Nat.le_add_left, Array.getElem_append_right, Nat.add_one_sub_one]
-        grind [ValuePtr.WellFormedUseDefChainMissingLink]
+    grind [ValuePtr.WellFormedUseDefChainMissingLink]
   case nextElems =>
     simp only [Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
       Nat.zero_add]
     intros i iInBounds
-    let this := @OpOperandPtr.OpOperandPtr_getNext_insertIntoCurrent ctx (by grind) ((#[use] ++ array)[i]'(by grind)) use (by grind) (by grind) (by grind [ValuePtr.WellFormedUseDefChainMissingLink])
-    simp only [this]
+    simp only [←OpOperandPtr.get!_eq_get, OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent]
     cases i
     case zero => grind [ValuePtr.WellFormedUseDefChainMissingLink]
     case succ i =>
       simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add,
         Nat.le_add_left, Array.getElem_append_right, Nat.add_one_sub_one]
       have : array[i] ≠ use := by grind [ValuePtr.WellFormedUseDefChainMissingLink]
-      simp only [this, ↓reduceIte]
+      simp only [Ne.symm this, ↓reduceIte]
       have : (#[use] ++ array)[i + 1 + 1]? = array[i + 1]? := by grind
       simp only [this]
       grind [ValuePtr.WellFormedUseDefChainMissingLink]
