@@ -908,9 +908,19 @@ theorem OpOperandPtrPtr.get_operandNextUse_eq {ptr: OpOperandPtr} {ctx: IRContex
   grind [get]
 
 @[simp, grind =]
+theorem OpOperandPtrPtr.get!_operandNextUse_eq {ptr: OpOperandPtr} {ctx: IRContext} :
+    (operandNextUse ptr).get! ctx = (ptr.get! ctx).nextUse := by
+  grind [get!]
+
+@[simp, grind =]
 theorem OpOperandPtrPtr.get_valueFirstUse_eq {ptr: ValuePtr} {ctx: IRContext} {ptrIn: ptr.InBounds ctx} :
     (valueFirstUse ptr).get ctx (by grind) = ptr.getFirstUse ctx := by
   grind [get]
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_valueFirstUse_eq {ptr: ValuePtr} {ctx: IRContext} :
+    (valueFirstUse ptr).get! ctx = ptr.getFirstUse! ctx := by
+  grind [get!]
 
 def OpOperandPtrPtr.set (ptrPtr: OpOperandPtrPtr) (ctx: IRContext) (newValue: Option OpOperandPtr) (ptrPtrIn: ptrPtr.InBounds ctx := by grind) : IRContext :=
   match ptrPtr with

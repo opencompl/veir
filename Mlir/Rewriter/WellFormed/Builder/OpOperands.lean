@@ -64,11 +64,7 @@ theorem Builder.pushOperand_OpOperandPtr_get_newOperand (valuePtr : ValuePtr) va
         back := .valueFirstUse valuePtr,
         nextUse := (valuePtr.getFirstUse ctx valuePtrInBounds) } := by
   simp [Builder.pushOperand, ←OpOperandPtr.get!_eq_get]
-  rw [OpOperandPtr.get!_insertIntoCurrent]
-  · sorry -- grind [OpOperand.FieldsInBounds]
-  · grind [OpOperand.FieldsInBounds]
-  · grind [OpOperandPtr.InBounds, OperationPtr.get]
-  · sorry
+  grind
 
 theorem Builder.pushOperand_OpOperandPtr_other (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
     ∀ (operandPtr : OpOperandPtr) (operandPtrInBounds : operandPtr.InBounds ctx)
@@ -170,58 +166,50 @@ theorem Builder.pushOperand_WellFormedUseDefChain
 theorem Builder.pushOperand_BlockOperand_get (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
     ∀ (blockOperandPtr : BlockOperandPtr) (hInBounds : blockOperandPtr.InBounds ctx) blockInBounds,
       blockOperandPtr.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) blockInBounds = blockOperandPtr.get ctx hInBounds := by
-  simp only [Builder.pushOperand, OpOperandPtr.BlockOperand_get_insertIntoCurrent]
-  simp only [←BlockOperandPtr.get!_eq_get]
+  simp only [Builder.pushOperand]
   grind
 
 theorem Builder.pushOperand_BlockPtr_get_firstUse_mono (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
     ∀ (blockPtr : BlockPtr) hBlockInBounds,
       (blockPtr.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hBlockInBounds).firstUse =
         (blockPtr.get ctx (by grind)).firstUse := by
-  grind [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_BlockPtr_get_firstUse_mono]
+  grind [Builder.pushOperand]
 
 theorem Builder.pushOperand_BlockPtr_get_firstOp_mono (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
     ∀ (blockPtr : BlockPtr) hBlockInBounds,
       (blockPtr.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hBlockInBounds).firstOp =
         (blockPtr.get ctx (by grind)).firstOp := by
-  grind [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_BlockPtr_get_firstOp_mono]
+  grind [Builder.pushOperand]
 
 theorem Builder.pushOperand_BlockPtr_get_lastOp_mono (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
     ∀ (blockPtr : BlockPtr) hBlockInBounds,
       (blockPtr.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hBlockInBounds).lastOp =
         (blockPtr.get ctx (by grind)).lastOp := by
-  grind [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_BlockPtr_get_lastOp_mono]
+  grind [Builder.pushOperand]
 
 
 theorem Builder.pushOperand_OperationPtr_get_parent_mono (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) hOp'InBounds :
       (opPtr'.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hOp'InBounds).parent =
         (opPtr'.get ctx (by grind)).parent := by
-  simp only [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_parent_mono]
-  grind [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_parent_mono]
+  grind [Builder.pushOperand]
 
 @[grind =]
 theorem Builder.BlockPtr_get_pushOperand_parent (bl : BlockPtr) (hin : bl.InBounds ctx) :
     (bl.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)).parent =
     (bl.get ctx hin).parent := by
-  have := OpOperandPtr.BlockPtr_get!_insertIntoCurrent_parent
-  simp only [Builder.pushOperand]
-  grind
+  grind [Builder.pushOperand]
 
 @[grind =]
 theorem Builder.BlockPtr_get_pushOperand_prev (bl : BlockPtr) (hin : bl.InBounds ctx) :
     (bl.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)).prev =
     (bl.get ctx hin).prev := by
-  have := OpOperandPtr.BlockPtr_get!_insertIntoCurrent_prev
-  simp only [Builder.pushOperand]
-  grind
+  grind [Builder.pushOperand]
 
 @[grind =]
 theorem Builder.BlockPtr_get_pushOperand_next (bl : BlockPtr) (hin : bl.InBounds ctx) :
     (bl.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)).next =
     (bl.get ctx hin).next := by
-  have := OpOperandPtr.BlockPtr_get!_insertIntoCurrent_next
-  simp only [Builder.pushOperand]
-  grind
+  grind [Builder.pushOperand]
 
 @[simp, grind =]
 theorem BlockPtr.getNumArguments!_Builder_pushOperand :
@@ -245,23 +233,17 @@ theorem BlockArgumentPtr.owner!_Builder_pushOperand :
 theorem Builder.RegionPtr_get_pushOperand (rg : RegionPtr) (hin : rg.InBounds ctx) :
     rg.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
     rg.get ctx hin := by
-  simp only [Builder.pushOperand]
-  have h := OpOperandPtr.RegionPtr_get!_pushOperand
-  simp only [←RegionPtr.get!_eq_get]
-  grind [OperationPtr.setOperands]
+  grind [Builder.pushOperand]
 
 theorem Builder.pushOperand_OperationPtr_get_next_mono (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) hOp'InBounds :
       (opPtr'.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hOp'InBounds).next =
         (opPtr'.get ctx (by grind)).next := by
-  simp only [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_next_mono]
-  grind [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_next_mono]
+  grind [Builder.pushOperand]
 
 theorem Builder.pushOperand_OperationPtr_get_prev_mono (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) hOp'InBounds :
       (opPtr'.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hOp'InBounds).prev =
         (opPtr'.get ctx (by grind)).prev := by
-  simp only [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_prev_mono]
-  grind [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_prev_mono]
-
+  grind [Builder.pushOperand]
 
 @[simp, grind =]
 theorem Builder.pushOperand_OperationPtr_getNumRegions (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) hOp'InBounds :
@@ -281,15 +263,13 @@ theorem Builder.pushOperand_OperationPtr_getRegion (valuePtr : ValuePtr) (valueP
 theorem Builder.pushOperand_RegionPtr_get (rgPtr : RegionPtr) hRgInBounds :
       (rgPtr.get (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hRgInBounds) =
         (rgPtr.get ctx (by grind)) := by
-  simp only [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_RegionPtr_get]
-  grind [=_ RegionPtr.get!_eq_get]
+  grind [Builder.pushOperand]
 
 @[grind =]
 theorem Builder.pushOperand_OperationPtr_get_num_results (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
       opPtr'.getNumResults! (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
       opPtr'.getNumResults! ctx := by
-  simp only [Builder.pushOperand, OpOperandPtr.insertIntoCurrent_OperationPtr_get_num_results]
-  grind
+  grind [Builder.pushOperand]
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_Builder_pushOperand (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
@@ -325,9 +305,7 @@ theorem OpOperandPtr.OperationPtr_get_pushOperand_operands_owner {opr : OpOperan
       opPtr
     else
       (opr.get ctx).owner := by
-  simp only [Builder.pushOperand, owner_insertIntoCurrent]
-  simp only [←OpOperandPtr.get!_eq_get]
-  grind
+  grind [Builder.pushOperand]
 
 theorem Builder.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) (hOpWf : ctx.WellFormed) :
     (Builder.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds).WellFormed := by
