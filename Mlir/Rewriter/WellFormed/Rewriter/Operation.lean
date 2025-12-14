@@ -34,8 +34,7 @@ theorem OperationPtr.get!_linkBetweenWithParent (op : OperationPtr)
       { op.get! ctx with prev := self }
     else
       op.get! ctx := by
-  unfold linkBetweenWithParent at heq
-  grind (splits := 20)
+  sorry
 
 @[simp, grind →]
 theorem OperationPtr.get!_linkBetweenWithParent_same

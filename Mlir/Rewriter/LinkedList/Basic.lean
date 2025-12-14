@@ -52,63 +52,6 @@ theorem OpOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
   Operation linked list.
 -/
 
-/--
-  Add previous and next links to `newOp`, linking it after `self`.
-  In particular, this does not update any parent pointers.
--/
-def OperationPtr.linkNextOp (self: OperationPtr) (ctx: IRContext) (newOp: OperationPtr)
-    (opIn: self.InBounds ctx := by grind)
-    (newOpIn: newOp.InBounds ctx := by grind)
-    (ctxInBounds: ctx.FieldsInBounds := by grind) : IRContext :=
-  let nextOp := (self.get ctx (by grind)).next
-  -- Set the new op's next and previous pointers
-  let ctx := newOp.setPrevOp ctx (some self)
-  let ctx := newOp.setNextOp ctx nextOp
-  -- Update self
-  let ctx := self.setNextOp ctx (some newOp)
-  -- Update next op if it exists
-  match heq : nextOp with
-  | none => ctx
-  | some nextOp => nextOp.setPrevOp ctx (some newOp) (by grind (ematch := 10))
-
-@[grind .]
-theorem OperationPtr.linkNextOp_fieldsInBounds :
-    (linkNextOp self ctx newOp h₁ h₂ h₃).FieldsInBounds := by
-  grind [linkNextOp]
-
-@[grind =]
-theorem OperationPtr.linkNextOp_inBounds (ptr : GenericPtr) :
-    ptr.InBounds (linkNextOp self ctx newOp h₁ h₂ h₃) ↔ ptr.InBounds ctx := by
-  grind [linkNextOp]
-
-/--
-  Add previous and next links to `newOp`, linking it before `self`.
-  In particular, this does not update any parent pointers.
--/
-def OperationPtr.linkPrevOp (self: OperationPtr) (ctx: IRContext) (newOp: OperationPtr)
-    (opIn: self.InBounds ctx := by grind)
-    (newOpIn: newOp.InBounds ctx := by grind)
-    (ctxInBounds: ctx.FieldsInBounds := by grind) : IRContext :=
-  let prevOp := (self.get ctx).prev
-  -- Set the new op's next and previous pointers
-  let ctx := newOp.setNextOp ctx (some self)
-  let ctx := newOp.setPrevOp ctx prevOp
-  -- Update self
-  let ctx := self.setPrevOp ctx (some newOp)
-  -- Update previous op if it exists
-  match heq : prevOp with
-  | none => ctx
-  | some prevOp => prevOp.setNextOp ctx (some newOp) (by grind (ematch := 10))
-@[grind .]
-theorem OperationPtr.linkPrevOp_fieldsInBounds :
-    (linkPrevOp self ctx newOp h₁ h₂ h₃).FieldsInBounds := by
-  grind [linkPrevOp]
-
-@[grind =]
-theorem OperationPtr.linkPrevOp_inBounds (ptr : GenericPtr) :
-    ptr.InBounds (linkPrevOp self ctx newOp h₁ h₂ h₃) ↔ ptr.InBounds ctx := by
-  grind [linkPrevOp]
-
 def OperationPtr.linkBetween (self: OperationPtr) (ctx: IRContext)
     (prevOp: Option OperationPtr) (nextOp: Option OperationPtr)
     (selfIn: self.InBounds ctx := by grind)
@@ -205,10 +148,11 @@ theorem OperationPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
 
 def OperationPtr.linkBetweenWithParent (self: OperationPtr) (ctx: IRContext)
     (prevOp: Option OperationPtr) (nextOp: Option OperationPtr)
-    (parent: BlockPtr) (parentIn : parent.InBounds ctx := by grind)
+    (parent: BlockPtr)
     (selfIn: self.InBounds ctx := by grind)
     (prevIn: ∀ prev, prevOp = some prev → (prev.InBounds ctx) := by grind)
-    (nextIn: ∀ next, nextOp = some next → (next.InBounds ctx) := by grind) : Option IRContext :=
+    (nextIn: ∀ next, nextOp = some next → (next.InBounds ctx) := by grind)
+    (parentIn : parent.InBounds ctx := by grind) : Option IRContext :=
   let ctx := self.linkBetween ctx prevOp nextOp
   rlet ctx ← self.setParentWithCheck ctx parent
   match _ : prevOp with
