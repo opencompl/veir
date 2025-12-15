@@ -76,6 +76,12 @@ def Worklist.remove (worklist: Worklist) (op: OperationPtr) : Worklist :=
   | none =>
     worklist
 
+-- TODO: remove this lemma and/or move it somewhere reasonable
+@[local grind →]
+theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext) :
+    (op ∈ ctx.operations.keys) → op.InBounds ctx := by
+  grind [OperationPtr.InBounds]
+
 /--
 - Populate a worklist with all operations that exist in the given context, and that have
 - a parent operation.
@@ -119,9 +125,15 @@ theorem addUseChainUserInWorklist_same_ctx :
   · grind [addUseChainUserInWorklist]
   · simp [addUseChainUserInWorklist]; grind
 
+-- TODO: move this somewhere
+@[local grind .]
+theorem ValuePtr.inBounds_getFirstUse {value : ValuePtr} {ctx} (hv : value.InBounds ctx) (hx : ctx.FieldsInBounds) :
+    (value.getFirstUse ctx hv).maybe OpOperandPtr.InBounds ctx := by
+  grind [Option.maybe]
+
 private def addUsersInWorklist (rewriter: PatternRewriter) (value: ValuePtr) (hv : value.InBounds rewriter.ctx) : PatternRewriter :=
   let useChain := value.getFirstUse rewriter.ctx (by grind)
-  rewriter.addUseChainUserInWorklist useChain 1_000_000_000 (by grind)
+  rewriter.addUseChainUserInWorklist useChain 1_000_000_000 (by grind [Option.maybe])
 
 @[grind =]
 theorem addUsersInWorklist_same_ctx :

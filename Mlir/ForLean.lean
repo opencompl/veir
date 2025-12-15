@@ -57,3 +57,13 @@ theorem Nat.eq_iff_forall_lessthan :
     have := hi i
     have := hi (i + 1)
     grind
+
+section ranges
+
+open Std
+
+@[grind=]
+theorem mem_range_nat (i: Nat) (r: Rco Nat) : (i ∈ r) ↔ r.lower ≤ i ∧ i < r.upper := by
+  simp only [Membership.mem]
+
+end ranges

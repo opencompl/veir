@@ -44,7 +44,7 @@ attribute [grind .] topLevelOp_inBounds operations_inBounds blocks_inBounds regi
 end IRContext.FieldsInBounds
 
 
-attribute [local grind] Option.maybe
+attribute [local grind =] Option.maybe_def
 
 @[grind =_]
 theorem OpOperandPtr.maybe_elim (ptr : OpOperandPtr) :
@@ -89,19 +89,4 @@ theorem ValuePtr.maybe_elim (ptr : ValuePtr) :
 @[grind =_]
 theorem IRContext.maybe₁_elim (ctx : IRContext) :
     (some ctx).maybe₁ IRContext.FieldsInBounds ↔ ctx.FieldsInBounds := by
-  grind [Option.maybe₁]
-
-/-
-Lemmas about getters and `InBounds`.
--/
-
--- TODO: remove this lemma
-@[grind →]
-theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext) :
-    (op ∈ ctx.operations.keys) → op.InBounds ctx := by
-  grind [InBounds]
-
-@[grind .]
-theorem ValuePtr.inBounds_getFirstUse {value : ValuePtr} (hv : value.InBounds ctx) (hx : ctx.FieldsInBounds) :
-    (value.getFirstUse ctx hv).maybe OpOperandPtr.InBounds ctx := by
-  grind
+  grind [Option.maybe₁_def]

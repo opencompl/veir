@@ -1,8 +1,5 @@
-import Mlir.Core.Basic
-import Mlir.Core.Fields
-import Mlir.Rewriter.LinkedList.Basic
-import Mlir.Rewriter.LinkedList.GetSet
-import Mlir.Ranges
+import Mlir.Core
+import Mlir.Rewriter.LinkedList
 
 namespace Mlir
 
@@ -170,7 +167,7 @@ private def Rewriter.insertBlockAfter? (ctx: IRContext) (newBlock: BlockPtr) (ex
     (newBlockIn: newBlock.InBounds ctx := by grind)
     (existingBlockIn: existingBlock.InBounds ctx := by grind)
     (ctxInBounds: ctx.FieldsInBounds) : Option IRContext := do
-  let ⟨parent, hp⟩ ← satisfies (existingBlock.get ctx (by grind)).parent
+  rlet parent ← (existingBlock.get ctx (by grind)).parent
   let ctx := existingBlock.linkNextBlock ctx newBlock
   rlet ctx ← newBlock.setParentWithCheck ctx parent (by grind)
   let nextBlock := (newBlock.get ctx (by grind)).next
@@ -184,7 +181,7 @@ private def Rewriter.insertBlockBefore? (ctx: IRContext) (newBlock: BlockPtr) (e
     (newBlockIn: newBlock.InBounds ctx := by grind)
     (existingBlockIn: existingBlock.InBounds ctx := by grind)
     (ctxInBounds: ctx.FieldsInBounds) : Option IRContext := do
-  let ⟨parent, hp⟩ ← satisfies (existingBlock.get ctx (by grind)).parent
+  rlet parent ← (existingBlock.get ctx (by grind)).parent
   let ctx := existingBlock.linkPrevBlock ctx newBlock
   rlet ctx ← newBlock.setParentWithCheck ctx parent (by grind)
   let prevBlock := (newBlock.get ctx (by grind)).prev
@@ -197,7 +194,7 @@ private def Rewriter.insertBlockBefore? (ctx: IRContext) (newBlock: BlockPtr) (e
 private def Rewriter.insertBlockInEmptyRegion? (ctx: IRContext) (newBlock: BlockPtr) (region: RegionPtr)
     (newBlockIn: newBlock.InBounds ctx := by grind)
     (regionIn: region.InBounds ctx := by grind) : Option IRContext := do
-  let ctx ← satisfies <| newBlock.setParentWithCheck ctx region (by grind)
+  rlet ctx ← newBlock.setParentWithCheck ctx region (by grind)
   let ctx := region.setFirstBlock ctx (some newBlock)
   let ctx := region.setLastBlock ctx (some newBlock)
   let ctx := newBlock.setPrevBlock ctx none
@@ -336,6 +333,9 @@ def Rewriter.replaceOp? (ctx: IRContext) (oldOp newOp: OperationPtr)
     for h : i in 0...numOldResults do
       let oldResult := oldOp.getResult i
       let newResult := newOp.getResult i
-      let newCtxNoProof ← satisfies (Rewriter.replaceValue? newCtx oldResult newResult (by grind) (by grind) (by grind))
-      newCtx := ⟨newCtxNoProof, (by grind)⟩
+      -- TODO: fix and use rlet
+      match _ : (Rewriter.replaceValue? newCtx oldResult newResult (by grind) (by grind) (by grind)) with
+      | none => none
+      | some newCtxNoProof =>
+        newCtx := ⟨newCtxNoProof, (by grind)⟩
     return Rewriter.eraseOp newCtx oldOp

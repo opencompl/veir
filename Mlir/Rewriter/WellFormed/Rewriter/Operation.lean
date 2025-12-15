@@ -552,8 +552,8 @@ theorem InsertPoint.idxInOperationList_Before_lt_size :
 theorem OperationPtr.getParent_insertOp?_previousCtx
     (heq : Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
     (newOp.get ctx).parent = none := by
-  simp only [Rewriter.insertOp?, OperationPtr.linkBetweenWithParent, OperationPtr.setParentWithCheck] at heq
-  split at heq <;> grind
+  simp only [Rewriter.insertOp?, OperationPtr.linkBetweenWithParent] at heq
+  split at heq <;> grind [setParentWithCheck]
 
 @[grind .]
 theorem InsertPoint.Wf_insertOp?_isSome (hWF : ctx.WellFormed) {ipInBounds : ip.InBounds ctx} :

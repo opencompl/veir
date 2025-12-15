@@ -78,7 +78,7 @@ structure IRContext.FieldsInBounds (ctx: IRContext) : Prop where
 
 attribute [grind .] IRContext.FieldsInBounds.topLevelOp_inBounds
 
-attribute [local grind] Option.maybe
+attribute [local grind =] Option.maybe_def
 
 /-
   Theorems combining `get` methods with `IRContext.fieldsInBounds`.
