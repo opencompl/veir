@@ -396,8 +396,8 @@ theorem OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent {opOperand : OpOperandP
         simp only [get!_OpOperandPtr_setBack, Ne.symm heq, ↓reduceIte, get!_ValuePtr_setFirstUse]
         simp only [get!_OpOperandPtr_setNextUse, h, ↓reduceIte]
         simp only [get!_OpOperandPtr_setBack]
-        simp only [ite_eq_right_iff] -- Why does grind needs these here to work?
-        grind
+        --grind    -- Why does 'grind' not work here?
+        simp only [h, ↓reduceIte]
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
