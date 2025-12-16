@@ -23,29 +23,32 @@ theorem Builder.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
       constructor <;> grind [ValuePtr.getFirstUse]
     · have ⟨array, harray⟩ := h₂ val (by grind)
       exists array
-      apply IRContext.ValuePtr_UseDefChainWellFormed_unchanged ctx <;> grind
+      apply @IRContext.ValuePtr_UseDefChainWellFormed_unchanged ctx <;> grind
   case blockUseDefChains =>
     intros bl hbl
     have ⟨array, harray⟩ := h₃ bl (by grind)
     exists array
-    apply IRContext.BlockPtr_UseDefChainWellFormed_unchanged ctx <;> grind
+    apply @IRContext.BlockPtr_UseDefChainWellFormed_unchanged ctx <;> grind
   case opChain =>
     intros op hop
     have ⟨array, harray⟩ := h₄ op (by grind)
     exists array
-    apply IRContext.OperationChainWellFormed_unchanged ctx <;>
+    apply @IRContext.OperationChainWellFormed_unchanged ctx <;>
       grind
   case blockChain =>
     intros rg hrg
     have ⟨array, harray⟩ := h₅ rg (by grind)
     exists array
-    apply IRContext.BlockChainWellFormed_unchanged (by grind) (by grind) harray <;> grind
+    apply IRContext.BlockChainWellFormed_unchanged harray <;> grind
   case operations =>
     intros op hop
     have : op.InBounds ctx := by grind
     have ⟨ha, hb, hc, hd, he, hf⟩ := h₆ op this
+    constructor
+    -- TODO: Understand why grind fails here
+    case region_parent => intros; constructor <;> simp <;> grind
     -- Add the necessary lemmas to not manually add lemmas to grind here
-    constructor <;> grind [OperationPtr.getResult]
+    all_goals grind [OperationPtr.getResult]
   case blocks =>
     intros bl hbl
     have : bl.InBounds ctx := by grind

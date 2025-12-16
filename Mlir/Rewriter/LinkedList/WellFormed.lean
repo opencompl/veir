@@ -16,18 +16,18 @@ structure ValuePtr.WellFormedUseDefChainMissingLink
     (hvalue : value.InBounds ctx)
     (missingUses : Std.ExtHashSet OpOperandPtr) : Prop where
   arrayInBounds (h : use ∈ array) : use.InBounds ctx
-  firstElem : array[0]? = value.getFirstUse ctx
-  firstUseBack (heq : value.getFirstUse ctx = some firstUse) :
-    (firstUse.get ctx).back = .valueFirstUse value
+  firstElem : array[0]? = value.getFirstUse! ctx
+  firstUseBack (heq : value.getFirstUse! ctx = some firstUse) :
+    (firstUse.get! ctx).back = .valueFirstUse value
   allUsesInChain (use : OpOperandPtr) (huse : use.InBounds ctx) :
-    (use.get ctx).value = value → (use ∈ array ↔ use ∉ missingUses)
-  useValue (hin : use ∈ array) : (use.get ctx).value = value
+    (use.get! ctx).value = value → (use ∈ array ↔ use ∉ missingUses)
+  useValue (hin : use ∈ array) : (use.get! ctx).value = value
   nextElems (hi : i < array.size) :
-    (array[i].get ctx).nextUse = array[i + 1]?
+    (array[i].get! ctx).nextUse = array[i + 1]?
   prevNextUse (iPos : i > 0) (iInBounds : i < array.size) :
-    (array[i].get ctx).back = OpOperandPtrPtr.operandNextUse array[i - 1]
+    (array[i].get! ctx).back = OpOperandPtrPtr.operandNextUse array[i - 1]
   missingUsesInBounds (hin : use ∈ missingUses) : use.InBounds ctx
-  missingUsesValue (hin : use ∈ missingUses) : (use.get ctx (by grind)).value = value
+  missingUsesValue (hin : use ∈ missingUses) : (use.get! ctx).value = value
 
 @[simp, grind =]
 theorem ValuePtr.WellFormedUseDefChainMissingLink_iff_WellFormedUseDefChain
@@ -39,34 +39,27 @@ theorem ValuePtr.WellFormedUseDefChainMissingLink_iff_WellFormedUseDefChain
   constructor <;> grind [ValuePtr.WellFormedUseDefChain, ValuePtr.WellFormedUseDefChainMissingLink]
 
 theorem OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse
-    ctx ctxInBounds (operandPtr : OpOperandPtr)
-    (operandPtrInBounds : operandPtr.InBounds ctx) (valuePtr : ValuePtr) valuePtrIn
+    (operandPtrInBounds : operandPtr.InBounds ctx) (valuePtrIn : ValuePtr.InBounds valuePtr ctx)
     (valuePtrWF : valuePtr.WellFormedUseDefChainMissingLink ctx array (by grind) missingUses)
-    (operandValueWF : (operandPtr.get ctx (by grind)).value.WellFormedUseDefChain ctx array' (by grind)) :
-      valuePtr.getFirstUse (OpOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds) valuePtrIn =
-        if valuePtr.getFirstUse ctx (by grind) = some operandPtr then
-          (operandPtr.get ctx (by grind)).nextUse
+    (operandValueWF : (operandPtr.get! ctx).value.WellFormedUseDefChain ctx array' (by grind)) :
+      valuePtr.getFirstUse! (OpOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds) =
+        if valuePtr.getFirstUse! ctx = some operandPtr then
+          (operandPtr.get! ctx).nextUse
         else
-          valuePtr.getFirstUse ctx (by grind) := by
-  simp only [removeFromCurrent]
+          valuePtr.getFirstUse! ctx := by
   split
-  · simp only [←ValuePtr.getFirstUse!_eq_getFirstUse]
-    split <;> grind [ValuePtr.WellFormedUseDefChainMissingLink]
-  · rename_i h
-    simp only [←ValuePtr.getFirstUse!_eq_getFirstUse]
-    split
-    · grind [ValuePtr.WellFormedUseDefChain, ValuePtr.WellFormedUseDefChain_ValuePtr_back_FirstUse]
-    · grind [ValuePtr.WellFormedUseDefChain, ValuePtr.WellFormedUseDefChain_ValuePtr_back_FirstUse]
-
+  · grind [ValuePtr.WellFormedUseDefChainMissingLink, ValuePtr.WellFormedUseDefChain_back_eq_of_getFirstUse]
+  · grind [ValuePtr.WellFormedUseDefChain_getFirstUse!_eq_of_back_eq_valueFirstUse]
 
 set_option maxHeartbeats 400000
 
 theorem OpOperandPtr.OpOperandPtr_get_removeFromCurrent_different_value
-    (ctx : IRContext) (ctxInBounds : ctx.FieldsInBounds) (use use' : OpOperandPtr)
-    useInBounds use'InBounds
-    (useOfOtherValue : (use.get ctx useInBounds).value ≠ (use'.get ctx use'InBounds).value) array valueInBounds
-    (hWF : (use.get ctx useInBounds).value.WellFormedUseDefChain ctx array valueInBounds) useInBounds' :
-    use'.get (removeFromCurrent ctx use useInBounds ctxInBounds) useInBounds' = use'.get ctx (by grind) := by
+    (ctxInBounds : ctx.FieldsInBounds) {use use' : OpOperandPtr}
+    (useInBounds : use.InBounds ctx)
+    (use'InBounds: use'.InBounds ctx)
+    (useOfOtherValue : (use.get! ctx).value ≠ (use'.get! ctx).value) {valueInBounds}
+    (hWF : (use.get! ctx).value.WellFormedUseDefChain ctx array valueInBounds) :
+    use'.get! (removeFromCurrent ctx use useInBounds ctxInBounds) = use'.get ctx (by grind) := by
   simp only [removeFromCurrent]
   simp only [←OpOperandPtr.get!_eq_get]
   split <;> grind [ValuePtr.WellFormedUseDefChain, Array.getElem?_of_mem]
@@ -89,13 +82,12 @@ theorem OpOperandPtr.OpOperandPtr_get_insertIntoCurrent_different_value
     rw [OpOperandPtr.get!_OpOperandPtr_setBack] <;> grind
 
 theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_back_same_value
-    (ctx : IRContext) (use : OpOperandPtr) (useInBounds : use.InBounds ctx)
-    (value : ValuePtr)
-    (useOfValue : (use.get ctx useInBounds).value = value) array valueInBounds
+    (useInBounds : OpOperandPtr.InBounds use ctx)
+    (useOfValue : (use.get! ctx).value = value) array valueInBounds
     (hWF : value.WellFormedUseDefChain ctx array valueInBounds)
     i (iPos : i > 0) (iInBounds : i < (array.erase use).size) useInBounds ctxInBounds (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
-    (((array.erase use)[i]).get (removeFromCurrent ctx use useInBounds ctxInBounds) iInBounds').back = OpOperandPtrPtr.operandNextUse (array.erase use)[i - 1] := by
-  simp only [←OpOperandPtr.get!_eq_get, OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+    (((array.erase use)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds)).back = OpOperandPtrPtr.operandNextUse (array.erase use)[i - 1] := by
+  simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
   have useInArray : use ∈ array := by grind [ValuePtr.WellFormedUseDefChain]
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
   subst use
@@ -112,13 +104,13 @@ theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_back_sam
     · grind [ValuePtr.WellFormedUseDefChain, ValuePtr.WellFormedUseDefChain_array_injective]
 
 theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_nextUse
-    (ctx : IRContext) (use : OpOperandPtr) (useInBounds : use.InBounds ctx)
-    (value : ValuePtr)
-    (useOfValue : (use.get ctx useInBounds).value = value) array valueInBounds
+    (useInBounds : OpOperandPtr.InBounds use ctx)
+    (useOfValue : (use.get! ctx).value = value)
     (hWF : value.WellFormedUseDefChain ctx array valueInBounds)
-    i (iInBounds : i < (array.erase use).size) useInBounds ctxInBounds (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
-    (((array.erase use)[i]).get (removeFromCurrent ctx use useInBounds ctxInBounds) iInBounds').nextUse = (array.erase use)[i + 1]? := by
-  simp only [←OpOperandPtr.get!_eq_get, OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+    {i} (iInBounds : i < (array.erase use).size)
+    (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
+    (((array.erase use)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds)).nextUse = (array.erase use)[i + 1]? := by
+  simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
   have useInArray : use ∈ array := by grind [ValuePtr.WellFormedUseDefChain]
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
   subst use
@@ -135,18 +127,18 @@ theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_nextUse
 theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_self
     (ctx : IRContext) (use : OpOperandPtr) (useInBounds : use.InBounds ctx)
     (ctxInBounds : ctx.FieldsInBounds) (value : ValuePtr)
-    (useOfValue : (use.get ctx useInBounds).value = value) array valueInBounds :
+    (useOfValue : (use.get! ctx).value = value) array valueInBounds :
     value.WellFormedUseDefChain ctx array valueInBounds →
     value.WellFormedUseDefChainMissingLink (use.removeFromCurrent ctx (by grind) (by grind)) (array.erase use) (by grind) (Std.ExtHashSet.ofList [use]) := by
   intros hWF
   constructor
   case firstUseBack =>
     intros firstUse heq
-    simp only [←OpOperandPtr.get!_eq_get, OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+    simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
     simp (disch := grind) [OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse (missingUses := ∅) (array := array) (array' := array)] at heq
     split
     · rename_i h
-      simp only [←OpOperandPtr.get!_eq_get, h, ite_eq_left_iff] at heq
+      simp only [h, ite_eq_left_iff] at heq
       by_cases value.getFirstUse ctx (by grind) = some use
       · grind [ValuePtr.WellFormedUseDefChain]
       · grind [ValuePtr.WellFormedUseDefChain, Array.getElem?_of_mem]
@@ -157,9 +149,10 @@ theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_self
     · have useInArray : use ∈ array := by grind [ValuePtr.WellFormedUseDefChain]
       have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
       subst use
-      have := ValuePtr.WellFormedUseDefChain_array_erase_array_index value ctx array (by grind) (by grind) useIdx (by grind)
+      have := ValuePtr.WellFormedUseDefChain_array_erase_array_index hWF useIdx (by grind)
       simp [Array.erase_eq_eraseIdx_of_idxOf this useIdxInBounds]
       cases useIdx <;> grind [ValuePtr.WellFormedUseDefChain]
+    · grind
     · grind
     · grind
   case allUsesInChain =>
@@ -172,8 +165,8 @@ theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_self
       grind [Array.getElem?_of_mem, ValuePtr.WellFormedUseDefChain_array_erase_mem_self]
     · grind [ValuePtr.WellFormedUseDefChain]
   case useValue => grind [ValuePtr.WellFormedUseDefChain]
-  case prevNextUse => grind [OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_back_same_value]
-  case nextElems => grind [OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_nextUse]
+  case prevNextUse => grind [OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_back_same_value, Array.mem_of_mem_erase, ValuePtr.WellFormedUseDefChain]
+  case nextElems => grind [OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_nextUse, Array.mem_of_mem_erase, ValuePtr.WellFormedUseDefChain]
   case missingUsesInBounds => grind [ValuePtr.WellFormedUseDefChain]
   case missingUsesValue => grind [ValuePtr.WellFormedUseDefChain]
 
@@ -183,9 +176,9 @@ theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other_back
     (useOfValue : (use.get ctx useInBounds).value ≠ value') array valueInBounds array' valueInBounds'
     (hWF' : value'.WellFormedUseDefChain ctx array valueInBounds)
     (hWF : (use.get ctx useInBounds).value.WellFormedUseDefChain ctx array' valueInBounds')
-    (i : Nat) (iPos : i > 0) (iInBounds : i < array.size) useInBounds (arrayIInBounds : array[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
-    (array[i].get (removeFromCurrent ctx use useInBounds ctxInBounds) arrayIInBounds).back = OpOperandPtrPtr.operandNextUse array[i - 1] := by
-  simp only [←OpOperandPtr.get!_eq_get, OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+    (i : Nat) (iPos : i > 0) (iInBounds : i < array.size) useInBounds (_ : array[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
+    (array[i].get! (removeFromCurrent ctx use useInBounds ctxInBounds)).back = OpOperandPtrPtr.operandNextUse array[i - 1] := by
+  simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
   suffices (use.get ctx (by grind)).nextUse ≠ some array[i] by grind [ValuePtr.WellFormedUseDefChain]
   have : use ∈ array' := by grind [ValuePtr.WellFormedUseDefChain]
   cases h: (use.get ctx (by grind)).nextUse
@@ -221,9 +214,9 @@ theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other_nextUse
     (useOfValue : (use.get ctx useInBounds).value ≠ value') array valueInBounds array' valueInBounds'
     (hWF' : value'.WellFormedUseDefChain ctx array valueInBounds)
     (hWF : (use.get ctx useInBounds).value.WellFormedUseDefChain ctx array' valueInBounds')
-    (i : Nat) (iInBounds : i < array.size) useInBounds (arrayIInBounds : array[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
-    (array[i].get (removeFromCurrent ctx use useInBounds ctxInBounds) arrayIInBounds).nextUse = array[i + 1]? := by
-  simp only [←OpOperandPtr.get!_eq_get, OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+    (i : Nat) (iInBounds : i < array.size) useInBounds (_ : array[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
+    (array[i].get! (removeFromCurrent ctx use useInBounds ctxInBounds)).nextUse = array[i + 1]? := by
+  simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
   cases h: (use.get! ctx).back
   case operandNextUse nextUse =>
     simp only [OpOperandPtrPtr.operandNextUse.injEq]
@@ -239,9 +232,9 @@ theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other_nextUse
 theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other
     (ctx : IRContext) (use : OpOperandPtr) (useInBounds : use.InBounds ctx)
     (ctxInBounds : ctx.FieldsInBounds) (value': ValuePtr)
-    (useOfValue : (use.get ctx useInBounds).value ≠ value') array array' valueInBounds valueInBounds' :
+    (useOfValue : (use.get! ctx).value ≠ value') array array' valueInBounds valueInBounds' :
     value'.WellFormedUseDefChain ctx array valueInBounds →
-    (use.get ctx useInBounds).value.WellFormedUseDefChain ctx array' valueInBounds' →
+    (use.get! ctx).value.WellFormedUseDefChain ctx array' valueInBounds' →
     value'.WellFormedUseDefChain (use.removeFromCurrent ctx (by grind) (by grind)) array (by grind) := by
   intros hWF hWF'
   constructor
@@ -251,6 +244,7 @@ theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other
     · rw [OpOperandPtr.OpOperandPtr_get_removeFromCurrent_different_value (array := array')] <;> grind [ValuePtr.WellFormedUseDefChain]
     · grind
     · grind
+    · grind
   case arrayInBounds => grind [ValuePtr.WellFormedUseDefChain]
   case firstElem =>
     rw [OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse (array := array) (array' := array') (missingUses := ∅)]
@@ -258,14 +252,15 @@ theorem OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other
       grind [ValuePtr.WellFormedUseDefChain]
     · grind
     · grind
+    · grind
   case allUsesInChain => grind [ValuePtr.WellFormedUseDefChain]
   case useValue => grind [ValuePtr.WellFormedUseDefChain]
   case prevNextUse =>
     intros
-    apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other_back (value' := value') (array := array) (array' := array') <;> grind
+    apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other_back (value' := value') (array := array) (array' := array') <;> grind [ValuePtr.WellFormedUseDefChain]
   case nextElems =>
     intros
-    apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other_nextUse (value' := value') (array := array) (array' := array') <;> grind
+    apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other_nextUse (value' := value') (array := array) (array' := array') <;> grind [ValuePtr.WellFormedUseDefChain]
 
 
 theorem OpOperandPtr.setValue_WellFormedUseDefChainMissingLink
@@ -274,18 +269,7 @@ theorem OpOperandPtr.setValue_WellFormedUseDefChainMissingLink
     value.WellFormedUseDefChain ctx array valueInBounds →
     value.WellFormedUseDefChainMissingLink (use.setValue ctx value) array (by grind) (Std.ExtHashSet.ofList [use]) := by
   intros hWF
-  constructor
-  case firstUseBack => grind [ValuePtr.WellFormedUseDefChain]
-  case arrayInBounds => grind [ValuePtr.WellFormedUseDefChain]
-  case firstElem =>
-    simp only [←ValuePtr.getFirstUse!_eq_getFirstUse]
-    grind [ValuePtr.WellFormedUseDefChain]
-  case allUsesInChain => grind [ValuePtr.WellFormedUseDefChain]
-  case useValue => grind [ValuePtr.WellFormedUseDefChain]
-  case prevNextUse => grind [ValuePtr.WellFormedUseDefChain]
-  case nextElems => grind [ValuePtr.WellFormedUseDefChain]
-  case missingUsesInBounds => grind [ValuePtr.WellFormedUseDefChain]
-  case missingUsesValue => grind [ValuePtr.WellFormedUseDefChain]
+  constructor <;> grind [ValuePtr.WellFormedUseDefChain]
 
 -- value.WellFormedUseDefChain (use.setValue ... ⋯ value') (array.erase use) ⋯
 
@@ -333,7 +317,6 @@ theorem OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_self
   case prevNextUse =>
     simp only [gt_iff_lt, Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
       Nat.zero_add]
-    simp only [←OpOperandPtr.get!_eq_get]
     simp only [OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent]
     intros i iPos iInBounds
     grind [ValuePtr.WellFormedUseDefChainMissingLink]
@@ -341,7 +324,7 @@ theorem OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_self
     simp only [Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
       Nat.zero_add]
     intros i iInBounds
-    simp only [←OpOperandPtr.get!_eq_get, OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent]
+    simp only [OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent]
     cases i
     case zero => grind [ValuePtr.WellFormedUseDefChainMissingLink]
     case succ i =>

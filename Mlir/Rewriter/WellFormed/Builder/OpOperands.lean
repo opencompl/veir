@@ -135,12 +135,7 @@ theorem Builder.pushOperand_WellFormedUseDefChain
       simp at hi
       rw [Array.getElem?_append_right (by grind)]
       simp
-      by_cases hi0 : i = 0
-      · simp [hi0, Builder.pushOperand_OpOperandPtr_get_newOperand]
-        grind [ValuePtr.WellFormedUseDefChain]
-      · rw [@Builder.pushOperand_OpOperandPtr_get ctx (by grind) opPtr (by grind)]
-        have : i = (i - 1 + 1) := by grind
-        grind [ValuePtr.WellFormedUseDefChain]
+      by_cases hi0 : i = 0 <;> grind [ValuePtr.WellFormedUseDefChain]
     case useValue =>
       intro use hUse
       have ⟨i, hI, hUseI⟩ := Array.mem_iff_getElem.mp hUse
@@ -154,7 +149,7 @@ theorem Builder.pushOperand_WellFormedUseDefChain
   -- Case where the use def chains are preserved
   case neg =>
     exists array'
-    apply IRContext.ValuePtr_UseDefChainWellFormed_unchanged ctx <;>
+    apply IRContext.ValuePtr_UseDefChainWellFormed_unchanged (ctx := ctx) <;>
       grind [ValuePtr.WellFormedUseDefChain]
 
 -- /--
@@ -316,10 +311,10 @@ theorem Builder.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds 
     intros blockPtr blockPtrInBounds
     have ⟨array, arrayWf⟩ := hOpWf.blockUseDefChains blockPtr (by grind)
     exists array
-    apply IRContext.BlockPtr_UseDefChainWellFormed_unchanged ctx
+    apply IRContext.BlockPtr_UseDefChainWellFormed_unchanged (ctx := ctx)
     · grind [IRContext.WellFormed]
-    · grind [Builder.pushOperand_BlockPtr_get_firstUse_mono]
     · grind [Builder.pushOperand_BlockOperand_get]
+    · grind [Builder.pushOperand_BlockPtr_get_firstUse_mono]
     · grind [Builder.pushOperand_BlockOperand_get]
     · grind
     · grind
@@ -328,7 +323,7 @@ theorem Builder.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds 
     intros blockPtr blockPtrInBounds
     have ⟨array, arrayWf⟩ := hOpWf.opChain blockPtr (by grind)
     exists array
-    apply IRContext.OperationChainWellFormed_unchanged ctx <;>
+    apply IRContext.OperationChainWellFormed_unchanged (ctx := ctx) <;>
       grind [pushOperand_OperationPtr_get_parent_mono, pushOperand_OperationPtr_get_prev_mono,
         pushOperand_OperationPtr_get_next_mono, pushOperand_BlockPtr_get_lastOp_mono, pushOperand_BlockPtr_get_firstOp_mono]
   case blockChain =>
@@ -341,7 +336,12 @@ theorem Builder.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds 
   case operations =>
     intros opPtr' opPtrInBounds
     have ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ := hOpWf.operations opPtr' (by grind)
-    constructor <;> try grind [Builder.pushOperand, Operation.WellFormed, OperationPtr.getOpOperand]
+    constructor
+    case region_parent =>
+      intros region regionInBounds
+      simp only [pushOperand_OperationPtr_getRegion]
+      grind
+    all_goals grind [Builder.pushOperand, Operation.WellFormed, OperationPtr.getOpOperand]
   case blocks =>
     intros bl hbl
     constructor
