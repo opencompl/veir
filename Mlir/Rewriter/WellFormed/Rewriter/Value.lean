@@ -122,26 +122,26 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (ne
       intros blockPtr blockPtrInBounds
       have ⟨array, harray⟩ := hWf.blockUseDefChains blockPtr (by grind)
       exists array
-      apply IRContext.BlockPtr_UseDefChainWellFormed_unchanged (ctx := ctx) <;> grind [replaceUse]
+      apply BlockPtr.WellFormedUseDefChain_unchanged (ctx := ctx) <;> grind [replaceUse]
     case opChain =>
       intros blockPtr blockPtrInBounds
       have ⟨chain, hchain⟩ := hWf.opChain blockPtr (by grind)
       exists chain
-      apply IRContext.OperationChainWellFormed_unchanged (ctx := ctx) <;> grind
+      apply BlockPtr.OperationChainWellFormed_unchanged (ctx := ctx) <;> grind
     case blockChain =>
       intros regionPtr regionPtrInBounds
       have ⟨chain, hchain⟩ := hWf.blockChain regionPtr (by grind)
       exists chain
-      apply IRContext.BlockChainWellFormed_unchanged (ctx := ctx) <;> grind
+      apply RegionPtr.BlockChainWellFormed_unchanged (ctx := ctx) <;> grind
     case operations =>
       intros opPtr opPtrInBounds
-      apply IRContext.Operation_WellFormed_unchanged (ctx := ctx) <;> sorry -- missing GetSet lemmas
+      apply Operation.WellFormed_unchanged (ctx := ctx) <;> sorry -- missing GetSet lemmas
     case blocks =>
       intros blockPtr blockPtrInBounds
-      apply IRContext.Block_WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
+      apply Block.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
     case regions =>
       intros regionPtr regionPtrInBounds
-      apply IRContext.Region_WellFormed_unchanged (ctx := ctx) <;> sorry -- missing GetSet lemmas
+      apply Region.WellFormed_unchanged (ctx := ctx) <;> sorry -- missing GetSet lemmas
 
 theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext) (oldValue: ValuePtr) (newValue: ValuePtr)
     (oldIn: oldValue.InBounds ctx)

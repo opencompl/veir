@@ -593,7 +593,7 @@ theorem BlockPtr.OperationChainWellFormed_Rewriter_insertOp?_other
     (ipParent : InsertPoint.block ip ctx ipInBounds ≠ some blockPtr) :
       blockPtr.OperationChainWellFormed ctx' array (by grind) := by
   have ipWf : ip.Wf ctx newOp := by rcases ip <;> grind
-  apply IRContext.OperationChainWellFormed_unchanged (ctx := ctx) <;> grind
+  apply BlockPtr.OperationChainWellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem BlockPtr.OperationChainWellFormed_Rewriter_insertOp?_self
     (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array)
@@ -786,7 +786,7 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     intros block hblock
     have ⟨array, harray⟩ := h₃ block (by grind)
     exists array
-    apply IRContext.BlockPtr_UseDefChainWellFormed_unchanged (ctx := ctx) <;>
+    apply BlockPtr.WellFormedUseDefChain_unchanged (ctx := ctx) <;>
       grind
   case opChain =>
     intros block hblock
@@ -800,7 +800,7 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     intros region hregion
     have ⟨array, harray⟩ := h₅ region (by grind)
     exists array
-    apply IRContext.BlockChainWellFormed_unchanged harray <;> grind
+    apply RegionPtr.BlockChainWellFormed_unchanged harray <;> grind
   case operations =>
     intros op hop
     have : op.InBounds ctx := by grind

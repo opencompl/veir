@@ -181,7 +181,7 @@ theorem IRContext.ValuePtr_UseDefChainWellFormed_unchanged
     valuePtr.WellFormedUseDefChain ctx' array  (by grind) := by
   constructor <;> grind [ValuePtr.WellFormedUseDefChain]
 
-theorem IRContext.BlockPtr_UseDefChainWellFormed_unchanged
+theorem BlockPtr.WellFormedUseDefChain_unchanged
     (hWf : blockPtr.WellFormedUseDefChain ctx array valuePtrInBounds)
     (valuePtrInBounds' : blockPtr.InBounds ctx')
     (hSameFirstUse : (blockPtr.get! ctx).firstUse = (blockPtr.get! ctx').firstUse)
@@ -196,7 +196,7 @@ theorem IRContext.BlockPtr_UseDefChainWellFormed_unchanged
     blockPtr.WellFormedUseDefChain ctx' array := by
   constructor <;> grind [BlockPtr.WellFormedUseDefChain]
 
-theorem IRContext.OperationChainWellFormed_unchanged
+theorem BlockPtr.OperationChainWellFormed_unchanged
     (hWf : blockPtr.OperationChainWellFormed ctx array blockPtrInBounds)
     (blockPtrInBounds' : blockPtr.InBounds ctx')
     (hSameFirstOp : (blockPtr.get! ctx).firstOp = (blockPtr.get! ctx').firstOp)
@@ -229,7 +229,7 @@ theorem BlockPtr.OperationChainWellFormed_array_toList_Nodup
   simp only [List.pairwise_iff_getElem]
   grind [BlockPtr.OperationChainWellFormed_array_injective]
 
-theorem IRContext.BlockChainWellFormed_unchanged
+theorem RegionPtr.BlockChainWellFormed_unchanged
     (hWf : regionPtr.BlockChainWellFormed ctx array regionPtrInBounds)
     (regionPtrInBounds' : regionPtr.InBounds ctx')
     (hSameFirst : (regionPtr.get! ctx).firstBlock = (regionPtr.get! ctx').firstBlock)
@@ -249,7 +249,7 @@ theorem IRContext.BlockChainWellFormed_unchanged
     regionPtr.BlockChainWellFormed ctx' array regionPtrInBounds' := by
   constructor <;> grind [RegionPtr.BlockChainWellFormed]
 
-theorem IRContext.Operation_WellFormed_unchanged
+theorem Operation.WellFormed_unchanged
     (hWf : (opPtr.get ctx opPtrInBounds).WellFormed ctx opPtr opPtrInBounds)
     (hInBounds' : Operation.FieldsInBounds opPtr ctx' opPtrInBounds')
     (hSameNumOperands :
@@ -282,7 +282,7 @@ theorem IRContext.Operation_WellFormed_unchanged
     (opPtr.get! ctx').WellFormed ctx' opPtr opPtrInBounds' := by
   constructor <;> grind [Operation.WellFormed]
 
-theorem IRContext.Block_WellFormed_unchanged
+theorem Block.WellFormed_unchanged
     (hWf : (blockPtr.get! ctx).WellFormed ctx blockPtr blockPtrInBounds)
     (hInBounds' : Block.FieldsInBounds blockPtr ctx' blockPtrInBounds')
     (hSameNumArguments : blockPtr.getNumArguments! ctx = blockPtr.getNumArguments! ctx')
@@ -295,7 +295,7 @@ theorem IRContext.Block_WellFormed_unchanged
     (blockPtr.get! ctx').WellFormed ctx' blockPtr blockPtrInBounds' := by
   constructor <;> grind [Block.WellFormed]
 
-theorem IRContext.Region_WellFormed_unchanged
+theorem Region.WellFormed_unchanged
     (hWf : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr)
     (hInBounds' : (regionPtr.get! ctx').FieldsInBounds ctx')
     (hSameParentOp : (regionPtr.get! ctx).parent = (regionPtr.get! ctx').parent)
