@@ -3,7 +3,7 @@ import Mlir.Core.WellFormed
 import Mlir.Rewriter.LinkedList.GetSet
 import Mlir.Rewriter.LinkedList.WellFormed
 import Mlir.Rewriter.Basic
-import Mlir.Rewriter.RewriterGetSetInBounds
+import Mlir.Rewriter.GetSetInBounds
 
 namespace Mlir
 

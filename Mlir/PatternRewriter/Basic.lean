@@ -2,7 +2,7 @@ import Mlir.Prelude
 import Mlir.Core.Basic
 import Mlir.Rewriter.Basic
 import Mlir.ForLean
-import Mlir.Rewriter.RewriterGetSetInBounds
+import Mlir.Rewriter.GetSetInBounds
 
 open Std (HashMap)
 
