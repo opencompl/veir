@@ -1,8 +1,8 @@
 import Mlir.Prelude
 import Mlir.Core.Basic
-import Mlir.Rewriter.Builder
+import Mlir.Rewriter.Basic
 import Mlir.ForLean
-import Mlir.Rewriter.BuilderInBounds
+import Mlir.Rewriter.RewriterGetSetInBounds
 
 open Std (HashMap)
 
@@ -145,7 +145,7 @@ def createOp (rewriter: PatternRewriter) (opType: Nat)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds rewriter.ctx)
     (hins : insertionPoint.maybe InsertPoint.InBounds rewriter.ctx) : Option (PatternRewriter × OperationPtr) := do
-  rlet (newCtx, op) ← Builder.createOp rewriter.ctx opType numResults operands numRegions properties insertionPoint hoper hins (by grind)
+  rlet (newCtx, op) ← Rewriter.createOp rewriter.ctx opType numResults operands numRegions properties insertionPoint hoper hins (by grind)
   if h : insertionPoint.isNone then
     ({ rewriter with ctx := newCtx, ctx_fib := by grind }, op)
   else

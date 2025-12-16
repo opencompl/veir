@@ -1,4 +1,4 @@
-import Mlir.Rewriter.Rewriter
+import Mlir.Rewriter.Basic
 import Mlir.Rewriter.LinkedList.GetSet
 import Mlir.ForLean
 
@@ -185,3 +185,18 @@ theorem OperationPtr.getNumOperands_iff_replaceValue?
     OperationPtr.getNumOperands op ctx' h_op =
     OperationPtr.getNumOperands op ctx (by grind) := by
   grind [OpOperandPtr.inBounds_if_operand_size_eq]
+
+@[grind .]
+theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
+    (heq : createOp ctx opType numResults operands numRegions props ip h₁ h₂ h₃ = some (newCtx, newOp)) :
+    ptr.InBounds ctx → ptr.InBounds newCtx := by
+  simp [createOp] at heq
+  split at heq <;> sorry -- Why is grind failing here?!
+
+@[grind .]
+theorem Rewriter.createOp_fieldsInBounds
+    (heq : createOp ctx opType numResults operands numRegions props ip h₁ h₂ h₃ = some (newCtx, newOp)) :
+    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
+  intros hx
+  simp [createOp] at heq
+  split at heq <;> sorry -- Why is grind failing here?!

@@ -1,9 +1,9 @@
 import Mlir.Prelude
 import Mlir.Core.Basic
-import Mlir.Rewriter.Builder
+import Mlir.Rewriter.Basic
 import Mlir.Printer
 import Mlir.PatternRewriter.Basic
-import Mlir.Rewriter.Rewriter
+import Mlir.Rewriter.Basic
 
 namespace Mlir.Benchmarks
 
@@ -134,7 +134,7 @@ def addIConstantFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext :
 
   -- Sum both constant values
   let newVal := lhsOpStruct.properties + rhsOpStruct.properties
-  let (ctx, newOp) ← Builder.createOp ctx OpCode.constant 1 #[] 0 newVal (InsertPoint.Before op) sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx OpCode.constant 1 #[] 0 newVal (InsertPoint.Before op) sorry sorry sorry
   let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry
 
   if (lhsValuePtr.getFirstUse ctx (by sorry)).isNone then
@@ -187,7 +187,7 @@ def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
   -- Get the lhs value
   let lhsValuePtr := op.getOperand ctx 0 (by sorry) (by sorry)
 
-  let (ctx, newOp) ← Builder.createOp ctx OpCode.addi 1 #[lhsValuePtr, lhsValuePtr] 0 0 (InsertPoint.Before op) sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx OpCode.addi 1 #[lhsValuePtr, lhsValuePtr] 0 0 (InsertPoint.Before op) sorry sorry sorry
   let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse ctx (by sorry)).isNone then
@@ -250,19 +250,19 @@ def empty : Option (IRContext × InsertPoint) := do
 --   ...
 def constFoldTree (opcode: Nat) (size pc: Nat) (root inc: UInt64) : Option IRContext := do
   let (gctx, insertPoint) ← empty
-  let mut (gctx, gacc) ← Builder.createOp gctx OpCode.constant 1 #[] 0 root insertPoint sorry sorry sorry
+  let mut (gctx, gacc) ← Rewriter.createOp gctx OpCode.constant 1 #[] 0 root insertPoint sorry sorry sorry
   for i in [0:size] do
     let thisOp := if (i % 100 < pc) then opcode else OpCode.andi
 
     let (ctx, acc) := (gctx, gacc)
-    let (ctx, rhsOp) ← Builder.createOp ctx OpCode.constant 1 #[] 0 inc insertPoint sorry sorry sorry
+    let (ctx, rhsOp) ← Rewriter.createOp ctx OpCode.constant 1 #[] 0 inc insertPoint sorry sorry sorry
     let lhsVal := acc.getResult 0
     let rhsVal := rhsOp.getResult 0
-    let (ctx, acc) ← Builder.createOp ctx thisOp 1 #[lhsVal, rhsVal] 0 0 insertPoint sorry sorry sorry
+    let (ctx, acc) ← Rewriter.createOp ctx thisOp 1 #[lhsVal, rhsVal] 0 0 insertPoint sorry sorry sorry
     (gctx, gacc) := (ctx, acc)
 
   let accRes := gacc.getResult 0
-  let (ctx, op) ← Builder.createOp gctx OpCode.test 0 #[accRes] 0 0 insertPoint sorry sorry sorry
+  let (ctx, op) ← Rewriter.createOp gctx OpCode.test 0 #[accRes] 0 0 insertPoint sorry sorry sorry
   ctx
 
 def addZeroTree (size pc: Nat) : Option IRContext :=
@@ -284,8 +284,8 @@ def mulTwoTree (size pc: Nat) : Option IRContext :=
 --   ...
 def constReuseTree (opcode: Nat) (size pc: Nat) (root inc: UInt64) : Option IRContext := do
   let (ctx, insertPoint) ← empty
-  let (ctx, acc) ← Builder.createOp ctx OpCode.constant 1 #[] 0 root insertPoint sorry sorry sorry
-  let (ctx, reuse) ← Builder.createOp ctx OpCode.constant 1 #[] 0 inc insertPoint sorry sorry sorry
+  let (ctx, acc) ← Rewriter.createOp ctx OpCode.constant 1 #[] 0 root insertPoint sorry sorry sorry
+  let (ctx, reuse) ← Rewriter.createOp ctx OpCode.constant 1 #[] 0 inc insertPoint sorry sorry sorry
 
   let mut (gctx, gacc) := (ctx, acc)
   for i in [0:size] do
@@ -294,12 +294,12 @@ def constReuseTree (opcode: Nat) (size pc: Nat) (root inc: UInt64) : Option IRCo
     let (ctx, acc) := (gctx, gacc)
     let lhsVal := acc.getResult 0
     let rhsVal := reuse.getResult 0
-    let (ctx, acc) ← Builder.createOp ctx thisOp 1 #[lhsVal, rhsVal] 0 0 insertPoint sorry sorry sorry
+    let (ctx, acc) ← Rewriter.createOp ctx thisOp 1 #[lhsVal, rhsVal] 0 0 insertPoint sorry sorry sorry
     (gctx, gacc) := (ctx, acc)
   let (ctx, acc) := (gctx, gacc)
 
   let accRes := acc.getResult 0
-  let (ctx, op) ← Builder.createOp ctx OpCode.test 0 #[accRes] 0 0 insertPoint sorry sorry sorry
+  let (ctx, op) ← Rewriter.createOp ctx OpCode.test 0 #[accRes] 0 0 insertPoint sorry sorry sorry
   ctx
 
 def addZeroReuseTree (size pc: Nat) : Option IRContext :=
@@ -316,11 +316,11 @@ def addZeroReuseTree (size pc: Nat) : Option IRContext :=
 --   ...
 def constLotsOfReuseTree (opcode: Nat) (size pc: Nat) (lhs rhs: UInt64) : Option IRContext := do
   let (ctx, insertPoint) ← empty
-  let (ctx, lhsOp) ← Builder.createOp ctx OpCode.constant 1 #[] 0 lhs insertPoint sorry sorry sorry
-  let (ctx, rhsOp) ← Builder.createOp ctx OpCode.constant 1 #[] 0 rhs insertPoint sorry sorry sorry
+  let (ctx, lhsOp) ← Rewriter.createOp ctx OpCode.constant 1 #[] 0 lhs insertPoint sorry sorry sorry
+  let (ctx, rhsOp) ← Rewriter.createOp ctx OpCode.constant 1 #[] 0 rhs insertPoint sorry sorry sorry
   let lhsVal := lhsOp.getResult 0
   let rhsVal := rhsOp.getResult 0
-  let (ctx, reuse) ← Builder.createOp ctx opcode 1 #[lhsVal, rhsVal] 0 0 insertPoint sorry sorry sorry
+  let (ctx, reuse) ← Rewriter.createOp ctx opcode 1 #[lhsVal, rhsVal] 0 0 insertPoint sorry sorry sorry
 
   let mut (gctx, gacc) := (ctx, reuse)
   for i in [0:size] do
@@ -329,12 +329,12 @@ def constLotsOfReuseTree (opcode: Nat) (size pc: Nat) (lhs rhs: UInt64) : Option
     let (ctx, acc) := (gctx, gacc)
     let lhsVal := acc.getResult 0
     let rhsVal := reuse.getResult 0
-    let (ctx, acc) ← Builder.createOp ctx thisOp 1 #[lhsVal, rhsVal] 0 0 insertPoint sorry sorry sorry
+    let (ctx, acc) ← Rewriter.createOp ctx thisOp 1 #[lhsVal, rhsVal] 0 0 insertPoint sorry sorry sorry
     (gctx, gacc) := (ctx, acc)
   let (ctx, acc) := (gctx, gacc)
 
   let accRes := acc.getResult 0
-  let (ctx, op) ← Builder.createOp ctx OpCode.test 0 #[accRes] 0 0 insertPoint sorry sorry sorry
+  let (ctx, op) ← Rewriter.createOp ctx OpCode.test 0 #[accRes] 0 0 insertPoint sorry sorry sorry
   ctx
 
 def addZeroLotsOfReuseTree (size pc: Nat) : Option IRContext :=

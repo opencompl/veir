@@ -1,6 +1,6 @@
 import Mlir.Core.Basic
 import Mlir.Core.WellFormed
-import Mlir.Rewriter.Builder
+import Mlir.Rewriter.Basic
 
 namespace Mlir
 
@@ -9,7 +9,7 @@ theorem OperationPtr.setProperties_WellFormed (op: OperationPtr) (ctx: IRContext
     (op.setProperties ctx newValue inBounds).WellFormed := by
   sorry
 
-theorem Builder.createOp_WellFormed (ctx: IRContext) (opType: Nat)
+theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: Nat)
     (numResults: Nat) (operands: Array ValuePtr) (numRegions: Nat) (properties: UInt64)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx)
@@ -17,7 +17,7 @@ theorem Builder.createOp_WellFormed (ctx: IRContext) (opType: Nat)
     (hx : ctx.FieldsInBounds)
     (hctx : IRContext.WellFormed ctx)
     (newCtx : IRContext) (newOp : OperationPtr) :
-    Builder.createOp ctx opType numResults operands numRegions properties insertionPoint hoper hins hx = some (newCtx, newOp) →
+    Rewriter.createOp ctx opType numResults operands numRegions properties insertionPoint hoper hins hx = some (newCtx, newOp) →
     newCtx.WellFormed := by
   intros heq
   constructor

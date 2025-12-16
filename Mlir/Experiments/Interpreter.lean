@@ -1,9 +1,8 @@
 import Buffed.Prelude
 import Mlir.Core.Basic
-import Mlir.Builder
+import Mlir.Rewriter
 import Mlir.Printer
 import Mlir.ForLean
-import Mlir.Lemmas.Builder
 import Mlir.WellFormedness
 import Mlir.PatternRewriter
 

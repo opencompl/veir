@@ -1,11 +1,11 @@
 import Mlir.Core.Basic
 import Mlir.Core.WellFormed
-import Mlir.Rewriter.Builder
+import Mlir.Rewriter.Basic
 
 namespace Mlir
 
 @[grind .]
-theorem Builder.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
+theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx)
     (hres : newResult.FieldsInBounds (opPtr.pushResult ctx newResult hop))
     (hNoFirst : newResult.firstUse = none)
@@ -60,9 +60,9 @@ theorem Builder.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     have ⟨ha, hb⟩ := h₈ rg this
     constructor <;> grind
 
-theorem Builder.initOpResults_WellFormed (ctx: IRContext) (opPtr: OperationPtr) (numResults: Nat)
+theorem Rewriter.initOpResults_WellFormed (ctx: IRContext) (opPtr: OperationPtr) (numResults: Nat)
     (index : Nat) (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx) (newCtx : IRContext) hIndex :
-    Builder.initOpResults ctx opPtr numResults index hop hIndex = newCtx →
+    Rewriter.initOpResults ctx opPtr numResults index hop hIndex = newCtx →
     newCtx.WellFormed := by
   induction numResults generalizing index ctx
   case zero =>
@@ -72,7 +72,7 @@ theorem Builder.initOpResults_WellFormed (ctx: IRContext) (opPtr: OperationPtr) 
     lift_lets
     intros result ctx' h₁ h₂
     apply ih
-    apply Builder.pushResult_WellFormed
+    apply Rewriter.pushResult_WellFormed
     · assumption
     · assumption
     · grind
