@@ -20,10 +20,9 @@ theorem Rewriter.replaceUse_WellFormedUseDefChain_newValue
       (#[use] ++ array) valueInBoundsAfter := by
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', Ne.symm hvalueNe, ↓reduceIte]
-  apply OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_self
-    (useInBounds := by grind) (valueInBounds := by grind)
-  apply OpOperandPtr.setValue_WellFormedUseDefChainMissingLink
-    (useInBounds := by grind) (valueInBounds := by grind) (useOfOtherValue := by grind)
+  apply ValuePtr.WellFormedUseDefChain_insertIntoCurrent_self (by grind)
+  apply ValuePtr.WellFormedUseDefChainMissingLink_OpOperandPtr_setValue_of_WellFormedUseDefChain
+    (useInBounds := by grind) (valueInBounds := by grind) (by grind)
   apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other
     (array := array) (array' := array') (value' := value) <;> grind
 
@@ -39,18 +38,17 @@ theorem Rewriter.replaceUse_WellFormedUseDefChain_oldValue
       (array.erase use) valueInBoundsAfter := by
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', hvalueNe, ↓reduceIte]
-  apply OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_other
-    (missingUses := Std.ExtHashSet.ofList [use]) (value' := value') (array' := array')
-    (useOfValue' := by grind) (hvalueNe := by grind) (valueInBounds := by grind) (valueInBounds' := by grind)
+  apply ValuePtr.WellFormedUseDefChain_insertIntoCurrent_other
+    (missingUses' := Std.ExtHashSet.ofList [use]) (value' := value') (array' := array') (value := value)
+    (valueNe := by grind) (hvalue := by grind) (valueInBounds := by grind) (valueInBounds' := by grind)
   · simp [←ValuePtr.WellFormedUseDefChainMissingLink_iff_WellFormedUseDefChain]
     have : ∅ = (Std.ExtHashSet.ofList [use]).erase use := by simp; grind
     simp only [this]
     apply OpOperandPtr.setValue_WellFormedUseDefChainMissingLink_append
     any_goals grind
     apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_self <;> grind
-  · grind [OpOperandPtr.setValue_WellFormedUseDefChainMissingLink,
+  · grind [ValuePtr.WellFormedUseDefChainMissingLink_OpOperandPtr_setValue_of_WellFormedUseDefChain,
       OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other]
-  · grind
 
 theorem Rewriter.replaceUse_WellFormedUseDefChain_otherValue
     (ctxIn: ctx.FieldsInBounds)
@@ -65,18 +63,17 @@ theorem Rewriter.replaceUse_WellFormedUseDefChain_otherValue
       array'' value''InBoundsAfter := by
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', hne'', ↓reduceIte]
-  apply OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_other
-    (value' := value') (array' := array') (missingUses := Std.ExtHashSet.ofList [use])
-    (useOfValue' := by grind) (hvalueNe := by grind) (valueInBounds := by grind) (valueInBounds' := by grind)
+  apply ValuePtr.WellFormedUseDefChain_insertIntoCurrent_other
+    (missingUses' := Std.ExtHashSet.ofList [use]) (value' := value') (array' := array')
+    (valueNe := by grind) (hvalue := by grind) (valueInBounds := by grind) (valueInBounds' := by grind)
   · apply OpOperandPtr.setValue_WellFormedUseDefChain_other
     any_goals grind
     apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other (array' := array) <;> grind
-  · apply OpOperandPtr.setValue_WellFormedUseDefChainMissingLink
+  · apply ValuePtr.WellFormedUseDefChainMissingLink_OpOperandPtr_setValue_of_WellFormedUseDefChain
     · grind
     · apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other <;> try grind
-      simp only [useOfValue']; exact hWF
+      · simp only [useOfValue']; exact hWF
     · grind
-  · grind
 
 theorem Rewriter.replaceUse_WellFormedUseDefChain (ctx: IRContext) (use : OpOperandPtr)
     (useIn: use.InBounds ctx)
