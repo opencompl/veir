@@ -143,7 +143,12 @@ theorem Builder.pushOperand_WellFormedUseDefChain
     case firstUseBack =>
       grind [IRContext.WellFormed]
     case prevNextUse =>
-      grind (splits := 20) [ValuePtr.WellFormedUseDefChain]
+      simp only [gt_iff_lt, Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
+        Nat.zero_add]
+      intros i hi₁ hi₂
+      have iNeZero : i ≠ 0 := by grind
+      simp [Array.getElem_append, iNeZero]
+      grind [ValuePtr.WellFormedUseDefChain, Option.maybe_def]
     case allUsesInChain =>
       grind [ValuePtr.WellFormedUseDefChain, IRContext.WellFormed]
   -- Case where the use def chains are preserved
