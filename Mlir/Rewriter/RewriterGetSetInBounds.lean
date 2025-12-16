@@ -191,7 +191,13 @@ theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
     (heq : createOp ctx opType numResults operands numRegions props ip h₁ h₂ h₃ = some (newCtx, newOp)) :
     ptr.InBounds ctx → ptr.InBounds newCtx := by
   simp [createOp] at heq
-  split at heq <;> sorry -- Why is grind failing here?!
+  split at heq
+  · grind
+  · split at heq
+    · grind
+    · split at heq
+      · split at heq <;> grind
+      · grind
 
 @[grind .]
 theorem Rewriter.createOp_fieldsInBounds
@@ -199,4 +205,10 @@ theorem Rewriter.createOp_fieldsInBounds
     ctx.FieldsInBounds → newCtx.FieldsInBounds := by
   intros hx
   simp [createOp] at heq
-  split at heq <;> sorry -- Why is grind failing here?!
+  split at heq
+  · grind
+  · split at heq
+    · grind
+    · split at heq
+      · split at heq <;> grind
+      · grind
