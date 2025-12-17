@@ -34,7 +34,7 @@ structure ValuePtr.WellFormedUseDefChainMissingLink
 attribute [grind →] ValuePtr.WellFormedUseDefChainMissingLink.missingUsesInBounds
 
 @[simp, grind =]
-theorem ValuePtr.WellFormedUseDefChainMissingLink_iff_WellFormedUseDefChain
+theorem ValuePtr.wellFormedUseDefChainMissingLink_iff_wellFormedUseDefChain
     (value : ValuePtr) (ctx : IRContext) (array : Array OpOperandPtr)
     (hvalue : value.InBounds ctx) :
     (ValuePtr.WellFormedUseDefChainMissingLink value ctx array hvalue ∅) ↔
@@ -63,7 +63,7 @@ theorem ValuePtr.WellFormedUseDefChainMissingLink_unchanged
     valuePtr.WellFormedUseDefChainMissingLink ctx' array (by grind) missingUses := by
   constructor <;> grind [ValuePtr.WellFormedUseDefChainMissingLink]
 
-theorem ValuePtr.WellFormedUseDefChainMissingLink.ValuePtr_getFirstUse_ne_of_value_ne
+theorem ValuePtr.wellFormedUseDefChainMissingLink.ValuePtr_getFirstUse_ne_of_value_ne
     {use use' : OpOperandPtr}
     (valueNe : (use.get! ctx).value ≠ (use'.get! ctx).value)
     {valueInBounds}
@@ -73,7 +73,7 @@ theorem ValuePtr.WellFormedUseDefChainMissingLink.ValuePtr_getFirstUse_ne_of_val
 
 /- OpOperandPtr.setValue -/
 
-theorem ValuePtr.WellFormedUseDefChainMissingLink_OpOperandPtr_setValue_of_WellFormedUseDefChainMissingLink
+theorem ValuePtr.wellFormedUseDefChainMissingLink_OpOperandPtr_setValue_of_wellFormedUseDefChainMissingLink
     {use : OpOperandPtr} (useInBounds : use.InBounds ctx)
     (useOfOtherValue : (use.get ctx useInBounds).value ≠ value) :
     value.WellFormedUseDefChainMissingLink ctx array valueInBounds missingUses →
@@ -81,7 +81,7 @@ theorem ValuePtr.WellFormedUseDefChainMissingLink_OpOperandPtr_setValue_of_WellF
   intros hWF
   constructor <;> grind [ValuePtr.WellFormedUseDefChainMissingLink]
 
-theorem ValuePtr.WellFormedUseDefChainMissingLink_OpOperandPtr_setValue_of_WellFormedUseDefChain
+theorem ValuePtr.wellFormedUseDefChainMissingLink_OpOperandPtr_setValue_of_wellFormedUseDefChain
     {use : OpOperandPtr} (useInBounds : use.InBounds ctx)
     (useOfOtherValue : (use.get ctx useInBounds).value ≠ value) :
     value.WellFormedUseDefChain ctx array valueInBounds →
@@ -97,9 +97,9 @@ theorem OpOperandPtr.get!_insertIntoCurrent_of_value_ne
     (useOfOtherValue : (use.get! ctx).value ≠ (use'.get! ctx).value) array valueInBounds missingUses
     (hWF : (use.get! ctx).value.WellFormedUseDefChainMissingLink ctx array valueInBounds missingUses) :
     use'.get! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.get! ctx := by
-  grind [ValuePtr.WellFormedUseDefChainMissingLink.ValuePtr_getFirstUse_ne_of_value_ne]
+  grind [ValuePtr.wellFormedUseDefChainMissingLink.ValuePtr_getFirstUse_ne_of_value_ne]
 
-theorem ValuePtr.WellFormedUseDefChainMissingLink_insertIntoCurrent_self
+theorem ValuePtr.wellFormedUseDefChainMissingLink_insertIntoCurrent_self
     {value : ValuePtr} {valueInBounds} {hvalue : use ∈ missingUses}
     (hWF: value.WellFormedUseDefChainMissingLink ctx array valueInBounds missingUses) :
     value.WellFormedUseDefChainMissingLink (use.insertIntoCurrent ctx (by grind) ctxInBounds) (#[use] ++ array) (by grind) (missingUses.erase use) := by
@@ -117,59 +117,59 @@ theorem ValuePtr.WellFormedUseDefChainMissingLink_insertIntoCurrent_self
     grind [ValuePtr.WellFormedUseDefChainMissingLink]
   all_goals grind [ValuePtr.WellFormedUseDefChainMissingLink]
 
-theorem ValuePtr.WellFormedUseDefChain_insertIntoCurrent_self
+theorem ValuePtr.wellFormedUseDefChain_insertIntoCurrent_self
     {value : ValuePtr} (valueInBounds)
     (hWF: value.WellFormedUseDefChainMissingLink ctx array valueInBounds (Std.ExtHashSet.ofList [use])) :
     value.WellFormedUseDefChain (use.insertIntoCurrent ctx (by grind [ValuePtr.WellFormedUseDefChainMissingLink]) ctxInBounds) (#[use] ++ array) (by grind) := by
   have : ∅ = (Std.ExtHashSet.ofList [use]).erase use := by grind
-  simp [←ValuePtr.WellFormedUseDefChainMissingLink_iff_WellFormedUseDefChain]
-  grind [ValuePtr.WellFormedUseDefChainMissingLink_insertIntoCurrent_self]
+  simp [←ValuePtr.wellFormedUseDefChainMissingLink_iff_wellFormedUseDefChain]
+  grind [ValuePtr.wellFormedUseDefChainMissingLink_insertIntoCurrent_self]
 
-theorem ValuePtr.WellFormedUseDefChainMissingLink_insertIntoCurrent_other
+theorem ValuePtr.wellFormedUseDefChainMissingLink_insertIntoCurrent_other
     {value value' : ValuePtr} (valueNe : value ≠ value') {valueInBounds valueInBounds'} {hvalue : use ∈ missingUses'}
     (hWF : value.WellFormedUseDefChainMissingLink ctx array valueInBounds missingUses)
     (hWF' : value'.WellFormedUseDefChainMissingLink ctx array' valueInBounds' missingUses') :
     value.WellFormedUseDefChainMissingLink (use.insertIntoCurrent ctx (by grind) ctxInBounds) array (by grind) missingUses := by
   apply ValuePtr.WellFormedUseDefChainMissingLink_unchanged (ctx := ctx) <;> try grind [ValuePtr.WellFormedUseDefChainMissingLink, ValuePtr.WellFormedUseDefChain]
 
-theorem ValuePtr.WellFormedUseDefChain_insertIntoCurrent_other
+theorem ValuePtr.wellFormedUseDefChain_insertIntoCurrent_other
     {value value' : ValuePtr} (valueNe : value ≠ value') {valueInBounds valueInBounds'} {hvalue : use ∈ missingUses'}
     (hWF : value.WellFormedUseDefChain ctx array valueInBounds)
     (hWF' : value'.WellFormedUseDefChainMissingLink ctx array' valueInBounds' missingUses') :
     value.WellFormedUseDefChain (use.insertIntoCurrent ctx (by grind) ctxInBounds) array (by grind) := by
   apply IRContext.ValuePtr_UseDefChainWellFormed_unchanged (ctx := ctx) <;> try grind [ValuePtr.WellFormedUseDefChainMissingLink, ValuePtr.WellFormedUseDefChain]
 
-theorem BlockPtr.WellFormedUseDefChain_OpOperandPtr_insertIntoCurrent
+theorem BlockPtr.wellFormedUseDefChain_OpOperandPtr_insertIntoCurrent
     {block : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
     (hWF : block.WellFormedUseDefChain ctx array blockInBounds) :
     block.WellFormedUseDefChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array (by grind) := by
   apply BlockPtr.WellFormedUseDefChain_unchanged (ctx := ctx) <;> grind
 
-theorem BlockPtr.OperationChainWellFormed_OpOperandPtr_insertIntoCurrent
+theorem BlockPtr.wperationChainWellFormed_OpOperandPtr_insertIntoCurrent
     {block : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
     (hWF : block.OperationChainWellFormed ctx array blockInBounds) :
     block.OperationChainWellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) array (by grind) := by
   apply BlockPtr.OperationChainWellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem RegionPtr.BlockChainWellFormed_OpOperandPtr_insertIntoCurrent
+theorem RegionPtr.wlockChainWellFormed_OpOperandPtr_insertIntoCurrent
     {region : RegionPtr} {regionInBounds} {use : OpOperandPtr} {useInBounds}
     (hWF : region.BlockChainWellFormed ctx array regionInBounds) :
     region.BlockChainWellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) array (by grind) := by
   apply RegionPtr.BlockChainWellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Operation.WellFormed_OpOperandPtr_insertIntoCurrent
+theorem Operation.wellFormed_OpOperandPtr_insertIntoCurrent
     {opPtr : OperationPtr} {opInBounds} {use : OpOperandPtr} {useInBounds}
     (hWF : (opPtr.get! ctx).WellFormed ctx opPtr opInBounds) :
     (opPtr.get! (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) opPtr (by grind) := by
   apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Block.WellFormed_OpOperandPtr_insertIntoCurrent
+theorem Block.wellFormed_OpOperandPtr_insertIntoCurrent
     {blockPtr : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
     (hWF : (blockPtr.get! ctx).WellFormed ctx blockPtr blockInBounds) :
     (blockPtr.get! (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) blockPtr (by grind) := by
   apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Region.WellFormed_OpOperandPtr_insertIntoCurrent
+theorem Region.wellFormed_OpOperandPtr_insertIntoCurrent
     {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : OpOperandPtr} {useInBounds}
     (hWF : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr) :
     (RegionPtr.get! regionPtr (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) regionPtr := by

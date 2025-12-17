@@ -7,31 +7,31 @@ namespace Veir
 - A position in the IR where we can insert an operation.
 -/
 inductive InsertPoint where
-  | Before (op: OperationPtr)
-  | AtEnd (block: BlockPtr)
+  | before (op: OperationPtr)
+  | atEnd (block: BlockPtr)
 deriving DecidableEq
 
 @[grind]
 def InsertPoint.InBounds : InsertPoint → IRContext → Prop
-| Before op => op.InBounds
-| AtEnd bl => bl.InBounds
+| before op => op.InBounds
+| atEnd bl => bl.InBounds
 
 @[grind =]
-theorem InsertPoint.inBounds_before : (Before op).InBounds ctx ↔ op.InBounds ctx := by rfl
+theorem InsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBounds ctx := by rfl
 @[grind =]
-theorem InsertPoint.inBounds_atEnd : (AtEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
+theorem InsertPoint.inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
 @[grind]
 def InsertPoint.block! (insertionPoint : InsertPoint) (ctx : IRContext) : Option BlockPtr :=
   match insertionPoint with
-  | InsertPoint.Before op => (op.get! ctx).parent
-  | InsertPoint.AtEnd b => b
+  | before op => (op.get! ctx).parent
+  | atEnd b => b
 
 def InsertPoint.block (insertionPoint : InsertPoint) (ctx : IRContext)
     (hIn : insertionPoint.InBounds ctx := by grind) : Option BlockPtr :=
   match insertionPoint with
-  | InsertPoint.Before op => (op.get ctx (by grind)).parent
-  | InsertPoint.AtEnd b => b
+  | before op => (op.get ctx (by grind)).parent
+  | atEnd b => b
 
 @[grind =]
 theorem InsertPoint.block!_eq_block (insertionPoint : InsertPoint) (ctx : IRContext)
@@ -60,12 +60,12 @@ def Rewriter.insertOp? (ctx: IRContext) (newOp: OperationPtr) (insertionPoint: I
     (insIn : insertionPoint.InBounds ctx)
     (ctxInBounds: ctx.FieldsInBounds) : Option IRContext :=
   match _ : insertionPoint with
-    | InsertPoint.Before existingOp =>
+    | .before existingOp =>
       rlet parent ← (existingOp.get ctx (by grind)).parent
       let prev := (existingOp.get ctx (by grind)).prev
       let next := some existingOp
       newOp.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
-    | InsertPoint.AtEnd block =>
+    | .atEnd block =>
       let parent := block
       let prev := (block.get ctx (by grind)).lastOp
       let next := none
@@ -150,17 +150,17 @@ example.
 - A position in the IR where we can insert an operation.
 -/
 inductive BlockInsertPoint where
-  | Before (op: BlockPtr)
-  | AtEnd (block: RegionPtr)
+  | before (op: BlockPtr)
+  | atEnd (block: RegionPtr)
 
 @[grind]
 def BlockInsertPoint.InBounds : BlockInsertPoint → IRContext → Prop
-| Before op => op.InBounds
-| AtEnd bl => bl.InBounds
+| before op => op.InBounds
+| atEnd bl => bl.InBounds
 @[grind =]
-theorem BlockInsertPoint.inBounds_before : (Before op).InBounds ctx ↔ op.InBounds ctx := by rfl
+theorem BlockInsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBounds ctx := by rfl
 @[grind =]
-theorem BlockInsertPoint.inBounds_atEnd : (AtEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
+theorem BlockInsertPoint.inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
 @[irreducible]
 private def Rewriter.insertBlockInEmptyRegion? (ctx: IRContext) (newBlock: BlockPtr) (region: RegionPtr)
@@ -182,12 +182,12 @@ def Rewriter.insertBlock? (ctx: IRContext) (newBlock: BlockPtr)
     (newBlockIn: newBlock.InBounds ctx := by grind)
     (ctxInBounds: ctx.FieldsInBounds := by grind) : Option IRContext :=
   match _ : insertionPoint with
-    | .Before existingBlock =>
+    | .before existingBlock =>
       rlet parent ← (existingBlock.get ctx (by grind)).parent
       let prev := (existingBlock.get ctx (by grind)).prev
       let next := some existingBlock
       newBlock.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
-    | .AtEnd region =>
+    | .atEnd region =>
       let parent := region
       let prev := (region.get ctx (by grind)).lastBlock
       let next := none
@@ -550,6 +550,6 @@ def IRContext.create : Option (IRContext × OperationPtr) :=
     · grind
     · grind [Region.FieldsInBounds, Region.empty]
   let moduleRegion := operation.getRegion! ctx 0
-  rlet (ctx, block) ← Rewriter.createBlock ctx (some (BlockInsertPoint.AtEnd moduleRegion)) (by grind) (by sorry)
+  rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd moduleRegion)) (by grind) (by sorry)
   let ctx := { ctx with topLevelOp := operation }
   (ctx, 0)

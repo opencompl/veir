@@ -41,7 +41,7 @@ def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option 
 
   -- Sum both constant values
   let newVal := lhsOpStruct.properties + rhsOpStruct.properties
-  let (rewriter, newOp) ← rewriter.createOp OpCode.constant 1 #[] 0 newVal (InsertPoint.Before op) sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp OpCode.constant 1 #[] 0 newVal (some $ .before op) sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry
 
   if (lhsValuePtr.getFirstUse rewriter.ctx (by sorry)).isNone then
@@ -94,7 +94,7 @@ def mulITwoReduce (rewriter: PatternRewriter) (op: OperationPtr) : Option Patter
   -- Get the lhs value
   let lhsValuePtr := op.getOperand rewriter.ctx 0 (by sorry) (by sorry)
 
-  let (rewriter, newOp) ← rewriter.createOp OpCode.addi 1 #[lhsValuePtr, lhsValuePtr] 0 0 (InsertPoint.Before op) sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp OpCode.addi 1 #[lhsValuePtr, lhsValuePtr] 0 0 (some $ .before op) sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse rewriter.ctx (by sorry)).isNone then
@@ -134,7 +134,7 @@ def addIConstantFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext :
 
   -- Sum both constant values
   let newVal := lhsOpStruct.properties + rhsOpStruct.properties
-  let (ctx, newOp) ← Rewriter.createOp ctx OpCode.constant 1 #[] 0 newVal (InsertPoint.Before op) sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx OpCode.constant 1 #[] 0 newVal (some $ .before op) sorry sorry sorry
   let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry
 
   if (lhsValuePtr.getFirstUse ctx (by sorry)).isNone then
@@ -187,7 +187,7 @@ def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
   -- Get the lhs value
   let lhsValuePtr := op.getOperand ctx 0 (by sorry) (by sorry)
 
-  let (ctx, newOp) ← Rewriter.createOp ctx OpCode.addi 1 #[lhsValuePtr, lhsValuePtr] 0 0 (InsertPoint.Before op) sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx OpCode.addi 1 #[lhsValuePtr, lhsValuePtr] 0 0 (some $ .before op) sorry sorry sorry
   let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse ctx (by sorry)).isNone then
@@ -236,7 +236,7 @@ def empty : Option (IRContext × InsertPoint) := do
   let (ctx, topLevelOp) ← IRContext.create
   let region := topLevelOp.getRegion! ctx 0
   let block := (region.get ctx (by sorry)).firstBlock.get!
-  let insertPoint := InsertPoint.AtEnd block
+  let insertPoint := InsertPoint.atEnd block
   (ctx, insertPoint)
 
 

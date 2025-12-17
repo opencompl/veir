@@ -26,8 +26,8 @@ def InterpreterState.empty : InterpreterState :=
   { variables := Std.HashMap.emptyWithCapacity 8 }
 
 inductive InterpreterAction where
-  | Return (vals : Array InterpreterValue)
-  | Continue
+  | return (vals : Array InterpreterValue)
+  | continue
 
 def interpretOp (ctx : IRContext) (opPtr : OperationPtr) (opPtrInBounds : opPtr.InBounds ctx := by grind) (state : InterpreterState) : Option (InterpreterState × InterpreterAction) :=
   let op := opPtr.get ctx (by grind)

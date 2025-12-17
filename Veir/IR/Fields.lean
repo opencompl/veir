@@ -178,7 +178,7 @@ theorem OperationPtr.getOperand_inBounds (ctx: IRContext) (ptr: OperationPtr)
 
 /- Preservation theorems for FieldsInBounds -/
 
-theorem Operation.FieldsInBounds_unchanged {op: OperationPtr} (ctx ctx' : IRContext)
+theorem Operation.fieldsInBounds_unchanged {op: OperationPtr} (ctx ctx' : IRContext)
     (opInBounds: op.InBounds ctx)
     (opInBounds': op.InBounds ctx')
     (hh : ctx.FieldsInBounds)
@@ -203,7 +203,7 @@ theorem Operation.FieldsInBounds_unchanged {op: OperationPtr} (ctx ctx' : IRCont
     have := @OpOperandPtr.get!_eq_of_OperationPtr_get!_eq
     constructor <;> grind
 
-theorem Block.FieldsInBounds_unchanged (block: BlockPtr) (ctx ctx' : IRContext)
+theorem Block.fieldsInBounds_unchanged (block: BlockPtr) (ctx ctx' : IRContext)
     (blockInBounds: block.InBounds ctx)
     (blockInBounds': block.InBounds ctx')
     (hFIB : Block.FieldsInBounds block ctx blockInBounds)
@@ -212,7 +212,7 @@ theorem Block.FieldsInBounds_unchanged (block: BlockPtr) (ctx ctx' : IRContext)
     Block.FieldsInBounds block ctx' blockInBounds' := by
   constructor <;> grind [BlockArgumentPtr.get!_eq_of_BlockPtr_get!_eq]
 
-theorem Region.FieldsInBounds_unchanged (region: RegionPtr) (ctx ctx' : IRContext)
+theorem Region.fieldsInBounds_unchanged (region: RegionPtr) (ctx ctx' : IRContext)
     (regionInBounds: region.InBounds ctx)
     (regionInBounds': region.InBounds ctx')
     (hFIB : (region.get ctx regionInBounds).FieldsInBounds ctx)
@@ -244,7 +244,7 @@ macro "prove_fieldsInBounds_operation" ctx:ident : tactic => `(tactic|
      · rintro opr hopr heq
        constructor <;> grind
    · intros block blockIn
-     apply Block.FieldsInBounds_unchanged (ctx := $ctx) <;> grind
+     apply Block.fieldsInBounds_unchanged (ctx := $ctx) <;> grind
    · grind))
 
 macro "prove_fieldsInBounds_block" ctx:ident : tactic => `(tactic|
@@ -252,20 +252,20 @@ macro "prove_fieldsInBounds_block" ctx:ident : tactic => `(tactic|
    constructor
    · grind
    · intros
-     apply Operation.FieldsInBounds_unchanged (ctx := $ctx) <;> grind
+     apply Operation.fieldsInBounds_unchanged (ctx := $ctx) <;> grind
    · intros block blockIn
      constructor <;> grind
    · intros
-     apply Region.FieldsInBounds_unchanged (ctx := $ctx) <;> grind))
+     apply Region.fieldsInBounds_unchanged (ctx := $ctx) <;> grind))
 
 macro "prove_fieldsInBounds_region" ctx:ident : tactic => `(tactic|
   (intros hctx
    constructor
    · grind
    · intros
-     apply Operation.FieldsInBounds_unchanged (ctx := $ctx) <;> grind
+     apply Operation.fieldsInBounds_unchanged (ctx := $ctx) <;> grind
    · intros
-     apply Block.FieldsInBounds_unchanged (ctx := $ctx) <;> grind
+     apply Block.fieldsInBounds_unchanged (ctx := $ctx) <;> grind
    · intros
      constructor <;> grind))
 
@@ -496,7 +496,7 @@ theorem OpOperandPtrPtr.set_fieldsInBounds_maybe (hnew : newPtr.maybe OpOperandP
       · cases val <;> grind
     all_goals grind
   · intros
-    apply Region.FieldsInBounds_unchanged (ctx := ctx) <;> grind
+    apply Region.fieldsInBounds_unchanged (ctx := ctx) <;> grind
 
 @[grind .]
 theorem OpOperandPtr.setValue_fieldsInBounds (hp : newValue.InBounds ctx) :

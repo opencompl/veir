@@ -782,8 +782,8 @@ def BlockArgumentPtr.setOwner (arg: BlockArgumentPtr) (ctx: IRContext) (newOwner
 -/
 
 inductive ValuePtr.InBounds : ValuePtr → IRContext → Prop
-| OpResultPtrInBounds ptr ctx : ptr.InBounds ctx → (opResult ptr).InBounds ctx
-| BlockArgumentPtrInBounds ptr ctx : ptr.InBounds ctx → (blockArgument ptr).InBounds ctx
+| op_result ptr ctx : ptr.InBounds ctx → (opResult ptr).InBounds ctx
+| block_argument ptr ctx : ptr.InBounds ctx → (blockArgument ptr).InBounds ctx
 
 @[simp, grind=]
 theorem ValuePtr.inBounds_opResult (ptr: OpResultPtr) (ctx: IRContext) :
