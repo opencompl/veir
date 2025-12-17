@@ -777,16 +777,16 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
   constructor
   case inBounds =>
     grind
-  case valueUseDefChains =>
+  case valueDefUseChains =>
     intros val hval
     have ⟨array, harray⟩ := h₂ val (by grind)
     exists array
-    apply IRContext.ValuePtr_UseDefChainWellFormed_unchanged (ctx := ctx) <;> grind [ValuePtr.getFirstUse]
-  case blockUseDefChains =>
+    apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind [ValuePtr.getFirstUse]
+  case blockDefUseChains =>
     intros block hblock
     have ⟨array, harray⟩ := h₃ block (by grind)
     exists array
-    apply BlockPtr.WellFormedUseDefChain_unchanged (ctx := ctx) <;>
+    apply BlockPtr.DefUse_unchanged (ctx := ctx) <;>
       grind
   case opChain =>
     intros block hblock
