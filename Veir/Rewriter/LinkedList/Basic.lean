@@ -1,13 +1,16 @@
-import Veir.IR.Basic
-import Veir.IR.Grind
+module
+
+public import Veir.IR
+public import Veir.IR.Grind
 
 namespace Mlir
+
+public section
 
 /-
   Use def chain for operands.
 -/
 
-@[irreducible]
 def OpOperandPtr.removeFromCurrent (ctx: IRContext) (operandPtr: OpOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind)
     (ctxInBounds: ctx.FieldsInBounds) : IRContext :=
@@ -27,7 +30,6 @@ theorem OpOperandPtr.removeFromCurrent_inBounds (ptr : GenericPtr) :
     ptr.InBounds (removeFromCurrent ctx operand h₁ h₂) ↔ ptr.InBounds ctx := by
   grind [removeFromCurrent]
 
-@[irreducible]
 def OpOperandPtr.insertIntoCurrent (ctx: IRContext) (operandPtr: OpOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind) (ctxInBounds: ctx.FieldsInBounds) : IRContext :=
   let value := (operandPtr.get ctx).value
@@ -81,7 +83,6 @@ theorem OperationPtr.linkBetween_inBounds (ptr : GenericPtr) :
   Checks that `self` does not already have a parent.
   TODO: We should also check that `self` does not contain `parent`.
 -/
-@[irreducible]
 def OperationPtr.setParentWithCheck (self: OperationPtr) (ctx: IRContext) (parent: BlockPtr)
     (selfIn: self.InBounds ctx := by grind) : Option IRContext :=
   match (self.get ctx (by grind)).parent with
@@ -92,14 +93,14 @@ def OperationPtr.setParentWithCheck (self: OperationPtr) (ctx: IRContext) (paren
 theorem OperationPtr.setParentWithCheck_fieldsInBounds
     (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
     (setParentWithCheck self ctx parent h₂).maybe₁ IRContext.FieldsInBounds := by
-  grind [setParentWithCheck, Option.maybe₁]
+  grind [setParentWithCheck, Option.maybe₁_def]
 
 @[grind =>]
 theorem OperationPtr.setParentWithCheck_fieldsInBounds_some
     (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx)
     (heq : setParentWithCheck self ctx parent h₂ = some newCtx) :
     newCtx.FieldsInBounds := by
-  grind [setParentWithCheck, Option.maybe₁]
+  grind [setParentWithCheck, Option.maybe₁_def]
 
 @[grind =>]
 theorem OperationPtr.setParentWithCheck_inBounds (ptr : GenericPtr)
@@ -116,7 +117,6 @@ theorem OperationPtr.setParentWithCheck_inBounds (ptr : GenericPtr)
   Add previous and next links to `newBlock`, linking it after `self`.
   In particular, this does not update any parent pointers.
 -/
-@[irreducible]
 def BlockPtr.linkNextBlock (self: BlockPtr) (ctx: IRContext) (newBlock: BlockPtr)
     (opIn: self.InBounds ctx := by grind)
     (newBlockIn: newBlock.InBounds ctx := by grind)
@@ -148,7 +148,6 @@ theorem OperationPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
     (linkBetween self ctx prevOp nextOp h₁ h₂ h₃).FieldsInBounds := by
   unfold linkBetween; simp only; split <;> grind
 
-@[irreducible]
 def OperationPtr.linkBetweenWithParent (self: OperationPtr) (ctx: IRContext)
     (prevOp: Option OperationPtr) (nextOp: Option OperationPtr)
     (parent: BlockPtr)
@@ -186,7 +185,6 @@ theorem OperationPtr.linkBetweenWithParent_fieldsInBounds (hx : ctx.FieldsInBoun
   Add previous and next links to `newOp`, linking it before `self`.
   In particular, this does not update any parent pointers.
 -/
-@[irreducible]
 def BlockPtr.linkPrevBlock (self: BlockPtr) (ctx: IRContext) (newBlock: BlockPtr)
     (opIn: self.InBounds ctx := by grind)
     (newBlockIn: newBlock.InBounds ctx := by grind)
@@ -216,7 +214,6 @@ theorem BlockPtr.linkPrevBlock_fieldsInBounds :
   Checks that `self` does not already have a parent.
   TODO: We should also check that `self` does not contain `parent`.
 -/
-@[irreducible]
 def BlockPtr.setParentWithCheck (self: BlockPtr) (ctx: IRContext) (parent: RegionPtr)
     (selfIn: self.InBounds ctx := by grind) : Option IRContext :=
   match (self.get ctx (by grind)).parent with
@@ -233,4 +230,4 @@ theorem BlockPtr.setParentWithCheck_inBounds (ptr :
 theorem BlockPtr.setParentWithCheck_fieldsInBounds
     (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
     (setParentWithCheck self ctx parent h₂).maybe₁ IRContext.FieldsInBounds := by
-  grind [setParentWithCheck, Option.maybe₁]
+  grind [setParentWithCheck, Option.maybe₁_def]
