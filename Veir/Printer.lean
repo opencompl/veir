@@ -1,9 +1,9 @@
 import Veir.IR.Basic
 import Veir.IR.Grind
 
-open Mlir
+open Veir
 
-namespace Mlir.Printer
+namespace Veir.Printer
 
 def opName (opType: Nat) : String :=
   match opType with

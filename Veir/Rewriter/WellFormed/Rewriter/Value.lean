@@ -5,7 +5,7 @@ import Veir.Rewriter.LinkedList.WellFormed
 import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSetInBounds
 
-namespace Mlir
+namespace Veir
 
 
 theorem Rewriter.replaceUse_WellFormedUseDefChain_newValue
@@ -306,11 +306,11 @@ theorem BlockPtr.operationList_replaceOp?
   sorry
 
 -- /--
--- info: 'Mlir.Rewriter.replaceValue?_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-- info: 'Veir.Rewriter.replaceValue?_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -- -/
 -- #guard_msgs in
 -- #print axioms Rewriter.replaceValue?_WellFormed
 -- TODO
 
 
-end Mlir
+end Veir

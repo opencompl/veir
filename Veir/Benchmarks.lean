@@ -5,7 +5,7 @@ import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.Rewriter.Basic
 
-namespace Mlir.Benchmarks
+namespace Veir.Benchmarks
 
 abbrev OpCode.module := 0
 abbrev OpCode.constant := 1
@@ -573,4 +573,4 @@ builtin.module() {
 #guard_msgs in
 #eval! testBench "add-zero-lots-of-reuse-first" 5
 
-end Mlir.Benchmarks
+end Veir.Benchmarks

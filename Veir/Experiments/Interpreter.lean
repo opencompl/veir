@@ -6,7 +6,7 @@ import Veir.ForLean
 import Veir.WellFormedness
 import Veir.PatternRewriter
 
-namespace Mlir
+namespace Veir
 
 abbrev InterpreterValue := UInt64
 

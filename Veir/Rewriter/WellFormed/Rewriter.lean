@@ -1,7 +1,7 @@
 import Veir.Rewriter.WellFormed.Rewriter.Operation
 import Veir.Rewriter.WellFormed.Rewriter.Value
 
-namespace Mlir
+namespace Veir
 
 theorem Rewriter.replaceOp?_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (oldOp newOp : OperationPtr)
@@ -24,4 +24,4 @@ theorem BlockPtr.operationList_Rewriter_replaceOp
         array := by
   sorry
 
-end Mlir
+end Veir

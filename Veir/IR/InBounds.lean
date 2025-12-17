@@ -4,7 +4,7 @@ public import Veir.IR.Basic
 import all Veir.IR.Basic
 import Veir.ForLean
 
-namespace Mlir
+namespace Veir
 
 public section
 

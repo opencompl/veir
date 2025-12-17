@@ -2,7 +2,7 @@ import Veir.IR.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
 
-namespace Mlir
+namespace Veir
 
 theorem OperationPtr.setProperties_WellFormed (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx) (newValue: UInt64)
     (hctx : IRContext.WellFormed ctx) :

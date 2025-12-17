@@ -6,7 +6,7 @@ open Std (HashMap)
 
 public section
 
-namespace Mlir
+namespace Veir
 
 abbrev OperationPtr := Nat
 abbrev BlockPtr := Nat

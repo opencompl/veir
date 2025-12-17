@@ -3,7 +3,7 @@ import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSetInBounds
 
-namespace Mlir
+namespace Veir
 
 @[grind =]
 theorem OperationPtr.get!_linkBetween (op : OperationPtr)
@@ -860,4 +860,4 @@ theorem OperationPtr.getOperand_Rewriter_eraseOp
     OperationPtr.getOperand op' ctx idx (by sorry) (by sorry) := by
   sorry
 
-end Mlir
+end Veir

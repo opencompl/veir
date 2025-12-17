@@ -30,5 +30,5 @@ def main (args : List String) : IO Unit := do
   IO.println s!"Buffed Benchmark ({args})"
   let count := getCountFrom args[1]?
   match args[0]? with
-  | some bench => Mlir.Benchmarks.runBenchmark bench count (getPCFrom args[2]?)
+  | some bench => Veir.Benchmarks.runBenchmark bench count (getPCFrom args[2]?)
   | _ => IO.println "Please provide a benchmark name"

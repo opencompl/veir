@@ -4,7 +4,7 @@ import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSetInBounds
 import Veir.Rewriter.LinkedList.GetSet
 
-namespace Mlir
+namespace Veir
 
 variable (ctx : IRContext)
 variable (ctxInBounds : ctx.FieldsInBounds)
@@ -158,7 +158,7 @@ theorem Rewriter.pushOperand_WellFormedUseDefChain
       grind [ValuePtr.WellFormedUseDefChain]
 
 -- /--
--- info: 'Mlir.Rewriter.pushOperand_WellFormedUseDefChain' depends on axioms: [propext, Classical.choice, Quot.sound]
+-- info: 'Veir.Rewriter.pushOperand_WellFormedUseDefChain' depends on axioms: [propext, Classical.choice, Quot.sound]
 -- -/
 -- #guard_msgs in
 -- #print axioms Rewriter.pushOperand_WellFormedUseDefChain
@@ -365,7 +365,7 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
     · grind
 
 -- /--
--- info: 'Mlir.Rewriter.pushOperand_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-- info: 'Veir.Rewriter.pushOperand_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -- -/
 -- #guard_msgs in
 -- #print axioms Rewriter.pushOperand_WellFormed

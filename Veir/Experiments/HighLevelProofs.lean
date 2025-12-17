@@ -8,7 +8,7 @@ abbrev OpCode.addi := 2
 abbrev OpCode.muli := 4
 abbrev OpCode.test := 99
 
-open Mlir
+open Veir
 
 structure addIZeroFolding_matchingCondition (ctx: IRContext) (op: OperationPtr) (lhsValue: ValuePtr) (rhsPtr: OperationPtr) : Prop where
   opIsAdd : op.getOpType ctx sorry = OpCode.addi

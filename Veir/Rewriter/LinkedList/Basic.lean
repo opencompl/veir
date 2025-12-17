@@ -1,7 +1,7 @@
 import Veir.IR.Basic
 import Veir.IR.Grind
 
-namespace Mlir
+namespace Veir
 
 /-
   Use def chain for operands.

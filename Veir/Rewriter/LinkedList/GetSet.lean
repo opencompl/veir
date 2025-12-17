@@ -35,7 +35,7 @@ import Veir.Rewriter.LinkedList.Basic
  - * ValuePtr.getType!
  - * OpOperandPtrPtr.get!
  -/
-namespace Mlir
+namespace Veir
 
 variable {op op' operation operation' : OperationPtr}
 variable {block block' : BlockPtr}

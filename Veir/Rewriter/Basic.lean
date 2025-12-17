@@ -1,7 +1,7 @@
 import Veir.IR
 import Veir.Rewriter.LinkedList
 
-namespace Mlir
+namespace Veir
 
 /--
 - A position in the IR where we can insert an operation.

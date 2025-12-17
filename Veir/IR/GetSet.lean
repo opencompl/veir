@@ -3,7 +3,7 @@ module
 public import Veir.IR.Basic
 import all Veir.IR.Basic
 
-namespace Mlir
+namespace Veir
 
 public section
 

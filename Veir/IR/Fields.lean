@@ -4,7 +4,7 @@ public import Veir.IR.Basic
 import Veir.IR.InBounds
 import Veir.IR.GetSet
 
-namespace Mlir
+namespace Veir
 
 @[expose] public section
 

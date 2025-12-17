@@ -2,7 +2,7 @@ import Veir.IR.Basic
 import Veir.IR.Grind
 import Veir.ForLean
 
-namespace Mlir
+namespace Veir
 
 structure ValuePtr.WellFormedUseDefChain
     (value : ValuePtr) (ctx : IRContext) (array : Array OpOperandPtr)
@@ -375,4 +375,4 @@ theorem BlockPtr.OperationChainWellFormed_next_ne
   have : array[i + 1]? = some op := by grind [BlockPtr.OperationChainWellFormed]
   grind [BlockPtr.OperationChainWellFormed_array_injective]
 
-end Mlir
+end Veir

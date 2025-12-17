@@ -2,7 +2,7 @@ import Veir.IR.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
 
-namespace Mlir
+namespace Veir
 
 @[grind .]
 theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)

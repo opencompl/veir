@@ -6,7 +6,7 @@ import Veir.Rewriter.GetSetInBounds
 
 open Std (HashMap)
 
-namespace Mlir.PatternRewriter
+namespace Veir.PatternRewriter
 
 section array_inv
 

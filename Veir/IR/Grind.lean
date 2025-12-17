@@ -3,7 +3,7 @@ module
 public import Veir.IR.Fields
 import all Veir.IR.Basic
 
-namespace Mlir
+namespace Veir
 
 public section
 

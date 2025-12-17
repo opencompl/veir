@@ -4,7 +4,7 @@ import Veir.Rewriter.LinkedList.GetSet
 import Std.Data.HashSet
 import Std.Data.ExtHashSet
 
-namespace Mlir
+namespace Veir
 
 attribute [local grind ext] OpOperand
 
@@ -413,4 +413,4 @@ theorem ValuePtr.WellFormedUseDefChain_array_mem_erase
   simp only [Array.toList_erase] at this
   grind [ValuePtr.WellFormedUseDefChain_array_toList_Nodup]
 
-end Mlir
+end Veir

@@ -2,7 +2,7 @@ import Veir.Rewriter.Basic
 import Veir.Rewriter.LinkedList.GetSet
 import Veir.ForLean
 
-namespace Mlir
+namespace Veir
 
 @[grind .]
 theorem Rewriter.insertOp?_inBounds_mono (ptr : GenericPtr)
