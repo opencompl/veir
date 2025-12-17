@@ -16,12 +16,16 @@ theorem Rewriter.replaceUse_WellFormedUseDefChain_newValue
     (hvalueNe : value ≠ value')
     (hWF : value.WellFormedUseDefChain ctx array hvalue)
     (hWF' : value'.WellFormedUseDefChain ctx array' hvalue') valueInBoundsAfter :
-    value.WellFormedUseDefChain (Rewriter.replaceUse ctx use value useIn newValueInBounds ctxIn) (#[use] ++ array) valueInBoundsAfter := by
+    value.WellFormedUseDefChain (Rewriter.replaceUse ctx use value useIn newValueInBounds ctxIn)
+      (#[use] ++ array) valueInBoundsAfter := by
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', Ne.symm hvalueNe, ↓reduceIte]
-  apply OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_self (useInBounds := by grind) (valueInBounds := by grind)
-  apply OpOperandPtr.setValue_WellFormedUseDefChainMissingLink (useInBounds := by grind) (valueInBounds := by grind) (useOfOtherValue := by grind)
-  apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other (array := array) (array' := array') (value' := value) <;> grind
+  apply OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_self
+    (useInBounds := by grind) (valueInBounds := by grind)
+  apply OpOperandPtr.setValue_WellFormedUseDefChainMissingLink
+    (useInBounds := by grind) (valueInBounds := by grind) (useOfOtherValue := by grind)
+  apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other
+    (array := array) (array' := array') (value' := value) <;> grind
 
 theorem Rewriter.replaceUse_WellFormedUseDefChain_oldValue
     (useIn: use.InBounds ctx)
@@ -31,17 +35,21 @@ theorem Rewriter.replaceUse_WellFormedUseDefChain_oldValue
     (hvalueNe : value ≠ value')
     (hWF : value.WellFormedUseDefChain ctx array hvalue)
     (hWF' : value'.WellFormedUseDefChain ctx array' hvalue') {newValueInBounds valueInBoundsAfter} :
-    value.WellFormedUseDefChain (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) (array.erase use) valueInBoundsAfter := by
+    value.WellFormedUseDefChain (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)
+      (array.erase use) valueInBoundsAfter := by
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', hvalueNe, ↓reduceIte]
-  apply OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_other (missingUses := Std.ExtHashSet.ofList [use]) (value' := value') (array' := array') (useOfValue' := by grind) (hvalueNe := by grind) (valueInBounds := by grind) (valueInBounds' := by grind)
+  apply OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_other
+    (missingUses := Std.ExtHashSet.ofList [use]) (value' := value') (array' := array')
+    (useOfValue' := by grind) (hvalueNe := by grind) (valueInBounds := by grind) (valueInBounds' := by grind)
   · simp [←ValuePtr.WellFormedUseDefChainMissingLink_iff_WellFormedUseDefChain]
     have : ∅ = (Std.ExtHashSet.ofList [use]).erase use := by simp; grind
     simp only [this]
     apply OpOperandPtr.setValue_WellFormedUseDefChainMissingLink_append
     any_goals grind
     apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChainMissingLink_self <;> grind
-  · grind [OpOperandPtr.setValue_WellFormedUseDefChainMissingLink, OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other]
+  · grind [OpOperandPtr.setValue_WellFormedUseDefChainMissingLink,
+      OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other]
   · grind
 
 theorem Rewriter.replaceUse_WellFormedUseDefChain_otherValue
@@ -53,17 +61,20 @@ theorem Rewriter.replaceUse_WellFormedUseDefChain_otherValue
     (hWF' : value'.WellFormedUseDefChain ctx array' hvalue')
     (hWF'' : ValuePtr.WellFormedUseDefChain value'' ctx array'' hvalue'') {value''InBoundsAfter}
     (hne : value'' ≠ value) (hne' : value'' ≠ value') (hne'' : value ≠ value') :
-    value''.WellFormedUseDefChain (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) array'' value''InBoundsAfter := by
+    value''.WellFormedUseDefChain (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)
+      array'' value''InBoundsAfter := by
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', hne'', ↓reduceIte]
-  apply OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_other (value' := value') (array' := array') (useOfValue' := by grind) (hvalueNe := by grind) (valueInBounds := by grind) (valueInBounds' := by grind) (missingUses := Std.ExtHashSet.ofList [use])
+  apply OpOperandPtr.insertIntoCurrent_WellFormedUseDefChain_other
+    (value' := value') (array' := array') (missingUses := Std.ExtHashSet.ofList [use])
+    (useOfValue' := by grind) (hvalueNe := by grind) (valueInBounds := by grind) (valueInBounds' := by grind)
   · apply OpOperandPtr.setValue_WellFormedUseDefChain_other
     any_goals grind
     apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other (array' := array) <;> grind
   · apply OpOperandPtr.setValue_WellFormedUseDefChainMissingLink
     · grind
     · apply OpOperandPtr.removeFromCurrent_WellFormedUseDefChain_other <;> try grind
-      · simp only [useOfValue']; exact hWF
+      simp only [useOfValue']; exact hWF
     · grind
   · grind
 
@@ -108,7 +119,8 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (ne
       have ⟨array, harray⟩ := hWf.valueUseDefChains value (by grind)
       have ⟨newArray, hnewArray⟩ := hWf.valueUseDefChains newValue (by grind)
       have ⟨array', hArray'⟩ := hWf.valueUseDefChains valuePtr (by grind)
-      apply Rewriter.replaceUse_WellFormedUseDefChain (value := value) (array := array) (array' := newArray) (array'' := array') <;> grind
+      apply Rewriter.replaceUse_WellFormedUseDefChain
+        (value := value) (array := array) (array' := newArray) (array'' := array') <;> grind
     case blockUseDefChains =>
       intros blockPtr blockPtrInBounds
       have ⟨array, harray⟩ := hWf.blockUseDefChains blockPtr (by grind)
@@ -170,9 +182,12 @@ theorem Rewriter.replaceValue_WellFormedUseDefChain_otherValue :
         (ctx := replaceUse ctx firstUse newValue (by grind) (by grind) (by grind))
         (oldArray := oldArray.erase firstUse)
         (newArray := #[firstUse] ++ newArray)
-      · apply Rewriter.replaceUse_WellFormedUseDefChain_otherValue (array := oldArray) (array' := newArray) (value := oldValue) <;> grind [ValuePtr.WellFormedUseDefChain]
-      · apply Rewriter.replaceUse_WellFormedUseDefChain_oldValue (array' := newArray) <;> grind [ValuePtr.WellFormedUseDefChain]
-      · apply Rewriter.replaceUse_WellFormedUseDefChain_newValue (array' := oldArray) (value' := oldValue) <;> grind [ValuePtr.WellFormedUseDefChain]
+      · apply Rewriter.replaceUse_WellFormedUseDefChain_otherValue
+          (array := oldArray) (array' := newArray) (value := oldValue) <;> grind [ValuePtr.WellFormedUseDefChain]
+      · apply Rewriter.replaceUse_WellFormedUseDefChain_oldValue (array' := newArray) <;>
+          grind [ValuePtr.WellFormedUseDefChain]
+      · apply Rewriter.replaceUse_WellFormedUseDefChain_newValue (array' := oldArray) (value' := oldValue) <;>
+          grind [ValuePtr.WellFormedUseDefChain]
       all_goals grind
 
 theorem Rewriter.replaceValue_WellFormedUseDefChain_oldValue :
@@ -195,15 +210,15 @@ theorem Rewriter.replaceValue_WellFormedUseDefChain_oldValue :
         (ctx := replaceUse ctx firstUse newValue (by grind) (by grind) (by grind))
         (oldArray := oldArray.erase firstUse)
         (newArray := #[firstUse] ++ newArray)
-      · apply Rewriter.replaceUse_WellFormedUseDefChain_oldValue (array' := newArray) <;> grind [ValuePtr.WellFormedUseDefChain]
-      · apply Rewriter.replaceUse_WellFormedUseDefChain_newValue (array' := oldArray) (value' := oldValue) <;> grind [ValuePtr.WellFormedUseDefChain]
+      · apply Rewriter.replaceUse_WellFormedUseDefChain_oldValue (array' := newArray) <;>
+          grind [ValuePtr.WellFormedUseDefChain]
+      · apply Rewriter.replaceUse_WellFormedUseDefChain_newValue (array' := oldArray) (value' := oldValue) <;>
+          grind [ValuePtr.WellFormedUseDefChain]
       all_goals grind [ValuePtr.WellFormedUseDefChain]
 
 theorem Array.append_eq_erase_append_insertHead {α : Type} [BEq α] [LawfulBEq α] {arrayHead : α} {array arrayTail otherArray}:
     array = #[arrayHead] ++ arrayTail →
     array.reverse ++ otherArray = (array.erase arrayHead).reverse ++ (#[arrayHead] ++ otherArray) := by
-  intros
-  subst array
   grind [Array.erase_head_concat]
 
 seal HAppend.hAppend in -- TODO: remove after we use modules?
@@ -224,13 +239,14 @@ theorem Rewriter.replaceValue_WellFormedUseDefChain_newValue :
     · rename_i firstUse heq
       intros
       have : oldArray[0]? = some firstUse := by sorry --grind [ValuePtr.WellFormedUseDefChain]
-      have ⟨oldArrayTail, hOldArrayTail⟩ : ∃ oldArrayTail, oldArray = #[firstUse] ++ oldArrayTail := by (
+      have ⟨oldArrayTail, hOldArrayTail⟩ : ∃ oldArrayTail, oldArray = #[firstUse] ++ oldArrayTail := by
         apply Array.head_tail_if_firstElem_nonnull; grind
-      )
       simp only [Array.append_eq_erase_append_insertHead (hOldArrayTail)]
       apply ih (ctx := replaceUse ctx firstUse newValue (by grind) (by grind) (by grind))
-      · apply Rewriter.replaceUse_WellFormedUseDefChain_oldValue (array' := newArray) <;> sorry --grind [ValuePtr.WellFormedUseDefChain]
-      · apply Rewriter.replaceUse_WellFormedUseDefChain_newValue (array' := oldArray) (value' := oldValue) <;> sorry -- grind [ValuePtr.WellFormedUseDefChain]
+      · apply Rewriter.replaceUse_WellFormedUseDefChain_oldValue (array' := newArray) <;>
+          sorry --grind [ValuePtr.WellFormedUseDefChain]
+      · apply Rewriter.replaceUse_WellFormedUseDefChain_newValue (array' := oldArray) (value' := oldValue) <;>
+          sorry -- grind [ValuePtr.WellFormedUseDefChain]
       all_goals grind
 
 theorem OperationPtr.getOperand_replaceValue?
@@ -246,7 +262,8 @@ theorem OperationPtr.getOperand_replaceValue?
   let oldValueArray := oldValue.useDefArray ctx (by grind) (by grind)
   let newValueArray := newValue.useDefArray ctx (by grind) (by grind)
   split
-  · have : op.getOpOperand idx ∈ oldValueArray := by grind [ValuePtr.useDefArray_contains_operand_use]
+  · have : op.getOpOperand idx ∈ oldValueArray := by
+      grind [ValuePtr.useDefArray_contains_operand_use]
     have := @Rewriter.replaceValue_WellFormedUseDefChain_newValue oldValue newValue ctx
       (depth := depth) (newArray := newValueArray) (oldArray := oldValueArray)
     grind [ValuePtr.WellFormedUseDefChain]
