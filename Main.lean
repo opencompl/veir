@@ -1,4 +1,4 @@
-import Mlir
+import Veir
 
 def count := 50_000
 
