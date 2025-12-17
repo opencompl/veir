@@ -163,34 +163,6 @@ theorem BlockInsertPoint.inBounds_before : (Before op).InBounds ctx ↔ op.InBou
 theorem BlockInsertPoint.inBounds_atEnd : (AtEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
 @[irreducible]
-private def Rewriter.insertBlockAfter? (ctx: IRContext) (newBlock: BlockPtr) (existingBlock: BlockPtr)
-    (newBlockIn: newBlock.InBounds ctx := by grind)
-    (existingBlockIn: existingBlock.InBounds ctx := by grind)
-    (ctxInBounds: ctx.FieldsInBounds) : Option IRContext := do
-  rlet parent ← (existingBlock.get ctx (by grind)).parent
-  let ctx := existingBlock.linkNextBlock ctx newBlock
-  rlet ctx ← newBlock.setParentWithCheck ctx parent (by grind)
-  let nextBlock := (newBlock.get ctx (by grind)).next
-  if h : nextBlock = none then
-    parent.setLastBlock ctx (some newBlock) (by grind (ematch := 10))
-  else
-    ctx
-
-@[irreducible]
-private def Rewriter.insertBlockBefore? (ctx: IRContext) (newBlock: BlockPtr) (existingBlock: BlockPtr)
-    (newBlockIn: newBlock.InBounds ctx := by grind)
-    (existingBlockIn: existingBlock.InBounds ctx := by grind)
-    (ctxInBounds: ctx.FieldsInBounds) : Option IRContext := do
-  rlet parent ← (existingBlock.get ctx (by grind)).parent
-  let ctx := existingBlock.linkPrevBlock ctx newBlock
-  rlet ctx ← newBlock.setParentWithCheck ctx parent (by grind)
-  let prevBlock := (newBlock.get ctx (by grind)).prev
-  if h : prevBlock = none then
-    return parent.setFirstBlock ctx (some newBlock) (by grind (ematch := 10))
-  else
-    ctx
-
-@[irreducible]
 private def Rewriter.insertBlockInEmptyRegion? (ctx: IRContext) (newBlock: BlockPtr) (region: RegionPtr)
     (newBlockIn: newBlock.InBounds ctx := by grind)
     (regionIn: region.InBounds ctx := by grind) : Option IRContext := do
@@ -205,17 +177,21 @@ private def Rewriter.insertBlockInEmptyRegion? (ctx: IRContext) (newBlock: Block
 - Insert a block at a given location.
 -/
 @[irreducible]
-def Rewriter.insertBlock? (ctx: IRContext) (newBlock: BlockPtr) (insertionPoint:
-    BlockInsertPoint) (hib : insertionPoint.InBounds ctx := by grind)
+def Rewriter.insertBlock? (ctx: IRContext) (newBlock: BlockPtr)
+    (insertionPoint: BlockInsertPoint) (hib : insertionPoint.InBounds ctx := by grind)
     (newBlockIn: newBlock.InBounds ctx := by grind)
     (ctxInBounds: ctx.FieldsInBounds := by grind) : Option IRContext :=
-  match h : insertionPoint with
-  | BlockInsertPoint.Before existingBlock =>
-    Rewriter.insertBlockBefore? ctx newBlock existingBlock (by grind) (by grind) ctxInBounds
-  | BlockInsertPoint.AtEnd region =>
-    match h : (region.get ctx (by grind)).lastBlock with
-    | none => Rewriter.insertBlockInEmptyRegion? ctx newBlock region (by grind) (by grind)
-    | some lastBlock => Rewriter.insertBlockAfter? ctx newBlock lastBlock (by grind) (by grind) ctxInBounds
+  match _ : insertionPoint with
+    | .Before existingBlock =>
+      rlet parent ← (existingBlock.get ctx (by grind)).parent
+      let prev := (existingBlock.get ctx (by grind)).prev
+      let next := some existingBlock
+      newBlock.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
+    | .AtEnd region =>
+      let parent := region
+      let prev := (region.get ctx (by grind)).lastBlock
+      let next := none
+      newBlock.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
 
 def Rewriter.replaceUse (ctx: IRContext) (use : OpOperandPtr) (newValue: ValuePtr)
     (useIn: use.InBounds ctx := by grind)
