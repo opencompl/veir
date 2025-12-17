@@ -76,6 +76,11 @@ theorem OperationPtr.linkBetween_inBounds (ptr : GenericPtr) :
     ptr.InBounds (linkBetween self ctx prevOp nextOp h₁ h₂ h₃) ↔ ptr.InBounds ctx := by
   unfold linkBetween; grind
 
+@[grind .]
+theorem OperationPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
+    (linkBetween self ctx prevOp nextOp h₁ h₂ h₃).FieldsInBounds := by
+  unfold linkBetween; simp only; split <;> grind
+
 /--
   Set `self` parent to be `parent`.
   Checks that `self` does not already have a parent.
@@ -107,46 +112,6 @@ theorem OperationPtr.setParentWithCheck_inBounds (ptr : GenericPtr)
     (heq : setParentWithCheck self ctx parent h = some newCtx) :
     ptr.InBounds newCtx ↔ ptr.InBounds ctx := by
   grind [setParentWithCheck]
-
-/-
-  Block linked list.
--/
-
-/--
-  Add previous and next links to `newBlock`, linking it after `self`.
-  In particular, this does not update any parent pointers.
--/
-@[irreducible]
-def BlockPtr.linkNextBlock (self: BlockPtr) (ctx: IRContext) (newBlock: BlockPtr)
-    (opIn: self.InBounds ctx := by grind)
-    (newBlockIn: newBlock.InBounds ctx := by grind)
-    (ctxInBounds: ctx.FieldsInBounds := by grind) : IRContext :=
-  let nextOp := (self.get ctx).next
-  -- Set the new op's next and previous pointers
-  let ctx := newBlock.setPrevBlock ctx (some self)
-  let ctx := newBlock.setPrevBlock ctx nextOp
-  -- Update self
-  let ctx := self.setNextBlock ctx (some newBlock)
-  -- Update next op if it exists
-  match heq : nextOp with
-  | none => ctx
-  | some nextOp => nextOp.setPrevBlock ctx (some newBlock) (by grind (ematch := 10))
-
-@[grind =]
-theorem BlockPtr.linkNextBlock_inBounds (ptr : GenericPtr) :
-    ptr.InBounds (linkNextBlock self ctx newBlock h₁ h₂ h₃) ↔ ptr.InBounds ctx := by
-  simp [linkNextBlock] <;> grind
-
-@[grind .]
-theorem BlockPtr.linkNextBlock_fieldsInBounds :
-    (linkNextBlock self ctx newBlock h₁ h₂ h₃).FieldsInBounds := by
-  grind [linkNextBlock]
-
-
-@[grind .]
-theorem OperationPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
-    (linkBetween self ctx prevOp nextOp h₁ h₂ h₃).FieldsInBounds := by
-  unfold linkBetween; simp only; split <;> grind
 
 @[irreducible]
 def OperationPtr.linkBetweenWithParent (self: OperationPtr) (ctx: IRContext)
@@ -181,6 +146,41 @@ theorem OperationPtr.linkBetweenWithParent_fieldsInBounds (hx : ctx.FieldsInBoun
     newCtx.FieldsInBounds := by
   unfold linkBetweenWithParent at heq
   split at heq <;> grind
+
+
+/-
+  Block linked list.
+-/
+
+/--
+  Add previous and next links to `newBlock`, linking it after `self`.
+  In particular, this does not update any parent pointers.
+-/
+@[irreducible]
+def BlockPtr.linkNextBlock (self: BlockPtr) (ctx: IRContext) (newBlock: BlockPtr)
+    (opIn: self.InBounds ctx := by grind)
+    (newBlockIn: newBlock.InBounds ctx := by grind)
+    (ctxInBounds: ctx.FieldsInBounds := by grind) : IRContext :=
+  let nextBlock := (self.get ctx).next
+  -- Set the new op's next and previous pointers
+  let ctx := newBlock.setPrevBlock ctx (some self)
+  let ctx := newBlock.setNextBlock ctx nextBlock
+  -- Update self
+  let ctx := self.setNextBlock ctx (some newBlock)
+  -- Update next op if it exists
+  match heq : nextBlock with
+  | none => ctx
+  | some nextOp => nextOp.setPrevBlock ctx (some newBlock) (by grind (ematch := 10))
+
+@[grind =]
+theorem BlockPtr.linkNextBlock_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (linkNextBlock self ctx newBlock h₁ h₂ h₃) ↔ ptr.InBounds ctx := by
+  simp [linkNextBlock] <;> grind
+
+@[grind .]
+theorem BlockPtr.linkNextBlock_fieldsInBounds :
+    (linkNextBlock self ctx newBlock h₁ h₂ h₃).FieldsInBounds := by
+  grind [linkNextBlock]
 
 /--
   Add previous and next links to `newOp`, linking it before `self`.
