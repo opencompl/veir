@@ -6,8 +6,8 @@ defaultTargets = ["veir-opt"]
 experimental.module = true
 
 [[lean_lib]]
-name = "Mlir"
-root = "Mlir"
+name = "Veir"
+root = "Veir"
 
 [[lean_exe]]
 name = "veir-opt"
