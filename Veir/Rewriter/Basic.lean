@@ -82,7 +82,7 @@ def Rewriter.insertOp? (ctx: IRContext) (newOp: OperationPtr) (insertionPoint: I
       newOp.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
 
 @[irreducible]
-def Rewriter.detachOp (ctx: IRContext) (hctx : ctx.FieldsInBounds) (op: OperationPtr) (hIn : op.InBounds ctx) (hasParent: (op.get ctx hIn).parent.isSome) : IRContext :=
+def Rewriter.detachOp (ctx: IRContext) (op: OperationPtr) (hctx : ctx.FieldsInBounds) (hIn : op.InBounds ctx) (hasParent: (op.get ctx hIn).parent.isSome) : IRContext :=
   let opStruct := op.get ctx
   let parent := opStruct.parent.get hasParent
   let ctx := op.setParent ctx none
@@ -111,7 +111,7 @@ theorem Rewriter.detachOp_inBounds (ptr : GenericPtr) :
 
 @[grind .]
 theorem Rewriter.detachOp_fieldsInBounds (hctx : ctx.FieldsInBounds) :
-    (detachOp ctx hctx op hIn hasParent).FieldsInBounds := by
+    (detachOp ctx op hctx hIn hasParent).FieldsInBounds := by
   simp only [detachOp]
   split <;> grind
 
@@ -123,7 +123,7 @@ theorem Rewriter.detachOp_fieldsInBounds (hctx : ctx.FieldsInBounds) :
 @[irreducible, inline]
 def Rewriter.eraseOpStart (ctx: IRContext) (hctx : ctx.FieldsInBounds) (op: OperationPtr) (hop : op.InBounds ctx) (hasParent: (op.get ctx hop).parent.isSome) := Id.run do
   let mut newCtx : { c : IRContext // c.FieldsInBounds ∧ ∀ (ptr : GenericPtr), ptr.InBounds ctx ↔ ptr.InBounds c} :=
-    ⟨Rewriter.detachOp ctx hctx op hop hasParent, by grind⟩
+    ⟨Rewriter.detachOp ctx op hctx hop hasParent, by grind⟩
   for h : index in 0 ... (op.getNumOperands ctx (by grind)) do
     let ctx' := (OpOperandPtr.mk op index).removeFromCurrent newCtx (by
        have := newCtx.property.2 (.opOperand (.mk op index))

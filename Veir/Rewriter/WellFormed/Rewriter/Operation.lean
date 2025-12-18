@@ -398,13 +398,13 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (hIn : op.InBounds ctx)
     (hasParent : (op.get ctx hIn).parent.isSome)
     (newCtx : IRContext) :
-    Rewriter.detachOp ctx hctx op hIn hasParent = newCtx →
+    Rewriter.detachOp ctx op hctx hIn hasParent = newCtx →
     newCtx.WellFormed := by
   sorry
 
 theorem BlockPtr.operationList_Rewriter_detachOp
     (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array) :
-      BlockPtr.operationList blockPtr (Rewriter.detachOp ctx hctx op hIn hasParent) ctxWellFormed' blockInBounds' =
+      BlockPtr.operationList blockPtr (Rewriter.detachOp ctx op hctx hIn hasParent) ctxWellFormed' blockInBounds' =
       if blockPtr = blockPtr' then
         array.erase op
       else

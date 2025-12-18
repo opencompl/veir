@@ -358,6 +358,186 @@ grind_pattern OpOperandPtrPtr.get!_insertOp? =>
 
 end Rewriter.insertOp?
 
+section Rewriter.detachOp
+
+variable {op : OperationPtr}
+
+attribute [local grind] Rewriter.detachOp
+
+@[simp, grind =]
+theorem IRContext.topLevelOp_detachOp :
+    (Rewriter.detachOp ctx op' h₁ h₂ h₃).topLevelOp =
+    ctx.topLevelOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.firstUse!_detachOp {block : BlockPtr} :
+    (block.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).firstUse = (block.get! ctx).firstUse := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.prev!_detachOp {block : BlockPtr} :
+    (block.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).prev = (block.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_detachOp {block : BlockPtr} :
+    (block.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).next = (block.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_detachOp {block : BlockPtr} :
+    (block.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).parent = (block.get! ctx).parent := by
+  grind
+
+@[grind =]
+theorem BlockPtr.firstOp!_detachOp {block : BlockPtr} :
+    (block.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).firstOp =
+    if (op'.get! ctx).prev = none ∧ block = (op'.get! ctx).parent then
+      (op'.get! ctx).next
+    else
+      (block.get! ctx).firstOp := by
+  grind
+
+@[grind =]
+theorem BlockPtr.lastOp!_detachOp {block : BlockPtr} :
+    (block.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).lastOp =
+    if (op'.get! ctx).next = none ∧ block = (op'.get! ctx).parent then
+      (op'.get! ctx).prev
+    else
+      (block.get! ctx).lastOp := by
+  grind
+
+@[grind =]
+theorem OperationPtr.prev!_detachOp {operation : OperationPtr} :
+    (operation.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).prev =
+    if operation = (op'.get! ctx).next then
+      (op'.get! ctx).prev
+    else
+      (operation.get! ctx).prev := by
+  grind
+
+@[grind =]
+theorem OperationPtr.next!_detachOp {operation : OperationPtr} :
+    (operation.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).next =
+    if operation = (op'.get! ctx).prev then
+      (op'.get! ctx).next
+    else
+      (operation.get! ctx).next := by
+  grind
+
+@[grind =]
+theorem OperationPtr.parent!_detachOp {operation : OperationPtr} :
+    (operation.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).parent =
+    if operation = op' then none else (operation.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.opType!_detachOp {operation : OperationPtr} :
+    (operation.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).opType =
+    (operation.get! ctx).opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_detachOp {operation : OperationPtr} :
+    (operation.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).attrs =
+    (operation.get! ctx).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.properties!_detachOp {operation : OperationPtr} :
+    (operation.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).properties =
+    (operation.get! ctx).properties := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_detachOp {operation : OperationPtr} :
+    operation.getNumResults! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.get!_detachOp {opResult : OpResultPtr} :
+    opResult.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    opResult.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_detachOp {operation : OperationPtr} :
+    operation.getNumOperands! (Rewriter.detachOp ctx op' h₁ h₂ h₃) = operation.getNumOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.get!_detachOp {opOperand : OpOperandPtr} :
+    opOperand.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) = opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_detachOp {operation : OperationPtr} :
+    operation.getNumSuccessors! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.get!_detachOp {blockOperand : BlockOperandPtr} :
+    blockOperand.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_detachOp {operation : OperationPtr} :
+    operation.getNumRegions! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_detachOp {operation : OperationPtr} :
+    operation.getRegion! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    operation.getRegion! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtrPtr.get!_detachOp {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_detachOp {block : BlockPtr} :
+    block.getNumArguments! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.get!_detachOp {blockArg : BlockArgumentPtr} :
+    blockArg.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    blockArg.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.get!_detachOp {region : RegionPtr} :
+    region.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_detachOp {value : ValuePtr} :
+    value.getFirstUse! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    value.getFirstUse! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_detachOp {value : ValuePtr} :
+    value.getType! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    value.getType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_detachOp {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) = opOperandPtr.get! ctx := by
+  grind
+
+end Rewriter.detachOp
 
 /- replaceUse -/
 
