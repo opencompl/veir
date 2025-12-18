@@ -23,9 +23,9 @@ theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: Nat)
   constructor
   case inBounds =>
     sorry
-  case valueUseDefChains =>
+  case valueDefUseChains =>
     sorry
-  case blockUseDefChains =>
+  case blockDefUseChains =>
     sorry
   case opChain =>
     sorry

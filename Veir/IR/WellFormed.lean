@@ -1,78 +1,124 @@
 import Veir.IR.Basic
 import Veir.IR.Grind
 import Veir.ForLean
+import Std.Data.ExtHashSet
 
 namespace Veir
 
-structure ValuePtr.WellFormedUseDefChain
+/--
+  A def-use chain for an SSA value.
+  The def-use chain is represented as an ordered array of operands, where
+  each operand corresponds to a use of the value. The first element of the
+  array is the first use of the value.
+  Each operand in the array points to the next use of the value, forming a
+  linked list.
+-/
+structure ValuePtr.DefUse
     (value : ValuePtr) (ctx : IRContext) (array : Array OpOperandPtr)
-    (hvalue : value.InBounds ctx := by grind) : Prop where
+    (missingUses : Std.ExtHashSet OpOperandPtr := ∅) : Prop where
+  valueInBounds : value.InBounds ctx
   arrayInBounds (h : use ∈ array) : use.InBounds ctx
   firstElem : array[0]? = value.getFirstUse! ctx
   firstUseBack (heq : value.getFirstUse! ctx = some firstUse) :
     (firstUse.get! ctx).back = .valueFirstUse value
-  allUsesInChain (use : OpOperandPtr) (huse : use.InBounds ctx) : (use.get! ctx).value = value → use ∈ array
+  allUsesInChain (use : OpOperandPtr) (huse : use.InBounds ctx) :
+    (use.get! ctx).value = value → (use ∈ array ↔ use ∉ missingUses)
   useValue (hin : use ∈ array) : (use.get! ctx).value = value
   nextElems (hi : i < array.size) :
     (array[i].get! ctx).nextUse = array[i + 1]?
   prevNextUse (iPos : i > 0) (iInBounds : i < array.size) :
     (array[i].get! ctx).back = OpOperandPtrPtr.operandNextUse array[i - 1]
+  missingUsesInBounds (hin : use ∈ missingUses) : use.InBounds ctx
+  missingUsesValue (hin : use ∈ missingUses) : (use.get! ctx).value = value
 
-theorem ValuePtr.WellFormedUseDefChain_getFirstUse!_value_eq_of_back_eq_valueFirstUse
-    (ctxInBounds : ctx.FieldsInBounds)
+attribute [grind →] ValuePtr.DefUse.valueInBounds
+attribute [grind →] ValuePtr.DefUse.missingUsesInBounds
+attribute [grind →] ValuePtr.DefUse.arrayInBounds
+
+theorem ValuePtr.DefUse.ValuePtr_getFirstUse_ne_of_value_ne
+    {use use' : OpOperandPtr}
+    (valueNe : (use.get! ctx).value ≠ (use'.get! ctx).value)
+    (hWF : (use.get! ctx).value.DefUse ctx array missingUses) :
+    (use.get! ctx).value.getFirstUse! ctx ≠ some use' := by
+  grind [ValuePtr.DefUse]
+
+theorem ValuePtr.DefUse_getFirstUse!_value_eq_of_back_eq_valueFirstUse
     {firstUse : OpOperandPtr} (hFirstUse : firstUse.InBounds ctx)
-    (hvalueFirstUse : (firstUse.get! ctx).value.WellFormedUseDefChain ctx array)
+    (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array)
     (heq : (firstUse.get! ctx).back = .valueFirstUse value') :
     (firstUse.get! ctx).value.getFirstUse! ctx = some firstUse := by
-  grind [ValuePtr.WellFormedUseDefChain, Array.getElem?_of_mem]
+  grind [ValuePtr.DefUse, Array.getElem?_of_mem]
 
-theorem ValuePtr.WellFormedUseDefChain_getFirstUse!_eq_of_back_eq_valueFirstUse
+theorem ValuePtr.DefUse_getFirstUse!_eq_of_back_eq_valueFirstUse
     (ctxInBounds : ctx.FieldsInBounds)
     {firstUse : OpOperandPtr} (hFirstUse : firstUse.InBounds ctx)
-    (hvalueFirstUse : (firstUse.get! ctx).value.WellFormedUseDefChain ctx array)
+    (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array)
     (heq : (firstUse.get! ctx).back = .valueFirstUse value') :
     value'.getFirstUse! ctx = some firstUse := by
-  grind [ValuePtr.WellFormedUseDefChain, Array.getElem?_of_mem]
+  grind [ValuePtr.DefUse, Array.getElem?_of_mem]
 
-theorem ValuePtr.WellFormedUseDefChain_back_eq_of_getFirstUse
-    (ctxInBounds : ctx.FieldsInBounds)
-    {firstUse : OpOperandPtr} (hFirstUse : firstUse.InBounds ctx)
-    (hvalueFirstUse : (firstUse.get! ctx).value.WellFormedUseDefChain ctx array)
+theorem ValuePtr.DefUse_back_eq_of_getFirstUse
+    {firstUse : OpOperandPtr}
+    (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array)
     (h : (firstUse.get! ctx).value.getFirstUse! ctx = some firstUse) :
     (firstUse.get! ctx).back = .valueFirstUse (firstUse.get! ctx).value := by
-  grind [ValuePtr.WellFormedUseDefChain, Array.getElem?_of_mem]
+  grind [ValuePtr.DefUse, Array.getElem?_of_mem]
 
-theorem ValuePtr.WellFormedUseDefChain_array_injective
-    (hWF : ValuePtr.WellFormedUseDefChain value ctx array hvalue) :
+theorem ValuePtr.DefUse_array_injective
+    (hWF : ValuePtr.DefUse value ctx array hvalue) :
     ∀ (i j : Nat) iInBounds jInBounds, i ≠ j →
     array[i]'iInBounds ≠ array[j]'jInBounds := by
   intros i
-  induction i <;> grind (splits := 20) [ValuePtr.WellFormedUseDefChain]
+  induction i <;> grind (splits := 20) [ValuePtr.DefUse]
 
-theorem ValuePtr.WellFormedUseDefChain_array_toList_Nodup
-    (hWF : ValuePtr.WellFormedUseDefChain value ctx array hvalue) :
+theorem ValuePtr.DefUse_array_toList_Nodup
+    (hWF : ValuePtr.DefUse value ctx array hvalue) :
     array.toList.Nodup := by
   simp only [List.nodup_iff_pairwise_ne]
   simp only [List.pairwise_iff_getElem]
-  grind [ValuePtr.WellFormedUseDefChain_array_injective]
+  grind [ValuePtr.DefUse_array_injective]
 
-theorem ValuePtr.WellFormedUseDefChain_array_erase_mem_self
-    (hWF : ValuePtr.WellFormedUseDefChain value ctx array hvalue) :
+theorem ValuePtr.DefUse_array_erase_mem_self
+    (hWF : ValuePtr.DefUse value ctx array hvalue) :
     ∀ (i : Nat) (iInBounds : i < array.size),
     array[i] ∉ array.erase array[i] := by
-  have := ValuePtr.WellFormedUseDefChain_array_toList_Nodup hWF
+  have := ValuePtr.DefUse_array_toList_Nodup hWF
   rw [← Array.toArray_toList (xs := array)]
   grind [List.Nodup.not_mem_erase]
 
-theorem ValuePtr.WellFormedUseDefChain_array_erase_array_index
-    (hWF : ValuePtr.WellFormedUseDefChain value ctx array hvalue) :
+theorem ValuePtr.DefUse_array_erase_array_index
+    (hWF : ValuePtr.DefUse value ctx array hvalue) :
     ∀ (i : Nat) (iInBounds : i < array.size),
     array.idxOf array[i] = i := by
-  have := ValuePtr.WellFormedUseDefChain_array_toList_Nodup hWF
+  have := ValuePtr.DefUse_array_toList_Nodup hWF
   rw [← Array.toArray_toList (xs := array)]
   grind  [List.idxOf_getElem]
 
-structure BlockPtr.WellFormedUseDefChain (blockPtr : BlockPtr) (ctx : IRContext) (array : Array BlockOperandPtr)
+theorem ValuePtr.DefUse.OpOperandPtr_setValue_of_defUseMissingLink
+    {use : OpOperandPtr} (useInBounds : use.InBounds ctx)
+    (useOfOtherValue : (use.get ctx useInBounds).value ≠ value) :
+    value.DefUse ctx array missingUses →
+    value.DefUse (use.setValue ctx value) array (missingUses.insert use) := by
+  intros hWF
+  constructor <;> grind [ValuePtr.DefUse]
+
+theorem ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse
+    {use : OpOperandPtr} (useInBounds : use.InBounds ctx)
+    (useOfOtherValue : (use.get ctx useInBounds).value ≠ value) :
+    value.DefUse ctx array missingUses →
+    value.DefUse (use.setValue ctx value) array (missingUses.insert use) := by
+  intros hWF
+  constructor <;> grind [ValuePtr.DefUse]
+
+theorem ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse_empty
+    {use : OpOperandPtr} (useInBounds : use.InBounds ctx)
+    (useOfOtherValue : (use.get ctx useInBounds).value ≠ value) :
+    value.DefUse ctx array →
+    value.DefUse (use.setValue ctx value) array (Std.ExtHashSet.ofList [use]) := by
+  intros hWF
+  constructor <;> grind [ValuePtr.DefUse]
+
+structure BlockPtr.DefUse (blockPtr : BlockPtr) (ctx : IRContext) (array : Array BlockOperandPtr)
     (hbl : blockPtr.InBounds ctx := by grind) : Prop where
   arrayInBounds (h : use ∈ array) : use.InBounds ctx
   firstElem : array[0]? = (blockPtr.get! ctx).firstUse
@@ -145,10 +191,10 @@ structure Region.WellFormed (region : Region) (ctx : IRContext) (regionPtr : Reg
 
 structure IRContext.WellFormed (ctx : IRContext) : Prop where
   inBounds : ctx.FieldsInBounds
-  valueUseDefChains (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
-    ∃ array, ValuePtr.WellFormedUseDefChain valuePtr ctx array
-  blockUseDefChains (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
-    ∃ array, BlockPtr.WellFormedUseDefChain blockPtr ctx array
+  valueDefUseChains (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
+    ∃ array, ValuePtr.DefUse valuePtr ctx array
+  blockDefUseChains (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
+    ∃ array, BlockPtr.DefUse blockPtr ctx array
   opChain (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
     ∃ array, BlockPtr.OperationChainWellFormed blockPtr ctx array (by grind)
   blockChain (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
@@ -160,8 +206,8 @@ structure IRContext.WellFormed (ctx : IRContext) : Prop where
   regions (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
     (regionPtr.get! ctx).WellFormed ctx regionPtr
 
-theorem IRContext.ValuePtr_UseDefChainWellFormed_unchanged
-    (hWf : valuePtr.WellFormedUseDefChain ctx array valuePtrInBounds)
+theorem ValuePtr.DefUse.unchanged
+    (hWf : valuePtr.DefUse ctx array missingUses)
     (valuePtrInBounds' : valuePtr.InBounds ctx')
     (hSameFirstUse : valuePtr.getFirstUse! ctx = valuePtr.getFirstUse! ctx')
     (hPreservesInBounds : ∀ (usePtr : OpOperandPtr),
@@ -178,11 +224,11 @@ theorem IRContext.ValuePtr_UseDefChainWellFormed_unchanged
       usePtr.InBounds ctx' →
       (usePtr.get! ctx').value = valuePtr →
       (usePtr.get! ctx) = (usePtr.get! ctx')) :
-    valuePtr.WellFormedUseDefChain ctx' array  (by grind) := by
-  constructor <;> grind [ValuePtr.WellFormedUseDefChain]
+    valuePtr.DefUse ctx' array missingUses := by
+  constructor <;> grind [ValuePtr.DefUse]
 
-theorem BlockPtr.WellFormedUseDefChain_unchanged
-    (hWf : blockPtr.WellFormedUseDefChain ctx array valuePtrInBounds)
+theorem BlockPtr.DefUse_unchanged
+    (hWf : blockPtr.DefUse ctx array valuePtrInBounds)
     (valuePtrInBounds' : blockPtr.InBounds ctx')
     (hSameFirstUse : (blockPtr.get! ctx).firstUse = (blockPtr.get! ctx').firstUse)
     (hSameUseFields : ∀ {usePtr : BlockOperandPtr},
@@ -193,8 +239,8 @@ theorem BlockPtr.WellFormedUseDefChain_unchanged
       usePtr.InBounds ctx' →
       (usePtr.get! ctx').value = blockPtr →
       usePtr.InBounds ctx ∧ (usePtr.get! ctx) = (usePtr.get! ctx')) :
-    blockPtr.WellFormedUseDefChain ctx' array := by
-  constructor <;> grind [BlockPtr.WellFormedUseDefChain]
+    blockPtr.DefUse ctx' array := by
+  constructor <;> grind [BlockPtr.DefUse]
 
 theorem BlockPtr.OperationChainWellFormed_unchanged
     (hWf : blockPtr.OperationChainWellFormed ctx array blockPtrInBounds)
@@ -322,18 +368,18 @@ theorem BlockPtr.operationList_iff_BlockPtr_OperationChainWellFormed :
     BlockPtr.operationList block ctx hctx hblock = array := by
   grind [BlockPtr.operationListWF, BlockPtr.OperationChainWellFormed_unique]
 
-noncomputable def ValuePtr.useDefArray (value : ValuePtr) (ctx : IRContext) (hctx : ctx.WellFormed) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
-  (hctx.valueUseDefChains value hvalue).choose
+noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext) (hctx : ctx.WellFormed) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
+  (hctx.valueDefUseChains value hvalue).choose
 
 @[grind .]
-theorem ValuePtr.useDefArrayWF {hctx : IRContext.WellFormed ctx} :
-    ValuePtr.WellFormedUseDefChain value ctx (ValuePtr.useDefArray value ctx hctx hvalue) hvalue :=
-  Exists.choose_spec (hctx.valueUseDefChains value hvalue)
+theorem ValuePtr.defUseArrayWF {hctx : IRContext.WellFormed ctx} :
+    ValuePtr.DefUse value ctx (ValuePtr.defUseArray value ctx hctx hvalue) :=
+  Exists.choose_spec (hctx.valueDefUseChains value hvalue)
 
-theorem ValuePtr.useDefArray_contains_operand_use :
+theorem ValuePtr.defUseArray_contains_operand_use :
     (operand.get ctx operandInBounds).value = value ↔
-    operand ∈ ValuePtr.useDefArray value ctx hctx hvalue := by
-  grind [ValuePtr.WellFormedUseDefChain, ValuePtr.useDefArrayWF]
+    operand ∈ ValuePtr.defUseArray value ctx hctx hvalue := by
+  grind [ValuePtr.DefUse, ValuePtr.defUseArrayWF]
 
 theorem OperationPtr.getParent_prev_eq
     (opInBounds : OperationPtr.InBounds opPtr ctx)

@@ -15,7 +15,7 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
   constructor
   case inBounds =>
     grind
-  case valueUseDefChains =>
+  case valueDefUseChains =>
     intros val hval
     by_cases heq : val = .opResult (opPtr.nextResult ctx)
     · subst heq
@@ -23,12 +23,12 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
       constructor <;> grind [ValuePtr.getFirstUse]
     · have ⟨array, harray⟩ := h₂ val (by grind)
       exists array
-      apply @IRContext.ValuePtr_UseDefChainWellFormed_unchanged ctx <;> grind
-  case blockUseDefChains =>
+      apply @IRContext.ValuePtr_DefUseChainWellFormed_unchanged ctx <;> grind
+  case blockDefUseChains =>
     intros bl hbl
     have ⟨array, harray⟩ := h₃ bl (by grind)
     exists array
-    apply @IRContext.BlockPtr_UseDefChainWellFormed_unchanged ctx <;> grind
+    apply @IRContext.BlockPtr_DefUseChainWellFormed_unchanged ctx <;> grind
   case opChain =>
     intros op hop
     have ⟨array, harray⟩ := h₄ op (by grind)

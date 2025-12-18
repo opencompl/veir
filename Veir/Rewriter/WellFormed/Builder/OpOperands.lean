@@ -98,29 +98,29 @@ theorem Rewriter.pushOperand_OpOperandPtr_get
 
 include ctxInBounds in
 @[simp, grind.]
-theorem Rewriter.pushOperand_WellFormedUseDefChain_getElem?
+theorem Rewriter.pushOperand_DefUse_getElem?
     (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx)
-    array (arrayWf : valuePtr.WellFormedUseDefChain ctx array) (i : Nat) (hISize : i < array.size) :
-    (array[i].get (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) (by grind [ValuePtr.WellFormedUseDefChain])) =
-      { (OpOperandPtr.get array[i] ctx (by grind [ValuePtr.WellFormedUseDefChain])) with
-        back := (if i = 0 then .operandNextUse (opPtr.nextOperand ctx) else (OpOperandPtr.get array[i] ctx (by grind [ValuePtr.WellFormedUseDefChain])).back) }
+    array (arrayWf : valuePtr.DefUse ctx array) (i : Nat) (hISize : i < array.size) :
+    (array[i].get (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) (by grind [ValuePtr.DefUse])) =
+      { (OpOperandPtr.get array[i] ctx (by grind [ValuePtr.DefUse])) with
+        back := (if i = 0 then .operandNextUse (opPtr.nextOperand ctx) else (OpOperandPtr.get array[i] ctx (by grind [ValuePtr.DefUse])).back) }
     := by
   simp only
   simp (disch := grind) only [Rewriter.pushOperand_OpOperandPtr_get]
   split
   · grind
   · split
-    · grind [ValuePtr.WellFormedUseDefChain]
-    · have : i ≠ 0 := by grind [ValuePtr.WellFormedUseDefChain]
+    · grind [ValuePtr.DefUse]
+    · have : i ≠ 0 := by grind [ValuePtr.DefUse]
       simp [this]
 
 set_option maxHeartbeats 10000000 in -- TODO
-theorem Rewriter.pushOperand_WellFormedUseDefChain
+theorem Rewriter.pushOperand_DefUse
     (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) (hOpWf : ctx.WellFormed)
     (valuePtr' : ValuePtr) (valuePtr'InBounds : valuePtr'.InBounds ctx) :
-    ∃ array, valuePtr'.WellFormedUseDefChain (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) array (by grind) := by
-  have ⟨array', arrayWf'⟩ := hOpWf.valueUseDefChains valuePtr' valuePtr'InBounds
-  have ⟨array, arrayWf⟩ := hOpWf.valueUseDefChains valuePtr valuePtrInBounds
+    ∃ array, valuePtr'.DefUse (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) array (by grind) := by
+  have ⟨array', arrayWf'⟩ := hOpWf.valueDefUseChains valuePtr' valuePtr'InBounds
+  have ⟨array, arrayWf⟩ := hOpWf.valueDefUseChains valuePtr valuePtrInBounds
   by_cases valuePtr' = valuePtr
   -- Case where we are adding a new use
   case pos =>
@@ -128,18 +128,18 @@ theorem Rewriter.pushOperand_WellFormedUseDefChain
     exists (#[opPtr.nextOperand ctx] ++ array)
     constructor
     case arrayInBounds =>
-      grind [ValuePtr.WellFormedUseDefChain]
+      grind [ValuePtr.DefUse]
     case firstElem => grind
     case nextElems =>
       intros i hi
       simp at hi
       rw [Array.getElem?_append_right (by grind)]
       simp
-      by_cases hi0 : i = 0 <;> grind [ValuePtr.WellFormedUseDefChain]
+      by_cases hi0 : i = 0 <;> grind [ValuePtr.DefUse]
     case useValue =>
       intro use hUse
       have ⟨i, hI, hUseI⟩ := Array.mem_iff_getElem.mp hUse
-      grind [ValuePtr.WellFormedUseDefChain]
+      grind [ValuePtr.DefUse]
     case firstUseBack =>
       grind [IRContext.WellFormed]
     case prevNextUse =>
@@ -148,20 +148,20 @@ theorem Rewriter.pushOperand_WellFormedUseDefChain
       intros i hi₁ hi₂
       have iNeZero : i ≠ 0 := by grind
       simp [Array.getElem_append, iNeZero]
-      grind [ValuePtr.WellFormedUseDefChain, Option.maybe_def]
+      grind [ValuePtr.DefUse, Option.maybe_def]
     case allUsesInChain =>
-      grind [ValuePtr.WellFormedUseDefChain, IRContext.WellFormed]
+      grind [ValuePtr.DefUse, IRContext.WellFormed]
   -- Case where the use def chains are preserved
   case neg =>
     exists array'
-    apply IRContext.ValuePtr_UseDefChainWellFormed_unchanged (ctx := ctx) <;>
-      grind [ValuePtr.WellFormedUseDefChain]
+    apply IRContext.ValuePtr_DefUseChainWellFormed_unchanged (ctx := ctx) <;>
+      grind [ValuePtr.DefUse]
 
 -- /--
--- info: 'Veir.Rewriter.pushOperand_WellFormedUseDefChain' depends on axioms: [propext, Classical.choice, Quot.sound]
+-- info: 'Veir.Rewriter.pushOperand_DefUse' depends on axioms: [propext, Classical.choice, Quot.sound]
 -- -/
 -- #guard_msgs in
--- #print axioms Rewriter.pushOperand_WellFormedUseDefChain
+-- #print axioms Rewriter.pushOperand_DefUse
 
 theorem Rewriter.pushOperand_BlockOperand_get (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
     ∀ (blockOperandPtr : BlockOperandPtr) (hInBounds : blockOperandPtr.InBounds ctx) blockInBounds,
@@ -310,13 +310,13 @@ theorem OpOperandPtr.OperationPtr_get_pushOperand_operands_owner {opr : OpOperan
 theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) (hOpWf : ctx.WellFormed) :
     (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds).WellFormed := by
   constructor
-  case valueUseDefChains =>
-    grind [Rewriter.pushOperand_WellFormedUseDefChain]
-  case blockUseDefChains =>
+  case valueDefUseChains =>
+    grind [Rewriter.pushOperand_DefUse]
+  case blockDefUseChains =>
     intros blockPtr blockPtrInBounds
-    have ⟨array, arrayWf⟩ := hOpWf.blockUseDefChains blockPtr (by grind)
+    have ⟨array, arrayWf⟩ := hOpWf.blockDefUseChains blockPtr (by grind)
     exists array
-    apply IRContext.BlockPtr_UseDefChainWellFormed_unchanged (ctx := ctx)
+    apply IRContext.BlockPtr_DefUseChainWellFormed_unchanged (ctx := ctx)
     · grind [IRContext.WellFormed]
     · grind [Rewriter.pushOperand_BlockOperand_get]
     · grind [Rewriter.pushOperand_BlockPtr_get_firstUse_mono]
