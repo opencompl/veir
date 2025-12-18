@@ -884,13 +884,6 @@ theorem IRContext.topLevelOp_OperationPtr_linkBetweenWithParent :
 grind_pattern IRContext.topLevelOp_OperationPtr_linkBetweenWithParent =>
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, newCtx.topLevelOp
 
- --   * Block.firstUse
- --   * Block.prev
- --   * Block.next
- --   * Block.parent
- --   * Block.firstOp
- --   * Block.lastOp
-
 @[simp]
 theorem BlockPtr.firstUse!_OperationPtr_linkBetweenWithParent {block : BlockPtr} :
     op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →

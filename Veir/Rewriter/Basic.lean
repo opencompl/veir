@@ -33,7 +33,7 @@ def InsertPoint.block (insertionPoint : InsertPoint) (ctx : IRContext)
   | before op => (op.get ctx (by grind)).parent
   | atEnd b => b
 
-@[grind =]
+@[grind _=_]
 theorem InsertPoint.block!_eq_block (insertionPoint : InsertPoint) (ctx : IRContext)
     (hIn : insertionPoint.InBounds ctx) :
     insertionPoint.block! ctx = insertionPoint.block ctx hIn := by
@@ -47,6 +47,16 @@ theorem InsertPoint.block_InBounds {insertionPoint : InsertPoint} {ctx : IRConte
     blockPtr.InBounds ctx := by
   simp only [InsertPoint.block]
   grind
+
+def InsertPoint.prev! (ip : InsertPoint) (ctx : IRContext) : Option OperationPtr :=
+  match ip with
+  | before op => (op.get! ctx).prev
+  | atEnd block => (block.get! ctx).lastOp
+
+def InsertPoint.next (ip : InsertPoint) : Option OperationPtr :=
+  match ip with
+  | before op => op
+  | atEnd _ => none
 
 /- set_option pp.proofs true -/
 /- set_option pp.showLetValues true -/
