@@ -12,9 +12,10 @@ inductive InsertPoint where
 deriving DecidableEq
 
 @[grind]
-def InsertPoint.InBounds : InsertPoint → IRContext → Prop
-| before op => op.InBounds
-| atEnd bl => bl.InBounds
+def InsertPoint.InBounds (ip : InsertPoint) (ctx : IRContext) : Prop :=
+  match ip with
+  | before op => op.InBounds ctx
+  | atEnd bl => bl.InBounds ctx
 
 @[grind =]
 theorem InsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBounds ctx := by rfl
@@ -48,18 +49,40 @@ theorem InsertPoint.block_InBounds {insertionPoint : InsertPoint} {ctx : IRConte
   simp only [InsertPoint.block]
   grind
 
+def InsertPoint.prev (ip : InsertPoint) (ctx : IRContext) (inBounds : ip.InBounds ctx) : Option OperationPtr :=
+  match ip with
+  | before op => (op.get ctx).prev
+  | atEnd block => (block.get ctx).lastOp
+
 def InsertPoint.prev! (ip : InsertPoint) (ctx : IRContext) : Option OperationPtr :=
   match ip with
   | before op => (op.get! ctx).prev
   | atEnd block => (block.get! ctx).lastOp
+
+@[grind _=_]
+theorem InsertPoint.prev!_eq_prev {ip : InsertPoint} {ctx : IRContext}
+    (hIn : ip.InBounds ctx) :
+    ip.prev! ctx = ip.prev ctx hIn := by
+  cases ip <;> grind [InsertPoint.prev!, InsertPoint.prev]
+
+@[grind .]
+theorem InsertPoint.prev!_inBounds {ipInBounds : InsertPoint.InBounds ip ctx} {ctxInBounds : ctx.FieldsInBounds} :
+    ip.prev! ctx = some opPtr →
+    opPtr.InBounds ctx := by
+  simp_all only [InsertPoint.prev!, InsertPoint.InBounds]
+  grind
 
 def InsertPoint.next (ip : InsertPoint) : Option OperationPtr :=
   match ip with
   | before op => op
   | atEnd _ => none
 
-/- set_option pp.proofs true -/
-/- set_option pp.showLetValues true -/
+@[grind .]
+theorem InsertPoint.next_inBounds {ipInBounds : InsertPoint.InBounds ip ctx} :
+    ip.next = some opPtr →
+    opPtr.InBounds ctx := by
+  simp_all only [InsertPoint.next, InsertPoint.InBounds]
+  grind
 
 /--
 - Insert an operation at a given location.
@@ -69,17 +92,10 @@ def Rewriter.insertOp? (ctx: IRContext) (newOp: OperationPtr) (insertionPoint: I
     (newOpIn: newOp.InBounds ctx := by grind)
     (insIn : insertionPoint.InBounds ctx)
     (ctxInBounds: ctx.FieldsInBounds) : Option IRContext :=
-  match _ : insertionPoint with
-    | .before existingOp =>
-      rlet parent ← (existingOp.get ctx (by grind)).parent
-      let prev := (existingOp.get ctx (by grind)).prev
-      let next := some existingOp
-      newOp.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
-    | .atEnd block =>
-      let parent := block
-      let prev := (block.get ctx (by grind)).lastOp
-      let next := none
-      newOp.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
+    rlet parent ← insertionPoint.block ctx
+    let prev := insertionPoint.prev ctx (by grind)
+    let next := insertionPoint.next
+    newOp.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
 
 @[irreducible]
 def Rewriter.detachOp (ctx: IRContext) (op: OperationPtr) (hctx : ctx.FieldsInBounds) (hIn : op.InBounds ctx) (hasParent: (op.get ctx hIn).parent.isSome) : IRContext :=
