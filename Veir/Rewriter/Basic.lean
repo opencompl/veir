@@ -64,7 +64,7 @@ def InsertPoint.next (ip : InsertPoint) : Option OperationPtr :=
 /--
 - Insert an operation at a given location.
 -/
-@[grind]
+@[irreducible]
 def Rewriter.insertOp? (ctx: IRContext) (newOp: OperationPtr) (insertionPoint: InsertPoint)
     (newOpIn: newOp.InBounds ctx := by grind)
     (insIn : insertionPoint.InBounds ctx)
@@ -172,16 +172,23 @@ theorem BlockInsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBou
 @[grind =]
 theorem BlockInsertPoint.inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
-@[irreducible]
-private def Rewriter.insertBlockInEmptyRegion? (ctx: IRContext) (newBlock: BlockPtr) (region: RegionPtr)
-    (newBlockIn: newBlock.InBounds ctx := by grind)
-    (regionIn: region.InBounds ctx := by grind) : Option IRContext := do
-  rlet ctx ← newBlock.setParentWithCheck ctx region (by grind)
-  let ctx := region.setFirstBlock ctx (some newBlock)
-  let ctx := region.setLastBlock ctx (some newBlock)
-  let ctx := newBlock.setPrevBlock ctx none
-  let ctx := newBlock.setNextBlock ctx none
-  return ctx
+@[grind]
+def BlockInsertPoint.prev! (ip : BlockInsertPoint) (ctx : IRContext) : Option OperationPtr :=
+  match ip with
+  | before op => (op.get! ctx).prev
+  | atEnd block => (block.get! ctx).lastBlock
+
+@[grind]
+def BlockInsertPoint.next (ip : BlockInsertPoint) : Option OperationPtr :=
+  match ip with
+  | before bl => bl
+  | atEnd _ => none
+
+@[grind]
+def BlockInsertPoint.region! (ip : BlockInsertPoint) (ctx : IRContext) : Option RegionPtr :=
+  match ip with
+  | before bl => bl.get! ctx |>.parent
+  | atEnd rg => some rg
 
 /--
 - Insert a block at a given location.

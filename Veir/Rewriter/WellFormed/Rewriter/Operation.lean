@@ -81,8 +81,7 @@ theorem InsertPoint.next_idxInOperationList ctxWf ip :
 theorem InsertPoint.next_ne_firstOp (hWF : ctx.WellFormed) (ipInBounds : ip.InBounds ctx) :
     (BlockPtr.get blockPtr ctx blockInBounds).firstOp = some firstOp →
     InsertPoint.prev! ip ctx ≠ none →
-    InsertPoint.next ip ≠ some firstOp
-    := by
+    InsertPoint.next ip ≠ some firstOp := by
   intro hfirst hprev
   have ⟨array, harray⟩ := hWF.opChain blockPtr blockInBounds
   have := InsertPoint.next_idxInOperationList hWF ip harray
@@ -102,12 +101,20 @@ theorem InsertPoint.idxInOperationList_Before_lt_size :
     (BlockPtr.operationList blockPtr ctx ctxWf blockInBounds).size := by
   sorry
 
+unseal Rewriter.insertOp? in
 @[grind! <=]
 theorem OperationPtr.getParent_insertOp?_previousCtx
     (heq : Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
     (newOp.get ctx).parent = none := by
   simp only [Rewriter.insertOp?, OperationPtr.linkBetweenWithParent] at heq
   split at heq <;> grind [setParentWithCheck]
+
+unseal Rewriter.insertOp? in
+theorem Rewriter.isSome_parent_insertOp?_before
+    (heq : Rewriter.insertOp? ctx newOp (.before op) h₁ h₂ h₃ = some newCtx) :
+    (op.get ctx).parent.isSome := by
+  simp only [Rewriter.insertOp?, OperationPtr.linkBetweenWithParent] at heq
+  split at heq <;> grind
 
 @[grind .]
 theorem InsertPoint.wf_insertOp?_isSome (hWF : ctx.WellFormed) {ipInBounds : ip.InBounds ctx} :
@@ -141,12 +148,13 @@ theorem InsertPoint.wf_insertOp?_isSome (hWF : ctx.WellFormed) {ipInBounds : ip.
       have : (lastOp.get ctx (by grind)).parent = some blockPtr := by grind [BlockPtr.OperationChainWellFormed]
       grind
 
+unseal Rewriter.insertOp? in
 theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_other
     (hol : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array)
     (hctx' : Rewriter.insertOp? ctx newOp ip newOpIn insIn ctxInBounds = some ctx')
     (ipParent : InsertPoint.block! ip ctx ≠ some blockPtr) :
       blockPtr.OperationChainWellFormed ctx' array (by grind) := by
-  have ipWf : ip.Wf ctx newOp := by rcases ip <;> grind
+  have ipWf : ip.Wf ctx newOp := by rcases ip <;> grind [Rewriter.insertOp?] -- TODO: missing lemmas?
   apply BlockPtr.OperationChainWellFormed_unchanged (ctx := ctx) <;> try grind
   · intros opPtr opInBounds opParent
     simp only [OperationPtr.parent!_insertOp? hctx']
@@ -168,7 +176,7 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_other
             · rename_i op' _
               simp_all only
               cases hop'parent : (op'.get ctx).parent
-              · grind
+              · grind [Rewriter.isSome_parent_insertOp?_before]
               · rename_i parent'
                 have ⟨array', harray'⟩ := ctxWellFormed.opChain parent' (by grind)
                 have : op' ∈ array' := by grind [IRContext.WellFormed, BlockPtr.OperationChainWellFormed]

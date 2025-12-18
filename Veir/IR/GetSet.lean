@@ -37,7 +37,10 @@ setup_grind_with_get_set_definitions
  - * BlockOperandPtrPtr.get!
  - * BlockPtr.getNumArguments!
  - * BlockArgumentPtr.get!
- - * RegionPtr.get!
+ - * RegionPtr.get! with optionally special cases for:
+ -   * firstBlock
+ -   * lastBlock
+ -   * parent
  - * ValuePtr.getFirstUse!
  - * ValuePtr.getType!
  - * OpOperandPtrPtr.get!
@@ -113,7 +116,7 @@ theorem OperationPtr.getNumRegions!_OperationPtr_allocEmpty {operation : Operati
 @[simp, grind .]
 theorem OperationPtr.getRegion!_OperationPtr_allocEmpty  {operation : OperationPtr}
     (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
-    operation.getRegion! ctx' = operation.getRegion! ctx := by
+    operation.getRegion! ctx' i = operation.getRegion! ctx i := by
   grind [Operation.default_regions_eq]
 
 @[simp, grind .]
@@ -267,8 +270,8 @@ theorem OperationPtr.getNumRegions!_OperationPtr_setOperands {operation : Operat
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OperationPtr_setOperands {operation : OperationPtr} {hop} :
-    operation.getRegion! (OperationPtr.setOperands op ctx newOperands hop) =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OperationPtr.setOperands op ctx newOperands hop) i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -429,8 +432,8 @@ theorem OperationPtr.getNumRegions!_OperationPtr_pushOperand {operation : Operat
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OperationPtr_pushOperand {operation : OperationPtr} :
-    operation.getRegion! (OperationPtr.pushOperand operation' ctx newOperand hop') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OperationPtr.pushOperand operation' ctx newOperand hop') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -591,8 +594,8 @@ theorem OperationPtr.getNumRegions!_OperationPtr_setResults {operation : Operati
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OperationPtr_setResults {operation : OperationPtr} :
-    operation.getRegion! (OperationPtr.setResults operation' ctx newResults hop') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OperationPtr.setResults operation' ctx newResults hop') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -760,8 +763,8 @@ theorem OperationPtr.getNumRegions!_OperationPtr_pushResult {operation : Operati
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OperationPtr_pushResult {operation : OperationPtr} :
-    operation.getRegion! (OperationPtr.pushResult operation' ctx newResult hop') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OperationPtr.pushResult operation' ctx newResult hop') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -918,8 +921,8 @@ theorem OperationPtr.getNumRegions!_OperationPtr_setProperties {operation : Oper
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OperationPtr_setProperties {operation : OperationPtr} :
-    operation.getRegion! (OperationPtr.setProperties operation' ctx newProperties hop') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OperationPtr.setProperties operation' ctx newProperties hop') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -1222,8 +1225,8 @@ theorem OperationPtr.getNumRegions!_BlockArgumentPtr_setType {operation : Operat
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockArgumentPtr_setType {operation : OperationPtr} :
-    operation.getRegion! (BlockArgumentPtr.setType arg' ctx newType harg') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockArgumentPtr.setType arg' ctx newType harg') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -1374,8 +1377,8 @@ theorem OperationPtr.getNumRegions!_BlockArgumentPtr_setFirstUse {operation : Op
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockArgumentPtr_setFirstUse {operation : OperationPtr} :
-    operation.getRegion! (BlockArgumentPtr.setFirstUse arg' ctx newFirstUse harg') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockArgumentPtr.setFirstUse arg' ctx newFirstUse harg') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -1532,8 +1535,8 @@ theorem OperationPtr.getNumRegions!_BlockArgumentPtr_setLoc {operation : Operati
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockArgumentPtr_setLoc {operation : OperationPtr} :
-    operation.getRegion! (BlockArgumentPtr.setLoc arg' ctx newLoc harg') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockArgumentPtr.setLoc arg' ctx newLoc harg') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -1653,7 +1656,7 @@ theorem OperationPtr.getNumRegions!_BlockPtr_allocEmpty {operation : OperationPt
 @[simp, grind .]
 theorem OperationPtr.getRegion!_BlockPtr_allocEmpty {operation : OperationPtr}
     (heq : BlockPtr.allocEmpty ctx = some (ctx', bl')) :
-    operation.getRegion! ctx' = operation.getRegion! ctx := by
+    operation.getRegion! ctx' i = operation.getRegion! ctx i := by
   grind
 
 @[simp, grind .]
@@ -1799,8 +1802,8 @@ theorem OperationPtr.getNumRegions!_BlockPtr_setParent {operation : OperationPtr
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockPtr_setParent {operation : OperationPtr} :
-    operation.getRegion! (BlockPtr.setParent block' ctx newParent hblock') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockPtr.setParent block' ctx newParent hblock') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -1952,8 +1955,8 @@ theorem OperationPtr.getNumRegions!_BlockPtr_setFirstUse {operation : OperationP
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockPtr_setFirstUse {operation : OperationPtr} :
-    operation.getRegion! (BlockPtr.setFirstUse block' ctx newFirstUse hblock') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockPtr.setFirstUse block' ctx newFirstUse hblock') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[grind =]
@@ -2108,8 +2111,8 @@ theorem OperationPtr.getNumRegions!_BlockPtr_setFirstOp {operation : OperationPt
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockPtr_setFirstOp {operation : OperationPtr} :
-    operation.getRegion! (BlockPtr.setFirstOp block' ctx newFirstOp hblock') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockPtr.setFirstOp block' ctx newFirstOp hblock') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -2261,8 +2264,8 @@ theorem OperationPtr.getNumRegions!_BlockPtr_setLastOp {operation : OperationPtr
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockPtr_setLastOp {operation : OperationPtr} :
-    operation.getRegion! (BlockPtr.setLastOp block' ctx newLastOp hblock') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockPtr.setLastOp block' ctx newLastOp hblock') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -2413,8 +2416,8 @@ theorem OperationPtr.getNumRegions!_BlockPtr_setNextBlock {operation : Operation
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockPtr_setNextBlock {operation : OperationPtr} :
-    operation.getRegion! (BlockPtr.setNextBlock block' ctx newNextBlock hblock') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockPtr.setNextBlock block' ctx newNextBlock hblock') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -2566,8 +2569,8 @@ theorem OperationPtr.getNumRegions!_BlockPtr_setPrevBlock {operation : Operation
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockPtr_setPrevBlock {operation : OperationPtr} :
-    operation.getRegion! (BlockPtr.setPrevBlock block' ctx newPrevBlock hblock') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockPtr.setPrevBlock block' ctx newPrevBlock hblock') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -2720,8 +2723,8 @@ theorem OperationPtr.getNumRegions!_OpOperandPtr_setNextUse {operation : Operati
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OpOperandPtr_setNextUse {operation : OperationPtr} :
-    operation.getRegion! (OpOperandPtr.setNextUse operand' ctx newNextUse hoperand') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OpOperandPtr.setNextUse operand' ctx newNextUse hoperand') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -2876,8 +2879,8 @@ theorem OperationPtr.getNumRegions!_OpOperandPtr_setBack {operation : OperationP
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OpOperandPtr_setBack {operation : OperationPtr} :
-    operation.getRegion! (OpOperandPtr.setBack operand' ctx newBack hoperand') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OpOperandPtr.setBack operand' ctx newBack hoperand') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -3030,8 +3033,8 @@ theorem OperationPtr.getNumRegions!_OpOperandPtr_setOwner {operation : Operation
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OpOperandPtr_setOwner {operation : OperationPtr} :
-    operation.getRegion! (OpOperandPtr.setOwner operand' ctx newOwner hoperand') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OpOperandPtr.setOwner operand' ctx newOwner hoperand') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -3183,8 +3186,8 @@ theorem OperationPtr.getNumRegions!_OpOperandPtr_setValue {operation : Operation
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OpOperandPtr_setValue {operation : OperationPtr} :
-    operation.getRegion! (OpOperandPtr.setValue operand' ctx newValue hoperand') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OpOperandPtr.setValue operand' ctx newValue hoperand') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -3342,8 +3345,8 @@ theorem OperationPtr.getNumRegions!_OpResultPtr_setType {operation : OperationPt
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OpResultPtr_setType {operation : OperationPtr} :
-    operation.getRegion! (OpResultPtr.setType result' ctx newType hresult') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OpResultPtr.setType result' ctx newType hresult') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -3502,8 +3505,8 @@ theorem OperationPtr.getNumRegions!_OpResultPtr_setFirstUse {operation : Operati
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OpResultPtr_setFirstUse {operation : OperationPtr} :
-    operation.getRegion! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -3619,8 +3622,8 @@ theorem OperationPtr.getNumRegions!_RegionPtr_setParent {operation : OperationPt
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_RegionPtr_setParent {operation : OperationPtr} :
-    operation.getRegion! (RegionPtr.setParent region' ctx newParent hregion') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (RegionPtr.setParent region' ctx newParent hregion') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -3732,8 +3735,8 @@ theorem OperationPtr.getNumRegions!_RegionPtr_setFirstBlock {operation : Operati
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_RegionPtr_setFirstBlock {operation : OperationPtr} :
-    operation.getRegion! (RegionPtr.setFirstBlock region' ctx newFirstBlock hregion') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (RegionPtr.setFirstBlock region' ctx newFirstBlock hregion') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -3846,8 +3849,8 @@ theorem OperationPtr.getNumRegions!_RegionPtr_setLastBlock {operation : Operatio
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_RegionPtr_setLastBlock {operation : OperationPtr} :
-    operation.getRegion! (RegionPtr.setLastBlock region' ctx newLastBlock hregion') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (RegionPtr.setLastBlock region' ctx newLastBlock hregion') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -4054,8 +4057,8 @@ theorem OperationPtr.getNumRegions!_ValuePtr_setType {operation : OperationPtr} 
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_ValuePtr_setType {operation : OperationPtr} :
-    operation.getRegion! (ValuePtr.setType value' ctx newType hvalue') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (ValuePtr.setType value' ctx newType hvalue') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -4265,8 +4268,8 @@ theorem OperationPtr.getNumRegions!_ValuePtr_setFirstUse {operation : OperationP
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_ValuePtr_setFirstUse {operation : OperationPtr} :
-    operation.getRegion! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -4497,8 +4500,8 @@ theorem OperationPtr.getNumRegions!_OpOperandPtrPtr_set {operation : OperationPt
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OpOperandPtrPtr_set {operation : OperationPtr} :
-    operation.getRegion! (OpOperandPtrPtr.set ptr' ctx newPtr hptr') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OpOperandPtrPtr.set ptr' ctx newPtr hptr') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -4658,8 +4661,8 @@ theorem OperationPtr.getNumRegions!_OperationPtr_setNextOp {operation : Operatio
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OperationPtr_setNextOp {operation : OperationPtr} :
-    operation.getRegion! (OperationPtr.setNextOp op' ctx newNextOp hop') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OperationPtr.setNextOp op' ctx newNextOp hop') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -4812,8 +4815,8 @@ theorem OperationPtr.getNumRegions!_OperationPtr_setPrevOp {operation : Operatio
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OperationPtr_setPrevOp {operation : OperationPtr} :
-    operation.getRegion! (OperationPtr.setPrevOp op' ctx newPrevOp hop') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OperationPtr.setPrevOp op' ctx newPrevOp hop') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -4964,8 +4967,8 @@ theorem OperationPtr.getNumRegions!_OperationPtr_setParent {operation : Operatio
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OperationPtr_setParent {operation : OperationPtr} :
-    operation.getRegion! (OperationPtr.setParent op' ctx newParent hop') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (OperationPtr.setParent op' ctx newParent hop') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -5117,8 +5120,8 @@ theorem OperationPtr.getNumRegions!_BlockOperandPtr_setNextUse {operation : Oper
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockOperandPtr_setNextUse {operation : OperationPtr} :
-    operation.getRegion! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[grind =]
@@ -5273,8 +5276,8 @@ theorem OperationPtr.getNumRegions!_BlockOperandPtr_setBack {operation : Operati
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockOperandPtr_setBack {operation : OperationPtr} :
-    operation.getRegion! (BlockOperandPtr.setBack operand' ctx newBack hoperand') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockOperandPtr.setBack operand' ctx newBack hoperand') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -5427,8 +5430,8 @@ theorem OperationPtr.getNumRegions!_BlockOperandPtr_setOwner {operation : Operat
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockOperandPtr_setOwner {operation : OperationPtr} :
-    operation.getRegion! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
@@ -5581,8 +5584,8 @@ theorem OperationPtr.getNumRegions!_BlockOperandPtr_setValue {operation : Operat
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_BlockOperandPtr_setValue {operation : OperationPtr} :
-    operation.getRegion! (BlockOperandPtr.setValue operand' ctx newValue hoperand') =
-    operation.getRegion! ctx := by
+    operation.getRegion! (BlockOperandPtr.setValue operand' ctx newValue hoperand') i =
+    operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
