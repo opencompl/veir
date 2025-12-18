@@ -159,16 +159,16 @@ def BlockPtr.linkBetween (self: BlockPtr) (ctx: IRContext)
     (nextIn: ∀ next, nextBlock = some next → (next.InBounds ctx) := by grind) : IRContext :=
   let ctx := self.setPrevBlock ctx prevBlock
   let ctx := self.setNextBlock ctx nextBlock
-    match _ : prevBlock with
-    | none =>
-      match _ : nextBlock with
-      | none => ctx
-      | some nextOp => nextOp.setPrevBlock ctx (some self)
-    | some prevOp =>
-      let ctx := prevOp.setNextBlock ctx (some self)
-      match _ : nextBlock with
-      | none => ctx
-      | some nextOp => nextOp.setPrevBlock ctx (some self)
+  match _ : prevBlock with
+  | none =>
+    match _ : nextBlock with
+    | none => ctx
+    | some nextBlock => nextBlock.setPrevBlock ctx (some self)
+  | some prevBlock =>
+    let ctx := prevBlock.setNextBlock ctx (some self)
+    match _ : nextBlock with
+    | none => ctx
+    | some nextBlock => nextBlock.setPrevBlock ctx (some self)
 
 @[grind =]
 theorem BlockPtr.linkBetween_inBounds (ptr : GenericPtr) :
