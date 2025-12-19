@@ -98,7 +98,7 @@ theorem OpOperandPtr.back!_array_getElem_removeFromCurrent_eq_of_DefUse
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
   subst use
   have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by
-        grind [ValuePtr.DefUse.array_erase_array_getElem_eq]
+        grind [ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx]
   have hNextUse : (array[useIdx].get! ctx).nextUse = array[useIdx + 1]? := by grind [ValuePtr.DefUse]
   simp only [hNextUse]
   by_cases i = useIdx
@@ -118,7 +118,7 @@ theorem OpOperandPtr.nextUse!_array_getElem_removeFromCurrent_eq_of_DefUse
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
   subst use
   have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by
-    grind [ValuePtr.DefUse.array_erase_array_getElem_eq]
+    grind [ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx]
   have hNextUse : (array[useIdx].get! ctx).nextUse = array[useIdx + 1]? := by
     grind [ValuePtr.DefUse]
   simp only [hNextUse]
@@ -129,21 +129,21 @@ theorem OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse
     (valuePtrWF : valuePtr.DefUse ctx array missingUses)
     (operandValueWF : (operandPtr.get! ctx).value.DefUse ctx array' missingUses')
     (operandInArray : operandPtr ∈ array') :
-      valuePtr.getFirstUse! (OpOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds) =
-        if valuePtr.getFirstUse! ctx = some operandPtr then
-          (operandPtr.get! ctx).nextUse
-        else
-          valuePtr.getFirstUse! ctx := by
+    valuePtr.getFirstUse! (OpOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds) =
+      if valuePtr.getFirstUse! ctx = some operandPtr then
+        (operandPtr.get! ctx).nextUse
+      else
+        valuePtr.getFirstUse! ctx := by
   simp only [ValuePtr.getFirstUse!_OpOperandPtr_removeFromCurrent]
   congr 1
   simp [ValuePtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse operandValueWF (by grind) valuePtrWF]
 
-theorem ValuePtr.DefUse.array_getElem?_zero_erase_eq
+theorem ValuePtr.DefUse.getElem?_zero_erase_array_eq
     (useInBounds : OpOperandPtr.InBounds use ctx)
     (hWF : ValuePtr.DefUse value ctx array missingUses) (useInArray: use ∈ array)
     {i} (iInBounds : i < (array.erase use).size) :
     (array.erase use)[0]? = value.getFirstUse! (use.removeFromCurrent ctx useInBounds ctxInBounds) := by
-  grind [Array.getElem_of_mem, ValuePtr.DefUse, ValuePtr.DefUse.array_erase_array_getElem_eq]
+  grind [Array.getElem_of_mem, ValuePtr.DefUse, ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx]
 
 theorem ValuePtr.defUse_removeFromCurrent_self
     {value : ValuePtr} {hvalue : use ∈ array}
@@ -156,7 +156,7 @@ theorem ValuePtr.defUse_removeFromCurrent_self
   case nextElems =>
     grind [OpOperandPtr.nextUse!_array_getElem_removeFromCurrent_eq_of_DefUse, Array.mem_of_mem_erase, ValuePtr.DefUse]
   case firstElem =>
-    grind [ValuePtr.DefUse.array_getElem?_zero_erase_eq, Array.mem_of_mem_erase, ValuePtr.DefUse]
+    grind [ValuePtr.DefUse.getElem?_zero_erase_array_eq, Array.mem_of_mem_erase, ValuePtr.DefUse]
   case firstUseBack =>
     rw [OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse hWF (by simp [hUseValue]; exact hWF) (by grind)]
     intros firstUse
@@ -182,7 +182,7 @@ theorem ValuePtr.defUse_removeFromCurrent_other
   · simp [ValuePtr.getFirstUse!_OpOperandPtr_removeFromCurrent]
     intros h
     have : (use.get! ctx).value = value' := by grind [ValuePtr.DefUse]
-    grind [OpOperandPtr.value!_eq_of_back!_eq_valueFirstUse]
+    grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
 
 theorem BlockPtr.defUse_OpOperandPtr_removeFromCurrent
     {block : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}

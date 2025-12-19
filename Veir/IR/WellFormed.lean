@@ -49,7 +49,7 @@ theorem ValuePtr.DefUse_getFirstUse!_value_eq_of_back_eq_valueFirstUse
     (firstUse.get! ctx).value.getFirstUse! ctx = some firstUse := by
   grind [ValuePtr.DefUse, Array.getElem?_of_mem]
 
-theorem OpOperandPtr.value!_eq_of_back!_eq_valueFirstUse
+theorem ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse
     {firstUse : OpOperandPtr}
     (hDefUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
     (hInArray : firstUse ∈ array) :
@@ -59,13 +59,13 @@ theorem OpOperandPtr.value!_eq_of_back!_eq_valueFirstUse
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem inArray
   cases i <;> grind [ValuePtr.DefUse]
 
-theorem ValuePtr.DefUse_getFirstUse!_eq_of_back_eq_valueFirstUse
+theorem ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse
     {firstUse : OpOperandPtr}
     (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
     (hInArray : firstUse ∈ array)
     (heq : (firstUse.get! ctx).back = .valueFirstUse value) :
     value.getFirstUse! ctx = some firstUse := by
-  have : (firstUse.get! ctx).value = value := by grind [OpOperandPtr.value!_eq_of_back!_eq_valueFirstUse]
+  have : (firstUse.get! ctx).value = value := by grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
   grind [ValuePtr.DefUse, Array.getElem?_of_mem]
 
 theorem ValuePtr.DefUse_back_eq_of_getFirstUse
@@ -84,7 +84,7 @@ theorem ValuePtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse
     (firstUse.get! ctx).back = .valueFirstUse value' ↔
     value'.getFirstUse! ctx = some firstUse := by
   constructor
-  · grind [ValuePtr.DefUse, ValuePtr.DefUse_getFirstUse!_eq_of_back_eq_valueFirstUse]
+  · grind [ValuePtr.DefUse, ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse]
   · grind [ValuePtr.DefUse, ValuePtr.DefUse_back_eq_of_getFirstUse]
 
 theorem ValuePtr.DefUse_array_injective
@@ -104,8 +104,7 @@ theorem ValuePtr.DefUse_array_toList_Nodup
 @[grind .]
 theorem ValuePtr.DefUse.array_mem_erase_self
     (hWF : ValuePtr.DefUse value ctx array hvalue) :
-    use ∈ array →
-    use ∉ array.erase use := by
+    use ∈ array → use ∉ array.erase use := by
   have := ValuePtr.DefUse_array_toList_Nodup hWF
   rw [← Array.toArray_toList (xs := array)]
   grind [List.Nodup.not_mem_erase]
@@ -127,7 +126,7 @@ theorem ValuePtr.DefUse_array_erase_array_index
   grind  [List.idxOf_getElem]
 
 @[grind .]
-theorem ValuePtr.DefUse.array_erase_array_getElem_eq :
+theorem ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx :
     ValuePtr.DefUse value ctx array missingUses →
     (array.erase (array[i]'iInBounds)) = array.eraseIdx i iInBounds := by
   grind [Array.erase_eq_eraseIdx_of_idxOf, ValuePtr.DefUse_array_erase_array_index]
