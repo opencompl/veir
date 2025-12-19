@@ -1,6 +1,6 @@
 module
 
-namespace Mlir.Dialects.LLVM
+namespace Veir.Dialects.LLVM
 
 public inductive LLVMInt (w : Nat) where
   | value : BitVec w → LLVMInt w
@@ -28,4 +28,4 @@ public def mul {w : Nat} (a b : LLVMInt w) : LLVMInt w :=
 public instance : Mul (LLVMInt n) := ⟨mul⟩
 
 
-end Mlir.Dialects.LLVM
+end Veir.Dialects.LLVM

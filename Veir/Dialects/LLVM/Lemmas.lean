@@ -1,8 +1,8 @@
 module
 
-import Mlir.Dialects.LLVM.Basic
+import Veir.Dialects.LLVM.Basic
 
-open Mlir.Dialects.LLVM
+open Veir.Dialects.LLVM
 
 
 /-! ### add -/
