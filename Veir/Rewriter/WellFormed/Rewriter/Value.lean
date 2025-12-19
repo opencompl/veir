@@ -21,7 +21,7 @@ theorem Rewriter.replaceUse_DefUse_newValue
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', Ne.symm hvalueNe, ↓reduceIte]
   apply ValuePtr.defUse_insertIntoCurrent_self_empty
-  apply ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse_empty
+  apply ValuePtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne_self
     (useInBounds := by grind) (useOfOtherValue := by grind)
   apply ValuePtr.defUse_removeFromCurrent_other
     (array := array) (array' := array') (value' := value') (missingUses' := ∅) <;> grind [ValuePtr.DefUse]
@@ -41,17 +41,11 @@ theorem Rewriter.replaceUse_DefUse_oldValue
   apply ValuePtr.defUse_insertIntoCurrent_other
     (missingUses' := Std.ExtHashSet.ofList [use]) (use := use) (value' := value') (array' := array') (value := value)
     (valueNe := by grind) (hvalue := by grind)
-  · have : ∅ = (Std.ExtHashSet.ofList [use]).erase use := by simp; grind
-    simp only [this]
-    apply OpOperandPtr.setValue_DefUse_append <;>
+  · apply ValuePtr.DefUse.OpOperandPtr_setValue_other_empty <;>
       grind [ValuePtr.defUse_removeFromCurrent_self, ValuePtr.DefUse]
-  · have : Std.ExtHashSet.ofList [use] = (∅ : Std.ExtHashSet _).insert use := by grind
-    simp only [this]
-    apply ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse
+  · apply ValuePtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne_self
     · grind
-    · apply ValuePtr.defUse_removeFromCurrent_other (value' := value) (array' := array) (missingUses' := ∅)
-        <;> grind [ValuePtr.DefUse]
-    · grind
+    · grind [ValuePtr.defUse_removeFromCurrent_other, ValuePtr.DefUse]
 
 theorem Rewriter.replaceUse_DefUse_otherValue
     (ctxIn: ctx.FieldsInBounds)
@@ -67,15 +61,14 @@ theorem Rewriter.replaceUse_DefUse_otherValue
   apply ValuePtr.defUse_insertIntoCurrent_other
     (missingUses' := Std.ExtHashSet.ofList [use]) (use := use) (value := value'') (value' := value') (array' := array')
     (valueNe := by grind) (hvalue := by grind)
-  · apply OpOperandPtr.setValue_DefUse_other
+  · apply ValuePtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
     any_goals grind
     apply ValuePtr.defUse_removeFromCurrent_other (value' := value) (array' := array) (missingUses' := ∅)
         <;> grind [ValuePtr.DefUse]
-  · apply ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse_empty
+  · apply ValuePtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne_self
     · grind
     · apply ValuePtr.defUse_removeFromCurrent_other (value' := value) (array' := array) (missingUses' := ∅)
         <;> grind [ValuePtr.DefUse]
-    · grind
 
 theorem Rewriter.replaceUse_DefUse (ctx: IRContext) (use : OpOperandPtr)
     (useIn: use.InBounds ctx)

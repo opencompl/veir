@@ -35,6 +35,27 @@ attribute [grind →] ValuePtr.DefUse.valueInBounds
 attribute [grind →] ValuePtr.DefUse.missingUsesInBounds
 attribute [grind →] ValuePtr.DefUse.arrayInBounds
 
+theorem ValuePtr.DefUse.unchanged
+    (hWf : valuePtr.DefUse ctx array missingUses)
+    (valuePtrInBounds' : valuePtr.InBounds ctx')
+    (hSameFirstUse : valuePtr.getFirstUse! ctx = valuePtr.getFirstUse! ctx')
+    (hPreservesInBounds : ∀ (usePtr : OpOperandPtr),
+      usePtr.InBounds ctx →
+      (usePtr.get! ctx).value = valuePtr → usePtr.InBounds ctx')
+    (hSameUseFields : ∀ (usePtr : OpOperandPtr),
+      usePtr.InBounds ctx → (usePtr.get! ctx).value = valuePtr →
+      (usePtr.get! ctx') = (usePtr.get! ctx))
+    (hPreservesInBounds' : ∀ (usePtr : OpOperandPtr),
+      usePtr.InBounds ctx' →
+      (usePtr.get! ctx').value = valuePtr →
+      usePtr.InBounds ctx)
+    (hSameUseFields' : ∀ (usePtr : OpOperandPtr),
+      usePtr.InBounds ctx' →
+      (usePtr.get! ctx').value = valuePtr →
+      (usePtr.get! ctx) = (usePtr.get! ctx')) :
+    valuePtr.DefUse ctx' array missingUses := by
+  constructor <;> grind [ValuePtr.DefUse]
+
 theorem ValuePtr.DefUse.ValuePtr_getFirstUse_ne_of_value_ne
     {use use' : OpOperandPtr}
     (valueNe : (use.get! ctx).value ≠ (use'.get! ctx).value)
@@ -168,29 +189,50 @@ theorem ValuePtr.DefUse.nextUse!_ne_of_getFirstUse!_eq {value : ValuePtr} {use :
   have ⟨j, jInBounds, hj⟩ := Array.getElem_of_mem useInArray
   grind [ValuePtr.DefUse]
 
-theorem ValuePtr.DefUse.OpOperandPtr_setValue_of_defUseMissingLink
-    {use : OpOperandPtr} (useInBounds : use.InBounds ctx)
-    (useOfOtherValue : (use.get ctx useInBounds).value ≠ value) :
+@[grind .]
+theorem ValuePtr.DefUse.OpOperandPtr_setValue_self_of_value!_ne_self
+    {use : OpOperandPtr} {useInBounds}
+    (useOfOtherValue : (use.get! ctx).value ≠ value) :
     value.DefUse ctx array missingUses →
-    value.DefUse (use.setValue ctx value) array (missingUses.insert use) := by
+    value.DefUse (use.setValue ctx value useInBounds) array (missingUses.insert use) := by
   intros hWF
   constructor <;> grind [ValuePtr.DefUse]
 
-theorem ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse
-    {use : OpOperandPtr} (useInBounds : use.InBounds ctx)
-    (useOfOtherValue : (use.get ctx useInBounds).value ≠ value) :
-    value.DefUse ctx array missingUses →
-    value.DefUse (use.setValue ctx value) array (missingUses.insert use) := by
-  intros hWF
-  constructor <;> grind [ValuePtr.DefUse]
-
-theorem ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse_empty
-    {use : OpOperandPtr} (useInBounds : use.InBounds ctx)
-    (useOfOtherValue : (use.get ctx useInBounds).value ≠ value) :
+theorem ValuePtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne_self
+    {use : OpOperandPtr} {useInBounds} (useOfOtherValue : (use.get! ctx).value ≠ value) :
     value.DefUse ctx array →
-    value.DefUse (use.setValue ctx value) array (Std.ExtHashSet.ofList [use]) := by
+    value.DefUse (use.setValue ctx value useInBounds) array (Std.ExtHashSet.ofList [use]) := by
   intros hWF
   constructor <;> grind [ValuePtr.DefUse]
+
+@[grind .]
+theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_of_mem_missingUses
+    {use : OpOperandPtr} {value value' : ValuePtr} {useInBounds}
+    (useOfOtherValue : (use.get! ctx).value ≠ value') {array} :
+    use ∈ missingUses →
+    value.DefUse ctx array missingUses →
+    value.DefUse (use.setValue ctx value' useInBounds) array (missingUses.erase use) := by
+  intros useNotMissing hWF
+  constructor <;> grind [ValuePtr.DefUse]
+
+@[grind .]
+theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_empty
+    {use : OpOperandPtr} {value value' : ValuePtr} {useInBounds}
+    (useOfOtherValue : (use.get! ctx).value ≠ value') {array} :
+    value.DefUse ctx array (Std.ExtHashSet.ofList [use]) →
+    value.DefUse (use.setValue ctx value' useInBounds) array := by
+  intros hWF
+  constructor <;> grind [ValuePtr.DefUse]
+
+@[grind .]
+theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
+    {ctx : IRContext} {use : OpOperandPtr} {useInBounds} (value : ValuePtr)
+    (useOfOtherValue' : (use.get ctx useInBounds).value ≠ value')
+    (valueNe : value ≠ value') {array} :
+    value'.DefUse ctx array missingUses →
+    value'.DefUse (use.setValue ctx value useInBounds) array missingUses := by
+  intro hWF
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
 
 structure BlockPtr.DefUse (blockPtr : BlockPtr) (ctx : IRContext) (array : Array BlockOperandPtr)
     (hbl : blockPtr.InBounds ctx := by grind) : Prop where
@@ -279,27 +321,6 @@ structure IRContext.WellFormed (ctx : IRContext) : Prop where
     (blockPtr.get! ctx).WellFormed ctx blockPtr blockPtrInBounds
   regions (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
     (regionPtr.get! ctx).WellFormed ctx regionPtr
-
-theorem ValuePtr.DefUse.unchanged
-    (hWf : valuePtr.DefUse ctx array missingUses)
-    (valuePtrInBounds' : valuePtr.InBounds ctx')
-    (hSameFirstUse : valuePtr.getFirstUse! ctx = valuePtr.getFirstUse! ctx')
-    (hPreservesInBounds : ∀ (usePtr : OpOperandPtr),
-      usePtr.InBounds ctx →
-      (usePtr.get! ctx).value = valuePtr → usePtr.InBounds ctx')
-    (hSameUseFields : ∀ (usePtr : OpOperandPtr),
-      usePtr.InBounds ctx → (usePtr.get! ctx).value = valuePtr →
-      (usePtr.get! ctx') = (usePtr.get! ctx))
-    (hPreservesInBounds' : ∀ (usePtr : OpOperandPtr),
-      usePtr.InBounds ctx' →
-      (usePtr.get! ctx').value = valuePtr →
-      usePtr.InBounds ctx)
-    (hSameUseFields' : ∀ (usePtr : OpOperandPtr),
-      usePtr.InBounds ctx' →
-      (usePtr.get! ctx').value = valuePtr →
-      (usePtr.get! ctx) = (usePtr.get! ctx')) :
-    valuePtr.DefUse ctx' array missingUses := by
-  constructor <;> grind [ValuePtr.DefUse]
 
 theorem BlockPtr.DefUse_unchanged
     (hWf : blockPtr.DefUse ctx array valuePtrInBounds)
