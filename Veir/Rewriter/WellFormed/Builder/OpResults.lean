@@ -33,7 +33,7 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     intros op hop
     have ⟨array, harray⟩ := h₄ op (by grind)
     exists array
-    apply @IRContext.OperationChainWellFormed_unchanged ctx <;>
+    apply @IRContext.OpChain_unchanged ctx <;>
       grind
   case blockChain =>
     intros rg hrg

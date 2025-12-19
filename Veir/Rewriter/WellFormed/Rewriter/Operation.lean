@@ -62,19 +62,19 @@ theorem InsertPoint.idxInOperationList_InsertPoint_prev_none
     (InsertPoint.prev! ip ctx = none ↔
     InsertPoint.idxInOperationList ip ctx blockPtr blockInBounds ctxWf = 0) := by
   have ⟨array, harray⟩ := ctxWf.opChain blockPtr blockInBounds
-  simp (disch := grind) only [BlockPtr.operationList_iff_BlockPtr_OperationChainWellFormed] at harray
+  simp (disch := grind) only [BlockPtr.operationList_iff_BlockPtr_OpChain] at harray
   have blockWF := @BlockPtr.operationListWF ctx blockPtr (by grind) (by grind)
   intro hblock
   cases ip
   case before op =>
     simp_all only [idxInOperationList_Before, InsertPoint.block, InsertPoint.prev!]
-    grind [BlockPtr.OperationChainWellFormed]
+    grind [BlockPtr.OpChain]
   case atEnd bl =>
     simp_all only [InsertPoint.block, InsertPoint.prev!, InsertPoint.idxInOperationList]
-    grind [BlockPtr.OperationChainWellFormed, Array.size_eq_zero_iff]
+    grind [BlockPtr.OpChain, Array.size_eq_zero_iff]
 
-theorem InsertPoint.next_idxInOperationList ctxWf ip :
-    BlockPtr.OperationChainWellFormed blockPtr ctx array blockInBounds →
+theorem InsertPoint.next_idxInOperationList ctxWf ip blockInBounds :
+    BlockPtr.OpChain blockPtr ctx array →
     array[InsertPoint.idxInOperationList ip ctx blockPtr blockInBounds ctxWf]? = ip.next := by
   sorry
 
@@ -84,13 +84,13 @@ theorem InsertPoint.next_ne_firstOp (hWF : ctx.WellFormed) (ipInBounds : ip.InBo
     InsertPoint.next ip ≠ some firstOp := by
   intro hfirst hprev
   have ⟨array, harray⟩ := hWF.opChain blockPtr blockInBounds
-  have := InsertPoint.next_idxInOperationList hWF ip harray
-  cases ip <;> grind [InsertPoint.prev!, InsertPoint.next, BlockPtr.OperationChainWellFormed]
+  have := InsertPoint.next_idxInOperationList hWF ip blockInBounds harray
+  cases ip <;> grind [InsertPoint.prev!, InsertPoint.next, BlockPtr.OpChain]
 
 
 theorem InsertPoint.prev_idxInOperationList :
     let idx := InsertPoint.idxInOperationList ip ctx blockPtr blockInBounds ctxWf
-    BlockPtr.OperationChainWellFormed blockPtr ctx array blockInBounds →
+    BlockPtr.OpChain blockPtr ctx array →
     idx > 0 →
     ip.prev! ctx = some array[idx - 1]! := by
   sorry
@@ -136,7 +136,7 @@ theorem InsertPoint.wf_insertOp?_isSome (hWF : ctx.WellFormed) {ipInBounds : ip.
       case some prev =>
         have : (prev.get! ctx).parent = some blockPtr := by
           apply OperationPtr.getParent_prev_eq (opPtr := existingOp) (array := array) <;> grind
-        grind [BlockPtr.OperationChainWellFormed_prev_ne]
+        grind [BlockPtr.OpChain_prev_ne]
   case atEnd bl =>
     simp only
     simp [InsertPoint.block] at hipBlock
@@ -145,7 +145,7 @@ theorem InsertPoint.wf_insertOp?_isSome (hWF : ctx.WellFormed) {ipInBounds : ip.
     cases hlast: (blockPtr.get ctx (by grind)).lastOp
     case none => grind
     case some lastOp =>
-      have : (lastOp.get ctx (by grind)).parent = some blockPtr := by grind [BlockPtr.OperationChainWellFormed]
+      have : (lastOp.get ctx (by grind)).parent = some blockPtr := by grind [BlockPtr.OpChain]
       grind
 
 unseal Rewriter.insertOp? in
@@ -153,9 +153,9 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_other
     (hol : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array)
     (hctx' : Rewriter.insertOp? ctx newOp ip newOpIn insIn ctxInBounds = some ctx')
     (ipParent : InsertPoint.block! ip ctx ≠ some blockPtr) :
-      blockPtr.OperationChainWellFormed ctx' array (by grind) := by
+      blockPtr.OpChain ctx' array := by
   have ipWf : ip.Wf ctx newOp := by rcases ip <;> grind [Rewriter.insertOp?] -- TODO: missing lemmas?
-  apply BlockPtr.OperationChainWellFormed_unchanged (ctx := ctx) <;> try grind
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> try grind
   · intros opPtr opInBounds opParent
     simp only [OperationPtr.parent!_insertOp? hctx']
     simp only [OperationPtr.prev!_insertOp? hctx']
@@ -167,7 +167,7 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_other
       · constructor
         · split
           · simp_all [InsertPoint.block!, InsertPoint.next]
-            grind [BlockPtr.OperationChainWellFormed]
+            grind [BlockPtr.OpChain]
           · grind
         · split
           · suffices (opPtr.get! ctx).parent = ip.block! ctx by grind
@@ -179,21 +179,21 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_other
               · grind [Rewriter.isSome_parent_insertOp?_before]
               · rename_i parent'
                 have ⟨array', harray'⟩ := ctxWellFormed.opChain parent' (by grind)
-                have : op' ∈ array' := by grind [IRContext.WellFormed, BlockPtr.OperationChainWellFormed]
+                have : op' ∈ array' := by grind [IRContext.WellFormed, BlockPtr.OpChain]
                 have ⟨i, hi⟩ := Array.getElem?_of_mem this
-                have := harray'.prev i (by grind [IRContext.WellFormed, BlockPtr.OperationChainWellFormed]) (by grind)
-                grind [IRContext.WellFormed, BlockPtr.OperationChainWellFormed]
+                have := harray'.prev i (by grind [IRContext.WellFormed, BlockPtr.OpChain]) (by grind)
+                grind [IRContext.WellFormed, BlockPtr.OpChain]
             · simp_all only
-              grind [IRContext.WellFormed, BlockPtr.OperationChainWellFormed]
+              grind [IRContext.WellFormed, BlockPtr.OpChain]
           · grind
 
 theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_self
     (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array)
     (hctx' : Rewriter.insertOp? ctx newOp ip newOpIn insIn ctxInBounds = some ctx')
     (ipParent : InsertPoint.block ip ctx ipInBounds = some blockPtr) :
-      blockPtr.OperationChainWellFormed ctx'
+      blockPtr.OpChain ctx'
         (array.insertIdx (ip.idxInOperationList ctx blockPtr blockInBounds ctxWellFormed)
-          newOp (by grind [InsertPoint.idxInOperationList_inBounds])) (by grind) := by
+          newOp (by grind [InsertPoint.idxInOperationList_inBounds])) := by
   have ipWf := InsertPoint.wf_insertOp?_isSome ctxWellFormed hctx' ipParent
   have chainWf := ctxWellFormed.opChain
   have : (newOp.get ctx (by grind)).parent = none := by grind
@@ -201,10 +201,11 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_self
   simp only [hWf] at hOCWF
   simp only [←InsertPoint.block!_eq_block] at ipParent
   constructor
+  case blockInBounds => grind
   case opParent =>
     intros op hop
     simp [Array.mem_insertIdx] at hop
-    grind [BlockPtr.OperationChainWellFormed]
+    grind [BlockPtr.OpChain]
   case last =>
     simp only [Array.size_insertIdx, Nat.add_one_sub_one, Nat.lt_add_one, getElem?_pos]
     simp [BlockPtr.lastOp!_insertOp? hctx']
@@ -213,7 +214,7 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_self
     case before existingOp =>
       subst ip
       simp only [InsertPoint.idxInOperationList_Before]
-      rw [Array.getElem_insertIdx_of_gt] <;> grind [BlockPtr.OperationChainWellFormed]
+      rw [Array.getElem_insertIdx_of_gt] <;> grind [BlockPtr.OpChain]
     case atEnd => grind [InsertPoint.idxInOperationList]
   case prevFirst =>
     intros firstOp hFirstOp
@@ -228,19 +229,19 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_self
       grind
     case isFalse ipprev =>
       simp only [OperationPtr.prev!_insertOp? hctx']
-      grind [InsertPoint.next_ne_firstOp, BlockPtr.OperationChainWellFormed]
+      grind [InsertPoint.next_ne_firstOp, BlockPtr.OpChain]
   case allOpsInChain =>
     intros op opInBounds opParent
     simp only [←OperationPtr.get!_eq_get, OperationPtr.parent!_insertOp? hctx'] at opParent
     simp [Array.mem_insertIdx]
     split at opParent
     · grind
-    · grind [BlockPtr.OperationChainWellFormed]
+    · grind [BlockPtr.OpChain]
   case arrayInBounds =>
     simp only [Array.mem_insertIdx]
     rintro op (hold | hnew)
     · grind
-    · have : op.InBounds ctx := by grind [BlockPtr.OperationChainWellFormed]
+    · have : op.InBounds ctx := by grind [BlockPtr.OpChain]
       grind
   case first =>
     simp only [BlockPtr.firstOp!_insertOp? hctx']
@@ -252,7 +253,7 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_self
       simp only [h] at this
       have := InsertPoint.idxInOperationList_InsertPoint_prev_none ipInBounds (ctxWf := ctxWellFormed) (blockPtr := blockPtr) (blockInBounds := by grind)
       rw [Array.getElem_insertIdx_of_lt]
-      · grind [BlockPtr.OperationChainWellFormed]
+      · grind [BlockPtr.OpChain]
       · grind
   case prev =>
     simp only [gt_iff_lt, Array.size_insertIdx]
@@ -263,11 +264,11 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_self
     simp only [hWf] at idxInBounds
     by_cases hi : i < idx
     · simp (disch := grind) only [Array.getElem_insertIdx_of_lt]
-      have : array[i]? ≠ some newOp := by grind [BlockPtr.OperationChainWellFormed]
+      have : array[i]? ≠ some newOp := by grind [BlockPtr.OpChain]
       simp only [Array.getElem_eq_iff, this, ↓reduceIte]
       have : ip.next = array[idx]? := by grind [InsertPoint.next_idxInOperationList]
-      suffices ip.next ≠ some array[i] by grind [BlockPtr.OperationChainWellFormed]
-      grind [BlockPtr.OperationChainWellFormed_array_injective]
+      suffices ip.next ≠ some array[i] by grind [BlockPtr.OpChain]
+      grind [BlockPtr.OpChain_array_injective]
     by_cases hi' : i = idx
     · subst i idx
       simp only [Array.getElem_insertIdx_self, ↓reduceIte]
@@ -278,16 +279,16 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_self
     by_cases hi'' : i = idx + 1
     · simp (disch := grind) only [Array.getElem_insertIdx_of_gt]
       have : idx = i - 1 := by grind
-      have : array[i - 1] ≠ newOp := by grind [BlockPtr.OperationChainWellFormed]
+      have : array[i - 1] ≠ newOp := by grind [BlockPtr.OpChain]
       simp only [this, ↓reduceIte]
-      have := InsertPoint.next_idxInOperationList ctxWellFormed ip hOCWF
+      have := InsertPoint.next_idxInOperationList ctxWellFormed ip (by grind) hOCWF
       grind
     · simp (disch := grind) only [Array.getElem_insertIdx_of_gt]
-      have : array[i - 1] ≠ newOp := by grind [BlockPtr.OperationChainWellFormed]
+      have : array[i - 1] ≠ newOp := by grind [BlockPtr.OpChain]
       simp only [this, ↓reduceIte]
-      have := InsertPoint.next_idxInOperationList ctxWellFormed ip hOCWF
-      suffices ip.next ≠ some array[i - 1] by grind [BlockPtr.OperationChainWellFormed]
-      grind [BlockPtr.OperationChainWellFormed_array_injective]
+      have := InsertPoint.next_idxInOperationList ctxWellFormed ip (by grind) hOCWF
+      suffices ip.next ≠ some array[i - 1] by grind [BlockPtr.OpChain]
+      grind [BlockPtr.OpChain_array_injective]
   case next =>
     simp only [Array.size_insertIdx]
     intros i hi
@@ -304,15 +305,15 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_self
     by_cases hi'' : i + 1 = idx
     · simp (disch := grind) only [Array.getElem_insertIdx_of_lt]
       have : idx = i + 1 := by grind
-      have : array[i] ≠ newOp := by grind [BlockPtr.OperationChainWellFormed]
+      have : array[i] ≠ newOp := by grind [BlockPtr.OpChain]
       simp [this, ↓reduceIte]
       have := @InsertPoint.prev_idxInOperationList
       grind
     by_cases hi : i > idx
     · simp (disch := grind) only [Array.getElem_insertIdx_of_gt]
-      have : array[i-1]? ≠ some newOp := by grind [BlockPtr.OperationChainWellFormed]
+      have : array[i-1]? ≠ some newOp := by grind [BlockPtr.OpChain]
       simp only [Array.getElem_eq_iff, this, ↓reduceIte]
-      suffices ip.prev! ctx ≠ some array[i - 1] by grind [BlockPtr.OperationChainWellFormed]
+      suffices ip.prev! ctx ≠ some array[i - 1] by grind [BlockPtr.OpChain]
       by_cases idx = 0
       · rcases ip
         · have := hOCWF.first
@@ -321,16 +322,16 @@ theorem BlockPtr.operationChainWellFormed_Rewriter_insertOp?_self
       rcases ip with ⟨op⟩ | _
       · simp [InsertPoint.prev!]
         have : (array[idx].get! ctx).prev = some array[idx - 1] := by
-          apply BlockPtr.OperationChainWellFormed.prev hOCWF; grind
-        grind [BlockPtr.OperationChainWellFormed_array_injective]
+          apply BlockPtr.OpChain.prev hOCWF; grind
+        grind [BlockPtr.OpChain_array_injective]
       · grind [InsertPoint.next_idxInOperationList]
     · have : i < idx - 1 := by cutsat
       simp (disch := grind) only [Array.getElem_insertIdx_of_lt]
-      have : array[i]? ≠ some newOp := by grind [BlockPtr.OperationChainWellFormed]
+      have : array[i]? ≠ some newOp := by grind [BlockPtr.OpChain]
       simp only [Array.getElem_eq_iff, this, ↓reduceIte]
       have : ip.prev! ctx = some array[idx-1]! := by grind [InsertPoint.prev_idxInOperationList]
-      suffices ip.prev! ctx ≠ some array[i] by grind [BlockPtr.OperationChainWellFormed]
-      grind [BlockPtr.OperationChainWellFormed_array_injective]
+      suffices ip.prev! ctx ≠ some array[i] by grind [BlockPtr.OpChain]
+      grind [BlockPtr.OpChain_array_injective]
 
 theorem BlockPtr.operationList_Rewriter_insertOp?
     (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array)
@@ -342,9 +343,9 @@ theorem BlockPtr.operationList_Rewriter_insertOp?
       else
         array := by
   split
-  · simp only [←BlockPtr.operationList_iff_BlockPtr_OperationChainWellFormed]
+  · simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
     grind [BlockPtr.operationChainWellFormed_Rewriter_insertOp?_self]
-  · simp only [←BlockPtr.operationList_iff_BlockPtr_OperationChainWellFormed]
+  · simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
     grind [BlockPtr.operationChainWellFormed_Rewriter_insertOp?_other]
 
 theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)

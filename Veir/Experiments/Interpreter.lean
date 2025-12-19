@@ -63,11 +63,11 @@ def interpretOpList (ctx : IRContext) (opList : List OperationPtr) (hOpList : �
 
 theorem BlockPtr.operationListInBounds (block : BlockPtr) (ctx : IRContext) (hctx : ctx.WellFormed) (hblock : block.InBounds ctx) :
     ∀ op, op ∈ (block.operationList ctx hctx hblock) → op.InBounds ctx := by
-  have : BlockPtr.OperationChainWellFormed block ctx (hctx.opChain block hblock).choose hblock := by
+  have : BlockPtr.OpChain block ctx (hctx.opChain block hblock).choose hblock := by
     apply BlockPtr.operationListWF; grind
   simp only [BlockPtr.operationList]
   intros op opInList
-  grind [BlockPtr.OperationChainWellFormed, IRContext.WellFormed]
+  grind [BlockPtr.OpChain, IRContext.WellFormed]
 
 noncomputable def interpretBlock (ctx : IRContext) (blockPtr : BlockPtr) (inputs : Array InterpreterValue) (hblock : blockPtr.InBounds ctx := by grind) (hWF : ctx.WellFormed) : Option (Array UInt64) := do
   let block := blockPtr.get ctx (by grind)

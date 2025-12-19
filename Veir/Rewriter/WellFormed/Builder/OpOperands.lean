@@ -328,7 +328,7 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
     intros blockPtr blockPtrInBounds
     have ⟨array, arrayWf⟩ := hOpWf.opChain blockPtr (by grind)
     exists array
-    apply IRContext.OperationChainWellFormed_unchanged (ctx := ctx) <;>
+    apply IRContext.OpChain_unchanged (ctx := ctx) <;>
       grind [pushOperand_OperationPtr_get_parent_mono, pushOperand_OperationPtr_get_prev_mono,
         pushOperand_OperationPtr_get_next_mono, pushOperand_BlockPtr_get_lastOp_mono, pushOperand_BlockPtr_get_firstOp_mono]
   case blockChain =>

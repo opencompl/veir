@@ -57,10 +57,10 @@ theorem BlockPtr.defUse_OpOperandPtr_insertIntoCurrent
   apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind
 
 theorem BlockPtr.operationChainWellFormed_OpOperandPtr_insertIntoCurrent
-    {block : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : block.OperationChainWellFormed ctx array blockInBounds) :
-    block.OperationChainWellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) array (by grind) := by
-  apply BlockPtr.OperationChainWellFormed_unchanged (ctx := ctx) <;> grind
+    {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : block.OpChain ctx array) :
+    block.OpChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
 theorem RegionPtr.blockChainWellFormed_OpOperandPtr_insertIntoCurrent
     {region : RegionPtr} {regionInBounds} {use : OpOperandPtr} {useInBounds}
@@ -191,10 +191,10 @@ theorem BlockPtr.defUse_OpOperandPtr_removeFromCurrent
   apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind
 
 theorem BlockPtr.operationChainWellFormed_OpOperandPtr_removeFromCurrent
-    {block : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : block.OperationChainWellFormed ctx array blockInBounds) :
-    block.OperationChainWellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) array (by grind) := by
-  apply BlockPtr.OperationChainWellFormed_unchanged (ctx := ctx) <;> grind
+    {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : block.OpChain ctx array) :
+    block.OpChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
 theorem RegionPtr.blockChainWellFormed_OpOperandPtr_removeFromCurrent
     {region : RegionPtr} {regionInBounds} {use : OpOperandPtr} {useInBounds}
