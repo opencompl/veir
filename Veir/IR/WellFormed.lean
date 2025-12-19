@@ -49,20 +49,43 @@ theorem ValuePtr.DefUse_getFirstUse!_value_eq_of_back_eq_valueFirstUse
     (firstUse.get! ctx).value.getFirstUse! ctx = some firstUse := by
   grind [ValuePtr.DefUse, Array.getElem?_of_mem]
 
+theorem OpOperandPtr.value!_eq_of_back!_eq_valueFirstUse
+    {firstUse : OpOperandPtr}
+    (hDefUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
+    (hInArray : firstUse ∈ array) :
+    (firstUse.get! ctx).back = .valueFirstUse value →
+    (firstUse.get! ctx).value = value := by
+  have inArray : firstUse ∈ array := by grind [ValuePtr.DefUse]
+  have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem inArray
+  cases i <;> grind [ValuePtr.DefUse]
+
 theorem ValuePtr.DefUse_getFirstUse!_eq_of_back_eq_valueFirstUse
-    (ctxInBounds : ctx.FieldsInBounds)
-    {firstUse : OpOperandPtr} (hFirstUse : firstUse.InBounds ctx)
-    (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array)
-    (heq : (firstUse.get! ctx).back = .valueFirstUse value') :
-    value'.getFirstUse! ctx = some firstUse := by
+    {firstUse : OpOperandPtr}
+    (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
+    (hInArray : firstUse ∈ array)
+    (heq : (firstUse.get! ctx).back = .valueFirstUse value) :
+    value.getFirstUse! ctx = some firstUse := by
+  have : (firstUse.get! ctx).value = value := by grind [OpOperandPtr.value!_eq_of_back!_eq_valueFirstUse]
   grind [ValuePtr.DefUse, Array.getElem?_of_mem]
 
 theorem ValuePtr.DefUse_back_eq_of_getFirstUse
     {firstUse : OpOperandPtr}
-    (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array)
-    (h : (firstUse.get! ctx).value.getFirstUse! ctx = some firstUse) :
-    (firstUse.get! ctx).back = .valueFirstUse (firstUse.get! ctx).value := by
+    (hvalueFirstUse : value.DefUse ctx array missingUses)
+    (h : value.getFirstUse! ctx = some firstUse) :
+    (firstUse.get! ctx).back = .valueFirstUse value := by
+  have : (firstUse.get! ctx).value = value := by grind [ValuePtr.DefUse]
   grind [ValuePtr.DefUse, Array.getElem?_of_mem]
+
+theorem ValuePtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse
+    {firstUse : OpOperandPtr}
+    (hDefUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
+    (hFirstUse : firstUse ∈ array)
+    (hDefUse' : value'.DefUse ctx array' missingUses') :
+    (firstUse.get! ctx).back = .valueFirstUse value' ↔
+    value'.getFirstUse! ctx = some firstUse := by
+  constructor
+  · grind [ValuePtr.DefUse, ValuePtr.DefUse_getFirstUse!_eq_of_back_eq_valueFirstUse]
+  · grind [ValuePtr.DefUse, ValuePtr.DefUse_back_eq_of_getFirstUse]
 
 theorem ValuePtr.DefUse_array_injective
     (hWF : ValuePtr.DefUse value ctx array hvalue) :
@@ -78,7 +101,16 @@ theorem ValuePtr.DefUse_array_toList_Nodup
   simp only [List.pairwise_iff_getElem]
   grind [ValuePtr.DefUse_array_injective]
 
-theorem ValuePtr.DefUse_array_erase_mem_self
+@[grind .]
+theorem ValuePtr.DefUse.array_mem_erase_self
+    (hWF : ValuePtr.DefUse value ctx array hvalue) :
+    use ∈ array →
+    use ∉ array.erase use := by
+  have := ValuePtr.DefUse_array_toList_Nodup hWF
+  rw [← Array.toArray_toList (xs := array)]
+  grind [List.Nodup.not_mem_erase]
+
+theorem ValuePtr.DefUse.array_mem_erase_getElem_self
     (hWF : ValuePtr.DefUse value ctx array hvalue) :
     ∀ (i : Nat) (iInBounds : i < array.size),
     array[i] ∉ array.erase array[i] := by
@@ -93,6 +125,49 @@ theorem ValuePtr.DefUse_array_erase_array_index
   have := ValuePtr.DefUse_array_toList_Nodup hWF
   rw [← Array.toArray_toList (xs := array)]
   grind  [List.idxOf_getElem]
+
+@[grind .]
+theorem ValuePtr.DefUse.array_erase_array_getElem_eq :
+    ValuePtr.DefUse value ctx array missingUses →
+    (array.erase (array[i]'iInBounds)) = array.eraseIdx i iInBounds := by
+  grind [Array.erase_eq_eraseIdx_of_idxOf, ValuePtr.DefUse_array_erase_array_index]
+
+@[grind .]
+theorem ValuePtr.DefUse.value!_eq_value!_of_nextUse!_eq {use : OpOperandPtr}
+    (useInArray : use ∈ array)
+    (useDefUse : (use.get! ctx).value.DefUse ctx array missingUses) :
+    (use.get! ctx).nextUse = some use' →
+    (use.get! ctx).value = (use'.get! ctx).value := by
+  intros huse'
+  have : use ∈ array := by grind
+  have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
+  grind [ValuePtr.DefUse]
+
+@[grind .]
+theorem ValuePtr.DefUse.value!_eq_value!_of_back!_eq_operandNextUse
+    {use : OpOperandPtr}
+    (useInArray : use ∈ array)
+    (useDefUse : (use.get! ctx).value.DefUse ctx array missingUses) :
+    (use.get! ctx).back = .operandNextUse use' →
+    (use.get! ctx).value = (use'.get! ctx).value := by
+  intros huse'
+  have : use ∈ array := by grind
+  have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
+  cases i <;> grind [ValuePtr.DefUse]
+
+theorem ValuePtr.DefUse.nextUse!_ne_of_getFirstUse!_eq {value : ValuePtr} {use : OpOperandPtr}
+    (valueDefUse : ValuePtr.DefUse value ctx array missingUses)
+    (useInArray : use ∈ array')
+    (useDefUse : (use.get! ctx).value.DefUse ctx array' missingUses') :
+    value.getFirstUse! ctx = some firstUse →
+    (use.get! ctx).nextUse ≠ some firstUse := by
+  intros hFirstUse hNextUse
+  have : (use.get! ctx).value = (firstUse.get! ctx).value := by grind
+  have : (use.get! ctx).value = value := by grind [ValuePtr.DefUse]
+  subst value
+  have : firstUse = array[0]'(by grind [ValuePtr.DefUse]) := by grind [ValuePtr.DefUse]
+  have ⟨j, jInBounds, hj⟩ := Array.getElem_of_mem useInArray
+  grind [ValuePtr.DefUse]
 
 theorem ValuePtr.DefUse.OpOperandPtr_setValue_of_defUseMissingLink
     {use : OpOperandPtr} (useInBounds : use.InBounds ctx)

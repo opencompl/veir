@@ -23,8 +23,8 @@ theorem Rewriter.replaceUse_DefUse_newValue
   apply ValuePtr.defUse_insertIntoCurrent_self_empty
   apply ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse_empty
     (useInBounds := by grind) (useOfOtherValue := by grind)
-  apply OpOperandPtr.removeFromCurrent_DefUse_other
-    (array := array) (array' := array') (value' := value) <;> grind
+  apply ValuePtr.defUse_removeFromCurrent_other
+    (array := array) (array' := array') (value' := value') (missingUses' := ∅) <;> grind [ValuePtr.DefUse]
 
 theorem Rewriter.replaceUse_DefUse_oldValue
     {value value' : ValuePtr}
@@ -43,11 +43,15 @@ theorem Rewriter.replaceUse_DefUse_oldValue
     (valueNe := by grind) (hvalue := by grind)
   · have : ∅ = (Std.ExtHashSet.ofList [use]).erase use := by simp; grind
     simp only [this]
-    apply OpOperandPtr.setValue_DefUse_append
-    any_goals grind
-    apply OpOperandPtr.removeFromCurrent_DefUse_self <;> grind
-  · grind [ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse,
-      OpOperandPtr.removeFromCurrent_DefUse_other]
+    apply OpOperandPtr.setValue_DefUse_append <;>
+      grind [ValuePtr.defUse_removeFromCurrent_self, ValuePtr.DefUse]
+  · have : Std.ExtHashSet.ofList [use] = (∅ : Std.ExtHashSet _).insert use := by grind
+    simp only [this]
+    apply ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse
+    · grind
+    · apply ValuePtr.defUse_removeFromCurrent_other (value' := value) (array' := array) (missingUses' := ∅)
+        <;> grind [ValuePtr.DefUse]
+    · grind
 
 theorem Rewriter.replaceUse_DefUse_otherValue
     (ctxIn: ctx.FieldsInBounds)
@@ -65,11 +69,12 @@ theorem Rewriter.replaceUse_DefUse_otherValue
     (valueNe := by grind) (hvalue := by grind)
   · apply OpOperandPtr.setValue_DefUse_other
     any_goals grind
-    apply OpOperandPtr.removeFromCurrent_DefUse_other (array' := array) <;> grind
+    apply ValuePtr.defUse_removeFromCurrent_other (value' := value) (array' := array) (missingUses' := ∅)
+        <;> grind [ValuePtr.DefUse]
   · apply ValuePtr.DefUse.OpOperandPtr_setValue_of_defUse_empty
     · grind
-    · apply OpOperandPtr.removeFromCurrent_DefUse_other <;> try grind
-      · simp only [useOfValue']; exact hWF
+    · apply ValuePtr.defUse_removeFromCurrent_other (value' := value) (array' := array) (missingUses' := ∅)
+        <;> grind [ValuePtr.DefUse]
     · grind
 
 theorem Rewriter.replaceUse_DefUse (ctx: IRContext) (use : OpOperandPtr)
