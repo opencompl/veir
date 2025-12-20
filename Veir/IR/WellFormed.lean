@@ -264,6 +264,7 @@ structure BlockPtr.OpChain (block : BlockPtr) (ctx : IRContext) (array : Array O
 
 attribute [grind →] BlockPtr.OpChain.blockInBounds
 
+@[grind .]
 theorem BlockPtr.OpChain_unique :
     BlockPtr.OpChain block ctx array →
     BlockPtr.OpChain block ctx array' →
@@ -272,6 +273,66 @@ theorem BlockPtr.OpChain_unique :
   apply Array.ext_getElem?
   intros i
   induction i <;> grind [BlockPtr.OpChain]
+
+theorem BlockPtr.OpChain.firstOp_eq_none_iff_lastOp_eq_none :
+    BlockPtr.OpChain block ctx array missingOps →
+    ((block.get! ctx).firstOp = none ↔ (block.get! ctx).lastOp = none) := by
+  grind [BlockPtr.OpChain]
+
+theorem BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self {op : OperationPtr}
+    (hopInBounds : op.InBounds ctx)
+    (hchain : BlockPtr.OpChain block ctx array)
+    (hop : (op.get! ctx).parent = some block) :
+    ((op.get! ctx).prev = none ↔ (block.get! ctx).firstOp = some op) := by
+  constructor
+  · intro hprev
+    have opInArray : op ∈ array := by grind [BlockPtr.OpChain]
+    have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem opInArray
+    have : i = 0 := by grind [BlockPtr.OpChain]
+    grind [BlockPtr.OpChain]
+  · grind [BlockPtr.OpChain]
+
+@[grind .]
+theorem BlockPtr.OpChain.parent!_firstOp_eq
+    (hChain : BlockPtr.OpChain block ctx array missingOps)
+    {firstOp : OperationPtr} :
+    (block.get! ctx).firstOp = some firstOp →
+    (firstOp.get! ctx).parent = some block := by
+  grind [BlockPtr.OpChain]
+
+@[grind .]
+theorem BlockPtr.OpChain.parent!_lastOp_eq
+    (hChain : BlockPtr.OpChain block ctx array missingOps)
+    {lastOp : OperationPtr} :
+    (block.get! ctx).lastOp = some lastOp →
+    (lastOp.get! ctx).parent = some block := by
+  grind [BlockPtr.OpChain]
+
+@[grind .]
+theorem BlockPtr.OpChain.parent!_prevOp_eq
+    {op prevOp : OperationPtr}
+    (hChain : BlockPtr.OpChain block ctx array)
+    (opInBounds : op.InBounds ctx) :
+    (op.get! ctx).parent = some block →
+    (op.get! ctx).prev = some prevOp →
+    (prevOp.get! ctx).parent = some block := by
+  intros hParent hPrev
+  have : op ∈ array := by grind [BlockPtr.OpChain]
+  have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
+  cases i <;> grind [BlockPtr.OpChain]
+
+@[grind .]
+theorem BlockPtr.OpChain.parent!_nextOp_eq
+    {op nextOp : OperationPtr}
+    (hChain : BlockPtr.OpChain block ctx array)
+    (opInBounds : op.InBounds ctx) :
+    (op.get! ctx).parent = some block →
+    (op.get! ctx).next = some nextOp →
+    (nextOp.get! ctx).parent = some block := by
+  intros hParent hPext
+  have : op ∈ array := by grind [BlockPtr.OpChain]
+  have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
+  cases i <;> grind [BlockPtr.OpChain]
 
 structure RegionPtr.BlockChainWellFormed (region : RegionPtr) (ctx : IRContext) (array : Array BlockPtr) (hb : region.InBounds ctx) : Prop where
   arrayInBounds (h : bl ∈ array) : bl.InBounds ctx
@@ -325,6 +386,8 @@ structure IRContext.WellFormed (ctx : IRContext) : Prop where
   regions (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
     (regionPtr.get! ctx).WellFormed ctx regionPtr
 
+attribute [grind →] IRContext.WellFormed.inBounds
+
 theorem BlockPtr.DefUse_unchanged
     (hWf : blockPtr.DefUse ctx array valuePtrInBounds)
     (valuePtrInBounds' : blockPtr.InBounds ctx')
@@ -364,7 +427,15 @@ theorem BlockPtr.OpChain_array_injective
     (hWF : BlockPtr.OpChain block ctx array) :
     ∀ (i j : Nat) iInBounds jInBounds, i ≠ j → array[i]'iInBounds ≠ array[j]'jInBounds := by
   intros i
-  induction i <;> grind (splits := 30) [BlockPtr.OpChain]
+  induction i
+  case zero => grind [BlockPtr.OpChain]
+  case succ i ih =>
+    intros j
+    cases j
+    case zero => grind [BlockPtr.OpChain]
+    case succ j =>
+      intros iInBounds jInBounds hNe
+      grind [BlockPtr.OpChain]
 
 theorem BlockPtr.OpChain_array_toList_Nodup
     (hWF : BlockPtr.OpChain block ctx array) :
@@ -464,7 +535,12 @@ theorem BlockPtr.operationListWF {hctx : IRContext.WellFormed ctx} :
 theorem BlockPtr.operationList_iff_BlockPtr_OpChain :
     BlockPtr.OpChain block ctx array ↔
     BlockPtr.operationList block ctx hctx hblock = array := by
-  grind [BlockPtr.operationListWF, BlockPtr.OpChain_unique]
+  grind [BlockPtr.operationListWF]
+
+theorem BlockPtr.operationList.mem :
+    (op.get ctx opInBounds).parent = some block ↔
+    op ∈ BlockPtr.operationList block ctx hctx hblock := by
+  grind [BlockPtr.OpChain, BlockPtr.operationListWF]
 
 noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext) (hctx : ctx.WellFormed) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
   (hctx.valueDefUseChains value hvalue).choose
