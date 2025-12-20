@@ -275,7 +275,7 @@ theorem BlockPtr.OpChain_unique :
   induction i <;> grind [BlockPtr.OpChain]
 
 theorem BlockPtr.OpChain.firstOp_eq_none_iff_lastOp_eq_none :
-    BlockPtr.OpChain block ctx array missingOps →
+    BlockPtr.OpChain block ctx array →
     ((block.get! ctx).firstOp = none ↔ (block.get! ctx).lastOp = none) := by
   grind [BlockPtr.OpChain]
 
@@ -294,7 +294,7 @@ theorem BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self {op : OperationPtr}
 
 @[grind .]
 theorem BlockPtr.OpChain.parent!_firstOp_eq
-    (hChain : BlockPtr.OpChain block ctx array missingOps)
+    (hChain : BlockPtr.OpChain block ctx array)
     {firstOp : OperationPtr} :
     (block.get! ctx).firstOp = some firstOp →
     (firstOp.get! ctx).parent = some block := by
@@ -302,7 +302,7 @@ theorem BlockPtr.OpChain.parent!_firstOp_eq
 
 @[grind .]
 theorem BlockPtr.OpChain.parent!_lastOp_eq
-    (hChain : BlockPtr.OpChain block ctx array missingOps)
+    (hChain : BlockPtr.OpChain block ctx array)
     {lastOp : OperationPtr} :
     (block.get! ctx).lastOp = some lastOp →
     (lastOp.get! ctx).parent = some block := by
