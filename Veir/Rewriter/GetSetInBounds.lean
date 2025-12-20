@@ -179,7 +179,7 @@ theorem OperationPtr.parent!_insertOp? {operation : OperationPtr} :
     else
       (operation.get! ctx).parent := by
   simp only [Rewriter.insertOp?]
-  grind
+  grind (gen := 10)
 
 grind_pattern OperationPtr.parent!_insertOp? =>
   Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, (operation.get! newCtx).parent
