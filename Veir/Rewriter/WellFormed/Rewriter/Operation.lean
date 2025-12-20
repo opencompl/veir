@@ -111,6 +111,8 @@ theorem BlockPtr.opChain_Rewriter_insertOp?_self
   simp only [hWf] at hOCWF
   simp only [←InsertPoint.block!_eq_block] at ipParent
   constructor
+  case missingOpInBounds => grind
+  case missingOpValue => grind
   case blockInBounds => grind
   case opParent =>
     intros op hop
@@ -137,7 +139,7 @@ theorem BlockPtr.opChain_Rewriter_insertOp?_self
       grind [InsertPoint.next_ne_firstOp, BlockPtr.OpChain]
   case allOpsInChain =>
     intros op opInBounds opParent
-    simp only [←OperationPtr.get!_eq_get, OperationPtr.parent!_insertOp? hctx'] at opParent
+    simp only [OperationPtr.parent!_insertOp? hctx'] at opParent
     simp [Array.mem_insertIdx]
     split at opParent
     · grind
