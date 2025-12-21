@@ -221,7 +221,7 @@ theorem Region.wellFormed_OpOperandPtr_removeFromCurrent
     (RegionPtr.get! regionPtr (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) regionPtr := by
   apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
 
-section OperationPtr.linkBetween
+section OperationPtr.linkBetweenWithParent
 
 variable {op : OperationPtr}
 
@@ -335,6 +335,6 @@ theorem Region.wellFormed_OperationPtr_linkBetweenWithParent
   intros
   apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
 
-end OperationPtr.linkBetween
+end OperationPtr.linkBetweenWithParent
 
 end Veir
