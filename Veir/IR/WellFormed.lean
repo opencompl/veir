@@ -459,6 +459,29 @@ theorem BlockPtr.OpChain_array_toList_Nodup
   simp only [List.pairwise_iff_getElem]
   grind [BlockPtr.OpChain_array_injective]
 
+@[grind .]
+theorem BlockPtr.OpChain.array_mem_erase
+    (hWF : BlockPtr.OpChain block ctx array missingOps) :
+    op ∈ array.erase op' ↔ op ∈ array ∧ op ≠ op' := by
+  have := BlockPtr.OpChain_array_toList_Nodup hWF
+  rw [← Array.toArray_toList (xs := array)]
+  grind [List.Nodup.not_mem_erase]
+
+@[grind .]
+theorem BlockPtr.OpChain.idxOf_getElem_array
+    (hWF : BlockPtr.OpChain block ctx array missingOps) :
+    ∀ (i : Nat) (iInBounds : i < array.size),
+    array.idxOf array[i] = i := by
+  have := BlockPtr.OpChain_array_toList_Nodup hWF
+  rw [← Array.toArray_toList (xs := array)]
+  grind  [List.idxOf_getElem]
+
+@[grind .]
+theorem BlockPtr.OpChain.erase_getElem_array_eq_eraseIdx
+    (hWF : BlockPtr.OpChain block ctx array missingOps) :
+    (array.erase (array[i]'iInBounds)) = array.eraseIdx i iInBounds := by
+  grind [Array.erase_eq_eraseIdx_of_idxOf, BlockPtr.OpChain.idxOf_getElem_array]
+
 theorem RegionPtr.BlockChainWellFormed_unchanged
     (hWf : regionPtr.BlockChainWellFormed ctx array regionPtrInBounds)
     (regionPtrInBounds' : regionPtr.InBounds ctx')
