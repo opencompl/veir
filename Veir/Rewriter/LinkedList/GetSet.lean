@@ -697,6 +697,12 @@ theorem OperationPtr.next!_OperationPtr_setParentWithCheck {operation : Operatio
 grind_pattern OperationPtr.next!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, (operation.get! newCtx).next
 
+@[grind →]
+theorem OperationPtr.parent!_of_OperationPtr_setParentWithCheck_eq :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    (op'.get! ctx).parent = none := by
+  grind
+
 theorem OperationPtr.parent!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
     op'.setParentWithCheck ctx newParent selfIn = some newCtx →
     (operation.get! newCtx).parent =
@@ -916,6 +922,12 @@ theorem BlockPtr.next!_OperationPtr_linkBetweenWithParent {block : BlockPtr} :
 
 grind_pattern BlockPtr.next!_OperationPtr_linkBetweenWithParent =>
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, (block.get! newCtx).next
+
+@[grind →]
+theorem OperationPtr.parent!_of_OperationPtr_linkBetweenWithParent_eq :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    (op'.get! ctx).parent = none := by
+  grind
 
 @[simp]
 theorem BlockPtr.parent!_OperationPtr_linkBetweenWithParent {block : BlockPtr} :
