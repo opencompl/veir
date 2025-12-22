@@ -247,10 +247,26 @@ structure BlockPtr.DefUse (blockPtr : BlockPtr) (ctx : IRContext) (array : Array
   allUsesInChain (use : BlockOperandPtr) (useInBounds : use.InBounds ctx) :
     (use.get! ctx).value = blockPtr → use ∈ array
 
-structure BlockPtr.OpChain (block : BlockPtr) (ctx : IRContext) (array : Array OperationPtr) : Prop where
+/--
+  An operation chain owned by a block.
+  An operation chain is a doubly linked list of operations within a block, where each
+  operation points to the next and previous operations in the block. The block itself
+  points to the first and last operations in the chain.
+  The operation chain is represented as an ordered array of operation pointers, where
+  the first element of the array is the first operation in the block, and the last
+  element is the last operation in the block.
+  Each operation that has the block as its parent must be included in the operation chain,
+  unless it is included in the `missingOps` set.
+-/
+structure BlockPtr.OpChain (block : BlockPtr) (ctx : IRContext) (array : Array OperationPtr)
+    (missingOps : Std.ExtHashSet OperationPtr := ∅) : Prop where
   blockInBounds : block.InBounds ctx
   arrayInBounds (h : op ∈ array) : op.InBounds ctx
+  missingOpInBounds (hin : op ∈ missingOps) : op.InBounds ctx
   opParent (h : op ∈ array) : (op.get! ctx).parent = some block
+  missingOpValue (hin : op ∈ missingOps) : (op.get! ctx).parent = block
+  allOpsInChain (op : OperationPtr) (opInBounds : op.InBounds ctx) :
+    (op.get! ctx).parent = some block → (op ∈ array ↔ op ∉ missingOps)
   first : (block.get! ctx).firstOp = array[0]?
   last : (block.get! ctx).lastOp = array[array.size-1]?
   prevFirst (h : (block.get! ctx).firstOp = some firstOp) :
@@ -259,8 +275,7 @@ structure BlockPtr.OpChain (block : BlockPtr) (ctx : IRContext) (array : Array O
     (array[i].get! ctx).prev = some array[i - 1]
   next (hi : i < array.size) :
     (array[i].get! ctx).next = array[i + 1]?
-  allOpsInChain (op : OperationPtr) (opInBounds : op.InBounds ctx) :
-    (op.get ctx).parent = some block → op ∈ array
+
 
 attribute [grind →] BlockPtr.OpChain.blockInBounds
 
@@ -275,7 +290,7 @@ theorem BlockPtr.OpChain_unique :
   induction i <;> grind [BlockPtr.OpChain]
 
 theorem BlockPtr.OpChain.firstOp_eq_none_iff_lastOp_eq_none :
-    BlockPtr.OpChain block ctx array →
+    BlockPtr.OpChain block ctx array missingOps →
     ((block.get! ctx).firstOp = none ↔ (block.get! ctx).lastOp = none) := by
   grind [BlockPtr.OpChain]
 
@@ -294,7 +309,7 @@ theorem BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self {op : OperationPtr}
 
 @[grind .]
 theorem BlockPtr.OpChain.parent!_firstOp_eq
-    (hChain : BlockPtr.OpChain block ctx array)
+    (hChain : BlockPtr.OpChain block ctx array missingOps)
     {firstOp : OperationPtr} :
     (block.get! ctx).firstOp = some firstOp →
     (firstOp.get! ctx).parent = some block := by
@@ -302,7 +317,7 @@ theorem BlockPtr.OpChain.parent!_firstOp_eq
 
 @[grind .]
 theorem BlockPtr.OpChain.parent!_lastOp_eq
-    (hChain : BlockPtr.OpChain block ctx array)
+    (hChain : BlockPtr.OpChain block ctx array missingOps)
     {lastOp : OperationPtr} :
     (block.get! ctx).lastOp = some lastOp →
     (lastOp.get! ctx).parent = some block := by
@@ -404,7 +419,7 @@ theorem BlockPtr.DefUse_unchanged
   constructor <;> grind [BlockPtr.DefUse]
 
 theorem BlockPtr.OpChain_unchanged
-    (hWf : blockPtr.OpChain ctx array)
+    (hWf : blockPtr.OpChain ctx array missingOps)
     (blockPtrInBounds' : blockPtr.InBounds ctx')
     (hSameFirstOp : (blockPtr.get! ctx).firstOp = (blockPtr.get! ctx').firstOp)
     (hSameLastOp : (blockPtr.get! ctx).lastOp = (blockPtr.get! ctx').lastOp)
@@ -420,11 +435,11 @@ theorem BlockPtr.OpChain_unchanged
       (opPtr.get! ctx').parent = some blockPtr →
         opPtr.InBounds ctx ∧
         (opPtr.get! ctx).parent = (opPtr.get! ctx').parent) :
-    blockPtr.OpChain ctx' array := by
+    blockPtr.OpChain ctx' array missingOps := by
   constructor <;> grind [BlockPtr.OpChain]
 
 theorem BlockPtr.OpChain_array_injective
-    (hWF : BlockPtr.OpChain block ctx array) :
+    (hWF : BlockPtr.OpChain block ctx array missingOps) :
     ∀ (i j : Nat) iInBounds jInBounds, i ≠ j → array[i]'iInBounds ≠ array[j]'jInBounds := by
   intros i
   induction i
@@ -438,7 +453,7 @@ theorem BlockPtr.OpChain_array_injective
       grind [BlockPtr.OpChain]
 
 theorem BlockPtr.OpChain_array_toList_Nodup
-    (hWF : BlockPtr.OpChain block ctx array) :
+    (hWF : BlockPtr.OpChain block ctx array missingOps) :
     array.toList.Nodup := by
   simp only [List.nodup_iff_pairwise_ne]
   simp only [List.pairwise_iff_getElem]
@@ -572,7 +587,7 @@ theorem BlockPtr.OpChain_prev_ne
   intros hNe
   have := hctx.inBounds
   have ⟨array, harray⟩ := hctx.opChain block (by grind)
-  have : op ∈ array := by grind [BlockPtr.OpChain.allOpsInChain]
+  have : op ∈ array := by grind [BlockPtr.OpChain]
   intro heq
   have ⟨i, hi⟩ := Array.getElem_of_mem this
   have : array[i]'(by grind) = op := by grind
@@ -589,7 +604,7 @@ theorem BlockPtr.OpChain_next_ne
   intros hNe
   have := hctx.inBounds
   have ⟨array, harray⟩ := hctx.opChain block (by grind)
-  have : op ∈ array := by grind [BlockPtr.OpChain.allOpsInChain]
+  have : op ∈ array := by grind [BlockPtr.OpChain]
   intro heq
   have ⟨i, hi⟩ := Array.getElem?_of_mem this
   have : array[i + 1]? = some op := by grind [BlockPtr.OpChain]

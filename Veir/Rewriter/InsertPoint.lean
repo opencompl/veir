@@ -118,6 +118,16 @@ theorem InsertPoint.next_before_eq :
 theorem InsertPoint.next_atEnd_eq :
     InsertPoint.next (atEnd blockPtr) = none := by rfl
 
+@[grind =]
+theorem InsertPoint.next_eq_none_iff_eq_atEnd {ip : InsertPoint} :
+    ip.next = none ↔ ∃ block, ip = .atEnd block := by
+  cases ip <;> grind
+
+@[grind =]
+theorem InsertPoint.next_eq_some_iff_eq_before {ip : InsertPoint} :
+    ip.next = some nextOp ↔ ip = .before nextOp := by
+  cases ip <;> grind
+
 @[simp, grind .]
 theorem InsertPoint.block!_eq_of_prev!_eq_some
     (ipInBounds : InsertPoint.InBounds ip ctx) :
@@ -126,6 +136,19 @@ theorem InsertPoint.block!_eq_of_prev!_eq_some
     ip.block! ctx = some blockPtr := by
   intros hPrev
   cases ip <;> grind
+
+theorem InsertPoint.next.maybe₁_parent :
+    BlockPtr.OpChain blockPtr ctx array →
+    InsertPoint.block! ip ctx = some blockPtr →
+    ip.next.maybe₁ (fun op => (op.get! ctx).parent = some blockPtr) := by
+  cases ip <;> grind
+
+theorem InsertPoint.prev.maybe₁_parent :
+    BlockPtr.OpChain blockPtr ctx array →
+    InsertPoint.InBounds ip ctx →
+    InsertPoint.block! ip ctx = some blockPtr →
+    (ip.prev! ctx).maybe₁ (fun op => (op.get! ctx).parent = some blockPtr) := by
+  cases ip <;> grind [Option.maybe₁_def]
 
 /--
  - Get the index of the insertion point in the operation list of the block.
@@ -187,6 +210,14 @@ theorem InsertPoint.idxIn.getElem? :
 theorem InsertPoint.idxIn_InsertPoint_prev_none:
     (InsertPoint.prev! ip ctx = none ↔
     InsertPoint.idxIn ip ctx blockPtr inBounds blockIsParent ctxWf = 0) := by
+  have ⟨array, harray⟩ := ctxWf.opChain blockPtr (by grind)
+  grind [BlockPtr.OpChain, cases InsertPoint]
+
+
+theorem InsertPoint.next_eq_none_iff_idxIn_eq_size_array
+    (hCtx : BlockPtr.OpChain blockPtr ctx array) :
+    (ip.next = none ↔
+    idxIn ip ctx blockPtr inBounds blockIsParent ctxWf = array.size) := by
   have ⟨array, harray⟩ := ctxWf.opChain blockPtr (by grind)
   grind [BlockPtr.OpChain, cases InsertPoint]
 

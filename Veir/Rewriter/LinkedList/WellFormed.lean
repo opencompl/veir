@@ -1,4 +1,5 @@
 import Veir.IR.Basic
+import Veir.Rewriter.InsertPoint
 import Veir.IR.WellFormed
 import Veir.Rewriter.LinkedList.GetSet
 import Std.Data.HashSet
@@ -56,7 +57,7 @@ theorem BlockPtr.defUse_OpOperandPtr_insertIntoCurrent
     block.DefUse (use.insertIntoCurrent ctx useInBounds ctxInBounds) array (by grind) := by
   apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind
 
-theorem BlockPtr.operationChainWellFormed_OpOperandPtr_insertIntoCurrent
+theorem BlockPtr.opChain_OpOperandPtr_insertIntoCurrent
     {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
     (hWF : block.OpChain ctx array) :
     block.OpChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array := by
@@ -190,7 +191,7 @@ theorem BlockPtr.defUse_OpOperandPtr_removeFromCurrent
     block.DefUse (use.removeFromCurrent ctx useInBounds ctxInBounds) array (by grind) := by
   apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind
 
-theorem BlockPtr.operationChainWellFormed_OpOperandPtr_removeFromCurrent
+theorem BlockPtr.opChain_OpOperandPtr_removeFromCurrent
     {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
     (hWF : block.OpChain ctx array) :
     block.OpChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array := by
@@ -219,5 +220,121 @@ theorem Region.wellFormed_OpOperandPtr_removeFromCurrent
     (hWF : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr) :
     (RegionPtr.get! regionPtr (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) regionPtr := by
   apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+
+section OperationPtr.linkBetweenWithParent
+
+variable {op : OperationPtr}
+
+theorem ValuePtr.defUse_OperationPtr_linkBetweenWithParent
+    (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
+    ValuePtr.DefUse value ctx array missingUses →
+    ValuePtr.DefUse value newCtx array missingUses := by
+  intros
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.defUse_OperationPtr_linkBetweenWithParent
+    (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
+    BlockPtr.DefUse block ctx array blockInBounds →
+    BlockPtr.DefUse block newCtx array (by grind) := by
+  intros
+  apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind
+
+set_option maxHeartbeats 400000 in
+theorem BlockPtr.opChain_OperationPtr_linkBetweenWithParent_self
+    (ctxWf : ctx.WellFormed)
+    (hctx : op.linkBetweenWithParent ctx prevOp nextOp block selfIn prevIn nextIn parentIn = some newCtx)
+    (ip : InsertPoint)
+    (ipInBounds : ip.InBounds ctx)
+    (ipBlock : ip.block! ctx = block)
+    (ipNext : ip.next = nextOp)
+    (ipPrev : ip.prev! ctx = prevOp)
+    (hOpChain : BlockPtr.OpChain block ctx array) :
+    BlockPtr.OpChain block newCtx (array.insertIdx (ip.idxIn ctx block (by grind) (by grind) ctxWf) op (by apply InsertPoint.idxIn.le_size_array; grind)) := by
+  constructor
+  case blockInBounds => grind
+  case arrayInBounds => grind [Array.mem_insertIdx, BlockPtr.OpChain]
+  case missingOpInBounds => grind
+  case opParent => grind [Array.mem_insertIdx, BlockPtr.OpChain]
+  case missingOpValue => grind
+  case allOpsInChain => grind [Array.mem_insertIdx, BlockPtr.OpChain]
+  case first =>
+    grind [InsertPoint.idxIn_InsertPoint_prev_none, BlockPtr.OpChain]
+  case last =>
+    simp only [Array.size_insertIdx, Nat.add_one_sub_one, Nat.lt_add_one, getElem?_pos]
+    grind [InsertPoint.next_eq_none_iff_idxIn_eq_size_array, BlockPtr.OpChain]
+  case prevFirst =>
+    grind [BlockPtr.OpChain]
+  case prev =>
+    intro i hi₁ hi₂
+    let idx := ip.idxIn ctx block (by grind) (by grind) ctxWf
+    have : nextOp = array[idx]? := by grind
+    by_cases h₁ : i < idx
+    · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
+    · by_cases h₂ : i = idx
+      · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
+      · by_cases h₃ : i - 1 = idx
+        · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
+        · simp only [Array.size_insertIdx] at hi₂
+          simp (disch := grind) only [Array.getElem_insertIdx_of_gt]
+          grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
+  case next =>
+    intro i hi
+    simp only [Array.size_insertIdx] at hi
+    let idx := ip.idxIn ctx block (by grind) (by grind) ctxWf
+    have : nextOp = array[idx]? := by grind
+    by_cases h₁ : i + 1 < idx
+    · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
+    · by_cases h₂ : i + 1 = idx
+      · have := @InsertPoint.prev!_eq_GetElem!_idxIn
+        grind
+      · by_cases h₃ : i = idx
+        · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
+        · have : i > idx := by grind
+          cases hidx : idx <;> grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
+
+
+theorem BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other
+    (hctx : op.linkBetweenWithParent ctx prevOp nextOp block selfIn prevIn nextIn parentIn = some newCtx)
+    (prevParent : prevOp.maybe₁ (fun prev => (prev.get! ctx).parent = some block) )
+    (nextParent : nextOp.maybe₁ (fun next => (next.get! ctx).parent = some block) )
+    (hNeBlock : block ≠ block') :
+    BlockPtr.OpChain block' ctx array →
+    BlockPtr.OpChain block' newCtx array := by
+  intros opChain
+  apply BlockPtr.OpChain_unchanged (ctx := ctx)
+    <;> grind [InsertPoint.prev.maybe₁_parent, Option.maybe₁_def]
+
+theorem RegionPtr.blockChainWellFormed_OperationPtr_linkBetweenWithParent
+    (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
+    RegionPtr.BlockChainWellFormed region ctx array regionInBounds →
+    RegionPtr.BlockChainWellFormed region newCtx array (by grind) := by
+  intros
+  apply RegionPtr.BlockChainWellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Operation.wellFormed_OperationPtr_linkBetweenWithParent
+    (ctxInBounds: IRContext.FieldsInBounds ctx)
+    (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
+    (OperationPtr.get! opPtr ctx).WellFormed ctx opPtr opInBounds →
+    (OperationPtr.get! opPtr newCtx).WellFormed newCtx opPtr (by grind) := by
+  intros
+  apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Block.wellFormed_OperationPtr_linkBetweenWithParent
+    (ctxInBounds: IRContext.FieldsInBounds ctx)
+    (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
+    (BlockPtr.get! blockPtr ctx).WellFormed ctx blockPtr blockInBounds →
+    (BlockPtr.get! blockPtr newCtx).WellFormed newCtx blockPtr (by grind) := by
+  intros
+  apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Region.wellFormed_OperationPtr_linkBetweenWithParent
+    (ctxInBounds: IRContext.FieldsInBounds ctx) (regionInBounds : regionPtr.InBounds ctx)
+    (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
+    (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr →
+    (RegionPtr.get! regionPtr newCtx).WellFormed newCtx regionPtr := by
+  intros
+  apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+
+end OperationPtr.linkBetweenWithParent
 
 end Veir
