@@ -8,7 +8,6 @@ namespace Veir
 
 section InsertOp
 
-unseal Rewriter.insertOp? in
 theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     (newOp : OperationPtr) (ip : InsertPoint)
     (newOpIn : newOp.InBounds ctx := by grind)
