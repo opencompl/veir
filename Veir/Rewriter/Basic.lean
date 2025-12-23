@@ -119,7 +119,7 @@ def Rewriter.eraseOp (ctx : IRContext) (op : OperationPtr)
     (hOp : op.InBounds ctx := by grind) : IRContext :=
   let ctx := Rewriter.detachOpIfAttached ctx op
   let ctx := Rewriter.detachOperands ctx op
-  { ctx with operations := ctx.operations.erase op }
+  op.dealloc ctx
 
 /-
 Remark: the fact that `eraseOp` preserves `FieldsInBounds` relies on the fact

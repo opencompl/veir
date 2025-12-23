@@ -161,6 +161,121 @@ theorem OpOperandPtrPtr.get!_OperationPtr_allocEmpty {opOperandPtr : OpOperandPt
     opOperandPtr.get! ctx' = opOperandPtr.get! ctx := by
   grind
 
+/- OperationPtr.dealloc -/
+
+@[simp, grind =]
+theorem IRContext.topLevelOp_OperationPtr_dealloc :
+    (OperationPtr.dealloc operation' ctx hop').topLevelOp =
+    ctx.topLevelOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.get!_OperationPtr_dealloc {block : BlockPtr} :
+    block.get! (OperationPtr.dealloc operation' ctx hop') =
+    block.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.get!_OperationPtr_dealloc {operation : OperationPtr} :
+    operation.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    operation.get! (OperationPtr.dealloc operation' ctx hop') =
+    operation.get! ctx := by
+  grind [OperationPtr.InBounds]
+
+@[simp, grind =]
+theorem OpResultPtr.get!_OperationPtr_dealloc {opResult : OpResultPtr} :
+    opResult.op.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    opResult.get! (OperationPtr.dealloc operation' ctx hop') =
+    opResult.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_OperationPtr_dealloc {operation : OperationPtr} :
+    operation.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    operation.getNumOperands! (OperationPtr.dealloc operation' ctx hop') =
+    operation.getNumOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.get!_OperationPtr_dealloc {opOperand : OpOperandPtr} :
+    opOperand.op.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    opOperand.get! (OperationPtr.dealloc operation' ctx hop') =
+    opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_dealloc {operation : OperationPtr} :
+    operation.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    operation.getNumSuccessors! (OperationPtr.dealloc operation' ctx hop') =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.get!_OperationPtr_dealloc {blockOperand : BlockOperandPtr} :
+    blockOperand.op.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    blockOperand.get! (OperationPtr.dealloc operation' ctx hop') =
+    blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_OperationPtr_dealloc {operation : OperationPtr} :
+    operation.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    operation.getNumRegions! (OperationPtr.dealloc operation' ctx hop') =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_OperationPtr_dealloc {operation : OperationPtr} :
+    operation.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    operation.getRegion! (OperationPtr.dealloc operation' ctx hop') i =
+    operation.getRegion! ctx i := by
+  grind
+
+@[simp, grind =]
+theorem BlockOperandPtrPtr.get!_OperationPtr_dealloc {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    blockOperandPtr.get! (OperationPtr.dealloc operation' ctx hop') =
+    blockOperandPtr.get! ctx := by
+  grind [BlockOperandPtr.InBounds]
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_dealloc {block : BlockPtr} :
+    block.getNumArguments! (OperationPtr.dealloc operation' ctx hop') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.get!_OperationPtr_dealloc {blockArg : BlockArgumentPtr} :
+    blockArg.get! (OperationPtr.dealloc operation' ctx hop') =
+    blockArg.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.get!_OperationPtr_dealloc {region : RegionPtr} :
+    region.get! (OperationPtr.dealloc operation' ctx hop') =
+    region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_OperationPtr_dealloc {value : ValuePtr} :
+    value.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    value.getFirstUse! (OperationPtr.dealloc operation' ctx hop') =
+    value.getFirstUse! ctx := by
+  grind [OpResultPtr.InBounds]
+
+@[simp, grind =]
+theorem ValuePtr.getType!_OperationPtr_dealloc {value : ValuePtr} :
+    value.getType! (OperationPtr.dealloc operation' ctx hop') =
+    value.getType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_OperationPtr_dealloc {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    opOperandPtr.get! (OperationPtr.dealloc operation' ctx hop') =
+    opOperandPtr.get! ctx := by
+  grind [OpOperandPtr.InBounds]
+
 /- OperationPtr.setOperands -/
 
 @[simp, grind =]
