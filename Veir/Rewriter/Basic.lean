@@ -74,31 +74,52 @@ theorem Rewriter.detachOpIfAttached_fieldsInBounds (hctx : ctx.FieldsInBounds) :
   grind [detachOpIfAttached]
 
 @[irreducible, inline]
-def Rewriter.eraseOpStart (ctx: IRContext) (hctx : ctx.FieldsInBounds) (op: OperationPtr) (hop : op.InBounds ctx) := Id.run do
-  let mut newCtx : { c : IRContext // c.FieldsInBounds ∧ ∀ (ptr : GenericPtr), ptr.InBounds ctx ↔ ptr.InBounds c} :=
-    ⟨detachOpIfAttached ctx op, by grind⟩
-  for h : index in 0 ... (op.getNumOperands ctx (by grind)) do
-    let ctx' := (OpOperandPtr.mk op index).removeFromCurrent newCtx (by
-       have := newCtx.property.2 (.opOperand (.mk op index))
-       grind [OperationPtr.getNumOperands, OpOperandPtr.InBounds]) (by grind) -- TODO: try to not unfold `get`, maybe some lemma for op.InBounds + index < .. → (.mk op index).InBounds
-    newCtx := ⟨ctx', by grind⟩
-  newCtx
+def Rewriter.detachOperandsLoop (ctx : IRContext) (op : OperationPtr) (index : Nat)
+    (hCtx : ctx.FieldsInBounds := by grind)
+    (hOp : op.InBounds ctx := by grind)
+    (hIndex : index < op.getNumOperands! ctx := by grind) : IRContext :=
+  let ctx' := (OpOperandPtr.mk op index).removeFromCurrent ctx
+  match index with
+  | .succ index => Rewriter.detachOperandsLoop ctx' op index (by grind) (by grind) (by grind)
+  | 0 => ctx'
 
 @[grind .]
-theorem Rewriter.eraseOpStart_inBounds (ptr : GenericPtr) :
-    ptr.InBounds (eraseOpStart ctx hctx op hIn) ↔ ptr.InBounds ctx := by
-  grind
+theorem Rewriter.detachOperandsLoop_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (detachOperandsLoop ctx op index hCtx hOp hIndex) ↔ ptr.InBounds ctx := by
+  induction index generalizing ctx <;> simp only [detachOperandsLoop] <;> grind
 
 @[grind .]
-theorem Rewriter.eraseOpStart_fieldsInBounds :
-    ctx.FieldsInBounds → (eraseOpStart ctx hctx op hIn).val.FieldsInBounds := by
-  grind
+theorem Rewriter.detachOperandsLoop_fieldsInBounds :
+    ctx.FieldsInBounds → (detachOperandsLoop ctx op index hCtx hOp hIndex).FieldsInBounds := by
+  induction index generalizing ctx <;> simp only [detachOperandsLoop] <;> grind
 
-@[irreducible]
-def Rewriter.eraseOp (ctx: IRContext) (op: OperationPtr) (hctx : ctx.FieldsInBounds := by grind)
-    (hop : op.InBounds ctx := by grind) : IRContext := Id.run do
-  let ctx := eraseOpStart ctx hctx op hop
-  { ctx.val with operations := ctx.val.operations.erase op }
+@[irreducible, inline]
+def Rewriter.detachOperands (ctx : IRContext) (op : OperationPtr)
+    (hCtx : ctx.FieldsInBounds := by grind)
+    (hOp : op.InBounds ctx := by grind) : IRContext :=
+  let numOperands := op.getNumOperands ctx (by grind)
+  if h : numOperands = 0 then
+    ctx
+  else
+    Rewriter.detachOperandsLoop ctx op (numOperands - 1) (by grind) (by grind) (by grind)
+
+@[grind .]
+theorem Rewriter.detachOperands_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (detachOperands ctx op hCtx hOp) ↔ ptr.InBounds ctx := by
+  grind [detachOperands]
+
+@[grind .]
+theorem Rewriter.detachOperands_fieldsInBounds :
+    ctx.FieldsInBounds → (detachOperands ctx op hCtx hOp).FieldsInBounds := by
+  grind [detachOperands]
+
+@[irreducible, inline]
+def Rewriter.eraseOp (ctx : IRContext) (op : OperationPtr)
+    (hCtx : ctx.FieldsInBounds := by grind)
+    (hOp : op.InBounds ctx := by grind) : IRContext :=
+  let ctx := Rewriter.detachOpIfAttached ctx op
+  let ctx := Rewriter.detachOperands ctx op
+  { ctx with operations := ctx.operations.erase op }
 
 /-
 Remark: the fact that `eraseOp` preserves `FieldsInBounds` relies on the fact

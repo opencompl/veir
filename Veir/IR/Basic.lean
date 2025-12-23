@@ -485,6 +485,13 @@ def OpOperandPtr.InBounds (operand: OpOperandPtr) (ctx: IRContext) : Prop :=
 theorem OpOperandPtr.inBounds_def : InBounds opr ctx ↔ ∃ h, opr.index < opr.op.getNumOperands ctx h := by
   rfl
 
+@[grind .]
+theorem OpOperandPtr.InBounds_iff (operand : OpOperandPtr) (ctx : IRContext) :
+    operand.op.InBounds ctx →
+    operand.index < operand.op.getNumOperands! ctx →
+    operand.InBounds ctx :=
+  by grind [OpOperandPtr.inBounds_def]
+
 def OpOperandPtr.get (operand: OpOperandPtr) (ctx: IRContext) (operandIn: operand.InBounds ctx := by grind) : OpOperand :=
   (operand.op.get ctx (by grind [OpOperandPtr.InBounds])).operands[operand.index]'(by grind [OpOperandPtr.InBounds, OperationPtr.getNumOperands])
 
