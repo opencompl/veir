@@ -52,14 +52,31 @@ theorem Rewriter.detachOp_fieldsInBounds (hctx : ctx.FieldsInBounds) :
   split <;> grind
 
 /--
-- Erase an operation and free it from memory.
-- TODO: free memory here
+  Detach an operation from its parent if it has one.
+  If it has no parent, return the context unchanged.
 -/
+@[irreducible, inline]
+def Rewriter.detachOpIfAttached (ctx: IRContext) (op: OperationPtr)
+    (hctx : ctx.FieldsInBounds := by grind)
+    (hop : op.InBounds ctx := by grind) : IRContext :=
+  match h: (op.get ctx hop).parent with
+  | some _ => Rewriter.detachOp ctx op hctx hop (by grind)
+  | none => ctx
+
+@[grind .]
+theorem Rewriter.detachOpIfAttached_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (detachOpIfAttached ctx op h₁ h₂) ↔ ptr.InBounds ctx := by
+  grind [detachOpIfAttached]
+
+@[grind .]
+theorem Rewriter.detachOpIfAttached_fieldsInBounds (hctx : ctx.FieldsInBounds) :
+    (detachOpIfAttached ctx op hctx hIn).FieldsInBounds := by
+  grind [detachOpIfAttached]
 
 @[irreducible, inline]
-def Rewriter.eraseOpStart (ctx: IRContext) (hctx : ctx.FieldsInBounds) (op: OperationPtr) (hop : op.InBounds ctx) (hasParent: (op.get ctx hop).parent.isSome) := Id.run do
+def Rewriter.eraseOpStart (ctx: IRContext) (hctx : ctx.FieldsInBounds) (op: OperationPtr) (hop : op.InBounds ctx) := Id.run do
   let mut newCtx : { c : IRContext // c.FieldsInBounds ∧ ∀ (ptr : GenericPtr), ptr.InBounds ctx ↔ ptr.InBounds c} :=
-    ⟨Rewriter.detachOp ctx op hctx hop hasParent, by grind⟩
+    ⟨detachOpIfAttached ctx op, by grind⟩
   for h : index in 0 ... (op.getNumOperands ctx (by grind)) do
     let ctx' := (OpOperandPtr.mk op index).removeFromCurrent newCtx (by
        have := newCtx.property.2 (.opOperand (.mk op index))
@@ -69,18 +86,18 @@ def Rewriter.eraseOpStart (ctx: IRContext) (hctx : ctx.FieldsInBounds) (op: Oper
 
 @[grind .]
 theorem Rewriter.eraseOpStart_inBounds (ptr : GenericPtr) :
-    ptr.InBounds (eraseOpStart ctx hctx op hIn hasParent) ↔ ptr.InBounds ctx := by
+    ptr.InBounds (eraseOpStart ctx hctx op hIn) ↔ ptr.InBounds ctx := by
   grind
 
 @[grind .]
 theorem Rewriter.eraseOpStart_fieldsInBounds :
-    ctx.FieldsInBounds → (eraseOpStart ctx hctx op hIn hasParent).val.FieldsInBounds := by
+    ctx.FieldsInBounds → (eraseOpStart ctx hctx op hIn).val.FieldsInBounds := by
   grind
 
 @[irreducible]
 def Rewriter.eraseOp (ctx: IRContext) (op: OperationPtr) (hctx : ctx.FieldsInBounds := by grind)
-    (hop : op.InBounds ctx := by grind) (hasParent: (op.get ctx hop).parent.isSome := by grind) : IRContext := Id.run do
-  let ctx := eraseOpStart ctx hctx op hop hasParent
+    (hop : op.InBounds ctx := by grind) : IRContext := Id.run do
+  let ctx := eraseOpStart ctx hctx op hop
   { ctx.val with operations := ctx.val.operations.erase op }
 
 /-
