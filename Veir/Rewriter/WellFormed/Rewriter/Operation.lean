@@ -159,15 +159,14 @@ end detachOp
 theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
     (hop : op.InBounds ctx)
-    (hasParent : (op.get ctx hop).parent.isSome)
     (newCtx : IRContext) :
-    Rewriter.eraseOp ctx op hctx hop hasParent = newCtx →
+    Rewriter.eraseOp ctx op hctx hop = newCtx →
     newCtx.WellFormed := by
   sorry
 
 theorem BlockPtr.operationList_Rewriter_eraseOp
     (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array) :
-      BlockPtr.operationList blockPtr (Rewriter.eraseOp ctx op hctx hop hasParent) ctxWellFormed' blockInBounds' =
+      BlockPtr.operationList blockPtr (Rewriter.eraseOp ctx op hctx hop) ctxWellFormed' blockInBounds' =
       if blockPtr = blockPtr' then
         array.erase op
       else
@@ -175,7 +174,7 @@ theorem BlockPtr.operationList_Rewriter_eraseOp
   sorry
 
 theorem OperationPtr.getOperand_Rewriter_eraseOp
-    (heq : Rewriter.eraseOp ctx op hctx hop hasParent = newCtx) (hne : op ≠ op'):
+    (heq : Rewriter.eraseOp ctx op hctx hop = newCtx) (hne : op ≠ op'):
     OperationPtr.getOperand op' newCtx idx inBounds idxInBounds =
     OperationPtr.getOperand op' ctx idx (by sorry) (by sorry) := by
   sorry

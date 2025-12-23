@@ -45,9 +45,9 @@ def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option 
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry
 
   if (lhsValuePtr.getFirstUse rewriter.ctx (by sorry)).isNone then
-    rewriter ← rewriter.eraseOp lhsOp sorry sorry
+    rewriter ← rewriter.eraseOp lhsOp sorry
   if (rhsValuePtr.getFirstUse rewriter.ctx (by sorry)).isNone then
-    rewriter ← rewriter.eraseOp rhsOp sorry sorry
+    rewriter ← rewriter.eraseOp rhsOp sorry
   return rewriter
 
 def addIZeroFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
@@ -70,10 +70,10 @@ def addIZeroFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option Patt
 
   let opValuePtr := op.getResult 0
   let mut rewriter ← rewriter.replaceValue opValuePtr lhsValuePtr sorry sorry
-  rewriter ← rewriter.eraseOp op sorry sorry
+  rewriter ← rewriter.eraseOp op sorry
 
   if (rhsValuePtr.getFirstUse rewriter.ctx (by sorry)).isNone then
-    rewriter ← rewriter.eraseOp rhsOp sorry sorry
+    rewriter ← rewriter.eraseOp rhsOp sorry
   return rewriter
 
 def mulITwoReduce (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
@@ -98,7 +98,7 @@ def mulITwoReduce (rewriter: PatternRewriter) (op: OperationPtr) : Option Patter
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse rewriter.ctx (by sorry)).isNone then
-    rewriter ← rewriter.eraseOp rhsOp sorry sorry
+    rewriter ← rewriter.eraseOp rhsOp sorry
   return rewriter
 
 end Pattern
@@ -138,9 +138,9 @@ def addIConstantFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext :
   let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry
 
   if (lhsValuePtr.getFirstUse ctx (by sorry)).isNone then
-    ctx ← Rewriter.eraseOp ctx lhsOp sorry sorry sorry
+    ctx ← Rewriter.eraseOp ctx lhsOp sorry sorry
   if (rhsValuePtr.getFirstUse ctx (by sorry)).isNone then
-    ctx ← Rewriter.eraseOp ctx rhsOp sorry sorry sorry
+    ctx ← Rewriter.eraseOp ctx rhsOp sorry sorry
   return ctx
 
 def addIZeroFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
@@ -163,10 +163,10 @@ def addIZeroFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
 
   let oldVal := op.getResult 0
   let mut ctx ← Rewriter.replaceValue? ctx oldVal lhsValuePtr sorry sorry sorry
-  ctx ← Rewriter.eraseOp ctx op sorry sorry sorry
+  ctx ← Rewriter.eraseOp ctx op sorry sorry
 
   if (rhsValuePtr.getFirstUse ctx (by sorry)).isNone then
-    ctx ← Rewriter.eraseOp ctx rhsOp sorry sorry sorry
+    ctx ← Rewriter.eraseOp ctx rhsOp sorry sorry
   return ctx
 
 def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
@@ -191,7 +191,7 @@ def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
   let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse ctx (by sorry)).isNone then
-    ctx ← Rewriter.eraseOp ctx rhsOp sorry sorry sorry
+    ctx ← Rewriter.eraseOp ctx rhsOp sorry sorry
   return ctx
 
 -- Rewrites the first instance of an opcode in the program with the given pattern,

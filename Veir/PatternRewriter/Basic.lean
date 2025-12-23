@@ -162,8 +162,8 @@ def insertOp (rewriter: PatternRewriter) (op: OperationPtr) (ip : InsertPoint)
   }
 
 def eraseOp (rewriter: PatternRewriter) (op: OperationPtr)
-    (hop : op.InBounds rewriter.ctx) (hpar : (op.get rewriter.ctx hop).parent.isSome) : Option PatternRewriter := do
-  let newCtx ← Rewriter.eraseOp rewriter.ctx op (by grind) hop hpar
+    (hop : op.InBounds rewriter.ctx) : Option PatternRewriter := do
+  let newCtx ← Rewriter.eraseOp rewriter.ctx op (by grind) hop
   some { rewriter with
     ctx := newCtx,
     hasDoneAction := true,
