@@ -74,24 +74,24 @@ theorem Rewriter.detachOpIfAttached_fieldsInBounds (hctx : ctx.FieldsInBounds) :
   grind [detachOpIfAttached]
 
 @[irreducible, inline]
-def Rewriter.detachOperandsLoop (ctx : IRContext) (op : OperationPtr) (index : Nat)
+def Rewriter.detachOperands.loop (ctx : IRContext) (op : OperationPtr) (index : Nat)
     (hCtx : ctx.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind)
     (hIndex : index < op.getNumOperands! ctx := by grind) : IRContext :=
   let ctx' := (OpOperandPtr.mk op index).removeFromCurrent ctx
   match index with
-  | .succ index => Rewriter.detachOperandsLoop ctx' op index (by grind) (by grind) (by grind)
+  | .succ index => Rewriter.detachOperands.loop ctx' op index (by grind) (by grind) (by grind)
   | 0 => ctx'
 
 @[grind .]
-theorem Rewriter.detachOperandsLoop_inBounds (ptr : GenericPtr) :
-    ptr.InBounds (detachOperandsLoop ctx op index hCtx hOp hIndex) ↔ ptr.InBounds ctx := by
-  induction index generalizing ctx <;> simp only [detachOperandsLoop] <;> grind
+theorem Rewriter.detachOperands.loop_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (detachOperands.loop ctx op index hCtx hOp hIndex) ↔ ptr.InBounds ctx := by
+  induction index generalizing ctx <;> simp only [detachOperands.loop] <;> grind
 
 @[grind .]
-theorem Rewriter.detachOperandsLoop_fieldsInBounds :
-    ctx.FieldsInBounds → (detachOperandsLoop ctx op index hCtx hOp hIndex).FieldsInBounds := by
-  induction index generalizing ctx <;> simp only [detachOperandsLoop] <;> grind
+theorem Rewriter.detachOperands.loop_fieldsInBounds :
+    ctx.FieldsInBounds → (detachOperands.loop ctx op index hCtx hOp hIndex).FieldsInBounds := by
+  induction index generalizing ctx <;> simp only [detachOperands.loop] <;> grind
 
 @[irreducible, inline]
 def Rewriter.detachOperands (ctx : IRContext) (op : OperationPtr)
@@ -101,7 +101,7 @@ def Rewriter.detachOperands (ctx : IRContext) (op : OperationPtr)
   if h : numOperands = 0 then
     ctx
   else
-    Rewriter.detachOperandsLoop ctx op (numOperands - 1) (by grind) (by grind) (by grind)
+    Rewriter.detachOperands.loop ctx op (numOperands - 1) (by grind) (by grind) (by grind)
 
 @[grind .]
 theorem Rewriter.detachOperands_inBounds (ptr : GenericPtr) :
