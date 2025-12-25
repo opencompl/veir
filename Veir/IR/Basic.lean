@@ -605,11 +605,21 @@ def BlockOperandPtr.setValue (operand: BlockOperandPtr) (ctx: IRContext) (newVal
 def OpResultPtr.InBounds (result: OpResultPtr) (ctx: IRContext) : Prop :=
   ∃ h, result.index < (result.op.get ctx h).results.size
 
+theorem OpResultPtr.inBounds_def : InBounds res ctx ↔ ∃ h, res.index < res.op.getNumResults ctx h := by
+  rfl
+
 @[grind .]
 theorem OpResultPtr.inBounds_OperationPtr_getNumResults! (result: OpResultPtr) (ctx: IRContext) (h: result.InBounds ctx) :
     result.index < result.op.getNumResults! ctx := by
   simp [OperationPtr.getNumResults!, OperationPtr.get!]
   grind [OperationPtr.get]
+
+@[grind .]
+theorem OpResultPtr.inBounds_of {result : OpResultPtr} :
+    result.op.InBounds ctx →
+    result.index < result.op.getNumResults! ctx →
+    result.InBounds ctx :=
+  by grind [OpResultPtr.InBounds, OperationPtr.getNumResults!]
 
 def OpResultPtr.get (result: OpResultPtr) (ctx: IRContext) (resultIn: result.InBounds ctx := by grind) : OpResult :=
   (result.op.get ctx (by grind [InBounds])).results[result.index]'(by grind [InBounds])
@@ -858,6 +868,27 @@ theorem ValuePtr.getFirstUse!_blockArgument_eq {ba : BlockArgumentPtr} {ctx : IR
     (blockArgument ba).getFirstUse! ctx = (ba.get! ctx).firstUse := by
   grind [getFirstUse!]
 
+/--
+  Returns true if the value has any uses.
+-/
+def ValuePtr.hasUses (value: ValuePtr) (ctx: IRContext) (valueIn: value.InBounds ctx := by grind) : Bool :=
+  (value.getFirstUse ctx (by grind)).isSome
+
+/--
+  Returns true if the value has any uses.
+-/
+def ValuePtr.hasUses! (value: ValuePtr) (ctx: IRContext) : Bool :=
+  (value.getFirstUse! ctx).isSome
+
+@[grind _=_]
+theorem ValuePtr.hasUses!_eq_hasUses {ptr : ValuePtr} (hin : ptr.InBounds ctx) :
+    ptr.hasUses! ctx = ptr.hasUses ctx hin := by
+  unfold hasUses hasUses!; grind
+
+theorem ValuePtr.hasUses!_def {value : ValuePtr} :
+    value.hasUses! ctx = (value.getFirstUse! ctx).isSome := by
+  grind [hasUses!]
+
 def ValuePtr.setType (arg: ValuePtr) (ctx: IRContext) (newType: MlirType) (argIn: arg.InBounds ctx := by grind) : IRContext :=
   match arg with
   | opResult ptr => ptr.setType ctx newType
@@ -1063,6 +1094,74 @@ theorem BlockOperandPtrPtr.set_operandNextUse_eq {ptr: BlockOperandPtr} {ptrIn: 
 theorem BlockOperandPtrPtr.set_blockFirstUse_eq {ptr: BlockPtr} {ptrIn: ptr.InBounds ctx} (newValue: Option BlockOperandPtr) :
     (blockFirstUse ptr).set ctx (by grind) newValue = ptr.setFirstUse ctx newValue := by
   rfl
+
+def OperationPtr.hasUses.loop (op: OperationPtr) (ctx : IRContext) (index : Nat)
+    (opIn: op.InBounds ctx := by grind)
+    (hresult : index < op.getNumResults ctx := by grind) : Bool :=
+  if ((op.getResult index).get ctx).firstUse.isSome then
+    true
+  else
+    match index with
+    | 0 => false
+    | index' + 1 => OperationPtr.hasUses.loop op ctx index'
+
+def OperationPtr.hasUses (op: OperationPtr) (ctx: IRContext) (opIn: op.InBounds ctx := by grind) : Bool :=
+  let numResults := op.getNumResults ctx
+  if h: numResults = 0 then
+    false
+  else
+    OperationPtr.hasUses.loop op ctx (numResults - 1)
+
+def OperationPtr.hasUses!.loop (op: OperationPtr) (ctx : IRContext) (index : Nat) : Bool :=
+  if ((op.getResult index).get! ctx).firstUse.isSome then
+    true
+  else
+    match index with
+    | 0 => false
+    | index' + 1 => OperationPtr.hasUses!.loop op ctx index'
+
+def OperationPtr.hasUses! (op: OperationPtr) (ctx: IRContext) : Bool :=
+  let numResults := op.getNumResults! ctx
+  if numResults = 0 then
+    false
+  else
+    OperationPtr.hasUses!.loop op ctx (numResults - 1)
+
+theorem OperationPtr.hasUses!.loop_eq_hasUses_loop {op : OperationPtr} (ctx : IRContext) (index : Nat)
+    (opIn: op.InBounds ctx)
+    (hresult : index < op.getNumResults ctx := by grind) :
+    OperationPtr.hasUses!.loop op ctx index = OperationPtr.hasUses.loop op ctx index opIn hresult := by
+  induction index
+  · grind [OperationPtr.hasUses!.loop, OperationPtr.hasUses.loop]
+  · simp only [OperationPtr.hasUses!.loop, OperationPtr.hasUses.loop]
+    grind
+
+@[grind _=_]
+theorem OperationPtr.hasUses!_eq_hasUses {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.hasUses! ctx = op.hasUses ctx hin := by
+  grind [OperationPtr.hasUses!.loop_eq_hasUses_loop, OperationPtr.hasUses!, OperationPtr.hasUses]
+
+theorem OperationPtr.hasUses!.loop_eq_true_iff {op : OperationPtr} {ctx} {index : Nat} :
+    OperationPtr.hasUses!.loop op ctx index = true ↔
+    ∃ index' ≤ index, (ValuePtr.opResult (op.getResult index')).hasUses! ctx := by
+  induction index <;> grind [OperationPtr.hasUses!.loop, ValuePtr.hasUses!]
+
+theorem OperationPtr.hasUses!_eq_true_iff_hasUses!_getResult {op : OperationPtr} :
+    op.hasUses! ctx = true ↔
+    ∃ index < op.getNumResults! ctx, (ValuePtr.opResult (op.getResult index)).hasUses! ctx := by
+  grind [hasUses!, OperationPtr.hasUses!.loop_eq_true_iff]
+
+theorem OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false {op : OperationPtr} :
+    op.hasUses! ctx = false ↔
+    ∀ index < op.getNumResults! ctx, (ValuePtr.opResult (op.getResult index)).hasUses! ctx = false := by
+  grind [OperationPtr.hasUses!_eq_true_iff_hasUses!_getResult]
+
+theorem OperationPtr.hasUses!_eq_false_iff_hasUses!_opResult_eq_false {op : OperationPtr}
+    (inBounds : op.InBounds ctx) :
+    (op.hasUses! ctx = false ↔
+    ∀ (opResult : OpResultPtr), opResult.InBounds ctx → opResult.op = op → (opResult : ValuePtr).hasUses! ctx = false) := by
+  simp [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false]
+  grind [OpResultPtr.inBounds_def, OperationPtr.getResult, cases OpResultPtr]
 
 /- Generic pointers -/
 

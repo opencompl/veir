@@ -633,4 +633,9 @@ theorem BlockPtr.OpChain_next_ne
   have : array[i + 1]? = some op := by grind [BlockPtr.OpChain]
   grind [BlockPtr.OpChain_array_injective]
 
+theorem ValuePtr.DefUse.hasUses_iff
+    (hWF : ValuePtr.DefUse value ctx array missingUses) :
+    value.hasUses ctx ↔ array ≠ #[] := by
+  grind [DefUse, hasUses]
+
 end Veir
