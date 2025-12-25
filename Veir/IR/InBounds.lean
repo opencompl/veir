@@ -175,6 +175,28 @@ theorem OperationPtr.allocEmpty_newBlock_inBounds (heq : allocEmpty ctx type = s
     ptr.InBounds ctx' := by
   grind
 
+
+@[grind →]
+theorem OpResultPtr.dealloc.inBounds_genericPtr_of_inBounds_dealloc {ptr : GenericPtr} :
+    ptr.InBounds (OperationPtr.dealloc op ctx inBounds) → ptr.InBounds ctx := by
+  grind
+
+@[grind .]
+theorem OpOperandPtr.dealloc.inBounds_dealloc_genericPtr {ptr : GenericPtr} :
+    ptr.InBounds ctx →
+    (match ptr with
+     | .operation op => op ≠ op'
+     | .opResult or => or.op ≠ op'
+     | .opOperand oo => oo.op ≠ op'
+     | .blockOperand bo => bo.op ≠ op'
+     | .value ( .opResult or ) => or.op ≠ op'
+     | .opOperandPtr ( .operandNextUse oo) => oo.op ≠ op'
+     | .opOperandPtr ( .valueFirstUse ( .opResult or ) ) => or.op ≠ op'
+     | .blockOperandPtr ( .blockOperandNextUse oo) => oo.op ≠ op'
+     | _ => True) →
+    ptr.InBounds (OperationPtr.dealloc op' ctx inBounds) := by
+  grind
+
 @[grind .]
 theorem OperationPtr.nextOperand_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds ctx) : ¬ (opPtr.nextOperand ctx).InBounds ctx := by
   grind
