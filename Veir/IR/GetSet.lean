@@ -4670,6 +4670,218 @@ theorem OpOperandPtrPtr.get!_OpOperandPtrPtr_set {opOperandPtr : OpOperandPtrPtr
       opOperandPtr.get! ctx := by
   grind
 
+/- BlockOperandPtrPtr.set -/
+
+@[simp, grind =]
+theorem IRContext.topLevelOp_BlockOperandPtrPtr_set :
+    (BlockOperandPtrPtr.set ptr' ctx newPtr hptr').topLevelOp =
+    ctx.topLevelOp := by
+  grind
+
+-- TODO: the match is elaborated in a strange way, with two arguments. Is it a Lean bug?
+@[grind =]
+theorem BlockPtr.get!_BlockOperandPtrPtr_set {block : BlockPtr} :
+    block.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    match ptr' with
+    | BlockOperandPtrPtr.blockFirstUse block' =>
+      if block = block' then
+        { block.get! ctx with firstUse := newPtr }
+      else
+        block.get! ctx
+    | _ => block.get! ctx := by
+  grind
+
+@[grind =]
+theorem BlockPtr.firstUse!_BlockOperandPtrPtr_set {block : BlockPtr} :
+    (block.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr')).firstUse =
+    if ptr' = BlockOperandPtrPtr.blockFirstUse block then
+      newPtr
+    else
+      (block.get! ctx).firstUse := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.prev!_BlockOperandPtrPtr_set {block : BlockPtr} :
+    (block.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr')).prev =
+    (block.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_BlockOperandPtrPtr_set {block : BlockPtr} :
+    (block.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr')).next =
+    (block.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_BlockOperandPtrPtr_set {block : BlockPtr} :
+    (block.get! (BlockOperandPtrPtr.set ptr' ctx hptr' newPtr)).parent =
+    (block.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.firstOp!_BlockOperandPtrPtr_set {block : BlockPtr} :
+    (block.get! (BlockOperandPtrPtr.set ptr' ctx hptr' newPtr)).firstOp =
+    (block.get! ctx).firstOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.lastOp!_BlockOperandPtrPtr_set {block : BlockPtr} :
+    (block.get! (BlockOperandPtrPtr.set ptr' ctx hptr' newPtr)).lastOp =
+    (block.get! ctx).lastOp := by
+  grind
+
+@[grind =]
+theorem OperationPtr.get!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    operation.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    match ptr' with
+    | BlockOperandPtrPtr.blockOperandNextUse operand =>
+      if operand.op = operation then
+        { operation.get! ctx with blockOperands :=
+          (operation.get! ctx).blockOperands.set! operand.index { operand.get! ctx with nextUse := newPtr } }
+      else
+        operation.get! ctx
+    | _ =>
+      operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.prev!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).prev =
+    (operation.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).next =
+    (operation.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).parent =
+    (operation.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.opType!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).opType =
+    (operation.get! ctx).opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).attrs =
+    (operation.get! ctx).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.properties!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).properties =
+    (operation.get! ctx).properties := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.results!.size_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).results.size =
+    (operation.get! ctx).results.size := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.get!_BlockOperandPtrPtr_set {opOperand : OpOperandPtr} :
+    opOperand.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    opOperand.get! ctx := by
+  grind (splits := 20)
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    operation.getNumResults! (BlockOperandPtrPtr.set ptr' ctx hptr' newPtr) =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.get!_BlockOperandPtrPtr_set {opResult : OpResultPtr} :
+    opResult.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    opResult.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    operation.getNumOperands! (BlockOperandPtrPtr.set ptr' ctx hptr' newPtr) =
+    operation.getNumOperands! ctx := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtr.get!_BlockOperandPtrPtr_set {blockOperand : BlockOperandPtr} :
+    blockOperand.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    if ptr' = BlockOperandPtrPtr.blockOperandNextUse blockOperand then
+      { blockOperand.get! ctx with nextUse := newPtr }
+    else
+      blockOperand.get! ctx := by
+  grind (splits := 20)
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    operation.getNumSuccessors! (BlockOperandPtrPtr.set ptr' ctx hptr' newPtr) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    operation.getNumRegions! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    operation.getRegion! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') i =
+    operation.getRegion! ctx i := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtrPtr.get!_BlockOperandPtrPtr_set {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    if blockOperandPtr = ptr' then
+      newPtr
+    else
+      blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockOperandPtrPtr_set {block : BlockPtr} :
+    block.getNumArguments! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.get!_BlockOperandPtrPtr_set {arg : BlockArgumentPtr} :
+    arg.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    arg.get! ctx := by
+  grind (splits := 20)
+
+@[simp, grind =]
+theorem RegionPtr.get!_BlockOperandPtrPtr_set {region : RegionPtr} :
+    region.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_BlockOperandPtrPtr_set {value : ValuePtr} :
+    value.getFirstUse! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    value.getFirstUse! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_BlockOperandPtrPtr_set {value : ValuePtr} :
+    value.getType! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    value.getType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_BlockOperandPtrPtr_set {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
+    opOperandPtr.get! ctx := by
+  grind
+
 /- OperationPtr.setNextOp -/
 
 @[simp, grind =]
