@@ -473,6 +473,8 @@ def OperationPtr.allocEmpty (ctx : IRContext) (opType : Nat) : Option (IRContext
   let ctx := newOpPtr.set ctx operation
   (ctx, newOpPtr)
 
+-- `inBounds` is unused as ExtHashMap does not require proof of key presence for `erase`.
+-- We still keep it as an API consistency.
 set_option linter.unusedVariables false in
 def OperationPtr.dealloc (op : OperationPtr) (ctx : IRContext)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
