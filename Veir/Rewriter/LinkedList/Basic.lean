@@ -49,6 +49,53 @@ theorem OpOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
     ptr.InBounds (insertIntoCurrent ctx operand h₁ h₂) ↔ ptr.InBounds ctx := by
   grind [insertIntoCurrent]
 
+
+/-
+  Use def chain for operands.
+-/
+
+@[irreducible]
+def BlockOperandPtr.removeFromCurrent (ctx: IRContext) (operandPtr: BlockOperandPtr)
+    (operandIn: operandPtr.InBounds ctx := by grind)
+    (ctxInBounds: ctx.FieldsInBounds := by grind) : IRContext :=
+  let operand := operandPtr.get ctx
+  let ctx := operand.back.set ctx operand.nextUse
+  match hNextUse: operand.nextUse with
+  | none => ctx
+  | some nextPtr => nextPtr.setBack ctx operand.back
+
+@[grind .]
+theorem BlockOperandPtr.removeFromCurrent_fieldsInBounds :
+    (removeFromCurrent ctx operandPtr h₁ h₂).FieldsInBounds := by
+  grind [removeFromCurrent]
+
+@[grind =]
+theorem BlockOperandPtr.removeFromCurrent_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (removeFromCurrent ctx operand h₁ h₂) ↔ ptr.InBounds ctx := by
+  grind [removeFromCurrent]
+
+@[irreducible]
+def BlockOperandPtr.insertIntoCurrent (ctx: IRContext) (operandPtr: BlockOperandPtr)
+    (operandIn: operandPtr.InBounds ctx := by grind) (ctxInBounds: ctx.FieldsInBounds) : IRContext :=
+  let block := (operandPtr.get ctx).value
+  let ctx := operandPtr.setBack ctx (BlockOperandPtrPtr.blockFirstUse block)
+  let newNextUse := (block.get ctx).firstUse
+  let ctx := operandPtr.setNextUse ctx newNextUse
+  let ctx := block.setFirstUse ctx operandPtr
+  match hNextUse: newNextUse with
+  | none => ctx
+  | some nextUse => nextUse.setBack ctx (BlockOperandPtrPtr.blockOperandNextUse operandPtr) (by grind (ematch := 20))
+
+@[grind .]
+theorem BlockOperandPtr.insertIntoCurrent_fieldsInBounds :
+    (insertIntoCurrent ctx operandPtr h₁ h₂).FieldsInBounds := by
+  grind [insertIntoCurrent]
+
+@[grind =]
+theorem BlockOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (insertIntoCurrent ctx operand h₁ h₂) ↔ ptr.InBounds ctx := by
+  grind [insertIntoCurrent]
+
 /-
   Operation linked list.
 -/

@@ -31,11 +31,11 @@ structure OpOperand.FieldsInBounds (operand: OpOperand) (ctx: IRContext) : Prop 
   value_inBounds: operand.value.InBounds ctx
 
 @[local grind]
-structure BlockOperand.FieldsInBounds (operand: BlockOperandPtr) (ctx: IRContext) h : Prop where
-  nextUse_inBounds : (operand.get ctx h).nextUse.maybe BlockOperandPtr.InBounds ctx
-  back_inBounds: (operand.get ctx h).back.InBounds ctx
-  owner_inBounds: (operand.get ctx h).owner.InBounds ctx
-  value_inBounds: (operand.get ctx h).value.InBounds ctx
+structure BlockOperand.FieldsInBounds (operand: BlockOperand) (ctx: IRContext) : Prop where
+  nextUse_inBounds : operand.nextUse.maybe BlockOperandPtr.InBounds ctx
+  back_inBounds: operand.back.InBounds ctx
+  owner_inBounds: operand.owner.InBounds ctx
+  value_inBounds: operand.value.InBounds ctx
 
 @[local grind]
 structure Operation.FieldsInBounds (operation: OperationPtr) (ctx: IRContext) (hin : operation.InBounds ctx) : Prop where
@@ -44,7 +44,7 @@ structure Operation.FieldsInBounds (operation: OperationPtr) (ctx: IRContext) (h
   next_inBounds : (operation.get ctx hin).next.maybe OperationPtr.InBounds ctx
   parent_inBounds : (operation.get ctx hin).parent.maybe BlockPtr.InBounds ctx
   blockOperands_inBounds (operand : BlockOperandPtr) (h : operand.InBounds ctx):
-    operand.op = operation → BlockOperand.FieldsInBounds operand ctx h
+    operand.op = operation → BlockOperand.FieldsInBounds (operand.get ctx h) ctx
   regions_inBounds i (hi: i < operation.getNumRegions ctx hin) :
     (operation.getRegion ctx i hin hi).InBounds ctx
   operands_inBounds (operand : OpOperandPtr) (h : operand.InBounds ctx):
@@ -125,7 +125,7 @@ theorem OpOperandPtr.get_fieldsInBounds (ctx: IRContext) (ptr: OpOperandPtr)
 theorem BlockOperandPtr.get_fieldsInBounds (ctx: IRContext) (ptr: BlockOperandPtr)
     (ctxInBounds: ctx.FieldsInBounds)
     (ptrInBounds: ptr.InBounds ctx) :
-    BlockOperand.FieldsInBounds ptr ctx ptrInBounds := by
+    BlockOperand.FieldsInBounds (ptr.get ctx ptrInBounds) ctx := by
   have opInBounds := OperationPtr.get_fieldsInBounds ctx ptr.op ctxInBounds (by grind)
   grind
 
@@ -529,8 +529,8 @@ theorem RegionPtr.setLastBlock_fieldsInBounds (hnew : newLastBlock.maybe BlockPt
   prove_fieldsInBounds_region ctx
 
 @[grind .]
-theorem BlockOperandPtrPtr.setNextUse_fieldsInBounds_maybe  (hnew : new.maybe BlockOperandPtr.InBounds ctx) :
-    ctx.FieldsInBounds → (set blockOperandPtr ctx h new).FieldsInBounds := by
+theorem BlockOperandPtrPtr.set_fieldsInBounds_maybe  (hnew : new.maybe BlockOperandPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (set blockOperandPtr ctx new h).FieldsInBounds := by
   cases new <;> grind
 
 @[grind .]

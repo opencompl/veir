@@ -1080,19 +1080,19 @@ theorem BlockOperandPtrPtr.get_firstUse_eq {bl : BlockPtr} {h : bl.InBounds ctx}
     (blockFirstUse bl).get ctx = (bl.get ctx).firstUse := by
   grind [get]
 
-def BlockOperandPtrPtr.set (ptrPtr: BlockOperandPtrPtr) (ctx: IRContext) (ptrPtrIn: ptrPtr.InBounds ctx := by grind) (newValue: Option BlockOperandPtr) : IRContext :=
+def BlockOperandPtrPtr.set (ptrPtr: BlockOperandPtrPtr) (ctx: IRContext) (newValue: Option BlockOperandPtr) (ptrPtrIn: ptrPtr.InBounds ctx := by grind) : IRContext :=
   match ptrPtr with
   | blockOperandNextUse ptr => ptr.setNextUse ctx newValue
   | blockFirstUse val => val.setFirstUse ctx newValue
 
 @[simp, grind =]
-theorem BlockOperandPtrPtr.set_operandNextUse_eq {ptr: BlockOperandPtr} {ptrIn: ptr.InBounds ctx} (newValue: Option BlockOperandPtr) :
-    (blockOperandNextUse ptr).set ctx (by grind) newValue = ptr.setNextUse ctx newValue := by
+theorem BlockOperandPtrPtr.set_operandNextUse_eq {ptr: BlockOperandPtr} {ptrIn: ptr.InBounds ctx} {newValue: Option BlockOperandPtr} :
+    (blockOperandNextUse ptr).set ctx newValue = ptr.setNextUse ctx newValue := by
   rfl
 
 @[simp, grind =]
-theorem BlockOperandPtrPtr.set_blockFirstUse_eq {ptr: BlockPtr} {ptrIn: ptr.InBounds ctx} (newValue: Option BlockOperandPtr) :
-    (blockFirstUse ptr).set ctx (by grind) newValue = ptr.setFirstUse ctx newValue := by
+theorem BlockOperandPtrPtr.set_blockFirstUse_eq {ptr: BlockPtr} {ptrIn: ptr.InBounds ctx} {newValue: Option BlockOperandPtr} :
+    (blockFirstUse ptr).set ctx newValue = ptr.setFirstUse ctx newValue := by
   rfl
 
 def OperationPtr.hasUses.loop (op: OperationPtr) (ctx : IRContext) (index : Nat)
