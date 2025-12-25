@@ -479,6 +479,430 @@ theorem OpOperandPtrPtr.get!_OpOperandPtr_insertIntoCurrent {opOperandPtr : OpOp
       opOperandPtr.get! ctx := by
   grind
 
+section BlockOperandPtr.removeFromCurrent
+
+attribute [local grind] BlockOperandPtr.removeFromCurrent
+
+@[simp, grind =]
+theorem IRContext.topLevelOp_BlockOperandPtr_removeFromCurrent :
+    (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds).topLevelOp =
+    ctx.topLevelOp := by
+  grind
+
+@[grind =]
+theorem BlockPtr.firstUse!_BlockOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).firstUse =
+    if (blockOperand'.get! ctx).back = .blockFirstUse block then
+      (blockOperand'.get! ctx).nextUse
+    else
+      (block.get! ctx).firstUse := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.prev!_BlockOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).prev =
+    (block.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_BlockOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).next =
+    (block.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_BlockOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).parent =
+    (block.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.firstOp!_BlockOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).firstOp =
+    (block.get! ctx).firstOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.lastOp!_BlockOperandPtr_removeFromCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).lastOp =
+    (block.get! ctx).lastOp := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.prev!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).prev =
+    (operation.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).next =
+    (operation.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).parent =
+    (operation.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.opType!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).opType =
+    (operation.get! ctx).opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).attrs =
+    (operation.get! ctx).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.properties!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).properties =
+    (operation.get! ctx).properties := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getNumResults! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.get!_BlockOperandPtr_removeFromCurrent {opResult : OpResultPtr} :
+    opResult.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opResult.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getNumOperands! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    operation.getNumOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.get!_BlockOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
+    opOperand.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getNumSuccessors! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.get! (blockOperand'.removeFromCurrent ctx hblockOperand' ctxInBounds) =
+    { blockOperand.get! ctx with
+        back :=
+          if (blockOperand'.get! ctx).nextUse = some blockOperand then
+            (blockOperand'.get! ctx).back
+          else
+            (blockOperand.get! ctx).back
+        nextUse :=
+          if (blockOperand'.get! ctx).back = .blockOperandNextUse blockOperand then
+            (blockOperand'.get! ctx).nextUse
+          else
+            (blockOperand.get! ctx).nextUse
+    } := by
+  simp [removeFromCurrent]
+  split
+  · split
+    · grind
+    · split
+      · grind
+      · -- TODO: Why doesn't 'grind' work here?
+        simp only [get!_BlockOperandPtrPtr_set, ite_eq_right_iff]
+        grind
+  · split
+    · grind
+    · split
+      · grind
+      · simp only [get!_BlockOperandPtr_setBack]
+        split
+        · grind
+        · simp only [get!_BlockOperandPtrPtr_set, ite_eq_right_iff]
+          grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getNumRegions! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getRegion! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) i =
+    operation.getRegion! ctx i := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtrPtr.get!_BlockOperandPtr_removeFromCurrent {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    if blockOperandPtr = (blockOperand'.get! ctx).back then
+      (blockOperand'.get! ctx).nextUse
+    else
+      blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockOperandPtr_removeFromCurrent {block : BlockPtr} {hop} :
+    block.getNumArguments! (blockOperand'.removeFromCurrent ctx newOperands hop) =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.get!_BlockOperandPtr_removeFromCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    blockArg.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.get!_BlockOperandPtr_removeFromCurrent {region : RegionPtr} :
+    region.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_BlockOperandPtr_removeFromCurrent {value : ValuePtr} :
+    value.getFirstUse! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    value.getFirstUse! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_BlockOperandPtr_removeFromCurrent {value : ValuePtr} :
+    value.getType! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    value.getType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_BlockOperandPtr_removeFromCurrent {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    opOperandPtr.get! ctx := by
+  grind
+
+end BlockOperandPtr.removeFromCurrent
+
+section BlockOperandPtr.insertIntoCurrent
+
+attribute [local grind] BlockOperandPtr.insertIntoCurrent
+
+@[simp, grind =]
+theorem IRContext.topLevelOp_BlockOperandPtr_insertIntoCurrent :
+    (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds).topLevelOp =
+    ctx.topLevelOp := by
+  grind
+
+@[grind =]
+theorem BlockPtr.firstUse!_BlockOperandPtr_insertIntoCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).firstUse =
+    if (blockOperand'.get! ctx).value = block then
+      some blockOperand'
+    else
+      (block.get! ctx).firstUse := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.prev!_BlockOperandPtr_insertIntoCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).prev =
+    (block.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_BlockOperandPtr_insertIntoCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).next =
+    (block.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_BlockOperandPtr_insertIntoCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).parent =
+    (block.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.firstOp!_BlockOperandPtr_insertIntoCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).firstOp =
+    (block.get! ctx).firstOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.lastOp!_BlockOperandPtr_insertIntoCurrent {block : BlockPtr} :
+    (block.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).lastOp =
+    (block.get! ctx).lastOp := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.prev!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).prev =
+    (operation.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).next =
+    (operation.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).parent =
+    (operation.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.opType!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).opType =
+    (operation.get! ctx).opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).attrs =
+    (operation.get! ctx).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.properties!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    (operation.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).properties =
+    (operation.get! ctx).properties := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getNumResults! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.get!_BlockOperandPtr_insertIntoCurrent {opResult : OpResultPtr} :
+    opResult.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opResult.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getNumOperands! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    operation.getNumOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.get!_BlockOperandPtr_insertIntoCurrent {opOperand : OpOperandPtr} :
+    opOperand.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getNumSuccessors! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent {blockOperand : BlockOperandPtr} :
+    blockOperand.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    { blockOperand.get! ctx with
+        back :=
+          if ((blockOperand'.get! ctx).value.get! ctx).firstUse = some blockOperand then
+            .blockOperandNextUse blockOperand'
+          else if blockOperand' = blockOperand then
+            .blockFirstUse ((blockOperand'.get! ctx).value)
+          else
+            (blockOperand.get! ctx).back
+        nextUse :=
+          if blockOperand' = blockOperand then
+            ((blockOperand'.get! ctx).value.get! ctx).firstUse
+          else
+            (blockOperand.get! ctx).nextUse
+    } := by
+  simp only [insertIntoCurrent]
+  by_cases h: blockOperand = blockOperand'
+  · grind
+  · simp only [← get!_eq_get, ← BlockPtr.get!_eq_get, BlockPtr.get!_BlockOperandPtr_setBack]
+    split
+    · rename_i h₁
+      simp only [← get!_eq_get, ← BlockPtr.get!_eq_get, BlockPtr.get!_BlockOperandPtr_setBack] at h₁
+      simp only [get!_BlockPtr_setFirstUse, get!_BlockOperandPtr_setNextUse, h, ↓reduceIte,
+        get!_BlockOperandPtr_setBack]
+      simp only [Ne.symm h, ↓reduceIte]
+      simp only [h₁, reduceCtorEq, ↓reduceIte]
+    · rename_i ptr h₁
+      simp only [← get!_eq_get, ← BlockPtr.get!_eq_get, BlockPtr.get!_BlockOperandPtr_setBack] at h₁
+      simp [h₁]
+      by_cases heq: ptr = blockOperand
+      · grind
+      · simp only [Ne.symm h, ↓reduceIte, heq]
+        simp only [get!_BlockOperandPtr_setBack, Ne.symm heq, ↓reduceIte, get!_BlockPtr_setFirstUse]
+        simp only [get!_BlockOperandPtr_setNextUse, h, ↓reduceIte]
+        simp only [get!_BlockOperandPtr_setBack]
+        --grind    -- Why does 'grind' not work here?
+        simp only [h, ↓reduceIte]
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getNumRegions! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getRegion! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) i =
+    operation.getRegion! ctx i := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtrPtr.get!_BlockOperandPtr_insertIntoCurrent {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    if blockOperandPtr = .blockOperandNextUse blockOperand' then
+      ((blockOperand'.get! ctx).value.get! ctx).firstUse
+    else if blockOperandPtr = .blockFirstUse ((blockOperand'.get! ctx).value) then
+      some blockOperand'
+    else
+      blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_BlockOperandPtr_insertIntoCurrent {block : BlockPtr} {hop} :
+    block.getNumArguments! (blockOperand'.insertIntoCurrent ctx newOperands hop) =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.get!_BlockOperandPtr_insertIntoCurrent {blockArg : BlockArgumentPtr} :
+    blockArg.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    blockArg.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.get!_BlockOperandPtr_insertIntoCurrent {region : RegionPtr} :
+    region.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_BlockOperandPtr_insertIntoCurrent {value : ValuePtr} :
+    value.getFirstUse! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    value.getFirstUse! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_BlockOperandPtr_insertIntoCurrent {value : ValuePtr} :
+    value.getType! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    value.getType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_BlockOperandPtr_insertIntoCurrent {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    opOperandPtr.get! ctx := by
+  grind
+
+end BlockOperandPtr.insertIntoCurrent
+
 /- OperationPtr.linkBetween -/
 section linkBetween
 attribute [local grind] OperationPtr.linkBetween
