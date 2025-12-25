@@ -10,7 +10,7 @@ namespace Veir
 @[irreducible]
 def OpOperandPtr.removeFromCurrent (ctx: IRContext) (operandPtr: OpOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind)
-    (ctxInBounds: ctx.FieldsInBounds) : IRContext :=
+    (ctxInBounds: ctx.FieldsInBounds := by grind) : IRContext :=
   let operand := operandPtr.get ctx
   let ctx := operand.back.set ctx operand.nextUse
   match hNextUse: operand.nextUse with
