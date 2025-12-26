@@ -487,3 +487,14 @@ theorem BlockOperandPtr.setValue_genericPtr_mono (ptr : GenericPtr)  :
   grind
 
 end blockoperand
+
+section blockOperandPtr
+
+variable {blockOperandPtr : BlockOperandPtrPtr} (h : blockOperandPtr.InBounds ctx)
+
+@[grind =]
+theorem BlockOperandPtrPtr.set_genericPtr_mono (ptr : GenericPtr)  :
+    ptr.InBounds (set blockOperandPtr ctx newPtr h) ↔ ptr.InBounds ctx := by
+  grind
+
+end blockOperandPtr
