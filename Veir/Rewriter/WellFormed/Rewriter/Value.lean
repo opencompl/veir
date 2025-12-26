@@ -20,7 +20,7 @@ theorem Rewriter.replaceUse_DefUse_newValue
       (#[use] ++ array) := by
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', Ne.symm hvalueNe, ↓reduceIte]
-  apply ValuePtr.defUse_insertIntoCurrent_self_empty
+  apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self_empty
   apply ValuePtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne_self
     (useInBounds := by grind) (useOfOtherValue := by grind)
   apply ValuePtr.defUse_removeFromCurrent_other
@@ -38,7 +38,7 @@ theorem Rewriter.replaceUse_DefUse_oldValue
       (array.erase use) := by
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', hvalueNe, ↓reduceIte]
-  apply ValuePtr.defUse_insertIntoCurrent_other
+  apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
     (missingUses' := Std.ExtHashSet.ofList [use]) (use := use) (value' := value') (array' := array') (value := value)
     (valueNe := by grind) (hvalue := by grind)
   · apply ValuePtr.DefUse.OpOperandPtr_setValue_other_empty <;>
@@ -58,7 +58,7 @@ theorem Rewriter.replaceUse_DefUse_otherValue
       array'' := by
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
   simp only [useOfValue', hne'', ↓reduceIte]
-  apply ValuePtr.defUse_insertIntoCurrent_other
+  apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
     (missingUses' := Std.ExtHashSet.ofList [use]) (use := use) (value := value'') (value' := value') (array' := array')
     (valueNe := by grind) (hvalue := by grind)
   · apply ValuePtr.DefUse.OpOperandPtr_setValue_other_of_value_ne

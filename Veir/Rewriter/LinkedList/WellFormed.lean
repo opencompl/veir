@@ -11,7 +11,7 @@ attribute [local grind ext] OpOperand
 
 /- OpOperandPtr.insertIntoCurrent -/
 
-theorem OpOperandPtr.get!_insertIntoCurrent_of_value_ne
+theorem OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent_of_value_ne
     (ctxInBounds : ctx.FieldsInBounds) {use use' : OpOperandPtr}
     {useInBounds : use.InBounds ctx}
     (useOfOtherValue : (use.get! ctx).value ≠ (use'.get! ctx).value) array missingUses
@@ -19,7 +19,7 @@ theorem OpOperandPtr.get!_insertIntoCurrent_of_value_ne
     use'.get! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.get! ctx := by
   grind [ValuePtr.DefUse.ValuePtr_getFirstUse_ne_of_value_ne]
 
-theorem ValuePtr.defUse_insertIntoCurrent_self
+theorem ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self
     {value : ValuePtr} {hvalue : use ∈ missingUses}
     (hWF: value.DefUse ctx array missingUses) :
     value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds) (#[use] ++ array) (missingUses.erase use) := by
@@ -37,14 +37,14 @@ theorem ValuePtr.defUse_insertIntoCurrent_self
     grind [ValuePtr.DefUse]
   all_goals grind [ValuePtr.DefUse]
 
-theorem ValuePtr.defUse_insertIntoCurrent_self_empty
+theorem ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self_empty
     {value : ValuePtr}
     (hWF: value.DefUse ctx array (Std.ExtHashSet.ofList [use])) :
     value.DefUse (use.insertIntoCurrent ctx (by grind [ValuePtr.DefUse.missingUsesInBounds]) ctxInBounds) (#[use] ++ array) := by
   have : ∅ = (Std.ExtHashSet.ofList [use]).erase use := by grind
-  grind [ValuePtr.defUse_insertIntoCurrent_self]
+  grind [ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self]
 
-theorem ValuePtr.defUse_insertIntoCurrent_other
+theorem ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
     {value value' : ValuePtr} (valueNe : value ≠ value') {hvalue : use ∈ missingUses'}
     (hWF : value.DefUse ctx array missingUses)
     (hWF' : value'.DefUse ctx array' missingUses') :
@@ -220,6 +220,227 @@ theorem Region.wellFormed_OpOperandPtr_removeFromCurrent
     (hWF : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr) :
     (RegionPtr.get! regionPtr (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) regionPtr := by
   apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+
+section BlockOperandPtr.insertIntoCurrent
+
+theorem BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne
+    (ctxInBounds : ctx.FieldsInBounds) {use use' : BlockOperandPtr}
+    {useInBounds : use.InBounds ctx}
+    (useOfOtherValue : (use.get! ctx).value ≠ (use'.get! ctx).value) array missingUses
+    (hWF : (use.get! ctx).value.DefUse ctx array missingUses) :
+    use'.get! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.get! ctx := by
+  simp only [BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent]
+  have := BlockPtr.DefUse.getFirstUse_ne_of_value_ne useOfOtherValue hWF
+  simp only [this, ↓reduceIte]
+  have : use ≠ use' := by grind
+  -- TODO: grind suspiciously fails here
+  simp [this]
+
+theorem BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self
+    {block : BlockPtr} {hvalue : use ∈ missingUses}
+    (hWF: block.DefUse ctx array missingUses) :
+    block.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds) (#[use] ++ array) (missingUses.erase use) := by
+  have : (use.get! ctx).value = block := by grind [BlockPtr.DefUse.missingUsesValue]
+  constructor
+  case backNextUse =>
+    simp only [gt_iff_lt, Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
+      Nat.zero_add]
+    simp only [BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent]
+    intros i
+    cases i <;> grind [BlockPtr.DefUse]
+  case nextElems =>
+    simp only [Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
+      Nat.zero_add]
+    grind [BlockPtr.DefUse]
+  all_goals grind [BlockPtr.DefUse]
+
+theorem BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self_empty
+    {block : BlockPtr}
+    (hWF: block.DefUse ctx array (Std.ExtHashSet.ofList [use])) :
+    block.DefUse (use.insertIntoCurrent ctx (by grind [BlockPtr.DefUse.missingUsesInBounds]) ctxInBounds) (#[use] ++ array) := by
+  have : ∅ = (Std.ExtHashSet.ofList [use]).erase use := by grind
+  grind [BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self]
+
+attribute [grind →] BlockPtr.DefUse.missingUsesInBounds
+
+theorem BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_other
+    {value value' : BlockPtr} (valueNe : value ≠ value') {hvalue : use ∈ missingUses'}
+    (hWF : value.DefUse ctx array missingUses)
+    (hWF' : value'.DefUse ctx array' missingUses') :
+    value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds) array missingUses := by
+  apply BlockPtr.DefUse.unchanged (ctx := ctx)
+    <;> grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
+
+theorem ValuePtr.defUse_BlockOperandPtr_insertIntoCurrent
+    {block : ValuePtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : block.DefUse ctx array missingUses) :
+    block.DefUse (use.insertIntoCurrent ctx useInBounds ctxInBounds) array missingUses := by
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.opChain_BlockOperandPtr_insertIntoCurrent
+    {block : BlockPtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : block.OpChain ctx array) :
+    block.OpChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem RegionPtr.blockChainWellFormed_BlockOperandPtr_insertIntoCurrent
+    {region : RegionPtr} {regionInBounds} {use : BlockOperandPtr} {useInBounds}
+    (hWF : region.BlockChainWellFormed ctx array regionInBounds) :
+    region.BlockChainWellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) array (by grind) := by
+  apply RegionPtr.BlockChainWellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Operation.wellFormed_BlockOperandPtr_insertIntoCurrent
+    {opPtr : OperationPtr} {opInBounds} {use : BlockOperandPtr} {useInBounds}
+    (hWF : (opPtr.get! ctx).WellFormed ctx opPtr opInBounds) :
+    (opPtr.get! (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) opPtr (by grind) := by
+  apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Block.wellFormed_BlockOperandPtr_insertIntoCurrent
+    {blockPtr : BlockPtr} {blockInBounds} {use : BlockOperandPtr} {useInBounds}
+    (hWF : (blockPtr.get! ctx).WellFormed ctx blockPtr blockInBounds) :
+    (blockPtr.get! (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) blockPtr (by grind) := by
+  apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Region.wellFormed_BlockOperandPtr_insertIntoCurrent
+    {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : BlockOperandPtr} {useInBounds}
+    (hWF : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr) :
+    (RegionPtr.get! regionPtr (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) regionPtr := by
+  apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+
+end BlockOperandPtr.insertIntoCurrent
+
+section BlockOperandPtr.removeFromCurrent
+
+attribute [local grind ext] BlockOperand
+
+theorem BlockOperandPtr.back!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse
+    (useOfBlock : (BlockOperandPtr.get! use ctx).value = block)
+    (hWF : block.DefUse ctx array missingUses) (useInArray: use ∈ array)
+    {i} (iPos : i > 0) (iInBounds : i < (array.erase use).size)
+    (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
+    (((array.erase use)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds)).back = BlockOperandPtrPtr.blockOperandNextUse (array.erase use)[i - 1] := by
+  simp only [BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
+  have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
+  subst use
+  have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by grind
+  have hNextUse : (array[useIdx].get! ctx).nextUse = array[useIdx + 1]? := by grind [BlockPtr.DefUse]
+  simp only [hNextUse]
+  by_cases i = useIdx
+  · subst useIdx
+    split <;> grind [BlockPtr.DefUse, Array.getElem?_eraseIdx_of_ge]
+  · by_cases i < useIdx <;> grind [BlockPtr.DefUse, BlockPtr.DefUse_array_injective]
+
+theorem BlockOperandPtr.nextUse!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse
+    (useInBounds : BlockOperandPtr.InBounds use ctx)
+    (useOfValue : (use.get! ctx).value = value)
+    (hWF : value.DefUse ctx array missingUses) (useInArray: use ∈ array)
+    {i} (iInBounds : i < (array.erase use).size)
+    (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
+    (((array.erase use)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds)).nextUse = (array.erase use)[i + 1]? := by
+  simp only [BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
+  have useInArray : use ∈ array := by grind [ValuePtr.DefUse]
+  have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
+  subst use
+  have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by grind
+  have hNextUse : (array[useIdx].get! ctx).nextUse = array[useIdx + 1]? := by grind [BlockPtr.DefUse]
+  simp only [hNextUse]
+  by_cases i < useIdx <;> grind [BlockPtr.DefUse, BlockPtr.DefUse_array_injective]
+
+theorem BlockOperandPtr.BlockOperandPtr_removeFromCurrent_BlockPtr_getFirstUse!
+    {blockPtr : BlockPtr}
+    (valuePtrWF : blockPtr.DefUse ctx array missingUses)
+    (operandValueWF : (operandPtr.get! ctx).value.DefUse ctx array' missingUses')
+    (operandInArray : operandPtr ∈ array') :
+    (blockPtr.get! (BlockOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds)).firstUse =
+      if (blockPtr.get! ctx).firstUse = some operandPtr then
+        (operandPtr.get! ctx).nextUse
+      else
+        (blockPtr.get! ctx).firstUse := by
+  simp only [BlockPtr.firstUse!_BlockOperandPtr_removeFromCurrent]
+  congr 1
+  simp [BlockPtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse operandValueWF (by grind) valuePtrWF]
+
+theorem BlockPtr.DefUse.getElem?_zero_erase_array_eq
+    (useInBounds : BlockOperandPtr.InBounds use ctx)
+    (hWF : BlockPtr.DefUse block ctx array missingUses) (useInArray: use ∈ array)
+    {i} (iInBounds : i < (array.erase use).size) :
+    (array.erase use)[0]? = (block.get! (use.removeFromCurrent ctx useInBounds ctxInBounds)).firstUse := by
+  grind [Array.getElem_of_mem, BlockPtr.DefUse, BlockPtr.DefUse.erase_getElem_array_eq_eraseIdx]
+
+theorem BlockPtr.defUse_removeFromCurrent_self
+    {block : BlockPtr} {hvalue : use ∈ array}
+    (hWF: block.DefUse ctx array missingUses) :
+    block.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds) (array.erase use) (missingUses.insert use) := by
+  have hUseValue : (use.get! ctx).value = block := by grind [BlockPtr.DefUse.useValue]
+  constructor
+  case backNextUse =>
+    grind [BlockOperandPtr.back!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse, Array.mem_of_mem_erase, BlockPtr.DefUse]
+  case nextElems =>
+    grind [BlockOperandPtr.nextUse!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse, Array.mem_of_mem_erase, BlockPtr.DefUse]
+  case firstElem =>
+    grind [BlockPtr.DefUse.getElem?_zero_erase_array_eq, Array.mem_of_mem_erase, BlockPtr.DefUse]
+  case firstUseBack =>
+    rw [BlockOperandPtr.BlockOperandPtr_removeFromCurrent_BlockPtr_getFirstUse! hWF (by simp [hUseValue]; exact hWF) (by grind)]
+    intros firstUse
+    split
+    · grind [BlockPtr.DefUse]
+    · simp [BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
+      intros heq
+      simp only [BlockPtr.DefUse.nextUse!_ne_of_getFirstUse!_eq hWF hvalue
+            (by simp [hUseValue]; exact hWF) heq,
+        ↓reduceIte]
+      grind [BlockPtr.DefUse]
+  case allUsesInChain =>
+    intros use' use'InBounds hvalue'
+    by_cases h: use = use' <;> grind [BlockPtr.DefUse]
+  all_goals grind [BlockPtr.DefUse]
+
+set_option maxHeartbeats 400000 in
+theorem BlockPtr.defUse_BlockOperandPtr_removeFromCurrent_other
+    {block block' : BlockPtr} (valueNe : block ≠ block') {hvalue : use ∈ array'}
+    (hWF : block.DefUse ctx array missingUses)
+    (hWF' : block'.DefUse ctx array' missingUses') :
+    block.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds) array missingUses := by
+  apply BlockPtr.DefUse.unchanged (ctx := ctx)
+    <;> grind [BlockPtr.DefUse, BlockPtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
+
+theorem ValuePtr.defUse_BlockOperandPtr_removeFromCurrent
+    {value : ValuePtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : value.DefUse ctx array missingUses) :
+    value.DefUse (use.removeFromCurrent ctx useInBounds ctxInBounds) array missingUses := by
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.opChain_BlockOperandPtr_removeFromCurrent
+    {block : BlockPtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : block.OpChain ctx array) :
+    block.OpChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem RegionPtr.blockChainWellFormed_BlockOperandPtr_removeFromCurrent
+    {region : RegionPtr} {regionInBounds} {use : BlockOperandPtr} {useInBounds}
+    (hWF : region.BlockChainWellFormed ctx array regionInBounds) :
+    region.BlockChainWellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) array (by grind) := by
+  apply RegionPtr.BlockChainWellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Operation.wellFormed_BlockOperandPtr_removeFromCurrent
+    {opPtr : OperationPtr} {opInBounds} {use : BlockOperandPtr} {useInBounds}
+    (hWF : (opPtr.get! ctx).WellFormed ctx opPtr opInBounds) :
+    (opPtr.get! (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) opPtr (by grind) := by
+  apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Block.wellFormed_BlockOperandPtr_removeFromCurrent
+    {blockPtr : BlockPtr} {blockInBounds} {use : BlockOperandPtr} {useInBounds}
+    (hWF : (blockPtr.get! ctx).WellFormed ctx blockPtr blockInBounds) :
+    (blockPtr.get! (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) blockPtr (by grind) := by
+  apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Region.wellFormed_BlockOperandPtr_removeFromCurrent
+    {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : BlockOperandPtr} {useInBounds}
+    (hWF : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr) :
+    (RegionPtr.get! regionPtr (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) regionPtr := by
+  apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+
+end BlockOperandPtr.removeFromCurrent
 
 section OperationPtr.linkBetweenWithParent
 

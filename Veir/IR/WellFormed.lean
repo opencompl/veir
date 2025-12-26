@@ -255,6 +255,7 @@ structure BlockPtr.DefUse (blockPtr : BlockPtr) (ctx : IRContext)
 attribute [local grind] BlockPtr.DefUse
 attribute [grind →] BlockPtr.DefUse.blockInBounds
 attribute [grind →] BlockPtr.DefUse.missingUsesInBounds
+attribute [grind →] BlockPtr.DefUse.missingUsesValue
 attribute [grind →] BlockPtr.DefUse.arrayInBounds
 
 theorem BlockPtr.DefUse.unchanged
