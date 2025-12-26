@@ -52,10 +52,10 @@ theorem ValuePtr.defUse_insertIntoCurrent_other
   apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind [ValuePtr.DefUse]
 
 theorem BlockPtr.defUse_OpOperandPtr_insertIntoCurrent
-    {block : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : block.DefUse ctx array blockInBounds) :
-    block.DefUse (use.insertIntoCurrent ctx useInBounds ctxInBounds) array (by grind) := by
-  apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind
+    {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : block.DefUse ctx array missingUses) :
+    block.DefUse (use.insertIntoCurrent ctx useInBounds ctxInBounds) array missingUses := by
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
 
 theorem BlockPtr.opChain_OpOperandPtr_insertIntoCurrent
     {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
@@ -186,10 +186,10 @@ theorem ValuePtr.defUse_removeFromCurrent_other
     grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
 
 theorem BlockPtr.defUse_OpOperandPtr_removeFromCurrent
-    {block : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : block.DefUse ctx array blockInBounds) :
-    block.DefUse (use.removeFromCurrent ctx useInBounds ctxInBounds) array (by grind) := by
-  apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind
+    {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : block.DefUse ctx array missingUses) :
+    block.DefUse (use.removeFromCurrent ctx useInBounds ctxInBounds) array missingUses := by
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
 
 theorem BlockPtr.opChain_OpOperandPtr_removeFromCurrent
     {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
@@ -234,10 +234,10 @@ theorem ValuePtr.defUse_OperationPtr_linkBetweenWithParent
 
 theorem BlockPtr.defUse_OperationPtr_linkBetweenWithParent
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    BlockPtr.DefUse block ctx array blockInBounds →
-    BlockPtr.DefUse block newCtx array (by grind) := by
+    BlockPtr.DefUse block ctx array missingUses →
+    BlockPtr.DefUse block newCtx array missingUses := by
   intros
-  apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
 
 set_option maxHeartbeats 400000 in
 theorem BlockPtr.opChain_OperationPtr_linkBetweenWithParent_self

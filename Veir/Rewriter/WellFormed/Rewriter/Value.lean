@@ -117,7 +117,7 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (ne
       intros blockPtr blockPtrInBounds
       have ⟨array, harray⟩ := hWf.blockDefUseChains blockPtr (by grind)
       exists array
-      apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind [replaceUse]
+      apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind [replaceUse]
     case opChain =>
       intros blockPtr blockPtrInBounds
       have ⟨chain, hchain⟩ := hWf.opChain blockPtr (by grind)

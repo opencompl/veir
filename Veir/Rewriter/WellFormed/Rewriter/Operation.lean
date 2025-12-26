@@ -30,7 +30,7 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     intros block hblock
     have ⟨array, harray⟩ := h₃ block (by grind)
     exists array
-    apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind
+    apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
   case opChain =>
     intros block' hblock'
     have ⟨array, harray⟩ := h₄ block (by grind)
@@ -126,7 +126,7 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     intros block hblock
     have ⟨array, harray⟩ := h₃ block (by grind)
     exists array
-    apply BlockPtr.DefUse_unchanged (ctx := ctx) <;> grind
+    apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
   case opChain =>
     intros block' hBlock'
     have ⟨array', harray'⟩ := h₄ block' (by grind)
