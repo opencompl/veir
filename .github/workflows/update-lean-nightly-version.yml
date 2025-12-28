@@ -44,6 +44,7 @@ jobs:
       - name: Set Lean Toolchain Date
         run: |
            echo "## lean-toolchain"
+           sed -e "s/nightly.*/nightly-${{steps.mldate.outputs.date}}/" -i lean-toolchain
            cat lean-toolchain
            lake update --no-cache
         env:
