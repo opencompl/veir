@@ -10,15 +10,24 @@ namespace Veir
 
 structure OperationPtr where
   id: Nat
-deriving Inhabited, Repr, DecidableEq, Hashable
+deriving Inhabited, Repr, DecidableEq
+
+instance : Hashable OperationPtr where
+  hash opPtr := hash opPtr.id
 
 structure BlockPtr where
   id: Nat
-deriving Inhabited, Repr, DecidableEq, Hashable
+deriving Inhabited, Repr, DecidableEq
+
+instance : Hashable BlockPtr where
+  hash blockPtr := hash blockPtr.id
 
 structure RegionPtr where
   id: Nat
-deriving Inhabited, Repr, DecidableEq, Hashable
+deriving Inhabited, Repr, DecidableEq
+
+instance : Hashable RegionPtr where
+  hash regionPtr := hash regionPtr.id
 
 abbrev Location := Unit
 abbrev MlirType := Unit
