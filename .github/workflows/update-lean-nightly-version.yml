@@ -1,0 +1,64 @@
+name: Update mathlib version
+on:
+  schedule:
+    - cron: '44 * * * *'
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+  mathlibtoday:
+    name: Update Lean Nightly
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+        with:
+          token: ${{secrets.PAT}}
+
+      - name: Install elan 🕑
+        run: |
+          set -o pipefail
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- --default-toolchain none -y
+          ~/.elan/bin/lean --version
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Install uv
+        run: |
+           pip install uv
+
+      - name: Get Mathlib Date
+        id: leandate
+        run: |
+           echo date=`uv run -q .github/workflows/get_lean_version.py` >> $GITHUB_OUTPUT
+
+      - id: check-branch-exists
+        uses: GuillaumeFalourd/branch-exists@v1.1
+        with:
+          branch: auto-lean-nightly-update-${{steps.mldate.outputs.date}}
+
+      - if: steps.check-branch-exists.outputs.exists == 'true'
+        run: Skip any updates
+
+      - name: Set Mathlib Date
+        run: |
+           echo "## lean-toolchain"
+           cat lean-toolchain
+           lake update --no-cache
+        env:
+          LAKE_NO_CACHE: true
+
+      - name: Create Pull Request
+        id: create-pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          title: "${{steps.leandate.outputs.date}} lean nightly update"
+          branch: "auto-lean-nightly-update-${{steps.leandate.outputs.date}}"
+          body: "automatic update of lean via GitHub action."
+          token: ${{secrets.PAT}}
+
+      - name: Enable Pull Request Automerge
+        run: gh pr merge --squash --auto ${{steps.create-pr.outputs.pull-request-number}}
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
