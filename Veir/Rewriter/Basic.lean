@@ -436,9 +436,11 @@ def Rewriter.createOp (ctx: IRContext) (opType: Nat)
   have hib : newOpPtr.InBounds ctx := by grind
   have : (newOpPtr.get ctx (by grind)).results = #[] := by
     grind [createEmptyOp, OperationPtr.allocEmpty, Operation.empty]
-  let ctx := Rewriter.initOpResults ctx  newOpPtr numResults 0 (by grind) (by grind [OperationPtr.getNumResults])
-  let ctx := newOpPtr.setProperties ctx properties
-  rlet ctx ← Rewriter.initOpRegions ctx newOpPtr numRegions (by grind)
+  have newOpPtrZeroRes: 0 = newOpPtr.getNumResults ctx (by grind) := by grind [OperationPtr.getNumResults]
+  let ctx := Rewriter.initOpResults ctx  newOpPtr numResults 0 hib newOpPtrZeroRes
+  let ctx := newOpPtr.setProperties ctx properties (by grind)
+  have newOpPtrInBounds : newOpPtr.InBounds ctx := by grind
+  rlet ctx ← Rewriter.initOpRegions ctx newOpPtr numRegions newOpPtrInBounds
   let ctx := Rewriter.initOpOperands ctx newOpPtr (by grind) operands (by grind) (by grind)
   match _ : insertionPoint with
   | some insertionPoint =>
