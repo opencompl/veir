@@ -1,4 +1,4 @@
-name: Update mathlib version
+name: Update Lean Toolchain Version
 on:
   schedule:
     - cron: '44 * * * *'
@@ -28,7 +28,7 @@ jobs:
         run: |
            pip install uv
 
-      - name: Get Mathlib Date
+      - name: Get Lean Nightly Date
         id: leandate
         run: |
            echo date=`uv run -q .github/workflows/get_lean_version.py` >> $GITHUB_OUTPUT
@@ -36,12 +36,12 @@ jobs:
       - id: check-branch-exists
         uses: GuillaumeFalourd/branch-exists@v1.1
         with:
-          branch: auto-lean-nightly-update-${{steps.mldate.outputs.date}}
+          branch: auto-lean-update-${{steps.mldate.outputs.date}}
 
       - if: steps.check-branch-exists.outputs.exists == 'true'
         run: Skip any updates
 
-      - name: Set Mathlib Date
+      - name: Set Lean Toolchain Date
         run: |
            echo "## lean-toolchain"
            cat lean-toolchain
@@ -54,11 +54,11 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           title: "${{steps.leandate.outputs.date}} lean nightly update"
-          branch: "auto-lean-nightly-update-${{steps.leandate.outputs.date}}"
+          branch: "auto-lean-update-${{steps.leandate.outputs.date}}"
           body: "automatic update of lean via GitHub action."
           token: ${{secrets.PAT}}
 
       - name: Enable Pull Request Automerge
         run: gh pr merge --squash --auto ${{steps.create-pr.outputs.pull-request-number}}
         env:
-          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GH_TOKEN: ${{secrets.PAT}}
