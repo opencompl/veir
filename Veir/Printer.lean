@@ -1,5 +1,6 @@
 import Veir.IR.Basic
 import Veir.IR.Grind
+import Veir.Rewriter.Basic
 
 open Veir
 
@@ -29,12 +30,12 @@ def printValue (ctx : IRContext) (value : ValuePtr) : IO Unit := do
     let opResult := opResultPtr.get! ctx
     let opStruct := opResult.owner.get! ctx
     if opStruct.results.size = 1 then
-      IO.print s!"%{opResult.owner}"
+      IO.print s!"%{opResult.owner.id}"
     else
-      IO.print s!"%{opResult.owner}_{opResult.index}"
+      IO.print s!"%{opResult.owner.id}_{opResult.index}"
   | ValuePtr.blockArgument blockArgPtr =>
     let blockArg := blockArgPtr.get! ctx
-    IO.print s!"%arg{blockArg.owner}_{blockArg.index}"
+    IO.print s!"%arg{blockArg.owner.id}_{blockArg.index}"
 
 def printOpResult (ctx: IRContext) (result: OpResultPtr) : IO Unit := do
   printValue ctx (ValuePtr.opResult result)
@@ -74,7 +75,7 @@ partial def printRegion (ctx: IRContext) (region: Region) (indent: Nat := 0) : I
   match _ : region.firstBlock with
   | some blockPtr =>
     printIndent (indent + 1)
-    IO.println s!"^{blockPtr}:"
+    IO.println s!"^{blockPtr.id}:"
     let block := blockPtr.get! ctx
     match _ : block.firstOp with
     | some firstOp =>

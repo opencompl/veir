@@ -1560,7 +1560,11 @@ theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
   · split at heq
     · grind
     · split at heq
-      · split at heq <;> grind
+      · split at heq
+        case h_1 => grind
+        case h_2 ctx hctx =>
+          have := Rewriter.insertOp?_inBounds_mono ptr hctx
+          grind
       · grind
 
 @[grind .]

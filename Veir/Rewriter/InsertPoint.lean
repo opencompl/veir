@@ -308,13 +308,13 @@ theorem BlockInsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBou
 theorem BlockInsertPoint.inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
 @[grind]
-def BlockInsertPoint.prev! (ip : BlockInsertPoint) (ctx : IRContext) : Option OperationPtr :=
+def BlockInsertPoint.prev! (ip : BlockInsertPoint) (ctx : IRContext) : Option BlockPtr :=
   match ip with
-  | before op => (op.get! ctx).prev
-  | atEnd block => (block.get! ctx).lastBlock
+  | before block => (block.get! ctx).prev
+  | atEnd region => (region.get! ctx).lastBlock
 
 @[grind]
-def BlockInsertPoint.next (ip : BlockInsertPoint) : Option OperationPtr :=
+def BlockInsertPoint.next (ip : BlockInsertPoint) : Option BlockPtr :=
   match ip with
   | before bl => bl
   | atEnd _ => none

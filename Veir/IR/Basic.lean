@@ -8,9 +8,18 @@ public section
 
 namespace Veir
 
-abbrev OperationPtr := Nat
-abbrev BlockPtr := Nat
-abbrev RegionPtr := Nat
+structure OperationPtr where
+  id: Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+structure BlockPtr where
+  id: Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+structure RegionPtr where
+  id: Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 abbrev Location := Unit
 abbrev MlirType := Unit
 abbrev AttrDictionary := Unit
@@ -466,7 +475,7 @@ def OperationPtr.nextResult (op : OperationPtr) (ctx : IRContext)
   .mk op (op.getNumResults ctx (by grind))
 
 def OperationPtr.allocEmpty (ctx : IRContext) (opType : Nat) : Option (IRContext × OperationPtr) :=
-  let newOpPtr : OperationPtr := ctx.nextID
+  let newOpPtr : OperationPtr := ⟨ctx.nextID⟩
   let operation := Operation.empty opType
   if _ : ctx.operations.contains newOpPtr then none else
   let ctx := { ctx with nextID := ctx.nextID + 1 }
@@ -710,14 +719,14 @@ def BlockPtr.setPrevBlock (block: BlockPtr) (ctx: IRContext) (newPrev: Option Bl
   block.set ctx { oldBlock with prev := newPrev}
 
 def BlockPtr.allocEmpty (ctx: IRContext) : Option (IRContext × BlockPtr) :=
-  let newBlockPtr: BlockPtr := ctx.nextID
+  let newBlockPtr: BlockPtr := ⟨ctx.nextID⟩
   let ctx : IRContext := { ctx with nextID := ctx.nextID + 1}
   if _ : ctx.blocks.contains newBlockPtr then none else
   let ctx := newBlockPtr.set ctx Block.empty
   some (ctx, newBlockPtr)
 
 theorem BlockPtr.allocEmpty_def (heq : allocEmpty ctx = some (ctx', ptr')) :
-    ctx' = BlockPtr.set ctx.nextID {ctx with nextID := ctx.nextID + 1} Block.empty := by
+    ctx' = BlockPtr.set ⟨ctx.nextID⟩ {ctx with nextID := ctx.nextID + 1} Block.empty := by
   grind [allocEmpty]
 
 def BlockPtr.getNumArguments (block: BlockPtr) (ctx: IRContext) (inBounds: block.InBounds ctx := by grind) : Nat :=
@@ -796,7 +805,7 @@ def BlockArgumentPtr.setLoc (arg: BlockArgumentPtr) (ctx: IRContext) (newLoc: Lo
   let oldResult := arg.get ctx
   arg.set ctx { oldResult with loc := newLoc }
 
-def BlockArgumentPtr.setOwner (arg: BlockArgumentPtr) (ctx: IRContext) (newOwner: OperationPtr) (argIn: arg.InBounds ctx := by grind) : IRContext :=
+def BlockArgumentPtr.setOwner (arg: BlockArgumentPtr) (ctx: IRContext) (newOwner: BlockPtr) (argIn: arg.InBounds ctx := by grind) : IRContext :=
   let oldResult := arg.get ctx
   arg.set ctx { oldResult with owner := newOwner }
 
@@ -1029,7 +1038,7 @@ def RegionPtr.setLastBlock (region: RegionPtr) (ctx: IRContext) (newLastBlock: O
   region.set ctx { oldRegion with lastBlock := newLastBlock}
 
 def RegionPtr.allocEmpty (ctx: IRContext) : Option (IRContext × RegionPtr) :=
-  let newRegionPtr: RegionPtr := ctx.nextID
+  let newRegionPtr: RegionPtr := ⟨ctx.nextID⟩
   let region := Region.empty
   let ctx := { ctx with nextID := ctx.nextID + 1}
   if _ : ctx.regions.contains newRegionPtr then none else

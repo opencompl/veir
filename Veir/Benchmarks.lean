@@ -443,21 +443,20 @@ builtin.module() {
 #eval! testBench "add-zero-forwards" 10
 
 /--
-info:
-builtin.module() {
+info: builtin.module() {
   ^2:
     %3 = arith.constant 42 ⏎
-    %34 = arith.addi(%3, %3)
-    %33 = arith.addi(%34, %34)
-    %32 = arith.addi(%33, %33)
-    %31 = arith.addi(%32, %32)
-    %30 = arith.addi(%31, %31)
-    %29 = arith.addi(%30, %30)
-    %28 = arith.addi(%29, %29)
+    %25 = arith.addi(%3, %3)
+    %28 = arith.addi(%25, %25)
     %27 = arith.addi(%28, %28)
-    %26 = arith.addi(%27, %27)
-    %25 = arith.addi(%26, %26)
-    test.test(%25)
+    %31 = arith.addi(%27, %27)
+    %29 = arith.addi(%31, %31)
+    %30 = arith.addi(%29, %29)
+    %33 = arith.addi(%30, %30)
+    %32 = arith.addi(%33, %33)
+    %34 = arith.addi(%32, %32)
+    %26 = arith.addi(%34, %34)
+    test.test(%26)
 }
 -/
 #guard_msgs in
