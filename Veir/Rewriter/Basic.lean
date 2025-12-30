@@ -114,11 +114,52 @@ theorem Rewriter.detachOperands_fieldsInBounds :
   grind [detachOperands]
 
 @[irreducible, inline]
+def Rewriter.detachBlockOperands.loop (ctx : IRContext) (op : OperationPtr) (index : Nat)
+    (hCtx : ctx.FieldsInBounds := by grind)
+    (hOp : op.InBounds ctx := by grind)
+    (hIndex : index < op.getNumSuccessors! ctx := by grind) : IRContext :=
+  let ctx' := (BlockOperandPtr.mk op index).removeFromCurrent ctx
+  match index with
+  | .succ index => Rewriter.detachBlockOperands.loop ctx' op index
+  | 0 => ctx'
+
+@[grind .]
+theorem Rewriter.detachBlockOperands.loop_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (detachBlockOperands.loop ctx op index hCtx hOp hIndex) ↔ ptr.InBounds ctx := by
+  induction index generalizing ctx <;> simp only [detachBlockOperands.loop] <;> grind
+
+@[grind .]
+theorem Rewriter.detachBlockOperands.loop_fieldsInBounds :
+    ctx.FieldsInBounds → (detachBlockOperands.loop ctx op index hCtx hOp hIndex).FieldsInBounds := by
+  induction index generalizing ctx <;> simp only [detachBlockOperands.loop] <;> grind
+
+@[irreducible, inline]
+def Rewriter.detachBlockOperands (ctx : IRContext) (op : OperationPtr)
+    (hCtx : ctx.FieldsInBounds := by grind)
+    (hOp : op.InBounds ctx := by grind) : IRContext :=
+  let numOperands := op.getNumSuccessors ctx (by grind)
+  if h : numOperands = 0 then
+    ctx
+  else
+    Rewriter.detachBlockOperands.loop ctx op (numOperands - 1) (by grind) (by grind) (by grind)
+
+@[grind .]
+theorem Rewriter.detachBlockOperands_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (detachBlockOperands ctx op hCtx hOp) ↔ ptr.InBounds ctx := by
+  grind [detachBlockOperands]
+
+@[grind .]
+theorem Rewriter.detachBlockOperands_fieldsInBounds :
+    ctx.FieldsInBounds → (detachBlockOperands ctx op hCtx hOp).FieldsInBounds := by
+  grind [detachBlockOperands]
+
+@[irreducible, inline]
 def Rewriter.eraseOp (ctx : IRContext) (op : OperationPtr)
     (hCtx : ctx.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind) : IRContext :=
   let ctx := Rewriter.detachOpIfAttached ctx op
   let ctx := Rewriter.detachOperands ctx op
+  let ctx := Rewriter.detachBlockOperands ctx op
   op.dealloc ctx
 
 /-

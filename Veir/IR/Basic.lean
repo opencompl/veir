@@ -574,6 +574,17 @@ def OpOperandPtr.setValue (operand: OpOperandPtr) (ctx: IRContext) (newValue: Va
 def BlockOperandPtr.InBounds (operand: BlockOperandPtr) (ctx: IRContext) : Prop :=
   ∃ h, operand.index < (operand.op.get ctx h).blockOperands.size
 
+theorem BlockOperandPtr.inBounds_def :
+    InBounds opr ctx ↔ ∃ h, opr.index < opr.op.getNumSuccessors ctx h := by
+  rfl
+
+@[grind .]
+theorem BlockOperandPtr.inBounds_of_OperationPtr_inBounds {operand : BlockOperandPtr} {ctx : IRContext} :
+    operand.op.InBounds ctx →
+    operand.index < operand.op.getNumSuccessors! ctx →
+    operand.InBounds ctx :=
+  by grind [BlockOperandPtr.inBounds_def]
+
 def BlockOperandPtr.get (operand: BlockOperandPtr) (ctx: IRContext) (operandIn: operand.InBounds ctx := by grind) : BlockOperand :=
   (operand.op.get ctx (by grind [InBounds])).blockOperands[operand.index]'(by grind [InBounds])
 def BlockOperandPtr.get! (operand: BlockOperandPtr) (ctx: IRContext) : BlockOperand :=
