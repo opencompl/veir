@@ -7,43 +7,6 @@ namespace Veir
 
 public section
 
-namespace OpResult.FieldsInBounds
-attribute [grind .] firstUse_inBounds owner_inBounds
-end OpResult.FieldsInBounds
-
-namespace BlockArgument.FieldsInBounds
-attribute [grind .] firstUse_inBounds owner_inBounds
-end BlockArgument.FieldsInBounds
-
-namespace OpOperand.FieldsInBounds
-attribute [grind .] nextUse_inBounds back_inBounds owner_inBounds value_inBounds
-end OpOperand.FieldsInBounds
-
-namespace BlockOperand.FieldsInBounds
-attribute [grind .] nextUse_inBounds back_inBounds owner_inBounds value_inBounds
-end BlockOperand.FieldsInBounds
-
-namespace Operation.FieldsInBounds
-attribute [grind .]
-  results_inBounds prev_inBounds next_inBounds parent_inBounds
-  blockOperands_inBounds regions_inBounds operands_inBounds
-end Operation.FieldsInBounds
-
-namespace Block.FieldsInBounds
-attribute [grind .]
-  firstUse_inBounds prev_inBounds next_inBounds parent_inBounds firstOp_inBounds
-  lastOp_inBounds arguments_inBounds
-end Block.FieldsInBounds
-
-namespace Region.FieldsInBounds
-attribute [grind .] firstBlock_inBounds lastBlock_inBounds parent_inBounds
-end Region.FieldsInBounds
-
-namespace IRContext.FieldsInBounds
-attribute [grind .] topLevelOp_inBounds operations_inBounds blocks_inBounds regions_inBounds
-end IRContext.FieldsInBounds
-
-
 attribute [local grind =] Option.maybe_def
 
 @[grind =_]

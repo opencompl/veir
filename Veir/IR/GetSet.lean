@@ -4138,7 +4138,7 @@ theorem OpResultPtr.get!_ValuePtr_setType {opResult : OpResultPtr} :
       { opResult.get! ctx with type := newType }
     else
       opResult.get! ctx := by
-  grind (splits := 20)
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands!_ValuePtr_setType {operation : OperationPtr} :
@@ -4349,7 +4349,7 @@ theorem OpResultPtr.get!_ValuePtr_setFirstUse {opResult : OpResultPtr} :
       { opResult.get! ctx with firstUse := newFirstUse }
     else
       opResult.get! ctx := by
-  grind (splits := 20)
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands!_ValuePtr_setFirstUse {operation : OperationPtr} :
@@ -4572,7 +4572,7 @@ theorem OpOperandPtr.get!_OpOperandPtrPtr_set {opOperand : OpOperandPtr} :
       { opOperand.get! ctx with nextUse := newPtr }
     else
       opOperand.get! ctx := by
-  grind (splits := 20)
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_OpOperandPtrPtr_set {operation : OperationPtr} :
@@ -4587,7 +4587,7 @@ theorem OpResultPtr.get!_OpOperandPtrPtr_set {opResult : OpResultPtr} :
       { opResult.get! ctx with firstUse := newPtr }
     else
       opResult.get! ctx := by
-  grind (splits := 20)
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands!_OpOperandPtrPtr_set {operation : OperationPtr} :
@@ -4638,7 +4638,7 @@ theorem BlockArgumentPtr.get!_OpOperandPtrPtr_set {arg : BlockArgumentPtr} :
       { arg.get! ctx with firstUse := newPtr }
     else
       arg.get! ctx := by
-  grind (splits := 20)
+  grind
 
 @[simp, grind =]
 theorem RegionPtr.get!_OpOperandPtrPtr_set {region : RegionPtr} :
@@ -4790,7 +4790,7 @@ theorem OperationPtr.results!.size_BlockOperandPtrPtr_set {operation : Operation
 theorem OpOperandPtr.get!_BlockOperandPtrPtr_set {opOperand : OpOperandPtr} :
     opOperand.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
     opOperand.get! ctx := by
-  grind (splits := 20)
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockOperandPtrPtr_set {operation : OperationPtr} :
@@ -4817,7 +4817,7 @@ theorem BlockOperandPtr.get!_BlockOperandPtrPtr_set {blockOperand : BlockOperand
       { blockOperand.get! ctx with nextUse := newPtr }
     else
       blockOperand.get! ctx := by
-  grind (splits := 20)
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_BlockOperandPtrPtr_set {operation : OperationPtr} :
@@ -4856,7 +4856,7 @@ theorem BlockPtr.getNumArguments!_BlockOperandPtrPtr_set {block : BlockPtr} :
 theorem BlockArgumentPtr.get!_BlockOperandPtrPtr_set {arg : BlockArgumentPtr} :
     arg.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =
     arg.get! ctx := by
-  grind (splits := 20)
+  grind
 
 @[simp, grind =]
 theorem RegionPtr.get!_BlockOperandPtrPtr_set {region : RegionPtr} :

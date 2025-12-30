@@ -136,7 +136,7 @@ theorem BlockPtr.lastOp!_insertOp? {block : BlockPtr} :
     else
       (block.get! ctx).lastOp := by
   simp only [Rewriter.insertOp?]
-  grind (splits := 20)
+  grind
 
 grind_pattern BlockPtr.lastOp!_insertOp? =>
   Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, (block.get! newCtx).lastOp
