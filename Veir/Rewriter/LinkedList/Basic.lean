@@ -84,7 +84,7 @@ def BlockOperandPtr.insertIntoCurrent (ctx: IRContext) (operandPtr: BlockOperand
   let ctx := block.setFirstUse ctx operandPtr
   match hNextUse: newNextUse with
   | none => ctx
-  | some nextUse => nextUse.setBack ctx (BlockOperandPtrPtr.blockOperandNextUse operandPtr) (by grind (ematch := 20))
+  | some nextUse => nextUse.setBack ctx (BlockOperandPtrPtr.blockOperandNextUse operandPtr) (by grind)
 
 @[grind .]
 theorem BlockOperandPtr.insertIntoCurrent_fieldsInBounds :

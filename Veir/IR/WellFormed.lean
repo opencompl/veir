@@ -87,7 +87,8 @@ theorem ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse
     (heq : (firstUse.get! ctx).back = .valueFirstUse value) :
     value.getFirstUse! ctx = some firstUse := by
   have : (firstUse.get! ctx).value = value := by grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
-  grind [ValuePtr.DefUse, Array.getElem?_of_mem]
+  have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem hInArray
+  cases i <;> grind [ValuePtr.DefUse]
 
 theorem ValuePtr.DefUse_back_eq_of_getFirstUse
     {firstUse : OpOperandPtr}
@@ -113,7 +114,9 @@ theorem ValuePtr.DefUse_array_injective
     ∀ (i j : Nat) iInBounds jInBounds, i ≠ j →
     array[i]'iInBounds ≠ array[j]'jInBounds := by
   intros i
-  induction i <;> grind (splits := 20) [ValuePtr.DefUse]
+  induction i
+  · grind [ValuePtr.DefUse]
+  · rintro (_|⟨_⟩) <;> grind [ValuePtr.DefUse]
 
 theorem ValuePtr.DefUse_array_toList_Nodup
     (hWF : ValuePtr.DefUse value ctx array hvalue) :
@@ -338,7 +341,9 @@ theorem BlockPtr.DefUse_array_injective
     ∀ (i j : Nat) iInBounds jInBounds, i ≠ j →
     array[i]'iInBounds ≠ array[j]'jInBounds := by
   intros i
-  induction i <;> grind (splits := 20)
+  induction i
+  · grind
+  · rintro ⟨_|_⟩ <;> grind
 
 theorem BlockPtr.DefUse_array_toList_Nodup
     (hWF : BlockPtr.DefUse block ctx array missingUses) :
@@ -732,7 +737,7 @@ theorem Operation.WellFormed_unchanged
     (hSameRegions :
       ∀ i, i < opPtr.getNumRegions! ctx → opPtr.getRegion! ctx i = opPtr.getRegion! ctx' i) :
     (opPtr.get! ctx').WellFormed ctx' opPtr opPtrInBounds' := by
-  constructor <;> grind [Operation.WellFormed]
+  constructor <;> grind [Operation.WellFormed, Operation.FieldsInBounds]
 
 theorem Block.WellFormed_unchanged
     (hWf : (blockPtr.get! ctx).WellFormed ctx blockPtr blockPtrInBounds)
@@ -798,7 +803,7 @@ theorem OperationPtr.getParent_prev_eq
     (hblock : BlockPtr.OpChain block ctx array)
     (hprev : (OperationPtr.get! opPtr ctx).prev = some prevOp) :
     (prevOp.get! ctx).parent = some block := by
-  grind (splits := 20) [BlockPtr.OpChain, Array.getElem?_of_mem]
+  grind [BlockPtr.OpChain, Array.getElem?_of_mem]
 
 theorem BlockPtr.OpChain_prev_ne
     (hop : OperationPtr.InBounds op ctx)
