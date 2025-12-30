@@ -51,11 +51,10 @@ def printOpResults (ctx: IRContext) (op: OperationPtr) : IO Unit := do
     IO.print " = "
 
 def printOpOperands (ctx: IRContext) (op: OperationPtr) : IO Unit := do
-  let opStruct := op.get! ctx
   IO.print "("
-  if h : op.getNumOperands! ctx ≠ 0 then
+  if op.getNumOperands! ctx ≠ 0 then
     printValue ctx (op.getOperand! ctx 0)
-    for h : index in 1...(op.getNumOperands! ctx) do
+    for index in 1...(op.getNumOperands! ctx) do
       IO.print ", "
       printValue ctx (op.getOperand! ctx index)
   IO.print ")"
@@ -71,7 +70,6 @@ partial def printOpList (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) :
 
 partial def printRegion (ctx: IRContext) (region: Region) (indent: Nat := 0) : IO Unit := do
   IO.println "{"
-  let block := region.firstBlock
   match _ : region.firstBlock with
   | some blockPtr =>
     printIndent (indent + 1)
