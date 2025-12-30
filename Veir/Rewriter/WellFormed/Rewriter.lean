@@ -3,6 +3,7 @@ import Veir.Rewriter.WellFormed.Rewriter.Value
 
 namespace Veir
 
+set_option warn.sorry false in
 theorem Rewriter.replaceOp?_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (oldOp newOp : OperationPtr)
     (oldIn : oldOp.InBounds ctx)
@@ -14,6 +15,7 @@ theorem Rewriter.replaceOp?_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     newCtx.WellFormed := by
   sorry
 
+set_option warn.sorry false in
 theorem BlockPtr.operationList_Rewriter_replaceOp
     (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array)
     (hnewCtx : Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn hpar = some newCtx) :

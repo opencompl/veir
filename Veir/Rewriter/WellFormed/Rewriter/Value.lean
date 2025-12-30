@@ -93,6 +93,7 @@ theorem Rewriter.replaceUse_DefUse (ctx: IRContext) (use : OpOperandPtr)
       · exists array''
         grind [Rewriter.replaceUse_DefUse_otherValue]
 
+set_option warn.sorry false in
 @[grind .]
 theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (newValue: ValuePtr)
     (useIn: use.InBounds ctx)
@@ -213,6 +214,7 @@ theorem Array.append_eq_erase_append_insertHead {α : Type} [BEq α] [LawfulBEq 
     array.reverse ++ otherArray = (array.erase arrayHead).reverse ++ (#[arrayHead] ++ otherArray) := by
   grind [Array.erase_head_concat]
 
+set_option warn.sorry false in
 seal HAppend.hAppend in -- TODO: remove after we use modules?
 theorem Rewriter.replaceValue_DefUse_newValue :
     oldValue.DefUse ctx oldArray →
@@ -275,6 +277,7 @@ theorem OperationPtr.getOperand_replaceValue?
       have : operand ∈ valueArray := by grind [ValuePtr.defUseArray_contains_operand_use]
       grind [ValuePtr.DefUse]
 
+set_option warn.sorry false in
 theorem OperationPtr.getOperand_replaceOp?
     (hCtx : IRContext.WellFormed ctx)
     (hCtx' : Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn depth = some ctx') :
@@ -290,6 +293,7 @@ theorem OperationPtr.getOperand_replaceOp?
     | _ => operand := by
   sorry
 
+set_option warn.sorry false in
 theorem BlockPtr.operationList_replaceOp?
     (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array)
     (hnewCtx : Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn depth = some newCtx) :

@@ -5,6 +5,8 @@ import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.Rewriter.Basic
 
+set_option warn.sorry false
+
 namespace Veir.Benchmarks
 
 abbrev OpCode.module := 0

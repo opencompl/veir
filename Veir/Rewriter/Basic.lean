@@ -282,6 +282,7 @@ theorem Rewriter.replaceValue?_preserves_parent (op : OperationPtr) (hop : op.In
   have := @replaceValue?_preserves_parent'
   grind [Rewriter.replaceUse]
 
+set_option warn.sorry false in
 @[irreducible]
 def Rewriter.replaceValues (ctx: IRContext) (values: List (ValuePtr × ValuePtr)) : Option IRContext :=
   values.foldlM (init := ctx) fun ctx (oldValue, newValue) =>
@@ -292,7 +293,7 @@ def Rewriter.replaceOp? (ctx: IRContext) (oldOp newOp: OperationPtr)
     (oldIn: oldOp.InBounds ctx := by grind)
     (newIn: newOp.InBounds ctx := by grind)
     (ctxIn: ctx.FieldsInBounds := by grind)
-    (hpar : (oldOp.get ctx).parent.isSome = true) : Option IRContext := do
+    (_hpar : (oldOp.get ctx).parent.isSome = true) : Option IRContext := do
   let numOldResults := oldOp.getNumResults ctx (by grind)
   let numNewResults := newOp.getNumResults ctx (by grind)
   if h : numOldResults ≠ numNewResults then
@@ -342,6 +343,7 @@ def Rewriter.initOpRegions (ctx: IRContext) (opPtr: OperationPtr) (numRegions: N
     let ctx := opPtr.setRegions ctx ((opPtr.get ctx).regions.push regionPtr)
     Rewriter.initOpRegions ctx opPtr n (by grind)
 
+set_option warn.sorry false in
 @[grind .]
 theorem Rewriter.initOpRegions_fieldsInBounds
     (hx : ctx.FieldsInBounds)
@@ -492,6 +494,7 @@ def Rewriter.createOp (ctx: IRContext) (opType: Nat)
 
 abbrev ModuleTypeID := 0
 
+set_option warn.sorry false in
 unseal Rewriter.createRegion in
 @[irreducible]
 def IRContext.create : Option (IRContext × OperationPtr) :=

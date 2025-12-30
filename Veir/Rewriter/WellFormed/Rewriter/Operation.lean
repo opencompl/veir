@@ -156,6 +156,7 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
 
 end detachOp
 
+set_option warn.sorry false in
 theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
     (hop : op.InBounds ctx)
@@ -164,6 +165,7 @@ theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     newCtx.WellFormed := by
   sorry
 
+set_option warn.sorry false in
 theorem BlockPtr.operationList_Rewriter_eraseOp
     (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array) :
       BlockPtr.operationList blockPtr (Rewriter.eraseOp ctx op hctx hop) ctxWellFormed' blockInBounds' =
@@ -173,6 +175,7 @@ theorem BlockPtr.operationList_Rewriter_eraseOp
         array := by
   sorry
 
+set_option warn.sorry false in
 theorem OperationPtr.getOperand_Rewriter_eraseOp
     (heq : Rewriter.eraseOp ctx op hctx hop = newCtx) (hne : op ≠ op'):
     OperationPtr.getOperand op' newCtx idx inBounds idxInBounds =

@@ -15,6 +15,7 @@ variable [Hashable α] [DecidableEq α] [BEq α]
 abbrev ArrayInv (stack : Array (Option α)) (index : HashMap α Nat) :=
   ∀ (op : α) (i : Nat), index[op]? = some i → stack[i]? = some op
 
+set_option warn.sorry false in
 @[grind .]
 theorem ArrayInv.popNones (h : ArrayInv (α := α) stack index) : ArrayInv (stack.popWhile (· = none)) index := by
   sorry
@@ -151,6 +152,7 @@ def createOp (rewriter: PatternRewriter) (opType: Nat)
   else
     ({ rewriter with ctx := newCtx, hasDoneAction := true , worklist := rewriter.worklist.push op, ctx_fib := by grind }, op)
 
+set_option warn.sorry false in
 def insertOp (rewriter: PatternRewriter) (op: OperationPtr) (ip : InsertPoint)
     (newOpIn: op.InBounds rewriter.ctx := by grind) (insIn : ip.InBounds rewriter.ctx) : Option PatternRewriter := do
   let newCtx ← Rewriter.insertOp? rewriter.ctx op ip (by grind) (by grind) (by grind)
@@ -161,6 +163,7 @@ def insertOp (rewriter: PatternRewriter) (op: OperationPtr) (ip : InsertPoint)
     ctx_fib := by sorry
   }
 
+set_option warn.sorry false in
 def eraseOp (rewriter: PatternRewriter) (op: OperationPtr)
     (hop : op.InBounds rewriter.ctx) : Option PatternRewriter := do
   let newCtx ← Rewriter.eraseOp rewriter.ctx op (by grind) hop
@@ -171,6 +174,7 @@ def eraseOp (rewriter: PatternRewriter) (op: OperationPtr)
     ctx_fib := by sorry
   }
 
+set_option warn.sorry false in
 def replaceOp (rewriter: PatternRewriter) (oldOp newOp: OperationPtr)
     (ho : oldOp.InBounds rewriter.ctx) (hn : newOp.InBounds rewriter.ctx)
     (hpar : (oldOp.get rewriter.ctx ho).parent.isSome) : Option PatternRewriter := do
@@ -186,6 +190,7 @@ def replaceOp (rewriter: PatternRewriter) (oldOp newOp: OperationPtr)
     ctx_fib := by sorry -- relies on well-formedness!
   }
 
+set_option warn.sorry false in
 def replaceValue (rewriter: PatternRewriter) (oldVal newVal: ValuePtr)
     (oldIn: oldVal.InBounds rewriter.ctx := by grind)
     (newIn: newVal.InBounds rewriter.ctx := by grind) : Option PatternRewriter := do

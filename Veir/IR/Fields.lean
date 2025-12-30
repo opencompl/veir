@@ -505,7 +505,7 @@ theorem Block.fieldsInBounds_unchanged (block: BlockPtr) (ctx ctx' : IRContext)
     (blockInBounds: block.InBounds ctx)
     (blockInBounds': block.InBounds ctx')
     (hh : ctx.FieldsInBounds)
-    (hFIB : Block.FieldsInBounds block ctx blockInBounds)
+    (_hFIB : Block.FieldsInBounds block ctx blockInBounds)
     (hSameInBounds: ∀ ptr, GenericPtr.InBounds ptr ctx ↔ GenericPtr.InBounds ptr ctx')
     (hSameBlocks : ∀ block blockInBounds, BlockPtr.get block ctx blockInBounds = BlockPtr.get block ctx' (by grind)) :
     Block.FieldsInBounds block ctx' blockInBounds' := by

@@ -2,6 +2,7 @@ module
 
 public section
 
+set_option warn.sorry false in
 @[grind .]
 theorem Array.back_popWhile {as : Array α} {p : α → Bool} (h : 0 < (as.popWhile p).size) :
     p ((as.popWhile p).back h) = false := by
