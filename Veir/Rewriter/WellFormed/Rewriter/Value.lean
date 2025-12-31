@@ -128,7 +128,7 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (ne
       intros regionPtr regionPtrInBounds
       have ⟨chain, hchain⟩ := hWf.blockChain regionPtr (by grind)
       exists chain
-      apply RegionPtr.BlockChainWellFormed_unchanged (ctx := ctx) <;> grind
+      apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
     case operations =>
       intros opPtr opPtrInBounds
       apply Operation.WellFormed_unchanged (ctx := ctx) <;> sorry -- missing GetSet lemmas

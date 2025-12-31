@@ -568,7 +568,7 @@ theorem BlockPtr.OpChain.parent!_nextOp_eq
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
   cases i <;> grind [BlockPtr.OpChain]
 
-structure RegionPtr.BlockChainWellFormed (region : RegionPtr) (ctx : IRContext) (array : Array BlockPtr) (hb : region.InBounds ctx) : Prop where
+structure RegionPtr.blockChain (region : RegionPtr) (ctx : IRContext) (array : Array BlockPtr) (hb : region.InBounds ctx) : Prop where
   arrayInBounds (h : bl ∈ array) : bl.InBounds ctx
   opParent (h : bl ∈ array) : (bl.get! ctx).parent = some block
   first : (region.get! ctx).firstBlock = array[0]?
@@ -612,7 +612,7 @@ structure IRContext.WellFormed (ctx : IRContext) : Prop where
   opChain (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
     ∃ array, BlockPtr.OpChain blockPtr ctx array
   blockChain (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
-    ∃ array, RegionPtr.BlockChainWellFormed regionPtr ctx array (by grind)
+    ∃ array, RegionPtr.blockChain regionPtr ctx array (by grind)
   operations (opPtr : OperationPtr) (opPtrInBounds : opPtr.InBounds ctx) :
     (opPtr.get! ctx).WellFormed ctx opPtr opPtrInBounds
   blocks (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
@@ -686,8 +686,8 @@ theorem BlockPtr.OpChain.erase_getElem_array_eq_eraseIdx
     (array.erase (array[i]'iInBounds)) = array.eraseIdx i iInBounds := by
   grind [Array.erase_eq_eraseIdx_of_idxOf, BlockPtr.OpChain.idxOf_getElem_array]
 
-theorem RegionPtr.BlockChainWellFormed_unchanged
-    (hWf : regionPtr.BlockChainWellFormed ctx array regionPtrInBounds)
+theorem RegionPtr.blockChain_unchanged
+    (hWf : regionPtr.blockChain ctx array regionPtrInBounds)
     (regionPtrInBounds' : regionPtr.InBounds ctx')
     (hSameFirst : (regionPtr.get! ctx).firstBlock = (regionPtr.get! ctx').firstBlock)
     (hSameLast : (regionPtr.get! ctx).lastBlock = (regionPtr.get! ctx').lastBlock)
@@ -703,8 +703,8 @@ theorem RegionPtr.BlockChainWellFormed_unchanged
       (blockPtr.get! ctx').parent = some regionPtr →
         blockPtr.InBounds ctx ∧
         (blockPtr.get! ctx).parent = (blockPtr.get! ctx').parent) :
-    regionPtr.BlockChainWellFormed ctx' array regionPtrInBounds' := by
-  constructor <;> grind [RegionPtr.BlockChainWellFormed]
+    regionPtr.blockChain ctx' array regionPtrInBounds' := by
+  constructor <;> grind [RegionPtr.blockChain]
 
 theorem Operation.WellFormed_unchanged
     (hWf : (opPtr.get ctx opPtrInBounds).WellFormed ctx opPtr opPtrInBounds)
