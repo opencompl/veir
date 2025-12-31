@@ -335,7 +335,7 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
     intros reg hreg
     have ⟨array, arrayWf⟩ := hOpWf.blockChain reg (by grind)
     exists array
-    apply @IRContext.BlockChainWellFormed_unchanged (ctx := ctx) <;>
+    apply @IRContext.blockChain_unchanged (ctx := ctx) <;>
       grind [pushOperand_OperationPtr_get_parent_mono, pushOperand_OperationPtr_get_prev_mono,
         pushOperand_OperationPtr_get_next_mono, pushOperand_BlockPtr_get_lastOp_mono, pushOperand_BlockPtr_get_firstOp_mono]
   case operations =>

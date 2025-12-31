@@ -49,7 +49,7 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     intros region hregion
     have ⟨array, harray⟩ := h₅ region (by grind)
     exists array
-    apply RegionPtr.BlockChainWellFormed_unchanged harray <;> grind
+    apply RegionPtr.blockChain_unchanged harray <;> grind
   case operations =>
     intros op hop
     have : op.InBounds ctx := by grind
@@ -141,7 +141,7 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     intros region hregion
     have ⟨array, harray⟩ := h₅ region (by grind)
     exists array
-    apply RegionPtr.BlockChainWellFormed_unchanged harray <;> grind
+    apply RegionPtr.blockChain_unchanged harray <;> grind
   case operations =>
     intros op' hop'
     have : op'.InBounds ctx := by grind
