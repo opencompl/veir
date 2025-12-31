@@ -568,7 +568,7 @@ theorem BlockPtr.OpChain.parent!_nextOp_eq
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
   cases i <;> grind [BlockPtr.OpChain]
 
-structure RegionPtr.blockChain (region : RegionPtr) (ctx : IRContext) (array : Array BlockPtr) (hb : region.InBounds ctx) : Prop where
+structure RegionPtr.BlockChain (region : RegionPtr) (ctx : IRContext) (array : Array BlockPtr) (hb : region.InBounds ctx) : Prop where
   arrayInBounds (h : bl ∈ array) : bl.InBounds ctx
   opParent (h : bl ∈ array) : (bl.get! ctx).parent = some block
   first : (region.get! ctx).firstBlock = array[0]?
@@ -612,7 +612,7 @@ structure IRContext.WellFormed (ctx : IRContext) : Prop where
   opChain (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
     ∃ array, BlockPtr.OpChain blockPtr ctx array
   blockChain (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
-    ∃ array, RegionPtr.blockChain regionPtr ctx array (by grind)
+    ∃ array, RegionPtr.BlockChain regionPtr ctx array (by grind)
   operations (opPtr : OperationPtr) (opPtrInBounds : opPtr.InBounds ctx) :
     (opPtr.get! ctx).WellFormed ctx opPtr opPtrInBounds
   blocks (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
