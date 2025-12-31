@@ -4,8 +4,15 @@ namespace Veir.Dialects.LLVM.Int
 
 public section
 
+/--
+The `Int` type can have any bitwidth `w`. It is either a two's complement
+integer value of width `w` or a poison value indicating delayed undefined
+bahavior.
+-/
 inductive Int (w : Nat) where
+/-- A two's complement integer value of width `w`. -/
 | val : BitVec w → Int w
+/-- A poison value indicating delayed undefined behavior. -/
 | poison : Int w
 deriving DecidableEq
 
