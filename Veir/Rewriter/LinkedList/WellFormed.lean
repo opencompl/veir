@@ -64,9 +64,9 @@ theorem BlockPtr.opChain_OpOperandPtr_insertIntoCurrent
   apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
 theorem RegionPtr.blockChain_OpOperandPtr_insertIntoCurrent
-    {region : RegionPtr} {regionInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : region.BlockChain ctx array regionInBounds) :
-    region.BlockChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array (by grind) := by
+    {region : RegionPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : region.BlockChain ctx array) :
+    region.BlockChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array := by
   apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
 theorem Operation.wellFormed_OpOperandPtr_insertIntoCurrent
@@ -198,9 +198,9 @@ theorem BlockPtr.opChain_OpOperandPtr_removeFromCurrent
   apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
 theorem RegionPtr.blockChain_OpOperandPtr_removeFromCurrent
-    {region : RegionPtr} {regionInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : region.BlockChain ctx array regionInBounds) :
-    region.BlockChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array (by grind) := by
+    {region : RegionPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : region.BlockChain ctx array) :
+    region.BlockChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array := by
   apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
 theorem Operation.wellFormed_OpOperandPtr_removeFromCurrent
@@ -284,9 +284,9 @@ theorem BlockPtr.opChain_BlockOperandPtr_insertIntoCurrent
   apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
 theorem RegionPtr.blockChain_BlockOperandPtr_insertIntoCurrent
-    {region : RegionPtr} {regionInBounds} {use : BlockOperandPtr} {useInBounds}
-    (hWF : region.BlockChain ctx array regionInBounds) :
-    region.BlockChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array (by grind) := by
+    {region : RegionPtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : region.BlockChain ctx array) :
+    region.BlockChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array := by
   apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
 theorem Operation.wellFormed_BlockOperandPtr_insertIntoCurrent
@@ -417,9 +417,9 @@ theorem BlockPtr.opChain_BlockOperandPtr_removeFromCurrent
   apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
 theorem RegionPtr.blockChain_BlockOperandPtr_removeFromCurrent
-    {region : RegionPtr} {regionInBounds} {use : BlockOperandPtr} {useInBounds}
-    (hWF : region.BlockChain ctx array regionInBounds) :
-    region.BlockChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array (by grind) := by
+    {region : RegionPtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : region.BlockChain ctx array) :
+    region.BlockChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array := by
   apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
 theorem Operation.wellFormed_BlockOperandPtr_removeFromCurrent
@@ -527,8 +527,8 @@ theorem BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other
 
 theorem RegionPtr.blockChain_OperationPtr_linkBetweenWithParent
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    RegionPtr.BlockChain region ctx array regionInBounds →
-    RegionPtr.BlockChain region newCtx array (by grind) := by
+    RegionPtr.BlockChain region ctx array →
+    RegionPtr.BlockChain region newCtx array := by
   intros
   apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
