@@ -527,8 +527,8 @@ theorem BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other
 
 theorem RegionPtr.blockChain_OperationPtr_linkBetweenWithParent
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    RegionPtr.blockChain region ctx array regionInBounds →
-    RegionPtr.blockChain region newCtx array (by grind) := by
+    RegionPtr.BlockChain region ctx array regionInBounds →
+    RegionPtr.BlockChain region newCtx array (by grind) := by
   intros
   apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
