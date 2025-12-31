@@ -687,7 +687,7 @@ theorem BlockPtr.OpChain.erase_getElem_array_eq_eraseIdx
   grind [Array.erase_eq_eraseIdx_of_idxOf, BlockPtr.OpChain.idxOf_getElem_array]
 
 theorem RegionPtr.blockChain_unchanged
-    (hWf : regionPtr.blockChain ctx array regionPtrInBounds)
+    (hWf : regionPtr.BlockChain ctx array regionPtrInBounds)
     (regionPtrInBounds' : regionPtr.InBounds ctx')
     (hSameFirst : (regionPtr.get! ctx).firstBlock = (regionPtr.get! ctx').firstBlock)
     (hSameLast : (regionPtr.get! ctx).lastBlock = (regionPtr.get! ctx').lastBlock)
@@ -703,8 +703,8 @@ theorem RegionPtr.blockChain_unchanged
       (blockPtr.get! ctx').parent = some regionPtr →
         blockPtr.InBounds ctx ∧
         (blockPtr.get! ctx).parent = (blockPtr.get! ctx').parent) :
-    regionPtr.blockChain ctx' array regionPtrInBounds' := by
-  constructor <;> grind [RegionPtr.blockChain]
+    regionPtr.BlockChain ctx' array regionPtrInBounds' := by
+  constructor <;> grind [RegionPtr.BlockChain]
 
 theorem Operation.WellFormed_unchanged
     (hWf : (opPtr.get ctx opPtrInBounds).WellFormed ctx opPtr opPtrInBounds)
