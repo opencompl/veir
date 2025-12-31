@@ -11,7 +11,6 @@ public section
 structure Byte (w : Nat) where
   val : BitVec w
   poison : BitVec w
-deriving DecidableEq
 
 def xor {w : Nat} (x y : Byte w) : Byte w :=
   ⟨x.val ^^^ y.val, x.poison ||| y.poison⟩
