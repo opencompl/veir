@@ -8,12 +8,12 @@ import all Veir.Dialects.LLVM.Byte.Lemmas
 namespace Veir.Dialects.LLVM.Byte
 
 example (w : Nat) (x y : Byte w) : x ||| y = y ||| x := by
-  simp only [HOr.hOr, OrOp.or, or]
+  simp only [or_eq]
   simp [BitVec.or_comm (x.poison) (y.poison), BitVec.or_comm (x.val) (y.val)]
 
 example (x y : Byte 8) : x ||| y = y ||| x := by
   rw [ext_iff]
-  simp only [HOr.hOr, OrOp.or, or]
+  simp [or_eq]
   bv_decide
 
 end Veir.Dialects.LLVM.Byte
