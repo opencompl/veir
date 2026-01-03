@@ -108,6 +108,20 @@ theorem BlockPtr.opChain_detachOp_self
       · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
   all_goals grind [OpChain]
 
+theorem ValuePtr.defUse_detachOp
+    (hWf : ValuePtr.DefUse value ctx array missingUses) :
+    ValuePtr.DefUse value (Rewriter.detachOp ctx op hctx hIn hasParent) array missingUses := by
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.defUse_detachOp
+    (hWf : BlockPtr.DefUse block ctx array missingUses) :
+    BlockPtr.DefUse block (Rewriter.detachOp ctx op hctx hIn hasParent) array missingUses := by
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
+
+theorem RegionPtr.blockChain_detachOp
+    (hWf : RegionPtr.BlockChain region ctx array) :
+    RegionPtr.BlockChain region (Rewriter.detachOp ctx op hctx hIn hasParent) array := by
+  apply RegionPtr.blockChain_unchanged (ctx := ctx) hWf <;> grind
 
 theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
@@ -121,12 +135,12 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     intros val hval
     have ⟨array, harray⟩ := h₂ val (by grind)
     exists array
-    apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
+    grind [ValuePtr.defUse_detachOp]
   case blockDefUseChains =>
     intros block hblock
     have ⟨array, harray⟩ := h₃ block (by grind)
     exists array
-    apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
+    grind [BlockPtr.defUse_detachOp]
   case opChain =>
     intros block' hBlock'
     have ⟨array', harray'⟩ := h₄ block' (by grind)
@@ -155,6 +169,58 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     grind [Region.WellFormed_unchanged]
 
 end detachOp
+
+section detachOpIfAttached
+
+theorem BlockPtr.opChain_detachOpIfAttached_other
+    (hWf : BlockPtr.OpChain block ctx array)
+    (hWf' : BlockPtr.OpChain block' ctx array') :
+    (op.get! ctx).parent = some block' →
+    block ≠ block' →
+    BlockPtr.OpChain block (Rewriter.detachOpIfAttached ctx op hctx hIn) array := by
+  simp only [Rewriter.detachOpIfAttached]
+  grind [BlockPtr.opChain_detachOp_other]
+
+theorem BlockPtr.opChain_detachOpIfAttached_self
+    (hWf : BlockPtr.OpChain block ctx array) :
+    (op.get! ctx).parent = some block →
+    BlockPtr.OpChain block (Rewriter.detachOpIfAttached ctx op hctx hIn) (array.erase op) := by
+  simp only [Rewriter.detachOpIfAttached]
+  grind [BlockPtr.opChain_detachOp_self]
+
+theorem BlockPtr.opChain_detachOpIfAttached_none
+    (hWf : BlockPtr.OpChain block ctx array) :
+    (op.get! ctx).parent = none →
+    BlockPtr.OpChain block (Rewriter.detachOpIfAttached ctx op hctx hIn) array := by
+  simp only [Rewriter.detachOpIfAttached]
+  grind
+
+theorem ValuePtr.defUse_detachOpIfAttached
+    (hWf : ValuePtr.DefUse value ctx array missingUses) :
+    ValuePtr.DefUse value (Rewriter.detachOpIfAttached ctx op hctx hIn) array missingUses := by
+  simp only [Rewriter.detachOpIfAttached]
+  grind [ValuePtr.defUse_detachOp]
+
+theorem BlockPtr.defUse_detachOpIfAttached
+    (hWf : BlockPtr.DefUse block ctx array missingUses) :
+    BlockPtr.DefUse block (Rewriter.detachOpIfAttached ctx op hctx hIn) array missingUses := by
+  simp only [Rewriter.detachOpIfAttached]
+  grind [BlockPtr.defUse_detachOp]
+
+theorem RegionPtr.blockChain_detachOpIfAttached
+    (hWf : RegionPtr.BlockChain region ctx array) :
+    RegionPtr.BlockChain region (Rewriter.detachOpIfAttached ctx op hctx hIn) array := by
+  simp only [Rewriter.detachOpIfAttached]
+  grind [RegionPtr.blockChain_detachOp]
+
+theorem Rewriter.detachOpIfAttached_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
+    (hctx : ctx.FieldsInBounds) (op : OperationPtr)
+    (hIn : op.InBounds ctx) :
+    (Rewriter.detachOpIfAttached ctx op hctx hIn).WellFormed := by
+  simp only [Rewriter.detachOpIfAttached]
+  grind [Rewriter.detachOp_WellFormed]
+
+end detachOpIfAttached
 
 set_option warn.sorry false in
 theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
