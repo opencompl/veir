@@ -17,6 +17,7 @@ theorem toInt_fromInt {w : Nat} (x : Int w) (h : 0 < w) : (Byte.fromInt x).toInt
     simp
     omega
 
+@[bv_normalize]
 theorem ext_iff {w : Nat} (x y : Byte w) :
     x = y ↔ (x.val = y.val ∧ x.poison = y.poison) := by
   constructor
@@ -25,6 +26,7 @@ theorem ext_iff {w : Nat} (x y : Byte w) :
 
 /- # and -/
 
+@[bv_normalize]
 theorem and_eq {w : Nat} (x y : Byte w) :
     (x &&& y) =
     let poison := x.poison ||| y.poison
@@ -41,6 +43,7 @@ theorem val_and {w : Nat} (x y : Byte w) :
 
 /- # or -/
 
+@[bv_normalize]
 theorem or_eq {w : Nat} (x y : Byte w) :
     (x ||| y) =
     let poison := x.poison ||| y.poison
@@ -57,6 +60,7 @@ theorem val_or {w : Nat} (x y : Byte w) :
 
 /- # xor -/
 
+@[bv_normalize]
 theorem xor_eq {w : Nat} (x y : Byte w) :
     (x ^^^ y) =
     let poison := x.poison ||| y.poison
