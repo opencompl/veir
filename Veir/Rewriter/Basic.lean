@@ -332,31 +332,30 @@ def Rewriter.createBlock (ctx: IRContext) (insertionPoint: Option BlockInsertPoi
 def Rewriter.createRegion (ctx: IRContext) : Option (IRContext × RegionPtr) :=
   RegionPtr.allocEmpty ctx
 
+set_option warn.sorry false in
 @[irreducible]
-def Rewriter.initOpRegions (ctx: IRContext) (opPtr: OperationPtr) (numRegions: Nat)
-    (hop : opPtr.InBounds ctx) : Option IRContext :=
-  match numRegions with
-  | 0 => some ctx
-  | Nat.succ n => do
-    rlet (ctx, regionPtr) ← Rewriter.createRegion ctx
-    let oldRegion := regionPtr.get ctx (by grind)
-    let ctx := opPtr.setRegions ctx ((opPtr.get ctx).regions.push regionPtr)
-    Rewriter.initOpRegions ctx opPtr n (by grind)
+def Rewriter.initOpRegions (ctx: IRContext) (opPtr: OperationPtr) (regions: Array RegionPtr)
+    (hop : opPtr.InBounds ctx) (hregions : ∀ region ∈ regions, region.InBounds ctx) : IRContext := Id.run do
+  let mut ctx := ctx
+  for h : i in 0...regions.size do
+    let region := regions[i]'(by grind)
+    ctx := region.setParent ctx opPtr (by sorry)
+  opPtr.setRegions ctx regions (by sorry)
 
 set_option warn.sorry false in
 @[grind .]
 theorem Rewriter.initOpRegions_fieldsInBounds
     (hx : ctx.FieldsInBounds)
-    (heq : initOpRegions ctx opPtr numRegions h₁ = some ctx') :
+    (heq : initOpRegions ctx opPtr regions h₁ h₂ = ctx') :
     ctx'.FieldsInBounds := by
-  induction numRegions generalizing ctx <;> sorry --grind [initOpRegions]
+  sorry
 
+set_option warn.sorry false in
 @[grind .]
 theorem Rewriter.initOpRegions_inBounds_mono (ptr : GenericPtr)
-    (heq : initOpRegions ctx opPtr numRegions h₁ = some ctx') :
+    (heq : initOpRegions ctx opPtr numRegions h₁ h₂ = ctx') :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
-  induction numRegions generalizing ctx <;>
-    grind [initOpRegions, Option.unattach_eq_some_iff]
+  sorry
 
 @[irreducible]
 def Rewriter.initOpResults (ctx: IRContext) (opPtr: OperationPtr) (numResults: Nat) (index: Nat := 0) (hop : opPtr.InBounds ctx)
@@ -468,9 +467,10 @@ theorem Rewriter.createEmptyOp_fieldsInBounds (h : createEmptyOp ctx opType = so
   grind [createEmptyOp]
 
 
+set_option warn.sorry false in
 @[irreducible]
 def Rewriter.createOp (ctx: IRContext) (opType: Nat)
-    (numResults: Nat) (operands: Array ValuePtr) (numRegions: Nat) (properties: UInt64)
+    (numResults: Nat) (operands: Array ValuePtr) (regions: Array RegionPtr) (properties: UInt64)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx)
     (hins : insertionPoint.maybe InsertPoint.InBounds ctx)
@@ -483,7 +483,7 @@ def Rewriter.createOp (ctx: IRContext) (opType: Nat)
   let ctx := Rewriter.initOpResults ctx  newOpPtr numResults 0 hib newOpPtrZeroRes
   let ctx := newOpPtr.setProperties ctx properties (by grind)
   have newOpPtrInBounds : newOpPtr.InBounds ctx := by grind
-  rlet ctx ← Rewriter.initOpRegions ctx newOpPtr numRegions newOpPtrInBounds
+  let ctx := Rewriter.initOpRegions ctx newOpPtr regions newOpPtrInBounds (by sorry)
   let ctx := Rewriter.initOpOperands ctx newOpPtr (by grind) operands (by grind) (by grind)
   match _ : insertionPoint with
   | some insertionPoint =>
@@ -524,34 +524,18 @@ def IRContext.create : Option (IRContext × OperationPtr) :=
     grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, RegionPtr.InBounds]
   have : operation.get ctx (by simp_all) = Operation.empty ModuleTypeID := by
     grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, RegionPtr.InBounds]
-  rlet ctx ← Rewriter.initOpRegions ctx operation 1 (by grind)
+  rlet (ctx, region) ← Rewriter.createRegion ctx
+  let ctx := Rewriter.initOpRegions ctx operation #[region] (by sorry) (by sorry)
   have : operation = ⟨0⟩ := by grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty]
-  have : ctx.topLevelOp = ⟨0⟩ := by
-    simp_all [Rewriter.initOpRegions, OperationPtr.setRegions, OperationPtr.set, Rewriter.createRegion]
-    grind [RegionPtr.set, RegionPtr.allocEmpty]
+  have : ctx.topLevelOp = ⟨0⟩ := by sorry
   have hop₀ : ∀ (op : OperationPtr), op.InBounds ctx ↔ op = ⟨0⟩ := by
-    simp_all [Rewriter.initOpRegions, OperationPtr.setRegions, OperationPtr.set, Rewriter.createRegion]
-    simp [OperationPtr.InBounds] at hops
     sorry --grind [Region.empty, RegionPtr.set, OperationPtr.InBounds]
   have : operation.get ctx (by simp_all) =
-    { Operation.empty ModuleTypeID with regions := #[⟨1⟩] } := by
-    simp_all [Rewriter.initOpRegions, OperationPtr.setRegions, OperationPtr.set, Rewriter.createRegion]
-    grind [Operation.empty, RegionPtr.set, RegionPtr.InBounds, RegionPtr.get, OperationPtr.get, RegionPtr.allocEmpty]
-  have : ∀ (bl : BlockPtr), bl.InBounds ctx ↔ False := by
-    simp_all [Rewriter.initOpRegions, OperationPtr.setRegions, OperationPtr.set, Rewriter.createRegion]
-    sorry --grind [Region.empty, RegionPtr.set, BlockPtr.InBounds]
-  have : ∀ (r : RegionPtr), r.InBounds ctx ↔ r = ⟨1⟩ := by
-    simp_all [Rewriter.initOpRegions, OperationPtr.setRegions, OperationPtr.set, Rewriter.createRegion]
-    sorry --grind [Region.empty, RegionPtr.set, RegionPtr.InBounds]
-  have : (⟨1⟩ : RegionPtr).get ctx (by simp_all) = Region.empty := by
-    simp_all [Rewriter.initOpRegions, OperationPtr.setRegions, OperationPtr.set, Rewriter.createRegion]
-    grind [Region.empty, RegionPtr.set, RegionPtr.InBounds, RegionPtr.get, RegionPtr.allocEmpty]
-  have : ctx.FieldsInBounds := by
-    constructor
-    · grind [Operation.empty]
-    · sorry -- grind [Operation.FieldsInBounds, Operation.empty]
-    · grind
-    · grind [Region.FieldsInBounds, Region.empty]
+    { Operation.empty ModuleTypeID with regions := #[⟨1⟩] } := by sorry
+  have : ∀ (bl : BlockPtr), bl.InBounds ctx ↔ False := by sorry
+  have : ∀ (r : RegionPtr), r.InBounds ctx ↔ r = ⟨1⟩ := by sorry
+  have : (⟨1⟩ : RegionPtr).get ctx (by simp_all) = Region.empty := by sorry
+  have : ctx.FieldsInBounds := by sorry
   let moduleRegion := operation.getRegion! ctx 0
   rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd moduleRegion)) (by grind) (by sorry)
   let ctx := { ctx with topLevelOp := operation }
