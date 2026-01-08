@@ -13,6 +13,9 @@ structure Slice where
   stop : Nat
 deriving Inhabited, Repr
 
+def Slice.of (slice : Slice) (array : ByteArray) : ByteArray :=
+  array.extract slice.start slice.stop
+
 /--
   Token kinds that can be produced by the lexer.
 -/
@@ -105,6 +108,40 @@ inductive TokenKind
   /-- The `#-}` token. -/
   | FileMetadataEnd
 deriving Inhabited, Repr
+
+instance TokenKind.toString : ToString TokenKind where
+  toString
+    | TokenKind.Eof => "Eof"
+    | TokenKind.BareIdent => "BareIdent"
+    | TokenKind.AtIdent => "AtIdent"
+    | TokenKind.HashIdent => "HashIdent"
+    | TokenKind.PercentIdent => "PercentIdent"
+    | TokenKind.CaretIdent => "CaretIdent"
+    | TokenKind.ExclamationIdent => "ExclamationIdent"
+    | TokenKind.FloatLit => "FloatLit"
+    | TokenKind.IntLit => "IntLit"
+    | TokenKind.Utf8StringLit => "Utf8StringLit"
+    | TokenKind.BytesStringLit => "BytesStringLit"
+    | TokenKind.Arrow => "Arrow"
+    | TokenKind.Colon => "Colon"
+    | TokenKind.Comma => "Comma"
+    | TokenKind.Ellipsis => "Ellipsis"
+    | TokenKind.Equal => "Equal"
+    | TokenKind.Greater => "Greater"
+    | TokenKind.LBrace => "LBrace"
+    | TokenKind.LParen => "LParen"
+    | TokenKind.LSquare => "LSquare"
+    | TokenKind.Less => "Less"
+    | TokenKind.Minus => "Minus"
+    | TokenKind.Plus => "Plus"
+    | TokenKind.Question => "Question"
+    | TokenKind.RBrace => "RBrace"
+    | TokenKind.RParen => "RParen"
+    | TokenKind.RSquare => "RSquare"
+    | TokenKind.Star => "Star"
+    | TokenKind.VerticalBar => "VerticalBar"
+    | TokenKind.FileMetadataBegin => "FileMetadataBegin"
+    | TokenKind.FileMetadataEnd => "FileMetadataEnd"
 
 structure Token where
   /-- The kind of token. -/
