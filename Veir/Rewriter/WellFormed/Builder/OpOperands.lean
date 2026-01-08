@@ -118,7 +118,7 @@ set_option maxHeartbeats 10000000 in -- TODO
 theorem Rewriter.pushOperand_DefUse
     (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) (hOpWf : ctx.WellFormed)
     (valuePtr' : ValuePtr) (valuePtr'InBounds : valuePtr'.InBounds ctx) :
-    ∃ array, valuePtr'.DefUse (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) array (by grind) := by
+    ∃ array, valuePtr'.DefUse (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) array := by
   have ⟨array', arrayWf'⟩ := hOpWf.valueDefUseChains valuePtr' valuePtr'InBounds
   have ⟨array, arrayWf⟩ := hOpWf.valueDefUseChains valuePtr valuePtrInBounds
   by_cases valuePtr' = valuePtr
@@ -151,10 +151,11 @@ theorem Rewriter.pushOperand_DefUse
       grind [ValuePtr.DefUse, Option.maybe_def]
     case allUsesInChain =>
       grind [ValuePtr.DefUse, IRContext.WellFormed]
+    all_goals grind
   -- Case where the use def chains are preserved
   case neg =>
     exists array'
-    apply IRContext.ValuePtr_DefUseChainWellFormed_unchanged (ctx := ctx) <;>
+    apply ValuePtr.DefUse.unchanged (ctx := ctx) <;>
       grind [ValuePtr.DefUse]
 
 -- /--
@@ -249,8 +250,7 @@ theorem Rewriter.pushOperand_OperationPtr_get_prev_mono (valuePtr : ValuePtr) (v
 theorem Rewriter.pushOperand_OperationPtr_getNumRegions (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) hOp'InBounds :
       opPtr'.getNumRegions (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) hOp'InBounds =
         opPtr'.getNumRegions ctx (by grind) := by
-  simp only [Rewriter.pushOperand, OpOperandPtr.insertIntoCurrent]
-  grind
+  grind [Rewriter.pushOperand]
 
 @[simp, grind =]
 theorem Rewriter.pushOperand_OperationPtr_getRegion (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
@@ -316,26 +316,25 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
     intros blockPtr blockPtrInBounds
     have ⟨array, arrayWf⟩ := hOpWf.blockDefUseChains blockPtr (by grind)
     exists array
-    apply IRContext.BlockPtr_DefUseChainWellFormed_unchanged (ctx := ctx)
+    apply BlockPtr.DefUse.unchanged (ctx := ctx)
     · grind [IRContext.WellFormed]
     · grind [Rewriter.pushOperand_BlockOperand_get]
     · grind [Rewriter.pushOperand_BlockPtr_get_firstUse_mono]
     · grind [Rewriter.pushOperand_BlockOperand_get]
-    · grind
-    · grind
+    all_goals grind
   case inBounds => grind
   case opChain =>
     intros blockPtr blockPtrInBounds
     have ⟨array, arrayWf⟩ := hOpWf.opChain blockPtr (by grind)
     exists array
-    apply IRContext.OpChain_unchanged (ctx := ctx) <;>
+    apply BlockPtr.OpChain_unchanged (ctx := ctx) <;>
       grind [pushOperand_OperationPtr_get_parent_mono, pushOperand_OperationPtr_get_prev_mono,
         pushOperand_OperationPtr_get_next_mono, pushOperand_BlockPtr_get_lastOp_mono, pushOperand_BlockPtr_get_firstOp_mono]
   case blockChain =>
     intros reg hreg
     have ⟨array, arrayWf⟩ := hOpWf.blockChain reg (by grind)
     exists array
-    apply @IRContext.blockChain_unchanged (ctx := ctx) <;>
+    apply RegionPtr.blockChain_unchanged (ctx := ctx) <;>
       grind [pushOperand_OperationPtr_get_parent_mono, pushOperand_OperationPtr_get_prev_mono,
         pushOperand_OperationPtr_get_next_mono, pushOperand_BlockPtr_get_lastOp_mono, pushOperand_BlockPtr_get_firstOp_mono]
   case operations =>

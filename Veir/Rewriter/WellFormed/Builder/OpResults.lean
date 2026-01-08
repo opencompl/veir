@@ -23,23 +23,23 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
       constructor <;> grind [ValuePtr.getFirstUse]
     · have ⟨array, harray⟩ := h₂ val (by grind)
       exists array
-      apply @IRContext.ValuePtr_DefUseChainWellFormed_unchanged ctx <;> grind
+      apply @ValuePtr.DefUse.unchanged ctx <;> grind
   case blockDefUseChains =>
     intros bl hbl
     have ⟨array, harray⟩ := h₃ bl (by grind)
     exists array
-    apply @IRContext.BlockPtr_DefUseChainWellFormed_unchanged ctx <;> grind
+    apply @BlockPtr.DefUse.unchanged ctx <;> grind
   case opChain =>
     intros op hop
     have ⟨array, harray⟩ := h₄ op (by grind)
     exists array
-    apply @IRContext.OpChain_unchanged ctx <;>
+    apply @BlockPtr.OpChain_unchanged ctx <;>
       grind
   case blockChain =>
     intros rg hrg
     have ⟨array, harray⟩ := h₅ rg (by grind)
     exists array
-    apply IRContext.blockChain_unchanged harray <;> grind
+    apply RegionPtr.blockChain_unchanged harray <;> grind
   case operations =>
     intros op hop
     have : op.InBounds ctx := by grind
