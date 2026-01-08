@@ -15,4 +15,7 @@ jobs:
       - uses: leanprover/lean-action@v1
         with:
           build-args: "--iofail"
-          test: true
+
+      - uses: leanprover/lean-action@v1
+        with:
+          build-args: "--iofail Test"
