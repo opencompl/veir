@@ -19,4 +19,8 @@ jobs:
 
       - uses: leanprover/lean-action@v1
         with:
+          build-args: "--iofail Veir"
+
+      - uses: leanprover/lean-action@v1
+        with:
           build-args: "--iofail Test"
