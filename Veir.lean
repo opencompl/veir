@@ -8,3 +8,4 @@ import Veir.Rewriter.WellFormed.Rewriter
 import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.Benchmarks
+import Veir.Parser.Lexer
