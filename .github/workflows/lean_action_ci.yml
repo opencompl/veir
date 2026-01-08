@@ -20,7 +20,9 @@ jobs:
       - uses: leanprover/lean-action@v1
         with:
           build-args: "--iofail Veir"
+          test: false
 
       - uses: leanprover/lean-action@v1
         with:
           build-args: "--iofail Test"
+          test: false
