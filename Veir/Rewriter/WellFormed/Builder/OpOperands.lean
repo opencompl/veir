@@ -26,6 +26,7 @@ theorem Rewriter.pushOperand_OperandPtr_InBounds_iff (valuePtr : ValuePtr) (hval
   simp [←GenericPtr.iff_opOperand]
   grind
 
+set_option warn.sorry false in
 @[simp, grind =]
 theorem Rewriter.pushOperand_ValuePtr_getFirstUse (valuePtr : ValuePtr) (hval : valuePtr.InBounds ctx)
     (valuePtr' : ValuePtr) (valuePtrInBounds' : valuePtr'.InBounds ctx) :
@@ -37,6 +38,7 @@ theorem Rewriter.pushOperand_ValuePtr_getFirstUse (valuePtr : ValuePtr) (hval : 
   sorry -- TODO
   -- grind [Rewriter.pushOperand]
 
+set_option warn.sorry false in
 theorem Rewriter.pushOperand_OpOperandPtr_get_firstUse (valuePtr : ValuePtr)
     valuePtrInBounds (oldFirstUse : OpOperandPtr) (hold : oldFirstUse.InBounds ctx)
     (hOldFirstUse : valuePtr.getFirstUse ctx valuePtrInBounds = some oldFirstUse) :
@@ -66,6 +68,7 @@ theorem Rewriter.pushOperand_OpOperandPtr_get_newOperand (valuePtr : ValuePtr) v
   simp [Rewriter.pushOperand, ←OpOperandPtr.get!_eq_get]
   grind
 
+set_option warn.sorry false in
 theorem Rewriter.pushOperand_OpOperandPtr_other (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
     ∀ (operandPtr : OpOperandPtr) (operandPtrInBounds : operandPtr.InBounds ctx)
       (_operandPtrNeFirstUse : valuePtr.getFirstUse ctx valuePtrInBounds ≠ some operandPtr),

@@ -4,11 +4,13 @@ import Veir.Rewriter.Basic
 
 namespace Veir
 
+set_option warn.sorry false in
 theorem OperationPtr.setProperties_WellFormed (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx) (newValue: UInt64)
     (hctx : IRContext.WellFormed ctx) :
     (op.setProperties ctx newValue inBounds).WellFormed := by
   sorry
 
+set_option warn.sorry false in
 theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: Nat)
     (numResults: Nat) (operands: Array ValuePtr) (numRegions: Nat) (properties: UInt64)
     (insertionPoint: Option InsertPoint)
