@@ -2,6 +2,14 @@ module
 
 public section
 
+/-- Checks if a UInt8 character is an alphabetic character or underscore in UTF-8. -/
+def UInt8.isAlphaOrUnderscore (c : UInt8) : Bool :=
+  (c >= 'a'.toUInt8 && c <= 'z'.toUInt8) || (c >= 'A'.toUInt8 && c <= 'Z'.toUInt8) || (c == '_'.toUInt8)
+
+/-- Checks if a UInt8 character is representing a digit in UTF-8. -/
+def UInt8.isDigit (c : UInt8) : Bool :=
+  c >= '0'.toUInt8 && c <= '9'.toUInt8
+
 set_option warn.sorry false in
 @[grind .]
 theorem Array.back_popWhile {as : Array α} {p : α → Bool} (h : 0 < (as.popWhile p).size) :
