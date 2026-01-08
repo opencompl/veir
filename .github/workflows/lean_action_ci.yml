@@ -22,6 +22,14 @@ jobs:
           build-args: "--iofail Veir"
           test: false
 
+      - name: Create annotation for build error
+        run: ls
+      - name: Create annotation for build error
+        run: pwd
+      - name: Create annotation for build error
+        run: ls /home/runner/work/veir/
+
+
       - uses: leanprover/lean-action@v1
         with:
           build-args: "--iofail Test"
