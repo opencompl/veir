@@ -266,6 +266,56 @@ def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except String (Token
       .error "expected identifier or string literal after '@'"
 
 /--
+  Lex an identifier that starts with a prefix followed by suffix-id.
+  The first character (the prefix) is expected to have already been
+  consumed at position `tokStart`.
+
+  attribute-id  ::= `#` suffix-id
+  ssa-id        ::= '%' suffix-id
+  block-id      ::= '^' suffix-id
+  type-id       ::= '!' suffix-id
+  suffix-id     ::= digit+ | (letter|id-punct) (letter|id-punct|digit)*
+  id-punct      ::= `$` | `.` | `_` | `-`
+-/
+def lexPrefixedIdentifier (state : LexerState) (tokStart : Nat)
+    (kind : TokenKind) : Except String (Token × LexerState) := do
+  let errorString := match kind with
+    | TokenKind.HashIdent => "invalid attribute name"
+    | TokenKind.PercentIdent => "invalid SSA name"
+    | TokenKind.CaretIdent => "invalid block name"
+    | TokenKind.ExclamationIdent => "invalid type name"
+    | _ => "internal error: invalid kind for prefixed identifier"
+
+  if h: state.isEof then
+    .error errorString
+  else
+    let c := state.input[state.pos]'(by grind [LexerState.isEof])
+    if UInt8.isDigit c then
+      let mut pos := state.pos + 1
+      let input := state.input
+      while h: pos < input.size do
+        let c := input[pos]
+        if UInt8.isDigit c then
+          pos := pos + 1
+        else
+          break
+      let newState := { state with pos := pos }
+      return (newState.formToken kind tokStart, newState)
+    else if UInt8.isAlphaOrUnderscore c || c == '$'.toUInt8 || c == '.'.toUInt8 || c == '-'.toUInt8 then
+      let mut pos := state.pos + 1
+      let input := state.input
+      while h: pos < input.size do
+        let c := input[pos]
+        if UInt8.isAlphaOrUnderscore c || UInt8.isDigit c || c == '$'.toUInt8 || c == '.'.toUInt8 || c == '-'.toUInt8 then
+          pos := pos + 1
+        else
+          break
+      let newState := { state with pos := pos }
+      return (newState.formToken kind tokStart, newState)
+    else
+      .error errorString
+
+/--
   Lex the next token from the input.
 -/
 partial def lex (state : LexerState) : Except String (Token × LexerState) :=
@@ -385,6 +435,18 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
     else if c == '@'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
       lexAtIdentifier newState tokStart
+    else if c == '#'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      lexPrefixedIdentifier newState tokStart TokenKind.HashIdent
+    else if c == '%'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      lexPrefixedIdentifier newState tokStart TokenKind.PercentIdent
+    else if c == '^'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      lexPrefixedIdentifier newState tokStart TokenKind.CaretIdent
+    else if c == '!'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      lexPrefixedIdentifier newState tokStart TokenKind.ExclamationIdent
     else
       .error s!"Unexpected character '{Char.ofUInt8 c}' at position {state.pos}"
 
