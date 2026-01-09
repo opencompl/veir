@@ -169,7 +169,7 @@ def LexerState.isEof (state : LexerState) : Bool :=
   Forms a token from the current lexer state, given the token start position and kind.
   The end position is taken from the current lexer state.
 -/
-def LexerState.formToken (state : LexerState) (kind : TokenKind) (startPos : Nat) : Token :=
+def LexerState.mkToken (state : LexerState) (kind : TokenKind) (startPos : Nat) : Token :=
   let slice := Slice.mk startPos state.pos
   Token.mk kind slice
 
@@ -189,7 +189,7 @@ def lexBareIdentifier (state : LexerState) (tokStart : Nat) : Token × LexerStat
     else
       break
   let newState := { state with pos := pos }
-  (newState.formToken TokenKind.BareIdent tokStart, newState)
+  (newState.mkToken TokenKind.BareIdent tokStart, newState)
 
 def skipComments (state : LexerState) : LexerState :=
   if h: state.isEof then
@@ -218,7 +218,7 @@ def lexStringLiteral (state : LexerState) (tokStart : Nat) : Except String (Toke
     let c := state.input[state.pos]'(by grind [LexerState.isEof])
     if c == '"'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.StringLit tokStart, newState)
+      return (newState.mkToken TokenKind.StringLit tokStart, newState)
     else if c == '\n'.toUInt8 then
       .error "expected '\"' in string literal"
     else if c == '\\'.toUInt8 then
@@ -257,11 +257,11 @@ def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except String (Token
     let c := state.input[state.pos]'(by grind [LexerState.isEof])
     if UInt8.isAlphaOrUnderscore c then
       let (token, state) := lexBareIdentifier state tokStart
-      return (LexerState.formToken state TokenKind.AtIdent tokStart, state)
+      return (LexerState.mkToken state TokenKind.AtIdent tokStart, state)
     else if c == '"'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
       let (token, state) ← lexStringLiteral newState tokStart
-      return (LexerState.formToken state TokenKind.AtIdent tokStart, state)
+      return (LexerState.mkToken state TokenKind.AtIdent tokStart, state)
     else
       .error "expected identifier or string literal after '@'"
 
@@ -300,7 +300,7 @@ def lexPrefixedIdentifier (state : LexerState) (tokStart : Nat)
         else
           break
       let newState := { state with pos := pos }
-      return (newState.formToken kind tokStart, newState)
+      return (newState.mkToken kind tokStart, newState)
     else if UInt8.isAlphaOrUnderscore c || c == '$'.toUInt8 || c == '.'.toUInt8 || c == '-'.toUInt8 then
       let mut pos := state.pos + 1
       let input := state.input
@@ -311,7 +311,7 @@ def lexPrefixedIdentifier (state : LexerState) (tokStart : Nat)
         else
           break
       let newState := { state with pos := pos }
-      return (newState.formToken kind tokStart, newState)
+      return (newState.mkToken kind tokStart, newState)
     else
       .error errorString
 
@@ -322,7 +322,7 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
   let tokStart := state.pos
   -- Check for end of file
   if h: state.isEof then
-    return (state.formToken TokenKind.Eof state.pos, state)
+    return (state.mkToken TokenKind.Eof state.pos, state)
   else
     let c := state.input[state.pos]'(by grind [LexerState.isEof])
     -- Skip whitespaces
@@ -335,43 +335,43 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
     -- Parse single-character tokens
     else if c == ':'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.Colon tokStart, newState)
+      return (newState.mkToken TokenKind.Colon tokStart, newState)
     else if c == '('.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.LParen tokStart, newState)
+      return (newState.mkToken TokenKind.LParen tokStart, newState)
     else if c == ')'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.RParen tokStart, newState)
+      return (newState.mkToken TokenKind.RParen tokStart, newState)
     else if c == '}'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.RBrace tokStart, newState)
+      return (newState.mkToken TokenKind.RBrace tokStart, newState)
     else if c == '['.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.LSquare tokStart, newState)
+      return (newState.mkToken TokenKind.LSquare tokStart, newState)
     else if c == ']'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.RSquare tokStart, newState)
+      return (newState.mkToken TokenKind.RSquare tokStart, newState)
     else if c == '<'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.Less tokStart, newState)
+      return (newState.mkToken TokenKind.Less tokStart, newState)
     else if c == '>'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.Greater tokStart, newState)
+      return (newState.mkToken TokenKind.Greater tokStart, newState)
     else if c == '='.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.Equal tokStart, newState)
+      return (newState.mkToken TokenKind.Equal tokStart, newState)
     else if c == '+'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.Plus tokStart, newState)
+      return (newState.mkToken TokenKind.Plus tokStart, newState)
     else if c == '*'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.Star tokStart, newState)
+      return (newState.mkToken TokenKind.Star tokStart, newState)
     else if c == '?'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.Question tokStart, newState)
+      return (newState.mkToken TokenKind.Question tokStart, newState)
     else if c == '|'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.formToken TokenKind.VerticalBar tokStart, newState)
+      return (newState.mkToken TokenKind.VerticalBar tokStart, newState)
     -- Parse `...`
     else if c == '.'.toUInt8 then
       if h: state.pos + 2 < state.input.size then
@@ -379,7 +379,7 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
         let c2 := state.input[state.pos + 2]
         if c1 == '.'.toUInt8 && c2 == '.'.toUInt8 then
           let newState := { state with pos := state.pos + 3 }
-          return (newState.formToken TokenKind.Ellipsis tokStart, newState)
+          return (newState.mkToken TokenKind.Ellipsis tokStart, newState)
         else
           .error "expected three consecutive '.' for an ellipsis"
       else
@@ -390,13 +390,13 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
         let c1 := state.input[state.pos + 1]
         if c1 == '>'.toUInt8 then
           let newState := { state with pos := state.pos + 2 }
-          return (newState.formToken TokenKind.Arrow tokStart, newState)
+          return (newState.mkToken TokenKind.Arrow tokStart, newState)
         else
           let newState := { state with pos := state.pos + 1 }
-          return (newState.formToken TokenKind.Minus tokStart, newState)
+          return (newState.mkToken TokenKind.Minus tokStart, newState)
       else
         let newState := { state with pos := state.pos + 1 }
-        return (newState.formToken TokenKind.Minus tokStart, newState)
+        return (newState.mkToken TokenKind.Minus tokStart, newState)
     -- Parse `{` and `{-#`
     else if c == '{'.toUInt8 then
       if h: state.pos + 2 < state.input.size then
@@ -404,18 +404,18 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
         let c2 := state.input[state.pos + 2]
         if c1 == '-'.toUInt8 && c2 == '#'.toUInt8 then
           let newState := { state with pos := state.pos + 3 }
-          return (newState.formToken TokenKind.FileMetadataBegin tokStart, newState)
+          return (newState.mkToken TokenKind.FileMetadataBegin tokStart, newState)
         else
           let newState := { state with pos := state.pos + 1 }
-          return (newState.formToken TokenKind.LBrace tokStart, newState)
+          return (newState.mkToken TokenKind.LBrace tokStart, newState)
       else
         let newState := { state with pos := state.pos + 1 }
-        return (newState.formToken TokenKind.LBrace tokStart, newState)
+        return (newState.mkToken TokenKind.LBrace tokStart, newState)
     -- Parse `#-}`
     else if c == '#'.toUInt8 && state.pos + 2 < state.input.size
         && state.input[state.pos + 1]! == '-'.toUInt8 && state.input[state.pos + 2]! == '}'.toUInt8 then
       let newState := { state with pos := state.pos + 3 }
-      return (newState.formToken TokenKind.FileMetadataEnd tokStart, newState)
+      return (newState.mkToken TokenKind.FileMetadataEnd tokStart, newState)
     -- Parse `/` or a comment starting with `//`
     else if c == '/'.toUInt8 then
       if h: state.pos + 1 < state.input.size then
@@ -424,10 +424,10 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
           lex (skipComments {state with pos := state.pos + 2 })
         else
           let newState := { state with pos := state.pos + 1 }
-          return (newState.formToken TokenKind.Slash tokStart, newState)
+          return (newState.mkToken TokenKind.Slash tokStart, newState)
       else
         let newState := { state with pos := state.pos + 1 }
-        return (newState.formToken TokenKind.Slash tokStart, newState)
+        return (newState.mkToken TokenKind.Slash tokStart, newState)
     -- Parse string literals
     else if c == '"'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
