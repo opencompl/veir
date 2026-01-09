@@ -353,7 +353,7 @@ def lexResult (s : String) : String :=
 #eval lexResult "0xi"
 
 /--
-  info: "Value: `0`, Kind: intLit"
+  info: "Value: `0x0123456789abcdefABCDEF`, Kind: intLit"
 -/
 #guard_msgs in
 #eval lexResult "0x0123456789abcdefABCDEF"
