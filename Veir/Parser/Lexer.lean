@@ -279,12 +279,12 @@ def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except String (Token
 -/
 def lexPrefixedIdentifier (state : LexerState) (tokStart : Nat)
     (kind : TokenKind) : Except String (Token × LexerState) := do
-  let errorString := (match kind with
+  let errorString := match kind with
     | TokenKind.HashIdent => "invalid attribute name"
     | TokenKind.PercentIdent => "invalid SSA name"
     | TokenKind.CaretIdent => "invalid block name"
     | TokenKind.ExclamationIdent => "invalid type name"
-    | _ => "internal error: invalid kind for prefixed identifier")
+    | _ => "internal error: invalid kind for prefixed identifier"
 
   if h: state.isEof then
     .error errorString
