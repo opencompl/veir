@@ -256,12 +256,12 @@ def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except String (Token
   else
     let c := state.input[state.pos]'(by grind [LexerState.isEof])
     if UInt8.isAlphaOrUnderscore c then
-      let (token, state') := lexBareIdentifier state tokStart
-      return (LexerState.formToken state' TokenKind.AtIdent tokStart, state')
+      let (token, state) := lexBareIdentifier state tokStart
+      return (LexerState.formToken state TokenKind.AtIdent tokStart, state)
     else if c == '"'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      let (token, state') ← lexStringLiteral newState tokStart
-      return (LexerState.formToken state' TokenKind.AtIdent tokStart, state')
+      let (token, state) ← lexStringLiteral newState tokStart
+      return (LexerState.formToken state TokenKind.AtIdent tokStart, state)
     else
       .error "expected identifier or string literal after '@'"
 
