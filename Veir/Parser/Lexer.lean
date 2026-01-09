@@ -191,6 +191,19 @@ def lexBareIdentifier (state : LexerState) (tokStart : Nat) : Token × LexerStat
   let newState := { state with pos := pos }
   (newState.formToken TokenKind.BareIdent tokStart, newState)
 
+def skipComments (state : LexerState) : LexerState :=
+  if h: state.isEof then
+    state
+  else
+    let c := state.input[state.pos]'(by grind [LexerState.isEof])
+    if c == '\n'.toUInt8 || c == '\r'.toUInt8 then
+      {state with pos := state.pos + 1}
+    else
+      skipComments { state with pos := state.pos + 1 }
+termination_by state.input.size - state.pos
+decreasing_by
+  grind [LexerState.isEof]
+
 /--
   Lex a string literal starting with the following grammar:
 
