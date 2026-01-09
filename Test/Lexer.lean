@@ -153,3 +153,27 @@ def lexResult (s : String) : String :=
 -/
 #guard_msgs in
 #eval lexResult "#-}"
+
+/--
+  info: "Value: `/`, Kind: Slash"
+-/
+#guard_msgs in
+#eval lexResult "/"
+
+/--
+  info: "Value: `foo`, Kind: BareIdent"
+-/
+#guard_msgs in
+#eval lexResult "// This is a comment\nfoo"
+
+/--
+  info: "Value: `foo`, Kind: BareIdent"
+-/
+#guard_msgs in
+#eval lexResult "// This is a comment\rfoo"
+
+/--
+  info: "Value: ``, Kind: Eof"
+-/
+#guard_msgs in
+#eval lexResult "// This is a comment"
