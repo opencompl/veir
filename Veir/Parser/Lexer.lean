@@ -316,6 +316,80 @@ def lexPrefixedIdentifier (state : LexerState) (tokStart : Nat)
       .error errorString
 
 /--
+  Lex a number literal.
+
+  integer-literal ::= digit+ | `0x` hex_digit+
+  float-literal ::= [0-9]+[.][0-9]*([eE][-+]?[0-9]+)?
+-/
+def lexNumber (state : LexerState) (firstChar: UInt8) : Token × LexerState := Id.run do
+  let mut pos := state.pos
+  let input := state.input
+
+  if h: state.isEof then
+    return (state.mkToken .intLit state.pos, state)
+  else
+    let c1 := input[pos]'(by grind [LexerState.isEof])
+    -- Hexadecimal literal
+    if firstChar == '0'.toUInt8 && c1 == 'x'.toUInt8 then
+      -- In MLIR, `0xi` is parsed as `0` followed by `xi`.
+      if !(input.data.getD (pos + 1) 0).isHexDigit then
+        return (state.mkToken .intLit state.pos, state)
+      pos := pos + 2
+      while h: pos < input.size do
+        let c := input[pos]
+        if c.isHexDigit then
+          pos := pos + 1
+        else
+          break
+      let newState := { state with pos := pos }
+      return (newState.mkToken .intLit state.pos, newState)
+
+    -- Handle the normal decimal case, with the starting digits
+    while h: pos < input.size do
+      let c := input[pos]
+      if UInt8.isDigit c then
+        pos := pos + 1
+      else
+        break
+
+    -- Check for fractional part
+    if input.data.getD pos 0 != '.'.toUInt8 then
+      let newState := { state with pos := pos }
+      return (newState.mkToken .intLit state.pos, newState)
+    pos := pos + 1
+
+    -- Parse the fractional digits
+    while h: pos < input.size do
+      let c := input[pos]
+      if UInt8.isDigit c then
+        pos := pos + 1
+      else
+        break
+
+    -- Check for exponent part
+    if input.data.getD pos 0 != 'e'.toUInt8 && input.data.getD pos 0 != 'E'.toUInt8 then
+      let newState := { state with pos := pos }
+      return (newState.mkToken .floatLit state.pos, newState)
+    pos := pos + 1
+
+    if (input.data.getD pos 0).isDigit ||
+       ((input.data.getD pos 0 == '+'.toUInt8 || input.data.getD pos 0 == '-'.toUInt8) &&
+       (input.data.getD (pos + 1) 0).isDigit) then
+      pos := pos + 1
+      while h: pos < input.size do
+        let c := input[pos]
+        if UInt8.isDigit c then
+          pos := pos + 1
+        else
+          break
+      let newState := { state with pos := pos }
+      return (newState.mkToken .floatLit state.pos, newState)
+    else
+      let newState := { state with pos := pos }
+      return (newState.mkToken .floatLit state.pos, newState)
+
+
+/--
   Lex the next token from the input.
 -/
 partial def lex (state : LexerState) : Except String (Token × LexerState) :=
@@ -447,6 +521,8 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
     else if c == '!'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
       lexPrefixedIdentifier newState tokStart .exclamationIdent
+    else if UInt8.isDigit c then
+      return lexNumber state c
     else
       .error s!"Unexpected character '{Char.ofUInt8 c}' at position {state.pos}"
 
