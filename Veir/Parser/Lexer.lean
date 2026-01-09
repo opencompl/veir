@@ -208,6 +208,90 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
     else if UInt8.isAlphaOrUnderscore c then
       let start := state.pos
       return lexBareIdentifier state tokStart
+    -- Parse single-character tokens
+    else if c == ':'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.Colon tokStart, newState)
+    else if c == '('.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.LParen tokStart, newState)
+    else if c == ')'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.RParen tokStart, newState)
+    else if c == '}'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.RBrace tokStart, newState)
+    else if c == '['.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.LSquare tokStart, newState)
+    else if c == ']'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.RSquare tokStart, newState)
+    else if c == '<'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.Less tokStart, newState)
+    else if c == '>'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.Greater tokStart, newState)
+    else if c == '='.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.Equal tokStart, newState)
+    else if c == '+'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.Plus tokStart, newState)
+    else if c == '*'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.Star tokStart, newState)
+    else if c == '?'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.Question tokStart, newState)
+    else if c == '|'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.VerticalBar tokStart, newState)
+    -- Parse `...`
+    else if c == '.'.toUInt8 then
+      if h: state.pos + 2 < state.input.size then
+        let c1 := state.input[state.pos + 1]
+        let c2 := state.input[state.pos + 2]
+        if c1 == '.'.toUInt8 && c2 == '.'.toUInt8 then
+          let newState := { state with pos := state.pos + 3 }
+          return (newState.formToken TokenKind.Ellipsis tokStart, newState)
+        else
+          .error "expected three consecutive '.' for an ellipsis"
+      else
+        .error "expected three consecutive '.' for an ellipsis"
+    -- Parse `-` or `->`
+    else if c == '-'.toUInt8 then
+      if h: state.pos + 1 < state.input.size then
+        let c1 := state.input[state.pos + 1]
+        if c1 == '>'.toUInt8 then
+          let newState := { state with pos := state.pos + 2 }
+          return (newState.formToken TokenKind.Arrow tokStart, newState)
+        else
+          let newState := { state with pos := state.pos + 1 }
+          return (newState.formToken TokenKind.Minus tokStart, newState)
+      else
+        let newState := { state with pos := state.pos + 1 }
+        return (newState.formToken TokenKind.Minus tokStart, newState)
+    -- Parse `{` and `{-#`
+    else if c == '{'.toUInt8 then
+      if h: state.pos + 2 < state.input.size then
+        let c1 := state.input[state.pos + 1]
+        let c2 := state.input[state.pos + 2]
+        if c1 == '-'.toUInt8 && c2 == '#'.toUInt8 then
+          let newState := { state with pos := state.pos + 3 }
+          return (newState.formToken TokenKind.FileMetadataBegin tokStart, newState)
+        else
+          let newState := { state with pos := state.pos + 1 }
+          return (newState.formToken TokenKind.LBrace tokStart, newState)
+      else
+        let newState := { state with pos := state.pos + 1 }
+        return (newState.formToken TokenKind.LBrace tokStart, newState)
+    -- Parse `#-}`
+    else if c == '#'.toUInt8 && state.pos + 2 < state.input.size
+        && state.input[state.pos + 1]! == '-'.toUInt8 && state.input[state.pos + 2]! == '}'.toUInt8 then
+      let newState := { state with pos := state.pos + 3 }
+      return (newState.formToken TokenKind.FileMetadataEnd tokStart, newState)
     else
       .error s!"Unexpected character '{Char.ofUInt8 c}' at position {state.pos}"
 
