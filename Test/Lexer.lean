@@ -11,115 +11,115 @@ def lexResult (s : String) : String :=
   | .error err => s!"Error: {err}"
 
 /--
-  info: "Value: `foo`, Kind: BareIdent"
+  info: "Value: `foo`, Kind: bareIdent"
 -/
 #guard_msgs in
 #eval lexResult "foo"
 
 /--
-  info: "Value: `foo`, Kind: BareIdent"
+  info: "Value: `foo`, Kind: bareIdent"
 -/
 #guard_msgs in
 #eval lexResult " \r \x00 \n\tfoo"
 
 /--
-  info: "Value: `:`, Kind: Colon"
+  info: "Value: `:`, Kind: colon"
 -/
 #guard_msgs in
 #eval lexResult ":"
 
 /--
-  info: "Value: `:`, Kind: Colon"
+  info: "Value: `:`, Kind: colon"
 -/
 #guard_msgs in
 #eval lexResult ":"
 
 /--
-  info: "Value: `(`, Kind: LParen"
+  info: "Value: `(`, Kind: lParen"
 -/
 #guard_msgs in
 #eval lexResult "("
 
 /--
-  info: "Value: `)`, Kind: RParen"
+  info: "Value: `)`, Kind: rParen"
 -/
 #guard_msgs in
 #eval lexResult ")"
 
 /--
-  info: "Value: `{`, Kind: LBrace"
+  info: "Value: `{`, Kind: lBrace"
 -/
 #guard_msgs in
 #eval lexResult "{"
 
 /--
-  info: "Value: `{-#`, Kind: FileMetadataBegin"
+  info: "Value: `{-#`, Kind: fileMetadataBegin"
 -/
 #guard_msgs in
 #eval lexResult "{-#"
 
 /--
-  info: "Value: `{`, Kind: LBrace"
+  info: "Value: `{`, Kind: lBrace"
 -/
 #guard_msgs in
 #eval lexResult "{-"
 
 /--
-  info: "Value: `}`, Kind: RBrace"
+  info: "Value: `}`, Kind: rBrace"
 -/
 #guard_msgs in
 #eval lexResult "}"
 
 /--
-  info: "Value: `[`, Kind: LSquare"
+  info: "Value: `[`, Kind: lSquare"
 -/
 #guard_msgs in
 #eval lexResult "["
 
 /--
-  info: "Value: `]`, Kind: RSquare"
+  info: "Value: `]`, Kind: rSquare"
 -/
 #guard_msgs in
 #eval lexResult "]"
 
 /--
-  info: "Value: `<`, Kind: Less"
+  info: "Value: `<`, Kind: less"
 -/
 #guard_msgs in
 #eval lexResult "<"
 
 /--
-  info: "Value: `>`, Kind: Greater"
+  info: "Value: `>`, Kind: greater"
 -/
 #guard_msgs in
 #eval lexResult ">"
 
 /--
-  info: "Value: `=`, Kind: Equal"
+  info: "Value: `=`, Kind: equal"
 -/
 #guard_msgs in
 #eval lexResult "="
 
 /--
-  info: "Value: `+`, Kind: Plus"
+  info: "Value: `+`, Kind: plus"
 -/
 #guard_msgs in
 #eval lexResult "+"
 
 /--
-  info: "Value: `*`, Kind: Star"
+  info: "Value: `*`, Kind: star"
 -/
 #guard_msgs in
 #eval lexResult "*"
 
 /--
-  info: "Value: `?`, Kind: Question"
+  info: "Value: `?`, Kind: question"
 -/
 #guard_msgs in
 #eval lexResult "?"
 
 /--
-  info: "Value: `|`, Kind: VerticalBar"
+  info: "Value: `|`, Kind: verticalBar"
 -/
 #guard_msgs in
 #eval lexResult "|"
@@ -131,67 +131,67 @@ def lexResult (s : String) : String :=
 #eval lexResult "."
 
 /--
-  info: "Value: `...`, Kind: Ellipsis"
+  info: "Value: `...`, Kind: ellipsis"
 -/
 #guard_msgs in
 #eval lexResult "..."
 
 /--
-  info: "Value: `-`, Kind: Minus"
+  info: "Value: `-`, Kind: minus"
 -/
 #guard_msgs in
 #eval lexResult "-"
 
 /--
-  info: "Value: `->`, Kind: Arrow"
+  info: "Value: `->`, Kind: arrow"
 -/
 #guard_msgs in
 #eval lexResult "->"
 
 /--
-  info: "Value: `#-}`, Kind: FileMetadataEnd"
+  info: "Value: `#-}`, Kind: fileMetadataEnd"
 -/
 #guard_msgs in
 #eval lexResult "#-}"
 
 /--
-  info: "Value: `/`, Kind: Slash"
+  info: "Value: `/`, Kind: slash"
 -/
 #guard_msgs in
 #eval lexResult "/"
 
 /--
-  info: "Value: `foo`, Kind: BareIdent"
+  info: "Value: `foo`, Kind: bareIdent"
 -/
 #guard_msgs in
 #eval lexResult "// This is a comment\nfoo"
 
 /--
-  info: "Value: `foo`, Kind: BareIdent"
+  info: "Value: `foo`, Kind: bareIdent"
 -/
 #guard_msgs in
 #eval lexResult "// This is a comment\rfoo"
 
 /--
-  info: "Value: ``, Kind: Eof"
+  info: "Value: ``, Kind: eof"
 -/
 #guard_msgs in
 #eval lexResult "// This is a comment"
 
 /--
-  info: "Value: `\"Hello, World!\"`, Kind: StringLit"
+  info: "Value: `\"Hello, World!\"`, Kind: stringLit"
 -/
 #guard_msgs in
 #eval lexResult "\"Hello, World!\""
 
 /--
-  info: "Value: `\"\\n  \\\\ \\t \\\" \"`, Kind: StringLit"
+  info: "Value: `\"\\n  \\\\ \\t \\\" \"`, Kind: stringLit"
 -/
 #guard_msgs in
 #eval lexResult "\"\\n  \\\\ \\t \\\" \""
 
 /--
-  info: "Value: `\" \\00 \\d5 \\AF \"`, Kind: StringLit"
+  info: "Value: `\" \\00 \\d5 \\AF \"`, Kind: stringLit"
 -/
 #guard_msgs in
 #eval lexResult "\" \\00 \\d5 \\AF \""
@@ -209,19 +209,19 @@ def lexResult (s : String) : String :=
 #eval lexResult "\"\n\""
 
 /--
-  info: "Value: `@identifier`, Kind: AtIdent"
+  info: "Value: `@identifier`, Kind: atIdent"
 -/
 #guard_msgs in
 #eval lexResult "@identifier"
 
 /--
-  info: "Value: `@\"identifier\"`, Kind: AtIdent"
+  info: "Value: `@\"identifier\"`, Kind: atIdent"
 -/
 #guard_msgs in
 #eval lexResult "@\"identifier\""
 
 /--
-  info: "Value: `@\" \\00 \\d5 \\AF \"`, Kind: AtIdent"
+  info: "Value: `@\" \\00 \\d5 \\AF \"`, Kind: atIdent"
 -/
 #guard_msgs in
 #eval lexResult "@\" \\00 \\d5 \\AF \""
@@ -245,19 +245,19 @@ def lexResult (s : String) : String :=
 #eval lexResult "@"
 
 /--
-  info: "Value: `%00`, Kind: PercentIdent"
+  info: "Value: `%00`, Kind: percentIdent"
 -/
 #guard_msgs in
 #eval lexResult "%00"
 
 /--
-  info: "Value: `%00`, Kind: PercentIdent"
+  info: "Value: `%00`, Kind: percentIdent"
 -/
 #guard_msgs in
 #eval lexResult "%00a"
 
 /--
-  info: "Value: `%ga_bu-zo.meu$`, Kind: PercentIdent"
+  info: "Value: `%ga_bu-zo.meu$`, Kind: percentIdent"
 -/
 #guard_msgs in
 #eval lexResult "%ga_bu-zo.meu$"
@@ -269,19 +269,19 @@ def lexResult (s : String) : String :=
 #eval lexResult "% foo"
 
 /--
-  info: "Value: `#00`, Kind: HashIdent"
+  info: "Value: `#00`, Kind: hashIdent"
 -/
 #guard_msgs in
 #eval lexResult "#00"
 
 /--
-  info: "Value: `#00`, Kind: HashIdent"
+  info: "Value: `#00`, Kind: hashIdent"
 -/
 #guard_msgs in
 #eval lexResult "#00a"
 
 /--
-  info: "Value: `#ga_bu-zo.meu$`, Kind: HashIdent"
+  info: "Value: `#ga_bu-zo.meu$`, Kind: hashIdent"
 -/
 #guard_msgs in
 #eval lexResult "#ga_bu-zo.meu$"
@@ -293,19 +293,19 @@ def lexResult (s : String) : String :=
 #eval lexResult "# foo"
 
 /--
-  info: "Value: `!00`, Kind: ExclamationIdent"
+  info: "Value: `!00`, Kind: exclamationIdent"
 -/
 #guard_msgs in
 #eval lexResult "!00"
 
 /--
-  info: "Value: `!00`, Kind: ExclamationIdent"
+  info: "Value: `!00`, Kind: exclamationIdent"
 -/
 #guard_msgs in
 #eval lexResult "!00a"
 
 /--
-  info: "Value: `!ga_bu-zo.meu$`, Kind: ExclamationIdent"
+  info: "Value: `!ga_bu-zo.meu$`, Kind: exclamationIdent"
 -/
 #guard_msgs in
 #eval lexResult "!ga_bu-zo.meu$"
@@ -317,19 +317,19 @@ def lexResult (s : String) : String :=
 #eval lexResult "! foo"
 
 /--
-  info: "Value: `^00`, Kind: CaretIdent"
+  info: "Value: `^00`, Kind: caretIdent"
 -/
 #guard_msgs in
 #eval lexResult "^00"
 
 /--
-  info: "Value: `^00`, Kind: CaretIdent"
+  info: "Value: `^00`, Kind: caretIdent"
 -/
 #guard_msgs in
 #eval lexResult "^00a"
 
 /--
-  info: "Value: `^ga_bu-zo.meu$`, Kind: CaretIdent"
+  info: "Value: `^ga_bu-zo.meu$`, Kind: caretIdent"
 -/
 #guard_msgs in
 #eval lexResult "^ga_bu-zo.meu$"
