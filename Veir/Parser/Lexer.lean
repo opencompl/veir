@@ -63,10 +63,8 @@ inductive TokenKind
   | FloatLit
   /-- Integer literal. -/
   | IntLit
-  /-- String literal that can be encoded as UTF-8. -/
-  | Utf8StringLit
-  /-- String literal that cannot be encoded as UTF-8. -/
-  | BytesStringLit
+  /-- String literal. -/
+  | StringLit
   /-- The `->` token. -/
   | Arrow
   /-- The `:` token. -/
@@ -122,8 +120,7 @@ instance TokenKind.toString : ToString TokenKind where
     | TokenKind.ExclamationIdent => "ExclamationIdent"
     | TokenKind.FloatLit => "FloatLit"
     | TokenKind.IntLit => "IntLit"
-    | TokenKind.Utf8StringLit => "Utf8StringLit"
-    | TokenKind.BytesStringLit => "BytesStringLit"
+    | TokenKind.StringLit => "StringLit"
     | TokenKind.Arrow => "Arrow"
     | TokenKind.Colon => "Colon"
     | TokenKind.Comma => "Comma"
@@ -182,7 +179,7 @@ def LexerState.formToken (state : LexerState) (kind : TokenKind) (startPos : Nat
 
   The first character is expected to have already been consumed at position `tokStart`.
 -/
-partial def lexBareIdentifier (state : LexerState) (tokStart : Nat) : Token × LexerState := Id.run do
+def lexBareIdentifier (state : LexerState) (tokStart : Nat) : Token × LexerState := Id.run do
   let mut pos := state.pos
   let input := state.input
   while h: pos < input.size do
@@ -206,6 +203,46 @@ def skipComments (state : LexerState) : LexerState :=
 termination_by state.input.size - state.pos
 decreasing_by
   grind [LexerState.isEof]
+
+/--
+  Lex a string literal starting with the following grammar:
+
+  `string-literal ::= '"' [^"\n\f\v\r]* '"'`
+
+  The opening `"` is expected to have already been consumed at position `tokStart`.
+-/
+def lexStringLiteral (state : LexerState) (tokStart : Nat) : Except String (Token × LexerState) := do
+  if h: state.isEof then
+    .error "expected '\"' in string literal"
+  else
+    let c := state.input[state.pos]'(by grind [LexerState.isEof])
+    if c == '"'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.formToken TokenKind.StringLit tokStart, newState)
+    else if c == '\n'.toUInt8 then
+      .error "expected '\"' in string literal"
+    else if c == '\\'.toUInt8 then
+      if h: state.pos + 1 < state.input.size then
+        let c1 := state.input[state.pos + 1]
+        if c1 == '"'.toUInt8 || c1 == '\\'.toUInt8 || c1 == 'n'.toUInt8 || c1 == 't'.toUInt8 then
+          let nextState := { state with pos := state.pos + 2 }
+          lexStringLiteral nextState tokStart
+        else if h: state.pos + 2 < state.input.size then
+          let c2 := state.input[state.pos + 2]
+          if c1.isHexDigit && c2.isHexDigit then
+            let nextState := { state with pos := state.pos + 3 }
+            lexStringLiteral nextState tokStart
+          else
+            .error "unknown escape in string literal"
+        else
+          .error "unknown escape in string literal"
+      else
+        .error "unknown escape in string literal"
+    else
+      lexStringLiteral { state with pos := state.pos + 1 } tokStart
+termination_by state.input.size - state.pos
+decreasing_by
+  all_goals grind [LexerState.isEof]
 
 /--
   Lex the next token from the input.
@@ -320,6 +357,10 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
       else
         let newState := { state with pos := state.pos + 1 }
         return (newState.formToken TokenKind.Slash tokStart, newState)
+    -- Parse string literals
+    else if c == '"'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      lexStringLiteral newState tokStart
     else
       .error s!"Unexpected character '{Char.ofUInt8 c}' at position {state.pos}"
 

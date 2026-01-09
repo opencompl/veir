@@ -177,3 +177,33 @@ def lexResult (s : String) : String :=
 -/
 #guard_msgs in
 #eval lexResult "// This is a comment"
+
+/--
+  info: "Value: `\"Hello, World!\"`, Kind: StringLit"
+-/
+#guard_msgs in
+#eval lexResult "\"Hello, World!\""
+
+/--
+  info: "Value: `\"\\n  \\\\ \\t \\\" \"`, Kind: StringLit"
+-/
+#guard_msgs in
+#eval lexResult "\"\\n  \\\\ \\t \\\" \""
+
+/--
+  info: "Value: `\" \\00 \\d5 \\AF \"`, Kind: StringLit"
+-/
+#guard_msgs in
+#eval lexResult "\" \\00 \\d5 \\AF \""
+
+/--
+  info: "Error: expected '\"' in string literal"
+-/
+#guard_msgs in
+#eval lexResult "\""
+
+/--
+  info: "Error: expected '\"' in string literal"
+-/
+#guard_msgs in
+#eval lexResult "\"\n\""
