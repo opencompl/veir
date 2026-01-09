@@ -29,6 +29,12 @@ def lexResult (s : String) : String :=
 #eval lexResult ":"
 
 /--
+  info: "Value: `,`, Kind: comma"
+-/
+#guard_msgs in
+#eval lexResult ","
+
+/--
   info: "Value: `:`, Kind: colon"
 -/
 #guard_msgs in

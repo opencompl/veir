@@ -107,7 +107,7 @@ inductive TokenKind
   | fileMetadataBegin
   /-- The `#-}` token. -/
   | fileMetadataEnd
-deriving Inhabited, Repr
+deriving Inhabited, Repr, DecidableEq
 
 instance TokenKind.toString : ToString TokenKind where
   toString
@@ -410,6 +410,9 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
     else if c == ':'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
       return (newState.mkToken .colon tokStart, newState)
+    else if c == ','.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      return (newState.mkToken .comma tokStart, newState)
     else if c == '('.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
       return (newState.mkToken .lParen tokStart, newState)
