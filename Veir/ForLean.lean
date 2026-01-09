@@ -20,8 +20,6 @@ def UInt8.isHexDigit (c : UInt8) : Bool :=
 def ByteArray.getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
   if h : i < ba.size then ba[i] else default
 
-end
-
 set_option warn.sorry false in
 @[grind .]
 theorem Array.back_popWhile {as : Array α} {p : α → Bool} (h : 0 < (as.popWhile p).size) :
