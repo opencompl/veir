@@ -102,6 +102,8 @@ inductive TokenKind
   /-- The `*` token. -/
   | Star
   /-- The `|` token. -/
+  | Slash
+  /-- The `/` token. -/
   | VerticalBar
   /-- The `{-#` token. -/
   | FileMetadataBegin
@@ -139,6 +141,7 @@ instance TokenKind.toString : ToString TokenKind where
     | TokenKind.RParen => "RParen"
     | TokenKind.RSquare => "RSquare"
     | TokenKind.Star => "Star"
+    | TokenKind.Slash => "Slash"
     | TokenKind.VerticalBar => "VerticalBar"
     | TokenKind.FileMetadataBegin => "FileMetadataBegin"
     | TokenKind.FileMetadataEnd => "FileMetadataEnd"
@@ -190,6 +193,19 @@ partial def lexBareIdentifier (state : LexerState) (tokStart : Nat) : Token × L
       break
   let newState := { state with pos := pos }
   (newState.formToken TokenKind.BareIdent tokStart, newState)
+
+def skipComments (state : LexerState) : LexerState :=
+  if h: state.isEof then
+    state
+  else
+    let c := state.input[state.pos]'(by grind [LexerState.isEof])
+    if c == '\n'.toUInt8 || c == '\r'.toUInt8 then
+      {state with pos := state.pos + 1}
+    else
+      skipComments { state with pos := state.pos + 1 }
+termination_by state.input.size - state.pos
+decreasing_by
+  grind [LexerState.isEof]
 
 /--
   Lex the next token from the input.
@@ -292,6 +308,18 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
         && state.input[state.pos + 1]! == '-'.toUInt8 && state.input[state.pos + 2]! == '}'.toUInt8 then
       let newState := { state with pos := state.pos + 3 }
       return (newState.formToken TokenKind.FileMetadataEnd tokStart, newState)
+    -- Parse `/` or a comment starting with `//`
+    else if c == '/'.toUInt8 then
+      if h: state.pos + 1 < state.input.size then
+        let c1 := state.input[state.pos + 1]
+        if c1 == '/'.toUInt8 then
+          lex (skipComments {state with pos := state.pos + 2 })
+        else
+          let newState := { state with pos := state.pos + 1 }
+          return (newState.formToken TokenKind.Slash tokStart, newState)
+      else
+        let newState := { state with pos := state.pos + 1 }
+        return (newState.formToken TokenKind.Slash tokStart, newState)
     else
       .error s!"Unexpected character '{Char.ofUInt8 c}' at position {state.pos}"
 
