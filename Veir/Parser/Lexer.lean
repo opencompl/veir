@@ -21,127 +21,127 @@ def Slice.of (slice : Slice) (array : ByteArray) : ByteArray :=
 -/
 inductive TokenKind
   /-- End of file token -/
-  | Eof
+  | eof
   /--
     Identifier
 
     bare-id ::= (letter|[_]) (letter|digit|[_$.])*
   -/
-  | BareIdent
+  | bareIdent
   /--
     Identifier prefixed with an `@` symbol.
 
     at-ident ::= `@` (bare-id | string-literal)
   -/
-  | AtIdent
+  | atIdent
   /--
     Identifier prefixed with a `#` symbol.
     `ident` only includes the identifier itself, not the `#` symbol.
 
     hash-ident ::= `#` bare-id
   -/
-  | HashIdent
+  | hashIdent
   /--
     Identifier prefixed with a `%` symbol.
 
     percent-ident ::= `%` bare-id
   -/
-  | PercentIdent
+  | percentIdent
   /--
     Identifier prefixed with a `^` symbol.
 
     percent-ident ::= `^` bare-id
   -/
-  | CaretIdent
+  | caretIdent
   /--
     Identifier suffixed with a `!` symbol.
 
     exclamation-ident ::= bare-id `!`
   -/
-  | ExclamationIdent
+  | exclamationIdent
   /-- Floating point literal. -/
-  | FloatLit
+  | floatLit
   /-- Integer literal. -/
-  | IntLit
+  | intLit
   /-- String literal. -/
-  | StringLit
+  | stringLit
   /-- The `->` token. -/
-  | Arrow
+  | arrow
   /-- The `:` token. -/
-  | Colon
+  | colon
   /-- The `,` token. -/
-  | Comma
+  | comma
   /-- The `.`.. token. -/
-  | Ellipsis
+  | ellipsis
   /-- The `=` token. -/
-  | Equal
+  | equal
   /-- The `>` token. -/
-  | Greater
+  | greater
   /-- The `{` token. -/
-  | LBrace
+  | lBrace
   /-- The `(` token. -/
-  | LParen
+  | lParen
   /-- The `[` token. -/
-  | LSquare
+  | lSquare
   /-- The `<` token. -/
-  | Less
+  | less
   /-- The `-` token. -/
-  | Minus
+  | minus
   /-- The `+` token. -/
-  | Plus
+  | plus
   /-- The `?` token. -/
-  | Question
+  | question
   /-- The `}` token. -/
-  | RBrace
+  | rBrace
   /-- The `)` token. -/
-  | RParen
+  | rParen
   /-- The `]` token. -/
-  | RSquare
+  | rSquare
   /-- The `*` token. -/
-  | Star
+  | star
   /-- The `|` token. -/
-  | Slash
+  | slash
   /-- The `/` token. -/
-  | VerticalBar
+  | verticalBar
   /-- The `{-#` token. -/
-  | FileMetadataBegin
+  | fileMetadataBegin
   /-- The `#-}` token. -/
-  | FileMetadataEnd
+  | fileMetadataEnd
 deriving Inhabited, Repr
 
 instance TokenKind.toString : ToString TokenKind where
   toString
-    | TokenKind.Eof => "Eof"
-    | TokenKind.BareIdent => "BareIdent"
-    | TokenKind.AtIdent => "AtIdent"
-    | TokenKind.HashIdent => "HashIdent"
-    | TokenKind.PercentIdent => "PercentIdent"
-    | TokenKind.CaretIdent => "CaretIdent"
-    | TokenKind.ExclamationIdent => "ExclamationIdent"
-    | TokenKind.FloatLit => "FloatLit"
-    | TokenKind.IntLit => "IntLit"
-    | TokenKind.StringLit => "StringLit"
-    | TokenKind.Arrow => "Arrow"
-    | TokenKind.Colon => "Colon"
-    | TokenKind.Comma => "Comma"
-    | TokenKind.Ellipsis => "Ellipsis"
-    | TokenKind.Equal => "Equal"
-    | TokenKind.Greater => "Greater"
-    | TokenKind.LBrace => "LBrace"
-    | TokenKind.LParen => "LParen"
-    | TokenKind.LSquare => "LSquare"
-    | TokenKind.Less => "Less"
-    | TokenKind.Minus => "Minus"
-    | TokenKind.Plus => "Plus"
-    | TokenKind.Question => "Question"
-    | TokenKind.RBrace => "RBrace"
-    | TokenKind.RParen => "RParen"
-    | TokenKind.RSquare => "RSquare"
-    | TokenKind.Star => "Star"
-    | TokenKind.Slash => "Slash"
-    | TokenKind.VerticalBar => "VerticalBar"
-    | TokenKind.FileMetadataBegin => "FileMetadataBegin"
-    | TokenKind.FileMetadataEnd => "FileMetadataEnd"
+    | TokenKind.eof => "eof"
+    | TokenKind.bareIdent => "bareIdent"
+    | TokenKind.atIdent => "atIdent"
+    | TokenKind.hashIdent => "hashIdent"
+    | TokenKind.percentIdent => "percentIdent"
+    | TokenKind.caretIdent => "caretIdent"
+    | TokenKind.exclamationIdent => "exclamationIdent"
+    | TokenKind.floatLit => "floatLit"
+    | TokenKind.intLit => "intLit"
+    | TokenKind.stringLit => "stringLit"
+    | TokenKind.arrow => "arrow"
+    | TokenKind.colon => "colon"
+    | TokenKind.comma => "comma"
+    | TokenKind.ellipsis => "ellipsis"
+    | TokenKind.equal => "equal"
+    | TokenKind.greater => "greater"
+    | TokenKind.lBrace => "lBrace"
+    | TokenKind.lParen => "lParen"
+    | TokenKind.lSquare => "lSquare"
+    | TokenKind.less => "less"
+    | TokenKind.minus => "minus"
+    | TokenKind.plus => "plus"
+    | TokenKind.question => "question"
+    | TokenKind.rBrace => "rBrace"
+    | TokenKind.rParen => "rParen"
+    | TokenKind.rSquare => "rSquare"
+    | TokenKind.star => "star"
+    | TokenKind.slash => "slash"
+    | TokenKind.verticalBar => "verticalBar"
+    | TokenKind.fileMetadataBegin => "fileMetadataBegin"
+    | TokenKind.fileMetadataEnd => "fileMetadataEnd"
 
 structure Token where
   /-- The kind of token. -/
@@ -189,7 +189,7 @@ def lexBareIdentifier (state : LexerState) (tokStart : Nat) : Token × LexerStat
     else
       break
   let newState := { state with pos := pos }
-  (newState.mkToken TokenKind.BareIdent tokStart, newState)
+  (newState.mkToken .bareIdent tokStart, newState)
 
 def skipComments (state : LexerState) : LexerState :=
   if h: state.isEof then
@@ -218,7 +218,7 @@ def lexStringLiteral (state : LexerState) (tokStart : Nat) : Except String (Toke
     let c := state.input[state.pos]'(by grind [LexerState.isEof])
     if c == '"'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.StringLit tokStart, newState)
+      return (newState.mkToken .stringLit tokStart, newState)
     else if c == '\n'.toUInt8 then
       .error "expected '\"' in string literal"
     else if c == '\\'.toUInt8 then
@@ -257,11 +257,11 @@ def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except String (Token
     let c := state.input[state.pos]'(by grind [LexerState.isEof])
     if UInt8.isAlphaOrUnderscore c then
       let (token, state) := lexBareIdentifier state tokStart
-      return (LexerState.mkToken state TokenKind.AtIdent tokStart, state)
+      return (LexerState.mkToken state .atIdent tokStart, state)
     else if c == '"'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
       let (token, state) ← lexStringLiteral newState tokStart
-      return (LexerState.mkToken state TokenKind.AtIdent tokStart, state)
+      return (LexerState.mkToken state .atIdent tokStart, state)
     else
       .error "expected identifier or string literal after '@'"
 
@@ -280,10 +280,10 @@ def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except String (Token
 def lexPrefixedIdentifier (state : LexerState) (tokStart : Nat)
     (kind : TokenKind) : Except String (Token × LexerState) := do
   let errorString := match kind with
-    | TokenKind.HashIdent => "invalid attribute name"
-    | TokenKind.PercentIdent => "invalid SSA name"
-    | TokenKind.CaretIdent => "invalid block name"
-    | TokenKind.ExclamationIdent => "invalid type name"
+    | .hashIdent => "invalid attribute name"
+    | .percentIdent => "invalid SSA name"
+    | .caretIdent => "invalid block name"
+    | .exclamationIdent => "invalid type name"
     | _ => "internal error: invalid kind for prefixed identifier"
 
   if h: state.isEof then
@@ -322,7 +322,7 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
   let tokStart := state.pos
   -- Check for end of file
   if h: state.isEof then
-    return (state.mkToken TokenKind.Eof state.pos, state)
+    return (state.mkToken .eof state.pos, state)
   else
     let c := state.input[state.pos]'(by grind [LexerState.isEof])
     -- Skip whitespaces
@@ -335,43 +335,43 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
     -- Parse single-character tokens
     else if c == ':'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.Colon tokStart, newState)
+      return (newState.mkToken .colon tokStart, newState)
     else if c == '('.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.LParen tokStart, newState)
+      return (newState.mkToken .lParen tokStart, newState)
     else if c == ')'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.RParen tokStart, newState)
+      return (newState.mkToken .rParen tokStart, newState)
     else if c == '}'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.RBrace tokStart, newState)
+      return (newState.mkToken .rBrace tokStart, newState)
     else if c == '['.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.LSquare tokStart, newState)
+      return (newState.mkToken .lSquare tokStart, newState)
     else if c == ']'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.RSquare tokStart, newState)
+      return (newState.mkToken .rSquare tokStart, newState)
     else if c == '<'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.Less tokStart, newState)
+      return (newState.mkToken .less tokStart, newState)
     else if c == '>'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.Greater tokStart, newState)
+      return (newState.mkToken .greater tokStart, newState)
     else if c == '='.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.Equal tokStart, newState)
+      return (newState.mkToken .equal tokStart, newState)
     else if c == '+'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.Plus tokStart, newState)
+      return (newState.mkToken .plus tokStart, newState)
     else if c == '*'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.Star tokStart, newState)
+      return (newState.mkToken .star tokStart, newState)
     else if c == '?'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.Question tokStart, newState)
+      return (newState.mkToken .question tokStart, newState)
     else if c == '|'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      return (newState.mkToken TokenKind.VerticalBar tokStart, newState)
+      return (newState.mkToken .verticalBar tokStart, newState)
     -- Parse `...`
     else if c == '.'.toUInt8 then
       if h: state.pos + 2 < state.input.size then
@@ -379,7 +379,7 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
         let c2 := state.input[state.pos + 2]
         if c1 == '.'.toUInt8 && c2 == '.'.toUInt8 then
           let newState := { state with pos := state.pos + 3 }
-          return (newState.mkToken TokenKind.Ellipsis tokStart, newState)
+          return (newState.mkToken .ellipsis tokStart, newState)
         else
           .error "expected three consecutive '.' for an ellipsis"
       else
@@ -390,13 +390,13 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
         let c1 := state.input[state.pos + 1]
         if c1 == '>'.toUInt8 then
           let newState := { state with pos := state.pos + 2 }
-          return (newState.mkToken TokenKind.Arrow tokStart, newState)
+          return (newState.mkToken .arrow tokStart, newState)
         else
           let newState := { state with pos := state.pos + 1 }
-          return (newState.mkToken TokenKind.Minus tokStart, newState)
+          return (newState.mkToken .minus tokStart, newState)
       else
         let newState := { state with pos := state.pos + 1 }
-        return (newState.mkToken TokenKind.Minus tokStart, newState)
+        return (newState.mkToken .minus tokStart, newState)
     -- Parse `{` and `{-#`
     else if c == '{'.toUInt8 then
       if h: state.pos + 2 < state.input.size then
@@ -404,18 +404,18 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
         let c2 := state.input[state.pos + 2]
         if c1 == '-'.toUInt8 && c2 == '#'.toUInt8 then
           let newState := { state with pos := state.pos + 3 }
-          return (newState.mkToken TokenKind.FileMetadataBegin tokStart, newState)
+          return (newState.mkToken .fileMetadataBegin tokStart, newState)
         else
           let newState := { state with pos := state.pos + 1 }
-          return (newState.mkToken TokenKind.LBrace tokStart, newState)
+          return (newState.mkToken .lBrace tokStart, newState)
       else
         let newState := { state with pos := state.pos + 1 }
-        return (newState.mkToken TokenKind.LBrace tokStart, newState)
+        return (newState.mkToken .lBrace tokStart, newState)
     -- Parse `#-}`
     else if c == '#'.toUInt8 && state.pos + 2 < state.input.size
         && state.input[state.pos + 1]! == '-'.toUInt8 && state.input[state.pos + 2]! == '}'.toUInt8 then
       let newState := { state with pos := state.pos + 3 }
-      return (newState.mkToken TokenKind.FileMetadataEnd tokStart, newState)
+      return (newState.mkToken .fileMetadataEnd tokStart, newState)
     -- Parse `/` or a comment starting with `//`
     else if c == '/'.toUInt8 then
       if h: state.pos + 1 < state.input.size then
@@ -424,10 +424,10 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
           lex (skipComments {state with pos := state.pos + 2 })
         else
           let newState := { state with pos := state.pos + 1 }
-          return (newState.mkToken TokenKind.Slash tokStart, newState)
+          return (newState.mkToken .slash tokStart, newState)
       else
         let newState := { state with pos := state.pos + 1 }
-        return (newState.mkToken TokenKind.Slash tokStart, newState)
+        return (newState.mkToken .slash tokStart, newState)
     -- Parse string literals
     else if c == '"'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
@@ -437,16 +437,16 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
       lexAtIdentifier newState tokStart
     else if c == '#'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      lexPrefixedIdentifier newState tokStart TokenKind.HashIdent
+      lexPrefixedIdentifier newState tokStart .hashIdent
     else if c == '%'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      lexPrefixedIdentifier newState tokStart TokenKind.PercentIdent
+      lexPrefixedIdentifier newState tokStart .percentIdent
     else if c == '^'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      lexPrefixedIdentifier newState tokStart TokenKind.CaretIdent
+      lexPrefixedIdentifier newState tokStart .caretIdent
     else if c == '!'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
-      lexPrefixedIdentifier newState tokStart TokenKind.ExclamationIdent
+      lexPrefixedIdentifier newState tokStart .exclamationIdent
     else
       .error s!"Unexpected character '{Char.ofUInt8 c}' at position {state.pos}"
 
