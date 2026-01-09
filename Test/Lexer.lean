@@ -243,3 +243,99 @@ def lexResult (s : String) : String :=
 -/
 #guard_msgs in
 #eval lexResult "@"
+
+/--
+  info: "Value: `%00`, Kind: PercentIdent"
+-/
+#guard_msgs in
+#eval lexResult "%00"
+
+/--
+  info: "Value: `%00`, Kind: PercentIdent"
+-/
+#guard_msgs in
+#eval lexResult "%00a"
+
+/--
+  info: "Value: `%ga_bu-zo.meu$`, Kind: PercentIdent"
+-/
+#guard_msgs in
+#eval lexResult "%ga_bu-zo.meu$"
+
+/--
+  info: "Error: invalid SSA name"
+-/
+#guard_msgs in
+#eval lexResult "% foo"
+
+/--
+  info: "Value: `#00`, Kind: HashIdent"
+-/
+#guard_msgs in
+#eval lexResult "#00"
+
+/--
+  info: "Value: `#00`, Kind: HashIdent"
+-/
+#guard_msgs in
+#eval lexResult "#00a"
+
+/--
+  info: "Value: `#ga_bu-zo.meu$`, Kind: HashIdent"
+-/
+#guard_msgs in
+#eval lexResult "#ga_bu-zo.meu$"
+
+/--
+  info: "Error: invalid attribute name"
+-/
+#guard_msgs in
+#eval lexResult "# foo"
+
+/--
+  info: "Value: `!00`, Kind: ExclamationIdent"
+-/
+#guard_msgs in
+#eval lexResult "!00"
+
+/--
+  info: "Value: `!00`, Kind: ExclamationIdent"
+-/
+#guard_msgs in
+#eval lexResult "!00a"
+
+/--
+  info: "Value: `!ga_bu-zo.meu$`, Kind: ExclamationIdent"
+-/
+#guard_msgs in
+#eval lexResult "!ga_bu-zo.meu$"
+
+/--
+  info: "Error: invalid type name"
+-/
+#guard_msgs in
+#eval lexResult "! foo"
+
+/--
+  info: "Value: `^00`, Kind: CaretIdent"
+-/
+#guard_msgs in
+#eval lexResult "^00"
+
+/--
+  info: "Value: `^00`, Kind: CaretIdent"
+-/
+#guard_msgs in
+#eval lexResult "^00a"
+
+/--
+  info: "Value: `^ga_bu-zo.meu$`, Kind: CaretIdent"
+-/
+#guard_msgs in
+#eval lexResult "^ga_bu-zo.meu$"
+
+/--
+  info: "Error: invalid block name"
+-/
+#guard_msgs in
+#eval lexResult "^ foo"
