@@ -207,3 +207,39 @@ def lexResult (s : String) : String :=
 -/
 #guard_msgs in
 #eval lexResult "\"\n\""
+
+/--
+  info: "Value: `@identifier`, Kind: AtIdent"
+-/
+#guard_msgs in
+#eval lexResult "@identifier"
+
+/--
+  info: "Value: `@\"identifier\"`, Kind: AtIdent"
+-/
+#guard_msgs in
+#eval lexResult "@\"identifier\""
+
+/--
+  info: "Value: `@\" \\00 \\d5 \\AF \"`, Kind: AtIdent"
+-/
+#guard_msgs in
+#eval lexResult "@\" \\00 \\d5 \\AF \""
+
+/--
+  info: "Error: expected identifier or string literal after '@'"
+-/
+#guard_msgs in
+#eval lexResult "@2"
+
+/--
+  info: "Error: expected identifier or string literal after '@'"
+-/
+#guard_msgs in
+#eval lexResult "@@"
+
+/--
+  info: "Error: expected identifier or string literal after '@'"
+-/
+#guard_msgs in
+#eval lexResult "@"

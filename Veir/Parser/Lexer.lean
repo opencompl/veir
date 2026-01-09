@@ -245,6 +245,27 @@ decreasing_by
   all_goals grind [LexerState.isEof]
 
 /--
+  Lex an at-identifier with the following grammar:
+  `at-id ::= `@` (bare-id | string-literal)`
+
+  The first character `@` is expected to have already been parsed.
+-/
+def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except String (Token × LexerState) := do
+  if h: state.isEof then
+    .error "expected identifier or string literal after '@'"
+  else
+    let c := state.input[state.pos]'(by grind [LexerState.isEof])
+    if UInt8.isAlphaOrUnderscore c then
+      let (token, state') := lexBareIdentifier state tokStart
+      return (LexerState.formToken state' TokenKind.AtIdent tokStart, state')
+    else if c == '"'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      let (token, state') ← lexStringLiteral newState tokStart
+      return (LexerState.formToken state' TokenKind.AtIdent tokStart, state')
+    else
+      .error "expected identifier or string literal after '@'"
+
+/--
   Lex the next token from the input.
 -/
 partial def lex (state : LexerState) : Except String (Token × LexerState) :=
@@ -361,6 +382,9 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
     else if c == '"'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
       lexStringLiteral newState tokStart
+    else if c == '@'.toUInt8 then
+      let newState := { state with pos := state.pos + 1 }
+      lexAtIdentifier newState tokStart
     else
       .error s!"Unexpected character '{Char.ofUInt8 c}' at position {state.pos}"
 
