@@ -15,11 +15,12 @@ theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: Nat)
     (numResults: Nat) (operands: Array ValuePtr) (numRegions: Nat) (properties: UInt64)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx)
+    hregions
     (hins : insertionPoint.maybe InsertPoint.InBounds ctx)
     (hx : ctx.FieldsInBounds)
     (hctx : IRContext.WellFormed ctx)
     (newCtx : IRContext) (newOp : OperationPtr) :
-    Rewriter.createOp ctx opType numResults operands numRegions properties insertionPoint hoper hins hx = some (newCtx, newOp) →
+    Rewriter.createOp ctx opType numResults operands regions properties insertionPoint hoper hregions hins hx = some (newCtx, newOp) →
     newCtx.WellFormed := by
   intros heq
   constructor
