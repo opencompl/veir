@@ -25,3 +25,27 @@ def testParser [ToString α] (s : String) (f : EStateM String ParserState α) : 
 -/
 #guard_msgs in
 #eval testParser "..." (parseOptionalPunctuation "...")
+
+/--
+  info: "Success: [102, 111, 111]"
+-/
+#guard_msgs in
+#eval testParser "foo" (parseIdentifier)
+
+/--
+  info: "Error: custom error"
+-/
+#guard_msgs in
+#eval testParser "->" (parseIdentifier "custom error")
+
+/--
+  info: "Success: (some [102, 111, 111])"
+-/
+#guard_msgs in
+#eval testParser "foo" (parseOptionalIdentifier)
+
+/--
+  info: "Success: none"
+-/
+#guard_msgs in
+#eval testParser "->" (parseOptionalIdentifier)

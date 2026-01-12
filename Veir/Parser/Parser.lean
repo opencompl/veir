@@ -27,6 +27,12 @@ def ParserState.fromInput (input : ByteArray) : Except String ParserState := do
 def ParserState.pos (state : ParserState) : Nat :=
   state.lexer.pos
 
+/--
+  Get the input being parsed.
+-/
+def ParserState.input (state : ParserState) : ByteArray :=
+  state.lexer.input
+
 /-
   Generic methods for parsing.
 -/
@@ -117,6 +123,32 @@ def parsePunctuation (c : String) (h : (isPunctuation c).isSome := by grind) : m
   match ← parseOptionalPunctuation c with
   | true => return ()
   | false => throw s!"Expected punctuation '{c}'"
+
+/--
+  Parse optionally an identifier with grammar rule `(letter|[_]) (letter|digit|[_$.])*`.
+  If the next token is an identifier, consume it and return its string slice.
+  Otherwise, return none.
+-/
+def parseOptionalIdentifier : m (Option ByteArray) := do
+  match ← parseOptionalToken .bareIdent with
+  | some token => return some (token.slice.of ((← get).input))
+  | none => return none
+
+/--
+  Parse an identifier with grammar rule `(letter|[_]) (letter|digit|[_$.])*`.
+  Raise an error if the next token is not an identifier.
+-/
+def parseIdentifier (errorMsg : String := "identifier expected") : m ByteArray := do
+  match ← parseOptionalIdentifier with
+  | some ident => return ident
+  | none => throw errorMsg
+
+/--
+  Parse an integer literal. The integer can either be in decimal or hexadecimal form.
+  Optionally, allow a leading '-' sign.
+  Optionally, allow parsing 'true' or 'false' as 1 or 0, respectively.
+-/
+def parseOptionalInteger := true
 
 end ParserStateMethods
 
