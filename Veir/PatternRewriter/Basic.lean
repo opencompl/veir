@@ -142,11 +142,12 @@ theorem addUsersInWorklist_same_ctx :
   simp [addUsersInWorklist]
 
 def createOp (rewriter: PatternRewriter) (opType: Nat)
-    (numResults: Nat) (operands: Array ValuePtr) (numRegions: Nat) (properties: UInt64)
+    (numResults: Nat) (operands: Array ValuePtr) (regions: Array RegionPtr) (properties: UInt64)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds rewriter.ctx)
+    (hregions : ∀ region, region ∈ regions → region.InBounds rewriter.ctx)
     (hins : insertionPoint.maybe InsertPoint.InBounds rewriter.ctx) : Option (PatternRewriter × OperationPtr) := do
-  rlet (newCtx, op) ← Rewriter.createOp rewriter.ctx opType numResults operands numRegions properties insertionPoint hoper hins (by grind)
+  rlet (newCtx, op) ← Rewriter.createOp rewriter.ctx opType numResults operands regions properties insertionPoint hoper hregions hins (by grind)
   if h : insertionPoint.isNone then
     ({ rewriter with ctx := newCtx, ctx_fib := by grind }, op)
   else
