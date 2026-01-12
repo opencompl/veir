@@ -339,3 +339,63 @@ def lexResult (s : String) : String :=
 -/
 #guard_msgs in
 #eval lexResult "^ foo"
+
+/--
+  info: "Value: `0`, Kind: intLit"
+-/
+#guard_msgs in
+#eval lexResult "0x"
+
+/--
+  info: "Value: `0`, Kind: intLit"
+-/
+#guard_msgs in
+#eval lexResult "0xi"
+
+/--
+  info: "Value: `0x0123456789abcdefABCDEF`, Kind: intLit"
+-/
+#guard_msgs in
+#eval lexResult "0x0123456789abcdefABCDEF"
+
+/--
+  info: "Value: `42`, Kind: intLit"
+-/
+#guard_msgs in
+#eval lexResult "42"
+
+/--
+  info: "Value: `42.`, Kind: floatLit"
+-/
+#guard_msgs in
+#eval lexResult "42."
+
+/--
+  info: "Value: `42.0`, Kind: floatLit"
+-/
+#guard_msgs in
+#eval lexResult "42.0"
+
+/--
+  info: "Value: `3.1415926`, Kind: floatLit"
+-/
+#guard_msgs in
+#eval lexResult "3.1415926"
+
+/--
+  info: "Value: `34.e0`, Kind: floatLit"
+-/
+#guard_msgs in
+#eval lexResult "34.e0"
+
+/--
+  info: "Value: `34.e-23`, Kind: floatLit"
+-/
+#guard_msgs in
+#eval lexResult "34.e-23"
+
+/--
+  info: "Value: `34.e12`, Kind: floatLit"
+-/
+#guard_msgs in
+#eval lexResult "34.e12"

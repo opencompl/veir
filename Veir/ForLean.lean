@@ -16,6 +16,10 @@ def UInt8.isDigit (c : UInt8) : Bool :=
 def UInt8.isHexDigit (c : UInt8) : Bool :=
   c.isDigit || (c >= 'a'.toUInt8 && c <= 'f'.toUInt8) || (c >= 'A'.toUInt8 && c <= 'F'.toUInt8)
 
+@[inline]
+def ByteArray.getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
+  if h : i < ba.size then ba[i] else default
+
 set_option warn.sorry false in
 @[grind .]
 theorem Array.back_popWhile {as : Array α} {p : α → Bool} (h : 0 < (as.popWhile p).size) :
