@@ -14,6 +14,8 @@ def testParser [ToString α] (s : String) (f : EStateM String ParserState α) : 
   | .error lexErr =>
     s!"Error: {lexErr}"
 
+section parsePunctuation
+
 /--
   info: "Success: ()"
 -/
@@ -25,6 +27,10 @@ def testParser [ToString α] (s : String) (f : EStateM String ParserState α) : 
 -/
 #guard_msgs in
 #eval testParser "..." (parseOptionalPunctuation "...")
+
+end parsePunctuation
+
+section parseIdentifier
 
 /--
   info: "Success: [102, 111, 111]"
@@ -49,3 +55,119 @@ def testParser [ToString α] (s : String) (f : EStateM String ParserState α) : 
 -/
 #guard_msgs in
 #eval testParser "->" (parseOptionalIdentifier)
+
+end parseIdentifier
+
+section parseBoolean
+
+/--
+  info: "Success: (some true)"
+-/
+#guard_msgs in
+#eval testParser "true" (parseOptionalBoolean)
+
+/--
+  info: "Success: (some false)"
+-/
+#guard_msgs in
+#eval testParser "false" (parseOptionalBoolean)
+
+/--
+  info: "Success: none"
+-/
+#guard_msgs in
+#eval testParser "0" (parseOptionalBoolean)
+
+/--
+  info: "Success: true"
+-/
+#guard_msgs in
+#eval testParser "true" (parseBoolean)
+
+/--
+  info: "Error: error message"
+-/
+#guard_msgs in
+#eval testParser "no" (parseBoolean "error message")
+
+end parseBoolean
+
+section parseInteger
+
+-- Test with basic decimal integer
+/--
+  info: "Success: (some 123)"
+-/
+#guard_msgs in
+#eval testParser "123" (parseOptionalInteger false false)
+
+-- Test with hexadecimal integers
+/--
+  info: "Error: internal error: failed converting '[48, 120, 102, 102]' to an integer literal"
+-/
+#guard_msgs in
+#eval testParser "0x0123456789abcdefABCDEF" (parseOptionalInteger false false)
+
+-- Test parseOptionalInteger with negative integers and hex when allowed
+/--
+  info: "Error: "
+-/
+#guard_msgs in
+#eval testParser "-0xff" (parseOptionalInteger false true)
+
+-- Test parseOptionalInteger with negative integers and hex when disallowed
+/--
+  info: "Success: none"
+-/
+#guard_msgs in
+#eval testParser "-0xff" (parseOptionalInteger false false)
+
+-- Test with negative integer when allowed
+/--
+  info: "Success: (some -42)"
+-/
+#guard_msgs in
+#eval testParser "-42" (parseOptionalInteger false true)
+
+-- Test with negative integer when not allowed
+/--
+  info: "Success: none"
+-/
+#guard_msgs in
+#eval testParser "-42" (parseOptionalInteger false false)
+
+-- Test with boolean literals (when allowed)
+/--
+  info: "Success: (some 1)"
+-/
+#guard_msgs in
+#eval testParser "true" (parseOptionalInteger true false)
+
+/--
+  info: "Success: (some 0)"
+-/
+#guard_msgs in
+#eval testParser "false" (parseOptionalInteger true false)
+
+-- Test with boolean literals (when not allowed)
+/--
+  info: "Success: none"
+-/
+#guard_msgs in
+#eval testParser "true" (parseOptionalInteger false false)
+
+-- Test with non-integer input
+/--
+  info: "Success: none"
+-/
+#guard_msgs in
+#eval testParser "foo" (parseOptionalInteger false false)
+
+-- Test parseInteger
+/--
+  info: "Success: 123"
+-/
+#guard_msgs in
+#eval testParser "123" (parseInteger false false)
+
+end parseInteger
