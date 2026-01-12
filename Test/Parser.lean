@@ -8,7 +8,7 @@ open Veir.Parser
 def testParser [ToString α] (s : String) (f : EStateM String ParserState α) : String :=
   match ParserState.fromInput (s.toByteArray) with
   | .ok parser =>
-    match (f parser) with
+    match f.run parser with
     | .ok res _ => s!"Success: {toString res}"
     | .error err _ => s!"Error: {err}"
   | .error lexErr =>
