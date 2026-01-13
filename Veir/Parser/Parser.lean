@@ -43,8 +43,9 @@ variable [Monad m] [MonadExcept String m] [MonadStateOf ParserState m]
 /--
   Consume the current token and return the updated parser state.
   Use `parseToken` or `parseOptionalToken` to consume only specific tokens.
+  This function should not be used outside of the parser implementation.
 -/
-private def consumeToken : m Token := do
+def consumeToken : m Token := do
   let token := (←get).currentToken
   let (nextToken, lexerState) ← ofExcept <| lex (←get).lexer
   set { lexer := lexerState, currentToken := nextToken : ParserState }
@@ -72,8 +73,9 @@ private def parseToken (tokType : TokenKind) (errorMsg : String) : m Token := do
 
 /--
   Peek at the current token without consuming it.
+  This function should not be used outside of the parser implementation.
 -/
-private def peekToken : m Token := do
+def peekToken : m Token := do
   return (←get).currentToken
 
 /--

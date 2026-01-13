@@ -13,6 +13,9 @@ structure Slice where
   stop : Nat
 deriving Inhabited, Repr
 
+def Slice.size (slice : Slice) : Nat :=
+  slice.stop - slice.start
+
 def Slice.of (slice : Slice) (array : ByteArray) : ByteArray :=
   array.extract slice.start slice.stop
 
