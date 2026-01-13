@@ -202,7 +202,12 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : m (Optio
 
   -- Convert the integer literal token to an Int
   if let some intToken := intToken then
-    let value := (String.fromUTF8? (intToken.slice.of ((← get).input))).bind String.toNat?
+    let slice := intToken.slice.of ((← get).input)
+    let value :=
+      if ∃ (_: slice.size > 2), slice[1] == 'x'.toUInt8 || slice[1] == 'X'.toUInt8 then
+        slice.hexToNat?
+      else
+        (String.fromUTF8? slice).bind String.toNat?
     if let some value := value then
       if isNegative then
         return some (Int.negOfNat value)

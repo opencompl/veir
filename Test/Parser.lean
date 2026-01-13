@@ -103,17 +103,17 @@ section parseInteger
 
 -- Test with hexadecimal integers
 /--
-  info: "Error: internal error: failed converting '[48, 120, 102, 102]' to an integer literal"
+  info: "Success: (some 1375488932539311409843695)"
 -/
 #guard_msgs in
 #eval testParser "0x0123456789abcdefABCDEF" (parseOptionalInteger false false)
 
--- Test parseOptionalInteger with negative integers and hex when allowed
+-- Test with negative integers and hex when allowed
 /--
-  info: "Error: "
+  info: "Success: (some -240)"
 -/
 #guard_msgs in
-#eval testParser "-0xff" (parseOptionalInteger false true)
+#eval testParser "-0xf0" (parseOptionalInteger false true)
 
 -- Test parseOptionalInteger with negative integers and hex when disallowed
 /--
