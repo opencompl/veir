@@ -171,3 +171,30 @@ section parseInteger
 #eval testParser "123" (parseInteger false false)
 
 end parseInteger
+
+section parseKeyword
+
+/--
+  info: "Success: ()"
+-/
+#guard_msgs in
+#eval testParser "while" (parseKeyword "while".toByteArray)
+
+/--
+  info: "Error: expected keyword 'if'"
+-/
+#guard_msgs in
+#eval testParser "while" (parseKeyword "if".toByteArray)
+
+/--
+  info: "Success: true"
+-/
+#guard_msgs in
+#eval testParser "for" (parseOptionalKeyword "for".toByteArray)
+
+/--
+  info: "Success: false"
+-/#guard_msgs in
+#eval testParser "while" (parseOptionalKeyword "for".toByteArray)
+
+end parseKeyword
