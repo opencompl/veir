@@ -20,6 +20,42 @@ def UInt8.isHexDigit (c : UInt8) : Bool :=
 def ByteArray.getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
   if h : i < ba.size then ba[i] else default
 
+/--
+  Convert a hexadecimal digit character to its Nat value.
+-/
+def Char.hexValue? (c : Char) : Option Nat :=
+  match c with
+  | '0' => some 0
+  | '1' => some 1
+  | '2' => some 2
+  | '3' => some 3
+  | '4' => some 4
+  | '5' => some 5
+  | '6' => some 6
+  | '7' => some 7
+  | '8' => some 8
+  | '9' => some 9
+  | 'a' | 'A' => some 0xA
+  | 'b' | 'B' => some 0xB
+  | 'c' | 'C' => some 0xC
+  | 'd' | 'D' => some 0xD
+  | 'e' | 'E' => some 0xE
+  | 'f' | 'F' => some 0xF
+  | _ => none
+
+/--
+  Parse a sequence of hexadecimal digit characters into a Nat.
+-/
+def ByteArray.hexToNat? (str : ByteArray) : Option Nat := Id.run do
+  let mut res := 0
+  for h: i in 2...(str.size) do
+    let hexValue := (Char.ofUInt8 (str[i]'(by simp [Membership.mem] at h; grind))).hexValue?
+    if let some value := hexValue then
+      res := value + (res <<< 4)
+    else
+      return none
+  some res
+
 set_option warn.sorry false in
 @[grind .]
 theorem Array.back_popWhile {as : Array α} {p : α → Bool} (h : 0 < (as.popWhile p).size) :
