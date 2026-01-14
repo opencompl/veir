@@ -181,6 +181,30 @@ def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword
     throw errorMsg
 
 /--
+  Parse optionally a string literal.
+  If the next token is a string literal, consume it and return its string value.
+  Otherwise, return none.
+  TODO: handle escape sequences in string literals.
+-/
+def parseOptionalStringLiteral : m (Option String) := do
+  match ← parseOptionalToken .stringLit with
+  | some token =>
+    let slice := token.slice.of ((← get).input)
+    match String.fromUTF8? slice with
+    | some str => return some str
+    | none => throw "internal error: failed converting string literal"
+  | none => return none
+
+/--
+  Parse a string literal.
+  Raise an error if the next token is not a string literal.
+-/
+def parseStringLiteral (errorMsg : String := "string literal expected") : m String := do
+  match ← parseOptionalStringLiteral with
+  | some str => return str
+  | none => throw errorMsg
+
+/--
   Parse a boolean with grammar rule `true | false`, if present.
   If the next token is a boolean, consume it and return its value.
   Otherwise, return none.

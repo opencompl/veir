@@ -198,3 +198,37 @@ section parseKeyword
 #eval testParser "while" (parseOptionalKeyword "for".toByteArray)
 
 end parseKeyword
+
+section parseStringLiteral
+
+/--
+  info: "Success: \"hello world!\""
+-/
+#guard_msgs in
+#eval testParser "\"hello world!\"" parseStringLiteral
+
+/--
+  info: "Error: string literal expected"
+-/
+#guard_msgs in
+#eval testParser "hello world!" parseStringLiteral
+
+/--
+  info: "Error: expected '\"' in string literal"
+-/
+#guard_msgs in
+#eval testParser "\"unterminated string" parseStringLiteral
+
+/--
+  info: "Success: \"\\n\""
+-/
+#guard_msgs in
+#eval testParser "\"\\n\"" parseStringLiteral
+
+/--
+  info: "Success: (some (\"hello world!\"))"
+-/
+#guard_msgs in
+#eval testParser "\"hello world!\"" parseOptionalStringLiteral
+
+end parseStringLiteral
