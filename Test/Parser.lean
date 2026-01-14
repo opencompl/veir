@@ -202,7 +202,7 @@ end parseKeyword
 section parseStringLiteral
 
 /--
-  info: "Success: \"hello world!\""
+  info: "Success: hello world!"
 -/
 #guard_msgs in
 #eval testParser "\"hello world!\"" parseStringLiteral
@@ -220,13 +220,13 @@ section parseStringLiteral
 #eval testParser "\"unterminated string" parseStringLiteral
 
 /--
-  info: "Success: \"\\n\""
+  info: "Success: \\n"
 -/
 #guard_msgs in
 #eval testParser "\"\\n\"" parseStringLiteral
 
 /--
-  info: "Success: (some (\"hello world!\"))"
+  info: "Success: (some (hello world!))"
 -/
 #guard_msgs in
 #eval testParser "\"hello world!\"" parseOptionalStringLiteral

@@ -189,7 +189,8 @@ def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword
 def parseOptionalStringLiteral : m (Option String) := do
   match ← parseOptionalToken .stringLit with
   | some token =>
-    let slice := token.slice.of ((← get).input)
+    let slice : Slice := {start := token.slice.start + 1, stop := token.slice.stop - 1} -- remove quotes
+    let slice := slice.of ((← get).input)
     match String.fromUTF8? slice with
     | some str => return some str
     | none => throw "internal error: failed converting string literal"
