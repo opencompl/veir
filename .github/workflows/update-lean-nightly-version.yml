@@ -61,13 +61,13 @@ jobs:
       - name: Send a stream message
         uses: zulip/github-actions-zulip/send-message@v1
         with:
-        api-key: ${{ secrets.ZULIP_API_KEY }}
-        email: "zulip@grosser.es"
-        organization-url: "https://grosser.zulipchat.com"
-        to: "Project - Lean4 - VeIR"
-        type: "stream"
-        topic: "Lean Update"
-        content: "New PR ${{steps.leandate.outputs.date}} available."
+          api-key: ${{ secrets.ZULIP_API_KEY }}
+          email: "zulip@grosser.es"
+          organization-url: "https://grosser.zulipchat.com"
+          to: "Project - Lean4 - VeIR"
+          type: "stream"
+          topic: "Lean Update"
+          content: "New PR ${{steps.leandate.outputs.date}} available."
 
       - name: Create Pull Request
         id: create-pr
