@@ -55,7 +55,7 @@ private def consumeToken : m Token := do
   Otherwise, return none.
 -/
 private def parseOptionalToken (tokType : TokenKind) : m (Option Token) := do
-  if (←get).currentToken.kind == tokType then
+  if (←get).currentToken.kind = tokType then
     some <$> consumeToken
   else
     return none
@@ -159,7 +159,7 @@ def parseOptionalKeyword (keyword : ByteArray) : m Bool := do
   match ← peekToken with
   | {kind := .bareIdent, slice := slice : Token} =>
     let ident := slice.of ((← get).input)
-    if ident == keyword then
+    if ident = keyword then
       let _ ← consumeToken
       return true
     else
@@ -173,9 +173,10 @@ def parseOptionalKeyword (keyword : ByteArray) : m Bool := do
   Otherwise, return an error with the given message.
 -/
 def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword '{String.fromUTF8! keyword}'") : m Unit := do
-  match ← parseOptionalKeyword keyword with
-  | true => return
-  | false => throw errorMsg
+  if ← parseOptionalKeyword keyword then
+    return
+  else
+    throw errorMsg
 
 /--
   Parse a boolean with grammar rule `true | false`, if present.
@@ -226,7 +227,7 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : m (Optio
   if let some intToken := intToken then
     let slice := intToken.slice.of ((← get).input)
     let value :=
-      if ∃ (_: slice.size > 2), slice[1] == 'x'.toUInt8 || slice[1] == 'X'.toUInt8 then
+      if ∃ (_: slice.size > 2), slice[1] = 'x'.toUInt8 || slice[1] = 'X'.toUInt8 then
         slice.hexToNat?
       else
         (String.fromUTF8? slice).bind String.toNat?
