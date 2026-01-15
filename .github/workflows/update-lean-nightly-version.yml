@@ -38,8 +38,8 @@ jobs:
         with:
           branch: auto-lean-update-${{steps.mldate.outputs.date}}
 
-#      - if: steps.check-branch-exists.outputs.exists == 'true'
-#        run: Skip any updates
+      - if: steps.check-branch-exists.outputs.exists == 'true'
+        run: Skip any updates
 
       - name: Set Lean Toolchain Date
         if: steps.check-branch-exists.outputs.exists == 'true'
