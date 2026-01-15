@@ -43,8 +43,9 @@ variable [Monad m] [MonadExcept String m] [MonadStateOf ParserState m]
 /--
   Consume the current token and return the updated parser state.
   Use `parseToken` or `parseOptionalToken` to consume only specific tokens.
+  This function should not be used outside of the parser implementation.
 -/
-private def consumeToken : m Token := do
+def consumeToken : m Token := do
   let token := (←get).currentToken
   let (nextToken, lexerState) ← ofExcept <| lex (←get).lexer
   set { lexer := lexerState, currentToken := nextToken : ParserState }
@@ -72,8 +73,9 @@ private def parseToken (tokType : TokenKind) (errorMsg : String) : m Token := do
 
 /--
   Peek at the current token without consuming it.
+  This function should not be used outside of the parser implementation.
 -/
-private def peekToken : m Token := do
+def peekToken : m Token := do
   return (←get).currentToken
 
 /--
@@ -224,22 +226,20 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : m (Optio
     throw "expected integer literal after '-'"
 
   -- Convert the integer literal token to an Int
-  if let some intToken := intToken then
-    let slice := intToken.slice.of ((← get).input)
-    let value :=
-      if ∃ (_: slice.size > 2), slice[1] = 'x'.toUInt8 || slice[1] = 'X'.toUInt8 then
-        slice.hexToNat?
-      else
-        (String.fromUTF8? slice).bind String.toNat?
-    if let some value := value then
-      if isNegative then
-        return some (Int.negOfNat value)
-      else
-        return some (Int.ofNat value)
+  let some intToken := intToken | return none
+  let slice := intToken.slice.of ((← get).input)
+  let value :=
+    if ∃ (_: slice.size > 2), slice[1] == 'x'.toUInt8 || slice[1] == 'X'.toUInt8 then
+      slice.hexToNat?
     else
-      throw s!"internal error: failed converting '{intToken.slice.of ((← get).input)}' to an integer literal"
+      (String.fromUTF8? slice).bind String.toNat?
+  let some value := value
+    | throw s!"internal error: failed converting '{intToken.slice.of ((← get).input)}' to an integer literal"
+  if isNegative then
+    return some (Int.negOfNat value)
   else
-    return none
+    return some (Int.ofNat value)
+
 
 /--
   Parse an integer literal.
