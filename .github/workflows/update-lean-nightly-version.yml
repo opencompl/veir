@@ -50,6 +50,13 @@ jobs:
         env:
           LAKE_NO_CACHE: true
 
+      - uses: leanprover/lean-action@v1
+        id: build
+        continue-on-error: true
+        with:
+          build-args: "--iofail"
+          test: true
+
       - name: Create Pull Request
         id: create-pr
         uses: peter-evans/create-pull-request@v7
