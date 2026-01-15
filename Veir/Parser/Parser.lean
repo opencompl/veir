@@ -38,14 +38,14 @@ def ParserState.input (state : ParserState) : ByteArray :=
 -/
 section ParserStateMethods
 
-variable [Monad m] [MonadExcept String m] [MonadStateOf ParserState m]
+variable [Monad M] [MonadExcept String M] [MonadStateOf ParserState M]
 
 /--
   Consume the current token and return the updated parser state.
   Use `parseToken` or `parseOptionalToken` to consume only specific tokens.
   This function should not be used outside of the parser implementation.
 -/
-def consumeToken : m Token := do
+def consumeToken : M Token := do
   let token := (←get).currentToken
   let (nextToken, lexerState) ← ofExcept <| lex (←get).lexer
   set { lexer := lexerState, currentToken := nextToken : ParserState }
@@ -55,7 +55,7 @@ def consumeToken : m Token := do
   If the current token is of the expected kind, consume it and return it.
   Otherwise, return none.
 -/
-private def parseOptionalToken (tokType : TokenKind) : m (Option Token) := do
+private def parseOptionalToken (tokType : TokenKind) : M (Option Token) := do
   if (←get).currentToken.kind = tokType then
     some <$> consumeToken
   else
@@ -66,7 +66,7 @@ private def parseOptionalToken (tokType : TokenKind) : m (Option Token) := do
   If the current token is of the expected kind, consume it and return it.
   Otherwise, return an error with the given message.
 -/
-private def parseToken (tokType : TokenKind) (errorMsg : String) : m Token := do
+private def parseToken (tokType : TokenKind) (errorMsg : String) : M Token := do
   match ← parseOptionalToken tokType with
   | some token => return token
   | none => throw errorMsg
@@ -75,7 +75,7 @@ private def parseToken (tokType : TokenKind) (errorMsg : String) : m Token := do
   Peek at the current token without consuming it.
   This function should not be used outside of the parser implementation.
 -/
-def peekToken : m Token := do
+def peekToken : M Token := do
   return (←get).currentToken
 
 /--
@@ -118,7 +118,7 @@ def isPunctuation (c : String) : Option TokenKind :=
   The available punctuation symbols are `->`, `...`, `:`, `,`, `=`, `>`, `{`, `(`,
   `[`, `<`, `-`, `+`, `?`, `}`, `)`, `]`, `*`, and `|`.
 -/
-def parseOptionalPunctuation (c : String) (h : (isPunctuation c).isSome := by grind) : m Bool := do
+def parseOptionalPunctuation (c : String) (h : (isPunctuation c).isSome := by grind) : M Bool := do
   return (← parseOptionalToken ((isPunctuation c).get (by assumption))).isSome
 
 /--
@@ -127,7 +127,7 @@ def parseOptionalPunctuation (c : String) (h : (isPunctuation c).isSome := by gr
   The available punctuation symbols are `->`, `...`, `:`, `,`, `=`, `>`, `{`, `(`,
   `[`, `<`, `-`, `+`, `?`, `}`, `)`, `]`, `*`, and `|`.
 -/
-def parsePunctuation (c : String) (h : (isPunctuation c).isSome := by grind) : m Unit := do
+def parsePunctuation (c : String) (h : (isPunctuation c).isSome := by grind) : M Unit := do
   match ← parseOptionalPunctuation c with
   | true => return ()
   | false => throw s!"Expected punctuation '{c}'"
@@ -137,7 +137,7 @@ def parsePunctuation (c : String) (h : (isPunctuation c).isSome := by grind) : m
   If the next token is an identifier, consume it and return its string slice.
   Otherwise, return none.
 -/
-def parseOptionalIdentifier : m (Option ByteArray) := do
+def parseOptionalIdentifier : M (Option ByteArray) := do
   match ← parseOptionalToken .bareIdent with
   | some token => return some (token.slice.of ((← get).input))
   | none => return none
@@ -146,7 +146,7 @@ def parseOptionalIdentifier : m (Option ByteArray) := do
   Parse an identifier with grammar rule `(letter|[_]) (letter|digit|[_$.])*`.
   Raise an error if the next token is not an identifier.
 -/
-def parseIdentifier (errorMsg : String := "identifier expected") : m ByteArray := do
+def parseIdentifier (errorMsg : String := "identifier expected") : M ByteArray := do
   match ← parseOptionalIdentifier with
   | some ident => return ident
   | none => throw errorMsg
@@ -157,7 +157,7 @@ def parseIdentifier (errorMsg : String := "identifier expected") : m ByteArray :
   If the next token is an identifier matching the given keyword, consume it and return it.
   Otherwise, return none.
 -/
-def parseOptionalKeyword (keyword : ByteArray) : m Bool := do
+def parseOptionalKeyword (keyword : ByteArray) : M Bool := do
   match ← peekToken with
   | {kind := .bareIdent, slice := slice : Token} =>
     let ident := slice.of ((← get).input)
@@ -174,11 +174,18 @@ def parseOptionalKeyword (keyword : ByteArray) : m Bool := do
   If the next token is an identifier matching the given keyword, consume it and return it.
   Otherwise, return an error with the given message.
 -/
+<<<<<<< HEAD
 def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword '{String.fromUTF8! keyword}'") : m Unit := do
   if ← parseOptionalKeyword keyword then
     return
   else
     throw errorMsg
+=======
+def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword '{String.fromUTF8! keyword}'") : M Unit := do
+  match ← parseOptionalKeyword keyword with
+  | true => return
+  | false => throw errorMsg
+>>>>>>> ee43ae5 (Rename m to M)
 
 /--
   Parse optionally a string literal.
@@ -186,7 +193,7 @@ def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword
   Otherwise, return none.
   TODO: handle escape sequences in string literals.
 -/
-def parseOptionalStringLiteral : m (Option String) := do
+def parseOptionalStringLiteral : M (Option String) := do
   match ← parseOptionalToken .stringLit with
   | some token =>
     let slice : Slice := {start := token.slice.start + 1, stop := token.slice.stop - 1} -- remove quotes
@@ -200,7 +207,7 @@ def parseOptionalStringLiteral : m (Option String) := do
   Parse a string literal.
   Raise an error if the next token is not a string literal.
 -/
-def parseStringLiteral (errorMsg : String := "string literal expected") : m String := do
+def parseStringLiteral (errorMsg : String := "string literal expected") : M String := do
   match ← parseOptionalStringLiteral with
   | some str => return str
   | none => throw errorMsg
@@ -210,7 +217,7 @@ def parseStringLiteral (errorMsg : String := "string literal expected") : m Stri
   If the next token is a boolean, consume it and return its value.
   Otherwise, return none.
 -/
-def parseOptionalBoolean : m (Option Bool) := do
+def parseOptionalBoolean : M (Option Bool) := do
   if ← parseOptionalKeyword "true".toByteArray then
     return some true
   else if ← parseOptionalKeyword "false".toByteArray then
@@ -222,7 +229,7 @@ def parseOptionalBoolean : m (Option Bool) := do
   Parse a boolean with grammar rule `true | false`.
   Raise an error if the next token is not a boolean.
 -/
-def parseBoolean (errorMsg : String := "boolean expected") : m Bool := do
+def parseBoolean (errorMsg : String := "boolean expected") : M Bool := do
   match ← parseOptionalBoolean with
   | some b => return b
   | none => throw errorMsg
@@ -233,7 +240,7 @@ def parseBoolean (errorMsg : String := "boolean expected") : m Bool := do
   Optionally, allow a leading `-` sign.
   Optionally, allow parsing `true` or `false` as `1` or `0`, respectively.
 -/
-def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : m (Option Int) := do
+def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : M (Option Int) := do
   -- First try to parse a boolean if allowed
   if allowBoolean then
     let boolean ← parseOptionalBoolean
@@ -272,7 +279,7 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : m (Optio
   Optionally, allow a leading `-` sign.
   Optionally, allow parsing `true` or `false` as `1` or `0`, respectively.
 -/
-def parseInteger (allowBoolean : Bool) (allowNegative : Bool) (errorMsg : String := "integer expected") : m Int := do
+def parseInteger (allowBoolean : Bool) (allowNegative : Bool) (errorMsg : String := "integer expected") : M Int := do
   match ← parseOptionalInteger allowBoolean allowNegative with
   | some i => return i
   | none => throw errorMsg
