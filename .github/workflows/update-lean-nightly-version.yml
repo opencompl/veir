@@ -58,7 +58,8 @@ jobs:
           build-args: "--iofail"
           test: true
 
-      - name: Send a stream message
+      - name: Send a stream message - FAILURE
+        if: steps.build.outputs.build-status == 'FAILURE'
         uses: zulip/github-actions-zulip/send-message@v1
         with:
           api-key: ${{ secrets.ZULIP_API_KEY }}
@@ -67,7 +68,19 @@ jobs:
           to: "Project - Lean4 - VeIR"
           type: "stream"
           topic: "Lean Update"
-          content: "New PR ${{steps.leandate.outputs.date}} available. Build ${{steps.build.outputs.build-status}}"
+          content: "New PR ${{steps.leandate.outputs.date}} available. Build ${{steps.build.outputs.build-status}} ❌"
+
+      - name: Send a stream message - SUCCESS
+        if: steps.build.outputs.build-status == 'SUCCESS'
+        uses: zulip/github-actions-zulip/send-message@v1
+        with:
+          api-key: ${{ secrets.ZULIP_API_KEY }}
+          email: "zulip@grosser.es"
+          organization-url: "https://grosser.zulipchat.com"
+          to: "Project - Lean4 - VeIR"
+          type: "stream"
+          topic: "Lean Update"
+          content: "New PR ${{steps.leandate.outputs.date}} available. Build ${{steps.build.outputs.build-status}} ✅"
 
       - name: Create Pull Request
         id: create-pr
