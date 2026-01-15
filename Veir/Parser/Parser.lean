@@ -55,7 +55,7 @@ private def consumeToken : m Token := do
   Otherwise, return none.
 -/
 private def parseOptionalToken (tokType : TokenKind) : m (Option Token) := do
-  if (←get).currentToken.kind == tokType then
+  if (←get).currentToken.kind = tokType then
     some <$> consumeToken
   else
     return none
@@ -150,23 +150,46 @@ def parseIdentifier (errorMsg : String := "identifier expected") : m ByteArray :
   | none => throw errorMsg
 
 /--
+  Parse optionally a specific keyword.
+  The given keyword should be parseable as an identifier.
+  If the next token is an identifier matching the given keyword, consume it and return it.
+  Otherwise, return none.
+-/
+def parseOptionalKeyword (keyword : ByteArray) : m Bool := do
+  match ← peekToken with
+  | {kind := .bareIdent, slice := slice : Token} =>
+    let ident := slice.of ((← get).input)
+    if ident = keyword then
+      let _ ← consumeToken
+      return true
+    else
+      return false
+  | _ => return false
+
+/--
+  Parse a specific keyword.
+  The given keyword should be parseable as an identifier.
+  If the next token is an identifier matching the given keyword, consume it and return it.
+  Otherwise, return an error with the given message.
+-/
+def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword '{String.fromUTF8! keyword}'") : m Unit := do
+  if ← parseOptionalKeyword keyword then
+    return
+  else
+    throw errorMsg
+
+/--
   Parse a boolean with grammar rule `true | false`, if present.
   If the next token is a boolean, consume it and return its value.
   Otherwise, return none.
 -/
 def parseOptionalBoolean : m (Option Bool) := do
-  match ← peekToken with
-  | {kind := .bareIdent, slice := slice} =>
-    let ident := slice.of ((← get).input)
-    if ident == "true".toByteArray then
-      let _ ← consumeToken
-      return some true
-    else if ident == "false".toByteArray then
-      let _ ← consumeToken
-      return some false
-    else
-      return none
-  | _ => return none
+  if ← parseOptionalKeyword "true".toByteArray then
+    return some true
+  else if ← parseOptionalKeyword "false".toByteArray then
+    return some false
+  else
+    return none
 
 /--
   Parse a boolean with grammar rule `true | false`.
@@ -204,7 +227,7 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : m (Optio
   if let some intToken := intToken then
     let slice := intToken.slice.of ((← get).input)
     let value :=
-      if ∃ (_: slice.size > 2), slice[1] == 'x'.toUInt8 || slice[1] == 'X'.toUInt8 then
+      if ∃ (_: slice.size > 2), slice[1] = 'x'.toUInt8 || slice[1] = 'X'.toUInt8 then
         slice.hexToNat?
       else
         (String.fromUTF8? slice).bind String.toNat?
