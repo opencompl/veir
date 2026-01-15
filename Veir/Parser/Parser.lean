@@ -226,22 +226,20 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : m (Optio
     throw "expected integer literal after '-'"
 
   -- Convert the integer literal token to an Int
-  if let some intToken := intToken then
-    let slice := intToken.slice.of ((← get).input)
-    let value :=
-      if ∃ (_: slice.size > 2), slice[1] = 'x'.toUInt8 || slice[1] = 'X'.toUInt8 then
-        slice.hexToNat?
-      else
-        (String.fromUTF8? slice).bind String.toNat?
-    if let some value := value then
-      if isNegative then
-        return some (Int.negOfNat value)
-      else
-        return some (Int.ofNat value)
+  let some intToken := intToken | return none
+  let slice := intToken.slice.of ((← get).input)
+  let value :=
+    if ∃ (_: slice.size > 2), slice[1] == 'x'.toUInt8 || slice[1] == 'X'.toUInt8 then
+      slice.hexToNat?
     else
-      throw s!"internal error: failed converting '{intToken.slice.of ((← get).input)}' to an integer literal"
+      (String.fromUTF8? slice).bind String.toNat?
+  let some value := value
+    | throw s!"internal error: failed converting '{intToken.slice.of ((← get).input)}' to an integer literal"
+  if isNegative then
+    return some (Int.negOfNat value)
   else
-    return none
+    return some (Int.ofNat value)
+
 
 /--
   Parse an integer literal.

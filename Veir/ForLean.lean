@@ -113,6 +113,8 @@ theorem Nat.eq_iff_forall_lessthan :
     have := hi (i + 1)
     grind
 
+deriving instance DecidableEq for Except
+
 section ranges
 
 open Std
