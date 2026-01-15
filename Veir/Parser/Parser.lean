@@ -174,18 +174,11 @@ def parseOptionalKeyword (keyword : ByteArray) : M Bool := do
   If the next token is an identifier matching the given keyword, consume it and return it.
   Otherwise, return an error with the given message.
 -/
-<<<<<<< HEAD
-def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword '{String.fromUTF8! keyword}'") : m Unit := do
+def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword '{String.fromUTF8! keyword}'") : M Unit := do
   if ← parseOptionalKeyword keyword then
     return
   else
     throw errorMsg
-=======
-def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword '{String.fromUTF8! keyword}'") : M Unit := do
-  match ← parseOptionalKeyword keyword with
-  | true => return
-  | false => throw errorMsg
->>>>>>> ee43ae5 (Rename m to M)
 
 /--
   Parse optionally a string literal.
