@@ -38,10 +38,11 @@ jobs:
         with:
           branch: auto-lean-update-${{steps.mldate.outputs.date}}
 
-      - if: steps.check-branch-exists.outputs.exists == 'true'
-        run: Skip any updates
+#      - if: steps.check-branch-exists.outputs.exists == 'true'
+#        run: Skip any updates
 
       - name: Set Lean Toolchain Date
+        if: steps.check-branch-exists.outputs.exists == 'true'
         run: |
            echo "## lean-toolchain"
            sed -e "s/nightly.*/${{steps.leandate.outputs.date}}/" -i lean-toolchain
@@ -56,6 +57,17 @@ jobs:
         with:
           build-args: "--iofail"
           test: true
+
+      - name: Send a stream message
+        uses: zulip/github-actions-zulip/send-message@v1
+        with:
+        api-key: ${{ secrets.ZULIP_API_KEY }}
+        email: "zulip@grosser.es"
+        organization-url: "https://grosser.zulipchat.com"
+        to: "Project - Lean4 - VeIR"
+        type: "stream"
+        topic: "Lean Update"
+        content: "New PR ${{steps.leandate.outputs.date}} available."
 
       - name: Create Pull Request
         id: create-pr
