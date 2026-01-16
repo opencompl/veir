@@ -235,7 +235,7 @@ end parseStringLiteral
 
 section parseList
 
--- Test the different delimiters
+/-! # Test different delimiters. -/
 
 /--
   info: "Success: #[1, 2, 3]"
@@ -261,7 +261,7 @@ section parseList
 #guard_msgs in
 #eval testParser "<1, 2, 3>" (parseDelimitedList Delimiter.Angle (parseInteger false false))
 
--- Test some error cases
+/-! # Test some error cases. -/
 
 /--
   info: "Error: closing delimiter ')' expected"
@@ -281,7 +281,7 @@ section parseList
 #guard_msgs in
 #eval testParser "(1, 2, )" (parseDelimitedList Delimiter.Paren (parseInteger false false))
 
--- Test empty list
+/-! # Test empty list. -/
 
 /--
   info: "Success: #[]"
@@ -295,7 +295,7 @@ section parseList
 #guard_msgs in
 #eval testParser "" (parseOptionalDelimitedList Delimiter.Paren (parseInteger false false))
 
--- No delimiter and optional delimiter cases
+/-! # Test no delimiter and optional delimiter cases. -/
 
 /--
   info: "Success: #[3, 2]"

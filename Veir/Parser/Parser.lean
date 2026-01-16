@@ -329,18 +329,18 @@ def parseList (parseItem : M α) : M (Array α) := do
   If the left delimiter is not present, return an empty list.
 -/
 def parseOptionalDelimitedList (delimiter : Delimiter) (parseItem : M α) : M (Array α) := do
-  -- Parse the left delimiter
+  /- Parse the left delimiter. -/
   if ! (← parseOptionalPunctuation delimiter.leftSymbol) then
     return #[]
 
-  -- Check for empty list
+  /- Check for empty list. -/
   if ← parseOptionalPunctuation delimiter.rightSymbol then
     return #[]
 
-  -- Parse the non-empty list
+  /- Parse the non-empty list. -/
   let items ← parseList parseItem
 
-  -- Parse the right delimiter
+  /- Parse the right delimiter. -/
   parsePunctuation delimiter.rightSymbol ("closing delimiter '" ++ delimiter.rightSymbol ++ "' expected")
   return items
 
@@ -349,17 +349,17 @@ def parseOptionalDelimitedList (delimiter : Delimiter) (parseItem : M α) : M (A
   Return an error if the left delimiter is not present.
 -/
 def parseDelimitedList (delimiter : Delimiter) (parseItem : M α) : M (Array α) := do
-  -- Parse the left delimiter
+  /- Parse the left delimiter. -/
   parsePunctuation delimiter.leftSymbol ("opening delimiter '" ++ delimiter.leftSymbol ++ "' expected")
 
-  -- Check for empty list
+  /- Check for empty list. -/
   if ← parseOptionalPunctuation delimiter.rightSymbol then
     return #[]
 
-  -- Parse the non-empty list
+  /- Parse the non-empty list. -/
   let items ← parseList parseItem
 
-  -- Parse the right delimiter
+  /- Parse the right delimiter. -/
   parsePunctuation delimiter.rightSymbol ("closing delimiter '" ++ delimiter.rightSymbol ++ "' expected")
   return items
 
