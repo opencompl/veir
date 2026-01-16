@@ -24,8 +24,11 @@ def testParseOp (s : String) : IO Unit :=
   ^4:
     arith.muli()
 }
+{
+  ^7:
+}
 -/
 #guard_msgs in
 #eval! testParseOp "\"arith.addi\"() ({
   \"arith.muli\"() : () -> ()
-}) : () -> ()"
+}, {}) : () -> ()"

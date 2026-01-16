@@ -69,11 +69,7 @@ mutual
   Parse the regions of an operation.
 -/
 partial def parseOpRegions : MlirParserM (Array RegionPtr) := do
-  if !(← parseOptionalPunctuation "(") then
-    return #[]
-  let region ← parseRegion
-  parsePunctuation ")"
-  return #[region]
+  parseOptionalDelimitedList Delimiter.Paren parseRegion
 
 /--
   Parse an operation, if present, and insert it at the given insert point.
