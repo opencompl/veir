@@ -32,3 +32,33 @@ def testParseOp (s : String) : IO Unit :=
 #eval! testParseOp "\"arith.addi\"() ({
   \"arith.muli\"() : () -> ()
 }, {}) : () -> ()"
+
+
+/--
+  info: arith.addi() {
+  ^4:
+    %5 = arith.muli()
+}
+{
+  ^7:
+}
+-/
+#guard_msgs in
+#eval! testParseOp "\"arith.addi\"() ({
+  %x = \"arith.muli\"() : () -> i32
+}, {}) : () -> ()"
+
+
+/--
+  info: arith.addi() {
+  ^4:
+    %5_0, %5_1 = arith.muli()
+}
+{
+  ^7:
+}
+-/
+#guard_msgs in
+#eval! testParseOp "\"arith.addi\"() ({
+  %x, %y = \"arith.muli\"() : () -> (i32, i32)
+}, {}) : () -> ()"
