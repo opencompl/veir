@@ -232,3 +232,81 @@ section parseStringLiteral
 #eval testParser "\"hello world!\"" parseOptionalStringLiteral
 
 end parseStringLiteral
+
+section parseList
+
+-- Test the different delimiters
+
+/--
+  info: "Success: #[1, 2, 3]"
+-/
+#guard_msgs in
+#eval testParser "(1, 2, 3)" (parseDelimitedList Delimiter.Paren (parseInteger false false))
+
+/--
+  info: "Success: #[1, 2, 3]"
+-/
+#guard_msgs in
+#eval testParser "[1, 2, 3]" (parseDelimitedList Delimiter.Square (parseInteger false false))
+
+/--
+  info: "Success: #[1, 2, 3]"
+-/
+#guard_msgs in
+#eval testParser "{1, 2, 3}" (parseDelimitedList Delimiter.Braces (parseInteger false false))
+
+/--
+  info: "Success: #[1, 2, 3]"
+-/
+#guard_msgs in
+#eval testParser "<1, 2, 3>" (parseDelimitedList Delimiter.Angle (parseInteger false false))
+
+-- Test some error cases
+
+/--
+  info: "Error: closing delimiter ')' expected"
+-/
+#guard_msgs in
+#eval testParser "(1, 2, 3" (parseDelimitedList Delimiter.Paren (parseInteger false false))
+
+/--
+  info: "Error: integer expected"
+-/
+#guard_msgs in
+#eval testParser "(1, 2, " (parseDelimitedList Delimiter.Paren (parseInteger false false))
+
+/--
+  info: "Error: integer expected"
+-/
+#guard_msgs in
+#eval testParser "(1, 2, )" (parseDelimitedList Delimiter.Paren (parseInteger false false))
+
+-- Test empty list
+
+/--
+  info: "Success: #[]"
+-/
+#guard_msgs in
+#eval testParser "()" (parseDelimitedList Delimiter.Paren (parseInteger false false))
+
+/--
+  info: "Success: #[]"
+-/
+#guard_msgs in
+#eval testParser "" (parseOptionalDelimitedList Delimiter.Paren (parseInteger false false))
+
+-- No delimiter and optional delimiter cases
+
+/--
+  info: "Success: #[3, 2]"
+-/
+#guard_msgs in
+#eval testParser "3, 2" (parseList (parseInteger false false))
+
+/--
+  info: "Success: #[3, 2]"
+-/
+#guard_msgs in
+#eval testParser "(3, 2)" (parseOptionalDelimitedList Delimiter.Paren (parseInteger false false))
+
+end parseList
