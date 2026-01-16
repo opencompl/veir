@@ -282,19 +282,19 @@ def parseInteger (allowBoolean : Bool) (allowNegative : Bool) (errorMsg : String
 -/
 inductive Delimiter
   /-- Parentheses `(` and `)` -/
-  | Paren
+  | paren
   /-- Less-than and greater-than signs `<` and `>` -/
-  | Angle
+  | angle
   /-- Square brackets `[` and `]` -/
-  | Square
+  | square
   /-- Curly braces `{` and `}` -/
-  | Braces
+  | braces
 
 def Delimiter.leftSymbol : Delimiter → String
-  | .Paren => "("
-  | .Angle => "<"
-  | .Square => "["
-  | .Braces => "{"
+  | paren => "("
+  | angle => "<"
+  | square => "["
+  | braces => "{"
 
 @[grind =]
 theorem Delimiter.leftSymbol_isPunctuation (d : Delimiter) : (isPunctuation (d.leftSymbol)).isSome := by
@@ -302,10 +302,10 @@ theorem Delimiter.leftSymbol_isPunctuation (d : Delimiter) : (isPunctuation (d.l
   grind
 
 def Delimiter.rightSymbol : Delimiter → String
-  | .Paren => ")"
-  | .Angle => ">"
-  | .Square => "]"
-  | .Braces => "}"
+  | paren => ")"
+  | angle => ">"
+  | square => "]"
+  | braces => "}"
 
 @[grind =]
 theorem Delimiter.rightSymbol_isPunctuation (d : Delimiter) : (isPunctuation (d.rightSymbol)).isSome := by
