@@ -265,6 +265,7 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : M (Optio
   else
     return some (Int.ofNat value)
 
+
 /--
   Parse an integer literal.
   The integer can either be in decimal form, hexadecimal form.
@@ -359,10 +360,8 @@ def parseDelimitedList (delimiter : Delimiter) (parseItem : M α) : M (Array α)
   let items ← parseList parseItem
 
   -- Parse the right delimiter
-
   parsePunctuation delimiter.rightSymbol ("closing delimiter '" ++ delimiter.rightSymbol ++ "' expected")
   return items
-
 
 end ParserStateMethods
 
