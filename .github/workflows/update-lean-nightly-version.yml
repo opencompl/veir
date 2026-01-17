@@ -33,6 +33,11 @@ jobs:
         run: |
            echo date=`uv run -q .github/workflows/get_lean_version.py` >> $GITHUB_OUTPUT
 
+      - name: Print New Lean version
+        id: print-lean-version
+        run: |
+           echo ${{steps.leandate.outputs.date}}
+
       - id: check-branch-exists
         uses: GuillaumeFalourd/branch-exists@v1.1
         with:
