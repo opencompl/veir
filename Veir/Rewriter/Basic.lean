@@ -357,36 +357,41 @@ theorem Rewriter.initOpRegions_inBounds_mono (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (initOpRegions ctx opPtr regions n opPtrInBounds hregions hctx hn) := by
   induction n generalizing ctx <;> simp only [initOpRegions] <;> grind
 
-@[irreducible]
-def Rewriter.initOpResults (ctx: IRContext) (opPtr: OperationPtr) (numResults: Nat) (index: Nat := 0) (hop : opPtr.InBounds ctx)
+def Rewriter.initOpResults (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: Array MlirType) (index: Nat := 0) (hop : opPtr.InBounds ctx)
     (hidx : index = opPtr.getNumResults ctx) : IRContext :=
-  match numResults with
-  | 0 => ctx
-  | Nat.succ n =>
-    let result: OpResult := { type := (), firstUse := none, index := index, owner := opPtr }
+  if h: index >= resultTypes.size then
+    ctx
+  else
+    let result: OpResult := { type := resultTypes[index], firstUse := none, index := index, owner := opPtr }
     let ctx := opPtr.pushResult ctx result
     have : opPtr.InBounds ctx := by grind
     have : result.FieldsInBounds ctx := by
       -- TODO(later): write the right lemma somewhere.
       constructor <;> grind [OperationPtr.pushResult, OperationPtr.setResults, OperationPtr.set, OperationPtr.get]
-    Rewriter.initOpResults ctx opPtr n (index + 1) (by grind) (by grind)
+    Rewriter.initOpResults ctx opPtr resultTypes (index + 1) (by grind) (by grind)
+  termination_by resultTypes.size - index
+  decreasing_by lia
 
 @[grind .]
 theorem Rewriter.initOpResults_fieldsInBounds (hx : ctx.FieldsInBounds) :
-    (initOpResults ctx opPtr numResults index h₁ h₂).FieldsInBounds := by
-  induction numResults generalizing ctx index
-  · grind [initOpResults]
-  case succ numResults ih =>
-    simp [initOpResults]
+    (initOpResults ctx opPtr resultTypes index h₁ h₂).FieldsInBounds := by
+  induction h: (resultTypes.size - index) generalizing index ctx
+  case zero =>
+    unfold initOpResults
+    grind
+  case succ resultTypes ih =>
+    unfold initOpResults
+    split; grind
     apply ih
-    apply OperationPtr.pushResult_fieldsInBounds
-    · constructor <;> grind [OperationPtr.pushResult, OperationPtr.setResults, OperationPtr.set, OperationPtr.get]
+    · apply OperationPtr.pushResult_fieldsInBounds
+      · constructor <;> grind [OperationPtr.pushResult, OperationPtr.setResults, OperationPtr.set, OperationPtr.get]
+      · grind
     · grind
 
 @[grind .]
 theorem Rewriter.initOpResults_inBounds_mono (ptr : GenericPtr) :
-    ptr.InBounds ctx → ptr.InBounds (initOpResults ctx opPtr numResults index h₁ h₂) := by
-  induction numResults generalizing ctx index <;> grind [initOpResults]
+    ptr.InBounds ctx → ptr.InBounds (initOpResults ctx opPtr resultTypes index h₁ h₂) := by
+  induction h: (resultTypes.size - index) generalizing index ctx <;> unfold initOpResults <;> grind
 
 @[irreducible]
 protected def Rewriter.pushOperand (ctx : IRContext) (opPtr : OperationPtr) (valuePtr : ValuePtr)
@@ -469,7 +474,7 @@ theorem Rewriter.createEmptyOp_fieldsInBounds (h : createEmptyOp ctx opType = so
 
 @[irreducible]
 def Rewriter.createOp (ctx: IRContext) (opType: Nat)
-    (numResults: Nat) (operands: Array ValuePtr) (regions: Array RegionPtr) (properties: UInt64)
+    (resultTypes: Array MlirType) (operands: Array ValuePtr) (regions: Array RegionPtr) (properties: UInt64)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx)
     (hregions : ∀ reg, reg ∈ regions → reg.InBounds ctx)
@@ -480,7 +485,7 @@ def Rewriter.createOp (ctx: IRContext) (opType: Nat)
   have : (newOpPtr.get ctx (by grind)).results = #[] := by
     grind [createEmptyOp, OperationPtr.allocEmpty, Operation.empty]
   have newOpPtrZeroRes: 0 = newOpPtr.getNumResults ctx (by grind) := by grind [OperationPtr.getNumResults]
-  let ctx := Rewriter.initOpResults ctx  newOpPtr numResults 0 hib newOpPtrZeroRes
+  let ctx := Rewriter.initOpResults ctx newOpPtr resultTypes 0 hib newOpPtrZeroRes
   let ctx := newOpPtr.setProperties ctx properties (by grind)
   have newOpPtrInBounds : newOpPtr.InBounds ctx := by grind
   let ctx := Rewriter.initOpRegions ctx newOpPtr regions

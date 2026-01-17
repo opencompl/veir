@@ -1068,6 +1068,7 @@ theorem ValuePtr.getFirstUse!_OperationPtr_linkBetween {value : ValuePtr} :
 theorem ValuePtr.getType!_OperationPtr_linkBetween {value : ValuePtr} :
     value.getType! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
     value.getType! ctx := by
+  simp only [OperationPtr.linkBetween]
   grind
 
 @[simp, grind =]
@@ -1763,6 +1764,7 @@ theorem ValuePtr.getFirstUse!_BlockPtr_linkBetween {value : ValuePtr} :
 theorem ValuePtr.getType!_BlockPtr_linkBetween {value : ValuePtr} :
     value.getType! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
     value.getType! ctx := by
+  simp only [BlockPtr.linkBetween]
   grind
 
 @[simp, grind =]

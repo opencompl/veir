@@ -265,9 +265,10 @@ theorem ValuePtr.getFirstUse!_OperationPtr_dealloc {value : ValuePtr} :
 
 @[simp, grind =]
 theorem ValuePtr.getType!_OperationPtr_dealloc {value : ValuePtr} :
+    value.InBounds (OperationPtr.dealloc operation' ctx hop') →
     value.getType! (OperationPtr.dealloc operation' ctx hop') =
     value.getType! ctx := by
-  grind
+  grind [OpResultPtr.InBounds]
 
 @[simp, grind =]
 theorem OpOperandPtrPtr.get!_OperationPtr_dealloc {opOperandPtr : OpOperandPtrPtr} :
@@ -750,11 +751,19 @@ theorem ValuePtr.getFirstUse!_OperationPtr_setResults {value : ValuePtr} :
       value.getFirstUse! ctx := by
   grind
 
-@[simp, grind =]
+@[grind =]
 theorem ValuePtr.getType!_OperationPtr_setResults {value : ValuePtr} :
     value.getType! (OperationPtr.setResults operation' ctx newResults hop') =
-    value.getType! ctx := by
+    match value with
+    | .opResult result =>
+      if result.op = operation' then
+        newResults[result.index]!.type
+      else
+        value.getType! ctx
+    | _ =>
+      value.getType! ctx := by
   grind
+
 
 @[grind =]
 theorem OpOperandPtrPtr.get!_OperationPtr_setResults {opOperandPtr : OpOperandPtrPtr} :
@@ -915,10 +924,13 @@ theorem ValuePtr.getFirstUse!_OperationPtr_pushResult {value : ValuePtr} :
       value.getFirstUse! ctx := by
   grind
 
-@[simp, grind =]
+@[grind =]
 theorem ValuePtr.getType!_OperationPtr_pushResult {value : ValuePtr} :
     value.getType! (OperationPtr.pushResult operation' ctx newResult hop') =
-    value.getType! ctx := by
+    if value = ValuePtr.opResult (operation'.nextResult ctx) then
+      newResult.type
+    else
+      value.getType! ctx := by
   grind
 
 @[grind =]
@@ -1377,10 +1389,13 @@ theorem ValuePtr.getFirstUse!_BlockArgumentPtr_setType {value : ValuePtr} :
     value.getFirstUse! ctx := by
   grind
 
-@[simp, grind =]
+@[grind =]
 theorem ValuePtr.getType!_BlockArgumentPtr_setType {value : ValuePtr} :
     value.getType! (BlockArgumentPtr.setType arg' ctx newType harg') =
-    value.getType! ctx := by
+    if arg' = value then
+      newType
+    else
+      value.getType! ctx := by
   grind
 
 @[simp, grind =]
@@ -3494,10 +3509,13 @@ theorem ValuePtr.getFirstUse!_OpResultPtr_setType {value : ValuePtr} :
     value.getFirstUse! ctx := by
   grind
 
-@[simp, grind =]
+@[grind =]
 theorem ValuePtr.getType!_OpResultPtr_setType {value : ValuePtr} :
     value.getType! (OpResultPtr.setType result' ctx newType hresult') =
-    value.getType! ctx := by
+    if value = result' then
+      newType
+    else
+      value.getType! ctx := by
   grind
 
 @[simp, grind =]
