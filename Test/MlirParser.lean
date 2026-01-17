@@ -74,3 +74,12 @@ def testParseOp (s : String) : IO Unit :=
   %b = \"arith.constant\"() : () -> i32
   %c = \"arith.muli\"(%a, %b) : (i32, i32) -> i32
 }) : () -> ()"
+
+/--
+  error: type mismatch for value %a: expected i32, got i64
+-/
+#guard_msgs in
+#eval! testParseOp "\"arith.addi\"() ({
+  %a = \"arith.constant\"() : () -> i64
+  %c = \"arith.muli\"(%a, %a) : (i32, i32) -> i32
+}) : () -> ()"
