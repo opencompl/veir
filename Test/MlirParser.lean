@@ -13,7 +13,7 @@ def testParseOp (s : String) : IO Unit :=
   | some (ctx, _) =>
     match ParserState.fromInput (s.toByteArray) with
     | .ok parser =>
-      match (parseOp none).run (MlirParserState.mk ctx) parser with
+      match (parseOp none).run (MlirParserState.fromContext ctx) parser with
       | .ok (op, state, _) => Printer.printOperation state.ctx op
       | .error err => .error err
     | .error err => .error err
@@ -59,3 +59,18 @@ def testParseOp (s : String) : IO Unit :=
 #eval! testParseOp "\"arith.addi\"() ({
   %x, %y = \"arith.muli\"() : () -> (i32, i32)
 }, {}) : () -> ()"
+
+/--
+  info: "arith.addi"() ({
+  ^4:
+    %5 = "arith.constant" 0  : () -> i32
+    %6 = "arith.constant" 0  : () -> i32
+    %7 = "arith.muli"(%5, %6) : (i32, i32) -> i32
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp "\"arith.addi\"() ({
+  %a = \"arith.constant\"() : () -> i32
+  %b = \"arith.constant\"() : () -> i32
+  %c = \"arith.muli\"(%a, %b) : (i32, i32) -> i32
+}) : () -> ()"
