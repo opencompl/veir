@@ -43,8 +43,10 @@ jobs:
         with:
           branch: auto-lean-update-${{steps.mldate.outputs.date}}
 
+      - if: steps.check-branch-exists.outputs.exists == 'true'
+        run: Skip any updates
+
       - name: Set Lean Toolchain Date
-        if: steps.check-branch-exists.outputs.exists == 'true'
         run: |
            echo "## lean-toolchain"
            sed -e "s/nightly.*/${{steps.leandate.outputs.date}}/" -i lean-toolchain
@@ -54,7 +56,6 @@ jobs:
           LAKE_NO_CACHE: true
 
       - uses: leanprover/lean-action@v1
-        if: steps.check-branch-exists.outputs.exists == 'true'
         id: build
         continue-on-error: true
         with:
@@ -62,7 +63,7 @@ jobs:
           test: true
 
       - name: Send a stream message - FAILURE
-        if: steps.build.outputs.build-status == 'FAILURE' && steps.check-branch-exists.outputs.exists == 'true'
+        if: steps.build.outputs.build-status == 'FAILURE'
         uses: zulip/github-actions-zulip/send-message@v1
         with:
           api-key: ${{ secrets.ZULIP_API_KEY }}
@@ -74,7 +75,7 @@ jobs:
           content: "New PR ${{steps.leandate.outputs.date}} available. Build ${{steps.build.outputs.build-status}} ❌"
 
       - name: Send a stream message - SUCCESS
-        if: steps.build.outputs.build-status == 'SUCCESS' && steps.check-branch-exists.outputs.exists == 'true'
+        if: steps.build.outputs.build-status == 'SUCCESS'
         uses: zulip/github-actions-zulip/send-message@v1
         with:
           api-key: ${{ secrets.ZULIP_API_KEY }}
@@ -86,7 +87,6 @@ jobs:
           content: "New PR ${{steps.leandate.outputs.date}} available. Build ${{steps.build.outputs.build-status}} ✅"
 
       - name: Create Pull Request
-        if: steps.check-branch-exists.outputs.exists == 'true'
         id: create-pr
         uses: peter-evans/create-pull-request@v7
         with:
@@ -96,7 +96,6 @@ jobs:
           token: ${{secrets.PAT}}
 
       - name: Enable Pull Request Automerge
-        if: steps.check-branch-exists.outputs.exists == 'true'
         run: gh pr merge --squash --auto ${{steps.create-pr.outputs.pull-request-number}}
         env:
           GH_TOKEN: ${{secrets.PAT}}
