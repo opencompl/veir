@@ -2,9 +2,15 @@ name = "VeIR"
 version = "0.1.0"
 defaultTargets = ["veir-opt"]
 testRunner = "Test"
+lintDriver = "batteries/runLinter"
 
 [leanOptions]
 experimental.module = true
+
+[[require]]
+name = "batteries"
+scope = "leanprover-community"
+rev = "main"
 
 [[lean_lib]]
 name = "Veir"
