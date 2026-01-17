@@ -83,3 +83,12 @@ def testParseOp (s : String) : IO Unit :=
   %a = \"arith.constant\"() : () -> i64
   %c = \"arith.muli\"(%a, %a) : (i32, i32) -> i32
 }) : () -> ()"
+
+/--
+  error: operation 'arith.muli' declares 2 operand types, but 1 operands were provided
+-/
+#guard_msgs in
+#eval! testParseOp "\"arith.addi\"() ({
+  %a = \"arith.constant\"() : () -> i64
+  %c = \"arith.muli\"(%a) : (i32, i32) -> i32
+}) : () -> ()"
