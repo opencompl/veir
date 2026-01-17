@@ -60,20 +60,16 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     have ⟨ha, hb⟩ := h₈ rg this
     constructor <;> grind
 
-theorem Rewriter.initOpResults_WellFormed (ctx: IRContext) (opPtr: OperationPtr) (numResults: Nat)
+theorem Rewriter.initOpResults_WellFormed (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: Array MlirType)
     (index : Nat) (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx) (newCtx : IRContext) hIndex :
-    Rewriter.initOpResults ctx opPtr numResults index hop hIndex = newCtx →
+    Rewriter.initOpResults ctx opPtr resultTypes index hop hIndex = newCtx →
     newCtx.WellFormed := by
-  induction numResults generalizing index ctx
+  induction h: resultTypes.size - index generalizing index ctx
   case zero =>
     grind [initOpResults]
   case succ nr ih =>
     unfold initOpResults
+    split; grind
     lift_lets
     intros result ctx' h₁ h₂
-    apply ih
-    apply Rewriter.pushResult_WellFormed
-    · assumption
-    · assumption
-    · grind
-    · grind
+    grind

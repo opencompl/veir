@@ -135,7 +135,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   if outputTypes.size ≠ results.size then
     throw s!"operation '{opName}' declares {outputTypes.size} result types, but {results.size} result names were provided"
   let opId := operationNameToOpId opName
-  let some (ctx, op) := Rewriter.createOp (← getContext) opId results.size #[] regions 0 ip (by grind) (by sorry) (by sorry) (by sorry)
+  let some (ctx, op) := Rewriter.createOp (← getContext) opId outputTypes #[] regions 0 ip (by grind) (by sorry) (by sorry) (by sorry)
       | throw "internal error: failed to create operation"
     setContext ctx
     return op

@@ -828,6 +828,7 @@ grind_pattern ValuePtr.getFirstUse!_insertBlock? =>
 theorem ValuePtr.getType!_insertBlock? {value : ValuePtr} :
     Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx →
     value.getType! newCtx = value.getType! ctx := by
+  simp only [Rewriter.insertBlock?]
   grind
 
 grind_pattern ValuePtr.getType!_insertBlock? =>
@@ -1242,7 +1243,10 @@ theorem RegionPtr.get!_detachOperands_loop {region : RegionPtr} :
 theorem ValuePtr.getType!_detachOperands_loop {value : ValuePtr} :
     value.getType! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) =
     value.getType! ctx := by
-  grind
+  induction index generalizing ctx
+  · grind [Rewriter.detachOperands.loop]
+  · simp only [Rewriter.detachOperands.loop]
+    grind
 
 -- The theorem `OpOperandPtr.getFirstUse!_detachOperands_loop` is missing because it is quite complex to state.
 -- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
@@ -1634,7 +1638,10 @@ theorem ValuePtr.getFirstUse!_detachBlockOperands_loop {value : ValuePtr} :
 theorem ValuePtr.getType!_detachBlockOperands_loop {value : ValuePtr} :
     value.getType! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
     value.getType! ctx := by
-  grind
+  induction index generalizing ctx
+  · grind [Rewriter.detachBlockOperands.loop]
+  · simp only [Rewriter.detachBlockOperands.loop]
+    grind
 
 @[simp, grind =]
 theorem OpOperandPtrPtr.get!_detachBlockOperands_loop {opOperandPtr : OpOperandPtrPtr} :

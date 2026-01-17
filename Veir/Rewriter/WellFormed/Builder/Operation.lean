@@ -12,7 +12,7 @@ theorem OperationPtr.setProperties_WellFormed (op: OperationPtr) (ctx: IRContext
 
 set_option warn.sorry false in
 theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: Nat)
-    (numResults: Nat) (operands: Array ValuePtr) (numRegions: Nat) (properties: UInt64)
+    (resultTypes: Array MlirType) (operands: Array ValuePtr) (numRegions: Nat) (properties: UInt64)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx)
     hregions
@@ -20,7 +20,7 @@ theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: Nat)
     (hx : ctx.FieldsInBounds)
     (hctx : IRContext.WellFormed ctx)
     (newCtx : IRContext) (newOp : OperationPtr) :
-    Rewriter.createOp ctx opType numResults operands regions properties insertionPoint hoper hregions hins hx = some (newCtx, newOp) →
+    Rewriter.createOp ctx opType resultTypes operands regions properties insertionPoint hoper hregions hins hx = some (newCtx, newOp) →
     newCtx.WellFormed := by
   intros heq
   constructor
