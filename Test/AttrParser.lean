@@ -59,7 +59,7 @@ macro "#assert " e:term : command =>
 
 #assert expectError "\"" "expected '\"' in string literal"
 
-#assert expectSuccess "i32" ()
-#assert expectSuccess "i0" ()
+#assert expectSuccess "i32" "i32"
+#assert expectSuccess "i0" "i0"
 #assert expectMissing "foo"
 #assert expectMissing "i0x4"
