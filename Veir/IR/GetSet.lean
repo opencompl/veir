@@ -764,7 +764,6 @@ theorem ValuePtr.getType!_OperationPtr_setResults {value : ValuePtr} :
       value.getType! ctx := by
   grind
 
-
 @[grind =]
 theorem OpOperandPtrPtr.get!_OperationPtr_setResults {opOperandPtr : OpOperandPtrPtr} :
     opOperandPtr.get! (OperationPtr.setResults op ctx newResults hop) =
