@@ -54,8 +54,9 @@ def consumeToken : M Token := do
 /--
   If the current token is of the expected kind, consume it and return it.
   Otherwise, return none.
+  This function should not be used outside of the parser implementation.
 -/
-private def parseOptionalToken (tokType : TokenKind) : M (Option Token) := do
+def parseOptionalToken (tokType : TokenKind) : M (Option Token) := do
   if (←get).currentToken.kind = tokType then
     some <$> consumeToken
   else
@@ -65,8 +66,9 @@ private def parseOptionalToken (tokType : TokenKind) : M (Option Token) := do
   Parse a token of the expected kind.
   If the current token is of the expected kind, consume it and return it.
   Otherwise, return an error with the given message.
+  This function should not be used outside of the parser implementation.
 -/
-private def parseToken (tokType : TokenKind) (errorMsg : String) : M Token := do
+def parseToken (tokType : TokenKind) (errorMsg : String) : M Token := do
   match ← parseOptionalToken tokType with
   | some token => return token
   | none => throw errorMsg

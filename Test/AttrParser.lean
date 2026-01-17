@@ -3,6 +3,7 @@ import Veir.IR.Basic
 
 open Veir
 open Veir.Parser
+open Veir.AttrParser
 
 /--
   Run parseOptionalType on the given input string.

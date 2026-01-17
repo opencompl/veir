@@ -4,7 +4,7 @@ import Veir.IR.Basic
 open Veir.Parser.Lexer
 open Veir.Parser
 
-namespace Veir.Parser
+namespace Veir.AttrParser
 
 structure AttrParserState
 
@@ -56,4 +56,4 @@ def parseType (errorMsg : String := "type expected") : AttrParserM MlirType := d
   | some ty => return ty
   | none => throw errorMsg
 
-end Veir.Parser
+end Veir.AttrParser

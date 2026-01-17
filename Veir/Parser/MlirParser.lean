@@ -1,10 +1,12 @@
 import Veir.Parser.Parser
+import Veir.Parser.AttrParser
 import Veir.IR.Basic
 import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.Basic
 
 open Veir.Parser.Lexer
 open Veir.Parser
+open Veir.AttrParser
 
 namespace Veir.Parser
 
@@ -62,6 +64,55 @@ def getContext : MlirParserM IRContext := do
 def setContext (ctx : IRContext) : MlirParserM Unit := do
   modify fun s => {s with ctx := ctx}
 
+/--
+  Parse an operation result.
+-/
+def parseOpResult : MlirParserM Slice := do
+  let nameToken ← parseToken .percentIdent "operation result expected"
+  return { nameToken.slice with start := nameToken.slice.start + 1 } -- skip % character
+
+/--
+  Parse the results before an operation definition,
+  either as a list of values followed by '=', or nothing.
+-/
+def parseOpResults : MlirParserM (Array Slice) := do
+  let .percentIdent := (← peekToken).kind | return #[]
+  let results ← parseList parseOpResult
+  parsePunctuation "=" "'=' expected after operation results"
+  return results
+
+/--
+  Parse a type, if present.
+-/
+def parseOptionalType : MlirParserM (Option MlirType) := do
+  match AttrParser.parseOptionalType.run AttrParserState.mk (← getThe ParserState) with
+  | .ok (ty, _, parserState) =>
+    set parserState
+    return ty
+  | .error err => throw err
+
+/--
+  Parse a type, otherwise return an error.
+-/
+def parseType (errorMsg : String := "type expected") : MlirParserM MlirType := do
+  match ← parseOptionalType with
+  | some ty => return ty
+  | none => throw errorMsg
+
+/--
+  Parse an operation type, consisting of a colon followed by a function type.
+-/
+def parseOperationType : MlirParserM (Array MlirType × Array MlirType) := do
+  parsePunctuation ":"
+  let inputs ← parseDelimitedList .paren parseType
+  parsePunctuation "->"
+  if (←peekToken).kind = .lParen then
+    let outputs ← parseDelimitedList .paren parseType
+    return (inputs, outputs)
+  else
+    let outputType ← parseType
+    return (inputs, #[outputType])
+
 set_option warn.sorry false in
 mutual
 
@@ -75,18 +126,16 @@ partial def parseOpRegions : MlirParserM (Array RegionPtr) := do
   Parse an operation, if present, and insert it at the given insert point.
 -/
 partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option OperationPtr) := do
+  let results ← parseOpResults
   let some opName ← parseOptionalStringLiteral | return none
   parsePunctuation "("
   parsePunctuation ")"
   let regions ← parseOpRegions
-  parsePunctuation ":"
-  parsePunctuation "("
-  parsePunctuation ")"
-  parsePunctuation "->"
-  parsePunctuation "("
-  parsePunctuation ")"
+  let (inputTypes, outputTypes) ← parseOperationType
+  if outputTypes.size ≠ results.size then
+    throw s!"operation '{opName}' declares {outputTypes.size} result types, but {results.size} result names were provided"
   let opId := operationNameToOpId opName
-  let some (ctx, op) := Rewriter.createOp (← getContext) opId 0 #[] regions 0 ip (by grind) (by sorry) (by sorry) (by sorry)
+  let some (ctx, op) := Rewriter.createOp (← getContext) opId results.size #[] regions 0 ip (by grind) (by sorry) (by sorry) (by sorry)
       | throw "internal error: failed to create operation"
     setContext ctx
     return op
