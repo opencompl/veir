@@ -27,6 +27,10 @@ def operationNameToOpId (name : String) : Nat :=
 
 structure MlirParserState where
   ctx : IRContext
+  values : Std.HashMap ByteArray ValuePtr
+
+def MlirParserState.fromContext (ctx : IRContext) : MlirParserState :=
+  { ctx := ctx, values := Std.HashMap.emptyWithCapacity 0 }
 
 abbrev MlirParserM := StateT MlirParserState (EStateM String ParserState)
 
@@ -57,6 +61,25 @@ def getContext : MlirParserM IRContext := do
   return (← get).ctx
 
 /--
+  Get a value that has previously been parsed given its name.
+-/
+def getValue? (name : ByteArray) : MlirParserM (Option ValuePtr) := do
+  return (← get).values[name]?
+
+/--
+  Get the original input that is being parsed.
+-/
+def getInput : MlirParserM ByteArray := do
+  return (← getThe ParserState).input
+
+/--
+  Register a parsed value with the given name.
+  This is used to keep track of values that have been defined during parsing.
+-/
+def registerValueDef (name : ByteArray) (value : ValuePtr) : MlirParserM Unit := do
+  modify fun s => { s with values := s.values.insert name value }
+
+/--
   Set the current IR context.
   This should be called whenever any modifications have been made to the context
   outside of the parser monad.
@@ -67,19 +90,54 @@ def setContext (ctx : IRContext) : MlirParserM Unit := do
 /--
   Parse an operation result.
 -/
-def parseOpResult : MlirParserM Slice := do
+def parseOpResult : MlirParserM ByteArray := do
   let nameToken ← parseToken .percentIdent "operation result expected"
-  return { nameToken.slice with start := nameToken.slice.start + 1 } -- skip % character
+  let slice := { nameToken.slice with start := nameToken.slice.start + 1 } -- skip % character
+  return slice.of (← getInput)
 
 /--
   Parse the results before an operation definition,
   either as a list of values followed by '=', or nothing.
 -/
-def parseOpResults : MlirParserM (Array Slice) := do
+def parseOpResults : MlirParserM (Array ByteArray) := do
   let .percentIdent := (← peekToken).kind | return #[]
   let results ← parseList parseOpResult
   parsePunctuation "=" "'=' expected after operation results"
   return results
+
+/--
+  An operand which type has not yet been resolved.
+  This is used during parsing to allow parsing operands before their types.
+  Once the operation type is known, `resolveOperand` can be used to create an SSA value and
+  check that the type matches with previous uses.
+-/
+structure UnresolvedOperand where
+  name : ByteArray
+
+/--
+  Parse an operation operand.
+-/
+def parseOperand : MlirParserM UnresolvedOperand := do
+  let nameToken ← parseToken .percentIdent "operand expected"
+  return UnresolvedOperand.mk ({ nameToken.slice with start := nameToken.slice.start + 1 }.of (← getInput))
+
+/--
+  Parse a list of operation operands delimited by parentheses.
+-/
+def parseOperands : MlirParserM (Array UnresolvedOperand) := do
+  parseDelimitedList .paren parseOperand
+
+/--
+  Resolve an operand to an SSA value of the expected type.
+  Throws an error if the value is not defined or if the type does not match.
+-/
+def resolveOperand (operand : UnresolvedOperand) (ty : MlirType) : MlirParserM ValuePtr := do
+  let some value := (← getValue? operand.name) | throw s!"use of undefined value %{String.fromUTF8! operand.name}"
+  let expectedType := ty
+  let parsedType := value.getType! (← getContext)
+  if parsedType ≠ expectedType then
+    throw s!"type mismatch for value %{String.fromUTF8! operand.name}: expected {expectedType}, got {parsedType}"
+  return value
 
 /--
   Parse a type, if present.
@@ -126,19 +184,35 @@ partial def parseOpRegions : MlirParserM (Array RegionPtr) := do
   Parse an operation, if present, and insert it at the given insert point.
 -/
 partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option OperationPtr) := do
+  -- Parse the operation
   let results ← parseOpResults
   let some opName ← parseOptionalStringLiteral | return none
-  parsePunctuation "("
-  parsePunctuation ")"
+  let operands ← parseOperands
   let regions ← parseOpRegions
   let (inputTypes, outputTypes) ← parseOperationType
+
+  -- Check that the number of results matches with the operation type
   if outputTypes.size ≠ results.size then
     throw s!"operation '{opName}' declares {outputTypes.size} result types, but {results.size} result names were provided"
+
+  -- Check that the number and types of operands matches with the operation type
+  if inputTypes.size ≠ operands.size then
+    throw s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
+  let operands ← operands.zip inputTypes |>.mapM (λ (operand, type) => resolveOperand operand type)
+
+  -- Create the operation
   let opId := operationNameToOpId opName
-  let some (ctx, op) := Rewriter.createOp (← getContext) opId outputTypes #[] regions 0 ip (by grind) (by sorry) (by sorry) (by sorry)
+  let some (ctx, op) := Rewriter.createOp (← getContext) opId outputTypes operands regions 0 ip (by sorry) (by sorry) (by sorry) (by sorry)
       | throw "internal error: failed to create operation"
-    setContext ctx
-    return op
+
+  -- Update the parser context
+  setContext ctx
+
+  -- Register the new operation results in the parser state
+  for index in 0...(op.getNumResults! ctx) do
+    let resultValue := op.getResult index
+    registerValueDef results[index]! resultValue
+  return op
 
 /--
   Parse an operation.
