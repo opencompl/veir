@@ -401,175 +401,164 @@ def testBench (benchmark: String) (n: Nat) : IO Unit := do
   print ctx
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %34 = arith.constant 52 ⏎
-    test.test(%34)
-}
+    %34 = "arith.constant" 52  : () -> i32
+    "test.test"(%34) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testBench "add-fold-worklist" 10
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %34 = arith.constant 52 ⏎
-    test.test(%34)
-}
+    %34 = "arith.constant" 52  : () -> i32
+    "test.test"(%34) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testBench "add-fold-forwards" 10
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %3 = arith.constant 42 ⏎
-    test.test(%3)
-}
+    %3 = "arith.constant" 42  : () -> i32
+    "test.test"(%3) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testBench "add-zero-worklist" 10
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %3 = arith.constant 42 ⏎
-    test.test(%3)
-}
+    %3 = "arith.constant" 42  : () -> i32
+    "test.test"(%3) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testBench "add-zero-forwards" 10
 
 /--
-info: builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %3 = arith.constant 42 ⏎
-    %34 = arith.addi(%3, %3)
-    %33 = arith.addi(%34, %34)
-    %32 = arith.addi(%33, %33)
-    %31 = arith.addi(%32, %32)
-    %30 = arith.addi(%31, %31)
-    %29 = arith.addi(%30, %30)
-    %28 = arith.addi(%29, %29)
-    %27 = arith.addi(%28, %28)
-    %26 = arith.addi(%27, %27)
-    %25 = arith.addi(%26, %26)
-    test.test(%25)
-}
+    %3 = "arith.constant" 42  : () -> i32
+    %34 = "arith.addi"(%3, %3) : (i32, i32) -> i32
+    %33 = "arith.addi"(%34, %34) : (i32, i32) -> i32
+    %32 = "arith.addi"(%33, %33) : (i32, i32) -> i32
+    %31 = "arith.addi"(%32, %32) : (i32, i32) -> i32
+    %30 = "arith.addi"(%31, %31) : (i32, i32) -> i32
+    %29 = "arith.addi"(%30, %30) : (i32, i32) -> i32
+    %28 = "arith.addi"(%29, %29) : (i32, i32) -> i32
+    %27 = "arith.addi"(%28, %28) : (i32, i32) -> i32
+    %26 = "arith.addi"(%27, %27) : (i32, i32) -> i32
+    %25 = "arith.addi"(%26, %26) : (i32, i32) -> i32
+    "test.test"(%25) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testBench "mul-two-worklist" 10
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %3 = arith.constant 42 ⏎
-    %25 = arith.addi(%3, %3)
-    %26 = arith.addi(%25, %25)
-    %27 = arith.addi(%26, %26)
-    %28 = arith.addi(%27, %27)
-    %29 = arith.addi(%28, %28)
-    %30 = arith.addi(%29, %29)
-    %31 = arith.addi(%30, %30)
-    %32 = arith.addi(%31, %31)
-    %33 = arith.addi(%32, %32)
-    %34 = arith.addi(%33, %33)
-    test.test(%34)
-}
+    %3 = "arith.constant" 42  : () -> i32
+    %25 = "arith.addi"(%3, %3) : (i32, i32) -> i32
+    %26 = "arith.addi"(%25, %25) : (i32, i32) -> i32
+    %27 = "arith.addi"(%26, %26) : (i32, i32) -> i32
+    %28 = "arith.addi"(%27, %27) : (i32, i32) -> i32
+    %29 = "arith.addi"(%28, %28) : (i32, i32) -> i32
+    %30 = "arith.addi"(%29, %29) : (i32, i32) -> i32
+    %31 = "arith.addi"(%30, %30) : (i32, i32) -> i32
+    %32 = "arith.addi"(%31, %31) : (i32, i32) -> i32
+    %33 = "arith.addi"(%32, %32) : (i32, i32) -> i32
+    %34 = "arith.addi"(%33, %33) : (i32, i32) -> i32
+    "test.test"(%34) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testBench "mul-two-forwards" 10
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %3 = arith.constant 42 ⏎
-    %4 = arith.constant 0 ⏎
-    %5 = arith.addi(%3, %4)
-    %6 = arith.addi(%5, %4)
-    %7 = arith.addi(%6, %4)
-    %8 = arith.addi(%7, %4)
-    %9 = arith.addi(%8, %4)
-    test.test(%9)
-}
+    %3 = "arith.constant" 42  : () -> i32
+    %4 = "arith.constant" 0  : () -> i32
+    %5 = "arith.addi"(%3, %4) : (i32, i32) -> i32
+    %6 = "arith.addi"(%5, %4) : (i32, i32) -> i32
+    %7 = "arith.addi"(%6, %4) : (i32, i32) -> i32
+    %8 = "arith.addi"(%7, %4) : (i32, i32) -> i32
+    %9 = "arith.addi"(%8, %4) : (i32, i32) -> i32
+    "test.test"(%9) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! Program.addZeroReuseTree 5 100 |> print
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %3 = arith.constant 42 ⏎
-    test.test(%3)
-}
+    %3 = "arith.constant" 42  : () -> i32
+    "test.test"(%3) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testBench "add-zero-reuse-worklist" 10
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %3 = arith.constant 42 ⏎
-    test.test(%3)
-}
+    %3 = "arith.constant" 42  : () -> i32
+    "test.test"(%3) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testBench "add-zero-reuse-forwards" 10
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %3 = arith.constant 42 ⏎
-    %4 = arith.constant 0 ⏎
-    %6 = arith.addi(%3, %4)
-    %7 = arith.addi(%6, %4)
-    %8 = arith.addi(%7, %4)
-    %9 = arith.addi(%8, %4)
-    test.test(%9)
-}
+    %3 = "arith.constant" 42  : () -> i32
+    %4 = "arith.constant" 0  : () -> i32
+    %6 = "arith.addi"(%3, %4) : (i32, i32) -> i32
+    %7 = "arith.addi"(%6, %4) : (i32, i32) -> i32
+    %8 = "arith.addi"(%7, %4) : (i32, i32) -> i32
+    %9 = "arith.addi"(%8, %4) : (i32, i32) -> i32
+    "test.test"(%9) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testBench "add-zero-reuse-first" 5
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %3 = arith.constant 42 ⏎
-    %4 = arith.constant 0 ⏎
-    %5 = arith.addi(%3, %4)
-    %6 = arith.addi(%5, %5)
-    %7 = arith.addi(%6, %5)
-    %8 = arith.addi(%7, %5)
-    %9 = arith.addi(%8, %5)
-    %10 = arith.addi(%9, %5)
-    test.test(%10)
-}
+    %3 = "arith.constant" 42  : () -> i32
+    %4 = "arith.constant" 0  : () -> i32
+    %5 = "arith.addi"(%3, %4) : (i32, i32) -> i32
+    %6 = "arith.addi"(%5, %5) : (i32, i32) -> i32
+    %7 = "arith.addi"(%6, %5) : (i32, i32) -> i32
+    %8 = "arith.addi"(%7, %5) : (i32, i32) -> i32
+    %9 = "arith.addi"(%8, %5) : (i32, i32) -> i32
+    %10 = "arith.addi"(%9, %5) : (i32, i32) -> i32
+    "test.test"(%10) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! Program.addZeroLotsOfReuseTree 5 100 |> print
 
 /--
-info:
-builtin.module() {
+info: "builtin.module"() ({
   ^2:
-    %3 = arith.constant 42 ⏎
-    %6 = arith.addi(%3, %3)
-    %7 = arith.addi(%6, %3)
-    %8 = arith.addi(%7, %3)
-    %9 = arith.addi(%8, %3)
-    %10 = arith.addi(%9, %3)
-    test.test(%10)
-}
+    %3 = "arith.constant" 42  : () -> i32
+    %6 = "arith.addi"(%3, %3) : (i32, i32) -> i32
+    %7 = "arith.addi"(%6, %3) : (i32, i32) -> i32
+    %8 = "arith.addi"(%7, %3) : (i32, i32) -> i32
+    %9 = "arith.addi"(%8, %3) : (i32, i32) -> i32
+    %10 = "arith.addi"(%9, %3) : (i32, i32) -> i32
+    "test.test"(%10) : (i32) -> ()
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testBench "add-zero-lots-of-reuse-first" 5

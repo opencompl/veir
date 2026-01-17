@@ -20,13 +20,12 @@ def testParseOp (s : String) : IO Unit :=
   | none => .error "internal error: failed to create IR context"
 
 /--
-  info: arith.addi() {
+  info: "arith.addi"() ({
   ^4:
-    arith.muli()
-}
-{
+    "arith.muli"() : () -> ()
+}, {
   ^7:
-}
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testParseOp "\"arith.addi\"() ({
@@ -35,13 +34,12 @@ def testParseOp (s : String) : IO Unit :=
 
 
 /--
-  info: arith.addi() {
+  info: "arith.addi"() ({
   ^4:
-    %5 = arith.muli()
-}
-{
+    %5 = "arith.muli"() : () -> i32
+}, {
   ^7:
-}
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testParseOp "\"arith.addi\"() ({
@@ -50,13 +48,12 @@ def testParseOp (s : String) : IO Unit :=
 
 
 /--
-  info: arith.addi() {
+  info: "arith.addi"() ({
   ^4:
-    %5_0, %5_1 = arith.muli()
-}
-{
+    %5_0, %5_1 = "arith.muli"() : () -> (i32, i32)
+}, {
   ^7:
-}
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testParseOp "\"arith.addi\"() ({

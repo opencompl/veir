@@ -59,6 +59,33 @@ def printOpOperands (ctx: IRContext) (op: OperationPtr) : IO Unit := do
       printValue ctx (op.getOperand! ctx index)
   IO.print ")"
 
+def printOperationType (ctx : IRContext) (op : OperationPtr) : IO Unit := do
+  -- Print operand types
+  IO.print " : ("
+  if op.getNumOperands! ctx ≠ 0 then
+    let firstOpType := (op.getOperand! ctx 0).getType! ctx
+    IO.print s!"{firstOpType}"
+    for index in 1...(op.getNumOperands! ctx) do
+      let opType := (op.getOperand! ctx index).getType! ctx
+      IO.print s!", {opType}"
+  IO.print ") -> "
+
+  -- Print result types
+  if op.getNumResults! ctx = 0 then
+    IO.print "()"
+    return
+  if op.getNumResults! ctx = 1 then
+    let resType := ((op.getResult 0).get! ctx).type
+    IO.print s!"{resType}"
+    return
+  IO.print "("
+  let firstResType := ((op.getResult 0).get! ctx).type
+  IO.print s!"{firstResType}"
+  for index in 1...(op.getNumResults! ctx) do
+    let resType := ((op.getResult index).get! ctx).type
+    IO.print s!", {resType}"
+  IO.print ")"
+
 mutual
 partial def printOpList (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
   printOperation ctx op indent
@@ -82,18 +109,23 @@ partial def printRegion (ctx: IRContext) (region: Region) (indent: Nat := 0) : I
       pure ()
   | none =>
     pure ()
-  IO.println "}"
+  IO.print "}"
 
 partial def printRegions (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
-  for i in 0...(op.getNumRegions! ctx) do
+  if op.getNumRegions! ctx = 0 then return
+  IO.print "("
+  for i in 0...((op.getNumRegions! ctx) - 1) do
     let region := (op.getRegion! ctx i).get! ctx
     printRegion ctx region indent
+    IO.print ", "
+  printRegion ctx ((op.getRegion! ctx (op.getNumRegions! ctx - 1)).get! ctx) indent
+  IO.print ")"
 
 partial def printOperation (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
   let opStruct := op.get! ctx
   printIndent indent
   printOpResults ctx op
-  IO.print (opName opStruct.opType)
+  IO.print s!"\"{opName opStruct.opType}\""
   if opStruct.opType = 1 then
     IO.print s!" {opStruct.properties} "
   else
@@ -101,6 +133,7 @@ partial def printOperation (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0
   if op.getNumRegions! ctx > 0 then
     IO.print " "
     printRegions ctx op indent
+  printOperationType ctx op
   IO.println ""
 end
 
