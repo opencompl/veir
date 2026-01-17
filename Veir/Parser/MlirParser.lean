@@ -76,12 +76,10 @@ def parseOpResult : MlirParserM Slice := do
   either as a list of values followed by '=', or nothing.
 -/
 def parseOpResults : MlirParserM (Array Slice) := do
-  if (← peekToken).kind = .percentIdent then
-    let results ← parseList parseOpResult
-    parsePunctuation "=" "'=' expected after operation results"
-    return results
-  else
-    return #[]
+  let .percentIdent := (← peekToken).kind | return #[]
+  let results ← parseList parseOpResult
+  parsePunctuation "=" "'=' expected after operation results"
+  return results
 
 /--
   Parse a type, if present.
