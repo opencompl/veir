@@ -1,34 +1,23 @@
-import Veir
+import Veir.Parser.MlirParser
+import Veir.Printer
+import Veir.IR.Basic
 
-def count := 50_000
-
-def getCountFrom (c : Option String) :=
-  match c with
-  | none => count
-  | some s =>
-    match s.toNat? with
-    | none => count
-    | some n => n
-
-def getPCFrom (c : Option String) :=
-  match c with
-  | none => 100
-  | some s =>
-    match s.toNat? with
-    | none => 100
-    | some n => n
-
-def bench (f: IO Unit) (count : Nat) : IO Unit := do
-  let startTime ← IO.monoMsNow
-  f
-  let endTime ← IO.monoMsNow
-  let elapsedTime := endTime - startTime
-  IO.println s!"Elapsed time: {elapsedTime} miliseconds"
-  IO.println s!"ns per op : {(elapsedTime * 1000 * 1000) / count}"
+open Veir.Parser
+open Veir
 
 def main (args : List String) : IO Unit := do
-  IO.println s!"Buffed Benchmark ({args})"
-  let count := getCountFrom args[1]?
-  match args[0]? with
-  | some bench => Veir.Benchmarks.runBenchmark bench count (getPCFrom args[2]?)
-  | _ => IO.println "Please provide a benchmark name"
+  match args with
+  | [filename] =>
+    let fileContent ← IO.FS.readBinFile filename
+    let some (ctx, _) := IRContext.create | IO.println "Failed to create IR context"; return
+    match ParserState.fromInput fileContent with
+    | .ok parser =>
+      match (parseOp none).run (MlirParserState.fromContext ctx) parser with
+      | .ok (op, state, _) =>
+        IO.println "Parsed Operation:"
+        Veir.Printer.printOperation state.ctx op
+      | .error errMsg => IO.eprintln s!"Error parsing operation: {errMsg}"
+    | .error errMsg => IO.eprintln s!"Error reading file: {errMsg}"; return
+  | _ =>
+    IO.eprintln "Wrong number of arguments."
+    IO.eprintln "Usage: veir_parser <filename>"
