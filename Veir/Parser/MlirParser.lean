@@ -184,31 +184,31 @@ partial def parseOpRegions : MlirParserM (Array RegionPtr) := do
   Parse an operation, if present, and insert it at the given insert point.
 -/
 partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option OperationPtr) := do
-  -- Parse the operation
+  /- Parse the operation. -/
   let results ← parseOpResults
   let some opName ← parseOptionalStringLiteral | return none
   let operands ← parseOperands
   let regions ← parseOpRegions
   let (inputTypes, outputTypes) ← parseOperationType
 
-  -- Check that the number of results matches with the operation type
+  /- Check that the number of results matches with the operation type. -/
   if outputTypes.size ≠ results.size then
     throw s!"operation '{opName}' declares {outputTypes.size} result types, but {results.size} result names were provided"
 
-  -- Check that the number and types of operands matches with the operation type
+  /- Check that the number and types of operands matches with the operation type. -/
   if inputTypes.size ≠ operands.size then
     throw s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
   let operands ← operands.zip inputTypes |>.mapM (λ (operand, type) => resolveOperand operand type)
 
-  -- Create the operation
+  /- Create the operation. -/
   let opId := operationNameToOpId opName
   let some (ctx, op) := Rewriter.createOp (← getContext) opId outputTypes operands regions 0 ip (by sorry) (by sorry) (by sorry) (by sorry)
       | throw "internal error: failed to create operation"
 
-  -- Update the parser context
+  /- Update the parser context. -/
   setContext ctx
 
-  -- Register the new operation results in the parser state
+  /- Register the new operation results in the parser state. -/
   for index in 0...(op.getNumResults! ctx) do
     let resultValue := op.getResult index
     registerValueDef results[index]! resultValue
