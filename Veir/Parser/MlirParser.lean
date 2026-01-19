@@ -30,7 +30,7 @@ structure MlirParserState where
   values : Std.HashMap ByteArray ValuePtr
 
 def MlirParserState.fromContext (ctx : IRContext) : MlirParserState :=
-  { ctx := ctx, values := Std.HashMap.emptyWithCapacity 0 }
+  { ctx := ctx, values := Std.HashMap.emptyWithCapacity 128 }
 
 abbrev MlirParserM := StateT MlirParserState (EStateM String ParserState)
 
@@ -131,9 +131,8 @@ def parseOperands : MlirParserM (Array UnresolvedOperand) := do
   Resolve an operand to an SSA value of the expected type.
   Throw an error if the value is not defined or if the type does not match.
 -/
-def resolveOperand (operand : UnresolvedOperand) (ty : MlirType) : MlirParserM ValuePtr := do
+def resolveOperand (operand : UnresolvedOperand) (expectedType : MlirType) : MlirParserM ValuePtr := do
   let some value := (← getValue? operand.name) | throw s!"use of undefined value %{String.fromUTF8! operand.name}"
-  let expectedType := ty
   let parsedType := value.getType! (← getContext)
   if parsedType ≠ expectedType then
     throw s!"type mismatch for value %{String.fromUTF8! operand.name}: expected {expectedType}, got {parsedType}"
@@ -198,7 +197,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   /- Check that the number and types of operands matches with the operation type. -/
   if inputTypes.size ≠ operands.size then
     throw s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
-  let operands ← operands.zip inputTypes |>.mapM (λ (operand, type) => resolveOperand operand type)
+  let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
 
   /- Create the operation. -/
   let opId := operationNameToOpId opName
