@@ -1,5 +1,7 @@
 module
 
+public import Std.Data.ExtHashSet
+
 public section
 
 /-- Checks if a UInt8 character is an alphabetic character or underscore in UTF-8. -/
@@ -114,6 +116,11 @@ theorem Nat.eq_iff_forall_lessthan :
     grind
 
 deriving instance DecidableEq for Except
+
+@[simp, grind =]
+theorem Std.ExtHashSet.filter_empty {α : Type} [Hashable α] [BEq α] [LawfulBEq α] (f : α → Bool) :
+    (∅ : Std.ExtHashSet α).filter f = ∅ := by
+  grind
 
 section ranges
 
