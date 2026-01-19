@@ -87,6 +87,38 @@ theorem Region.wellFormed_OpOperandPtr_insertIntoCurrent
     (RegionPtr.get! regionPtr (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) regionPtr := by
   apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
 
+theorem IRContext.wellFormed_OpOperandPtr_insertIntoCurrent
+    {ctx : IRContext} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
+    (hWF : ctx.WellFormed) :
+    (use.insertIntoCurrent ctx useInBounds ctxInBounds).WellFormed := by
+  constructor
+  · grind
+  · intros valuePtr valuePtrInBounds
+    have ⟨_, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
+    simp only [Std.ExtHashSet.filter_empty] at h ⊢
+    apply Exists.intro _
+    sorry
+  · sorry
+  · intros blockPtr blockPtrInBounds
+    have ⟨_, h⟩ := hWF.opChain blockPtr (by grind)
+    apply Exists.intro _
+    apply BlockPtr.opChain_OpOperandPtr_insertIntoCurrent
+    apply h
+  · intros regionPtr regionPtrInBounds
+    have ⟨_, h⟩ := hWF.blockChain regionPtr (by grind)
+    apply Exists.intro _
+    apply RegionPtr.blockChain_OpOperandPtr_insertIntoCurrent
+    apply h
+  · intros opPtr opPtrInBounds
+    have := hWF.operations opPtr (by grind)
+    grind [Operation.wellFormed_OpOperandPtr_insertIntoCurrent]
+  · intros blockPtr blockPtrInBounds
+    have := hWF.blocks blockPtr (by grind)
+    grind [Block.wellFormed_OpOperandPtr_insertIntoCurrent]
+  · intros regionPtr regionPtrInBounds
+    have := hWF.regions regionPtr (by grind)
+    grind [Region.wellFormed_OpOperandPtr_insertIntoCurrent]
+
 /- OpOperandPtr.removeFromCurrent -/
 
 theorem OpOperandPtr.back!_array_getElem_removeFromCurrent_eq_of_DefUse

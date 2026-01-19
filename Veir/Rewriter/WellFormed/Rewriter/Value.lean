@@ -112,6 +112,7 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (ne
       have ⟨array, harray⟩ := hWf.valueDefUseChains value (by grind)
       have ⟨newArray, hnewArray⟩ := hWf.valueDefUseChains newValue (by grind)
       have ⟨array', hArray'⟩ := hWf.valueDefUseChains valuePtr (by grind)
+      simp only [Std.ExtHashSet.filter_empty]
       apply Rewriter.replaceUse_DefUse
         (value := value) (array := array) (array' := newArray) (array'' := array') <;> grind
     case blockDefUseChains =>
