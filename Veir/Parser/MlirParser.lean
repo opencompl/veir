@@ -106,7 +106,7 @@ def parseOpResults : MlirParserM (Array ByteArray) := do
   return results
 
 /--
-  An operand which type has not yet been resolved.
+  An operand whose type has not yet been resolved.
   This is used during parsing to allow parsing operands before their types.
   Once the operation type is known, `resolveOperand` can be used to create an SSA value and
   check that the type matches with previous uses.
@@ -129,7 +129,7 @@ def parseOperands : MlirParserM (Array UnresolvedOperand) := do
 
 /--
   Resolve an operand to an SSA value of the expected type.
-  Throws an error if the value is not defined or if the type does not match.
+  Throw an error if the value is not defined or if the type does not match.
 -/
 def resolveOperand (operand : UnresolvedOperand) (ty : MlirType) : MlirParserM ValuePtr := do
   let some value := (← getValue? operand.name) | throw s!"use of undefined value %{String.fromUTF8! operand.name}"
