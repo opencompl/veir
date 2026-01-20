@@ -140,6 +140,11 @@ theorem Std.ExtHashSet.filter_insert_eq_of_false_eq {α : Type} [Hashable α] [B
   intro h
   ext; grind
 
+theorem Std.ExtHashSet.insertMany_list_insert_comm [BEq α] [EquivBEq α] [Hashable α] [LawfulHashable α] [BEq α] [LawfulBEq α]
+    (s : Std.ExtHashSet α) (a : α) (l : List α) :
+    (s.insert a).insertMany l = (s.insertMany l).insert a := by
+  ext; grind
+
 end
 
 section ranges

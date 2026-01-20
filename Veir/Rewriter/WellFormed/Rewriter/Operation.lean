@@ -222,6 +222,43 @@ theorem Rewriter.detachOpIfAttached_WellFormed (ctx : IRContext) (wf : ctx.WellF
 
 end detachOpIfAttached
 
+theorem Rewriter.detachOperands.loop_wellFormed
+    (wf : IRContext.WellFormed ctx missingOperands missingSuccessors)
+    (hMissingOperands : ∀ i, i <= index → (OpOperandPtr.mk op i) ∉ missingOperands) :
+    (Rewriter.detachOperands.loop ctx op index hCtx hOp hIndex).WellFormed
+      (missingOperands.insertMany ((0...=index).toList.map (fun i => OpOperandPtr.mk op i)))
+      missingSuccessors := by
+  induction index generalizing ctx missingOperands missingSuccessors
+  case zero =>
+    simp only [loop, Nat.toList_rcc_eq_singleton, List.map_cons, List.map_nil,
+      Std.ExtHashSet.insertMany_list_singleton]
+    grind [IRContext.wellFormed_OpOperandPtr_removeFromCurrent]
+  case succ index hi =>
+    simp only [loop, Nat.succ_eq_add_one, Nat.le_add_left, Nat.toList_rcc_eq_append,
+      List.map_append, List.map_cons, List.map_nil, Std.ExtHashSet.insertMany_append,
+      Std.ExtHashSet.insertMany_list_singleton]
+    have h := @hi (OpOperandPtr.removeFromCurrent ctx {op := op, index := index + 1})
+      (missingOperands.insert (OpOperandPtr.mk op (index + 1))) missingSuccessors (by grind)
+      (by grind) (by grind) (by grind [IRContext.wellFormed_OpOperandPtr_removeFromCurrent]) (by grind)
+    grind [Std.ExtHashSet.insertMany_list_insert_comm, Nat.toList_rcc_eq_toList_rco]
+
+theorem Rewriter.detachOperands_wellFormed
+    (wf : IRContext.WellFormed ctx missingOperands missingSuccessors)
+    (hMissingOperands : ∀ i, (OpOperandPtr.mk op i) ∉ missingOperands) :
+    (Rewriter.detachOperands ctx op hCtx hOp).WellFormed
+      (missingOperands.insertMany ((0...op.getNumOperands! ctx).toList.map (fun i => OpOperandPtr.mk op i)))
+      missingSuccessors := by
+  simp only [Rewriter.detachOperands]
+  split
+  case isTrue h =>
+    rw [←OperationPtr.getNumOperands!_eq_getNumOperands (hin := by grind)] at h
+    simp [h]
+    grind
+  case isFalse h=>
+    have := @Rewriter.detachOperands.loop_wellFormed ctx missingOperands missingSuccessors
+      (op.getNumOperands ctx - 1) op hCtx hOp (by grind) wf (by grind)
+    grind [Nat.toList_rcc_eq_toList_rco]
+
 set_option warn.sorry false in
 theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
