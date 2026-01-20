@@ -272,7 +272,6 @@ theorem Region.wellFormed_OpOperandPtr_removeFromCurrent
     (RegionPtr.get! regionPtr (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) regionPtr := by
   apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
 
-
 theorem IRContext.wellFormed_OpOperandPtr_removeFromCurrent
     {ctx : IRContext} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
     (useMissing : use ∉ missingOperandUses)
@@ -323,7 +322,6 @@ theorem IRContext.wellFormed_OpOperandPtr_removeFromCurrent
   · intros regionPtr regionPtrInBounds
     have := hWF.regions regionPtr (by grind)
     grind [Region.wellFormed_OpOperandPtr_removeFromCurrent]
-
 
 section BlockOperandPtr.insertIntoCurrent
 
