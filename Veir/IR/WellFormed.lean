@@ -792,12 +792,6 @@ theorem BlockPtr.operationList.mem :
 noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext) (hctx : ctx.WellFormed) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
   (hctx.valueDefUseChains value hvalue).choose
 
-theorem test :
-    ValuePtr.DefUse value ctx array →
-    array = array' →
-    ValuePtr.DefUse value ctx array' := by
-  grind
-
 @[grind .]
 theorem ValuePtr.defUseArrayWF {hctx : IRContext.WellFormed ctx} :
     ValuePtr.DefUse value ctx (ValuePtr.defUseArray value ctx hctx hvalue) := by
