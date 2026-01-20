@@ -611,9 +611,9 @@ structure IRContext.WellFormed (ctx : IRContext)
   (missingSuccessorUses : Std.ExtHashSet BlockOperandPtr := ∅) : Prop where
   inBounds : ctx.FieldsInBounds
   valueDefUseChains (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
-    ∃ array, ValuePtr.DefUse valuePtr ctx array (missingOperandUses.filter (λ use => (use.get! ctx).value = valuePtr))
+    ∃ array, ValuePtr.DefUse valuePtr ctx array (missingOperandUses.filter (fun use => (use.get! ctx).value = valuePtr))
   blockDefUseChains (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
-    ∃ array, BlockPtr.DefUse blockPtr ctx array (missingSuccessorUses.filter (λ use => (use.get! ctx).value = blockPtr))
+    ∃ array, BlockPtr.DefUse blockPtr ctx array (missingSuccessorUses.filter (fun use => (use.get! ctx).value = blockPtr))
   opChain (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
     ∃ array, BlockPtr.OpChain blockPtr ctx array
   blockChain (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
