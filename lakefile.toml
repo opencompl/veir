@@ -1,6 +1,6 @@
 name = "VeIR"
 version = "0.1.0"
-defaultTargets = ["veir-opt"]
+defaultTargets = ["veir-opt", "run-benchmarks", "Veir"]
 testRunner = "Test"
 
 [leanOptions]
