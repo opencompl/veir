@@ -606,12 +606,14 @@ structure Region.WellFormed (region : Region) (ctx : IRContext) (regionPtr : Reg
   inBounds : region.FieldsInBounds ctx
   parent_op {op} (heq : region.parent = some op) : ∃ i, i < op.getNumRegions! ctx → op.getRegion! ctx i = regionPtr
 
-structure IRContext.WellFormed (ctx : IRContext) : Prop where
+structure IRContext.WellFormed (ctx : IRContext)
+  (missingOperandUses : Std.ExtHashSet OpOperandPtr := ∅)
+  (missingSuccessorUses : Std.ExtHashSet BlockOperandPtr := ∅) : Prop where
   inBounds : ctx.FieldsInBounds
   valueDefUseChains (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
-    ∃ array, ValuePtr.DefUse valuePtr ctx array
+    ∃ array, ValuePtr.DefUse valuePtr ctx array (missingOperandUses.filter (fun use => (use.get! ctx).value = valuePtr))
   blockDefUseChains (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
-    ∃ array, BlockPtr.DefUse blockPtr ctx array
+    ∃ array, BlockPtr.DefUse blockPtr ctx array (missingSuccessorUses.filter (fun use => (use.get! ctx).value = blockPtr))
   opChain (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
     ∃ array, BlockPtr.OpChain blockPtr ctx array
   blockChain (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
@@ -792,8 +794,8 @@ noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext) (hct
 
 @[grind .]
 theorem ValuePtr.defUseArrayWF {hctx : IRContext.WellFormed ctx} :
-    ValuePtr.DefUse value ctx (ValuePtr.defUseArray value ctx hctx hvalue) :=
-  Exists.choose_spec (hctx.valueDefUseChains value hvalue)
+    ValuePtr.DefUse value ctx (ValuePtr.defUseArray value ctx hctx hvalue) := by
+  grind [ValuePtr.defUseArray]
 
 theorem ValuePtr.defUseArray_contains_operand_use :
     (operand.get ctx operandInBounds).value = value ↔
