@@ -122,6 +122,26 @@ theorem Std.ExtHashSet.filter_empty {α : Type} [Hashable α] [BEq α] [LawfulBE
     (∅ : Std.ExtHashSet α).filter f = ∅ := by
   grind
 
+theorem Std.ExtHashSet.filter_erase_eq {α : Type} [Hashable α] [BEq α] [LawfulBEq α]
+    (s : Std.ExtHashSet α) (a : α) (f : α → Bool) :
+    (s.erase a).filter f = (s.filter f).erase a := by
+  grind
+
+theorem Std.ExtHashSet.filter_insert_eq_of_true_eq {α : Type} [Hashable α] [BEq α] [LawfulBEq α]
+    (s : Std.ExtHashSet α) (a : α) (f : α → Bool) :
+    f a = true →
+    (s.insert a).filter f = (s.filter f).insert a := by
+  grind
+
+theorem Std.ExtHashSet.filter_insert_eq_of_false_eq {α : Type} [Hashable α] [BEq α] [LawfulBEq α]
+    (s : Std.ExtHashSet α) (a : α) (f : α → Bool) :
+    f a = false →
+    (s.insert a).filter f = s.filter f := by
+  intro h
+  ext; grind
+
+end
+
 section ranges
 
 open Std
