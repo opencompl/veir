@@ -128,7 +128,7 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 structure OpOperand where
   nextUse: Option OpOperandPtr
   -- I am not sure why, but some parts of MLIR consider this to be an optional.
-  -- i.e., the `IROperandBase::removeFromCurrent` method checks for null.
+  -- For example, the `IROperandBase::removeFromCurrent` method checks for null.
   back: OpOperandPtrPtr
   owner: OperationPtr
   value: ValuePtr
