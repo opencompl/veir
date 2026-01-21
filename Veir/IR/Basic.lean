@@ -778,6 +778,15 @@ theorem BlockPtr.getArgument_block {block : BlockPtr} {index : Nat} :
     (BlockPtr.getArgument block index).block = block := by
   grind [getArgument]
 
+def BlockPtr.setArguments (block: BlockPtr) (ctx: IRContext)
+    (newArguments: Array BlockArgument) (inBounds: block.InBounds ctx := by grind) : IRContext :=
+  let oldBlock := block.get ctx (by grind)
+  block.set ctx { oldBlock with arguments := newArguments }
+
+def BlockPtr.pushArgument (block : BlockPtr) (ctx : IRContext) (result : BlockArgument)
+      (inBounds : block.InBounds ctx := by grind) :=
+    block.setArguments ctx ((block.get ctx).arguments.push result)
+
 /-
  BlockArgumentPtr accessors
 -/
@@ -1254,7 +1263,7 @@ macro "setup_grind_with_get_set_definitions" : command => `(
   attribute [local grind] BlockArgumentPtr.get! BlockArgumentPtr.setFirstUse BlockArgumentPtr.set BlockArgumentPtr.setType BlockArgumentPtr.setLoc
   attribute [local grind] OperationPtr.setOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.setProperties  OperationPtr.pushOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.set
   attribute [local grind] Operation.empty
-  attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty BlockPtr.getNumArguments! BlockPtr.set
+  attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty BlockPtr.getNumArguments! BlockPtr.set BlockPtr.setArguments BlockPtr.pushArgument
   attribute [local grind =] Option.maybe_def
   attribute [local grind] OpOperandPtr.get! BlockOperandPtr.get! OpResultPtr.get! BlockArgumentPtr.get! OperationPtr.get!
   attribute [local grind] BlockOperandPtr.setBack BlockOperandPtr.setNextUse BlockOperandPtr.setOwner BlockOperandPtr.setValue BlockOperandPtr.set
