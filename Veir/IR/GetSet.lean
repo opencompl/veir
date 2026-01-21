@@ -601,6 +601,326 @@ theorem OpOperandPtrPtr.get!_OperationPtr_pushOperand {opOperandPtr : OpOperandP
         (opOperand.get! ctx).nextUse := by
   grind
 
+/- OperationPtr.setBlockOperands -/
+
+@[simp, grind =]
+theorem IRContext.topLevelOp_OperationPtr_setBlockOperands :
+    (OperationPtr.setBlockOperands operation' ctx hop' newOperands).topLevelOp =
+    ctx.topLevelOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.get!_OperationPtr_setBlockOperands {block : BlockPtr} :
+    block.get! (OperationPtr.setBlockOperands operation' ctx hop' newOperands) =
+    block.get! ctx := by
+  grind
+
+@[grind =]
+theorem OperationPtr.get!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    operation.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    if operation = operation' then
+      { operation.get! ctx with blockOperands := newOperands }
+    else
+      operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.prev!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    (operation.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop')).prev =
+    (operation.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    (operation.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop')).next =
+    (operation.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    (operation.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop')).parent =
+    (operation.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.opType!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    (operation.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop')).opType =
+    (operation.get! ctx).opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    (operation.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop')).attrs =
+    (operation.get! ctx).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.properties!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    (operation.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop')).properties =
+    (operation.get! ctx).properties := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    operation.getNumResults! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.get!_OperationPtr_setBlockOperands {opResult : OpResultPtr} :
+    opResult.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    opResult.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    operation.getNumOperands! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    operation.getNumOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.get!_OperationPtr_setBlockOperands {op : OperationPtr} {hop} {opOperand : OpOperandPtr} :
+    opOperand.get! (OperationPtr.setBlockOperands op ctx newOperands hop) =
+    opOperand.get! ctx := by
+  grind
+
+@[grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    if operation = operation' then
+      newOperands.size
+    else
+      operation.getNumSuccessors! ctx := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtr.get!_OperationPtr_setBlockOperands {blockOperand : BlockOperandPtr} :
+    blockOperand.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    if blockOperand.op = operation' then
+      newOperands[blockOperand.index]!
+    else
+      blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_OperationPtr_setBlockOperands {operation : OperationPtr} {hop} :
+    operation.getNumRegions! (OperationPtr.setBlockOperands op ctx newOperands hop) =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_OperationPtr_setBlockOperands {operation : OperationPtr} {hop} :
+    operation.getRegion! (OperationPtr.setBlockOperands op ctx newOperands hop) i =
+    operation.getRegion! ctx i := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtrPtr.get!_OperationPtr_setBlockOperands {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    match blockOperandPtr with
+    | .blockOperandNextUse blockOperand =>
+      if blockOperand.op = operation' then
+        newOperands[blockOperand.index]!.nextUse
+      else
+        blockOperandPtr.get! ctx
+    | .blockFirstUse _ =>
+      blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_setBlockOperands {block : BlockPtr} {hop} :
+    block.getNumArguments! (OperationPtr.setBlockOperands op ctx newOperands hop) =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.get!_OperationPtr_setBlockOperands {blockArg : BlockArgumentPtr} :
+    blockArg.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    blockArg.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.get!_OperationPtr_setBlockOperands {region : RegionPtr} :
+    region.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_OperationPtr_setBlockOperands {value : ValuePtr} :
+    value.getFirstUse! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    value.getFirstUse! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_OperationPtr_setBlockOperands {value : ValuePtr} :
+    value.getType! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
+    value.getType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_OperationPtr_setBlockOperands {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.get! (OperationPtr.setBlockOperands op ctx newOperands hop) =
+    opOperandPtr.get! ctx := by
+  grind
+
+/- OperationPtr.pushBlockOperand -/
+
+@[simp, grind =]
+theorem IRContext.topLevelOp_OperationPtr_pushBlockOperand :
+    (OperationPtr.pushBlockOperand operation' ctx newOperand hop').topLevelOp =
+    ctx.topLevelOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.get!_OperationPtr_pushBlockOperand {block : BlockPtr} :
+    block.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    block.get! ctx := by
+  grind
+
+@[grind =]
+theorem OperationPtr.get!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    if operation = operation' then
+      { operation.get! ctx with blockOperands := (operation.get! ctx).blockOperands.push newOperand }
+    else
+      operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.prev!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    (operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop')).prev =
+    (operation.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    (operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop')).next =
+    (operation.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    (operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop')).parent =
+    (operation.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.opType!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    (operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop')).opType =
+    (operation.get! ctx).opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    (operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop')).attrs =
+    (operation.get! ctx).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.properties!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    (operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop')).properties =
+    (operation.get! ctx).properties := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    operation.getNumResults! (OperationPtr.pushBlockOperand operation' ctx hop' newOperands) =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpResultPtr.get!_OperationPtr_pushBlockOperand {opResult : OpResultPtr} :
+    opResult.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    opResult.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    operation.getNumOperands! (OperationPtr.pushBlockOperand operation' ctx hop' newOperands) =
+    operation.getNumOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtr.get!_OperationPtr_pushBlockOperand {op : OperationPtr} {hop} {opOperand : OpOperandPtr} :
+    opOperand.get! (OperationPtr.pushBlockOperand op ctx newOperand hop) =
+    opOperand.get! ctx := by
+  grind
+
+@[grind =]
+theorem OperationPtr.getNumSuccessors!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    operation.getNumSuccessors! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    if operation = operation' then
+      (operation.getNumSuccessors! ctx) + 1
+    else
+      operation.getNumSuccessors! ctx := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtr.get!_OperationPtr_pushBlockOperand {blockOperand : BlockOperandPtr} :
+    blockOperand.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    if blockOperand = {op := operation', index := operation'.getNumSuccessors! ctx} then
+      newOperand
+    else
+      blockOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    operation.getNumRegions! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    operation.getRegion! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') i =
+    operation.getRegion! ctx i := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtrPtr.get!_OperationPtr_pushBlockOperand {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    if blockOperandPtr = .blockOperandNextUse {op := operation', index := operation'.getNumSuccessors! ctx} then
+      newOperand.nextUse
+    else
+      blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_OperationPtr_pushBlockOperand {block : BlockPtr} {hop} :
+    block.getNumArguments! (OperationPtr.pushBlockOperand op ctx newOperand hop) =
+    block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.get!_OperationPtr_pushBlockOperand {blockArg : BlockArgumentPtr} :
+    blockArg.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    blockArg.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.get!_OperationPtr_pushBlockOperand {region : RegionPtr} :
+    region.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    region.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_OperationPtr_pushBlockOperand {value : ValuePtr} :
+    value.getFirstUse! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    value.getFirstUse! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_OperationPtr_pushBlockOperand {value : ValuePtr} :
+    value.getType! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
+    value.getType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_OperationPtr_pushBlockOperand {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.get! (OperationPtr.pushBlockOperand op ctx newOperand hop) =
+    opOperandPtr.get! ctx := by
+  grind
+
 /- OperationPtr.setResults -/
 
 @[simp, grind =]

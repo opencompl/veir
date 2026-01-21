@@ -459,6 +459,15 @@ def OperationPtr.pushResult (op : OperationPtr) (ctx : IRContext) (resultS : OpR
       (hop : op.InBounds ctx := by grind) :=
     op.setResults ctx ((op.get ctx).results.push resultS)
 
+def OperationPtr.setBlockOperands (op: OperationPtr) (ctx: IRContext) (newOperands: Array BlockOperand)
+    (inBounds: op.InBounds ctx := by grind) : IRContext :=
+  let oldOp := op.get ctx (by grind)
+  op.set ctx { oldOp with blockOperands := newOperands}
+
+def OperationPtr.pushBlockOperand (op : OperationPtr) (ctx : IRContext) (operands : BlockOperand)
+      (hop : op.InBounds ctx := by grind) :=
+    op.setBlockOperands ctx ((op.get ctx).blockOperands.push operands)
+
 def OperationPtr.setOperands (op: OperationPtr) (ctx: IRContext) (newOperands: Array OpOperand)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
@@ -1261,7 +1270,7 @@ macro "setup_grind_with_get_set_definitions" : command => `(
   attribute [local grind] ValuePtr.getFirstUse! ValuePtr.getFirstUse ValuePtr.setFirstUse ValuePtr.setType ValuePtr.getType ValuePtr.getType!
   attribute [local grind] OpResultPtr.get! OpResultPtr.setFirstUse OpResultPtr.set OpResultPtr.setType
   attribute [local grind] BlockArgumentPtr.get! BlockArgumentPtr.setFirstUse BlockArgumentPtr.set BlockArgumentPtr.setType BlockArgumentPtr.setLoc
-  attribute [local grind] OperationPtr.setOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.setProperties  OperationPtr.pushOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.set
+  attribute [local grind] OperationPtr.setOperands OperationPtr.setBlockOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.setProperties OperationPtr.pushOperand OperationPtr.pushBlockOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.set
   attribute [local grind] Operation.empty
   attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty BlockPtr.getNumArguments! BlockPtr.set BlockPtr.setArguments BlockPtr.pushArgument
   attribute [local grind =] Option.maybe_def
