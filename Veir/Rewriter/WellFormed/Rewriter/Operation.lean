@@ -251,7 +251,7 @@ theorem Rewriter.detachOperands_wellFormed
   simp only [Rewriter.detachOperands]
   split
   case isTrue h =>
-    rw [←OperationPtr.getNumOperands!_eq_getNumOperands (hin := by grind)] at h
+    rw [← OperationPtr.getNumOperands!_eq_getNumOperands (hin := by grind)] at h
     simp [h]
     grind
   case isFalse h=>
