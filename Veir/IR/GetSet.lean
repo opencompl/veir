@@ -781,7 +781,7 @@ theorem BlockPtr.get!_OperationPtr_pushBlockOperand {block : BlockPtr} :
 theorem OperationPtr.get!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
     operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
     if operation = operation' then
-      { operation.get! ctx with blockOperands := (operation.get! ctx).blockOperands.push newOperand }
+      {operation.get! ctx with blockOperands := (operation.get! ctx).blockOperands.push newOperand}
     else
       operation.get! ctx := by
   grind
