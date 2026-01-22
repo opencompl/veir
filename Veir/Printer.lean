@@ -86,6 +86,14 @@ def printOperationType (ctx : IRContext) (op : OperationPtr) : IO Unit := do
     IO.print s!", {resType}"
   IO.print ")"
 
+def printBlockOperands (ctx: IRContext) (op: OperationPtr) : IO Unit := do
+  if op.getNumSuccessors! ctx = 0 then return
+  IO.print " ["
+  IO.print s!"^{(op.getSuccessor! ctx 0).id}"
+  for index in 1...(op.getNumSuccessors! ctx) do
+    IO.print s!", ^{(op.getSuccessor! ctx index).id}"
+  IO.print "]"
+
 mutual
 partial def printOpList (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
   printOperation ctx op indent
@@ -95,21 +103,38 @@ partial def printOpList (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) :
   | none =>
     pure ()
 
-partial def printRegion (ctx: IRContext) (region: Region) (indent: Nat := 0) : IO Unit := do
-  IO.println "{"
-  match _ : region.firstBlock with
-  | some blockPtr =>
-    printIndent (indent + 1)
-    IO.println s!"^{blockPtr.id}:"
-    let block := blockPtr.get! ctx
-    match _ : block.firstOp with
-    | some firstOp =>
-      printOpList ctx firstOp (indent + 2)
-    | none =>
-      pure ()
+partial def printBlock (ctx: IRContext) (block: BlockPtr) (indent: Nat := 0) : IO Unit := do
+  printIndent indent
+  IO.print s!"^{block.id}("
+  for i in 0...(block.getNumArguments! ctx) do
+    let arg := block.getArgument i
+    IO.print s!"%arg{block.id}_{i} : {(arg.get! ctx).type}"
+    if i + 1 < block.getNumArguments! ctx then
+      IO.print ", "
+  IO.println s!"):"
+  match _ : (block.get! ctx).firstOp with
+  | some firstOp =>
+    printOpList ctx firstOp (indent + 1)
   | none =>
     pure ()
-  IO.print "}"
+
+partial def printBlockList (ctx: IRContext) (block: BlockPtr) (indent: Nat := 0) : IO Unit := do
+  printBlock ctx block indent
+  match _ : (block.get! ctx).next with
+  | some nextBlock =>
+    printBlockList ctx nextBlock indent
+  | none =>
+    pure ()
+
+partial def printRegion (ctx: IRContext) (region: Region) (indent: Nat := 0) : IO Unit := do
+  IO.print "{"
+  match region.firstBlock with
+  | none =>
+    IO.print "}"
+  | some blockPtr =>
+    IO.println ""
+    printBlockList ctx blockPtr (indent + 1)
+    IO.print "}"
 
 partial def printRegions (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
   if op.getNumRegions! ctx = 0 then return
@@ -130,6 +155,7 @@ partial def printOperation (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0
     IO.print s!" {opStruct.properties} "
   else
     printOpOperands ctx op
+    printBlockOperands ctx op
   if op.getNumRegions! ctx > 0 then
     IO.print " "
     printRegions ctx op indent
