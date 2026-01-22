@@ -95,6 +95,7 @@ def registerValueDef (name : ByteArray) (value : ValuePtr) : MlirParserM Unit :=
 def setContext (ctx : IRContext) : MlirParserM Unit := do
   modify fun s => {s with ctx := ctx}
 
+set_option warn.sorry false in
 /--
   Create a block at the given insert point and register its name in the parsing context.
   If a block was already declared with the given name, use that block instead, and
@@ -132,6 +133,7 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
     }
     return block
 
+set_option warn.sorry false in
 /--
   Forward declare a block with the given name.
   If the block was already forward declared or defined, return the existing block.
@@ -266,6 +268,7 @@ def parseTypedValue : MlirParserM (ByteArray × MlirType) := do
   let ty ← parseType
   return (name, ty)
 
+set_option warn.sorry false in
 /--
   Parse a block label, if present, and create and insert the block at the given insert point.
 -/
