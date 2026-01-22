@@ -104,9 +104,9 @@ set_option warn.sorry false in
 def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPtr := do
   let state ← get
   match state.blocks[name]? with
-  | some (block, true) => -- Case where a block of this name is already defined
+  | some (block, true) => -- Block of this name is already defined.
     throw s!"block %{String.fromUTF8! name} has already been defined"
-  | some (block, false) => -- Case where a block of this name was forward declared
+  | some (block, false) => -- Block of this name was forward declared.
     /- Insert the block at the given location. -/
     let ctx ← getContext
     let some ctx := Rewriter.insertBlock? ctx block ip (by sorry) (by sorry) (by sorry)
@@ -119,7 +119,7 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
         state.blocks.insert name (block, true)
     })
     return block
-  | none => -- Case where the block has not yet been declared or referenced
+  | none => -- Block has not yet been declared or referenced.
     /- Create the block -/
     let ctx ← getContext
     let some (ctx, block) := Rewriter.createBlock ctx ip (by sorry) (by sorry)
@@ -372,7 +372,7 @@ partial def parseRegion : MlirParserM RegionPtr := do
       | throw "internal error: failed to create region"
   setContext ctx
 
-  /- Case where there is no blocks inside the region. -/
+  /- Case where there are no blocks inside the region. -/
   if (← parseOptionalPunctuation "}") then
     return region
 
