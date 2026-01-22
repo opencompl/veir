@@ -183,6 +183,13 @@ theorem OperationPtr.get!_OperationPtr_dealloc {operation : OperationPtr} :
   grind [OperationPtr.InBounds]
 
 @[simp, grind =]
+theorem OperationPtr.getNumResults!_OperationPtr_dealloc {operation : OperationPtr} :
+    operation.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    operation.getNumResults! (OperationPtr.dealloc operation' ctx hop') =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
 theorem OpResultPtr.get!_OperationPtr_dealloc {opResult : OpResultPtr} :
     opResult.op.InBounds (OperationPtr.dealloc operation' ctx hop') →
     opResult.get! (OperationPtr.dealloc operation' ctx hop') =

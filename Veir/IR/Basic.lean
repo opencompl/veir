@@ -391,6 +391,10 @@ theorem OperationPtr.getResult_op {op : OperationPtr} {index : Nat} :
     (OperationPtr.getResult op index).op = op := by
   grind [getResult]
 
+theorem OperationPtr.eq_getResult_of_OpResultPtr_op_eq {res : OpResultPtr} :
+    res.op = op → res = op.getResult res.index := by
+  grind [OperationPtr.getResult, cases OpResultPtr]
+
 def OperationPtr.getNumRegions (op: OperationPtr) (ctx: IRContext)
     (inBounds: op.InBounds ctx := by grind) : Nat :=
   (op.get ctx (by grind)).regions.size

@@ -232,6 +232,18 @@ theorem OpOperandPtr.dealloc.inBounds_dealloc_genericPtr {ptr : GenericPtr} :
     ptr.InBounds (OperationPtr.dealloc op' ctx inBounds) := by
   grind
 
+theorem OpResultPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc {opResult : OpResultPtr} :
+    opResult.InBounds (OperationPtr.dealloc op' ctx inBounds) → opResult.op ≠ op' := by
+  grind
+
+theorem OpOperandPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc {opOperand : OpOperandPtr} :
+    opOperand.InBounds (OperationPtr.dealloc op' ctx inBounds) → opOperand.op ≠ op' := by
+  grind
+
+theorem BlockOperandPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc {blockOperand : BlockOperandPtr} :
+    blockOperand.InBounds (OperationPtr.dealloc op' ctx inBounds) → blockOperand.op ≠ op' := by
+  grind
+
 @[grind .]
 theorem OperationPtr.nextOperand_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds ctx) : ¬ (opPtr.nextOperand ctx).InBounds ctx := by
   grind

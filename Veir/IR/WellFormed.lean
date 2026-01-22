@@ -857,4 +857,44 @@ theorem ValuePtr.DefUse.hasUses_iff
     value.hasUses ctx ↔ array ≠ #[] := by
   grind [DefUse, hasUses]
 
+theorem IRContext.WellFormed.OperationPtr_next!_eq_some_of_prev!_eq_some
+    {ctx : IRContext} {op prevOp : OperationPtr} (hop : op.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses) :
+    (op.get! ctx).prev = some prevOp →
+    (prevOp.get! ctx).next = some op := by
+  cases hparent : (op.get! ctx).parent
+  case none =>
+    grind [IRContext.WellFormed, BlockPtr.OpChain, Operation.WellFormed]
+  case some parent =>
+    intro hprev
+    have ⟨array, harray⟩ := wf.opChain parent (by grind)
+    grind [Array.getElem?_of_mem, BlockPtr.OpChain]
+
+theorem IRContext.WellFormed.OperationPtr_prev!_eq_some_of_next!_eq_some
+    {ctx : IRContext} {op nextOp : OperationPtr} (hop : op.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses) :
+    (op.get! ctx).next = some nextOp →
+    (nextOp.get! ctx).prev = some op := by
+  cases hparent : (op.get! ctx).parent
+  case none =>
+    grind [IRContext.WellFormed, BlockPtr.OpChain, Operation.WellFormed]
+  case some parent =>
+    intro hprev
+    have ⟨array, harray⟩ := wf.opChain parent (by grind)
+    grind [Array.getElem?_of_mem, BlockPtr.OpChain]
+
+theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_next!_ne_none
+    {ctx : IRContext} {op : OperationPtr} (hop : op.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses) :
+    (op.get! ctx).next ≠ none →
+    (op.get! ctx).parent ≠ none := by
+  grind [IRContext.WellFormed, Operation.WellFormed]
+
+theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_prev!_ne_none
+    {ctx : IRContext} {op : OperationPtr} (hop : op.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses) :
+    (op.get! ctx).prev ≠ none →
+    (op.get! ctx).parent ≠ none := by
+  grind [IRContext.WellFormed, Operation.WellFormed]
+
 end Veir
