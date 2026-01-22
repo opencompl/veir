@@ -469,8 +469,8 @@ protected def Rewriter.pushBlockOperand (ctx : IRContext) (opPtr : OperationPtr)
 theorem Rewriter.pushBlockOperand_inBounds (ptr : GenericPtr) :
     ptr.InBounds (Rewriter.pushBlockOperand ctx opPtr valuePtr h₁ h₂ h₃) ↔
     (ptr.InBounds ctx ∨
-     ptr = .blockOperand ⟨opPtr, (opPtr.getNumSuccessors! ctx)⟩ ∨
-     ptr = .blockOperandPtr (.blockOperandNextUse ⟨opPtr, (opPtr.getNumSuccessors! ctx)⟩)) := by
+      ptr = .blockOperand ⟨opPtr, (opPtr.getNumSuccessors! ctx)⟩ ∨
+      ptr = .blockOperandPtr (.blockOperandNextUse ⟨opPtr, (opPtr.getNumSuccessors! ctx)⟩)) := by
   grind [Rewriter.pushBlockOperand]
 
 @[grind .]
