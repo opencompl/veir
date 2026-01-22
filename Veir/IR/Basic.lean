@@ -462,7 +462,7 @@ def OperationPtr.pushResult (op : OperationPtr) (ctx : IRContext) (resultS : OpR
 def OperationPtr.setBlockOperands (op: OperationPtr) (ctx: IRContext) (newOperands: Array BlockOperand)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
-  op.set ctx { oldOp with blockOperands := newOperands}
+  op.set ctx {oldOp with blockOperands := newOperands}
 
 def OperationPtr.pushBlockOperand (op : OperationPtr) (ctx : IRContext) (operands : BlockOperand)
       (hop : op.InBounds ctx := by grind) :=
