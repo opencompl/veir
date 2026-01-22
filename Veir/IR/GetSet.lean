@@ -679,8 +679,8 @@ theorem OperationPtr.getNumOperands!_OperationPtr_setBlockOperands {operation : 
   grind
 
 @[simp, grind =]
-theorem OpOperandPtr.get!_OperationPtr_setBlockOperands {op : OperationPtr} {hop} {opOperand : OpOperandPtr} :
-    opOperand.get! (OperationPtr.setBlockOperands op ctx newOperands hop) =
+theorem OpOperandPtr.get!_OperationPtr_setBlockOperands {opOperand : OpOperandPtr} :
+    opOperand.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop') =
     opOperand.get! ctx := by
   grind
 
@@ -703,13 +703,13 @@ theorem BlockOperandPtr.get!_OperationPtr_setBlockOperands {blockOperand : Block
   grind
 
 @[simp, grind =]
-theorem OperationPtr.getNumRegions!_OperationPtr_setBlockOperands {operation : OperationPtr} {hop} :
+theorem OperationPtr.getNumRegions!_OperationPtr_setBlockOperands {operation : OperationPtr} :
     operation.getNumRegions! (OperationPtr.setBlockOperands op ctx newOperands hop) =
     operation.getNumRegions! ctx := by
   grind
 
 @[simp, grind =]
-theorem OperationPtr.getRegion!_OperationPtr_setBlockOperands {operation : OperationPtr} {hop} :
+theorem OperationPtr.getRegion!_OperationPtr_setBlockOperands {operation : OperationPtr} :
     operation.getRegion! (OperationPtr.setBlockOperands op ctx newOperands hop) i =
     operation.getRegion! ctx i := by
   grind
@@ -728,7 +728,7 @@ theorem BlockOperandPtrPtr.get!_OperationPtr_setBlockOperands {blockOperandPtr :
   grind
 
 @[simp, grind =]
-theorem BlockPtr.getNumArguments!_OperationPtr_setBlockOperands {block : BlockPtr} {hop} :
+theorem BlockPtr.getNumArguments!_OperationPtr_setBlockOperands {block : BlockPtr} :
     block.getNumArguments! (OperationPtr.setBlockOperands op ctx newOperands hop) =
     block.getNumArguments! ctx := by
   grind
@@ -886,7 +886,7 @@ theorem BlockOperandPtrPtr.get!_OperationPtr_pushBlockOperand {blockOperandPtr :
   grind
 
 @[simp, grind =]
-theorem BlockPtr.getNumArguments!_OperationPtr_pushBlockOperand {block : BlockPtr} {hop} :
+theorem BlockPtr.getNumArguments!_OperationPtr_pushBlockOperand {block : BlockPtr} :
     block.getNumArguments! (OperationPtr.pushBlockOperand op ctx newOperand hop) =
     block.getNumArguments! ctx := by
   grind
