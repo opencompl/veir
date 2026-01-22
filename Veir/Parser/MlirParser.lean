@@ -38,7 +38,7 @@ structure MlirParserState where
   blocks : Std.HashMap ByteArray (BlockPtr × Bool)
 
 def MlirParserState.fromContext (ctx : IRContext) : MlirParserState :=
-  { ctx := ctx, values := Std.HashMap.emptyWithCapacity 128, blocks := Std.HashMap.emptyWithCapacity 1 }
+  {ctx := ctx, values := Std.HashMap.emptyWithCapacity 128, blocks := Std.HashMap.emptyWithCapacity 1}
 
 abbrev MlirParserM := StateT MlirParserState (EStateM String ParserState)
 
@@ -114,23 +114,19 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
     setContext ctx
     /- Notify the parsing context that the block is defined. -/
     modifyThe MlirParserState (fun state =>
-    { state with
+    {state with
       blocks :=
-        state.blocks.insert name (block, true)
-    })
+        state.blocks.insert name (block, true)})
     return block
   | none => -- Block has not yet been declared or referenced.
-    /- Create the block -/
+    /- Create the block. -/
     let ctx ← getContext
     let some (ctx, block) := Rewriter.createBlock ctx ip (by sorry) (by sorry)
       | throw "internal error: failed to create block"
     setContext ctx
     /- Notify the parsing context that the block is defined. -/
     modifyThe MlirParserState fun s =>
-    { s with
-      blocks :=
-        s.blocks.insert name (block, true)
-    }
+    {s with blocks := s.blocks.insert name (block, true)}
     return block
 
 set_option warn.sorry false in
@@ -145,17 +141,14 @@ def defineBlockUse (name : ByteArray) : MlirParserM BlockPtr := do
   | some (block, _) => -- Block already defined or forward declared
     return block
   | none => -- Block not yet encountered
-    /- Create the block -/
+    /- Create the block. -/
     let ctx ← getContext
     let some (ctx, block) := Rewriter.createBlock ctx none (by sorry) (by sorry)
       | throw "internal error: failed to create block"
     setContext ctx
     /- Notify the parsing context that the block is forward declared. -/
     modifyThe MlirParserState fun s =>
-    { s with
-      blocks :=
-        s.blocks.insert name (block, false)
-    }
+    {s with blocks := s.blocks.insert name (block, false)}
     return block
 
 /--
@@ -273,12 +266,12 @@ set_option warn.sorry false in
   Parse a block label, if present, and create and insert the block at the given insert point.
 -/
 def parseOptionalBlockLabel (ip : BlockInsertPoint) : MlirParserM (Option BlockPtr) := do
-  /- Parse the block name -/
+  /- Parse the block name. -/
   let some labelToken ← parseOptionalToken .caretIdent
     | return none
   let slice := { labelToken.slice with start := labelToken.slice.start + 1 } -- skip ^ character
   let name := slice.of (← getInput)
-  /- Parse the arguments -/
+  /- Parse the arguments. -/
   let arguments ← parseOptionalDelimitedList .paren parseTypedValue
   parsePunctuation ":" "':' expected after block label"
   /- Create the block or get it if it was forward declared. -/
@@ -290,7 +283,7 @@ def parseOptionalBlockLabel (ip : BlockInsertPoint) : MlirParserM (Option BlockP
   setContext ctx
   /- Register the block argument names in the parser state. -/
   for ((argName, argType), index) in arguments.zipIdx do
-    registerValueDef argName (ValuePtr.blockArgument { block := block, index := index })
+    registerValueDef argName (ValuePtr.blockArgument {block := block, index := index})
   return some block
 
 /--
@@ -363,7 +356,7 @@ partial def parseOp (ip : Option InsertPoint) : MlirParserM OperationPtr := do
 partial def parseRegion : MlirParserM RegionPtr := do
   /- Reset the block parsing state, as blocks are local to regions. -/
   let oldBlocks := (← getThe MlirParserState).blocks
-  modifyThe MlirParserState fun s => { s with blocks := Std.HashMap.emptyWithCapacity 1 }
+  modifyThe MlirParserState fun s => {s with blocks := Std.HashMap.emptyWithCapacity 1}
 
   /- Create the region and parse the open delimiter. -/
   parsePunctuation "{"
@@ -392,7 +385,7 @@ partial def parseRegion : MlirParserM RegionPtr := do
       throw s!"block %{String.fromUTF8! blockName} was declared but not defined"
 
   /- Restore the previous block parsing state. -/
-  modifyThe MlirParserState fun s => { s with blocks := oldBlocks }
+  modifyThe MlirParserState fun s => {s with blocks := oldBlocks}
   return region
 
 /--
