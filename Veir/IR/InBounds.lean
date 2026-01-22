@@ -123,14 +123,15 @@ theorem OperationPtr.setOperands_OpOperandPtr_InBounds_mono_ne {opOperand : OpOp
     (opOperand.InBounds (op.setOperands ctx h' newOperands) ↔ opOperand.InBounds ctx) := by
   grind
 
-
 @[grind =]
 theorem OperationPtr.setBlockOperands_genericPtr_mono (ptr : GenericPtr)
     (newOperandsSize : OperationPtr.getNumSuccessors! op ctx < newOperands.size) :
     (ptr.InBounds (setBlockOperands op ctx newOperands h) ↔
     (ptr.InBounds ctx
-    ∨ (∃ index, ptr = GenericPtr.blockOperand ⟨op, index⟩ ∧ index < newOperands.size ∧ index ≥ OperationPtr.getNumSuccessors! op ctx)
-    ∨ (∃ index, ptr = GenericPtr.blockOperandPtr (.blockOperandNextUse ⟨op, index⟩) ∧ index < newOperands.size ∧ index ≥ OperationPtr.getNumSuccessors! op ctx))) := by
+    ∨ (∃ index, ptr = GenericPtr.blockOperand ⟨op, index⟩ ∧ index < newOperands.size
+      ∧ index ≥ OperationPtr.getNumSuccessors! op ctx)
+    ∨ (∃ index, ptr = GenericPtr.blockOperandPtr (.blockOperandNextUse ⟨op, index⟩)
+      ∧ index < newOperands.size ∧ index ≥ OperationPtr.getNumSuccessors! op ctx))) := by
   grind
 
 @[grind =]

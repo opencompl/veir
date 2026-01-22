@@ -659,7 +659,8 @@ theorem OperationPtr.setOperands_push_fieldsInBounds  (newOperand : OpOperand) (
   · grind
 
 @[grind .]
-theorem OperationPtr.pushBlockOperand_push_fieldsInBounds (newOperand : BlockOperand) (hoperand : newOperand.FieldsInBounds ctx) :
+theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
+    (newOperand : BlockOperand) (hoperand : newOperand.FieldsInBounds ctx) :
     ctx.FieldsInBounds → (pushBlockOperand op ctx newOperand h).FieldsInBounds := by
   intro hctx
   constructor
