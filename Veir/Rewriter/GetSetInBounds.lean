@@ -1959,7 +1959,7 @@ theorem OperationPtr.getNumOperands_iff_replaceValue?
 
 @[grind .]
 theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
-    (heq : createOp ctx opType numResults operands regions props ip h₁ h₂ h₃ h₄ = some (newCtx, newOp)) :
+    (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
     ptr.InBounds ctx → ptr.InBounds newCtx := by
   simp only [createOp] at heq
   split at heq; grind
@@ -1973,11 +1973,11 @@ theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
     subst newCtx
     rw [←Rewriter.insertOp?_inBounds_mono ptr h]
     grind
-  · grind
+  · grind (ematch := 10)
 
 @[grind .]
 theorem Rewriter.createOp_fieldsInBounds
-    (heq : createOp ctx opType numResults operands numRegions props ip h₁ h₂ h₃ h₄ = some (newCtx, newOp)) :
+    (heq : createOp ctx opType numResults operands blockOperands numRegions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
     ctx.FieldsInBounds → newCtx.FieldsInBounds := by
   simp only [createOp] at heq
   split at heq; grind
