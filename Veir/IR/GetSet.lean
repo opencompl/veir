@@ -858,7 +858,7 @@ theorem OperationPtr.getNumSuccessors!_OperationPtr_pushBlockOperand {operation 
 @[grind =]
 theorem BlockOperandPtr.get!_OperationPtr_pushBlockOperand {blockOperand : BlockOperandPtr} :
     blockOperand.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
-    if blockOperand = {op := operation', index := operation'.getNumSuccessors! ctx} then
+    if blockOperand = operation'.nextBlockOperand ctx then
       newOperand
     else
       blockOperand.get! ctx := by
@@ -879,7 +879,7 @@ theorem OperationPtr.getRegion!_OperationPtr_pushBlockOperand {operation : Opera
 @[grind =]
 theorem BlockOperandPtrPtr.get!_OperationPtr_pushBlockOperand {blockOperandPtr : BlockOperandPtrPtr} :
     blockOperandPtr.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') =
-    if blockOperandPtr = .blockOperandNextUse {op := operation', index := operation'.getNumSuccessors! ctx} then
+    if blockOperandPtr = .blockOperandNextUse (operation'.nextBlockOperand ctx) then
       newOperand.nextUse
     else
       blockOperandPtr.get! ctx := by

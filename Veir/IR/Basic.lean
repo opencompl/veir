@@ -488,6 +488,11 @@ def OperationPtr.nextOperand (op : OperationPtr) (ctx : IRContext)
   .mk op (op.getNumOperands ctx (by grind))
 
 @[grind]
+def OperationPtr.nextBlockOperand (op : OperationPtr) (ctx : IRContext)
+    (inBounds: op.InBounds ctx := by grind) : BlockOperandPtr :=
+  .mk op (op.getNumSuccessors ctx (by grind))
+
+@[grind]
 def OperationPtr.nextResult (op : OperationPtr) (ctx : IRContext)
     (inBounds: op.InBounds ctx := by grind) : OpResultPtr :=
   .mk op (op.getNumResults ctx (by grind))
