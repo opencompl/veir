@@ -44,7 +44,7 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
   case operations =>
     intros op hop
     have : op.InBounds ctx := by grind
-    have ⟨ha, hb, hc, hd, he, hf, hg⟩ := h₆ op this
+    have ⟨ha, hb, hc, hd, he, hf, hg, hh⟩ := h₆ op this
     constructor
     -- TODO: Understand why grind fails here
     case region_parent => intros; constructor <;> simp <;> grind

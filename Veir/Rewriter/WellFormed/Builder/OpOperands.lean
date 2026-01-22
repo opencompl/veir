@@ -342,7 +342,7 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
         pushOperand_OperationPtr_get_next_mono, pushOperand_BlockPtr_get_lastOp_mono, pushOperand_BlockPtr_get_firstOp_mono]
   case operations =>
     intros opPtr' opPtrInBounds
-    have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇⟩ := hOpWf.operations opPtr' (by grind)
+    have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hOpWf.operations opPtr' (by grind)
     constructor
     case region_parent =>
       intros region regionInBounds

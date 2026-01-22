@@ -598,6 +598,8 @@ structure Operation.WellFormed (op : Operation) (ctx : IRContext) (opPtr : Opera
   region_parent region (regionInBounds : region.InBounds ctx) :
     (∃ i, i < opPtr.getNumRegions! ctx ∧ opPtr.getRegion! ctx i = region) ↔
     (region.get! ctx).parent = some opPtr
+  opChain_of_parent_none : (opPtr.get! ctx).parent = none →
+    (opPtr.get! ctx).prev = none ∧ (opPtr.get! ctx).next = none
 
 structure Block.WellFormed (block : Block) (ctx : IRContext) (blockPtr : BlockPtr) hbl : Prop where
   inBounds : Block.FieldsInBounds blockPtr ctx hbl
@@ -734,6 +736,9 @@ theorem Operation.WellFormed_unchanged
     (hSameResultOwner :
       ∀ i, i < opPtr.getNumResults ctx opPtrInBounds →
       ((opPtr.getResult i).get! ctx).owner = ((opPtr.getResult i).get! ctx').owner)
+    (hSameParent : (opPtr.get! ctx).parent = (opPtr.get! ctx').parent)
+    (hSamePrev : (opPtr.get! ctx).prev = (opPtr.get! ctx').prev)
+    (hSameNext : (opPtr.get! ctx).next = (opPtr.get! ctx').next)
     (hSameRegionParents :
       ∀ (regionPtr : RegionPtr), regionPtr.InBounds ctx →
         (regionPtr.get! ctx).parent = some opPtr →
