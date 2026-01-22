@@ -53,7 +53,7 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
   case operations =>
     intros op hop
     have : op.InBounds ctx := by grind
-    have ⟨ha, hb, hc, hd, he, hf⟩ := h₆ op this
+    have ⟨ha, hb, hc, hd, he, hf, hg⟩ := h₆ op this
     apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
   case blocks =>
     intros bl hbl
@@ -159,7 +159,7 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
   case operations =>
     intros op' hop'
     have : op'.InBounds ctx := by grind
-    have ⟨ha, hb, hc, hd, he, hf⟩ := h₆ op' this
+    have ⟨ha, hb, hc, hd, he, hf, hg⟩ := h₆ op' this
     apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
   case blocks =>
     intros bl hbl
