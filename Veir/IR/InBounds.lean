@@ -124,6 +124,41 @@ theorem OperationPtr.setOperands_OpOperandPtr_InBounds_mono_ne {opOperand : OpOp
   grind
 
 @[grind =]
+theorem OperationPtr.setBlockOperands_genericPtr_mono (ptr : GenericPtr)
+    (newOperandsSize : OperationPtr.getNumSuccessors! op ctx < newOperands.size) :
+    (ptr.InBounds (setBlockOperands op ctx newOperands h) ↔
+    (ptr.InBounds ctx
+    ∨ (∃ index, ptr = GenericPtr.blockOperand ⟨op, index⟩ ∧ index < newOperands.size
+      ∧ index ≥ OperationPtr.getNumSuccessors! op ctx)
+    ∨ (∃ index, ptr = GenericPtr.blockOperandPtr (.blockOperandNextUse ⟨op, index⟩)
+      ∧ index < newOperands.size ∧ index ≥ OperationPtr.getNumSuccessors! op ctx))) := by
+  grind
+
+@[grind =]
+theorem OperationPtr.pushBlockOperand_genericPtr_iff (ptr : GenericPtr) :
+    ptr.InBounds (pushBlockOperand op ctx newOperand h) ↔
+    (ptr.InBounds ctx
+    ∨ (ptr = GenericPtr.blockOperand (op.nextBlockOperand ctx))
+    ∨ (ptr = GenericPtr.blockOperandPtr (.blockOperandNextUse (op.nextBlockOperand ctx)))) := by
+  grind
+
+@[grind .]
+theorem OperationPtr.pushBlockOperand_genericPtr_mono (ptr : GenericPtr) :
+    ptr.InBounds ctx → ptr.InBounds (pushBlockOperand op ctx newOperand h) := by
+  grind
+
+@[grind =]
+theorem OperationPtr.setBlockOperands_ValuePtr_InBounds_mono (ptr : ValuePtr) :
+    ptr.InBounds (setBlockOperands op ctx newOperands h) ↔ ptr.InBounds ctx := by
+  grind
+
+@[grind =]
+theorem OperationPtr.setBlockOperands_OpOperandPtr_InBounds_mono_ne {opOperand : OpOperandPtr} :
+    opOperand.op ≠ op →
+    (opOperand.InBounds (op.setBlockOperands ctx h' newOperands) ↔ opOperand.InBounds ctx) := by
+  grind
+
+@[grind =]
 theorem OperationPtr.setProperties_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setProperties op ctx newProperties h) ↔ ptr.InBounds ctx := by
   grind
@@ -199,6 +234,10 @@ theorem OpOperandPtr.dealloc.inBounds_dealloc_genericPtr {ptr : GenericPtr} :
 
 @[grind .]
 theorem OperationPtr.nextOperand_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds ctx) : ¬ (opPtr.nextOperand ctx).InBounds ctx := by
+  grind
+
+@[grind .]
+theorem OperationPtr.nextBlockOperand_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds ctx) : ¬ (opPtr.nextBlockOperand ctx).InBounds ctx := by
   grind
 
 @[grind .]

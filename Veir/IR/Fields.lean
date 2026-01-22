@@ -658,6 +658,29 @@ theorem OperationPtr.setOperands_push_fieldsInBounds  (newOperand : OpOperand) (
     constructor <;> grind
   · grind
 
+@[grind .]
+theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
+    (newOperand : BlockOperand) (hoperand : newOperand.FieldsInBounds ctx) :
+    ctx.FieldsInBounds → (pushBlockOperand op ctx newOperand h).FieldsInBounds := by
+  intro hctx
+  constructor
+  · grind
+  · intro op hop
+    constructor
+    · intro res hres heq
+      constructor <;> grind
+    · grind
+    · grind
+    · grind
+    · intro operand hoperand heq
+      constructor <;> grind
+    · grind
+    · intro opr hopr heq
+      constructor <;> grind
+  · intro block blockIn
+    constructor <;> grind
+  · grind
+
 attribute [local grind] Operation.empty in
 @[grind .]
 theorem OperationPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx type = some (ctx', ptr')) :
