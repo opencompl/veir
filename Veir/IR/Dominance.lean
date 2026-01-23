@@ -2,10 +2,150 @@ module
 
 public import Veir.IR.Basic
 public import Std.Data.HashSet.Basic
-public import Std.Data.HashMap.Basic
+public import Std.Data.HashMap
+open Std (HashMap)
 
 namespace Veir
 public section
+
+structure DomTreeNodePtr where
+  region: RegionPtr
+  index: Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+structure DomTreeNode where
+  -- The block in question
+  block : BlockPtr
+  -- Level in the tree
+  level : Nat
+  -- The immediate dominator of the block
+  iDom : Option DomTreeNodePtr
+
+  firstChild : Option DomTreeNodePtr -- Invariant: If firstChild is none, lastChild is none. If firstChild is some, lastChild is some.
+  lastChild : Option DomTreeNodePtr -- Invariant: lastChild's sibling should always be none
+  sibling : Option DomTreeNodePtr
+deriving Inhabited
+
+abbrev DomTree := Array DomTreeNode
+abbrev DomContext := HashMap RegionPtr DomTree 
+
+def DomTreeNode.new (block : BlockPtr) (iDom: Option DomTreeNodePtr) (domTree : DomTree) : DomTreeNode :=
+{
+  block := block
+  level :=
+  match iDom with
+    | some domPtr => domTree[domPtr.index]!.level + 1
+    | none => 0
+  iDom := none
+  firstChild := none
+  lastChild := none
+  sibling := none
+}
+
+def RegionPtr.getDomTree! (ptr: RegionPtr) (ctx: DomContext) : DomTree := ctx[ptr]!
+
+def DomTreeNodePtr.getDomTree! (ptr: DomTreeNodePtr) (ctx: DomContext) : DomTree :=
+  (ptr.region.getDomTree! ctx)
+
+def DomTreeNodePtr.get! (ptr: DomTreeNodePtr) (ctx: DomContext) : DomTreeNode :=
+  (ptr.getDomTree! ctx)[ptr.index]!
+
+def DomTreeNodePtr.getBlock! (ptr: DomTreeNodePtr) (ctx: DomContext) : BlockPtr :=
+  (ptr.get! ctx).block
+
+def DomTreeNodePtr.getLevel! (ptr: DomTreeNodePtr) (ctx: DomContext) : Nat :=
+  (ptr.get! ctx).level
+
+def DomTreeNodePtr.getIDom! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
+  (ptr.get! ctx).iDom
+
+def DomTreeNodePtr.getFirstChild! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
+  (ptr.get! ctx).firstChild
+
+def DomTreeNodePtr.getLastChild! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
+  (ptr.get! ctx).lastChild
+
+def DomTreeNodePtr.getSibling! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
+  (ptr.get! ctx).sibling
+
+def DomTreeNodePtr.getLastChildSibling! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
+  ((ptr.getLastChild! ctx).get!.getSibling! ctx)
+
+def DomTreeNodePtr.isLeaf! (ptr: DomTreeNodePtr) (ctx: DomContext) : Bool :=
+  (ptr.getFirstChild! ctx).isNone
+
+def DomContext.updateNode! (ptr: DomTreeNodePtr) (f : DomTreeNode -> DomTreeNode) (ctx: DomContext) : DomContext :=
+  let tree := (ptr.getDomTree! ctx)
+  let tree' := tree.set! ptr.index (f (ptr.get! ctx))
+  ctx.insert ptr.region tree'
+
+def DomTreeNodePtr.addChild! (parent child: DomTreeNodePtr) (ctx: DomContext) : DomContext := 
+  let parentNode := (parent.get! ctx) 
+
+  if (child.getSibling! ctx).isSome then 
+    panic! "cannot add child that already has siblings"
+  else if !(parent.isLeaf! ctx) && 
+          (parent.getLastChildSibling! ctx).isSome then 
+    panic! "sibling of last child must be none" 
+  else
+    match parentNode.lastChild with
+    | none => (ctx.updateNode! parent) (fun n => { n with firstChild := some child, lastChild := some child })
+    | some last => 
+      let ctx := (ctx.updateNode! last) (fun n => { n with sibling := some child })
+      (ctx.updateNode! parent) (fun parentNode => { parentNode with lastChild := some child })
+
+def DomTreeNodePtr.removeChild! (parent child: DomTreeNodePtr) (ctx: DomContext) : DomContext := Id.run do
+  let childSibling := (child.getSibling! ctx)
+  let parentLast := (parent.getLastChild! ctx)
+  let parentFirst := (parent.getFirstChild! ctx)
+
+  -- Check invariants
+  if !(parent.isLeaf! ctx) && 
+     (parent.getLastChildSibling! ctx).isSome then 
+    panic! "sibling of last child must be none" 
+  if childSibling.isNone ≠ (parentLast == some child) then
+      panic! "parent's last child is not the same as the last sibling"  
+  
+  -- Special case: child being removed is first child in sibling list
+  if parentFirst == child then
+    if parentFirst == parentLast then
+      (ctx.updateNode! parent) (fun n => { n with firstChild := none, lastChild := none })
+    else
+      let ctx := (ctx.updateNode! parent) (fun n => { n with firstChild := childSibling })
+      (ctx.updateNode! child) (fun n => { n with sibling := none }) 
+  else -- Iterate
+    let prev := parentFirst
+    match prev with
+    | none => panic! "Not in immediate dominator children list!"
+    | some prev => 
+        let mut prev := prev
+        let mut curr := (prev.getSibling! ctx) 
+        while curr != child do
+          match curr with
+          | none => panic! "Not in immediate dominator children list!"
+          | some sibling => prev := sibling; curr := (sibling.getSibling! ctx) 
+        let ctx := (ctx.updateNode! prev) (fun n => { n with sibling := childSibling })
+        if childSibling.isSome then
+          (ctx.updateNode! child) (fun n => { n with sibling := none })
+        else
+          (ctx.updateNode! parent) (fun n => { n with lastChild := prev })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 private def regionBlocks (region: RegionPtr) (ctx: IRContext) : Array BlockPtr := Id.run do
   let first := (region.get! ctx).firstBlock.get!
