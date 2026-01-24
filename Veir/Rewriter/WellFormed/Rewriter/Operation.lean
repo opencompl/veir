@@ -51,11 +51,14 @@ theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
     exists array
     apply RegionPtr.blockChain_unchanged harray <;> grind
   case operations =>
-    intros op hop
-    have : op.InBounds ctx := by grind
-    have ⟨ha, hb, hc, hd, he, hf, hg, hh⟩ := h₆ op this
-    --apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
-    sorry
+    simp [insertOp?] at heq
+    split at heq; grind
+    intro op opInBounds
+    apply Operation.wellFormed_OperationPtr_linkBetweenWithParent ctxInBounds (hctx := heq)
+    · grind [InsertPoint.prev.maybe₁_parent]
+    · grind [InsertPoint.next.maybe₁_parent]
+    · grind
+    · grind
   case blocks =>
     intros bl hbl
     have : bl.InBounds ctx := by grind
@@ -161,8 +164,14 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     intros op' hop'
     have : op'.InBounds ctx := by grind
     have ⟨ha, hb, hc, hd, he, hf, hg, hh⟩ := h₆ op' this
-    --apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
-    sorry
+    constructor
+    case region_parent =>
+      -- TODO: why does grind does not work here and require this simp?
+      simp; grind
+    case opChain_of_parent_none =>
+      cases hParent: (op.get! ctx).parent
+        <;> grind [BlockPtr.OpChain_next_ne, BlockPtr.OpChain_prev_ne]
+    all_goals grind
   case blocks =>
     intros bl hbl
     have : bl.InBounds ctx := by grind

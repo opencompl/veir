@@ -688,12 +688,18 @@ theorem RegionPtr.blockChain_OperationPtr_linkBetweenWithParent
 
 theorem Operation.wellFormed_OperationPtr_linkBetweenWithParent
     (ctxInBounds: IRContext.FieldsInBounds ctx)
+    (prevOpParent : prevOp.maybe₁ (fun prev => (prev.get! ctx).parent = some parentBlock) )
+    (nextOpParent : nextOp.maybe₁ (fun next => (next.get! ctx).parent = some parentBlock) )
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
     (OperationPtr.get! opPtr ctx).WellFormed ctx opPtr opInBounds →
     (OperationPtr.get! opPtr newCtx).WellFormed newCtx opPtr (by grind) := by
-  intros
-  --apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
-  sorry
+  intro wf
+  constructor
+  case region_parent =>
+    -- TODO: why does grind does not work here and require this simp?
+    simp only [OperationPtr.getRegion!_OperationPtr_linkBetweenWithParent hctx]
+    grind [IRContext.WellFormed, Operation.WellFormed]
+  all_goals grind [Option.maybe₁_def, IRContext.WellFormed, Operation.WellFormed]
 
 theorem Block.wellFormed_OperationPtr_linkBetweenWithParent
     (ctxInBounds: IRContext.FieldsInBounds ctx)

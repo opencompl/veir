@@ -17,11 +17,34 @@ def Rewriter.insertOp? (ctx: IRContext) (newOp: OperationPtr) (insertionPoint: I
     let next := insertionPoint.next
     newOp.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
 
+/--
+  Set the parent, previous and next operation pointers of an operation to `none`.
+  This method should not be used from outside the rewriter, and is only used to
+  make proofs easier for grind.
+-/
+@[irreducible]
+def Rewriter.unsetParentAndNeighbors (ctx : IRContext) (op : OperationPtr) (hIn : op.InBounds ctx) :=
+  let ctx := op.setParent ctx none
+  let ctx := op.setPrevOp ctx none
+  op.setNextOp ctx none
+
+@[grind =]
+theorem Rewriter.unsetParentAndNeighbors_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (unsetParentAndNeighbors ctx op hIn) ↔ ptr.InBounds ctx := by
+  simp only [unsetParentAndNeighbors]
+  grind
+
+@[grind . ]
+theorem Rewriter.unsetParentAndNeighbors_fieldsInBounds (hctx : ctx.FieldsInBounds) :
+    (unsetParentAndNeighbors ctx op hIn).FieldsInBounds := by
+  simp only [unsetParentAndNeighbors]
+  grind
+
 @[irreducible]
 def Rewriter.detachOp (ctx: IRContext) (op: OperationPtr) (hctx : ctx.FieldsInBounds) (hIn : op.InBounds ctx) (hasParent: (op.get ctx hIn).parent.isSome) : IRContext :=
   let opStruct := op.get ctx
   let parent := opStruct.parent.get hasParent
-  let ctx := op.setParent ctx none
+  let ctx := unsetParentAndNeighbors ctx op hIn
   let prevOp := opStruct.prev
   let nextOp := opStruct.next
   -- Leo: I had to duplicate the continuation in each branch, I don't really
@@ -49,7 +72,7 @@ theorem Rewriter.detachOp_inBounds (ptr : GenericPtr) :
 theorem Rewriter.detachOp_fieldsInBounds (hctx : ctx.FieldsInBounds) :
     (detachOp ctx op hctx hIn hasParent).FieldsInBounds := by
   simp only [detachOp]
-  split <;> grind
+  grind
 
 /--
   Detach an operation from its parent if it has one.
