@@ -16,3 +16,4 @@ jobs:
         with:
           build-args: "--iofail"
           test: true
+          lint: true
