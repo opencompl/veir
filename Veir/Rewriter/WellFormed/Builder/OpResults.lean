@@ -9,7 +9,8 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx)
     (hres : newResult.FieldsInBounds (opPtr.pushResult ctx newResult hop))
     (hNoFirst : newResult.firstUse = none)
-    (hIndex : newResult.index = opPtr.getNumResults ctx) :
+    (hIndex : newResult.index = opPtr.getNumResults ctx)
+    (hOwner : newResult.owner = opPtr) :
     (opPtr.pushResult ctx newResult hop).WellFormed := by
   have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hctx
   constructor
@@ -43,7 +44,7 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
   case operations =>
     intros op hop
     have : op.InBounds ctx := by grind
-    have ⟨ha, hb, hc, hd, he, hf⟩ := h₆ op this
+    have ⟨ha, hb, hc, hd, he, hf, hg⟩ := h₆ op this
     constructor
     -- TODO: Understand why grind fails here
     case region_parent => intros; constructor <;> simp <;> grind

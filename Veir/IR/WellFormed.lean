@@ -589,6 +589,8 @@ attribute [grind →] RegionPtr.BlockChain.inBounds
 structure Operation.WellFormed (op : Operation) (ctx : IRContext) (opPtr : OperationPtr) hop : Prop where
   inBounds : Operation.FieldsInBounds opPtr ctx hop
   result_index i (iInBounds : i < opPtr.getNumResults! ctx) : ((opPtr.getResult i).get! ctx).index = i
+  result_owner i (iInBounds : i < opPtr.getNumResults! ctx) :
+    ((opPtr.getResult i).get! ctx).owner = opPtr
   operand_owner i (iInBounds : i < opPtr.getNumOperands! ctx) : ((opPtr.getOpOperand i).get! ctx).owner = opPtr
   blockOperand_owner i (iInBounds : i < opPtr.getNumSuccessors! ctx) : ((opPtr.getBlockOperand i).get! ctx).owner = opPtr
   regions_unique i (iInBounds : i < opPtr.getNumRegions! ctx) j (jInBounds : j < opPtr.getNumRegions! ctx) :
@@ -729,6 +731,9 @@ theorem Operation.WellFormed_unchanged
     (hSameResultIndex :
       ∀ i, i < opPtr.getNumResults ctx opPtrInBounds →
       ((opPtr.getResult i).get! ctx).index = ((opPtr.getResult i).get! ctx').index)
+    (hSameResultOwner :
+      ∀ i, i < opPtr.getNumResults ctx opPtrInBounds →
+      ((opPtr.getResult i).get! ctx).owner = ((opPtr.getResult i).get! ctx').owner)
     (hSameRegionParents :
       ∀ (regionPtr : RegionPtr), regionPtr.InBounds ctx →
         (regionPtr.get! ctx).parent = some opPtr →
