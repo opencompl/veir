@@ -259,6 +259,44 @@ theorem Rewriter.detachOperands_wellFormed
       (op.getNumOperands ctx - 1) op hCtx hOp (by grind) wf (by grind)
     grind [Nat.toList_rcc_eq_toList_rco]
 
+theorem Rewriter.detachBlockOperands.loop_wellFormed
+    (wf : IRContext.WellFormed ctx missingOperands missingSuccessors)
+    (hMissingSuccessors : ∀ i, i <= index → (BlockOperandPtr.mk op i) ∉ missingSuccessors) :
+    (Rewriter.detachBlockOperands.loop ctx op index hCtx hOp hIndex).WellFormed
+      missingOperands
+      (missingSuccessors.insertMany ((0...=index).toList.map (fun i => BlockOperandPtr.mk op i)))
+       := by
+  induction index generalizing ctx missingOperands missingSuccessors
+  case zero =>
+    simp only [loop, Nat.toList_rcc_eq_singleton, List.map_cons, List.map_nil,
+      Std.ExtHashSet.insertMany_list_singleton]
+    grind [IRContext.wellFormed_BlockOperandPtr_removeFromCurrent]
+  case succ index hi =>
+    simp only [loop, Nat.succ_eq_add_one, Nat.le_add_left, Nat.toList_rcc_eq_append,
+      List.map_append, List.map_cons, List.map_nil, Std.ExtHashSet.insertMany_append,
+      Std.ExtHashSet.insertMany_list_singleton]
+    have h := @hi (BlockOperandPtr.removeFromCurrent ctx {op := op, index := index + 1})
+      missingOperands (missingSuccessors.insert (BlockOperandPtr.mk op (index + 1))) (by grind)
+      (by grind) (by grind) (by grind [IRContext.wellFormed_BlockOperandPtr_removeFromCurrent]) (by grind)
+    grind [Std.ExtHashSet.insertMany_list_insert_comm, Nat.toList_rcc_eq_toList_rco]
+
+theorem Rewriter.detachBlockOperands_wellFormed
+    (wf : IRContext.WellFormed ctx missingOperands missingSuccessors)
+    (hMissingSuccessors : ∀ i, (BlockOperandPtr.mk op i) ∉ missingSuccessors) :
+    (Rewriter.detachBlockOperands ctx op hCtx hOp).WellFormed missingOperands
+      (missingSuccessors.insertMany
+        ((0...op.getNumSuccessors! ctx).toList.map (fun i => BlockOperandPtr.mk op i))) := by
+  simp only [Rewriter.detachBlockOperands]
+  split
+  case isTrue h =>
+    rw [← OperationPtr.getNumSuccessors!_eq_getNumSuccessors (hin := by grind)] at h
+    simp [h]
+    grind
+  case isFalse h=>
+    have := @Rewriter.detachBlockOperands.loop_wellFormed ctx missingOperands missingSuccessors
+      (op.getNumSuccessors ctx - 1) op hCtx hOp (by grind) wf (by grind)
+    grind [Nat.toList_rcc_eq_toList_rco]
+
 set_option warn.sorry false in
 theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
