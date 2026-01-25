@@ -18,7 +18,7 @@ def Rewriter.insertOp? (ctx: IRContext) (newOp: OperationPtr) (insertionPoint: I
     newOp.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
 
 /--
-  Set the parent, previous and next operation pointers of an operation to `none`.
+  Set the parent, previous, and next operation pointers of an operation to `none`.
   This method should not be used from outside the rewriter, and is only used to
   make proofs easier for grind.
 -/

@@ -688,8 +688,8 @@ theorem RegionPtr.blockChain_OperationPtr_linkBetweenWithParent
 
 theorem Operation.wellFormed_OperationPtr_linkBetweenWithParent
     (ctxInBounds: IRContext.FieldsInBounds ctx)
-    (prevOpParent : prevOp.maybe₁ (fun prev => (prev.get! ctx).parent = some parentBlock) )
-    (nextOpParent : nextOp.maybe₁ (fun next => (next.get! ctx).parent = some parentBlock) )
+    (prevOpParent : prevOp.maybe₁ (fun prev => (prev.get! ctx).parent = some parentBlock))
+    (nextOpParent : nextOp.maybe₁ (fun next => (next.get! ctx).parent = some parentBlock))
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
     (OperationPtr.get! opPtr ctx).WellFormed ctx opPtr opInBounds →
     (OperationPtr.get! opPtr newCtx).WellFormed newCtx opPtr (by grind) := by
