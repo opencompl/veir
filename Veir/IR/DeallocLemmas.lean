@@ -231,4 +231,151 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
     · grind
     · grind [IRContext.WellFormed, Operation.WellFormed]
 
+theorem Operation.wellFormed_OperationPtr_dealloc
+    (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
+    (inBounds' : OperationPtr.InBounds opPtr' ctx)
+    (huses : ¬ op.hasUses ctx)
+    (hparent : (op.get! ctx).parent = none)
+    (hregions : op.getNumRegions! ctx = 0)
+    (htoplevelOp : ctx.topLevelOp ≠ op)
+    (inBoundsAfter' : opPtr'.InBounds (OperationPtr.dealloc op ctx inBounds)) :
+    Operation.WellFormed op' (OperationPtr.dealloc op ctx inBounds) opPtr' inBoundsAfter' := by
+  have := wf.operations opPtr' inBounds'
+  constructor
+  · grind [IRContext.fieldsInBounds_OperationPtr_dealloc]
+  · grind [IRContext.WellFormed, Operation.WellFormed]
+  · grind [IRContext.WellFormed, Operation.WellFormed]
+  · grind [IRContext.WellFormed, Operation.WellFormed]
+  · grind [IRContext.WellFormed, Operation.WellFormed]
+  · grind [IRContext.WellFormed, Operation.WellFormed]
+  · simp (disch := grind) only [OperationPtr.getRegion!_OperationPtr_dealloc]
+    grind [IRContext.WellFormed, Operation.WellFormed]
+  · grind [IRContext.WellFormed, Operation.WellFormed]
+
+theorem Block.wellFormed_OperationPtr_dealloc
+    (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
+    (inBounds' : BlockPtr.InBounds blockPtr ctx)
+    (huses : ¬ op.hasUses ctx)
+    (hparent : (op.get! ctx).parent = none)
+    (hregions : op.getNumRegions! ctx = 0)
+    (htoplevelOp : ctx.topLevelOp ≠ op)
+    (inBoundsAfter : blockPtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
+    Block.WellFormed block (OperationPtr.dealloc op ctx inBounds) blockPtr inBoundsAfter := by
+  constructor
+  · grind [IRContext.fieldsInBounds_OperationPtr_dealloc]
+  · grind [IRContext.WellFormed, Block.WellFormed]
+  · grind [IRContext.WellFormed, Block.WellFormed]
+
+theorem Region.wellFormed_OperationPtr_dealloc
+    (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
+    (inBounds' : RegionPtr.InBounds regionPtr ctx)
+    (huses : ¬ op.hasUses ctx)
+    (hparent : (op.get! ctx).parent = none)
+    (hregions : op.getNumRegions! ctx = 0)
+    (htoplevelOp : ctx.topLevelOp ≠ op)
+    (inBoundsAfter : regionPtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
+    Region.WellFormed (regionPtr.get! (OperationPtr.dealloc op ctx inBounds)) (OperationPtr.dealloc op ctx inBounds) regionPtr := by
+  constructor
+  · have := wf.regions regionPtr inBounds'
+    have := this.inBounds
+    grind [IRContext.fieldsInBounds_OperationPtr_dealloc, IRContext.WellFormed, Region.WellFormed]
+  · have := wf.regions regionPtr inBounds'
+    have := this.inBounds
+    grind [IRContext.fieldsInBounds_OperationPtr_dealloc, IRContext.WellFormed, Region.WellFormed]
+
+theorem ValuePtr.defUse_OperationPtr_dealloc
+    (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
+    (defUse : ValuePtr.DefUse valuePtr ctx array
+      ((Std.ExtHashSet.fromOperands ctx op).filter (fun use => (use.get! ctx).value = valuePtr)))
+    (inBoundsAfter : valuePtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
+    ValuePtr.DefUse valuePtr (OperationPtr.dealloc op ctx inBounds) array := by
+  constructor
+  · grind
+  · intro use useIn
+    have : (use.get! ctx).value = valuePtr := by grind [ValuePtr.DefUse]
+    have := defUse.allUsesInChain use (by grind) (by grind)
+    grind [ValuePtr.DefUse, Array.getElem_of_mem]
+  · grind [ValuePtr.DefUse, Array.getElem_of_mem]
+  · grind [ValuePtr.DefUse, Array.getElem_of_mem]
+  · intro use useIn useValue
+    simp only [Std.ExtHashSet.not_mem_empty, not_false_eq_true, iff_true]
+    have : (use.get! ctx).value = valuePtr := by grind [ValuePtr.DefUse]
+    have := defUse.allUsesInChain use (by grind) (by grind)
+    grind [OpOperandPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc]
+  · grind [ValuePtr.DefUse, Array.getElem_of_mem]
+  · grind [ValuePtr.DefUse, Array.getElem_of_mem]
+  · grind [ValuePtr.DefUse, Array.getElem_of_mem]
+  · grind
+  · grind
+
+theorem BlockPtr.defUse_OperationPtr_dealloc
+    (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
+    (defUse : BlockPtr.DefUse blockPtr ctx array
+      ((Std.ExtHashSet.fromSuccessors ctx op).filter (fun use => (use.get! ctx).value = blockPtr)))
+    (inBoundsAfter : blockPtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
+    BlockPtr.DefUse blockPtr (OperationPtr.dealloc op ctx inBounds) array := by
+  constructor
+  · grind
+  · intro use useIn
+    have : (use.get! ctx).value = blockPtr := by grind [BlockPtr.DefUse]
+    have := defUse.allUsesInChain use (by grind) (by grind)
+    grind [BlockPtr.DefUse, Array.getElem_of_mem]
+  · grind [BlockPtr.DefUse, Array.getElem_of_mem]
+  · grind [BlockPtr.DefUse, Array.getElem_of_mem]
+  · grind [BlockPtr.DefUse, Array.getElem_of_mem]
+  · grind [BlockPtr.DefUse, Array.getElem_of_mem]
+  · grind [BlockPtr.DefUse, Array.getElem_of_mem]
+  · intro use useIn useValue
+    simp only [Std.ExtHashSet.not_mem_empty, not_false_eq_true, iff_true]
+    have : (use.get! ctx).value = blockPtr := by grind [BlockPtr.DefUse]
+    have := defUse.allUsesInChain use (by grind) (by grind)
+    grind [BlockOperandPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc]
+  · grind
+  · grind
+
+theorem BlockPtr.opChain_OperationPtr_dealloc
+    (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
+    (opChain : BlockPtr.OpChain blockPtr ctx array)
+    (hparent : (op.get! ctx).parent = none)
+    (inBoundsAfter : blockPtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
+    BlockPtr.OpChain blockPtr (OperationPtr.dealloc op ctx inBounds) array := by
+  constructor <;> grind [BlockPtr.OpChain]
+
+theorem RegionPtr.blockChain_OperationPtr_dealloc
+    (opChain : RegionPtr.BlockChain regionPtr ctx array)
+    (inBoundsAfter : regionPtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
+    RegionPtr.BlockChain regionPtr (OperationPtr.dealloc op ctx inBounds) array := by
+  constructor <;> grind [RegionPtr.BlockChain]
+
+theorem IRContext.wellFormed_OperationPtr_dealloc {ctx : IRContext} {inBounds : op.InBounds ctx}
+    (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
+    (huses : ¬ op.hasUses ctx)
+    (hparent : (op.get! ctx).parent = none)
+    (hregions : op.getNumRegions! ctx = 0)
+    (htoplevelOp : ctx.topLevelOp ≠ op) :
+    IRContext.WellFormed (OperationPtr.dealloc op ctx inBounds) := by
+  constructor
+  · grind [IRContext.fieldsInBounds_OperationPtr_dealloc]
+  · intro value valueInBounds
+    have ⟨array, harray⟩ := wf.valueDefUseChains value (by grind)
+    exists array
+    simp only [Std.ExtHashSet.filter_empty]
+    apply ValuePtr.defUse_OperationPtr_dealloc <;> grind
+  · intro block blockInBounds
+    have ⟨array, harray⟩ := wf.blockDefUseChains block (by grind)
+    exists array
+    simp only [Std.ExtHashSet.filter_empty]
+    apply BlockPtr.defUse_OperationPtr_dealloc <;> grind
+  · intro block blockInBounds
+    have ⟨array, harray⟩ := wf.opChain block (by grind)
+    exists array
+    apply BlockPtr.opChain_OperationPtr_dealloc <;> grind
+  · intro region regionInBounds
+    have ⟨array, harray⟩ := wf.blockChain region (by grind)
+    exists array
+    apply RegionPtr.blockChain_OperationPtr_dealloc <;> grind
+  · grind [Operation.wellFormed_OperationPtr_dealloc]
+  · grind [Block.wellFormed_OperationPtr_dealloc]
+  · grind [Region.wellFormed_OperationPtr_dealloc]
+
 end Veir
