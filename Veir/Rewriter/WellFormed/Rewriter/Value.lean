@@ -93,7 +93,6 @@ theorem Rewriter.replaceUse_DefUse (ctx: IRContext) (use : OpOperandPtr)
       · exists array''
         grind [Rewriter.replaceUse_DefUse_otherValue]
 
-set_option warn.sorry false in
 @[grind .]
 theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (newValue: ValuePtr)
     (useIn: use.InBounds ctx)
@@ -132,13 +131,13 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (ne
       apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
     case operations =>
       intros opPtr opPtrInBounds
-      apply Operation.WellFormed_unchanged (ctx := ctx) <;> sorry -- missing GetSet lemmas
+      apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
     case blocks =>
       intros blockPtr blockPtrInBounds
       apply Block.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
     case regions =>
       intros regionPtr regionPtrInBounds
-      apply Region.WellFormed_unchanged (ctx := ctx) <;> sorry -- missing GetSet lemmas
+      apply Region.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
 
 theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext) (oldValue: ValuePtr) (newValue: ValuePtr)
     (oldIn: oldValue.InBounds ctx)
@@ -215,7 +214,6 @@ theorem Array.append_eq_erase_append_insertHead {α : Type} [BEq α] [LawfulBEq 
     array.reverse ++ otherArray = (array.erase arrayHead).reverse ++ (#[arrayHead] ++ otherArray) := by
   grind [Array.erase_head_concat]
 
-set_option warn.sorry false in
 seal HAppend.hAppend in -- TODO: remove after we use modules?
 theorem Rewriter.replaceValue_DefUse_newValue :
     oldValue.DefUse ctx oldArray →
@@ -232,16 +230,16 @@ theorem Rewriter.replaceValue_DefUse_newValue :
       have : oldArray = #[] := by grind [ValuePtr.DefUse]
       grind [ValuePtr.DefUse]
     · rename_i firstUse heq
-      intros
-      have : oldArray[0]? = some firstUse := by sorry --grind [ValuePtr.DefUse]
+      intro oldValueDefUse newValueDefUse oldNe hctx'
+      have : oldArray[0]? = some firstUse := by grind [ValuePtr.DefUse.firstElem]
       have ⟨oldArrayTail, hOldArrayTail⟩ : ∃ oldArrayTail, oldArray = #[firstUse] ++ oldArrayTail := by
         apply Array.head_tail_if_firstElem_nonnull; grind
       simp only [Array.append_eq_erase_append_insertHead (hOldArrayTail)]
       apply ih (ctx := replaceUse ctx firstUse newValue (by grind) (by grind) (by grind))
       · apply Rewriter.replaceUse_DefUse_oldValue (array' := newArray) <;>
-          sorry --grind [ValuePtr.DefUse]
+          grind [ValuePtr.DefUse.allUsesInChain, ValuePtr.DefUse.useValue]
       · apply Rewriter.replaceUse_DefUse_newValue (array' := oldArray) (value' := oldValue) <;>
-          sorry -- grind [ValuePtr.DefUse]
+          grind [ValuePtr.DefUse.allUsesInChain, ValuePtr.DefUse.useValue]
       all_goals grind
 
 theorem OperationPtr.getOperand_replaceValue?
