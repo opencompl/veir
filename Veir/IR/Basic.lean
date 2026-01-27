@@ -264,6 +264,7 @@ def Block.empty : Block :=
 @[local grind]
 def OperationPtr.InBounds (op: OperationPtr) (ctx: IRContext) : Prop :=
   op ∈ ctx.operations
+deriving Decidable
 
 def OperationPtr.get (ptr: OperationPtr) (ctx: IRContext) (inBounds: ptr.InBounds ctx := by grind) : Operation :=
   ctx.operations[ptr]'(by unfold InBounds at inBounds; grind)
@@ -519,6 +520,7 @@ def OperationPtr.dealloc (op : OperationPtr) (ctx : IRContext)
 @[local grind]
 def OpOperandPtr.InBounds (operand: OpOperandPtr) (ctx: IRContext) : Prop :=
   ∃ h, operand.index < (operand.op.get ctx h).operands.size
+deriving Decidable
 
 theorem OpOperandPtr.inBounds_def : InBounds opr ctx ↔ ∃ h, opr.index < opr.op.getNumOperands ctx h := by
   rfl
@@ -587,6 +589,7 @@ def OpOperandPtr.setValue (operand: OpOperandPtr) (ctx: IRContext) (newValue: Va
 @[local grind]
 def BlockOperandPtr.InBounds (operand: BlockOperandPtr) (ctx: IRContext) : Prop :=
   ∃ h, operand.index < (operand.op.get ctx h).blockOperands.size
+deriving Decidable
 
 theorem BlockOperandPtr.inBounds_def :
     InBounds opr ctx ↔ ∃ h, opr.index < opr.op.getNumSuccessors ctx h := by
@@ -647,6 +650,7 @@ def BlockOperandPtr.setValue (operand: BlockOperandPtr) (ctx: IRContext) (newVal
 @[local grind]
 def OpResultPtr.InBounds (result: OpResultPtr) (ctx: IRContext) : Prop :=
   ∃ h, result.index < (result.op.get ctx h).results.size
+deriving Decidable
 
 theorem OpResultPtr.inBounds_def : InBounds res ctx ↔ ∃ h, res.index < res.op.getNumResults ctx h := by
   rfl
@@ -708,6 +712,7 @@ def OpResultPtr.setOwner (result: OpResultPtr) (ctx: IRContext) (newOwner: Opera
 
 def BlockPtr.InBounds (block: BlockPtr) (ctx: IRContext) : Prop :=
   block ∈ ctx.blocks
+deriving Decidable
 
 def BlockPtr.get (ptr: BlockPtr) (ctx: IRContext) (inBounds: ptr.InBounds ctx := by grind) : Block :=
   ctx.blocks[ptr]'(by unfold InBounds at inBounds; grind)
@@ -808,6 +813,7 @@ def BlockPtr.pushArgument (block : BlockPtr) (ctx : IRContext) (result : BlockAr
 @[local grind]
 def BlockArgumentPtr.InBounds (arg: BlockArgumentPtr) (ctx: IRContext) : Prop :=
   ∃ h, arg.index < (arg.block.get ctx h).arguments.size
+deriving Decidable
 
 def BlockArgumentPtr.get (arg: BlockArgumentPtr) (ctx: IRContext) (argIn: arg.InBounds ctx := by grind) : BlockArgument :=
   (arg.block.get ctx (by grind [BlockArgumentPtr.InBounds])).arguments[arg.index]'(by grind [BlockArgumentPtr.InBounds])
@@ -869,6 +875,9 @@ theorem ValuePtr.inBounds_opResult (ptr: OpResultPtr) (ctx: IRContext) :
 theorem ValuePtr.inBounds_blockArg (ptr: BlockArgumentPtr) (ctx: IRContext) :
     (blockArgument ptr).InBounds ctx ↔ ptr.InBounds ctx := by
   grind [ValuePtr.InBounds]
+
+instance {ptr : ValuePtr} {ctx : IRContext} : Decidable (ptr.InBounds ctx) := by
+  cases ptr <;> simp <;> infer_instance
 
 def ValuePtr.getType (arg: ValuePtr) (ctx: IRContext) (argIn: arg.InBounds ctx := by grind) : MlirType :=
   match arg with
@@ -983,6 +992,9 @@ inductive OpOperandPtrPtr.InBounds (ctx: IRContext) : OpOperandPtrPtr → Prop
   | operandNextUseInBounds ptr : ptr.InBounds ctx → (operandNextUse ptr).InBounds ctx
   | valueFirstUseInBounds ptr : ptr.InBounds ctx → (valueFirstUse ptr).InBounds ctx
 
+instance {ptr : OpOperandPtr} {ctx : IRContext} : Decidable (ptr.InBounds ctx) := by
+  cases ptr; infer_instance
+
 @[simp, grind=]
 theorem OpOperandPtrPtr.inBounds_operandNextUse (ptr: OpOperandPtr) (ctx: IRContext) :
     (operandNextUse ptr).InBounds ctx ↔ ptr.InBounds ctx := by
@@ -1051,6 +1063,7 @@ theorem OpOperandPtrPtr.set_valueFirstUse (ptr: ValuePtr) (ctx: IRContext) (ptrI
 
 def RegionPtr.InBounds (region: RegionPtr) (ctx: IRContext) : Prop :=
   region ∈ ctx.regions
+deriving Decidable
 
 def RegionPtr.get (ptr: RegionPtr) (ctx: IRContext) (inBounds: ptr.InBounds ctx := by grind) : Region :=
   ctx.regions[ptr]'(by unfold InBounds at inBounds; grind)
@@ -1106,6 +1119,9 @@ theorem BlockOperandPtrPtr.inBounds_operandNextUse (ptr: BlockOperandPtr) (ctx: 
 theorem BlockOperandPtrPtr.inBounds_valueFirstUse (ptr: BlockPtr) (ctx: IRContext) :
     (blockFirstUse ptr).InBounds ctx ↔ ptr.InBounds ctx := by
   grind
+
+instance {ptr : BlockOperandPtrPtr} {ctx : IRContext} : Decidable (ptr.InBounds ctx) := by
+  cases ptr <;> simp <;> infer_instance
 
 def BlockOperandPtrPtr.get (ptrPtr: BlockOperandPtrPtr) (ctx: IRContext) (ptrPtrIn: ptrPtr.InBounds ctx := by grind) : Option BlockOperandPtr :=
   match ptrPtr with
