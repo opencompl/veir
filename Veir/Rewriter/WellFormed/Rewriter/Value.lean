@@ -303,12 +303,11 @@ theorem BlockPtr.operationList_replaceOp?
         array := by
   sorry
 
--- /--
--- info: 'Veir.Rewriter.replaceValue?_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
--- -/
--- #guard_msgs in
--- #print axioms Rewriter.replaceValue?_WellFormed
--- TODO
+/--
+info: 'Veir.Rewriter.replaceValue?_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Rewriter.replaceValue?_WellFormed
 
 
 end Veir
