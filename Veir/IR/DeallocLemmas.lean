@@ -6,7 +6,7 @@ import Veir.IR.WellFormed
   requires well-formedness lemmas to prove the `FieldsInBounds`
   preservation.
 
-  This file is thus used to collect such lemmas without avoiding
+  This file is thus used to collect such lemmas without having
   circular imports.
 -/
 
@@ -32,7 +32,8 @@ theorem Std.ExtHashSet.fromSuccessors.mem_iff
     (inBounds: operand.InBounds ctx) :
     (operand ∈ (Std.ExtHashSet.fromSuccessors ctx op) ↔ operand.op = op) := by
   simp only [Std.ExtHashSet.fromSuccessors]
-  simp [Std.Rco.mem_toList_iff_mem, Std.Rco.mem_iff]
+  simp only [Std.ExtHashSet.mem_ofList, List.contains_eq_mem, List.mem_map,
+    Std.Rco.mem_toList_iff_mem, Std.Rco.mem_iff, Nat.zero_le, true_and, decide_eq_true_eq]
   constructor
   · grind
   · intro h
@@ -54,7 +55,8 @@ theorem Std.ExtHashSet.fromOperands.mem_iff
     (inBounds: operand.InBounds ctx) :
     (operand ∈ (Std.ExtHashSet.fromOperands ctx op) ↔ operand.op = op) := by
   simp only [Std.ExtHashSet.fromOperands]
-  simp [Std.Rco.mem_toList_iff_mem, Std.Rco.mem_iff]
+  simp only [Std.ExtHashSet.mem_ofList, List.contains_eq_mem, List.mem_map,
+    Std.Rco.mem_toList_iff_mem, Std.Rco.mem_iff, Nat.zero_le, true_and, decide_eq_true_eq]
   constructor
   · grind
   · intro h
@@ -73,7 +75,8 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
     IRContext.FieldsInBounds (OperationPtr.dealloc op ctx inBounds) := by
   have inMissingUses : ∀ operand, operand.InBounds ctx → operand.op = op → operand ∈ (Std.ExtHashSet.fromOperands ctx op) := by
     intro operand operandIn hoperandOp
-    simp [Std.ExtHashSet.fromOperands]
+    simp only [Std.ExtHashSet.fromOperands, Std.ExtHashSet.mem_ofList, List.contains_eq_mem,
+      List.mem_map, decide_eq_true_eq]
     exists operand.index
     subst op
     constructor
@@ -82,7 +85,8 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
   have inMissingSuccessorUses : ∀ blockOperand, blockOperand.InBounds ctx → blockOperand.op = op
         → blockOperand ∈ (Std.ExtHashSet.fromSuccessors ctx op) := by
     intro blockOperand blockOperandIn hblockOperandOp
-    simp [Std.ExtHashSet.fromSuccessors]
+    simp only [Std.ExtHashSet.fromSuccessors, Std.ExtHashSet.mem_ofList, List.contains_eq_mem,
+      List.mem_map, decide_eq_true_eq]
     exists blockOperand.index
     subst op
     constructor
@@ -94,20 +98,20 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
     constructor
     · intro res resInBounds resOp
       constructor
-      · simp only [←OpResultPtr.get!_eq_get]
+      · simp only [← OpResultPtr.get!_eq_get]
         simp (disch := grind) only [OpResultPtr.get!_OperationPtr_dealloc]
         simp only [Option.maybe_def]
         intro firstUse
         intro hFirstUse
-        simp only [←GenericPtr.iff_opOperand]
+        simp only [← GenericPtr.iff_opOperand]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr
         · grind
         · simp only
           have := wf.valueDefUseChains res (by grind)
           grind [ValuePtr.DefUse, Std.ExtHashSet.fromOperands]
-      · simp only [←OpResultPtr.get!_eq_get]
+      · simp only [← OpResultPtr.get!_eq_get]
         simp (disch := grind) only [OpResultPtr.get!_OperationPtr_dealloc]
-        simp only [←GenericPtr.iff_operation]
+        simp only [← GenericPtr.iff_operation]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         simp only
         have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := wf.operations op' (by grind)
@@ -122,7 +126,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
     · intro operand operandIn hop
       have hoperandOp := BlockOperandPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc operandIn
       have operandIn' := operandIn
-      simp [←GenericPtr.iff_blockOperand] at operandIn'
+      simp only [← GenericPtr.iff_blockOperand] at operandIn'
       have operandIn' := OpResultPtr.dealloc.inBounds_genericPtr_of_inBounds_dealloc operandIn'
       simp only [GenericPtr.iff_blockOperand] at operandIn'
       have opNe : op ≠ op' := by grind
@@ -130,16 +134,16 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
       · simp only [Option.maybe_def]
         have ⟨array, harray⟩ := wf.blockDefUseChains (operand.get! ctx).value (by grind)
         grind [BlockPtr.DefUse, Array.getElem_of_mem]
-      · simp only [←BlockOperandPtr.get!_eq_get]
+      · simp only [← BlockOperandPtr.get!_eq_get]
         simp (disch := grind) only [BlockOperandPtr.get!_OperationPtr_dealloc]
-        simp only [←GenericPtr.iff_blockOperandPtr]
+        simp only [← GenericPtr.iff_blockOperandPtr]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         cases hback : (operand.get! ctx).back; rotate_right 1; simp only
         have ⟨array, harray⟩ := wf.blockDefUseChains (operand.get! ctx).value (by grind)
         grind [BlockPtr.DefUse, Array.getElem_of_mem]
-      · simp only [←BlockOperandPtr.get!_eq_get]
+      · simp only [← BlockOperandPtr.get!_eq_get]
         simp (disch := grind) only [BlockOperandPtr.get!_OperationPtr_dealloc]
-        simp only [←GenericPtr.iff_operation]
+        simp only [← GenericPtr.iff_operation]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         simp only
         intro howner
@@ -153,7 +157,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
     · intro operand operandIn hop
       have hoperandOp := OpOperandPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc operandIn
       have operandIn' := operandIn
-      simp [←GenericPtr.iff_opOperand] at operandIn'
+      simp only [← GenericPtr.iff_opOperand] at operandIn'
       have operandIn' := OpResultPtr.dealloc.inBounds_genericPtr_of_inBounds_dealloc operandIn'
       simp only [GenericPtr.iff_opOperand] at operandIn'
       have opNe : op ≠ op' := by grind
@@ -161,9 +165,9 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
       constructor
       · simp only [Option.maybe_def]
         grind [ValuePtr.DefUse, Array.getElem_of_mem]
-      · simp only [←OpOperandPtr.get!_eq_get]
+      · simp only [← OpOperandPtr.get!_eq_get]
         simp (disch := grind) only [OpOperandPtr.get!_OperationPtr_dealloc]
-        simp only [←GenericPtr.iff_opOperandPtr]
+        simp only [← GenericPtr.iff_opOperandPtr]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         cases hback : (operand.get! ctx).back
         case operandNextUse nextUse =>
@@ -176,17 +180,17 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
             simp only
             have : operand ∈ array := by grind [ValuePtr.DefUse]
             intro hopResOp
-            simp [←OperationPtr.hasUses!_eq_hasUses] at huses
-            simp [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false] at huses
+            simp only [← OperationPtr.hasUses!_eq_hasUses, Bool.not_eq_true] at huses
+            simp only [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false] at huses
             have hopResUses := huses opRes.index (by grind)
             have : op.getResult opRes.index = opRes := by cases opRes; grind [OperationPtr.getResult]
-            simp [this] at hopResUses
+            simp only [this] at hopResUses
             simp only [ValuePtr.hasUses!_def,
               Option.isSome_eq_false_iff, Option.isNone_iff_eq_none] at hopResUses
             grind [ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse]
-      · simp only [←OpOperandPtr.get!_eq_get]
+      · simp only [← OpOperandPtr.get!_eq_get]
         simp (disch := grind) only [OpOperandPtr.get!_OperationPtr_dealloc]
-        simp only [←GenericPtr.iff_operation]
+        simp only [← GenericPtr.iff_operation]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         simp only
         intro howner
@@ -195,17 +199,17 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
         simp only [OperationPtr.getOpOperand] at this
         cases operand
         grind
-      · simp only [←OpOperandPtr.get!_eq_get]
+      · simp only [← OpOperandPtr.get!_eq_get]
         simp (disch := grind) only [OpOperandPtr.get!_OperationPtr_dealloc]
-        simp only [←GenericPtr.iff_value]
+        simp only [← GenericPtr.iff_value]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         cases hvalue: (operand.get! ctx).value; rotate_left 1; grind
         rename_i opRes
         simp only
         intro howner
         have : operand ∈ array := by grind [ValuePtr.DefUse]
-        simp [←OperationPtr.hasUses!_eq_hasUses] at huses
-        simp [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false] at huses
+        simp only [← OperationPtr.hasUses!_eq_hasUses, Bool.not_eq_true] at huses
+        simp only [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false] at huses
         have hopResUses := huses opRes.index (by grind)
         have : op.getResult opRes.index = opRes := by cases opRes; grind [OperationPtr.getResult]
         grind [ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse, ValuePtr.DefUse.hasUses_iff]
