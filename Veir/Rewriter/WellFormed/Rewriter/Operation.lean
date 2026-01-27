@@ -1,4 +1,5 @@
 import Veir.IR.Basic
+import Veir.IR.DeallocLemmas
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSetInBounds
@@ -308,14 +309,57 @@ theorem Rewriter.detachBlockOperands_wellFormed
       (op.getNumSuccessors ctx - 1) op hCtx hOp (by grind) wf (by grind)
     grind [Nat.toList_rcc_eq_toList_rco]
 
-set_option warn.sorry false in
+theorem testo (hctx : ctx.WellFormed missingUses missingSuccessors) :
+    operand ∉ missingUses →
+    (OpResultPtr.get! result ctx).firstUse = none →
+    (OpResultPtr.get! result (OpOperandPtr.removeFromCurrent ctx operand operandIn ctxIn)).firstUse = none := by
+  simp only [OpResultPtr.get!_OpOperandPtr_removeFromCurrent]
+  intro hmissing h
+  split; rotate_left 1; grind
+  rename_i hback
+  exfalso
+  have ⟨useArray, hUseArray⟩ := hctx.valueDefUseChains result (by grind)
+  have : useArray = #[] := by grind [ValuePtr.DefUse]
+  suffices (operand.get! ctx).value = result by grind [ValuePtr.DefUse]
+  have ⟨useArray', hUseArray'⟩ := hctx.valueDefUseChains (operand.get! ctx).value (by grind)
+  have : operand ∈ useArray' := by grind [ValuePtr.DefUse]
+  have := ValuePtr.DefUse_getFirstUse!_value_eq_of_back_eq_valueFirstUse (ctx := ctx) (firstUse := operand) (by grind) hUseArray'
+
+  have := hUseArray.allUsesInChain operand (by grind)
+
+  --grind [IRContext.WellFormed, ValuePtr.DefUse, Array.getElem_of_mem]
+
 theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
-    (hop : op.InBounds ctx)
-    (newCtx : IRContext) :
-    Rewriter.eraseOp ctx op hctx hop = newCtx →
-    newCtx.WellFormed := by
-  sorry
+    (opNotTopLevel : ctx.topLevelOp ≠ op)
+    (noRegions : op.getNumRegions! ctx = 0)
+    (noUses : op.hasUses! ctx = false)
+    (hop : op.InBounds ctx) :
+    (Rewriter.eraseOp ctx op hctx hop).WellFormed := by
+  have hCtx₀ := detachOpIfAttached_WellFormed ctx wf (by grind) op (by grind)
+  have hCtx₁ := detachOperands_wellFormed (op := op) (hOp := by grind) hCtx₀ (by grind) (hCtx := by grind)
+  have hCtx₂ := detachBlockOperands_wellFormed (op := op) (hOp := by grind) hCtx₁ (by grind) (hCtx := by grind)
+  simp only [Rewriter.eraseOp]
+  apply IRContext.wellFormed_OperationPtr_dealloc
+  · apply cast (a := hCtx₂); congr
+    · simp only [Std.ExtHashSet.fromOperands]
+      grind [Std.ExtHashSet.insertMany_empty_eq_ofList, OperationPtr.getOpOperand]
+    · simp only [Std.ExtHashSet.fromSuccessors]
+      grind [Std.ExtHashSet.insertMany_empty_eq_ofList, OperationPtr.getBlockOperand]
+  · simp only [←OperationPtr.hasUses!_eq_hasUses]
+    simp only [Bool.not_eq_true]
+    simp only [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false]
+    simp only [OperationPtr.getNumResults!_detachBlockOperands,
+      OperationPtr.getNumResults!_detachOperands, OperationPtr.getNumResults!_detachOpIfAttached]
+    intro index hindex
+    simp only [ValuePtr.hasUses!_def]
+    simp only [ValuePtr.getFirstUse!_detachBlockOperands, ValuePtr.getFirstUse!_opResult_eq,
+      Option.isSome_eq_false_iff, Option.isNone_iff_eq_none]
+
+    sorry
+  · grind
+  · grind
+  · grind
 
 set_option warn.sorry false in
 theorem BlockPtr.operationList_Rewriter_eraseOp

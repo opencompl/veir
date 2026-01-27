@@ -799,15 +799,15 @@ theorem BlockPtr.operationList.mem :
     op ∈ BlockPtr.operationList block ctx hctx hblock := by
   grind [BlockPtr.OpChain, BlockPtr.operationListWF]
 
-noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext) (hctx : ctx.WellFormed) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
+noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext) (hctx : ctx.WellFormed missingUses missingBlockUses) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
   (hctx.valueDefUseChains value hvalue).choose
 
 @[grind .]
-theorem ValuePtr.defUseArrayWF {hctx : IRContext.WellFormed ctx} :
-    ValuePtr.DefUse value ctx (ValuePtr.defUseArray value ctx hctx hvalue) := by
-  grind [ValuePtr.defUseArray]
+theorem ValuePtr.defUseArrayWF {hctx : IRContext.WellFormed ctx missingUses missingBlockUses} :
+    ValuePtr.DefUse value ctx (ValuePtr.defUseArray value ctx hctx hvalue) (missingUses.filter (fun use => (use.get! ctx).value = value)) := by
+  grind [ValuePtr.defUseArray, IRContext.WellFormed]
 
-theorem ValuePtr.defUseArray_contains_operand_use :
+theorem ValuePtr.defUseArray_contains_operand_use {hctx : IRContext.WellFormed ctx} :
     (operand.get ctx operandInBounds).value = value ↔
     operand ∈ ValuePtr.defUseArray value ctx hctx hvalue := by
   grind [ValuePtr.DefUse, ValuePtr.defUseArrayWF]
