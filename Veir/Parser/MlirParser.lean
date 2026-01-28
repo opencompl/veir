@@ -22,6 +22,7 @@ def operationNameToOpId (name : String) : Nat :=
   | "return" => 3
   | "arith.muli" => 4
   | "arith.andi" => 5
+  | "arith.subi" => 6
   | "test.test" => 99
   | _ => 42
 

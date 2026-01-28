@@ -14,6 +14,7 @@ def opName (opType: Nat) : String :=
   | 3 => "return"
   | 4 => "arith.muli"
   | 5 => "arith.andi"
+  | 6 => "arith.subi"
   | 99 => "test.test"
   | _ => "UNREGISTERED"
 
