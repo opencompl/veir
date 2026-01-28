@@ -2100,6 +2100,12 @@ theorem OpResultPtr.index_replaceUse :
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
+theorem OperationPtr.getNumRegions_replaceUse :
+    OperationPtr.getNumRegions! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    OperationPtr.getNumRegions! op ctx := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
 theorem OperationPtr.getRegions_replaceUse :
     OperationPtr.getRegion! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     OperationPtr.getRegion! op ctx := by
