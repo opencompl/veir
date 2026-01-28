@@ -16,7 +16,7 @@ macro:50 "rlet" h:ident ":" pat:term "←" expr:term  rest:term : term =>
       | none => none
       | some $pat => $rest)
 
--- TODO(leo): remove this
+-- TODO: remove this
 macro:50 "rlet" pat:term "←" expr:term "in" rest:term : term =>
   `(match _ : $expr:term with
       | none => none
