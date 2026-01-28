@@ -145,6 +145,11 @@ theorem Std.ExtHashSet.insertMany_list_insert_comm [BEq α] [EquivBEq α] [Hasha
     (s.insert a).insertMany l = (s.insertMany l).insert a := by
   ext; grind
 
+theorem Std.ExtHashSet.insertMany_empty_eq_ofList [BEq α] [EquivBEq α] [Hashable α] [LawfulHashable α] [BEq α] [LawfulBEq α]
+    (l : List α) :
+    (∅ : Std.ExtHashSet α).insertMany l = Std.ExtHashSet.ofList l := by
+  ext; grind
+
 end
 
 section ranges
