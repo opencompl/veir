@@ -252,29 +252,31 @@ theorem OperationPtr.getOperand_replaceValue?
   intros
   simp only
   simp only [OperationPtr.getOperand_eq_OpOperandPtr_get] at *
-  let oldValueArray := oldValue.defUseArray ctx (by grind) (by grind)
-  let newValueArray := newValue.defUseArray ctx (by grind) (by grind)
+  let oldValueArray := oldValue.defUseArray ctx hCtx (by grind)
+  let newValueArray := newValue.defUseArray ctx hCtx (by grind)
   split
   · have : op.getOpOperand idx ∈ oldValueArray := by
       grind [ValuePtr.defUseArray_contains_operand_use]
     have := @Rewriter.replaceValue_DefUse_newValue oldValue newValue ctx
       (depth := depth) (newArray := newValueArray) (oldArray := oldValueArray)
+    have : oldValue.DefUse ctx oldValueArray := by grind [ValuePtr.defUseArrayWF]
+    have : newValue.DefUse ctx newValueArray := by grind [ValuePtr.defUseArrayWF]
     grind [ValuePtr.DefUse]
   · by_cases h : op.getOperand ctx idx = newValue
     · simp only [OperationPtr.getOperand_eq_OpOperandPtr_get] at h
       have := @Rewriter.replaceValue_DefUse_newValue oldValue newValue ctx
         (depth := depth) (newArray := newValueArray) (oldArray := oldValueArray)
-      grind [ValuePtr.DefUse]
+      grind [ValuePtr.DefUse, ValuePtr.defUseArrayWF]
     · let operand := op.getOpOperand idx
       let value := (operand.get ctx (by grind)).value
-      let valueArray := value.defUseArray ctx (by grind) (by grind)
+      let valueArray := value.defUseArray ctx hCtx (by grind)
       simp only [OperationPtr.getOperand_eq_OpOperandPtr_get] at h
       have : op.getOpOperand idx ∉ oldValueArray := by grind [ValuePtr.defUseArray_contains_operand_use]
       have : value.InBounds ctx := by grind
       have := @Rewriter.replaceValue_DefUse_otherValue value oldValue newValue ctx
         (depth := depth) (array := valueArray) (newArray := newValueArray) (oldArray := oldValueArray)
       have : operand ∈ valueArray := by grind [ValuePtr.defUseArray_contains_operand_use]
-      grind [ValuePtr.DefUse]
+      grind [ValuePtr.DefUse, ValuePtr.defUseArrayWF]
 
 set_option warn.sorry false in
 theorem OperationPtr.getOperand_replaceOp?
