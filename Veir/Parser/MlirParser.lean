@@ -331,7 +331,12 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
 
   /- Create the operation. -/
   let opId := operationNameToOpId opName
-  let some (ctx, op) := Rewriter.createOp (← getContext) opId outputTypes operands blockOperands regions 0 ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
+
+  /- Set context in monad to default to preserve linearity whilst modifying -/
+  let ctx ← getContext
+  setContext Inhabited.default
+
+  let some (ctx, op) := Rewriter.createOp ctx opId outputTypes operands blockOperands regions 0 ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
       | throw "internal error: failed to create operation"
 
   /- Update the parser context. -/
