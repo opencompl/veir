@@ -857,6 +857,11 @@ theorem ValuePtr.DefUse.hasUses_iff
     value.hasUses ctx ↔ array ≠ #[] := by
   grind [DefUse, hasUses]
 
+theorem ValuePtr.DefUse.getFirstUse!_none_iff
+    (hWF : ValuePtr.DefUse value ctx array missingUses) :
+    value.getFirstUse! ctx = none ↔ array = #[] := by
+  grind [DefUse]
+
 theorem IRContext.WellFormed.OperationPtr_next!_eq_some_of_prev!_eq_some
     {ctx : IRContext} {op prevOp : OperationPtr} (hop : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :

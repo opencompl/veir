@@ -309,25 +309,50 @@ theorem Rewriter.detachBlockOperands_wellFormed
       (op.getNumSuccessors ctx - 1) op hCtx hOp (by grind) wf (by grind)
     grind [Nat.toList_rcc_eq_toList_rco]
 
-theorem testo (hctx : ctx.WellFormed missingUses missingSuccessors) :
+theorem OpResultPtr.firstUse!_OpOperandPtr_removeFromCurrent_eq_none_of_firstUse!_eq_none
+    (hctx : ctx.WellFormed missingUses missingSuccessors) :
     operand ∉ missingUses →
+    result.InBounds ctx →
     (OpResultPtr.get! result ctx).firstUse = none →
     (OpResultPtr.get! result (OpOperandPtr.removeFromCurrent ctx operand operandIn ctxIn)).firstUse = none := by
-  simp only [OpResultPtr.get!_OpOperandPtr_removeFromCurrent]
-  intro hmissing h
-  split; rotate_left 1; grind
-  rename_i hback
-  exfalso
+  intro hmissing resultIn h
   have ⟨useArray, hUseArray⟩ := hctx.valueDefUseChains result (by grind)
-  have : useArray = #[] := by grind [ValuePtr.DefUse]
-  suffices (operand.get! ctx).value = result by grind [ValuePtr.DefUse]
   have ⟨useArray', hUseArray'⟩ := hctx.valueDefUseChains (operand.get! ctx).value (by grind)
-  have : operand ∈ useArray' := by grind [ValuePtr.DefUse]
-  have := ValuePtr.DefUse_getFirstUse!_value_eq_of_back_eq_valueFirstUse (ctx := ctx) (firstUse := operand) (by grind) hUseArray'
+  have hne : result ≠ (operand.get! ctx).value := by grind [ValuePtr.DefUse]
+  have : useArray = #[] := by grind [ValuePtr.DefUse.getFirstUse!_none_iff hUseArray]
+  have operandInArray : operand ∈ useArray' := by grind [ValuePtr.DefUse]
+  have := ValuePtr.defUse_removeFromCurrent_other hne hUseArray hUseArray' (hvalue := operandInArray) (ctxInBounds := by grind)
+  grind [ValuePtr.DefUse.getFirstUse!_none_iff this]
 
-  have := hUseArray.allUsesInChain operand (by grind)
+theorem OpResultPtr.firstUse!_detachOperands_loop_eq_none_of_firstUse!_eq_none
+    (hctx : ctx.WellFormed missingUses missingSuccessors)
+    (hMissingUses : ∀ i, i <= idx → (OpOperandPtr.mk operation i) ∉ missingUses)
+    (resIn : result.InBounds ctx) :
+    (OpResultPtr.get! result ctx).firstUse = none →
+    (OpResultPtr.get! result (Rewriter.detachOperands.loop ctx operation idx hctxin hop hidx)).firstUse = none := by
+  intro h
+  induction idx generalizing ctx missingUses
+  case zero =>
+    simp only [Rewriter.detachOperands.loop]
+    apply OpResultPtr.firstUse!_OpOperandPtr_removeFromCurrent_eq_none_of_firstUse!_eq_none hctx <;> grind
+  case succ idx hi =>
+    simp only [Rewriter.detachOperands.loop, Nat.succ_eq_add_one]
+    apply hi
+    · apply IRContext.wellFormed_OpOperandPtr_removeFromCurrent (missingOperandUses := missingUses) (by grind) hctx
+    · grind
+    · grind
+    · apply OpResultPtr.firstUse!_OpOperandPtr_removeFromCurrent_eq_none_of_firstUse!_eq_none hctx <;> grind
 
-  --grind [IRContext.WellFormed, ValuePtr.DefUse, Array.getElem_of_mem]
+theorem OpResultPtr.firstUse!_detachOperands_eq_none_of_firstUse!_eq_none
+    (hctx : ctx.WellFormed missingUses missingSuccessors)
+    (hMissingUses : ∀ i, (OpOperandPtr.mk operation i) ∉ missingUses)
+    (resIn : result.InBounds ctx) :
+    (OpResultPtr.get! result ctx).firstUse = none →
+    (OpResultPtr.get! result (Rewriter.detachOperands ctx operation hctxin hop)).firstUse = none := by
+  intro h
+  simp only [Rewriter.detachOperands]
+  split; grind
+  apply OpResultPtr.firstUse!_detachOperands_loop_eq_none_of_firstUse!_eq_none hctx (by grind) resIn h
 
 theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
@@ -355,8 +380,12 @@ theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     simp only [ValuePtr.hasUses!_def]
     simp only [ValuePtr.getFirstUse!_detachBlockOperands, ValuePtr.getFirstUse!_opResult_eq,
       Option.isSome_eq_false_iff, Option.isNone_iff_eq_none]
-
-    sorry
+    apply OpResultPtr.firstUse!_detachOperands_eq_none_of_firstUse!_eq_none hCtx₀
+    · grind
+    · grind
+    · simp only [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false] at noUses
+      simp [ValuePtr.hasUses!_def] at noUses
+      grind
   · grind
   · grind
   · grind
