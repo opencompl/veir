@@ -1,112 +1,55 @@
-# Verified Intermediate Representation
+# Supplementary material for "Fast and Correct Pointer-Based Data Structures in ITPs"
 
-VeIR is a compiler infrastructure written in Lean that offers both an
-[MLIR](https://mlir.llvm.org/)-style imperative design and
-(optional) ITP-level verification.
-VeIR connects with MLIR via the MLIR textual format, making it
-easy to combine MLIR and VeIR tools.
+This directory contains the heap-based data structure of MLIR in Lean,
+its formalization, as well as additional 
 
-| VeIR Features                                         | Complete   | Verified |
-|-------------------------------------------------------|------------| ---------|
-| MLIR core data structures (block, operation, region)  | ✅         | 🔒        |
-| define dialects                                       | ✅ (basic) |           |
-| pass infrastructure                                   | ✅         |           |
-| peephole rewriter                                     | ✅         |           |
-| peephole rewriter (declarative)                       |            |           |
-| interpreter framework                                 | ✅         |           |
+## Installation
 
-## Testing
+To build the project, you need to install [Lean 4](https://lean-lang.org/install/).
 
-Our testing framework is split into two parts: unit tests written in Lean and
-[FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) tests for the
-command line tool `veir-opt`.
-
-### Unit Tests
-
-Run the unit tests with:
-
+The project can then be built and tested using
 ```bash
+lake build
 lake test
 ```
 
-### FileCheck Tests
-
-FileCheck tests require [uv](https://docs.astral.sh/uv/) to be installed.
-
-First, install dependencies:
+Additionally, to run the [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html)
+tests, [uv](https://docs.astral.sh/uv/) needs to be installed. `FileCheck` is then
+installed with
 
 ```bash
 uv sync
 ```
 
-Then run the tests:
+and then the tests run with
 
 ```bash
 uv run lit Test/ -v
 ```
 
-## Running the benchmarks
+## Contents
 
-```bash
-lake exe run-benchmarks add-fold-worklist
-```
+Here is a description of the main files in the `ChainMail/` directory, that are relevant to the
+paper:
 
-## From C to VeIR
-
-This section gives an example showing how to run code through a VeIR
-pass, starting from C code.
-
-Prerequisite: An up-to-date MLIR bin directory in your PATH.
-
-Start with a C function:
-```bash
-cat << _end_ > demorgan.c
-unsigned d1(unsigned p, unsigned q) {
-  return ~(~p & ~q);
-}
-
-unsigned short d2(unsigned short p, unsigned short q) {
-  return ~(~p | ~q);
-}
-_end_
-```
-
-Compile to LLVM IR:
-```bash
-clang -cc1 -O0 -disable-O0-optnone -emit-llvm demorgan.c
-```
-
-Optimize it a little:
-```bash
-opt -passes=sroa demorgan.ll -S -o demorgan-opt.ll
-```
-
-Translate to MLIR:
-```bash
-mlir-translate --import-llvm demorgan-opt.ll | mlir-opt --mlir-print-op-generic --mlir-print-local-scope > demorgan-opt.mlir
-```
-
-Optimize using VeIR's InstCombine and DCE (dead code elimination) passes:
-```bash
-lake exec veir-opt -p=instcombine,dce demorgan-opt.mlir
-```
-
-Alternatively, you can batch up these commands using the provided
-compiler driver and emit the optimized MLIR to stdout:
-```bash
-Tools/vcc demorgan.c --emit-mlir -O -o -
-```
-
-Without an explicit emit mode, `vcc` translates VeIR's output back to
-LLVM IR and asks `clang` to produce an executable:
-```bash
-cat << _end_ > hello.c
-#include <stdio.h>
-
-int main(void) {
-  printf("hello, world\n");
-}
-_end_
-
-Tools/vcc hello.c -o hello
-```
+- `IR/`: Contains the low-level definitions and specifications of ChainMail IR.
+  - `Basic.lean`: Definitions of the ChainMail data structures, including getters and setters.
+  - `InBounds.lean`: Definitions and proofs related to in-bounds accesses.
+  - `GetSet.lean`: Lemmas about the behavior of getters and setters.
+  - `Fields.lean`: Definition of the `FieldInBounds` predicate and proof of preservation for setters.
+  - `WellFormed.lean`: Definition of the `WellFormed` predicate and lemmas about it.
+  - `DeallocLemmas.lean`: Well-formedness lemmas about `OperationPtr.dealloc`.
+- `Rewriter/`: Contains high-level definitions of `Rewiter`, which contains user-facing IR mutation operations.
+  - `InsertPoint.lean`: Definition of `InsertPoint`, which is used to specify where to insert
+    new operations.
+  - `LinkedList/`: Lower-level operations that directly mutate some doubly linked lists.
+    Contains also proof of preservation of well-formedness. 
+  - `Basic.lean`: Definitions of the `Rewriter` operations that mutates ChainMail data structures.
+  - `GetSet.lean`: Lemmas about the behavior of getters and the `Rewriter` API.
+  - `WellFormed/`: Proofs of preservation of `WellFormed` for the `Rewriter` API.
+  - `InlineBlock.lean`: Definition of `inlineBlock`, with proof of preservation of well-formedness.
+- `PatternRewriter/`: Contains a definition of `PatternRewriter`, which applies a pattern rewrite
+  until convergence.
+- `Parser/`: Parser from MLIR textual format to the `ChainMail` data structures.
+- `Printer.lean`: Printer from the `ChainMail` data structures to MLIR textual format.
+- `Benchmarks.lean`: The set of benchmarks used in the paper.
