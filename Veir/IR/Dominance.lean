@@ -130,101 +130,62 @@ def DomTreeNodePtr.removeChild! (parent child: DomTreeNodePtr) (ctx: DomContext)
         else
           (ctx.updateNode! parent) (fun n => { n with lastChild := prev })
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-private def regionBlocks (region: RegionPtr) (ctx: IRContext) : Array BlockPtr := Id.run do
-  let first := (region.get! ctx).firstBlock.get!
-  let last := (region.get! ctx).lastBlock.get!
-  let mut blocks : Array BlockPtr := #[]
-  let mut curr := first
-  while curr != last do
-    blocks := blocks.push curr
-    curr := (curr.get! ctx).next.get!
-  blocks.push curr
-
-private def blockPredecessors (block: BlockPtr) (ctx: IRContext) : Array BlockPtr := Id.run do
-  let mut preds : Array BlockPtr := #[]
-  let mut use := (block.get! ctx).firstUse
-  while use.isSome do
-    let op := (use.get!.get! ctx).owner
-    let pred := (op.get! ctx).parent.get!
-    preds := preds.push pred
-    use := (use.get!.get! ctx).nextUse
-  return preds
-
-private def blockSuccessors (block: BlockPtr) (ctx: IRContext) : Array BlockPtr := Id.run do
-  let mut succs : Array BlockPtr := #[]
-  match (block.get! ctx).lastOp with
-  | none => return succs
-  | some op =>
-    for i in [0:op.getNumSuccessors! ctx] do
-      succs := succs.push (op.getSuccessor! ctx i)
-    return succs
-
-private partial def visitPostOrder (b : BlockPtr) (ctx: IRContext) (visited : Std.HashSet BlockPtr) (post : Array BlockPtr) : Std.HashSet BlockPtr × Array BlockPtr := Id.run do
-  let mut visited := visited
-  let mut post := post
-  if visited.contains b then
-    return (visited, post) 
-  visited := visited.insert b 
-  for s in (blockSuccessors b ctx) do
-    (visited, post) := visitPostOrder s ctx visited post
-  post := post.push b
-  return (visited, post)
-
-private def reversePostOrder (entry: BlockPtr) (ctx: IRContext) : Array BlockPtr := 
-  let (_, post) := visitPostOrder entry ctx {} #[] 
-  post.reverse
-
-private def reversePostOrderIndex (rpo : Array BlockPtr) : Std.HashMap BlockPtr Nat := Id.run do
-  let mut index : Std.HashMap BlockPtr Nat := {}
-  for i in [0:rpo.size] do
-    index := index.insert rpo[i]! i 
-  return index
-
-private def intersect (block1 block2 : BlockPtr) (doms: Array (Option BlockPtr)) (idx: Std.HashMap BlockPtr Nat) : BlockPtr := Id.run do
-  let mut finger1 := block1
-  let mut finger2 := block2
-  while finger1 != finger2 do
-    while idx[finger1]! > idx[finger2]! do
-      finger1 := doms[idx[finger1]!]!.get!
-    while idx[finger2]! > idx[finger1]! do  
-      finger2 := doms[idx[finger2]!]!.get!
-  return finger1
-
-def getDominanceInfo (region: RegionPtr) (ctx: IRContext) : Array BlockPtr := Id.run do 
-  let blocks := regionBlocks region ctx 
-  let rpo := reversePostOrder blocks[0]! ctx
-  let idx := reversePostOrderIndex rpo
-  let mut doms : Array (Option BlockPtr) := #[]
-  for _ in [0:rpo.size] do
-    doms := doms.push none
-  doms := doms.set! idx[rpo[0]!]! (some rpo[0]!)
+-- Uses the Cooper Harvey Kennedy algorithm
+def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRContext) : DomContext := Id.run do 
+  let intersect (block1: BlockPtr) (block2: BlockPtr) (idx: HashMap BlockPtr DomTreeNodePtr) (domTree : DomTree) : BlockPtr := Id.run do 
+    let mut finger1 := block1
+    let mut finger2 := block2
+    while finger1 != finger2 do
+      while idx[finger1]!.index < idx[finger2]!.index do
+        finger1 := domTree[idx[finger1]!.index]!.block
+      while idx[finger2]!.index < idx[finger1]!.index do  
+        finger2 := domTree[idx[finger2]!.index]!.block
+    return finger1
+    
+  -- Postorder traversal of blocks, insert into DomTree (which is just an array!) 
+  let mut postOrderIndex : HashMap BlockPtr DomTreeNodePtr := {}
+  let mut domTree := (ptr.getDomTree! domCtx)
+  let mut domCtx := domCtx
+  domCtx := domCtx.insert ptr #[]  
+  match (ptr.get! irCtx).firstBlock with
+  | none => return domCtx
+  | some entry =>
+    let mut worklist : Array (Option BlockPtr × Bool) := #[(entry, false)]
+    while not worklist.isEmpty do
+      let (block, visited) := worklist.back!
+      worklist := worklist.pop 
+      match block with
+      | none => continue
+      | some block =>
+        if visited then 
+          domTree := domTree.push (DomTreeNode.new block none domTree)
+          postOrderIndex := postOrderIndex.insert block { region := ptr, index := domTree.size }
+        else
+          worklist := worklist.push (block, true) 
+          let op := (block.get! irCtx).lastOp.get!
+          for childIdx in [0:op.getNumSuccessors! irCtx] do
+            worklist := worklist.push ((op.getSuccessor! irCtx childIdx), false)
+   
+  -- Iterate backwards through the DomTree (reverse postorder traversal)
   let mut changed := true
   while changed do
-    changed := false 
-    for block in rpo do
-      let mut newIdom := (blockPredecessors block ctx)[0]!
-      for pred in rpo[1:] do
-        if doms[idx[pred]!]!.isSome then
-          newIdom := intersect pred newIdom doms idx 
-      if doms[idx[block]!]! != newIdom then
-        doms := doms.set! idx[block]! newIdom 
+    changed := false
+    for node in domTree.reverse do
+      let newIdom := (node.block.get! irCtx).firstUse
+      let mut pred := (newIdom.get!.get! irCtx).nextUse
+      let mut newIdom := ((newIdom.get!.get! irCtx).owner.get! irCtx).parent.get!
+      while pred.isSome do
+        let predBlock := ((pred.get!.get! irCtx).owner.get! irCtx).parent.get! 
+        if domTree[postOrderIndex[predBlock]!.index]!.iDom.isSome then
+          newIdom := intersect predBlock newIdom postOrderIndex domTree 
+        pred := (pred.get!.get! irCtx).nextUse 
+      let nodePtr := postOrderIndex[node.block]!
+      let newIDomPtr := postOrderIndex[newIdom]!
+      if (nodePtr.getBlock! domCtx) != newIdom then
+        domCtx := newIDomPtr.addChild! nodePtr domCtx
         changed := true
-  return doms.map (fun b => b.get!)
- 
+      /- let domTreeNodePtr := postOrderIndex[node.block]!  -/
+      /- if (domTreeNodePtr.getBlock! domCtx) != newIdom then -/
+      /-   domCtx := DomContext.updateNode! domTreeNodePtr (fun n => { n with iDom := some postOrderIndex[newIdom]! }) domCtx -/
+      /-   changed := true -/
+  domCtx
