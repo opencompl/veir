@@ -44,6 +44,15 @@ def DomTreeNode.new (block : BlockPtr) (iDom: Option DomTreeNodePtr) (domTree : 
 
 def RegionPtr.getDomTree! (ptr: RegionPtr) (ctx: DomContext) : DomTree := ctx[ptr]!
 
+def RegionPtr.newDomTreeNode! (ptr: RegionPtr) (block : BlockPtr) (ctx: DomContext) : DomContext := 
+  let tree := (ptr.getDomTree! ctx) 
+  let tree' := tree.push (DomTreeNode.new block none tree)
+  ctx.insert ptr tree'
+
+def RegionPtr.getDomTreeSize! (ptr: RegionPtr) (ctx: DomContext) : Nat :=
+  let tree := (ptr.getDomTree! ctx)
+  tree.size
+
 def DomTreeNodePtr.getDomTree! (ptr: DomTreeNodePtr) (ctx: DomContext) : DomTree :=
   (ptr.region.getDomTree! ctx)
 
@@ -144,7 +153,6 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
     
   -- Postorder traversal of blocks, insert into DomTree (which is just an array!) 
   let mut postOrderIndex : HashMap BlockPtr DomTreeNodePtr := {}
-  let mut domTree := (ptr.getDomTree! domCtx)
   let mut domCtx := domCtx
   domCtx := domCtx.insert ptr #[]  
   match (ptr.get! irCtx).firstBlock with
@@ -158,8 +166,8 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
       | none => continue
       | some block =>
         if visited then 
-          domTree := domTree.push (DomTreeNode.new block none domTree)
-          postOrderIndex := postOrderIndex.insert block { region := ptr, index := domTree.size }
+          domCtx := ptr.newDomTreeNode! block domCtx 
+          postOrderIndex := postOrderIndex.insert block { region := ptr, index := (ptr.getDomTreeSize! domCtx) }
         else
           worklist := worklist.push (block, true) 
           let op := (block.get! irCtx).lastOp.get!
@@ -169,6 +177,7 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
   -- Iterate backwards through the DomTree (reverse postorder traversal)
   let mut changed := true
   while changed do
+    let domTree := (ptr.getDomTree! domCtx)
     changed := false
     for node in domTree.reverse do
       let newIdom := (node.block.get! irCtx).firstUse
