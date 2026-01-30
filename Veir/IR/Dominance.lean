@@ -182,10 +182,6 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
       let nodePtr := postOrderIndex[node.block]!
       let newIDomPtr := postOrderIndex[newIdom]!
       if (nodePtr.getBlock! domCtx) != newIdom then
-        domCtx := newIDomPtr.addChild! nodePtr domCtx
+        domCtx := DomContext.updateNode! nodePtr (fun n => { n with iDom := some newIDomPtr }) domCtx 
         changed := true
-      /- let domTreeNodePtr := postOrderIndex[node.block]!  -/
-      /- if (domTreeNodePtr.getBlock! domCtx) != newIdom then -/
-      /-   domCtx := DomContext.updateNode! domTreeNodePtr (fun n => { n with iDom := some postOrderIndex[newIdom]! }) domCtx -/
-      /-   changed := true -/
   domCtx
