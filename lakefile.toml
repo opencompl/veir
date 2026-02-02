@@ -1,7 +1,7 @@
 name = "VeIR"
 version = "0.1.0"
 defaultTargets = ["veir-opt", "run-benchmarks", "Veir"]
-testRunner = "Test"
+testRunner = "UnitTest"
 
 [leanOptions]
 experimental.module = true
@@ -11,8 +11,8 @@ name = "Veir"
 root = "Veir"
 
 [[lean_lib]]
-name = "Test"
-root = "Test"
+name = "UnitTest"
+root = "UnitTest"
 
 [[lean_exe]]
 name = "veir-opt"

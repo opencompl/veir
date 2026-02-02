@@ -1,3 +1,5 @@
+**/.lit_test_times.txt
+
 .venv
 *.code-workspace
 lake-packages/
@@ -22,21 +24,10 @@ settings.json
 *.produced.out
 CMakeSettings.json
 CppProperties.json
-result
-mlir-opt
-mlir-opt.c
-crash
-crash.c
 build/
-examples/.lit_test_times.txt
-examples/Output
-temp.mlir
 tags
-test-semantics/*.mlir
-test-semantics/*.llvm
 *.olean
 lakefile.olean
 .lake/
-SSA/Projects/InstCombine/tests/logs/generalizer
 
 **/.ruff_cache
