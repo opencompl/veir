@@ -16,8 +16,6 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 structure DomTreeNode where
   -- The block in question
   block : BlockPtr
-  -- Level in the tree
-  level : Nat
   -- The immediate dominator of the block
   iDom : Option DomTreeNodePtr
 
@@ -29,14 +27,10 @@ deriving Inhabited
 abbrev DomTree := Array DomTreeNode
 abbrev DomContext := HashMap RegionPtr DomTree 
 
-def DomTreeNode.new (block : BlockPtr) (iDom: Option DomTreeNodePtr) (domTree : DomTree) : DomTreeNode :=
+def DomTreeNode.new (block : BlockPtr) (iDom: Option DomTreeNodePtr) : DomTreeNode :=
 {
   block := block
-  level :=
-  match iDom with
-    | some domPtr => domTree[domPtr.index]!.level + 1
-    | none => 0
-  iDom := none
+  iDom := iDom 
   firstChild := none
   lastChild := none
   sibling := none
@@ -45,9 +39,8 @@ def DomTreeNode.new (block : BlockPtr) (iDom: Option DomTreeNodePtr) (domTree : 
 def RegionPtr.getDomTree! (ptr: RegionPtr) (ctx: DomContext) : DomTree := ctx[ptr]!
 
 def RegionPtr.newDomTreeNode! (ptr: RegionPtr) (block : BlockPtr) (ctx: DomContext) : DomContext := 
-  let tree := (ptr.getDomTree! ctx) 
-  let tree' := tree.push (DomTreeNode.new block none tree)
-  ctx.insert ptr tree'
+  let tree := (ptr.getDomTree! ctx).push (DomTreeNode.new block none)
+  ctx.insert ptr tree
 
 def RegionPtr.getDomTreeSize! (ptr: RegionPtr) (ctx: DomContext) : Nat :=
   let tree := (ptr.getDomTree! ctx)
@@ -61,9 +54,6 @@ def DomTreeNodePtr.get! (ptr: DomTreeNodePtr) (ctx: DomContext) : DomTreeNode :=
 
 def DomTreeNodePtr.getBlock! (ptr: DomTreeNodePtr) (ctx: DomContext) : BlockPtr :=
   (ptr.get! ctx).block
-
-def DomTreeNodePtr.getLevel! (ptr: DomTreeNodePtr) (ctx: DomContext) : Nat :=
-  (ptr.get! ctx).level
 
 def DomTreeNodePtr.getIDom! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
   (ptr.get! ctx).iDom
@@ -139,6 +129,16 @@ def DomTreeNodePtr.removeChild! (parent child: DomTreeNodePtr) (ctx: DomContext)
         else
           (ctx.updateNode! parent) (fun n => { n with lastChild := prev })
 
+  def DomTreeNodePtr.setIDom! (ptr newIDom: DomTreeNodePtr) (ctx: DomContext) : DomContext := Id.run do
+    match (ptr.getIDom! ctx) with
+    | none => panic! "No immediate dominator"
+    | some iDom =>
+      if iDom == newIDom then 
+        return ctx
+      else
+        let ctx := (iDom.removeChild! ptr ctx)
+        (newIDom.addChild! ptr ctx)
+
 -- Uses the Cooper Harvey Kennedy algorithm
 def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRContext) : DomContext := Id.run do 
   let intersect (block1: BlockPtr) (block2: BlockPtr) (idx: HashMap BlockPtr DomTreeNodePtr) (domTree : DomTree) : BlockPtr := Id.run do 
@@ -180,17 +180,18 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
     let domTree := (ptr.getDomTree! domCtx)
     changed := false
     for node in domTree.reverse do
-      let newIdom := (node.block.get! irCtx).firstUse
-      let mut pred := (newIdom.get!.get! irCtx).nextUse
-      let mut newIdom := ((newIdom.get!.get! irCtx).owner.get! irCtx).parent.get!
+      let newIDom := (node.block.get! irCtx).firstUse
+      let mut pred := (newIDom.get!.get! irCtx).nextUse
+      let mut newIDom := ((newIDom.get!.get! irCtx).owner.get! irCtx).parent.get!
       while pred.isSome do
         let predBlock := ((pred.get!.get! irCtx).owner.get! irCtx).parent.get! 
         if domTree[postOrderIndex[predBlock]!.index]!.iDom.isSome then
-          newIdom := intersect predBlock newIdom postOrderIndex domTree 
+          newIDom := intersect predBlock newIDom postOrderIndex domTree 
         pred := (pred.get!.get! irCtx).nextUse 
       let nodePtr := postOrderIndex[node.block]!
-      let newIDomPtr := postOrderIndex[newIdom]!
-      if (nodePtr.getBlock! domCtx) != newIdom then
+      let newIDomPtr := postOrderIndex[newIDom]!
+      if (nodePtr.getIDom! domCtx) != newIDomPtr then
         domCtx := DomContext.updateNode! nodePtr (fun n => { n with iDom := some newIDomPtr }) domCtx 
+        domCtx := newIDomPtr.addChild! nodePtr domCtx
         changed := true
   domCtx
