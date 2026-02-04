@@ -1,6 +1,7 @@
 module
 
 public import Std.Data.ExtHashSet
+public import Std.Data.HashMap
 
 public section
 
@@ -149,6 +150,14 @@ theorem Std.ExtHashSet.insertMany_empty_eq_ofList [BEq α] [EquivBEq α] [Hashab
     (l : List α) :
     (∅ : Std.ExtHashSet α).insertMany l = Std.ExtHashSet.ofList l := by
   ext; grind
+
+/--
+  A version of `Std.HashMap.all` that also pass to the predicate `p` a proof that the key-value
+  pair exists in the map.
+-/
+def Std.List.allKeysD [BEq α] [EquivBEq α] [Hashable α] [LawfulHashable α] [BEq α] [LawfulBEq α]
+    [BEq β] [LawfulBEq β] (m : Std.HashMap α β) (p : ∀ (a : α), a ∈ m → Bool) : Bool :=
+  m.all (fun k v => if k ∈ m then p k (by grind) else false)
 
 end
 
