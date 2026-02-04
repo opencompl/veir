@@ -141,15 +141,15 @@ def DomTreeNodePtr.removeChild! (parent child: DomTreeNodePtr) (ctx: DomContext)
 
 -- Uses the Cooper Harvey Kennedy algorithm
 def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRContext) : DomContext := Id.run do 
-  let intersect (block1: BlockPtr) (block2: BlockPtr) (idx: HashMap BlockPtr DomTreeNodePtr) (domTree : DomTree) : BlockPtr := Id.run do 
-    let mut finger1 := block1
-    let mut finger2 := block2
+  let intersect (block1: BlockPtr) (block2: BlockPtr) (idx: HashMap BlockPtr DomTreeNodePtr) : BlockPtr := Id.run do 
+    let mut finger1 := idx[block1]!
+    let mut finger2 := idx[block2]!
     while finger1 != finger2 do
-      while idx[finger1]!.index < idx[finger2]!.index do
-        finger1 := domTree[idx[finger1]!.index]!.block
-      while idx[finger2]!.index < idx[finger1]!.index do  
-        finger2 := domTree[idx[finger2]!.index]!.block
-    return finger1
+      while finger1.index < finger2.index do
+        finger1 := (finger1.getIDom! domCtx).get! 
+      while finger2.index < finger1.index do  
+        finger2 := (finger2.getIDom! domCtx).get! 
+    return (finger1.getBlock! domCtx)
     
   -- Postorder traversal of blocks, insert into DomTree (which is just an array!) 
   let mut postOrderIndex : HashMap BlockPtr DomTreeNodePtr := {}
@@ -166,8 +166,8 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
       | none => continue
       | some block =>
         if visited then 
-          domCtx := ptr.newDomTreeNode! block domCtx 
           postOrderIndex := postOrderIndex.insert block { region := ptr, index := (ptr.getDomTreeSize! domCtx) }
+          domCtx := ptr.newDomTreeNode! block domCtx 
         else
           worklist := worklist.push (block, true) 
           let op := (block.get! irCtx).lastOp.get!
@@ -186,7 +186,7 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
       while pred.isSome do
         let predBlock := ((pred.get!.get! irCtx).owner.get! irCtx).parent.get! 
         if domTree[postOrderIndex[predBlock]!.index]!.iDom.isSome then
-          newIDom := intersect predBlock newIDom postOrderIndex domTree 
+          newIDom := intersect predBlock newIDom postOrderIndex 
         pred := (pred.get!.get! irCtx).nextUse 
       let nodePtr := postOrderIndex[node.block]!
       let newIDomPtr := postOrderIndex[newIDom]!
