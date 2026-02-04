@@ -9,18 +9,11 @@ set_option warn.sorry false
 
 namespace Veir.Benchmarks
 
-abbrev OpCode.module := 0
-abbrev OpCode.constant := 1
-abbrev OpCode.addi := 2
-abbrev OpCode.muli := 4
-abbrev OpCode.andi := 5
-abbrev OpCode.test := 99
-
 namespace Pattern
 
 def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
   -- Check that the operation is an arith.addi operation
-  if op.getOpType rewriter.ctx sorry ≠ OpCode.addi then
+  if op.getOpType rewriter.ctx sorry ≠ .arith_addi then
     return rewriter
 
   -- Get the lhs and check that it is a constant
@@ -29,7 +22,7 @@ def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option 
   | ValuePtr.opResult lhsOpResultPtr => some lhsOpResultPtr.op
   | _ => none
   let lhsOpStruct := lhsOp.get rewriter.ctx (by sorry)
-  if lhsOpStruct.opType ≠ OpCode.constant then
+  if lhsOpStruct.opType ≠ .arith_constant then
     return rewriter
 
   -- Get the rhs and check that it is a constant
@@ -38,12 +31,12 @@ def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option 
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
   let rhsOpStruct := rhsOp.get rewriter.ctx (by sorry)
-  if rhsOpStruct.opType ≠ OpCode.constant then
+  if rhsOpStruct.opType ≠ .arith_constant then
     return rewriter
 
   -- Sum both constant values
   let newVal := lhsOpStruct.properties + rhsOpStruct.properties
-  let (rewriter, newOp) ← rewriter.createOp OpCode.constant #["i32"] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp .arith_constant #["i32"] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry
 
   if (lhsValuePtr.getFirstUse rewriter.ctx (by sorry)).isNone then
@@ -53,7 +46,7 @@ def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option 
   return rewriter
 
 def addIZeroFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
-  if op.getOpType rewriter.ctx sorry ≠ OpCode.addi then
+  if op.getOpType rewriter.ctx sorry ≠ .arith_addi then
     return rewriter
 
   -- Get the rhs and check that it is the constant 0
@@ -62,7 +55,7 @@ def addIZeroFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option Patt
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
   let rhsOpStruct := rhsOp.get rewriter.ctx (by sorry)
-  if rhsOpStruct.opType ≠ OpCode.constant then
+  if rhsOpStruct.opType ≠ .arith_constant then
     return rewriter
   if rhsOpStruct.properties ≠ 0 then
     return rewriter
@@ -79,7 +72,7 @@ def addIZeroFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option Patt
   return rewriter
 
 def mulITwoReduce (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
-  if op.getOpType rewriter.ctx sorry ≠ OpCode.muli then
+  if op.getOpType rewriter.ctx sorry ≠ .arith_muli then
     return rewriter
 
   -- Get the rhs and check that it is the constant 2
@@ -88,7 +81,7 @@ def mulITwoReduce (rewriter: PatternRewriter) (op: OperationPtr) : Option Patter
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
   let rhsOpStruct := rhsOp.get rewriter.ctx (by sorry)
-  if rhsOpStruct.opType ≠ OpCode.constant then
+  if rhsOpStruct.opType ≠ .arith_constant then
     return rewriter
   if rhsOpStruct.properties ≠ 2 then
     return rewriter
@@ -96,7 +89,7 @@ def mulITwoReduce (rewriter: PatternRewriter) (op: OperationPtr) : Option Patter
   -- Get the lhs value
   let lhsValuePtr := op.getOperand rewriter.ctx 0 (by sorry) (by sorry)
 
-  let (rewriter, newOp) ← rewriter.createOp OpCode.addi #["i32"] #[lhsValuePtr, lhsValuePtr] #[] #[] 0 (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp .arith_addi #["i32"] #[lhsValuePtr, lhsValuePtr] #[] #[] 0 (some $ .before op) sorry sorry sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse rewriter.ctx (by sorry)).isNone then
@@ -113,7 +106,7 @@ abbrev Pattern := IRContext → OperationPtr → Option IRContext
 
 def addIConstantFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
   -- Check that the operation is an arith.addi operation
-  if op.getOpType ctx sorry ≠ OpCode.addi then
+  if op.getOpType ctx sorry ≠ .arith_addi then
     return ctx
 
   -- Get the lhs and check that it is a constant
@@ -122,7 +115,7 @@ def addIConstantFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext :
   | ValuePtr.opResult lhsOpResultPtr => some lhsOpResultPtr.op
   | _ => none
   let lhsOpStruct := lhsOp.get ctx (by sorry)
-  if lhsOpStruct.opType ≠ OpCode.constant then
+  if lhsOpStruct.opType ≠ .arith_constant then
     return ctx
 
   -- Get the rhs and check that it is a constant
@@ -131,12 +124,12 @@ def addIConstantFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext :
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
   let rhsOpStruct := rhsOp.get ctx (by sorry)
-  if rhsOpStruct.opType ≠ OpCode.constant then
+  if rhsOpStruct.opType ≠ .arith_constant then
     return ctx
 
   -- Sum both constant values
   let newVal := lhsOpStruct.properties + rhsOpStruct.properties
-  let (ctx, newOp) ← Rewriter.createOp ctx OpCode.constant #["i32"] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx .arith_constant #["i32"] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry sorry
   let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry
 
   if (lhsValuePtr.getFirstUse ctx (by sorry)).isNone then
@@ -146,7 +139,7 @@ def addIConstantFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext :
   return ctx
 
 def addIZeroFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
-  if op.getOpType ctx sorry ≠ OpCode.addi then
+  if op.getOpType ctx sorry ≠ .arith_addi then
     return ctx
 
   -- Get the rhs and check that it is the constant 0
@@ -155,7 +148,7 @@ def addIZeroFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
   let rhsOpStruct := rhsOp.get ctx (by sorry)
-  if rhsOpStruct.opType ≠ OpCode.constant then
+  if rhsOpStruct.opType ≠ .arith_constant then
     return ctx
   if rhsOpStruct.properties ≠ 0 then
     return ctx
@@ -172,7 +165,7 @@ def addIZeroFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
   return ctx
 
 def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
-  if op.getOpType ctx sorry ≠ OpCode.muli then
+  if op.getOpType ctx sorry ≠ .arith_muli then
     return ctx
 
   -- Get the rhs and check that it is the constant 2
@@ -181,7 +174,7 @@ def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
   | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
   | _ => none
   let rhsOpStruct := rhsOp.get ctx (by sorry)
-  if rhsOpStruct.opType ≠ OpCode.constant then
+  if rhsOpStruct.opType ≠ .arith_constant then
     return ctx
   if rhsOpStruct.properties ≠ 2 then
     return ctx
@@ -189,7 +182,7 @@ def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
   -- Get the lhs value
   let lhsValuePtr := op.getOperand ctx 0 (by sorry) (by sorry)
 
-  let (ctx, newOp) ← Rewriter.createOp ctx OpCode.addi #["i32"] #[lhsValuePtr, lhsValuePtr] #[] #[] 0 (some $ .before op) sorry sorry sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx .arith_addi #["i32"] #[lhsValuePtr, lhsValuePtr] #[] #[] 0 (some $ .before op) sorry sorry sorry sorry sorry
   let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse ctx (by sorry)).isNone then
@@ -198,7 +191,7 @@ def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
 
 -- Rewrites the first instance of an opcode in the program with the given pattern,
 -- within a program consisting of one region/block
-def rewriteFirst (ctx: IRContext) (opcode: Nat) (rewrite: Pattern) : Option IRContext := do
+def rewriteFirst (ctx: IRContext) (opcode: OpCode) (rewrite: Pattern) : Option IRContext := do
   let topLevelOp := ctx.topLevelOp
   let region := topLevelOp.getRegion! ctx 0
   let block := (region.get ctx (by sorry)).firstBlock.get!
@@ -210,7 +203,7 @@ def rewriteFirst (ctx: IRContext) (opcode: Nat) (rewrite: Pattern) : Option IRCo
   rewrite ctx op
 
 def rewriteFirstAddI (ctx: IRContext) (rewrite: Pattern) : Option IRContext :=
-  rewriteFirst ctx OpCode.addi rewrite
+  rewriteFirst ctx .arith_addi rewrite
 
 def rewriteForwards (ctx: IRContext) (rewrite: Pattern) : Option IRContext := do
   let topLevelOp := ctx.topLevelOp
@@ -250,31 +243,31 @@ def empty : Option (IRContext × InsertPoint) := do
 --   %3 = arith.constant [inc] : u64
 --   %4 = [opcode] %2, %3 : u64
 --   ...
-def constFoldTree (opcode: Nat) (size pc: Nat) (root inc: UInt64) : Option IRContext := do
+def constFoldTree (opcode: OpCode) (size pc: Nat) (root inc: UInt64) : Option IRContext := do
   let (gctx, insertPoint) ← empty
-  let mut (gctx, gacc) ← Rewriter.createOp gctx OpCode.constant #["i32"] #[] #[] #[] root insertPoint sorry sorry sorry sorry sorry
+  let mut (gctx, gacc) ← Rewriter.createOp gctx .arith_constant #["i32"] #[] #[] #[] root insertPoint sorry sorry sorry sorry sorry
   for i in [0:size] do
-    let thisOp := if (i % 100 < pc) then opcode else OpCode.andi
+    let thisOp := if (i % 100 < pc) then opcode else .arith_andi
 
     let (ctx, acc) := (gctx, gacc)
-    let (ctx, rhsOp) ← Rewriter.createOp ctx OpCode.constant #["i32"] #[] #[] #[] inc insertPoint sorry sorry sorry sorry sorry
+    let (ctx, rhsOp) ← Rewriter.createOp ctx .arith_constant #["i32"] #[] #[] #[] inc insertPoint sorry sorry sorry sorry sorry
     let lhsVal := acc.getResult 0
     let rhsVal := rhsOp.getResult 0
     let (ctx, acc) ← Rewriter.createOp ctx thisOp #["i32"] #[lhsVal, rhsVal] #[] #[] 0 insertPoint sorry sorry sorry sorry sorry
     (gctx, gacc) := (ctx, acc)
 
   let accRes := gacc.getResult 0
-  let (ctx, op) ← Rewriter.createOp gctx OpCode.test #[] #[accRes] #[] #[] 0 insertPoint sorry sorry sorry sorry sorry
+  let (ctx, op) ← Rewriter.createOp gctx .test_test #[] #[accRes] #[] #[] 0 insertPoint sorry sorry sorry sorry sorry
   ctx
 
 def addZeroTree (size pc: Nat) : Option IRContext :=
-  constFoldTree OpCode.addi size pc 42 0
+  constFoldTree .arith_addi size pc 42 0
 
 def addOneTree (size pc: Nat) : Option IRContext :=
-  constFoldTree OpCode.addi size pc 42 1
+  constFoldTree .arith_addi size pc 42 1
 
 def mulTwoTree (size pc: Nat) : Option IRContext :=
-  constFoldTree OpCode.muli size pc 42 2
+  constFoldTree .arith_muli size pc 42 2
 
 
 -- Create a program that looks like:
@@ -284,14 +277,14 @@ def mulTwoTree (size pc: Nat) : Option IRContext :=
 --   %2 = [opcode] %0, %reuse : u64
 --   %3 = [opcode] %2, %reuse : u64
 --   ...
-def constReuseTree (opcode: Nat) (size pc: Nat) (root inc: UInt64) : Option IRContext := do
+def constReuseTree (opcode: OpCode) (size pc: Nat) (root inc: UInt64) : Option IRContext := do
   let (ctx, insertPoint) ← empty
-  let (ctx, acc) ← Rewriter.createOp ctx OpCode.constant #["i32"] #[] #[] #[] root insertPoint sorry sorry sorry sorry sorry
-  let (ctx, reuse) ← Rewriter.createOp ctx OpCode.constant #["i32"] #[] #[] #[] inc insertPoint sorry sorry sorry sorry sorry
+  let (ctx, acc) ← Rewriter.createOp ctx .arith_constant #["i32"] #[] #[] #[] root insertPoint sorry sorry sorry sorry sorry
+  let (ctx, reuse) ← Rewriter.createOp ctx .arith_constant #["i32"] #[] #[] #[] inc insertPoint sorry sorry sorry sorry sorry
 
   let mut (gctx, gacc) := (ctx, acc)
   for i in [0:size] do
-    let thisOp := if (i % 100 < pc) then opcode else OpCode.andi
+    let thisOp := if (i % 100 < pc) then opcode else .arith_andi
 
     let (ctx, acc) := (gctx, gacc)
     let lhsVal := acc.getResult 0
@@ -301,11 +294,11 @@ def constReuseTree (opcode: Nat) (size pc: Nat) (root inc: UInt64) : Option IRCo
   let (ctx, acc) := (gctx, gacc)
 
   let accRes := acc.getResult 0
-  let (ctx, op) ← Rewriter.createOp ctx OpCode.test #[] #[accRes] #[] #[] 0 insertPoint sorry sorry sorry sorry sorry
+  let (ctx, op) ← Rewriter.createOp ctx .test_test #[] #[accRes] #[] #[] 0 insertPoint sorry sorry sorry sorry sorry
   ctx
 
 def addZeroReuseTree (size pc: Nat) : Option IRContext :=
-  constReuseTree OpCode.addi size pc 42 0
+  constReuseTree .arith_addi size pc 42 0
 
 -- Create a program that looks like:
 -- func @main() -> u64 {
@@ -316,17 +309,17 @@ def addZeroReuseTree (size pc: Nat) : Option IRContext :=
 --   %4 = [opcode] %3, %reuse : u64
 --   %5 = [opcode] %4, %reuse : u64
 --   ...
-def constLotsOfReuseTree (opcode: Nat) (size pc: Nat) (lhs rhs: UInt64) : Option IRContext := do
+def constLotsOfReuseTree (opcode: OpCode) (size pc: Nat) (lhs rhs: UInt64) : Option IRContext := do
   let (ctx, insertPoint) ← empty
-  let (ctx, lhsOp) ← Rewriter.createOp ctx OpCode.constant #["i32"] #[] #[] #[] lhs insertPoint sorry sorry sorry sorry sorry
-  let (ctx, rhsOp) ← Rewriter.createOp ctx OpCode.constant #["i32"] #[] #[] #[] rhs insertPoint sorry sorry sorry sorry sorry
+  let (ctx, lhsOp) ← Rewriter.createOp ctx .arith_constant #["i32"] #[] #[] #[] lhs insertPoint sorry sorry sorry sorry sorry
+  let (ctx, rhsOp) ← Rewriter.createOp ctx .arith_constant #["i32"] #[] #[] #[] rhs insertPoint sorry sorry sorry sorry sorry
   let lhsVal := lhsOp.getResult 0
   let rhsVal := rhsOp.getResult 0
   let (ctx, reuse) ← Rewriter.createOp ctx opcode #["i32"] #[lhsVal, rhsVal] #[] #[] 0 insertPoint sorry sorry sorry sorry sorry
 
   let mut (gctx, gacc) := (ctx, reuse)
   for i in [0:size] do
-    let thisOp := if (i % 100 < pc) then opcode else OpCode.andi
+    let thisOp := if (i % 100 < pc) then opcode else .arith_andi
 
     let (ctx, acc) := (gctx, gacc)
     let lhsVal := acc.getResult 0
@@ -336,11 +329,11 @@ def constLotsOfReuseTree (opcode: Nat) (size pc: Nat) (lhs rhs: UInt64) : Option
   let (ctx, acc) := (gctx, gacc)
 
   let accRes := acc.getResult 0
-  let (ctx, op) ← Rewriter.createOp ctx OpCode.test #[] #[accRes] #[] #[] 0 insertPoint sorry sorry sorry sorry sorry
+  let (ctx, op) ← Rewriter.createOp ctx .test_test #[] #[accRes] #[] #[] 0 insertPoint sorry sorry sorry sorry sorry
   ctx
 
 def addZeroLotsOfReuseTree (size pc: Nat) : Option IRContext :=
-  constLotsOfReuseTree OpCode.addi size pc 42 0
+  constLotsOfReuseTree .arith_addi size pc 42 0
 
 end Program
 

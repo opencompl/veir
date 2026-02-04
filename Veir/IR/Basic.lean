@@ -2,6 +2,7 @@ module
 
 public import Std.Data.HashMap
 public import Veir.Prelude
+public import Veir.OpCode
 open Std (HashMap)
 
 public section
@@ -169,7 +170,7 @@ structure Operation where
   -- We do not support those features yet:
   -- location: Location
   -- orderIndex: Nat
-  opType: Nat
+  opType: OpCode
   attrs: AttrDictionary
   -- This should be replaced with an arbitrary user object
   properties: UInt64
@@ -224,7 +225,7 @@ deriving Inhabited, Repr
 /- Empty objects. -/
 
 @[expose]
-def Operation.empty (opType: Nat) : Operation :=
+def Operation.empty (opType: OpCode) : Operation :=
   { results := #[]
     prev := none
     next := none
@@ -275,7 +276,7 @@ theorem OperationPtr.get!_eq_get {ptr : OperationPtr} (hin : ptr.InBounds ctx) :
     ptr.get! ctx = (ptr.get ctx hin) := by
   grind [get, get!, InBounds]
 
-def OperationPtr.getOpType (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx) : Nat :=
+def OperationPtr.getOpType (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx) : OpCode :=
   (op.get ctx (by grind)).opType
 
 def OperationPtr.getNumOperands (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx := by grind) : Nat :=
@@ -501,7 +502,7 @@ def OperationPtr.nextResult (op : OperationPtr) (ctx : IRContext)
     (inBounds: op.InBounds ctx := by grind) : OpResultPtr :=
   .mk op (op.getNumResults ctx (by grind))
 
-def OperationPtr.allocEmpty (ctx : IRContext) (opType : Nat) : Option (IRContext × OperationPtr) :=
+def OperationPtr.allocEmpty (ctx : IRContext) (opType : OpCode) : Option (IRContext × OperationPtr) :=
   let newOpPtr : OperationPtr := ⟨ctx.nextID⟩
   let operation := Operation.empty opType
   if _ : ctx.operations.contains newOpPtr then none else

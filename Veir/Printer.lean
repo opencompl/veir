@@ -151,8 +151,8 @@ partial def printOperation (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0
   let opStruct := op.get! ctx
   printIndent indent
   printOpResults ctx op
-  IO.print s!"\"{opName opStruct.opType}\""
-  if opStruct.opType = 1 then
+  IO.print s!"\"{String.fromUTF8! opStruct.opType.name}\""
+  if opStruct.opType = .arith_constant then
     IO.print s!" {opStruct.properties} "
   else
     printOpOperands ctx op

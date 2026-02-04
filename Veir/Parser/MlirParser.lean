@@ -10,22 +10,6 @@ open Veir.AttrParser
 
 namespace Veir.Parser
 
-/--
-  Map operation names to operation IDs.
-  Unregistered operations are mapped to 42.
--/
-def operationNameToOpId (name : String) : Nat :=
-  match name with
-  | "builtin.module" => 0
-  | "arith.constant" => 1
-  | "arith.addi" => 2
-  | "return" => 3
-  | "arith.muli" => 4
-  | "arith.andi" => 5
-  | "arith.subi" => 6
-  | "test.test" => 99
-  | _ => 42
-
 structure MlirParserState where
   /-- The current IR context. -/
   ctx : IRContext
@@ -331,7 +315,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
 
   /- Create the operation. -/
-  let opId := operationNameToOpId opName
+  let opId := OpCode.fromName opName.toByteArray
 
   /- Set context in monad to default to preserve linearity whilst modifying -/
   let ctx ← getContext
