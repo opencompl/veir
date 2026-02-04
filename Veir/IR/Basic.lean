@@ -3,6 +3,7 @@ module
 public import Std.Data.HashMap
 public import Veir.Prelude
 public import Veir.OpCode
+public import Veir.ForLean
 open Std (HashMap)
 
 public section
@@ -1263,6 +1264,13 @@ theorem hasUses!_eq_false_iff_hasUses!_opResult_eq_false {op : OperationPtr}
   grind [OpResultPtr.inBounds_def, getResult, cases OpResultPtr]
 
 end OperationPtr
+
+/--
+  Run a function on all operations in the context.
+  In particular, the function provides a proof that the operation pointer is in bounds.
+-/
+def IRContext.forOpsDepM (ctx : IRContext) {m : Type w → Type w'} [Monad m] (p : ∀ (op : OperationPtr), op.InBounds ctx → m PUnit) : m PUnit :=
+  ctx.operations.forKeysDepM (fun opPtr h => p opPtr (by grind [OperationPtr.InBounds]))
 
 /- Generic pointers -/
 
