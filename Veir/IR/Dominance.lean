@@ -22,10 +22,13 @@ structure DomTreeNode where
   firstChild : Option DomTreeNodePtr -- Invariant: If firstChild is none, lastChild is none. If firstChild is some, lastChild is some.
   lastChild : Option DomTreeNodePtr -- Invariant: lastChild's sibling should always be none
   sibling : Option DomTreeNodePtr
-deriving Inhabited
+  deriving Inhabited, Repr
 
 abbrev DomTree := Array DomTreeNode
 abbrev DomContext := HashMap RegionPtr DomTree 
+
+instance : Repr DomContext where
+  reprPrec ctx prec := reprPrec (ctx.toList) prec
 
 def DomTreeNode.new (block : BlockPtr) (iDom: Option DomTreeNodePtr) : DomTreeNode :=
 {
@@ -159,6 +162,7 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
   | none => return domCtx
   | some entry =>
     let mut worklist : Array (Option BlockPtr × Bool) := #[(entry, false)]
+    let mut seen : Std.HashSet BlockPtr := {}
     while not worklist.isEmpty do
       let (block, visited) := worklist.back!
       worklist := worklist.pop 
@@ -168,12 +172,15 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
         if visited then 
           postOrderIndex := postOrderIndex.insert block { region := ptr, index := (ptr.getDomTreeSize! domCtx) }
           domCtx := ptr.newDomTreeNode! block domCtx 
+        else if seen.contains block then
+          continue
         else
+          seen := seen.insert block
           worklist := worklist.push (block, true) 
           let op := (block.get! irCtx).lastOp.get!
           for childIdx in [0:op.getNumSuccessors! irCtx] do
             worklist := worklist.push ((op.getSuccessor! irCtx childIdx), false)
-   
+
   -- Iterate backwards through the DomTree (reverse postorder traversal)
   let mut changed := true
   while changed do
