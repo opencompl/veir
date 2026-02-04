@@ -152,7 +152,7 @@ partial def printOperation (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0
   printIndent indent
   printOpResults ctx op
   IO.print s!"\"{String.fromUTF8! opStruct.opType.name}\""
-  if opStruct.opType = OpCode.arith.constant then
+  if opStruct.opType = .arith_constant then
     IO.print s!" {opStruct.properties} "
   else
     printOpOperands ctx op

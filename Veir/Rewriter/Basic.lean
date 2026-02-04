@@ -599,7 +599,7 @@ def IRContext.create : Option (IRContext × OperationPtr) :=
   -- Note: We inline part of the definition of `createOp` because the above
   -- `ctx` does not satisfy `ctx.FieldsInBounds` because `topLevelOp` is an
   -- invalid pointer.
-  rlet (ctx, operation) ← Rewriter.createEmptyOp ctx OpCode.builtin.module
+  rlet (ctx, operation) ← Rewriter.createEmptyOp ctx .builtin_module
   have hib : operation.InBounds ctx := by grind
   have : ctx.topLevelOp = ⟨0⟩ := by
     grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set]
@@ -613,7 +613,7 @@ def IRContext.create : Option (IRContext × OperationPtr) :=
     grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, RegionPtr.InBounds]
   have : ctx.nextID = 1 := by
     grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, RegionPtr.InBounds]
-  have : operation.get ctx (by simp_all) = Operation.empty OpCode.builtin.module := by
+  have : operation.get ctx (by simp_all) = Operation.empty .builtin_module := by
     grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, RegionPtr.InBounds]
   rlet (ctx, region) ← Rewriter.createRegion ctx
   have : ctx.FieldsInBounds := by sorry
@@ -622,7 +622,7 @@ def IRContext.create : Option (IRContext × OperationPtr) :=
   have : ctx.topLevelOp = ⟨0⟩ := by sorry
   have hop₀ : ∀ (op : OperationPtr), op.InBounds ctx ↔ op = ⟨0⟩ := by sorry --grind [Region.empty, RegionPtr.set, OperationPtr.InBounds]
   have : operation.get ctx (by simp_all) =
-    { Operation.empty OpCode.builtin.module with regions := #[⟨1⟩] } := by sorry
+    { Operation.empty .builtin_module with regions := #[⟨1⟩] } := by sorry
   have : ∀ (bl : BlockPtr), bl.InBounds ctx ↔ False := by sorry
   have : ∀ (r : RegionPtr), r.InBounds ctx ↔ r = ⟨1⟩ := by sorry
   have : (⟨1⟩ : RegionPtr).get ctx (by simp_all) = Region.empty := by sorry

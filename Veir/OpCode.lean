@@ -21,42 +21,42 @@ public section
   Each OpCode corresponds to a specific operation.
 -/
 inductive OpCode
-  | unregistered
-  | arith.constant
-  | arith.addi
-  | arith.subi
-  | arith.muli
-  | arith.andi
-  | builtin.module
-  | test.test
+  | arith_constant
+  | arith_addi
+  | arith_subi
+  | arith_muli
+  | arith_andi
+  | builtin_unregistered
+  | builtin_module
+  | test_test
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 /--
   Convert an operation name to its corresponding OpCode.
 -/
 def OpCode.fromName (name : ByteArray) : OpCode :=
-  if name = "builtin.module".toByteArray then OpCode.builtin.module
-  else if name = "arith.constant".toByteArray then OpCode.arith.constant
-  else if name = "arith.addi".toByteArray then OpCode.arith.addi
-  else if name = "arith.subi".toByteArray then OpCode.arith.subi
-  else if name = "arith.muli".toByteArray then OpCode.arith.muli
-  else if name = "arith.andi".toByteArray then OpCode.arith.andi
-  else if name = "test.test".toByteArray then OpCode.test.test
-  else OpCode.unregistered
+  if name = "builtin.module".toByteArray then builtin_module
+  else if name = "arith.constant".toByteArray then arith_constant
+  else if name = "arith.addi".toByteArray then arith_addi
+  else if name = "arith.subi".toByteArray then arith_subi
+  else if name = "arith.muli".toByteArray then arith_muli
+  else if name = "arith.andi".toByteArray then arith_andi
+  else if name = "test.test".toByteArray then test_test
+  else builtin_unregistered
 
 /--
   Get the name of an operation as displayed in the IR textual format.
 -/
 def OpCode.name (opcode : OpCode) : ByteArray :=
   match opcode with
-  | OpCode.builtin.module => "builtin.module".toByteArray
-  | OpCode.arith.constant => "arith.constant".toByteArray
-  | OpCode.arith.addi     => "arith.addi".toByteArray
-  | OpCode.arith.subi     => "arith.subi".toByteArray
-  | OpCode.arith.muli     => "arith.muli".toByteArray
-  | OpCode.arith.andi     => "arith.andi".toByteArray
-  | OpCode.test.test      => "test.test".toByteArray
-  | OpCode.unregistered   => "unregistered".toByteArray
+  | builtin_module => "builtin.module".toByteArray
+  | arith_constant => "arith.constant".toByteArray
+  | arith_addi     => "arith.addi".toByteArray
+  | arith_subi     => "arith.subi".toByteArray
+  | arith_muli     => "arith.muli".toByteArray
+  | arith_andi     => "arith.andi".toByteArray
+  | test_test      => "test.test".toByteArray
+  | builtin_unregistered   => "unregistered".toByteArray
 
 end
 end Veir
