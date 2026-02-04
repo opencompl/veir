@@ -11,7 +11,7 @@ theorem OperationPtr.setProperties_WellFormed (op: OperationPtr) (ctx: IRContext
   sorry
 
 set_option warn.sorry false in
-theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: Nat)
+theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: OpCode)
     (resultTypes: Array MlirType) (operands: Array ValuePtr) (numRegions: Nat) (properties: UInt64)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx)

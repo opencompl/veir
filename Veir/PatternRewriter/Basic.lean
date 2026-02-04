@@ -141,7 +141,7 @@ theorem addUsersInWorklist_same_ctx :
     (addUsersInWorklist rewriter value hv).ctx = rewriter.ctx := by
   simp [addUsersInWorklist]
 
-def createOp (rewriter: PatternRewriter) (opType: Nat)
+def createOp (rewriter: PatternRewriter) (opType: OpCode)
     (resultTypes: Array MlirType) (operands: Array ValuePtr) (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: UInt64)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds rewriter.ctx)
