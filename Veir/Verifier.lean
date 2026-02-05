@@ -247,7 +247,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
     pure ()
   | .llvm_trunc => do
     if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx opIn ≠ 0 then
@@ -257,7 +257,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
     pure ()
   | .llvm_sext => do
     if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx opIn ≠ 0 then
@@ -267,7 +267,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
     pure ()
   | .llvm_zext => do
     if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx opIn ≠ 0 then
