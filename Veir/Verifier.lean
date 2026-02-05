@@ -225,6 +225,16 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+  | .llvm_icmp => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
   | .llvm_select => do
     if op.getNumOperands ctx opIn ≠ 3 then
       throw "Expected 3 operands"

@@ -42,6 +42,7 @@ inductive OpCode
   | llvm_udiv
   | llvm_srem
   | llvm_urem
+  | llvm_icmp
   | llvm_select
   | llvm_trunc
   | llvm_sext
@@ -74,6 +75,7 @@ def OpCode.fromName (name : ByteArray) : OpCode :=
   else if name = "llvm.udiv".toByteArray then llvm_udiv
   else if name = "llvm.srem".toByteArray then llvm_srem
   else if name = "llvm.urem".toByteArray then llvm_urem
+  else if name = "llvm.icmp".toByteArray then llvm_icmp
   else if name = "llvm.select".toByteArray then llvm_select
   else if name = "llvm.trunc".toByteArray then llvm_trunc
   else if name = "llvm.sext".toByteArray then llvm_sext
@@ -107,6 +109,7 @@ def OpCode.name (opcode : OpCode) : ByteArray :=
   | llvm_udiv      => "llvm.udiv".toByteArray
   | llvm_srem      => "llvm.srem".toByteArray
   | llvm_urem      => "llvm.urem".toByteArray
+  | llvm_icmp      => "llvm.icmp".toByteArray
   | llvm_select    => "llvm.select".toByteArray
   | llvm_trunc     => "llvm.trunc".toByteArray
   | llvm_sext      => "llvm.sext".toByteArray
