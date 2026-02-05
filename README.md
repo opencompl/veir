@@ -35,6 +35,6 @@ uv run lit Test/
 ## Running the benchmarks
 
 ```bash
-  lake exe veir-opt add-fold-worklist
+lake exe run-benchmarks add-fold-worklist
 ```
 
