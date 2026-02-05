@@ -152,15 +152,15 @@ theorem Std.ExtHashSet.insertMany_empty_eq_ofList [BEq α] [EquivBEq α] [Hashab
   ext; grind
 
 /--
-  A version of `Std.HashMap.keys.for` that also pass to the given function a proof
+  A version of `Std.HashMap.keys.for` that also passes to the given function a proof
   that the key exists in the map.
-  It is currently not as efficient as it could be, as we check dynamically the the key is
+  It is currently not as efficient as it could be, as we check dynamically that the key is
   indeed in the map (although it should always be the case). This could be improved by
   modifying the `Std.HashMap` implementation to pass such proof statically.
 -/
 def Std.HashMap.forKeysDepM [BEq α] [Hashable α] {m : Type w → Type w'} [Monad m]
     (b : Std.HashMap α β) (f : ∀ (a : α), a ∈ b → m PUnit) : m PUnit :=
-  b.forM (fun k v => do if h: k ∈ b then f k (by grind))
+  b.forM (fun k v => do if h : k ∈ b then f k (by grind))
 
 end
 

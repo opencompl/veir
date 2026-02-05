@@ -1269,7 +1269,8 @@ end OperationPtr
   Run a function on all operations in the context.
   In particular, the function provides a proof that the operation pointer is in bounds.
 -/
-def IRContext.forOpsDepM (ctx : IRContext) {m : Type w → Type w'} [Monad m] (p : ∀ (op : OperationPtr), op.InBounds ctx → m PUnit) : m PUnit :=
+def IRContext.forOpsDepM (ctx : IRContext) {m : Type w → Type w'} [Monad m]
+    (p : ∀ (op : OperationPtr), op.InBounds ctx → m PUnit) : m PUnit :=
   ctx.operations.forKeysDepM (fun opPtr h => p opPtr (by grind [OperationPtr.InBounds]))
 
 /- Generic pointers -/
