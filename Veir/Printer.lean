@@ -154,7 +154,7 @@ partial def printOperation (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0
   IO.print s!"\"{String.fromUTF8! opStruct.opType.name}\""
   printOpOperands ctx op
   if opStruct.opType = .arith_constant then
-    IO.print s!" \{ \"value\" = {opStruct.properties} : i32 }"
+    IO.print s!" <\{ \"value\" = {opStruct.properties} : i32 }>"
   else
     printBlockOperands ctx op
   if op.getNumRegions! ctx > 0 then
