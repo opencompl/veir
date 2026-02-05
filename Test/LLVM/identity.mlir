@@ -39,7 +39,7 @@
 // CHECK-NEXT:     %16 = "llvm.udiv"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:     %17 = "llvm.urem"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:     %18 = "llvm.srem"(%5, %5) : (i32, i32) -> i32
-// CHECK-NEXT:     %19 = "llvm.select"(%5, %5) : (i32, i32) -> i1
+// CHECK-NEXT:     %19 = "llvm.icmp"(%5, %5) : (i32, i32) -> i1
 // CHECK-NEXT:     %20 = "llvm.select"(%6, %5, %5) : (i1, i32, i32) -> i32
 // CHECK-NEXT:     %21 = "llvm.trunc"(%5) : (i32) -> i1
 // CHECK-NEXT:     %22 = "llvm.sext"(%6) : (i1) -> i32
