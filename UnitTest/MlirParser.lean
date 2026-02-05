@@ -90,7 +90,7 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "builtin.module"() ({
   ^4():
-    %5 = "arith.constant"() { "value" = 0 : i32 } : () -> i32
+    %5 = "arith.constant"() { "value" = 0 : i32 } : () -> i64
 }) : () -> ()-/
 #guard_msgs in
 #eval! testParseOp "\"builtin.module\"() ({
