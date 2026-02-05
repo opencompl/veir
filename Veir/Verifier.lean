@@ -85,6 +85,186 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+  | .llvm_constant => do
+    if op.getNumOperands ctx opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_and => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_or => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_xor => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_add => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_sub => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_shl => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_lshr => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_ashr => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_mul => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_sdiv => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_udiv => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_srem => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_urem => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_select => do
+    if op.getNumOperands ctx opIn ≠ 3 then
+      throw "Expected 3 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_trunc => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_sext => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm_zext => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
 
 /--
   Verify that all operations in the IRContext satisfy their local invariants.
