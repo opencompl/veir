@@ -78,6 +78,10 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
   | .func_func => do
     if op.getNumRegions ctx opIn ≠ 1 then
       throw "Expected 1 region"
+    if op.getNumOperands ctx opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx opIn ≠ 0 then
+      throw "Expected 0 results"
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
