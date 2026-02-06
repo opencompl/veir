@@ -35,9 +35,9 @@ structure InterpreterState where
 /--
   Set the value of a variable.
 -/
-def InterpreterState.setVar (state : InterpreterState) (var : ValuePtr) (val : RuntimeValue)
-    : InterpreterState :=
-  { state with variables := state.variables.insert var val }
+def InterpreterState.setVar (state : InterpreterState) (var : ValuePtr) (val : RuntimeValue) :
+    InterpreterState :=
+  {state with variables := state.variables.insert var val}
 
 /--
   Get the value of a variable, if the variable exists.
@@ -62,8 +62,8 @@ inductive ControlFlowAction where
   | continue
 
 /--
-  Interprets a single operation given the runtime values of its operands.
-  Returns the result runtime values and a control flow action indicating how
+  Interpret a single operation given the runtime values of its operands.
+  Return the result runtime values and a control flow action indicating how
   to continue the interpretation.
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   returns `none`.
@@ -84,11 +84,11 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
   | _ => none
 
 /--
-  Interprets a single operation given the current interpreter state.
-  Returns an updated interpreter state and a control flow action indicating how
+  Interpret a single operation given the current interpreter state.
+  Return an updated interpreter state and a control flow action indicating how
   to continue the interpretation.
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
-  returns `none`.
+  return `none`.
 -/
 def interpretOp (ctx : IRContext) (opPtr : OperationPtr) (state : InterpreterState)
     (opPtrInBounds : opPtr.InBounds ctx := by grind)
@@ -105,11 +105,11 @@ def interpretOp (ctx : IRContext) (opPtr : OperationPtr) (state : InterpreterSta
   return (newState, action)
 
 /--
-  Interprets a list of operations, starting from the given operation pointer.
-  Returns an array of values corresponding to the values returned by the block, if any.
-  Continues to interpret operations until a `return` control flow action is encountered,
+  Interpret a list of operations, starting from the given operation pointer.
+  Return an array of values corresponding to the values returned by the block, if any.
+  Continue to interpret operations until a `return` control flow action is encountered,
   or the end of the block is reached.
-  Returns `none` if any errors occur during interpretation.
+  Return `none` if any errors occur during interpretation.
 -/
 def interpretOpList (ctx : IRContext) (op : OperationPtr) (state : InterpreterState)
     (opInBounds : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
@@ -124,9 +124,9 @@ def interpretOpList (ctx : IRContext) (op : OperationPtr) (state : InterpreterSt
 partial_fixpoint
 
 /--
-  Interprets a block of operations, starting from the first operation in the block.
-  Returns the values returned by the block, if any.
-  Returns `none` if any errors occur during interpretation.
+  Interpret a block of operations, starting from the first operation in the block.
+  Return the values returned by the block, if any.
+  Return `none` if any errors occur during interpretation.
 -/
 def interpretBlock (ctx : IRContext) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue) := do
   let block := blockPtr.get ctx (by grind)
@@ -134,10 +134,10 @@ def interpretBlock (ctx : IRContext) (blockPtr : BlockPtr) (state : InterpreterS
   interpretOpList ctx firstOp state
 
 /--
-  Interprets a bulitin.module operation.
+  Interpret a builtin.module operation.
   This is done by interpreting the first block of the first region of the operation.
-  Reurns the values returned by the block.
-  If any errors occur during interpretation, returns `none`.
+  Return the values returned by the block.
+  If any errors occur during interpretation, return `none`.
 -/
 def interpretModule (ctx : IRContext) (op : OperationPtr)
     (opIn : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
