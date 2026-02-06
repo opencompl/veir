@@ -26,6 +26,8 @@ inductive OpCode
   | arith_subi
   | arith_muli
   | arith_andi
+  | func_func
+  | func_return
   | builtin_unregistered
   | builtin_module
   | llvm_constant
@@ -60,6 +62,8 @@ def OpCode.fromName (name : ByteArray) : OpCode :=
   else if name = "arith.subi".toByteArray then arith_subi
   else if name = "arith.muli".toByteArray then arith_muli
   else if name = "arith.andi".toByteArray then arith_andi
+  else if name = "func.func".toByteArray then func_func
+  else if name = "func.return".toByteArray then func_return
   else if name = "test.test".toByteArray then test_test
   else if name = "llvm.constant".toByteArray then llvm_constant
   else if name = "llvm.and".toByteArray then llvm_and
@@ -93,6 +97,8 @@ def OpCode.name (opcode : OpCode) : ByteArray :=
   | arith_subi     => "arith.subi".toByteArray
   | arith_muli     => "arith.muli".toByteArray
   | arith_andi     => "arith.andi".toByteArray
+  | func_func      => "func.func".toByteArray
+  | func_return    => "func.return".toByteArray
   | test_test      => "test.test".toByteArray
   | builtin_unregistered   => "unregistered".toByteArray
   | llvm_constant  => "llvm.constant".toByteArray
