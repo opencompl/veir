@@ -22,6 +22,10 @@ module
 namespace Veir
 public section
 
+/--
+  The definition of `!builtin.integer`.
+  It is an integer type with a given bitwidth.
+-/
 structure IntegerType where
   bitwidth : Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
@@ -29,6 +33,10 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 instance : ToString IntegerType where
   toString type := s!"i{type.bitwidth}"
 
+/--
+  An attribute from an unknown dialect.
+  It can be either a type attribute or a non-type attribute.
+-/
 structure UnregisteredAttr where
   value : String
   isType : Bool
