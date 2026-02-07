@@ -29,9 +29,7 @@ public section
 -/
 inductive Attribute
 | integerType (bitwidth : Nat)
-/--
-  An attribute from an unknown dialect.
--/
+/- An attribute from an unknown dialect. -/
 | unregistered (value : String) (isType : Bool)
 deriving Inhabited, Repr, DecidableEq, Hashable
 
