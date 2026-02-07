@@ -45,7 +45,7 @@ def parseOptionalType : AttrParserM (Option TypeAttr) := do
       let identifier := bitwidthSlice.of (← (getThe ParserState)).input
       let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
       let _ ← consumeToken
-      return some (integerType bitwidth).asType
+      return some (IntegerType.mk bitwidth)
     return none
   | _ => return none
 

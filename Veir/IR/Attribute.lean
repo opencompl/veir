@@ -22,16 +22,36 @@ module
 namespace Veir
 public section
 
+structure IntegerType where
+  bitwidth : Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+instance : ToString IntegerType where
+  toString type := s!"i{type.bitwidth}"
+
+structure UnregisteredAttr where
+  value : String
+  isType : Bool
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+instance : ToString UnregisteredAttr where
+  toString attr := attr.value
+
 /--
   A data structure that represents compile-time information in the IR.
   Attributes are used either as type annotations for SSA values, or
   as extra information stored in operations.
 -/
 inductive Attribute
-| integerType (bitwidth : Nat)
-/- An attribute from an unknown dialect. -/
-| unregistered (value : String) (isType : Bool)
+| integerType (type : IntegerType)
+/-- An attribute from an unknown dialect. -/
+| unregisteredAttr (attr : UnregisteredAttr)
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+instance : Coe IntegerType Attribute where
+  coe type := .integerType type
+instance : Coe UnregisteredAttr Attribute where
+  coe attr := .unregisteredAttr attr
 
 namespace Attribute
 
@@ -42,20 +62,20 @@ namespace Attribute
 def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
-  | .unregistered _ isType => isType
+  | .unregisteredAttr attr => attr.isType
 
 @[simp, grind =]
-theorem isType_integerType bitwidth : (integerType bitwidth).isType = true := by rfl
+theorem isType_integerType type : (integerType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_unregistered value isType : (unregistered value isType).isType = isType := by rfl
+theorem isType_unregistered unregistered : (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
 
 /--
   Convert an attribute to a string representation.
 -/
 def toString (attr : Attribute) : String :=
   match attr with
-  | .integerType bitwidth => s!"i{bitwidth}"
-  | .unregistered value _ => value
+  | .integerType type => ToString.toString type
+  | .unregisteredAttr attr => ToString.toString attr
 
 instance : ToString Attribute where
   toString := toString
@@ -70,13 +90,16 @@ def TypeAttr := {attr // Attribute.isType attr}
 deriving Repr, Hashable, DecidableEq
 
 instance : Inhabited TypeAttr where
-  default := ⟨.integerType 0, by rfl⟩
+  default := ⟨.integerType (IntegerType.mk 0), by rfl⟩
 
 instance : Coe TypeAttr Attribute where
   coe typeAttr := typeAttr.val
 
 instance : ToString TypeAttr where
   toString typeAttr := toString (typeAttr.val)
+
+instance : Coe IntegerType TypeAttr where
+  coe type := ⟨.integerType type, by rfl⟩
 
 /--
   Convert an attribute to a type attribute.
