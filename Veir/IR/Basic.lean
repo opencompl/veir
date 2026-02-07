@@ -4,6 +4,8 @@ public import Std.Data.HashMap
 public import Veir.Prelude
 public import Veir.OpCode
 public import Veir.ForLean
+public import Veir.IR.Attribute
+
 open Std (HashMap)
 
 public section
@@ -32,7 +34,6 @@ instance : Hashable RegionPtr where
   hash regionPtr := hash regionPtr.id
 
 abbrev Location := Unit
-abbrev MlirType := String
 abbrev AttrDictionary := Unit
 
 /-
@@ -72,7 +73,7 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 -/
 structure ValueImpl where
   -- This is used to distinguish between OpResult and BlockArgument
-  type: MlirType
+  type: TypeAttr
   firstUse: Option OpOperandPtr
 deriving Inhabited, Repr, Hashable
 
@@ -707,7 +708,7 @@ def set (result: OpResultPtr) (ctx: IRContext) (newresult: OpResult) (resultIn: 
       { op with
         results := op.results.set result.index newresult (by grind)} }
 
-def setType (result: OpResultPtr) (ctx: IRContext) (newType: MlirType)
+def setType (result: OpResultPtr) (ctx: IRContext) (newType: TypeAttr)
     (resultIn: result.InBounds ctx := by grind) : IRContext :=
   let oldResult := result.get ctx
   result.set ctx { oldResult with type := newType }
@@ -860,7 +861,7 @@ def set (arg: BlockArgumentPtr) (ctx: IRContext) (newresult: BlockArgument) (arg
       { block with
         arguments := block.arguments.set arg.index newresult (by grind)} }
 
-def setType (arg: BlockArgumentPtr) (ctx: IRContext) (newType: MlirType) (argIn: arg.InBounds ctx := by grind) : IRContext :=
+def setType (arg: BlockArgumentPtr) (ctx: IRContext) (newType: TypeAttr) (argIn: arg.InBounds ctx := by grind) : IRContext :=
   let oldResult := arg.get ctx
   arg.set ctx { oldResult with type := newType }
 
@@ -902,12 +903,12 @@ theorem inBounds_blockArg (ptr: BlockArgumentPtr) (ctx: IRContext) :
     (blockArgument ptr).InBounds ctx ↔ ptr.InBounds ctx := by
   grind [InBounds]
 
-def getType (arg: ValuePtr) (ctx: IRContext) (argIn: arg.InBounds ctx := by grind) : MlirType :=
+def getType (arg: ValuePtr) (ctx: IRContext) (argIn: arg.InBounds ctx := by grind) : TypeAttr :=
   match arg with
   | opResult ptr => (ptr.get ctx (by grind)).type
   | blockArgument ptr => (ptr.get ctx (by grind)).type
 
-def getType! (arg: ValuePtr) (ctx: IRContext) : MlirType :=
+def getType! (arg: ValuePtr) (ctx: IRContext) : TypeAttr :=
   match arg with
   | opResult ptr => (ptr.get! ctx).type
   | blockArgument ptr => (ptr.get! ctx).type
@@ -973,7 +974,7 @@ theorem hasUses!_def {value : ValuePtr} :
     value.hasUses! ctx = (value.getFirstUse! ctx).isSome := by
   grind [hasUses!]
 
-def setType (arg: ValuePtr) (ctx: IRContext) (newType: MlirType) (argIn: arg.InBounds ctx := by grind) : IRContext :=
+def setType (arg: ValuePtr) (ctx: IRContext) (newType: TypeAttr) (argIn: arg.InBounds ctx := by grind) : IRContext :=
   match arg with
   | opResult ptr => ptr.setType ctx newType
   | blockArgument ptr => ptr.setType ctx newType
@@ -997,13 +998,13 @@ theorem setFirstUse_BlockArgumentPtr (ptr: BlockArgumentPtr) (ctx: IRContext)
 
 @[simp, grind =]
 theorem setType_OpResultPtr (ptr: OpResultPtr) (ctx: IRContext)
-    (ptrIn: (opResult ptr).InBounds ctx) (newType: MlirType) :
+    (ptrIn: (opResult ptr).InBounds ctx) (newType: TypeAttr) :
     (opResult ptr).setType ctx newType ptrIn = ptr.setType ctx newType := by
   unfold setType; rfl
 
 @[simp, grind =]
 theorem setType_BlockArgumentPtr (ptr: BlockArgumentPtr) (ctx: IRContext)
-    (ptrIn: (blockArgument ptr).InBounds ctx) (newType: MlirType) :
+    (ptrIn: (blockArgument ptr).InBounds ctx) (newType: TypeAttr) :
     (blockArgument ptr).setType ctx newType ptrIn = ptr.setType ctx newType := by
   unfold setType; rfl
 

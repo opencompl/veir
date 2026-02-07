@@ -4,11 +4,12 @@ import Veir.IR.Basic
 open Veir
 open Veir.Parser
 open Veir.AttrParser
+open Veir.Attribute
 
 /--
   Run parseOptionalType on the given input string.
 -/
-def testOptionalType (s : String) : Except String (Option MlirType) :=
+def testOptionalType (s : String) : Except String (Option TypeAttr) :=
   match ParserState.fromInput (s.toByteArray) with
   | .ok parser =>
     match parseOptionalType.run' AttrParserState.mk parser with
@@ -19,7 +20,7 @@ def testOptionalType (s : String) : Except String (Option MlirType) :=
 /--
   Run parseType on the given input string.
 -/
-def testType (s : String) : Except String MlirType :=
+def testType (s : String) : Except String TypeAttr :=
   match ParserState.fromInput (s.toByteArray) with
   | .ok parser =>
     match parseType.run' AttrParserState.mk parser with
@@ -30,7 +31,7 @@ def testType (s : String) : Except String MlirType :=
 /--
   Test that parsing a type in the given string succeeds and matches the expected type.
 -/
-def expectSuccess (s : String) (expected : MlirType) : Bool :=
+def expectSuccess (s : String) (expected : TypeAttr) : Bool :=
   testOptionalType s = .ok (some expected) ∧ testType s = .ok expected
 
 /--
@@ -59,7 +60,7 @@ macro "#assert " e:term : command =>
 
 #assert expectError "\"" "expected '\"' in string literal"
 
-#assert expectSuccess "i32" "i32"
-#assert expectSuccess "i0" "i0"
+#assert expectSuccess "i32" (integerType 32).asType
+#assert expectSuccess "i0" (integerType 0).asType
 #assert expectMissing "foo"
 #assert expectMissing "i0x4"

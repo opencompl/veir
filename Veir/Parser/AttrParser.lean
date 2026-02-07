@@ -3,6 +3,7 @@ import Veir.IR.Basic
 
 open Veir.Parser.Lexer
 open Veir.Parser
+open Veir.Attribute
 
 namespace Veir.AttrParser
 
@@ -34,7 +35,7 @@ def AttrParserM.run' (self : AttrParserM α)
   Parse a type, if present.
   Currently, only integer types are supported.
 -/
-def parseOptionalType : AttrParserM (Option MlirType) := do
+def parseOptionalType : AttrParserM (Option TypeAttr) := do
   match ← peekToken with
   | { kind := .bareIdent, slice := slice } =>
     if slice.size < 2 then
@@ -42,16 +43,16 @@ def parseOptionalType : AttrParserM (Option MlirType) := do
     if (← (getThe ParserState)).input.getD slice.start 0 == 'i'.toUInt8 then
       let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
       let identifier := bitwidthSlice.of (← (getThe ParserState)).input
-      let some _ := (String.fromUTF8? identifier).bind String.toNat? | return none
+      let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
       let _ ← consumeToken
-      return String.fromUTF8? (slice.of (← (getThe ParserState)).input)
+      return some (integerType bitwidth).asType
     return none
   | _ => return none
 
 /--
   Parse a type, otherwise return an error.
 -/
-def parseType (errorMsg : String := "type expected") : AttrParserM MlirType := do
+def parseType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   match ← parseOptionalType with
   | some ty => return ty
   | none => throw errorMsg

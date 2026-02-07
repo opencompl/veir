@@ -17,7 +17,7 @@ def ArithOp.getOpType : ArithOp → Nat
 | .CstOp _ _ => 1
 | .AddiOp _ _ _ => 2
 | .SubiOp _ _ _ => 6
-def ArithOp.getType : ArithOp → Array MlirType
+def ArithOp.getType : ArithOp → Array TypeAttr
 | .CstOp _ w | .AddiOp _ _ w | .SubiOp _ _ w => #[s!"i{w}"]
 def ArithOp.getOperands : ArithOp → Array ValuePtr
 | .CstOp _ _ => #[]
@@ -43,7 +43,7 @@ def OperationPtr.getRhs! (op : OperationPtr) : PatRewM ValuePtr :=
 def insertOp! (op : ArithOp) : PatRewM OperationPtr := do
   let s ← MonadState.get
   let ctx := s.pw.ctx
-  let some (ctx, op) := Rewriter.createOp ctx op.getOpType op.getType op.getOperands 
+  let some (ctx, op) := Rewriter.createOp ctx op.getOpType op.getType op.getOperands
       #[] #[] op.getProp s.ip sorry sorry sorry sorry s.pw.ctx_fib
     | throw ()
   set { s with pw := {s.pw with ctx, ctx_fib := by sorry} }

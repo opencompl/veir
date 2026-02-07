@@ -61,7 +61,7 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     have ⟨ha, hb⟩ := h₈ rg this
     constructor <;> grind
 
-theorem Rewriter.initOpResults_WellFormed (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: Array MlirType)
+theorem Rewriter.initOpResults_WellFormed (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
     (index : Nat) (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx) (newCtx : IRContext) hIndex :
     Rewriter.initOpResults ctx opPtr resultTypes index hop hIndex = newCtx →
     newCtx.WellFormed := by
