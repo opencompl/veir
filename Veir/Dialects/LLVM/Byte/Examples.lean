@@ -1,9 +1,9 @@
 module
 
 import Std.Tactic.BVDecide
-public import Veir.Dialects.LLVM.Int.Basic
-import all Veir.Dialects.LLVM.Byte.Basic
+import Veir.Dialects.LLVM.Byte.Basic
 import all Veir.Dialects.LLVM.Byte.Lemmas
+
 
 namespace Veir.Dialects.LLVM.Byte
 
