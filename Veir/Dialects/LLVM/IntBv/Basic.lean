@@ -15,7 +15,7 @@ structure IntBv (w : Nat) where
   /-- A poison flag for `w`. -/
   poison : Bool
   /-- Invariant: If this value is poison the `val` is zero. -/
-  h : poison → (val == 0) := by simp
+  h : poison → (val = 0) := by simp
 deriving DecidableEq
 
 def IntBv.mkPoison {w : Nat} : IntBv w :=
