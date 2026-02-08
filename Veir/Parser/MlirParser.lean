@@ -196,7 +196,7 @@ def parseBlockOperands : MlirParserM (Array BlockPtr) := do
   Resolve an operand to an SSA value of the expected type.
   Throw an error if the value is not defined or if the type does not match.
 -/
-def resolveOperand (operand : UnresolvedOperand) (expectedType : MlirType) : MlirParserM ValuePtr := do
+def resolveOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) : MlirParserM ValuePtr := do
   let some value := (← getValue? operand.name) | throw s!"use of undefined value %{String.fromUTF8! operand.name}"
   let parsedType := value.getType! (← getContext)
   if parsedType ≠ expectedType then
@@ -206,7 +206,7 @@ def resolveOperand (operand : UnresolvedOperand) (expectedType : MlirType) : Mli
 /--
   Parse a type, if present.
 -/
-def parseOptionalType : MlirParserM (Option MlirType) := do
+def parseOptionalType : MlirParserM (Option TypeAttr) := do
   match AttrParser.parseOptionalType.run AttrParserState.mk (← getThe ParserState) with
   | .ok (ty, _, parserState) =>
     set parserState
@@ -216,7 +216,7 @@ def parseOptionalType : MlirParserM (Option MlirType) := do
 /--
   Parse a type, otherwise return an error.
 -/
-def parseType (errorMsg : String := "type expected") : MlirParserM MlirType := do
+def parseType (errorMsg : String := "type expected") : MlirParserM TypeAttr := do
   match ← parseOptionalType with
   | some ty => return ty
   | none => throw errorMsg
@@ -224,7 +224,7 @@ def parseType (errorMsg : String := "type expected") : MlirParserM MlirType := d
 /--
   Parse an operation type, consisting of a colon followed by a function type.
 -/
-def parseOperationType : MlirParserM (Array MlirType × Array MlirType) := do
+def parseOperationType : MlirParserM (Array TypeAttr × Array TypeAttr) := do
   parsePunctuation ":"
   let inputs ← parseDelimitedList .paren parseType
   parsePunctuation "->"
@@ -238,7 +238,7 @@ def parseOperationType : MlirParserM (Array MlirType × Array MlirType) := do
 /--
   Parse an SSA value followed by a colon and a type, if present.
 -/
-def parseTypedValue : MlirParserM (ByteArray × MlirType) := do
+def parseTypedValue : MlirParserM (ByteArray × TypeAttr) := do
   let nameToken ← parseToken .percentIdent "value expected"
   let slice := { nameToken.slice with start := nameToken.slice.start + 1 } -- skip % character
   let name := slice.of (← getInput)
