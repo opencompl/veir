@@ -5,9 +5,7 @@ namespace Veir.Dialects.LLVM.IntBv
 public section
 
 /--
-The `IntBv` type can have any bitwidth `w`. It is either a two's complement
-integer value of width `w` or a poison value indicating delayed undefined
-behavior.
+The `IntBv` type is either a two's complement integer value of width `w` or a poison value indicating delayed undefined behavior.
 -/
 structure IntBv (w : Nat) where
   /-- A two's complement integer value of width `w`. -/
@@ -18,7 +16,7 @@ structure IntBv (w : Nat) where
   h : poison → (val = 0) := by simp
 deriving DecidableEq
 
-def IntBv.mkPoison {w : Nat} : IntBv w :=
+def IntBv.mkPoison (w : Nat) : IntBv w :=
   ⟨0, true, by simp⟩
 
 def IntBv.mkVal {w : Nat} (val : BitVec w): IntBv w :=

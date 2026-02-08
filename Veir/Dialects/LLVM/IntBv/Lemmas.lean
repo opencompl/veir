@@ -36,7 +36,7 @@ theorem ext_iff {w : Nat} (x y : IntBv w) :
     x = y ↔ (x.val = y.val ∧ x.poison = y.poison) := by
   rw [@IntBv.mk.injEq]
 
-/- # add -/
+/-! # add -/
 
 @[bv_normalize]
 theorem add_eq {w : Nat} (x y : IntBv w) :
@@ -63,7 +63,7 @@ theorem add_comm {w : Nat} (x y : IntBv w) : x + y = y + x := by
   simp only [HAdd.hAdd, Add.add, add]
   cases x.poison <;> cases y.poison <;> simp [BitVec.add_comm]
 
-/- # mul -/
+/-! # mul -/
 
 @[simp, bv_normalize]
 theorem poison_mul {w : Nat} (x : IntBv w) : IntBv.mkPoison * x = IntBv.mkPoison := by
