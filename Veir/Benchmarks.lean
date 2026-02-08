@@ -47,6 +47,35 @@ def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option 
     rewriter ← rewriter.eraseOp rhsOp sorry
   return rewriter
 
+def addIConstantFoldingLocal (ctx: IRContext) (op: OperationPtr) :
+    Option (IRContext × List OperationPtr × List ValuePtr) := do
+  -- Check that the operation is an arith.addi operation
+  if op.getOpType ctx sorry ≠ .arith_addi then
+    none
+
+  -- Get the lhs and check that it is a constant
+  let lhsValuePtr := op.getOperand ctx 0 (by sorry) (by sorry)
+  let lhsOp ← match lhsValuePtr with
+  | ValuePtr.opResult lhsOpResultPtr => some lhsOpResultPtr.op
+  | _ => none
+  let lhsOpStruct := lhsOp.get ctx (by sorry)
+  if lhsOpStruct.opType ≠ .arith_constant then
+    none
+
+  -- Get the rhs and check that it is a constant
+  let rhsValuePtr := op.getOperand ctx 1 (by sorry) (by sorry)
+  let rhsOp ← match rhsValuePtr with
+  | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
+  | _ => none
+  let rhsOpStruct := rhsOp.get ctx (by sorry)
+  if rhsOpStruct.opType ≠ .arith_constant then
+    none
+
+  -- Sum both constant values
+  let newVal := lhsOpStruct.properties + rhsOpStruct.properties
+  let (ctx, newOp) ← Rewriter.createOp ctx .arith_constant #["i32"] #[] #[] #[] newVal none sorry sorry sorry sorry sorry
+  return (ctx, [newOp], [newOp.getResult 0])
+
 def addIZeroFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
   if op.getOpType rewriter.ctx sorry ≠ .arith_addi then
     return rewriter
@@ -373,6 +402,7 @@ def runBenchmarkWithResult (benchmark: String) (n pc: Nat) (quiet: Bool := false
 
   match benchmark with
   | "add-fold-worklist" =>            run n pc addOneTree              rewriteWorklist  Pattern.addIConstantFolding print quiet
+  | "add-fold-worklist-local" =>      run n pc addOneTree              rewriteWorklist  (RewritePattern.fromLocalRewrite Pattern.addIConstantFoldingLocal) print quiet
   | "add-zero-worklist" =>            run n pc addZeroTree             rewriteWorklist  Pattern.addIZeroFolding     print quiet
   | "add-zero-reuse-worklist" =>      run n pc addZeroReuseTree        rewriteWorklist  Pattern.addIZeroFolding     print quiet
   | "mul-two-worklist" =>             run n pc mulTwoTree              rewriteWorklist  Pattern.mulITwoReduce       false quiet
@@ -404,6 +434,20 @@ info: "builtin.module"() ({
 -/
 #guard_msgs in
 #eval! testBench "add-fold-worklist" 10
+
+/--
+info: "builtin.module"() ({
+  ^2():
+    %3 = "arith.constant"() <{ "value" = 42 : i32 }> : () -> i32
+    %4 = "arith.constant"() <{ "value" = 1 : i32 }> : () -> i32
+    %9 = "arith.constant"() <{ "value" = 43 : i32 }> : () -> i32
+    %6 = "arith.constant"() <{ "value" = 1 : i32 }> : () -> i32
+    %10 = "arith.constant"() <{ "value" = 44 : i32 }> : () -> i32
+    "test.test"(%10) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testBench "add-fold-worklist-local" 2
 
 /--
 info: "builtin.module"() ({

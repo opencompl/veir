@@ -209,6 +209,28 @@ def replaceValue (rewriter: PatternRewriter) (oldVal newVal: ValuePtr)
 end PatternRewriter
 
 abbrev RewritePattern := PatternRewriter → OperationPtr → Option (PatternRewriter)
+/--
+  A local rewrite that can only replace a matched operation with a list of new operations.
+  The pattern returns, if successful, a list of new operations to insert and a list of values to
+  replace the old results with.
+-/
+abbrev LocalRewritePattern := IRContext → OperationPtr → Option (IRContext × List OperationPtr × List ValuePtr)
+
+set_option warn.sorry false in
+def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern) : RewritePattern :=
+  fun rewriter op => do
+    let some (newCtx, newOps, newRes) := pattern rewriter.ctx op
+      | return rewriter
+    let mut rewriter := { rewriter with ctx := newCtx, hasDoneAction := true, ctx_fib := by sorry }
+    for newOp in newOps do
+      rewriter ← rewriter.insertOp newOp (InsertPoint.before op) (by sorry) (by sorry)
+    for (res, i) in newRes.zipIdx do
+      rewriter ← rewriter.replaceValue (op.getResult i) res (by sorry) (by sorry)
+    let mut operands : Array ValuePtr := #[]
+    for i in 0...op.getNumOperands rewriter.ctx (by sorry) do
+      operands := operands.push (op.getOperand! rewriter.ctx i)
+    rewriter ← rewriter.eraseOp op (by sorry)
+    return rewriter
 
 /--
 - Apply the given rewrite pattern to all operations in the context (possibly multiple times).
