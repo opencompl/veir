@@ -25,15 +25,14 @@ module
 namespace Veir
 public section
 
+/-! ## Attribute definitions -/
+
 /--
   A `!builtin.integer` is an integer type with a given bitwidth.
 -/
 structure IntegerType where
   bitwidth : Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
-
-instance : ToString IntegerType where
-  toString type := s!"i{type.bitwidth}"
 
 /--
   An attribute from an unknown dialect.
@@ -43,9 +42,6 @@ structure UnregisteredAttr where
   value : String
   isType : Bool
 deriving Inhabited, Repr, DecidableEq, Hashable
-
-instance : ToString UnregisteredAttr where
-  toString attr := attr.value
 
 /--
   A data structure that represents compile-time information in the IR.
@@ -58,10 +54,51 @@ inductive Attribute
 | unregisteredAttr (attr : UnregisteredAttr)
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-!
+  ## ToString implementation
+
+  `ToString` is used to convert attributes to their MLIR textual representation.
+  It is also the syntax used for printing attributes in the REPL and in error messages.
+-/
+
+instance : ToString IntegerType where
+  toString type := s!"i{type.bitwidth}"
+
+instance : ToString UnregisteredAttr where
+  toString attr := attr.value
+
+namespace Attribute
+
+/--
+  Convert an attribute to a string representation.
+-/
+def toString (attr : Attribute) : String :=
+  match attr with
+  | .integerType type => ToString.toString type
+  | .unregisteredAttr attr => ToString.toString attr
+
+instance : ToString Attribute where
+  toString := toString
+
+/-!
+  ## Coercion instances to Attribute
+
+  We define a coercion from each attribute structure to `Attribute`.
+-/
 instance : Coe IntegerType Attribute where
   coe type := .integerType type
+
 instance : Coe UnregisteredAttr Attribute where
   coe attr := .unregisteredAttr attr
+
+end Attribute
+
+/-!
+  ## TypeAttr definition
+
+  `TypeAttr` is defined as a subtype of `Attribute` that carries the additional invariant
+  that the attribute is a valid type annotation (i.e., `isType` is true).
+-/
 
 namespace Attribute
 
@@ -79,17 +116,6 @@ theorem isType_integerType type : (integerType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_unregistered unregistered :
   (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
-
-/--
-  Convert an attribute to a string representation.
--/
-def toString (attr : Attribute) : String :=
-  match attr with
-  | .integerType type => ToString.toString type
-  | .unregisteredAttr attr => ToString.toString attr
-
-instance : ToString Attribute where
-  toString := toString
 
 end Attribute
 
@@ -109,14 +135,21 @@ instance : Coe TypeAttr Attribute where
 instance : ToString TypeAttr where
   toString typeAttr := toString (typeAttr.val)
 
-instance : Coe IntegerType TypeAttr where
-  coe type := ⟨.integerType type, by rfl⟩
-
 /--
   Convert an attribute to a type attribute.
 -/
 def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : TypeAttr :=
   ⟨attr, isType⟩
+
+/-!
+  ## Coercion instances to TypeAttr
+
+  We define a coercion from each attribute structure to `TypeAttr` if the attribute
+  can be used as a type annotation.
+-/
+
+instance : Coe IntegerType TypeAttr where
+  coe type := ⟨.integerType type, by rfl⟩
 
 end
 end Veir
