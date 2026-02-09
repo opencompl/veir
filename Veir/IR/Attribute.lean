@@ -23,8 +23,7 @@ namespace Veir
 public section
 
 /--
-  The definition of `!builtin.integer`.
-  It is an integer type with a given bitwidth.
+  A `!builtin.integer` is an integer type with a given bitwidth.
 -/
 structure IntegerType where
   bitwidth : Nat
