@@ -1174,15 +1174,13 @@ def set (arg: BlockArgumentPtr) (ctx: IRContext) (newresult: BlockArgument) (arg
   let block := arg.block.get ctx
   { ctx with
     blocks := ctx.blocks.insert arg.block
-      { block with
-        arguments := block.arguments.set arg.index newresult (by grind)} }
+      { block with arguments := block.arguments.set arg.index newresult (by grind)} }
 
 def set! (arg: BlockArgumentPtr) (ctx: IRContext) (newresult: BlockArgument) : IRContext :=
   let block := arg.block.get! ctx
   { ctx with
     blocks := ctx.blocks.insert arg.block
-      { block with
-        arguments := block.arguments.set! arg.index newresult } }
+      { block with arguments := block.arguments.set! arg.index newresult } }
 
 @[grind _=_]
 theorem set!_eq_set {arg : BlockArgumentPtr} (inBounds: arg.InBounds ctx) :
