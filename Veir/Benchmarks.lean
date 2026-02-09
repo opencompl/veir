@@ -48,33 +48,32 @@ def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option 
   return rewriter
 
 def addIConstantFoldingLocal (ctx: IRContext) (op: OperationPtr) :
-    Option (IRContext × List OperationPtr × List ValuePtr) := do
+    Option (IRContext × Option (Array OperationPtr × Array ValuePtr)) := do
   -- Check that the operation is an arith.addi operation
-  if op.getOpType ctx sorry ≠ .arith_addi then
-    none
-
+  let .arith_addi := op.getOpType ctx sorry
+    | some (ctx, none)
   -- Get the lhs and check that it is a constant
   let lhsValuePtr := op.getOperand ctx 0 (by sorry) (by sorry)
-  let lhsOp ← match lhsValuePtr with
-  | ValuePtr.opResult lhsOpResultPtr => some lhsOpResultPtr.op
-  | _ => none
+  let .opResult lhsOpResultPtr := lhsValuePtr
+    | some (ctx, none)
+  let lhsOp := lhsOpResultPtr.op
   let lhsOpStruct := lhsOp.get ctx (by sorry)
-  if lhsOpStruct.opType ≠ .arith_constant then
-    none
+  let .arith_constant := lhsOpStruct.opType
+    | some (ctx, none)
 
   -- Get the rhs and check that it is a constant
   let rhsValuePtr := op.getOperand ctx 1 (by sorry) (by sorry)
-  let rhsOp ← match rhsValuePtr with
-  | ValuePtr.opResult rhsOpResultPtr => some rhsOpResultPtr.op
-  | _ => none
+  let .opResult rhsOpResultPtr := rhsValuePtr
+    | some (ctx, none)
+  let rhsOp := rhsOpResultPtr.op
   let rhsOpStruct := rhsOp.get ctx (by sorry)
-  if rhsOpStruct.opType ≠ .arith_constant then
-    none
+  let .arith_constant := rhsOpStruct.opType
+    | some (ctx, none)
 
   -- Sum both constant values
   let newVal := lhsOpStruct.properties + rhsOpStruct.properties
   let (ctx, newOp) ← Rewriter.createOp ctx .arith_constant #["i32"] #[] #[] #[] newVal none sorry sorry sorry sorry sorry
-  return (ctx, [newOp], [newOp.getResult 0])
+  return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 def addIZeroFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
   if op.getOpType rewriter.ctx sorry ≠ .arith_addi then
