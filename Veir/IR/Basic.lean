@@ -912,15 +912,13 @@ def set (result: OpResultPtr) (ctx: IRContext) (newresult: OpResult) (resultIn: 
   let op := result.op.get ctx
   { ctx with
     operations := ctx.operations.insert result.op
-      { op with
-        results := op.results.set result.index newresult (by grind)} }
+      { op with results := op.results.set result.index newresult (by grind)} }
 
 def set! (result: OpResultPtr) (ctx: IRContext) (newresult: OpResult) : IRContext :=
   let op := result.op.get! ctx
   { ctx with
     operations := ctx.operations.insert result.op
-      { op with
-        results := op.results.set! result.index newresult } }
+      { op with results := op.results.set! result.index newresult } }
 
 @[grind _=_]
 theorem set!_eq_set {result : OpResultPtr} (inBounds: result.InBounds ctx) :
