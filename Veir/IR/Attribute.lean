@@ -16,7 +16,10 @@ module
   completely disjoint in MLIR). The reason for this lack of separation in VeIR is
   that merging both concepts into a single `Attribute` type allows to define
   functions that can work with both types and attributes without needing to define
-  separate functions for each case.
+  separate functions for each case. For instance, `mlir::AttrTypeWalker` can be
+  defined for both `TypeAttr` and `Attribute` without needing to define separate
+  walkers for each case. Similarly, `mlir::TypeAttr` is not needed, as we can
+  store any `TypeAttr` as an `Attribute`.
 -/
 
 namespace Veir
