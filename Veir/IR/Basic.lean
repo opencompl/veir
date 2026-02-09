@@ -444,52 +444,151 @@ def setNextOp (op: OperationPtr) (ctx: IRContext) (newNext : Option OperationPtr
   let oldOp := op.get ctx
   op.set ctx { oldOp with next := newNext}
 
+def setNextOp! (op: OperationPtr) (ctx: IRContext) (newNext : Option OperationPtr) : IRContext :=
+  let oldOp := op.get! ctx
+  op.set ctx { oldOp with next := newNext}
+
+@[grind _=_]
+theorem setNextOp!_eq_setNextOp {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.setNextOp! ctx newNext = op.setNextOp ctx newNext inBounds := by
+  grind [setNextOp, setNextOp!]
+
 def setPrevOp (op: OperationPtr) (ctx: IRContext) (newPrev: Option OperationPtr)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
   op.set ctx { oldOp with prev := newPrev}
+
+def setPrevOp! (op: OperationPtr) (ctx: IRContext) (newPrev: Option OperationPtr) : IRContext :=
+  let oldOp := op.get! ctx
+  op.set ctx { oldOp with prev := newPrev}
+
+@[grind _=_]
+theorem setPrevOp!_eq_setPrevOp {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.setPrevOp! ctx newPrev = op.setPrevOp ctx newPrev inBounds := by
+  grind [setPrevOp, setPrevOp!]
 
 def setParent (op: OperationPtr) (ctx: IRContext) (newParent: Option BlockPtr)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
   op.set ctx { oldOp with parent := newParent}
 
+def setParent! (op: OperationPtr) (ctx: IRContext) (newParent: Option BlockPtr) : IRContext :=
+  let oldOp := op.get! ctx
+  op.set ctx { oldOp with parent := newParent}
+
+@[grind _=_]
+theorem setParent!_eq_setParent {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.setParent! ctx newParent = op.setParent ctx newParent inBounds := by
+  grind [setParent, setParent!]
+
 def setRegions (op: OperationPtr) (ctx: IRContext) (newRegions: Array RegionPtr)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
   op.set ctx { oldOp with regions := newRegions}
+
+def setRegions! (op: OperationPtr) (ctx: IRContext) (newRegions: Array RegionPtr) : IRContext :=
+  let oldOp := op.get! ctx
+  op.set ctx { oldOp with regions := newRegions}
+
+@[grind _=_]
+theorem setRegions!_eq_setRegions {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.setRegions! ctx newRegions = op.setRegions ctx newRegions inBounds := by
+  grind [setRegions, setRegions!]
 
 def setResults (op: OperationPtr) (ctx: IRContext) (newResults: Array OpResult)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
   op.set ctx { oldOp with results := newResults}
 
+def setResults! (op: OperationPtr) (ctx: IRContext) (newResults: Array OpResult) : IRContext :=
+  let oldOp := op.get! ctx
+  op.set ctx { oldOp with results := newResults}
+
+@[grind _=_]
+theorem setResults!_eq_setResults {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.setResults! ctx newResults = op.setResults ctx newResults inBounds := by
+  grind [setResults, setResults!]
+
 def pushResult (op : OperationPtr) (ctx : IRContext) (resultS : OpResult)
       (hop : op.InBounds ctx := by grind) :=
     op.setResults ctx ((op.get ctx).results.push resultS)
+
+def pushResult! (op : OperationPtr) (ctx : IRContext) (resultS : OpResult) : IRContext :=
+  op.setResults! ctx ((op.get! ctx).results.push resultS)
+
+@[grind _=_]
+theorem pushResult!_eq_pushResult {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.pushResult! ctx resultS = op.pushResult ctx resultS inBounds := by
+  grind [pushResult, pushResult!]
 
 def setBlockOperands (op: OperationPtr) (ctx: IRContext) (newOperands: Array BlockOperand)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
   op.set ctx {oldOp with blockOperands := newOperands}
 
+def setBlockOperands! (op: OperationPtr) (ctx: IRContext) (newOperands: Array BlockOperand) :
+    IRContext :=
+  let oldOp := op.get! ctx
+  op.set ctx {oldOp with blockOperands := newOperands}
+
+@[grind _=_]
+theorem setBlockOperands!_eq_setBlockOperands {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.setBlockOperands! ctx newOperands = op.setBlockOperands ctx newOperands inBounds := by
+  grind [setBlockOperands, setBlockOperands!]
+
 def pushBlockOperand (op : OperationPtr) (ctx : IRContext) (operands : BlockOperand)
       (hop : op.InBounds ctx := by grind) :=
     op.setBlockOperands ctx ((op.get ctx).blockOperands.push operands)
+
+def pushBlockOperand! (op : OperationPtr) (ctx : IRContext) (operands : BlockOperand) :
+    IRContext :=
+  op.setBlockOperands! ctx ((op.get! ctx).blockOperands.push operands)
+
+@[grind _=_]
+theorem pushBlockOperand!_eq_pushBlockOperand
+    {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.pushBlockOperand! ctx operands = op.pushBlockOperand ctx operands inBounds := by
+  grind [pushBlockOperand, pushBlockOperand!]
 
 def setOperands (op: OperationPtr) (ctx: IRContext) (newOperands: Array OpOperand)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
   op.set ctx { oldOp with operands := newOperands}
 
+def setOperands! (op: OperationPtr) (ctx: IRContext) (newOperands: Array OpOperand) : IRContext :=
+  let oldOp := op.get! ctx
+  op.set ctx { oldOp with operands := newOperands}
+
+@[grind _=_]
+theorem setOperands!_eq_setOperands {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.setOperands! ctx newOperands = op.setOperands ctx newOperands inBounds := by
+  grind [setOperands, setOperands!]
+
 def pushOperand (op : OperationPtr) (ctx : IRContext) (operandS : OpOperand)
       (hop : op.InBounds ctx := by grind) :=
     op.setOperands ctx ((op.get ctx).operands.push operandS)
+
+def pushOperand! (op : OperationPtr) (ctx : IRContext) (operands : OpOperand) : IRContext :=
+  op.setOperands! ctx ((op.get! ctx).operands.push operands)
+
+@[grind _=_]
+theorem pushOperand!_eq_pushOperand {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.pushOperand! ctx operands = op.pushOperand ctx operands inBounds := by
+  grind [pushOperand, pushOperand!]
 
 def setProperties (op: OperationPtr) (ctx: IRContext) (newValue: UInt64)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
   op.set ctx { oldOp with properties := newValue }
+
+def setProperties! (op: OperationPtr) (ctx: IRContext) (newValue: UInt64) : IRContext :=
+  let oldOp := op.get! ctx
+  op.set ctx { oldOp with properties := newValue }
+
+@[grind _=_]
+theorem setProperties!_eq_setProperties {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.setProperties! ctx newValue = op.setProperties ctx newValue inBounds := by
+  grind [setProperties, setProperties!]
 
 @[grind]
 def nextOperand (op : OperationPtr) (ctx : IRContext)
@@ -497,14 +596,26 @@ def nextOperand (op : OperationPtr) (ctx : IRContext)
   .mk op (op.getNumOperands ctx (by grind))
 
 @[grind]
+def nextOperand! (op : OperationPtr) (ctx : IRContext) : OpOperandPtr :=
+  .mk op (op.getNumOperands! ctx)
+
+@[grind]
 def nextBlockOperand (op : OperationPtr) (ctx : IRContext)
     (inBounds: op.InBounds ctx := by grind) : BlockOperandPtr :=
   .mk op (op.getNumSuccessors ctx (by grind))
 
 @[grind]
+def nextBlockOperand! (op : OperationPtr) (ctx : IRContext) : BlockOperandPtr :=
+  .mk op (op.getNumSuccessors! ctx)
+
+@[grind]
 def nextResult (op : OperationPtr) (ctx : IRContext)
     (inBounds: op.InBounds ctx := by grind) : OpResultPtr :=
   .mk op (op.getNumResults ctx (by grind))
+
+@[grind]
+def nextResult! (op : OperationPtr) (ctx : IRContext) : OpResultPtr :=
+  .mk op (op.getNumResults! ctx)
 
 def allocEmpty (ctx : IRContext) (opType : OpCode) : Option (IRContext × OperationPtr) :=
   let newOpPtr : OperationPtr := ⟨ctx.nextID⟩
@@ -567,25 +678,73 @@ def set (operand: OpOperandPtr) (ctx: IRContext) (newOperand: OpOperand)
       { op with
         operands := op.operands.set operand.index newOperand (by grind)} }
 
+def set! (operand: OpOperandPtr) (ctx: IRContext) (newOperand: OpOperand) : IRContext :=
+  let op := operand.op.get! ctx
+  { ctx with
+    operations := ctx.operations.insert operand.op
+      { op with
+        operands := op.operands.set! operand.index newOperand } }
+
+@[grind _=_]
+theorem set!_eq_set {operand : OpOperandPtr} (inBounds: operand.InBounds ctx) :
+    operand.set! ctx newOperand = operand.set ctx newOperand inBounds := by
+  grind [set, set!]
+
 def setNextUse (operand: OpOperandPtr) (ctx: IRContext) (newNextUse: Option OpOperandPtr)
     (operandIn: operand.InBounds ctx := by grind) : IRContext :=
   let oldOperand := operand.get ctx
   operand.set ctx { oldOperand with nextUse := newNextUse }
+
+def setNextUse! (operand: OpOperandPtr) (ctx: IRContext) (newNextUse: Option OpOperandPtr) : IRContext :=
+  let oldOperand := operand.get! ctx
+  operand.set! ctx { oldOperand with nextUse := newNextUse }
+
+@[grind _=_]
+theorem setNextUse!_eq_setNextUse {operand : OpOperandPtr} (inBounds: operand.InBounds ctx) :
+    operand.setNextUse! ctx newNextUse = operand.setNextUse ctx newNextUse inBounds := by
+  grind [setNextUse, setNextUse!]
 
 def setBack (operand: OpOperandPtr) (ctx: IRContext) (newBack: OpOperandPtrPtr)
     (operandIn: operand.InBounds ctx := by grind) : IRContext :=
   let oldOperand := operand.get ctx
   operand.set ctx { oldOperand with back := newBack }
 
+def setBack! (operand: OpOperandPtr) (ctx: IRContext) (newBack: OpOperandPtrPtr) : IRContext :=
+  let oldOperand := operand.get! ctx
+  operand.set! ctx { oldOperand with back := newBack }
+
+@[grind _=_]
+theorem setBack!_eq_setBack {operand : OpOperandPtr} (inBounds: operand.InBounds ctx) :
+    operand.setBack! ctx newBack = operand.setBack ctx newBack inBounds := by
+  grind [setBack, setBack!]
+
 def setOwner (operand: OpOperandPtr) (ctx: IRContext) (newOwner: OperationPtr)
     (operandIn: operand.InBounds ctx := by grind) : IRContext :=
   let oldOperand := operand.get ctx
   operand.set ctx { oldOperand with owner := newOwner }
 
+def setOwner! (operand: OpOperandPtr) (ctx: IRContext) (newOwner: OperationPtr) : IRContext :=
+  let oldOperand := operand.get! ctx
+  operand.set! ctx { oldOperand with owner := newOwner }
+
+@[grind _=_]
+theorem setOwner!_eq_setOwner {operand : OpOperandPtr} (inBounds: operand.InBounds ctx) :
+    operand.setOwner! ctx newOwner = operand.setOwner ctx newOwner inBounds := by
+  grind [setOwner, setOwner!]
+
 def setValue (operand: OpOperandPtr) (ctx: IRContext) (newValue: ValuePtr)
     (operandIn: operand.InBounds ctx := by grind) : IRContext :=
   let oldOperand := operand.get ctx
   operand.set ctx { oldOperand with value := newValue }
+
+def setValue! (operand: OpOperandPtr) (ctx: IRContext) (newValue: ValuePtr) : IRContext :=
+  let oldOperand := operand.get! ctx
+  operand.set! ctx { oldOperand with value := newValue }
+
+@[grind _=_]
+theorem setValue!_eq_setValue {operand : OpOperandPtr} (inBounds: operand.InBounds ctx) :
+    operand.setValue! ctx newValue = operand.setValue ctx newValue inBounds := by
+  grind [setValue, setValue!]
 
 end OpOperandPtr
 
@@ -637,25 +796,73 @@ def set (operand: BlockOperandPtr) (ctx: IRContext) (newOperand: BlockOperand) (
       { op with
         blockOperands := op.blockOperands.set operand.index newOperand (by grind)} }
 
+def set! (operand: BlockOperandPtr) (ctx: IRContext) (newOperand: BlockOperand) : IRContext :=
+  let op := operand.op.get! ctx
+  { ctx with
+    operations := ctx.operations.insert operand.op
+      { op with
+        blockOperands := op.blockOperands.set! operand.index newOperand } }
+
+@[grind _=_]
+theorem set!_eq_set {operand : BlockOperandPtr} (inBounds: operand.InBounds ctx) :
+    operand.set! ctx newOperand = operand.set ctx newOperand inBounds := by
+  grind [set, set!]
+
 def setNextUse (operand: BlockOperandPtr) (ctx: IRContext) (newNextUse: Option BlockOperandPtr)
     (operandIn: operand.InBounds ctx := by grind) : IRContext :=
   let oldOperand := operand.get ctx
   operand.set ctx { oldOperand with nextUse := newNextUse }
+
+def setNextUse! (operand: BlockOperandPtr) (ctx: IRContext) (newNextUse: Option BlockOperandPtr) :
+    IRContext :=
+  let oldOperand := operand.get! ctx
+  operand.set! ctx { oldOperand with nextUse := newNextUse }
+
+@[grind _=_]
+theorem setNextUse!_eq_setNextUse {operand : BlockOperandPtr} (inBounds: operand.InBounds ctx) :
+    operand.setNextUse! ctx newNextUse = operand.setNextUse ctx newNextUse inBounds := by
+  grind [setNextUse, setNextUse!]
 
 def setBack (operand: BlockOperandPtr) (ctx: IRContext) (newBack: BlockOperandPtrPtr)
     (operandIn: operand.InBounds ctx := by grind) : IRContext :=
   let oldOperand := operand.get ctx
   operand.set ctx { oldOperand with back := newBack }
 
+def setBack! (operand: BlockOperandPtr) (ctx: IRContext) (newBack: BlockOperandPtrPtr) : IRContext :=
+  let oldOperand := operand.get! ctx
+  operand.set! ctx { oldOperand with back := newBack }
+
+theorem setBack!_eq_setBack {operand : BlockOperandPtr} (inBounds: operand.InBounds ctx) :
+    operand.setBack! ctx newBack = operand.setBack ctx newBack inBounds := by
+  grind [setBack, setBack!]
+
 def setOwner (operand: BlockOperandPtr) (ctx: IRContext) (newOwner: OperationPtr)
     (operandIn: operand.InBounds ctx := by grind) : IRContext :=
   let oldOperand := operand.get ctx
   operand.set ctx { oldOperand with owner := newOwner }
 
+def setOwner! (operand: BlockOperandPtr) (ctx: IRContext) (newOwner: OperationPtr) : IRContext :=
+  let oldOperand := operand.get! ctx
+  operand.set! ctx { oldOperand with owner := newOwner }
+
+@[grind _=_]
+theorem setOwner!_eq_setOwner {operand : BlockOperandPtr} (inBounds: operand.InBounds ctx) :
+    operand.setOwner! ctx newOwner = operand.setOwner ctx newOwner inBounds := by
+  grind [setOwner, setOwner!]
+
 def setValue (operand: BlockOperandPtr) (ctx: IRContext) (newValue: BlockPtr)
     (operandIn: operand.InBounds ctx := by grind) : IRContext :=
   let oldOperand := operand.get ctx
   operand.set ctx { oldOperand with value := newValue }
+
+def setValue! (operand: BlockOperandPtr) (ctx: IRContext) (newValue: BlockPtr) : IRContext :=
+  let oldOperand := operand.get! ctx
+  operand.set! ctx { oldOperand with value := newValue }
+
+@[grind _=_]
+theorem setValue!_eq_setValue {operand : BlockOperandPtr} (inBounds: operand.InBounds ctx) :
+    operand.setValue! ctx newValue = operand.setValue ctx newValue inBounds := by
+  grind [setValue, setValue!]
 
 end BlockOperandPtr
 
@@ -705,23 +912,60 @@ def set (result: OpResultPtr) (ctx: IRContext) (newresult: OpResult) (resultIn: 
   let op := result.op.get ctx
   { ctx with
     operations := ctx.operations.insert result.op
-      { op with
-        results := op.results.set result.index newresult (by grind)} }
+      { op with results := op.results.set result.index newresult (by grind)} }
+
+def set! (result: OpResultPtr) (ctx: IRContext) (newresult: OpResult) : IRContext :=
+  let op := result.op.get! ctx
+  { ctx with
+    operations := ctx.operations.insert result.op
+      { op with results := op.results.set! result.index newresult } }
+
+@[grind _=_]
+theorem set!_eq_set {result : OpResultPtr} (inBounds: result.InBounds ctx) :
+    result.set! ctx newresult = result.set ctx newresult inBounds := by
+  grind [set, set!]
 
 def setType (result: OpResultPtr) (ctx: IRContext) (newType: TypeAttr)
     (resultIn: result.InBounds ctx := by grind) : IRContext :=
   let oldResult := result.get ctx
   result.set ctx { oldResult with type := newType }
 
+def setType! (result: OpResultPtr) (ctx: IRContext) (newType: TypeAttr) : IRContext :=
+  let oldResult := result.get! ctx
+  result.set! ctx { oldResult with type := newType }
+
+@[grind _=_]
+theorem setType!_eq_setType {result : OpResultPtr} (inBounds: result.InBounds ctx) :
+    result.setType! ctx newType = result.setType ctx newType inBounds := by
+  grind [setType, setType!]
+
 def setFirstUse (result: OpResultPtr) (ctx: IRContext) (newFirstUse: Option OpOperandPtr)
     (resultIn: result.InBounds ctx := by grind) : IRContext :=
   let oldResult := result.get ctx
   result.set ctx { oldResult with firstUse := newFirstUse }
 
+def setFirstUse! (result: OpResultPtr) (ctx: IRContext) (newFirstUse: Option OpOperandPtr) : IRContext :=
+  let oldResult := result.get! ctx
+  result.set! ctx { oldResult with firstUse := newFirstUse }
+
+@[grind _=_]
+theorem setFirstUse!_eq_setFirstUse {result : OpResultPtr} (inBounds: result.InBounds ctx) :
+    result.setFirstUse! ctx newFirstUse = result.setFirstUse ctx newFirstUse inBounds := by
+  grind [setFirstUse, setFirstUse!]
+
 def setOwner (result: OpResultPtr) (ctx: IRContext) (newOwner: OperationPtr)
     (resultIn: result.InBounds ctx := by grind) : IRContext :=
   let oldResult := result.get ctx
   result.set ctx { oldResult with owner := newOwner }
+
+def setOwner! (result: OpResultPtr) (ctx: IRContext) (newOwner: OperationPtr) : IRContext :=
+  let oldResult := result.get! ctx
+  result.set! ctx { oldResult with owner := newOwner }
+
+@[grind _=_]
+theorem setOwner!_eq_setOwner {result : OpResultPtr} (inBounds: result.InBounds ctx) :
+    result.setOwner! ctx newOwner = result.setOwner ctx newOwner inBounds := by
+  grind [setOwner, setOwner!]
 
 end OpResultPtr
 
@@ -752,30 +996,84 @@ def setParent (block: BlockPtr) (ctx: IRContext) (newParent: Option RegionPtr)
   let oldBlock := block.get ctx
   block.set ctx { oldBlock with parent := newParent}
 
+def setParent! (block: BlockPtr) (ctx: IRContext) (newParent: Option RegionPtr) : IRContext :=
+  let oldBlock := block.get! ctx
+  block.set ctx {oldBlock with parent := newParent}
+
+@[grind _=_]
+theorem setParent!_eq_setParent {block : BlockPtr} (inBounds: block.InBounds ctx) :
+    block.setParent! ctx newParent = block.setParent ctx newParent inBounds := by
+  grind [setParent, setParent!]
+
 def setFirstUse (block: BlockPtr) (ctx: IRContext) (newFirstUse: Option BlockOperandPtr)
     (inBounds: block.InBounds ctx := by grind) : IRContext :=
   let oldBlock := block.get ctx
   block.set ctx { oldBlock with firstUse := newFirstUse}
+
+def setFirstUse! (block: BlockPtr) (ctx: IRContext) (newFirstUse: Option BlockOperandPtr) : IRContext :=
+  let oldBlock := block.get! ctx
+  block.set ctx {oldBlock with firstUse := newFirstUse}
+
+@[grind _=_]
+theorem setFirstUse!_eq_setFirstUse {block : BlockPtr} (inBounds: block.InBounds ctx) :
+    block.setFirstUse! ctx newFirstUse = block.setFirstUse ctx newFirstUse inBounds := by
+  grind [setFirstUse, setFirstUse!]
 
 def setFirstOp (block: BlockPtr) (ctx: IRContext) (newFirstOp: Option OperationPtr)
     (inBounds: block.InBounds ctx := by grind) : IRContext :=
   let oldBlock := block.get ctx
   block.set ctx { oldBlock with firstOp := newFirstOp}
 
+def setFirstOp! (block: BlockPtr) (ctx: IRContext) (newFirstOp: Option OperationPtr) : IRContext :=
+  let oldBlock := block.get! ctx
+  block.set ctx {oldBlock with firstOp := newFirstOp}
+
+@[grind _=_]
+theorem setFirstOp!_eq_setFirstOp {block : BlockPtr} (inBounds: block.InBounds ctx) :
+    block.setFirstOp! ctx newFirstOp = block.setFirstOp ctx newFirstOp inBounds := by
+  grind [setFirstOp, setFirstOp!]
+
 def setLastOp (block: BlockPtr) (ctx: IRContext) (newLastOp: Option OperationPtr)
     (inBounds: block.InBounds ctx := by grind) : IRContext :=
   let oldBlock := block.get ctx
   block.set ctx { oldBlock with lastOp := newLastOp}
+
+def setLastOp! (block: BlockPtr) (ctx: IRContext) (newLastOp: Option OperationPtr) : IRContext :=
+  let oldBlock := block.get! ctx
+  block.set ctx {oldBlock with lastOp := newLastOp}
+
+@[grind _=_]
+theorem setLastOp!_eq_setLastOp {block : BlockPtr} (inBounds: block.InBounds ctx) :
+    block.setLastOp! ctx newLastOp = block.setLastOp ctx newLastOp inBounds := by
+  grind [setLastOp, setLastOp!]
 
 def setNextBlock (block: BlockPtr) (ctx: IRContext) (newNext: Option BlockPtr)
     (inBounds: block.InBounds ctx := by grind) : IRContext :=
   let oldBlock := block.get ctx
   block.set ctx { oldBlock with next := newNext}
 
+def setNextBlock! (block: BlockPtr) (ctx: IRContext) (newNext: Option BlockPtr) : IRContext :=
+  let oldBlock := block.get! ctx
+  block.set ctx {oldBlock with next := newNext}
+
+@[grind _=_]
+theorem setNextBlock!_eq_setNextBlock {block : BlockPtr} (inBounds: block.InBounds ctx) :
+    block.setNextBlock! ctx newNext = block.setNextBlock ctx newNext inBounds := by
+  grind [setNextBlock, setNextBlock!]
+
 def setPrevBlock (block: BlockPtr) (ctx: IRContext) (newPrev: Option BlockPtr)
     (inBounds: block.InBounds ctx := by grind) : IRContext :=
   let oldBlock := block.get ctx
   block.set ctx { oldBlock with prev := newPrev}
+
+def setPrevBlock! (block: BlockPtr) (ctx: IRContext) (newPrev: Option BlockPtr) : IRContext :=
+  let oldBlock := block.get! ctx
+  block.set ctx {oldBlock with prev := newPrev}
+
+@[grind _=_]
+theorem setPrevBlock!_eq_setPrevBlock {block : BlockPtr} (inBounds: block.InBounds ctx) :
+    block.setPrevBlock! ctx newPrev = block.setPrevBlock ctx newPrev inBounds := by
+  grind [setPrevBlock, setPrevBlock!]
 
 def allocEmpty (ctx: IRContext) : Option (IRContext × BlockPtr) :=
   let newBlockPtr: BlockPtr := ⟨ctx.nextID⟩
@@ -822,9 +1120,27 @@ def setArguments (block: BlockPtr) (ctx: IRContext)
   let oldBlock := block.get ctx (by grind)
   block.set ctx { oldBlock with arguments := newArguments }
 
+def setArguments! (block: BlockPtr) (ctx: IRContext) (newArguments: Array BlockArgument) :
+    IRContext :=
+  let oldBlock := block.get! ctx
+  block.set ctx { oldBlock with arguments := newArguments }
+
+@[grind _=_]
+theorem setArguments!_eq_setArguments {block : BlockPtr} (inBounds: block.InBounds ctx) :
+    block.setArguments! ctx newArguments = block.setArguments ctx newArguments inBounds := by
+  grind [setArguments, setArguments!]
+
 def pushArgument (block : BlockPtr) (ctx : IRContext) (result : BlockArgument)
       (inBounds : block.InBounds ctx := by grind) :=
     block.setArguments ctx ((block.get ctx).arguments.push result)
+
+def pushArgument! (block : BlockPtr) (ctx : IRContext) (result : BlockArgument) : IRContext :=
+  block.setArguments! ctx ((block.get! ctx).arguments.push result)
+
+@[grind _=_]
+theorem pushArgument!_eq_pushArgument {block : BlockPtr} (inBounds: block.InBounds ctx) :
+    block.pushArgument! ctx result = block.pushArgument ctx result inBounds := by
+  grind [pushArgument, pushArgument!]
 
 end BlockPtr
 
@@ -858,28 +1174,84 @@ def set (arg: BlockArgumentPtr) (ctx: IRContext) (newresult: BlockArgument) (arg
   let block := arg.block.get ctx
   { ctx with
     blocks := ctx.blocks.insert arg.block
-      { block with
-        arguments := block.arguments.set arg.index newresult (by grind)} }
+      { block with arguments := block.arguments.set arg.index newresult (by grind)} }
+
+def set! (arg: BlockArgumentPtr) (ctx: IRContext) (newresult: BlockArgument) : IRContext :=
+  let block := arg.block.get! ctx
+  { ctx with
+    blocks := ctx.blocks.insert arg.block
+      { block with arguments := block.arguments.set! arg.index newresult } }
+
+@[grind _=_]
+theorem set!_eq_set {arg : BlockArgumentPtr} (inBounds: arg.InBounds ctx) :
+    arg.set! ctx newresult = arg.set ctx newresult inBounds := by
+  grind [set, set!]
 
 def setType (arg: BlockArgumentPtr) (ctx: IRContext) (newType: TypeAttr) (argIn: arg.InBounds ctx := by grind) : IRContext :=
   let oldResult := arg.get ctx
   arg.set ctx { oldResult with type := newType }
 
+def setType! (arg: BlockArgumentPtr) (ctx: IRContext) (newType: TypeAttr) : IRContext :=
+  let oldResult := arg.get! ctx
+  arg.set! ctx { oldResult with type := newType }
+
+@[grind _=_]
+theorem setType!_eq_setType {arg : BlockArgumentPtr} (inBounds: arg.InBounds ctx) :
+    arg.setType! ctx newType = arg.setType ctx newType inBounds := by
+  grind [setType, setType!]
+
 def setFirstUse (arg: BlockArgumentPtr) (ctx: IRContext) (newFirstUse: Option OpOperandPtr) (argIn: arg.InBounds ctx := by grind) : IRContext :=
   let oldResult := arg.get ctx
   arg.set ctx { oldResult with firstUse := newFirstUse }
+
+def setFirstUse! (arg: BlockArgumentPtr) (ctx: IRContext) (newFirstUse: Option OpOperandPtr) :
+    IRContext :=
+  let oldResult := arg.get! ctx
+  arg.set! ctx {oldResult with firstUse := newFirstUse}
+
+@[grind _=_]
+theorem setFirstUse!_eq_setFirstUse {arg : BlockArgumentPtr} (inBounds: arg.InBounds ctx) :
+    arg.setFirstUse! ctx newFirstUse = arg.setFirstUse ctx newFirstUse inBounds := by
+  grind [setFirstUse, setFirstUse!]
 
 def setIndex (arg: BlockArgumentPtr) (ctx: IRContext) (newIndex: Nat) (argIn: arg.InBounds ctx := by grind) : IRContext :=
   let oldResult := arg.get ctx
   arg.set ctx { oldResult with index := newIndex }
 
+def setIndex! (arg: BlockArgumentPtr) (ctx: IRContext) (newIndex: Nat) : IRContext :=
+  let oldResult := arg.get! ctx
+  arg.set! ctx {oldResult with index := newIndex}
+
+@[grind _=_]
+theorem setIndex!_eq_setIndex {arg : BlockArgumentPtr} (inBounds: arg.InBounds ctx) :
+    arg.setIndex! ctx newIndex = arg.setIndex ctx newIndex inBounds := by
+  grind [setIndex, setIndex!]
+
 def setLoc (arg: BlockArgumentPtr) (ctx: IRContext) (newLoc: Location) (argIn: arg.InBounds ctx := by grind) : IRContext :=
   let oldResult := arg.get ctx
   arg.set ctx { oldResult with loc := newLoc }
 
+def setLoc! (arg: BlockArgumentPtr) (ctx: IRContext) (newLoc: Location) : IRContext :=
+  let oldResult := arg.get! ctx
+  arg.set! ctx {oldResult with loc := newLoc}
+
+@[grind _=_]
+theorem setLoc!_eq_setLoc {arg : BlockArgumentPtr} (inBounds: arg.InBounds ctx) :
+    arg.setLoc! ctx newLoc = arg.setLoc ctx newLoc inBounds := by
+  grind [setLoc, setLoc!]
+
 def setOwner (arg: BlockArgumentPtr) (ctx: IRContext) (newOwner: BlockPtr) (argIn: arg.InBounds ctx := by grind) : IRContext :=
   let oldResult := arg.get ctx
   arg.set ctx { oldResult with owner := newOwner }
+
+def setOwner! (arg: BlockArgumentPtr) (ctx: IRContext) (newOwner: BlockPtr) : IRContext :=
+  let oldResult := arg.get! ctx
+  arg.set! ctx {oldResult with owner := newOwner}
+
+@[grind _=_]
+theorem setOwner!_eq_setOwner {arg : BlockArgumentPtr} (inBounds: arg.InBounds ctx) :
+    arg.setOwner! ctx newOwner = arg.setOwner ctx newOwner inBounds := by
+  grind [setOwner, setOwner!]
 
 end BlockArgumentPtr
 
@@ -979,10 +1351,30 @@ def setType (arg: ValuePtr) (ctx: IRContext) (newType: TypeAttr) (argIn: arg.InB
   | opResult ptr => ptr.setType ctx newType
   | blockArgument ptr => ptr.setType ctx newType
 
+def setType! (arg: ValuePtr) (ctx: IRContext) (newType: TypeAttr) : IRContext :=
+  match arg with
+  | opResult ptr => ptr.setType! ctx newType
+  | blockArgument ptr => ptr.setType! ctx newType
+
+@[grind _=_]
+theorem setType!_eq_setType {arg : ValuePtr} (inBounds: arg.InBounds ctx) :
+    arg.setType! ctx newType = arg.setType ctx newType inBounds := by
+  grind [setType, setType!, cases ValuePtr]
+
 def setFirstUse (arg: ValuePtr) (ctx: IRContext) (newFirstUse: Option OpOperandPtr) (argIn: arg.InBounds ctx := by grind) : IRContext :=
   match arg with
   | opResult ptr => ptr.setFirstUse ctx newFirstUse
   | blockArgument ptr => ptr.setFirstUse ctx newFirstUse
+
+def setFirstUse! (arg: ValuePtr) (ctx: IRContext) (newFirstUse: Option OpOperandPtr) : IRContext :=
+  match arg with
+  | opResult ptr => ptr.setFirstUse! ctx newFirstUse
+  | blockArgument ptr => ptr.setFirstUse! ctx newFirstUse
+
+@[grind _=_]
+theorem setFirstUse!_eq_setFirstUse {arg : ValuePtr} (inBounds: arg.InBounds ctx) :
+    arg.setFirstUse! ctx newFirstUse = arg.setFirstUse ctx newFirstUse inBounds := by
+  grind [setFirstUse, setFirstUse!, cases ValuePtr]
 
 @[simp, grind =]
 theorem setFirstUse_OpResultPtr (ptr: OpResultPtr) (ctx: IRContext)
@@ -1072,6 +1464,17 @@ def set (ptrPtr: OpOperandPtrPtr) (ctx: IRContext) (newValue: Option OpOperandPt
   | valueFirstUse val =>
     val.setFirstUse ctx newValue
 
+def set! (ptrPtr: OpOperandPtrPtr) (ctx: IRContext) (newValue: Option OpOperandPtr) : IRContext :=
+  match ptrPtr with
+  | operandNextUse ptr =>
+    ptr.setNextUse! ctx newValue
+  | valueFirstUse val =>
+    val.setFirstUse! ctx newValue
+
+theorem set!_eq_set {ptrPtr : OpOperandPtrPtr} (inBounds: ptrPtr.InBounds ctx) :
+    ptrPtr.set! ctx newValue = ptrPtr.set ctx newValue inBounds := by
+  grind [set, set!, cases OpOperandPtrPtr]
+
 @[simp]
 theorem set_operandNextUse (ptr: OpOperandPtr) (ctx: IRContext) (newValue: Option OpOperandPtr) (ptrIn: (operandNextUse ptr).InBounds ctx) :
     (operandNextUse ptr).set ctx newValue ptrIn = ptr.setNextUse ctx newValue := by
@@ -1111,15 +1514,42 @@ def setParent (region: RegionPtr) (ctx: IRContext) (newParent: OperationPtr)
   let oldRegion := region.get ctx (by grind)
   region.set ctx { oldRegion with parent := newParent}
 
+def setParent! (region: RegionPtr) (ctx: IRContext) (newParent: OperationPtr) : IRContext :=
+  let oldRegion := region.get! ctx
+  region.set ctx {oldRegion with parent := newParent}
+
+@[grind _=_]
+theorem setParent!_eq_setParent {region : RegionPtr} (inBounds: region.InBounds ctx) :
+    region.setParent! ctx newParent = region.setParent ctx newParent inBounds := by
+  grind [setParent, setParent!]
+
 def setFirstBlock (region: RegionPtr) (ctx: IRContext) (newFirstBlock: Option BlockPtr)
     (inBounds: region.InBounds ctx := by grind) : IRContext :=
   let oldRegion := region.get ctx (by grind)
   region.set ctx { oldRegion with firstBlock := newFirstBlock}
 
+def setFirstBlock! (region: RegionPtr) (ctx: IRContext) (newFirstBlock: Option BlockPtr) : IRContext :=
+  let oldRegion := region.get! ctx
+  region.set ctx {oldRegion with firstBlock := newFirstBlock}
+
+@[grind _=_]
+theorem setFirstBlock!_eq_setFirstBlock {region : RegionPtr} (inBounds: region.InBounds ctx) :
+    region.setFirstBlock! ctx newFirstBlock = region.setFirstBlock ctx newFirstBlock inBounds := by
+  grind [setFirstBlock, setFirstBlock!]
+
 def setLastBlock (region: RegionPtr) (ctx: IRContext) (newLastBlock: Option BlockPtr)
     (inBounds: region.InBounds ctx := by grind) : IRContext :=
   let oldRegion := region.get ctx (by grind)
   region.set ctx { oldRegion with lastBlock := newLastBlock}
+
+def setLastBlock! (region: RegionPtr) (ctx: IRContext) (newLastBlock: Option BlockPtr) : IRContext :=
+  let oldRegion := region.get! ctx
+  region.set ctx {oldRegion with lastBlock := newLastBlock}
+
+@[grind _=_]
+theorem setLastBlock!_eq_setLastBlock {region : RegionPtr} (inBounds: region.InBounds ctx) :
+    region.setLastBlock! ctx newLastBlock = region.setLastBlock ctx newLastBlock inBounds := by
+  grind [setLastBlock, setLastBlock!]
 
 def allocEmpty (ctx: IRContext) : Option (IRContext × RegionPtr) :=
   let newRegionPtr: RegionPtr := ⟨ctx.nextID⟩
@@ -1181,6 +1611,17 @@ def set (ptrPtr: BlockOperandPtrPtr) (ctx: IRContext) (newValue: Option BlockOpe
   match ptrPtr with
   | blockOperandNextUse ptr => ptr.setNextUse ctx newValue
   | blockFirstUse val => val.setFirstUse ctx newValue
+
+def set! (ptrPtr: BlockOperandPtrPtr) (ctx: IRContext) (newValue: Option BlockOperandPtr) :
+    IRContext :=
+  match ptrPtr with
+  | blockOperandNextUse ptr => ptr.setNextUse! ctx newValue
+  | blockFirstUse val => val.setFirstUse! ctx newValue
+
+@[grind _=_]
+theorem set!_eq_set {ptrPtr : BlockOperandPtrPtr} (inBounds: ptrPtr.InBounds ctx) :
+    ptrPtr.set! ctx newValue = ptrPtr.set ctx newValue inBounds := by
+  grind [set, set!, cases BlockOperandPtrPtr]
 
 @[simp, grind =]
 theorem set_operandNextUse_eq {ptr: BlockOperandPtr} {ptrIn: ptr.InBounds ctx} {newValue: Option BlockOperandPtr} :
