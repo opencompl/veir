@@ -380,7 +380,8 @@ theorem Rewriter.initOpRegions_inBounds_mono (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (initOpRegions ctx opPtr regions n opPtrInBounds hregions hctx hn) := by
   induction n generalizing ctx <;> simp only [initOpRegions] <;> grind
 
-def Rewriter.initOpResults (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: Array TypeAttr) (index: Nat := 0) (hop : opPtr.InBounds ctx)
+def Rewriter.initOpResults (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
+    (index: Nat := 0) (hop : opPtr.InBounds ctx)
     (hidx : index = opPtr.getNumResults ctx) : IRContext :=
   if h: index >= resultTypes.size then
     ctx

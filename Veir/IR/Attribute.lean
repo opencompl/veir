@@ -74,7 +74,8 @@ def isType (attr : Attribute) : Bool :=
 @[simp, grind =]
 theorem isType_integerType type : (integerType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_unregistered unregistered : (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
+theorem isType_unregistered unregistered :
+  (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
 
 /--
   Convert an attribute to a string representation.
