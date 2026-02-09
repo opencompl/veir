@@ -49,7 +49,7 @@ def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option 
 
 def addIConstantFoldingLocal (ctx: IRContext) (op: OperationPtr) :
     Option (IRContext × Option (Array OperationPtr × Array ValuePtr)) := do
-  -- Check that the operation is an arith.addi operation
+  -- Check that the operation is an `arith.addi` operation
   let .arith_addi := op.getOpType ctx sorry
     | some (ctx, none)
   -- Get the lhs and check that it is a constant
