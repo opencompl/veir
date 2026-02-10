@@ -290,7 +290,7 @@ section parseList
 #eval testParser "()" (parseDelimitedList .paren (parseInteger false false))
 
 /--
-  info: "Success: #[]"
+  info: "Success: none"
 -/
 #guard_msgs in
 #eval testParser "" (parseOptionalDelimitedList .paren (parseInteger false false))
@@ -304,7 +304,7 @@ section parseList
 #eval testParser "3, 2" (parseList (parseInteger false false))
 
 /--
-  info: "Success: #[3, 2]"
+  info: "Success: (some #[3, 2])"
 -/
 #guard_msgs in
 #eval testParser "(3, 2)" (parseOptionalDelimitedList .paren (parseInteger false false))

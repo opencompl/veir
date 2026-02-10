@@ -190,7 +190,7 @@ def parseBlockOperand : MlirParserM BlockPtr := do
   Parse a single block operand.
 -/
 def parseBlockOperands : MlirParserM (Array BlockPtr) := do
-  parseOptionalDelimitedList .square parseBlockOperand
+  return (← parseOptionalDelimitedList .square parseBlockOperand).getD #[]
 
 /--
   Resolve an operand to an SSA value of the expected type.
@@ -257,7 +257,7 @@ def parseOptionalBlockLabel (ip : BlockInsertPoint) : MlirParserM (Option BlockP
   let slice := { labelToken.slice with start := labelToken.slice.start + 1 } -- skip ^ character
   let name := slice.of (← getInput)
   /- Parse the arguments. -/
-  let arguments ← parseOptionalDelimitedList .paren parseTypedValue
+  let arguments := (← parseOptionalDelimitedList .paren parseTypedValue).getD #[]
   parsePunctuation ":" "':' expected after block label"
   /- Create the block or get it if it was forward declared. -/
   let block ← defineBlock name ip
@@ -291,7 +291,7 @@ mutual
   Parse the regions of an operation.
 -/
 partial def parseOpRegions : MlirParserM (Array RegionPtr) := do
-  parseOptionalDelimitedList .paren parseRegion
+  return (← parseOptionalDelimitedList .paren parseRegion).getD #[]
 
 /--
   Parse an operation, if present, and insert it at the given insert point.

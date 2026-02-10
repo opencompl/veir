@@ -327,24 +327,23 @@ def parseList (parseItem : M α) : M (Array α) := do
   return items
 
 /--
-  Parse a comma-separated list of items enclosed in the given delimiters.
-  If the left delimiter is not present, return an empty list.
+  Parse a comma-separated list of items enclosed in the given delimiters, if present.
 -/
-def parseOptionalDelimitedList (delimiter : Delimiter) (parseItem : M α) : M (Array α) := do
+def parseOptionalDelimitedList (delimiter : Delimiter) (parseItem : M α) : M (Option (Array α)) := do
   /- Parse the left delimiter. -/
   if ! (← parseOptionalPunctuation delimiter.leftSymbol) then
-    return #[]
+    return none
 
   /- Check for empty list. -/
   if ← parseOptionalPunctuation delimiter.rightSymbol then
-    return #[]
+    return some #[]
 
   /- Parse the non-empty list. -/
   let items ← parseList parseItem
 
   /- Parse the right delimiter. -/
   parsePunctuation delimiter.rightSymbol ("closing delimiter '" ++ delimiter.rightSymbol ++ "' expected")
-  return items
+  return some items
 
 /--
   Parse a comma-separated list of items enclosed in the given delimiters.
