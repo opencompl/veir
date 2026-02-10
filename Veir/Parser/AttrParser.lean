@@ -3,7 +3,6 @@ import Veir.IR.Basic
 
 open Veir.Parser.Lexer
 open Veir.Parser
-open Veir.Attribute
 
 namespace Veir.AttrParser
 
@@ -32,10 +31,10 @@ def AttrParserM.run' (self : AttrParserM α)
   | .error err => .error err
 
 /--
-  Parse a type, if present.
-  Currently, only integer types are supported.
+  Parse an optional integer type.
+  An integer type is represented as `i` followed by a positive integer, e.g., `i32`.
 -/
-def parseOptionalType : AttrParserM (Option TypeAttr) := do
+def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   match ← peekToken with
   | { kind := .bareIdent, slice := slice } =>
     if slice.size < 2 then
@@ -49,12 +48,52 @@ def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return none
   | _ => return none
 
+mutual
+
 /--
-  Parse a type, otherwise return an error.
+  Parse a function type, if present.
+  A function type has the form `(input1, input2, ...) -> (output1, output2, ...)` or
+  `(input1, input2, ...) -> output`.
 -/
-def parseType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
+partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
+  -- Parse the input types.
+  let some inputs ← parseOptionalDelimitedList .paren parseType
+    | return none
+  -- Convert the parsed types to attributes, as FunctionType stores attributes instead
+  -- of types.
+  let inputs := inputs.map (fun x => x.val)
+  parsePunctuation "->"
+  -- Parse the output types as a list.
+  match ← parseOptionalDelimitedList .paren parseType with
+  | some outputs =>
+    -- Convert the parsed types to attributes, as FunctionType stores attributes instead
+    -- of types.
+    let outputs := outputs.map (fun x => x.val)
+    return some (FunctionType.mk inputs outputs)
+  | none =>
+    -- If there is no list of output, check for a single output type.
+    let outputType ← parseType "function type output expected"
+    return some (FunctionType.mk inputs #[outputType])
+
+/--
+  Parse a type, if present.
+-/
+partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
+  if let some integerType ← parseOptionalIntegerType then
+    return some integerType
+  else if let some functionType := ← parseOptionalFunctionType then
+    return some functionType
+  else
+    return none
+
+/--
+  Parse a type, throwing an error if it is not present.
+-/
+partial def parseType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   match ← parseOptionalType with
   | some ty => return ty
   | none => throw errorMsg
+
+end
 
 end Veir.AttrParser
