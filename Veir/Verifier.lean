@@ -298,6 +298,16 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
       throw "Expected 0 successors"
     pure ()
   /- RISCV -/
+  | .riscv_li => do
+    if op.getNumOperands ctx opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
   | .riscv_lui => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
@@ -929,7 +939,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
       throw "Expected 0 successors"
     pure ()
   | .riscv_sexth => do
-    if op.getNu
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx opIn ≠ 0 then

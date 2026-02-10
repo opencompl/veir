@@ -53,6 +53,7 @@ inductive OpCode
   | llvm_sext
   | llvm_zext
   /- RISCV -/
+  | riscv_li
   | riscv_lui
   | riscv_auipc
   | riscv_addi
@@ -176,6 +177,7 @@ else if name = "llvm.trunc".toByteArray then llvm_trunc
 else if name = "llvm.sext".toByteArray then llvm_sext
 else if name = "llvm.zext".toByteArray then llvm_zext
 /- RISCV -/
+else if name = "riscv.li".toByteArray then riscv_li
 else if name = "riscv.lui".toByteArray then riscv_lui
 else if name = "riscv.auipc".toByteArray then riscv_auipc
 else if name = "riscv.addi".toByteArray then riscv_addi
@@ -299,6 +301,7 @@ def OpCode.name (opcode : OpCode) : ByteArray :=
   | llvm_sext      => "llvm.sext".toByteArray
   | llvm_zext      => "llvm.zext".toByteArray
   /- RISCV -/
+  | riscv_li      => "riscv.li".toByteArray
   | riscv_lui      => "riscv.lui".toByteArray
   | riscv_auipc    => "riscv.auipc".toByteArray
   | riscv_addi     => "riscv.addi".toByteArray
