@@ -49,6 +49,7 @@ inductive OpCode
   | llvm_trunc
   | llvm_sext
   | llvm_zext
+  | llvm_return
   | test_test
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -84,6 +85,7 @@ def OpCode.fromName (name : ByteArray) : OpCode :=
   else if name = "llvm.trunc".toByteArray then llvm_trunc
   else if name = "llvm.sext".toByteArray then llvm_sext
   else if name = "llvm.zext".toByteArray then llvm_zext
+  else if name = "llvm.return".toByteArray then llvm_return
   else builtin_unregistered
 
 /--
@@ -120,6 +122,7 @@ def OpCode.name (opcode : OpCode) : ByteArray :=
   | llvm_trunc     => "llvm.trunc".toByteArray
   | llvm_sext      => "llvm.sext".toByteArray
   | llvm_zext      => "llvm.zext".toByteArray
+  | llvm_return    => "llvm.return".toByteArray
 
 end
 end Veir
