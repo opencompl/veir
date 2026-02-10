@@ -52,6 +52,7 @@ inductive OpCode
   | llvm_trunc
   | llvm_sext
   | llvm_zext
+  | llvm_return
   /- RISCV -/
   | riscv_li
   | riscv_lui
@@ -176,6 +177,7 @@ def OpCode.fromName (name : ByteArray) : OpCode :=
   else if name = "llvm.trunc".toByteArray then llvm_trunc
   else if name = "llvm.sext".toByteArray then llvm_sext
   else if name = "llvm.zext".toByteArray then llvm_zext
+  else if name = "llvm.return".toByteArray then llvm_return
   /- RISCV -/
   else if name = "riscv.li".toByteArray then riscv_li
   else if name = "riscv.lui".toByteArray then riscv_lui
@@ -300,6 +302,7 @@ def OpCode.name (opcode : OpCode) : ByteArray :=
   | llvm_trunc     => "llvm.trunc".toByteArray
   | llvm_sext      => "llvm.sext".toByteArray
   | llvm_zext      => "llvm.zext".toByteArray
+  | llvm_return    => "llvm.return".toByteArray
   /- RISCV -/
   | riscv_li      => "riscv.li".toByteArray
   | riscv_lui      => "riscv.lui".toByteArray
@@ -384,6 +387,6 @@ def OpCode.name (opcode : OpCode) : ByteArray :=
   | riscv_pack     => "riscv.pack".toByteArray
   | riscv_packh    => "riscv.packh".toByteArray
   | riscv_packw    => "riscv.packw".toByteArray
-
+  
 end
 end Veir
