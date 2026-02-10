@@ -45,5 +45,5 @@
 // CHECK-NEXT:     %21 = "llvm.trunc"(%5) : (i32) -> i1
 // CHECK-NEXT:     %22 = "llvm.sext"(%6) : (i1) -> i32
 // CHECK-NEXT:     %23 = "llvm.zext"(%6) : (i1) -> i32
-// CHECK-NEXT:     %23 = "llvm.zext"(%6) : (i1) -> i32
+// CHECK-NEXT:     "llvm.return"(%23) : (i32) -> ()
 // CHECK-NEXT: }) : () -> ()
