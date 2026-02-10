@@ -387,6 +387,5 @@ def OpCode.name (opcode : OpCode) : ByteArray :=
   | riscv_pack     => "riscv.pack".toByteArray
   | riscv_packh    => "riscv.packh".toByteArray
   | riscv_packw    => "riscv.packw".toByteArray
-  
 end
 end Veir
