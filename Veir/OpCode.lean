@@ -303,7 +303,6 @@ def OpCode.name (opcode : OpCode) : ByteArray :=
   | llvm_sext      => "llvm.sext".toByteArray
   | llvm_zext      => "llvm.zext".toByteArray
   | llvm_return    => "llvm.return".toByteArray
-  
   /- RISCV -/
   | riscv_li      => "riscv.li".toByteArray
   | riscv_lui      => "riscv.lui".toByteArray
