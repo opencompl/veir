@@ -1,5 +1,42 @@
 module
 
+-- If this works, we should move this to ForLean probably.
+@[specialize]
+def isEqvAux' (xs ys : Array α) (hsz : xs.size = ys.size)  (p : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool) :
+    ∀ (i : Nat) (_ : i ≤ xs.size), Bool
+  | 0, _ => true
+  | i+1, h =>
+    p xs[i] (ys[i]'(hsz ▸ h)) (by grind) (by grind) && isEqvAux' xs ys hsz p i (Nat.le_trans (Nat.le_add_right i 1) h)
+
+@[inline] def Array.isEqv' (xs ys : Array α) (p : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool) : Bool :=
+  if h : xs.size = ys.size then
+    isEqvAux' xs ys h p xs.size (Nat.le_refl xs.size)
+  else
+    false
+
+theorem Array.isEqv'_iff_rel {xs ys : Array α} {r} :
+    Array.isEqv' xs ys r ↔ 
+      ∃ h : xs.size = ys.size, ∀ (i : Nat) (h' : i < xs.size), r (xs[i]) (ys[i]'(h ▸ h')) (by grind) (by grind) := by
+  simp [isEqv']
+  constructor
+  · rintro ⟨hs, h⟩
+    exists hs
+    sorry
+  · rintro ⟨hs, h⟩
+    exists hs
+    sorry
+
+theorem Array.isEqv'_decide_iff_eq {xs ys : Array α} (inst: (x y : α) → x ∈ xs → y ∈ ys → Decidable (x = y)) :
+    Array.isEqv' xs ys (fun x y hx hy => @decide _ (inst x y hx hy)) ↔  xs = ys := by 
+  grind [isEqv'_iff_rel]
+
+def Array.instDecidabelEq' (xs ys : Array α) (inst: (x y : α) → x ∈ xs → y ∈ ys → Decidable (x = y)) :
+    Decidable (xs = ys) :=
+  if h : Array.isEqv' xs ys (fun x y hx hy => @decide _ (inst x y hx hy)) then
+    .isTrue ((isEqv'_decide_iff_eq inst).mp h)
+  else
+    .isFalse (by grind [isEqv'_iff_rel])
+
 /-!
   # Attributes
 
@@ -21,7 +58,6 @@ module
   walkers for each case. Similarly, `mlir::TypeAttr` is not needed, as we can
   store any `TypeAttr` as an `Attribute`.
 -/
-
 namespace Veir
 public section
 
@@ -64,31 +100,30 @@ deriving Inhabited, Repr, Hashable
 
 end
 
+
 /-!
   ## DecidableEq instances
 -/
 
 mutual
 def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
-  let _ : DecidableEq Attribute := fun a b => Attribute.decEq a b
   let inputs1 := type1.inputs
   let outputs1 := type1.outputs
   let inputs2 := type2.inputs
   let outputs2 := type2.outputs
-  -- How can we reuse decEq of Array here, while proving the termination of this function?
-  match decEq inputs1 inputs2 with
-  | isTrue hInputs =>
-    match decEq type1.outputs outputs2 with
-    | isTrue hOutputs =>
+  match Array.instDecidabelEq' inputs1 inputs2 (fun x y _ _ => Attribute.decEq x y) with
+  | isTrue _ =>
+    match Array.instDecidabelEq' outputs1 outputs2 (fun x y _ _ => Attribute.decEq x y) with
+    | isTrue _ =>
       isTrue (by grind [cases FunctionType])
-    | isFalse hOutputs =>
-      isFalse (by grind [cases FunctionType])
-  | isFalse hInputs =>
-    isFalse (by grind [cases FunctionType])
+    | isFalse _ =>
+      isFalse (by grind)
+  | isFalse _ =>
+    isFalse (by grind)
 termination_by sizeOf type1
 decreasing_by
+  sorry -- now we know that the x in is inputs, so a well-chosen `sizeOf` should work...
   sorry
-
 
 def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) :=
   match h1 : attr1, h2 : attr2 with
@@ -104,9 +139,13 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) :=
     match FunctionType.decEq type1 type2 with
     | isTrue hEq => isTrue (by grind)
     | isFalse hEq => isFalse (by grind)
-  | _, _ =>
-    sorry -- How can we carry the information that the two attributes
-          -- are of different constructors here?
+  | .integerType _, .unregisteredAttr _
+  | .integerType _, .functionType _
+  | .functionType _, .integerType _ 
+  | .functionType _, .unregisteredAttr _
+  | .unregisteredAttr _, .integerType _ 
+  | .unregisteredAttr _, .functionType _ =>
+     isFalse (by grind)
 termination_by sizeOf attr1
 end
 
