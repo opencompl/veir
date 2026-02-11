@@ -103,27 +103,21 @@ decreasing_by
   · have := @FunctionType.sizeOf_elems_outputs
     grind
 
-def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) :=
-  match h1 : attr1, h2 : attr2 with
-  | .integerType type1, .integerType type2 =>
-    match decEq type1 type2 with
-    | isTrue hEq => isTrue (by grind)
-    | isFalse hEq => isFalse (by grind)
-  | .unregisteredAttr attr1, .unregisteredAttr attr2 =>
-    match decEq attr1 attr2 with
-    | isTrue hEq => isTrue (by grind)
-    | isFalse hEq => isFalse (by grind)
-  | .functionType type1, .functionType type2 =>
-    match FunctionType.decEq type1 type2 with
-    | isTrue hEq => isTrue (by grind)
-    | isFalse hEq => isFalse (by grind)
-  | .integerType _, .unregisteredAttr _
-  | .integerType _, .functionType _
-  | .functionType _, .integerType _
-  | .functionType _, .unregisteredAttr _
-  | .unregisteredAttr _, .integerType _
-  | .unregisteredAttr _, .functionType _ =>
-     isFalse (by grind)
+def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
+  cases h1 : attr1 <;> cases h2 : attr2
+  case integerType.integerType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case unregisteredAttr.unregisteredAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case functionType.functionType type1 type2 =>
+    exact (match FunctionType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
 
