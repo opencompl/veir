@@ -72,7 +72,7 @@ def addIConstantFoldingLocal (ctx: IRContext) (op: OperationPtr) :
 
   -- Sum both constant values
   let newVal := lhsOpStruct.properties + rhsOpStruct.properties
-  let (ctx, newOp) ← Rewriter.createOp ctx .arith_constant #["i32"] #[] #[] #[] newVal none sorry sorry sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx .arith_constant #[IntegerType.mk 32] #[] #[] #[] newVal none sorry sorry sorry sorry sorry
   return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 def addIZeroFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
