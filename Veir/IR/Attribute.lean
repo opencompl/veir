@@ -23,6 +23,7 @@ public import Veir.ForLean
   walkers for each case. Similarly, `mlir::TypeAttr` is not needed, as we can
   store any `TypeAttr` as an `Attribute`.
 -/
+
 namespace Veir
 public section
 
@@ -46,6 +47,10 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 mutual
 
+/--
+  The signature of a function, consisting of an array of input attributes
+  and an array of output attributes.
+-/
 structure FunctionType where
   inputs : Array Attribute
   outputs : Array Attribute
@@ -67,24 +72,13 @@ deriving Inhabited, Repr, Hashable
 
 end
 
-theorem FunctionType.sizeOf_elems (ft : FunctionType) : 
-    (∀ x, x ∈ ft.inputs → sizeOf x < sizeOf ft) ∧ (∀ x, x ∈ ft.outputs → sizeOf x < sizeOf ft) := by 
-  apply @FunctionType.recOn 
-    (fun ft => 
-      (∀ x, x ∈ ft.inputs → sizeOf x < sizeOf ft) ∧ (∀ x, x ∈ ft.outputs → sizeOf x < sizeOf ft)) 
-    (fun x => True)
-    (fun as => ∀ x, x ∈ as → sizeOf x < sizeOf as)
-    (fun as => ∀ x, x ∈ as → sizeOf x < sizeOf as)
-    ft
-  all_goals grind
+theorem FunctionType.sizeOf_elems_inputs (ft : FunctionType) (hx : x ∈ ft.inputs) :
+    sizeOf x < sizeOf ft := by
+  grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
 
-theorem FunctionType.sizeOf_elems_inputs (ft : FunctionType) (hx : x ∈ ft.inputs) : 
-    sizeOf x < sizeOf ft :=
-  (sizeOf_elems ft).1 _ hx
-
-theorem FunctionType.sizeOf_elems_outputs (ft : FunctionType) (hx : x ∈ ft.outputs) : 
-    sizeOf x < sizeOf ft :=
-  (sizeOf_elems ft).2 _ hx
+theorem FunctionType.sizeOf_elems_outputs (ft : FunctionType) (hx : x ∈ ft.outputs) :
+    sizeOf x < sizeOf ft := by
+  grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
 
 /-!
   ## DecidableEq instances
@@ -128,9 +122,9 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) :=
     | isFalse hEq => isFalse (by grind)
   | .integerType _, .unregisteredAttr _
   | .integerType _, .functionType _
-  | .functionType _, .integerType _ 
+  | .functionType _, .integerType _
   | .functionType _, .unregisteredAttr _
-  | .unregisteredAttr _, .integerType _ 
+  | .unregisteredAttr _, .integerType _
   | .unregisteredAttr _, .functionType _ =>
      isFalse (by grind)
 termination_by sizeOf attr1
