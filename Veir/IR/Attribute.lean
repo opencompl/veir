@@ -1,41 +1,6 @@
 module
 
--- If this works, we should move this to ForLean probably.
-@[specialize]
-def isEqvAux' (xs ys : Array α) (hsz : xs.size = ys.size)  (p : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool) :
-    ∀ (i : Nat) (_ : i ≤ xs.size), Bool
-  | 0, _ => true
-  | i+1, h =>
-    p xs[i] (ys[i]'(hsz ▸ h)) (by grind) (by grind) && isEqvAux' xs ys hsz p i (Nat.le_trans (Nat.le_add_right i 1) h)
-
-@[inline] def Array.isEqv' (xs ys : Array α) (p : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool) : Bool :=
-  if h : xs.size = ys.size then
-    isEqvAux' xs ys h p xs.size (Nat.le_refl xs.size)
-  else
-    false
-
-theorem Array.isEqv'_iff_rel {xs ys : Array α} {r} :
-    Array.isEqv' xs ys r ↔ 
-      ∃ h : xs.size = ys.size, ∀ (i : Nat) (h' : i < xs.size), r (xs[i]) (ys[i]'(h ▸ h')) (by grind) (by grind) := by
-  simp [isEqv']
-  constructor
-  · rintro ⟨hs, h⟩
-    exists hs
-    sorry
-  · rintro ⟨hs, h⟩
-    exists hs
-    sorry
-
-theorem Array.isEqv'_decide_iff_eq {xs ys : Array α} (inst: (x y : α) → x ∈ xs → y ∈ ys → Decidable (x = y)) :
-    Array.isEqv' xs ys (fun x y hx hy => @decide _ (inst x y hx hy)) ↔  xs = ys := by 
-  grind [isEqv'_iff_rel]
-
-def Array.instDecidabelEq' (xs ys : Array α) (inst: (x y : α) → x ∈ xs → y ∈ ys → Decidable (x = y)) :
-    Decidable (xs = ys) :=
-  if h : Array.isEqv' xs ys (fun x y hx hy => @decide _ (inst x y hx hy)) then
-    .isTrue ((isEqv'_decide_iff_eq inst).mp h)
-  else
-    .isFalse (by grind [isEqv'_iff_rel])
+public import Veir.ForLean
 
 /-!
   # Attributes
@@ -92,14 +57,34 @@ deriving Inhabited, Repr, Hashable
   as extra information stored in operations.
 -/
 inductive Attribute
+/-- Integer type -/
 | integerType (type : IntegerType)
+/-- Function type -/
+| functionType (type : FunctionType)
 /-- An attribute from an unknown dialect. -/
 | unregisteredAttr (attr : UnregisteredAttr)
-| functionType (type : FunctionType)
 deriving Inhabited, Repr, Hashable
 
 end
 
+theorem FunctionType.sizeOf_elems (ft : FunctionType) : 
+    (∀ x, x ∈ ft.inputs → sizeOf x < sizeOf ft) ∧ (∀ x, x ∈ ft.outputs → sizeOf x < sizeOf ft) := by 
+  apply @FunctionType.recOn 
+    (fun ft => 
+      (∀ x, x ∈ ft.inputs → sizeOf x < sizeOf ft) ∧ (∀ x, x ∈ ft.outputs → sizeOf x < sizeOf ft)) 
+    (fun x => True)
+    (fun as => ∀ x, x ∈ as → sizeOf x < sizeOf as)
+    (fun as => ∀ x, x ∈ as → sizeOf x < sizeOf as)
+    ft
+  all_goals grind
+
+theorem FunctionType.sizeOf_elems_inputs (ft : FunctionType) (hx : x ∈ ft.inputs) : 
+    sizeOf x < sizeOf ft :=
+  (sizeOf_elems ft).1 _ hx
+
+theorem FunctionType.sizeOf_elems_outputs (ft : FunctionType) (hx : x ∈ ft.outputs) : 
+    sizeOf x < sizeOf ft :=
+  (sizeOf_elems ft).2 _ hx
 
 /-!
   ## DecidableEq instances
@@ -122,8 +107,10 @@ def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) 
     isFalse (by grind)
 termination_by sizeOf type1
 decreasing_by
-  sorry -- now we know that the x in is inputs, so a well-chosen `sizeOf` should work...
-  sorry
+  · have := @FunctionType.sizeOf_elems_inputs
+    grind
+  · have := @FunctionType.sizeOf_elems_outputs
+    grind
 
 def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) :=
   match h1 : attr1, h2 : attr2 with

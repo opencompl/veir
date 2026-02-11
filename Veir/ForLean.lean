@@ -173,3 +173,77 @@ theorem mem_range_nat (i: Nat) (r: Rco Nat) : (i ∈ r) ↔ r.lower ≤ i ∧ i 
   simp only [Membership.mem]
 
 end ranges
+
+
+/-!
+  This section adapts the standart library's `Array.isEqv` to also prove a proof
+  that the elements being related are members of their relative arrays. This
+  allows us to define `Attribute.instDecidableEq` in a somewhat compositional way.
+-/
+
+namespace Array
+
+@[specialize]
+def isEqvAux' (xs ys : Array α) (hsz : xs.size = ys.size)  (p : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool) :
+    ∀ (i : Nat) (_ : i ≤ xs.size), Bool
+  | 0, _ => true
+  | i+1, h =>
+    p xs[i] (ys[i]'(hsz ▸ h)) (by grind) (by grind) && isEqvAux' xs ys hsz p i (Nat.le_trans (Nat.le_add_right i 1) h)
+
+@[inline] def isEqv' (xs ys : Array α) (p : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool) : Bool :=
+  if h : xs.size = ys.size then
+    isEqvAux' xs ys h p xs.size (Nat.le_refl xs.size)
+  else
+    false
+
+private theorem rel_of_isEqvAux'  {xs ys : Array α} 
+    {r : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool}(hsz : xs.size = ys.size) {i : Nat} (hi : i ≤ xs.size)
+    (heqv : Array.isEqvAux' xs ys hsz r i hi)
+    {j : Nat} (hj : j < i) : r xs[j] ys[j] (by grind) (by grind) := by
+  induction i with
+  | zero => contradiction
+  | succ i ih =>
+    simp only [Array.isEqvAux', Bool.and_eq_true] at heqv
+    by_cases hj' : j < i
+    next =>
+      exact ih _ heqv.right hj'
+    next =>
+      replace hj' : j = i := Nat.eq_of_le_of_lt_succ (Nat.not_lt.mp hj') hj
+      subst hj'
+      exact heqv.left
+
+private theorem isEqvAux'_of_rel {xs ys : Array α} 
+    {r : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool} (hsz : xs.size = ys.size) {i : Nat} (hi : i ≤ xs.size)
+    (w : ∀ j, (hj : j < i) → r xs[j] ys[j] (by grind) (by grind)) : Array.isEqvAux' xs ys hsz r i hi := by
+  induction i with
+  | zero => simp [Array.isEqvAux']
+  | succ i ih =>
+    simp only [isEqvAux', Bool.and_eq_true]
+    exact ⟨w i (Nat.lt_add_one i), ih _ fun j hj => w j (Nat.lt_add_right 1 hj)⟩
+
+private theorem rel_of_isEqv'  {xs ys : Array α} {r : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool} :
+    Array.isEqv' xs ys r → ∃ h : xs.size = ys.size, ∀ (i : Nat) (h' : i < xs.size), r (xs[i]) (ys[i]'(h ▸ h')) (by grind) (by grind) := by
+  simp only [isEqv']
+  split <;> rename_i h
+  · exact fun h' => ⟨h, fun i => rel_of_isEqvAux' h (Nat.le_refl ..) h'⟩
+  · intro; contradiction
+
+theorem isEqv'_iff_rel {xs ys : Array α} {r} :
+    Array.isEqv' xs ys r ↔ 
+      ∃ h : xs.size = ys.size, ∀ (i : Nat) (h' : i < xs.size), r (xs[i]) (ys[i]'(h ▸ h')) (by grind) (by grind) :=
+  ⟨rel_of_isEqv', fun ⟨h, w⟩ => by
+    simp only [isEqv', ← h, ↓reduceDIte]
+    exact isEqvAux'_of_rel h (by simp [h]) w⟩
+
+theorem isEqv'_decide_iff_eq {xs ys : Array α} (inst: (x y : α) → x ∈ xs → y ∈ ys → Decidable (x = y)) :
+    Array.isEqv' xs ys (fun x y hx hy => @decide _ (inst x y hx hy)) ↔  xs = ys := by 
+  grind [isEqv'_iff_rel]
+
+public def instDecidabelEq' (xs ys : Array α) (inst: (x y : α) → x ∈ xs → y ∈ ys → Decidable (x = y)) :
+    Decidable (xs = ys) :=
+  if h : Array.isEqv' xs ys (fun x y hx hy => @decide _ (inst x y hx hy)) then
+    .isTrue ((isEqv'_decide_iff_eq inst).mp h)
+  else
+    .isFalse (by grind [isEqv'_iff_rel])
+
+end Array
