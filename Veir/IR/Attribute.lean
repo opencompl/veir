@@ -72,11 +72,11 @@ deriving Inhabited, Repr, Hashable
 
 end
 
-theorem FunctionType.sizeOf_elems_inputs (ft : FunctionType) (hx : x ∈ ft.inputs) :
+theorem FunctionType.sizeOf_elems_inputs {ft : FunctionType} (hx : x ∈ ft.inputs) :
     sizeOf x < sizeOf ft := by
   grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
 
-theorem FunctionType.sizeOf_elems_outputs (ft : FunctionType) (hx : x ∈ ft.outputs) :
+theorem FunctionType.sizeOf_elems_outputs {ft : FunctionType} (hx : x ∈ ft.outputs) :
     sizeOf x < sizeOf ft := by
   grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
 
@@ -93,12 +93,9 @@ def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) 
   match Array.instDecidabelEq' inputs1 inputs2 (fun x y _ _ => Attribute.decEq x y) with
   | isTrue _ =>
     match Array.instDecidabelEq' outputs1 outputs2 (fun x y _ _ => Attribute.decEq x y) with
-    | isTrue _ =>
-      isTrue (by grind [cases FunctionType])
-    | isFalse _ =>
-      isFalse (by grind)
-  | isFalse _ =>
-    isFalse (by grind)
+    | isTrue _ => isTrue (by grind [cases FunctionType])
+    | isFalse _ => isFalse (by grind)
+  | isFalse _ => isFalse (by grind)
 termination_by sizeOf type1
 decreasing_by
   · have := @FunctionType.sizeOf_elems_inputs
