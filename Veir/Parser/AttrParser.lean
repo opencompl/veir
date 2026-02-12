@@ -32,7 +32,7 @@ def AttrParserM.run' (self : AttrParserM α)
 
 /--
   Parse an optional integer type.
-  An integer type is represented as `i` followed by a positive integer, e.g., `i32`.
+  An integer type is represented as `i` followed by a positive integer indicating its width, e.g., `i32`.
 -/
 def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   match ← peekToken with
