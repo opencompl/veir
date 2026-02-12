@@ -77,7 +77,9 @@ def printOperationType (ctx : IRContext) (op : OperationPtr) : IO Unit := do
     return
   if op.getNumResults! ctx = 1 then
     let resType := ((op.getResult 0).get! ctx).type
-    IO.print s!"{resType}"
+    match resType.val with
+    | .functionType _ => IO.print s!"({resType})"
+    | _ => IO.print s!"{resType}"
     return
   IO.print "("
   let firstResType := ((op.getResult 0).get! ctx).type

@@ -141,20 +141,25 @@ mutual
 
 def FunctionType.toString (type : FunctionType) : String :=
   let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
-  let outputs := String.intercalate ", " (type.outputs.toList.map Attribute.toString)
-  s!"({inputs}) -> ({outputs})"
+  let outputs := match _: type.outputs.size with
+  | 0 => "()"
+  | 1 =>
+    match _: type.outputs[0] with
+    | .functionType _ => s!"({type.outputs[0].toString})"
+    | output => output.toString
+  | _ =>
+    s!"({String.intercalate ", " (type.outputs.toList.map Attribute.toString)})"
+  s!"({inputs}) -> {outputs}"
 termination_by sizeOf type
 decreasing_by
-  · rename_i subAttr subAttrIn
-    have : sizeOf type.inputs < sizeOf type := by
-      grind [FunctionType.mk.sizeOf_spec, cases FunctionType]
-    simp only [← Array.mem_def] at subAttrIn
-    grind [Array.sizeOf_lt_of_mem subAttrIn]
-  · rename_i subAttr subAttrIn
-    have : sizeOf type.outputs < sizeOf type := by
-      grind [FunctionType.mk.sizeOf_spec, cases FunctionType]
-    simp only [← Array.mem_def] at subAttrIn
-    grind [Array.sizeOf_lt_of_mem subAttrIn]
+  · apply FunctionType.sizeOf_elems_inputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
 
 /--
   Convert an attribute to a string representation.
