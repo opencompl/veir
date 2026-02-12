@@ -37,6 +37,14 @@ structure IntegerType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  An integer literal with an associated integer type.
+-/
+structure IntegerAttr where
+  value : Int
+  type : IntegerType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   An attribute from an unknown dialect.
   It can be either a type attribute or a non-type attribute.
 -/
@@ -64,6 +72,8 @@ deriving Inhabited, Repr, Hashable
 inductive Attribute
 /-- Integer type -/
 | integerType (type : IntegerType)
+/-- Integer attribute -/
+| integerAttr (attr : IntegerAttr)
 /-- Function type -/
 | functionType (type : FunctionType)
 /-- An attribute from an unknown dialect. -/
@@ -117,6 +127,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match FunctionType.decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case integerAttr.integerAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
@@ -133,6 +147,9 @@ instance : DecidableEq FunctionType := FunctionType.decEq
 
 instance : ToString IntegerType where
   toString type := s!"i{type.bitwidth}"
+
+instance : ToString IntegerAttr where
+  toString attr := s!"{attr.value} : {attr.type}"
 
 instance : ToString UnregisteredAttr where
   toString attr := attr.value
@@ -167,6 +184,7 @@ decreasing_by
 def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
+  | .integerAttr attr => ToString.toString attr
   | .unregisteredAttr attr => ToString.toString attr
   | .functionType type => type.toString
 termination_by sizeOf attr
@@ -186,6 +204,9 @@ instance : ToString FunctionType where
 -/
 instance : Coe IntegerType Attribute where
   coe type := .integerType type
+
+instance : Coe IntegerAttr Attribute where
+  coe attr := .integerAttr attr
 
 instance : Coe UnregisteredAttr Attribute where
   coe attr := .unregisteredAttr attr
@@ -209,6 +230,7 @@ namespace Attribute
 def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
+  | .integerAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .functionType _ => true
 

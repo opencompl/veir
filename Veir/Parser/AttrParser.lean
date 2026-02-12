@@ -48,6 +48,28 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
     return none
   | _ => return none
 
+/--
+  Parse an integer type, throwing an error if it is not present.
+  An integer type is represented as `i` followed by a positive integer indicating
+  its width, e.g., `i32`.
+-/
+def parseIntegerType (errorMsg : String := "integer type expected") : AttrParserM IntegerType := do
+  match ← parseOptionalIntegerType with
+  | some integerType => return integerType
+  | none => throw errorMsg
+
+/--
+  Parse an integer attribute, if present.
+  An integer attribute has the form `value : type`, where `value` is an integer
+  literal and `type` is an integer type.
+-/
+def parseOptionalIntegerAttr : AttrParserM (Option IntegerAttr) := do
+  let some value ← parseOptionalInteger false true
+    | return none
+  parsePunctuation ":"
+  let integerType ← parseIntegerType "integer type expected after ':' in integer attribute"
+  return some (IntegerAttr.mk value integerType)
+
 mutual
 
 /--
@@ -92,6 +114,26 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
 partial def parseType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   match ← parseOptionalType with
   | some ty => return ty
+  | none => throw errorMsg
+
+/--
+  Parse an attribute, if present.
+-/
+partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
+  if let some type ← parseOptionalType then
+    return some type.val
+  else if let some integerAttr ← parseOptionalIntegerAttr then
+    return some integerAttr
+  else
+    return none
+
+/--
+  Parse an attribute, throwing an error if it is not present.
+-/
+partial def parseAttribute (errorMsg : String := "attribute expected") :
+    AttrParserM Attribute := do
+  match ← parseOptionalAttribute with
+  | some attr => return attr
   | none => throw errorMsg
 
 end
