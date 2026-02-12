@@ -97,14 +97,6 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
     pure ()
   /- TEST -/
   | .test_test => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
-      throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
-      throw "Expected 0 successors"
     pure ()
   /- LLVM -/
   | .llvm_constant => do
