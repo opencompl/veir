@@ -153,7 +153,7 @@ decreasing_by
   · rename_i subAttr subAttrIn
     have : sizeOf type.outputs < sizeOf type := by
       grind [FunctionType.mk.sizeOf_spec, cases FunctionType]
-    simp only [←Array.mem_def] at subAttrIn
+    simp only [← Array.mem_def] at subAttrIn
     grind [Array.sizeOf_lt_of_mem subAttrIn]
 
 /--
