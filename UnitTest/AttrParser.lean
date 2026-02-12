@@ -35,6 +35,28 @@ def testAttr (s : String) : Except String Attribute := do
   parseAttribute.run' AttrParserState.mk parser
 
 /--
+  Run parseOptionalAttr on the given input string.
+-/
+def testOptionalAttr (s : String) : Except String (Option Attribute) :=
+  match ParserState.fromInput (s.toByteArray) with
+  | .ok parser =>
+    match parseOptionalAttribute.run' AttrParserState.mk parser with
+    | .ok res => .ok res
+    | .error err => .error err
+  | .error err => .error err
+
+/--
+  Run parseType on the given input string.
+-/
+def testAttr (s : String) : Except String Attribute :=
+  match ParserState.fromInput (s.toByteArray) with
+  | .ok parser =>
+    match parseAttribute.run' AttrParserState.mk parser with
+    | .ok res => .ok res
+    | .error err => .error err
+  | .error err => .error err
+
+/--
   Test that parsing a type in the given string succeeds and matches the expected type.
 -/
 def expectSuccessType (s : String) (expected : TypeAttr) : Bool :=
