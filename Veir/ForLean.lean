@@ -176,7 +176,7 @@ end ranges
 
 
 /-!
-  This section adapts the standart library's `Array.isEqv` to also prove a proof
+  This section adapts the standard library's `Array.isEqv` to also provide a proof
   that the elements being related are members of their relative arrays. This
   allows us to define `Attribute.instDecidableEq` in a somewhat compositional way.
 -/
