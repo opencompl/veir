@@ -184,7 +184,7 @@ end ranges
 namespace Array
 
 @[specialize]
-def isEqvAux' (xs ys : Array α) (hsz : xs.size = ys.size)  (p : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool) :
+def isEqvAux' (xs ys : Array α) (hsz : xs.size = ys.size) (p : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool) :
     ∀ (i : Nat) (_ : i ≤ xs.size), Bool
   | 0, _ => true
   | i+1, h =>
