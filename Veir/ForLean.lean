@@ -197,7 +197,7 @@ def isEqvAux' (xs ys : Array α) (hsz : xs.size = ys.size) (p : (x: α) → (y :
     false
 
 private theorem rel_of_isEqvAux'  {xs ys : Array α} 
-    {r : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool}(hsz : xs.size = ys.size) {i : Nat} (hi : i ≤ xs.size)
+    {r : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool} (hsz : xs.size = ys.size) {i : Nat} (hi : i ≤ xs.size)
     (heqv : Array.isEqvAux' xs ys hsz r i hi)
     {j : Nat} (hj : j < i) : r xs[j] ys[j] (by grind) (by grind) := by
   induction i with
