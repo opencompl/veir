@@ -208,6 +208,27 @@ def parseStringLiteral (errorMsg : String := "string literal expected") : M Stri
   | none => throw errorMsg
 
 /--
+  Parses either an identifier or a string literal, if present.
+-/
+def parseOptionalIdentifierOrStringLiteral : M (Option ByteArray) := do
+  match ← parseOptionalIdentifier with
+  | some ident => return ident
+  | none =>
+    match ← parseOptionalStringLiteral with
+    | some str => return some str.toByteArray
+    | none => return none
+
+/--
+  Parses either an identifier or a string literal.
+  Raise an error if the next token is neither an identifier nor a string literal.
+-/
+def parseIdentifierOrStringLiteral (errorMsg : String := "identifier or string literal expected") :
+    M ByteArray := do
+  match ← parseOptionalIdentifierOrStringLiteral with
+  | some identOrStr => return identOrStr
+  | none => throw errorMsg
+
+/--
   Parse a boolean with grammar rule `true | false`, if present.
   If the next token is a boolean, consume it and return its value.
   Otherwise, return none.
