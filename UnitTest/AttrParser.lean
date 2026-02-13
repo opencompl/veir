@@ -9,46 +9,30 @@ open Veir.Attribute
 /--
   Run parseOptionalType on the given input string.
 -/
-def testOptionalType (s : String) : Except String (Option TypeAttr) :=
-  match ParserState.fromInput (s.toByteArray) with
-  | .ok parser =>
-    match parseOptionalType.run' AttrParserState.mk parser with
-    | .ok res => .ok res
-    | .error err => .error err
-  | .error err => .error err
+def testOptionalType (s : String) : Except String (Option TypeAttr) := do
+  let parser ← ParserState.fromInput (s.toByteArray)
+  parseOptionalType.run' AttrParserState.mk parser
 
 /--
   Run parseType on the given input string.
 -/
-def testType (s : String) : Except String TypeAttr :=
-  match ParserState.fromInput (s.toByteArray) with
-  | .ok parser =>
-    match parseType.run' AttrParserState.mk parser with
-    | .ok res => .ok res
-    | .error err => .error err
-  | .error err => .error err
+def testType (s : String) : Except String TypeAttr := do
+  let parser ← ParserState.fromInput (s.toByteArray)
+  parseType.run' AttrParserState.mk parser
 
 /--
   Run parseOptionalAttr on the given input string.
 -/
-def testOptionalAttr (s : String) : Except String (Option Attribute) :=
-  match ParserState.fromInput (s.toByteArray) with
-  | .ok parser =>
-    match parseOptionalAttribute.run' AttrParserState.mk parser with
-    | .ok res => .ok res
-    | .error err => .error err
-  | .error err => .error err
+def testOptionalAttr (s : String) : Except String (Option Attribute) := do
+  let parser ← ParserState.fromInput (s.toByteArray)
+  parseOptionalAttribute.run' AttrParserState.mk parser
 
 /--
   Run parseType on the given input string.
 -/
-def testAttr (s : String) : Except String Attribute :=
-  match ParserState.fromInput (s.toByteArray) with
-  | .ok parser =>
-    match parseAttribute.run' AttrParserState.mk parser with
-    | .ok res => .ok res
-    | .error err => .error err
-  | .error err => .error err
+def testAttr (s : String) : Except String Attribute := do
+  let parser ← ParserState.fromInput (s.toByteArray)
+  parseAttribute.run' AttrParserState.mk parser
 
 /--
   Test that parsing a type in the given string succeeds and matches the expected type.
