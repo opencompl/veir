@@ -3,6 +3,10 @@ import Veir.Rewriter.Basic
 import Veir.ForLean
 import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
+import Veir.Dialects.LLVM.Int.Basic
+
+open Veir.Dialects.LLVM.Int
+abbrev IntBv := Veir.Dialects.LLVM.Int.Int
 
 /-!
   # Veir Interpreter
@@ -23,7 +27,13 @@ namespace Veir
 /--
   The representation of a vaule in the interpreter.
 -/
-abbrev RuntimeValue := UInt64
+inductive RuntimeValue where
+| int (bitwidth : Nat) (value : IntBv bitwidth)
+deriving Inhabited
+
+instance : ToString (RuntimeValue) where
+  toString
+    | .int _ val => ToString.toString val
 
 /--
   The state of the interpreter at a given point in time.
@@ -74,11 +84,16 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
   let op := opPtr.get ctx (by grind)
   match op.opType with
   | .arith_constant => do
-    let valueAttrPtr := op.properties
-    return (#[op.properties], .continue)
+    let value := op.properties
+    let res ← op.results[0]?
+    let .integerType bw := res.type.val
+      | none
+    return (#[.int bw.bitwidth (.val (BitVec.ofNat bw.bitwidth value.toNat))], .continue)
   | .arith_addi => do
-    let #[lhs, rhs] := operands | none
-    return (#[lhs + rhs], .continue)
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let rhs := Dialects.LLVM.Int.cast rhs (by simp at h; exact h)
+    return (#[.int bw (lhs + rhs)], .continue)
   | .func_return => do
     return (#[], .return operands)
   | _ => none

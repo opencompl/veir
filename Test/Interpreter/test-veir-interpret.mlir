@@ -7,4 +7,4 @@
   "func.return"(%x) : (i32) -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0]
+// CHECK: Program output: #[0x00000000#32]
