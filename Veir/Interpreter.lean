@@ -5,9 +5,7 @@ import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
 import Veir.Dialects.LLVM.Int.Basic
 
-open Veir.Dialects.LLVM.Int
-abbrev IntBv := Veir.Dialects.LLVM.Int.Int
-
+open Veir.Dialects
 /-!
   # Veir Interpreter
 
@@ -28,7 +26,7 @@ namespace Veir
   The representation of a vaule in the interpreter.
 -/
 inductive RuntimeValue where
-| int (bitwidth : Nat) (value : IntBv bitwidth)
+| int (bitwidth : Nat) (value : LLVM.Int bitwidth)
 deriving Inhabited
 
 instance : ToString (RuntimeValue) where
@@ -92,7 +90,7 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
   | .arith_addi => do
     let #[.int bw lhs, .int bw' rhs] := operands | none
     if h: bw' ≠ bw then none else
-    let rhs := Dialects.LLVM.Int.cast rhs (by simp at h; exact h)
+    let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (lhs + rhs)], .continue)
   | .func_return => do
     return (#[], .return operands)

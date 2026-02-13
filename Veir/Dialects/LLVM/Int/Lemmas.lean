@@ -2,7 +2,9 @@ module
 
 import all Veir.Dialects.LLVM.Int.Basic
 
-open Veir.Dialects.LLVM.Int
+open Veir.Dialects.LLVM
+
+namespace Veir.Dialects.LLVM.Int
 
 /- # add -/
 
@@ -39,3 +41,5 @@ theorem mul_assoc {w : Nat} (x y z : Int w) : x * y * z = x * (y * z) := by
 theorem mul_comm {w : Nat} (x y : Int w) : x * y = y * x := by
   simp only [HMul.hMul, Mul.mul, mul]
   cases x <;> cases y <;> simp [BitVec.mul_comm]
+
+end Int

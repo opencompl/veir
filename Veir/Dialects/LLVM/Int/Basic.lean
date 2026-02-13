@@ -1,6 +1,6 @@
 module
 
-namespace Veir.Dialects.LLVM.Int
+namespace Veir.Dialects.LLVM
 
 public section
 
@@ -15,6 +15,8 @@ inductive Int (w : Nat) where
 /-- A poison value indicating delayed undefined behavior. -/
 | poison : Int w
 deriving DecidableEq, Inhabited
+
+namespace Int
 
 instance {w : Nat} : ToString (Int w) where
   toString
@@ -38,6 +40,6 @@ def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   | .val v => .val (v.cast h)
   | .poison => .poison
 
+end Int
 end
-
-end Veir.Dialects.LLVM.Int
+end Veir.Dialects.LLVM
