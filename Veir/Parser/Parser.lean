@@ -220,7 +220,7 @@ def parseOptionalIdentifierOrStringLiteral : M (Option ByteArray) := do
 
 /--
   Parses either an identifier or a string literal.
-  Raise an error if the next token is neither an identifier nor a string literal.
+  Raises an error if the next token is neither an identifier nor a string literal.
 -/
 def parseIdentifierOrStringLiteral (errorMsg : String := "identifier or string literal expected") :
     M ByteArray := do
