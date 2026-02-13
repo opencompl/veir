@@ -138,4 +138,30 @@ partial def parseAttribute (errorMsg : String := "attribute expected") :
 
 end
 
+/--
+  Parse an entry in an attribute dictionary, which has the form `name = value`.
+-/
+partial def parseAttrDictEntry : AttrParserM (ByteArray × Attribute) := do
+  let name ← parseIdentifierOrStringLiteral
+  parsePunctuation "="
+  let value ← parseAttribute
+  return (name, value)
+
+/--
+  Parse an attribute dictionary, if present.
+-/
+def parseOptionalAttributeDictionary : AttrParserM (Option (Std.HashMap ByteArray Attribute)) := do
+  let some array ← parseOptionalDelimitedList .braces parseAttrDictEntry
+    | return none
+  return some (Std.HashMap.ofArray array)
+
+/--
+  Parse an attribute dictionary, throwing an error if it is not present.
+-/
+def parseAttributeDictionary (errorMsg : String := "attribute dictionary expected") :
+    AttrParserM (Std.HashMap ByteArray Attribute) := do
+  match ← parseOptionalAttributeDictionary with
+  | some dict => return dict
+  | none => throw errorMsg
+
 end Veir.AttrParser

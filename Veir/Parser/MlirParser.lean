@@ -246,6 +246,20 @@ def parseTypedValue : MlirParserM (ByteArray × TypeAttr) := do
   let ty ← parseType
   return (name, ty)
 
+/--
+  Parse the properties of an operation.
+  Currently, these properties are not stored in the IR, but we still need to parse them to be able
+  to parse valid MLIR syntax.
+-/
+def parseOpProperties : MlirParserM Unit := do
+  if not (← parseOptionalPunctuation "<") then
+    return ()
+  match AttrParser.parseAttributeDictionary.run AttrParserState.mk (← getThe ParserState) with
+  | .ok (properties, _, parserState) =>
+    set parserState
+    parsePunctuation ">"
+  | .error err => throw err
+
 set_option warn.sorry false in
 /--
   Parse a block label, if present, and create and insert the block at the given insert point.
@@ -302,6 +316,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let some opName ← parseOptionalStringLiteral | return none
   let operands ← parseOperands
   let blockOperands ← parseBlockOperands
+  parseOpProperties
   let regions ← parseOpRegions
   let (inputTypes, outputTypes) ← parseOperationType
 
