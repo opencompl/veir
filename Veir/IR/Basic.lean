@@ -5,6 +5,7 @@ public import Veir.Prelude
 public import Veir.OpCode
 public import Veir.ForLean
 public import Veir.IR.Attribute
+public import Veir.Properties
 
 open Std (HashMap)
 
@@ -175,7 +176,7 @@ structure Operation where
   opType: OpCode
   attrs: AttrDictionary
   -- This should be replaced with an arbitrary user object
-  properties: UInt64
+  properties: propertiesOf opType
   blockOperands: Array BlockOperand
   regions: Array RegionPtr
   operands: Array OpOperand
@@ -226,14 +227,14 @@ deriving Inhabited, Repr
 /- Empty objects. -/
 
 @[expose]
-def Operation.empty (opType: OpCode) : Operation :=
+def Operation.empty (opType: OpCode) (prop : propertiesOf opType) : Operation :=
   { results := #[]
     prev := none
     next := none
     parent := none
     opType := opType
     attrs := ()
-    properties := 0
+    properties := prop
     blockOperands := #[]
     regions := #[]
     operands := #[]
@@ -575,10 +576,12 @@ theorem pushOperand!_eq_pushOperand {op : OperationPtr} (inBounds: op.InBounds c
     op.pushOperand! ctx operands = op.pushOperand ctx operands inBounds := by
   grind [pushOperand, pushOperand!]
 
-def setProperties (op: OperationPtr) (ctx: IRContext) (newValue: UInt64)
-    (inBounds: op.InBounds ctx := by grind) : IRContext :=
+def setProperties (op : OperationPtr) (ctx : IRContext)
+    (inBounds: op.InBounds ctx := by grind)
+    (h : (op.get ctx (by grind)).opType = opType)
+    (newProperties : propertiesOf opType) : IRContext :=
   let oldOp := op.get ctx (by grind)
-  op.set ctx { oldOp with properties := newValue }
+  op.set ctx { oldOp with properties := newProperties }
 
 def setProperties! (op: OperationPtr) (ctx: IRContext) (newValue: UInt64) : IRContext :=
   let oldOp := op.get! ctx
