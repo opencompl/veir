@@ -1,6 +1,6 @@
 module
 
-namespace Veir.Dialects.LLVM.Int
+namespace Veir.Dialects.LLVM
 
 public section
 
@@ -14,7 +14,14 @@ inductive Int (w : Nat) where
 | val : BitVec w → Int w
 /-- A poison value indicating delayed undefined behavior. -/
 | poison : Int w
-deriving DecidableEq
+deriving DecidableEq, Inhabited
+
+namespace Int
+
+instance {w : Nat} : ToString (Int w) where
+  toString
+    | .val v => toString v
+    | .poison => "poison"
 
 def add {w : Nat} : (x y : Int w) → Int w
 | .val x, .val y => .val (x + y)
@@ -28,6 +35,11 @@ def mul {w : Nat} : (x y : Int w) → Int w
 
 instance {w : Nat} : Mul (Int w) := ⟨mul⟩
 
-end
+def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
+  match x with
+  | .val v => .val (v.cast h)
+  | .poison => .poison
 
-end Veir.Dialects.LLVM.Int
+end Int
+end
+end Veir.Dialects.LLVM
