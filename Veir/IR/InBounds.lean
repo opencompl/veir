@@ -165,7 +165,7 @@ theorem OperationPtr.setBlockOperands_OpOperandPtr_InBounds_mono_ne {opOperand :
 
 @[grind =]
 theorem OperationPtr.setProperties_genericPtr_mono (ptr : GenericPtr)  :
-    ptr.InBounds (setProperties op ctx h newProperties) ↔ ptr.InBounds ctx := by
+    ptr.InBounds (setProperties op ctx newProperties h propEq) ↔ ptr.InBounds ctx := by
   grind
 
 @[grind .]

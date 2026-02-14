@@ -577,22 +577,24 @@ theorem pushOperand!_eq_pushOperand {op : OperationPtr} (inBounds: op.InBounds c
   grind [pushOperand, pushOperand!]
 
 def setProperties (op : OperationPtr) (ctx : IRContext)
+    (newProperties : propT)
     (inBounds: op.InBounds ctx := by grind)
-    (newProperties : propertiesOf (op.get! ctx).opType) : IRContext :=
+    (propEq : propertiesOf (op.get ctx inBounds).opType = propT := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
-  have h : oldOp.opType = (op.get! ctx).opType := by grind
-  op.set ctx { oldOp with properties := h ▸ newProperties }
+  op.set ctx { oldOp with properties := propEq ▸ newProperties }
 
 def setProperties! (op: OperationPtr) (ctx: IRContext)
-  (newProperties : propertiesOf (op.get! ctx).opType) : IRContext :=
+  (newProperties : propT)
+  (propEq : propertiesOf (op.get! ctx).opType = propT := by grind) : IRContext :=
   let oldOp := op.get! ctx
-  op.set ctx { oldOp with properties := newProperties }
+  op.set ctx { oldOp with properties := propEq ▸ newProperties }
 
 @[grind _=_]
 theorem setProperties!_eq_setProperties {op : OperationPtr}
-    (inBounds: op.InBounds ctx) (newProperties : propertiesOf (op.get! ctx).opType) :
+    (newProperties : propT) (inBounds: op.InBounds ctx)
+    (propEq : propertiesOf (op.get! ctx).opType = propT) :
     op.setProperties! ctx newProperties =
-    op.setProperties ctx inBounds newProperties := by
+    op.setProperties ctx newProperties inBounds := by
   grind [setProperties, setProperties!]
 
 @[grind]
