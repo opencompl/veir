@@ -578,9 +578,10 @@ theorem pushOperand!_eq_pushOperand {op : OperationPtr} (inBounds: op.InBounds c
 
 def setProperties (op : OperationPtr) (ctx : IRContext)
     (inBounds: op.InBounds ctx := by grind)
-    (newProperties : propertiesOf (op.get ctx inBounds).opType) : IRContext :=
+    (newProperties : propertiesOf (op.get! ctx).opType) : IRContext :=
   let oldOp := op.get ctx (by grind)
-  op.set ctx { oldOp with properties := newProperties }
+  have h : oldOp.opType = (op.get! ctx).opType := by grind
+  op.set ctx { oldOp with properties := h ▸ newProperties }
 
 def setProperties! (op: OperationPtr) (ctx: IRContext)
   (newProperties : propertiesOf (op.get! ctx).opType) : IRContext :=
@@ -588,8 +589,10 @@ def setProperties! (op: OperationPtr) (ctx: IRContext)
   op.set ctx { oldOp with properties := newProperties }
 
 @[grind _=_]
-theorem setProperties!_eq_setProperties {op : OperationPtr} (inBounds: op.InBounds ctx) :
-    op.setProperties! ctx newProperties = op.setProperties ctx inBounds (▸ newProperties) := by
+theorem setProperties!_eq_setProperties {op : OperationPtr}
+    (inBounds: op.InBounds ctx) (newProperties : propertiesOf (op.get! ctx).opType) :
+    op.setProperties! ctx newProperties =
+    op.setProperties ctx inBounds newProperties := by
   grind [setProperties, setProperties!]
 
 @[grind]
@@ -619,9 +622,10 @@ def nextResult (op : OperationPtr) (ctx : IRContext)
 def nextResult! (op : OperationPtr) (ctx : IRContext) : OpResultPtr :=
   .mk op (op.getNumResults! ctx)
 
-def allocEmpty (ctx : IRContext) (opType : OpCode) : Option (IRContext × OperationPtr) :=
+def allocEmpty (ctx : IRContext) (opType : OpCode) (properties : propertiesOf opType) :
+    Option (IRContext × OperationPtr) :=
   let newOpPtr : OperationPtr := ⟨ctx.nextID⟩
-  let operation := Operation.empty opType
+  let operation := Operation.empty opType properties
   if _ : ctx.operations.contains newOpPtr then none else
   let ctx := { ctx with nextID := ctx.nextID + 1 }
   let ctx := newOpPtr.set ctx operation
