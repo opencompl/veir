@@ -628,7 +628,7 @@ theorem OperationPtr.pushResult_fieldsInBounds {newResult : OpResult} {op : Oper
 
 @[grind .]
 theorem OperationPtr.setProperties_fieldsInBounds :
-    ctx.FieldsInBounds → (setProperties op ctx h newProperties).FieldsInBounds := by
+    ctx.FieldsInBounds → (setProperties op ctx newProperties inBounds hprop).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
@@ -678,7 +678,8 @@ theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
 
 attribute [local grind] Operation.empty in
 @[grind .]
-theorem OperationPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx type = some (ctx', ptr')) :
+theorem OperationPtr.allocEmpty_fieldsInBounds
+    (heq : allocEmpty ctx type prop = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   rintro hctx
   constructor
