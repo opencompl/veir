@@ -70,8 +70,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
     (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
     (huses : ¬ op.hasUses ctx)
     (hparent : (op.get! ctx).parent = none)
-    (hregions : op.getNumRegions! ctx = 0)
-    (htoplevelOp : ctx.topLevelOp ≠ op) :
+    (hregions : op.getNumRegions! ctx = 0) :
     IRContext.FieldsInBounds (OperationPtr.dealloc op ctx inBounds) := by
   have inMissingUses : ∀ operand, operand.InBounds ctx → operand.op = op → operand ∈ (Std.ExtHashSet.fromOperands ctx op) := by
     intro operand operandIn hoperandOp
@@ -93,7 +92,6 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
     · grind [Std.Rco.mem_toList_iff_mem, BlockOperandPtr.InBounds, OperationPtr.getNumSuccessors, OperationPtr.getBlockOperand]
     · simp [OperationPtr.getBlockOperand]
   constructor
-  · grind
   · intro op' op'In
     constructor
     · intro res resInBounds resOp
@@ -237,7 +235,6 @@ theorem Operation.wellFormed_OperationPtr_dealloc
     (huses : ¬ op.hasUses ctx)
     (hparent : (op.get! ctx).parent = none)
     (hregions : op.getNumRegions! ctx = 0)
-    (htoplevelOp : ctx.topLevelOp ≠ op)
     (inBoundsAfter' : opPtr'.InBounds (OperationPtr.dealloc op ctx inBounds)) :
     Operation.WellFormed op' (OperationPtr.dealloc op ctx inBounds) opPtr' inBoundsAfter' := by
   have := wf.operations opPtr' inBounds'
@@ -258,7 +255,6 @@ theorem Block.wellFormed_OperationPtr_dealloc
     (huses : ¬ op.hasUses ctx)
     (hparent : (op.get! ctx).parent = none)
     (hregions : op.getNumRegions! ctx = 0)
-    (htoplevelOp : ctx.topLevelOp ≠ op)
     (inBoundsAfter : blockPtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
     Block.WellFormed block (OperationPtr.dealloc op ctx inBounds) blockPtr inBoundsAfter := by
   constructor
@@ -272,7 +268,6 @@ theorem Region.wellFormed_OperationPtr_dealloc
     (huses : ¬ op.hasUses ctx)
     (hparent : (op.get! ctx).parent = none)
     (hregions : op.getNumRegions! ctx = 0)
-    (htoplevelOp : ctx.topLevelOp ≠ op)
     (inBoundsAfter : regionPtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
     Region.WellFormed (regionPtr.get! (OperationPtr.dealloc op ctx inBounds)) (OperationPtr.dealloc op ctx inBounds) regionPtr := by
   constructor
@@ -351,8 +346,7 @@ theorem IRContext.wellFormed_OperationPtr_dealloc {ctx : IRContext} {inBounds : 
     (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
     (huses : ¬ op.hasUses ctx)
     (hparent : (op.get! ctx).parent = none)
-    (hregions : op.getNumRegions! ctx = 0)
-    (htoplevelOp : ctx.topLevelOp ≠ op) :
+    (hregions : op.getNumRegions! ctx = 0) :
     IRContext.WellFormed (OperationPtr.dealloc op ctx inBounds) := by
   constructor
   · grind [IRContext.fieldsInBounds_OperationPtr_dealloc]

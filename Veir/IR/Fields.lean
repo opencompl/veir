@@ -66,12 +66,9 @@ structure Region.FieldsInBounds (region: Region) (ctx: IRContext) : Prop where
     Ensures that all pointers referenced by any structure in the context are in bounds.
 -/
 structure IRContext.FieldsInBounds (ctx: IRContext) : Prop where
-  topLevelOp_inBounds: ctx.topLevelOp.InBounds ctx
   operations_inBounds (op: OperationPtr) opIn: Operation.FieldsInBounds op ctx opIn
   blocks_inBounds (block: BlockPtr) blockIn: Block.FieldsInBounds block ctx blockIn
   regions_inBounds (region: RegionPtr) regionIn: (region.get ctx regionIn).FieldsInBounds ctx
-
-attribute [grind .] IRContext.FieldsInBounds.topLevelOp_inBounds
 
 attribute [local grind =] Option.maybe_def
 
@@ -535,7 +532,6 @@ attribute [local grind] OpResult.FieldsInBounds BlockArgument.FieldsInBounds
 macro "prove_fieldsInBounds_operation" ctx:ident : tactic => `(tactic|
   (rintro hctx
    constructor
-   · grind
    · intros op hop
      constructor
      · intros res hres heq
@@ -557,7 +553,6 @@ macro "prove_fieldsInBounds_operation" ctx:ident : tactic => `(tactic|
 macro "prove_fieldsInBounds_block" ctx:ident : tactic => `(tactic|
   (intros hctx
    constructor
-   · grind
    · intros
      apply Operation.fieldsInBounds_unchanged (ctx := $ctx) <;> grind
    · intros block blockIn
@@ -576,7 +571,6 @@ macro "prove_fieldsInBounds_block" ctx:ident : tactic => `(tactic|
 macro "prove_fieldsInBounds_region" ctx:ident : tactic => `(tactic|
   (intros hctx
    constructor
-   · grind
    · intros
      apply Operation.fieldsInBounds_unchanged (ctx := $ctx) <;> grind
    · intros
@@ -610,7 +604,6 @@ theorem OperationPtr.pushResult_fieldsInBounds {newResult : OpResult} {op : Oper
     ctx.FieldsInBounds → (op.pushResult ctx newResult h).FieldsInBounds := by
   intro hctx
   constructor
-  · grind
   · intros op hop
     constructor
     · intros res hres heq
@@ -639,7 +632,6 @@ theorem OperationPtr.setOperands_push_fieldsInBounds  (newOperand : OpOperand) (
     ctx.FieldsInBounds → (pushOperand op ctx newOperand h).FieldsInBounds := by
   intro hctx
   constructor
-  · grind
   · intros op hop
     constructor
     · intros res hres heq
@@ -664,7 +656,6 @@ theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
     ctx.FieldsInBounds → (pushBlockOperand op ctx newOperand h).FieldsInBounds := by
   intro hctx
   constructor
-  · grind
   · intro op hop
     constructor
     · intro res hres heq
@@ -687,7 +678,6 @@ theorem OperationPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx type = some
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   rintro hctx
   constructor
-  · grind
   · intros op hop
     by_cases op = ptr'
     · constructor <;> grind
@@ -781,7 +771,6 @@ theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', p
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   rintro hctx
   constructor
-  · grind
   · intros op hop
     constructor
     · intros
@@ -822,7 +811,6 @@ theorem OpOperandPtrPtr.set_fieldsInBounds_maybe (hnew : newPtr.maybe OpOperandP
     ctx.FieldsInBounds → (set opOperandPtr ctx newPtr h).FieldsInBounds := by
   intros hctx
   constructor
-  · grind
   · intros
     constructor
     · grind

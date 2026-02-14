@@ -4,7 +4,6 @@ import Veir.ForLean
 
 /-
  - The getters we consider are:
- - * IRContext.topLevelOp
  - * BlockPtr.get! optionally replaced by the following special cases:
  -   * Block.firstUse
  -   * Block.prev
@@ -60,16 +59,6 @@ theorem Rewriter.insertOp?_fieldsInBounds_mono
     ctx.FieldsInBounds → newCtx.FieldsInBounds := by
   simp only [insertOp?] at heq
   grind
-
-@[simp]
-theorem IRContext.topLevelOp_insertOp? :
-    Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx →
-    newCtx.topLevelOp = ctx.topLevelOp := by
-  simp only [Rewriter.insertOp?]
-  grind
-
-grind_pattern IRContext.topLevelOp_insertOp? =>
-  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, newCtx.topLevelOp
 
 @[simp]
 theorem BlockPtr.firstUse!_insertOp? {block : BlockPtr} :
@@ -368,12 +357,6 @@ namespace Rewriter.unsetParentAndNeighbors
 attribute [local grind] Rewriter.unsetParentAndNeighbors
 
 @[simp, grind =]
-theorem IRContext.topLevelOp_unsetParentAndNeighbors :
-    (Rewriter.unsetParentAndNeighbors ctx op' hIn).topLevelOp =
-    ctx.topLevelOp := by
-  grind
-
-@[simp, grind =]
 theorem BlockPtr.firstUse!_unsetParentAndNeighbors {block : BlockPtr} :
     (block.get! (Rewriter.unsetParentAndNeighbors ctx op' hIn)).firstUse = (block.get! ctx).firstUse := by
   grind
@@ -541,12 +524,6 @@ section Rewriter.detachOp
 variable {op : OperationPtr}
 
 attribute [local grind] Rewriter.detachOp
-
-@[simp, grind =]
-theorem IRContext.topLevelOp_detachOp :
-    (Rewriter.detachOp ctx op' h₁ h₂ h₃).topLevelOp =
-    ctx.topLevelOp := by
-  grind
 
 @[simp, grind =]
 theorem BlockPtr.firstUse!_detachOp {block : BlockPtr} :
@@ -741,18 +718,6 @@ theorem Rewriter.insertBlock?_fieldsInBounds_mono
     ctx.FieldsInBounds → newCtx.FieldsInBounds := by
   simp only [insertBlock?] at heq
   grind
-
-@[simp]
-theorem IRContext.topLevelOp_insertBlock? :
-    Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx →
-    newCtx.topLevelOp = ctx.topLevelOp := by
-  simp only [Rewriter.insertBlock?]
-  split
-  · grind
-  · grind
-
-grind_pattern IRContext.topLevelOp_insertBlock? =>
-  Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃, some newCtx, newCtx.topLevelOp
 
 @[simp]
 theorem BlockPtr.firstUse!_insertBlock? {block : BlockPtr} :
@@ -1030,12 +995,6 @@ variable {op : OperationPtr}
 attribute [local grind] Rewriter.detachOpIfAttached
 
 @[simp, grind =]
-theorem IRContext.topLevelOp_detachOpIfAttached :
-    (Rewriter.detachOpIfAttached ctx op' hCtx hOp).topLevelOp =
-    ctx.topLevelOp := by
-  grind
-
-@[simp, grind =]
 theorem BlockPtr.firstUse!_detachOpIfAttached {block : BlockPtr} :
     (block.get! (Rewriter.detachOpIfAttached ctx op' hCtx hOp)).firstUse = (block.get! ctx).firstUse := by
   grind
@@ -1213,15 +1172,6 @@ section Rewriter.detachOperands.loop
 variable {op : OperationPtr}
 
 attribute [local grind] Rewriter.detachOperands.loop
-
-@[simp, grind =]
-theorem IRContext.topLevelOp_detachOperands_loop :
-    (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex).topLevelOp =
-    ctx.topLevelOp := by
-  induction index generalizing ctx
-  · grind [Rewriter.detachOperands.loop]
-  · simp only [Rewriter.detachOperands.loop]
-    grind
 
 @[simp, grind =]
 theorem BlockPtr.firstUse!_detachOperands_loop {block : BlockPtr} :
@@ -1442,13 +1392,6 @@ variable {op : OperationPtr}
 attribute [local grind] Rewriter.detachOperands
 
 @[simp, grind =]
-theorem IRContext.topLevelOp_detachOperands :
-    (Rewriter.detachOperands ctx op' hCtx hOp).topLevelOp =
-    ctx.topLevelOp := by
-  grind
-
-
-@[simp, grind =]
 theorem BlockPtr.firstUse!_detachOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachOperands ctx op' hCtx hOp)).firstUse = (block.get! ctx).firstUse := by
   grind
@@ -1602,15 +1545,6 @@ section Rewriter.detachBlockOperands.loop
 variable {op : OperationPtr}
 
 attribute [local grind] Rewriter.detachBlockOperands.loop
-
-@[simp, grind =]
-theorem IRContext.topLevelOp_detachBlockOperands_loop :
-    (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex).topLevelOp =
-    ctx.topLevelOp := by
-  induction index generalizing ctx
-  · grind [Rewriter.detachBlockOperands.loop]
-  · simp only [Rewriter.detachBlockOperands.loop]
-    grind
 
 -- The theorem `BlockPtr.firstUse!_detachBlockOperands_loop` is missing because it is quite complex to state.
 -- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
@@ -1840,12 +1774,6 @@ section Rewriter.detachBlockOperands
 variable {op : OperationPtr}
 
 attribute [local grind] Rewriter.detachBlockOperands
-
-@[simp, grind =]
-theorem IRContext.topLevelOp_detachBlockOperands :
-    (Rewriter.detachBlockOperands ctx op' hCtx hOp).topLevelOp =
-    ctx.topLevelOp := by
-  grind
 
 -- The theorem `BlockPtr.firstUse!_detachBlockOperands` is missing because it is quite complex to state.
 -- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at

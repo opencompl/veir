@@ -220,7 +220,6 @@ structure IRContext where
   operations: HashMap OperationPtr Operation
   blocks: HashMap BlockPtr Block
   regions: HashMap RegionPtr Region
-  topLevelOp: OperationPtr
   nextID: Nat
 deriving Inhabited, Repr
 

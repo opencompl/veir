@@ -595,15 +595,12 @@ def IRContext.create : Option (IRContext × OperationPtr) :=
     operations := Std.HashMap.emptyWithCapacity,
     blocks := Std.HashMap.emptyWithCapacity,
     regions := Std.HashMap.emptyWithCapacity,
-    topLevelOp := ⟨0⟩
   }
   -- Note: We inline part of the definition of `createOp` because the above
   -- `ctx` does not satisfy `ctx.FieldsInBounds` because `topLevelOp` is an
   -- invalid pointer.
   rlet (ctx, operation) ← Rewriter.createEmptyOp ctx .builtin_module
   have hib : operation.InBounds ctx := by grind
-  have : ctx.topLevelOp = ⟨0⟩ := by
-    grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set]
   have hops : ∀ (op : OperationPtr), op.InBounds ctx ↔ op = ⟨0⟩ := by
     grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, OperationPtr.InBounds]
   have : (operation.get ctx (by grind)).results = #[] := by
@@ -620,7 +617,6 @@ def IRContext.create : Option (IRContext × OperationPtr) :=
   have : ctx.FieldsInBounds := by sorry
   let ctx := Rewriter.initOpRegions ctx operation #[region]
   have : operation = ⟨0⟩ := by grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty]
-  have : ctx.topLevelOp = ⟨0⟩ := by sorry
   have hop₀ : ∀ (op : OperationPtr), op.InBounds ctx ↔ op = ⟨0⟩ := by sorry --grind [Region.empty, RegionPtr.set, OperationPtr.InBounds]
   have : operation.get ctx (by simp_all) =
     { Operation.empty .builtin_module with regions := #[⟨1⟩] } := by sorry
@@ -632,8 +628,6 @@ def IRContext.create : Option (IRContext × OperationPtr) :=
     · grind [Operation.empty]
     · sorry -- grind [Operation.FieldsInBounds, Operation.empty]
     · grind
-    · grind [Region.FieldsInBounds, Region.empty]
   let moduleRegion := operation.getRegion! ctx 0
   rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd moduleRegion)) (by grind) (by sorry)
-  let ctx := { ctx with topLevelOp := operation }
   return (ctx, ⟨0⟩)

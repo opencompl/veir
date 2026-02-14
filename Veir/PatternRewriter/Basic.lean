@@ -92,7 +92,7 @@ def Worklist.createFromContext (ctx: IRContext) : Worklist := Id.run do
   for h : op in ctx.operations.keys do
     if (op.get ctx (by grind)).parent.isSome then
       worklist := worklist.push op
-  worklist.remove ctx.topLevelOp
+  worklist
 
 end PatternRewriter
 
