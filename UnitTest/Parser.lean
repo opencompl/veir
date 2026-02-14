@@ -309,4 +309,29 @@ section parseList
 #guard_msgs in
 #eval testParser "(3, 2)" (parseOptionalDelimitedList .paren (parseInteger false false))
 
+/--
+  info: "Success: (some [102, 111, 111])"
+-/
+#guard_msgs in
+#eval testParser "foo" parseOptionalIdentifierOrStringLiteral
+
+/--
+  info: "Success: [102, 111, 111]"
+-/
+#guard_msgs in
+#eval testParser "foo" parseIdentifierOrStringLiteral
+
+/--
+  info: "Success: (some [102, 111, 111])"
+-/
+#guard_msgs in
+#eval testParser "\"foo\"" parseOptionalIdentifierOrStringLiteral
+
+/--
+  info: "Success: [102, 111, 111]"
+-/
+#guard_msgs in
+#eval testParser "\"foo\"" parseIdentifierOrStringLiteral
+
+
 end parseList
