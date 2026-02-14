@@ -16,6 +16,11 @@ attribute [local grind] BlockOperandPtrPtr.InBounds BlockOperandPtr.InBounds Ope
   RegionPtr.InBounds OpResultPtr.InBounds RegionPtr.InBounds BlockPtr.InBounds OpOperandPtr.InBounds
   BlockArgumentPtr.InBounds
 
+@[grind .]
+theorem IRContext.empty_not_inBounds (ptr : GenericPtr)  :
+    ¬ ptr.InBounds empty := by
+  grind
+
 variable {ctx : IRContext}
 
 section operation
@@ -479,6 +484,12 @@ theorem RegionPtr.setLastBlock_genericPtr_mono (ptr : GenericPtr)  :
 @[grind .]
 theorem RegionPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .region ⟨ctx.nextID⟩) := by
+  constructor <;> cases ptr <;> simp <;>
+    try grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
+           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+
+theorem RegionPtr.allocEmpty_genericPtr_iff' (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
+    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .region ptr') := by
   constructor <;> cases ptr <;> simp <;>
     try grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
            ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]

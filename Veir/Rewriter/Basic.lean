@@ -355,6 +355,21 @@ def Rewriter.createBlock (ctx: IRContext) (insertionPoint: Option BlockInsertPoi
 def Rewriter.createRegion (ctx: IRContext) : Option (IRContext × RegionPtr) :=
   RegionPtr.allocEmpty ctx
 
+@[grind .]
+theorem Rewriter.createRegion_new_inBounds (h : createRegion ctx = some (ctx', reg)) :
+    reg.InBounds ctx' := by
+  grind [createRegion]
+
+@[grind .]
+theorem Rewriter.createRegion_genericPtr_mono (ptr : GenericPtr) (heq : createRegion ctx = some (ctx', ptr')) :
+    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .region ptr') := by
+  grind [createRegion, RegionPtr.allocEmpty_genericPtr_iff']
+
+@[grind .]
+theorem Rewriter.createRegion_fieldsInBounds (h : createRegion ctx = some (ctx', rg)) :
+    ctx.FieldsInBounds → ctx'.FieldsInBounds := by
+  grind [createRegion]
+
 @[irreducible]
 def Rewriter.initOpRegions (ctx: IRContext) (opPtr: OperationPtr) (regions : Array RegionPtr) (n : Nat := regions.size)
     (opPtrInBounds : opPtr.InBounds ctx := by grind)
@@ -590,44 +605,9 @@ set_option warn.sorry false in
 unseal Rewriter.createRegion in
 @[irreducible]
 def IRContext.create : Option (IRContext × OperationPtr) :=
-  let ctx : IRContext := {
-    nextID := 0,
-    operations := Std.HashMap.emptyWithCapacity,
-    blocks := Std.HashMap.emptyWithCapacity,
-    regions := Std.HashMap.emptyWithCapacity,
-  }
-  -- Note: We inline part of the definition of `createOp` because the above
-  -- `ctx` does not satisfy `ctx.FieldsInBounds` because `topLevelOp` is an
-  -- invalid pointer.
-  rlet (ctx, operation) ← Rewriter.createEmptyOp ctx .builtin_module
-  have hib : operation.InBounds ctx := by grind
-  have hops : ∀ (op : OperationPtr), op.InBounds ctx ↔ op = ⟨0⟩ := by
-    grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, OperationPtr.InBounds]
-  have : (operation.get ctx (by grind)).results = #[] := by
-    grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty]
-  have : ∀ (bl : BlockPtr), bl.InBounds ctx ↔ False := by
-    grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, BlockPtr.InBounds]
-  have : ∀ (r : RegionPtr), r.InBounds ctx ↔ False := by
-    grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, RegionPtr.InBounds]
-  have : ctx.nextID = 1 := by
-    grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, RegionPtr.InBounds]
-  have : operation.get ctx (by simp_all) = Operation.empty .builtin_module := by
-    grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, Operation.empty, OperationPtr.set, RegionPtr.InBounds]
+  rlet (ctx, operation) ← Rewriter.createEmptyOp .empty .builtin_module
   rlet (ctx, region) ← Rewriter.createRegion ctx
-  have : ctx.FieldsInBounds := by sorry
   let ctx := Rewriter.initOpRegions ctx operation #[region]
-  have : operation = ⟨0⟩ := by grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty]
-  have hop₀ : ∀ (op : OperationPtr), op.InBounds ctx ↔ op = ⟨0⟩ := by sorry --grind [Region.empty, RegionPtr.set, OperationPtr.InBounds]
-  have : operation.get ctx (by simp_all) =
-    { Operation.empty .builtin_module with regions := #[⟨1⟩] } := by sorry
-  have : ∀ (bl : BlockPtr), bl.InBounds ctx ↔ False := by sorry
-  have : ∀ (r : RegionPtr), r.InBounds ctx ↔ r = ⟨1⟩ := by sorry
-  have : (⟨1⟩ : RegionPtr).get ctx (by simp_all) = Region.empty := by sorry
-  have : ctx.FieldsInBounds := by
-    constructor
-    · grind [Operation.empty]
-    · sorry -- grind [Operation.FieldsInBounds, Operation.empty]
-    · grind
   let moduleRegion := operation.getRegion! ctx 0
   rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd moduleRegion)) (by grind) (by sorry)
   return (ctx, ⟨0⟩)

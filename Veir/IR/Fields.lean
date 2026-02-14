@@ -578,6 +578,10 @@ macro "prove_fieldsInBounds_region" ctx:ident : tactic => `(tactic|
    · intros
      constructor <;> grind))
 
+@[grind .]
+theorem IRContext.empty_fieldsInBounds : empty.FieldsInBounds := by
+  constructor <;> grind
+
 -- attribute [local grind] OperationPtr.setNextOp in
 @[grind .]
 theorem OperationPtr.setNextOp_fieldsInBounds (hnew : newOp.maybe OperationPtr.InBounds ctx) :
@@ -862,6 +866,21 @@ theorem RegionPtr.setFirstBlock_fieldsInBounds (hnew : newFirstBlock.maybe Block
 theorem RegionPtr.setLastBlock_fieldsInBounds (hnew : newLastBlock.maybe BlockPtr.InBounds ctx) :
     ctx.FieldsInBounds → (setLastBlock region ctx newLastBlock h).FieldsInBounds := by
   prove_fieldsInBounds_region ctx
+
+attribute [local grind] Region.empty in
+@[grind .]
+theorem RegionPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', rg')) :
+    ctx.FieldsInBounds → ctx'.FieldsInBounds := by
+  rintro hctx
+  constructor
+  · intros
+    constructor <;> grind (ematch := 10)
+  · intros
+    constructor <;> grind (ematch := 10)
+  · intros rg hrg
+    have : rg.InBounds ctx ∨ rg = rg' := by
+      grind [=> RegionPtr.allocEmpty_genericPtr_iff']
+    constructor <;> grind
 
 @[grind .]
 theorem BlockOperandPtrPtr.set_fieldsInBounds_maybe  (hnew : new.maybe BlockOperandPtr.InBounds ctx) :

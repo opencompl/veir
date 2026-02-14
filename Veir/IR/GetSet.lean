@@ -47,7 +47,6 @@ setup_grind_with_get_set_definitions
 
 /- OperationPtr.allocEmpty -/
 
-
 @[simp, grind =>]
 theorem BlockPtr.get!_OperationPtr_allocEmpty {block : BlockPtr}
     (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
@@ -143,11 +142,11 @@ theorem ValuePtr.getFirstUse!_OperationPtr_allocEmpty {value : ValuePtr}
     value.getFirstUse! ctx' = value.getFirstUse! ctx := by
   grind
 
--- @[simp] --
--- theorem ValuePtr.getType!_OperationPtr_allocEmpty {value : ValuePtr}
---     -- (_ : OperationPtr.allocEmpty ctx ty = some (ctx', op')) : :
---     value.getType! ctx' = value.getType! ctx := by
---   grind
+@[simp, grind =>]
+theorem ValuePtr.getType!_OperationPtr_allocEmpty {value : ValuePtr}
+    (h : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    value.getType! ctx' = value.getType! ctx := by
+  grind
 
 @[simp, grind =>]
 theorem OpOperandPtrPtr.get!_OperationPtr_allocEmpty {opOperandPtr : OpOperandPtrPtr}
@@ -2049,11 +2048,11 @@ theorem ValuePtr.getFirstUse!_BlockPtr_allocEmpty {value : ValuePtr}
     value.getFirstUse! ctx' = value.getFirstUse! ctx := by
   grind
 
--- @[simp] --
--- theorem ValuePtr.getType!_OperationPtr_allocEmpty {value : ValuePtr}
---     -- (_ : OperationPtr.allocEmpty ctx = some (ctx', op')) : :
---     value.getType! ctx' = value.getType! ctx := by
---   grind
+ @[simp, grind =>]
+theorem ValuePtr.getType!_BlockPtr_allocEmpty {value : ValuePtr}
+    (heq : BlockPtr.allocEmpty ctx = some (ctx', bl')) :
+    value.getType! ctx' = value.getType! ctx := by
+  grind
 
 @[simp, grind =>]
 theorem OpOperandPtrPtr.get!_BlockPtr_allocEmpty {opOperandPtr : OpOperandPtrPtr}
@@ -3853,6 +3852,109 @@ theorem OpOperandPtrPtr.get!_OpResultPtr_setFirstUse {opOperandPtr : OpOperandPt
       opOperandPtr.get! ctx := by
   grind
 
+/- OperationPtr.allocEmpty -/
+
+@[simp, grind =>]
+theorem BlockPtr.get!_RegionPtr_allocEmpty {block : BlockPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    block.get! ctx' = block.get! ctx := by
+  grind
+
+@[grind =>]
+theorem OperationPtr.get!_RegionPtr_allocEmpty {operation : OperationPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    operation.get! ctx' = operation.get! ctx := by
+  grind
+
+@[grind =>]
+theorem OperationPtr.getNumResults!_RegionPtr_allocEmpty {operation : OperationPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    operation.getNumResults! ctx' = operation.getNumResults! ctx := by
+  grind
+
+@[grind =>]
+theorem OpResultPtr.get!_RegionPtr_allocEmpty {opResult : OpResultPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    opResult.get! ctx' = opResult.get! ctx := by
+  grind [Operation.default_results_eq]
+
+@[grind =>]
+theorem OperationPtr.getNumOperands!_RegionPtr_allocEmpty {operation : OperationPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    operation.getNumOperands! ctx' = operation.getNumOperands! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem OpOperandPtr.get!_RegionPtr_allocEmpty  {opOperand : OpOperandPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    opOperand.get! ctx' = opOperand.get! ctx := by
+  grind [Operation.default_operands_eq]
+
+@[grind =>]
+theorem OperationPtr.getNumSuccessors!_RegionPtr_allocEmpty {operation : OperationPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    operation.getNumSuccessors! ctx' = operation.getNumSuccessors! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem BlockOperandPtr.get!_RegionPtr_allocEmpty {blockOperand : BlockOperandPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    blockOperand.get! ctx' = blockOperand.get! ctx := by
+  grind [Operation.default_blockOperands_eq]
+
+@[grind =>]
+theorem OperationPtr.getNumRegions!_RegionPtr_allocEmpty {operation : OperationPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    operation.getNumRegions! ctx' = operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem OperationPtr.getRegion!_RegionPtr_allocEmpty  {operation : OperationPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    operation.getRegion! ctx' i = operation.getRegion! ctx i := by
+  grind [Operation.default_regions_eq]
+
+@[simp, grind =>]
+theorem BlockOperandPtrPtr.get!_RegionPtr_allocEmpty {blockOperandPtr : BlockOperandPtrPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    blockOperandPtr.get! ctx' = blockOperandPtr.get! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem BlockPtr.getNumArguments!_RegionPtr_allocEmpty {block : BlockPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    block.getNumArguments! ctx' = block.getNumArguments! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem BlockArgumentPtr.get!_RegionPtr_allocEmpty {blockArg : BlockArgumentPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    blockArg.get! ctx' = blockArg.get! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem RegionPtr.get!_RegionPtr_allocEmpty {region : RegionPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    region.get! ctx' = if region = rg' then Region.empty else region.get! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem ValuePtr.getFirstUse!_RegionPtr_allocEmpty {value : ValuePtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    value.getFirstUse! ctx' = value.getFirstUse! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem ValuePtr.getType!_RegionPtr_allocEmpty {value : ValuePtr}
+    (_ : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    value.getType! ctx' = value.getType! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem OpOperandPtrPtr.get!_RegionPtr_allocEmpty {opOperandPtr : OpOperandPtrPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    opOperandPtr.get! ctx' = opOperandPtr.get! ctx := by
+  grind
 
 /- RegionPtr.setParent -/
 

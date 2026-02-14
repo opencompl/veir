@@ -2037,7 +2037,7 @@ theorem OperationPtr.getNumRegions_replaceUse :
 theorem OperationPtr.getRegions_replaceUse :
     OperationPtr.getRegion! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     OperationPtr.getRegion! op ctx := by
-  grind [Rewriter.replaceUse]
+  grind (instances := 2000) [Rewriter.replaceUse] -- TODO: instance threshold reached when adding lemmas for Region.allocEmpty
 
 @[simp, grind =]
 theorem BlockPtr.getNumArguments_replaceUse :
@@ -2061,7 +2061,8 @@ theorem BlockArgumentPtr.index!_replaceUse :
 theorem RegionPtr.get_replaceUse :
     RegionPtr.get reg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hreg =
     RegionPtr.get reg ctx (by grind) := by
-  grind [Rewriter.replaceUse]
+  grind (instances := 2000) [Rewriter.replaceUse]  -- TODO: instance threshold reached when adding lemmas for Region.allocEmpty
+
 
 /- replaceValue? -/
 

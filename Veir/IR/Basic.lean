@@ -1706,6 +1706,13 @@ theorem hasUses!_eq_false_iff_hasUses!_opResult_eq_false {op : OperationPtr}
 
 end OperationPtr
 
+def IRContext.empty : IRContext := {
+    nextID := 0,
+    operations := Std.HashMap.emptyWithCapacity,
+    blocks := Std.HashMap.emptyWithCapacity,
+    regions := Std.HashMap.emptyWithCapacity,
+  }
+
 /--
   Run a function on all operations in the context.
   In particular, the function provides a proof that the operation pointer is in bounds.
@@ -1769,6 +1776,7 @@ end GenericPtr
  -/
 macro "setup_grind_with_get_set_definitions" : command => `(
   attribute [local grind cases] ValuePtr OpOperandPtr GenericPtr BlockOperandPtr OpResultPtr BlockArgumentPtr BlockOperandPtrPtr OpOperandPtrPtr
+  attribute [local grind] IRContext.empty
   attribute [local grind] OpOperandPtr.setNextUse OpOperandPtr.setBack OpOperandPtr.setOwner OpOperandPtr.setValue OpOperandPtr.set
   attribute [local grind] OpOperandPtrPtr.set OpOperandPtrPtr.get!
   attribute [local grind] ValuePtr.getFirstUse! ValuePtr.getFirstUse ValuePtr.setFirstUse ValuePtr.setType ValuePtr.getType ValuePtr.getType!
