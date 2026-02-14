@@ -134,12 +134,15 @@ def DomTreeNodePtr.removeChild! (parent child: DomTreeNodePtr) (ctx: DomContext)
 
   def DomTreeNodePtr.setIDom! (ptr newIDom: DomTreeNodePtr) (ctx: DomContext) : DomContext := Id.run do
     match (ptr.getIDom! ctx) with
-    | none => panic! "No immediate dominator"
+    | none =>
+      let ctx := DomContext.updateNode! ptr (fun n => { n with iDom := some newIDom }) ctx
+      (newIDom.addChild! ptr ctx)
     | some iDom =>
       if iDom == newIDom then 
         return ctx
       else
         let ctx := (iDom.removeChild! ptr ctx)
+        let ctx := DomContext.updateNode! ptr (fun n => { n with iDom := some newIDom }) ctx
         (newIDom.addChild! ptr ctx)
 
 -- Uses the Cooper Harvey Kennedy algorithm
@@ -210,7 +213,6 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
         let nodePtr := postOrderIndex[node.block]!
         let newIDomPtr := postOrderIndex[newIDom.get!]!
         if (nodePtr.getIDom! domCtx) != newIDomPtr then
-          domCtx := DomContext.updateNode! nodePtr (fun n => { n with iDom := some newIDomPtr }) domCtx
-          domCtx := newIDomPtr.addChild! nodePtr domCtx
+          domCtx := nodePtr.setIDom! newIDomPtr domCtx
           changed := true
     domCtx
