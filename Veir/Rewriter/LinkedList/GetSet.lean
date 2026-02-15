@@ -1,6 +1,10 @@
-import Veir.IR.Basic
-import Veir.IR.Fields
-import Veir.Rewriter.LinkedList.Basic
+module
+
+public import Veir.IR
+public import Veir.Rewriter.LinkedList.Basic
+import all Veir.Rewriter.LinkedList.Basic
+
+public section
 
 /-
  - The getters we consider are:

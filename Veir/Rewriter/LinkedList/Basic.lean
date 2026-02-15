@@ -1,5 +1,8 @@
-import Veir.IR.Basic
-import Veir.IR.Grind
+module
+
+public import Veir.IR
+
+public section
 
 namespace Veir
 

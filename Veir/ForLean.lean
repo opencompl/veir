@@ -162,8 +162,6 @@ def Std.HashMap.forKeysDepM [BEq α] [Hashable α] {m : Type w → Type w'} [Mon
     (b : Std.HashMap α β) (f : ∀ (a : α), a ∈ b → m PUnit) : m PUnit :=
   b.forM (fun k v => do if h : k ∈ b then f k (by grind))
 
-end
-
 section ranges
 
 open Std
@@ -196,7 +194,7 @@ def isEqvAux' (xs ys : Array α) (hsz : xs.size = ys.size) (p : (x: α) → (y :
   else
     false
 
-private theorem rel_of_isEqvAux'  {xs ys : Array α} 
+private theorem rel_of_isEqvAux'  {xs ys : Array α}
     {r : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool} (hsz : xs.size = ys.size) {i : Nat} (hi : i ≤ xs.size)
     (heqv : Array.isEqvAux' xs ys hsz r i hi)
     {j : Nat} (hj : j < i) : r xs[j] ys[j] (by grind) (by grind) := by
@@ -212,7 +210,7 @@ private theorem rel_of_isEqvAux'  {xs ys : Array α}
       subst hj'
       exact heqv.left
 
-private theorem isEqvAux'_of_rel {xs ys : Array α} 
+private theorem isEqvAux'_of_rel {xs ys : Array α}
     {r : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool} (hsz : xs.size = ys.size) {i : Nat} (hi : i ≤ xs.size)
     (w : ∀ j, (hj : j < i) → r xs[j] ys[j] (by grind) (by grind)) : Array.isEqvAux' xs ys hsz r i hi := by
   induction i with
@@ -229,14 +227,14 @@ private theorem rel_of_isEqv'  {xs ys : Array α} {r : (x: α) → (y : α) → 
   · intro; contradiction
 
 theorem isEqv'_iff_rel {xs ys : Array α} {r} :
-    Array.isEqv' xs ys r ↔ 
+    Array.isEqv' xs ys r ↔
       ∃ h : xs.size = ys.size, ∀ (i : Nat) (h' : i < xs.size), r (xs[i]) (ys[i]'(h ▸ h')) (by grind) (by grind) :=
   ⟨rel_of_isEqv', fun ⟨h, w⟩ => by
     simp only [isEqv', ← h, ↓reduceDIte]
     exact isEqvAux'_of_rel h (by simp [h]) w⟩
 
 theorem isEqv'_decide_iff_eq {xs ys : Array α} (inst: (x y : α) → x ∈ xs → y ∈ ys → Decidable (x = y)) :
-    Array.isEqv' xs ys (fun x y hx hy => @decide _ (inst x y hx hy)) ↔  xs = ys := by 
+    Array.isEqv' xs ys (fun x y hx hy => @decide _ (inst x y hx hy)) ↔  xs = ys := by
   grind [isEqv'_iff_rel]
 
 public def instDecidabelEq' (xs ys : Array α) (inst: (x y : α) → x ∈ xs → y ∈ ys → Decidable (x = y)) :

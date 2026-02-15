@@ -22,7 +22,7 @@ macro:50 "rlet" pat:term "←" expr:term "in" rest:term : term =>
       | none => none
       | some $pat => $rest)
 
-def Option.maybe (p : α → β → Prop) (x : Option α) (y : β) : Prop :=
+@[expose] def Option.maybe (p : α → β → Prop) (x : Option α) (y : β) : Prop :=
   ∀ z, x = some z → p z y
 
 theorem Option.maybe_def (p : α → β → Prop) (x : Option α) (y : β) :
@@ -32,7 +32,7 @@ theorem Option.maybe_def (p : α → β → Prop) (x : Option α) (y : β) :
 @[grind .] theorem Option.maybe_some : p x y → (some x).maybe p y := by grind [maybe]
 @[grind .] theorem Option.maybe_none : none.maybe p y := by grind [maybe]
 
-def Option.maybe₁ (p : α → Prop) (x : Option α)  : Prop :=
+@[expose] def Option.maybe₁ (p : α → Prop) (x : Option α)  : Prop :=
   ∀ z, x = some z → p z
 
 theorem Option.maybe₁_def (p : α → Prop) (x : Option α) :
