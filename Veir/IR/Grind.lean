@@ -1,7 +1,7 @@
 module
 
 public import Veir.IR.Fields
-import all Veir.IR.Basic
+import Veir.IR.Basic
 
 namespace Veir
 
