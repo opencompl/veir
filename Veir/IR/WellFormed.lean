@@ -1,7 +1,14 @@
-import Veir.IR.Basic
+module
+
+public import Veir.IR.Basic
+public import Veir.IR.Fields
+import Veir.IR.GetSet
+import Veir.IR.InBounds
 import Veir.IR.Grind
 import Veir.ForLean
 import Std.Data.ExtHashSet
+
+public section
 
 namespace Veir
 
@@ -855,7 +862,7 @@ theorem BlockPtr.OpChain_next_ne
 theorem ValuePtr.DefUse.hasUses_iff
     (hWF : ValuePtr.DefUse value ctx array missingUses) :
     value.hasUses ctx ↔ array ≠ #[] := by
-  grind [DefUse, hasUses]
+  grind [DefUse, hasUses_def]
 
 theorem ValuePtr.DefUse.getFirstUse!_none_iff
     (hWF : ValuePtr.DefUse value ctx array missingUses) :

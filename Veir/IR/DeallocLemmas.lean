@@ -1,4 +1,16 @@
-import Veir.IR.WellFormed
+module
+
+public import Veir.IR.Basic
+public import Veir.IR.WellFormed
+
+import all Veir.IR.Basic -- TODO: encapsulate
+import Veir.ForLean
+import Veir.IR.Fields
+import Veir.IR.GetSet
+import Veir.IR.Grind
+import Veir.IR.InBounds
+
+public section
 
 /-!
   This file contains lemmas about deallocation of IR constructs.

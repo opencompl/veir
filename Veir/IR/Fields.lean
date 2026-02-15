@@ -6,7 +6,7 @@ import Veir.IR.GetSet
 
 namespace Veir
 
-@[expose] public section
+public section
 
 /-
   FieldsInBounds implementation.

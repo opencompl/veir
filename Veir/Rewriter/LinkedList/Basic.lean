@@ -1,5 +1,8 @@
-import Veir.IR.Basic
-import Veir.IR.Grind
+module
+
+public import Veir.IR
+
+public section
 
 namespace Veir
 
@@ -144,14 +147,14 @@ def OperationPtr.setParentWithCheck (self: OperationPtr) (ctx: IRContext) (paren
 theorem OperationPtr.setParentWithCheck_fieldsInBounds
     (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
     (setParentWithCheck self ctx parent h₂).maybe₁ IRContext.FieldsInBounds := by
-  grind [setParentWithCheck, Option.maybe₁]
+  grind [setParentWithCheck, Option.maybe₁_def]
 
 @[grind =>]
 theorem OperationPtr.setParentWithCheck_fieldsInBounds_some
     (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx)
     (heq : setParentWithCheck self ctx parent h₂ = some newCtx) :
     newCtx.FieldsInBounds := by
-  grind [setParentWithCheck, Option.maybe₁]
+  grind [setParentWithCheck, Option.maybe₁_def]
 
 @[grind =>]
 theorem OperationPtr.setParentWithCheck_inBounds (ptr : GenericPtr)
@@ -242,14 +245,14 @@ def BlockPtr.setParentWithCheck (self: BlockPtr) (ctx: IRContext) (parent: Regio
 theorem BlockPtr.setParentWithCheck_fieldsInBounds
     (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
     (setParentWithCheck self ctx parent h₂).maybe₁ IRContext.FieldsInBounds := by
-  grind [setParentWithCheck, Option.maybe₁]
+  grind [setParentWithCheck, Option.maybe₁_def]
 
 @[grind =>]
 theorem BlockPtr.setParentWithCheck_fieldsInBounds_some
     (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx)
     (heq : setParentWithCheck self ctx parent h₂ = some newCtx) :
     newCtx.FieldsInBounds := by
-  grind [setParentWithCheck, Option.maybe₁]
+  grind [setParentWithCheck, Option.maybe₁_def]
 
 @[grind =>]
 theorem BlockPtr.setParentWithCheck_inBounds (ptr : GenericPtr)
