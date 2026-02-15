@@ -4,7 +4,6 @@ import Veir.Rewriter.LinkedList.Basic
 
 /-
  - The getters we consider are:
- - * IRContext.topLevelOp
  - * BlockPtr.get! optionally replaced by the following special cases:
  -   * Block.firstUse
  -   * Block.prev
@@ -50,12 +49,6 @@ variable {value value' : ValuePtr}
 
 /- OpOperandPtr.removeFromCurrent -/
 attribute [local grind] OpOperandPtr.removeFromCurrent
-
-@[simp, grind =]
-theorem IRContext.topLevelOp_OpOperandPtr_removeFromCurrent :
-    (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds).topLevelOp =
-    ctx.topLevelOp := by
-  grind
 
 @[simp, grind =]
 theorem BlockPtr.firstUse!_OpOperandPtr_removeFromCurrent {block : BlockPtr} :
@@ -261,12 +254,6 @@ theorem OpOperandPtrPtr.get!_OpOperandPtr_removeFromCurrent {opOperandPtr : OpOp
 
 /- OpOperandPtr.insertIntoCurrent -/
 attribute [local grind] OpOperandPtr.insertIntoCurrent
-
-@[simp, grind =]
-theorem IRContext.topLevelOp_OpOperandPtr_insertIntoCurrent :
-    (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).topLevelOp =
-    ctx.topLevelOp := by
-  grind
 
 @[simp, grind =]
 theorem BlockPtr.firstUse!_OpOperandPtr_insertIntoCurrent {block : BlockPtr} :
@@ -483,12 +470,6 @@ section BlockOperandPtr.removeFromCurrent
 
 attribute [local grind] BlockOperandPtr.removeFromCurrent
 
-@[simp, grind =]
-theorem IRContext.topLevelOp_BlockOperandPtr_removeFromCurrent :
-    (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds).topLevelOp =
-    ctx.topLevelOp := by
-  grind
-
 @[grind =]
 theorem BlockPtr.firstUse!_BlockOperandPtr_removeFromCurrent {block : BlockPtr} :
     (block.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).firstUse =
@@ -690,12 +671,6 @@ end BlockOperandPtr.removeFromCurrent
 section BlockOperandPtr.insertIntoCurrent
 
 attribute [local grind] BlockOperandPtr.insertIntoCurrent
-
-@[simp, grind =]
-theorem IRContext.topLevelOp_BlockOperandPtr_insertIntoCurrent :
-    (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds).topLevelOp =
-    ctx.topLevelOp := by
-  grind
 
 @[grind =]
 theorem BlockPtr.firstUse!_BlockOperandPtr_insertIntoCurrent {block : BlockPtr} :
@@ -908,14 +883,6 @@ section linkBetween
 attribute [local grind] OperationPtr.linkBetween
 
 @[simp, grind =]
-theorem IRContext.topLevelOp_OperationPtr_linkBetween :
-    (op'.linkBetween ctx prev next selfIn prevIn nextIn).topLevelOp =
-    ctx.topLevelOp := by
-  -- TODO: Why does grind need an explicit unfold here?
-  simp only [OperationPtr.linkBetween]
-  grind
-
-@[simp, grind =]
 theorem BlockPtr.get!_OperationPtr_linkBetween {block : BlockPtr} :
     block.get! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
     block.get! ctx := by
@@ -1084,15 +1051,6 @@ section setParentWithCheck
 
 /- OperationPtr.setParentWithCheck -/
 attribute [local grind] OperationPtr.setParentWithCheck
-
-@[simp]
-theorem IRContext.topLevelOp_OperationPtr_setParentWithCheck :
-    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
-    newCtx.topLevelOp = ctx.topLevelOp := by
-  grind
-
-grind_pattern IRContext.topLevelOp_OperationPtr_setParentWithCheck =>
-  op'.setParentWithCheck ctx newParent selfIn, some newCtx, newCtx.topLevelOp
 
 @[simp]
 theorem BlockPtr.get!_OperationPtr_setParentWithCheck {block : BlockPtr} :
@@ -1308,15 +1266,6 @@ section linkBetweenWithParent
 
 /- OperationPtr.linkBetweenWithParent -/
 attribute [local grind] OperationPtr.linkBetweenWithParent
-
-@[simp]
-theorem IRContext.topLevelOp_OperationPtr_linkBetweenWithParent :
-    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
-    newCtx.topLevelOp = ctx.topLevelOp := by
-  grind
-
-grind_pattern IRContext.topLevelOp_OperationPtr_linkBetweenWithParent =>
-  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, newCtx.topLevelOp
 
 @[simp]
 theorem BlockPtr.firstUse!_OperationPtr_linkBetweenWithParent {block : BlockPtr} :
@@ -1596,14 +1545,6 @@ section linkBetween
 unseal BlockPtr.linkBetween
 attribute [local grind] BlockPtr.linkBetween
 
-@[simp, grind =]
-theorem IRContext.topLevelOp_BlockPtr_linkBetween :
-    (block'.linkBetween ctx prev next selfIn prevIn nextIn).topLevelOp =
-    ctx.topLevelOp := by
-  -- TODO: Why does grind need an explicit unfold here?
-  simp only [BlockPtr.linkBetween]
-  grind
-
 --  -   * Block.firstUse
 --  -   * Block.prev
 --  -   * Block.next
@@ -1781,15 +1722,6 @@ section setParentWithCheck
 /- OperationPtr.setParentWithCheck -/
 unseal BlockPtr.setParentWithCheck
 attribute [local grind] BlockPtr.setParentWithCheck
-
-@[simp]
-theorem IRContext.topLevelOp_BlockPtr_setParentWithCheck :
-    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
-    newCtx.topLevelOp = ctx.topLevelOp := by
-  grind
-
-grind_pattern IRContext.topLevelOp_BlockPtr_setParentWithCheck =>
-  block'.setParentWithCheck ctx newParent selfIn, some newCtx, newCtx.topLevelOp
 
 theorem BlockPtr.firstUse!_BlockPtr_setParentWithCheck {block : BlockPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx →
@@ -1994,15 +1926,6 @@ section linkBetweenWithParent
 /- OperationPtr.linkBetweenWithParent -/
 unseal BlockPtr.linkBetweenWithParent
 attribute [local grind] BlockPtr.linkBetweenWithParent
-
-@[simp]
-theorem IRContext.topLevelOp_BlockPtr_linkBetweenWithParent :
-    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
-    newCtx.topLevelOp = ctx.topLevelOp := by
-  grind
-
-grind_pattern IRContext.topLevelOp_BlockPtr_linkBetweenWithParent =>
-  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, newCtx.topLevelOp
 
 @[simp]
 theorem BlockPtr.firstUse!_BlockPtr_linkBetweenWithParent {block : BlockPtr} :

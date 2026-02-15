@@ -356,7 +356,6 @@ theorem OpResultPtr.firstUse!_detachOperands_eq_none_of_firstUse!_eq_none
 
 theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
-    (opNotTopLevel : ctx.topLevelOp ≠ op)
     (noRegions : op.getNumRegions! ctx = 0)
     (noUses : op.hasUses! ctx = false)
     (hop : op.InBounds ctx) :
@@ -386,7 +385,6 @@ theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
     · simp only [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false] at noUses
       simp [ValuePtr.hasUses!_def] at noUses
       grind
-  · grind
   · grind
   · grind
 
