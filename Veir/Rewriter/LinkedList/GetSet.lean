@@ -331,6 +331,8 @@ theorem OperationPtr.getProperties!_OpOperandPtr_insertIntoCurrent {operation : 
     operation.getProperties! ctx propT (by grind) := by
   unfold OpOperandPtr.insertIntoCurrent
   simp only
+  rw [getProperties!_eq_getPropertiesFromOpType!]
+  rw [getProperties!_eq_getPropertiesFromOpType!]
   simp [← OpOperandPtr.get!_eq_get, ←ValuePtr.getFirstUse!_eq_getFirstUse, ←OpOperandPtr.setBack!_eq_setBack, ←ValuePtr.setFirstUse!_eq_setFirstUse, ←OpOperandPtr.setNextUse!_eq_setNextUse]
 
 @[simp, grind =]
