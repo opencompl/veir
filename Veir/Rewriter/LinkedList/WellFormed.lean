@@ -1,9 +1,15 @@
-import Veir.IR.Basic
-import Veir.Rewriter.InsertPoint
-import Veir.IR.WellFormed
+module
+
+public import Veir.IR
+public import Veir.Rewriter.InsertPoint
+public import Veir.Rewriter.LinkedList.Basic
+
 import Veir.Rewriter.LinkedList.GetSet
+import Veir.IR.WellFormed
 import Std.Data.HashSet
 import Std.Data.ExtHashSet
+
+public section
 
 namespace Veir
 

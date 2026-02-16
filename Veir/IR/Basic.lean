@@ -1330,6 +1330,10 @@ theorem getFirstUse!_blockArgument_eq {ba : BlockArgumentPtr} {ctx : IRContext} 
 def hasUses (value: ValuePtr) (ctx: IRContext) (valueIn: value.InBounds ctx := by grind) : Bool :=
   (value.getFirstUse ctx (by grind)).isSome
 
+theorem hasUses_def {value : ValuePtr} (valueIn: value.InBounds ctx) :
+    value.hasUses ctx = (value.getFirstUse ctx).isSome := by
+  rfl
+
 /--
   Returns true if the value has any uses.
 -/
