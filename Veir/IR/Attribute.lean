@@ -45,6 +45,17 @@ structure IntegerAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  An attribute containing a string.
+  The string is stored as a `ByteArray` as unicode is not supported.
+-/
+structure StringAttr where
+  value : ByteArray
+deriving Inhabited, DecidableEq, Hashable
+
+instance : Repr StringAttr where
+  reprPrec attr _ := "StringAttr.mk " ++ repr (String.fromUTF8! attr.value)
+
+/--
   An attribute from an unknown dialect.
   It can be either a type attribute or a non-type attribute.
 -/
@@ -74,6 +85,8 @@ inductive Attribute
 | integerType (type : IntegerType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
+/-- String attribute -/
+| stringAttr (attr : StringAttr)
 /-- Function type -/
 | functionType (type : FunctionType)
 /-- An attribute from an unknown dialect. -/
@@ -131,6 +144,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case stringAttr.stringAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
@@ -150,6 +167,9 @@ instance : ToString IntegerType where
 
 instance : ToString IntegerAttr where
   toString attr := s!"{attr.value} : {attr.type}"
+
+instance : ToString StringAttr where
+  toString attr := s!"\"{String.fromUTF8! attr.value}\""
 
 instance : ToString UnregisteredAttr where
   toString attr := attr.value
@@ -185,6 +205,7 @@ def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
   | .integerAttr attr => ToString.toString attr
+  | .stringAttr attr => ToString.toString attr
   | .unregisteredAttr attr => ToString.toString attr
   | .functionType type => type.toString
 termination_by sizeOf attr
@@ -207,6 +228,9 @@ instance : Coe IntegerType Attribute where
 
 instance : Coe IntegerAttr Attribute where
   coe attr := .integerAttr attr
+
+instance : Coe StringAttr Attribute where
+  coe attr := .stringAttr attr
 
 instance : Coe UnregisteredAttr Attribute where
   coe attr := .unregisteredAttr attr
@@ -231,6 +255,7 @@ def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
   | .integerAttr _ => false
+  | .stringAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .functionType _ => true
 

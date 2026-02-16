@@ -103,3 +103,11 @@ macro "#assert " e:term : command =>
 
 #assert expectErrorAttr "0 : 2" "integer type expected after ':' in integer attribute"
 #assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.mk 32))
+
+/-! ## String attributes -/
+
+#assert expectSuccessAttr "\"hello\"" (StringAttr.mk "hello".toByteArray)
+#assert expectSuccessAttr "\"\"" (StringAttr.mk "".toByteArray)
+#assert expectSuccessAttr "\"\\\"\"" (StringAttr.mk "\\\"".toByteArray)
+#assert expectSuccessAttr "\"hello world\"" (StringAttr.mk "hello world".toByteArray)
+#assert expectMissingAttr "hello"  -- bare identifier, not a string attribute

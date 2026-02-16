@@ -70,6 +70,25 @@ def parseOptionalIntegerAttr : AttrParserM (Option IntegerAttr) := do
   let integerType ← parseIntegerType "integer type expected after ':' in integer attribute"
   return some (IntegerAttr.mk value integerType)
 
+/--
+  Parse a string attribute, if present.
+  Its syntax is a string literal enclosed in double quotes, e.g., `"foo"`.
+-/
+def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
+  let some str ← parseOptionalStringLiteral
+    | return none
+  return some (StringAttr.mk str.toByteArray)
+
+/--
+  Parse a string attribute.
+  Its syntax is a string literal enclosed in double quotes, e.g., `"foo"`.
+-/
+def parseStringAttr (errorMsg : String := "string attribute expected") :
+    AttrParserM StringAttr := do
+  match ← parseOptionalStringAttr with
+  | some stringAttr => return stringAttr
+  | none => throw errorMsg
+
 mutual
 
 /--
@@ -124,6 +143,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some type.val
   else if let some integerAttr ← parseOptionalIntegerAttr then
     return some integerAttr
+  else if let some stringAttr ← parseOptionalStringAttr then
+    return some stringAttr
   else
     return none
 
