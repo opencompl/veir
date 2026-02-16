@@ -329,11 +329,12 @@ theorem OperationPtr.attrs!_OpOperandPtr_insertIntoCurrent {operation : Operatio
 theorem OperationPtr.getProperties!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} {hprop} :
     operation.getProperties! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) propT hprop =
     operation.getProperties! ctx propT (by grind) := by
+  rw [getProperties!_eq_getPropertiesFromOpType! hprop]
   unfold OpOperandPtr.insertIntoCurrent
   simp only
   rw [getProperties!_eq_getPropertiesFromOpType!]
-  rw [getProperties!_eq_getPropertiesFromOpType!]
   simp [← OpOperandPtr.get!_eq_get, ←ValuePtr.getFirstUse!_eq_getFirstUse, ←OpOperandPtr.setBack!_eq_setBack, ←ValuePtr.setFirstUse!_eq_setFirstUse, ←OpOperandPtr.setNextUse!_eq_setNextUse]
+  sorry
 
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
