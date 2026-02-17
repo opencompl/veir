@@ -72,5 +72,6 @@ theorem Rewriter.initOpResults_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     unfold initOpResults
     split; grind
     lift_lets
-    intros result ctx' h₁ h₂
+    intros result ctx' heq
+    have : result.FieldsInBounds ctx' := by constructor <;> grind
     grind

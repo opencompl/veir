@@ -403,10 +403,6 @@ def Rewriter.initOpResults (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: 
   else
     let result: OpResult := { type := resultTypes[index], firstUse := none, index := index, owner := opPtr }
     let ctx := opPtr.pushResult ctx result
-    have : opPtr.InBounds ctx := by grind
-    have : result.FieldsInBounds ctx := by
-      -- TODO(later): write the right lemma somewhere.
-      constructor <;> grind [OperationPtr.pushResult, OperationPtr.setResults, OperationPtr.set, OperationPtr.get]
     Rewriter.initOpResults ctx opPtr resultTypes (index + 1) (by grind) (by grind)
   termination_by resultTypes.size - index
   decreasing_by lia
