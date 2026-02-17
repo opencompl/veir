@@ -52,5 +52,16 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case arith_constant => exact (ArithConstantProperties.fromAttrDict attrDict)
   all_goals exact (Except.ok ())
 
+/--
+  Converts the properties of an operation into a dictionary of attributes.
+-/
+def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
+    Std.HashMap ByteArray Attribute :=
+  match opCode with
+  | .arith_constant =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | _ =>
+    Std.HashMap.emptyWithCapacity 0
+
 end
 end Veir

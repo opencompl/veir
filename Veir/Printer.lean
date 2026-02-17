@@ -97,6 +97,20 @@ def printBlockOperands (ctx: IRContext) (op: OperationPtr) : IO Unit := do
     IO.print s!", ^{(op.getSuccessor! ctx index).id}"
   IO.print "]"
 
+def printOpProperties (ctx : IRContext) (op : OperationPtr) : IO Unit := do
+  let opType := (op.get! ctx).opType
+  let properties := op.getProperties! ctx opType
+  let attrDict := Properties.toAttrDict opType properties
+  if attrDict.size = 0 then return
+  IO.print " <{ "
+  let mut first := true
+  for (key, value) in attrDict.toList do
+    if !first then
+      IO.print ", "
+    IO.print s!"\"{String.fromUTF8! key}\" = {value}"
+    first := false
+  IO.print " }>"
+
 mutual
 partial def printOpList (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
   printOperation ctx op indent
@@ -155,10 +169,8 @@ partial def printOperation (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0
   printOpResults ctx op
   IO.print s!"\"{String.fromUTF8! opStruct.opType.name}\""
   printOpOperands ctx op
-  if h : opStruct.opType = .arith_constant then
-    IO.print s!" <\{ \"value\" = {(h ▸ opStruct.properties).value} }>"
-  else
-    printBlockOperands ctx op
+  printOpProperties ctx op
+  printBlockOperands ctx op
   if op.getNumRegions! ctx > 0 then
     IO.print " "
     printRegions ctx op indent
