@@ -143,7 +143,7 @@ theorem addUsersInWorklist_same_ctx :
 
 def createOp (rewriter: PatternRewriter) (opType: OpCode)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr)
-    (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: UInt64)
+    (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: propertiesOf opType)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds rewriter.ctx)
     (hblockOperands : ∀ blockOper, blockOper ∈ blockOperands → blockOper.InBounds rewriter.ctx)

@@ -17,7 +17,6 @@ import Veir.ForLean
  -   * Operation.parent
  -   * Operation.opType
  -   * Operation.attrs
- -   * Operation.properties
  - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
  - * OpResultPtr.get!
@@ -194,14 +193,14 @@ grind_pattern OperationPtr.attrs!_insertOp? =>
   Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, (operation.get! newCtx).attrs
 
 @[simp]
-theorem OperationPtr.properties!_insertOp? {operation : OperationPtr} :
+theorem OperationPtr.getProperties!_insertOp? {operation : OperationPtr} :
     Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx →
-    (operation.get! newCtx).properties = (operation.get! ctx).properties := by
+    operation.getProperties! newCtx opCode = operation.getProperties! ctx opCode := by
   simp only [Rewriter.insertOp?]
   grind
 
-grind_pattern OperationPtr.properties!_insertOp? =>
-  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, (operation.get! newCtx).properties
+grind_pattern OperationPtr.getProperties!_insertOp? =>
+  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, operation.getProperties! newCtx opCode
 
 @[simp]
 theorem OperationPtr.getNumResults!_insertOp? {operation : OperationPtr} :
@@ -426,9 +425,9 @@ theorem OperationPtr.attrs!_unsetParentAndNeighbors {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.properties!_unsetParentAndNeighbors {operation : OperationPtr} :
-    (operation.get! (Rewriter.unsetParentAndNeighbors ctx op' hIn)).properties =
-    (operation.get! ctx).properties := by
+theorem OperationPtr.getProperties!_unsetParentAndNeighbors {operation : OperationPtr} :
+    operation.getProperties! (Rewriter.unsetParentAndNeighbors ctx op' hIn) opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -605,9 +604,9 @@ theorem OperationPtr.attrs!_detachOp {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.properties!_detachOp {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).properties =
-    (operation.get! ctx).properties := by
+theorem OperationPtr.getProperties!_detachOp {operation : OperationPtr} :
+    operation.getProperties! (Rewriter.detachOp ctx op' h₁ h₂ h₃) opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -1074,9 +1073,9 @@ theorem OperationPtr.attrs!_detachOpIfAttached {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.properties!_detachOpIfAttached {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachOpIfAttached ctx op' hCtx hOp)).properties =
-    (operation.get! ctx).properties := by
+theorem OperationPtr.getProperties!_detachOpIfAttached {operation : OperationPtr} :
+    operation.getProperties! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -1267,9 +1266,9 @@ theorem OperationPtr.attrs!_detachOperands_loop {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.properties!_detachOperands_loop {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex)).properties =
-    (operation.get! ctx).properties := by
+theorem OperationPtr.getProperties!_detachOperands_loop {operation : OperationPtr} :
+    operation.getProperties! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) opCode =
+    operation.getProperties! ctx opCode := by
   induction index generalizing ctx
   · grind [Rewriter.detachOperands.loop]
   · simp only [Rewriter.detachOperands.loop]
@@ -1455,9 +1454,9 @@ theorem OperationPtr.attrs!_detachOperands {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.properties!_detachOperands {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachOperands ctx op' hCtx hOp)).properties =
-    (operation.get! ctx).properties := by
+theorem OperationPtr.getProperties!_detachOperands {operation : OperationPtr} :
+    operation.getProperties! (Rewriter.detachOperands ctx op' hCtx hOp) opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -1636,9 +1635,9 @@ theorem OperationPtr.attrs!_detachBlockOperands_loop {operation : OperationPtr} 
   grind
 
 @[simp, grind =]
-theorem OperationPtr.properties!_detachBlockOperands_loop {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).properties =
-    (operation.get! ctx).properties := by
+theorem OperationPtr.getProperties!_detachBlockOperands_loop {operation : OperationPtr} :
+    operation.getProperties! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) opCode =
+    operation.getProperties! ctx opCode := by
   induction index generalizing ctx
   · grind [Rewriter.detachBlockOperands.loop]
   · simp only [Rewriter.detachBlockOperands.loop]
@@ -1838,9 +1837,9 @@ theorem OperationPtr.attrs!_detachBlockOperands {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.properties!_detachBlockOperands {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).properties =
-    (operation.get! ctx).properties := by
+theorem OperationPtr.getProperties!_detachBlockOperands {operation : OperationPtr} :
+    operation.getProperties! (Rewriter.detachBlockOperands ctx op' hCtx hOp) opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]

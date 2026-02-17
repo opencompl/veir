@@ -5,14 +5,16 @@ import Veir.Rewriter.Basic
 namespace Veir
 
 set_option warn.sorry false in
-theorem OperationPtr.setProperties_WellFormed (op: OperationPtr) (ctx: IRContext) (inBounds: op.InBounds ctx) (newValue: UInt64)
+theorem OperationPtr.setProperties_WellFormed (op: OperationPtr) (ctx: IRContext)
+    (inBounds: op.InBounds ctx) (newValue : propertiesOf opType) propEq
     (hctx : IRContext.WellFormed ctx) :
-    (op.setProperties ctx newValue inBounds).WellFormed := by
+    (op.setProperties ctx newValue inBounds propEq).WellFormed := by
   sorry
 
 set_option warn.sorry false in
 theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: OpCode)
-    (resultTypes: Array TypeAttr) (operands: Array ValuePtr) (numRegions: Nat) (properties: UInt64)
+    (resultTypes: Array TypeAttr) (operands: Array ValuePtr) (numRegions: Nat)
+    (properties: propertiesOf opType)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx)
     hblockOper

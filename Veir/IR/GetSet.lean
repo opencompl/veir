@@ -144,7 +144,7 @@ theorem ValuePtr.getFirstUse!_OperationPtr_allocEmpty {value : ValuePtr}
 
 @[simp, grind =>]
 theorem ValuePtr.getType!_OperationPtr_allocEmpty {value : ValuePtr}
-    (h : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (h : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     value.getType! ctx' = value.getType! ctx := by
   grind
 
@@ -1229,15 +1229,6 @@ theorem OpOperandPtrPtr.get!_OperationPtr_pushResult {opOperandPtr : OpOperandPt
 /- OperationPtr.setProperties -/
 
 @[simp, grind =]
-<<<<<<< HEAD
-=======
-theorem IRContext.topLevelOp_OperationPtr_setProperties :
-    (OperationPtr.setProperties operation' ctx newProperties inBounds hprop).topLevelOp =
-    ctx.topLevelOp := by
-  grind
-
-@[simp, grind =]
->>>>>>> e86c4fb (GetSet and InBounds)
 theorem BlockPtr.get!_OperationPtr_setProperties {block : BlockPtr} :
     block.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     block.get! ctx := by
