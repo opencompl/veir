@@ -112,7 +112,29 @@ inductive TokenKind
   | fileMetadataEnd
 deriving Inhabited, Repr, DecidableEq
 
-instance TokenKind.toString : ToString TokenKind where
+namespace TokenKind
+
+/--
+  Checks if the token kind either a hash, percent, caret, or exclamation identifier.
+-/
+@[expose, grind]
+def isPrefixedIdentifier (tokenKind : TokenKind) : Bool :=
+  tokenKind = .hashIdent || tokenKind = .percentIdent || tokenKind = .caretIdent ||
+  tokenKind = .exclamationIdent || tokenKind = .atIdent
+
+/--
+  Returns the starting sigil character for a given prefixed identifier token kind.
+-/
+def startingSigil (tokenKind : TokenKind)
+    (h : isPrefixedIdentifier tokenKind := by grind) : Char :=
+  match tokenKind with
+  | TokenKind.hashIdent => '#'
+  | TokenKind.percentIdent => '%'
+  | TokenKind.caretIdent => '^'
+  | TokenKind.atIdent => '@'
+  | _ => '!'
+
+instance toString : ToString TokenKind where
   toString
     | TokenKind.eof => "eof"
     | TokenKind.bareIdent => "bareIdent"
@@ -145,6 +167,8 @@ instance TokenKind.toString : ToString TokenKind where
     | TokenKind.verticalBar => "verticalBar"
     | TokenKind.fileMetadataBegin => "fileMetadataBegin"
     | TokenKind.fileMetadataEnd => "fileMetadataEnd"
+
+end TokenKind
 
 structure Token where
   /-- The kind of token. -/

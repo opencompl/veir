@@ -183,6 +183,33 @@ def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword
     throw errorMsg
 
 /--
+  Parse an identifier with a specific prefix, if present.
+  Return the identifier without the prefix on success.
+-/
+def parseOptionalPrefixedKeyword (prefixKind : TokenKind)
+    (_ : prefixKind.isPrefixedIdentifier := by grind) : M (Option ByteArray) := do
+  let {kind := k, slice := slice} ← peekToken
+  if k == prefixKind then
+    let ident := {slice with start := slice.start + 1}.of ((← get).input)
+    let _ ← consumeToken
+    return ident
+  else
+    return none
+
+/--
+  Parse an identifier with a specific prefix.
+  Return the identifier without the prefix on success, otherwise raise the
+  given error.
+-/
+def parsePrefixedKeyword (prefixKind : TokenKind)
+    (h : prefixKind.isPrefixedIdentifier := by grind)
+    (errorMsg : String := s!"expected keyword with prefix '{prefixKind.startingSigil}'") :
+      M ByteArray := do
+  match ← parseOptionalPrefixedKeyword prefixKind with
+  | some ident => return ident
+  | none => throw errorMsg
+
+/--
   Parse optionally a string literal.
   If the next token is a string literal, consume it and return its string value.
   Otherwise, return none.

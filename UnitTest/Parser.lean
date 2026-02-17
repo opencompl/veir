@@ -333,5 +333,78 @@ section parseList
 #guard_msgs in
 #eval testParser "\"foo\"" parseIdentifierOrStringLiteral
 
+/-! # Test `parsePrefixedKeyword` -/
+
+/--
+  info: "Success: [102, 111, 111]"
+-/
+#guard_msgs in
+#eval testParser "@foo" (parsePrefixedKeyword .atIdent)
+
+/--
+  info: "Success: (some [102, 111, 111])"
+-/
+#guard_msgs in
+#eval testParser "@foo" (parseOptionalPrefixedKeyword .atIdent)
+
+/--
+  info: "Success: [102, 111, 111]"
+-/
+#guard_msgs in
+#eval testParser "!foo" (parsePrefixedKeyword .exclamationIdent)
+
+/--
+  info: "Success: (some [102, 111, 111])"
+-/
+#guard_msgs in
+#eval testParser "!foo" (parseOptionalPrefixedKeyword .exclamationIdent)
+
+/--
+  info: "Success: [102, 111, 111]"
+-/
+#guard_msgs in
+#eval testParser "#foo" (parsePrefixedKeyword .hashIdent)
+
+/--
+  info: "Success: (some [102, 111, 111])"
+-/
+#guard_msgs in
+#eval testParser "#foo" (parseOptionalPrefixedKeyword .hashIdent)
+
+/--
+  info: "Success: [102, 111, 111]"
+-/
+#guard_msgs in
+#eval testParser "^foo" (parsePrefixedKeyword .caretIdent)
+
+/--
+  info: "Success: (some [102, 111, 111])"
+-/
+#guard_msgs in
+#eval testParser "^foo" (parseOptionalPrefixedKeyword .caretIdent)
+
+/--
+  info: "Success: [102, 111, 111]"
+-/
+#guard_msgs in
+#eval testParser "%foo" (parsePrefixedKeyword .percentIdent)
+
+/--
+  info: "Success: (some [102, 111, 111])"
+-/
+#guard_msgs in
+#eval testParser "%foo" (parseOptionalPrefixedKeyword .percentIdent)
+
+/--
+  info: "Error: expected keyword with prefix '@'"
+-/
+#guard_msgs in
+#eval testParser "#foo" (parsePrefixedKeyword .atIdent)
+
+/--
+  info: "Success: none"
+-/
+#guard_msgs in
+#eval testParser "#foo" (parseOptionalPrefixedKeyword .atIdent)
 
 end parseList
