@@ -251,13 +251,18 @@ def parseTypedValue : MlirParserM (ByteArray × TypeAttr) := do
   Currently, these properties are not stored in the IR, but we still need to parse them to be able
   to parse valid MLIR syntax.
 -/
-def parseOpProperties : MlirParserM Unit := do
+def parseOpProperties (opCode : OpCode) : MlirParserM (propertiesOf opCode) := do
   if not (← parseOptionalPunctuation "<") then
-    return ()
+    match Properties.fromAttrDict opCode {} with
+    | .ok properties => return properties
+    | .error err => throw err
   match AttrParser.parseAttributeDictionary.run AttrParserState.mk (← getThe ParserState) with
   | .ok (properties, _, parserState) =>
     set parserState
     parsePunctuation ">"
+    match Properties.fromAttrDict opCode properties with
+    | .ok properties => return properties
+    | .error err => throw err
   | .error err => throw err
 
 set_option warn.sorry false in
@@ -316,7 +321,11 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let some opName ← parseOptionalStringLiteral | return none
   let operands ← parseOperands
   let blockOperands ← parseBlockOperands
-  parseOpProperties
+
+  /- Get the operation opCode. -/
+  let opId := OpCode.fromName opName.toByteArray
+
+  let properties ← parseOpProperties opId
   let regions ← parseOpRegions
   let (inputTypes, outputTypes) ← parseOperationType
 
@@ -329,14 +338,11 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
     throw s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
   let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
 
-  /- Create the operation. -/
-  let opId := OpCode.fromName opName.toByteArray
-
   /- Set context in monad to default to preserve linearity whilst modifying -/
   let ctx ← getContext
   setContext Inhabited.default
 
-  let some (ctx, op) := Rewriter.createOp ctx opId outputTypes operands blockOperands regions default ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
+  let some (ctx, op) := Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
       | throw "internal error: failed to create operation"
 
   /- Update the parser context. -/
