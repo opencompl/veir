@@ -23,7 +23,7 @@ def Rewriter.createOp (ctx: IRContext) (opType: OpCode)
     grind [createEmptyOp, OperationPtr.allocEmpty, Operation.empty]
   have newOpPtrZeroRes: 0 = newOpPtr.getNumResults ctx (by grind) := by grind [OperationPtr.getNumResults]
   let ctx := Rewriter.initOpResults ctx newOpPtr resultTypes 0 hib newOpPtrZeroRes
-  let ctx := newOpPtr.setProperties ctx properties (by grind) (by sorry)
+  let ctx := newOpPtr.setProperties ctx properties (by grind) (by grind [createEmptyOp, Operation.empty])
   let ctx := Rewriter.initOpRegions ctx newOpPtr regions
   let ctx := Rewriter.initOpOperands ctx newOpPtr (by grind) operands (by grind) (by grind)
   let ctx := Rewriter.initBlockOperands ctx newOpPtr blockOperands (hoperands := by grind (ematch := 10))
