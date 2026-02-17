@@ -595,16 +595,6 @@ theorem getProperties!_eq_getProperties {op : OperationPtr} (inBounds: op.InBoun
     op.getProperties! ctx opCode = op.getProperties ctx opCode inBounds (by grind) := by
   grind [getProperties, getProperties!]
 
-/--
-  Get the properties of an operation without requiring a proof of in-bounds access or that
-  the operation properties type matches the expected type.
--/
-def getPropertiesFromOpType! (op : OperationPtr) (ctx : IRContext) (opType : OpCode) : propertiesOf opType :=
-  if h : (op.get! ctx).opType = opType then
-    h ▸ (op.get! ctx).properties
-  else
-    default
-
 def setProperties (op : OperationPtr) (ctx : IRContext)
     (newProperties : propertiesOf opCode)
     (inBounds: op.InBounds ctx := by grind)
