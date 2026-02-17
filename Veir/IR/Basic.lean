@@ -576,19 +576,23 @@ theorem pushOperand!_eq_pushOperand {op : OperationPtr} (inBounds: op.InBounds c
     op.pushOperand! ctx operands = op.pushOperand ctx operands inBounds := by
   grind [pushOperand, pushOperand!]
 
-def getProperties (op : OperationPtr) (ctx : IRContext) (propT : Type)
+@[inline]
+def getProperties (op : OperationPtr) (ctx : IRContext) (opCode : OpCode)
     (inBounds : op.InBounds ctx := by grind)
-    (hprop : propertiesOf (op.get ctx inBounds).opType = propT := by grind) : propT :=
+    (hprop : (op.get ctx inBounds).opType = opCode := by grind) : propertiesOf opCode :=
   hprop ▸ (op.get ctx (by grind)).properties
 
-def getProperties! (op : OperationPtr) (ctx : IRContext) (propT : Type)
-    (hprop : propertiesOf (op.get! ctx).opType = propT) : propT :=
-  hprop ▸ (op.get! ctx).properties
+@[inline]
+def getProperties! (op : OperationPtr) (ctx : IRContext) (opCode : OpCode) : propertiesOf opCode :=
+  if h : (op.get! ctx).opType = opCode then
+    h ▸ (op.get! ctx).properties
+  else
+    default
 
 @[grind _=_]
 theorem getProperties!_eq_getProperties {op : OperationPtr} (inBounds: op.InBounds ctx)
-    (hprop : propertiesOf (op.get! ctx).opType = propT) :
-    op.getProperties! ctx propT hprop = op.getProperties ctx propT inBounds (by grind) := by
+    (hprop : (op.get! ctx).opType = opCode) :
+    op.getProperties! ctx opCode = op.getProperties ctx opCode inBounds (by grind) := by
   grind [getProperties, getProperties!]
 
 /--
@@ -601,33 +605,23 @@ def getPropertiesFromOpType! (op : OperationPtr) (ctx : IRContext) (opType : OpC
   else
     default
 
-theorem getProperties!_eq_getPropertiesFromOpType! {op : OperationPtr}
-    (hprop : propertiesOf (op.get! ctx).opType = propT) :
-    op.getProperties! ctx propT hprop = hprop ▸ op.getPropertiesFromOpType! ctx (op.get! ctx).opType := by
-  grind [getProperties!, getPropertiesFromOpType!]
-
-theorem getPropertiesFromOpType!_eq_getProperties! {op : OperationPtr}
-    (hprop : propertiesOf (op.get! ctx).opType = propT) :
-    op.getPropertiesFromOpType! ctx (op.get! ctx).opType = hprop ▸ op.getProperties! ctx propT hprop := by
-  grind [getProperties!, getPropertiesFromOpType!]
-
 def setProperties (op : OperationPtr) (ctx : IRContext)
-    (newProperties : propT)
+    (newProperties : propertiesOf opCode)
     (inBounds: op.InBounds ctx := by grind)
-    (propEq : propertiesOf (op.get ctx inBounds).opType = propT := by grind) : IRContext :=
+    (propEq : (op.get ctx inBounds).opType = opCode := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
   op.set ctx { oldOp with properties := propEq ▸ newProperties }
 
 def setProperties! (op: OperationPtr) (ctx: IRContext)
-  (newProperties : propT)
-  (propEq : propertiesOf (op.get! ctx).opType = propT := by grind) : IRContext :=
+  (newProperties : propertiesOf opCode)
+  (propEq : (op.get! ctx).opType = opCode := by grind) : IRContext :=
   let oldOp := op.get! ctx
   op.set ctx { oldOp with properties := propEq ▸ newProperties }
 
 @[grind _=_]
 theorem setProperties!_eq_setProperties {op : OperationPtr}
-    (newProperties : propT) (inBounds: op.InBounds ctx)
-    (propEq : propertiesOf (op.get! ctx).opType = propT) :
+    (newProperties : propertiesOf opCode) (inBounds: op.InBounds ctx)
+    (propEq : (op.get ctx inBounds).opType = opCode) :
     op.setProperties! ctx newProperties =
     op.setProperties ctx newProperties inBounds := by
   grind [setProperties, setProperties!]

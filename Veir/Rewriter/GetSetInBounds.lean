@@ -18,6 +18,7 @@ import Veir.ForLean
  -   * Operation.opType
  -   * Operation.attrs
  -   * Operation.properties
+ - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
  - * OpResultPtr.get!
  - * OperationPtr.getNumOperands!

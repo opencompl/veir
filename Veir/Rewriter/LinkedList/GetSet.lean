@@ -22,6 +22,7 @@ public section
  -   * Operation.opType
  -   * Operation.attrs
  -   * Operation.properties
+ - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
  - * OpResultPtr.get!
  - * OperationPtr.getNumOperands!
@@ -121,9 +122,9 @@ theorem OperationPtr.attrs!_OpOperandPtr_removeFromCurrent {operation : Operatio
   grind
 
 @[simp, grind =]
-theorem OperationPtr.getProperties!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} {hprop} :
-    operation.getProperties! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) propT hprop =
-    operation.getProperties! ctx propT (by grind) := by
+theorem OperationPtr.getProperties!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getProperties! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) propT =
+    operation.getProperties! ctx propT := by
   grind
 
 @[simp, grind =]
@@ -326,15 +327,10 @@ theorem OperationPtr.attrs!_OpOperandPtr_insertIntoCurrent {operation : Operatio
   grind
 
 @[simp, grind =]
-theorem OperationPtr.getProperties!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} {hprop} :
-    operation.getProperties! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) propT hprop =
-    operation.getProperties! ctx propT (by grind) := by
-  rw [getProperties!_eq_getPropertiesFromOpType! hprop]
-  unfold OpOperandPtr.insertIntoCurrent
-  simp only
-  rw [getProperties!_eq_getPropertiesFromOpType!]
-  simp [← OpOperandPtr.get!_eq_get, ←ValuePtr.getFirstUse!_eq_getFirstUse, ←OpOperandPtr.setBack!_eq_setBack, ←ValuePtr.setFirstUse!_eq_setFirstUse, ←OpOperandPtr.setNextUse!_eq_setNextUse]
-  sorry
+theorem OperationPtr.getProperties!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getProperties! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) opCode =
+    operation.getProperties! ctx opCode := by
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
@@ -549,9 +545,9 @@ theorem OperationPtr.attrs!_BlockOperandPtr_removeFromCurrent {operation : Opera
   grind
 
 @[simp, grind =]
-theorem OperationPtr.getProperties!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} {hprop} :
-    operation.getProperties! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) propT hprop =
-    operation.getProperties! ctx propT (by grind) := by
+theorem OperationPtr.getProperties!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getProperties! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -751,9 +747,9 @@ theorem OperationPtr.attrs!_BlockOperandPtr_insertIntoCurrent {operation : Opera
   grind
 
 @[simp, grind =]
-theorem OperationPtr.getProperties!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} {hprop} :
-    operation.getProperties! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) propT hprop =
-    operation.getProperties! ctx propT (by grind) := by
+theorem OperationPtr.getProperties!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getProperties! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -910,6 +906,7 @@ theorem OperationPtr.prev!_OperationPtr_linkBetween {operation : OperationPtr} :
   simp only [OperationPtr.linkBetween]
   grind
 
+set_option maxHeartbeats 1000000 in
 @[grind =]
 theorem OperationPtr.next!_OperationPtr_linkBetween {operation : OperationPtr} :
     (operation.get! (op'.linkBetween ctx prev next selfIn prevIn nextIn)).next =
@@ -920,7 +917,7 @@ theorem OperationPtr.next!_OperationPtr_linkBetween {operation : OperationPtr} :
     else
       (operation.get! ctx).next := by
   simp only [OperationPtr.linkBetween]
-  grind
+  grind (gen := 20)
 
 @[simp, grind =]
 theorem OperationPtr.parent!_OperationPtr_linkBetween {operation : OperationPtr} :
@@ -943,9 +940,9 @@ theorem OperationPtr.attrs!_OperationPtr_linkBetween {operation : OperationPtr} 
   grind
 
 @[simp, grind =]
-theorem OperationPtr.getProperties!_OperationPtr_linkBetween {operation : OperationPtr} {hprop} :
-    operation.getProperties! (op'.linkBetween ctx prev next selfIn prevIn nextIn) propT hprop =
-    operation.getProperties! ctx propT (by grind) := by
+theorem OperationPtr.getProperties!_OperationPtr_linkBetween {operation : OperationPtr} :
+    operation.getProperties! (op'.linkBetween ctx prev next selfIn prevIn nextIn) opCode =
+    operation.getProperties! ctx opCode := by
   simp only [OperationPtr.linkBetween]
   grind
 
@@ -1127,13 +1124,13 @@ grind_pattern OperationPtr.attrs!_OperationPtr_setParentWithCheck =>
 
 @[simp]
 theorem OperationPtr.getProperties!_OperationPtr_setParentWithCheck {operation : OperationPtr}
-    (heq : op'.setParentWithCheck ctx newParent selfIn = some newCtx) {hprop} :
-    operation.getProperties! newCtx propT hprop =
-    operation.getProperties! ctx propT (by grind) := by
+    (heq : op'.setParentWithCheck ctx newParent selfIn = some newCtx) :
+    operation.getProperties! newCtx opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 grind_pattern OperationPtr.getProperties!_OperationPtr_setParentWithCheck =>
-  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getProperties! newCtx propT hprop
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getProperties! newCtx opCode
 
 @[simp]
 theorem OperationPtr.getNumResults!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
@@ -1406,13 +1403,13 @@ grind_pattern OperationPtr.attrs!_OperationPtr_linkBetweenWithParent =>
 
 @[simp]
 theorem OperationPtr.getProperties!_OperationPtr_linkBetweenWithParent {operation : OperationPtr}
-    (heq : op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx) {hprop} :
-    operation.getProperties! newCtx propT hprop =
-    operation.getProperties! ctx propT (by grind) := by
+    (heq : op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx) :
+    operation.getProperties! newCtx opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 grind_pattern OperationPtr.getProperties!_OperationPtr_linkBetweenWithParent =>
-  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getProperties! newCtx propT hprop
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getProperties! newCtx opCode
 
 @[simp]
 theorem OperationPtr.getNumResults!_OperationPtr_linkBetweenWithParent {operation : OperationPtr} :
