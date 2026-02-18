@@ -265,6 +265,18 @@ def parseOpProperties (opCode : OpCode) : MlirParserM (propertiesOf opCode) := d
     | .error err => throw err
   | .error err => throw err
 
+/--
+  Parse the attributes of an operation, if present.
+  Currently, these attributes are not stored in the IR, but we still need to parse them to be able
+  to parse valid MLIR syntax.
+-/
+def parseOpAttributes : MlirParserM Unit := do
+  match AttrParser.parseOptionalAttributeDictionary.run AttrParserState.mk (← getThe ParserState) with
+  | .ok (_, _, parserState) =>
+    set parserState
+    return ()
+  | .error err => throw err
+
 set_option warn.sorry false in
 /--
   Parse a block label, if present, and create and insert the block at the given insert point.
@@ -327,6 +339,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
 
   let properties ← parseOpProperties opId
   let regions ← parseOpRegions
+  parseOpAttributes
   let (inputTypes, outputTypes) ← parseOperationType
 
   /- Check that the number of results matches with the operation type. -/
