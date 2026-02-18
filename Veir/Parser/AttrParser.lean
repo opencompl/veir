@@ -248,6 +248,27 @@ partial def parseType (errorMsg : String := "type expected") : AttrParserM TypeA
   | none => throw errorMsg
 
 /--
+  Parse an entry in a dictionary attribute, which has the form `name = value`
+  or the shorthand `name` (equivalent to `name = unit`).
+-/
+partial def parseDictAttrEntry : AttrParserM (ByteArray × Attribute) := do
+  let name ← parseIdentifierOrStringLiteral
+  if ← parseOptionalPunctuation "=" then
+    let value ← parseAttribute
+    return (name, value)
+  else
+    return (name, UnitAttr.mk)
+
+/--
+  Parse a dictionary attribute, if present.
+  A dictionary attribute has the form `{key = value, key2 = value2, ...}`.
+-/
+partial def parseOptionalDictionaryAttr : AttrParserM (Option DictionaryAttr) := do
+  let some entries ← parseOptionalDelimitedList .braces parseDictAttrEntry
+    | return none
+  return some (DictionaryAttr.mk entries)
+
+/--
   Parse an attribute, if present.
 -/
 partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
@@ -261,6 +282,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some stringAttr
   else if let some unitAttr ← parseOptionalUnitAttr then
     return some unitAttr
+  else if let some dictAttr ← parseOptionalDictionaryAttr then
+    return some dictAttr
   else
     return none
 

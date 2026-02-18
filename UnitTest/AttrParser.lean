@@ -117,6 +117,17 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "unit" (UnitAttr.mk)
 #assert expectMissingAttr "foo"
 
+/-! ## Dictionary attribute -/
+
+#assert expectSuccessAttr "{}" (DictionaryAttr.mk #[])
+#assert expectSuccessAttr "{foo = \"hello\"}"
+  (DictionaryAttr.mk #[("foo".toByteArray, StringAttr.mk "hello".toByteArray)])
+#assert expectSuccessAttr "{x}" (DictionaryAttr.mk #[("x".toByteArray, UnitAttr.mk)])
+#assert expectSuccessAttr "{a, b}"
+  (DictionaryAttr.mk #[("a".toByteArray, UnitAttr.mk), ("b".toByteArray, UnitAttr.mk)])
+#assert expectSuccessAttr "{a = unit, b = \"hello\"}"
+  (DictionaryAttr.mk #[("a".toByteArray, UnitAttr.mk), ("b".toByteArray, StringAttr.mk "hello".toByteArray)])
+
 /-! ## Dialect type -/
 
 #assert expectSuccessType "!foo<bar>" ⟨UnregisteredAttr.mk "!foo<bar>" true, by grind⟩
