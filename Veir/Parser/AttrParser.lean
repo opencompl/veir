@@ -89,6 +89,107 @@ def parseStringAttr (errorMsg : String := "string attribute expected") :
   | some stringAttr => return stringAttr
   | none => throw errorMsg
 
+def isClosingBracket (kind : TokenKind) : Bool :=
+  kind = .greater || kind = .rParen || kind = .rSquare || kind = .rBrace
+
+def isOpeningBracket (kind : TokenKind) : Bool :=
+  kind = .less || kind = .lParen || kind = .lSquare || kind = .lBrace
+
+def matchingBracket! (kind : TokenKind) : TokenKind :=
+  match kind with
+  | .greater => .less
+  | .rParen => .lParen
+  | .rSquare => .lSquare
+  | .rBrace => .lBrace
+  | .less => .greater
+  | .lParen => .rParen
+  | .lSquare => .rSquare
+  | _ => .rBrace
+
+/--
+  Parse the body of an unregistered attribute, which is a balanced
+  string for `<`, `(`, `[`, `{`, and may contain string literals.
+  The first `<` is expected to have already been consumed when this function is called.
+  The ending `>` is not consumed by this function.
+-/
+private def parseUnregisteredAttrBody (startPos : Option Nat := none) : AttrParserM String := do
+  let startPos := startPos.getD (← peekToken).slice.start
+
+  /- This stack corresponds to the brackets that are still opened. -/
+  let mut bracketStack : Array TokenKind := #[]
+  let mut endPos : Nat := 0
+
+  /- Read tokens one by one until we close the last `>` -/
+  repeat
+    let token ← peekToken
+
+    /- Opening a new bracket -/
+    if isOpeningBracket token.kind then
+      let _ ← consumeToken
+      bracketStack := bracketStack.push token.kind
+
+    /- Closing a bracket -/
+    else if isClosingBracket token.kind then
+      let expected := matchingBracket! token.kind
+      let closingName := match token.kind with
+        | .greater => "`>`" | .rParen => "`)`" | .rSquare => "`]`" | _ => "`}`"
+      /- If we don't have any open bracket, either we end the parsing if
+         the bracket is the last `>`, or we raise an error. -/
+      if bracketStack.isEmpty then
+        if token.kind == .greater then
+          endPos := token.slice.start
+          break
+        throw s!"unexpected closing bracket {closingName} in attribute body"
+      /- If we have an open bracket, check that we are closing it
+         with the right bracket kind. -/
+      if bracketStack.back! != expected then
+        throw s!"unexpected closing bracket {closingName} in attribute body"
+      let _ ← consumeToken
+      bracketStack := bracketStack.pop
+
+    /- Checking for unexpected EOF -/
+    else if token.kind == .eof then
+      throw "unexpected end of file before closing of attribute body"
+
+    /- Other tokens -/
+    else
+      let _ ← consumeToken
+  let input := (← getThe ParserState).input
+  let body := (Slice.mk startPos endPos).of input
+  match String.fromUTF8? body with
+  | some s => return s
+  | none => throw "failed converting attribute body to string"
+
+/--
+  Parse a dialect type, if present.
+  A dialect attribute has the form `!dialect.name<body>`.
+-/
+partial def parseOptionalDialectType : AttrParserM (Option TypeAttr) := do
+  let startPos ← getPos
+  let dialectName ← parseOptionalPrefixedKeyword .exclamationIdent
+  let some dialectName := dialectName | return none
+  parsePunctuation "<"
+  let _ ← parseUnregisteredAttrBody
+  let endPos := (← peekToken).slice.stop
+  parsePunctuation ">"
+  let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
+  return some (⟨UnregisteredAttr.mk (String.fromUTF8! value) true, by grind⟩)
+
+/--
+  Parse a dialect attribute, if present.
+  A dialect attribute has the form `#dialect.name<body>`.
+-/
+partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
+  let startPos ← getPos
+  let dialectName ← parseOptionalPrefixedKeyword .hashIdent
+  let some dialectName := dialectName | return none
+  parsePunctuation "<"
+  let _ ← parseUnregisteredAttrBody
+  let endPos := (← peekToken).slice.stop
+  parsePunctuation ">"
+  let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
+  return some (UnregisteredAttr.mk (String.fromUTF8! value) false)
+
 mutual
 
 /--
@@ -122,6 +223,8 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
+  if let some dialectType ← parseOptionalDialectType then
+    return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then
     return some functionType
   else
@@ -139,7 +242,9 @@ partial def parseType (errorMsg : String := "type expected") : AttrParserM TypeA
   Parse an attribute, if present.
 -/
 partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
-  if let some type ← parseOptionalType then
+  if let some dialectAttr ← parseOptionalDialectAttr then
+    return some dialectAttr
+  else if let some type ← parseOptionalType then
     return some type.val
   else if let some integerAttr ← parseOptionalIntegerAttr then
     return some integerAttr

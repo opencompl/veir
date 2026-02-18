@@ -23,9 +23,10 @@ def ParserState.fromInput (input : ByteArray) : Except String ParserState := do
 
 /--
   Get the current position in the input.
+  This is the starting position of the current token.
 -/
 def ParserState.pos (state : ParserState) : Nat :=
-  state.lexer.pos
+  state.currentToken.slice.start
 
 /--
   Get the input being parsed.
@@ -39,6 +40,13 @@ def ParserState.input (state : ParserState) : ByteArray :=
 section ParserStateMethods
 
 variable [Monad M] [MonadExcept String M] [MonadStateOf ParserState M]
+
+/--
+  Get the current position in the input.
+  This is the starting position of the current token.
+-/
+def getPos : M Nat := do
+  return (←get).pos
 
 /--
   Consume the current token and return the updated parser state.
