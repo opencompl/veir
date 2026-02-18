@@ -403,10 +403,6 @@ def Rewriter.initOpResults (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: 
   else
     let result: OpResult := { type := resultTypes[index], firstUse := none, index := index, owner := opPtr }
     let ctx := opPtr.pushResult ctx result
-    have : opPtr.InBounds ctx := by grind
-    have : result.FieldsInBounds ctx := by
-      -- TODO(later): write the right lemma somewhere.
-      constructor <;> grind [OperationPtr.pushResult, OperationPtr.setResults, OperationPtr.set, OperationPtr.get]
     Rewriter.initOpResults ctx opPtr resultTypes (index + 1) (by grind) (by grind)
   termination_by resultTypes.size - index
   decreasing_by lia
@@ -414,23 +410,16 @@ def Rewriter.initOpResults (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: 
 @[grind .]
 theorem Rewriter.initOpResults_fieldsInBounds (hx : ctx.FieldsInBounds) :
     (initOpResults ctx opPtr resultTypes index h₁ h₂).FieldsInBounds := by
-  induction h: (resultTypes.size - index) generalizing index ctx
-  case zero =>
-    unfold initOpResults
+  fun_induction initOpResults
+  · grind
+  · rename_i result ctx' heq
+    have : result.FieldsInBounds ctx' := by constructor <;> grind
     grind
-  case succ resultTypes ih =>
-    unfold initOpResults
-    split; grind
-    apply ih
-    · apply OperationPtr.pushResult_fieldsInBounds
-      · constructor <;> grind [OperationPtr.pushResult, OperationPtr.setResults, OperationPtr.set, OperationPtr.get]
-      · grind
-    · grind
 
 @[grind .]
 theorem Rewriter.initOpResults_inBounds_mono (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (initOpResults ctx opPtr resultTypes index h₁ h₂) := by
-  induction h: (resultTypes.size - index) generalizing index ctx <;> unfold initOpResults <;> grind
+  fun_induction initOpResults <;> grind
 
 @[irreducible]
 protected def Rewriter.pushOperand (ctx : IRContext) (opPtr : OperationPtr) (valuePtr : ValuePtr)
