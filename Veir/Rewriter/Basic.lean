@@ -47,7 +47,7 @@ def Rewriter.detachOp (ctx: IRContext) (op: OperationPtr) (hctx : ctx.FieldsInBo
   let ctx := unsetParentAndNeighbors ctx op hIn
   let prevOp := opStruct.prev
   let nextOp := opStruct.next
-  -- Leo: I had to duplicate the continuation in each branch, I don't really
+  -- I had to duplicate the continuation in each branch, I don't really
   -- know why the proofs of the preconditions in, say, `setNextOp` were
   -- metavariable... maybe somehow the execution of the tactics is slightly
   -- delayed?
