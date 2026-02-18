@@ -370,30 +370,29 @@ theorem Rewriter.createRegion_fieldsInBounds (h : createRegion ctx = some (ctx',
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   grind [createRegion]
 
-@[irreducible]
-def Rewriter.initOpRegions (ctx: IRContext) (opPtr: OperationPtr) (regions : Array RegionPtr) (n : Nat := regions.size)
+def Rewriter.initOpRegions (ctx: IRContext) (opPtr: OperationPtr) (regions : Array RegionPtr) (index : Nat := 0)
     (opPtrInBounds : opPtr.InBounds ctx := by grind)
     (hregionInBounds : ∀ region, region ∈ regions → region.InBounds ctx := by grind)
-    (hctx : ctx.FieldsInBounds := by grind) (hn : 0 ≤ n ∧ n ≤ regions.size := by grind) : IRContext :=
-  match h : n with
-  | 0 => opPtr.setRegions ctx regions (by grind)
-  | Nat.succ n' =>
-    let index := regions.size - n
-    let regionPtr := regions[index]'(by grind)
-    let ctx := regionPtr.setParent ctx opPtr (by grind)
-    Rewriter.initOpRegions ctx opPtr regions n'
+    (hctx : ctx.FieldsInBounds := by grind) (hn : 0 ≤ index ∧ index ≤ regions.size := by grind) : IRContext :=
+  if h: index >= regions.size then
+    ctx
+  else
+    let ctx := opPtr.pushRegion ctx regions[index]
+    let ctx := regions[index].setParent ctx opPtr
+    Rewriter.initOpRegions ctx opPtr regions (index + 1) (by grind) (by grind)
+  termination_by regions.size - index
+  decreasing_by lia
 
 @[grind .]
 theorem Rewriter.initOpRegions_fieldsInBounds :
     ctx.FieldsInBounds →
     (initOpRegions ctx opPtr regions n opPtrInBounds hregions hctx hn).FieldsInBounds := by
-  intros hctx
-  induction n generalizing ctx <;> simp only [initOpRegions] <;> grind
+  fun_induction initOpRegions <;> grind
 
 @[grind .]
 theorem Rewriter.initOpRegions_inBounds_mono (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (initOpRegions ctx opPtr regions n opPtrInBounds hregions hctx hn) := by
-  induction n generalizing ctx <;> simp only [initOpRegions] <;> grind
+  fun_induction initOpRegions <;> grind
 
 def Rewriter.initOpResults (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
     (index: Nat := 0) (hop : opPtr.InBounds ctx)

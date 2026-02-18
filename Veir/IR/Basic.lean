@@ -495,6 +495,18 @@ theorem setRegions!_eq_setRegions {op : OperationPtr} (inBounds: op.InBounds ctx
     op.setRegions! ctx newRegions = op.setRegions ctx newRegions inBounds := by
   grind [setRegions, setRegions!]
 
+def pushRegion (op : OperationPtr) (ctx : IRContext) (reg : RegionPtr)
+    (inBounds : op.InBounds ctx := by grind) : IRContext :=
+  op.setRegions ctx ((op.get ctx).regions.push reg)
+
+def pushRegion! (op : OperationPtr) (ctx : IRContext) (reg : RegionPtr) :=
+  op.setRegions! ctx ((op.get! ctx).regions.push reg)
+
+@[grind _=_]
+theorem pushRegion!_eq_pushRegion {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.pushRegion ctx newRegion = op.pushRegion ctx newRegion inBounds := by
+  grind [setRegions, setRegions!]
+
 def setResults (op: OperationPtr) (ctx: IRContext) (newResults: Array OpResult)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
@@ -1814,7 +1826,7 @@ macro "setup_grind_with_get_set_definitions" : command => `(
   attribute [local grind] ValuePtr.getFirstUse! ValuePtr.getFirstUse ValuePtr.setFirstUse ValuePtr.setType ValuePtr.getType ValuePtr.getType!
   attribute [local grind] OpResultPtr.get! OpResultPtr.setFirstUse OpResultPtr.set OpResultPtr.setType
   attribute [local grind] BlockArgumentPtr.get! BlockArgumentPtr.setFirstUse BlockArgumentPtr.set BlockArgumentPtr.setType BlockArgumentPtr.setLoc
-  attribute [local grind] OperationPtr.setOperands OperationPtr.setBlockOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.setProperties OperationPtr.pushOperand OperationPtr.pushBlockOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.getProperties! OperationPtr.set
+  attribute [local grind] OperationPtr.setOperands OperationPtr.setBlockOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.pushRegion OperationPtr.setProperties OperationPtr.pushOperand OperationPtr.pushBlockOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.getProperties! OperationPtr.set
   attribute [local grind] Operation.empty
   attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty BlockPtr.getNumArguments! BlockPtr.set BlockPtr.setArguments BlockPtr.pushArgument
   attribute [local grind =] Option.maybe_def

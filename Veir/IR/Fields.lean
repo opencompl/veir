@@ -582,7 +582,6 @@ macro "prove_fieldsInBounds_region" ctx:ident : tactic => `(tactic|
 theorem IRContext.empty_fieldsInBounds : empty.FieldsInBounds := by
   constructor <;> grind
 
--- attribute [local grind] OperationPtr.setNextOp in
 @[grind .]
 theorem OperationPtr.setNextOp_fieldsInBounds (hnew : newOp.maybe OperationPtr.InBounds ctx) :
     ctx.FieldsInBounds → (setNextOp op ctx newOp h).FieldsInBounds := by
@@ -601,6 +600,11 @@ theorem OperationPtr.setParent_fieldsInBounds (hnew : newOp.maybe BlockPtr.InBou
 @[grind .]
 theorem OperationPtr.setRegions_fieldsInBounds (hnew : ∀ r ∈ newRegions, r.InBounds ctx) :
     ctx.FieldsInBounds → (setRegions op ctx newRegions h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OperationPtr.pushRegion_fieldsInBounds (hnew : newRegion.InBounds ctx) :
+    ctx.FieldsInBounds → (pushRegion op ctx newRegion h).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
 
 @[grind .]

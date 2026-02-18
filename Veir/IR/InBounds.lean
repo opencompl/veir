@@ -47,6 +47,11 @@ theorem OperationPtr.setRegions_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setRegions op ctx newRegions h) ↔ ptr.InBounds ctx := by
   grind
 
+@[grind =]
+theorem OperationPtr.pushRegion_genericPtr_mono (ptr : GenericPtr)  :
+    ptr.InBounds (pushRegion op ctx newRegion h) ↔ ptr.InBounds ctx := by
+  grind
+
 @[grind .]
 theorem OperationPtr.getOpOperand_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i < op.getNumOperands ctx hop) :
