@@ -10,7 +10,7 @@ open Veir.Parser
   Macro to simplify test assertions. Wraps the test in #guard_msgs and #eval!,
   expecting the result to be `true`.
 -/
-macro "#assert " e:term : command =>
+macro "#assert! " e:term : command =>
   `(command| /--
     info: true
   -/
@@ -249,7 +249,7 @@ def testDomIfLoopIf : Bool :=
     #[(0,0), (1,0), (2,0), (3,2), (4,2), (5,1), (6,2), (7, 0)]
     #[(0, #[1,2,7]), (1, #[5]), (2, #[3,4,6]), (3, #[]), (4, #[]), (5, #[]), (6, #[]), (7, #[])]
 
-#assert testDomLoop
-#assert testDomDiamond
-#assert testDomLine
-#assert testDomIfLoopIf
+#assert! testDomLoop
+#assert! testDomDiamond
+#assert! testDomLine
+#assert! testDomIfLoopIf
