@@ -89,6 +89,15 @@ def parseStringAttr (errorMsg : String := "string attribute expected") :
   | some stringAttr => return stringAttr
   | none => throw errorMsg
 
+/--
+  Parse a unit attribute, if present.
+  Its syntax is the keyword `unit`.
+-/
+def parseOptionalUnitAttr : AttrParserM (Option UnitAttr) := do
+  if ← parseOptionalKeyword "unit".toByteArray then
+    return some UnitAttr.mk
+  return none
+
 def isClosingBracket (kind : TokenKind) : Bool :=
   kind = .greater || kind = .rParen || kind = .rSquare || kind = .rBrace
 
@@ -250,6 +259,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some integerAttr
   else if let some stringAttr ← parseOptionalStringAttr then
     return some stringAttr
+  else if let some unitAttr ← parseOptionalUnitAttr then
+    return some unitAttr
   else
     return none
 
@@ -265,13 +276,16 @@ partial def parseAttribute (errorMsg : String := "attribute expected") :
 end
 
 /--
-  Parse an entry in an attribute dictionary, which has the form `name = value`.
+  Parse an entry in an attribute dictionary, which has the form `name = value`
+  or the shorthand `name` (equivalent to `name = unit`).
 -/
 partial def parseAttrDictEntry : AttrParserM (ByteArray × Attribute) := do
   let name ← parseIdentifierOrStringLiteral
-  parsePunctuation "="
-  let value ← parseAttribute
-  return (name, value)
+  if ← parseOptionalPunctuation "=" then
+    let value ← parseAttribute
+    return (name, value)
+  else
+    return (name, UnitAttr.mk)
 
 /--
   Parse an attribute dictionary, if present.

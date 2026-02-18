@@ -56,6 +56,12 @@ instance : Repr StringAttr where
   reprPrec attr _ := "StringAttr.mk " ++ repr (String.fromUTF8! attr.value)
 
 /--
+  A unit attribute that carries no information.
+-/
+structure UnitAttr where
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   An attribute from an unknown dialect.
   It can be either a type attribute or a non-type attribute.
 -/
@@ -87,6 +93,8 @@ inductive Attribute
 | integerAttr (attr : IntegerAttr)
 /-- String attribute -/
 | stringAttr (attr : StringAttr)
+/-- Unit attribute -/
+| unitAttr (attr : UnitAttr)
 /-- Function type -/
 | functionType (type : FunctionType)
 /-- An attribute from an unknown dialect. -/
@@ -148,6 +156,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case unitAttr.unitAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
@@ -170,6 +182,9 @@ instance : ToString IntegerAttr where
 
 instance : ToString StringAttr where
   toString attr := s!"\"{String.fromUTF8! attr.value}\""
+
+instance : ToString UnitAttr where
+  toString _ := "unit"
 
 instance : ToString UnregisteredAttr where
   toString attr := attr.value
@@ -206,6 +221,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .integerType type => ToString.toString type
   | .integerAttr attr => ToString.toString attr
   | .stringAttr attr => ToString.toString attr
+  | .unitAttr attr => ToString.toString attr
   | .unregisteredAttr attr => ToString.toString attr
   | .functionType type => type.toString
 termination_by sizeOf attr
@@ -232,6 +248,9 @@ instance : Coe IntegerAttr Attribute where
 instance : Coe StringAttr Attribute where
   coe attr := .stringAttr attr
 
+instance : Coe UnitAttr Attribute where
+  coe attr := .unitAttr attr
+
 instance : Coe UnregisteredAttr Attribute where
   coe attr := .unregisteredAttr attr
 
@@ -256,6 +275,7 @@ def isType (attr : Attribute) : Bool :=
   | .integerType _ => true
   | .integerAttr _ => false
   | .stringAttr _ => false
+  | .unitAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .functionType _ => true
 

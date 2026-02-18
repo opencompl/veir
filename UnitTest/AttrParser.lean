@@ -112,6 +112,11 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "\"hello world\"" (StringAttr.mk "hello world".toByteArray)
 #assert expectMissingAttr "hello"  -- bare identifier, not a string attribute
 
+/-! ## Unit attribute -/
+
+#assert expectSuccessAttr "unit" (UnitAttr.mk)
+#assert expectMissingAttr "foo"
+
 /-! ## Dialect type -/
 
 #assert expectSuccessType "!foo<bar>" ⟨UnregisteredAttr.mk "!foo<bar>" true, by grind⟩

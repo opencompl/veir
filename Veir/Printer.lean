@@ -107,7 +107,9 @@ def printOpProperties (ctx : IRContext) (op : OperationPtr) : IO Unit := do
   for (key, value) in attrDict.toList do
     if !first then
       IO.print ", "
-    IO.print s!"\"{String.fromUTF8! key}\" = {value}"
+    IO.print s!"\"{String.fromUTF8! key}\""
+    if value ≠ UnitAttr.mk then
+      IO.print s!" = {value}"
     first := false
   IO.print " }>"
 
