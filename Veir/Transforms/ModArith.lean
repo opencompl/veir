@@ -1,4 +1,6 @@
 import Veir.PatternRewriter.Basic
+import Veir.PatternRewriter.Lemmas
+open Veir.PatternRewriter
 
 namespace Veir.Transforms.ModArith
 
@@ -77,5 +79,8 @@ def barretReduceRewriter : LocalRewritePattern := fun ctx op => do
   some (ctx, some (newOps, #[truncOp.getResult 0]))
 
 def barretReduceRewriterPattern : RewritePattern := Veir.RewritePattern.fromLocalRewrite barretReduceRewriter
+
+theorem barretReduceRewriterPreservesSemantics : LocalRewritePattern.PreservesSemantics barretReduceRewriter := by
+  grind
 
 end Veir.Transforms.ModArith
