@@ -81,6 +81,13 @@ def barretReduceRewriter : LocalRewritePattern := fun ctx op => do
 def barretReduceRewriterPattern : RewritePattern := Veir.RewritePattern.fromLocalRewrite barretReduceRewriter
 
 theorem barretReduceRewriterPreservesSemantics : LocalRewritePattern.PreservesSemantics barretReduceRewriter := by
-  grind
+  intro ctx op opIn newCtx newOps newValue hpattern
+  intro state newState hinterp
+  let oldValue := newState.variables[ValuePtr.opResult (op.getResult 0)]!
+  let newState' : InterpreterState :=
+    { variables := newState.variables.insert newValue oldValue }
+  refine ⟨newState', ?_⟩
+  intro hInterpretNewOps
+  simp [newState', oldValue]
 
 end Veir.Transforms.ModArith
