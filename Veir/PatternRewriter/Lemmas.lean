@@ -23,5 +23,5 @@ def LocalRewritePattern.PreservesSemantics (pattern : LocalRewritePattern) : Pro
   ∀ (ctx : IRContext) (op : OperationPtr) (opIn : op.InBounds ctx) newCtx newOps newValue,
     pattern ctx op = some (newCtx, some (newOps, #[newValue])) →
     ∀ state newState, interpretOp ctx op state = some (newState, .continue) →
-    ∃ newState', interpretOpArray ctx newOps state 0 (by sorry) (by sorry) = some newState' →
+    ∃ newState', interpretOpArray ctx newOps state 0 (by sorry) (by sorry) = some newState' ∧
     newState'.variables[newValue]! = newState.variables[ValuePtr.opResult (op.getResult 0)]!
