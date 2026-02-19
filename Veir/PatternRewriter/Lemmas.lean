@@ -3,25 +3,20 @@ import Veir.Interpreter
 
 namespace Veir.PatternRewriter
 
-def interpretOpArray (ctx : IRContext) (array : Array OperationPtr) (state : InterpreterState)
-    (index : Nat := 0)
-    (opInBounds : ∀ op ∈ array, op.InBounds ctx := by grind)
-    (indexInBounds : index < array.size := by grind)
+def interpretOpList' (ctx : IRContext) (list : List OperationPtr) (state : InterpreterState)
+    (opInBounds : ∀ op ∈ list, op.InBounds ctx := by grind)
     : Option InterpreterState := do
-  let (state, action) ← interpretOp ctx array[index] state
-  match action with
-  | .continue =>
-    let next := index + 1
-    if h: next < array.size then
-      interpretOpArray ctx array state (index + 1)
-    else
-      return state
-  | .return results =>
-    return state
+  match list with
+  | [] => return state
+  | op :: rest =>
+    let (state, action) ← interpretOp ctx op state
+    match action with
+    | .continue => interpretOpList' ctx rest state
+    | .return results => none
 
 def LocalRewritePattern.PreservesSemantics (pattern : LocalRewritePattern) : Prop :=
   ∀ (ctx : IRContext) (op : OperationPtr) (opIn : op.InBounds ctx) newCtx newOps newValue,
     pattern ctx op = some (newCtx, some (newOps, #[newValue])) →
     ∀ state newState, interpretOp ctx op state = some (newState, .continue) →
-    ∃ newState', interpretOpArray ctx newOps state 0 (by sorry) (by sorry) = some newState' ∧
+    ∃ newState', interpretOpList' ctx newOps.toList state (by sorry) = some newState' ∧
     newState'.variables[newValue]! = newState.variables[ValuePtr.opResult (op.getResult 0)]!

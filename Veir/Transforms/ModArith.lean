@@ -235,7 +235,13 @@ theorem barretReduceRewriterPreservesSemantics : LocalRewritePattern.PreservesSe
   split at hpattern; grind
   split at hpattern; grind
   simp only [Option.bind_eq_some_iff] at hpattern
-  have ⟨firstOp, ⟨hfirst, hpattern⟩⟩ := hpattern
+  have ⟨⟨ctx₀, op₀⟩, hop₀, ⟨ctx₁, op₁⟩, hop₁, ⟨ctx₂, op₂⟩, hop₂, ⟨ctx₃, op₃⟩, hop₃, ⟨ctx₄, op₄⟩, hop₄, ⟨ctx₅, op₅⟩, hop₅, ⟨ctx₆, op₆⟩, hop₆, ⟨ctx₇, op₇⟩, hop₇, ⟨ctx₈, op₈⟩, hop₈, h⟩ := hpattern
+  clear hpattern
+  simp only [Option.some.injEq, Prod.mk.injEq, Array.mk.injEq, List.cons.injEq, and_true] at h
+  have ⟨hnewCtx, hNewOps, hnewValue⟩ := h; clear h
+  subst newCtx newOps newValue
+  simp only [interpretOpList', interpretOp, Std.Rco.size_toArray, Nat.size_rco, Nat.sub_zero,
+    Option.pure_def, Option.bind_eq_bind]
   sorry
 
 end Veir.Transforms.ModArith
