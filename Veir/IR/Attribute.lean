@@ -258,7 +258,7 @@ decreasing_by grind
 
 def DictionaryAttr.toString (attr : DictionaryAttr) : String :=
   let entries := attr.entries.toList.map DictionaryAttr.entryToString
-  s!"\{{String.intercalate ", " entries}}"
+  s!"\{ {String.intercalate ", " entries} }"
 termination_by sizeOf attr
 decreasing_by
   rename_i entry _
