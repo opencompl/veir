@@ -236,5 +236,6 @@ theorem barretReduceRewriterPreservesSemantics : LocalRewritePattern.PreservesSe
   split at hpattern; grind
   simp only [Option.bind_eq_some_iff] at hpattern
   have ⟨firstOp, ⟨hfirst, hpattern⟩⟩ := hpattern
+  sorry
 
 end Veir.Transforms.ModArith
