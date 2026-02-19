@@ -115,7 +115,7 @@ def matchingBracket! (kind : TokenKind) : TokenKind :=
 private def parseUnregisteredAttrBody (startPos : Option Nat := none) : AttrParserM String := do
   let startPos := startPos.getD (← peekToken).slice.start
 
-  /- This stack corresponds to the brackets that are still opened. -/
+  /- This stack corresponds to the brackets that are still open. -/
   let mut bracketStack : Array TokenKind := #[]
   let mut endPos : Nat := 0
 
