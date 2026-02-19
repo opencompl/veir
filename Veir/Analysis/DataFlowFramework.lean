@@ -35,41 +35,44 @@ def WorkList := Queue WorkItem
 -- These structures contain a `BaseAnalysisState` along with anything else it needs.
 -- `AnalysisState` is used to allow for dynamic dispatch (runtime polymorphism).
 class Update (State : Type u) (Ctx : Type v) where
-  onUpdate : State -> WorkList -> Ctx -> WorkList 
+  onUpdate : State -> WorkList -> Ctx -> (WorkList × Ctx)
 
 structure BaseAnalysisState where
   anchor : LatticeAnchor
   dependents : Array WorkItem 
 
 instance : Update BaseAnalysisState Unit where
-  onUpdate (state : BaseAnalysisState) (workList : WorkList) (_: Unit) : WorkList := Id.run do
+  onUpdate (state : BaseAnalysisState) (workList : WorkList) (_: Unit) : (WorkList × Unit) := Id.run do
     let mut workList := workList 
     for workItem in state.dependents do
       workList := workList.enqueue workItem
-    workList 
+    ⟨ workList, () ⟩  
 
 structure AnalysisState where
-  impl : Type -- struct that contains a BaseAnalysisState and some lattice element
-  ctx : Type -- Used only for LatticeContext
+  impl : Type u -- struct that contains a BaseAnalysisState and some lattice element
+  ctx : Type v -- Used only for LatticeContext
   inst : Update impl ctx
 
 -- =============================================================================== -- 
 
 def LatticeContext := HashMap LatticeAnchor AnalysisState
 
-structure AbstractSparseLatticeStateImpl where
-  base : BaseAnalysisState
+structure AbstractSparseLatticeStateImpl extends BaseAnalysisState where
   useDefSubscribers : Array DataFlowAnalysis 
 
-let AbstractSparseLatticeState := { impl := AbstractSparseLatticeStateImpl; ctx := LatticeContext; inst := Update 
-
-instance : Update AbstractSparseLatticeState LatticeContext where
-  onUpdate (state : AbstractSparseLatticeState) (workList : WorkList) (ctx : LatticeContext) : WorkList := Id.run do
-    let mut workList := state.base.onUpdate workList () 
+instance : Update AbstractSparseLatticeStateImpl LatticeContext where
+  onUpdate (state: AbstractSparseLatticeStateImpl) (workList : WorkList) (ctx : LatticeContext) : WorkList := Id.run do 
+    let mut workList := state.toBaseAnalysisState.onUpdate state workList Unit
     workList
+
+def AbstractSparseLatticeState : AnalysisState :=
+  { impl := AbstractSparseLatticeStateImpl
+    ctx := LatticeContext 
+    inst := inferInstance }
+
 /- void AbstractSparseLattice::onUpdate(DataFlowSolver *solver) const { -/
 /-   AnalysisState::onUpdate(solver); -/
-/--/
+/- -/
 /-   // Push all users of the value to the queue. -/
 /-   for (Operation *user : cast<Value>(anchor).getUsers()) -/
 /-     for (DataFlowAnalysis *analysis : useDefSubscribers) -/
