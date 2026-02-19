@@ -10,6 +10,26 @@ inductive ChangeResult where
   | change
   | noChange
 
+class Join (α : Type) where
+  join : α -> α -> α  
+
+class Meet (α : Type) where
+  meet : α -> α -> α  
+
+structure ConstantValue where
+  constant: Option Nat 
+
+instance : Join ConstantValue where
+  join (lhs rhs : ConstantValue) : ConstantValue :=
+    if lhs.constant.isNone then
+      rhs
+    else if rhs.constant.isNone then
+      lhs
+    else if lhs.constant == rhs.constant then
+      lhs
+    else
+      ⟨ none ⟩ 
+
 -- ====================== Example `AnalysisState` Children ======================= -- 
 structure AbstractSparseLatticeState extends BaseAnalysisState where
   useDefSubscribers : Array DataFlowAnalysis
@@ -23,6 +43,7 @@ instance : Update AbstractSparseLatticeState DataFlowContext where
 structure LatticeState extends AbstractSparseLatticeState where
   ValueT : Type
   value : ValueT
+  join : Join ValueT 
 
 instance : Update LatticeState DataFlowContext where
   onUpdate state ctx :=
@@ -30,12 +51,6 @@ instance : Update LatticeState DataFlowContext where
       state.toAbstractSparseLatticeState
       ctx
 
-namespace LatticeState
-
-def join (lhs : LatticeState) (rhs : AbstractSparseLatticeState) : ChangeResult :=
-  sorry
-
-end LatticeState
 -- =============================================================================== -- 
 
 -- ===================== Example `DataFlowAnalysis` Children ===================== -- 
