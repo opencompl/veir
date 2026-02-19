@@ -56,7 +56,7 @@ instance : Repr StringAttr where
   reprPrec attr _ := "StringAttr.mk " ++ repr (String.fromUTF8! attr.value)
 
 /--
-  A unit attribute that carries no information.
+  A unit attribute that carries no information, but the information that it exists.
 -/
 structure UnitAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
