@@ -21,7 +21,7 @@ deriving BEq, Hashable
 
 -- =============================== DataFlowAnalysis ============================== -- 
 structure DataFlowAnalysis where -- record-of-functions style
-  ctx : Type -- Used only for LatticeContext
+  ctx : Type u -- Always `DataFlowContext`
   init : OperationPtr -> ctx -> ctx
   visit : ProgramPoint -> ctx -> ctx
 -- =============================================================================== -- 
@@ -33,7 +33,7 @@ def WorkList := Queue WorkItem
 
 -- ================================ AnalysisState ================================ -- 
 -- Lattice Elements are stored in structures that implement the `Update` typeclass.
--- These structures contain a `BaseAnalysisState` along with anything else it needs.
+-- These structures extend `BaseAnalysisState` along storing with anything else it needs.
 -- `AnalysisState` is used to allow for dynamic dispatch (runtime polymorphism).
 class Update (State : Type u) (Ctx : Type v) where
   onUpdate : State -> Ctx -> Ctx
@@ -49,8 +49,8 @@ def BaseAnalysisState.onUpdate (state : BaseAnalysisState) (workList : WorkList)
   workList  
 
 structure AnalysisState where -- record-of-functions style
-  impl : Type u -- struct that contains a BaseAnalysisState and some lattice element
-  ctx : Type v
+  impl : Type u -- struct that extends `BaseAnalysisState` and contains some extra data
+  ctx : Type v -- Always `DataFlowContext`
   value : impl
   onUpdate : Update impl ctx
 
@@ -64,8 +64,24 @@ structure DataFlowContext where
 instance : Coe DataFlowContext WorkList where
   coe ctx := ctx.workList
 
+def DataFlowAnalysis.new
+    (init : OperationPtr -> DataFlowContext -> DataFlowContext)
+    (visit : ProgramPoint -> DataFlowContext -> DataFlowContext) : DataFlowAnalysis :=
+  { ctx := DataFlowContext
+    init := init
+    visit := visit
+  }
+
+def AnalysisState.new (value : Impl) [Update Impl DataFlowContext] : AnalysisState :=
+  { impl := Impl 
+    ctx := DataFlowContext 
+    value := value
+    onUpdate := inferInstance
+  }
+
 -- =============================================================================== -- 
 
+-- ====================== Example `AnalysisState` Children ======================= -- 
 structure AbstractSparseLatticeState extends BaseAnalysisState where
   useDefSubscribers : Array DataFlowAnalysis 
 
@@ -75,13 +91,6 @@ instance : Update AbstractSparseLatticeState DataFlowContext where
     -- Do some other stuff...
     ctx
      
-def mkAbstractSparseLatticeState (value : AbstractSparseLatticeState) : AnalysisState :=
-  { impl := AbstractSparseLatticeState 
-    ctx := DataFlowContext
-    value := value 
-    onUpdate := inferInstance 
-  }
-
 structure ConstantLatticeState extends AbstractSparseLatticeState where
   value : ValuePtr
 
@@ -90,19 +99,10 @@ instance : Update ConstantLatticeState DataFlowContext where
     Update.onUpdate
       state.toAbstractSparseLatticeState
       ctx
+-- =============================================================================== -- 
 
-/- void AbstractSparseLattice::onUpdate(DataFlowSolver *solver) const { -/
-/-   AnalysisState::onUpdate(solver); -/
-/- -/
-/-   // Push all users of the value to the queue. -/
-/-   for (Operation *user : cast<Value>(anchor).getUsers()) -/
-/-     for (DataFlowAnalysis *analysis : useDefSubscribers) -/
-/-       solver->enqueue({solver->getProgramPointAfter(user), analysis}); -/
-/- } -/
-
-
-def fixpointSolve (top: OperationPtr) (analyses : Array DataFlowAnalysis) : LatticeContext :=
-  let latticeCtx : LatticeContext := sorry
+def fixpointSolve (top: OperationPtr) (analyses : Array DataFlowAnalysis) : DataFlowContext :=
+  let latticeCtx : DataFlowContext := ⟨ .emptyWithCapacity , .empty ⟩  
   sorry
 
 end Veir
