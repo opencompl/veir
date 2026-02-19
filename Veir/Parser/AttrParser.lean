@@ -128,7 +128,7 @@ private def parseUnregisteredAttrBody (startPos : Option Nat := none) : AttrPars
       let _ ← consumeToken
       bracketStack := bracketStack.push token.kind
 
-    /- Closing a bracket -/
+    /- Close a bracket -/
     else if isClosingBracket token.kind then
       let expected := matchingBracket! token.kind
       let closingName := match token.kind with
