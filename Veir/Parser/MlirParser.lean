@@ -260,7 +260,7 @@ def parseOpProperties (opCode : OpCode) : MlirParserM (propertiesOf opCode) := d
   | .ok (properties, _, parserState) =>
     set parserState
     parsePunctuation ">"
-    match Properties.fromAttrDict opCode (Std.HashMap.ofArray properties) with
+    match Properties.fromAttrDict opCode (.ofArray properties) with
     | .ok properties => return properties
     | .error err => throw err
   | .error err => throw err
