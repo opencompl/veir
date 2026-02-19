@@ -270,11 +270,13 @@ def parseOpProperties (opCode : OpCode) : MlirParserM (propertiesOf opCode) := d
   Currently, these attributes are not stored in the IR, but we still need to parse them to be able
   to parse valid MLIR syntax.
 -/
-def parseOpAttributes : MlirParserM Unit := do
+def parseOpAttributes : MlirParserM DictionaryAttr := do
   match AttrParser.parseOptionalAttributeDictionary.run AttrParserState.mk (← getThe ParserState) with
-  | .ok (_, _, parserState) =>
+  | .ok (attrs, _, parserState) =>
     set parserState
-    return ()
+    match attrs with
+    | none => return DictionaryAttr.empty
+    | some attrs => return DictionaryAttr.fromArray attrs
   | .error err => throw err
 
 set_option warn.sorry false in
@@ -339,7 +341,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
 
   let properties ← parseOpProperties opId
   let regions ← parseOpRegions
-  parseOpAttributes
+  let attrs ← parseOpAttributes
   let (inputTypes, outputTypes) ← parseOperationType
 
   /- Check that the number of results matches with the operation type. -/
@@ -357,6 +359,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
 
   let some (ctx, op) := Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
       | throw "internal error: failed to create operation"
+  let ctx := op.setAttributes! ctx attrs
 
   /- Update the parser context. -/
   setContext ctx

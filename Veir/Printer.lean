@@ -97,21 +97,26 @@ def printBlockOperands (ctx: IRContext) (op: OperationPtr) : IO Unit := do
     IO.print s!", ^{(op.getSuccessor! ctx index).id}"
   IO.print "]"
 
+def printAttrDictEntry (key : String) (value : Attribute) : IO Unit := do
+  if value = UnitAttr.mk then
+    IO.print s!"\"{key}\""
+  else
+    IO.print s!"\"{key}\" = {value}"
+
+def printOpAttrDict (ctx : IRContext) (op : OperationPtr) : IO Unit := do
+  let attrs := (op.get! ctx).attrs
+  if attrs.entries.size = 0 then return
+  IO.print " "
+  IO.print (op.get! ctx).attrs
+
 def printOpProperties (ctx : IRContext) (op : OperationPtr) : IO Unit := do
   let opType := (op.get! ctx).opType
   let properties := op.getProperties! ctx opType
   let attrDict := Properties.toAttrDict opType properties
   if attrDict.size = 0 then return
-  IO.print " <{ "
-  let mut first := true
-  for (key, value) in attrDict.toList do
-    if !first then
-      IO.print ", "
-    IO.print s!"\"{String.fromUTF8! key}\""
-    if value ≠ UnitAttr.mk then
-      IO.print s!" = {value}"
-    first := false
-  IO.print " }>"
+  IO.print " <"
+  IO.print (DictionaryAttr.fromArray attrDict.toArray)
+  IO.print ">"
 
 mutual
 partial def printOpList (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
@@ -178,6 +183,7 @@ partial def printOperation (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0
   if op.getNumRegions! ctx > 0 then
     IO.print " "
     printRegions ctx op indent
+  printOpAttrDict ctx op
   printOperationType ctx op
   IO.println ""
 end

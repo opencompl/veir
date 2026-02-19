@@ -35,7 +35,6 @@ instance : Hashable RegionPtr where
   hash regionPtr := hash regionPtr.id
 
 abbrev Location := Unit
-abbrev AttrDictionary := Unit
 
 /-
 - A pointer to an operation result.
@@ -174,7 +173,7 @@ structure Operation where
   -- location: Location
   -- orderIndex: Nat
   opType: OpCode
-  attrs: AttrDictionary
+  attrs: DictionaryAttr
   -- This should be replaced with an arbitrary user object
   properties: propertiesOf opType
   blockOperands: Array BlockOperand
@@ -233,7 +232,7 @@ def Operation.empty (opType: OpCode) (prop : propertiesOf opType) : Operation :=
     next := none
     parent := none
     opType := opType
-    attrs := ()
+    attrs := DictionaryAttr.empty
     properties := prop
     blockOperands := #[]
     regions := #[]
@@ -587,6 +586,20 @@ def pushOperand! (op : OperationPtr) (ctx : IRContext) (operands : OpOperand) : 
 theorem pushOperand!_eq_pushOperand {op : OperationPtr} (inBounds: op.InBounds ctx) :
     op.pushOperand! ctx operands = op.pushOperand ctx operands inBounds := by
   grind [pushOperand, pushOperand!]
+
+def setAttributes (op: OperationPtr) (ctx: IRContext) (newAttrs: DictionaryAttr)
+    (inBounds: op.InBounds ctx := by grind) : IRContext :=
+  let oldOp := op.get ctx
+  op.set ctx { oldOp with attrs := newAttrs}
+
+def setAttributes! (op: OperationPtr) (ctx: IRContext) (newAttrs: DictionaryAttr) : IRContext :=
+  let oldOp := op.get! ctx
+  op.set ctx { oldOp with attrs := newAttrs}
+
+@[grind _=_]
+theorem setAttributes!_eq_setAttributes {op : OperationPtr} (inBounds: op.InBounds ctx) :
+    op.setAttributes! ctx newAttrs = op.setAttributes ctx newAttrs inBounds := by
+  grind [setAttributes, setAttributes!]
 
 @[inline]
 def getProperties (op : OperationPtr) (ctx : IRContext) (opCode : OpCode)
