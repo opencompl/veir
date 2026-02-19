@@ -146,6 +146,20 @@ inductive Riscv where
 | packh
 | packw
 
+@[opcodes]
+inductive Mod_Arith where
+| add
+| barrett_reduce
+| constant
+| encapsulate
+| extract
+| mac
+| mod_switch
+| mul
+| reduce
+| subifge
+| sub
+
 
 public section
 

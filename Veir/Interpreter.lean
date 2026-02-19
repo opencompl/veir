@@ -27,11 +27,81 @@ namespace Veir
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
+| modInt (modulus : Int) (value : Int)
 deriving Inhabited
 
 instance : ToString (RuntimeValue) where
   toString
     | .int _ val => ToString.toString val
+    | .modInt modulus value => s!"{value} (mod {modulus})"
+
+/--
+  Normalize an integer in `Z/modulusZ`.
+  Returns `none` if `modulus <= 0`.
+-/
+def normalizeMod? (modulus value : Int) : Option Int := do
+  if modulus <= 0 then
+    none
+  else
+    let reduced := value % modulus
+    if reduced < 0 then
+      some (reduced + modulus)
+    else
+      some reduced
+
+/--
+  Convert a runtime value to an integer.
+  Poison values are not supported by the current mod-arith semantics.
+-/
+def RuntimeValue.toInt? : RuntimeValue → Option Int
+  | .int _ (.val value) => some value.toNat
+  | .int _ .poison => none
+  | .modInt _ value => some value
+
+/--
+  Interpret a runtime value under a target modulus.
+  If `strictModulus` is true, a `modInt` value must already carry the same modulus.
+-/
+def RuntimeValue.toModInt? (self : RuntimeValue) (modulus : Int) (strictModulus : Bool := false) :
+    Option Int := do
+  match self with
+  | .modInt currentModulus value =>
+    if strictModulus && currentModulus ≠ modulus then
+      none
+    else
+      normalizeMod? modulus value
+  | _ =>
+    normalizeMod? modulus (← self.toInt?)
+
+/--
+  Build a runtime value for an integer type.
+  Negative integers are currently unsupported in this conversion.
+-/
+def mkIntegerRuntimeValue? (bitwidth : Nat) (value : Int) : Option RuntimeValue := do
+  if value < 0 then
+    none
+  else
+    some (.int bitwidth (.val (BitVec.ofNat bitwidth value.toNat)))
+
+/--
+  Build a runtime value for a result type from a mathematical integer value.
+-/
+def mkRuntimeValueForType? (resultType : TypeAttr) (value : Int) : Option RuntimeValue := do
+  match resultType.val with
+  | .integerType intType =>
+    mkIntegerRuntimeValue? intType.bitwidth value
+  | .modArithType modType =>
+    let normalized ← normalizeMod? modType.modulus value
+    some (.modInt modType.modulus normalized)
+  | _ =>
+    none
+
+/--
+  Get the type of a result by index.
+-/
+def Operation.resultType? (op : Operation) (index : Nat := 0) : Option TypeAttr := do
+  let result ← op.results[index]?
+  pure result.type
 
 /--
   The state of the interpreter at a given point in time.
@@ -93,6 +163,94 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (lhs + rhs)], .continue)
+  | .mod_arith_constant => do
+    let resultType ← op.resultType?
+    let .modArithType modType := resultType.val
+      | none
+    let valueProp := opPtr.getProperties! ctx .mod_arith_constant
+    let value ← normalizeMod? modType.modulus valueProp.value.value
+    return (#[.modInt modType.modulus value], .continue)
+  | .mod_arith_add => do
+    let resultType ← op.resultType?
+    let .modArithType modType := resultType.val
+      | none
+    let #[lhs, rhs] := operands | none
+    let lhs ← lhs.toModInt? modType.modulus true
+    let rhs ← rhs.toModInt? modType.modulus true
+    let value ← normalizeMod? modType.modulus (lhs + rhs)
+    return (#[.modInt modType.modulus value], .continue)
+  | .mod_arith_sub => do
+    let resultType ← op.resultType?
+    let .modArithType modType := resultType.val
+      | none
+    let #[lhs, rhs] := operands | none
+    let lhs ← lhs.toModInt? modType.modulus true
+    let rhs ← rhs.toModInt? modType.modulus true
+    let value ← normalizeMod? modType.modulus (lhs - rhs)
+    return (#[.modInt modType.modulus value], .continue)
+  | .mod_arith_mul => do
+    let resultType ← op.resultType?
+    let .modArithType modType := resultType.val
+      | none
+    let #[lhs, rhs] := operands | none
+    let lhs ← lhs.toModInt? modType.modulus true
+    let rhs ← rhs.toModInt? modType.modulus true
+    let value ← normalizeMod? modType.modulus (lhs * rhs)
+    return (#[.modInt modType.modulus value], .continue)
+  | .mod_arith_mac => do
+    let resultType ← op.resultType?
+    let .modArithType modType := resultType.val
+      | none
+    let #[lhs, rhs, acc] := operands | none
+    let lhs ← lhs.toModInt? modType.modulus true
+    let rhs ← rhs.toModInt? modType.modulus true
+    let acc ← acc.toModInt? modType.modulus true
+    let value ← normalizeMod? modType.modulus (lhs * rhs + acc)
+    return (#[.modInt modType.modulus value], .continue)
+  | .mod_arith_reduce => do
+    let resultType ← op.resultType?
+    let .modArithType modType := resultType.val
+      | none
+    let #[value] := operands | none
+    let value ← value.toModInt? modType.modulus
+    return (#[.modInt modType.modulus value], .continue)
+  | .mod_arith_barrett_reduce => do
+    let resultType ← op.resultType?
+    let .modArithType modType := resultType.val
+      | none
+    let #[value] := operands | none
+    let value ← value.toModInt? modType.modulus
+    return (#[.modInt modType.modulus value], .continue)
+  | .mod_arith_encapsulate => do
+    let resultType ← op.resultType?
+    let .modArithType modType := resultType.val
+      | none
+    let #[value] := operands | none
+    let value ← value.toModInt? modType.modulus
+    return (#[.modInt modType.modulus value], .continue)
+  | .mod_arith_mod_switch => do
+    let resultType ← op.resultType?
+    let .modArithType modType := resultType.val
+      | none
+    let #[value] := operands | none
+    let value ← value.toModInt? modType.modulus
+    return (#[.modInt modType.modulus value], .continue)
+  | .mod_arith_subifge => do
+    let resultType ← op.resultType?
+    let .modArithType modType := resultType.val
+      | none
+    let #[lhs, rhs] := operands | none
+    let lhs ← lhs.toModInt? modType.modulus true
+    let rhs ← rhs.toModInt? modType.modulus true
+    let value := if lhs >= rhs then lhs - rhs else lhs
+    let value ← normalizeMod? modType.modulus value
+    return (#[.modInt modType.modulus value], .continue)
+  | .mod_arith_extract => do
+    let resultType ← op.resultType?
+    let #[value] := operands | none
+    let value ← value.toInt?
+    let resultValue ← mkRuntimeValueForType? resultType value
+    return (#[resultValue], .continue)
   | .func_return => do
     return (#[], .return operands)
   | _ => none
