@@ -82,11 +82,12 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
   let op := opPtr.get ctx (by grind)
   match op.opType with
   | .arith_constant => do
-    let value := op.properties
+    let value := opPtr.getProperties! ctx .arith_constant
     let res ← op.results[0]?
     let .integerType bw := res.type.val
       | none
-    return (#[.int bw.bitwidth (.val (BitVec.ofNat bw.bitwidth value.toNat))], .continue)
+    return (#[.int bw.bitwidth
+      (.val (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
   | .arith_addi => do
     let #[.int bw lhs, .int bw' rhs] := operands | none
     if h: bw' ≠ bw then none else

@@ -24,7 +24,7 @@ setup_grind_with_get_set_definitions
  -   * Operation.parent
  -   * Operation.opType
  -   * Operation.attrs
- -   * Operation.properties
+ - * Operation.getProperties!
  - * OperationPtr.getNumResults!
  - * OpResultPtr.get!
  - * OperationPtr.getNumOperands!
@@ -49,108 +49,108 @@ setup_grind_with_get_set_definitions
 
 @[simp, grind =>]
 theorem BlockPtr.get!_OperationPtr_allocEmpty {block : BlockPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     block.get! ctx' = block.get! ctx := by
   grind
 
 @[grind =>]
 theorem OperationPtr.get!_OperationPtr_allocEmpty {operation : OperationPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     operation.get! ctx' =
-    if operation = op' then Operation.empty ty else operation.get! ctx := by
+    if operation = op' then Operation.empty ty properties else operation.get! ctx := by
   grind
 
 @[grind =>]
 theorem OperationPtr.getNumResults!_OperationPtr_allocEmpty {operation : OperationPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     operation.getNumResults! ctx' =
     if operation = op' then 0 else operation.getNumResults! ctx := by
   grind
 
 @[grind =>]
 theorem OpResultPtr.get!_OperationPtr_allocEmpty {opResult : OpResultPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     opResult.get! ctx' = opResult.get! ctx := by
   grind [Operation.default_results_eq]
 
 @[grind =>]
 theorem OperationPtr.getNumOperands!_OperationPtr_allocEmpty {operation : OperationPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     operation.getNumOperands! ctx' =
     if operation = op' then 0 else operation.getNumOperands! ctx := by
   grind
 
 @[simp, grind =>]
 theorem OpOperandPtr.get!_OperationPtr_allocEmpty  {opOperand : OpOperandPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     opOperand.get! ctx' = opOperand.get! ctx := by
   grind [Operation.default_operands_eq]
 
 @[grind =>]
 theorem OperationPtr.getNumSuccessors!_OperationPtr_allocEmpty {operation : OperationPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     operation.getNumSuccessors! ctx' =
     if operation = op' then 0 else operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =>]
 theorem BlockOperandPtr.get!_OperationPtr_allocEmpty {blockOperand : BlockOperandPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     blockOperand.get! ctx' = blockOperand.get! ctx := by
   grind [Operation.default_blockOperands_eq]
 
 @[grind =>]
 theorem OperationPtr.getNumRegions!_OperationPtr_allocEmpty {operation : OperationPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     operation.getNumRegions! ctx' =
     if operation = op' then 0 else operation.getNumRegions! ctx := by
   grind
 
 @[simp, grind =>]
 theorem OperationPtr.getRegion!_OperationPtr_allocEmpty  {operation : OperationPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     operation.getRegion! ctx' i = operation.getRegion! ctx i := by
   grind [Operation.default_regions_eq]
 
 @[simp, grind =>]
 theorem BlockOperandPtrPtr.get!_OperationPtr_allocEmpty {blockOperandPtr : BlockOperandPtrPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     blockOperandPtr.get! ctx' = blockOperandPtr.get! ctx := by
   grind
 
 @[simp, grind =>]
 theorem BlockPtr.getNumArguments!_OperationPtr_allocEmpty {block : BlockPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     block.getNumArguments! ctx' = block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =>]
 theorem BlockArgumentPtr.get!_OperationPtr_allocEmpty {blockArg : BlockArgumentPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     blockArg.get! ctx' = blockArg.get! ctx := by
   grind
 
 @[simp, grind =>]
 theorem RegionPtr.get!_OperationPtr_allocEmpty {region : RegionPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     region.get! ctx' = region.get! ctx := by
   grind
 
 @[simp, grind =>]
 theorem ValuePtr.getFirstUse!_OperationPtr_allocEmpty {value : ValuePtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     value.getFirstUse! ctx' = value.getFirstUse! ctx := by
   grind
 
 @[simp, grind =>]
 theorem ValuePtr.getType!_OperationPtr_allocEmpty {value : ValuePtr}
-    (h : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (h : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     value.getType! ctx' = value.getType! ctx := by
   grind
 
 @[simp, grind =>]
 theorem OpOperandPtrPtr.get!_OperationPtr_allocEmpty {opOperandPtr : OpOperandPtrPtr}
-    (heq : OperationPtr.allocEmpty ctx ty = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
     opOperandPtr.get! ctx' = opOperandPtr.get! ctx := by
   grind
 
@@ -167,6 +167,13 @@ theorem OperationPtr.get!_OperationPtr_dealloc {operation : OperationPtr} :
     operation.InBounds (OperationPtr.dealloc operation' ctx hop') →
     operation.get! (OperationPtr.dealloc operation' ctx hop') =
     operation.get! ctx := by
+  grind [OperationPtr.InBounds]
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_dealloc {operation : OperationPtr} :
+    operation.InBounds (OperationPtr.dealloc operation' ctx hop') →
+    operation.getProperties! (OperationPtr.dealloc operation' ctx hop') opCode =
+    operation.getProperties! ctx opCode := by
   grind [OperationPtr.InBounds]
 
 @[simp, grind =]
@@ -289,6 +296,12 @@ theorem OperationPtr.get!_OperationPtr_setOperands {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_setOperands {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.setOperands operation' ctx newOperands hop') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OperationPtr_setOperands {operation : OperationPtr} :
     (operation.get! (OperationPtr.setOperands operation' ctx newOperands hop')).prev =
     (operation.get! ctx).prev := by
@@ -316,12 +329,6 @@ theorem OperationPtr.opType!_OperationPtr_setOperands {operation : OperationPtr}
 theorem OperationPtr.attrs!_OperationPtr_setOperands {operation : OperationPtr} :
     (operation.get! (OperationPtr.setOperands operation' ctx newOperands hop')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_setOperands {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setOperands operation' ctx newOperands hop')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -445,6 +452,12 @@ theorem OperationPtr.get!_OperationPtr_pushOperand {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_pushOperand {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.pushOperand operation' ctx newOperand hop') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OperationPtr_pushOperand {operation : OperationPtr} :
     (operation.get! (OperationPtr.pushOperand operation' ctx newOperand hop')).prev =
     (operation.get! ctx).prev := by
@@ -472,12 +485,6 @@ theorem OperationPtr.opType!_OperationPtr_pushOperand {operation : OperationPtr}
 theorem OperationPtr.attrs!_OperationPtr_pushOperand {operation : OperationPtr} :
     (operation.get! (OperationPtr.pushOperand operation' ctx newOperand hop')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_pushOperand {operation : OperationPtr} :
-    (operation.get! (OperationPtr.pushOperand operation' ctx newOperand hop')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -601,6 +608,12 @@ theorem OperationPtr.get!_OperationPtr_setBlockOperands {operation : OperationPt
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_setBlockOperands {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.setBlockOperands operation' ctx newOperands hop') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OperationPtr_setBlockOperands {operation : OperationPtr} :
     (operation.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop')).prev =
     (operation.get! ctx).prev := by
@@ -628,12 +641,6 @@ theorem OperationPtr.opType!_OperationPtr_setBlockOperands {operation : Operatio
 theorem OperationPtr.attrs!_OperationPtr_setBlockOperands {operation : OperationPtr} :
     (operation.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_setBlockOperands {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setBlockOperands operation' ctx newOperands hop')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -757,6 +764,12 @@ theorem OperationPtr.get!_OperationPtr_pushBlockOperand {operation : OperationPt
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.pushBlockOperand operation' ctx newOperand hop') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
     (operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop')).prev =
     (operation.get! ctx).prev := by
@@ -784,12 +797,6 @@ theorem OperationPtr.opType!_OperationPtr_pushBlockOperand {operation : Operatio
 theorem OperationPtr.attrs!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
     (operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
-    (operation.get! (OperationPtr.pushBlockOperand operation' ctx newOperand hop')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -909,6 +916,12 @@ theorem OperationPtr.get!_OperationPtr_setResults {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_setResults {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.setResults operation' ctx newResults hop') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OperationPtr_setResults {operation : OperationPtr} :
     (operation.get! (OperationPtr.setResults operation' ctx newResults hop')).prev =
     (operation.get! ctx).prev := by
@@ -936,12 +949,6 @@ theorem OperationPtr.opType!_OperationPtr_setResults {operation : OperationPtr} 
 theorem OperationPtr.attrs!_OperationPtr_setResults {operation : OperationPtr} :
     (operation.get! (OperationPtr.setResults operation' ctx newResults hop')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_setResults {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setResults operation' ctx newResults hop')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[grind =]
@@ -1079,6 +1086,12 @@ theorem OperationPtr.get!_OperationPtr_pushResult {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_pushResult {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.pushResult operation' ctx newResult hop') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OperationPtr_pushResult {operation : OperationPtr} :
     (operation.get! (OperationPtr.pushResult operation' ctx newResult hop')).prev =
     (operation.get! ctx).prev := by
@@ -1106,12 +1119,6 @@ theorem OperationPtr.opType!_OperationPtr_pushResult {operation : OperationPtr} 
 theorem OperationPtr.attrs!_OperationPtr_pushResult {operation : OperationPtr} :
     (operation.get! (OperationPtr.pushResult operation' ctx newResult hop')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_pushResult {operation : OperationPtr} :
-    (operation.get! (OperationPtr.pushResult operation' ctx newResult hop')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[grind =]
@@ -1223,145 +1230,160 @@ theorem OpOperandPtrPtr.get!_OperationPtr_pushResult {opOperandPtr : OpOperandPt
 
 @[simp, grind =]
 theorem BlockPtr.get!_OperationPtr_setProperties {block : BlockPtr} :
-    block.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    block.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     block.get! ctx := by
   grind
 
 @[grind =]
 theorem OperationPtr.get!_OperationPtr_setProperties {operation : OperationPtr} :
-    operation.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    operation.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     if operation = operation' then
-      { operation.get! ctx with properties := newProperties }
+      { operation.get! ctx with opType := (operation'.get! ctx).opType, properties := newProperties }
     else
       operation.get! ctx := by
   grind
 
+@[grind =]
+theorem OperationPtr.getProperties!_OperationPtr_setProperties {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.setProperties (opCode := opCode') operation' ctx newProperties inBounds hprop) opCode =
+    if operation = operation' then
+      if h : opCode = opCode' then
+        h ▸ newProperties
+      else
+        default
+    else
+      operation.getProperties! ctx opCode := by
+  grind
+
+/- We probably do not want both this lemma and the previous one to be grind.
+  TODO: make a decision about this
+-/
+@[grind =]
+theorem OperationPtr.getProperties!_OperationPtr_setProperties_same_opCode {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.setProperties (opCode := opCode) operation' ctx newProperties inBounds hprop) opCode =
+    if operation = operation' then
+      newProperties
+    else
+      operation.getProperties! ctx opCode := by
+  grind
+
 @[simp, grind =]
 theorem OperationPtr.prev!_OperationPtr_setProperties {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setProperties operation' ctx newProperties hop')).prev =
+    (operation.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop)).prev =
     (operation.get! ctx).prev := by
   grind
 
 @[simp, grind =]
 theorem OperationPtr.next!_OperationPtr_setProperties {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setProperties operation' ctx newProperties hop')).next =
+    (operation.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop)).next =
     (operation.get! ctx).next := by
   grind
 
 @[simp, grind =]
 theorem OperationPtr.parent!_OperationPtr_setProperties {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setProperties operation' ctx newProperties hop')).parent =
+    (operation.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop)).parent =
     (operation.get! ctx).parent := by
   grind
 
 @[simp, grind =]
 theorem OperationPtr.opType!_OperationPtr_setProperties {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setProperties operation' ctx newProperties hop')).opType =
+    (operation.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop)).opType =
     (operation.get! ctx).opType := by
   grind
 
 @[simp, grind =]
 theorem OperationPtr.attrs!_OperationPtr_setProperties {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setProperties operation' ctx newProperties hop')).attrs =
+    (operation.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop)).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[grind =]
-theorem OperationPtr.properties!_OperationPtr_setProperties {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setProperties operation' ctx newProperties hop')).properties =
-    if operation = operation' then
-      newProperties
-    else
-      (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_OperationPtr_setProperties {operation : OperationPtr} :
-    operation.getNumResults! (OperationPtr.setProperties operation' ctx hop' newProperties) =
+    operation.getNumResults! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     operation.getNumResults! ctx := by
   grind
 
 @[simp, grind =]
 theorem OpResultPtr.get!_OperationPtr_setProperties {opResult : OpResultPtr} :
-    opResult.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    opResult.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     opResult.get! ctx := by
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands!_OperationPtr_setProperties {operation : OperationPtr} :
-    operation.getNumOperands! (OperationPtr.setProperties operation' ctx hop' newProperties) =
+    operation.getNumOperands! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     operation.getNumOperands! ctx := by
   grind
 
 @[simp, grind =]
 theorem OpOperandPtr.get!_OperationPtr_setProperties {opOperand : OpOperandPtr} :
-    opOperand.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    opOperand.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     opOperand.get! ctx := by
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_OperationPtr_setProperties {operation : OperationPtr} :
-    operation.getNumSuccessors! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    operation.getNumSuccessors! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     operation.getNumSuccessors! ctx := by
   grind
 
 @[simp, grind =]
 theorem BlockOperandPtr.get!_OperationPtr_setProperties {blockOperand : BlockOperandPtr} :
-    blockOperand.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    blockOperand.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     blockOperand.get! ctx := by
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_OperationPtr_setProperties {operation : OperationPtr} :
-    operation.getNumRegions! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    operation.getNumRegions! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     operation.getNumRegions! ctx := by
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OperationPtr_setProperties {operation : OperationPtr} :
-    operation.getRegion! (OperationPtr.setProperties operation' ctx newProperties hop') i =
+    operation.getRegion! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) i =
     operation.getRegion! ctx i := by
   grind
 
 @[simp, grind =]
 theorem BlockOperandPtrPtr.get!_OperationPtr_setProperties {blockOperandPtr : BlockOperandPtrPtr} :
-    blockOperandPtr.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    blockOperandPtr.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     blockOperandPtr.get! ctx := by
   grind
 
 @[simp, grind =]
-theorem BlockPtr.getNumArguments!_OperationPtr_setProperties {block : BlockPtr} {hop} :
-    block.getNumArguments! (OperationPtr.setProperties op ctx newProperties hop) =
+theorem BlockPtr.getNumArguments!_OperationPtr_setProperties {block : BlockPtr} :
+    block.getNumArguments! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     block.getNumArguments! ctx := by
   grind
 
 @[simp, grind =]
 theorem BlockArgumentPtr.get!_OperationPtr_setProperties {blockArg : BlockArgumentPtr} :
-    blockArg.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    blockArg.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     blockArg.get! ctx := by
   grind
 
 @[simp, grind =]
 theorem RegionPtr.get!_OperationPtr_setProperties {region : RegionPtr} :
-    region.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    region.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     region.get! ctx := by
   grind
 
 @[simp, grind =]
 theorem ValuePtr.getFirstUse!_OperationPtr_setProperties {value : ValuePtr} :
-    value.getFirstUse! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    value.getFirstUse! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     value.getFirstUse! ctx := by
   grind
 
 @[simp, grind =]
 theorem ValuePtr.getType!_OperationPtr_setProperties {value : ValuePtr} :
-    value.getType! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    value.getType! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     value.getType! ctx := by
   grind
 
 @[simp, grind =]
 theorem OpOperandPtrPtr.get!_OperationPtr_setProperties {opOperandPtr : OpOperandPtrPtr} :
-    opOperandPtr.get! (OperationPtr.setProperties operation' ctx newProperties hop') =
+    opOperandPtr.get! (OperationPtr.setProperties operation' ctx newProperties inBounds hprop) =
     opOperandPtr.get! ctx := by
   grind
 
@@ -1380,6 +1402,12 @@ theorem OperationPtr.get!_OperationPtr_setRegions {operation : OperationPtr} :
       { operation.get! ctx with regions := newRegions }
     else
       operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_setRegions {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.setRegions operation' ctx newRegions hop') opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -1410,12 +1438,6 @@ theorem OperationPtr.opType!_OperationPtr_setRegions {operation : OperationPtr} 
 theorem OperationPtr.attrs!_OperationPtr_setRegions {operation : OperationPtr} :
     (operation.get! (OperationPtr.setRegions operation' ctx newRegions hop')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_setRegions {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setRegions operation' ctx newRegions hop')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -1568,6 +1590,12 @@ theorem OperationPtr.get!_BlockArgumentPtr_setType {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_BlockArgumentPtr_setType {operation : OperationPtr} :
+    operation.getProperties! (BlockArgumentPtr.setType arg' ctx newType harg') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockArgumentPtr_setType {operation : OperationPtr} :
     operation.getNumResults! (BlockArgumentPtr.setType arg' ctx harg' newType) =
     operation.getNumResults! ctx := by
@@ -1714,6 +1742,12 @@ theorem BlockPtr.lastOp!_BlockArgumentPtr_setFirstUse {block : BlockPtr} :
 theorem OperationPtr.get!_BlockArgumentPtr_setFirstUse {operation : OperationPtr} :
     operation.get! (BlockArgumentPtr.setFirstUse arg' ctx newFirstUse harg') =
     operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_BlockArgumentPtr_setFirstUse {operation : OperationPtr} :
+    operation.getProperties! (BlockArgumentPtr.setFirstUse arg' ctx newFirstUse harg') opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -1869,6 +1903,12 @@ theorem OperationPtr.get!_BlockArgumentPtr_setLoc {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_BlockArgumentPtr_setLoc {operation : OperationPtr} :
+    operation.getProperties! (BlockArgumentPtr.setLoc arg' ctx newLoc harg') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockArgumentPtr_setLoc {operation : OperationPtr} :
     operation.getNumResults! (BlockArgumentPtr.setLoc arg' ctx harg' newLoc) =
     operation.getNumResults! ctx := by
@@ -1973,6 +2013,12 @@ theorem BlockPtr.get!_BlockPtr_allocEmpty {block : BlockPtr}
 theorem OperationPtr.get!_BlockPtr_allocEmpty {operation : OperationPtr}
     (heq : BlockPtr.allocEmpty ctx = some (ctx', bl)) :
     operation.get! ctx' = operation.get! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem OperationPtr.getProperties!_BlockPtr_allocEmpty {operation : OperationPtr}
+    (heq : BlockPtr.allocEmpty ctx = some (ctx', bl)) :
+    operation.getProperties! ctx' opCode = operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =>]
@@ -2114,6 +2160,12 @@ theorem BlockPtr.lastOp!_BlockPtr_setParent {block : BlockPtr} :
 theorem OperationPtr.get!_BlockPtr_setParent {operation : OperationPtr} :
     operation.get! (BlockPtr.setParent block' ctx newParent hblock') =
     operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_BlockPtr_setParent {operation : OperationPtr} :
+    operation.getProperties! (BlockPtr.setParent block' ctx newParent hblock') opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -2261,6 +2313,12 @@ theorem BlockPtr.lastOp!_BlockPtr_setFirstUse {block : BlockPtr} :
 theorem OperationPtr.get!_BlockPtr_setFirstUse {operation : OperationPtr} :
     operation.get! (BlockPtr.setFirstUse block' ctx newFirstUse hblock') =
     operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_BlockPtr_setFirstUse {operation : OperationPtr} :
+    operation.getProperties! (BlockPtr.setFirstUse block' ctx newFirstUse hblock') opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -2414,6 +2472,12 @@ theorem OperationPtr.get!_BlockPtr_setFirstOp {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_BlockPtr_setFirstOp {operation : OperationPtr} :
+    operation.getProperties! (BlockPtr.setFirstOp block' ctx newFirstOp hblock') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockPtr_setFirstOp {operation : OperationPtr} :
     operation.getNumResults! (BlockPtr.setFirstOp block' ctx hblock' newFirstOp) =
     operation.getNumResults! ctx := by
@@ -2561,6 +2625,12 @@ theorem OperationPtr.get!_BlockPtr_setLastOp {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_BlockPtr_setLastOp {operation : OperationPtr} :
+    operation.getProperties! (BlockPtr.setLastOp block' ctx newLastOp hblock') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockPtr_setLastOp {operation : OperationPtr} :
     operation.getNumResults! (BlockPtr.setLastOp block' ctx hblock' newLastOp) =
     operation.getNumResults! ctx := by
@@ -2704,6 +2774,12 @@ theorem BlockPtr.lastOp!_BlockPtr_setNextBlock {block : BlockPtr} :
 theorem OperationPtr.get!_BlockPtr_setNextBlock {operation : OperationPtr} :
     operation.get! (BlockPtr.setNextBlock block' ctx newNextBlock hblock') =
     operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_BlockPtr_setNextBlock {operation : OperationPtr} :
+    operation.getProperties! (BlockPtr.setNextBlock block' ctx newNextBlock hblock') opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -2854,6 +2930,12 @@ theorem OperationPtr.get!_BlockPtr_setPrevBlock {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_BlockPtr_setPrevBlock {operation : OperationPtr} :
+    operation.getProperties! (BlockPtr.setPrevBlock block' ctx newPrevBlock hblock') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockPtr_setPrevBlock {operation : OperationPtr} :
     operation.getNumResults! (BlockPtr.setPrevBlock block' ctx hblock' newPrevBlock) =
     operation.getNumResults! ctx := by
@@ -2963,6 +3045,12 @@ theorem OperationPtr.get!_OpOperandPtr_setNextUse {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OpOperandPtr_setNextUse {operation : OperationPtr} :
+    operation.getProperties! (OpOperandPtr.setNextUse operand' ctx newNextUse hoperand') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OpOperandPtr_setNextUse {operation : OperationPtr} :
     (operation.get! (OpOperandPtr.setNextUse operand' ctx newNextUse hoperand')).prev =
     (operation.get! ctx).prev := by
@@ -2990,12 +3078,6 @@ theorem OperationPtr.opType!_OpOperandPtr_setNextUse {operation : OperationPtr} 
 theorem OperationPtr.attrs!_OpOperandPtr_setNextUse {operation : OperationPtr} :
     (operation.get! (OpOperandPtr.setNextUse operand' ctx newNextUse hoperand')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OpOperandPtr_setNextUse {operation : OperationPtr} :
-    (operation.get! (OpOperandPtr.setNextUse operand' ctx newNextUse hoperand')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -3113,6 +3195,12 @@ theorem OperationPtr.get!_OpOperandPtr_setBack {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OpOperandPtr_setBack {operation : OperationPtr} :
+    operation.getProperties! (OpOperandPtr.setBack operand' ctx newBack hoperand') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OpOperandPtr_setBack {operation : OperationPtr} :
     (operation.get! (OpOperandPtr.setBack operand' ctx newBack hoperand')).prev =
     (operation.get! ctx).prev := by
@@ -3140,12 +3228,6 @@ theorem OperationPtr.opType!_OpOperandPtr_setBack {operation : OperationPtr} :
 theorem OperationPtr.attrs!_OpOperandPtr_setBack {operation : OperationPtr} :
     (operation.get! (OpOperandPtr.setBack operand' ctx newBack hoperand')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OpOperandPtr_setBack {operation : OperationPtr} :
-    (operation.get! (OpOperandPtr.setBack operand' ctx newBack hoperand')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -3261,6 +3343,12 @@ theorem OperationPtr.get!_OpOperandPtr_setOwner {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OpOperandPtr_setOwner {operation : OperationPtr} :
+    operation.getProperties! (OpOperandPtr.setOwner operand' ctx newOwner hoperand') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OpOperandPtr_setOwner {operation : OperationPtr} :
     (operation.get! (OpOperandPtr.setOwner operand' ctx newOwner hoperand')).prev =
     (operation.get! ctx).prev := by
@@ -3288,12 +3376,6 @@ theorem OperationPtr.opType!_OpOperandPtr_setOwner {operation : OperationPtr} :
 theorem OperationPtr.attrs!_OpOperandPtr_setOwner {operation : OperationPtr} :
     (operation.get! (OpOperandPtr.setOwner operand' ctx newOwner hoperand')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OpOperandPtr_setOwner {operation : OperationPtr} :
-    (operation.get! (OpOperandPtr.setOwner operand' ctx newOwner hoperand')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -3408,6 +3490,12 @@ theorem OperationPtr.get!_OpOperandPtr_setValue {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OpOperandPtr_setValue {operation : OperationPtr} :
+    operation.getProperties! (OpOperandPtr.setValue operand' ctx newValue hoperand') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OpOperandPtr_setValue {operation : OperationPtr} :
     (operation.get! (OpOperandPtr.setValue operand' ctx newValue hoperand')).prev =
     (operation.get! ctx).prev := by
@@ -3435,12 +3523,6 @@ theorem OperationPtr.opType!_OpOperandPtr_setValue {operation : OperationPtr} :
 theorem OperationPtr.attrs!_OpOperandPtr_setValue {operation : OperationPtr} :
     (operation.get! (OpOperandPtr.setValue operand' ctx newValue hoperand')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OpOperandPtr_setValue {operation : OperationPtr} :
-    (operation.get! (OpOperandPtr.setValue operand' ctx newValue hoperand')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -3555,6 +3637,12 @@ theorem OperationPtr.get!_OpResultPtr_setType {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OpResultPtr_setType {operation : OperationPtr} :
+    operation.getProperties! (OpResultPtr.setType result' ctx newType hresult') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OpResultPtr_setType {operation : OperationPtr} :
     (operation.get! (OpResultPtr.setType result' ctx newType hresult')).prev =
     (operation.get! ctx).prev := by
@@ -3582,12 +3670,6 @@ theorem OperationPtr.opType!_OpResultPtr_setType {operation : OperationPtr} :
 theorem OperationPtr.attrs!_OpResultPtr_setType {operation : OperationPtr} :
     (operation.get! (OpResultPtr.setType result' ctx newType hresult')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OpResultPtr_setType {operation : OperationPtr} :
-    (operation.get! (OpResultPtr.setType result' ctx newType hresult')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -3712,6 +3794,12 @@ theorem OperationPtr.get!_OpResultPtr_setFirstUse {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OpResultPtr_setFirstUse {operation : OperationPtr} :
+    operation.getProperties! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OpResultPtr_setFirstUse {operation : OperationPtr} :
     (operation.get! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult')).prev =
     (operation.get! ctx).prev := by
@@ -3739,12 +3827,6 @@ theorem OperationPtr.opType!_OpResultPtr_setFirstUse {operation : OperationPtr} 
 theorem OperationPtr.attrs!_OpResultPtr_setFirstUse {operation : OperationPtr} :
     (operation.get! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OpResultPtr_setFirstUse {operation : OperationPtr} :
-    (operation.get! (OpResultPtr.setFirstUse result' ctx newFirstUse hresult')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -3971,6 +4053,12 @@ theorem OperationPtr.get!_RegionPtr_setParent {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_RegionPtr_setParent {operation : OperationPtr} :
+    operation.getProperties! (RegionPtr.setParent region' ctx newParent hregion') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumResults!_RegionPtr_setParent {operation : OperationPtr} :
     operation.getNumResults! (RegionPtr.setParent region' ctx hregion' newParent) =
     operation.getNumResults! ctx := by
@@ -4075,6 +4163,12 @@ theorem BlockPtr.get!_RegionPtr_setFirstBlock {block : BlockPtr} :
 theorem OperationPtr.get!_RegionPtr_setFirstBlock {operation : OperationPtr} :
     operation.get! (RegionPtr.setFirstBlock region' ctx hregion' newFirstBlock) =
     operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_RegionPtr_setFirstBlock {operation : OperationPtr} :
+    operation.getProperties! (RegionPtr.setFirstBlock region' ctx hregion' newFirstBlock) opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -4183,6 +4277,12 @@ theorem BlockPtr.get!_RegionPtr_setLastBlock {block : BlockPtr} :
 theorem OperationPtr.get!_RegionPtr_setLastBlock {operation : OperationPtr} :
     operation.get! (RegionPtr.setLastBlock region' ctx newLastBlock hregion') =
     operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_RegionPtr_setLastBlock {operation : OperationPtr} :
+    operation.getProperties! (RegionPtr.setLastBlock region' ctx newLastBlock hregion') opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -4343,6 +4443,12 @@ theorem OperationPtr.get!_ValuePtr_setType {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_ValuePtr_setType {operation : OperationPtr} :
+    operation.getProperties! (ValuePtr.setType value' ctx newType hvalue') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_ValuePtr_setType {operation : OperationPtr} :
     (operation.get! (ValuePtr.setType value' ctx newType hvalue')).prev =
     (operation.get! ctx).prev := by
@@ -4370,12 +4476,6 @@ theorem OperationPtr.opType!_ValuePtr_setType {operation : OperationPtr} :
 theorem OperationPtr.attrs!_ValuePtr_setType {operation : OperationPtr} :
     (operation.get! (ValuePtr.setType value' ctx newType hvalue')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_ValuePtr_setType {operation : OperationPtr} :
-    (operation.get! (ValuePtr.setType value' ctx newType hvalue')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -4548,6 +4648,12 @@ theorem OperationPtr.get!_ValuePtr_setFirstUse {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_ValuePtr_setFirstUse {operation : OperationPtr} :
+    operation.getProperties! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_ValuePtr_setFirstUse {operation : OperationPtr} :
     (operation.get! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue')).prev =
     (operation.get! ctx).prev := by
@@ -4575,12 +4681,6 @@ theorem OperationPtr.opType!_ValuePtr_setFirstUse {operation : OperationPtr} :
 theorem OperationPtr.attrs!_ValuePtr_setFirstUse {operation : OperationPtr} :
     (operation.get! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_ValuePtr_setFirstUse {operation : OperationPtr} :
-    (operation.get! (ValuePtr.setFirstUse value' ctx newFirstUse hvalue')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -4771,6 +4871,12 @@ theorem OperationPtr.get!_OpOperandPtrPtr_set {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OpOperandPtrPtr_set {operation : OperationPtr} :
+    operation.getProperties! (OpOperandPtrPtr.set value' ctx newPtr hvalue') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OpOperandPtrPtr_set {operation : OperationPtr} :
     (operation.get! (OpOperandPtrPtr.set value' ctx newPtr hvalue')).prev =
     (operation.get! ctx).prev := by
@@ -4798,12 +4904,6 @@ theorem OperationPtr.opType!_OpOperandPtrPtr_set {operation : OperationPtr} :
 theorem OperationPtr.attrs!_OpOperandPtrPtr_set {operation : OperationPtr} :
     (operation.get! (OpOperandPtrPtr.set value' ctx newPtr hvalue')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OpOperandPtrPtr_set {operation : OperationPtr} :
-    (operation.get! (OpOperandPtrPtr.set value' ctx newPtr hvalue')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -4986,6 +5086,12 @@ theorem OperationPtr.get!_BlockOperandPtrPtr_set {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_BlockOperandPtrPtr_set {operation : OperationPtr} :
+    operation.getProperties! (BlockOperandPtrPtr.set value' ctx newPtr hvalue') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_BlockOperandPtrPtr_set {operation : OperationPtr} :
     (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).prev =
     (operation.get! ctx).prev := by
@@ -5013,12 +5119,6 @@ theorem OperationPtr.opType!_BlockOperandPtrPtr_set {operation : OperationPtr} :
 theorem OperationPtr.attrs!_BlockOperandPtrPtr_set {operation : OperationPtr} :
     (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_BlockOperandPtrPtr_set {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtrPtr.set value' ctx newPtr hvalue')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -5141,6 +5241,12 @@ theorem OperationPtr.get!_OperationPtr_setNextOp {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_setNextOp {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.setNextOp op' ctx newNextOp hop') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OperationPtr_setNextOp {operation : OperationPtr} :
     (operation.get! (OperationPtr.setNextOp op' ctx newNextOp hop')).prev =
     (operation.get! ctx).prev := by
@@ -5171,12 +5277,6 @@ theorem OperationPtr.opType!_OperationPtr_setNextOp {operation : OperationPtr} :
 theorem OperationPtr.attrs!_OperationPtr_setNextOp {operation : OperationPtr} :
     (operation.get! (OperationPtr.setNextOp op' ctx newNextOp hop')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_setNextOp {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setNextOp op' ctx newNextOp hop')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -5287,6 +5387,11 @@ theorem OperationPtr.get!_OperationPtr_setPrevOp {operation : OperationPtr} :
       operation.get! ctx := by
   grind
 
+@[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_setPrevOp {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.setPrevOp op' ctx newPrevOp hop') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
 
 @[grind =]
 theorem OperationPtr.prev!_OperationPtr_setPrevOp {operation : OperationPtr} :
@@ -5319,12 +5424,6 @@ theorem OperationPtr.opType!_OperationPtr_setPrevOp {operation : OperationPtr} :
 theorem OperationPtr.attrs!_OperationPtr_setPrevOp {operation : OperationPtr} :
     (operation.get! (OperationPtr.setPrevOp op' ctx newPrevOp hop')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_setPrevOp {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setPrevOp op' ctx newPrevOp hop')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -5435,6 +5534,12 @@ theorem OperationPtr.get!_OperationPtr_setParent {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_OperationPtr_setParent {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.setParent op' ctx newParent hop') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_OperationPtr_setParent {operation : OperationPtr} :
     (operation.get! (OperationPtr.setParent op' ctx newParent hop')).prev =
     (operation.get! ctx).prev := by
@@ -5465,12 +5570,6 @@ theorem OperationPtr.opType!_OperationPtr_setParent {operation : OperationPtr} :
 theorem OperationPtr.attrs!_OperationPtr_setParent {operation : OperationPtr} :
     (operation.get! (OperationPtr.setParent op' ctx newParent hop')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_setParent {operation : OperationPtr} :
-    (operation.get! (OperationPtr.setParent op' ctx newParent hop')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -5582,6 +5681,12 @@ theorem OperationPtr.get!_BlockOperandPtr_setNextUse {operation : OperationPtr} 
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_BlockOperandPtr_setNextUse {operation : OperationPtr} :
+    operation.getProperties! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_BlockOperandPtr_setNextUse {operation : OperationPtr} :
     (operation.get! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand')).prev =
     (operation.get! ctx).prev := by
@@ -5609,12 +5714,6 @@ theorem OperationPtr.opType!_BlockOperandPtr_setNextUse {operation : OperationPt
 theorem OperationPtr.attrs!_BlockOperandPtr_setNextUse {operation : OperationPtr} :
     (operation.get! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_BlockOperandPtr_setNextUse {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setNextUse operand' ctx newNextUse hoperand')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -5732,6 +5831,12 @@ theorem OperationPtr.get!_BlockOperandPtr_setBack {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_BlockOperandPtr_setBack {operation : OperationPtr} :
+    operation.getProperties! (BlockOperandPtr.setBack operand' ctx newBack hoperand') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_BlockOperandPtr_setBack {operation : OperationPtr} :
     (operation.get! (BlockOperandPtr.setBack operand' ctx newBack hoperand')).prev =
     (operation.get! ctx).prev := by
@@ -5759,12 +5864,6 @@ theorem OperationPtr.opType!_BlockOperandPtr_setBack {operation : OperationPtr} 
 theorem OperationPtr.attrs!_BlockOperandPtr_setBack {operation : OperationPtr} :
     (operation.get! (BlockOperandPtr.setBack operand' ctx newBack hoperand')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_BlockOperandPtr_setBack {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setBack operand' ctx newBack hoperand')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -5880,6 +5979,12 @@ theorem OperationPtr.get!_BlockOperandPtr_setOwner {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_BlockOperandPtr_setOwner {operation : OperationPtr} :
+    operation.getProperties! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_BlockOperandPtr_setOwner {operation : OperationPtr} :
     (operation.get! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand')).prev =
     (operation.get! ctx).prev := by
@@ -5907,12 +6012,6 @@ theorem OperationPtr.opType!_BlockOperandPtr_setOwner {operation : OperationPtr}
 theorem OperationPtr.attrs!_BlockOperandPtr_setOwner {operation : OperationPtr} :
     (operation.get! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_BlockOperandPtr_setOwner {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setOwner operand' ctx newOwner hoperand')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -6028,6 +6127,12 @@ theorem OperationPtr.get!_BlockOperandPtr_setValue {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getProperties!_BlockOperandPtr_setValue {operation : OperationPtr} :
+    operation.getProperties! (BlockOperandPtr.setValue operand' ctx newValue hoperand') opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.prev!_BlockOperandPtr_setValue {operation : OperationPtr} :
     (operation.get! (BlockOperandPtr.setValue operand' ctx newValue hoperand')).prev =
     (operation.get! ctx).prev := by
@@ -6055,12 +6160,6 @@ theorem OperationPtr.opType!_BlockOperandPtr_setValue {operation : OperationPtr}
 theorem OperationPtr.attrs!_BlockOperandPtr_setValue {operation : OperationPtr} :
     (operation.get! (BlockOperandPtr.setValue operand' ctx newValue hoperand')).attrs =
     (operation.get! ctx).attrs := by
-  grind
-
-@[simp, grind =]
-theorem OperationPtr.properties!_BlockOperandPtr_setValue {operation : OperationPtr} :
-    (operation.get! (BlockOperandPtr.setValue operand' ctx newValue hoperand')).properties =
-    (operation.get! ctx).properties := by
   grind
 
 @[simp, grind =]
@@ -6198,6 +6297,12 @@ theorem BlockPtr.firstOp!_BlockPtr_setArguments {block : BlockPtr} :
 theorem OperationPtr.get!_BlockPtr_setArguments {operation : OperationPtr} :
     operation.get! (BlockPtr.setArguments block' ctx newArguments hblock') =
     operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_BlockPtr_setArguments {operation : OperationPtr} :
+    operation.getProperties! (BlockPtr.setArguments block' ctx newArguments hblock') opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]
@@ -6353,6 +6458,12 @@ theorem BlockPtr.firstOp!_BlockPtr_pushArgument {block : BlockPtr} :
 theorem OperationPtr.get!_BlockPtr_pushArgument {operation : OperationPtr} :
     operation.get! (BlockPtr.pushArgument block' ctx newArgument hblock') =
     operation.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_BlockPtr_pushArgument {operation : OperationPtr} :
+    operation.getProperties! (BlockPtr.pushArgument block' ctx newArgument hblock') opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]

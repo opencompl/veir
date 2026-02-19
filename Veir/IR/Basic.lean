@@ -5,6 +5,7 @@ public import Veir.Prelude
 public import Veir.OpCode
 public import Veir.ForLean
 public import Veir.IR.Attribute
+public import Veir.Properties
 
 open Std (HashMap)
 
@@ -175,7 +176,7 @@ structure Operation where
   opType: OpCode
   attrs: AttrDictionary
   -- This should be replaced with an arbitrary user object
-  properties: UInt64
+  properties: propertiesOf opType
   blockOperands: Array BlockOperand
   regions: Array RegionPtr
   operands: Array OpOperand
@@ -226,14 +227,14 @@ deriving Inhabited, Repr
 /- Empty objects. -/
 
 @[expose]
-def Operation.empty (opType: OpCode) : Operation :=
+def Operation.empty (opType: OpCode) (prop : propertiesOf opType) : Operation :=
   { results := #[]
     prev := none
     next := none
     parent := none
     opType := opType
     attrs := ()
-    properties := 0
+    properties := prop
     blockOperands := #[]
     regions := #[]
     operands := #[]
@@ -575,18 +576,44 @@ theorem pushOperand!_eq_pushOperand {op : OperationPtr} (inBounds: op.InBounds c
     op.pushOperand! ctx operands = op.pushOperand ctx operands inBounds := by
   grind [pushOperand, pushOperand!]
 
-def setProperties (op: OperationPtr) (ctx: IRContext) (newValue: UInt64)
-    (inBounds: op.InBounds ctx := by grind) : IRContext :=
-  let oldOp := op.get ctx (by grind)
-  op.set ctx { oldOp with properties := newValue }
+@[inline]
+def getProperties (op : OperationPtr) (ctx : IRContext) (opCode : OpCode)
+    (inBounds : op.InBounds ctx := by grind)
+    (hprop : (op.get ctx inBounds).opType = opCode := by grind) : propertiesOf opCode :=
+  hprop ▸ (op.get ctx (by grind)).properties
 
-def setProperties! (op: OperationPtr) (ctx: IRContext) (newValue: UInt64) : IRContext :=
-  let oldOp := op.get! ctx
-  op.set ctx { oldOp with properties := newValue }
+@[inline]
+def getProperties! (op : OperationPtr) (ctx : IRContext) (opCode : OpCode) : propertiesOf opCode :=
+  if h : (op.get! ctx).opType = opCode then
+    h ▸ (op.get! ctx).properties
+  else
+    default
 
 @[grind _=_]
-theorem setProperties!_eq_setProperties {op : OperationPtr} (inBounds: op.InBounds ctx) :
-    op.setProperties! ctx newValue = op.setProperties ctx newValue inBounds := by
+theorem getProperties!_eq_getProperties {op : OperationPtr} (inBounds: op.InBounds ctx)
+    (hprop : (op.get! ctx).opType = opCode) :
+    op.getProperties! ctx opCode = op.getProperties ctx opCode inBounds (by grind) := by
+  grind [getProperties, getProperties!]
+
+def setProperties (op : OperationPtr) (ctx : IRContext)
+    (newProperties : propertiesOf opCode)
+    (inBounds: op.InBounds ctx := by grind)
+    (hprop : (op.get ctx inBounds).opType = opCode := by grind) : IRContext :=
+  let oldOp := op.get ctx (by grind)
+  op.set ctx { oldOp with properties := hprop ▸ newProperties }
+
+def setProperties! (op: OperationPtr) (ctx: IRContext)
+  (newProperties : propertiesOf opCode)
+  (hprop : (op.get! ctx).opType = opCode := by grind) : IRContext :=
+  let oldOp := op.get! ctx
+  op.set ctx { oldOp with properties := hprop ▸ newProperties }
+
+@[grind _=_]
+theorem setProperties!_eq_setProperties {op : OperationPtr}
+    (newProperties : propertiesOf opCode) (inBounds: op.InBounds ctx)
+    (hprop : (op.get ctx inBounds).opType = opCode) :
+    op.setProperties! ctx newProperties =
+    op.setProperties ctx newProperties inBounds := by
   grind [setProperties, setProperties!]
 
 @[grind]
@@ -616,9 +643,10 @@ def nextResult (op : OperationPtr) (ctx : IRContext)
 def nextResult! (op : OperationPtr) (ctx : IRContext) : OpResultPtr :=
   .mk op (op.getNumResults! ctx)
 
-def allocEmpty (ctx : IRContext) (opType : OpCode) : Option (IRContext × OperationPtr) :=
+def allocEmpty (ctx : IRContext) (opType : OpCode) (properties : propertiesOf opType) :
+    Option (IRContext × OperationPtr) :=
   let newOpPtr : OperationPtr := ⟨ctx.nextID⟩
-  let operation := Operation.empty opType
+  let operation := Operation.empty opType properties
   if _ : ctx.operations.contains newOpPtr then none else
   let ctx := { ctx with nextID := ctx.nextID + 1 }
   let ctx := newOpPtr.set ctx operation
@@ -1786,7 +1814,7 @@ macro "setup_grind_with_get_set_definitions" : command => `(
   attribute [local grind] ValuePtr.getFirstUse! ValuePtr.getFirstUse ValuePtr.setFirstUse ValuePtr.setType ValuePtr.getType ValuePtr.getType!
   attribute [local grind] OpResultPtr.get! OpResultPtr.setFirstUse OpResultPtr.set OpResultPtr.setType
   attribute [local grind] BlockArgumentPtr.get! BlockArgumentPtr.setFirstUse BlockArgumentPtr.set BlockArgumentPtr.setType BlockArgumentPtr.setLoc
-  attribute [local grind] OperationPtr.setOperands OperationPtr.setBlockOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.setProperties OperationPtr.pushOperand OperationPtr.pushBlockOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.set
+  attribute [local grind] OperationPtr.setOperands OperationPtr.setBlockOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.setProperties OperationPtr.pushOperand OperationPtr.pushBlockOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.getProperties! OperationPtr.set
   attribute [local grind] Operation.empty
   attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty BlockPtr.getNumArguments! BlockPtr.set BlockPtr.setArguments BlockPtr.pushArgument
   attribute [local grind =] Option.maybe_def
