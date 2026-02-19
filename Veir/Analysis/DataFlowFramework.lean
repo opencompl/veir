@@ -9,6 +9,8 @@ open Std(HashSet)
 open Std(HashMap)
 open Std(Queue)
 
+public section
+
 namespace Veir
 
 inductive ProgramPoint where
@@ -36,8 +38,8 @@ instance : Coe DataFlowAnalysisPtr Nat where
 
 -- ================================== WorkList =================================== -- 
 -- A queued item stores a program point and the index of the analysis to run.
-def WorkItem := ProgramPoint × DataFlowAnalysisPtr 
-def WorkList := Queue WorkItem
+@[expose] def WorkItem := ProgramPoint × DataFlowAnalysisPtr
+@[expose] def WorkList := Queue WorkItem
 -- =============================================================================== -- 
 
 -- ================================ AnalysisState ================================ -- 
@@ -148,34 +150,6 @@ def new (value : Impl) [Update Impl DataFlowContext] : AnalysisState :=
   }
 
 end AnalysisState
--- =============================================================================== -- 
-
--- ====================== Example `AnalysisState` Children ======================= -- 
-structure AbstractSparseLatticeState extends BaseAnalysisState where
-  useDefSubscribers : Array DataFlowAnalysis 
-
-instance : Update AbstractSparseLatticeState DataFlowContext where
-  onUpdate (state: AbstractSparseLatticeState) (ctx : DataFlowContext) : DataFlowContext := Id.run do 
-    let mut ctx := {ctx with workList := state.onUpdate ctx}
-    -- Do some other stuff...
-    ctx
-     
-structure ConstantLatticeState extends AbstractSparseLatticeState where
-  value : ValuePtr
-
-instance : Update ConstantLatticeState DataFlowContext where
-  onUpdate state ctx :=
-    Update.onUpdate
-      state.toAbstractSparseLatticeState
-      ctx
--- =============================================================================== -- 
-
--- ===================== Example `DataFlowAnalysis` Children ===================== -- 
-def ConstantAnalysis.init (top : OperationPtr) (ctx : DataFlowContext) : DataFlowContext :=
-  sorry
-def ConstantAnalysis.visit (point : ProgramPoint) (ctx : DataFlowContext) : DataFlowContext := 
-  sorry
-def ConstantAnalysis := DataFlowAnalysis.new ConstantAnalysis.init ConstantAnalysis.visit 
 -- =============================================================================== -- 
 
 -- =============================== Fixpoint Solver =============================== -- 
