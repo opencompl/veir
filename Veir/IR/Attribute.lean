@@ -252,7 +252,7 @@ def DictionaryAttr.entryToString (entry : ByteArray × Attribute) : String :=
   let key := String.fromUTF8! entry.1
   match entry.2 with
   | .unitAttr _ => key
-  | _ => s!"{key} = {Attribute.toString entry.2}"
+  | _ => s!"\"{key}\" = {Attribute.toString entry.2}"
 termination_by sizeOf entry
 decreasing_by grind
 
