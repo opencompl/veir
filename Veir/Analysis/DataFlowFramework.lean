@@ -20,14 +20,23 @@ inductive LatticeAnchor
 deriving BEq, Hashable
 
 -- =============================== DataFlowAnalysis ============================== -- 
-structure DataFlowAnalysis where -- record-of-functions style
+-- NEVER use this type directly, use `DataFlowAnalysis` which provides a proof that
+-- `ctx` is always of type `DataFlowContext`
+structure RawDataFlowAnalysis where 
   ctx : Type u -- Always `DataFlowContext`
   init : OperationPtr -> ctx -> ctx
   visit : ProgramPoint -> ctx -> ctx
+
+structure DataFlowAnalysisPtr where
+  id: Nat
+
+instance : Coe DataFlowAnalysisPtr Nat where
+  coe ptr := ptr.id
 -- =============================================================================== -- 
 
 -- ================================== WorkList =================================== -- 
-def WorkItem := ProgramPoint × DataFlowAnalysis
+-- A queued item stores a program point and the index of the analysis to run.
+def WorkItem := ProgramPoint × DataFlowAnalysisPtr 
 def WorkList := Queue WorkItem
 -- =============================================================================== -- 
 
@@ -48,7 +57,9 @@ def BaseAnalysisState.onUpdate (state : BaseAnalysisState) (workList : WorkList)
     workList := workList.enqueue workItem
   workList  
 
-structure AnalysisState where -- record-of-functions style
+-- NEVER use this type directly, use `AnalysisState` which provides a proof that
+-- `ctx` is always of type `DataFlowContext`
+structure RawAnalysisState where -- record-of-functions style
   impl : Type u -- struct that extends `BaseAnalysisState` and contains some extra data
   ctx : Type v -- Always `DataFlowContext`
   value : impl
@@ -58,7 +69,7 @@ structure AnalysisState where -- record-of-functions style
 
 -- =============================== DataFlowContext =============================== -- 
 structure DataFlowContext where 
-  lattice : HashMap LatticeAnchor AnalysisState
+  lattice : HashMap LatticeAnchor RawAnalysisState
   workList : WorkList
 
 def DataFlowContext.empty : DataFlowContext :=
@@ -69,21 +80,74 @@ def DataFlowContext.empty : DataFlowContext :=
 instance : Coe DataFlowContext WorkList where
   coe ctx := ctx.workList
 
-def DataFlowAnalysis.new
+-- =============================================================================== -- 
+
+-- ========================== DataFlowContext Wrappers =========================== -- 
+-- Wrapper proving that a `RawDataFlowAnalysis` is specialized to `DataFlowContext`.
+structure DataFlowAnalysis where
+  val : RawDataFlowAnalysis
+  hctx : val.ctx = DataFlowContext
+
+namespace DataFlowAnalysis
+
+def init (analysis : DataFlowAnalysis) (top : OperationPtr) (ctx : DataFlowContext) : DataFlowContext := by
+  cases analysis with
+  | mk val hctx =>
+    cases val with
+    | mk _ init _ =>
+      cases hctx
+      exact init top ctx
+
+def visit (analysis : DataFlowAnalysis) (point : ProgramPoint) (ctx : DataFlowContext) : DataFlowContext := by
+  cases analysis with
+  | mk val hctx =>
+    cases val with
+    | mk _ _ visit =>
+      cases hctx
+      exact visit point ctx
+
+def toRaw (analysis : DataFlowAnalysis) : RawDataFlowAnalysis :=
+  analysis.val
+
+def new
     (init : OperationPtr -> DataFlowContext -> DataFlowContext)
     (visit : ProgramPoint -> DataFlowContext -> DataFlowContext) : DataFlowAnalysis :=
-  { ctx := DataFlowContext
-    init := init
-    visit := visit
+  { val := { ctx := DataFlowContext 
+             init := init
+             visit := visit }
+    hctx := rfl
   }
 
-def AnalysisState.new (value : Impl) [Update Impl DataFlowContext] : AnalysisState :=
-  { impl := Impl 
-    ctx := DataFlowContext 
-    value := value
-    onUpdate := inferInstance
+end DataFlowAnalysis
+
+-- Wrapper proving that a `RawAnalysisState` is specialized to `DataFlowContext`.
+structure AnalysisState where
+  val : RawAnalysisState
+  hctx : val.ctx = DataFlowContext
+
+namespace AnalysisState
+
+def onUpdate (state : AnalysisState) (ctx : DataFlowContext) : DataFlowContext := by
+  cases state with
+  | mk val hctx =>
+    cases val with
+    | mk Impl _ value onUpdate =>
+      cases hctx
+      letI : Update Impl DataFlowContext := onUpdate
+      exact Update.onUpdate value ctx
+
+def toRaw (state : AnalysisState) : RawAnalysisState :=
+  state.val
+
+def new (value : Impl) [Update Impl DataFlowContext] : AnalysisState :=
+  { val := { impl := Impl
+             ctx := DataFlowContext
+             value := value
+             onUpdate := inferInstance }
+    hctx := rfl
   }
 
+end AnalysisState
 -- =============================================================================== -- 
 
 -- ====================== Example `AnalysisState` Children ======================= -- 
@@ -115,11 +179,29 @@ def ConstantAnalysis := DataFlowAnalysis.new ConstantAnalysis.init ConstantAnaly
 -- =============================================================================== -- 
 
 -- =============================== Fixpoint Solver =============================== -- 
-def fixpointSolve (top: OperationPtr) (analyses : Array DataFlowAnalysis) : DataFlowContext :=
-  let ctx := DataFlowContext.empty
+partial def run (analyses : Array DataFlowAnalysis) (ctx : DataFlowContext) : DataFlowContext :=
+  match ctx.workList.dequeue? with
+  | none =>
+    ctx
+  | some ((point, dataFlowAnalysisPtr), rest) =>
+    let ctx := { ctx with workList := rest }
+    let ctx :=
+      if h : dataFlowAnalysisPtr < analyses.size then
+        let analysis := analyses[dataFlowAnalysisPtr.id]'h
+        analysis.visit point ctx
+      else
+        dbg_trace "Invalid DataFlowAnalysisPtr!"
+        ctx
+    run analyses ctx
+
+def fixpointSolve (top: OperationPtr) (analyses : Array DataFlowAnalysis) : DataFlowContext := Id.run do
+  -- init
+  let mut ctx := DataFlowContext.empty
   for analysis in analyses do
-    panic! "Not Done" 
-  ctx
+    ctx := analysis.init top ctx
+
+  -- run
+  run analyses ctx
 
 -- =============================================================================== -- 
 
