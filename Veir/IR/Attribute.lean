@@ -172,20 +172,19 @@ decreasing_by
 def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
   let entries1 := dict1.entries
   let entries2 := dict2.entries
-  match Array.instDecidabelEq' entries1 entries2 (fun x y hx hy =>
-    match decEq x.1 y.1 with
-    | isTrue h1 =>
-      match Attribute.decEq x.2 y.2 with
-      | isTrue h2 => isTrue (by grind)
-      | isFalse h2 => isFalse (by grind)
-    | isFalse h1 => isFalse (by grind)) with
+  match Array.instDecidabelEq' entries1 entries2 fun ⟨k₁, v₁⟩ ⟨k₂, v₂⟩ hx hy =>
+    if _ : k₁ = k₂ then
+      match v₁.decEq v₂ with
+      | isTrue _ => isTrue (by grind)
+      | isFalse _ => isFalse (by grind)
+    else isFalse (by grind)
+  with
   | isTrue _ => isTrue (by grind [cases DictionaryAttr])
   | isFalse _ => isFalse (by grind)
 termination_by sizeOf dict1
 decreasing_by
   have := @DictionaryAttr.sizeOf_elems_entries
   grind
-
 def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
   cases h1 : attr1 <;> cases h2 : attr2
   case integerType.integerType type1 type2 =>
