@@ -37,58 +37,58 @@ instance : Hashable RegionPtr where
 abbrev Location := Unit
 abbrev AttrDictionary := Unit
 
-/-
-- A pointer to an operation result.
+/--
+A pointer to an operation result.
 -/
 structure OpResultPtr where
   op: OperationPtr
   index: Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/-
-- A pointer to an operation operand.
+/--
+A pointer to an operation operand.
 -/
 structure OpOperandPtr where
   op: OperationPtr
   index: Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/-
-- A pointer to an operation block operand.
+/--
+A pointer to an operation block operand.
 -/
 structure BlockOperandPtr where
   op: OperationPtr
   index: Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/-
-- A pointer to a block argument.
+/--
+A pointer to a block argument.
 -/
 structure BlockArgumentPtr where
   block: BlockPtr
   index: Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/-
-- The base class for operation results and block arguments.
+/--
+The base class for operation results and block arguments.
 -/
 structure ValueImpl where
-  -- This is used to distinguish between OpResult and BlockArgument
+  /-- `type` is used to distinguish between OpResult and BlockArgument -/
   type: TypeAttr
   firstUse: Option OpOperandPtr
 deriving Inhabited, Repr, Hashable
 
-/-
-- The definition of an operation result.
+/--
+The definition of an operation result.
 -/
 structure OpResult extends ValueImpl where
   index: Nat
-  -- Should be computed from index and the layout
+  /-- `owner` should be computed from index and the layout -/
   owner: OperationPtr
 deriving Inhabited, Repr, Hashable
 
-/-
-- The definition of a block argument.
+/--
+The definition of a block argument.
 -/
 structure BlockArgument extends ValueImpl where
   index: Nat
@@ -96,9 +96,9 @@ structure BlockArgument extends ValueImpl where
   owner: BlockPtr
 deriving Inhabited, Repr, Hashable
 
-/-
-- An MLIR SSA value.
-- A value is either an operation result, or a block argument.
+/--
+An MLIR SSA value.
+A value is either an operation result, or a block argument.
 -/
 inductive ValuePtr where
   | opResult (ptr: OpResultPtr)
@@ -113,21 +113,21 @@ instance : Coe OpResultPtr ValuePtr where
 instance : Coe BlockArgumentPtr ValuePtr where
   coe ptr := ValuePtr.blockArgument ptr
 
-/-
-- A pointer to an operation operand pointer.
-- This is used for the encoding of the use-def chain.
-- It is either pointing to the next use field of the previous operand,
-- or to the first use field of a value definition.
+/--
+A pointer to an operation operand pointer.
+This is used for the encoding of the use-def chain.
+It is either pointing to the next use field of the previous operand,
+or to the first use field of a value definition.
 -/
 inductive OpOperandPtrPtr where
   | operandNextUse (ptr: OpOperandPtr)
   | valueFirstUse (ptr: ValuePtr)
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/-
-- An operand definition.
-- It contains a pointer to the SSA value it uses, and links to the previous
-- and next use of that value.
+/--
+An operand definition.
+It contains a pointer to the SSA value it uses, and links to the previous
+and next use of that value.
 -/
 structure OpOperand where
   nextUse: Option OpOperandPtr
@@ -138,21 +138,21 @@ structure OpOperand where
   value: ValuePtr
 deriving Inhabited, Repr, Hashable
 
-/-
-- A pointer to an operation block operand pointer.
-- This is used for the encoding of the use-def chain for block operands.
-- It is either pointing to the next use field of the previous block operand,
-- or to the first use field of a block.
+/--
+A pointer to an operation block operand pointer.
+This is used for the encoding of the use-def chain for block operands.
+It is either pointing to the next use field of the previous block operand,
+or to the first use field of a block.
 -/
 inductive BlockOperandPtrPtr where
   | blockOperandNextUse (ptr: BlockOperandPtr)
   | blockFirstUse (ptr: BlockPtr)
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-/-
-- A block operand definition.
-- It contains a pointer to the block it uses, and links to the previous
-- and next use of that block.
+/--
+A block operand definition.
+It contains a pointer to the block it uses, and links to the previous
+and next use of that block.
 -/
 structure BlockOperand where
   nextUse: Option BlockOperandPtr
@@ -161,8 +161,8 @@ structure BlockOperand where
   value: BlockPtr
 deriving Inhabited, Repr, Hashable
 
-/-
-- An MLIR operation.
+/--
+An MLIR operation.
 -/
 structure Operation where
   results: Array OpResult
@@ -187,8 +187,8 @@ theorem Operation.default_regions_eq : (default : Operation).regions = #[] := by
 theorem Operation.default_blockOperands_eq : (default : Operation).blockOperands = #[] := by rfl
 theorem Operation.default_results_eq : (default : Operation).results = #[] := by rfl
 
-/-
-- An MLIR block.
+/--
+An MLIR block.
 -/
 structure Block where
   firstUse: Option BlockOperandPtr
@@ -203,8 +203,8 @@ deriving Inhabited, Repr, Hashable
 
 theorem Block.default_arguments_eq : (default : Block).arguments = #[] := by rfl
 
-/-
-- An MLIR region.
+/--
+An MLIR region.
 -/
 structure Region where
   firstBlock: Option BlockPtr
@@ -212,10 +212,10 @@ structure Region where
   parent: Option OperationPtr
 deriving Inhabited, Repr, Hashable
 
-/-
-- The owning context of an MLIR module.
-- It contains a top-level Module operation, and a maps from pointers to
-- operations, blocks, and regions.
+/--
+The owning context of an MLIR module.
+It contains a top-level Module operation, and a maps from pointers to
+operations, blocks, and regions.
 -/
 structure IRContext where
   operations: HashMap OperationPtr Operation
@@ -224,7 +224,7 @@ structure IRContext where
   nextID: Nat
 deriving Inhabited, Repr
 
-/- Empty objects. -/
+/-! Empty objects. -/
 
 @[expose]
 def Operation.empty (opType: OpCode) (prop : propertiesOf opType) : Operation :=
@@ -260,8 +260,8 @@ def Block.empty : Block :=
     lastOp := none
   }
 
-/-
- OperationPtr accessors
+/-!
+OperationPtr accessors
 -/
 
 namespace OperationPtr
@@ -673,7 +673,7 @@ def dealloc (op : OperationPtr) (ctx : IRContext)
 
 end OperationPtr
 
-/-
+/-!
  OpOperandPtr accessors
 -/
 
@@ -793,7 +793,7 @@ theorem OperationPtr.getOperand_eq_OpOperandPtr_get :
     (OpOperandPtr.get (OperationPtr.getOpOperand op index) ctx (by grind [OperationPtr.getOpOperand, OpOperandPtr.InBounds, OperationPtr.getNumOperands])).value := by
   grind [OpOperandPtr.get, OperationPtr.getOperand, OperationPtr.get, OperationPtr.getOpOperand]
 
-/-
+/-!
  BlockOperandPtr accessors
 -/
 
@@ -905,7 +905,7 @@ theorem setValue!_eq_setValue {operand : BlockOperandPtr} (inBounds: operand.InB
 
 end BlockOperandPtr
 
-/-
+/-!
  OpResultPtr accessors
 -/
 
@@ -1008,7 +1008,7 @@ theorem setOwner!_eq_setOwner {result : OpResultPtr} (inBounds: result.InBounds 
 
 end OpResultPtr
 
-/-
+/-!
  BlockPtr accessors
 -/
 
@@ -1183,7 +1183,7 @@ theorem pushArgument!_eq_pushArgument {block : BlockPtr} (inBounds: block.InBoun
 
 end BlockPtr
 
-/-
+/-!
  BlockArgumentPtr accessors
 -/
 
@@ -1294,7 +1294,7 @@ theorem setOwner!_eq_setOwner {arg : BlockArgumentPtr} (inBounds: arg.InBounds c
 
 end BlockArgumentPtr
 
-/-
+/-!
  ValuePtr accessors
 -/
 
@@ -1365,7 +1365,7 @@ theorem getFirstUse!_blockArgument_eq {ba : BlockArgumentPtr} {ctx : IRContext} 
   grind [getFirstUse!]
 
 /--
-  Returns true if the value has any uses.
+Returns true if the value has any uses.
 -/
 def hasUses (value: ValuePtr) (ctx: IRContext) (valueIn: value.InBounds ctx := by grind) : Bool :=
   (value.getFirstUse ctx (by grind)).isSome
@@ -1375,7 +1375,7 @@ theorem hasUses_def {value : ValuePtr} (valueIn: value.InBounds ctx) :
   rfl
 
 /--
-  Returns true if the value has any uses.
+Returns true if the value has any uses.
 -/
 def hasUses! (value: ValuePtr) (ctx: IRContext) : Bool :=
   (value.getFirstUse! ctx).isSome
@@ -1445,7 +1445,7 @@ theorem setType_BlockArgumentPtr (ptr: BlockArgumentPtr) (ctx: IRContext)
 
 end ValuePtr
 
-/-
+/-!
   OpOperandPtrPtr accessors
 -/
 
@@ -1530,7 +1530,7 @@ theorem set_valueFirstUse (ptr: ValuePtr) (ctx: IRContext) (ptrIn: (valueFirstUs
 
 end OpOperandPtrPtr
 
-/-
+/-!
   RegionPtr accessors
 -/
 
@@ -1604,7 +1604,7 @@ def allocEmpty (ctx: IRContext) : Option (IRContext × RegionPtr) :=
 
 end RegionPtr
 
-/-
+/-!
   BlockOperandPtrPtr accessors
 -/
 
@@ -1765,7 +1765,7 @@ def IRContext.forOpsDepM (ctx : IRContext) {m : Type w → Type w'} [Monad m]
     (p : ∀ (op : OperationPtr), op.InBounds ctx → m PUnit) : m PUnit :=
   ctx.operations.forKeysDepM (fun opPtr h => p opPtr (by grind [OperationPtr.InBounds]))
 
-/- Generic pointers -/
+/-! Generic pointers -/
 
 inductive GenericPtr where
 | block (ptr : BlockPtr)
@@ -1813,11 +1813,11 @@ variable {ctx : IRContext}
 end generic_ptr
 end GenericPtr
 
-/-
- - Macro to mark all get/set defitinions as local grind lemmas
- - This should only be used inside `Core/`, as the other files in this folder
- - should define all the necessary lemmas without having to unfold these definitions.
- -/
+/--
+  Macro to mark all get/set defitinions as local grind lemmas
+  This should only be used inside `Core/`, as the other files in this folder
+  should define all the necessary lemmas without having to unfold these definitions.
+-/
 macro "setup_grind_with_get_set_definitions" : command => `(
   attribute [local grind cases] ValuePtr OpOperandPtr GenericPtr BlockOperandPtr OpResultPtr BlockArgumentPtr BlockOperandPtrPtr OpOperandPtrPtr
   attribute [local grind] IRContext.empty
