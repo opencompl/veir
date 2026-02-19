@@ -57,15 +57,15 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "arith.addi"() ({
   ^4():
-    %5 = "arith.constant"() <{ "value" = 12 : i32 }> : () -> i32
-    %6 = "arith.constant"() <{ "value" = 0 : i32 }> : () -> i32
+    %5 = "arith.constant"() <{ value = 12 : i32 }> : () -> i32
+    %6 = "arith.constant"() <{ value = 0 : i32 }> : () -> i32
     %7 = "arith.muli"(%5, %6) : (i32, i32) -> i32
 }) : () -> ()
 -/
 #guard_msgs in
 #eval! testParseOp r#""arith.addi"() ({
-  %a = "arith.constant"() <{ "value" = 12 : i32 }> : () -> i32
-  %b = "arith.constant"() <{ "value" = 0 : i32 }> : () -> i32
+  %a = "arith.constant"() <{ value = 12 : i32 }> : () -> i32
+  %b = "arith.constant"() <{ value = 0 : i32 }> : () -> i32
   %c = "arith.muli"(%a, %b) : (i32, i32) -> i32
 }) : () -> ()"#
 
@@ -74,7 +74,7 @@ def testParseOp (s : String) : IO Unit :=
 -/
 #guard_msgs in
 #eval! testParseOp r#""arith.addi"() ({
-  %a = "arith.constant"() <{ "value" = 0 : i64 }> : () -> i64
+  %a = "arith.constant"() <{ value = 0 : i64 }> : () -> i64
   %c = "arith.muli"(%a, %a) : (i32, i32) -> i32
 }) : () -> ()"#
 
@@ -83,19 +83,19 @@ def testParseOp (s : String) : IO Unit :=
 -/
 #guard_msgs in
 #eval! testParseOp r#""arith.addi"() ({
-  %a = "arith.constant"() <{ "value" = 0 : i64 }> : () -> i64
+  %a = "arith.constant"() <{ value = 0 : i64 }> : () -> i64
   %c = "arith.muli"(%a) : (i32, i32) -> i32
 }) : () -> ()"#
 
 /--
   info: "builtin.module"() ({
   ^4():
-    %5 = "arith.constant"() <{ "value" = 13 : i64 }> : () -> i64
+    %5 = "arith.constant"() <{ value = 13 : i64 }> : () -> i64
 }) : () -> ()-/
 #guard_msgs in
 #eval! testParseOp r#""builtin.module"() ({
 ^bb0:
-  %a = "arith.constant"() <{ "value" = 13 : i64 }> : () -> i64
+  %a = "arith.constant"() <{ value = 13 : i64 }> : () -> i64
 }) : () -> ()"#
 
 /--
@@ -114,13 +114,13 @@ def testParseOp (s : String) : IO Unit :=
   ^4():
     "builtin.module"() ({
       ^6():
-        %7 = "arith.constant"() <{ "value" = 13 : i64 }> : () -> i64
+        %7 = "arith.constant"() <{ value = 13 : i64 }> : () -> i64
     }) : () -> ()
 }) : () -> ()-/
 #guard_msgs in
 #eval! testParseOp r#""builtin.module"() ({
   "builtin.module"() ({
-    %a = "arith.constant"() <{ "value" = 13 : i64 }> : () -> i64
+    %a = "arith.constant"() <{ value = 13 : i64 }> : () -> i64
   }) : () -> ()
 }) : () -> ()"#
 
