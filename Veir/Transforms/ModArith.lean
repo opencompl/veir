@@ -84,10 +84,12 @@ theorem barretReduceRewriterPreservesSemantics : LocalRewritePattern.PreservesSe
   intro ctx op opIn newCtx newOps newValue hpattern
   intro state newState hinterp
   let oldValue := newState.variables[ValuePtr.opResult (op.getResult 0)]!
-  let newState' : InterpreterState :=
-    { variables := newState.variables.insert newValue oldValue }
-  refine ⟨newState', ?_⟩
-  intro hInterpretNewOps
-  simp [newState', oldValue]
+  simp [barretReduceRewriter] at hpattern
+  split at hpattern; rotate_left; grind
+  split at hpattern; rotate_left; grind
+  split at hpattern; grind
+  split at hpattern; grind
+  simp only [Option.bind_eq_some_iff] at hpattern
+  have ⟨firstOp, ⟨hfirst, hpattern⟩⟩ := hpattern
 
 end Veir.Transforms.ModArith
