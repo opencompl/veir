@@ -115,7 +115,7 @@ deriving Inhabited, Repr, DecidableEq
 namespace TokenKind
 
 /--
-  Checks if the token kind either a hash, percent, caret, or exclamation identifier.
+  Checks if the token kind is an at, hash, percent, caret, or exclamation identifier.
 -/
 @[expose, grind]
 def isPrefixedIdentifier (tokenKind : TokenKind) : Bool :=
