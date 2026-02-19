@@ -5,7 +5,7 @@
   %0 = "mod_arith.constant"() <{ "value" = 13 : i32 }> : () -> i32
   %1 = "mod_arith.constant"() <{ "value" = 7 : i32 }> : () -> i32
   %2 = "mod_arith.add"(%0, %1) : (i32, i32) -> i32
-  %3 = "mod_arith.barrett_reduce"(%2) : (i32) -> i32
+  %3 = "mod_arith.barrett_reduce"(%2) <{ "modulus" = 17 : i64 }> : (i32) -> i32
   %4 = "mod_arith.encapsulate"(%0) : (i32) -> i32
   %5 = "mod_arith.extract"(%4) : (i32) -> i32
   %6 = "mod_arith.mac"(%0, %1, %2) : (i32, i32, i32) -> i32
@@ -21,7 +21,7 @@
 // CHECK-NEXT:     %5 = "mod_arith.constant"() <{ "value" = 13 : i32 }> : () -> i32
 // CHECK-NEXT:     %6 = "mod_arith.constant"() <{ "value" = 7 : i32 }> : () -> i32
 // CHECK-NEXT:     %7 = "mod_arith.add"(%5, %6) : (i32, i32) -> i32
-// CHECK-NEXT:     %8 = "mod_arith.barrett_reduce"(%7) : (i32) -> i32
+// CHECK-NEXT:     %8 = "mod_arith.barrett_reduce"(%7) <{ "modulus" = 17 : i64 }> : (i32) -> i32
 // CHECK-NEXT:     %9 = "mod_arith.encapsulate"(%5) : (i32) -> i32
 // CHECK-NEXT:     %10 = "mod_arith.extract"(%9) : (i32) -> i32
 // CHECK-NEXT:     %11 = "mod_arith.mac"(%5, %6, %7) : (i32, i32, i32) -> i32
