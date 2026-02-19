@@ -1263,7 +1263,10 @@ theorem OperationPtr.opType!_detachOperands_loop {operation : OperationPtr} :
 theorem OperationPtr.attrs!_detachOperands_loop {operation : OperationPtr} :
     (operation.get! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex)).attrs =
     (operation.get! ctx).attrs := by
-  grind
+  induction index generalizing ctx
+  · grind [Rewriter.detachOperands.loop]
+  · simp only [Rewriter.detachOperands.loop]
+    grind
 
 @[simp, grind =]
 theorem OperationPtr.getProperties!_detachOperands_loop {operation : OperationPtr} :
@@ -1632,7 +1635,10 @@ theorem OperationPtr.opType!_detachBlockOperands_loop {operation : OperationPtr}
 theorem OperationPtr.attrs!_detachBlockOperands_loop {operation : OperationPtr} :
     (operation.get! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex)).attrs =
     (operation.get! ctx).attrs := by
-  grind
+  induction index generalizing ctx
+  · grind [Rewriter.detachBlockOperands.loop]
+  · simp only [Rewriter.detachBlockOperands.loop]
+    grind
 
 @[simp, grind =]
 theorem OperationPtr.getProperties!_detachBlockOperands_loop {operation : OperationPtr} :

@@ -35,7 +35,6 @@ instance : Hashable RegionPtr where
   hash regionPtr := hash regionPtr.id
 
 abbrev Location := Unit
-abbrev AttrDictionary := Unit
 
 /-
 - A pointer to an operation result.
@@ -174,7 +173,7 @@ structure Operation where
   -- location: Location
   -- orderIndex: Nat
   opType: OpCode
-  attrs: AttrDictionary
+  attrs: DictionaryAttr
   -- This should be replaced with an arbitrary user object
   properties: propertiesOf opType
   blockOperands: Array BlockOperand
@@ -233,7 +232,7 @@ def Operation.empty (opType: OpCode) (prop : propertiesOf opType) : Operation :=
     next := none
     parent := none
     opType := opType
-    attrs := ()
+    attrs := DictionaryAttr.empty
     properties := prop
     blockOperands := #[]
     regions := #[]

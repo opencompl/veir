@@ -937,6 +937,7 @@ theorem OperationPtr.opType!_OperationPtr_linkBetween {operation : OperationPtr}
 theorem OperationPtr.attrs!_OperationPtr_linkBetween {operation : OperationPtr} :
     (operation.get! (op'.linkBetween ctx prev next selfIn prevIn nextIn)).attrs =
     (operation.get! ctx).attrs := by
+  simp only [OperationPtr.linkBetween]
   grind
 
 @[simp, grind =]

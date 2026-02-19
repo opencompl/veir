@@ -134,6 +134,8 @@ end
 def DictionaryAttr.fromArray (entries : Array (ByteArray × Attribute)) : DictionaryAttr :=
   { entries := entries.insertionSort (fun entry1 entry2 => (compare entry1.1 entry2.1).isLT) }
 
+def DictionaryAttr.empty : DictionaryAttr := { entries := #[] }
+
 theorem FunctionType.sizeOf_elems_inputs {ft : FunctionType} (hx : x ∈ ft.inputs) :
     sizeOf x < sizeOf ft := by
   grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
