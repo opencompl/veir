@@ -22,6 +22,9 @@ inductive Arith where
 | subi
 | muli
 | andi
+| extui
+| shrui
+| trunci
 
 @[opcodes]
 inductive Func where
