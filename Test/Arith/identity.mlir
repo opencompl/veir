@@ -11,7 +11,7 @@
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT: ^4():
-// CHECK-NEXT:    %5 = "arith.constant"() <{ value = 13 : i32 }> : () -> i32
+// CHECK-NEXT:    %5 = "arith.constant"() <{value = 13 : i32}> : () -> i32
 // CHECK-NEXT:    %6 = "arith.addi"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:    %7 = "arith.subi"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:    %8 = "arith.muli"(%5, %5) : (i32, i32) -> i32
