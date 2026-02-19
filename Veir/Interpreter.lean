@@ -228,6 +228,45 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
         | .val value => .val (BitVec.truncate resultIntType.bitwidth value)
         | .poison => .poison
       return (#[.int resultIntType.bitwidth resultValue], .continue)
+  | .arith_cmpi => do
+    let resultType ← op.resultType?
+    let .integerType resultIntType := resultType.val
+      | none
+    if resultIntType.bitwidth ≠ 1 then
+      none
+    else
+      let #[.int bw lhs, .int bw' rhs] := operands | none
+      if h : bw' ≠ bw then none else
+      let hEq : bw' = bw := Decidable.not_not.mp h
+      let rhs := rhs.cast hEq
+      let result : LLVM.Int 1 :=
+        match lhs, rhs with
+        | .val lhs, .val rhs =>
+          .val (BitVec.ofNat 1 (if lhs.toNat >= rhs.toNat then 1 else 0))
+        | _, _ => .poison
+      return (#[.int 1 result], .continue)
+  | .arith_select => do
+    let resultType ← op.resultType?
+    let .integerType resultIntType := resultType.val
+      | none
+    let #[.int condBitwidth cond, .int trueBitwidth trueValue, .int falseBitwidth falseValue] := operands
+      | none
+    if hCond : condBitwidth ≠ 1 then
+      none
+    else if hTrue : trueBitwidth ≠ resultIntType.bitwidth then
+      none
+    else if hFalse : falseBitwidth ≠ resultIntType.bitwidth then
+      none
+    else
+      let hTrueEq : trueBitwidth = resultIntType.bitwidth := Decidable.not_not.mp hTrue
+      let hFalseEq : falseBitwidth = resultIntType.bitwidth := Decidable.not_not.mp hFalse
+      let trueValue := trueValue.cast hTrueEq
+      let falseValue := falseValue.cast hFalseEq
+      let result : LLVM.Int resultIntType.bitwidth :=
+        match cond with
+        | .val cond => if cond.toNat = 0 then falseValue else trueValue
+        | .poison => .poison
+      return (#[.int resultIntType.bitwidth result], .continue)
   | .mod_arith_constant => do
     let resultType ← op.resultType?
     let .modArithType modType := resultType.val

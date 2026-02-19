@@ -25,6 +25,8 @@ inductive Arith where
 | extui
 | shrui
 | trunci
+| cmpi
+| select
 
 @[opcodes]
 inductive Func where
