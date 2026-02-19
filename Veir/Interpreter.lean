@@ -281,11 +281,12 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     return (#[.modInt modType.modulus value], .continue)
   | .mod_arith_barrett_reduce => do
     let resultType ← op.resultType?
-    let .modArithType modType := resultType.val
-      | none
     let #[value] := operands | none
-    let value ← value.toModInt? modType.modulus
-    return (#[.modInt modType.modulus value], .continue)
+    let modulus := (opPtr.getProperties! ctx .mod_arith_barrett_reduce).modulus.value
+    let value ← value.toInt?
+    let value ← normalizeMod? modulus value
+    let resultValue ← mkRuntimeValueForType? resultType value
+    return (#[resultValue], .continue)
   | .mod_arith_encapsulate => do
     let resultType ← op.resultType?
     let .modArithType modType := resultType.val
