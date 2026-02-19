@@ -112,6 +112,21 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "builtin.module"() ({
   ^4():
+    "builtin.module"() ({
+      ^6():
+        %7 = "arith.constant"() <{ "value" = 13 : i64 }> : () -> i64
+    }) : () -> ()
+}) : () -> ()-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  "builtin.module"() ({
+    %a = "arith.constant"() <{ "value" = 13 : i64 }> : () -> i64
+  }) : () -> ()
+}) : () -> ()"#
+
+/--
+  info: "builtin.module"() ({
+  ^4():
     "test.test"() [^5] : () -> ()
   ^5():
     "test.test"() [^7] : () -> ()

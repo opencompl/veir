@@ -147,10 +147,12 @@ partial def printRegion (ctx: IRContext) (region: Region) (indent: Nat := 0) : I
   IO.print "{"
   match region.firstBlock with
   | none =>
+    printIndent indent
     IO.print "}"
   | some blockPtr =>
     IO.println ""
     printBlockList ctx blockPtr (indent + 1)
+    printIndent indent
     IO.print "}"
 
 partial def printRegions (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
