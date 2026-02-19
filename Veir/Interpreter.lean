@@ -163,6 +163,71 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (lhs + rhs)], .continue)
+  | .arith_subi => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let hEq : bw' = bw := Decidable.not_not.mp h
+    let rhs := rhs.cast hEq
+    let result :=
+      match lhs, rhs with
+      | .val lhs, .val rhs => .val (lhs - rhs)
+      | _, _ => .poison
+    return (#[.int bw result], .continue)
+  | .arith_muli => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let hEq : bw' = bw := Decidable.not_not.mp h
+    let rhs := rhs.cast hEq
+    return (#[.int bw (lhs * rhs)], .continue)
+  | .arith_andi => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let hEq : bw' = bw := Decidable.not_not.mp h
+    let rhs := rhs.cast hEq
+    let result :=
+      match lhs, rhs with
+      | .val lhs, .val rhs => .val (lhs &&& rhs)
+      | _, _ => .poison
+    return (#[.int bw result], .continue)
+  | .arith_extui => do
+    let resultType ← op.resultType?
+    let .integerType resultIntType := resultType.val
+      | none
+    let #[.int inputBitwidth inputValue] := operands | none
+    if resultIntType.bitwidth < inputBitwidth then
+      none
+    else
+      let resultValue : LLVM.Int resultIntType.bitwidth :=
+        match inputValue with
+        | .val value => .val (BitVec.ofNat resultIntType.bitwidth value.toNat)
+        | .poison => .poison
+      return (#[.int resultIntType.bitwidth resultValue], .continue)
+  | .arith_shrui => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let hEq : bw' = bw := Decidable.not_not.mp h
+    let rhs := rhs.cast hEq
+    let result : LLVM.Int bw :=
+      match lhs with
+      | .val lhs =>
+        match rhs with
+        | .val rhs => .val (BitVec.ushiftRight lhs rhs.toNat)
+        | .poison => .poison
+      | .poison => .poison
+    return (#[.int bw result], .continue)
+  | .arith_trunci => do
+    let resultType ← op.resultType?
+    let .integerType resultIntType := resultType.val
+      | none
+    let #[.int inputBitwidth inputValue] := operands | none
+    if inputBitwidth < resultIntType.bitwidth then
+      none
+    else
+      let resultValue : LLVM.Int resultIntType.bitwidth :=
+        match inputValue with
+        | .val value => .val (BitVec.truncate resultIntType.bitwidth value)
+        | .poison => .poison
+      return (#[.int resultIntType.bitwidth resultValue], .continue)
   | .mod_arith_constant => do
     let resultType ← op.resultType?
     let .modArithType modType := resultType.val
