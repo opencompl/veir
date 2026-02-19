@@ -1255,6 +1255,9 @@ theorem OperationPtr.getProperties!_OperationPtr_setProperties {operation : Oper
       operation.getProperties! ctx opCode := by
   grind
 
+/- We probably do not want both this lemma and the previous one to be grind.
+  TODO: make a decision about this
+-/
 @[grind =]
 theorem OperationPtr.getProperties!_OperationPtr_setProperties_same_opCode {operation : OperationPtr} :
     operation.getProperties! (OperationPtr.setProperties (opCode := opCode) operation' ctx newProperties inBounds hprop) opCode =

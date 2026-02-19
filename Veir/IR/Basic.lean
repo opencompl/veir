@@ -598,20 +598,20 @@ theorem getProperties!_eq_getProperties {op : OperationPtr} (inBounds: op.InBoun
 def setProperties (op : OperationPtr) (ctx : IRContext)
     (newProperties : propertiesOf opCode)
     (inBounds: op.InBounds ctx := by grind)
-    (propEq : (op.get ctx inBounds).opType = opCode := by grind) : IRContext :=
+    (hprop : (op.get ctx inBounds).opType = opCode := by grind) : IRContext :=
   let oldOp := op.get ctx (by grind)
-  op.set ctx { oldOp with properties := propEq ▸ newProperties }
+  op.set ctx { oldOp with properties := hprop ▸ newProperties }
 
 def setProperties! (op: OperationPtr) (ctx: IRContext)
   (newProperties : propertiesOf opCode)
-  (propEq : (op.get! ctx).opType = opCode := by grind) : IRContext :=
+  (hprop : (op.get! ctx).opType = opCode := by grind) : IRContext :=
   let oldOp := op.get! ctx
-  op.set ctx { oldOp with properties := propEq ▸ newProperties }
+  op.set ctx { oldOp with properties := hprop ▸ newProperties }
 
 @[grind _=_]
 theorem setProperties!_eq_setProperties {op : OperationPtr}
     (newProperties : propertiesOf opCode) (inBounds: op.InBounds ctx)
-    (propEq : (op.get ctx inBounds).opType = opCode) :
+    (hprop : (op.get ctx inBounds).opType = opCode) :
     op.setProperties! ctx newProperties =
     op.setProperties ctx newProperties inBounds := by
   grind [setProperties, setProperties!]
