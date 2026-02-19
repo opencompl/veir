@@ -93,12 +93,14 @@ deriving Inhabited, Repr, Hashable
 -/
 structure DictionaryAttr where
   /--
-    Etries are encoded as an array to allow decidable equality and iteration, which is
+    Entries are encoded as an array to allow decidable equality and iteration, which is
     not possible with either a `HashMap` or an `ExtHashMap`.
-    This means that looking up a key in the dictionary is O(n) in the worst case, though in
-    practice the number of entries in a dictionary attribute is expected to be very small.
+    Entries are expected to be sorted by key and each key is unique, so that we can use a
+    binary search and have O(log(n)) lookup time. This invariant is not enforced proof-wise but
+    is expected to be maintained at all time.
   -/
   entries : Array (ByteArray × Attribute)
+  /- TODO: figure out how to maintain a proof of sorted-ness and uniqueness. -/
 deriving Inhabited, Repr, Hashable
 
 /--
