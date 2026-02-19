@@ -49,6 +49,32 @@ def normalizeMod? (modulus value : Int) : Option Int := do
     else
       some reduced
 
+private def natBitLength (n : Nat) : Nat :=
+  if n = 0 then 0 else Nat.log2 n + 1
+
+/--
+  Compute the first Barrett-reduction step for non-negative integers.
+  This returns `x - floor(x * mu / 2^(2k)) * q` where:
+  - `k = bitLength(q - 1)`
+  - `mu = floor(2^(2k) / q)`
+-/
+def barrettReduceStep? (modulus value : Int) : Option Int := do
+  if modulus <= 1 then
+    none
+  if value < 0 then
+    none
+  let bitWidth := natBitLength (Int.toNat (modulus - 1))
+  if bitWidth = 0 then
+    none
+  let modNat := Int.toNat modulus
+  let valueNat := Int.toNat value
+  let shiftAmount := 2 * bitWidth
+  let basePow := (2 : Nat) ^ shiftAmount
+  let ratioNat := basePow / modNat
+  let qHatNat := (valueNat * ratioNat) / basePow
+  let reducedNat := valueNat - qHatNat * modNat
+  return Int.ofNat reducedNat
+
 /--
   Convert a runtime value to an integer.
   Poison values are not supported by the current mod-arith semantics.
@@ -323,7 +349,7 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     let #[value] := operands | none
     let modulus := (opPtr.getProperties! ctx .mod_arith_barrett_reduce).modulus.value
     let value ← value.toInt?
-    let value ← normalizeMod? modulus value
+    let value ← barrettReduceStep? modulus value
     let resultValue ← mkRuntimeValueForType? resultType value
     return (#[resultValue], .continue)
   | .mod_arith_encapsulate => do
