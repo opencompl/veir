@@ -373,7 +373,7 @@ theorem Rewriter.createRegion_fieldsInBounds (h : createRegion ctx = some (ctx',
 def Rewriter.initOpRegions (ctx: IRContext) (opPtr: OperationPtr) (regions : Array RegionPtr) (index : Nat := 0)
     (opPtrInBounds : opPtr.InBounds ctx := by grind)
     (hregionInBounds : ∀ region, region ∈ regions → region.InBounds ctx := by grind)
-    (hctx : ctx.FieldsInBounds := by grind) (hn : 0 ≤ index ∧ index ≤ regions.size := by grind) : IRContext :=
+    (hctx : ctx.FieldsInBounds := by grind) (hn : index = opPtr.getNumRegions ctx := by grind) : IRContext :=
   if h: index >= regions.size then
     ctx
   else
@@ -579,9 +579,13 @@ def Rewriter.createOp (ctx: IRContext) (opType: OpCode)
   have hib : newOpPtr.InBounds ctx := by grind
   have : (newOpPtr.get ctx (by grind)).results = #[] := by
     grind [createEmptyOp, OperationPtr.allocEmpty, Operation.empty]
+  have : (newOpPtr.get ctx (by grind)).regions = #[] := by
+    grind [createEmptyOp, Operation.empty]
+  have : 0 = newOpPtr.getNumRegions ctx (by grind) := by grind [OperationPtr.getNumRegions]
   have newOpPtrZeroRes: 0 = newOpPtr.getNumResults ctx (by grind) := by grind [OperationPtr.getNumResults]
   let ctx := Rewriter.initOpResults ctx newOpPtr resultTypes 0 hib newOpPtrZeroRes
   have newOpPtrInBounds : newOpPtr.InBounds ctx := by grind
+  have : 0 = newOpPtr.getNumRegions ctx (by grind) := by sorry
   let ctx := Rewriter.initOpRegions ctx newOpPtr regions
   let ctx := Rewriter.initOpOperands ctx newOpPtr (by grind) operands (by grind) (by grind)
   let ctx := Rewriter.initBlockOperands ctx newOpPtr blockOperands (hoperands := by grind (ematch := 10))
@@ -598,7 +602,7 @@ unseal Rewriter.createRegion in
 def IRContext.create : Option (IRContext × OperationPtr) :=
   rlet (ctx, operation) ← Rewriter.createEmptyOp .empty .builtin_module ()
   rlet (ctx, region) ← Rewriter.createRegion ctx
-  let ctx := Rewriter.initOpRegions ctx operation #[region]
+  let ctx := Rewriter.initOpRegions ctx operation #[region] (hn := by grind [Rewriter.createEmptyOp, Operation.empty])
   let moduleRegion := operation.getRegion! ctx 0
   rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd moduleRegion)) (by grind) (by sorry)
   return (ctx, ⟨0⟩)
