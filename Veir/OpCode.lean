@@ -170,6 +170,7 @@ public section
   An operation code (OpCode) identifies the type of an operation.
   Each OpCode corresponds to a specific operation.
 -/
+set_option maxRecDepth 100000
 #generate_op_codes
 
 end
