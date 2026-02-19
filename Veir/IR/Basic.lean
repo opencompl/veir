@@ -589,7 +589,7 @@ theorem pushOperand!_eq_pushOperand {op : OperationPtr} (inBounds: op.InBounds c
 
 def setAttributes (op: OperationPtr) (ctx: IRContext) (newAttrs: DictionaryAttr)
     (inBounds: op.InBounds ctx := by grind) : IRContext :=
-  let oldOp := op.get ctx (by grind)
+  let oldOp := op.get ctx
   op.set ctx { oldOp with attrs := newAttrs}
 
 def setAttributes! (op: OperationPtr) (ctx: IRContext) (newAttrs: DictionaryAttr) : IRContext :=

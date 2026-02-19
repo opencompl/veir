@@ -57,8 +57,8 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "arith.addi"() ({
   ^4():
-    %5 = "arith.constant"() <{value = 12 : i32}> : () -> i32
-    %6 = "arith.constant"() <{value = 0 : i32}> : () -> i32
+    %5 = "arith.constant"() <{"value" = 12 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
     %7 = "arith.muli"(%5, %6) : (i32, i32) -> i32
 }) : () -> ()
 -/
@@ -90,7 +90,7 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "builtin.module"() ({
   ^4():
-    %5 = "arith.constant"() <{value = 13 : i64}> : () -> i64
+    %5 = "arith.constant"() <{"value" = 13 : i64}> : () -> i64
 }) : () -> ()-/
 #guard_msgs in
 #eval! testParseOp r#""builtin.module"() ({
@@ -114,7 +114,7 @@ def testParseOp (s : String) : IO Unit :=
   ^4():
     "builtin.module"() ({
       ^6():
-        %7 = "arith.constant"() <{value = 13 : i64}> : () -> i64
+        %7 = "arith.constant"() <{"value" = 13 : i64}> : () -> i64
     }) : () -> ()
 }) : () -> ()-/
 #guard_msgs in

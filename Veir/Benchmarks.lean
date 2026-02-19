@@ -435,7 +435,7 @@ def testBench (benchmark: String) (n: Nat) : IO Unit := do
 /--
 info: "builtin.module"() ({
   ^2():
-    %34 = "arith.constant"() <{value = 52 : i32}> : () -> i32
+    %34 = "arith.constant"() <{"value" = 52 : i32}> : () -> i32
     "test.test"(%34) : (i32) -> ()
 }) : () -> ()
 -/
@@ -445,11 +445,11 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
-    %4 = "arith.constant"() <{value = 1 : i32}> : () -> i32
-    %9 = "arith.constant"() <{value = 43 : i32}> : () -> i32
-    %6 = "arith.constant"() <{value = 1 : i32}> : () -> i32
-    %10 = "arith.constant"() <{value = 44 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %4 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+    %9 = "arith.constant"() <{"value" = 43 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+    %10 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
     "test.test"(%10) : (i32) -> ()
 }) : () -> ()
 -/
@@ -459,7 +459,7 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %34 = "arith.constant"() <{value = 52 : i32}> : () -> i32
+    %34 = "arith.constant"() <{"value" = 52 : i32}> : () -> i32
     "test.test"(%34) : (i32) -> ()
 }) : () -> ()
 -/
@@ -469,7 +469,7 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
     "test.test"(%3) : (i32) -> ()
 }) : () -> ()
 -/
@@ -479,7 +479,7 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
     "test.test"(%3) : (i32) -> ()
 }) : () -> ()
 -/
@@ -489,7 +489,7 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
     %34 = "arith.addi"(%3, %3) : (i32, i32) -> i32
     %33 = "arith.addi"(%34, %34) : (i32, i32) -> i32
     %32 = "arith.addi"(%33, %33) : (i32, i32) -> i32
@@ -509,7 +509,7 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
     %25 = "arith.addi"(%3, %3) : (i32, i32) -> i32
     %26 = "arith.addi"(%25, %25) : (i32, i32) -> i32
     %27 = "arith.addi"(%26, %26) : (i32, i32) -> i32
@@ -529,8 +529,8 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
-    %4 = "arith.constant"() <{value = 0 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %4 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
     %5 = "arith.addi"(%3, %4) : (i32, i32) -> i32
     %6 = "arith.addi"(%5, %4) : (i32, i32) -> i32
     %7 = "arith.addi"(%6, %4) : (i32, i32) -> i32
@@ -545,7 +545,7 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
     "test.test"(%3) : (i32) -> ()
 }) : () -> ()
 -/
@@ -555,7 +555,7 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
     "test.test"(%3) : (i32) -> ()
 }) : () -> ()
 -/
@@ -565,8 +565,8 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
-    %4 = "arith.constant"() <{value = 0 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %4 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
     %6 = "arith.addi"(%3, %4) : (i32, i32) -> i32
     %7 = "arith.addi"(%6, %4) : (i32, i32) -> i32
     %8 = "arith.addi"(%7, %4) : (i32, i32) -> i32
@@ -580,8 +580,8 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
-    %4 = "arith.constant"() <{value = 0 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %4 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
     %5 = "arith.addi"(%3, %4) : (i32, i32) -> i32
     %6 = "arith.addi"(%5, %5) : (i32, i32) -> i32
     %7 = "arith.addi"(%6, %5) : (i32, i32) -> i32
@@ -597,7 +597,7 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{value = 42 : i32}> : () -> i32
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
     %6 = "arith.addi"(%3, %3) : (i32, i32) -> i32
     %7 = "arith.addi"(%6, %3) : (i32, i32) -> i32
     %8 = "arith.addi"(%7, %3) : (i32, i32) -> i32
