@@ -187,7 +187,7 @@ decreasing_by
 def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
   let value1 := arr1.value
   let value2 := arr2.value
-  match Array.instDecidabelEq' value1 value2 (fun x y _ _ => Attribute.decEq x y) with
+  match Array.instDecidabelEq' value1 value2 (fun x y _ _ => x.decEq y) with
   | isTrue _ => isTrue (by grind [cases ArrayAttr])
   | isFalse _ => isFalse (by grind)
 termination_by sizeOf arr1
