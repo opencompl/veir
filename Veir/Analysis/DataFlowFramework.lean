@@ -19,48 +19,63 @@ inductive LatticeAnchor
   | ValuePtr 
 deriving BEq, Hashable
 
+-- record-of-functions style
 structure DataFlowAnalysis where
-  ctx : Type
+  ctx : Type -- Used only for LatticeContext
   init : OperationPtr -> ctx -> ctx
+  visit : ProgramPoint -> ctx -> ctx
 
 -- ================================== WorkList =================================== -- 
 def WorkItem := ProgramPoint × DataFlowAnalysis
 def WorkList := Queue WorkItem
 -- =============================================================================== -- 
 
-structure DependentPtr where
-  id: Nat
-  deriving BEq, Hashable
-
-structure DataFlowContext where
-  workList : Queue (ProgramPoint × DataFlowAnalysis) 
-  dependents : HashMap DependentPtr WorkItem
-
 -- ================================ AnalysisState ================================ -- 
 -- Lattice Elements are stored in structures that implement the `Update` typeclass.
 -- These structures contain a `BaseAnalysisState` along with anything else it needs.
 -- `AnalysisState` is used to allow for dynamic dispatch (runtime polymorphism).
-class Update (α : Type) where
-  onUpdate : α -> DataFlowContext -> DataFlowContext 
+class Update (State : Type u) (Ctx : Type v) where
+  onUpdate : State -> WorkList -> Ctx -> WorkList 
 
 structure BaseAnalysisState where
   anchor : LatticeAnchor
-  dependents : Array DependentPtr 
+  dependents : Array WorkItem 
 
-instance : Update BaseAnalysisState where
-  onUpdate (state : BaseAnalysisState) (ctx : DataFlowContext) : DataFlowContext := Id.run do
-    let mut ctx := ctx 
-    for ptr in state.dependents do
-      let workItem := sorry --(ctx.dependents.get! ptr) 
-      ctx := {ctx with workList := ctx.workList.enqueue workItem}
-    ctx 
+instance : Update BaseAnalysisState Unit where
+  onUpdate (state : BaseAnalysisState) (workList : WorkList) (_: Unit) : WorkList := Id.run do
+    let mut workList := workList 
+    for workItem in state.dependents do
+      workList := workList.enqueue workItem
+    workList 
 
 structure AnalysisState where
-  impl : Type
-  inst : Update impl
+  impl : Type -- struct that contains a BaseAnalysisState and some lattice element
+  ctx : Type -- Used only for LatticeContext
+  inst : Update impl ctx
+
 -- =============================================================================== -- 
 
-def Lattice := HashMap LatticeAnchor AnalysisState 
+def LatticeContext := HashMap LatticeAnchor AnalysisState
+
+structure AbstractSparseLatticeStateImpl where
+  base : BaseAnalysisState
+  useDefSubscribers : Array DataFlowAnalysis 
+
+let AbstractSparseLatticeState := { impl := AbstractSparseLatticeStateImpl; ctx := LatticeContext; inst := Update 
+
+instance : Update AbstractSparseLatticeState LatticeContext where
+  onUpdate (state : AbstractSparseLatticeState) (workList : WorkList) (ctx : LatticeContext) : WorkList := Id.run do
+    let mut workList := state.base.onUpdate workList () 
+    workList
+/- void AbstractSparseLattice::onUpdate(DataFlowSolver *solver) const { -/
+/-   AnalysisState::onUpdate(solver); -/
+/--/
+/-   // Push all users of the value to the queue. -/
+/-   for (Operation *user : cast<Value>(anchor).getUsers()) -/
+/-     for (DataFlowAnalysis *analysis : useDefSubscribers) -/
+/-       solver->enqueue({solver->getProgramPointAfter(user), analysis}); -/
+/- } -/
+
 
 def fixpointSolve (top: OperationPtr) (analyses : Array DataFlowAnalysis) : LatticeContext :=
   let latticeCtx : LatticeContext := sorry
