@@ -61,6 +61,11 @@ structure DataFlowContext where
   lattice : HashMap LatticeAnchor AnalysisState
   workList : WorkList
 
+def DataFlowContext.empty : DataFlowContext :=
+  { lattice := ∅
+    workList := .empty
+  }
+
 instance : Coe DataFlowContext WorkList where
   coe ctx := ctx.workList
 
@@ -101,8 +106,21 @@ instance : Update ConstantLatticeState DataFlowContext where
       ctx
 -- =============================================================================== -- 
 
-def fixpointSolve (top: OperationPtr) (analyses : Array DataFlowAnalysis) : DataFlowContext :=
-  let latticeCtx : DataFlowContext := ⟨ .emptyWithCapacity , .empty ⟩  
+-- ===================== Example `DataFlowAnalysis` Children ===================== -- 
+def ConstantAnalysis.init (top : OperationPtr) (ctx : DataFlowContext) : DataFlowContext :=
   sorry
+def ConstantAnalysis.visit (point : ProgramPoint) (ctx : DataFlowContext) : DataFlowContext := 
+  sorry
+def ConstantAnalysis := DataFlowAnalysis.new ConstantAnalysis.init ConstantAnalysis.visit 
+-- =============================================================================== -- 
+
+-- =============================== Fixpoint Solver =============================== -- 
+def fixpointSolve (top: OperationPtr) (analyses : Array DataFlowAnalysis) : DataFlowContext :=
+  let ctx := DataFlowContext.empty
+  for analysis in analyses do
+    panic! "Not Done" 
+  ctx
+
+-- =============================================================================== -- 
 
 end Veir
