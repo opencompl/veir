@@ -123,7 +123,7 @@ private def parseUnregisteredAttrBody (startPos : Option Nat := none) : AttrPars
   repeat
     let token ← peekToken
 
-    /- Opening a new bracket -/
+    /- Open a new bracket -/
     if isOpeningBracket token.kind then
       let _ ← consumeToken
       bracketStack := bracketStack.push token.kind
