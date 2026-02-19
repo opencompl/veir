@@ -230,10 +230,12 @@ theorem barretReduceRewriterPreservesSemantics : LocalRewritePattern.PreservesSe
   intro state newState hinterp
   let oldValue := newState.variables[ValuePtr.opResult (op.getResult 0)]!
   simp [barretReduceRewriter] at hpattern
+  /- Remove simple cases where the pattern fails or do nothing -/
   split at hpattern; rotate_left; grind
   split at hpattern; rotate_left; grind
   split at hpattern; grind
   split at hpattern; grind
+  /- Unfold the creation and interpretation of the operations -/
   simp only [Option.bind_eq_some_iff] at hpattern
   have ⟨⟨ctx₀, op₀⟩, hop₀, ⟨ctx₁, op₁⟩, hop₁, ⟨ctx₂, op₂⟩, hop₂, ⟨ctx₃, op₃⟩, hop₃, ⟨ctx₄, op₄⟩, hop₄, ⟨ctx₅, op₅⟩, hop₅, ⟨ctx₆, op₆⟩, hop₆, ⟨ctx₇, op₇⟩, hop₇, ⟨ctx₈, op₈⟩, hop₈, h⟩ := hpattern
   clear hpattern
@@ -242,6 +244,14 @@ theorem barretReduceRewriterPreservesSemantics : LocalRewritePattern.PreservesSe
   subst newCtx newOps newValue
   simp only [interpretOpList', interpretOp, Std.Rco.size_toArray, Nat.size_rco, Nat.sub_zero,
     Option.pure_def, Option.bind_eq_bind]
+  /- Unfold the interpretation of the barret reduce operation -/
+  simp [interpretOp] at hinterp
+  have opNumOperands : op.getNumOperands ctx (by grind) = 1 := by sorry
+  simp only [opNumOperands, Nat.zero_add, Nat.toArray_rco_eq_singleton, List.mapM_toArray,
+    List.mapM_cons, List.mapM_nil, Option.pure_def, Option.bind_eq_bind, Option.bind_some,
+    Option.map_eq_map, Option.map_bind] at hinterp
+  simp [Option.bind_eq_some_iff] at hinterp
+  have ⟨oprdValues, ⟨oprdValue, hgetOprd, hoprdValues⟩, oo⟩ := hinterp
   sorry
 
 end Veir.Transforms.ModArith
