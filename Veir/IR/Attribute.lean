@@ -127,6 +127,13 @@ deriving Inhabited, Repr, Hashable
 
 end
 
+/--
+  Construct a `DictionaryAttr` from an array of key-value pairs.
+  TODO: ensure that entries are unique.
+-/
+def DictionaryAttr.fromArray (entries : Array (ByteArray × Attribute)) : DictionaryAttr :=
+  { entries := entries.insertionSort (fun entry1 entry2 => (compare entry1.1 entry2.1).isLT) }
+
 theorem FunctionType.sizeOf_elems_inputs {ft : FunctionType} (hx : x ∈ ft.inputs) :
     sizeOf x < sizeOf ft := by
   grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]

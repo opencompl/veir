@@ -5,6 +5,12 @@ public import Std.Data.HashMap
 
 public section
 
+/--
+  We compare `ByteArray`s by with lexicographic ordering.
+-/
+instance : Ord ByteArray where
+  compare ba1 ba2 := compare ba1.data ba2.data
+
 /-- Checks if a UInt8 character is an alphabetic character or underscore in UTF-8. -/
 @[inline]
 def UInt8.isAlphaOrUnderscore (c : UInt8) : Bool :=

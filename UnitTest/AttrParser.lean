@@ -125,8 +125,9 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "{x}" (DictionaryAttr.mk #[("x".toByteArray, UnitAttr.mk)])
 #assert expectSuccessAttr "{a, b}"
   (DictionaryAttr.mk #[("a".toByteArray, UnitAttr.mk), ("b".toByteArray, UnitAttr.mk)])
-#assert expectSuccessAttr "{a = unit, b = \"hello\"}"
-  (DictionaryAttr.mk #[("a".toByteArray, UnitAttr.mk), ("b".toByteArray, StringAttr.mk "hello".toByteArray)])
+/- Test unsorted keys -/
+#assert expectSuccessAttr "{b = unit, a = \"hello\"}"
+  (DictionaryAttr.mk #[("a".toByteArray, StringAttr.mk "hello".toByteArray), ("b".toByteArray, UnitAttr.mk)])
 
 /-! ## Dialect type -/
 
