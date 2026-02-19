@@ -129,6 +129,14 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "{ b = unit, a = \"hello\" }"
   (DictionaryAttr.mk #[("a".toByteArray, StringAttr.mk "hello".toByteArray), ("b".toByteArray, UnitAttr.mk)])
 
+/-! ## Array attribute -/
+
+#assert expectSuccessAttr "[]" (ArrayAttr.mk #[])
+#assert expectSuccessAttr "[unit]" (ArrayAttr.mk #[UnitAttr.mk])
+#assert expectSuccessAttr "[1 : i32, \"foo\"]"
+  (ArrayAttr.mk #[IntegerAttr.mk 1 (IntegerType.mk 32), StringAttr.mk "foo".toByteArray])
+#assert expectSuccessAttr "[[]]" (ArrayAttr.mk #[ArrayAttr.mk #[]])
+
 /-! ## Dialect type -/
 
 #assert expectSuccessType "!foo<bar>" ⟨UnregisteredAttr.mk "!foo<bar>" true, by grind⟩

@@ -11,6 +11,9 @@
   %9 = "test.test"() {dict = {a = 0 : i32, b = "hello"}} : () -> i32
   %10 = "test.test"() {empty_dict = {}} : () -> i32
   %11 = "test.test"() {dict_unit = {x, y}} : () -> i32
+  %12 = "test.test"() {arr = []} : () -> i32
+  %13 = "test.test"() {arr = [unit]} : () -> i32
+  %14 = "test.test"() {arr = [0 : i32, "hello"]} : () -> i32
 }) : () -> ()
 
 // CHECK-NEXT: "builtin.module"() ({
@@ -24,4 +27,7 @@
 // CHECK-NEXT:     %{{.*}} = "test.test"() {"dict" = {"a" = 0 : i32, "b" = "hello"}} : () -> i32
 // CHECK-NEXT:     %{{.*}} = "test.test"() {"empty_dict" = {}} : () -> i32
 // CHECK-NEXT:     %{{.*}} = "test.test"() {"dict_unit" = {x, y}} : () -> i32
+// CHECK-NEXT:     %{{.*}} = "test.test"() {"arr" = []} : () -> i32
+// CHECK-NEXT:     %{{.*}} = "test.test"() {"arr" = [unit]} : () -> i32
+// CHECK-NEXT:     %{{.*}} = "test.test"() {"arr" = [0 : i32, "hello"]} : () -> i32
 // CHECK-NEXT: }) : () -> ()

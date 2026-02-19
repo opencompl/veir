@@ -89,6 +89,13 @@ structure FunctionType where
 deriving Inhabited, Repr, Hashable
 
 /--
+  An attribute that holds a sequence of attributes.
+-/
+structure ArrayAttr where
+  value : Array Attribute
+deriving Inhabited, Repr, Hashable
+
+/--
   A dictionary attribute that maps byte array keys to attribute values.
 -/
 structure DictionaryAttr where
@@ -117,6 +124,8 @@ inductive Attribute
 | stringAttr (attr : StringAttr)
 /-- Unit attribute -/
 | unitAttr (attr : UnitAttr)
+/-- Array attribute -/
+| arrayAttr (attr : ArrayAttr)
 /-- Dictionary attribute -/
 | dictionaryAttr (attr : DictionaryAttr)
 /-- Function type -/
@@ -144,6 +153,10 @@ theorem FunctionType.sizeOf_elems_outputs {ft : FunctionType} (hx : x ∈ ft.out
     sizeOf x < sizeOf ft := by
   grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
 
+theorem ArrayAttr.sizeOf_elems_value {aa : ArrayAttr} (hx : x ∈ aa.value) :
+    sizeOf x < sizeOf aa := by
+  grind [Array.sizeOf_lt_of_mem hx, cases ArrayAttr]
+
 theorem DictionaryAttr.sizeOf_elems_entries {da : DictionaryAttr} (hx : x ∈ da.entries) :
     sizeOf x < sizeOf da := by
   grind [Array.sizeOf_lt_of_mem hx, cases DictionaryAttr]
@@ -170,6 +183,17 @@ decreasing_by
     grind
   · have := @FunctionType.sizeOf_elems_outputs
     grind
+
+def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
+  let value1 := arr1.value
+  let value2 := arr2.value
+  match Array.instDecidabelEq' value1 value2 (fun x y _ _ => Attribute.decEq x y) with
+  | isTrue _ => isTrue (by grind [cases ArrayAttr])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf arr1
+decreasing_by
+  have := @ArrayAttr.sizeOf_elems_value
+  grind
 
 def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
   let entries1 := dict1.entries
@@ -217,12 +241,17 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case arrayAttr.arrayAttr attr1 attr2 =>
+    exact (match ArrayAttr.decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
 
 instance : DecidableEq Attribute := Attribute.decEq
 instance : DecidableEq FunctionType := FunctionType.decEq
+instance : DecidableEq ArrayAttr := ArrayAttr.decEq
 instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
 
 /-!
@@ -248,6 +277,14 @@ instance : ToString UnregisteredAttr where
   toString attr := attr.value
 
 mutual
+
+def ArrayAttr.toString (attr : ArrayAttr) : String :=
+  let elems := String.intercalate ", " (attr.value.toList.map Attribute.toString)
+  s!"[{elems}]"
+termination_by sizeOf attr
+decreasing_by
+  apply ArrayAttr.sizeOf_elems_value
+  grind
 
 def DictionaryAttr.entryToString (entry : ByteArray × Attribute) : String :=
   let key := String.fromUTF8! entry.1
@@ -297,6 +334,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .integerAttr attr => ToString.toString attr
   | .stringAttr attr => ToString.toString attr
   | .unitAttr attr => ToString.toString attr
+  | .arrayAttr attr => attr.toString
   | .dictionaryAttr attr => attr.toString
   | .unregisteredAttr attr => ToString.toString attr
   | .functionType type => type.toString
@@ -309,6 +347,9 @@ instance : ToString Attribute where
 
 instance : ToString FunctionType where
   toString := FunctionType.toString
+
+instance : ToString ArrayAttr where
+  toString := ArrayAttr.toString
 
 instance : ToString DictionaryAttr where
   toString := DictionaryAttr.toString
@@ -332,6 +373,9 @@ instance : Coe UnitAttr Attribute where
 
 instance : Coe UnregisteredAttr Attribute where
   coe attr := .unregisteredAttr attr
+
+instance : Coe ArrayAttr Attribute where
+  coe attr := .arrayAttr attr
 
 instance : Coe DictionaryAttr Attribute where
   coe attr := .dictionaryAttr attr
@@ -358,6 +402,7 @@ def isType (attr : Attribute) : Bool :=
   | .integerAttr _ => false
   | .stringAttr _ => false
   | .unitAttr _ => false
+  | .arrayAttr _ => false
   | .dictionaryAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .functionType _ => true
