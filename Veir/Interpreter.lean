@@ -53,6 +53,22 @@ private def natBitLength (n : Nat) : Nat :=
   if n = 0 then 0 else Nat.log2 n + 1
 
 /--
+  Barrett first-step reduction over naturals.
+-/
+def barrettReduceStepNat? (modulus value : Nat) : Option Nat := do
+  if modulus <= 1 then
+    none
+  let bitWidth := natBitLength (modulus - 1)
+  if bitWidth = 0 then
+    none
+  let shiftAmount := 2 * bitWidth
+  let basePow := (2 : Nat) ^ shiftAmount
+  let ratioNat := basePow / modulus
+  let qHatNat := (value * ratioNat) / basePow
+  let reducedNat := value - qHatNat * modulus
+  return reducedNat
+
+/--
   Compute the first Barrett-reduction step for non-negative integers.
   This returns `x - floor(x * mu / 2^(2k)) * q` where:
   - `k = bitLength(q - 1)`
@@ -63,16 +79,7 @@ def barrettReduceStep? (modulus value : Int) : Option Int := do
     none
   if value < 0 then
     none
-  let bitWidth := natBitLength (Int.toNat (modulus - 1))
-  if bitWidth = 0 then
-    none
-  let modNat := Int.toNat modulus
-  let valueNat := Int.toNat value
-  let shiftAmount := 2 * bitWidth
-  let basePow := (2 : Nat) ^ shiftAmount
-  let ratioNat := basePow / modNat
-  let qHatNat := (valueNat * ratioNat) / basePow
-  let reducedNat := valueNat - qHatNat * modNat
+  let reducedNat ← barrettReduceStepNat? (Int.toNat modulus) (Int.toNat value)
   return Int.ofNat reducedNat
 
 /--
@@ -304,71 +311,101 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     let resultType ← op.resultType?
     let .modArithType modType := resultType.val
       | none
-    let #[lhs, rhs] := operands | none
-    let lhs ← lhs.toModInt? modType.modulus true
-    let rhs ← rhs.toModInt? modType.modulus true
+    let #[.modInt lhsMod lhs, .modInt rhsMod rhs] := operands | none
+    if lhsMod ≠ modType.modulus then
+      none
+    else if rhsMod ≠ modType.modulus then
+      none
+    else
     let value ← normalizeMod? modType.modulus (lhs + rhs)
     return (#[.modInt modType.modulus value], .continue)
   | .mod_arith_sub => do
     let resultType ← op.resultType?
     let .modArithType modType := resultType.val
       | none
-    let #[lhs, rhs] := operands | none
-    let lhs ← lhs.toModInt? modType.modulus true
-    let rhs ← rhs.toModInt? modType.modulus true
+    let #[.modInt lhsMod lhs, .modInt rhsMod rhs] := operands | none
+    if lhsMod ≠ modType.modulus then
+      none
+    else if rhsMod ≠ modType.modulus then
+      none
+    else
     let value ← normalizeMod? modType.modulus (lhs - rhs)
     return (#[.modInt modType.modulus value], .continue)
   | .mod_arith_mul => do
     let resultType ← op.resultType?
     let .modArithType modType := resultType.val
       | none
-    let #[lhs, rhs] := operands | none
-    let lhs ← lhs.toModInt? modType.modulus true
-    let rhs ← rhs.toModInt? modType.modulus true
+    let #[.modInt lhsMod lhs, .modInt rhsMod rhs] := operands | none
+    if lhsMod ≠ modType.modulus then
+      none
+    else if rhsMod ≠ modType.modulus then
+      none
+    else
     let value ← normalizeMod? modType.modulus (lhs * rhs)
     return (#[.modInt modType.modulus value], .continue)
   | .mod_arith_mac => do
     let resultType ← op.resultType?
     let .modArithType modType := resultType.val
       | none
-    let #[lhs, rhs, acc] := operands | none
-    let lhs ← lhs.toModInt? modType.modulus true
-    let rhs ← rhs.toModInt? modType.modulus true
-    let acc ← acc.toModInt? modType.modulus true
+    let #[.modInt lhsMod lhs, .modInt rhsMod rhs, .modInt accMod acc] := operands | none
+    if lhsMod ≠ modType.modulus then
+      none
+    else if rhsMod ≠ modType.modulus then
+      none
+    else if accMod ≠ modType.modulus then
+      none
+    else
     let value ← normalizeMod? modType.modulus (lhs * rhs + acc)
     return (#[.modInt modType.modulus value], .continue)
   | .mod_arith_reduce => do
     let resultType ← op.resultType?
     let .modArithType modType := resultType.val
       | none
-    let #[value] := operands | none
-    let value ← value.toModInt? modType.modulus
+    let #[.modInt valueMod value] := operands | none
+    if valueMod ≠ modType.modulus then
+      none
+    else
+    let value ← normalizeMod? modType.modulus value
     return (#[.modInt modType.modulus value], .continue)
   | .mod_arith_barrett_reduce => do
     let resultType ← op.resultType?
-    let #[value] := operands | none
+    let .integerType resultIntType := resultType.val
+      | none
+    let #[.int _ inputValue] := operands | none
     let modulus := (opPtr.getProperties! ctx .mod_arith_barrett_reduce).modulus.value
-    let value ← value.toInt?
-    let value ← barrettReduceStep? modulus value
-    let resultValue ← mkRuntimeValueForType? resultType value
-    return (#[resultValue], .continue)
+    let poisonResult : RuntimeValue := .int resultIntType.bitwidth .poison
+    if modulus <= 1 then
+      return (#[poisonResult], .continue)
+    let qNat := Int.toNat modulus
+    let qSquared := qNat * qNat
+    match inputValue with
+    | .poison =>
+      return (#[poisonResult], .continue)
+    | .val inputBits =>
+      let inputNat := inputBits.toNat
+      if hRange : inputNat < qSquared then
+        let reducedNat ← barrettReduceStepNat? qNat inputNat
+        return (#[.int resultIntType.bitwidth (.val (BitVec.ofNat resultIntType.bitwidth reducedNat))], .continue)
+      else
+        return (#[poisonResult], .continue)
   | .mod_arith_encapsulate => do
     let resultType ← op.resultType?
     let .modArithType modType := resultType.val
       | none
-    let #[value] := operands | none
-    let value ← value.toModInt? modType.modulus
+    let #[.int _ value] := operands | none
+    let .val value := value
+      | none
+    let value ← normalizeMod? modType.modulus (Int.ofNat value.toNat)
     return (#[.modInt modType.modulus value], .continue)
   | .mod_arith_mod_switch => do
     let resultType ← op.resultType?
     let .modArithType modType := resultType.val
       | none
-    let #[value] := operands | none
-    let value ← value.toModInt? modType.modulus
+    let #[.modInt _ value] := operands | none
+    let value ← normalizeMod? modType.modulus value
     return (#[.modInt modType.modulus value], .continue)
   | .mod_arith_subifge => do
     let resultType ← op.resultType?
-    let #[lhs, rhs] := operands | none
     match resultType.val with
     | .integerType resultIntType => do
       let #[.int lhsBitwidth lhsValue, .int rhsBitwidth rhsValue] := operands | none
@@ -391,8 +428,12 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
           | _, _ => .poison
         return (#[.int resultIntType.bitwidth value], .continue)
     | .modArithType modType => do
-      let lhs ← lhs.toModInt? modType.modulus true
-      let rhs ← rhs.toModInt? modType.modulus true
+      let #[.modInt lhsMod lhs, .modInt rhsMod rhs] := operands | none
+      if lhsMod ≠ modType.modulus then
+        none
+      else if rhsMod ≠ modType.modulus then
+        none
+      else
       let value := if lhs >= rhs then lhs - rhs else lhs
       let value ← normalizeMod? modType.modulus value
       return (#[.modInt modType.modulus value], .continue)
@@ -400,10 +441,13 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
       none
   | .mod_arith_extract => do
     let resultType ← op.resultType?
-    let #[value] := operands | none
-    let value ← value.toInt?
-    let resultValue ← mkRuntimeValueForType? resultType value
-    return (#[resultValue], .continue)
+    let .integerType resultIntType := resultType.val
+      | none
+    let #[.modInt _ value] := operands | none
+    if value < 0 then
+      none
+    else
+      return (#[.int resultIntType.bitwidth (.val (BitVec.ofNat resultIntType.bitwidth value.toNat))], .continue)
   | .func_return => do
     return (#[], .return operands)
   | _ => none
