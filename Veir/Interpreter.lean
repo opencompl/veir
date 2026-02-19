@@ -342,14 +342,36 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     return (#[.modInt modType.modulus value], .continue)
   | .mod_arith_subifge => do
     let resultType ← op.resultType?
-    let .modArithType modType := resultType.val
-      | none
     let #[lhs, rhs] := operands | none
-    let lhs ← lhs.toModInt? modType.modulus true
-    let rhs ← rhs.toModInt? modType.modulus true
-    let value := if lhs >= rhs then lhs - rhs else lhs
-    let value ← normalizeMod? modType.modulus value
-    return (#[.modInt modType.modulus value], .continue)
+    match resultType.val with
+    | .integerType resultIntType => do
+      let #[.int lhsBitwidth lhsValue, .int rhsBitwidth rhsValue] := operands | none
+      if hLhs : lhsBitwidth ≠ resultIntType.bitwidth then
+        none
+      else if hRhs : rhsBitwidth ≠ resultIntType.bitwidth then
+        none
+      else
+        let hLhsEq : lhsBitwidth = resultIntType.bitwidth := Decidable.not_not.mp hLhs
+        let hRhsEq : rhsBitwidth = resultIntType.bitwidth := Decidable.not_not.mp hRhs
+        let lhsValue := lhsValue.cast hLhsEq
+        let rhsValue := rhsValue.cast hRhsEq
+        let value : LLVM.Int resultIntType.bitwidth :=
+          match lhsValue, rhsValue with
+          | .val lhsValue, .val rhsValue =>
+            if lhsValue.toNat >= rhsValue.toNat then
+              .val (lhsValue - rhsValue)
+            else
+              .val lhsValue
+          | _, _ => .poison
+        return (#[.int resultIntType.bitwidth value], .continue)
+    | .modArithType modType => do
+      let lhs ← lhs.toModInt? modType.modulus true
+      let rhs ← rhs.toModInt? modType.modulus true
+      let value := if lhs >= rhs then lhs - rhs else lhs
+      let value ← normalizeMod? modType.modulus value
+      return (#[.modInt modType.modulus value], .continue)
+    | _ =>
+      none
   | .mod_arith_extract => do
     let resultType ← op.resultType?
     let #[value] := operands | none
