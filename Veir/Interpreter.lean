@@ -27,11 +27,100 @@ namespace Veir
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
+| modInt (modulus : Int) (value : Int)
 deriving Inhabited
 
 instance : ToString (RuntimeValue) where
   toString
     | .int _ val => ToString.toString val
+    | .modInt modulus value => s!"{value} (mod {modulus})"
+
+/--
+  Normalize an integer in `Z/modulusZ`.
+  Returns `none` if `modulus <= 0`.
+-/
+def normalizeMod? (modulus value : Int) : Option Int := do
+  if modulus <= 0 then
+    none
+  else
+    let reduced := value % modulus
+    if reduced < 0 then
+      some (reduced + modulus)
+    else
+      some reduced
+
+def natBitLength (n : Nat) : Nat :=
+  if n = 0 then 0 else Nat.log2 n + 1
+
+
+
+/--
+  Barrett-reduction (first step, no condition subtraction).
+  Produces a value that is either `a mod m` or `a mod m + m`
+  for `a` in [0, m^2) and `m > 0`.
+-/
+def barrettReduceStepNat (m a : Nat) : Nat :=
+  /- precomputable constants that depend only on m -/
+  let bitWidth := natBitLength (m - 1)
+  let k := 2 * bitWidth
+  let mu := ((1 : Nat) <<< k) / m
+  /- proper reduction step -/
+  let q := (a * mu) >>> k
+  a - q * m
+
+/--
+  Convert a runtime value to an integer.
+  Poison values are not supported by the current mod-arith semantics.
+-/
+def RuntimeValue.toInt? : RuntimeValue → Option Int
+  | .int _ (.val value) => some value.toNat
+  | .int _ .poison => none
+  | .modInt _ value => some value
+
+/--
+  Interpret a runtime value under a target modulus.
+  If `strictModulus` is true, a `modInt` value must already carry the same modulus.
+-/
+def RuntimeValue.toModInt? (self : RuntimeValue) (modulus : Int) (strictModulus : Bool := false) :
+    Option Int := do
+  match self with
+  | .modInt currentModulus value =>
+    if strictModulus && currentModulus ≠ modulus then
+      none
+    else
+      normalizeMod? modulus value
+  | _ =>
+    normalizeMod? modulus (← self.toInt?)
+
+/--
+  Build a runtime value for an integer type.
+  Negative integers are currently unsupported in this conversion.
+-/
+def mkIntegerRuntimeValue? (bitwidth : Nat) (value : Int) : Option RuntimeValue := do
+  if value < 0 then
+    none
+  else
+    some (.int bitwidth (.val (BitVec.ofNat bitwidth value.toNat)))
+
+/--
+  Build a runtime value for a result type from a mathematical integer value.
+-/
+def mkRuntimeValueForType? (resultType : TypeAttr) (value : Int) : Option RuntimeValue := do
+  match resultType.val with
+  | .integerType intType =>
+    mkIntegerRuntimeValue? intType.bitwidth value
+  | .modArithType modType =>
+    let normalized ← normalizeMod? modType.modulus value
+    some (.modInt modType.modulus normalized)
+  | _ =>
+    none
+
+/--
+  Get the type of a result by index.
+-/
+def Operation.resultType? (op : Operation) (index : Nat := 0) : Option TypeAttr := do
+  let result ← op.results[index]?
+  pure result.type
 
 /--
   The state of the interpreter at a given point in time.
@@ -119,6 +208,84 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
       | .val lhs, .val rhs => .val (lhs &&& rhs)
       | _, _ => .poison
     return (#[.int bw result], .continue)
+  | .arith_extui => do
+    let resultType ← op.resultType?
+    let .integerType resultIntType := resultType.val
+      | none
+    let #[.int inputBitwidth inputValue] := operands | none
+    if resultIntType.bitwidth < inputBitwidth then
+      none
+    else
+      let resultValue : LLVM.Int resultIntType.bitwidth :=
+        match inputValue with
+        | .val value => .val (BitVec.ofNat resultIntType.bitwidth value.toNat)
+        | .poison => .poison
+      return (#[.int resultIntType.bitwidth resultValue], .continue)
+  | .arith_shrui => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let hEq : bw' = bw := Decidable.not_not.mp h
+    let rhs := rhs.cast hEq
+    let result : LLVM.Int bw :=
+      match lhs with
+      | .val lhs =>
+        match rhs with
+        | .val rhs => .val (BitVec.ushiftRight lhs rhs.toNat)
+        | .poison => .poison
+      | .poison => .poison
+    return (#[.int bw result], .continue)
+  | .arith_trunci => do
+    let resultType ← op.resultType?
+    let .integerType resultIntType := resultType.val
+      | none
+    let #[.int inputBitwidth inputValue] := operands | none
+    if inputBitwidth < resultIntType.bitwidth then
+      none
+    else
+      let resultValue : LLVM.Int resultIntType.bitwidth :=
+        match inputValue with
+        | .val value => .val (BitVec.truncate resultIntType.bitwidth value)
+        | .poison => .poison
+      return (#[.int resultIntType.bitwidth resultValue], .continue)
+  | .arith_cmpi => do
+    let resultType ← op.resultType?
+    let .integerType resultIntType := resultType.val
+      | none
+    if resultIntType.bitwidth ≠ 1 then
+      none
+    else
+      let #[.int bw lhs, .int bw' rhs] := operands | none
+      if h : bw' ≠ bw then none else
+      let hEq : bw' = bw := Decidable.not_not.mp h
+      let rhs := rhs.cast hEq
+      let result : LLVM.Int 1 :=
+        match lhs, rhs with
+        | .val lhs, .val rhs =>
+          .val (BitVec.ofNat 1 (if lhs.toNat >= rhs.toNat then 1 else 0))
+        | _, _ => .poison
+      return (#[.int 1 result], .continue)
+  | .arith_select => do
+    let resultType ← op.resultType?
+    let .integerType resultIntType := resultType.val
+      | none
+    let #[.int condBitwidth cond, .int trueBitwidth trueValue, .int falseBitwidth falseValue] := operands
+      | none
+    if hCond : condBitwidth ≠ 1 then
+      none
+    else if hTrue : trueBitwidth ≠ resultIntType.bitwidth then
+      none
+    else if hFalse : falseBitwidth ≠ resultIntType.bitwidth then
+      none
+    else
+      let hTrueEq : trueBitwidth = resultIntType.bitwidth := Decidable.not_not.mp hTrue
+      let hFalseEq : falseBitwidth = resultIntType.bitwidth := Decidable.not_not.mp hFalse
+      let trueValue := trueValue.cast hTrueEq
+      let falseValue := falseValue.cast hFalseEq
+      let result : LLVM.Int resultIntType.bitwidth :=
+        match cond with
+        | .val cond => if cond.toNat = 0 then falseValue else trueValue
+        | .poison => .poison
+      return (#[.int resultIntType.bitwidth result], .continue)
   | .func_return => do
     return (#[], .return operands)
   | _ => none

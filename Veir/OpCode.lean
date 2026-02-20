@@ -22,6 +22,11 @@ inductive Arith where
 | subi
 | muli
 | andi
+| extui
+| shrui
+| trunci
+| cmpi
+| select
 
 @[opcodes]
 inductive Func where
