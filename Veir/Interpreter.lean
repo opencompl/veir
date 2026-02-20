@@ -109,9 +109,6 @@ def mkRuntimeValueForType? (resultType : TypeAttr) (value : Int) : Option Runtim
   match resultType.val with
   | .integerType intType =>
     mkIntegerRuntimeValue? intType.bitwidth value
-  | .modArithType modType =>
-    let normalized ← normalizeMod? modType.modulus value
-    some (.modInt modType.modulus normalized)
   | _ =>
     none
 
@@ -176,7 +173,7 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     let .integerType bw := res.type.val
       | none
     return (#[.int bw.bitwidth
-      (.val (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
+      (.val (BitVec.ofInt bw.bitwidth value.value.value))], .continue)
   | .arith_addi => do
     let #[.int bw lhs, .int bw' rhs] := operands | none
     if h: bw' ≠ bw then none else
@@ -213,7 +210,7 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     let .integerType resultIntType := resultType.val
       | none
     let #[.int inputBitwidth inputValue] := operands | none
-    if resultIntType.bitwidth < inputBitwidth then
+    if resultIntType.bitwidth ≤ inputBitwidth then
       none
     else
       let resultValue : LLVM.Int resultIntType.bitwidth :=
@@ -230,7 +227,11 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
       match lhs with
       | .val lhs =>
         match rhs with
-        | .val rhs => .val (BitVec.ushiftRight lhs rhs.toNat)
+        | .val rhs =>
+          if rhs.toNat >= bw then
+            .poison
+          else
+            .val (BitVec.ushiftRight lhs rhs.toNat)
         | .poison => .poison
       | .poison => .poison
     return (#[.int bw result], .continue)
@@ -239,7 +240,7 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     let .integerType resultIntType := resultType.val
       | none
     let #[.int inputBitwidth inputValue] := operands | none
-    if inputBitwidth < resultIntType.bitwidth then
+    if inputBitwidth ≤ resultIntType.bitwidth then
       none
     else
       let resultValue : LLVM.Int resultIntType.bitwidth :=
@@ -248,6 +249,7 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
         | .poison => .poison
       return (#[.int resultIntType.bitwidth resultValue], .continue)
   | .arith_cmpi => do
+    let predicate := (opPtr.getProperties! ctx .arith_cmpi).predicate
     let resultType ← op.resultType?
     let .integerType resultIntType := resultType.val
       | none
@@ -261,7 +263,19 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
       let result : LLVM.Int 1 :=
         match lhs, rhs with
         | .val lhs, .val rhs =>
-          .val (BitVec.ofNat 1 (if lhs.toNat >= rhs.toNat then 1 else 0))
+          let cmp :=
+            match predicate with
+            | .eq => lhs == rhs
+            | .ne => lhs != rhs
+            | .slt => lhs.toInt < rhs.toInt
+            | .sle => lhs.toInt ≤ rhs.toInt
+            | .sgt => lhs.toInt > rhs.toInt
+            | .sge => lhs.toInt ≥ rhs.toInt
+            | .ult => lhs.toNat < rhs.toNat
+            | .ule => lhs.toNat ≤ rhs.toNat
+            | .ugt => lhs.toNat > rhs.toNat
+            | .uge => lhs.toNat ≥ rhs.toNat
+          .val (BitVec.ofNat 1 (if cmp then 1 else 0))
         | _, _ => .poison
       return (#[.int 1 result], .continue)
   | .arith_select => do
