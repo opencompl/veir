@@ -3,9 +3,6 @@ version = "0.1.0"
 defaultTargets = ["veir-opt", "run-benchmarks", "Veir"]
 testRunner = "UnitTest"
 
-[leanOptions]
-experimental.module = true
-
 [[lean_lib]]
 name = "Veir"
 root = "Veir"
