@@ -49,24 +49,10 @@ def normalizeMod? (modulus value : Int) : Option Int := do
     else
       some reduced
 
-private def natBitLength (n : Nat) : Nat :=
+def natBitLength (n : Nat) : Nat :=
   if n = 0 then 0 else Nat.log2 n + 1
 
-/--
-  Barrett first-step reduction over naturals.
--/
-def barrettReduceStepNat? (modulus value : Nat) : Option Nat := do
-  if modulus <= 1 then
-    none
-  let bitWidth := natBitLength (modulus - 1)
-  if bitWidth = 0 then
-    none
-  let shiftAmount := 2 * bitWidth
-  let basePow := (2 : Nat) ^ shiftAmount
-  let ratioNat := basePow / modulus
-  let qHatNat := (value * ratioNat) / basePow
-  let reducedNat := value - qHatNat * modulus
-  return reducedNat
+
 
 /--
   Compute the first Barrett-reduction step for non-negative integers.
@@ -74,13 +60,14 @@ def barrettReduceStepNat? (modulus value : Nat) : Option Nat := do
   - `k = bitLength(q - 1)`
   - `mu = floor(2^(2k) / q)`
 -/
-def barrettReduceStep? (modulus value : Int) : Option Int := do
-  if modulus <= 1 then
-    none
-  if value < 0 then
-    none
-  let reducedNat ← barrettReduceStepNat? (Int.toNat modulus) (Int.toNat value)
-  return Int.ofNat reducedNat
+def barrettReduceStepNat? (modulus value : Nat) : Nat := do
+  let bitWidth := natBitLength (modulus - 1)
+  let shiftAmount := 2 * bitWidth
+  let basePow := (2 : Nat) ^ shiftAmount
+  let ratioNat := basePow / modulus
+  let qHatNat := (value * ratioNat) / basePow
+  let reducedNat := value - qHatNat * modulus
+  return reducedNat
 
 /--
   Convert a runtime value to an integer.
