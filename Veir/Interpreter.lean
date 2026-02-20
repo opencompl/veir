@@ -49,38 +49,24 @@ def normalizeMod? (modulus value : Int) : Option Int := do
     else
       some reduced
 
-private def natBitLength (n : Nat) : Nat :=
+def natBitLength (n : Nat) : Nat :=
   if n = 0 then 0 else Nat.log2 n + 1
 
-/--
-  Barrett first-step reduction over naturals.
--/
-def barrettReduceStepNat? (modulus value : Nat) : Option Nat := do
-  if modulus <= 1 then
-    none
-  let bitWidth := natBitLength (modulus - 1)
-  if bitWidth = 0 then
-    none
-  let shiftAmount := 2 * bitWidth
-  let basePow := (2 : Nat) ^ shiftAmount
-  let ratioNat := basePow / modulus
-  let qHatNat := (value * ratioNat) / basePow
-  let reducedNat := value - qHatNat * modulus
-  return reducedNat
+
 
 /--
-  Compute the first Barrett-reduction step for non-negative integers.
-  This returns `x - floor(x * mu / 2^(2k)) * q` where:
-  - `k = bitLength(q - 1)`
-  - `mu = floor(2^(2k) / q)`
+  Barrett-reduction (first step, no condition subtraction).
+  Produces a value that is either `a mod m` or `a mod m + m`
+  for `a` in [0, m^2) and `m > 0`.
 -/
-def barrettReduceStep? (modulus value : Int) : Option Int := do
-  if modulus <= 1 then
-    none
-  if value < 0 then
-    none
-  let reducedNat ← barrettReduceStepNat? (Int.toNat modulus) (Int.toNat value)
-  return Int.ofNat reducedNat
+def barrettReduceStepNat (m a : Nat) : Nat :=
+  /- precomputable constants that depend only on m -/
+  let bitWidth := natBitLength (m - 1)
+  let k := 2 * bitWidth
+  let mu := ((1 : Nat) <<< k) / m
+  /- proper reduction step -/
+  let q := (a * mu) >>> k
+  a - q * m
 
 /--
   Convert a runtime value to an integer.
@@ -384,7 +370,7 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     | .val inputBits =>
       let inputNat := inputBits.toNat
       if hRange : inputNat < qSquared then
-        let reducedNat ← barrettReduceStepNat? qNat inputNat
+        let reducedNat ← barrettReduceStepNat qNat inputNat
         return (#[.int resultIntType.bitwidth (.val (BitVec.ofNat resultIntType.bitwidth reducedNat))], .continue)
       else
         return (#[poisonResult], .continue)
