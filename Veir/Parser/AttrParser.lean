@@ -276,6 +276,15 @@ partial def parseAttributeDictionary (errorMsg : String := "attribute dictionary
   | none => throw errorMsg
 
 /--
+  Parse an array attribute, if present.
+  Its syntax is a bracket-enclosed comma-separated list of attributes, e.g., `[1 : i32, "foo"]`.
+-/
+partial def parseOptionalArrayAttr : AttrParserM (Option ArrayAttr) := do
+  let some elems ← parseOptionalDelimitedList .square parseAttribute
+    | return none
+  return some (ArrayAttr.mk elems)
+
+/--
   Parse a dictionary attribute, if present.
   A dictionary attribute has the form `{key = value, key2 = value2, ...}`.
 -/
@@ -298,6 +307,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some stringAttr
   else if let some unitAttr ← parseOptionalUnitAttr then
     return some unitAttr
+  else if let some arrayAttr ← parseOptionalArrayAttr then
+    return some arrayAttr
   else if let some dictAttr ← parseOptionalDictionaryAttr then
     return some dictAttr
   else
