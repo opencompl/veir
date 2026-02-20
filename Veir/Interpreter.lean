@@ -93,6 +93,32 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (lhs + rhs)], .continue)
+  | .arith_subi => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let hEq : bw' = bw := Decidable.not_not.mp h
+    let rhs := rhs.cast hEq
+    let result :=
+      match lhs, rhs with
+      | .val lhs, .val rhs => .val (lhs - rhs)
+      | _, _ => .poison
+    return (#[.int bw result], .continue)
+  | .arith_muli => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let hEq : bw' = bw := Decidable.not_not.mp h
+    let rhs := rhs.cast hEq
+    return (#[.int bw (lhs * rhs)], .continue)
+  | .arith_andi => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let hEq : bw' = bw := Decidable.not_not.mp h
+    let rhs := rhs.cast hEq
+    let result :=
+      match lhs, rhs with
+      | .val lhs, .val rhs => .val (lhs &&& rhs)
+      | _, _ => .poison
+    return (#[.int bw result], .continue)
   | .func_return => do
     return (#[], .return operands)
   | _ => none
