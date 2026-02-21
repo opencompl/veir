@@ -1,8 +1,8 @@
 module
 
-public import Veir.Dialects.LLVM.Int.Basic
+public import Veir.Data.LLVM.Int.Basic
 
-namespace Veir.Dialects.LLVM
+namespace Veir.Data.LLVM
 
 namespace Byte
 

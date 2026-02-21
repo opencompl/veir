@@ -1,11 +1,11 @@
 module
 
 import Std.Tactic.BVDecide
-import Veir.Dialects.LLVM.Byte.Basic
-import all Veir.Dialects.LLVM.Byte.Lemmas
+import Veir.Data.LLVM.Byte.Basic
+import all Veir.Data.LLVM.Byte.Lemmas
 
 
-namespace Veir.Dialects.LLVM.Byte
+namespace Veir.Data.LLVM.Byte
 
 example (w : Nat) (x y : Byte w) : x ||| y = y ||| x := by
   simp only [or_eq]
@@ -14,4 +14,4 @@ example (w : Nat) (x y : Byte w) : x ||| y = y ||| x := by
 example (x y : Byte 8) : x ||| y = y ||| x := by
   bv_decide
 
-end Veir.Dialects.LLVM.Byte
+end Veir.Data.LLVM.Byte
