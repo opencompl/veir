@@ -41,6 +41,7 @@ structure Operation.FieldsInBounds (operation: OperationPtr) (ctx: IRContext) (h
   operands_inBounds (operand : OpOperandPtr) (h : operand.InBounds ctx):
     operand.op = operation → OpOperand.FieldsInBounds (operand.get ctx h) ctx
 
+@[local grind]
 structure BlockArgument.FieldsInBounds (arg: BlockArgument) (ctx: IRContext) : Prop where
   firstUse_inBounds : arg.firstUse.maybe OpOperandPtr.InBounds ctx
   owner_inBounds: arg.owner.InBounds ctx
@@ -529,6 +530,35 @@ attribute [local grind] OpResult.FieldsInBounds BlockArgument.FieldsInBounds
   OpOperand.FieldsInBounds BlockOperand.FieldsInBounds Operation.FieldsInBounds
   Block.FieldsInBounds Region.FieldsInBounds BlockOperandPtrPtr.InBounds
 
+macro "prove_fieldsInBounds" : tactic => `(tactic|
+  (rintro hctx
+   constructor
+   · intros op hop
+     constructor
+     · intros res hres heq
+       constructor
+       · grind
+       · grind
+     · grind
+     · grind
+     · grind
+     · intros operand hoperand heq
+       constructor <;> grind
+     · grind
+     · rintro opr hopr heq
+       constructor <;> grind
+   · intros block blockIn
+     constructor
+     · grind
+     · grind
+     · grind
+     · grind
+     · grind
+     · grind
+     · intros
+       constructor <;> grind (ematch := 20)
+   · grind))
+
 macro "prove_fieldsInBounds_operation" ctx:ident : tactic => `(tactic|
   (rintro hctx
    constructor
@@ -610,25 +640,7 @@ theorem OperationPtr.pushRegion_fieldsInBounds (hnew : newRegion.InBounds ctx) :
 @[grind .]
 theorem OperationPtr.pushResult_fieldsInBounds {newResult : OpResult} {op : OperationPtr} h (hres : newResult.FieldsInBounds (op.pushResult ctx newResult h)) :
     ctx.FieldsInBounds → (op.pushResult ctx newResult h).FieldsInBounds := by
-  intro hctx
-  constructor
-  · intros op hop
-    constructor
-    · intros res hres heq
-      constructor
-      · grind
-      · grind
-    · grind
-    · grind
-    · grind
-    · intros operand hoperand heq
-      constructor <;> grind
-    · grind
-    · rintro opr hopr heq
-      constructor <;> grind
-  · intros block blockIn
-    constructor <;> grind
-  · grind
+  prove_fieldsInBounds
 
 @[grind .]
 theorem OperationPtr.setProperties_fieldsInBounds :
@@ -638,76 +650,21 @@ theorem OperationPtr.setProperties_fieldsInBounds :
 @[grind .]
 theorem OperationPtr.setOperands_push_fieldsInBounds  (newOperand : OpOperand) (hoperand : newOperand.FieldsInBounds ctx) :
     ctx.FieldsInBounds → (pushOperand op ctx newOperand h).FieldsInBounds := by
-  intro hctx
-  constructor
-  · intros op hop
-    constructor
-    · intros res hres heq
-      constructor
-      · grind
-      · grind
-    · grind
-    · grind
-    · grind
-    · intros operand hoperand heq
-      constructor <;> grind
-    · grind
-    · rintro opr hopr heq
-      constructor <;> grind
-  · intros block blockIn
-    constructor <;> grind
-  · grind
+  prove_fieldsInBounds
 
 @[grind .]
 theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
     (newOperand : BlockOperand) (hoperand : newOperand.FieldsInBounds ctx) :
     ctx.FieldsInBounds → (pushBlockOperand op ctx newOperand h).FieldsInBounds := by
-  intro hctx
-  constructor
-  · intro op hop
-    constructor
-    · intro res hres heq
-      constructor <;> grind
-    · grind
-    · grind
-    · grind
-    · intro operand hoperand heq
-      constructor <;> grind
-    · grind
-    · intro opr hopr heq
-      constructor <;> grind
-  · intro block blockIn
-    constructor <;> grind
-  · grind
+  prove_fieldsInBounds
 
 attribute [local grind] Operation.empty in
+attribute [local grind =>] OperationPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
 theorem OperationPtr.allocEmpty_fieldsInBounds
     (heq : allocEmpty ctx type prop = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
-  rintro hctx
-  constructor
-  · intros op hop
-    by_cases op = ptr'
-    · constructor <;> grind
-    · have : op.InBounds ctx := by grind [=> OperationPtr.allocEmpty_genericPtr_iff']
-      constructor
-      · grind
-      · grind
-      · grind
-      · grind
-      · intros operand hoperand heq
-        constructor <;> grind
-      · grind
-      · rintro opr hopr heq
-        constructor <;> grind
-  · intros bl hbl
-    constructor <;> try grind [BlockArgument.FieldsInBounds]
-    intros
-    constructor
-    · grind
-    · grind
-  · grind
+  prove_fieldsInBounds
 
 @[grind .]
 theorem BlockOperandPtr.setBack_fieldsInBounds {blockOperand ctx h newBack} (hp : newBack.InBounds ctx) :
@@ -775,30 +732,12 @@ theorem BlockPtr.setPrevBlock_fieldsInBounds (hp : newPrevBlock.maybe BlockPtr.I
     ctx.FieldsInBounds → (setPrevBlock block ctx newPrevBlock h).FieldsInBounds := by
   prove_fieldsInBounds_block ctx
 
+attribute [local grind] Block.empty in
+attribute [local grind =>] BlockPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
 theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
-  rintro hctx
-  constructor
-  · intros op hop
-    constructor
-    · intros
-      constructor <;> grind
-    · grind
-    · grind
-    · grind
-    · intros operand hoperand heq
-      constructor <;> grind
-    · grind
-    · rintro opr hopr heq
-      constructor <;> grind
-  · intros bl hbl
-    constructor
-    case arguments_inBounds =>
-      intros
-      constructor <;> grind [=> BlockPtr.allocEmpty_genericPtr_iff', Block.empty]
-    all_goals grind [=> BlockPtr.allocEmpty_genericPtr_iff', Block.empty]
-  · grind
+  prove_fieldsInBounds
 
 @[grind .]
 theorem OpOperandPtr.setNextUse_fieldsInBounds (hp : newNextUse.maybe OpOperandPtr.InBounds ctx) :
@@ -818,29 +757,7 @@ theorem OpOperandPtr.setOwner_fieldsInBounds (hp : newOwner.InBounds ctx) :
 @[grind .]
 theorem OpOperandPtrPtr.set_fieldsInBounds_maybe (hnew : newPtr.maybe OpOperandPtr.InBounds ctx) :
     ctx.FieldsInBounds → (set opOperandPtr ctx newPtr h).FieldsInBounds := by
-  intros hctx
-  constructor
-  · intros
-    constructor
-    · grind
-    · grind
-    · grind
-    · grind
-    · intros
-      constructor <;> grind
-    · grind
-    · intros
-      constructor <;> grind
-  · intros bl hbl
-    constructor
-    case arguments_inBounds =>
-      intros ba hba heq
-      rcases opOperandPtr with _ | val
-      · constructor <;> grind
-      · cases val <;> grind
-    all_goals grind
-  · intros
-    apply Region.fieldsInBounds_unchanged (ctx := ctx) <;> grind
+  prove_fieldsInBounds
 
 @[grind .]
 theorem OpOperandPtr.setValue_fieldsInBounds (hp : newValue.InBounds ctx) :
@@ -873,19 +790,11 @@ theorem RegionPtr.setLastBlock_fieldsInBounds (hnew : newLastBlock.maybe BlockPt
   prove_fieldsInBounds_region ctx
 
 attribute [local grind] Region.empty in
+attribute [local grind =>] RegionPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
 theorem RegionPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', rg')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
-  rintro hctx
-  constructor
-  · intros
-    constructor <;> grind (ematch := 10)
-  · intros
-    constructor <;> grind (ematch := 10)
-  · intros rg hrg
-    have : rg.InBounds ctx ∨ rg = rg' := by
-      grind [=> RegionPtr.allocEmpty_genericPtr_iff']
-    constructor <;> grind
+  prove_fieldsInBounds
 
 @[grind .]
 theorem BlockOperandPtrPtr.set_fieldsInBounds_maybe  (hnew : new.maybe BlockOperandPtr.InBounds ctx) :
