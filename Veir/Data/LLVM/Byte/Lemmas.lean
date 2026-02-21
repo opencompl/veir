@@ -1,10 +1,10 @@
 module
 
-import all Veir.Dialects.LLVM.Byte.Basic
+import all Veir.Data.LLVM.Byte.Basic
 
-namespace Veir.Dialects.LLVM.Byte
+namespace Veir.Data.LLVM.Byte
 
-open Veir.Dialects.LLVM.Int
+open Veir.Data.LLVM.Int
 
 theorem toInt_fromInt {w : Nat} (x : Int w) (h : 0 < w) : (Byte.fromInt x).toInt = x := by
   simp only [Byte.toInt, fromInt]
@@ -74,4 +74,4 @@ theorem val_xor {w : Nat} (x y : Byte w) :
     (x ^^^ y).val = (x.val ^^^ y.val) &&& ~~~(x.poison ||| y.poison) := by
   simp [xor_eq]
 
-end Veir.Dialects.LLVM.Byte
+end Veir.Data.LLVM.Byte

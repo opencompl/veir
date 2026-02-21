@@ -1,4 +1,4 @@
-import Veir.Dialects
+import Veir.Data
 
 import Veir.IR.Basic
 import Veir.IR.Fields

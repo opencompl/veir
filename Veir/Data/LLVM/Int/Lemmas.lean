@@ -1,10 +1,10 @@
 module
 
-import all Veir.Dialects.LLVM.Int.Basic
+import all Veir.Data.LLVM.Int.Basic
 
-open Veir.Dialects.LLVM
+open Veir.Data.LLVM
 
-namespace Veir.Dialects.LLVM.Int
+namespace Veir.Data.LLVM.Int
 
 /- # add -/
 

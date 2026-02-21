@@ -41,7 +41,7 @@ theorem Std.ExtHashSet.fromSuccessors.mem_ne :
 
 @[grind =]
 theorem Std.ExtHashSet.fromSuccessors.mem_iff
-    (inBounds: operand.InBounds ctx) :
+    (inBounds : operand.InBounds ctx) :
     (operand ∈ (Std.ExtHashSet.fromSuccessors ctx op) ↔ operand.op = op) := by
   simp only [Std.ExtHashSet.fromSuccessors]
   simp only [Std.ExtHashSet.mem_ofList, List.contains_eq_mem, List.mem_map,
@@ -64,7 +64,7 @@ theorem Std.ExtHashSet.fromOperands.mem_ne :
 
 @[grind =]
 theorem Std.ExtHashSet.fromOperands.mem_iff
-    (inBounds: operand.InBounds ctx) :
+    (inBounds : operand.InBounds ctx) :
     (operand ∈ (Std.ExtHashSet.fromOperands ctx op) ↔ operand.op = op) := by
   simp only [Std.ExtHashSet.fromOperands]
   simp only [Std.ExtHashSet.mem_ofList, List.contains_eq_mem, List.mem_map,
@@ -213,7 +213,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext} {inBound
         simp (disch := grind) only [OpOperandPtr.get!_OperationPtr_dealloc]
         simp only [← GenericPtr.iff_value]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
-        cases hvalue: (operand.get! ctx).value; rotate_left 1; grind
+        cases hvalue : (operand.get! ctx).value; rotate_left 1; grind
         rename_i opRes
         simp only
         intro howner
