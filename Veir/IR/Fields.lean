@@ -739,6 +739,27 @@ theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', p
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds
 
+attribute [local grind →] Array.getElem_mem in
+attribute [local grind] Block.empty in
+attribute [local grind =] BlockArgumentPtr.inBounds_def in
+attribute [local grind =>] BlockPtr.allocEmpty_genericPtr_iff' in
+@[grind .]
+theorem BlockPtr.setArguments_fieldsInBounds
+    (hIncreaseSize : block.getNumArguments! ctx ≤ newArguments.size)
+    (hp : ∀ arg ∈ newArguments, arg.FieldsInBounds ctx) :
+    ctx.FieldsInBounds → (setArguments block ctx newArguments h).FieldsInBounds := by
+  prove_fieldsInBounds
+
+attribute [local grind →] Array.getElem_mem in
+attribute [local grind] Block.empty in
+attribute [local grind =] BlockArgumentPtr.inBounds_def in
+attribute [local grind =>] BlockPtr.allocEmpty_genericPtr_iff' in
+@[grind .]
+theorem BlockPtr.pushArgument_fieldsInBounds
+    (hp : newArgument.FieldsInBounds ctx) :
+    ctx.FieldsInBounds → (pushArgument block ctx newArgument h).FieldsInBounds := by
+  prove_fieldsInBounds
+
 @[grind .]
 theorem OpOperandPtr.setNextUse_fieldsInBounds (hp : newNextUse.maybe OpOperandPtr.InBounds ctx) :
     ctx.FieldsInBounds → (setNextUse opOperand ctx newNextUse h).FieldsInBounds := by

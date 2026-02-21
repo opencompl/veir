@@ -1182,6 +1182,15 @@ theorem getArgument_block {block : BlockPtr} {index : Nat} :
     (getArgument block index).block = block := by
   grind [getArgument]
 
+@[grind]
+def nextArgument (block : BlockPtr) (ctx : IRContext)
+    (inBounds: block.InBounds ctx := by grind) : BlockArgumentPtr :=
+  getArgument block (block.getNumArguments ctx (by grind))
+
+@[grind]
+def nextArgument! (block : BlockPtr) (ctx : IRContext) : BlockArgumentPtr :=
+  getArgument block (block.getNumArguments! ctx)
+
 def setArguments (block : BlockPtr) (ctx : IRContext)
     (newArguments : Array BlockArgument) (inBounds : block.InBounds ctx := by grind) : IRContext :=
   let oldBlock := block.get ctx (by grind)
@@ -1220,6 +1229,16 @@ namespace BlockArgumentPtr
 @[local grind]
 def InBounds (arg : BlockArgumentPtr) (ctx : IRContext) : Prop :=
   ∃ h, arg.index < (arg.block.get ctx h).arguments.size
+
+theorem inBounds_def : InBounds arg ctx ↔ ∃ h, arg.index < arg.block.getNumArguments ctx h := by
+  rfl
+
+@[grind .]
+theorem InBounds_iff (arg : BlockArgumentPtr) (ctx : IRContext) :
+    arg.block.InBounds ctx →
+    arg.index < arg.block.getNumArguments! ctx →
+    arg.InBounds ctx :=
+  by grind [inBounds_def]
 
 def get (arg : BlockArgumentPtr) (ctx : IRContext) (argIn : arg.InBounds ctx := by grind) : BlockArgument :=
   (arg.block.get ctx (by grind [InBounds])).arguments[arg.index]'(by grind [InBounds])
