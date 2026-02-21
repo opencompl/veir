@@ -1,6 +1,6 @@
 name = "VeIR"
 version = "0.1.0"
-defaultTargets = ["veir-opt", "run-benchmarks", "Veir"]
+defaultTargets = ["veir-opt", "veir-interpret", "run-benchmarks", "Veir"]
 testRunner = "UnitTest"
 moreLeanArgs = ["--tstack=400000"]
 moreServerArgs = ["--tstack=400000"]
