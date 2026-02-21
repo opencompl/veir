@@ -181,10 +181,25 @@ structure Operation where
   operands : Array OpOperand
 deriving Inhabited, Repr, Hashable
 
-theorem Operation.default_operands_eq : (default : Operation).operands = #[] := by rfl
-theorem Operation.default_regions_eq : (default : Operation).regions = #[] := by rfl
-theorem Operation.default_blockOperands_eq : (default : Operation).blockOperands = #[] := by rfl
-theorem Operation.default_results_eq : (default : Operation).results = #[] := by rfl
+namespace Operation
+
+theorem default_operands_eq :
+    (default : Operation).operands = #[] := by
+  rfl
+
+theorem default_regions_eq :
+    (default : Operation).regions = #[] := by
+  rfl
+
+theorem default_blockOperands_eq :
+    (default : Operation).blockOperands = #[] := by
+  rfl
+
+theorem default_results_eq :
+    (default : Operation).results = #[] := by
+  rfl
+
+end Operation
 
 /--
 An MLIR block.
