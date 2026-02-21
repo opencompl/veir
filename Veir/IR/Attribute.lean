@@ -305,10 +305,10 @@ decreasing_by
 
 def FunctionType.toString (type : FunctionType) : String :=
   let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
-  let outputs := match _: type.outputs.size with
+  let outputs := match _ : type.outputs.size with
   | 0 => "()"
   | 1 =>
-    match _: type.outputs[0] with
+    match _ : type.outputs[0] with
     | .functionType _ => s!"({type.outputs[0].toString})"
     | output => output.toString
   | _ =>
