@@ -3,9 +3,9 @@ import Veir.Rewriter.Basic
 import Veir.ForLean
 import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
-import Veir.Dialects.LLVM.Int.Basic
+import Veir.Data.LLVM.Int.Basic
 
-open Veir.Dialects
+open Veir.Data
 /-!
   # Veir Interpreter
 

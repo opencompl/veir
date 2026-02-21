@@ -1,6 +1,6 @@
 module
 
-namespace Veir.Dialects.LLVM
+namespace Veir.Data.LLVM
 
 public section
 
@@ -42,4 +42,4 @@ def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
 
 end Int
 end
-end Veir.Dialects.LLVM
+end Veir.Data.LLVM
