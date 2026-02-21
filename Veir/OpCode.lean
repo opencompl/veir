@@ -9,11 +9,14 @@ to an operation definition.
 -/
 
 import Std.Data.HashMap
+public import Veir.TC
 import Veir.Meta.OpCode
 
 open Std
 
 namespace Veir
+
+public section
 
 @[opcodes]
 inductive Arith where
@@ -22,16 +25,19 @@ inductive Arith where
 | subi
 | muli
 | andi
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Builtin where
 | unregistered
 | module
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Func where
 | func
 | return
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Llvm where
@@ -55,6 +61,7 @@ inductive Llvm where
 | sext
 | zext
 | return
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Riscv where
@@ -141,18 +148,49 @@ inductive Riscv where
 | pack
 | packh
 | packw
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Test where
 | test
+deriving Inhabited, Repr, Hashable, DecidableEq
 
-public section
 
+/-
+A type class that defines an MLIR dialect and translates from `DialectCode` to
+the dialect type.
+-/
 /-
   An operation code (OpCode) identifies the type of an operation.
   Each OpCode corresponds to a specific operation.
 -/
 #generate_op_codes
+
+def test : OpCode := .arith Veir.Arith.constant
+
+def toType (code : DialectCode) : Type :=
+  match code with
+  | .arith => Arith
+  | .builtin => Builtin
+  | .func => Func
+  | .llvm => Llvm
+  | .riscv => Riscv
+  | .test => Test
+
+/-
+Adapt `toType` to have a return value that is Hashable.
+-/
+
+
+theorem DialectCode.fromByteArray_toByteArray (d : DialectCode) :
+    DialectCode.fromByteArray (DialectCode.toByteArray d) = d := by
+  simp [DialectCode.toByteArray, DialectCode.fromByteArray]
+  cases d <;> simp[String.toByteArray_inj]
+
+theorem DialectCode.fromName_toByteArray (d : DialectCode) :
+    DialectCode.fromName (DialectCode.toName d) = d := by
+  simp [DialectCode.toName, DialectCode.fromName]
+  cases d <;> simp
 
 end
 end Veir

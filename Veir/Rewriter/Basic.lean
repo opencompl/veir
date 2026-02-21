@@ -596,7 +596,7 @@ set_option warn.sorry false in
 unseal Rewriter.createRegion in
 @[irreducible]
 def IRContext.create : Option (IRContext × OperationPtr) :=
-  rlet (ctx, operation) ← Rewriter.createEmptyOp .empty .builtin_module ()
+  rlet (ctx, operation) ← Rewriter.createEmptyOp .empty (.builtin .module) ()
   rlet (ctx, region) ← Rewriter.createRegion ctx
   let ctx := Rewriter.initOpRegions ctx operation #[region]
   let moduleRegion := operation.getRegion! ctx 0
