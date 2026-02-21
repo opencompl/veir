@@ -31,25 +31,46 @@ def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
 @[expose]
 def propertiesOf (opCode : OpCode) : Type :=
 match opCode with
-| .arith_constant => ArithConstantProperties
+| .arith .constant => ArithConstantProperties
 | _ => Unit
 
 instance (opCode : OpCode) : Inhabited (propertiesOf opCode) := by
   unfold propertiesOf
-  cases opCode <;> infer_instance
+  cases opCode <;> (try simp)
+  · infer_instance
+  · infer_instance
+  · infer_instance
+  · infer_instance
+  · infer_instance
+  · rename_i op; cases op <;> infer_instance
 
 instance (opCode : OpCode) : Repr (propertiesOf opCode) := by
   unfold propertiesOf
-  cases opCode <;> infer_instance
+  cases opCode <;> (try simp)
+  · infer_instance
+  · infer_instance
+  · infer_instance
+  · infer_instance
+  · infer_instance
+  · rename_i op; cases op <;> infer_instance
 
 instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
   unfold propertiesOf
-  cases opCode <;> infer_instance
+  cases opCode <;> (try simp)
+  · infer_instance
+  · infer_instance
+  · infer_instance
+  · infer_instance
+  · infer_instance
+  · rename_i op; cases op <;> infer_instance
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (propertiesOf opCode) := by
   cases opCode
-  case arith_constant => exact (ArithConstantProperties.fromAttrDict attrDict)
+  case arith agg =>
+    cases agg
+    case constant => exact (ArithConstantProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
   all_goals exact (Except.ok ())
 
 /--
@@ -58,8 +79,12 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
 def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     Std.HashMap ByteArray Attribute :=
   match opCode with
-  | .arith_constant =>
-    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .arith opp =>
+    match opp with
+    | .constant =>
+      (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+    | _ =>
+      Std.HashMap.emptyWithCapacity 0
   | _ =>
     Std.HashMap.emptyWithCapacity 0
 
