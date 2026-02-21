@@ -24,18 +24,14 @@ inductive Arith where
 | andi
 
 @[opcodes]
-inductive Func where
-| func
-| return
-
-@[opcodes]
-inductive Test where
-| test
-
-@[opcodes]
 inductive Builtin where
 | unregistered
 | module
+
+@[opcodes]
+inductive Func where
+| func
+| return
 
 @[opcodes]
 inductive Llvm where
@@ -146,6 +142,9 @@ inductive Riscv where
 | packh
 | packw
 
+@[opcodes]
+inductive Test where
+| test
 
 public section
 
