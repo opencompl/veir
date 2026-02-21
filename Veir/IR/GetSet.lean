@@ -1585,9 +1585,9 @@ theorem OperationPtr.attrs!_OperationPtr_pushRegion {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.properties!_OperationPtr_pushRegion {operation : OperationPtr} :
-    operation.getProperties! (OperationPtr.pushRegion operation' ctx newRegion hop') =
-    operation.getProperties! ctx := by
+theorem OperationPtr.getProperties!_OperationPtr_pushRegion {operation : OperationPtr} :
+    operation.getProperties! (OperationPtr.pushRegion operation' ctx newRegion hop') opCode =
+    operation.getProperties! ctx opCode := by
   grind
 
 @[simp, grind =]

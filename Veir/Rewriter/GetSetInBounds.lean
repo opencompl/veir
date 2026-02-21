@@ -2259,6 +2259,164 @@ theorem OpOperandPtrPtr.get!_initOpResults {opOperandPtr : OpOperandPtrPtr} :
 
 end Rewriter.initOpResults
 
+/-! ## `Rewriter.initOpRegions` -/
+
+section Rewriter.initOpRegions
+
+variable {op : OperationPtr}
+
+attribute [local grind] Rewriter.initOpRegions
+
+@[simp, grind =]
+theorem BlockPtr.get!_initOpRegions {block : BlockPtr} :
+    block.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) = block.get! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+
+@[simp, grind =]
+theorem OperationPtr.prev!_initOpRegions {operation : OperationPtr} :
+    (operation.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄)).prev =
+    (operation.get! ctx).prev := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_initOpRegions {operation : OperationPtr} :
+    (operation.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄)).next =
+    (operation.get! ctx).next := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_initOpRegions {operation : OperationPtr} :
+    (operation.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄)).parent =
+    (operation.get! ctx).parent := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.opType!_initOpRegions {operation : OperationPtr} :
+    (operation.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄)).opType =
+    (operation.get! ctx).opType := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_initOpRegions {operation : OperationPtr} :
+    (operation.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄)).attrs =
+    (operation.get! ctx).attrs := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_initOpRegions {operation : OperationPtr} :
+    operation.getProperties! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) opCode =
+    operation.getProperties! ctx opCode := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_initOpRegions {operation : OperationPtr} :
+    operation.getNumOperands! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    operation.getNumOperands! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OpResultPtr.get!_initOpRegions {opResult : OpResultPtr} {index : Nat} {h₄} :
+    opResult.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    opResult.get! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OpOperandPtr.get!_initOpRegions {opOperand : OpOperandPtr} {index} {h₄} :
+    opOperand.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) = opOperand.get! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_initOpRegions {operation : OperationPtr} :
+    operation.getNumSuccessors! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    operation.getNumSuccessors! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem BlockOperandPtr.get!_initOpRegions {blockOperand : BlockOperandPtr} {index} {h₄} :
+    blockOperand.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    blockOperand.get! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[grind =]
+theorem OperationPtr.getNumRegions!_initOpRegions {operation : OperationPtr} :
+    operation.getNumRegions! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    if operation = op then op.getNumRegions! ctx + (regions.size - index) else operation.getNumRegions! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_initOpRegions {operation : OperationPtr} :
+    operation.getRegion! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) idx =
+    if _ : operation = op ∧ idx ≥ op.getNumRegions! ctx ∧ idx < regions.size then regions[idx]
+    else operation.getRegion! ctx idx := by
+  fun_induction Rewriter.initOpRegions <;> grind (splits := 15)
+
+@[simp, grind =]
+theorem BlockOperandPtrPtr.get!_initOpRegions {blockOperandPtr : BlockOperandPtrPtr} :
+    blockOperandPtr.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    blockOperandPtr.get! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_initOpRegions {block : BlockPtr} :
+    block.getNumArguments! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    block.getNumArguments! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem BlockArgumentPtr.get!_initOpRegions {blockArg : BlockArgumentPtr} {index} {h₄} :
+    blockArg.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    blockArg.get! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem RegionPtr.firstBlock!_initOpRegions {region : RegionPtr} :
+    (region.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄)).firstBlock =
+    (region.get! ctx).firstBlock := by
+  fun_induction Rewriter.initOpRegions <;> grind (instances := 5000)
+
+@[simp, grind =]
+theorem RegionPtr.lastBlock!_initOpRegions {region : RegionPtr} :
+    (region.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄)).lastBlock =
+    (region.get! ctx).lastBlock := by
+  fun_induction Rewriter.initOpRegions <;> grind (instances := 5000)
+
+theorem RegionPtr.parent!_initOpRegions_gen {region : RegionPtr} :
+    (region.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄)).parent =
+    if ∃ (i : Nat) (_ : i < regions.size), index ≤ i ∧ regions[i] = region then some op else (region.get! ctx).parent := by
+  fun_induction Rewriter.initOpRegions
+  · grind (instances := 5000) (gen := 100)
+  · simp_all +zetaDelta only
+    split <;> split <;> grind (instances := 5000)
+
+@[grind =]
+theorem RegionPtr.parent!_initOpRegions {region : RegionPtr} :
+    (region.get! (Rewriter.initOpRegions ctx op regions 0 h₁ h₂ h₃ h₄)).parent =
+    if region ∈ regions then some op else (region.get! ctx).parent := by
+  rw [parent!_initOpRegions_gen]
+  congr
+  grind [Array.mem_iff_getElem]
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_initOpRegions {value : ValuePtr} :
+    value.getFirstUse! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    value.getFirstUse! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_initOpRegions {value : ValuePtr} :
+    value.getType! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    value.getType! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_initOpRegions {opOperandPtr : OpOperandPtrPtr} :
+    opOperandPtr.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) =
+    opOperandPtr.get! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+end Rewriter.initOpRegions
+
 /- replaceValue? -/
 
 @[simp, grind .]
