@@ -193,7 +193,7 @@ theorem InsertPoint.idxIn.le_size_array :
   grind
 
 @[grind .]
-theorem InsertPoint.idxIn.le_size_operationList (ip : InsertPoint) (ctx : IRContext) (blockPtr : BlockPtr)
+theorem InsertPoint.idxIn.le_size_operationList (ip : InsertPoint) (ctx : IRContext opInfo) (blockPtr : BlockPtr)
   (inBounds : ip.InBounds ctx) (blockIsParent : ip.block ctx inBounds = some blockPtr) (ctxWf : ctx.WellFormed)
   (blockInBounds : blockPtr.InBounds ctx)  :
     InsertPoint.idxIn ip ctx blockPtr inBounds blockIsParent ctxWf ≤ (BlockPtr.operationList blockPtr ctx ctxWf blockInBounds).size := by

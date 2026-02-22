@@ -12,7 +12,7 @@ public section
 
 namespace Veir
 
-variable {opInfo : Type} [OpInfo opInfo]
+variable {opInfo} [OpInfo opInfo]
 variable {ctx ctx' : IRContext opInfo}
 
 /--
@@ -794,8 +794,8 @@ theorem Region.WellFormed_unchanged
 noncomputable def BlockPtr.operationList (block : BlockPtr) (ctx : IRContext opInfo) (hctx : ctx.WellFormed) (hblock : block.InBounds ctx) : Array OperationPtr :=
   (hctx.opChain block hblock).choose
 
-theorem BlockPtr.operationListWF (ctx : IRContext) (block : BlockPtr) (hblock : block.InBounds ctx)
-  (hctx : ctx.WellFormed) :
+theorem BlockPtr.operationListWF (ctx : IRContext opInfo) (block : BlockPtr) (hblock : block.InBounds ctx)
+  {hctx : IRContext.WellFormed ctx} :
     BlockPtr.OpChain block ctx (BlockPtr.operationList block ctx hctx hblock) :=
   Exists.choose_spec (hctx.opChain block hblock)
 
