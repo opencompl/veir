@@ -210,7 +210,7 @@ theorem InsertPoint.idxIn.getElem? :
     simp only [next_before_eq]
     apply Array.getElem?_idxOf
     suffices _ : op ∈ blockPtr.operationList ctx ctxWf blockInBounds by grind
-    have := @BlockPtr.operationListWF _ _ ctx blockPtr blockInBounds ctxWf
+    have := BlockPtr.operationListWF ctx blockPtr blockInBounds ctxWf
     have := this.allOpsInChain
     grind
   case atEnd bl =>
