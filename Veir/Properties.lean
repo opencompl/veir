@@ -36,18 +36,6 @@ match opCode with
 | .arith_constant => ArithConstantProperties
 | _ => Unit
 
-instance (opCode : OpCode) : Inhabited (propertiesOf opCode) := by
-  unfold propertiesOf
-  cases opCode <;> infer_instance
-
-instance (opCode : OpCode) : Repr (propertiesOf opCode) := by
-  unfold propertiesOf
-  cases opCode <;> infer_instance
-
-instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
-  unfold propertiesOf
-  cases opCode <;> infer_instance
-
 instance : OpInfo OpCode where
   propertiesOf := propertiesOf
   propertiesHash := by

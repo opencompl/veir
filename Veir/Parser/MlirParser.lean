@@ -359,7 +359,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let ctx ← getContext
   setContext Inhabited.default
 
-  let some (ctx, op) := Rewriter.createOp (dT := OpCode) ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
+  let some (ctx, op) := Rewriter.createOp (opInfo := OpCode) ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
       | throw "internal error: failed to create operation"
   let ctx := op.setAttributes! ctx attrs
 
