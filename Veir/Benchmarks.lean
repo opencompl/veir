@@ -283,7 +283,7 @@ def empty : Option (IRContext OpCode × OperationPtr × InsertPoint) := do
 def constFoldTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (IRContext OpCode × OperationPtr) := do
   let root := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.mk 32))
   let inc := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.mk 32))
-  let (gctx, topOp, insertPoint) ← @empty
+  let (gctx, topOp, insertPoint) ← empty
   let mut (gctx, gacc) ← Rewriter.createOp gctx .arith_constant #[IntegerType.mk 32] #[] #[] #[] root insertPoint sorry sorry sorry sorry sorry
   for i in [0:size] do
     let ⟨thisOp, prop⟩ : (op : OpCode) × propertiesOf op := if (i % 100 < pc) then ⟨opcode, prop⟩ else ⟨.arith_andi, ()⟩
