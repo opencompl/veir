@@ -15,8 +15,6 @@ namespace Veir.Benchmarks
 
 namespace Pattern
 
-
-
 def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Option (PatternRewriter OpCode) := do
   -- Check that the operation is an arith.addi operation
   if op.getOpType rewriter.ctx sorry ≠ .arith_addi then
