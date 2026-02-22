@@ -429,7 +429,7 @@ def runBenchmarkWithResult (benchmark: String) (n pc: Nat) (quiet: Bool := false
   | _ => panic! "Unsupported benchmark"
 
 def runBenchmark (benchmark: String) (n pc: Nat) : IO Unit := do
-  let _ ← runBenchmarkWithResult benchmark n pc false
+  let _ ← runBenchmarkWithResult benchmark n pc
   return ()
 
 def testBench (benchmark: String) (n: Nat) : IO Unit := do
