@@ -23,6 +23,20 @@ def OpOperandPtr.removeFromCurrent (ctx: IRContext opInfo) (operandPtr: OpOperan
   | none => ctx
   | some nextPtr => nextPtr.setBack ctx operand.back
 
+@[irreducible]
+def OpOperandPtr.removeFromCurrent! (ctx : IRContext) (operandPtr : OpOperandPtr) : IRContext :=
+  let operand := operandPtr.get! ctx
+  let ctx := operand.back.set! ctx operand.nextUse
+  match operand.nextUse with
+  | none => ctx
+  | some nextPtr => nextPtr.setBack! ctx operand.back
+
+@[grind _=_]
+theorem OpOperandPtr.removeFromCurrent!_eq_removeFromCurrent
+    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
+    removeFromCurrent! ctx operandPtr = removeFromCurrent ctx operandPtr operandIn ctxIn := by
+  grind [removeFromCurrent, removeFromCurrent!]
+
 @[grind .]
 theorem OpOperandPtr.removeFromCurrent_fieldsInBounds :
     (removeFromCurrent ctx operandPtr h₁ h₂).FieldsInBounds := by
@@ -45,6 +59,23 @@ def OpOperandPtr.insertIntoCurrent (ctx: IRContext opInfo) (operandPtr: OpOperan
   | none => ctx
   | some nextUse => nextUse.setBack ctx (OpOperandPtrPtr.operandNextUse operandPtr)
 
+@[irreducible]
+def OpOperandPtr.insertIntoCurrent! (ctx : IRContext) (operandPtr : OpOperandPtr) : IRContext :=
+  let value := (operandPtr.get! ctx).value
+  let ctx := operandPtr.setBack! ctx (OpOperandPtrPtr.valueFirstUse value)
+  let newNextUse := value.getFirstUse! ctx
+  let ctx := operandPtr.setNextUse! ctx newNextUse
+  let ctx := value.setFirstUse! ctx operandPtr
+  match newNextUse with
+  | none => ctx
+  | some nextUse => nextUse.setBack! ctx (OpOperandPtrPtr.operandNextUse operandPtr)
+
+@[grind _=_]
+theorem OpOperandPtr.insertIntoCurrent!_eq_insertIntoCurrent
+    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
+    insertIntoCurrent! ctx operandPtr = insertIntoCurrent ctx operandPtr operandIn ctxIn := by
+  grind [insertIntoCurrent, insertIntoCurrent!]
+
 @[grind .]
 theorem OpOperandPtr.insertIntoCurrent_fieldsInBounds :
     (insertIntoCurrent ctx operandPtr h₁ h₂).FieldsInBounds := by
@@ -54,7 +85,6 @@ theorem OpOperandPtr.insertIntoCurrent_fieldsInBounds :
 theorem OpOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
     ptr.InBounds (insertIntoCurrent ctx operand h₁ h₂) ↔ ptr.InBounds ctx := by
   grind [insertIntoCurrent]
-
 
 /-
   Use def chain for operands.
@@ -69,6 +99,21 @@ def BlockOperandPtr.removeFromCurrent (ctx: IRContext opInfo) (operandPtr: Block
   match hNextUse: operand.nextUse with
   | none => ctx
   | some nextPtr => nextPtr.setBack ctx operand.back
+
+@[irreducible]
+def BlockOperandPtr.removeFromCurrent! (ctx : IRContext) (operandPtr : BlockOperandPtr) :
+    IRContext :=
+  let operand := operandPtr.get! ctx
+  let ctx := operand.back.set! ctx operand.nextUse
+  match operand.nextUse with
+  | none => ctx
+  | some nextPtr => nextPtr.setBack! ctx operand.back
+
+@[grind _=_]
+theorem BlockOperandPtr.removeFromCurrent!_eq_removeFromCurrent
+    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
+    removeFromCurrent! ctx operandPtr = removeFromCurrent ctx operandPtr operandIn ctxIn := by
+  grind [removeFromCurrent, removeFromCurrent!]
 
 @[grind .]
 theorem BlockOperandPtr.removeFromCurrent_fieldsInBounds :
@@ -91,6 +136,23 @@ def BlockOperandPtr.insertIntoCurrent (ctx: IRContext opInfo) (operandPtr: Block
   match hNextUse: newNextUse with
   | none => ctx
   | some nextUse => nextUse.setBack ctx (BlockOperandPtrPtr.blockOperandNextUse operandPtr) (by grind)
+
+@[irreducible]
+def BlockOperandPtr.insertIntoCurrent! (ctx : IRContext) (operandPtr : BlockOperandPtr) : IRContext :=
+  let block := (operandPtr.get! ctx).value
+  let ctx := operandPtr.setBack! ctx (BlockOperandPtrPtr.blockFirstUse block)
+  let newNextUse := (block.get! ctx).firstUse
+  let ctx := operandPtr.setNextUse! ctx newNextUse
+  let ctx := block.setFirstUse! ctx operandPtr
+  match newNextUse with
+  | none => ctx
+  | some nextUse => nextUse.setBack! ctx (BlockOperandPtrPtr.blockOperandNextUse operandPtr)
+
+@[grind _=_]
+theorem BlockOperandPtr.insertIntoCurrent!_eq_insertIntoCurrent
+    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
+    insertIntoCurrent! ctx operandPtr = insertIntoCurrent ctx operandPtr operandIn ctxIn := by
+  grind [insertIntoCurrent, insertIntoCurrent!]
 
 @[grind .]
 theorem BlockOperandPtr.insertIntoCurrent_fieldsInBounds :
@@ -124,6 +186,29 @@ def OperationPtr.linkBetween (self: OperationPtr) (ctx: IRContext opInfo)
       | none => ctx
       | some nextOp => nextOp.setPrevOp ctx (some self)
 
+def OperationPtr.linkBetween! (self : OperationPtr) (ctx : IRContext)
+    (prevOp : Option OperationPtr) (nextOp : Option OperationPtr) : IRContext :=
+  let ctx := self.setPrevOp! ctx prevOp
+  let ctx := self.setNextOp! ctx nextOp
+  match prevOp with
+  | none =>
+    match nextOp with
+    | none => ctx
+    | some nextOp => nextOp.setPrevOp! ctx (some self)
+  | some prevOp =>
+    let ctx := prevOp.setNextOp! ctx (some self)
+    match nextOp with
+    | none => ctx
+    | some nextOp => nextOp.setPrevOp! ctx (some self)
+
+@[grind _=_]
+theorem OperationPtr.linkBetween!_eq_linkBetween
+    (selfIn : self.InBounds ctx)
+    (prevIn : ∀ prev, prevOp = some prev → prev.InBounds ctx)
+    (nextIn : ∀ next, nextOp = some next → next.InBounds ctx) :
+    linkBetween! self ctx prevOp nextOp = linkBetween self ctx prevOp nextOp selfIn prevIn nextIn := by
+  unfold linkBetween linkBetween!; grind
+
 @[grind =]
 theorem OperationPtr.linkBetween_inBounds (ptr : GenericPtr) :
     ptr.InBounds (linkBetween self ctx prevOp nextOp h₁ h₂ h₃) ↔ ptr.InBounds ctx := by
@@ -145,6 +230,19 @@ def OperationPtr.setParentWithCheck (self: OperationPtr) (ctx: IRContext opInfo)
   match (self.get ctx (by grind)).parent with
   | some _ => none
   | none => self.setParent ctx (some parent)
+
+@[irreducible]
+def OperationPtr.setParentWithCheck! (self : OperationPtr) (ctx : IRContext) (parent : BlockPtr) :
+    Option IRContext :=
+  match (self.get! ctx).parent with
+  | some _ => none
+  | none => self.setParent! ctx (some parent)
+
+@[grind _=_]
+theorem OperationPtr.setParentWithCheck!_eq_setParentWithCheck
+    (selfIn : self.InBounds ctx) :
+    setParentWithCheck! self ctx parent = setParentWithCheck self ctx parent selfIn := by
+  grind [setParentWithCheck, setParentWithCheck!]
 
 @[grind .]
 theorem OperationPtr.setParentWithCheck_fieldsInBounds
@@ -187,6 +285,33 @@ def OperationPtr.linkBetweenWithParent (self: OperationPtr) (ctx: IRContext opIn
       | none => parent.setLastOp ctx (some self)
       | some nextOp => ctx
 
+@[irreducible]
+def OperationPtr.linkBetweenWithParent! (self : OperationPtr) (ctx : IRContext)
+    (prevOp : Option OperationPtr) (nextOp : Option OperationPtr)
+    (parent : BlockPtr) : Option IRContext :=
+  let ctx := self.linkBetween! ctx prevOp nextOp
+  rlet ctx ← self.setParentWithCheck! ctx parent
+  match prevOp with
+  | none =>
+    let ctx := parent.setFirstOp! ctx (some self)
+    match nextOp with
+    | none => parent.setLastOp! ctx (some self)
+    | some _ => ctx
+  | some _ =>
+    match nextOp with
+    | none => parent.setLastOp! ctx (some self)
+    | some _ => ctx
+
+@[grind _=_]
+theorem OperationPtr.linkBetweenWithParent!_eq_linkBetweenWithParent
+    (selfIn : self.InBounds ctx)
+    (prevIn : ∀ prev, prevOp = some prev → prev.InBounds ctx)
+    (nextIn : ∀ next, nextOp = some next → next.InBounds ctx)
+    (parentIn : parent.InBounds ctx) :
+    linkBetweenWithParent! self ctx prevOp nextOp parent =
+    linkBetweenWithParent self ctx prevOp nextOp parent selfIn prevIn nextIn parentIn := by
+  grind [linkBetweenWithParent, linkBetweenWithParent!]
+
 @[grind .]
 theorem OperationPtr.linkBetweenWithParent_inBounds (ptr : GenericPtr)
     (heq : linkBetweenWithParent self ctx prevOp nextOp parent h₁ h₂ h₃ h₄ = some newCtx) :
@@ -223,6 +348,29 @@ def BlockPtr.linkBetween (self: BlockPtr) (ctx: IRContext opInfo)
     | none => ctx
     | some nextBlock => nextBlock.setPrevBlock ctx (some self)
 
+def BlockPtr.linkBetween! (self : BlockPtr) (ctx : IRContext)
+    (prevBlock : Option BlockPtr) (nextBlock : Option BlockPtr) : IRContext :=
+  let ctx := self.setPrevBlock! ctx prevBlock
+  let ctx := self.setNextBlock! ctx nextBlock
+  match prevBlock with
+  | none =>
+    match nextBlock with
+    | none => ctx
+    | some nextBlock => nextBlock.setPrevBlock! ctx (some self)
+  | some prevBlock =>
+    let ctx := prevBlock.setNextBlock! ctx (some self)
+    match nextBlock with
+    | none => ctx
+    | some nextBlock => nextBlock.setPrevBlock! ctx (some self)
+
+@[grind _=_]
+theorem BlockPtr.linkBetween!_eq_linkBetween
+    (selfIn : self.InBounds ctx)
+    (prevIn : ∀ prev, prevBlock = some prev → prev.InBounds ctx)
+    (nextIn : ∀ next, nextBlock = some next → next.InBounds ctx) :
+    linkBetween! self ctx prevBlock nextBlock = linkBetween self ctx prevBlock nextBlock selfIn prevIn nextIn := by
+  unfold linkBetween linkBetween!; grind
+
 @[grind =]
 theorem BlockPtr.linkBetween_inBounds (ptr : GenericPtr) :
     ptr.InBounds (linkBetween self ctx prevBlock nextBlock h₁ h₂ h₃) ↔ ptr.InBounds ctx := by
@@ -232,6 +380,7 @@ theorem BlockPtr.linkBetween_inBounds (ptr : GenericPtr) :
 theorem BlockPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
     (linkBetween self ctx prevBlock nextBlock h₁ h₂ h₃).FieldsInBounds := by
   unfold linkBetween; simp only; split <;> grind
+
 /--
   Set `self` parent to be `parent`.
   Checks that `self` does not already have a parent.
@@ -243,6 +392,19 @@ def BlockPtr.setParentWithCheck (self: BlockPtr) (ctx: IRContext opInfo) (parent
   match (self.get ctx (by grind)).parent with
   | some _ => none
   | none => self.setParent ctx (some parent)
+
+@[irreducible]
+def BlockPtr.setParentWithCheck! (self : BlockPtr) (ctx : IRContext) (parent : RegionPtr) :
+    Option IRContext :=
+  match (self.get! ctx).parent with
+  | some _ => none
+  | none => self.setParent! ctx (some parent)
+
+@[grind _=_]
+theorem BlockPtr.setParentWithCheck!_eq_setParentWithCheck
+    (selfIn : self.InBounds ctx) :
+    setParentWithCheck! self ctx parent = setParentWithCheck self ctx parent selfIn := by
+  grind [setParentWithCheck, setParentWithCheck!]
 
 @[grind .]
 theorem BlockPtr.setParentWithCheck_fieldsInBounds
@@ -284,6 +446,33 @@ def BlockPtr.linkBetweenWithParent (self: BlockPtr) (ctx: IRContext opInfo)
       match _ : nextBlock with
       | none => parent.setLastBlock ctx (some self)
       | some nextBlock => ctx
+
+@[irreducible]
+def BlockPtr.linkBetweenWithParent! (self : BlockPtr) (ctx : IRContext)
+    (prevBlock : Option BlockPtr) (nextBlock : Option BlockPtr)
+    (parent : RegionPtr) : Option IRContext :=
+  let ctx := self.linkBetween! ctx prevBlock nextBlock
+  rlet ctx ← self.setParentWithCheck! ctx parent
+  match prevBlock with
+  | none =>
+    let ctx := parent.setFirstBlock! ctx (some self)
+    match nextBlock with
+    | none => parent.setLastBlock! ctx (some self)
+    | some _ => ctx
+  | some _ =>
+    match nextBlock with
+    | none => parent.setLastBlock! ctx (some self)
+    | some _ => ctx
+
+@[grind _=_]
+theorem BlockPtr.linkBetweenWithParent!_eq_linkBetweenWithParent
+    (selfIn : self.InBounds ctx)
+    (prevIn : ∀ prev, prevBlock = some prev → prev.InBounds ctx)
+    (nextIn : ∀ next, nextBlock = some next → next.InBounds ctx)
+    (parentIn : parent.InBounds ctx) :
+    linkBetweenWithParent! self ctx prevBlock nextBlock parent =
+    linkBetweenWithParent self ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn := by
+  grind [linkBetweenWithParent, linkBetweenWithParent!]
 
 @[grind .]
 theorem BlockPtr.linkBetweenWithParent_inBounds (ptr : GenericPtr)

@@ -301,6 +301,14 @@ theorem get!_eq_get {ptr : OperationPtr} (hin : ptr.InBounds ctx) :
 def getOpType (op : OperationPtr) (ctx : IRContext opInfo) (inBounds : op.InBounds ctx) : opInfo :=
   (op.get ctx (by grind)).opType
 
+def getOpType! (op : OperationPtr) (ctx : IRContext opInfo) : opInfo :=
+  (op.get! ctx).opType
+
+@[grind _=_]
+theorem getOpType!_eq_getOpType {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getOpType! ctx = op.getOpType ctx hin := by
+  grind [getOpType, getOpType!]
+
 def getNumOperands (op : OperationPtr) (ctx : IRContext opInfo) (inBounds : op.InBounds ctx := by grind) : Nat :=
   (op.get ctx (by grind)).operands.size
 
@@ -669,6 +677,11 @@ def nextOperand (op : OperationPtr) (ctx : IRContext opInfo)
 def nextOperand! (op : OperationPtr) (ctx : IRContext opInfo) : OpOperandPtr :=
   .mk op (op.getNumOperands! ctx)
 
+@[grind _=_]
+theorem nextOperand!_eq_nextOperand {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.nextOperand! ctx = op.nextOperand ctx hin := by
+  grind [nextOperand, nextOperand!]
+
 @[grind]
 def nextBlockOperand (op : OperationPtr) (ctx : IRContext opInfo)
     (inBounds : op.InBounds ctx := by grind) : BlockOperandPtr :=
@@ -678,6 +691,11 @@ def nextBlockOperand (op : OperationPtr) (ctx : IRContext opInfo)
 def nextBlockOperand! (op : OperationPtr) (ctx : IRContext opInfo) : BlockOperandPtr :=
   .mk op (op.getNumSuccessors! ctx)
 
+@[grind _=_]
+theorem nextBlockOperand!_eq_nextBlockOperand {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.nextBlockOperand! ctx = op.nextBlockOperand ctx hin := by
+  grind [nextBlockOperand, nextBlockOperand!]
+
 @[grind]
 def nextResult (op : OperationPtr) (ctx : IRContext opInfo)
     (inBounds : op.InBounds ctx := by grind) : OpResultPtr :=
@@ -686,6 +704,11 @@ def nextResult (op : OperationPtr) (ctx : IRContext opInfo)
 @[grind]
 def nextResult! (op : OperationPtr) (ctx : IRContext opInfo) : OpResultPtr :=
   .mk op (op.getNumResults! ctx)
+
+@[grind _=_]
+theorem nextResult!_eq_nextResult {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.nextResult! ctx = op.nextResult ctx hin := by
+  grind [nextResult, nextResult!]
 
 def allocEmpty (ctx : IRContext opInfo) (opType : opInfo) (properties : OpInfo.propertiesOf opType) :
     Option (IRContext opInfo × OperationPtr) :=
@@ -903,6 +926,7 @@ def setBack! (operand : BlockOperandPtr) (ctx : IRContext opInfo) (newBack : Blo
   let oldOperand := operand.get! ctx
   operand.set! ctx { oldOperand with back := newBack }
 
+@[grind _=_]
 theorem setBack!_eq_setBack {operand : BlockOperandPtr} (inBounds : operand.InBounds ctx) :
     operand.setBack! ctx newBack = operand.setBack ctx newBack inBounds := by
   grind [setBack, setBack!]
@@ -1565,6 +1589,7 @@ def set! (ptrPtr : OpOperandPtrPtr) (ctx : IRContext opInfo) (newValue : Option 
   | valueFirstUse val =>
     val.setFirstUse! ctx newValue
 
+@[grind _=_]
 theorem set!_eq_set {ptrPtr : OpOperandPtrPtr} (inBounds : ptrPtr.InBounds ctx) :
     ptrPtr.set! ctx newValue = ptrPtr.set ctx newValue inBounds := by
   grind [set, set!, cases OpOperandPtrPtr]
