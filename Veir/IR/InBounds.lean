@@ -441,6 +441,40 @@ theorem BlockPtr.setPrevBlock_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setPrevBlock block ctx newPrevBlock h) ↔ ptr.InBounds ctx := by
   grind
 
+@[grind =]
+theorem BlockPtr.setArguments_genericPtr_mono (ptr : GenericPtr)
+    (newResultsSize : BlockPtr.getNumArguments block ctx h ≤ newArguments.size) :
+    (ptr.InBounds (setArguments block ctx newArguments h) ↔
+    (ptr.InBounds ctx
+    ∨ (∃ index, ptr = .blockArgument ⟨block, index⟩ ∧
+        index < newArguments.size ∧
+        index ≥ BlockPtr.getNumArguments block ctx h)
+    ∨ (∃ index, ptr = .value (.blockArgument ⟨block, index⟩) ∧
+        index < newArguments.size ∧ index ≥ BlockPtr.getNumArguments block ctx h)
+    ∨ (∃ index, ptr = .opOperandPtr (.valueFirstUse (.blockArgument ⟨block, index⟩)) ∧
+        index < newArguments.size ∧ index ≥ BlockPtr.getNumArguments block ctx h))) := by
+  grind
+
+@[grind .]
+theorem BlockPtr.setArguments_genericPtr_mono_impl (ptr : GenericPtr)
+    (newOperandsSize : BlockPtr.getNumArguments block ctx h ≤ newArguments.size) :
+    ptr.InBounds ctx → ptr.InBounds (setArguments block ctx newArguments h) := by
+  grind
+
+@[grind =]
+theorem BlockPtr.pushArgument_genericPtr_mono (ptr : GenericPtr) :
+    (ptr.InBounds (pushArgument block ctx newArguments h) ↔
+    (ptr.InBounds ctx
+    ∨ (ptr = .blockArgument (block.nextArgument ctx))
+    ∨ (ptr = .value (.blockArgument (block.nextArgument ctx)))
+    ∨ (ptr = .opOperandPtr (.valueFirstUse (.blockArgument (block.nextArgument ctx)))))) := by
+  grind [getArgument]
+
+@[grind .]
+theorem BlockPtr.pushResult_genericPtr_mono_impl (ptr : GenericPtr) :
+    ptr.InBounds ctx → ptr.InBounds (pushArgument block ctx newArguments h) := by
+  grind
+
 @[grind .]
 theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .block ⟨ctx.nextID⟩ ∨ ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse ⟨ctx.nextID⟩)) := by
