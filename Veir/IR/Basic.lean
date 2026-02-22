@@ -3,7 +3,6 @@ module
 import Std.Data.HashMap
 import Veir.Prelude
 public import Veir.IR.OpInfo
-import Veir.OpCode
 import Veir.ForLean
 import Veir.IR.Attribute
 public import Veir.Properties
