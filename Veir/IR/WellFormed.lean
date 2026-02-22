@@ -791,7 +791,8 @@ theorem Region.WellFormed_unchanged
 noncomputable def BlockPtr.operationList (block : BlockPtr) (ctx : IRContext) (hctx : ctx.WellFormed) (hblock : block.InBounds ctx) : Array OperationPtr :=
   (hctx.opChain block hblock).choose
 
-theorem BlockPtr.operationListWF {hctx : IRContext.WellFormed ctx} :
+theorem BlockPtr.operationListWF (ctx : IRContext) (block : BlockPtr) (hblock : block.InBounds ctx)
+  (hctx : ctx.WellFormed) :
     BlockPtr.OpChain block ctx (BlockPtr.operationList block ctx hctx hblock) :=
   Exists.choose_spec (hctx.opChain block hblock)
 
