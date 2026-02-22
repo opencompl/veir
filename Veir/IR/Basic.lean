@@ -1,10 +1,10 @@
 module
 
-public import Std.Data.HashMap
-public import Veir.Prelude
-public import Veir.OpCode
-public import Veir.ForLean
-public import Veir.IR.Attribute
+import Std.Data.HashMap
+import Veir.Prelude
+import Veir.OpCode
+import Veir.ForLean
+import Veir.IR.Attribute
 public import Veir.Properties
 
 open Std (HashMap)

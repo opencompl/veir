@@ -1,6 +1,6 @@
 module
 
-public import Veir.ForLean
+import Veir.ForLean
 
 /-!
   # Attributes
