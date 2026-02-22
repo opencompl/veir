@@ -16,16 +16,6 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
   match op.getOpType ctx opIn with
   | .builtin_unregistered => pure ()
   /- ARITH -/
-  | .arith_constant => do
-    if op.getNumOperands ctx opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
-      throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
-      throw "Expected 0 successors"
-    pure ()
   | .arith_addi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
@@ -36,7 +26,137 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_subi => do
+  | .arith_addui_extended => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_andi => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_ceildivsi => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_ceildivui => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_cmpi => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_constant => do
+    if op.getNumOperands ctx opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_divsi => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_divui => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_extui => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_floordivsi => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_maxsi => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_maxui => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_minsi => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_minui => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -56,7 +176,117 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_andi => do
+  | .arith_mulsi_extended => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_mului_extended => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_ori => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_remsi => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_remui => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_select => do
+    if op.getNumOperands ctx opIn ≠ 3 then
+      throw "Expected 3 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_shli => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_shrsi => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_shrui => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_subi => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_trunci => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .arith_xori => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then

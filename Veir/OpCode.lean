@@ -17,11 +17,34 @@ namespace Veir
 
 @[opcodes]
 inductive Arith where
-| constant
 | addi
-| subi
-| muli
+| addui_extended
 | andi
+| ceildivsi
+| ceildivui
+| cmpi
+| constant
+| divsi
+| divui
+| extui
+| floordivsi
+| maxsi
+| maxui
+| minsi
+| minui
+| muli
+| mulsi_extended
+| mului_extended
+| ori
+| remsi
+| remui
+| select
+| shli
+| shrsi
+| shrui
+| subi
+| trunci
+| xori
 
 @[opcodes]
 inductive Builtin where
@@ -152,6 +175,7 @@ public section
   An operation code (OpCode) identifies the type of an operation.
   Each OpCode corresponds to a specific operation.
 -/
+set_option maxRecDepth 100000
 #generate_op_codes
 
 end
