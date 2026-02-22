@@ -441,6 +441,41 @@ theorem BlockPtr.setPrevBlock_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setPrevBlock block ctx newPrevBlock h) ↔ ptr.InBounds ctx := by
   grind
 
+@[grind =]
+theorem BlockPtr.setArguments_operationPtr_mono (op : OperationPtr)  :
+    op.InBounds (setArguments block ctx newArguments h) ↔ op.InBounds ctx := by
+  grind
+
+@[grind =]
+theorem BlockPtr.setArguments_blockPtr_mono (blk : BlockPtr)  :
+    blk.InBounds (setArguments block ctx newArguments h) ↔ blk.InBounds ctx := by
+  grind
+
+@[grind =]
+theorem BlockPtr.setArguments_regionPtr_mono (reg : RegionPtr)  :
+    reg.InBounds (setArguments block ctx newArguments h) ↔ reg.InBounds ctx := by
+  grind
+
+@[grind =]
+theorem BlockPtr.setArguments_opResultPtr_mono (ptr : OpResultPtr)  :
+    ptr.InBounds (setArguments block ctx newArguments h) ↔ ptr.InBounds ctx := by
+  grind
+
+@[grind =]
+theorem BlockPtr.setArguments_opOperandPtr_mono (ptr : OpOperandPtr)  :
+    ptr.InBounds (setArguments block ctx newArguments h) ↔ ptr.InBounds ctx := by
+  grind
+
+@[grind =]
+theorem BlockPtr.setArguments_blockOperandPtr_mono (ptr : BlockOperandPtr)  :
+    ptr.InBounds (setArguments block ctx newArguments h) ↔ ptr.InBounds ctx := by
+  grind
+
+@[grind =]
+theorem BlockPtr.setArguments_blockOperandPtrPtr_mono (ptr : BlockOperandPtrPtr)  :
+    ptr.InBounds (setArguments block ctx newArguments h) ↔ ptr.InBounds ctx := by
+  grind
+
 @[grind .]
 theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .block ⟨ctx.nextID⟩ ∨ ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse ⟨ctx.nextID⟩)) := by

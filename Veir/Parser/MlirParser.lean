@@ -3,6 +3,7 @@ import Veir.Parser.AttrParser
 import Veir.IR.Basic
 import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.Basic
+import Veir.Rewriter.GetSetInBounds
 
 open Veir.Parser.Lexer
 open Veir.Parser
@@ -13,6 +14,7 @@ namespace Veir.Parser
 structure MlirParserState where
   /-- The current IR context. -/
   ctx : IRContext
+  hctx : ctx.FieldsInBounds
   /-- The values that have been defined at that point in the parser. -/
   values : Std.HashMap ByteArray ValuePtr
   /--
@@ -22,8 +24,8 @@ structure MlirParserState where
   -/
   blocks : Std.HashMap ByteArray (BlockPtr × Bool)
 
-def MlirParserState.fromContext (ctx : IRContext) : MlirParserState :=
-  {ctx := ctx, values := Std.HashMap.emptyWithCapacity 128, blocks := Std.HashMap.emptyWithCapacity 1}
+def MlirParserState.fromContext (ctx : IRContext) (hctx : ctx.FieldsInBounds := by grind) : MlirParserState :=
+  {ctx := ctx, hctx, values := Std.HashMap.emptyWithCapacity 128, blocks := Std.HashMap.emptyWithCapacity 1}
 
 abbrev MlirParserM := StateT MlirParserState (EStateM String ParserState)
 
@@ -50,8 +52,9 @@ def MlirParserM.run' (self : MlirParserM α)
 /--
   Get the current IR context that is stored in the parser state.
 -/
-def getContext : MlirParserM IRContext := do
-  return (← get).ctx
+def getContext : MlirParserM {ctx : IRContext // ctx.FieldsInBounds} := do
+  let st ← get
+  return ⟨st.ctx, st.hctx⟩
 
 /--
   Get a value that has previously been parsed given its name.
@@ -77,8 +80,8 @@ def registerValueDef (name : ByteArray) (value : ValuePtr) : MlirParserM Unit :=
   This should be called whenever any modifications have been made to the context
   outside of the parser monad.
 -/
-def setContext (ctx : IRContext) : MlirParserM Unit := do
-  modify fun s => {s with ctx := ctx}
+def setContext (ctx : IRContext) (hctx : ctx.FieldsInBounds := by grind) : MlirParserM Unit := do
+  modify fun s => {s with ctx, hctx}
 
 set_option warn.sorry false in
 /--
@@ -93,10 +96,11 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
     throw s!"block %{String.fromUTF8! name} has already been defined"
   | some (block, false) => -- Block of this name was forward declared.
     /- Insert the block at the given location. -/
-    let ctx ← getContext
-    let some ctx := Rewriter.insertBlock? ctx block ip (by sorry) (by sorry) (by sorry)
-      | throw "internal error: failed to insert block"
-    setContext ctx
+    let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
+    match hctx' : Rewriter.insertBlock? ctx block ip (by sorry) (by sorry) h_ctx_FieldsInBound with
+    | none => throw "internal error: failed to insert block"
+    | some ctx' =>
+      setContext ctx'
     /- Notify the parsing context that the block is defined. -/
     modifyThe MlirParserState (fun state =>
     {state with
@@ -105,14 +109,15 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
     return block
   | none => -- Block has not yet been declared or referenced.
     /- Create the block. -/
-    let ctx ← getContext
-    let some (ctx, block) := Rewriter.createBlock ctx ip (by sorry) (by sorry)
-      | throw "internal error: failed to create block"
-    setContext ctx
-    /- Notify the parsing context that the block is defined. -/
-    modifyThe MlirParserState fun s =>
-    {s with blocks := s.blocks.insert name (block, true)}
-    return block
+    let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
+    match hctx' : Rewriter.createBlock ctx ip h_ctx_FieldsInBound (by sorry) with
+    | none => throw "internal error: failed to create block"
+    | some (ctx', block) =>
+      setContext ctx
+      /- Notify the parsing context that the block is defined. -/
+      modifyThe MlirParserState fun s =>
+      {s with blocks := s.blocks.insert name (block, true)}
+      return block
 
 set_option warn.sorry false in
 /--
@@ -127,14 +132,15 @@ def defineBlockUse (name : ByteArray) : MlirParserM BlockPtr := do
     return block
   | none => -- Block not yet encountered
     /- Create the block. -/
-    let ctx ← getContext
-    let some (ctx, block) := Rewriter.createBlock ctx none (by sorry) (by sorry)
-      | throw "internal error: failed to create block"
-    setContext ctx
-    /- Notify the parsing context that the block is forward declared. -/
-    modifyThe MlirParserState fun s =>
-    {s with blocks := s.blocks.insert name (block, false)}
-    return block
+    let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
+    match hctx' : Rewriter.createBlock ctx none h_ctx_FieldsInBound (by sorry) with
+    | none => throw "internal error: failed to create block"
+    | some (ctx', block) =>
+      setContext ctx
+      /- Notify the parsing context that the block is forward declared. -/
+      modifyThe MlirParserState fun s =>
+      {s with blocks := s.blocks.insert name (block, false)}
+      return block
 
 /--
   Parse an operation result.
@@ -296,9 +302,150 @@ def parseOptionalBlockLabel (ip : BlockInsertPoint) : MlirParserM (Option BlockP
   let block ← defineBlock name ip
   /- Insert block arguments in the block. -/
   let blockArguments := arguments.mapIdx (fun index (_, type) => BlockArgument.mk (ValueImpl.mk type none) index () block)
-  let ctx ← getContext
-  let ctx := block.setArguments ctx blockArguments (by sorry)
-  setContext ctx
+  let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
+  let h_block_InBounds : block.InBounds ctx := by sorry
+  let ctx' := block.setArguments ctx blockArguments h_block_InBounds
+  setContext ctx' (by
+    show (block.setArguments ctx blockArguments h_block_InBounds).FieldsInBounds
+    constructor
+    · -- TODO(gzgz): why can't grind solve this?
+      intro op opIn 
+      constructor
+      · intros res hres heq
+        constructor
+        · have hres_ctx : res.InBounds ctx := by
+            rw [BlockPtr.setArguments_opResultPtr_mono] at hres; exact hres
+          have h_maybe_ctx := OpResultPtr.firstUse!_inBounds h_ctx_FieldsInBound hres_ctx
+          have h_get_eq : res.get (block.setArguments ctx blockArguments h_block_InBounds)
+                            (by rw [BlockPtr.setArguments_opResultPtr_mono]; exact hres) =
+                          res.get ctx hres_ctx := by
+            simp [OpResultPtr.get, OperationPtr.get, BlockPtr.setArguments, BlockPtr.set]
+          rw [h_get_eq]
+          rw [OpResultPtr.get!_eq_get hres_ctx] at h_maybe_ctx
+          intro z hz
+          rw [BlockPtr.setArguments_opOperandPtr_mono h_block_InBounds (newArguments := blockArguments)]
+          exact h_maybe_ctx z hz
+        · -- owner_inBounds
+          have hres_ctx : res.InBounds ctx := by
+            rw [BlockPtr.setArguments_opResultPtr_mono] at hres; exact hres
+          have h_owner_ctx := OpResultPtr.owner!_inBounds h_ctx_FieldsInBound hres_ctx
+          simp only [OpResultPtr.get!_eq_get hres_ctx] at h_owner_ctx
+          have h_get_eq : res.get (block.setArguments ctx blockArguments h_block_InBounds)
+                            (by rw [BlockPtr.setArguments_opResultPtr_mono]; exact hres) =
+                          res.get ctx hres_ctx := by
+            simp [OpResultPtr.get, OperationPtr.get, BlockPtr.setArguments, BlockPtr.set]
+          rw [h_get_eq]
+          rw [BlockPtr.setArguments_operationPtr_mono h_block_InBounds (newArguments := blockArguments)]
+          exact h_owner_ctx
+      · -- prev_inBounds
+        have opIn_ctx : op.InBounds ctx := by
+          rw [BlockPtr.setArguments_operationPtr_mono] at opIn; exact opIn
+        have h_prev_ctx := OperationPtr.prev!_inBounds h_ctx_FieldsInBound opIn_ctx
+        simp only [OperationPtr.get!_eq_get opIn_ctx] at h_prev_ctx
+        have h_get_eq : op.get (block.setArguments ctx blockArguments h_block_InBounds) opIn =
+                        op.get ctx opIn_ctx := by
+          simp [OperationPtr.get, BlockPtr.setArguments, BlockPtr.set]
+        rw [h_get_eq]
+        intro z hz
+        rw [BlockPtr.setArguments_operationPtr_mono h_block_InBounds (newArguments := blockArguments)]
+        exact h_prev_ctx z hz
+      · -- next_inBounds
+        have opIn_ctx : op.InBounds ctx := by
+          rw [BlockPtr.setArguments_operationPtr_mono] at opIn; exact opIn
+        have h_next_ctx := OperationPtr.next!_inBounds h_ctx_FieldsInBound opIn_ctx
+        simp only [OperationPtr.get!_eq_get opIn_ctx] at h_next_ctx
+        have h_get_eq : op.get (block.setArguments ctx blockArguments h_block_InBounds) opIn =
+                        op.get ctx opIn_ctx := by
+          simp [OperationPtr.get, BlockPtr.setArguments, BlockPtr.set]
+        rw [h_get_eq]
+        intro z hz
+        rw [BlockPtr.setArguments_operationPtr_mono h_block_InBounds (newArguments := blockArguments)]
+        exact h_next_ctx z hz
+      · -- parent_inBounds
+        have opIn_ctx : op.InBounds ctx := by
+          rw [BlockPtr.setArguments_operationPtr_mono] at opIn; exact opIn
+        have h_parent_ctx := OperationPtr.parent!_inBounds h_ctx_FieldsInBound opIn_ctx
+        simp only [OperationPtr.get!_eq_get opIn_ctx] at h_parent_ctx
+        have h_get_eq : op.get (block.setArguments ctx blockArguments h_block_InBounds) opIn =
+                        op.get ctx opIn_ctx := by
+          simp [OperationPtr.get, BlockPtr.setArguments, BlockPtr.set]
+        rw [h_get_eq]
+        intro z hz
+        rw [BlockPtr.setArguments_blockPtr_mono h_block_InBounds (newArguments := blockArguments)]
+        exact h_parent_ctx z hz
+      · -- blockOperands_inBounds
+        intro operand hoperand heq
+        have opIn_ctx : op.InBounds ctx := by
+          rw [BlockPtr.setArguments_operationPtr_mono] at opIn; exact opIn
+        have hoperand_ctx : operand.InBounds ctx := by
+          rw [BlockPtr.setArguments_blockOperandPtr_mono] at hoperand; exact hoperand
+        have hFIB := h_ctx_FieldsInBound.operations_inBounds op opIn_ctx
+        have h_blockoperand := hFIB.blockOperands_inBounds operand hoperand_ctx heq
+        have h_get_eq : operand.get (block.setArguments ctx blockArguments h_block_InBounds) hoperand =
+                        operand.get ctx hoperand_ctx := by
+          simp [BlockOperandPtr.get, OperationPtr.get, BlockPtr.setArguments, BlockPtr.set]
+        constructor
+        · rw [h_get_eq]; intro z hz
+          rw [BlockPtr.setArguments_blockOperandPtr_mono h_block_InBounds (newArguments := blockArguments)]
+          exact h_blockoperand.nextUse_inBounds z hz
+        · rw [h_get_eq]
+          rw [BlockPtr.setArguments_blockOperandPtrPtr_mono h_block_InBounds (newArguments := blockArguments)]
+          exact h_blockoperand.back_inBounds
+        · rw [h_get_eq]
+          rw [BlockPtr.setArguments_operationPtr_mono h_block_InBounds (newArguments := blockArguments)]
+          exact h_blockoperand.owner_inBounds
+        · rw [h_get_eq]
+          rw [BlockPtr.setArguments_blockPtr_mono h_block_InBounds (newArguments := blockArguments)]
+          exact h_blockoperand.value_inBounds
+      · -- regions_inBounds
+        intro i hi
+        have opIn_ctx : op.InBounds ctx := by
+          rw [BlockPtr.setArguments_operationPtr_mono] at opIn; exact opIn
+        rw [BlockPtr.setArguments_regionPtr_mono h_block_InBounds (newArguments := blockArguments)]
+        grind [OperationPtr.getRegion, OperationPtr.getNumRegions, OperationPtr.get,
+               BlockPtr.setArguments, BlockPtr.set, IRContext.FieldsInBounds,
+               Operation.FieldsInBounds]
+      · -- operands_inBounds
+        intro operand hoperand heq
+        have opIn_ctx : op.InBounds ctx := by
+          rw [BlockPtr.setArguments_operationPtr_mono] at opIn; exact opIn
+        have hoperand_ctx : operand.InBounds ctx := by
+          rw [BlockPtr.setArguments_opOperandPtr_mono] at hoperand; exact hoperand
+        have hFIB := h_ctx_FieldsInBound.operations_inBounds op opIn_ctx
+        have h_operand := hFIB.operands_inBounds operand hoperand_ctx heq
+        have h_get_eq : operand.get (block.setArguments ctx blockArguments h_block_InBounds) hoperand =
+                        operand.get ctx hoperand_ctx := by
+          simp [OpOperandPtr.get, OperationPtr.get, BlockPtr.setArguments, BlockPtr.set]
+        constructor
+        · rw [h_get_eq]; intro z hz
+          rw [BlockPtr.setArguments_opOperandPtr_mono h_block_InBounds (newArguments := blockArguments)]
+          exact h_operand.nextUse_inBounds z hz
+        · rw [h_get_eq]; sorry -- back_inBounds depends on BlockArgumentPtr properties
+        · rw [h_get_eq]
+          rw [BlockPtr.setArguments_operationPtr_mono h_block_InBounds (newArguments := blockArguments)]
+          exact h_operand.owner_inBounds
+        · rw [h_get_eq]; sorry -- value_inBounds depends on BlockArgumentPtr properties
+    · sorry -- blocks_inBounds (block related)
+    · -- regions_inBounds for IRContext
+      intro region regionIn
+      have regionIn_ctx : region.InBounds ctx := by
+        rw [BlockPtr.setArguments_regionPtr_mono] at regionIn; exact regionIn
+      have hFIB := h_ctx_FieldsInBound.regions_inBounds region regionIn_ctx
+      have h_get_eq : region.get (block.setArguments ctx blockArguments h_block_InBounds) regionIn =
+                      region.get ctx regionIn_ctx := by
+        simp [RegionPtr.get, BlockPtr.setArguments, BlockPtr.set]
+      rw [h_get_eq]
+      constructor
+      · intro blk hblk
+        rw [BlockPtr.setArguments_blockPtr_mono h_block_InBounds (newArguments := blockArguments)]
+        exact hFIB.firstBlock_inBounds blk hblk
+      · intro blk hblk
+        rw [BlockPtr.setArguments_blockPtr_mono h_block_InBounds (newArguments := blockArguments)]
+        exact hFIB.lastBlock_inBounds blk hblk
+      · intro parent hparent
+        rw [BlockPtr.setArguments_operationPtr_mono h_block_InBounds (newArguments := blockArguments)]
+        exact hFIB.parent_inBounds parent hparent
+    )
   /- Register the block argument names in the parser state. -/
   for ((argName, argType), index) in arguments.zipIdx do
     registerValueDef argName (ValuePtr.blockArgument {block := block, index := index})
@@ -354,21 +501,26 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
 
   /- Set context in monad to default to preserve linearity whilst modifying -/
-  let ctx ← getContext
-  setContext Inhabited.default
+  let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
+  setContext Inhabited.default (by
+    -- TODO(gzgz): extract into a separate theorem about `default` being
+    -- `FieldsInBound`
+    simp [default, instInhabitedIRContext.default]
+    constructor <;> simp [OperationPtr.InBounds, BlockPtr.InBounds, RegionPtr.InBounds])
 
-  let some (ctx, op) := Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
-      | throw "internal error: failed to create operation"
-  let ctx := op.setAttributes! ctx attrs
+  match hctx' : Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) h_ctx_FieldsInBound with
+  | none => throw "internal error: failed to create operation"
+  | some (ctx', op) =>
+    let ctx'' := op.setAttributes ctx' attrs (by sorry)
 
-  /- Update the parser context. -/
-  setContext ctx
+    /- Update the parser context. -/
+    setContext ctx''
 
-  /- Register the new operation results in the parser state. -/
-  for index in 0...(op.getNumResults! ctx) do
-    let resultValue := op.getResult index
-    registerValueDef results[index]! resultValue
-  return op
+    /- Register the new operation results in the parser state. -/
+    for index in 0...(op.getNumResults! ctx') do
+      let resultValue := op.getResult index
+      registerValueDef results[index]! resultValue
+    return op
 
 /--
   Parse an operation.
@@ -388,32 +540,33 @@ partial def parseRegion : MlirParserM RegionPtr := do
   /- Create the region and parse the open delimiter. -/
   parsePunctuation "{"
   let ctx := ← getContext
-  let some (ctx, region) := Rewriter.createRegion ctx
-      | throw "internal error: failed to create region"
-  setContext ctx
+  match hctx' : Rewriter.createRegion ctx with
+  | none => throw "internal error: failed to create region"
+  | some (ctx', region) =>
+    setContext ctx'
 
-  /- Case where there are no blocks inside the region. -/
-  if (← parseOptionalPunctuation "}") then
+    /- Case where there are no blocks inside the region. -/
+    if (← parseOptionalPunctuation "}") then
+      return region
+
+    /- Parse the first block separately, as it may not have a label. -/
+    let _ ← parseEntryBlock (BlockInsertPoint.atEnd region)
+    /- Parse the following blocks. -/
+    while true do
+      if (← parseOptionalBlock (BlockInsertPoint.atEnd region)) = none then
+        break
+
+    /- Parse the closing delimiter. -/
+    parsePunctuation "}"
+
+    /- Check that all blocks in the regions that were forward declared were parsed. -/
+    for (blockName, (_, parsed)) in (← getThe MlirParserState).blocks do
+      if !parsed then
+        throw s!"block %{String.fromUTF8! blockName} was declared but not defined"
+
+    /- Restore the previous block parsing state. -/
+    modifyThe MlirParserState fun s => {s with blocks := oldBlocks}
     return region
-
-  /- Parse the first block separately, as it may not have a label. -/
-  let _ ← parseEntryBlock (BlockInsertPoint.atEnd region)
-  /- Parse the following blocks. -/
-  while true do
-    if (← parseOptionalBlock (BlockInsertPoint.atEnd region)) = none then
-      break
-
-  /- Parse the closing delimiter. -/
-  parsePunctuation "}"
-
-  /- Check that all blocks in the regions that were forward declared were parsed. -/
-  for (blockName, (_, parsed)) in (← getThe MlirParserState).blocks do
-    if !parsed then
-      throw s!"block %{String.fromUTF8! blockName} was declared but not defined"
-
-  /- Restore the previous block parsing state. -/
-  modifyThe MlirParserState fun s => {s with blocks := oldBlocks}
-  return region
 
 /--
   Parse the entry block and insert it into the given region.

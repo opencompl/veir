@@ -603,6 +603,19 @@ theorem OperationPtr.setRegions_fieldsInBounds (hnew : ∀ r ∈ newRegions, r.I
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
+theorem OperationPtr.setAttributes_fieldsInBounds {op : OperationPtr} {opIn : op.InBounds ctx}
+    (heq : op.setAttributes ctx newAttrs opIn = newCtx) :
+    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
+  intros h_ctx_FieldsInBounds
+  -- Tried to follow the approach of `OperationPtr.pushResult_fieldsInBounds`
+  -- below, but `grind` doesn't work. What theorems/definitions is `grind`
+  -- missing?
+  constructor
+  · sorry
+  · sorry
+  · sorry
+
+@[grind .]
 theorem OperationPtr.pushRegion_fieldsInBounds (hnew : newRegion.InBounds ctx) :
     ctx.FieldsInBounds → (pushRegion op ctx newRegion h).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx

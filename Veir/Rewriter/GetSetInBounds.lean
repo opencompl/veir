@@ -1934,6 +1934,38 @@ theorem OpOperandPtrPtr.get!_detachBlockOperands {opOperandPtr : OpOperandPtrPtr
 
 end Rewriter.detachBlockOperands
 
+section Rewriter.createBlock
+
+unseal Rewriter.createBlock
+
+@[grind .]
+theorem Rewriter.createBlock_fieldsInBounds_mono
+    (heq : createBlock ctx ip hctx hip = some ⟨newCtx, newPtr⟩) :
+    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
+  -- TODO(gzgz): this is ugly. Why doesn't `grind` work directly?
+  simp only [createBlock] at heq
+  split at heq
+  case h_1 => simp at heq  -- BlockPtr.allocEmpty returns none
+  case h_2 ctx' blockPtr halloc =>
+    split at heq
+    case h_1 _ hip' =>
+      -- ip = some _, uses insertBlock?
+      simp only [bind, Option.bind_eq_some_iff] at heq
+      obtain ⟨ctx'', hinsert, heq'⟩ := heq
+      simp only [Option.some.injEq, Prod.mk.injEq] at heq'
+      obtain ⟨rfl, _⟩ := heq'
+      intro hctx_fib
+      have h1 : ctx'.FieldsInBounds := BlockPtr.allocEmpty_fieldsInBounds halloc hctx_fib
+      exact insertBlock?_fieldsInBounds_mono hinsert h1
+    case h_2 hip' =>
+      -- ip = none
+      simp only [Option.some.injEq, Prod.mk.injEq] at heq
+      obtain ⟨rfl, _⟩ := heq
+      intro hctx_fib
+      exact BlockPtr.allocEmpty_fieldsInBounds halloc hctx_fib
+
+end Rewriter.createBlock
+
 /- replaceUse -/
 
 @[simp, grind .]
