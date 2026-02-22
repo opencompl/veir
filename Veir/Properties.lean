@@ -2,6 +2,7 @@ module
 
 public import Veir.OpCode
 public import Veir.IR.Attribute
+public import Veir.ForLean
 
 namespace Veir
 
