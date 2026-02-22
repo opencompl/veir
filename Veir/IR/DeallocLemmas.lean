@@ -24,14 +24,14 @@ public section
 
 namespace Veir
 
-variable {dT : Type} [HasProperties dT]
-variable {ctx : IRContext dT}
+variable {opInfo : Type} [OpInfo opInfo]
+variable {ctx : IRContext opInfo}
 
-def Std.ExtHashSet.fromOperands (ctx : IRContext dT) (op : OperationPtr)
+def Std.ExtHashSet.fromOperands (ctx : IRContext opInfo) (op : OperationPtr)
     : Std.ExtHashSet OpOperandPtr :=
   Std.ExtHashSet.ofList ((0...(op.getNumOperands! ctx)).toList.map (fun i => op.getOpOperand i))
 
-def Std.ExtHashSet.fromSuccessors (ctx : IRContext dT) (op : OperationPtr)
+def Std.ExtHashSet.fromSuccessors (ctx : IRContext opInfo) (op : OperationPtr)
     : Std.ExtHashSet BlockOperandPtr :=
   Std.ExtHashSet.ofList ((0...(op.getNumSuccessors! ctx)).toList.map (fun i => op.getBlockOperand i))
 
@@ -81,7 +81,7 @@ theorem Std.ExtHashSet.fromOperands.mem_iff
     · cases operand
       grind [OperationPtr.getOpOperand]
 
-theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext dT} {inBounds : op.InBounds ctx}
+theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext opInfo} {inBounds : op.InBounds ctx}
     (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
     (huses : ¬ op.hasUses ctx)
     (hparent : (op.get! ctx).parent = none)
@@ -357,7 +357,7 @@ theorem RegionPtr.blockChain_OperationPtr_dealloc
     RegionPtr.BlockChain regionPtr (OperationPtr.dealloc op ctx inBounds) array := by
   constructor <;> grind [RegionPtr.BlockChain]
 
-theorem IRContext.wellFormed_OperationPtr_dealloc {ctx : IRContext dT} {inBounds : op.InBounds ctx}
+theorem IRContext.wellFormed_OperationPtr_dealloc {ctx : IRContext opInfo} {inBounds : op.InBounds ctx}
     (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
     (huses : ¬ op.hasUses ctx)
     (hparent : (op.get! ctx).parent = none)

@@ -3,17 +3,17 @@ import Veir.Rewriter.WellFormed.Rewriter.Value
 
 namespace Veir
 
-variable {dT : Type} [HasProperties dT]
-variable {ctx : IRContext dT}
+variable {opInfo : Type} [OpInfo opInfo]
+variable {ctx : IRContext opInfo}
 
 set_option warn.sorry false in
-theorem Rewriter.replaceOp?_WellFormed (ctx : IRContext dT) (wf : ctx.WellFormed)
+theorem Rewriter.replaceOp?_WellFormed (ctx : IRContext opInfo) (wf : ctx.WellFormed)
     (oldOp newOp : OperationPtr)
     (oldIn : oldOp.InBounds ctx)
     (newIn : newOp.InBounds ctx)
     (ctxIn : ctx.FieldsInBounds)
     (hpar : (oldOp.get ctx).parent.isSome = true)
-    (newCtx : IRContext dT) :
+    (newCtx : IRContext opInfo) :
     Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn hpar = some newCtx →
     newCtx.WellFormed := by
   sorry

@@ -4,11 +4,11 @@ import Veir.Rewriter.Basic
 
 namespace Veir
 
-variable {dT : Type} [HasProperties dT]
-variable {ctx : IRContext dT}
+variable {opInfo : Type} [OpInfo opInfo]
+variable {ctx : IRContext opInfo}
 
 @[grind .]
-theorem Rewriter.pushResult_WellFormed {newResult} (ctx: IRContext dT) (opPtr: OperationPtr)
+theorem Rewriter.pushResult_WellFormed {newResult} (ctx: IRContext opInfo) (opPtr: OperationPtr)
     (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx)
     (hres : newResult.FieldsInBounds (opPtr.pushResult ctx newResult hop))
     (hNoFirst : newResult.firstUse = none)
@@ -64,8 +64,8 @@ theorem Rewriter.pushResult_WellFormed {newResult} (ctx: IRContext dT) (opPtr: O
     have ⟨ha, hb⟩ := h₈ rg this
     constructor <;> grind
 
-theorem Rewriter.initOpResults_WellFormed (ctx: IRContext dT) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
-    (index : Nat) (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx) (newCtx : IRContext dT) hIndex :
+theorem Rewriter.initOpResults_WellFormed (ctx: IRContext opInfo) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
+    (index : Nat) (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx) (newCtx : IRContext opInfo) hIndex :
     Rewriter.initOpResults ctx opPtr resultTypes index hop hIndex = newCtx →
     newCtx.WellFormed := by
   induction h: resultTypes.size - index generalizing index ctx

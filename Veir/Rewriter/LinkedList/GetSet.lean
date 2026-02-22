@@ -51,8 +51,8 @@ variable {opOperand opOperand' : OpOperandPtr}
 variable {opOperandPtr opOperandPtr' : OpOperandPtrPtr}
 variable {blockOperand blockOperand' : BlockOperandPtr}
 variable {value value' : ValuePtr}
-variable {dT : Type} [HasProperties dT]
-variable {ctx ctx' : IRContext dT}
+variable {opInfo : Type} [OpInfo opInfo]
+variable {ctx ctx' : IRContext opInfo}
 
 /- OpOperandPtr.removeFromCurrent -/
 attribute [local grind] OpOperandPtr.removeFromCurrent

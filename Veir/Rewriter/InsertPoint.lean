@@ -8,8 +8,8 @@ public section
 
 namespace Veir
 
-variable {dT : Type} [HasProperties dT]
-variable {ctx ctx' : IRContext dT}
+variable {opInfo : Type} [OpInfo opInfo]
+variable {ctx ctx' : IRContext opInfo}
 
 section InsertPoint
 
@@ -22,7 +22,7 @@ inductive InsertPoint where
 deriving DecidableEq
 
 @[grind]
-def InsertPoint.InBounds (ip : InsertPoint) (ctx : IRContext dT) : Prop :=
+def InsertPoint.InBounds (ip : InsertPoint) (ctx : IRContext opInfo) : Prop :=
   match ip with
   | before op => op.InBounds ctx
   | atEnd bl => bl.InBounds ctx
@@ -33,25 +33,25 @@ theorem InsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBounds c
 theorem InsertPoint.inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
 @[grind]
-def InsertPoint.block! (insertionPoint : InsertPoint) (ctx : IRContext dT) : Option BlockPtr :=
+def InsertPoint.block! (insertionPoint : InsertPoint) (ctx : IRContext opInfo) : Option BlockPtr :=
   match insertionPoint with
   | before op => (op.get! ctx).parent
   | atEnd b => b
 
-def InsertPoint.block (insertionPoint : InsertPoint) (ctx : IRContext dT)
+def InsertPoint.block (insertionPoint : InsertPoint) (ctx : IRContext opInfo)
     (hIn : insertionPoint.InBounds ctx := by grind) : Option BlockPtr :=
   match insertionPoint with
   | before op => (op.get ctx (by grind)).parent
   | atEnd b => b
 
 @[grind _=_]
-theorem InsertPoint.block!_eq_block (insertionPoint : InsertPoint) (ctx : IRContext dT)
+theorem InsertPoint.block!_eq_block (insertionPoint : InsertPoint) (ctx : IRContext opInfo)
     (hIn : insertionPoint.InBounds ctx) :
     insertionPoint.block! ctx = insertionPoint.block ctx hIn := by
   cases insertionPoint <;> grind [InsertPoint.block!, InsertPoint.block]
 
 @[grind .]
-theorem InsertPoint.block_InBounds {insertionPoint : InsertPoint} {ctx : IRContext dT}
+theorem InsertPoint.block_InBounds {insertionPoint : InsertPoint} {ctx : IRContext opInfo}
     (ctxFieldsInBounds : ctx.FieldsInBounds) (hIn : insertionPoint.InBounds ctx) :
     insertionPoint.block ctx hIn = some blockPtr →
     insertionPoint.InBounds ctx →
@@ -70,18 +70,18 @@ theorem InsertPoint.block!_atEnd_eq :
     InsertPoint.block! (atEnd blockPtr) ctx =
     blockPtr := by rfl
 
-def InsertPoint.prev (ip : InsertPoint) (ctx : IRContext dT) (inBounds : ip.InBounds ctx) : Option OperationPtr :=
+def InsertPoint.prev (ip : InsertPoint) (ctx : IRContext opInfo) (inBounds : ip.InBounds ctx) : Option OperationPtr :=
   match ip with
   | before op => (op.get ctx).prev
   | atEnd block => (block.get ctx).lastOp
 
-def InsertPoint.prev! (ip : InsertPoint) (ctx : IRContext dT) : Option OperationPtr :=
+def InsertPoint.prev! (ip : InsertPoint) (ctx : IRContext opInfo) : Option OperationPtr :=
   match ip with
   | before op => (op.get! ctx).prev
   | atEnd block => (block.get! ctx).lastOp
 
 @[grind _=_]
-theorem InsertPoint.prev!_eq_prev {ip : InsertPoint} {ctx : IRContext dT}
+theorem InsertPoint.prev!_eq_prev {ip : InsertPoint} {ctx : IRContext opInfo}
     (hIn : ip.InBounds ctx) :
     ip.prev! ctx = ip.prev ctx hIn := by
   cases ip <;> grind [InsertPoint.prev!, InsertPoint.prev]
@@ -162,7 +162,7 @@ theorem InsertPoint.prev.maybe₁_parent :
  - The index is where a new operation would be inserted.
  -/
 noncomputable def InsertPoint.idxIn
-    (insertPoint : InsertPoint) (ctx : IRContext dT)
+    (insertPoint : InsertPoint) (ctx : IRContext opInfo)
     (blockPtr : BlockPtr) (inBounds : insertPoint.InBounds ctx := by grind)
     (blockIsParent : insertPoint.block ctx (by grind) = some blockPtr := by grind)
     (ctxWf : ctx.WellFormed := by grind) : Nat :=
@@ -307,7 +307,7 @@ inductive BlockInsertPoint where
   | atEnd (block: RegionPtr)
 
 @[grind]
-def BlockInsertPoint.InBounds : BlockInsertPoint → IRContext dT → Prop
+def BlockInsertPoint.InBounds : BlockInsertPoint → IRContext opInfo → Prop
 | before op => op.InBounds
 | atEnd bl => bl.InBounds
 @[grind =]
@@ -316,7 +316,7 @@ theorem BlockInsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBou
 theorem BlockInsertPoint.inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
 @[grind]
-def BlockInsertPoint.prev! (ip : BlockInsertPoint) (ctx : IRContext dT) : Option BlockPtr :=
+def BlockInsertPoint.prev! (ip : BlockInsertPoint) (ctx : IRContext opInfo) : Option BlockPtr :=
   match ip with
   | before block => (block.get! ctx).prev
   | atEnd region => (region.get! ctx).lastBlock
@@ -328,7 +328,7 @@ def BlockInsertPoint.next (ip : BlockInsertPoint) : Option BlockPtr :=
   | atEnd _ => none
 
 @[grind]
-def BlockInsertPoint.region! (ip : BlockInsertPoint) (ctx : IRContext dT) : Option RegionPtr :=
+def BlockInsertPoint.region! (ip : BlockInsertPoint) (ctx : IRContext opInfo) : Option RegionPtr :=
   match ip with
   | before bl => bl.get! ctx |>.parent
   | atEnd rg => some rg

@@ -3,6 +3,7 @@ module
 public import Veir.OpCode
 public import Veir.IR.Attribute
 public import Veir.ForLean
+public import Veir.IR.OpInfo
 
 namespace Veir
 
@@ -48,34 +49,22 @@ instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
   cases opCode <;> infer_instance
 
 
-/--
-Define a typeclass hasProperties
--/
-class HasProperties (opCodeTy : Type)
-    extends Hashable opCodeTy, Repr opCodeTy, Inhabited opCodeTy where
-  propertiesOf : opCodeTy → Type
-  propertiesHash {opCode : opCodeTy} : Hashable (propertiesOf opCode)
-  propertiesDefault {opCode : opCodeTy} : Inhabited (propertiesOf opCode)
-  propertiesRepr {opCode : opCodeTy} : Repr (propertiesOf opCode)
-  propertiesDecideableEq {opCode : opCodeTy} : DecidableEq (propertiesOf opCode)
-  decideableEq : DecidableEq (opCodeTy)
+instance {opCodeTy : Type} [OpInfo opCodeTy] {opCode : opCodeTy} :
+    Hashable (OpInfo.propertiesOf opCode) where
+  hash props := OpInfo.propertiesHash.hash props
 
-instance {opCodeTy : Type} [HasProperties opCodeTy] {opCode : opCodeTy} :
-    Hashable (HasProperties.propertiesOf opCode) where
-  hash props := HasProperties.propertiesHash.hash props
+instance {opCodeTy : Type} [OpInfo opCodeTy] {opCode : opCodeTy} :
+    Inhabited (OpInfo.propertiesOf opCode) where
+  default := OpInfo.propertiesDefault.default
 
-instance {opCodeTy : Type} [HasProperties opCodeTy] {opCode : opCodeTy} :
-    Inhabited (HasProperties.propertiesOf opCode) where
-  default := HasProperties.propertiesDefault.default
+instance {opCodeTy : Type} [OpInfo opCodeTy] {opCode : opCodeTy} :
+    Repr (OpInfo.propertiesOf opCode) where
+  reprPrec props prec := OpInfo.propertiesRepr.reprPrec props prec
 
-instance {opCodeTy : Type} [HasProperties opCodeTy] {opCode : opCodeTy} :
-    Repr (HasProperties.propertiesOf opCode) where
-  reprPrec props prec := HasProperties.propertiesRepr.reprPrec props prec
+instance {opCodeTy : Type} [OpInfo opCodeTy] : DecidableEq (opCodeTy) :=
+  OpInfo.decideableEq
 
-instance {opCodeTy : Type} [HasProperties opCodeTy] : DecidableEq (opCodeTy) :=
-  HasProperties.decideableEq
-
-instance : HasProperties OpCode where
+instance : OpInfo OpCode where
   propertiesOf := propertiesOf
   propertiesHash := by
     unfold propertiesOf

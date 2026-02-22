@@ -7,8 +7,8 @@ import Veir.Rewriter.GetSetInBounds
 
 namespace Veir
 
-variable {dT : Type} [HasProperties dT]
-variable {ctx : IRContext dT}
+variable {opInfo : Type} [OpInfo opInfo]
+variable {ctx : IRContext opInfo}
 
 theorem Rewriter.replaceUse_DefUse_newValue
     {value value' : ValuePtr}
@@ -72,7 +72,7 @@ theorem Rewriter.replaceUse_DefUse_otherValue
     · apply ValuePtr.defUse_removeFromCurrent_other (value' := value) (array' := array) (missingUses' := ∅)
         <;> grind [ValuePtr.DefUse]
 
-theorem Rewriter.replaceUse_DefUse (ctx: IRContext dT) (use : OpOperandPtr)
+theorem Rewriter.replaceUse_DefUse (ctx: IRContext opInfo) (use : OpOperandPtr)
     (useIn: use.InBounds ctx)
     (ctxIn: ctx.FieldsInBounds)
     (value value' : ValuePtr) (array array': Array OpOperandPtr)
@@ -96,7 +96,7 @@ theorem Rewriter.replaceUse_DefUse (ctx: IRContext dT) (use : OpOperandPtr)
         grind [Rewriter.replaceUse_DefUse_otherValue]
 
 @[grind .]
-theorem Rewriter.replaceUse_WellFormed (ctx: IRContext dT) (use : OpOperandPtr) (newValue: ValuePtr)
+theorem Rewriter.replaceUse_WellFormed (ctx: IRContext opInfo) (use : OpOperandPtr) (newValue: ValuePtr)
     (useIn: use.InBounds ctx)
     (newIn: newValue.InBounds ctx)
     (ctxIn: ctx.FieldsInBounds)
@@ -141,7 +141,7 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext dT) (use : OpOperandPtr) 
       intros regionPtr regionPtrInBounds
       apply Region.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
 
-theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext dT) (oldValue: ValuePtr) (newValue: ValuePtr)
+theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext opInfo) (oldValue: ValuePtr) (newValue: ValuePtr)
     (oldIn: oldValue.InBounds ctx)
     (newIn: newValue.InBounds ctx)
     (ctxIn: ctx.FieldsInBounds)
