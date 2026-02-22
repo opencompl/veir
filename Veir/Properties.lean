@@ -48,22 +48,6 @@ instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
   unfold propertiesOf
   cases opCode <;> infer_instance
 
-
-instance {opCodeTy : Type} [OpInfo opCodeTy] {opCode : opCodeTy} :
-    Hashable (OpInfo.propertiesOf opCode) where
-  hash props := OpInfo.propertiesHash.hash props
-
-instance {opCodeTy : Type} [OpInfo opCodeTy] {opCode : opCodeTy} :
-    Inhabited (OpInfo.propertiesOf opCode) where
-  default := OpInfo.propertiesDefault.default
-
-instance {opCodeTy : Type} [OpInfo opCodeTy] {opCode : opCodeTy} :
-    Repr (OpInfo.propertiesOf opCode) where
-  reprPrec props prec := OpInfo.propertiesRepr.reprPrec props prec
-
-instance {opCodeTy : Type} [OpInfo opCodeTy] : DecidableEq (opCodeTy) :=
-  OpInfo.decideableEq
-
 instance : OpInfo OpCode where
   propertiesOf := propertiesOf
   propertiesHash := by
@@ -78,14 +62,13 @@ instance : OpInfo OpCode where
     unfold propertiesOf
     intros opCode
     cases opCode <;> infer_instance
-  propertiesDecideableEq := by
+  propertiesDecideEq := by
     unfold propertiesOf
     intros opCode
     cases opCode <;> infer_instance
-  decideableEq := by
+  decideEq := by
     intros opCode1 opCode2
     cases opCode1 <;> cases opCode2 <;> infer_instance
-
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (propertiesOf opCode) := by
