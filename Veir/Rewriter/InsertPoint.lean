@@ -190,7 +190,9 @@ theorem InsertPoint.idxIn.le_size_array :
   grind
 
 @[grind .]
-theorem InsertPoint.idxIn.le_size_operationList :
+theorem InsertPoint.idxIn.le_size_operationList (ip : InsertPoint) (ctx : IRContext) (blockPtr : BlockPtr)
+  (inBounds : ip.InBounds ctx) (blockIsParent : ip.block ctx inBounds = some blockPtr) (ctxWf : ctx.WellFormed)
+  (blockInBounds : blockPtr.InBounds ctx)  :
     InsertPoint.idxIn ip ctx blockPtr inBounds blockIsParent ctxWf ≤ (BlockPtr.operationList blockPtr ctx ctxWf blockInBounds).size := by
   simp only [InsertPoint.idxIn]
   grind
@@ -230,7 +232,6 @@ theorem InsertPoint.idxIn_eq_iff_getElem?
     x < array.size →
     InsertPoint.idxIn ip ctx blockPtr inBounds blockIsParent ctxWf = x →
     array[x]? = ip.next := by
-  have harray := @InsertPoint.idxIn.getElem? ip ctx blockPtr inBounds blockIsParent ctxWf (by grind)
   grind
 
 theorem InsertPoint.prev!_eq_none_iff_firstOp!_eq_next
@@ -269,14 +270,14 @@ theorem InsertPoint.idxIn.pred_lt_size :
     InsertPoint.idxIn ip ctx blockPtr inBounds blockIsParent ctxWf > 0 →
     InsertPoint.idxIn ip ctx blockPtr inBounds blockIsParent ctxWf - 1 < array.size := by
   intros hChain
-  have := @InsertPoint.idxIn.le_size_operationList ip ctx blockPtr (by grind) (by grind) (by grind) (by grind)
+  have := InsertPoint.idxIn.le_size_operationList ip ctx blockPtr (by grind) (by grind) (by grind) (by grind)
   grind
 
 theorem InsertPoint.prev!_eq_GetElem!_idxIn
     (hChain : BlockPtr.OpChain blockPtr ctx array)
     (hIdx : InsertPoint.idxIn ip ctx blockPtr inBounds blockIsParent ctxWf > 0) :
     ip.prev! ctx = some (array[InsertPoint.idxIn ip ctx blockPtr inBounds blockIsParent ctxWf - 1]'(by apply InsertPoint.idxIn.pred_lt_size <;> grind)) := by
-  have := @InsertPoint.idxIn.le_size_operationList ip ctx blockPtr (by grind) (by grind) (by grind) (by grind)
+  have := InsertPoint.idxIn.le_size_operationList ip ctx blockPtr (by grind) (by grind) (by grind) (by grind)
   have : array = blockPtr.operationList ctx (by grind) (by grind) := by grind
   by_cases array.size = ip.idxIn ctx blockPtr inBounds blockIsParent ctxWf
   · have : ip = atEnd blockPtr := by grind [InsertPoint.idxIn_eq_size_operationList_iff_eq_atEnd]
