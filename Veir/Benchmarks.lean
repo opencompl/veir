@@ -544,7 +544,7 @@ info: "builtin.module"() ({
 }) : () -> ()
 -/
 #guard_msgs in
-#eval! @Program.addZeroReuseTree 5 100 |> print
+#eval! Program.addZeroReuseTree 5 100 |> print
 
 /--
 info: "builtin.module"() ({
@@ -596,7 +596,7 @@ info: "builtin.module"() ({
 }) : () -> ()
 -/
 #guard_msgs in
-#eval! @Program.addZeroLotsOfReuseTree 5 100 |> print
+#eval! Program.addZeroLotsOfReuseTree 5 100 |> print
 
 /--
 info: "builtin.module"() ({
