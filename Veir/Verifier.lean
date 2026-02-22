@@ -12,7 +12,7 @@ namespace Veir
   match the expected values for the given operation type.
   This also checks that the given types are in bounds.
 -/
-def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (opIn : op.InBounds ctx) : Except String PUnit :=
+def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCode) (opIn : op.InBounds ctx) : Except String PUnit :=
   match op.getOpType ctx opIn with
   | .builtin_unregistered => pure ()
   /- ARITH -/
@@ -1132,7 +1132,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
 /--
   Verify that all operations in the IRContext satisfy their local invariants.
 -/
-public def IRContext.verify (ctx : IRContext) : Except String Unit := Id.run do
+public def IRContext.verify (ctx : IRContext OpCode) : Except String Unit := Id.run do
   ctx.forOpsDepM (fun op opIn => op.verifyLocalInvariants ctx opIn)
 
 end Veir

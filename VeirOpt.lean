@@ -6,7 +6,7 @@ import Veir.Verifier
 open Veir.Parser
 open Veir
 
-def parseOperation (filename : String) : ExceptT String IO (IRContext × OperationPtr) := do
+def parseOperation (filename : String) : ExceptT String IO (IRContext OpCode × OperationPtr) := do
   let fileContent ← IO.FS.readBinFile filename
   let some (ctx, _) := IRContext.create
     | throw "Failed to create IR context"

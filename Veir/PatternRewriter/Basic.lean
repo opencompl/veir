@@ -6,7 +6,12 @@ import Veir.Rewriter.GetSetInBounds
 
 open Std (HashMap)
 
-namespace Veir.PatternRewriter
+namespace Veir
+
+variable {opInfo : Type} [OpInfo opInfo]
+variable {ctx : IRContext opInfo}
+
+namespace PatternRewriter
 
 section array_inv
 
@@ -79,7 +84,7 @@ def Worklist.remove (worklist: Worklist) (op: OperationPtr) : Worklist :=
 
 -- TODO: remove this lemma and/or move it somewhere reasonable
 @[local grind →]
-theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext) :
+theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext opInfo) :
     (op ∈ ctx.operations.keys) → op.InBounds ctx := by
   grind [OperationPtr.InBounds]
 
@@ -87,7 +92,7 @@ theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext) :
 - Populate a worklist with all operations that exist in the given context, and that have
 - a parent operation.
 -/
-def Worklist.createFromContext (ctx: IRContext) : Worklist := Id.run do
+def Worklist.createFromContext (ctx: IRContext opInfo) : Worklist := Id.run do
   let mut worklist := Worklist.empty
   for h : op in ctx.operations.keys do
     if (op.get ctx (by grind)).parent.isSome then
@@ -97,16 +102,18 @@ def Worklist.createFromContext (ctx: IRContext) : Worklist := Id.run do
 end PatternRewriter
 
 @[grind]
-structure PatternRewriter where
-  ctx: IRContext
+structure PatternRewriter (opInfo : Type) [OpInfo opInfo] where
+  ctx: IRContext opInfo
   hasDoneAction: Bool
   worklist: PatternRewriter.Worklist
   ctx_fib : ctx.FieldsInBounds
 
+variable {rewriter : PatternRewriter opInfo}
+
 namespace PatternRewriter
 
-private def addUseChainUserInWorklist (rewriter: PatternRewriter) (useChain: Option OpOperandPtr) (maxIteration : Nat)
-    (huc : useChain.maybe OpOperandPtr.InBounds rewriter.ctx := by grind) : PatternRewriter :=
+private def addUseChainUserInWorklist (rewriter: PatternRewriter opInfo) (useChain: Option OpOperandPtr) (maxIteration : Nat)
+    (huc : useChain.maybe OpOperandPtr.InBounds rewriter.ctx := by grind) : (PatternRewriter opInfo) :=
   match maxIteration with
   | maxIteration + 1 =>
     match useChain with
@@ -120,7 +127,7 @@ private def addUseChainUserInWorklist (rewriter: PatternRewriter) (useChain: Opt
   | 0 => rewriter
 
 @[simp, grind =]
-theorem addUseChainUserInWorklist_same_ctx :
+theorem addUseChainUserInWorklist_same_ctx {rewriter : PatternRewriter opInfo} {huc : Option.maybe OpOperandPtr.InBounds useChain rewriter.ctx}:
     (addUseChainUserInWorklist rewriter useChain maxIteration huc).ctx = rewriter.ctx := by
   induction maxIteration generalizing rewriter useChain
   · grind [addUseChainUserInWorklist]
@@ -128,11 +135,11 @@ theorem addUseChainUserInWorklist_same_ctx :
 
 -- TODO: move this somewhere
 @[local grind .]
-theorem ValuePtr.inBounds_getFirstUse {value : ValuePtr} {ctx} (hv : value.InBounds ctx) (hx : ctx.FieldsInBounds) :
+theorem ValuePtr.inBounds_getFirstUse {value : ValuePtr} (hv : value.InBounds ctx) (hx : ctx.FieldsInBounds) :
     (value.getFirstUse ctx hv).maybe OpOperandPtr.InBounds ctx := by
   grind [Option.maybe]
 
-private def addUsersInWorklist (rewriter: PatternRewriter) (value: ValuePtr) (hv : value.InBounds rewriter.ctx) : PatternRewriter :=
+private def addUsersInWorklist (rewriter: PatternRewriter opInfo) (value: ValuePtr) (hv : value.InBounds rewriter.ctx) : PatternRewriter opInfo :=
   let useChain := value.getFirstUse rewriter.ctx (by grind)
   rewriter.addUseChainUserInWorklist useChain 1_000_000_000 (by grind [Option.maybe])
 
@@ -141,14 +148,15 @@ theorem addUsersInWorklist_same_ctx :
     (addUsersInWorklist rewriter value hv).ctx = rewriter.ctx := by
   simp [addUsersInWorklist]
 
-def createOp (rewriter: PatternRewriter) (opType: OpCode)
+
+def createOp (rewriter: PatternRewriter opInfo) (opType: opInfo)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr)
-    (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: propertiesOf opType)
+    (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: OpInfo.propertiesOf opType)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds rewriter.ctx)
     (hblockOperands : ∀ blockOper, blockOper ∈ blockOperands → blockOper.InBounds rewriter.ctx)
     (hregions : ∀ region, region ∈ regions → region.InBounds rewriter.ctx)
-    (hins : insertionPoint.maybe InsertPoint.InBounds rewriter.ctx) : Option (PatternRewriter × OperationPtr) := do
+    (hins : insertionPoint.maybe InsertPoint.InBounds rewriter.ctx) : Option ((PatternRewriter opInfo) × OperationPtr) := do
   rlet (newCtx, op) ← Rewriter.createOp rewriter.ctx opType resultTypes operands blockOperands regions properties insertionPoint hoper hblockOperands hregions hins (by grind)
   if h : insertionPoint.isNone then
     ({ rewriter with ctx := newCtx, ctx_fib := by grind }, op)
@@ -156,8 +164,8 @@ def createOp (rewriter: PatternRewriter) (opType: OpCode)
     ({ rewriter with ctx := newCtx, hasDoneAction := true , worklist := rewriter.worklist.push op, ctx_fib := by grind }, op)
 
 set_option warn.sorry false in
-def insertOp (rewriter: PatternRewriter) (op: OperationPtr) (ip : InsertPoint)
-    (newOpIn: op.InBounds rewriter.ctx := by grind) (insIn : ip.InBounds rewriter.ctx) : Option PatternRewriter := do
+def insertOp (rewriter: PatternRewriter opInfo) (op: OperationPtr) (ip : InsertPoint)
+    (newOpIn: op.InBounds rewriter.ctx := by grind) (insIn : ip.InBounds rewriter.ctx) : Option (PatternRewriter opInfo) := do
   let newCtx ← Rewriter.insertOp? rewriter.ctx op ip (by grind) (by grind) (by grind)
   some { rewriter with
     ctx := newCtx,
@@ -167,8 +175,8 @@ def insertOp (rewriter: PatternRewriter) (op: OperationPtr) (ip : InsertPoint)
   }
 
 set_option warn.sorry false in
-def eraseOp (rewriter: PatternRewriter) (op: OperationPtr)
-    (hop : op.InBounds rewriter.ctx) : Option PatternRewriter := do
+def eraseOp (rewriter: PatternRewriter opInfo) (op: OperationPtr)
+    (hop : op.InBounds rewriter.ctx) : Option (PatternRewriter opInfo) := do
   let newCtx ← Rewriter.eraseOp rewriter.ctx op (by grind) hop
   some { rewriter with
     ctx := newCtx,
@@ -178,10 +186,10 @@ def eraseOp (rewriter: PatternRewriter) (op: OperationPtr)
   }
 
 set_option warn.sorry false in
-def replaceOp (rewriter: PatternRewriter) (oldOp newOp: OperationPtr)
+def replaceOp (rewriter: PatternRewriter opInfo) (oldOp newOp: OperationPtr)
     (ho : oldOp.InBounds rewriter.ctx) (hn : newOp.InBounds rewriter.ctx)
-    (hpar : (oldOp.get rewriter.ctx ho).parent.isSome) : Option PatternRewriter := do
-  let mut rw : {r : PatternRewriter // r.ctx = rewriter.ctx } := ⟨rewriter, by grind⟩
+    (hpar : (oldOp.get rewriter.ctx ho).parent.isSome) : Option (PatternRewriter opInfo) := do
+  let mut rw : {r : PatternRewriter opInfo // r.ctx = rewriter.ctx } := ⟨rewriter, by grind⟩
   for h : i in 0...(oldOp.getNumResults rewriter.ctx (by grind)) do
     rw := ⟨rw.val.addUsersInWorklist (oldOp.getResult i) (by grind), by grind⟩
   let rewriter := rw.val
@@ -194,9 +202,9 @@ def replaceOp (rewriter: PatternRewriter) (oldOp newOp: OperationPtr)
   }
 
 set_option warn.sorry false in
-def replaceValue (rewriter: PatternRewriter) (oldVal newVal: ValuePtr)
+def replaceValue (rewriter: PatternRewriter opInfo) (oldVal newVal: ValuePtr)
     (oldIn: oldVal.InBounds rewriter.ctx := by grind)
-    (newIn: newVal.InBounds rewriter.ctx := by grind) : Option PatternRewriter := do
+    (newIn: newVal.InBounds rewriter.ctx := by grind) : Option (PatternRewriter opInfo) := do
   -- TODO: add users of oldVal to worklist
   let rewriter := rewriter.addUsersInWorklist oldVal (by grind)
   let ctx ← Rewriter.replaceValue? rewriter.ctx oldVal newVal (by grind) (by grind) (by grind)
@@ -208,18 +216,18 @@ def replaceValue (rewriter: PatternRewriter) (oldVal newVal: ValuePtr)
 
 end PatternRewriter
 
-abbrev RewritePattern := PatternRewriter → OperationPtr → Option (PatternRewriter)
+abbrev RewritePattern (opInfo : Type) [OpInfo opInfo] := (PatternRewriter opInfo) → OperationPtr → Option (PatternRewriter opInfo)
 
 /--
   A local rewrite that can only replace a matched operation with a list of new operations.
   The pattern returns, if successful, a list of new operations to insert and a list of values to
   replace the old results with.
 -/
-abbrev LocalRewritePattern :=
-  IRContext → OperationPtr → Option (IRContext × Option (Array OperationPtr × Array ValuePtr))
+abbrev LocalRewritePattern (opInfo : Type) [OpInfo opInfo] :=
+  IRContext opInfo → OperationPtr → Option (IRContext opInfo × Option (Array OperationPtr × Array ValuePtr))
 
 set_option warn.sorry false in
-def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern) : RewritePattern :=
+def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern opInfo) : RewritePattern opInfo :=
   fun rewriter op => do
     match pattern rewriter.ctx op with
     -- error while applying pattern
@@ -244,10 +252,10 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern) : RewritePat
 - Return the new context, and a boolean indicating whether any changes were made.
 - If any pattern failed, return none.
 -/
-private partial def RewritePattern.applyOnceInContext (pattern: RewritePattern) (ctx: IRContext) (hx : ctx.FieldsInBounds) :
-    Option (Bool × {ctx : IRContext // ctx.FieldsInBounds}) := do
+private partial def RewritePattern.applyOnceInContext (pattern: RewritePattern opInfo) (ctx: IRContext opInfo) (hx : ctx.FieldsInBounds) :
+    Option (Bool × {ctx : IRContext opInfo // ctx.FieldsInBounds}) := do
   let worklist := PatternRewriter.Worklist.createFromContext ctx
-  let mut rewriter : PatternRewriter := { ctx, hasDoneAction := false, worklist, ctx_fib := hx }
+  let mut rewriter : PatternRewriter opInfo := { ctx, hasDoneAction := false, worklist, ctx_fib := hx }
   while !rewriter.worklist.isEmpty do
     let (opOpt, newWorklist) := rewriter.worklist.pop
     let op := opOpt.get!
@@ -255,9 +263,9 @@ private partial def RewritePattern.applyOnceInContext (pattern: RewritePattern) 
     rewriter ← pattern rewriter op
   pure (rewriter.hasDoneAction, ⟨rewriter.ctx, rewriter.ctx_fib⟩)
 
-def RewritePattern.applyInContext (pattern: RewritePattern) (ctx: IRContext) (hx : ctx.FieldsInBounds) : Option IRContext := do
+def RewritePattern.applyInContext (pattern: RewritePattern opInfo) (ctx: IRContext opInfo) (hx : ctx.FieldsInBounds) : Option (IRContext opInfo) := do
   let mut hasDoneAction := true
-  let mut ctx : { ctx : IRContext // ctx.FieldsInBounds } := ⟨ctx, hx⟩
+  let mut ctx : { ctx : IRContext opInfo // ctx.FieldsInBounds } := ⟨ctx, hx⟩
   while hasDoneAction do
     let (lastHasDoneAction, newCtx) ← pattern.applyOnceInContext ctx.val (by grind)
     ctx := newCtx

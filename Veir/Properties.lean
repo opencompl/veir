@@ -3,6 +3,7 @@ module
 public import Veir.OpCode
 public import Veir.IR.Attribute
 public import Veir.ForLean
+public import Veir.IR.OpInfo
 
 namespace Veir
 
@@ -13,7 +14,7 @@ public section
 -/
 structure ArithConstantProperties where
   value : IntegerAttr
-deriving Inhabited, Repr, Hashable
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
@@ -35,17 +36,27 @@ match opCode with
 | .arith_constant => ArithConstantProperties
 | _ => Unit
 
-instance (opCode : OpCode) : Inhabited (propertiesOf opCode) := by
-  unfold propertiesOf
-  cases opCode <;> infer_instance
-
-instance (opCode : OpCode) : Repr (propertiesOf opCode) := by
-  unfold propertiesOf
-  cases opCode <;> infer_instance
-
-instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
-  unfold propertiesOf
-  cases opCode <;> infer_instance
+instance : OpInfo OpCode where
+  propertiesOf := propertiesOf
+  propertiesHash := by
+    unfold propertiesOf
+    intros opCode
+    cases opCode <;> infer_instance
+  propertiesDefault := by
+    unfold propertiesOf
+    intros opCode
+    cases opCode <;> infer_instance
+  propertiesRepr := by
+    unfold propertiesOf
+    intros opCode
+    cases opCode <;> infer_instance
+  propertiesDecideEq := by
+    unfold propertiesOf
+    intros opCode
+    cases opCode <;> infer_instance
+  decideEq := by
+    intros opCode1 opCode2
+    cases opCode1 <;> cases opCode2 <;> infer_instance
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (propertiesOf opCode) := by

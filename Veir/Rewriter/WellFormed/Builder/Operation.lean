@@ -4,17 +4,19 @@ import Veir.Rewriter.Basic
 
 namespace Veir
 
+variable {opInfo : Type} [OpInfo opInfo]
+
 set_option warn.sorry false in
-theorem OperationPtr.setProperties_WellFormed (op: OperationPtr) (ctx: IRContext)
-    (inBounds: op.InBounds ctx) (newValue : propertiesOf opType) propEq
+theorem OperationPtr.setProperties_WellFormed (op: OperationPtr) (ctx: IRContext opInfo)
+    (inBounds: op.InBounds ctx) (newValue : OpInfo.propertiesOf opType) propEq
     (hctx : IRContext.WellFormed ctx) :
     (op.setProperties ctx newValue inBounds propEq).WellFormed := by
   sorry
 
 set_option warn.sorry false in
-theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: OpCode)
+theorem Rewriter.createOp_WellFormed (ctx: IRContext opInfo) (opType: opInfo)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr) (numRegions: Nat)
-    (properties: propertiesOf opType)
+    (properties: OpInfo.propertiesOf opType)
     (insertionPoint: Option InsertPoint)
     (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx)
     hblockOper
@@ -22,7 +24,7 @@ theorem Rewriter.createOp_WellFormed (ctx: IRContext) (opType: OpCode)
     (hins : insertionPoint.maybe InsertPoint.InBounds ctx)
     (hx : ctx.FieldsInBounds)
     (hctx : IRContext.WellFormed ctx)
-    (newCtx : IRContext) (newOp : OperationPtr) :
+    (newCtx : IRContext opInfo) (newOp : OperationPtr) :
     Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties insertionPoint hoper hblockOper hregions hins hx = some (newCtx, newOp) →
     newCtx.WellFormed := by
   intros heq
