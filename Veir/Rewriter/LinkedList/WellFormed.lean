@@ -12,6 +12,8 @@ import Std.Data.ExtHashSet
 public section
 
 namespace Veir
+variable {dT : Type} [HasProperties dT]
+variable {ctx ctx' : IRContext dT}
 
 attribute [local grind ext] OpOperand
 
@@ -94,7 +96,7 @@ theorem Region.wellFormed_OpOperandPtr_insertIntoCurrent
   apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem IRContext.wellFormed_OpOperandPtr_insertIntoCurrent
-    {ctx : IRContext} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
+    {ctx : IRContext dT} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
     (useMissing : use ∈ missingOperandUses)
     (hWF : ctx.WellFormed missingOperandUses missingSuccessorUses) :
     (use.insertIntoCurrent ctx useInBounds ctxInBounds).WellFormed (missingOperandUses.erase use) missingSuccessorUses := by
@@ -279,7 +281,7 @@ theorem Region.wellFormed_OpOperandPtr_removeFromCurrent
   apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem IRContext.wellFormed_OpOperandPtr_removeFromCurrent
-    {ctx : IRContext} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
+    {ctx : IRContext dT} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
     (useMissing : use ∉ missingOperandUses)
     (hWF : ctx.WellFormed missingOperandUses missingSuccessorUses) :
     (use.removeFromCurrent ctx useInBounds ctxInBounds).WellFormed (missingOperandUses.insert use) missingSuccessorUses := by
@@ -416,7 +418,7 @@ theorem Region.wellFormed_BlockOperandPtr_insertIntoCurrent
   apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem IRContext.wellFormed_BlockOperandPtr_insertIntoCurrent
-    {ctx : IRContext} {use : BlockOperandPtr} {useInBounds} {ctxInBounds}
+    {ctx : IRContext dT} {use : BlockOperandPtr} {useInBounds} {ctxInBounds}
     (useMissing : use ∈ missingSuccessorUses)
     (hWF : ctx.WellFormed missingOperandUses missingSuccessorUses) :
     (use.insertIntoCurrent ctx useInBounds ctxInBounds).WellFormed
@@ -725,7 +727,7 @@ theorem Region.wellFormed_OperationPtr_linkBetweenWithParent
 
 
 theorem IRContext.wellFormed_BlockOperandPtr_removeFromCurrent
-    {ctx : IRContext} {use : BlockOperandPtr} {useInBounds} {ctxInBounds}
+    {ctx : IRContext dT} {use : BlockOperandPtr} {useInBounds} {ctxInBounds}
     (useMissing : use ∉ missingSuccessorUses)
     (hWF : ctx.WellFormed missingOperandUses missingSuccessorUses) :
     (use.removeFromCurrent ctx useInBounds ctxInBounds).WellFormed

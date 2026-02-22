@@ -10,9 +10,11 @@ open Veir.AttrParser
 
 namespace Veir.Parser
 
+variable {ctx : IRContext OpCode}
+
 structure MlirParserState where
   /-- The current IR context. -/
-  ctx : IRContext
+  ctx : IRContext OpCode
   /-- The values that have been defined at that point in the parser. -/
   values : Std.HashMap ByteArray ValuePtr
   /--
@@ -22,7 +24,7 @@ structure MlirParserState where
   -/
   blocks : Std.HashMap ByteArray (BlockPtr × Bool)
 
-def MlirParserState.fromContext (ctx : IRContext) : MlirParserState :=
+def MlirParserState.fromContext (ctx : IRContext OpCode) : MlirParserState :=
   {ctx := ctx, values := Std.HashMap.emptyWithCapacity 128, blocks := Std.HashMap.emptyWithCapacity 1}
 
 abbrev MlirParserM := StateT MlirParserState (EStateM String ParserState)
@@ -50,7 +52,7 @@ def MlirParserM.run' (self : MlirParserM α)
 /--
   Get the current IR context that is stored in the parser state.
 -/
-def getContext : MlirParserM IRContext := do
+def getContext : MlirParserM (IRContext OpCode) := do
   return (← get).ctx
 
 /--
@@ -77,7 +79,7 @@ def registerValueDef (name : ByteArray) (value : ValuePtr) : MlirParserM Unit :=
   This should be called whenever any modifications have been made to the context
   outside of the parser monad.
 -/
-def setContext (ctx : IRContext) : MlirParserM Unit := do
+def setContext (ctx : IRContext OpCode) : MlirParserM Unit := do
   modify fun s => {s with ctx := ctx}
 
 set_option warn.sorry false in
@@ -98,7 +100,7 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
       | throw "internal error: failed to insert block"
     setContext ctx
     /- Notify the parsing context that the block is defined. -/
-    modifyThe MlirParserState (fun state =>
+    modifyThe (MlirParserState) (fun state =>
     {state with
       blocks :=
         state.blocks.insert name (block, true)})
@@ -110,7 +112,7 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
       | throw "internal error: failed to create block"
     setContext ctx
     /- Notify the parsing context that the block is defined. -/
-    modifyThe MlirParserState fun s =>
+    modifyThe (MlirParserState) fun s =>
     {s with blocks := s.blocks.insert name (block, true)}
     return block
 
@@ -132,7 +134,7 @@ def defineBlockUse (name : ByteArray) : MlirParserM BlockPtr := do
       | throw "internal error: failed to create block"
     setContext ctx
     /- Notify the parsing context that the block is forward declared. -/
-    modifyThe MlirParserState fun s =>
+    modifyThe (MlirParserState) fun s =>
     {s with blocks := s.blocks.insert name (block, false)}
     return block
 
@@ -357,7 +359,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let ctx ← getContext
   setContext Inhabited.default
 
-  let some (ctx, op) := Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
+  let some (ctx, op) := Rewriter.createOp (dT := OpCode) ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
       | throw "internal error: failed to create operation"
   let ctx := op.setAttributes! ctx attrs
 
@@ -380,7 +382,7 @@ partial def parseOp (ip : Option InsertPoint) : MlirParserM OperationPtr := do
 /--
   Parse a region.
 -/
-partial def parseRegion : MlirParserM RegionPtr := do
+partial def parseRegion: MlirParserM RegionPtr := do
   /- Reset the block parsing state, as blocks are local to regions. -/
   let oldBlocks := (← getThe MlirParserState).blocks
   modifyThe MlirParserState fun s => {s with blocks := Std.HashMap.emptyWithCapacity 1}

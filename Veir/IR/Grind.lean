@@ -5,6 +5,9 @@ import Veir.IR.Basic
 
 namespace Veir
 
+variable {dT : Type} [HasProperties dT]
+variable {ctx : IRContext dT}
+
 public section
 
 attribute [local grind =] Option.maybe_def
@@ -50,6 +53,6 @@ theorem ValuePtr.maybe_elim (ptr : ValuePtr) :
   grind
 
 @[grind =_]
-theorem IRContext.maybe₁_elim (ctx : IRContext) :
+theorem IRContext.maybe₁_elim (ctx : IRContext dT) :
     (some ctx).maybe₁ IRContext.FieldsInBounds ↔ ctx.FieldsInBounds := by
   grind [Option.maybe₁_def]

@@ -25,7 +25,7 @@ def printIndent (identFactor: Nat) : IO Unit :=
     IO.print ("  ")
     printIndent identFactor'
 
-def printValue (ctx : IRContext) (value : ValuePtr) : IO Unit := do
+def printValue (ctx : IRContext OpCode) (value : ValuePtr) : IO Unit := do
   match value with
   | ValuePtr.opResult opResultPtr =>
     let opResult := opResultPtr.get! ctx
@@ -38,10 +38,10 @@ def printValue (ctx : IRContext) (value : ValuePtr) : IO Unit := do
     let blockArg := blockArgPtr.get! ctx
     IO.print s!"%arg{blockArg.owner.id}_{blockArg.index}"
 
-def printOpResult (ctx: IRContext) (result: OpResultPtr) : IO Unit := do
+def printOpResult (ctx: IRContext OpCode) (result: OpResultPtr) : IO Unit := do
   printValue ctx (ValuePtr.opResult result)
 
-def printOpResults (ctx: IRContext) (op: OperationPtr) : IO Unit := do
+def printOpResults (ctx: IRContext OpCode) (op: OperationPtr) : IO Unit := do
   if op.getNumResults! ctx ≠ 0 then
     let res := op.getResult 0
     printValue ctx res
@@ -51,7 +51,7 @@ def printOpResults (ctx: IRContext) (op: OperationPtr) : IO Unit := do
       printValue ctx res
     IO.print " = "
 
-def printOpOperands (ctx: IRContext) (op: OperationPtr) : IO Unit := do
+def printOpOperands (ctx: IRContext OpCode) (op: OperationPtr) : IO Unit := do
   IO.print "("
   if op.getNumOperands! ctx ≠ 0 then
     printValue ctx (op.getOperand! ctx 0)
@@ -60,7 +60,7 @@ def printOpOperands (ctx: IRContext) (op: OperationPtr) : IO Unit := do
       printValue ctx (op.getOperand! ctx index)
   IO.print ")"
 
-def printOperationType (ctx : IRContext) (op : OperationPtr) : IO Unit := do
+def printOperationType (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   -- Print operand types
   IO.print " : ("
   if op.getNumOperands! ctx ≠ 0 then
@@ -89,7 +89,7 @@ def printOperationType (ctx : IRContext) (op : OperationPtr) : IO Unit := do
     IO.print s!", {resType}"
   IO.print ")"
 
-def printBlockOperands (ctx: IRContext) (op: OperationPtr) : IO Unit := do
+def printBlockOperands (ctx: IRContext OpCode) (op: OperationPtr) : IO Unit := do
   if op.getNumSuccessors! ctx = 0 then return
   IO.print " ["
   IO.print s!"^{(op.getSuccessor! ctx 0).id}"
@@ -103,13 +103,13 @@ def printAttrDictEntry (key : String) (value : Attribute) : IO Unit := do
   else
     IO.print s!"\"{key}\" = {value}"
 
-def printOpAttrDict (ctx : IRContext) (op : OperationPtr) : IO Unit := do
+def printOpAttrDict (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   let attrs := (op.get! ctx).attrs
   if attrs.entries.size = 0 then return
   IO.print " "
   IO.print (op.get! ctx).attrs
 
-def printOpProperties (ctx : IRContext) (op : OperationPtr) : IO Unit := do
+def printOpProperties (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   let opType := (op.get! ctx).opType
   let properties := op.getProperties! ctx opType
   let attrDict := Properties.toAttrDict opType properties
@@ -119,7 +119,7 @@ def printOpProperties (ctx : IRContext) (op : OperationPtr) : IO Unit := do
   IO.print ">"
 
 mutual
-partial def printOpList (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
+partial def printOpList (ctx: IRContext OpCode) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
   printOperation ctx op indent
   match _ : (op.get! ctx).next with
   | some nextOp =>
@@ -127,7 +127,7 @@ partial def printOpList (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) :
   | none =>
     pure ()
 
-partial def printBlock (ctx: IRContext) (block: BlockPtr) (indent: Nat := 0) : IO Unit := do
+partial def printBlock (ctx: IRContext OpCode) (block: BlockPtr) (indent: Nat := 0) : IO Unit := do
   printIndent indent
   IO.print s!"^{block.id}("
   for i in 0...(block.getNumArguments! ctx) do
@@ -142,7 +142,7 @@ partial def printBlock (ctx: IRContext) (block: BlockPtr) (indent: Nat := 0) : I
   | none =>
     pure ()
 
-partial def printBlockList (ctx: IRContext) (block: BlockPtr) (indent: Nat := 0) : IO Unit := do
+partial def printBlockList (ctx: IRContext OpCode) (block: BlockPtr) (indent: Nat := 0) : IO Unit := do
   printBlock ctx block indent
   match _ : (block.get! ctx).next with
   | some nextBlock =>
@@ -150,7 +150,7 @@ partial def printBlockList (ctx: IRContext) (block: BlockPtr) (indent: Nat := 0)
   | none =>
     pure ()
 
-partial def printRegion (ctx: IRContext) (region: Region) (indent: Nat := 0) : IO Unit := do
+partial def printRegion (ctx: IRContext OpCode) (region: Region) (indent: Nat := 0) : IO Unit := do
   IO.print "{"
   match region.firstBlock with
   | none =>
@@ -162,7 +162,7 @@ partial def printRegion (ctx: IRContext) (region: Region) (indent: Nat := 0) : I
     printIndent indent
     IO.print "}"
 
-partial def printRegions (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
+partial def printRegions (ctx: IRContext OpCode) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
   if op.getNumRegions! ctx = 0 then return
   IO.print "("
   for i in 0...((op.getNumRegions! ctx) - 1) do
@@ -172,7 +172,7 @@ partial def printRegions (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) 
   printRegion ctx ((op.getRegion! ctx (op.getNumRegions! ctx - 1)).get! ctx) indent
   IO.print ")"
 
-partial def printOperation (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
+partial def printOperation (ctx: IRContext OpCode) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
   let opStruct := op.get! ctx
   printIndent indent
   printOpResults ctx op
@@ -188,5 +188,5 @@ partial def printOperation (ctx: IRContext) (op: OperationPtr) (indent: Nat := 0
   IO.println ""
 end
 
-partial def printModule (ctx: IRContext) (op: OperationPtr) : IO Unit := do
+partial def printModule (ctx: IRContext OpCode) (op: OperationPtr) : IO Unit := do
   printOperation ctx op

@@ -7,6 +7,9 @@ public import Veir.Prelude
 
 namespace Veir
 
+variable {dT : Type} [HasProperties dT]
+variable {ctx : IRContext dT}
+
 public section
 
 /-
@@ -14,23 +17,23 @@ public section
   These are the predicates that ensures that all pointers in a program are in bounds.
 -/
 
-structure OpResult.FieldsInBounds (res : OpResult) (ctx : IRContext) : Prop where
+structure OpResult.FieldsInBounds (res : OpResult) (ctx : IRContext dT) : Prop where
   firstUse_inBounds : res.firstUse.maybe OpOperandPtr.InBounds ctx
   owner_inBounds : res.owner.InBounds ctx
 
-structure OpOperand.FieldsInBounds (operand : OpOperand) (ctx : IRContext) : Prop where
+structure OpOperand.FieldsInBounds (operand : OpOperand) (ctx : IRContext dT) : Prop where
   nextUse_inBounds : operand.nextUse.maybe OpOperandPtr.InBounds ctx
   back_inBounds : operand.back.InBounds ctx
   owner_inBounds : operand.owner.InBounds ctx
   value_inBounds : operand.value.InBounds ctx
 
-structure BlockOperand.FieldsInBounds (operand : BlockOperand) (ctx : IRContext) : Prop where
+structure BlockOperand.FieldsInBounds (operand : BlockOperand) (ctx : IRContext dT) : Prop where
   nextUse_inBounds : operand.nextUse.maybe BlockOperandPtr.InBounds ctx
   back_inBounds : operand.back.InBounds ctx
   owner_inBounds : operand.owner.InBounds ctx
   value_inBounds : operand.value.InBounds ctx
 
-structure Operation.FieldsInBounds (operation : OperationPtr) (ctx : IRContext) (hin : operation.InBounds ctx) : Prop where
+structure Operation.FieldsInBounds (operation : OperationPtr) (ctx : IRContext dT) (hin : operation.InBounds ctx) : Prop where
   results_inBounds (res : OpResultPtr) (hres : res.InBounds ctx) : res.op = operation → (res.get ctx).FieldsInBounds ctx
   prev_inBounds : (operation.get ctx hin).prev.maybe OperationPtr.InBounds ctx
   next_inBounds : (operation.get ctx hin).next.maybe OperationPtr.InBounds ctx
@@ -43,12 +46,12 @@ structure Operation.FieldsInBounds (operation : OperationPtr) (ctx : IRContext) 
     operand.op = operation → OpOperand.FieldsInBounds (operand.get ctx h) ctx
 
 @[local grind]
-structure BlockArgument.FieldsInBounds (arg: BlockArgument) (ctx: IRContext) : Prop where
+structure BlockArgument.FieldsInBounds (arg: BlockArgument) (ctx: IRContext dT) : Prop where
   firstUse_inBounds : arg.firstUse.maybe OpOperandPtr.InBounds ctx
   owner_inBounds : arg.owner.InBounds ctx
 
 @[local grind]
-structure Block.FieldsInBounds (block : BlockPtr) (ctx : IRContext) (hin : block.InBounds ctx) : Prop where
+structure Block.FieldsInBounds (block : BlockPtr) (ctx : IRContext dT) (hin : block.InBounds ctx) : Prop where
   firstUse_inBounds : (block.get ctx hin).firstUse.maybe BlockOperandPtr.InBounds ctx
   prev_inBounds : (block.get ctx hin).prev.maybe BlockPtr.InBounds ctx
   next_inBounds : (block.get ctx hin).next.maybe BlockPtr.InBounds ctx
@@ -59,7 +62,7 @@ structure Block.FieldsInBounds (block : BlockPtr) (ctx : IRContext) (hin : block
     arg.block = block → (arg.get ctx h).FieldsInBounds ctx
 
 @[local grind]
-structure Region.FieldsInBounds (region : Region) (ctx : IRContext) : Prop where
+structure Region.FieldsInBounds (region : Region) (ctx : IRContext dT) : Prop where
   firstBlock_inBounds block : region.firstBlock = some block → block.InBounds ctx
   lastBlock_inBounds block : region.lastBlock = some block → block.InBounds ctx
   parent_inBounds parent : region.parent = some parent → parent.InBounds ctx
@@ -67,7 +70,7 @@ structure Region.FieldsInBounds (region : Region) (ctx : IRContext) : Prop where
 /--
     Ensures that all pointers referenced by any structure in the context are in bounds.
 -/
-structure IRContext.FieldsInBounds (ctx : IRContext) : Prop where
+structure IRContext.FieldsInBounds (ctx : IRContext dT) : Prop where
   operations_inBounds (op : OperationPtr) opIn : Operation.FieldsInBounds op ctx opIn
   blocks_inBounds (block : BlockPtr) blockIn : Block.FieldsInBounds block ctx blockIn
   regions_inBounds (region : RegionPtr) regionIn : (region.get ctx regionIn).FieldsInBounds ctx
@@ -77,12 +80,12 @@ attribute [local grind =] Option.maybe_def
 section get
 
 /-
-  Theorems combining `get` methods with `IRContext.fieldsInBounds`.
+  Theorems combining `get` methods with `IRContext dT.fieldsInBounds`.
   These should be the only theorems that unfolds the `FieldsInBounds
   structures.
 -/
 
-variable {ctx : IRContext}
+variable {ctx : IRContext dT}
 
 attribute [local grind] IRContext.FieldsInBounds
   OpOperand.FieldsInBounds BlockOperand.FieldsInBounds
@@ -417,28 +420,28 @@ grind_pattern BlockOperandPtrPtr.get!_inBounds => (ptr.get! ctx), ctx.FieldsInBo
 end BlockOperandPtrPtr
 
 @[grind .]
-theorem OperationPtr.get_fieldsInBounds (ctx : IRContext) (ptr : OperationPtr)
+theorem OperationPtr.get_fieldsInBounds (ctx : IRContext dT) (ptr : OperationPtr)
     (ctxInBounds : ctx.FieldsInBounds)
     (ptrInBounds : ptr.InBounds ctx) :
     Operation.FieldsInBounds ptr ctx ptrInBounds := by
   grind [IRContext.FieldsInBounds]
 
 @[grind .]
-theorem BlockPtr.get_fieldsInBounds (ctx : IRContext) (ptr : BlockPtr)
+theorem BlockPtr.get_fieldsInBounds (ctx : IRContext dT) (ptr : BlockPtr)
     (ctxInBounds : ctx.FieldsInBounds)
     (ptrInBounds : ptr.InBounds ctx) :
     Block.FieldsInBounds ptr ctx ptrInBounds := by
   grind [IRContext.FieldsInBounds]
 
 @[grind .]
-theorem RegionPtr.get_fieldsInBounds (ctx : IRContext) (ptr : RegionPtr)
+theorem RegionPtr.get_fieldsInBounds (ctx : IRContext dT) (ptr : RegionPtr)
     (ctxInBounds : ctx.FieldsInBounds)
     (ptrInBounds : ptr.InBounds ctx) :
     (ptr.get ctx (by grind)).FieldsInBounds ctx := by
   grind [IRContext.FieldsInBounds]
 
 @[grind .]
-theorem OpResultPtr.get_fieldsInBounds (ctx : IRContext) (ptr : OpResultPtr)
+theorem OpResultPtr.get_fieldsInBounds (ctx : IRContext dT) (ptr : OpResultPtr)
     (ctxInBounds : ctx.FieldsInBounds)
     (ptrInBounds : ptr.InBounds ctx) :
     (ptr.get ctx).FieldsInBounds ctx := by
@@ -446,7 +449,7 @@ theorem OpResultPtr.get_fieldsInBounds (ctx : IRContext) (ptr : OpResultPtr)
   grind
 
 @[grind .]
-theorem OpOperandPtr.get_fieldsInBounds (ctx : IRContext) (ptr : OpOperandPtr)
+theorem OpOperandPtr.get_fieldsInBounds (ctx : IRContext dT) (ptr : OpOperandPtr)
     (ctxInBounds : ctx.FieldsInBounds)
     (ptrInBounds : ptr.InBounds ctx) :
     OpOperand.FieldsInBounds (ptr.get ctx ptrInBounds) ctx := by
@@ -454,7 +457,7 @@ theorem OpOperandPtr.get_fieldsInBounds (ctx : IRContext) (ptr : OpOperandPtr)
   grind
 
 @[grind .]
-theorem BlockOperandPtr.get_fieldsInBounds (ctx : IRContext) (ptr : BlockOperandPtr)
+theorem BlockOperandPtr.get_fieldsInBounds (ctx : IRContext dT) (ptr : BlockOperandPtr)
     (ctxInBounds : ctx.FieldsInBounds)
     (ptrInBounds : ptr.InBounds ctx) :
     BlockOperand.FieldsInBounds (ptr.get ctx ptrInBounds) ctx := by
@@ -462,7 +465,7 @@ theorem BlockOperandPtr.get_fieldsInBounds (ctx : IRContext) (ptr : BlockOperand
   grind
 
 @[grind .]
-theorem BlockArgumentPtr.get_fieldsInBounds (ctx : IRContext) (ptr : BlockArgumentPtr)
+theorem BlockArgumentPtr.get_fieldsInBounds (ctx : IRContext dT) (ptr : BlockArgumentPtr)
     (ctxInBounds : ctx.FieldsInBounds)
     (ptrInBounds : ptr.InBounds ctx) :
     (ptr.get ctx (by grind)).FieldsInBounds ctx := by
@@ -474,7 +477,7 @@ end get
 
 /- Preservation theorems for FieldsInBounds -/
 
-theorem Operation.fieldsInBounds_unchanged {op : OperationPtr} (ctx ctx' : IRContext)
+theorem Operation.fieldsInBounds_unchanged {op : OperationPtr} (ctx ctx' : IRContext dT)
     (opInBounds : op.InBounds ctx)
     (opInBounds': op.InBounds ctx')
     (hh : ctx.FieldsInBounds)
@@ -500,7 +503,7 @@ theorem Operation.fieldsInBounds_unchanged {op : OperationPtr} (ctx ctx' : IRCon
     have := @OpOperandPtr.get!_eq_of_OperationPtr_get!_eq
     constructor <;> grind
 
-theorem Block.fieldsInBounds_unchanged (block : BlockPtr) (ctx ctx' : IRContext)
+theorem Block.fieldsInBounds_unchanged (block : BlockPtr) (ctx ctx' : IRContext dT)
     (blockInBounds : block.InBounds ctx)
     (blockInBounds': block.InBounds ctx')
     (hh : ctx.FieldsInBounds)
@@ -518,7 +521,7 @@ theorem Block.fieldsInBounds_unchanged (block : BlockPtr) (ctx ctx' : IRContext)
   · intros
     constructor <;> grind [BlockArgumentPtr.get!_eq_of_BlockPtr_get!_eq]
 
-theorem Region.fieldsInBounds_unchanged (region : RegionPtr) (ctx ctx' : IRContext)
+theorem Region.fieldsInBounds_unchanged (region : RegionPtr) (ctx ctx' : IRContext dT)
     (regionInBounds : region.InBounds ctx)
     (regionInBounds': region.InBounds ctx')
     (hFIB : (region.get ctx regionInBounds).FieldsInBounds ctx)
@@ -610,7 +613,7 @@ macro "prove_fieldsInBounds_region" ctx:ident: tactic => `(tactic|
      constructor <;> grind))
 
 @[grind .]
-theorem IRContext.empty_fieldsInBounds : empty.FieldsInBounds := by
+theorem IRContext.empty_fieldsInBounds : (empty dT).FieldsInBounds := by
   constructor <;> grind
 
 @[grind .]
@@ -629,12 +632,12 @@ theorem OperationPtr.setParent_fieldsInBounds (hnew : newOp.maybe BlockPtr.InBou
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
-theorem OperationPtr.setRegions_fieldsInBounds (hnew : ∀ r ∈ newRegions, r.InBounds ctx) :
+theorem OperationPtr.setRegions_fieldsInBounds {ctx : IRContext dT} {h} (hnew : ∀ r ∈ newRegions, r.InBounds ctx) :
     ctx.FieldsInBounds → (setRegions op ctx newRegions h).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
-theorem OperationPtr.pushRegion_fieldsInBounds (hnew : newRegion.InBounds ctx) :
+theorem OperationPtr.pushRegion_fieldsInBounds {ctx : IRContext dT} {h} (hnew : newRegion.InBounds ctx) :
     ctx.FieldsInBounds → (pushRegion op ctx newRegion h).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
 
@@ -668,22 +671,22 @@ theorem OperationPtr.allocEmpty_fieldsInBounds
   prove_fieldsInBounds
 
 @[grind .]
-theorem BlockOperandPtr.setBack_fieldsInBounds {blockOperand ctx h newBack} (hp : newBack.InBounds ctx) :
+theorem BlockOperandPtr.setBack_fieldsInBounds {blockOperand} {ctx : IRContext dT} {h newBack} (hp : newBack.InBounds ctx) :
     ctx.FieldsInBounds → (setBack blockOperand ctx newBack h).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
-theorem BlockOperandPtr.setOwner_fieldsInBounds {blockOperand ctx h newOwner} (hp : newOwner.InBounds ctx) :
+theorem BlockOperandPtr.setOwner_fieldsInBounds {blockOperand} {ctx : IRContext dT} {h newOwner} (hp : newOwner.InBounds ctx) :
     ctx.FieldsInBounds → (setOwner blockOperand ctx newOwner h).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
-theorem BlockOperandPtr.setNextUse_fieldsInBounds {blockOperand ctx h newNextUse} (hp : newNextUse.maybe BlockOperandPtr.InBounds ctx) :
+theorem BlockOperandPtr.setNextUse_fieldsInBounds {blockOperand} {ctx : IRContext dT} {h newNextUse} (hp : newNextUse.maybe BlockOperandPtr.InBounds ctx) :
     ctx.FieldsInBounds → (setNextUse blockOperand ctx newNextUse h).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
-theorem BlockOperandPtr.setValue_fieldsInBounds {blockOperand ctx h newValue} (hp : newValue.InBounds ctx) :
+theorem BlockOperandPtr.setValue_fieldsInBounds {blockOperand} {ctx : IRContext dT} {h newValue} (hp : newValue.InBounds ctx) :
     ctx.FieldsInBounds → (setValue blockOperand ctx newValue h).FieldsInBounds := by
   prove_fieldsInBounds_operation ctx
 

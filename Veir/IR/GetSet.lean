@@ -5,6 +5,9 @@ import all Veir.IR.Basic
 
 namespace Veir
 
+variable { dT : Type} [HasProperties dT]
+variable {ctx ctx': IRContext dT}
+
 public section
 
 setup_grind_with_get_set_definitions

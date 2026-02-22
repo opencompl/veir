@@ -12,6 +12,9 @@ public section
 
 namespace Veir
 
+variable {dT : Type} [HasProperties dT]
+variable {ctx ctx' : IRContext dT}
+
 /--
   A def-use chain for an SSA value.
   The def-use chain is represented as an ordered array of operands, where
@@ -21,7 +24,7 @@ namespace Veir
   linked list.
 -/
 structure ValuePtr.DefUse
-    (value : ValuePtr) (ctx : IRContext) (array : Array OpOperandPtr)
+    (value : ValuePtr) (ctx : IRContext dT) (array : Array OpOperandPtr)
     (missingUses : Std.ExtHashSet OpOperandPtr := ∅) : Prop where
   valueInBounds : value.InBounds ctx
   arrayInBounds (h : use ∈ array) : use.InBounds ctx
@@ -236,7 +239,7 @@ theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_empty
 
 @[grind .]
 theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
-    {ctx : IRContext} {use : OpOperandPtr} {useInBounds} (value : ValuePtr)
+    {ctx : IRContext dT} {use : OpOperandPtr} {useInBounds} (value : ValuePtr)
     (useOfOtherValue' : (use.get ctx useInBounds).value ≠ value')
     (valueNe : value ≠ value') {array} :
     value'.DefUse ctx array missingUses →
@@ -246,7 +249,7 @@ theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
 
 section BlockPtr.DefUse
 
-structure BlockPtr.DefUse (blockPtr : BlockPtr) (ctx : IRContext)
+structure BlockPtr.DefUse (blockPtr : BlockPtr) (ctx : IRContext dT)
     (array : Array BlockOperandPtr) (missingUses : Std.ExtHashSet BlockOperandPtr := ∅) : Prop where
   blockInBounds : blockPtr.InBounds ctx
   arrayInBounds (h : use ∈ array) : use.InBounds ctx
@@ -463,7 +466,7 @@ theorem BlockPtr.DefUse.OpOperandPtr_setValue_other_empty
 
 @[grind .]
 theorem BlockPtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
-    {ctx : IRContext} {use : BlockOperandPtr} {useInBounds} (block : BlockPtr)
+    {ctx : IRContext dT} {use : BlockOperandPtr} {useInBounds} (block : BlockPtr)
     (useOfOtherValue' : (use.get ctx useInBounds).value ≠ block')
     (valueNe : block ≠ block') {array} :
     block'.DefUse ctx array missingUses →
@@ -484,7 +487,7 @@ end BlockPtr.DefUse
   Each operation that has the block as its parent must be included in the operation chain,
   unless it is included in the `missingOps` set.
 -/
-structure BlockPtr.OpChain (block : BlockPtr) (ctx : IRContext) (array : Array OperationPtr)
+structure BlockPtr.OpChain (block : BlockPtr) (ctx : IRContext dT) (array : Array OperationPtr)
     (missingOps : Std.ExtHashSet OperationPtr := ∅) : Prop where
   blockInBounds : block.InBounds ctx
   arrayInBounds (h : op ∈ array) : op.InBounds ctx
@@ -575,7 +578,7 @@ theorem BlockPtr.OpChain.parent!_nextOp_eq
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
   cases i <;> grind [BlockPtr.OpChain]
 
-structure RegionPtr.BlockChain (region : RegionPtr) (ctx : IRContext) (array : Array BlockPtr) : Prop where
+structure RegionPtr.BlockChain (region : RegionPtr) (ctx : IRContext dT) (array : Array BlockPtr) : Prop where
   inBounds : region.InBounds ctx
   arrayInBounds (h : bl ∈ array) : bl.InBounds ctx
   opParent (h : bl ∈ array) : (bl.get! ctx).parent = some block
@@ -593,7 +596,7 @@ structure RegionPtr.BlockChain (region : RegionPtr) (ctx : IRContext) (array : A
 attribute [grind →] RegionPtr.BlockChain.inBounds
 
 -- TODO: weird to have op and opPtr
-structure Operation.WellFormed (op : Operation) (ctx : IRContext) (opPtr : OperationPtr) hop : Prop where
+structure Operation.WellFormed (op : Operation dT) (ctx : IRContext dT) (opPtr : OperationPtr) hop : Prop where
   inBounds : Operation.FieldsInBounds opPtr ctx hop
   result_index i (iInBounds : i < opPtr.getNumResults! ctx) : ((opPtr.getResult i).get! ctx).index = i
   result_owner i (iInBounds : i < opPtr.getNumResults! ctx) :
@@ -608,16 +611,16 @@ structure Operation.WellFormed (op : Operation) (ctx : IRContext) (opPtr : Opera
   opChain_of_parent_none : (opPtr.get! ctx).parent = none →
     (opPtr.get! ctx).prev = none ∧ (opPtr.get! ctx).next = none
 
-structure Block.WellFormed (block : Block) (ctx : IRContext) (blockPtr : BlockPtr) hbl : Prop where
+structure Block.WellFormed (block : Block) (ctx : IRContext dT) (blockPtr : BlockPtr) hbl : Prop where
   inBounds : Block.FieldsInBounds blockPtr ctx hbl
   argument i (iInBounds : i < blockPtr.getNumArguments! ctx) : ((blockPtr.getArgument i).get! ctx).index = i
   argument_owners i (iInBounds : i < blockPtr.getNumArguments! ctx) : ((blockPtr.getArgument i).get! ctx).owner = blockPtr
 
-structure Region.WellFormed (region : Region) (ctx : IRContext) (regionPtr : RegionPtr) where
+structure Region.WellFormed (region : Region) (ctx : IRContext dT) (regionPtr : RegionPtr) where
   inBounds : region.FieldsInBounds ctx
   parent_op {op} (heq : region.parent = some op) : ∃ i, i < op.getNumRegions! ctx → op.getRegion! ctx i = regionPtr
 
-structure IRContext.WellFormed (ctx : IRContext)
+structure IRContext.WellFormed (ctx : IRContext dT)
   (missingOperandUses : Std.ExtHashSet OpOperandPtr := ∅)
   (missingSuccessorUses : Std.ExtHashSet BlockOperandPtr := ∅) : Prop where
   inBounds : ctx.FieldsInBounds
@@ -788,7 +791,7 @@ theorem Region.WellFormed_unchanged
     (regionPtr.get! ctx').WellFormed ctx' regionPtr := by
   constructor <;> grind [Region.WellFormed]
 
-noncomputable def BlockPtr.operationList (block : BlockPtr) (ctx : IRContext) (hctx : ctx.WellFormed) (hblock : block.InBounds ctx) : Array OperationPtr :=
+noncomputable def BlockPtr.operationList (block : BlockPtr) (ctx : IRContext dT) (hctx : ctx.WellFormed) (hblock : block.InBounds ctx) : Array OperationPtr :=
   (hctx.opChain block hblock).choose
 
 theorem BlockPtr.operationListWF (ctx : IRContext) (block : BlockPtr) (hblock : block.InBounds ctx)
@@ -807,7 +810,7 @@ theorem BlockPtr.operationList.mem :
     op ∈ BlockPtr.operationList block ctx hctx hblock := by
   grind [BlockPtr.OpChain, BlockPtr.operationListWF]
 
-noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext) (hctx : ctx.WellFormed missingUses missingBlockUses) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
+noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext dT) (hctx : ctx.WellFormed missingUses missingBlockUses) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
   (hctx.valueDefUseChains value hvalue).choose
 
 @[grind .]
@@ -871,7 +874,7 @@ theorem ValuePtr.DefUse.getFirstUse!_none_iff
   grind [DefUse]
 
 theorem IRContext.WellFormed.OperationPtr_next!_eq_some_of_prev!_eq_some
-    {ctx : IRContext} {op prevOp : OperationPtr} (hop : op.InBounds ctx)
+    {ctx : IRContext dT} {op prevOp : OperationPtr} (hop : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (op.get! ctx).prev = some prevOp →
     (prevOp.get! ctx).next = some op := by
@@ -884,7 +887,7 @@ theorem IRContext.WellFormed.OperationPtr_next!_eq_some_of_prev!_eq_some
     grind [Array.getElem?_of_mem, BlockPtr.OpChain]
 
 theorem IRContext.WellFormed.OperationPtr_prev!_eq_some_of_next!_eq_some
-    {ctx : IRContext} {op nextOp : OperationPtr} (hop : op.InBounds ctx)
+    {ctx : IRContext dT} {op nextOp : OperationPtr} (hop : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (op.get! ctx).next = some nextOp →
     (nextOp.get! ctx).prev = some op := by
@@ -897,14 +900,14 @@ theorem IRContext.WellFormed.OperationPtr_prev!_eq_some_of_next!_eq_some
     grind [Array.getElem?_of_mem, BlockPtr.OpChain]
 
 theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_next!_ne_none
-    {ctx : IRContext} {op : OperationPtr} (hop : op.InBounds ctx)
+    {ctx : IRContext dT} {op : OperationPtr} (hop : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (op.get! ctx).next ≠ none →
     (op.get! ctx).parent ≠ none := by
   grind [IRContext.WellFormed, Operation.WellFormed]
 
 theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_prev!_ne_none
-    {ctx : IRContext} {op : OperationPtr} (hop : op.InBounds ctx)
+    {ctx : IRContext dT} {op : OperationPtr} (hop : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (op.get! ctx).prev ≠ none →
     (op.get! ctx).parent ≠ none := by

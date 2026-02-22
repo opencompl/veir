@@ -76,7 +76,7 @@ inductive ControlFlowAction where
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   returns `none`.
 -/
-def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array RuntimeValue)
+def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Array RuntimeValue)
     (opPtrInBounds : opPtr.InBounds ctx := by grind)
     : Option ((Array RuntimeValue) × ControlFlowAction) :=
   let op := opPtr.get ctx (by grind)
@@ -104,7 +104,7 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   return `none`.
 -/
-def interpretOp (ctx : IRContext) (opPtr : OperationPtr) (state : InterpreterState)
+def interpretOp (ctx : IRContext OpCode) (opPtr : OperationPtr) (state : InterpreterState)
     (opPtrInBounds : opPtr.InBounds ctx := by grind)
     : Option (InterpreterState × ControlFlowAction) := do
   let operands ← (0...opPtr.getNumOperands ctx).toArray.mapM (fun idx =>
@@ -125,7 +125,7 @@ def interpretOp (ctx : IRContext) (opPtr : OperationPtr) (state : InterpreterSta
   or the end of the block is reached.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretOpList (ctx : IRContext) (op : OperationPtr) (state : InterpreterState)
+def interpretOpList (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
     (opInBounds : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
     : Option (Array RuntimeValue) := do
   let (state, action) ← interpretOp ctx op state
@@ -142,7 +142,7 @@ partial_fixpoint
   Return the values returned by the block, if any.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlock (ctx : IRContext) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue) := do
+def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue) := do
   let block := blockPtr.get ctx (by grind)
   rlet firstOp ← (blockPtr.get ctx).firstOp
   interpretOpList ctx firstOp state
@@ -153,7 +153,7 @@ def interpretBlock (ctx : IRContext) (blockPtr : BlockPtr) (state : InterpreterS
   Return the values returned by the block.
   If any errors occur during interpretation, return `none`.
 -/
-def interpretModule (ctx : IRContext) (op : OperationPtr)
+def interpretModule (ctx : IRContext OpCode) (op : OperationPtr)
     (opIn : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
     : Option (Array RuntimeValue) := do
   if h: op.getNumRegions ctx ≠ 1 then

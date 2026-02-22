@@ -7,14 +7,17 @@ import Veir.Rewriter.InsertPoint
 
 namespace Veir
 
+variable {dT : Type} [HasProperties dT]
+variable {ctx : IRContext dT}
+
 section insertOp
 
-theorem Rewriter.insertOp?_WellFormed (ctx : IRContext) (hctx : ctx.WellFormed)
+theorem Rewriter.insertOp?_WellFormed (ctx : IRContext dT) (hctx : ctx.WellFormed)
     (newOp : OperationPtr) (ip : InsertPoint)
     (newOpIn : newOp.InBounds ctx := by grind)
     (insIn : ip.InBounds ctx)
     (hwf : ip.block! ctx = some block)
-    (ctxInBounds : ctx.FieldsInBounds) (newCtx : IRContext) :
+    (ctxInBounds : ctx.FieldsInBounds) (newCtx : IRContext dT) :
     Rewriter.insertOp? ctx newOp ip newOpIn insIn ctxInBounds = some newCtx →
     newCtx.WellFormed := by
   intros heq
@@ -128,7 +131,7 @@ theorem RegionPtr.blockChain_detachOp
     RegionPtr.BlockChain region (Rewriter.detachOp ctx op hctx hIn hasParent) array := by
   apply RegionPtr.blockChain_unchanged (ctx := ctx) hWf <;> grind
 
-theorem Rewriter.detachOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
+theorem Rewriter.detachOp_WellFormed (ctx : IRContext dT) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
     (hIn : op.InBounds ctx)
     (hasParent : (op.get ctx hIn).parent.isSome) :
@@ -225,7 +228,7 @@ theorem RegionPtr.blockChain_detachOpIfAttached
   simp only [Rewriter.detachOpIfAttached]
   grind [RegionPtr.blockChain_detachOp]
 
-theorem Rewriter.detachOpIfAttached_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
+theorem Rewriter.detachOpIfAttached_WellFormed (ctx : IRContext dT) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
     (hIn : op.InBounds ctx) :
     (Rewriter.detachOpIfAttached ctx op hctx hIn).WellFormed := by
@@ -267,7 +270,7 @@ theorem Rewriter.detachOperands_wellFormed
     simp [h]
     grind
   case isFalse h=>
-    have := @Rewriter.detachOperands.loop_wellFormed ctx missingOperands missingSuccessors
+    have := @Rewriter.detachOperands.loop_wellFormed _ _ ctx missingOperands missingSuccessors
       (op.getNumOperands ctx - 1) op hCtx hOp (by grind) wf (by grind)
     grind [Nat.toList_rcc_eq_toList_rco]
 
@@ -305,7 +308,7 @@ theorem Rewriter.detachBlockOperands_wellFormed
     simp [h]
     grind
   case isFalse h=>
-    have := @Rewriter.detachBlockOperands.loop_wellFormed ctx missingOperands missingSuccessors
+    have := @Rewriter.detachBlockOperands.loop_wellFormed _ _ ctx missingOperands missingSuccessors
       (op.getNumSuccessors ctx - 1) op hCtx hOp (by grind) wf (by grind)
     grind [Nat.toList_rcc_eq_toList_rco]
 
@@ -354,7 +357,7 @@ theorem OpResultPtr.firstUse!_detachOperands_eq_none_of_firstUse!_eq_none
   split; grind
   apply OpResultPtr.firstUse!_detachOperands_loop_eq_none_of_firstUse!_eq_none hctx (by grind) resIn h
 
-theorem Rewriter.eraseOp_WellFormed (ctx : IRContext) (wf : ctx.WellFormed)
+theorem Rewriter.eraseOp_WellFormed (ctx : IRContext dT) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
     (noRegions : op.getNumRegions! ctx = 0)
     (noUses : op.hasUses! ctx = false)

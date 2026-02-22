@@ -5,7 +5,9 @@ import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.Rewriter.Basic
 
-open Veir.Attribute
+open Veir
+
+open Attribute
 
 set_option warn.sorry false
 
@@ -13,7 +15,9 @@ namespace Veir.Benchmarks
 
 namespace Pattern
 
-def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
+
+
+def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Option (PatternRewriter OpCode) := do
   -- Check that the operation is an arith.addi operation
   if op.getOpType rewriter.ctx sorry ≠ .arith_addi then
     return rewriter
@@ -49,8 +53,8 @@ def addIConstantFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option 
     rewriter ← rewriter.eraseOp rhsOp sorry
   return rewriter
 
-def addIConstantFoldingLocal (ctx: IRContext) (op: OperationPtr) :
-    Option (IRContext × Option (Array OperationPtr × Array ValuePtr)) := do
+def addIConstantFoldingLocal (ctx: IRContext OpCode) (op: OperationPtr) :
+    Option (IRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   -- Check that the operation is an `arith.addi` operation
   let .arith_addi := op.getOpType ctx sorry
     | some (ctx, none)
@@ -79,7 +83,7 @@ def addIConstantFoldingLocal (ctx: IRContext) (op: OperationPtr) :
   let (ctx, newOp) ← Rewriter.createOp ctx .arith_constant #[IntegerType.mk 32] #[] #[] #[] newVal none sorry sorry sorry sorry sorry
   return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-def addIZeroFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
+def addIZeroFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Option (PatternRewriter OpCode)   := do
   if op.getOpType rewriter.ctx sorry ≠ .arith_addi then
     return rewriter
 
@@ -105,7 +109,7 @@ def addIZeroFolding (rewriter: PatternRewriter) (op: OperationPtr) : Option Patt
     rewriter ← rewriter.eraseOp rhsOp sorry
   return rewriter
 
-def mulITwoReduce (rewriter: PatternRewriter) (op: OperationPtr) : Option PatternRewriter := do
+def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Option (PatternRewriter OpCode) := do
   if op.getOpType rewriter.ctx sorry ≠ .arith_muli then
     return rewriter
 
@@ -136,9 +140,9 @@ end Pattern
 -- applying the rewrites in custom locations
 namespace Custom
 
-abbrev Pattern := IRContext → OperationPtr → Option IRContext
+abbrev Pattern := (IRContext OpCode) → OperationPtr → Option (IRContext OpCode)
 
-def addIConstantFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
+def addIConstantFolding (ctx: IRContext OpCode) (op: OperationPtr) : Option (IRContext OpCode) := do
   -- Check that the operation is an arith.addi operation
   if op.getOpType ctx sorry ≠ .arith_addi then
     return ctx
@@ -174,7 +178,7 @@ def addIConstantFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext :
     ctx ← Rewriter.eraseOp ctx rhsOp sorry sorry
   return ctx
 
-def addIZeroFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
+def addIZeroFolding (ctx: IRContext OpCode) (op: OperationPtr) : Option (IRContext OpCode) := do
   if op.getOpType ctx sorry ≠ .arith_addi then
     return ctx
 
@@ -200,7 +204,7 @@ def addIZeroFolding (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
     ctx ← Rewriter.eraseOp ctx rhsOp sorry sorry
   return ctx
 
-def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
+def mulITwoReduce (ctx: IRContext OpCode) (op: OperationPtr) : Option (IRContext OpCode) := do
   if op.getOpType ctx sorry ≠ .arith_muli then
     return ctx
 
@@ -227,7 +231,7 @@ def mulITwoReduce (ctx: IRContext) (op: OperationPtr) : Option IRContext := do
 
 -- Rewrites the first instance of an opcode in the program with the given pattern,
 -- within a program consisting of one region/block
-def rewriteFirst (ctx: IRContext) (topOp : OperationPtr) (opcode: OpCode) (rewrite: Pattern) : Option IRContext := do
+def rewriteFirst (ctx: IRContext OpCode) (topOp : OperationPtr) (opcode: OpCode) (rewrite: Pattern) : Option (IRContext OpCode) := do
   let region := topOp.getRegion! ctx 0
   let block := (region.get ctx (by sorry)).firstBlock.get!
   let mut op ← (block.get! ctx).firstOp
@@ -237,10 +241,10 @@ def rewriteFirst (ctx: IRContext) (topOp : OperationPtr) (opcode: OpCode) (rewri
 
   rewrite ctx op
 
-def rewriteFirstAddI (ctx: IRContext) (topOp : OperationPtr) (rewrite: Pattern) : Option IRContext :=
+def rewriteFirstAddI (ctx: IRContext OpCode) (topOp : OperationPtr) (rewrite: Pattern) : Option (IRContext OpCode) :=
   rewriteFirst ctx topOp .arith_addi rewrite
 
-def rewriteForwards (ctx: IRContext) (topOp : OperationPtr) (rewrite: Pattern) : Option IRContext := do
+def rewriteForwards (ctx: IRContext OpCode) (topOp : OperationPtr) (rewrite: Pattern) : Option (IRContext OpCode) := do
   let region := topOp.getRegion! ctx 0
   let block := (region.get ctx (by sorry)).firstBlock.get!
 
@@ -260,7 +264,7 @@ end Custom
 
 namespace Program
 
-def empty : Option (IRContext × OperationPtr × InsertPoint) := do
+def empty : Option (IRContext OpCode × OperationPtr × InsertPoint) := do
   let (ctx, topLevelOp) ← IRContext.create
   let region := topLevelOp.getRegion! ctx 0
   let block := (region.get ctx (by sorry)).firstBlock.get!
@@ -276,10 +280,10 @@ def empty : Option (IRContext × OperationPtr × InsertPoint) := do
 --   %3 = arith.constant [inc] : u64
 --   %4 = [opcode] %2, %3 : u64
 --   ...
-def constFoldTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (IRContext × OperationPtr) := do
+def constFoldTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (IRContext OpCode × OperationPtr) := do
   let root := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.mk 32))
   let inc := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.mk 32))
-  let (gctx, topOp, insertPoint) ← empty
+  let (gctx, topOp, insertPoint) ← @empty
   let mut (gctx, gacc) ← Rewriter.createOp gctx .arith_constant #[IntegerType.mk 32] #[] #[] #[] root insertPoint sorry sorry sorry sorry sorry
   for i in [0:size] do
     let ⟨thisOp, prop⟩ : (op : OpCode) × propertiesOf op := if (i % 100 < pc) then ⟨opcode, prop⟩ else ⟨.arith_andi, ()⟩
@@ -294,13 +298,13 @@ def constFoldTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (
   let (ctx, op) ← Rewriter.createOp gctx .test_test #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry sorry
   (ctx, topOp)
 
-def addZeroTree (size pc: Nat) : Option (IRContext × OperationPtr) :=
+def addZeroTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) :=
   constFoldTree .arith_addi () size pc 42 0
 
-def addOneTree (size pc: Nat) : Option (IRContext × OperationPtr) :=
+def addOneTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) :=
   constFoldTree .arith_addi () size pc 42 1
 
-def mulTwoTree (size pc: Nat) : Option (IRContext × OperationPtr) :=
+def mulTwoTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) :=
   constFoldTree .arith_muli () size pc 42 2
 
 
@@ -311,7 +315,7 @@ def mulTwoTree (size pc: Nat) : Option (IRContext × OperationPtr) :=
 --   %2 = [opcode] %0, %reuse : u64
 --   %3 = [opcode] %2, %reuse : u64
 --   ...
-def constReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (IRContext × OperationPtr) := do
+def constReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (IRContext OpCode × OperationPtr) := do
   let root := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.mk 32))
   let inc := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.mk 32))
   let (ctx, topOp, insertPoint) ← empty
@@ -333,7 +337,7 @@ def constReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) 
   let (ctx, op) ← Rewriter.createOp ctx .test_test #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry sorry
   (ctx, topOp)
 
-def addZeroReuseTree (size pc: Nat) : Option (IRContext × OperationPtr) :=
+def addZeroReuseTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) :=
   constReuseTree .arith_addi () size pc 42 0
 
 -- Create a program that looks like:
@@ -345,10 +349,10 @@ def addZeroReuseTree (size pc: Nat) : Option (IRContext × OperationPtr) :=
 --   %4 = [opcode] %3, %reuse : u64
 --   %5 = [opcode] %4, %reuse : u64
 --   ...
-def constLotsOfReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (lhs rhs: Int) : Option (IRContext × OperationPtr) := do
+def constLotsOfReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (lhs rhs: Int) : Option (IRContext OpCode × OperationPtr) := do
   let lhs := ArithConstantProperties.mk (IntegerAttr.mk lhs (IntegerType.mk 32))
   let rhs := ArithConstantProperties.mk (IntegerAttr.mk rhs (IntegerType.mk 32))
-  let (ctx, topOp, insertPoint) ← empty
+  let (ctx, topOp, insertPoint) ← @empty
   let (ctx, lhsOp) ← Rewriter.createOp ctx .arith_constant #[IntegerType.mk 32] #[] #[] #[] lhs insertPoint sorry sorry sorry sorry sorry
   let (ctx, rhsOp) ← Rewriter.createOp ctx .arith_constant #[IntegerType.mk 32] #[] #[] #[] rhs insertPoint sorry sorry sorry sorry sorry
   let lhsVal := lhsOp.getResult 0
@@ -370,15 +374,15 @@ def constLotsOfReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc:
   let (ctx, op) ← Rewriter.createOp ctx .test_test #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry sorry
   (ctx, topOp)
 
-def addZeroLotsOfReuseTree (size pc: Nat) : Option (IRContext × OperationPtr) :=
+def addZeroLotsOfReuseTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) :=
   constLotsOfReuseTree .arith_addi () size pc 42 0
 
 end Program
 
-def rewriteWorklist (program: IRContext) (topOp : OperationPtr) (rewriter: RewritePattern) : Option IRContext :=
+def rewriteWorklist (program: IRContext OpCode) (topOp : OperationPtr) (rewriter: RewritePattern OpCode) : Option (IRContext OpCode):=
   RewritePattern.applyInContext rewriter program sorry
 
-def print (program: Option (IRContext × OperationPtr)) : IO Unit := do
+def print (program: Option (IRContext OpCode × OperationPtr)) : IO Unit := do
   if let some (ctx, topOp) := program then
     Printer.printModule ctx topOp
 
@@ -391,17 +395,17 @@ def time {α : Type} (name: String) (f: Unit → IO α) (quiet: Bool) : IO α :=
     IO.println s!"{name} time (s): {elapsedTime.toFloat / 1000000000}"
   return res
 
-def run {pattern : Type} (size pc: Nat) (create: Nat → Nat → Option (IRContext × OperationPtr))
-    (rewriteDriver: IRContext → OperationPtr → pattern → Option IRContext)
+def run {pattern : Type} (size pc: Nat) (create: Nat → Nat → Option (IRContext OpCode × OperationPtr))
+    (rewriteDriver: IRContext OpCode → OperationPtr → pattern → Option (IRContext OpCode))
     (rewritePattern: pattern)
-    (doPrint: Bool) (quiet: Bool := false) : OptionT IO (IRContext × OperationPtr) := do
+    (doPrint: Bool) (quiet: Bool := false) : OptionT IO (IRContext OpCode × OperationPtr) := do
   let (ctx, topOp) ← time "create" (fun () => return create size pc) quiet
   let ctx ← time "rewrite" (fun () => return rewriteDriver ctx topOp rewritePattern) quiet
   if doPrint && !quiet then
-    print (ctx, topOp)
+    print (some (ctx, topOp))
   return (ctx, topOp)
 
-def runBenchmarkWithResult (benchmark: String) (n pc: Nat) (quiet: Bool := false) : OptionT IO (IRContext × OperationPtr) :=
+def runBenchmarkWithResult (benchmark: String) (n pc: Nat) (quiet: Bool := false) : OptionT IO (IRContext OpCode × OperationPtr) :=
   open Program in
   open Custom in
 
@@ -425,11 +429,11 @@ def runBenchmarkWithResult (benchmark: String) (n pc: Nat) (quiet: Bool := false
   | _ => panic! "Unsupported benchmark"
 
 def runBenchmark (benchmark: String) (n pc: Nat) : IO Unit := do
-  let _ ← runBenchmarkWithResult benchmark n pc
+  let _ ← @runBenchmarkWithResult benchmark n pc false
   return ()
 
 def testBench (benchmark: String) (n: Nat) : IO Unit := do
-  let ctx ← runBenchmarkWithResult benchmark n 100 (quiet := true)
+  let ctx ← @runBenchmarkWithResult benchmark n 100 (quiet := true)
   print ctx
 
 /--
@@ -540,7 +544,7 @@ info: "builtin.module"() ({
 }) : () -> ()
 -/
 #guard_msgs in
-#eval! Program.addZeroReuseTree 5 100 |> print
+#eval! @Program.addZeroReuseTree 5 100 |> print
 
 /--
 info: "builtin.module"() ({
@@ -592,7 +596,7 @@ info: "builtin.module"() ({
 }) : () -> ()
 -/
 #guard_msgs in
-#eval! Program.addZeroLotsOfReuseTree 5 100 |> print
+#eval! @Program.addZeroLotsOfReuseTree 5 100 |> print
 
 /--
 info: "builtin.module"() ({

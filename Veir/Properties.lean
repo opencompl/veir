@@ -13,7 +13,7 @@ public section
 -/
 structure ArithConstantProperties where
   value : IntegerAttr
-deriving Inhabited, Repr, Hashable
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
@@ -46,6 +46,57 @@ instance (opCode : OpCode) : Repr (propertiesOf opCode) := by
 instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
   unfold propertiesOf
   cases opCode <;> infer_instance
+
+
+/--
+Define a typeclass hasProperties
+-/
+class HasProperties (opCodeTy : Type)
+    extends Hashable opCodeTy, Repr opCodeTy, Inhabited opCodeTy where
+  propertiesOf : opCodeTy → Type
+  propertiesHash {opCode : opCodeTy} : Hashable (propertiesOf opCode)
+  propertiesDefault {opCode : opCodeTy} : Inhabited (propertiesOf opCode)
+  propertiesRepr {opCode : opCodeTy} : Repr (propertiesOf opCode)
+  propertiesDecideableEq {opCode : opCodeTy} : DecidableEq (propertiesOf opCode)
+  decideableEq : DecidableEq (opCodeTy)
+
+instance {opCodeTy : Type} [HasProperties opCodeTy] {opCode : opCodeTy} :
+    Hashable (HasProperties.propertiesOf opCode) where
+  hash props := HasProperties.propertiesHash.hash props
+
+instance {opCodeTy : Type} [HasProperties opCodeTy] {opCode : opCodeTy} :
+    Inhabited (HasProperties.propertiesOf opCode) where
+  default := HasProperties.propertiesDefault.default
+
+instance {opCodeTy : Type} [HasProperties opCodeTy] {opCode : opCodeTy} :
+    Repr (HasProperties.propertiesOf opCode) where
+  reprPrec props prec := HasProperties.propertiesRepr.reprPrec props prec
+
+instance {opCodeTy : Type} [HasProperties opCodeTy] : DecidableEq (opCodeTy) :=
+  HasProperties.decideableEq
+
+instance : HasProperties OpCode where
+  propertiesOf := propertiesOf
+  propertiesHash := by
+    unfold propertiesOf
+    intros opCode
+    cases opCode <;> infer_instance
+  propertiesDefault := by
+    unfold propertiesOf
+    intros opCode
+    cases opCode <;> infer_instance
+  propertiesRepr := by
+    unfold propertiesOf
+    intros opCode
+    cases opCode <;> infer_instance
+  propertiesDecideableEq := by
+    unfold propertiesOf
+    intros opCode
+    cases opCode <;> infer_instance
+  decideableEq := by
+    intros opCode1 opCode2
+    cases opCode1 <;> cases opCode2 <;> infer_instance
+
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (propertiesOf opCode) := by

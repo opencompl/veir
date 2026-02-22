@@ -6,7 +6,8 @@ import Veir.Rewriter.LinkedList.GetSet
 
 namespace Veir
 
-variable (ctx : IRContext)
+variable {dT : Type} [HasProperties dT]
+variable (ctx : IRContext dT)
 variable (ctxInBounds : ctx.FieldsInBounds)
 variable (opPtr opPtr' : OperationPtr)
 variable (opPtrInBounds : opPtr.InBounds ctx := by grind)
@@ -372,7 +373,7 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
 -- #guard_msgs in
 -- #print axioms Rewriter.pushOperand_WellFormed
 
-theorem Rewriter.initOpOperands_WellFormed (ctx: IRContext) (opPtr: OperationPtr) (opPtrInBounds : opPtr.InBounds ctx)
+theorem Rewriter.initOpOperands_WellFormed (ctx: IRContext dT) (opPtr: OperationPtr) (opPtrInBounds : opPtr.InBounds ctx)
     (operands : Array ValuePtr) (hoperands : ∀ oper, oper ∈ operands → oper.InBounds ctx) (hctx : ctx.FieldsInBounds)
     (n : Nat := operands.size) (hn : 0 ≤ n ∧ n ≤ operands.size := by grind)
     (hOpWf : ctx.WellFormed) :

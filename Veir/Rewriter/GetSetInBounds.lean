@@ -40,6 +40,9 @@ import Veir.ForLean
 
 namespace Veir
 
+variable {dT} [HasProperties dT]
+variable {ctx : IRContext dT}
+
 section Rewriter.insertOp?
 
 unseal Rewriter.insertOp?

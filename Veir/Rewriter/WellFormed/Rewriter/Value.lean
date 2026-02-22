@@ -7,6 +7,8 @@ import Veir.Rewriter.GetSetInBounds
 
 namespace Veir
 
+variable {dT : Type} [HasProperties dT]
+variable {ctx : IRContext dT}
 
 theorem Rewriter.replaceUse_DefUse_newValue
     {value value' : ValuePtr}
@@ -70,7 +72,7 @@ theorem Rewriter.replaceUse_DefUse_otherValue
     · apply ValuePtr.defUse_removeFromCurrent_other (value' := value) (array' := array) (missingUses' := ∅)
         <;> grind [ValuePtr.DefUse]
 
-theorem Rewriter.replaceUse_DefUse (ctx: IRContext) (use : OpOperandPtr)
+theorem Rewriter.replaceUse_DefUse (ctx: IRContext dT) (use : OpOperandPtr)
     (useIn: use.InBounds ctx)
     (ctxIn: ctx.FieldsInBounds)
     (value value' : ValuePtr) (array array': Array OpOperandPtr)
@@ -94,7 +96,7 @@ theorem Rewriter.replaceUse_DefUse (ctx: IRContext) (use : OpOperandPtr)
         grind [Rewriter.replaceUse_DefUse_otherValue]
 
 @[grind .]
-theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (newValue: ValuePtr)
+theorem Rewriter.replaceUse_WellFormed (ctx: IRContext dT) (use : OpOperandPtr) (newValue: ValuePtr)
     (useIn: use.InBounds ctx)
     (newIn: newValue.InBounds ctx)
     (ctxIn: ctx.FieldsInBounds)
@@ -139,7 +141,7 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext) (use : OpOperandPtr) (ne
       intros regionPtr regionPtrInBounds
       apply Region.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
 
-theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext) (oldValue: ValuePtr) (newValue: ValuePtr)
+theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext dT) (oldValue: ValuePtr) (newValue: ValuePtr)
     (oldIn: oldValue.InBounds ctx)
     (newIn: newValue.InBounds ctx)
     (ctxIn: ctx.FieldsInBounds)
@@ -257,14 +259,14 @@ theorem OperationPtr.getOperand_replaceValue?
   split
   · have : op.getOpOperand idx ∈ oldValueArray := by
       grind [ValuePtr.defUseArray_contains_operand_use]
-    have := @Rewriter.replaceValue_DefUse_newValue oldValue newValue ctx
+    have := @Rewriter.replaceValue_DefUse_newValue _ _ ctx oldValue newValue
       (depth := depth) (newArray := newValueArray) (oldArray := oldValueArray)
     have : oldValue.DefUse ctx oldValueArray := by grind [ValuePtr.defUseArrayWF]
     have : newValue.DefUse ctx newValueArray := by grind [ValuePtr.defUseArrayWF]
     grind [ValuePtr.DefUse]
   · by_cases h : op.getOperand ctx idx = newValue
     · simp only [OperationPtr.getOperand_eq_OpOperandPtr_get] at h
-      have := @Rewriter.replaceValue_DefUse_newValue oldValue newValue ctx
+      have := @Rewriter.replaceValue_DefUse_newValue _ _ ctx oldValue newValue
         (depth := depth) (newArray := newValueArray) (oldArray := oldValueArray)
       grind [ValuePtr.DefUse, ValuePtr.defUseArrayWF]
     · let operand := op.getOpOperand idx
@@ -273,7 +275,7 @@ theorem OperationPtr.getOperand_replaceValue?
       simp only [OperationPtr.getOperand_eq_OpOperandPtr_get] at h
       have : op.getOpOperand idx ∉ oldValueArray := by grind [ValuePtr.defUseArray_contains_operand_use]
       have : value.InBounds ctx := by grind
-      have := @Rewriter.replaceValue_DefUse_otherValue value oldValue newValue ctx
+      have := @Rewriter.replaceValue_DefUse_otherValue _ _ ctx value oldValue newValue
         (depth := depth) (array := valueArray) (newArray := newValueArray) (oldArray := oldValueArray)
       have : operand ∈ valueArray := by grind [ValuePtr.defUseArray_contains_operand_use]
       grind [ValuePtr.DefUse, ValuePtr.defUseArrayWF]

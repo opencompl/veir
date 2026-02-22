@@ -4,8 +4,11 @@ import Veir.Rewriter.Basic
 
 namespace Veir
 
+variable {dT : Type} [HasProperties dT]
+variable {ctx : IRContext dT}
+
 @[grind .]
-theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
+theorem Rewriter.pushResult_WellFormed {newResult} (ctx: IRContext dT) (opPtr: OperationPtr)
     (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx)
     (hres : newResult.FieldsInBounds (opPtr.pushResult ctx newResult hop))
     (hNoFirst : newResult.firstUse = none)
@@ -24,17 +27,17 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
       constructor <;> grind [ValuePtr.getFirstUse]
     · have ⟨array, harray⟩ := h₂ val (by grind)
       exists array
-      apply @ValuePtr.DefUse.unchanged ctx <;> grind
+      apply @ValuePtr.DefUse.unchanged _ _ ctx <;> grind
   case blockDefUseChains =>
     intros bl hbl
     have ⟨array, harray⟩ := h₃ bl (by grind)
     exists array
-    apply @BlockPtr.DefUse.unchanged ctx <;> grind
+    apply @BlockPtr.DefUse.unchanged _ _ ctx <;> grind
   case opChain =>
     intros op hop
     have ⟨array, harray⟩ := h₄ op (by grind)
     exists array
-    apply @BlockPtr.OpChain_unchanged ctx <;>
+    apply @BlockPtr.OpChain_unchanged _ _ ctx <;>
       grind
   case blockChain =>
     intros rg hrg
@@ -61,8 +64,8 @@ theorem Rewriter.pushResult_WellFormed (ctx: IRContext) (opPtr: OperationPtr)
     have ⟨ha, hb⟩ := h₈ rg this
     constructor <;> grind
 
-theorem Rewriter.initOpResults_WellFormed (ctx: IRContext) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
-    (index : Nat) (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx) (newCtx : IRContext) hIndex :
+theorem Rewriter.initOpResults_WellFormed (ctx: IRContext dT) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
+    (index : Nat) (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx) (newCtx : IRContext dT) hIndex :
     Rewriter.initOpResults ctx opPtr resultTypes index hop hIndex = newCtx →
     newCtx.WellFormed := by
   induction h: resultTypes.size - index generalizing index ctx
