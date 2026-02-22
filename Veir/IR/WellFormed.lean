@@ -795,7 +795,7 @@ noncomputable def BlockPtr.operationList (block : BlockPtr) (ctx : IRContext opI
   (hctx.opChain block hblock).choose
 
 theorem BlockPtr.operationListWF (ctx : IRContext opInfo) (block : BlockPtr) (hblock : block.InBounds ctx)
-  {hctx : IRContext.WellFormed ctx} :
+  (hctx : IRContext.WellFormed ctx) :
     BlockPtr.OpChain block ctx (BlockPtr.operationList block ctx hctx hblock) :=
   Exists.choose_spec (hctx.opChain block hblock)
 
