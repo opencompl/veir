@@ -402,7 +402,7 @@ def run {pattern : Type} (size pc: Nat) (create: Nat → Nat → Option (IRConte
   let (ctx, topOp) ← time "create" (fun () => return create size pc) quiet
   let ctx ← time "rewrite" (fun () => return rewriteDriver ctx topOp rewritePattern) quiet
   if doPrint && !quiet then
-    print (some (ctx, topOp))
+    print (ctx, topOp)
   return (ctx, topOp)
 
 def runBenchmarkWithResult (benchmark: String) (n pc: Nat) (quiet: Bool := false) : OptionT IO (IRContext OpCode × OperationPtr) :=
