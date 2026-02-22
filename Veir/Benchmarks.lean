@@ -352,7 +352,7 @@ def addZeroReuseTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) 
 def constLotsOfReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (lhs rhs: Int) : Option (IRContext OpCode × OperationPtr) := do
   let lhs := ArithConstantProperties.mk (IntegerAttr.mk lhs (IntegerType.mk 32))
   let rhs := ArithConstantProperties.mk (IntegerAttr.mk rhs (IntegerType.mk 32))
-  let (ctx, topOp, insertPoint) ← @empty
+  let (ctx, topOp, insertPoint) ← empty
   let (ctx, lhsOp) ← Rewriter.createOp ctx .arith_constant #[IntegerType.mk 32] #[] #[] #[] lhs insertPoint sorry sorry sorry sorry sorry
   let (ctx, rhsOp) ← Rewriter.createOp ctx .arith_constant #[IntegerType.mk 32] #[] #[] #[] rhs insertPoint sorry sorry sorry sorry sorry
   let lhsVal := lhsOp.getResult 0
@@ -429,11 +429,11 @@ def runBenchmarkWithResult (benchmark: String) (n pc: Nat) (quiet: Bool := false
   | _ => panic! "Unsupported benchmark"
 
 def runBenchmark (benchmark: String) (n pc: Nat) : IO Unit := do
-  let _ ← @runBenchmarkWithResult benchmark n pc false
+  let _ ← runBenchmarkWithResult benchmark n pc false
   return ()
 
 def testBench (benchmark: String) (n: Nat) : IO Unit := do
-  let ctx ← @runBenchmarkWithResult benchmark n 100 (quiet := true)
+  let ctx ← runBenchmarkWithResult benchmark n 100 (quiet := true)
   print ctx
 
 /--
