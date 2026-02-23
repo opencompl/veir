@@ -36,7 +36,7 @@ match opCode with
 | .arith_constant => ArithConstantProperties
 | _ => Unit
 
-instance : OpInfo OpCode where
+instance : HasOpInfo OpCode where
   propertiesOf := propertiesOf
   propertiesHash := by
     unfold propertiesOf

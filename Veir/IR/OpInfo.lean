@@ -5,12 +5,12 @@ namespace Veir
 public section
 
 /--
-The `OpInfo` type class provides information about opcodes and their properties
+The `HasOpInfo` type class provides information about opcodes and their properties
 and how to hash, represent, and compare them for equality. It also
 provides a type family `propertyOf` that maps an operation code to the type of
 its properties
 -/
-class OpInfo (opCode: Type)
+class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
   propertiesOf : opCode → Type
   propertiesHash {op : opCode} : Hashable (propertiesOf op)
@@ -19,17 +19,17 @@ class OpInfo (opCode: Type)
   propertiesDecideEq {op : opCode} : DecidableEq (propertiesOf op)
   decideEq : DecidableEq (opCode)
 
-instance [OpInfo opCode] {op : opCode} : Hashable (OpInfo.propertiesOf op) where
-  hash := OpInfo.propertiesHash.hash
+instance [HasOpInfo opCode] {op : opCode} : Hashable (HasOpInfo.propertiesOf op) where
+  hash := HasOpInfo.propertiesHash.hash
 
-instance [OpInfo opCode] {op : opCode} : Inhabited (OpInfo.propertiesOf op) where
-  default := OpInfo.propertiesDefault.default
+instance [HasOpInfo opCode] {op : opCode} : Inhabited (HasOpInfo.propertiesOf op) where
+  default := HasOpInfo.propertiesDefault.default
 
-instance [OpInfo opCode] {op : opCode} : Repr (OpInfo.propertiesOf op) where
-  reprPrec := OpInfo.propertiesRepr.reprPrec
+instance [HasOpInfo opCode] {op : opCode} : Repr (HasOpInfo.propertiesOf op) where
+  reprPrec := HasOpInfo.propertiesRepr.reprPrec
 
-instance [OpInfo opCode] : DecidableEq (opCode) :=
-  OpInfo.decideEq
+instance [HasOpInfo opCode] : DecidableEq (opCode) :=
+  HasOpInfo.decideEq
 
 end -- public section
 

@@ -40,8 +40,8 @@ import Veir.ForLean
 
 namespace Veir
 
-variable {opInfo} [OpInfo opInfo]
-variable {ctx : IRContext opInfo}
+variable {OpInfo} [HasOpInfo OpInfo]
+variable {ctx : IRContext OpInfo}
 
 section Rewriter.insertOp?
 

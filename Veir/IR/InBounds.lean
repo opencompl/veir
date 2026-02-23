@@ -6,7 +6,7 @@ import Veir.ForLean
 
 namespace Veir
 
-variable {opInfo : Type} [OpInfo opInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 public section
 
@@ -20,10 +20,10 @@ attribute [local grind] BlockOperandPtrPtr.InBounds BlockOperandPtr.InBounds Ope
 
 @[grind .]
 theorem IRContext.empty_not_inBounds (ptr : GenericPtr)  :
-    ¬ ptr.InBounds (empty opInfo) := by
+    ¬ ptr.InBounds (empty OpInfo) := by
   grind
 
-variable {ctx ctx' : IRContext opInfo}
+variable {ctx ctx' : IRContext OpInfo}
 
 section operation
 

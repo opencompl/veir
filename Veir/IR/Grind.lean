@@ -5,8 +5,8 @@ import Veir.IR.Basic
 
 namespace Veir
 
-variable {opInfo : Type} [OpInfo opInfo]
-variable {ctx : IRContext opInfo}
+variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {ctx : IRContext OpInfo}
 
 public section
 
@@ -53,6 +53,6 @@ theorem ValuePtr.maybe_elim (ptr : ValuePtr) :
   grind
 
 @[grind =_]
-theorem IRContext.maybe₁_elim (ctx : IRContext opInfo) :
+theorem IRContext.maybe₁_elim (ctx : IRContext OpInfo) :
     (some ctx).maybe₁ IRContext.FieldsInBounds ↔ ctx.FieldsInBounds := by
   grind [Option.maybe₁_def]
