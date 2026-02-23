@@ -29,8 +29,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
   | .arith_addui_extended => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
-      throw "Expected 1 result"
+    if op.getNumResults ctx opIn ≠ 2 then
+      throw "Expected 2 results"
     if op.getNumRegions ctx opIn ≠ 0 then
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx opIn ≠ 0 then
@@ -179,8 +179,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
   | .arith_mulsi_extended => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
-      throw "Expected 1 result"
+    if op.getNumResults ctx opIn ≠ 2 then
+      throw "Expected 2 result"
     if op.getNumRegions ctx opIn ≠ 0 then
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx opIn ≠ 0 then
@@ -189,8 +189,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext) (op
   | .arith_mului_extended => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
-      throw "Expected 1 result"
+    if op.getNumResults ctx opIn ≠ 2 then
+      throw "Expected 2 result"
     if op.getNumRegions ctx opIn ≠ 0 then
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx opIn ≠ 0 then

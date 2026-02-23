@@ -4,7 +4,7 @@
 ^4():
   %5 = "arith.constant"() <{ "value" = 13 : i32 }> : () -> i32
   %6 = "arith.addi"(%5, %5) : (i32, i32) -> i32
-  %7 = "arith.addui_extended"(%5, %5) : (i32, i32) -> i32
+  %70, %71 = "arith.addui_extended"(%5, %5) : (i32, i32) -> (i32, i32)
   %8 = "arith.andi"(%5, %5) : (i32, i32) -> i32
   %9 = "arith.ceildivsi"(%5, %5) : (i32, i32) -> i32
   %10 = "arith.ceildivui"(%5, %5) : (i32, i32) -> i32
@@ -18,8 +18,8 @@
   %18 = "arith.minsi"(%5, %5) : (i32, i32) -> i32
   %19 = "arith.minui"(%5, %5) : (i32, i32) -> i32
   %20 = "arith.muli"(%5, %5) : (i32, i32) -> i32
-  %21 = "arith.mulsi_extended"(%5, %5) : (i32, i32) -> i32
-  %22 = "arith.mului_extended"(%5, %5) : (i32, i32) -> i32
+  %210, %211 = "arith.mulsi_extended"(%5, %5) : (i32, i32) -> (i32, i32)
+  %220, %221 = "arith.mului_extended"(%5, %5) : (i32, i32) -> (i32, i32)
   %23 = "arith.ori"(%5, %5) : (i32, i32) -> i32
   %24 = "arith.remsi"(%5, %5) : (i32, i32) -> i32
   %25 = "arith.remui"(%5, %5) : (i32, i32) -> i32
@@ -36,7 +36,7 @@
 // CHECK-NEXT: ^4():
 // CHECK-NEXT:   %5 = "arith.constant"() <{"value" = 13 : i32}> : () -> i32
 // CHECK-NEXT:   %6 = "arith.addi"(%5, %5) : (i32, i32) -> i32
-// CHECK-NEXT:   %7 = "arith.addui_extended"(%5, %5) : (i32, i32) -> i32
+// CHECK-NEXT:   %7_0, %7_1 = "arith.addui_extended"(%5, %5) : (i32, i32) -> (i32, i32)
 // CHECK-NEXT:   %8 = "arith.andi"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:   %9 = "arith.ceildivsi"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:   %10 = "arith.ceildivui"(%5, %5) : (i32, i32) -> i32
@@ -50,8 +50,8 @@
 // CHECK-NEXT:   %18 = "arith.minsi"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:   %19 = "arith.minui"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:   %20 = "arith.muli"(%5, %5) : (i32, i32) -> i32
-// CHECK-NEXT:   %21 = "arith.mulsi_extended"(%5, %5) : (i32, i32) -> i32
-// CHECK-NEXT:   %22 = "arith.mului_extended"(%5, %5) : (i32, i32) -> i32
+// CHECK-NEXT:   %21_0, %21_1 = "arith.mulsi_extended"(%5, %5) : (i32, i32) -> (i32, i32)
+// CHECK-NEXT:   %22_0, %22_1 = "arith.mului_extended"(%5, %5) : (i32, i32) -> (i32, i32)
 // CHECK-NEXT:   %23 = "arith.ori"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:   %24 = "arith.remsi"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:   %25 = "arith.remui"(%5, %5) : (i32, i32) -> i32
