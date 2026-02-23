@@ -80,7 +80,7 @@ attribute [local grind =] Option.maybe_def
 section get
 
 /-
-  Theorems combining `get` methods with `IRContext opInfo.fieldsInBounds`.
+  Theorems combining `get` methods with `IRContext.fieldsInBounds`.
   These should be the only theorems that unfolds the `FieldsInBounds
   structures.
 -/

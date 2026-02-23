@@ -6,7 +6,7 @@ import Veir.ForLean
 
 namespace Veir
 
-variable { opInfo : Type} [OpInfo opInfo]
+variable {opInfo : Type} [OpInfo opInfo]
 
 public section
 

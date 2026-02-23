@@ -181,7 +181,7 @@ structure Operation (opInfo : Type) [OpInfo opInfo] where
   operands : Array OpOperand
 deriving Inhabited, Repr, Hashable
 
-variable { opInfo } [OpInfo opInfo]
+variable {opInfo : Type} [OpInfo opInfo]
 
 namespace Operation
 
@@ -647,7 +647,7 @@ theorem getProperties!_eq_getProperties {op : OperationPtr} (inBounds : op.InBou
     op.getProperties! ctx opCode = op.getProperties ctx opCode inBounds (by grind) := by
   grind [getProperties, getProperties!]
 
-def setProperties {opCode : opInfo } (op : OperationPtr) (ctx : IRContext opInfo)
+def setProperties {opCode : opInfo} (op : OperationPtr) (ctx : IRContext opInfo)
     (newProperties : OpInfo.propertiesOf opCode)
     (inBounds : op.InBounds ctx := by grind)
     (hprop : (op.get ctx inBounds).opType = opCode := by grind) : IRContext opInfo :=

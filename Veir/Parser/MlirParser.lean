@@ -100,7 +100,7 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
       | throw "internal error: failed to insert block"
     setContext ctx
     /- Notify the parsing context that the block is defined. -/
-    modifyThe (MlirParserState) (fun state =>
+    modifyThe MlirParserState (fun state =>
     {state with
       blocks :=
         state.blocks.insert name (block, true)})
@@ -112,7 +112,7 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
       | throw "internal error: failed to create block"
     setContext ctx
     /- Notify the parsing context that the block is defined. -/
-    modifyThe (MlirParserState) fun s =>
+    modifyThe MlirParserState fun s =>
     {s with blocks := s.blocks.insert name (block, true)}
     return block
 
@@ -134,7 +134,7 @@ def defineBlockUse (name : ByteArray) : MlirParserM BlockPtr := do
       | throw "internal error: failed to create block"
     setContext ctx
     /- Notify the parsing context that the block is forward declared. -/
-    modifyThe (MlirParserState) fun s =>
+    modifyThe MlirParserState fun s =>
     {s with blocks := s.blocks.insert name (block, false)}
     return block
 
@@ -382,7 +382,7 @@ partial def parseOp (ip : Option InsertPoint) : MlirParserM OperationPtr := do
 /--
   Parse a region.
 -/
-partial def parseRegion: MlirParserM RegionPtr := do
+partial def parseRegion : MlirParserM RegionPtr := do
   /- Reset the block parsing state, as blocks are local to regions. -/
   let oldBlocks := (← getThe MlirParserState).blocks
   modifyThe MlirParserState fun s => {s with blocks := Std.HashMap.emptyWithCapacity 1}

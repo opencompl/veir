@@ -113,7 +113,7 @@ variable {rewriter : PatternRewriter opInfo}
 namespace PatternRewriter
 
 private def addUseChainUserInWorklist (rewriter: PatternRewriter opInfo) (useChain: Option OpOperandPtr) (maxIteration : Nat)
-    (huc : useChain.maybe OpOperandPtr.InBounds rewriter.ctx := by grind) : (PatternRewriter opInfo) :=
+    (huc : useChain.maybe OpOperandPtr.InBounds rewriter.ctx := by grind) : PatternRewriter opInfo :=
   match maxIteration with
   | maxIteration + 1 =>
     match useChain with

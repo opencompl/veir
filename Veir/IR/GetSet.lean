@@ -5,7 +5,7 @@ import all Veir.IR.Basic
 
 namespace Veir
 
-variable { opInfo : Type} [OpInfo opInfo]
+variable {opInfo : Type} [OpInfo opInfo]
 variable {ctx ctx': IRContext opInfo}
 
 public section

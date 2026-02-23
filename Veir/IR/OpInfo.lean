@@ -5,8 +5,8 @@ namespace Veir
 public section
 
 /--
-The `OpInfo` type class provides information about the properties of an
-operation and how to hash, represent, and compare them for equality. It also
+The `OpInfo` type class provides information about opcodes and their properties
+and how to hash, represent, and compare them for equality. It also
 provides a type family `propertyOf` that maps an operation code to the type of
 its properties
 -/
