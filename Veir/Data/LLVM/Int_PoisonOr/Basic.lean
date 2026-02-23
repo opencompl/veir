@@ -2,7 +2,8 @@ module
 /-
 The semantics of LLVM integer operations, including the handling of poison
 values. The detailed semantics of each operation are based on the LLVM Language
-Reference Manual: https://llvm.org/docs/LangRef.html
+Reference Manual: https://llvm.org/docs/LangRef.html, which is reproduced in
+the documentation of each operation below.
 -/
 
 public import Veir.Data.LLVM.PoisonOr.Basic
