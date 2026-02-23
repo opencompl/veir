@@ -1,5 +1,7 @@
 module
 
+namespace Veir.Data.LLVM
+
 /-!
 # Poison Semantics
 This file defines a generic `PoisonOr α` type, which other data types
@@ -13,15 +15,18 @@ Elements of type `PoisonOr α` are either `poison`, or values of type `α`.
 `PoisonOr` when specifying poison semantics in dialects, as it's more
 self-documenting.
 -/
-structure PoisonOr (α : Type) where
+public structure PoisonOr (α : Type) where
   ofOption :: toOption : Option α
-  deriving DecidableEq
+  deriving DecidableEq, Inhabited, Repr
 
 namespace PoisonOr
 
+public section
+
+
 /-! ### Constructors-/
-@[match_pattern] def poison : PoisonOr α := ⟨none⟩
-@[match_pattern] def value : α → PoisonOr α := (⟨some ·⟩)
+@[match_pattern, expose] def poison : PoisonOr α := ⟨none⟩
+@[match_pattern, expose] def value : α → PoisonOr α := (⟨some ·⟩)
 
 /--
 `casesOn'` is a custom eliminator. By tagging it with `cases_eliminator`, we can
@@ -100,10 +105,10 @@ theorem bind_if_else_poison_eq_ite_bind (p : Prop) [Decidable p] (x : PoisonOr �
     (if p then x else poison : no_index _) >>= f = if p then x >>= f else poison := by
   split <;> simp
 
-@[simp] theorem bind₂_poison_left : bind₂ poison b? f = poison := rfl
+@[simp] theorem bind₂_poison_left : bind₂ poison b? f = poison := by rfl
 @[simp] theorem bind₂_poison_right : bind₂ a? poison f = poison := by
   cases a? <;> simp [bind₂]
-@[simp] theorem bind₂_value : bind₂ (value a) (value b) f = f a b := rfl
+@[simp] theorem bind₂_value : bind₂ (value a) (value b) f = f a b := by rfl
 end Lemmas
 
 instance : LawfulMonad PoisonOr where
@@ -132,11 +137,11 @@ def getValue [Inhabited α] : PoisonOr α → α
 section Lemmas
 variable {a : α}
 
-@[simp] theorem isPoison_poison : isPoison (@poison α) = true := rfl
-@[simp] theorem isPoison_value : isPoison (value a) = false := rfl
+@[simp] theorem isPoison_poison : isPoison (@poison α) = true := by rfl
+@[simp] theorem isPoison_value : isPoison (value a) = false := by rfl
 
-@[simp] theorem getValue_value [Inhabited α] : (value a).getValue = a := rfl
-@[simp] theorem getValue_poison [Inhabited α] : (@poison α).getValue = default := rfl
+@[simp] theorem getValue_value [Inhabited α] : (value a).getValue = a := by rfl
+@[simp] theorem getValue_poison [Inhabited α] : (@poison α).getValue = default := by rfl
 
 @[simp] theorem mk_some (x : α) : { toOption := some x } = PoisonOr.value x := rfl
 @[simp] theorem mk_none : { toOption := none (α := α) } = PoisonOr.poison := rfl
@@ -148,4 +153,6 @@ theorem toOption_getNone : (PoisonOr.poison).toOption.getD y = y := rfl
 
 end Lemmas
 
+end
 end PoisonOr
+end Veir.Data.LLVM
