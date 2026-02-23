@@ -54,8 +54,8 @@ modulo 2^n, where n is the bit width of the result.
 Because LLVM integers use a two’s complement representation, this instruction is
 appropriate for both signed and unsigned integers.
 
-nuw and nsw stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively. If
-the nuw and/or nsw keywords are present, the result value of the add is a poison
+`nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively. If
+the `nuw` and/or `nsw` keywords are present, the result value of the add is a poison
 value if unsigned and/or signed overflow, respectively, occurs.
 -/
 def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := do
@@ -86,8 +86,8 @@ result modulo 2^n, where n is the bit width of the result.
 Because LLVM integers use a two’s complement representation, this instruction is
 appropriate for both signed and unsigned integers.
 
-nuw and nsw stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively. If
-the nuw and/or nsw keywords are present, the result value of the sub is a poison
+`nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively. If
+the `nuw` and/or `nsw` keywords are present, the result value of the sub is a poison
 value if unsigned and/or signed overflow, respectively, occurs.
 -/
 def sub {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := do
@@ -118,8 +118,8 @@ both signed and unsigned integers. If a full product (e.g., i32 * i32 -> i64) is
 needed, the operands should be sign-extended or zero-extended as appropriate to
 the width of the full product.
 
-nuw and nsw stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively. If
-the nuw and/or nsw keywords are present, the result value of the mul is a poison
+`nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively. If
+the `nuw` and/or `nsw` keywords are present, the result value of the mul is a poison
 value if unsigned and/or signed overflow, respectively, occurs.
 -/
 def mul {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := do
@@ -147,7 +147,7 @@ operations; for signed integer division, use ‘sdiv’.
 Division by zero is undefined behavior. For vectors, if any element of the
 divisor is zero, the operation has undefined behavior.
 
-If the exact keyword is present, the result value of the udiv is a poison value
+If the `exact` keyword is present, the result value of the udiv is a poison value
 if `x` is not a multiple of `y` (as such, “((a udiv exact b) mul b) == a”).
 -/
 def udiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
@@ -178,7 +178,7 @@ divisor is zero, the operation has undefined behavior. Overflow also leads to
 undefined behavior; this is a rare case, but can occur, for example, by doing a
 32-bit division of -2147483648 by -1.
 
-If the exact keyword is present, the result value of the sdiv is a poison value
+If the `exact` keyword is present, the result value of the sdiv is a poison value
 if the result would be rounded.
 -/
 def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
@@ -259,8 +259,8 @@ If `y` is (statically or dynamically) equal to or larger than the number of bits
 in `x`, this instruction returns a poison value. If the arguments are vectors,
 each vector element of `x` is shifted by the corresponding shift amount in `y`.
 
-If the nuw keyword is present, then the shift produces a poison value if it
-shifts out any non-zero bits. If the nsw keyword is present, then the shift
+If the `nuw` keyword is present, then the shift produces a poison value if it
+shifts out any non-zero bits. If the `nsw` keyword is present, then the shift
 produces a poison value if it shifts out any bits that disagree with the
 resultant sign bit.
 -/
@@ -290,7 +290,7 @@ significant bits of the result will be filled with zero bits after the shift. If
 `x`, this instruction returns a poison value. If the arguments are vectors, each
 vector element of `x` is shifted by the corresponding shift amount in `y`.
 
-If the exact keyword is present, the result value of the lshr is a poison value
+If the `exact` keyword is present, the result value of the lshr is a poison value
 if any of the bits shifted out are non-zero.
 -/
 def lshr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
@@ -318,7 +318,7 @@ is (statically or dynamically) equal to or larger than the number of bits in
 `x`, this instruction returns a poison value. If the arguments are vectors, each
 vector element of `x` is shifted by the corresponding shift amount in `y`.
 
-If the exact keyword is present, the result value of the ashr is a poison value
+If the `exact` keyword is present, the result value of the ashr is a poison value
 if any of the bits shifted out are non-zero.
 -/
 def ashr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
@@ -363,9 +363,9 @@ The truth table used for the ‘or’ instruction is:
     1   0   1
     1   1   1
 
-disjoint means that for each bit, that bit is zero in at least one of the
+`disjoint` means that for each bit, that bit is zero in at least one of the
 inputs. This allows the Or to be treated as an Add since no carry can occur from
-any bit. If the disjoint keyword is present, the result value of the or is a
+any bit. If the `disjoint` keyword is present, the result value of the or is a
 poison value if both inputs have a one in the same bit position. For vectors,
 only the element containing the bit is poison.
 -/
