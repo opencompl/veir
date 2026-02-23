@@ -15,6 +15,10 @@ structure ArithConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable
 
+structure LLVMConstantProperties where
+  value : IntegerAttr
+deriving Inhabited, Repr, Hashable
+
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
   if attrDict.size > 1 then
@@ -25,6 +29,16 @@ def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | throw s!"arith.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
+def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMConstantProperties := do
+  if attrDict.size > 1 then
+    throw s!"llvm.constant: expected only 'value' property, but got {attrDict.size} properties"
+  let some attr := attrDict["value".toUTF8]?
+    | throw "llvm.constant: missing 'value' property"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.constant: expected 'value' to be an integer attribute, but got {attr}"
+  return { value := intAttr }
+
 /--
   A type family that maps an operation code to the type of its properties.
   For operations that do not have any properties, the type is `Unit`.
@@ -33,6 +47,7 @@ def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
 def propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith_constant => ArithConstantProperties
+| .llvm_constant => LLVMConstantProperties
 | _ => Unit
 
 instance (opCode : OpCode) : Inhabited (propertiesOf opCode) := by
@@ -51,6 +66,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     Except String (propertiesOf opCode) := by
   cases opCode
   case arith_constant => exact (ArithConstantProperties.fromAttrDict attrDict)
+  case llvm_constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
   all_goals exact (Except.ok ())
 
 /--

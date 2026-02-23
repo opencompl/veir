@@ -3,9 +3,10 @@ import Veir.Rewriter.Basic
 import Veir.ForLean
 import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
-import Veir.Data.LLVM.Int.Basic
+import Veir.Data.LLVM.Int_PoisonOr.Basic
 
 open Veir.Data
+
 /-!
   # Veir Interpreter
 
@@ -87,12 +88,105 @@ def interpretOp' (ctx : IRContext) (opPtr : OperationPtr) (operands: Array Runti
     let .integerType bw := res.type.val
       | none
     return (#[.int bw.bitwidth
-      (.val (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
+      (.value (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
   | .arith_addi => do
     let #[.int bw lhs, .int bw' rhs] := operands | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (lhs + rhs)], .continue)
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs + rhs')], .continue)
+  | .llvm_constant => do
+    let value := opPtr.getProperties! ctx .llvm_constant
+    let res ← op.results[0]?
+    let .integerType bw := res.type.val
+      | none
+    return (#[.int bw.bitwidth
+      (.value (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
+  | .llvm_and => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs &&& rhs')], .continue)
+  | .llvm_or => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs ||| rhs')], .continue)
+  | .llvm_xor => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs ^^^ rhs')], .continue)
+  | .llvm_add => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs + rhs')], .continue)
+  | .llvm_sub => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs - rhs')], .continue)
+  | .llvm_shl => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs <<< rhs')], .continue)
+  | .llvm_lshr => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs >>> rhs')], .continue)
+  | .llvm_ashr => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs.sshiftRight' rhs')], .continue)
+  | .llvm_sdiv => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs.sdiv rhs')], .continue)
+  | .llvm_udiv => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs.udiv rhs')], .continue)
+  | .llvm_urem => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs % rhs')], .continue)
+  | .llvm_srem => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h : bw' ≠ bw then
+      none
+    else
+      let rhs' := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (lhs.srem rhs')], .continue)
   | .func_return => do
     return (#[], .return operands)
   | _ => none
