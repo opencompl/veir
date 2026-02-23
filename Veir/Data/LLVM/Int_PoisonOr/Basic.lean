@@ -148,7 +148,7 @@ Division by zero is undefined behavior. For vectors, if any element of the
 divisor is zero, the operation has undefined behavior.
 
 If the exact keyword is present, the result value of the udiv is a poison value
-if %op1 is not a multiple of %op2 (as such, “((a udiv exact b) mul b) == a”).
+if `x` is not a multiple of `y` (as such, “((a udiv exact b) mul b) == a”).
 -/
 def udiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
   let x' ← x
@@ -227,8 +227,8 @@ operands. This instruction can also take vector versions of the values in which
 case the elements must be integers.
 
 This instruction returns the remainder of a division (where the result is either
-zero or has the same sign as the dividend, op1), not the modulo operator (where
-the result is either zero or has the same sign as the divisor, op2) of a value.
+zero or has the same sign as the dividend, `x`), not the modulo operator (where
+the result is either zero or has the same sign as the divisor, `y`) of a value.
 
 Note that signed integer remainder and unsigned integer remainder are distinct
 operations; for unsigned integer remainder, use ‘urem’.
@@ -254,10 +254,10 @@ def srem {w : Nat} (x y : Int w) : Int w := do
 The ‘shl’ instruction returns the first operand shifted to the left a specified
 number of bits.
 
-The value produced is op1 * 2^op2 mod 2^n, where n is the width of the result.
-If op2 is (statically or dynamically) equal to or larger than the number of bits
-in op1, this instruction returns a poison value. If the arguments are vectors,
-each vector element of op1 is shifted by the corresponding shift amount in op2.
+The value produced is `x` * 2^`y` mod 2^n, where n is the width of the result.
+If `y` is (statically or dynamically) equal to or larger than the number of bits
+in `x`, this instruction returns a poison value. If the arguments are vectors,
+each vector element of `x` is shifted by the corresponding shift amount in `y`.
 
 If the nuw keyword is present, then the shift produces a poison value if it
 shifts out any non-zero bits. If the nsw keyword is present, then the shift
@@ -286,9 +286,9 @@ to the right a specified number of bits with zero fill.
 
 This instruction always performs a logical shift right operation. The most
 significant bits of the result will be filled with zero bits after the shift. If
-op2 is (statically or dynamically) equal to or larger than the number of bits in
-op1, this instruction returns a poison value. If the arguments are vectors, each
-vector element of op1 is shifted by the corresponding shift amount in op2.
+`y` is (statically or dynamically) equal to or larger than the number of bits in
+`x`, this instruction returns a poison value. If the arguments are vectors, each
+vector element of `x` is shifted by the corresponding shift amount in `y`.
 
 If the exact keyword is present, the result value of the lshr is a poison value
 if any of the bits shifted out are non-zero.
@@ -313,10 +313,10 @@ The ‘ashr’ instruction (arithmetic shift right) returns the first operand
 shifted to the right a specified number of bits with sign extension.
 
 This instruction always performs an arithmetic shift right operation, The most
-significant bits of the result will be filled with the sign bit of op1. If op2
+significant bits of the result will be filled with the sign bit of `x`. If `y`
 is (statically or dynamically) equal to or larger than the number of bits in
-op1, this instruction returns a poison value. If the arguments are vectors, each
-vector element of op1 is shifted by the corresponding shift amount in op2.
+`x`, this instruction returns a poison value. If the arguments are vectors, each
+vector element of `x` is shifted by the corresponding shift amount in `y`.
 
 If the exact keyword is present, the result value of the ashr is a poison value
 if any of the bits shifted out are non-zero.
