@@ -188,7 +188,6 @@ def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   | value v => value (v.cast h)
   | poison => poison
 
-
 end Int
 
 end
