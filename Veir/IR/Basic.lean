@@ -245,7 +245,7 @@ variable {ctx ctx' : IRContext opInfo}
 /-! Empty objects. -/
 
 @[expose]
-def Operation.empty (opType : opInfo) (prop : OpInfo.propertiesOf opType) : (Operation opInfo) :=
+def Operation.empty (opType : opInfo) (prop : OpInfo.propertiesOf opType) : Operation opInfo :=
   { results := #[]
     prev := none
     next := none
@@ -288,10 +288,10 @@ namespace OperationPtr
 def InBounds (op : OperationPtr) (ctx : IRContext opInfo) : Prop :=
   op ∈ ctx.operations
 
-def get (ptr : OperationPtr) (ctx : IRContext opInfo) (inBounds : ptr.InBounds ctx := by grind) : (Operation opInfo) :=
+def get (ptr : OperationPtr) (ctx : IRContext opInfo) (inBounds : ptr.InBounds ctx := by grind) : Operation opInfo :=
   ctx.operations[ptr]'(by unfold InBounds at inBounds; grind)
 
-def get! (ptr : OperationPtr) (ctx : IRContext opInfo) : (Operation opInfo) :=
+def get! (ptr : OperationPtr) (ctx : IRContext opInfo) : Operation opInfo :=
   ctx.operations[ptr]!
 @[grind _=_]
 theorem get!_eq_get {ptr : OperationPtr} (hin : ptr.InBounds ctx) :
