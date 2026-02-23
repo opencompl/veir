@@ -13,6 +13,19 @@ namespace Veir.Data.LLVM
 
 public section
 
+/--
+
+LLVM's integer type is a bitvector adjoin `poison` value.
+
+The `@[expose]` is required as otherwise Lean yields the following error:
+
+  Compilation failed, locally inferred compilation type differs from type that
+  would be inferred in other modules. Some of the following definitions may need
+  to be `@[expose]`d to fix this mismatch: Int ↦ 1
+  This is a current compiler limitation for `module`s that may be lifted in the
+  future.
+
+-/
 @[expose]
 def Int w := PoisonOr <| BitVec w
 
@@ -28,7 +41,6 @@ instance {w : Nat} : ToString (Int w) where
     | .value v => s!"value {v}"
 
 namespace Int
-
 
 /--
 The ‘add’ instruction returns the sum of its two operands.
