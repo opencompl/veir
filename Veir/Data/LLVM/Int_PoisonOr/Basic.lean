@@ -55,7 +55,7 @@ Because LLVM integers use a two’s complement representation, this instruction 
 appropriate for both signed and unsigned integers.
 
 `nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively. If
-the `nuw` and/or `nsw` keywords are present, the result value of the add is a poison
+the `nuw` and/or `nsw` arguments are true, the result value of the add is a poison
 value if unsigned and/or signed overflow, respectively, occurs.
 -/
 def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := do
@@ -87,7 +87,7 @@ Because LLVM integers use a two’s complement representation, this instruction 
 appropriate for both signed and unsigned integers.
 
 `nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively. If
-the `nuw` and/or `nsw` keywords are present, the result value of the sub is a poison
+the `nuw` and/or `nsw` arguments are true, the result value of the sub is a poison
 value if unsigned and/or signed overflow, respectively, occurs.
 -/
 def sub {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := do
@@ -119,7 +119,7 @@ needed, the operands should be sign-extended or zero-extended as appropriate to
 the width of the full product.
 
 `nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively. If
-the `nuw` and/or `nsw` keywords are present, the result value of the mul is a poison
+the `nuw` and/or `nsw` arguments are true, the result value of the mul is a poison
 value if unsigned and/or signed overflow, respectively, occurs.
 -/
 def mul {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := do
@@ -137,9 +137,7 @@ instance {w : Nat} : Mul (Int w) where
   mul := mul
 
 /--
-The ‘udiv’ instruction returns the quotient of its two operands.
-
-The value produced is the unsigned integer quotient of the two operands.
+The ‘udiv’ instruction returns the unsigned integer quotient of its two operands.
 
 Note that unsigned integer division and signed integer division are distinct
 operations; for signed integer division, use ‘sdiv’.
@@ -147,7 +145,7 @@ operations; for signed integer division, use ‘sdiv’.
 Division by zero is undefined behavior. For vectors, if any element of the
 divisor is zero, the operation has undefined behavior.
 
-If the `exact` keyword is present, the result value of the udiv is a poison value
+If the `exact` argument is true, the result value of the udiv is a poison value
 if `x` is not a multiple of `y` (as such, “((a udiv exact b) mul b) == a”).
 -/
 def udiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
@@ -178,7 +176,7 @@ divisor is zero, the operation has undefined behavior. Overflow also leads to
 undefined behavior; this is a rare case, but can occur, for example, by doing a
 32-bit division of -2147483648 by -1.
 
-If the `exact` keyword is present, the result value of the sdiv is a poison value
+If the `exact` argument is true, the result value of the sdiv is a poison value
 if the result would be rounded.
 -/
 def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
@@ -197,11 +195,9 @@ def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
   value (x' / y')
 
 /--
-The ‘urem’ instruction returns the remainder from the unsigned division of its
-two arguments.
-
-This instruction returns the unsigned integer remainder of a division. This
-instruction always performs an unsigned division to get the remainder.
+The ‘urem’ instruction returns the unsigned integer remainder from the
+unsigned division of its two arguments. This instruction always performs
+an unsigned division to get the remainder.
 
 Note that unsigned integer remainder and signed integer remainder are distinct
 operations; for signed integer remainder, use ‘srem’.
@@ -223,8 +219,7 @@ instance {w : Nat} : Mod (Int w) where
 
 /--
 The ‘srem’ instruction returns the remainder from the signed division of its two
-operands. This instruction can also take vector versions of the values in which
-case the elements must be integers.
+operands.
 
 This instruction returns the remainder of a division (where the result is either
 zero or has the same sign as the dividend, `x`), not the modulo operator (where
@@ -251,7 +246,7 @@ def srem {w : Nat} (x y : Int w) : Int w := do
   value (x'.srem y')
 
 /--
-The ‘shl’ instruction returns the first operand shifted to the left a specified
+The ‘shl’ instruction returns the first operand shifted to the left by a specified
 number of bits.
 
 The value produced is `x` * 2^`y` mod 2^n, where n is the width of the result.
@@ -290,7 +285,7 @@ significant bits of the result will be filled with zero bits after the shift. If
 `x`, this instruction returns a poison value. If the arguments are vectors, each
 vector element of `x` is shifted by the corresponding shift amount in `y`.
 
-If the `exact` keyword is present, the result value of the lshr is a poison value
+If the `exact` argument is true, the result value of the lshr is a poison value
 if any of the bits shifted out are non-zero.
 -/
 def lshr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
@@ -318,7 +313,7 @@ is (statically or dynamically) equal to or larger than the number of bits in
 `x`, this instruction returns a poison value. If the arguments are vectors, each
 vector element of `x` is shifted by the corresponding shift amount in `y`.
 
-If the `exact` keyword is present, the result value of the ashr is a poison value
+If the `exact` argument is true, the result value of the ashr is a poison value
 if any of the bits shifted out are non-zero.
 -/
 def ashr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
@@ -367,7 +362,8 @@ The truth table used for the ‘or’ instruction is:
 inputs. This allows the Or to be treated as an Add since no carry can occur from
 any bit. If the `disjoint` keyword is present, the result value of the or is a
 poison value if both inputs have a one in the same bit position. For vectors,
-only the element containing the bit is poison.
+any bit. If the `disjoint` argument is true, the result value of the or is a
+poison value if both inputs have a one in the same bit position. For vectors,
 -/
 def or {w : Nat} (x y : Int w) (disjoint : Bool := false) : Int w := do
   let x' ← x
@@ -382,9 +378,9 @@ instance {w : Nat} : OrOp (Int w) where
   or := or
 
 /--
-The ‘xor’ instruction returns the bitwise logical exclusive or of its two
-operands. The xor is used to implement the “one’s complement” operation, which
-is the “~” operator in C.
+The `xor` instruction returns the bitwise logical exclusive or of its two
+operands. The xor is used to implement the "one's complement" operation, which
+is the "~" operator in C.
 
 The truth table used for the ‘xor’ instruction is:
 
