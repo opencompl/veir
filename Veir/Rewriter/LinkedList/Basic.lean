@@ -31,7 +31,7 @@ def OpOperandPtr.removeFromCurrent! (ctx : IRContext OpInfo) (operandPtr : OpOpe
   | none => ctx
   | some nextPtr => nextPtr.setBack! ctx operand.back
 
-@[grind _=_]
+@[grind _=_, eq_bang ←]
 theorem OpOperandPtr.removeFromCurrent!_eq_removeFromCurrent
     (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
     removeFromCurrent! ctx operandPtr = removeFromCurrent ctx operandPtr operandIn ctxIn := by
@@ -70,7 +70,7 @@ def OpOperandPtr.insertIntoCurrent! (ctx : IRContext OpInfo) (operandPtr : OpOpe
   | none => ctx
   | some nextUse => nextUse.setBack! ctx (OpOperandPtrPtr.operandNextUse operandPtr)
 
-@[grind _=_]
+@[grind _=_, eq_bang ←]
 theorem OpOperandPtr.insertIntoCurrent!_eq_insertIntoCurrent
     (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
     insertIntoCurrent! ctx operandPtr = insertIntoCurrent ctx operandPtr operandIn ctxIn := by
@@ -109,7 +109,7 @@ def BlockOperandPtr.removeFromCurrent! (ctx : IRContext OpInfo) (operandPtr : Bl
   | none => ctx
   | some nextPtr => nextPtr.setBack! ctx operand.back
 
-@[grind _=_]
+@[grind _=_, eq_bang ←]
 theorem BlockOperandPtr.removeFromCurrent!_eq_removeFromCurrent
     (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
     removeFromCurrent! ctx operandPtr = removeFromCurrent ctx operandPtr operandIn ctxIn := by
@@ -148,7 +148,7 @@ def BlockOperandPtr.insertIntoCurrent! (ctx : IRContext OpInfo) (operandPtr : Bl
   | none => ctx
   | some nextUse => nextUse.setBack! ctx (BlockOperandPtrPtr.blockOperandNextUse operandPtr)
 
-@[grind _=_]
+@[grind _=_, eq_bang ←]
 theorem BlockOperandPtr.insertIntoCurrent!_eq_insertIntoCurrent
     (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
     insertIntoCurrent! ctx operandPtr = insertIntoCurrent ctx operandPtr operandIn ctxIn := by
@@ -201,7 +201,7 @@ def OperationPtr.linkBetween! (self : OperationPtr) (ctx : IRContext OpInfo)
     | none => ctx
     | some nextOp => nextOp.setPrevOp! ctx (some self)
 
-@[grind _=_]
+@[grind _=_, eq_bang ←]
 theorem OperationPtr.linkBetween!_eq_linkBetween
     (selfIn : self.InBounds ctx)
     (prevIn : ∀ prev, prevOp = some prev → prev.InBounds ctx)
@@ -238,7 +238,7 @@ def OperationPtr.setParentWithCheck! (self : OperationPtr) (ctx : IRContext OpIn
   | some _ => none
   | none => self.setParent! ctx (some parent)
 
-@[grind _=_]
+@[grind _=_, eq_bang ←]
 theorem OperationPtr.setParentWithCheck!_eq_setParentWithCheck
     (selfIn : self.InBounds ctx) :
     setParentWithCheck! self ctx parent = setParentWithCheck self ctx parent selfIn := by
@@ -302,7 +302,7 @@ def OperationPtr.linkBetweenWithParent! (self : OperationPtr) (ctx : IRContext O
     | none => parent.setLastOp! ctx (some self)
     | some _ => ctx
 
-@[grind _=_]
+@[grind _=_, eq_bang ←]
 theorem OperationPtr.linkBetweenWithParent!_eq_linkBetweenWithParent
     (selfIn : self.InBounds ctx)
     (prevIn : ∀ prev, prevOp = some prev → prev.InBounds ctx)
@@ -363,7 +363,7 @@ def BlockPtr.linkBetween! (self : BlockPtr) (ctx : IRContext OpInfo)
     | none => ctx
     | some nextBlock => nextBlock.setPrevBlock! ctx (some self)
 
-@[grind _=_]
+@[grind _=_, eq_bang ←]
 theorem BlockPtr.linkBetween!_eq_linkBetween
     (selfIn : self.InBounds ctx)
     (prevIn : ∀ prev, prevBlock = some prev → prev.InBounds ctx)
@@ -400,7 +400,7 @@ def BlockPtr.setParentWithCheck! (self : BlockPtr) (ctx : IRContext OpInfo) (par
   | some _ => none
   | none => self.setParent! ctx (some parent)
 
-@[grind _=_]
+@[grind _=_, eq_bang ←]
 theorem BlockPtr.setParentWithCheck!_eq_setParentWithCheck
     (selfIn : self.InBounds ctx) :
     setParentWithCheck! self ctx parent = setParentWithCheck self ctx parent selfIn := by
@@ -464,7 +464,7 @@ def BlockPtr.linkBetweenWithParent! (self : BlockPtr) (ctx : IRContext OpInfo)
     | none => parent.setLastBlock! ctx (some self)
     | some _ => ctx
 
-@[grind _=_]
+@[grind _=_, eq_bang ←]
 theorem BlockPtr.linkBetweenWithParent!_eq_linkBetweenWithParent
     (selfIn : self.InBounds ctx)
     (prevIn : ∀ prev, prevBlock = some prev → prev.InBounds ctx)

@@ -99,7 +99,7 @@ theorem BlockPtr.opChain_detachOp_self
     by_cases i' < i
     · simp (disch := grind) only [Array.getElem_eraseIdx_of_lt]
       simp only [OperationPtr.prev!_detachOp]
-      grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
+      grind (instances := 2000) [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
     · by_cases i' = i
       · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
       · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]

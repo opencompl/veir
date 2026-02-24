@@ -135,7 +135,8 @@ def interpretOpList (ctx : IRContext OpCode) (op : OperationPtr) (state : Interp
     interpretOpList ctx next state
   | .return results =>
     return results
-partial_fixpoint
+termination_by op.idxInParentFromTail ctx
+decreasing_by grind
 
 /--
   Interpret a block of operations, starting from the first operation in the block.

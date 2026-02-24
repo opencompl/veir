@@ -805,6 +805,7 @@ theorem BlockPtr.operationList_iff_BlockPtr_OpChain :
     BlockPtr.operationList block ctx hctx hblock = array := by
   grind [BlockPtr.operationListWF]
 
+@[grind =_]
 theorem BlockPtr.operationList.mem :
     (op.get ctx opInBounds).parent = some block ↔
     op ∈ BlockPtr.operationList block ctx hctx hblock := by
@@ -906,11 +907,171 @@ theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_next!_ne_none
     (op.get! ctx).parent ≠ none := by
   grind [IRContext.WellFormed, Operation.WellFormed]
 
+grind_pattern IRContext.WellFormed.OperationPtr_parent!_ne_none_of_next!_ne_none =>
+  ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).next, (op.get! ctx).parent
+
 theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_prev!_ne_none
     {ctx : IRContext OpInfo} {op : OperationPtr} (hop : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (op.get! ctx).prev ≠ none →
     (op.get! ctx).parent ≠ none := by
   grind [IRContext.WellFormed, Operation.WellFormed]
+
+grind_pattern IRContext.WellFormed.OperationPtr_parent!_ne_none_of_prev!_ne_none =>
+  ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).prev, (op.get! ctx).parent
+
+theorem BlockPtr.OpChain.mem_next!_of_mem
+    (op nextOp : OperationPtr) (block : BlockPtr)
+    (hWF : block.OpChain ctx array missingOps)
+    (hnext : (op.get! ctx).next = some nextOp)
+    (hmem : op ∈ array) :
+    nextOp ∈ array := by
+  grind [BlockPtr.OpChain, Array.getElem_of_mem]
+
+grind_pattern BlockPtr.OpChain.mem_next!_of_mem =>
+  block.OpChain ctx array missingOps, (op.get! ctx).next, some nextOp, op ∈ array
+
+theorem BlockPtr.OpChain.mem_of_mem_next!
+    (op nextOp : OperationPtr) (block : BlockPtr)
+    (ctxWF : ctx.WellFormed)
+    (hWF : block.OpChain ctx array)
+    (hnext : (op.get! ctx).next = some nextOp)
+    (hop : op.InBounds ctx)
+    (hmem : nextOp ∈ array) :
+    op ∈ array := by
+  cases hparent : (op.get! ctx).parent; grind
+  rename_i block'
+  have ⟨array', harray'⟩ := ctxWF.opChain block' (by grind)
+  grind
+
+grind_pattern BlockPtr.OpChain.mem_of_mem_next! =>
+  ctx.WellFormed, block.OpChain ctx array, (op.get! ctx).next, some nextOp, nextOp ∈ array
+
+@[grind <=]
+theorem OperationPtr.parent!_next
+    (op nextOp : OperationPtr)
+    (hWF : ctx.WellFormed)
+    (opInBounds : op.InBounds ctx)
+    (hnext : (op.get! ctx).next = some nextOp)
+    (hparent : (nextOp.get! ctx).parent = some block) :
+    (op.get! ctx).parent = some block := by
+  have ⟨array, harray⟩ := hWF.opChain block (by grind)
+  have : nextOp ∈ array := by grind
+  grind
+
+/--
+  Compute the index of an operation in its parent's operations list.
+  If the operation does not have a parent, return 0.
+-/
+noncomputable def OperationPtr.idxInParent (op : OperationPtr) (ctx : IRContext)
+    (hop : op.InBounds ctx := by grind)
+    (hctx : ctx.WellFormed := by grind) : Nat :=
+  match hparent : (op.get! ctx).parent with
+  | some block => (block.operationList ctx hctx (by grind)).idxOf op
+  | none       => 0
+
+@[grind .]
+theorem OperationPtr.idxInParent_lt_size_operationList
+    (op : OperationPtr) (ctx : IRContext) (block : BlockPtr)
+    (hasParent : (op.get! ctx).parent = some block)
+    (hop : op.InBounds ctx)
+    (hctx : ctx.WellFormed) :
+    op.idxInParent ctx hop hctx <
+      (block.operationList ctx hctx (by grind)).size := by
+  grind [OperationPtr.idxInParent]
+
+theorem OperationPtr.idxInParent_next_eq
+    (op : OperationPtr) (ctx : IRContext) (nextOp : OperationPtr)
+    (hnext : (op.get! ctx).next = some nextOp)
+    (hnextOp : nextOp.InBounds ctx)
+    (hop : op.InBounds ctx)
+    (hctx : ctx.WellFormed) :
+    nextOp.idxInParent ctx hnextOp hctx =
+      op.idxInParent ctx hop hctx + 1 := by
+  simp only [OperationPtr.idxInParent]
+  split
+  next block nextParent =>
+    split
+    next block' opParent =>
+      have : block = block' := by grind
+      subst block'
+      have ⟨array, harray⟩ := hctx.opChain block (by grind)
+      grind [BlockPtr.OpChain.idxOf_getElem_array, BlockPtr.OpChain]
+    next opParent => grind
+  next nextParent =>
+    split
+    next block opParent =>
+      have ⟨array, harray⟩ := hctx.opChain block (by grind)
+      grind
+    next opParent => grind
+
+grind_pattern OperationPtr.idxInParent_next_eq =>
+  nextOp.idxInParent ctx hnextOp hctx, (op.get! ctx).next, some nextOp
+
+/--
+  Compute the index of an operation in its parent's operations list from the tail
+  (i.e. the last operation has index 0).
+  If the operation does not have a parent, return 0.
+
+  This function is useful for proving termination of recursive functions that traverse
+  the operation list, as this function decreases when we move to the next operation in the list.
+-/
+noncomputable def OperationPtr.idxInParentFromTail (op : OperationPtr) (ctx : IRContext)
+    (hop : op.InBounds ctx := by grind)
+    (hctx : ctx.WellFormed := by grind) : Nat :=
+  match hparent : (op.get! ctx).parent with
+  | some block =>
+    (block.operationList ctx hctx (by grind)).size - 1 - op.idxInParent ctx hop hctx
+  | none       => 0
+
+theorem OperationPtr.idxInParentFromTail_next_eq
+    (op : OperationPtr) (ctx : IRContext) (nextOp : OperationPtr)
+    (hnext : (op.get! ctx).next = some nextOp)
+    (hnextOp : nextOp.InBounds ctx)
+    (hop : op.InBounds ctx)
+    (hctx : ctx.WellFormed) :
+    nextOp.idxInParentFromTail ctx hnextOp hctx =
+      op.idxInParentFromTail ctx hop hctx - 1 := by
+  simp only [OperationPtr.idxInParentFromTail]
+  simp only [OperationPtr.idxInParent_next_eq op ctx nextOp hnext hnextOp hop]
+  split; grind
+  split; rotate_left; grind
+  rename_i nextParent block opParent
+  have ⟨array, harray⟩ := hctx.opChain block (by grind)
+  grind
+
+grind_pattern OperationPtr.idxInParentFromTail_next_eq =>
+  nextOp.idxInParentFromTail ctx hnextOp hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
+
+theorem OperationPtr.idxInParentFromTail_next_ne_zero
+    (op : OperationPtr) (ctx : IRContext) (nextOp : OperationPtr)
+    (hnext : (op.get! ctx).next = some nextOp)
+    (hop : op.InBounds ctx)
+    (hctx : ctx.WellFormed) :
+    op.idxInParentFromTail ctx hop hctx ≠ 0 := by
+  simp only [OperationPtr.idxInParentFromTail]
+  split; rotate_left; grind
+  rename_i block hblock
+  have : (nextOp.get! ctx).parent = some block := by grind [IRContext.WellFormed]
+  have := OperationPtr.idxInParent_lt_size_operationList nextOp ctx block (by grind) (by grind) hctx
+  grind
+
+grind_pattern OperationPtr.idxInParentFromTail_next_ne_zero =>
+  op.idxInParentFromTail ctx hop hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
+
+theorem OperationPtr.idxInParentFromTail_next_lt_idxInParentFromTail
+    (op : OperationPtr) (ctx : IRContext) (nextOp : OperationPtr)
+    (hnext : (op.get! ctx).next = some nextOp)
+    (hnextOp : nextOp.InBounds ctx)
+    (hop : op.InBounds ctx)
+    (hctx : ctx.WellFormed) :
+    nextOp.idxInParentFromTail ctx hnextOp hctx <
+      op.idxInParentFromTail ctx hop hctx := by
+  simp only [OperationPtr.idxInParentFromTail_next_eq op ctx nextOp hnext hnextOp hop]
+  grind
+
+grind_pattern OperationPtr.idxInParentFromTail_next_eq =>
+  nextOp.idxInParentFromTail ctx hnextOp hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
+
 
 end Veir
