@@ -2,8 +2,8 @@
 
 "builtin.module"() ({
 ^bb0():
-  %5 = "llvm.constant"() : () -> i32
-  %6 = "llvm.constant"() : () -> i1
+  %5 = "llvm.constant"() <{"value" = 13 : i32}> : () -> i32
+  %6 = "llvm.constant"() <{"value" = 13 : i32}> : () -> i1
   %8 = "llvm.and"(%5, %5) : (i32, i32) -> i32
   %8 = "llvm.or"(%5, %5) : (i32, i32) -> i32
   %9 = "llvm.xor"(%5, %5) : (i32, i32) -> i32
@@ -26,8 +26,8 @@
 
 // CHECK:       "builtin.module"() ({
 // CHECK-NEXT:   ^4():
-// CHECK-NEXT:     %5 = "llvm.constant"() : () -> i32
-// CHECK-NEXT:     %6 = "llvm.constant"() : () -> i1
+// CHECK-NEXT:     %5 = "llvm.constant"() <{"value" = 13 : i32}> : () -> i32
+// CHECK-NEXT:     %6 = "llvm.constant"() <{"value" = 12 : i32}> : () -> i1
 // CHECK-NEXT:     %7 = "llvm.and"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:     %8 = "llvm.or"(%5, %5) : (i32, i32) -> i32
 // CHECK-NEXT:     %9 = "llvm.xor"(%5, %5) : (i32, i32) -> i32
