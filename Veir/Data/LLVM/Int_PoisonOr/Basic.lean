@@ -188,7 +188,7 @@ def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := do
   if y' = 0 then
     poison
 
-  value (x' / y')
+  value (x'.sdiv y')
 
 /--
 The ‘urem’ instruction returns the unsigned integer remainder from the
