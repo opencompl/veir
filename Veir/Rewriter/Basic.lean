@@ -1,6 +1,7 @@
 import Veir.IR
 import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.LinkedList
+import Veir.Properties
 
 namespace Veir
 

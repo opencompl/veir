@@ -963,7 +963,7 @@ theorem OperationPtr.parent!_next
   Compute the index of an operation in its parent's operations list.
   If the operation does not have a parent, return 0.
 -/
-noncomputable def OperationPtr.idxInParent (op : OperationPtr) (ctx : IRContext)
+noncomputable def OperationPtr.idxInParent (op : OperationPtr) (ctx : IRContext OpInfo)
     (hop : op.InBounds ctx := by grind)
     (hctx : ctx.WellFormed := by grind) : Nat :=
   match hparent : (op.get! ctx).parent with
@@ -972,7 +972,7 @@ noncomputable def OperationPtr.idxInParent (op : OperationPtr) (ctx : IRContext)
 
 @[grind .]
 theorem OperationPtr.idxInParent_lt_size_operationList
-    (op : OperationPtr) (ctx : IRContext) (block : BlockPtr)
+    (op : OperationPtr) (ctx : IRContext OpInfo) (block : BlockPtr)
     (hasParent : (op.get! ctx).parent = some block)
     (hop : op.InBounds ctx)
     (hctx : ctx.WellFormed) :
@@ -981,7 +981,7 @@ theorem OperationPtr.idxInParent_lt_size_operationList
   grind [OperationPtr.idxInParent]
 
 theorem OperationPtr.idxInParent_next_eq
-    (op : OperationPtr) (ctx : IRContext) (nextOp : OperationPtr)
+    (op : OperationPtr) (ctx : IRContext OpInfo) (nextOp : OperationPtr)
     (hnext : (op.get! ctx).next = some nextOp)
     (hnextOp : nextOp.InBounds ctx)
     (hop : op.InBounds ctx)
@@ -1016,7 +1016,7 @@ grind_pattern OperationPtr.idxInParent_next_eq =>
   This function is useful for proving termination of recursive functions that traverse
   the operation list, as this function decreases when we move to the next operation in the list.
 -/
-noncomputable def OperationPtr.idxInParentFromTail (op : OperationPtr) (ctx : IRContext)
+noncomputable def OperationPtr.idxInParentFromTail (op : OperationPtr) (ctx : IRContext OpInfo)
     (hop : op.InBounds ctx := by grind)
     (hctx : ctx.WellFormed := by grind) : Nat :=
   match hparent : (op.get! ctx).parent with
@@ -1025,7 +1025,7 @@ noncomputable def OperationPtr.idxInParentFromTail (op : OperationPtr) (ctx : IR
   | none       => 0
 
 theorem OperationPtr.idxInParentFromTail_next_eq
-    (op : OperationPtr) (ctx : IRContext) (nextOp : OperationPtr)
+    (op : OperationPtr) (ctx : IRContext OpInfo) (nextOp : OperationPtr)
     (hnext : (op.get! ctx).next = some nextOp)
     (hnextOp : nextOp.InBounds ctx)
     (hop : op.InBounds ctx)
@@ -1044,7 +1044,7 @@ grind_pattern OperationPtr.idxInParentFromTail_next_eq =>
   nextOp.idxInParentFromTail ctx hnextOp hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
 
 theorem OperationPtr.idxInParentFromTail_next_ne_zero
-    (op : OperationPtr) (ctx : IRContext) (nextOp : OperationPtr)
+    (op : OperationPtr) (ctx : IRContext OpInfo) (nextOp : OperationPtr)
     (hnext : (op.get! ctx).next = some nextOp)
     (hop : op.InBounds ctx)
     (hctx : ctx.WellFormed) :
@@ -1060,7 +1060,7 @@ grind_pattern OperationPtr.idxInParentFromTail_next_ne_zero =>
   op.idxInParentFromTail ctx hop hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
 
 theorem OperationPtr.idxInParentFromTail_next_lt_idxInParentFromTail
-    (op : OperationPtr) (ctx : IRContext) (nextOp : OperationPtr)
+    (op : OperationPtr) (ctx : IRContext OpInfo) (nextOp : OperationPtr)
     (hnext : (op.get! ctx).next = some nextOp)
     (hnextOp : nextOp.InBounds ctx)
     (hop : op.InBounds ctx)
