@@ -957,7 +957,7 @@ theorem OperationPtr.parent!_next
   grind
 
 /--
-  Compute the index of an operation in its parent operation's list.
+  Compute the index of an operation in its parent's operations list.
   If the operation does not have a parent, return 0.
 -/
 noncomputable def OperationPtr.idxInParent (op : OperationPtr) (ctx : IRContext)
@@ -987,26 +987,26 @@ theorem OperationPtr.idxInParent_next_eq
       op.idxInParent ctx hop hctx + 1 := by
   simp only [OperationPtr.idxInParent]
   split
-  case h_1 block nextParent =>
+  next block nextParent =>
     split
-    case h_1 block' opParent =>
+    next block' opParent =>
       have : block = block' := by grind
       subst block'
       have ⟨array, harray⟩ := hctx.opChain block (by grind)
       grind [BlockPtr.OpChain.idxOf_getElem_array, BlockPtr.OpChain]
-    case h_2 opParent => grind
-  case h_2 nextParent =>
+    next opParent => grind
+  next nextParent =>
     split
-    case h_1 block opParent =>
+    next block opParent =>
       have ⟨array, harray⟩ := hctx.opChain block (by grind)
       grind
-    case h_2 opParent => grind
+    next opParent => grind
 
 grind_pattern OperationPtr.idxInParent_next_eq =>
   nextOp.idxInParent ctx hnextOp hctx, (op.get! ctx).next, some nextOp
 
 /--
-  Compute the index of an operation in its parent operation's list from the tail
+  Compute the index of an operation in its parent's operations list from the tail
   (i.e. the last operation has index 0).
   If the operation does not have a parent, return 0.
 
