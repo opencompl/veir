@@ -23,6 +23,8 @@ open Veir.Data
 
 namespace Veir
 
+variable {OpInfo : Type} [HasOpInfo OpInfo]
+
 /--
   The representation of a value in the interpreter.
 -/
@@ -58,6 +60,31 @@ def InterpreterState.getVar? (state : InterpreterState) (var : ValuePtr)
   state.variables[var]?
 
 /--
+  Get the value of the operands of an operation.
+  If any operand is not in the state, return `none`.
+-/
+def InterpreterState.getOperandValues (state : InterpreterState)
+    (ctx : IRContext OpInfo) (op : OperationPtr) : Option (Array RuntimeValue) := do
+  (op.getOperands! ctx).mapM state.getVar?
+
+def InterpreterState.setResultValues_loop (state : InterpreterState)
+    (ctx : IRContext OpInfo) (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat) : InterpreterState :=
+  match i with
+  | 0 => state
+  | i + 1 =>
+    let result := op.getResult i
+    let value := resultValues[i]!
+    let newState := state.setVar result value
+    InterpreterState.setResultValues_loop newState ctx op resultValues i
+
+/--
+  Set the values of the results of an operation.
+-/
+def InterpreterState.setResultValues (state : InterpreterState) (ctx : IRContext OpInfo)
+    (op : OperationPtr) (resultValues : Array RuntimeValue) : InterpreterState :=
+  InterpreterState.setResultValues_loop state ctx op resultValues (op.getNumResults! ctx)
+
+/--
   Create an interpreter state with no variables defined.
 -/
 def InterpreterState.empty : InterpreterState :=
@@ -73,103 +100,88 @@ inductive ControlFlowAction where
   | continue
 
 /--
-  Interpret a single operation given the runtime values of its operands.
+  Interpret a single operation given its opcode, type-dependent properties,
+  result types, and the runtime values of its operands.
   Return the result runtime values and a control flow action indicating how
   to continue the interpretation.
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   returns `none`.
 -/
-def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Array RuntimeValue)
-    (opPtrInBounds : opPtr.InBounds ctx := by grind)
+def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     : Option ((Array RuntimeValue) × ControlFlowAction) :=
-  let op := opPtr.get ctx (by grind)
-  match op.opType with
+  match opType with
   | .arith_constant => do
-    let value := opPtr.getProperties! ctx .arith_constant
-    let res ← op.results[0]?
-    let .integerType bw := res.type.val
+    let resType ← resultTypes[0]?
+    let .integerType bw := resType.val
       | none
     return (#[.int bw.bitwidth
-      (.val (BitVec.ofInt bw.bitwidth value.value.value))], .continue)
+      (.val (BitVec.ofInt bw.bitwidth properties.value.value))], .continue)
   | .arith_addi => do
-    let flags := opPtr.getProperties! ctx .arith_addi
-    let #[.int bw lhs, .int bw' rhs] := operands | none
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.add lhs rhs flags.nsw flags.nuw)], .continue)
+    return (#[.int bw (LLVM.Int.add lhs rhs properties.nsw properties.nuw)], .continue)
   | .arith_subi => do
-    let flags := opPtr.getProperties! ctx .arith_subi
-    let #[.int bw lhs, .int bw' rhs] := operands | none
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.sub lhs rhs flags.nsw flags.nuw)], .continue)
+    return (#[.int bw (LLVM.Int.sub lhs rhs properties.nsw properties.nuw)], .continue)
   | .llvm_constant => do
-    let value := opPtr.getProperties! ctx .llvm_constant
-    let res ← op.results[0]?
-    let .integerType bw := res.type.val
+    let resType ← resultTypes[0]?
+    let .integerType bw := resType.val
       | none
     return (#[.int bw.bitwidth
-      (.val (BitVec.ofInt bw.bitwidth value.value.value))], .continue)
+      (.val (BitVec.ofInt bw.bitwidth properties.value.value))], .continue)
   | .llvm_add => do
-    let flags := opPtr.getProperties! ctx .llvm_add
-    let #[.int bw lhs, .int bw' rhs] := operands | none
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.add lhs rhs flags.nsw flags.nuw)], .continue)
+    return (#[.int bw (LLVM.Int.add lhs rhs properties.nsw properties.nuw)], .continue)
   | .llvm_sub => do
-    let flags := opPtr.getProperties! ctx .llvm_sub
-    let #[.int bw lhs, .int bw' rhs] := operands | none
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.sub lhs rhs flags.nsw flags.nuw)], .continue)
+    return (#[.int bw (LLVM.Int.sub lhs rhs properties.nsw properties.nuw)], .continue)
   | .llvm_mul => do
-    let flags := opPtr.getProperties! ctx .llvm_mul
-    let #[.int bw lhs, .int bw' rhs] := operands | none
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.mul lhs rhs flags.nsw flags.nuw)], .continue)
+    return (#[.int bw (LLVM.Int.mul lhs rhs properties.nsw properties.nuw)], .continue)
   | .llvm_sdiv => do
-    let flags := opPtr.getProperties! ctx .llvm_sdiv
-    let #[.int bw lhs, .int bw' rhs] := operands | none
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.sdiv lhs rhs flags.exact)], .continue)
+    return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], .continue)
   | .llvm_udiv => do
-    let flags := opPtr.getProperties! ctx .llvm_udiv
-    let #[.int bw lhs, .int bw' rhs] := operands | none
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.udiv lhs rhs flags.exact)], .continue)
+    return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], .continue)
   | .func_return => do
     return (#[], .return operands)
   /- Bitblastable semantics of RISC-V assembly instructions. -/
   | .riscv_li => do
-    let value := opPtr.getProperties! ctx .riscv_li
-    let imm := BitVec.ofNat 64 value.value.value.toNat
+    let imm := BitVec.ofNat 64 properties.value.value.toNat
     return (#[.reg (RISCV.li imm)], .continue)
   | .riscv_lui => do
-    let value := opPtr.getProperties! ctx .riscv_lui
-    let imm := BitVec.ofNat 20 value.value.value.toNat
+    let imm := BitVec.ofNat 20 properties.value.value.toNat
     return (#[.reg (RISCV.lui imm)], .continue)
   | .riscv_auipc => do
-    let value := opPtr.getProperties! ctx .riscv_auipc
-    let #[.reg op] := operands | none
-    let imm := BitVec.ofNat 20 value.value.value.toNat
+    let [.reg op] := operands.toList | none
+    let imm := BitVec.ofNat 20 properties.value.value.toNat
     return (#[.reg (RISCV.auipc imm op)], .continue)
   | .riscv_andi => do
-    let value := opPtr.getProperties! ctx .riscv_andi
-    let #[.reg op] := operands | none
-    let imm := BitVec.ofNat 12 value.value.value.toNat
+    let [.reg op] := operands.toList | none
+    let imm := BitVec.ofNat 12 properties.value.value.toNat
     return (#[.reg (RISCV.andi imm op)], .continue)
   | .riscv_ori => do
-    let value := opPtr.getProperties! ctx .riscv_ori
-    let #[.reg op] := operands | none
-    let imm := BitVec.ofNat 12 value.value.value.toNat
+    let [.reg op] := operands.toList | none
+    let imm := BitVec.ofNat 12 properties.value.value.toNat
     return (#[.reg (RISCV.ori imm op)], .continue)
   | .riscv_xori => do
-    let value := opPtr.getProperties! ctx .riscv_xori
-    let #[.reg op] := operands | none
-    let imm := BitVec.ofNat 12 value.value.value.toNat
+    let [.reg op] := operands.toList | none
+    let imm := BitVec.ofNat 12 properties.value.value.toNat
     return (#[.reg (RISCV.xori imm op)], .continue)
   | _ => none
 
@@ -180,18 +192,12 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   return `none`.
 -/
-def interpretOp (ctx : IRContext OpCode) (opPtr : OperationPtr) (state : InterpreterState)
-    (opPtrInBounds : opPtr.InBounds ctx := by grind)
+def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
     : Option (InterpreterState × ControlFlowAction) := do
-  let operands ← (0...opPtr.getNumOperands ctx).toArray.mapM (fun idx =>
-    let operand := opPtr.getOperand! ctx idx
-    state.getVar? operand)
-  let (resultValues, action) ← interpretOp' ctx opPtr operands
-  let newState := state
-  let newState := (0...opPtr.getNumResults ctx).toArray.foldl (fun s idx =>
-    let result := opPtr.getResult idx
-    let value := resultValues[idx]!
-    s.setVar result value) newState
+  let operands ← state.getOperandValues ctx op
+  let opType := op.getOpType! ctx
+  let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx opType) ((op.get! ctx).results.map (·.type)) operands
+  let newState := state.setResultValues ctx op resultValues
   return (newState, action)
 
 /--
