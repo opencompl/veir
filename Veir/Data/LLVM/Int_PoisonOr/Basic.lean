@@ -46,8 +46,6 @@ namespace Int
 /--
 The ‘add’ instruction returns the sum of its two operands.
 
-The value produced is the integer sum of the two operands.
-
 If the sum has unsigned overflow, the result returned is the mathematical result
 modulo 2^n, where n is the bit width of the result.
 
