@@ -3,9 +3,9 @@ module
 import Std.Data.HashMap
 import Veir.Prelude
 public import Veir.IR.OpInfo
-import Veir.ForLean
-import Veir.IR.Attribute
-public import Veir.Properties
+public import Veir.ForLean
+public import Veir.IR.Attribute
+public import Std.Data.HashMap.Basic
 
 open Std (HashMap)
 

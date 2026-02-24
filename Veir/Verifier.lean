@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Basic
 public import Veir.IR.Fields
+public import Veir.Properties
 import Veir.ForLean
 
 namespace Veir
