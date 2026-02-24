@@ -244,6 +244,7 @@ theorem Rewriter.replaceValue_DefUse_newValue :
           grind [ValuePtr.DefUse.allUsesInChain, ValuePtr.DefUse.useValue]
       all_goals grind
 
+set_option maxHeartbeats 250000
 theorem OperationPtr.getOperand_replaceValue?
     (hCtx : IRContext.WellFormed ctx)
     (hCtx' : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some ctx') :
