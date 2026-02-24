@@ -23,10 +23,6 @@ structure LLVMConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-structure LLVMConstantProperties where
-  value : IntegerAttr
-deriving Inhabited, Repr, Hashable
-
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
   if attrDict.size > 1 then
