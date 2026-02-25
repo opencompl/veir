@@ -15,10 +15,12 @@ theorem add_assoc {w : Nat} (x y z : Int w) : x + y + z = x + (y + z) := by
 @[simp]
 theorem poison_add {w : Nat} (x : Int w) : .poison + x = .poison := by
   simp only [HAdd.hAdd, Add.add, add]
+  simp
 
 @[simp]
 theorem add_poison {w : Nat} (x : Int w) : x + .poison = .poison := by
   simp only [HAdd.hAdd, Add.add, add]
+  simp
 
 theorem add_comm {w : Nat} (x y : Int w) : x + y = y + x := by
   simp only [HAdd.hAdd, Add.add, add]
@@ -29,10 +31,12 @@ theorem add_comm {w : Nat} (x y : Int w) : x + y = y + x := by
 @[simp]
 theorem poison_mul {w : Nat} (x : Int w) : .poison * x = .poison := by
   simp only [HMul.hMul, Mul.mul, mul]
+  simp
 
 @[simp]
 theorem mul_poison {w : Nat} (x : Int w) : x * .poison = .poison := by
   simp only [HMul.hMul, Mul.mul, mul]
+  simp
 
 theorem mul_assoc {w : Nat} (x y z : Int w) : x * y * z = x * (y * z) := by
   simp only [HMul.hMul, Mul.mul, mul]

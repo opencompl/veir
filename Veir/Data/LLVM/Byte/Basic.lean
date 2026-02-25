@@ -48,12 +48,12 @@ open Int
 -/
 def Byte.toInt {w : Nat} (x : Byte w) : Int w :=
   if x.poison = 0 then
-    .val x.val
+    .value x.val
   else
     .poison
 
 def fromInt {w : Nat} (x : Int w) : Byte w :=
-  if let .val x := x then
+  if let .value x := x then
     ⟨x, 0, by simp⟩
   else
     ⟨0, BitVec.allOnes w, by simp⟩

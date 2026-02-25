@@ -3,7 +3,7 @@ import Veir.Rewriter.Basic
 import Veir.ForLean
 import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
-import Veir.Data.LLVM.Int_PoisonOr.Basic
+import Veir.Data.LLVM.Int.Basic
 
 open Veir.Data
 
