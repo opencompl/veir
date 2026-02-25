@@ -126,11 +126,13 @@ instance : LawfulMonad PoisonOr where
 /-! ## isPoison & getValue-/
 
 /-- Returns whether the element is poison. -/
+@[grind =]
 def isPoison : PoisonOr α → Bool
   | poison => true
   | value _ => false
 
 /-- Returns the value of the element, or a default value if it is poison. -/
+@[grind =]
 def getValue [Inhabited α] : PoisonOr α → α
   | poison => default
   | value a => a
