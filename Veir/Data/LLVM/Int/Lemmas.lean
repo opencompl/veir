@@ -6,13 +6,6 @@ open Veir.Data.LLVM
 
 namespace Veir.Data.LLVM.Int
 
-
-@[simp]
-theorem aaa (x y : Int w) : (match x with
-  | value _ => y
-  | _ => y) = y := by
-  grind
-
 /- # add -/
 
 theorem add_assoc {w : Nat} (x y z : Int w) : x + y + z = x + (y + z) := by
