@@ -76,6 +76,7 @@ instance : Monad PoisonOr where
     | poison  => poison
     | value a => f a
 
+@[grind]
 def bind₂ (a : PoisonOr α) (b : PoisonOr β) (f : α → β → PoisonOr γ) : PoisonOr γ :=
   (a >>= fun x => b >>= f x)
 
@@ -137,18 +138,18 @@ def getValue [Inhabited α] : PoisonOr α → α
 section Lemmas
 variable {a : α}
 
-@[simp] theorem isPoison_poison : isPoison (@poison α) = true := by rfl
-@[simp] theorem isPoison_value : isPoison (value a) = false := by rfl
+@[simp, grind =] theorem isPoison_poison : isPoison (@poison α) = true := by rfl
+@[simp, grind =] theorem isPoison_value : isPoison (value a) = false := by rfl
 
-@[simp] theorem getValue_value [Inhabited α] : (value a).getValue = a := by rfl
-@[simp] theorem getValue_poison [Inhabited α] : (@poison α).getValue = default := by rfl
+@[simp, grind =] theorem getValue_value [Inhabited α] : (value a).getValue = a := by rfl
+@[simp, grind =] theorem getValue_poison [Inhabited α] : (@poison α).getValue = default := by rfl
 
-@[simp] theorem mk_some (x : α) : { toOption := some x } = PoisonOr.value x := rfl
-@[simp] theorem mk_none : { toOption := none (α := α) } = PoisonOr.poison := rfl
+@[simp, grind =] theorem mk_some (x : α) : { toOption := some x } = PoisonOr.value x := rfl
+@[simp, grind =] theorem mk_none : { toOption := none (α := α) } = PoisonOr.poison := rfl
 
-@[simp]
+@[simp, grind =]
 theorem toOption_getSome : (PoisonOr.value x).toOption.getD y = x := rfl
-@[simp]
+@[simp, grind =]
 theorem toOption_getNone : (PoisonOr.poison).toOption.getD y = y := rfl
 
 end Lemmas
