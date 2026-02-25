@@ -6,10 +6,6 @@ Reference Manual: https://llvm.org/docs/LangRef.html, which is reproduced in
 the documentation of each operation below.
 -/
 
-public import Veir.Data.LLVM.PoisonOr.Basic
-
-open Veir.Data.LLVM.PoisonOr
-
 namespace Veir.Data.LLVM
 
 public section
@@ -70,17 +66,17 @@ appropriate for both signed and unsigned integers.
 the `nuw` and/or `nsw` arguments are true, the result value of the add is a poison
 value if unsigned and/or signed overflow, respectively, occurs.
 -/
-def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w :=
-  match x, y with
-   | .poison, _ => poison
-   | _, .poison => poison
-   | .value x, .value y =>
-      if nsw ∧ BitVec.saddOverflow x y then
-        poison
-      else if nuw ∧ BitVec.uaddOverflow x y then
-        poison
-      else
-        value (x + y)
+def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+
+  if nsw ∧ BitVec.saddOverflow x' y' then
+    return poison
+
+  if nuw ∧ BitVec.uaddOverflow x' y' then
+    return poison
+
+  value (x' + y')
 
 instance {w : Nat} : Add (Int w) where
   add := add
@@ -103,17 +99,17 @@ appropriate for both signed and unsigned integers.
 the `nuw` and/or `nsw` arguments are true, the result value of the sub is a poison
 value if unsigned and/or signed overflow, respectively, occurs.
 -/
-def sub {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    if nsw ∧ BitVec.ssubOverflow x y then
-      poison
-    else if nuw ∧ BitVec.usubOverflow x y then
-      poison
-    else
-      value (x - y)
+def sub {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+
+  if nsw ∧ BitVec.ssubOverflow x' y' then
+    return poison
+
+  if nuw ∧ BitVec.usubOverflow x' y' then
+    return poison
+
+  value (x' - y')
 
 instance {w : Nat} : Sub (Int w) where
   sub := sub
@@ -134,17 +130,17 @@ the width of the full product.
 the `nuw` and/or `nsw` arguments are true, the result value of the mul is a poison
 value if unsigned and/or signed overflow, respectively, occurs.
 -/
-def mul {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    if nsw ∧ BitVec.smulOverflow x y then
-      poison
-    else if nuw ∧ BitVec.umulOverflow x y then
-      poison
-    else
-      value (x * y)
+def mul {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+
+  if nsw ∧ BitVec.smulOverflow x' y' then
+    return poison
+
+  if nuw ∧ BitVec.umulOverflow x' y' then
+    return poison
+
+  value (x' * y')
 
 instance {w : Nat} : Mul (Int w) where
   mul := mul
@@ -161,17 +157,17 @@ divisor is zero, the operation has undefined behavior.
 If the `exact` argument is true, the result value of the udiv is a poison value
 if `x` is not a multiple of `y` (as such, “((a udiv exact b) mul b) == a”).
 -/
-def udiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    if exact ∧ x.umod y ≠ 0 then
-      poison
-    else if y = 0 then
-      poison
-    else
-      value (x / y)
+def udiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+
+  if exact ∧ x'.umod y' ≠ 0 then
+    return poison
+
+  if y' = 0 then
+    return poison
+
+  value (x' / y')
 
 instance {w : Nat} : Div (Int w) where
   div := udiv
@@ -193,20 +189,20 @@ undefined behavior; this is a rare case, but can occur, for example, by doing a
 If the `exact` argument is true, the result value of the sdiv is a poison value
 if the result would be rounded.
 -/
-def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    if y == 0 || (w != 1 && x == (BitVec.intMin w) && y == -1) then
-      poison
-    else if exact ∧ x.smod y ≠ 0 then
-      poison
-    else if y == 0 then
-      poison
-    else
-      value (x.sdiv y)
+def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
 
+  if y' == 0 || (w != 1 && x' == (BitVec.intMin w) && y' == -1) then
+    return poison
+
+  if exact ∧ x'.smod y' ≠ 0 then
+    return poison
+
+  if y' == 0 then
+    return poison
+
+  value (x'.sdiv y')
 
 /--
 The ‘urem’ instruction returns the unsigned integer remainder from the
@@ -219,15 +215,14 @@ operations; for signed integer remainder, use ‘srem’.
 Taking the remainder of a division by zero is undefined behavior. For vectors,
 if any element of the divisor is zero, the operation has undefined behavior.
 -/
-def urem {w : Nat} (x y : Int w) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    if y == 0 then
-      poison
-    else
-      value (x % y)
+def urem {w : Nat} (x y : Int w) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+
+  if y' == 0 then
+    return poison
+
+  value (x' % y')
 
 instance {w : Nat} : Mod (Int w) where
   mod := urem
@@ -251,15 +246,14 @@ for example, by taking the remainder of a 32-bit division of -2147483648 by -1.
 using instructions that return both the result of the division and the
 remainder.)
 -/
-def srem {w : Nat} (x y : Int w) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    if y == 0 || (w != 1 && x == (BitVec.intMin w) && y == -1) then
-      poison
-    else
-      value (x.srem y)
+def srem {w : Nat} (x y : Int w) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+
+  if y' == 0 || (w != 1 && x' == (BitVec.intMin w) && y' == -1) then
+    return poison
+
+  value (x'.srem y')
 
 /--
 The ‘shl’ instruction returns the first operand shifted to the left by a specified
@@ -275,19 +269,20 @@ shifts out any non-zero bits. If the `nsw` keyword is present, then the shift
 produces a poison value if it shifts out any bits that disagree with the
 resultant sign bit.
 -/
-def shl {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    if nsw ∧ ((x <<< y).sshiftRight' y ≠ x) then
-      poison
-    else if nuw ∧ ((x <<< y) >>> y ≠ x) then
-      poison
-    else if y ≥ w then
-      poison
-    else
-      value (x <<< y)
+def shl {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+
+  if nsw ∧ (x' <<< y').sshiftRight' y' ≠ x' then
+    return poison
+
+  if nuw ∧ (x' <<< y') >>> y' ≠ x' then
+    return poison
+
+  if y' ≥ w then
+    return poison
+
+  value (x' <<< y')
 
 instance {w : Nat} : ShiftLeft (Int w) where
   shiftLeft := shl
@@ -305,17 +300,17 @@ vector element of `x` is shifted by the corresponding shift amount in `y`.
 If the `exact` argument is true, the result value of the lshr is a poison value
 if any of the bits shifted out are non-zero.
 -/
-def lshr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    if y ≥ w then
-      poison
-    else if exact ∧(x >>> y) <<< y ≠ x then
-      poison
-    else
-      value (x >>> y)
+def lshr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+
+  if y' ≥ w then
+    return poison
+
+  if exact ∧ (x' >>> y') <<< y' ≠ x' then
+    return poison
+
+  value (x' >>> y')
 
 instance {w : Nat} : ShiftRight (Int w) where
   shiftRight := lshr
@@ -333,17 +328,17 @@ vector element of `x` is shifted by the corresponding shift amount in `y`.
 If the `exact` argument is true, the result value of the ashr is a poison value
 if any of the bits shifted out are non-zero.
 -/
-def ashr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    if y ≥ w then
-      poison
-    else if exact ∧ (x >>> y) <<< y ≠ x then
-      poison
-    else
-      value (x.sshiftRight' y)
+def ashr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+
+  if y' ≥ w then
+    return poison
+
+  if exact ∧ (x' >>> y') <<< y' ≠ x' then
+    return poison
+
+  value (x'.sshiftRight' y')
 
 /--
 The ‘and’ instruction returns the bitwise logical and of its two operands.
@@ -356,12 +351,10 @@ The truth table used for the ‘and’ instruction is:
     1   0   0
     1   1   1
 -/
-def and {w : Nat} (x y : Int w) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    value (x &&& y)
+def and {w : Nat} (x y : Int w) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+  value (x' &&& y')
 
 instance {w : Nat} : AndOp (Int w) where
   and := and
@@ -384,15 +377,14 @@ poison value if both inputs have a one in the same bit position. For vectors,
 any bit. If the `disjoint` argument is true, the result value of the or is a
 poison value if both inputs have a one in the same bit position. For vectors,
 -/
-def or {w : Nat} (x y : Int w) (disjoint : Bool := false) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    if disjoint ∧ (x &&& y) ≠ 0 then
-      poison
-    else
-      value (x ||| y)
+def or {w : Nat} (x y : Int w) (disjoint : Bool := false) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+
+  if disjoint ∧ (x' &&& y') ≠ 0 then
+    return poison
+
+  value (x' ||| y')
 
 instance {w : Nat} : OrOp (Int w) where
   or := or
@@ -410,20 +402,17 @@ The truth table used for the ‘xor’ instruction is:
       1   0   1
       1   1   0
 -/
-def xor {w : Nat} (x y : Int w) : Int w :=
-  match x, y with
-  | .poison, _ => poison
-  | _, .poison => poison
-  | .value x, .value y =>
-    value (x ^^^ y)
+def xor {w : Nat} (x y : Int w) : Int w := Id.run do
+  let .value x' := x | poison
+  let .value y' := y | poison
+  value (x' ^^^ y')
 
 instance {w : Nat} : XorOp (Int w) where
   xor := xor
 
-def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
-  match x with
-  | value v => value (v.cast h)
-  | poison => poison
+def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ := Id.run do
+  let .value x' := x | poison
+  value (x'.cast h)
 
 end Int
 
