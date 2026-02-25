@@ -38,14 +38,10 @@ instance {w : Nat} : Repr (Int w) where
 
 instance {w : Nat} : ToString (Int w) where
   toString x := match x with
-    | .poison => "poison"
-    | .value v => s!"value {v}"
+    | .poison => ".poison"
+    | .value v => s!".value {v}"
 
 namespace Int
-
-/-! ### Constructors-/
-@[match_pattern, expose] def poison2 {w : Nat} : Int w := PoisonOr.poison
-@[match_pattern, expose] def value2 {w : Nat} (x : BitVec w) : Int w := PoisonOr.value x
 
 /--
 `casesOn'` is a custom eliminator. By tagging it with `cases_eliminator`, we can
