@@ -67,7 +67,7 @@ theorem ite_value_value {c : Prop} [Decidable c] {a b : α} :
 instance [ToString α] : ToString (PoisonOr α) where
   toString
   | .poison  => "poison"
-  | .value a => "(value " ++ addParenHeuristic (toString a) ++ ")"
+  | .value a => "value " ++ addParenHeuristic (toString a) ++ ""
 
 /-! ### Monad instance and lemmas -/
 instance : Monad PoisonOr where
