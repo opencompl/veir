@@ -116,7 +116,7 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     equivalent to the official Sail model
     https://github.com/opencompl/riscv-lean/blob/main/RISCV/Instructions.lean -/
   | .riscv_lui =>
-    let value := opPtr.getProperties! ctx .riscv_li
+    let value := opPtr.getProperties! ctx .riscv_lui
     let res ← op.results[0]?
     let .integerType bw := res.type.val
       | none
