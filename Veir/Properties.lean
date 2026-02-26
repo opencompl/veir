@@ -16,24 +16,6 @@ structure ArithConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-<<<<<<< HEAD
-=======
-/--
-  Properties of the `llvm.constant` operation.
--/
-structure LLVMConstantProperties where
-  value : IntegerAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-/--
-  Properties of the RISC-V immediate operations.
--/
-structure RISCVImmediateProperties where
-  value : IntegerAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-
->>>>>>> 7ab2255 (feat: li op?)
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
   if attrDict.size > 1 then
@@ -134,9 +116,6 @@ def propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith_constant => ArithConstantProperties
 | .llvm_constant => LLVMConstantProperties
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 | .arith_addi => NswNuwProperties
 | .arith_subi => NswNuwProperties
 | .arith_muli => NswNuwProperties
@@ -149,39 +128,6 @@ match opCode with
 | .llvm_sdiv => ExactProperties
 | .riscv_li => RISCVImmediateProperties
 | .riscv_lui => RISCVImmediateProperties
-<<<<<<< HEAD
-=======
-| .riscv_li => RISCVImmediateProperties
->>>>>>> 7ab2255 (feat: li op?)
-=======
-| .riscv_lui => RISCVImmediateProperties
->>>>>>> 3011204 (chore: names)
-=======
-| .riscv_li => RISCVImmediateProperties
->>>>>>> 17bb25a (chore: li semantics)
-=======
-| .riscv_auipc => RISCVImmediateProperties
-| .riscv_addi => RISCVImmediateProperties
-| .riscv_slti => RISCVImmediateProperties
-| .riscv_sltiu => RISCVImmediateProperties
-| .riscv_andi => RISCVImmediateProperties
-| .riscv_ori => RISCVImmediateProperties
-| .riscv_xori => RISCVImmediateProperties
-| .riscv_addiw => RISCVImmediateProperties
-| .riscv_slli => RISCVImmediateProperties
-| .riscv_srli => RISCVImmediateProperties
-| .riscv_srai => RISCVImmediateProperties
-| .riscv_slliw => RISCVImmediateProperties
-| .riscv_srliw => RISCVImmediateProperties
-| .riscv_sraiw => RISCVImmediateProperties
-| .riscv_slliuw => RISCVImmediateProperties
-| .riscv_roriw => RISCVImmediateProperties
-| .riscv_rori => RISCVImmediateProperties
-| .riscv_bclri => RISCVImmediateProperties
-| .riscv_bexti => RISCVImmediateProperties
-| .riscv_binvi => RISCVImmediateProperties
-| .riscv_bseti => RISCVImmediateProperties
->>>>>>> c78a7b5 (chore: immediates)
 | _ => Unit
 
 instance : HasOpInfo OpCode where
