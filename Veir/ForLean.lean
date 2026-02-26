@@ -255,6 +255,16 @@ end Array
 namespace BitVec
 
 @[grind =]
+theorem saddOverflow_comm {w : Nat} (x y : BitVec w) :
+    x.saddOverflow y = y.saddOverflow x := by
+  grind [BitVec.saddOverflow]
+
+@[grind =]
+theorem uaddOverflow_comm {w : Nat} (x y : BitVec w) :
+    x.uaddOverflow y = y.uaddOverflow x := by
+  grind [BitVec.uaddOverflow]
+
+@[grind =]
 theorem smulOverflow_comm {w : Nat} (x y : BitVec w) :
     x.smulOverflow y = y.smulOverflow x := by
   grind [BitVec.smulOverflow]

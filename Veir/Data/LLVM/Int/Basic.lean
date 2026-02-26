@@ -23,11 +23,30 @@ instance {w : Nat} : ToString (Int w) where
     | .val v => toString v
     | .poison => "poison"
 
-def add {w : Nat} : (x y : Int w) → Int w
-| .val x, .val y => .val (x + y)
-| _, _ => .poison
+/--
+The ‘add’ instruction returns the sum of its two operands.
 
-instance {w : Nat} : Add (Int w) := ⟨add⟩
+If the sum has unsigned overflow, the result returned is the mathematical result
+modulo 2^n, where n is the bit width of the result.
+
+Because LLVM integers use a two’s complement representation, this instruction is
+appropriate for both signed and unsigned integers.
+
+`nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively.
+If the `nuw` and/or `nsw` arguments are true, the result value of the add is a
+poison value if unsigned and/or signed overflow, respectively, occurs.
+-/
+def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  if nsw ∧ BitVec.saddOverflow x' y' then
+    return poison
+
+  if nuw ∧ BitVec.uaddOverflow x' y' then
+    return poison
+
+  val (x' + y')
 
 /--
 The ‘mul’ instruction returns the product of its two operands.
@@ -56,8 +75,6 @@ def mul {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
     return poison
 
   val (x' * y')
-
-instance {w : Nat} : Mul (Int w) := ⟨mul⟩
 
 def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   match x with

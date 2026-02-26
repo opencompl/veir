@@ -92,7 +92,24 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     let #[.int bw lhs, .int bw' rhs] := operands | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (lhs + rhs)], .continue)
+    return (#[.int bw (LLVM.Int.add lhs rhs)], .continue)
+  | .llvm_constant => do
+    let value := opPtr.getProperties! ctx .llvm_constant
+    let res ← op.results[0]?
+    let .integerType bw := res.type.val
+      | none
+    return (#[.int bw.bitwidth
+      (.val (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
+  | .llvm_add => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.add lhs rhs)], .continue)
+  | .llvm_mul => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.mul lhs rhs)], .continue)
   | .func_return => do
     return (#[], .return operands)
   | _ => none
