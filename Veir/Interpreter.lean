@@ -23,7 +23,7 @@ open Veir.Data
 namespace Veir
 
 /--
-  The representation of a vaule in the interpreter.
+  The representation of a value in the interpreter.
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
