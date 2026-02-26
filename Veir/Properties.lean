@@ -16,6 +16,24 @@ structure ArithConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+<<<<<<< HEAD
+=======
+/--
+  Properties of the `llvm.constant` operation.
+-/
+structure LLVMConstantProperties where
+  value : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+/--
+  Properties of the RISC-V immediate operations.
+-/
+structure RISCVImmediateProperties where
+  value : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+
+>>>>>>> 7ab2255 (feat: li op?)
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
   if attrDict.size > 1 then
@@ -80,6 +98,16 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     | throw s!"llvm.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
+def RISCVImmediateProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String RISCVImmediateProperties := do
+  if attrDict.size > 1 then
+    throw s!"RISC-V immediate operation: expected only 'value' property, but got {attrDict.size} properties"
+  let some attr := attrDict["value".toUTF8]?
+    | throw "RISC-V immediate operation: missing 'value' property"
+  let .integerAttr intAttr := attr
+    | throw s!"RISC-V immediate operation: expected 'value' to be an integer attribute, but got {attr}"
+  return { value := intAttr }
+
 /--
   Properties of the RISC-V immediate operations.
 -/
@@ -106,6 +134,7 @@ def propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith_constant => ArithConstantProperties
 | .llvm_constant => LLVMConstantProperties
+<<<<<<< HEAD
 | .arith_addi => NswNuwProperties
 | .arith_subi => NswNuwProperties
 | .arith_muli => NswNuwProperties
@@ -118,6 +147,9 @@ match opCode with
 | .llvm_sdiv => ExactProperties
 | .riscv_li => RISCVImmediateProperties
 | .riscv_lui => RISCVImmediateProperties
+=======
+| .riscv_li => RISCVImmediateProperties
+>>>>>>> 7ab2255 (feat: li op?)
 | _ => Unit
 
 instance : HasOpInfo OpCode where
