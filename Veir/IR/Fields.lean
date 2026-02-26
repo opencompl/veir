@@ -652,6 +652,11 @@ theorem OperationPtr.setProperties_fieldsInBounds :
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
+theorem OperationPtr.setAttributes_fieldsInBounds {op : OperationPtr} {opIn : op.InBounds ctx} :
+    ctx.FieldsInBounds → (op.setAttributes ctx newAttrs opIn).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
 theorem OperationPtr.setOperands_push_fieldsInBounds  (newOperand : OpOperand) (hoperand : newOperand.FieldsInBounds ctx) :
     ctx.FieldsInBounds → (pushOperand op ctx newOperand h).FieldsInBounds := by
   prove_fieldsInBounds

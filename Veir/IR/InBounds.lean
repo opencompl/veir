@@ -175,6 +175,11 @@ theorem OperationPtr.setProperties_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setProperties op ctx newProperties h propEq) ↔ ptr.InBounds ctx := by
   grind
 
+@[grind =]
+theorem OperationPtr.setAttributes_genericPtr_mono (ptr : GenericPtr) :
+    ptr.InBounds (op.setAttributes ctx newAttrs h) ↔ ptr.InBounds ctx := by
+  grind
+
 @[grind .]
 theorem OpResultPtr.allocEmpty_no_results {opResult : OpResultPtr}
     (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
