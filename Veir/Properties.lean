@@ -71,6 +71,28 @@ match opCode with
 | .arith_constant => ArithConstantProperties
 | .llvm_constant => LLVMConstantProperties
 | .riscv_li => RISCVImmediateProperties
+| .riscv_lui => RISCVImmediateProperties
+| .riscv_auipc => RISCVImmediateProperties
+| .riscv_addi => RISCVImmediateProperties
+| .riscv_slti => RISCVImmediateProperties
+| .riscv_sltiu => RISCVImmediateProperties
+| .riscv_andi => RISCVImmediateProperties
+| .riscv_ori => RISCVImmediateProperties
+| .riscv_xori => RISCVImmediateProperties
+| .riscv_addiw => RISCVImmediateProperties
+| .riscv_slli => RISCVImmediateProperties
+| .riscv_srli => RISCVImmediateProperties
+| .riscv_srai => RISCVImmediateProperties
+| .riscv_slliw => RISCVImmediateProperties
+| .riscv_srliw => RISCVImmediateProperties
+| .riscv_sraiw => RISCVImmediateProperties
+| .riscv_slliuw => RISCVImmediateProperties
+| .riscv_roriw => RISCVImmediateProperties
+| .riscv_rori => RISCVImmediateProperties
+| .riscv_bclri => RISCVImmediateProperties
+| .riscv_bexti => RISCVImmediateProperties
+| .riscv_binvi => RISCVImmediateProperties
+| .riscv_bseti => RISCVImmediateProperties
 | _ => Unit
 
 instance : HasOpInfo OpCode where
@@ -101,6 +123,28 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case arith_constant => exact (ArithConstantProperties.fromAttrDict attrDict)
   case llvm_constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
   case riscv_li => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_lui => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_auipc => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_addi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_slti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_sltiu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_andi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_ori => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_xori => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_addiw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_slli => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_srli => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_srai => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_slliw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_srliw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_sraiw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_slliuw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_roriw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_rori => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_bclri => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_bexti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_binvi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   all_goals exact (Except.ok ())
 
 /--
@@ -114,6 +158,50 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .llvm_constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .riscv_li =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_lui =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_auipc =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_slti =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_addi =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_sltiu =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_andi =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_ori =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_xori =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_addiw =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_slli =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_srli =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_srai =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_slliw =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_srliw =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_sraiw =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_slliuw =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_roriw =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_rori =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_bclri =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_bexti =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_binvi =>
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_bseti =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | _ =>
     Std.HashMap.emptyWithCapacity 0

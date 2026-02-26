@@ -123,10 +123,7 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
       | none
     return (#[.int 64
       (.val (BitVec.ofNat 64 value.value.value.toNat))], .continue)
-  | .riscv_lui => do
-
-
-    sorry
+  | .riscv_lui => do sorry
   | .riscv_auipc => sorry
   | .riscv_addi => sorry
   | .riscv_slti => sorry
