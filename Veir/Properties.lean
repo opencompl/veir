@@ -135,6 +135,7 @@ match opCode with
 | .arith_constant => ArithConstantProperties
 | .llvm_constant => LLVMConstantProperties
 <<<<<<< HEAD
+<<<<<<< HEAD
 | .arith_addi => NswNuwProperties
 | .arith_subi => NswNuwProperties
 | .arith_muli => NswNuwProperties
@@ -150,6 +151,9 @@ match opCode with
 =======
 | .riscv_li => RISCVImmediateProperties
 >>>>>>> 7ab2255 (feat: li op?)
+=======
+| .riscv_lui => RISCVImmediateProperties
+>>>>>>> 3011204 (chore: names)
 | _ => Unit
 
 instance : HasOpInfo OpCode where
@@ -203,6 +207,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .llvm_constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+<<<<<<< HEAD
   | .arith_addi | .arith_subi | .arith_muli | .llvm_add | .llvm_sub | .llvm_mul => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.nsw then
@@ -217,6 +222,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | .riscv_li =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+=======
+>>>>>>> 3011204 (chore: names)
   | .riscv_lui =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | _ =>
