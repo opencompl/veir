@@ -385,18 +385,15 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
     throw s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
   let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
 
-  /- Set context in monad to default to preserve linearity whilst modifying -/
+  let op ← modifyContextM' fun ctx => do
+    match hctx' : Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry) with
+    | none => throw "internal error: failed to create operation"
+    | some (ctx', op) =>
+      let ctx'' := op.setAttributes ctx' attrs (by sorry)
+      /- Update the parser context. -/
+      pure ⟨op, ctx''⟩
+
   let ctx ← getContext
-  setContext Inhabited.default
-
-  let some (ctx, op) := Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) (by sorry)
-      | throw "internal error: failed to create operation"
-  let ctx := op.setAttributes! ctx attrs
-
-  /- Update the parser context. -/
-  setContext ctx
-
-  /- Register the new operation results in the parser state. -/
   for index in 0...(op.getNumResults! ctx) do
     let resultValue := op.getResult index
     registerValueDef results[index]! resultValue
