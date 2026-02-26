@@ -149,6 +149,7 @@ match opCode with
 | .llvm_sdiv => ExactProperties
 | .riscv_li => RISCVImmediateProperties
 | .riscv_lui => RISCVImmediateProperties
+<<<<<<< HEAD
 =======
 | .riscv_li => RISCVImmediateProperties
 >>>>>>> 7ab2255 (feat: li op?)
@@ -158,6 +159,29 @@ match opCode with
 =======
 | .riscv_li => RISCVImmediateProperties
 >>>>>>> 17bb25a (chore: li semantics)
+=======
+| .riscv_auipc => RISCVImmediateProperties
+| .riscv_addi => RISCVImmediateProperties
+| .riscv_slti => RISCVImmediateProperties
+| .riscv_sltiu => RISCVImmediateProperties
+| .riscv_andi => RISCVImmediateProperties
+| .riscv_ori => RISCVImmediateProperties
+| .riscv_xori => RISCVImmediateProperties
+| .riscv_addiw => RISCVImmediateProperties
+| .riscv_slli => RISCVImmediateProperties
+| .riscv_srli => RISCVImmediateProperties
+| .riscv_srai => RISCVImmediateProperties
+| .riscv_slliw => RISCVImmediateProperties
+| .riscv_srliw => RISCVImmediateProperties
+| .riscv_sraiw => RISCVImmediateProperties
+| .riscv_slliuw => RISCVImmediateProperties
+| .riscv_roriw => RISCVImmediateProperties
+| .riscv_rori => RISCVImmediateProperties
+| .riscv_bclri => RISCVImmediateProperties
+| .riscv_bexti => RISCVImmediateProperties
+| .riscv_binvi => RISCVImmediateProperties
+| .riscv_bseti => RISCVImmediateProperties
+>>>>>>> c78a7b5 (chore: immediates)
 | _ => Unit
 
 instance : HasOpInfo OpCode where
@@ -211,8 +235,6 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .llvm_constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
-<<<<<<< HEAD
-<<<<<<< HEAD
   | .arith_addi | .arith_subi | .arith_muli | .llvm_add | .llvm_sub | .llvm_mul => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.nsw then
@@ -227,12 +249,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | .riscv_li =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
-=======
->>>>>>> 3011204 (chore: names)
   | .riscv_lui =>
-=======
-  | .riscv_li =>
->>>>>>> 17bb25a (chore: li semantics)
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | _ =>
     Std.HashMap.emptyWithCapacity 0
