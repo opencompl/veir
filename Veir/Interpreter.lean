@@ -115,13 +115,18 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
   /- the bitblastable semantics of RISC-V assembly instructions are proven
     equivalent to the official Sail model
     https://github.com/opencompl/riscv-lean/blob/main/RISCV/Instructions.lean -/
-  | .riscv_lui =>
-    let value := opPtr.getProperties! ctx .riscv_lui
+  | .riscv_li => do
+    let value := opPtr.getProperties! ctx .riscv_li
     let res ← op.results[0]?
+    let bw : IntegerType := {bitwidth := 64}
     let .integerType bw := res.type.val
       | none
-    return (#[.int bw.bitwidth
-      (.val (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
+    return (#[.int 64
+      (.val (BitVec.ofNat 64 value.value.value.toNat))], .continue)
+  | .riscv_lui => do
+
+
+    sorry
   | .riscv_auipc => sorry
   | .riscv_addi => sorry
   | .riscv_slti => sorry
