@@ -23,6 +23,14 @@ structure LLVMConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+/--
+  Properties of the RISC-V immediate operations.
+-/
+structure RISCVImmediateProperties where
+  value : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
   if attrDict.size > 1 then
@@ -43,6 +51,16 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     | throw s!"llvm.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
+def RISCVImmediateProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String RISCVImmediateProperties := do
+  if attrDict.size > 1 then
+    throw s!"RISC-V immediate operation: expected only 'value' property, but got {attrDict.size} properties"
+  let some attr := attrDict["value".toUTF8]?
+    | throw "RISC-V immediate operation: missing 'value' property"
+  let .integerAttr intAttr := attr
+    | throw s!"RISC-V immediate operation: expected 'value' to be an integer attribute, but got {attr}"
+  return { value := intAttr }
+
 /--
   A type family that maps an operation code to the type of its properties.
   For operations that do not have any properties, the type is `Unit`.
@@ -52,6 +70,7 @@ def propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith_constant => ArithConstantProperties
 | .llvm_constant => LLVMConstantProperties
+| .riscv_li => RISCVImmediateProperties
 | _ => Unit
 
 instance : HasOpInfo OpCode where
@@ -81,6 +100,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   cases opCode
   case arith_constant => exact (ArithConstantProperties.fromAttrDict attrDict)
   case llvm_constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
+  case riscv_li => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   all_goals exact (Except.ok ())
 
 /--

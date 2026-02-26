@@ -112,6 +112,97 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     return (#[.int bw (LLVM.Int.mul lhs rhs)], .continue)
   | .func_return => do
     return (#[], .return operands)
+  /- the bitblastable semantics of RISC-V assembly instructions are proven
+    equivalent to the official Sail model
+    https://github.com/opencompl/riscv-lean/blob/main/RISCV/Instructions.lean -/
+  | .riscv_lui =>
+    let value := opPtr.getProperties! ctx .riscv_li
+    let res ← op.results[0]?
+    let .integerType bw := res.type.val
+      | none
+    return (#[.int bw.bitwidth
+      (.val (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
+  | .riscv_auipc => sorry
+  | .riscv_addi => sorry
+  | .riscv_slti => sorry
+  | .riscv_sltiu => sorry
+  | .riscv_andi => sorry
+  | .riscv_ori => sorry
+  | .riscv_xori => sorry
+  | .riscv_addiw => sorry
+  | .riscv_slli => sorry
+  | .riscv_srli => sorry
+  | .riscv_srai => sorry
+  | .riscv_add => sorry
+  | .riscv_sub => sorry
+  | .riscv_sll => sorry
+  | .riscv_slt => sorry
+  | .riscv_sltu => sorry
+  | .riscv_xor => sorry
+  | .riscv_srl => sorry
+  | .riscv_sra => sorry
+  | .riscv_or => sorry
+  | .riscv_and => sorry
+  | .riscv_slliw => sorry
+  | .riscv_srliw => sorry
+  | .riscv_sraiw => sorry
+  | .riscv_addw => sorry
+  | .riscv_subw => sorry
+  | .riscv_sllw => sorry
+  | .riscv_srlw => sorry
+  | .riscv_sraw => sorry
+  | .riscv_rem => sorry
+  | .riscv_remu => sorry
+  | .riscv_remw => sorry
+  | .riscv_remuw => sorry
+  | .riscv_mul => sorry
+  | .riscv_mulh => sorry
+  | .riscv_mulhu => sorry
+  | .riscv_mulhsu => sorry
+  | .riscv_mulw => sorry
+  | .riscv_div => sorry
+  | .riscv_divw => sorry
+  | .riscv_divu => sorry
+  | .riscv_divuw => sorry
+  | .riscv_adduw => sorry
+  | .riscv_sh1adduw => sorry
+  | .riscv_sh2adduw => sorry
+  | .riscv_sh3adduw => sorry
+  | .riscv_sh1add => sorry
+  | .riscv_sh2add => sorry
+  | .riscv_sh3add => sorry
+  | .riscv_slliuw => sorry
+  | .riscv_andn => sorry
+  | .riscv_orn => sorry
+  | .riscv_xnor => sorry
+  | .riscv_max => sorry
+  | .riscv_maxu => sorry
+  | .riscv_min => sorry
+  | .riscv_minu => sorry
+  | .riscv_rol => sorry
+  | .riscv_ror => sorry
+  | .riscv_rolw => sorry
+  | .riscv_rorw => sorry
+  | .riscv_sextb => sorry
+  | .riscv_sexth => sorry
+  | .riscv_zexth => sorry
+  | .riscv_clz => sorry
+  | .riscv_clzw => sorry
+  | .riscv_ctz => sorry
+  | .riscv_ctzw => sorry
+  | .riscv_roriw => sorry
+  | .riscv_rori => sorry
+  | .riscv_bclr => sorry
+  | .riscv_bext => sorry
+  | .riscv_binv => sorry
+  | .riscv_bset => sorry
+  | .riscv_bclri => sorry
+  | .riscv_bexti => sorry
+  | .riscv_binvi => sorry
+  | .riscv_bseti => sorry
+  | .riscv_pack => sorry
+  | .riscv_packh => sorry
+  | .riscv_packw => sorry
   | _ => none
 
 /--
