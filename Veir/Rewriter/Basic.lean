@@ -230,6 +230,20 @@ def Rewriter.insertBlock? (ctx: IRContext OpInfo) (newBlock: BlockPtr)
     let next := insertionPoint.next
     newBlock.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
 
+@[grind .]
+theorem Rewriter.insertBlock?_inBounds (ptr : GenericPtr)
+    (heq : insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx) :
+    ptr.InBounds ctx ↔ ptr.InBounds newCtx := by
+  simp only [insertBlock?] at heq
+  grind
+
+@[grind .]
+theorem Rewriter.insertBlock?_fieldsInBounds_mono
+    (heq : insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx) :
+    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
+  simp only [insertBlock?] at heq
+  grind
+
 def Rewriter.replaceUse (ctx: IRContext OpInfo) (use : OpOperandPtr) (newValue: ValuePtr)
     (useIn: use.InBounds ctx := by grind)
     (newIn: newValue.InBounds ctx := by grind)
@@ -379,6 +393,29 @@ def Rewriter.createBlock (ctx: IRContext OpInfo) (insertionPoint: Option BlockIn
     (ctx, newBlockPtr)
   | none =>
     (ctx, newBlockPtr)
+
+@[grind .]
+theorem Rewriter.createBlock_inBounds_mono (ptr : GenericPtr) (heq : createBlock ctx ip hctx hip = some ⟨newCtx, newPtr⟩) :
+    ptr.InBounds ctx → ptr.InBounds newCtx := by
+  simp only [createBlock] at heq
+  split at heq
+  · grind
+  · split at heq
+    · simp [Option.bind] at heq
+      split at heq <;> grind
+    · grind
+
+@[grind .]
+theorem Rewriter.createBlock_fieldsInBounds_mono
+    (heq : createBlock ctx ip hctx hip = some ⟨newCtx, newPtr⟩) :
+    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
+  simp only [createBlock] at heq
+  split at heq
+  · grind
+  · split at heq
+    · simp [Option.bind] at heq
+      split at heq <;> grind
+    · grind
 
 @[irreducible, grind]
 def Rewriter.createRegion (ctx: IRContext OpInfo) : Option (IRContext OpInfo × RegionPtr) :=
@@ -707,6 +744,20 @@ theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
     ptr.InBounds ctx → ptr.InBounds newCtx := by
   simp only [createOp] at heq
   grind (gen := 10)
+
+@[grind .]
+theorem Rewriter.createOp_new_inBounds (ptr : OperationPtr)
+    (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, ptr)) :
+    ptr.InBounds newCtx := by
+  simp only [createOp] at heq
+  grind
+
+@[grind .]
+theorem Rewriter.createOp_new_not_inBounds (ptr : OperationPtr)
+    (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, ptr)) :
+    ¬ ptr.InBounds ctx := by
+  simp only [createOp] at heq
+  grind
 
 @[grind .]
 theorem Rewriter.createOp_fieldsInBounds

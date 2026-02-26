@@ -721,21 +721,6 @@ unseal Rewriter.insertBlock?
 
 attribute [local grind] Rewriter.insertBlock?
 
-
-@[grind .]
-theorem Rewriter.insertBlock?_inBounds_mono (ptr : GenericPtr)
-    (heq : insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx) :
-    ptr.InBounds ctx ↔ ptr.InBounds newCtx := by
-  simp only [insertBlock?] at heq
-  grind
-
-@[grind .]
-theorem Rewriter.insertBlock?_fieldsInBounds_mono
-    (heq : insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx) :
-    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
-  simp only [insertBlock?] at heq
-  grind
-
 @[simp]
 theorem BlockPtr.firstUse!_insertBlock? {block : BlockPtr} :
     Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx →
