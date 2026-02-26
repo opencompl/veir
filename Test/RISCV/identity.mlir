@@ -2,10 +2,10 @@
 
 "builtin.module"() ({
   ^bb0():
-    %0 = "riscv.li"() : () -> i64
-    %1 = "riscv.li"() : () -> i64
+    %0 = "riscv.li"() <{ "value" = 13 : i64 }>  : () -> i64
+    %1 = "riscv.li"() <{ "value" = 17 : i64 }> : () -> i64
     // Immediate load 
-    %2 = "riscv.lui"(%0) : (i64) -> i64
+    %2 = "riscv.lui"(%0) <{"value" = 13 : i20}> : (i64) -> i64
     %3 = "riscv.auipc"(%0) : (i64) -> i64
     // Immediate operations 
     %4 = "riscv.addi"(%0) : (i64) -> i64
