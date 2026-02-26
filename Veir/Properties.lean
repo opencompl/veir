@@ -16,13 +16,6 @@ structure ArithConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-/--
-  Properties of the `llvm.constant` operation.
--/
-structure LLVMConstantProperties where
-  value : IntegerAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
   if attrDict.size > 1 then
@@ -32,6 +25,34 @@ def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
   let .integerAttr intAttr := attr
     | throw s!"arith.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
+
+/--
+  Properties of operations that can have `nsw` and `nuw` flags, such as `arith.addi`, `arith.muli`,
+  `llvm.add`, or `llvm.mul`.
+-/
+structure NswNuwProperties where
+  nsw : Bool
+  nuw : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def NswNuwProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String NswNuwProperties := do
+  let nsw ← match attrDict["nsw".toUTF8]? with
+    | some (.unitAttr _) => .ok true
+    | some attr => .error s!"expected 'nsw' to be an optional unit attribute, but got {attr}"
+    | none => .ok false
+  let nuw ← match attrDict["nuw".toUTF8]? with
+    | some (.unitAttr _) => .ok true
+    | some attr => .error s!"expected 'nuw' to be an optional unit attribute, but got {attr}"
+    | none => .ok false
+  return { nsw := nsw, nuw := nuw }
+
+/--
+  Properties of the `llvm.constant` operation.
+-/
+structure LLVMConstantProperties where
+  value : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String LLVMConstantProperties := do
@@ -52,6 +73,10 @@ def propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith_constant => ArithConstantProperties
 | .llvm_constant => LLVMConstantProperties
+| .arith_addi => NswNuwProperties
+| .arith_muli => NswNuwProperties
+| .llvm_add => NswNuwProperties
+| .llvm_mul => NswNuwProperties
 | _ => Unit
 
 instance : HasOpInfo OpCode where
@@ -80,7 +105,11 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     Except String (propertiesOf opCode) := by
   cases opCode
   case arith_constant => exact (ArithConstantProperties.fromAttrDict attrDict)
+  case arith_addi => exact (NswNuwProperties.fromAttrDict attrDict)
+  case arith_muli => exact (NswNuwProperties.fromAttrDict attrDict)
   case llvm_constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
+  case llvm_add => exact (NswNuwProperties.fromAttrDict attrDict)
+  case llvm_mul => exact (NswNuwProperties.fromAttrDict attrDict)
   all_goals exact (Except.ok ())
 
 /--
@@ -93,6 +122,13 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .llvm_constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .arith_addi | .arith_muli | .llvm_add | .llvm_mul => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    if props.nsw then
+      dict := dict.insert "nsw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    if props.nuw then
+      dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
   | _ =>
     Std.HashMap.emptyWithCapacity 0
 

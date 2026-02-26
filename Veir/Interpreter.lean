@@ -89,10 +89,11 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     return (#[.int bw.bitwidth
       (.val (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
   | .arith_addi => do
+    let flags := opPtr.getProperties! ctx .arith_addi
     let #[.int bw lhs, .int bw' rhs] := operands | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.add lhs rhs)], .continue)
+    return (#[.int bw (LLVM.Int.add lhs rhs flags.nsw flags.nuw)], .continue)
   | .llvm_constant => do
     let value := opPtr.getProperties! ctx .llvm_constant
     let res ← op.results[0]?
@@ -101,15 +102,17 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     return (#[.int bw.bitwidth
       (.val (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
   | .llvm_add => do
+    let flags := opPtr.getProperties! ctx .llvm_add
     let #[.int bw lhs, .int bw' rhs] := operands | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.add lhs rhs)], .continue)
+    return (#[.int bw (LLVM.Int.add lhs rhs flags.nsw flags.nuw)], .continue)
   | .llvm_mul => do
+    let flags := opPtr.getProperties! ctx .llvm_mul
     let #[.int bw lhs, .int bw' rhs] := operands | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.mul lhs rhs)], .continue)
+    return (#[.int bw (LLVM.Int.mul lhs rhs flags.nsw flags.nuw)], .continue)
   | .func_return => do
     return (#[], .return operands)
   | _ => none
