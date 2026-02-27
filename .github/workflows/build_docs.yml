@@ -20,4 +20,4 @@ jobs:
       - name: Build the project
         uses: leanprover/lean-action@v1
         with:
-          build-args: "--iofail Veir:docs"
+          build-args: "Veir:docs"
