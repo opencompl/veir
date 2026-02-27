@@ -80,6 +80,13 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     | throw s!"llvm.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
+/--
+  Properties of the RISC-V immediate operations.
+-/
+structure RISCVImmediateProperties where
+  value : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
 def RISCVImmediateProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String RISCVImmediateProperties := do
   if attrDict.size > 1 then
