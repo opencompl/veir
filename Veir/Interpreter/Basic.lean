@@ -28,11 +28,7 @@ namespace Veir
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
-<<<<<<< HEAD:Veir/Interpreter/Basic.lean
 | reg (value : RISCV.Reg)
-=======
-| reg (value : RISCV.reg)
->>>>>>> 389c7c9 (chore: use regs):Veir/Interpreter.lean
 deriving Inhabited
 
 instance : ToString (RuntimeValue) where
