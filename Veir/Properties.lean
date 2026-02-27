@@ -16,13 +16,6 @@ structure ArithConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-/--
-  Properties of the RISC-V immediate operations.
--/
-structure RISCVImmediateProperties where
-  value : IntegerAttr
-deriving Inhabited, Repr, Hashable, DecidableEq
-
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
   if attrDict.size > 1 then
@@ -70,6 +63,13 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
   let .integerAttr intAttr := attr
     | throw s!"llvm.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
+
+/--
+  Properties of the RISC-V immediate operations.
+-/
+structure RISCVImmediateProperties where
+  value : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 def RISCVImmediateProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String RISCVImmediateProperties := do
