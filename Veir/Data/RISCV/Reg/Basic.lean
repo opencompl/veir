@@ -19,7 +19,7 @@ abbrev Reg := BitVec 64
 /-!
   The semantics are proven equivalent to the authoritative Sail model,
   and are taken from https://github.com/opencompl/riscv-lean.
-  We should always remain consistend with those semantics.
+  We should always remain consistent with those semantics.
 -/
 
 /-! # RV64I Base Integer Instruction Set -/
