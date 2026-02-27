@@ -13,8 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+
+      - name: "Change directory"
+        run:  cd docgen
+
       - name: Build the project
         uses: leanprover/lean-action@v1
         with:
-          working-directory: "docgen"
           build-args: "--iofail Veir:docs"
