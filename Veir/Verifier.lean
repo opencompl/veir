@@ -540,7 +540,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 successors"
     pure ()
   | .riscv_lui => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx opIn ≠ 0 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
       throw "Expected 1 result"
