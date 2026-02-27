@@ -19,7 +19,6 @@ abbrev reg := BitVec 64
 def li (imm : BitVec 64) : reg :=
   imm
 
-
 /--
   Build 32-bit constants and uses the U-type format. LUI places the U-immediate value in the top 20
   bits of the destination register rd, filling in the lowest 12 bits with zeros.
