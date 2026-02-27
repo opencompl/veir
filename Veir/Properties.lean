@@ -30,7 +30,6 @@ structure RISCVImmediateProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithConstantProperties := do
   if attrDict.size > 1 then
