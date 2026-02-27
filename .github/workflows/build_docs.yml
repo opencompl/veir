@@ -16,7 +16,7 @@ jobs:
       - name: Build the project
         uses: leanprover/lean-action@v1
         with:
-          lake-package-directory: "docgen"
+          lake-package-directory: "docbuild"
           build-args: "Veir:docs"
 
       - name: Upload static files as artifact
