@@ -28,7 +28,7 @@ namespace Veir
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
-| reg (value : RISCV.reg)
+| reg (value : RISCV.Reg)
 deriving Inhabited
 
 instance : ToString (RuntimeValue) where

@@ -8,7 +8,7 @@ public section
 The `reg` type is a wrapper around a `reg` representing the content of a register.
 
 -/
-abbrev reg := BitVec 64
+abbrev Reg := BitVec 64
 
 /-!
   The semantics are proven equivalent to the authoritative Sail model,
@@ -21,12 +21,12 @@ abbrev reg := BitVec 64
 /--
   Load a 64-wide immediate into the destination register rd
 -/
-def li (imm : BitVec 64) : reg :=
+def li (imm : BitVec 64) : Reg :=
   imm
 
 /--
   Build 32-bit constants and uses the U-type format. LUI places the U-immediate value in the top 20
   bits of the destination register rd, filling in the lowest 12 bits with zeros.
 -/
-def lui (imm : BitVec 20) : reg :=
+def lui (imm : BitVec 20) : Reg :=
   BitVec.signExtend 64 (imm ++ (0x0 : BitVec 12))
