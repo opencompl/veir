@@ -17,9 +17,9 @@ structure ArithConstantProperties where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 /--
-  Properties of the `llvm.constant` operation.
+  Properties of the RISC-V immediate operations.
 -/
-structure LLVMConstantProperties where
+structure RISCVImmediateProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -55,9 +55,9 @@ def NswNuwProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   return { nsw := nsw, nuw := nuw }
 
 /--
-  Properties of the RISC-V immediate operations.
+  Properties of the `llvm.constant` operation.
 -/
-structure RISCVImmediateProperties where
+structure LLVMConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
