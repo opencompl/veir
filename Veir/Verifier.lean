@@ -541,7 +541,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     pure ()
   | .riscv_lui => do
     if op.getNumOperands ctx opIn ≠ 0 then
-      throw "Expected 1 operand"
+      throw "Expected 0 operands"
     if op.getNumResults ctx opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx opIn ≠ 0 then
