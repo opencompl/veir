@@ -124,7 +124,7 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     let value := opPtr.getProperties! ctx .riscv_li
     let res ← op.results[0]?
     let imm := BitVec.ofNat 64 value.value.value.toNat
-    return (#[.reg imm], .continue)
+    return (#[.reg (RISCV.li imm)], .continue)
   | .riscv_lui => do
     let value := opPtr.getProperties! ctx .riscv_lui
     let imm := BitVec.ofNat 20 value.value.value.toNat
