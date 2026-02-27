@@ -125,7 +125,7 @@ def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Option
   -- Get the lhs value
   let lhsValuePtr := op.getOperand rewriter.ctx 0 (by sorry) (by sorry)
 
-  let (rewriter, newOp) ← rewriter.createOp .arith_addi #[IntegerType.mk 32] #[lhsValuePtr, lhsValuePtr] #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp .arith_addi #[IntegerType.mk 32] #[lhsValuePtr, lhsValuePtr] #[] #[] (NswNuwProperties.mk false false) (some $ .before op) sorry sorry sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse rewriter.ctx (by sorry)).isNone then
@@ -220,7 +220,7 @@ def mulITwoReduce (ctx: IRContext OpCode) (op: OperationPtr) : Option (IRContext
   -- Get the lhs value
   let lhsValuePtr := op.getOperand ctx 0 (by sorry) (by sorry)
 
-  let (ctx, newOp) ← Rewriter.createOp ctx .arith_addi #[IntegerType.mk 32] #[lhsValuePtr, lhsValuePtr] #[] #[] () (some $ .before op) sorry sorry sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx .arith_addi #[IntegerType.mk 32] #[lhsValuePtr, lhsValuePtr] #[] #[] (NswNuwProperties.mk false false) (some $ .before op) sorry sorry sorry sorry sorry
   let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse ctx (by sorry)).isNone then
@@ -297,13 +297,13 @@ def constFoldTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (
   (ctx, topOp)
 
 def addZeroTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) :=
-  constFoldTree .arith_addi () size pc 42 0
+  constFoldTree .arith_addi (NswNuwProperties.mk false false) size pc 42 0
 
 def addOneTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) :=
-  constFoldTree .arith_addi () size pc 42 1
+  constFoldTree .arith_addi (NswNuwProperties.mk false false) size pc 42 1
 
 def mulTwoTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) :=
-  constFoldTree .arith_muli () size pc 42 2
+  constFoldTree .arith_muli (NswNuwProperties.mk false false) size pc 42 2
 
 
 -- Create a program that looks like:
@@ -336,7 +336,7 @@ def constReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) 
   (ctx, topOp)
 
 def addZeroReuseTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) :=
-  constReuseTree .arith_addi () size pc 42 0
+  constReuseTree .arith_addi (NswNuwProperties.mk false false) size pc 42 0
 
 -- Create a program that looks like:
 -- func @main() -> u64 {
@@ -373,7 +373,7 @@ def constLotsOfReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc:
   (ctx, topOp)
 
 def addZeroLotsOfReuseTree (size pc: Nat) : Option (IRContext OpCode × OperationPtr) :=
-  constLotsOfReuseTree .arith_addi () size pc 42 0
+  constLotsOfReuseTree .arith_addi (NswNuwProperties.mk false false) size pc 42 0
 
 end Program
 
