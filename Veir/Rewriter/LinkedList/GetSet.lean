@@ -27,6 +27,7 @@ public section
  - * OpResultPtr.get!
  - * OperationPtr.getNumOperands!
  - * OpOperandPtr.get! optionally replaced by the following special case:
+ - * OperationPtr.getOperands!
  - * OperationPtr.getNumSuccessors!
  - * BlockOperandPtr.get!
  - * OperationPtr.getNumRegions!
@@ -183,6 +184,13 @@ theorem OpOperandPtr.get!_OpOperandPtr_removeFromCurrent {opOperand : OpOperandP
         · grind
         · simp only [get!_OpOperandPtrPtr_set, ite_eq_right_iff]
           grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getOperands! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds) =
+    operation.getOperands! ctx := by
+  simp only [OpOperandPtr.removeFromCurrent]
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
@@ -397,6 +405,13 @@ theorem OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent {opOperand : OpOperandP
         simp only [h, ↓reduceIte]
 
 @[simp, grind =]
+theorem OperationPtr.getOperands!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getOperands! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    operation.getOperands! ctx := by
+  simp only [OpOperandPtr.insertIntoCurrent]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
     operation.getNumSuccessors! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
     operation.getNumSuccessors! ctx := by
@@ -574,6 +589,13 @@ theorem OperationPtr.getNumOperands!_BlockOperandPtr_removeFromCurrent {operatio
 theorem OpOperandPtr.get!_BlockOperandPtr_removeFromCurrent {opOperand : OpOperandPtr} :
     opOperand.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
     opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getOperands! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    operation.getOperands! ctx := by
+  simp only [BlockOperandPtr.removeFromCurrent]
   grind
 
 @[simp, grind =]
@@ -779,6 +801,13 @@ theorem OpOperandPtr.get!_BlockOperandPtr_insertIntoCurrent {opOperand : OpOpera
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getOperands!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getOperands! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    operation.getOperands! ctx := by
+  simp only [BlockOperandPtr.insertIntoCurrent]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
     operation.getNumSuccessors! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
     operation.getNumSuccessors! ctx := by
@@ -978,6 +1007,13 @@ theorem OpOperandPtr.get!_OperationPtr_linkBetween {opOperand : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getOperands!_OperationPtr_linkBetween {operation : OperationPtr} :
+    operation.getOperands! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    operation.getOperands! ctx := by
+  simp only [OperationPtr.linkBetween]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_OperationPtr_linkBetween {operation : OperationPtr} :
     operation.getNumSuccessors! (op'.linkBetween ctx prev next selfIn prevIn nextIn) =
     operation.getNumSuccessors! ctx := by
@@ -1170,6 +1206,16 @@ theorem OpOperandPtr.get!_OperationPtr_setParentWithCheck {operand : OpOperandPt
 
 grind_pattern OpOperandPtr.get!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem OperationPtr.getOperands!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
+    op'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operation.getOperands! newCtx = operation.getOperands! ctx := by
+  simp only [OperationPtr.setParentWithCheck]
+  grind
+
+grind_pattern OperationPtr.getOperands!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getOperands! newCtx
 
 @[simp]
 theorem OperationPtr.getNumSuccessors!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
@@ -1451,6 +1497,16 @@ grind_pattern OpOperandPtr.get!_OperationPtr_linkBetweenWithParent =>
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.get! newCtx
 
 @[simp]
+theorem OperationPtr.getOperands!_OperationPtr_linkBetweenWithParent {operation : OperationPtr} :
+    op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operation.getOperands! newCtx = operation.getOperands! ctx := by
+  simp only [OperationPtr.linkBetweenWithParent]
+  grind
+
+grind_pattern OperationPtr.getOperands!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getOperands! newCtx
+
+@[simp]
 theorem OperationPtr.getNumSuccessors!_OperationPtr_linkBetweenWithParent {operation : OperationPtr} :
     op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
     operation.getNumSuccessors! newCtx = operation.getNumSuccessors! ctx := by
@@ -1650,6 +1706,13 @@ theorem OpOperandPtr.get!_BlockPtr_linkBetween {opOperandPtr : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getOperands!_BlockPtr_linkBetween {operation : OperationPtr} :
+    operation.getOperands! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    operation.getOperands! ctx := by
+  simp only [BlockPtr.linkBetween]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_BlockPtr_linkBetween {operation : OperationPtr} :
     operation.getNumSuccessors! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
     operation.getNumSuccessors! ctx := by
@@ -1830,6 +1893,16 @@ theorem OpOperandPtr.get!_BlockPtr_setParentWithCheck {operand : OpOperandPtr} :
 
 grind_pattern OpOperandPtr.get!_BlockPtr_setParentWithCheck =>
   block'.setParentWithCheck ctx newParent selfIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem OperationPtr.getOperands!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operation.getOperands! newCtx = operation.getOperands! ctx := by
+  simp only [BlockPtr.setParentWithCheck]
+  grind
+
+grind_pattern OperationPtr.getOperands!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getOperands! newCtx
 
 @[simp]
 theorem OperationPtr.getNumSuccessors!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
@@ -2050,6 +2123,16 @@ theorem OpOperandPtr.get!_BlockPtr_linkBetweenWithParent {operand : OpOperandPtr
 
 grind_pattern OpOperandPtr.get!_BlockPtr_linkBetweenWithParent =>
   block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem OperationPtr.getOperands!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operation.getOperands! newCtx = operation.getOperands! ctx := by
+  simp only [BlockPtr.linkBetweenWithParent]
+  grind
+
+grind_pattern OperationPtr.getOperands!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getOperands! newCtx
 
 @[simp]
 theorem OperationPtr.getNumSuccessors!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :

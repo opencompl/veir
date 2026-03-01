@@ -204,6 +204,14 @@ theorem default_results_eq :
 
 end Operation
 
+namespace OpOperand
+
+theorem default_value_eq :
+    (default : OpOperand).value = default := by
+  rfl
+
+end OpOperand
+
 /--
 An MLIR block.
 -/
@@ -352,6 +360,48 @@ theorem getOperand!_eq_getOperand {op : OperationPtr} {index : Nat}
     {hin} (h : index < op.getNumOperands ctx hin) {hin'} :
     op.getOperand! ctx index = op.getOperand ctx index hin' h := by
   grind [getOperand, getOperand!]
+
+def getOperands (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : Array ValuePtr :=
+  (op.get ctx (by grind)).operands.map (·.value)
+
+def getOperands! (op : OperationPtr) (ctx : IRContext OpInfo) : Array ValuePtr :=
+  (op.get! ctx).operands.map (·.value)
+
+@[grind _=_, eq_bang ←]
+theorem getOperands!_eq_getOperands {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getOperands! ctx = op.getOperands ctx (by grind) := by
+  grind [getOperands, getOperands!]
+
+theorem getOperands!.exists_index_of_mem {op : OperationPtr} :
+    value ∈ op.getOperands! ctx →
+    ∃ index, index < op.getNumOperands! ctx ∧ op.getOperand! ctx index = value := by
+  simp only [getOperands!, Array.mem_map, getOperand!, getNumOperands!, forall_exists_index, and_imp]
+  intro operand operandIn operandValue
+  have ⟨i, hi, hoperand⟩ := Array.getElem_of_mem operandIn
+  exists i
+  grind
+
+theorem getOperands!.mem_getOperand {op : OperationPtr} :
+    index < op.getNumOperands! ctx →
+    (op.getOperand! ctx index) ∈ op.getOperands! ctx := by
+  grind [getOperands!, getOperand!, getNumOperands!]
+
+@[simp, grind =]
+theorem getOperands!.size_eq_getNumOperands! {op : OperationPtr} :
+    (op.getOperands! ctx).size = op.getNumOperands! ctx := by
+  grind [getOperands!, getNumOperands!]
+
+@[simp, grind =]
+theorem getOperands!.getElem!_eq_getOperand! {op : OperationPtr} :
+    (op.getOperands! ctx)[index]! = op.getOperand! ctx index := by
+  simp only [getOperands!, getOperand!]
+  simp only [Array.getElem!_eq_getD, Array.getD_eq_getD_getElem?, Array.getElem?_map]
+  grind [OpOperand.default_value_eq]
+
+@[simp, grind =]
+theorem getOperands!.getElem_eq_getOperand! {op : OperationPtr} {h} :
+    (op.getOperands! ctx)[index]'h = op.getOperand! ctx index := by
+  grind [getOperands!, getOperand!]
 
 def getNumSuccessors (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : Nat :=
   (op.get ctx (by grind)).blockOperands.size
@@ -765,6 +815,15 @@ theorem get!_eq_of_OperationPtr_get!_eq {opr : OpOperandPtr} :
     opr.op.get! ctx = opr.op.get! ctx' →
     opr.get! ctx = opr.get! ctx' := by
   grind [OperationPtr.get!, get!]
+
+theorem get!_eq_getOperand!_of_fields_eq {opr : OpOperandPtr} :
+    opr.index = oprIndex →
+    opr.op = oprOp →
+    (opr.get! ctx).value = oprOp.getOperand! ctx oprIndex := by
+  grind [OperationPtr.getOperand!, get!]
+
+grind_pattern get!_eq_getOperand!_of_fields_eq =>
+  opr.index, opr.op, (opr.get! ctx).value, oprOp.getOperand! ctx oprIndex
 
 def set (operand : OpOperandPtr) (ctx : IRContext OpInfo) (newOperand : OpOperand)
     (operandIn : operand.InBounds ctx := by grind) : IRContext OpInfo :=
@@ -1904,7 +1963,7 @@ macro "setup_grind_with_get_set_definitions" : command => `(
   attribute [local grind] ValuePtr.getFirstUse! ValuePtr.getFirstUse ValuePtr.setFirstUse ValuePtr.setType ValuePtr.getType ValuePtr.getType!
   attribute [local grind] OpResultPtr.get! OpResultPtr.setFirstUse OpResultPtr.set OpResultPtr.setType
   attribute [local grind] BlockArgumentPtr.get! BlockArgumentPtr.setFirstUse BlockArgumentPtr.set BlockArgumentPtr.setType BlockArgumentPtr.setLoc
-  attribute [local grind] OperationPtr.setOperands OperationPtr.setBlockOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.pushRegion OperationPtr.setProperties OperationPtr.setAttributes OperationPtr.pushOperand OperationPtr.pushBlockOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.getProperties! OperationPtr.set
+  attribute [local grind] OperationPtr.setOperands OperationPtr.setBlockOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.pushRegion OperationPtr.setProperties OperationPtr.setAttributes OperationPtr.pushOperand OperationPtr.pushBlockOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.getProperties! OperationPtr.set OperationPtr.getOperands!
   attribute [local grind] Operation.empty
   attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty BlockPtr.getNumArguments! BlockPtr.set BlockPtr.setArguments BlockPtr.pushArgument
   attribute [local grind =] Option.maybe_def
