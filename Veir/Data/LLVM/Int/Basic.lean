@@ -49,9 +49,9 @@ def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
   val (x' + y')
 
 /--
-The ‘sub’ instruction returns the difference of its two operands.
+The `sub` instruction returns the difference of its two operands.
 
-Note that the ‘sub’ instruction is used to represent the ‘neg’ instruction
+Note that the `sub` instruction is used to represent the `neg` instruction
 present in most other intermediate representations.
 
 The value produced is the integer difference of the two operands.
