@@ -49,6 +49,37 @@ def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
   val (x' + y')
 
 /--
+The ‘sub’ instruction returns the difference of its two operands.
+
+Note that the ‘sub’ instruction is used to represent the ‘neg’ instruction
+present in most other intermediate representations.
+
+The value produced is the integer difference of the two operands.
+
+If the difference has unsigned overflow, the result returned is the mathematical
+result modulo 2^n, where n is the bit width of the result.
+
+Because LLVM integers use a two’s complement representation, this instruction is
+appropriate for both signed and unsigned integers.
+
+`nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively.
+If the `nuw` and/or `nsw` arguments are true, the result value of the sub is a
+poison value if unsigned and/or signed overflow, respectively, occurs.
+-/
+def sub {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) :
+    Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  if nsw ∧ BitVec.ssubOverflow x' y' then
+    return poison
+
+  if nuw ∧ BitVec.usubOverflow x' y' then
+    return poison
+
+  val (x' - y')
+
+/--
 The ‘mul’ instruction returns the product of its two operands.
 
 If the result of the multiplication has unsigned overflow, the result returned

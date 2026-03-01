@@ -94,6 +94,12 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.add lhs rhs flags.nsw flags.nuw)], .continue)
+  | .arith_subi => do
+    let flags := opPtr.getProperties! ctx .arith_subi
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.sub lhs rhs flags.nsw flags.nuw)], .continue)
   | .llvm_constant => do
     let value := opPtr.getProperties! ctx .llvm_constant
     let res ← op.results[0]?
@@ -107,6 +113,12 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.add lhs rhs flags.nsw flags.nuw)], .continue)
+  | .llvm_sub => do
+    let flags := opPtr.getProperties! ctx .llvm_sub
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.sub lhs rhs flags.nsw flags.nuw)], .continue)
   | .llvm_mul => do
     let flags := opPtr.getProperties! ctx .llvm_mul
     let #[.int bw lhs, .int bw' rhs] := operands | none
