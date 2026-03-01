@@ -57,7 +57,7 @@ present in most other intermediate representations.
 The value produced is the integer difference of the two operands.
 
 If the difference has unsigned overflow, the result returned is the mathematical
-result modulo 2^n, where n is the bit width of the result.
+result modulo `2^w`, where `w` is the bit width of the result.
 
 Because LLVM integers use a two’s complement representation, this instruction is
 appropriate for both signed and unsigned integers.
