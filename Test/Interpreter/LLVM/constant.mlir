@@ -7,4 +7,4 @@
   "func.return"(%pos, %zero, %neg) : (i32, i32, i32) -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x00000008#32]
+// CHECK: Program output: #[0x00000003#32, 0x00000000#32, 0xfffffffc#32]
