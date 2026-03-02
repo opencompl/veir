@@ -90,7 +90,7 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     let .integerType bw := res.type.val
       | none
     return (#[.int bw.bitwidth
-      (.val (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
+      (.val (BitVec.ofInt bw.bitwidth value.value.value))], .continue)
   | .arith_addi => do
     let flags := opPtr.getProperties! ctx .arith_addi
     let #[.int bw lhs, .int bw' rhs] := operands | none
@@ -109,7 +109,7 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     let .integerType bw := res.type.val
       | none
     return (#[.int bw.bitwidth
-      (.val (BitVec.ofNat bw.bitwidth value.value.value.toNat))], .continue)
+      (.val (BitVec.ofInt bw.bitwidth value.value.value))], .continue)
   | .llvm_add => do
     let flags := opPtr.getProperties! ctx .llvm_add
     let #[.int bw lhs, .int bw' rhs] := operands | none
