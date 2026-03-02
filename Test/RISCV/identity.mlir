@@ -6,14 +6,14 @@
     %1 = "riscv.li"() <{ "value" = 17 : i64 }> : () -> i64
     // Immediate load 
     %2 = "riscv.lui"() <{"value" = 13 : i20}> : () -> i64
-    %3 = "riscv.auipc"(%0) : (i64) -> i64
+    %3 = "riscv.auipc"(%0) <{"value" = 13 : i20}> : (i64) -> i64
     // Immediate operations 
     %4 = "riscv.addi"(%0) : (i64) -> i64
     %5 = "riscv.slti"(%0) : (i64) -> i64
     %6 = "riscv.sltiu"(%0) : (i64) -> i64
-    %7 = "riscv.andi"(%0) : (i64) -> i64
-    %8 = "riscv.ori"(%0) : (i64) -> i64
-    %9 = "riscv.xori"(%0) : (i64) -> i64
+    %7 = "riscv.andi"(%0) <{"value" = 13 : i12}> : (i64) -> i64
+    %8 = "riscv.ori"(%0) <{"value" = 17 : i12}> : (i64) -> i64
+    %9 = "riscv.xori"(%0) <{"value" = 23 : i12}> : (i64) -> i64
     %10 = "riscv.addiw"(%0) : (i64) -> i64
     %11 = "riscv.slli"(%0) : (i64) -> i64
     %12 = "riscv.srli"(%0) : (i64) -> i64

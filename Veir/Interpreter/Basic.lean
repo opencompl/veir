@@ -151,6 +151,26 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     let value := opPtr.getProperties! ctx .riscv_lui
     let imm := BitVec.ofNat 20 value.value.value.toNat
     return (#[.reg (RISCV.lui imm)], .continue)
+  | .riscv_auipc => do
+    let value := opPtr.getProperties! ctx .riscv_auipc
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 20 value.value.value.toNat
+    return (#[.reg (RISCV.auipc imm op)], .continue)
+  | .riscv_andi => do
+    let value := opPtr.getProperties! ctx .riscv_andi
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 12 value.value.value.toNat
+    return (#[.reg (RISCV.andi imm op)], .continue)
+  | .riscv_ori => do
+    let value := opPtr.getProperties! ctx .riscv_ori
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 12 value.value.value.toNat
+    return (#[.reg (RISCV.ori imm op)], .continue)
+  | .riscv_xori => do
+    let value := opPtr.getProperties! ctx .riscv_xori
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 12 value.value.value.toNat
+    return (#[.reg (RISCV.xori imm op)], .continue)
   | _ => none
 
 /--
