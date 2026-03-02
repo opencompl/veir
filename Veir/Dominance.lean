@@ -10,6 +10,9 @@ public import Veir.Rewriter.InsertPoint
   This file is a placeholder for the dominance relation between IR constructs.
   It currently only contains axioms, and will be filled in with actual definitions and proofs
   in the future.
+
+  This formalization assumes that all regions are SSACFG regions, so it particular it doesn't
+  support graph regions.
 -/
 
 public section
@@ -86,8 +89,11 @@ axiom OperationPtr.dominatesIp_iff :
 /--
 An operation `op₁` dominates the program point before `op₂` if it strictly dominates `op₂`.
 -/
+@[simp]
 axiom OperationPtr.dominatesIp_before :
   op₁.dominatesIp (.before op₂) ctx ↔ op₁.strictlyDominates op₂ ctx
+
+grind_pattern OperationPtr.dominatesIp_before => op₁.dominatesIp (.before op₂) ctx
 
 /--
 If an operation `op₁` dominates an operation `op₂`, it dominates the operation after `op₂`,
@@ -119,3 +125,15 @@ axiom IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates (ctx
     op₁.dominates op₂ ctx →
     ∀ (value : ValuePtr), value ∈ op₁.getOperands! ctx.raw →
     value ∉ op₂.getResults! ctx.raw
+
+/--
+If a value is being defined by an operation `op₁` and being used as an operand of an
+operation `op₂`, then `op₁` strictly dominates `op₂`.
+-/
+axiom OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! (ctxDom : ctx.Dom) :
+  value.getDefiningOp! ctx.raw = some op₁ →
+  value ∈ op₂.getOperands! ctx.raw →
+  op₁.strictlyDominates op₂ ctx
+
+grind_pattern OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! =>
+  ctx.Dom, value.getDefiningOp! ctx.raw, some op₂, op₁.getOperands! ctx.raw
