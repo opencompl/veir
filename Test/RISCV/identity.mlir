@@ -97,7 +97,7 @@
 // CHECK-NEXT:     %{{.*}} = "riscv.li"() <{"value" = 13 : i64}> : () -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.li"() <{"value" = 17 : i64}> : () -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.lui"() <{"value" = 13 : i20}> : () -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.auipc"(%{{.*}}) <{"value" = 13 : i64}> : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.auipc"(%{{.*}}) <{"value" = 13 : i20}> : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.addi"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.slti"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.sltiu"(%{{.*}}) : (i64) -> i64
