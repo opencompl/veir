@@ -44,7 +44,7 @@ instance : ToString (RuntimeValue) where
   It includes a mapping from IR values to their runtime values.
 -/
 structure InterpreterState where
-  variables : Std.HashMap ValuePtr RuntimeValue
+  variables : Std.ExtHashMap ValuePtr RuntimeValue
 
 /--
   Set the value of a variable.
@@ -59,6 +59,17 @@ def InterpreterState.setVar (state : InterpreterState) (var : ValuePtr) (val : R
 def InterpreterState.getVar? (state : InterpreterState) (var : ValuePtr)
     : Option RuntimeValue :=
   state.variables[var]?
+
+@[ext]
+theorem InterpreterState.ext {state1 state2 : InterpreterState} :
+    (∀ var, state1.getVar? var = state2.getVar? var) →
+    state1 = state2 := by
+  intro h
+  have ⟨state1⟩ := state1; have ⟨state2⟩ := state2
+  simp only [mk.injEq]
+  ext key value
+  simp only [InterpreterState.getVar?] at h
+  grind
 
 /--
   Get the value of the operands of an operation.
@@ -89,7 +100,7 @@ def InterpreterState.setResultValues (state : InterpreterState) (ctx : IRContext
   Create an interpreter state with no variables defined.
 -/
 def InterpreterState.empty : InterpreterState :=
-  { variables := Std.HashMap.emptyWithCapacity 8 }
+  { variables := Std.ExtHashMap.emptyWithCapacity 8 }
 
 /--
   How the control flow should proceed after interpreting an operation.
@@ -99,6 +110,7 @@ def InterpreterState.empty : InterpreterState :=
 inductive ControlFlowAction where
   | return (vals : Array RuntimeValue)
   | continue
+deriving Inhabited
 
 /--
   Interpret a single operation given its opcode, type-dependent properties,
@@ -200,12 +212,12 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], .continue)
   | .llvm_srem => do
-    let #[.int bw lhs, .int bw' rhs] := operands | none
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.srem lhs rhs)], .continue)
   | .llvm_urem => do
-    let #[.int bw lhs, .int bw' rhs] := operands | none
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.urem lhs rhs)], .continue)
@@ -238,15 +250,15 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let imm := BitVec.ofInt 20 properties.value.value
     return (#[.reg (RISCV.auipc imm op)], .continue)
   | .riscv_addi => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
     return (#[.reg (RISCV.addi imm op)], .continue)
   | .riscv_slti => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
     return (#[.reg (RISCV.slti imm op)], .continue)
   | .riscv_sltiu => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
     return (#[.reg (RISCV.sltiu imm op)], .continue)
   | .riscv_andi => do
@@ -262,240 +274,240 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let imm := BitVec.ofInt 12 properties.value.value
     return (#[.reg (RISCV.xori imm op)], .continue)
   | .riscv_addiw => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
     return (#[.reg (RISCV.addiw imm op)], .continue)
   | .riscv_slli => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.slli imm op)], .continue)
   | .riscv_srli => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.srli imm op)], .continue)
   | .riscv_srai => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.srai imm op)], .continue)
   | .riscv_add => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.add op2 op1)], .continue)
   | .riscv_sub => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sub op2 op1)], .continue)
   | .riscv_sll => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sll op2 op1)], .continue)
   | .riscv_slt => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.slt op2 op1)], .continue)
   | .riscv_sltu => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sltu op2 op1)], .continue)
   | .riscv_xor => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.xor op2 op1)], .continue)
   | .riscv_srl => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.srl op2 op1)], .continue)
   | .riscv_sra => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sra op2 op1)], .continue)
   | .riscv_or => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.or op2 op1)], .continue)
   | .riscv_and => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.and op2 op1)], .continue)
   | .riscv_slliw => do
-    let #[.reg op1] := operands | none
+    let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 5 properties.value.value
     return (#[.reg (RISCV.slliw imm op1)], .continue)
   | .riscv_srliw => do
-    let #[.reg op1] := operands | none
+    let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 5 properties.value.value
     return (#[.reg (RISCV.srliw imm op1)], .continue)
   | .riscv_sraiw => do
-    let #[.reg op1] := operands | none
+    let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 5 properties.value.value
     return (#[.reg (RISCV.sraiw imm op1)], .continue)
   | .riscv_addw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.addw op2 op1)], .continue)
   | .riscv_subw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.subw op2 op1)], .continue)
   | .riscv_sllw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sllw op2 op1)], .continue)
   | .riscv_srlw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.srlw op2 op1)], .continue)
   | .riscv_sraw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sraw op2 op1)], .continue)
   | .riscv_rem => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.rem op2 op1)], .continue)
   | .riscv_remu => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.remu op2 op1)], .continue)
   | .riscv_remw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.remw op2 op1)], .continue)
   | .riscv_remuw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.remuw op2 op1)], .continue)
   | .riscv_mul => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.mul op2 op1)], .continue)
   | .riscv_mulh => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.mulh op2 op1)], .continue)
   | .riscv_mulhu => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.mulhu op2 op1)], .continue)
   | .riscv_mulhsu => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.mulhsu op2 op1)], .continue)
   | .riscv_mulw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.mulw op2 op1)], .continue)
   | .riscv_div => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.div op2 op1)], .continue)
   | .riscv_divw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.divw op2 op1)], .continue)
   | .riscv_divu => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.divu op2 op1)], .continue)
   | .riscv_divuw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.divuw op2 op1)], .continue)
   | .riscv_adduw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.adduw op2 op1)], .continue)
   | .riscv_sh1adduw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sh1adduw op2 op1)], .continue)
   | .riscv_sh2adduw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sh2adduw op2 op1)], .continue)
   | .riscv_sh3adduw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sh3adduw op2 op1)], .continue)
   | .riscv_sh1add => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sh1add op2 op1)], .continue)
   | .riscv_sh2add => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sh2add op2 op1)], .continue)
   | .riscv_sh3add => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.sh3add op2 op1)], .continue)
   | .riscv_slliuw => do
-    let #[.reg op1] := operands | none
+    let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.slliuw imm op1)], .continue)
   | .riscv_andn => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.andn op2 op1)], .continue)
   | .riscv_orn => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.orn op2 op1)], .continue)
   | .riscv_xnor => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.xnor op2 op1)], .continue)
   | .riscv_max => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.max op2 op1)], .continue)
   | .riscv_maxu => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.maxu op2 op1)], .continue)
   | .riscv_min => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.min op2 op1)], .continue)
   | .riscv_minu => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.minu op2 op1)], .continue)
   | .riscv_rol => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.rol op2 op1)], .continue)
   | .riscv_ror => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.ror op2 op1)], .continue)
   | .riscv_rolw => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.rolw op2 op1)], .continue)
   | .riscv_rorw => do
-    let #[.reg op1, .reg op2,] := operands | none
+    let [.reg op1, .reg op2,] := operands.toList | none
     return (#[.reg (RISCV.rorw op2 op1)], .continue)
   | .riscv_sextb => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.sextb op)], .continue)
   | .riscv_sexth => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.sexth op)], .continue)
   | .riscv_zexth => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.zexth op)], .continue)
   | .riscv_clz => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.clz op)], .continue)
   | .riscv_clzw => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.clzw op)], .continue)
   | .riscv_ctz => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.ctz op)], .continue)
   | .riscv_ctzw => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.ctzw op)], .continue)
   | .riscv_roriw => do
-    let #[.reg op1] := operands | none
+    let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 5 properties.value.value
     return (#[.reg (RISCV.roriw imm op1)], .continue)
   | .riscv_rori => do
-    let #[.reg op1] := operands | none
+    let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.rori imm op1)], .continue)
   | .riscv_bclr => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.bclr op2 op1)], .continue)
   | .riscv_bext => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.bext op2 op1)], .continue)
   | .riscv_binv => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.binv op2 op1)], .continue)
   | .riscv_bset => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.bset op2 op1)], .continue)
   | .riscv_bclri => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.bclri imm op)], .continue)
   | .riscv_bexti => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.bexti imm op)], .continue)
   | .riscv_binvi => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.binvi imm op)], .continue)
   | .riscv_bseti => do
-    let #[.reg op] := operands | none
+    let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.bseti imm op)], .continue)
   | .riscv_pack => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.pack op2 op1)], .continue)
   | .riscv_packh => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.packh op2 op1)], .continue)
   | .riscv_packw => do
-    let #[.reg op1, .reg op2] := operands | none
+    let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.packw op2 op1)], .continue)
   | _ => none
 
@@ -533,6 +545,24 @@ def interpretOpList (ctx : IRContext OpCode) (op : OperationPtr) (state : Interp
     return results
 termination_by op.idxInParentFromTail ctx
 decreasing_by grind
+
+/--
+  Interpret a list of operations.
+  Return the new interpreter state, and a control flow action indicating how to continue
+  the interpretation.
+  If a `return` is encountered, the following operations are not interpreted.
+  Return `none` if any errors occur during interpretation.
+-/
+def interpretOpList' (ctx : IRContext OpCode) (ops : List OperationPtr) (state : InterpreterState)
+    (opInBounds : ∀ op ∈ ops, op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
+    : Option (InterpreterState × ControlFlowAction) :=
+  match ops with
+  | [] => some (state, .continue)
+  | op :: ops => do
+    let (state, action) ← interpretOp ctx op state
+    match action with
+    | .continue => interpretOpList' ctx ops state (by grind)
+    | .return results => some (state, .return results)
 
 /--
   Interpret a block of operations, starting from the first operation in the block.

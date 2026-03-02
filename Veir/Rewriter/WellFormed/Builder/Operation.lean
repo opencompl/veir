@@ -14,17 +14,8 @@ theorem OperationPtr.setProperties_WellFormed (op: OperationPtr) (ctx: IRContext
   sorry
 
 set_option warn.sorry false in
-theorem Rewriter.createOp_WellFormed (ctx: IRContext OpInfo) (opType: OpInfo)
-    (resultTypes: Array TypeAttr) (operands: Array ValuePtr) (numRegions: Nat)
-    (properties: HasOpInfo.propertiesOf opType)
-    (insertionPoint: Option InsertPoint)
-    (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx)
-    hblockOper
-    hregions
-    (hins : insertionPoint.maybe InsertPoint.InBounds ctx)
-    (hx : ctx.FieldsInBounds)
-    (hctx : IRContext.WellFormed ctx)
-    (newCtx : IRContext OpInfo) (newOp : OperationPtr) :
+theorem Rewriter.createOp_WellFormed
+    {ctx : IRContext OpInfo} {hx} {hins} {hregions} {hblockOper} {hoper} (hctx : IRContext.WellFormed ctx) :
     Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties insertionPoint hoper hblockOper hregions hins hx = some (newCtx, newOp) →
     newCtx.WellFormed := by
   intros heq
