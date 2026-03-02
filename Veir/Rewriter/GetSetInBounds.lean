@@ -22,6 +22,7 @@ import Veir.ForLean
  - * OpResultPtr.get!
  - * OperationPtr.getNumOperands!
  - * OpOperandPtr.get! optionally replaced by the following special case:
+ - * OperationPtr.getOperands!
  - * OperationPtr.getNumSuccessors!
  - * BlockOperandPtr.get!
  - * OperationPtr.getNumRegions!
@@ -246,6 +247,16 @@ grind_pattern OpOperandPtr.get!_insertOp? =>
   Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, operand.get! newCtx
 
 @[simp]
+theorem OperationPtr.getOperands!_insertOp? {operation : OperationPtr} :
+    Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operation.getOperands! newCtx = operation.getOperands! ctx := by
+  simp only [Rewriter.insertOp?]
+  grind
+
+grind_pattern OperationPtr.getOperands!_insertOp? =>
+  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, operation.getOperands! newCtx
+
+@[simp]
 theorem OperationPtr.getNumSuccessors!_insertOp? {operation : OperationPtr} :
     Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx →
     operation.getNumSuccessors! newCtx = operation.getNumSuccessors! ctx := by
@@ -456,6 +467,12 @@ theorem OpOperandPtr.get!_unsetParentAndNeighbors {opOperand : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getOperands!_unsetParentAndNeighbors {operation : OperationPtr} :
+    operation.getOperands! (Rewriter.unsetParentAndNeighbors ctx op' hIn) = operation.getOperands! ctx := by
+  simp only [Rewriter.unsetParentAndNeighbors]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_unsetParentAndNeighbors {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
     operation.getNumSuccessors! ctx := by
@@ -632,6 +649,12 @@ theorem OperationPtr.getNumOperands!_detachOp {operation : OperationPtr} :
 @[simp, grind =]
 theorem OpOperandPtr.get!_detachOp {opOperand : OpOperandPtr} :
     opOperand.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) = opOperand.get! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_detachOp {operation : OperationPtr} :
+    operation.getOperands! (Rewriter.detachOp ctx op' h₁ h₂ h₃) = operation.getOperands! ctx := by
+  simp only [Rewriter.detachOp]
   grind
 
 @[simp, grind =]
@@ -844,6 +867,16 @@ theorem OpOperandPtr.get!_insertBlock? {operand : OpOperandPtr} :
 
 grind_pattern OpOperandPtr.get!_insertBlock? =>
   Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem OperationPtr.getOperands!_insertBlock? {operation : OperationPtr} :
+    Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx →
+    operation.getOperands! newCtx = operation.getOperands! ctx := by
+  simp only [Rewriter.insertBlock?]
+  grind
+
+grind_pattern OperationPtr.getOperands!_insertBlock? =>
+  Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃, some newCtx, operation.getOperands! newCtx
 
 @[simp]
 theorem OperationPtr.getNumSuccessors!_insertBlock? {operation : OperationPtr} :
@@ -1104,6 +1137,12 @@ theorem OpOperandPtr.get!_detachOpIfAttached {opOperand : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getOperands!_detachOpIfAttached {operation : OperationPtr} :
+    operation.getOperands! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) = operation.getOperands! ctx := by
+  simp only [Rewriter.detachOpIfAttached]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_detachOpIfAttached {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
     operation.getNumSuccessors! ctx := by
@@ -1306,6 +1345,15 @@ theorem OperationPtr.getNumOperands!_detachOperands_loop {operation : OperationP
 -- this point, likely on `BlockPtr.OpChain` directly.
 
 @[simp, grind =]
+theorem OperationPtr.getOperands!_detachOperands_loop {operation : OperationPtr} :
+    operation.getOperands! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) =
+    operation.getOperands! ctx := by
+  induction index generalizing ctx
+  · grind [Rewriter.detachOperands.loop]
+  · simp only [Rewriter.detachOperands.loop]
+    grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_detachOperands_loop {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) =
     operation.getNumSuccessors! ctx := by
@@ -1483,6 +1531,12 @@ theorem OperationPtr.getNumOperands!_detachOperands {operation : OperationPtr} :
 -- The theorem `OpOperandPtr.get!_detachOperands` is missing because it is quite complex to state.
 -- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
 -- this point, likely on `BlockPtr.OpChain` directly.
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_detachOperands {operation : OperationPtr} :
+    operation.getOperands! (Rewriter.detachOperands ctx op' hCtx hOp) = operation.getOperands! ctx := by
+  simp only [Rewriter.detachOperands]
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_detachOperands {operation : OperationPtr} :
@@ -1688,6 +1742,15 @@ theorem OpOperandPtr.get!_detachBlockOperands_loop {opOperand : OpOperandPtr} :
     grind
 
 @[simp, grind =]
+theorem OperationPtr.getOperands!_detachBlockOperands_loop {operation : OperationPtr} :
+    operation.getOperands! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
+    operation.getOperands! ctx := by
+  induction index generalizing ctx
+  · grind [Rewriter.detachBlockOperands.loop]
+  · simp only [Rewriter.detachBlockOperands.loop]
+    grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_detachBlockOperands_loop {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
     operation.getNumSuccessors! ctx := by
@@ -1875,6 +1938,12 @@ theorem OpOperandPtr.get!_detachBlockOperands {opOperand : OpOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getOperands!_detachBlockOperands {operation : OperationPtr} :
+    operation.getOperands! (Rewriter.detachBlockOperands ctx op' hCtx hOp) = operation.getOperands! ctx := by
+  simp only [Rewriter.detachBlockOperands]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_detachBlockOperands {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
     operation.getNumSuccessors! ctx := by
@@ -2005,6 +2074,25 @@ theorem OpOperandPtr.owner_replaceUse :
     (OpOperandPtr.get opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).owner =
     (OpOperandPtr.get opr ctx (by grind)).owner := by
   grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OpOperandPtr.value_replaceUse :
+    (OpOperandPtr.get opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).value =
+    if use = opr then
+      value'
+    else
+      (OpOperandPtr.get opr ctx (by grind)).value := by
+  grind [Rewriter.replaceUse]
+
+@[grind =]
+theorem OperationPtr.getOperands!_replaceUse :
+    OperationPtr.getOperands! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    if use.op = op then
+      (op.getOperands! ctx).set! use.index value'
+    else
+      OperationPtr.getOperands! op ctx := by
+  simp only [Rewriter.replaceUse]
+  grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_replaceUse :
@@ -2177,6 +2265,11 @@ theorem OpOperandPtr.get!_initOpResults {opOperand : OpOperandPtr} {index} {hidx
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =]
+theorem OperationPtr.getOperands!_initOpResults {operation : OperationPtr} {index} {hidx} :
+    operation.getOperands! (Rewriter.initOpResults ctx op types index hop hidx) = operation.getOperands! ctx := by
+  fun_induction Rewriter.initOpResults <;> grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_initOpResults {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.initOpResults ctx op types index hop hidx) =
     operation.getNumSuccessors! ctx := by
@@ -2327,6 +2420,11 @@ theorem OpResultPtr.get!_initOpRegions {opResult : OpResultPtr} {index : Nat} {h
 @[simp, grind =]
 theorem OpOperandPtr.get!_initOpRegions {opOperand : OpOperandPtr} {index} {h₄} :
     opOperand.get! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) = opOperand.get! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_initOpRegions {operation : OperationPtr} {index} {h₄} :
+    operation.getOperands! (Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄) = operation.getOperands! ctx := by
   fun_induction Rewriter.initOpRegions <;> grind
 
 @[simp, grind =]
