@@ -2,7 +2,7 @@ import Veir.Parser.MlirParser
 import Veir.Printer
 import Veir.IR.Basic
 import Veir.Verifier
-import Veir.Interpreter
+import Veir.Interpreter.Basic
 
 /-!
   # Veir Interpreter CLI Tool
