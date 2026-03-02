@@ -12,4 +12,4 @@
   "func.return"(%x, %y, %a) : (i32, i32, i32) -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x0000002b#32, poison, poison]
+// CHECK: Program output: #[0x0000002b#32, poison, 0x00000001#32]
