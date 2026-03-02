@@ -46,7 +46,7 @@ instance : ToString (RuntimeValue) where
   It includes a mapping from IR values to their runtime values.
 -/
 structure InterpreterState where
-  variables : Std.HashMap ValuePtr RuntimeValue
+  variables : Std.ExtHashMap ValuePtr RuntimeValue
 
 /--
   Set the value of a variable.
@@ -61,6 +61,17 @@ def InterpreterState.setVar (state : InterpreterState) (var : ValuePtr) (val : R
 def InterpreterState.getVar? (state : InterpreterState) (var : ValuePtr)
     : Option RuntimeValue :=
   state.variables[var]?
+
+@[ext]
+theorem InterpreterState.ext {state1 state2 : InterpreterState} :
+    (∀ var, state1.getVar? var = state2.getVar? var) →
+    state1 = state2 := by
+  intro h
+  have ⟨state1⟩ := state1; have ⟨state2⟩ := state2
+  simp only [mk.injEq]
+  ext key value
+  simp only [InterpreterState.getVar?] at h
+  grind
 
 /--
   Get the value of the operands of an operation.
@@ -91,7 +102,7 @@ def InterpreterState.setResultValues (state : InterpreterState) (ctx : IRContext
   Create an interpreter state with no variables defined.
 -/
 def InterpreterState.empty : InterpreterState :=
-  { variables := Std.HashMap.emptyWithCapacity 8 }
+  { variables := Std.ExtHashMap.emptyWithCapacity 8 }
 
 /--
   How the control flow should proceed after interpreting an operation.
@@ -101,6 +112,7 @@ def InterpreterState.empty : InterpreterState :=
 inductive ControlFlowAction where
   | return (vals : Array RuntimeValue)
   | continue
+deriving Inhabited
 
 /--
   Interpret a single operation given its opcode, type-dependent properties,
@@ -659,6 +671,24 @@ def interpretOpList (ctx : IRContext OpCode) (op : OperationPtr) (state : Interp
     return results
 termination_by op.idxInParentFromTail ctx
 decreasing_by grind
+
+/--
+  Interpret a list of operations.
+  Return the new interpreter state, and a control flow action indicating how to continue
+  the interpretation.
+  If a `return` is encountered, the following operations are not interpreted.
+  Return `none` if any errors occur during interpretation.
+-/
+def interpretOpList' (ctx : IRContext OpCode) (ops : List OperationPtr) (state : InterpreterState)
+    (opInBounds : ∀ op ∈ ops, op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
+    : Option (InterpreterState × ControlFlowAction) :=
+  match ops with
+  | [] => some (state, .continue)
+  | op :: ops => do
+    let (state, action) ← interpretOp ctx op state
+    match action with
+    | .continue => interpretOpList' ctx ops state (by grind)
+    | .return results => some (state, .return results)
 
 /--
   Interpret a block of operations, starting from the first operation in the block.
