@@ -107,6 +107,62 @@ def mul {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
 
   val (x' * y')
 
+/--
+The ‘udiv’ instruction returns the unsigned integer quotient of its two operands.
+
+Note that unsigned integer division and signed integer division are distinct
+operations; for signed integer division, use ‘sdiv’.
+
+Division by zero is undefined behavior. For vectors, if any element of the
+divisor is zero, the operation has undefined behavior.
+
+If the `exact` argument is true, the result value of the udiv is a poison value
+if `x` is not a multiple of `y` (as such, “((a udiv exact b) mul b) == a”).
+-/
+def udiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  if exact ∧ x'.umod y' ≠ 0 then
+    return poison
+
+  if y' = 0 then
+    return poison
+
+  val (x' / y')
+
+/--
+The ‘sdiv’ instruction returns the quotient of its two operands.
+
+The value produced is the signed integer quotient of the two operands rounded
+towards zero.
+
+Note that signed integer division and unsigned integer division are distinct
+operations; for unsigned integer division, use ‘udiv’.
+
+Division by zero is undefined behavior. For vectors, if any element of the
+divisor is zero, the operation has undefined behavior. Overflow also leads to
+undefined behavior; this is a rare case, but can occur, for example, by doing a
+32-bit division of -2147483648 by -1.
+
+If the `exact` argument is true, the result value of the sdiv is a poison value
+if the result would be rounded.
+-/
+def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  if y' == 0 || (w != 1 && x' == (BitVec.intMin w) && y' == -1) then
+    return poison
+
+  if exact ∧ x'.smod y' ≠ 0 then
+    return poison
+
+  if y' == 0 then
+    return poison
+
+  val (x'.sdiv y')
+
 def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   match x with
   | .val v => .val (v.cast h)

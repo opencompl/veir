@@ -48,6 +48,22 @@ def NswNuwProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   return { nsw := nsw, nuw := nuw }
 
 /--
+  Properties of operations that can have the `exact` flags, such as
+  `llvm.udiv`, or `llvm.sdiv`.
+-/
+structure ExactProperties where
+  exact : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def ExactProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String ExactProperties := do
+  let exact ← match attrDict["exact".toUTF8]? with
+    | some (.unitAttr _) => .ok true
+    | some attr => .error s!"expected 'exact' to be an optional unit attribute, but got {attr}"
+    | none => .ok false
+  return { exact := exact }
+
+/--
   Properties of the `llvm.constant` operation.
 -/
 structure LLVMConstantProperties where
@@ -93,9 +109,13 @@ match opCode with
 | .arith_addi => NswNuwProperties
 | .arith_subi => NswNuwProperties
 | .arith_muli => NswNuwProperties
+| .arith_divsi => ExactProperties
+| .arith_divui => ExactProperties
 | .llvm_add => NswNuwProperties
 | .llvm_sub => NswNuwProperties
 | .llvm_mul => NswNuwProperties
+| .llvm_udiv => ExactProperties
+| .llvm_sdiv => ExactProperties
 | .riscv_li => RISCVImmediateProperties
 | .riscv_lui => RISCVImmediateProperties
 | _ => Unit
@@ -129,10 +149,14 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case arith_addi => exact (NswNuwProperties.fromAttrDict attrDict)
   case arith_subi => exact (NswNuwProperties.fromAttrDict attrDict)
   case arith_muli => exact (NswNuwProperties.fromAttrDict attrDict)
+  case arith_divsi => exact (ExactProperties.fromAttrDict attrDict)
+  case arith_divui => exact (ExactProperties.fromAttrDict attrDict)
   case llvm_constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
   case llvm_add => exact (NswNuwProperties.fromAttrDict attrDict)
   case llvm_sub => exact (NswNuwProperties.fromAttrDict attrDict)
   case llvm_mul => exact (NswNuwProperties.fromAttrDict attrDict)
+  case llvm_udiv => exact (ExactProperties.fromAttrDict attrDict)
+  case llvm_sdiv => exact (ExactProperties.fromAttrDict attrDict)
   case riscv_li => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_lui => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   all_goals exact (Except.ok ())
@@ -153,6 +177,11 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       dict := dict.insert "nsw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     if props.nuw then
       dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
+  | .arith_divsi | .arith_divui | .llvm_udiv | .llvm_sdiv => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    if props.exact then
+      dict := dict.insert "exact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .riscv_li =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)

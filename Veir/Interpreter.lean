@@ -128,6 +128,18 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.mul lhs rhs flags.nsw flags.nuw)], .continue)
+  | .llvm_sdiv => do
+    let flags := opPtr.getProperties! ctx .llvm_sdiv
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.sdiv lhs rhs flags.exact)], .continue)
+  | .llvm_udiv => do
+    let flags := opPtr.getProperties! ctx .llvm_udiv
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.udiv lhs rhs flags.exact)], .continue)
   | .func_return => do
     return (#[], .return operands)
   /- Bitblastable semantics of RISC-V assembly instructions. -/
