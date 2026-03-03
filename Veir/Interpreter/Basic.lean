@@ -156,6 +156,21 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     let #[.reg op] := operands | none
     let imm := BitVec.ofNat 20 value.value.value.toNat
     return (#[.reg (RISCV.auipc imm op)], .continue)
+  | .riscv_addi => do
+    let value := opPtr.getProperties! ctx .riscv_addi
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 12 value.value.value.toNat
+    return (#[.reg (RISCV.addi imm op)], .continue)
+  | .riscv_slti => do
+    let value := opPtr.getProperties! ctx .riscv_slti
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 12 value.value.value.toNat
+    return (#[.reg (RISCV.slti imm op)], .continue)
+  | .riscv_sltiu => do
+    let value := opPtr.getProperties! ctx .riscv_sltiu
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 12 value.value.value.toNat
+    return (#[.reg (RISCV.sltiu imm op)], .continue)
   | .riscv_andi => do
     let value := opPtr.getProperties! ctx .riscv_andi
     let #[.reg op] := operands | none
@@ -171,6 +186,26 @@ def interpretOp' (ctx : IRContext OpCode) (opPtr : OperationPtr) (operands: Arra
     let #[.reg op] := operands | none
     let imm := BitVec.ofNat 12 value.value.value.toNat
     return (#[.reg (RISCV.xori imm op)], .continue)
+  | .riscv_addiw => do
+    let value := opPtr.getProperties! ctx .riscv_addiw
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 12 value.value.value.toNat
+    return (#[.reg (RISCV.addiw imm op)], .continue)
+  | .riscv_slli => do
+    let value := opPtr.getProperties! ctx .riscv_slli
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 6 value.value.value.toNat
+    return (#[.reg (RISCV.slli imm op)], .continue)
+  | .riscv_srli => do
+    let value := opPtr.getProperties! ctx .riscv_srli
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 6 value.value.value.toNat
+    return (#[.reg (RISCV.srli imm op)], .continue)
+  | .riscv_srai => do
+    let value := opPtr.getProperties! ctx .riscv_srai
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofNat 6 value.value.value.toNat
+    return (#[.reg (RISCV.srai imm op)], .continue)
   | _ => none
 
 /--

@@ -40,6 +40,33 @@ def auipc (imm : BitVec 20) (pc : BitVec 64) : BitVec 64 :=
   BitVec.add (BitVec.signExtend 64 (BitVec.append imm (0x0 : BitVec 12))) pc
 
 /--
+  Adds the sign-extended 12-bit immediate to register rs1. Arithmetic overflow is ignored and the
+  result is simply the low XLEN bits of the result. ADDI rd, rs1, 0 is used to implement the MV
+  rd, rs1 assembler pseudo-instruction.
+-/
+def addi (imm : BitVec 12) (rs1_val : BitVec 64) : BitVec 64 :=
+  let immext : BitVec 64 := (BitVec.signExtend 64 imm) ;
+  BitVec.add rs1_val immext
+
+/--
+  Place the value 1 in register rd if register rs1 is less than the signextended immediate when
+  both are treated as signed numbers, else 0 is written to rd.
+-/
+def slti (imm : BitVec 12) (rs1_val : BitVec 64) : BitVec 64 :=
+  let immext : BitVec 64 := (BitVec.signExtend 64 imm)
+  let b := BitVec.slt rs1_val immext
+  BitVec.zeroExtend 64 (BitVec.ofBool b)
+
+/--
+  Place the value 1 in register rd if register rs1 is less than the immediate when both are
+  treated as unsigned numbers, else 0 is written to rd.
+-/
+def sltiu (imm : BitVec 12) (rs1_val : BitVec 64) : BitVec 64 :=
+  let immext : BitVec 64 := (BitVec.signExtend 64 imm)
+  let b := BitVec.ult rs1_val immext
+  BitVec.setWidth 64 (BitVec.ofBool b)
+
+/--
   Performs bitwise AND on register rs1 and the sign-extended 12-bit immediate and place the result
   in rd.
 -/
@@ -63,3 +90,31 @@ def ori (imm : BitVec 12) (rs1_val : BitVec 64) : BitVec 64 :=
 def xori (imm : (BitVec 12)) (rs1_val : (BitVec 64)) : BitVec 64 :=
   let immext : BitVec 64 := (BitVec.signExtend 64 imm)
   BitVec.xor rs1_val immext
+
+/--
+  Adds the sign-extended 12-bit immediate to register rs1 and produces the proper sign-extension
+  of a 32-bit result in rd. Overflows are ignored and the result is the low 32 bits of the result
+  sign-extended to 64 bits. Note, ADDIW rd, rs1, 0 writes the sign-extension of the lower 32 bits
+  of register rs1 into register rd (assembler pseudoinstruction SEXT.W).
+-/
+def addiw (imm : BitVec 12) (rs1_val : BitVec 64) : BitVec 64 :=
+  BitVec.signExtend 64 (BitVec.setWidth 32 ((BitVec.signExtend 64 imm) + rs1_val))
+
+/--
+  Performs logical left shift on the value in register rs1 by the shift amount held in the lower 5
+  bits of the immediate In RV64, bit-25 is used to shamt[5].
+-/
+def slli (shamt : BitVec 6) (rs1_val : BitVec 64) : BitVec 64 := rs1_val <<< shamt
+
+/--
+  Performs logical right shift on the value in register rs1 by the shift amount held in the lower 5
+  bits of the immediate In RV64, bit-25 is used to shamt[5].
+-/
+def srli (shamt : BitVec 6) (rs1_val : BitVec 64) : BitVec 64 := rs1_val >>> shamt
+
+/--
+  Performs arithmetic right shift on the value in register rs1 by the shift amount held in the
+  lower 5 bits of the immediate In RV64, bit-25 is used to shamt[5].
+-/
+def srai (shamt : BitVec 6) (rs1_val : BitVec 64) : BitVec 64 :=
+  BitVec.signExtend 64 (BitVec.sshiftRight' rs1_val shamt)
