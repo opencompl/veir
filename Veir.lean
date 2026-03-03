@@ -12,6 +12,7 @@ import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.Passes.ArithToLLVM.Proofs
 import Veir.Passes.RISCVCombines.Proofs
++import Veir.Transforms.SCCP
 import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter

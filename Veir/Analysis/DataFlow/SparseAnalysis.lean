@@ -1,6 +1,7 @@
 module
 
 public import Veir.Analysis.DataFlow.SparseFact
+public import Veir.Analysis.DataFlow.DeadCodeAnalysis
 
 public section
 
@@ -80,44 +81,62 @@ private def getSuccessorOperand?
     | _ =>
       panic! "SparseForwardDataFlowAnalysis.getSuccessorOperand?: non-branch op"
 
-/-- Conservatively treat blocks as live when no liveness facts exist. -/
+/--
+Conservatively treat blocks as live when dead code analysis is
+not registered. Otherwise consult the liveness lattice, where points
+are not live by default.
+-/
 private def isBlockLive
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=
-  let _ := block
-  let _ := dfCtx
-  let _ := irCtx
-  true
+  if !dfCtx.hasAnalysis .deadCode then
+    true
+  else
+    let blockPoint := InsertPoint.atStart! block irCtx
+    match dfCtx.getFact? .liveness (.InsertPoint blockPoint) with
+    | some liveFact => liveFact.live
+    | none => false
 
-/-- Conservatively treat CFG edges as live when no liveness facts exist. -/
+/--
+Conservatively treat CFG edges as live when dead code analysis is
+not registered. Otherwise consult the liveness lattice, where points are
+not live by default.
+-/
 private def isEdgeLive
     (edge : CFGEdge)
     (dfCtx : DataFlowContext)
     (_irCtx : IRContext OpCode) : Bool :=
-  let _ := edge
-  let _ := dfCtx
-  true
+  if !dfCtx.hasAnalysis .deadCode then
+    true
+  else
+    match dfCtx.getFact? .liveness (.CFGEdge edge) with
+    | some liveFact => liveFact.live
+    | none => false
 
-/-- No-op when no liveness analysis is registered. -/
+/-- Subscribe to block liveness updates if dead code analysis is registered. -/
 private def subscribeToBlockLiveness
     (analysisKind : AnalysisKind)
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext :=
-  let _ := analysisKind
-  let _ := block
-  let _ := irCtx
-  dfCtx
+  if !dfCtx.hasAnalysis .deadCode then
+    dfCtx
+  else
+    let blockPoint := InsertPoint.atStart! block irCtx
+    dfCtx.modifyFact .liveness (.InsertPoint blockPoint) (fun state =>
+      state.subscribe analysisKind)
 
-/-- No-op when no liveness analysis is registered. -/
+/-- Subscribe to edge liveness updates if dead code analysis is registered. -/
 private def subscribeToEdgeLiveness
     (analysisKind : AnalysisKind)
     (edge : CFGEdge)
     (dfCtx : DataFlowContext) : DataFlowContext :=
-  let _ := analysisKind
-  let _ := edge
-  dfCtx
+  if !dfCtx.hasAnalysis .deadCode then
+    dfCtx
+  else
+    dfCtx.modifyFact .liveness (.CFGEdge edge) (fun state =>
+      state.subscribe analysisKind)
 
 /--
 Visit a block during sparse initialization.
