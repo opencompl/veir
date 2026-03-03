@@ -67,22 +67,41 @@ deriving BEq, Hashable
 Tags to match on for different `DataFlowAnalysis` types.
 -/
 inductive AnalysisKind where
+  | sparseConstantPropagation
+  | deadCode
 deriving BEq, Hashable, Repr, DecidableEq
 
 /--
 Tags to match on for different fact types.
 -/
 inductive FactKind where
+  | executable
+  | sparseConstant
 deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
 
 abbrev WorkItem := InsertPoint × AnalysisKind
 abbrev WorkList := Queue WorkItem
 
 /--
+Tracks whether a control flow point or edge is executable.
+-/
+structure ExecutablePayload where
+  live : Bool := false
+  subscribers : Array AnalysisKind := #[]
+
+/--
+A sparse dataflow fact payload for one abstract domain.
+-/
+structure SparsePayload (Domain : Type) where
+  useDefSubscribers : Array AnalysisKind := #[]
+  latticeElement : Domain
+
+/--
 The fact specific data stored for each fact kind.
 -/
 @[expose] def FactPayload : FactKind -> Type
-  | kind => nomatch kind
+  | .executable => ExecutablePayload
+  | .sparseConstant => SparsePayload ConstantDomain
 
 /--
 A dataflow fact stored by the framework.
@@ -121,6 +140,29 @@ def enqueueDependents (fact : Fact kind) (workList : WorkList) : WorkList :=
       workList := workList.enqueue workItem
     workList
 
+def live (fact : Fact .executable) : Bool :=
+  fact.payload.live
+
+def subscribers (fact : Fact .executable) : Array AnalysisKind :=
+  fact.payload.subscribers
+
+def setLive (fact : Fact .executable) (live : Bool) : Fact .executable :=
+  { fact with payload := { fact.payload with live := live } }
+
+def setSubscribers (fact : Fact .executable) (subscribers : Array AnalysisKind) : Fact .executable :=
+  { fact with payload := { fact.payload with subscribers := subscribers } }
+
+def setToLive (fact : Fact .executable) : Fact .executable :=
+  fact.setLive true
+
+def blockContentSubscribe (fact : Fact .executable) (analysisKind : AnalysisKind) : Fact .executable :=
+  if fact.subscribers.contains analysisKind then
+    fact
+  else
+    fact.setSubscribers (fact.subscribers.push analysisKind)
+
 end Fact
+
+abbrev ExecutableFact := Fact .executable
 
 end Veir
