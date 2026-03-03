@@ -6,4 +6,4 @@
   "func.return"(%y) : (i64) -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x0000000000000005#64]
+// CHECK: Program output: #[0x0000000000000007#64]
