@@ -21,3 +21,4 @@ import UnitTest.RegionKindInterfaces
 import UnitTest.Puddle
 import UnitTest.BoundedBitblasting.BoundedBitblasting
 import UnitTest.DataFlowFramework.SparseConstantPropagation
+import UnitTest.DataFlowFramework.SCCP
