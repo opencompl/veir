@@ -9,8 +9,8 @@ namespace Veir
 public section
 
 structure DomTreeNodePtr where
-  region: RegionPtr
-  index: Nat
+  region : RegionPtr
+  index : Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 structure DomTreeNode where
@@ -30,7 +30,7 @@ abbrev DomContext := HashMap RegionPtr DomTree
 instance : Repr DomContext where
   reprPrec ctx prec := reprPrec (ctx.toList) prec
 
-def DomTreeNode.new (block : BlockPtr) (iDom: Option DomTreeNodePtr) : DomTreeNode :=
+def DomTreeNode.new (block : BlockPtr) (iDom : Option DomTreeNodePtr) : DomTreeNode :=
 {
   block := block
   iDom := iDom 
@@ -39,50 +39,50 @@ def DomTreeNode.new (block : BlockPtr) (iDom: Option DomTreeNodePtr) : DomTreeNo
   sibling := none
 }
 
-def RegionPtr.getDomTree! (ptr: RegionPtr) (ctx: DomContext) : DomTree := ctx[ptr]!
+def RegionPtr.getDomTree! (ptr : RegionPtr) (ctx : DomContext) : DomTree := ctx[ptr]!
 
-def RegionPtr.newDomTreeNode! (ptr: RegionPtr) (block : BlockPtr) (ctx: DomContext) : DomContext := 
+def RegionPtr.newDomTreeNode! (ptr : RegionPtr) (block : BlockPtr) (ctx : DomContext) : DomContext := 
   let tree := (ptr.getDomTree! ctx).push (DomTreeNode.new block none)
   ctx.insert ptr tree
 
-def RegionPtr.getDomTreeSize! (ptr: RegionPtr) (ctx: DomContext) : Nat :=
+def RegionPtr.getDomTreeSize! (ptr : RegionPtr) (ctx : DomContext) : Nat :=
   let tree := (ptr.getDomTree! ctx)
   tree.size
 
-def DomTreeNodePtr.getDomTree! (ptr: DomTreeNodePtr) (ctx: DomContext) : DomTree :=
-  (ptr.region.getDomTree! ctx)
+def DomTreeNodePtr.getDomTree! (ptr : DomTreeNodePtr) (ctx : DomContext) : DomTree :=
+  ptr.region.getDomTree! ctx
 
-def DomTreeNodePtr.get! (ptr: DomTreeNodePtr) (ctx: DomContext) : DomTreeNode :=
+def DomTreeNodePtr.get! (ptr : DomTreeNodePtr) (ctx : DomContext) : DomTreeNode :=
   (ptr.getDomTree! ctx)[ptr.index]!
 
-def DomTreeNodePtr.getBlock! (ptr: DomTreeNodePtr) (ctx: DomContext) : BlockPtr :=
+def DomTreeNodePtr.getBlock! (ptr : DomTreeNodePtr) (ctx : DomContext) : BlockPtr :=
   (ptr.get! ctx).block
 
-def DomTreeNodePtr.getIDom! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
+def DomTreeNodePtr.getIDom! (ptr : DomTreeNodePtr) (ctx : DomContext) : Option DomTreeNodePtr :=
   (ptr.get! ctx).iDom
 
-def DomTreeNodePtr.getFirstChild! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
+def DomTreeNodePtr.getFirstChild! (ptr : DomTreeNodePtr) (ctx : DomContext) : Option DomTreeNodePtr :=
   (ptr.get! ctx).firstChild
 
-def DomTreeNodePtr.getLastChild! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
+def DomTreeNodePtr.getLastChild! (ptr : DomTreeNodePtr) (ctx : DomContext) : Option DomTreeNodePtr :=
   (ptr.get! ctx).lastChild
 
-def DomTreeNodePtr.getSibling! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
+def DomTreeNodePtr.getSibling! (ptr : DomTreeNodePtr) (ctx : DomContext) : Option DomTreeNodePtr :=
   (ptr.get! ctx).sibling
 
-def DomTreeNodePtr.getLastChildSibling! (ptr: DomTreeNodePtr) (ctx: DomContext) : Option DomTreeNodePtr :=
-  ((ptr.getLastChild! ctx).get!.getSibling! ctx)
+def DomTreeNodePtr.getLastChildSibling! (ptr : DomTreeNodePtr) (ctx : DomContext) : Option DomTreeNodePtr :=
+  (ptr.getLastChild! ctx).get!.getSibling! ctx
 
-def DomTreeNodePtr.isLeaf! (ptr: DomTreeNodePtr) (ctx: DomContext) : Bool :=
+def DomTreeNodePtr.isLeaf! (ptr : DomTreeNodePtr) (ctx : DomContext) : Bool :=
   (ptr.getFirstChild! ctx).isNone
 
-def DomContext.updateNode! (ptr: DomTreeNodePtr) (f : DomTreeNode -> DomTreeNode) (ctx: DomContext) : DomContext :=
-  let tree := (ptr.getDomTree! ctx)
+def DomContext.updateNode! (ptr : DomTreeNodePtr) (f : DomTreeNode -> DomTreeNode) (ctx : DomContext) : DomContext :=
+  let tree := ptr.getDomTree! ctx
   let tree' := tree.set! ptr.index (f (ptr.get! ctx))
   ctx.insert ptr.region tree'
 
-def DomTreeNodePtr.addChild! (parent child: DomTreeNodePtr) (ctx: DomContext) : DomContext := 
-  let parentNode := (parent.get! ctx) 
+def DomTreeNodePtr.addChild! (parent child : DomTreeNodePtr) (ctx : DomContext) : DomContext := 
+  let parentNode := parent.get! ctx 
 
   if (child.getSibling! ctx).isSome then 
     panic! "cannot add child that already has siblings"
@@ -91,63 +91,63 @@ def DomTreeNodePtr.addChild! (parent child: DomTreeNodePtr) (ctx: DomContext) : 
     panic! "sibling of last child must be none" 
   else
     match parentNode.lastChild with
-    | none => (ctx.updateNode! parent) (fun n => { n with firstChild := some child, lastChild := some child })
+    | none => ctx.updateNode! parent fun n => { n with firstChild := some child, lastChild := some child }
     | some last => 
-      let ctx := (ctx.updateNode! last) (fun n => { n with sibling := some child })
-      (ctx.updateNode! parent) (fun parentNode => { parentNode with lastChild := some child })
+      let ctx := ctx.updateNode! last fun n => { n with sibling := some child }
+      ctx.updateNode! parent fun parentNode => { parentNode with lastChild := some child }
 
-def DomTreeNodePtr.removeChild! (parent child: DomTreeNodePtr) (ctx: DomContext) : DomContext := Id.run do
-  let childSibling := (child.getSibling! ctx)
-  let parentLast := (parent.getLastChild! ctx)
-  let parentFirst := (parent.getFirstChild! ctx)
+def DomTreeNodePtr.removeChild! (parent child : DomTreeNodePtr) (ctx : DomContext) : DomContext := Id.run do
+  let childSibling := child.getSibling! ctx
+  let parentLast := parent.getLastChild! ctx
+  let parentFirst := parent.getFirstChild! ctx
 
   -- Check invariants
   if !(parent.isLeaf! ctx) && 
      (parent.getLastChildSibling! ctx).isSome then 
     panic! "sibling of last child must be none" 
-  if childSibling.isNone ≠ (parentLast == some child) then
+  if childSibling.isNone ≠ (parentLast = some child) then
       panic! "parent's last child is not the same as the last sibling"  
   
   -- Special case: child being removed is first child in sibling list
-  if parentFirst == child then
-    if parentFirst == parentLast then
-      (ctx.updateNode! parent) (fun n => { n with firstChild := none, lastChild := none })
+  if parentFirst = child then
+    if parentFirst = parentLast then
+      ctx.updateNode! parent fun n => { n with firstChild := none, lastChild := none }
     else
-      let ctx := (ctx.updateNode! parent) (fun n => { n with firstChild := childSibling })
-      (ctx.updateNode! child) (fun n => { n with sibling := none }) 
+      let ctx := ctx.updateNode! parent fun n => { n with firstChild := childSibling }
+      ctx.updateNode! child fun n => { n with sibling := none } 
   else -- Iterate
     let prev := parentFirst
     match prev with
     | none => panic! "Not in immediate dominator children list!"
     | some prev => 
         let mut prev := prev
-        let mut curr := (prev.getSibling! ctx) 
+        let mut curr := prev.getSibling! ctx 
         while curr != child do
           match curr with
           | none => panic! "Not in immediate dominator children list!"
           | some sibling => prev := sibling; curr := (sibling.getSibling! ctx) 
-        let ctx := (ctx.updateNode! prev) (fun n => { n with sibling := childSibling })
+        let ctx := ctx.updateNode! prev fun n => { n with sibling := childSibling }
         if childSibling.isSome then
-          (ctx.updateNode! child) (fun n => { n with sibling := none })
+          ctx.updateNode! child fun n => { n with sibling := none }
         else
-          (ctx.updateNode! parent) (fun n => { n with lastChild := prev })
+          ctx.updateNode! parent fun n => { n with lastChild := prev }
 
-  def DomTreeNodePtr.setIDom! (ptr newIDom: DomTreeNodePtr) (ctx: DomContext) : DomContext := Id.run do
-    match (ptr.getIDom! ctx) with
+  def DomTreeNodePtr.setIDom! (ptr newIDom : DomTreeNodePtr) (ctx : DomContext) : DomContext := Id.run do
+    match ptr.getIDom! ctx with
     | none =>
       let ctx := DomContext.updateNode! ptr (fun n => { n with iDom := some newIDom }) ctx
-      (newIDom.addChild! ptr ctx)
+      newIDom.addChild! ptr ctx
     | some iDom =>
-      if iDom == newIDom then 
+      if iDom = newIDom then 
         return ctx
       else
-        let ctx := (iDom.removeChild! ptr ctx)
+        let ctx := iDom.removeChild! ptr ctx
         let ctx := DomContext.updateNode! ptr (fun n => { n with iDom := some newIDom }) ctx
-        (newIDom.addChild! ptr ctx)
+        newIDom.addChild! ptr ctx
 
 -- Uses the Cooper Harvey Kennedy algorithm
-def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRContext) : DomContext := Id.run do 
-  let intersect (block1: BlockPtr) (block2: BlockPtr) (idx: HashMap BlockPtr DomTreeNodePtr) (domCtx: DomContext) : BlockPtr := Id.run do 
+def RegionPtr.computeDomTree! (ptr : RegionPtr) (domCtx : DomContext) (irCtx : IRContext) : DomContext := Id.run do 
+  let intersect (block1 : BlockPtr) (block2 : BlockPtr) (idx : HashMap BlockPtr DomTreeNodePtr) (domCtx : DomContext) : BlockPtr := Id.run do 
     let mut finger1 := idx[block1]!
     let mut finger2 := idx[block2]!
     while finger1 != finger2 do
@@ -181,7 +181,7 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
           seen := seen.insert block
           worklist := worklist.push (block, true) 
           let op := (block.get! irCtx).lastOp.get!
-          for childIdx in [0:op.getNumSuccessors! irCtx] do
+          for childIdx in [0 :op.getNumSuccessors! irCtx] do
             worklist := worklist.push ((op.getSuccessor! irCtx childIdx), false)
 
     -- Give entry block its iDom (which is itself)
@@ -191,11 +191,11 @@ def RegionPtr.computeDomTree! (ptr: RegionPtr) (domCtx: DomContext) (irCtx : IRC
     -- Iterate backwards through the DomTree (reverse postorder traversal)
     let mut changed := true
     while changed do
-      let domTree := (ptr.getDomTree! domCtx)
+      let domTree := ptr.getDomTree! domCtx
       changed := false
       for node in domTree.reverse do
         -- Entry block was already given its iDom
-        if node.block == entry then
+        if node.block = entry then
           continue
         let mut pred := (node.block.get! irCtx).firstUse
         let mut newIDom : Option BlockPtr := none
