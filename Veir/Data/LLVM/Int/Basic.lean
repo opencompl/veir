@@ -163,6 +163,56 @@ def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
 
   val (x'.sdiv y')
 
+/--
+The ‘urem’ instruction returns the unsigned integer remainder from the
+unsigned division of its two arguments. This instruction always performs
+an unsigned division to get the remainder.
+
+Note that unsigned integer remainder and signed integer remainder are distinct
+operations; for signed integer remainder, use ‘srem’.
+
+Taking the remainder of a division by zero is undefined behavior. For vectors,
+if any element of the divisor is zero, the operation has undefined behavior.
+-/
+def urem {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  if y' == 0 then
+    return poison
+
+  val (x' % y')
+
+/--
+The ‘srem’ instruction returns the remainder from the signed division of its two
+operands.
+
+This instruction returns the remainder of a division (where the result is either
+zero or has the same sign as the dividend, `x`), not the modulo operator (where
+the result is either zero or has the same sign as the divisor, `y`) of a value.
+
+Note that signed integer remainder and unsigned integer remainder are distinct
+operations; for unsigned integer remainder, use ‘urem’.
+
+Taking the remainder of a division by zero is undefined behavior. For vectors,
+if any element of the divisor is zero, the operation has undefined behavior.
+Overflow also leads to undefined behavior; this is a rare case, but can occur,
+for example, by taking the remainder of a 32-bit division of -2147483648 by -1.
+(The remainder doesn’t actually overflow, but this rule lets srem be implemented
+using instructions that return both the result of the division and the
+remainder.)
+-/
+def srem {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  if y' == 0 || (w != 1 && x' == (BitVec.intMin w) && y' == -1) then
+    return poison
+
+  val (x'.srem y')
+
+
+
 def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   match x with
   | .val v => .val (v.cast h)
