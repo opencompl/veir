@@ -1,6 +1,7 @@
 module
 
 public import Veir.Analysis.DataFlow.SparseFact
+public import Veir.Analysis.DataFlow.DeadCodeAnalysis
 
 public section
 
@@ -78,44 +79,62 @@ private def getSuccessorOperand?
     | _ =>
       panic! "SparseForwardDataFlowAnalysis.getSuccessorOperand?: non-branch op"
 
-/-- Conservatively treat blocks as executable when no executability facts exist. -/
+/--
+Conservatively treat blocks as executable when dead code analysis is
+not registered. Otherwise consult the executable lattice, where points
+are not live by default.
+-/
 private def isBlockExecutable
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=
-  let _ := block
-  let _ := dfCtx
-  let _ := irCtx
-  true
+  if !dfCtx.hasAnalysis .deadCode then
+    true
+  else
+    let blockPoint := InsertPoint.atStart! block irCtx
+    match dfCtx.getFact? .executable (.InsertPoint blockPoint) with
+    | some executableFact => executableFact.live
+    | none => false
 
-/-- Conservatively treat CFG edges as executable when no executability facts exist. -/
+/--
+Conservatively treat CFG edges as executable when dead code analysis is
+not registered. Otherwise consult the executable lattice, where points are
+not live by default.
+-/
 private def isEdgeExecutable
     (edge : CFGEdge)
     (dfCtx : DataFlowContext)
     (_irCtx : IRContext OpCode) : Bool :=
-  let _ := edge
-  let _ := dfCtx
-  true
+  if !dfCtx.hasAnalysis .deadCode then
+    true
+  else
+    match dfCtx.getFact? .executable (.CFGEdge edge) with
+    | some executableFact => executableFact.live
+    | none => false
 
-/-- No-op when no external executability provider is registered. -/
+/-- Subscribe to block executability updates if dead code analysis is registered. -/
 private def subscribeToBlockExecutability
     (analysisKind : AnalysisKind)
     (block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext :=
-  let _ := analysisKind
-  let _ := block
-  let _ := irCtx
-  dfCtx
+  if !dfCtx.hasAnalysis .deadCode then
+    dfCtx
+  else
+    let blockPoint := InsertPoint.atStart! block irCtx
+    dfCtx.modifyFact .executable (.InsertPoint blockPoint) (fun state =>
+      state.subscribe analysisKind)
 
-/-- No-op when no external executability provider is registered. -/
+/-- Subscribe to edge executability updates if dead code analysis is registered. -/
 private def subscribeToEdgeExecutability
     (analysisKind : AnalysisKind)
     (edge : CFGEdge)
     (dfCtx : DataFlowContext) : DataFlowContext :=
-  let _ := analysisKind
-  let _ := edge
-  dfCtx
+  if !dfCtx.hasAnalysis .deadCode then
+    dfCtx
+  else
+    dfCtx.modifyFact .executable (.CFGEdge edge) (fun state =>
+      state.subscribe analysisKind)
 
 /--
 Visit a block during sparse initialization.
