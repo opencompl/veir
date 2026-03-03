@@ -18,6 +18,7 @@ import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.ArithToLLVM.Proofs
 import Veir.Passes.Canonicalize.Proofs
 import Veir.Passes.RISCVCombines.Proofs
+import Veir.Transforms.SCCP
 import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter
