@@ -4,49 +4,6 @@ import UnitTest.DataFlowFramework.Helpers
 open Std (HashMap)
 open Veir
 
--- TODO: Facts not initialized in the Dataflow Analysis Framework are implicitly assumed to be the pessimistic bottom state.
--- We should not assume this implicitly, but rather encode this in the framework!!!!
-def isBlockLive (dfCtx : DataFlowContext) (block : BlockPtr) (irCtx : WfIRContext OpCode) : Bool :=
-  match dfCtx.getFact? .liveness (.InsertPoint (InsertPoint.atStart! block irCtx.raw)) with
-  | some fact => fact.live
-  | none => false
-
-def isEdgeLive (dfCtx : DataFlowContext) (src dst : BlockPtr) : Bool :=
-  match dfCtx.getFact? .liveness (.CFGEdge { source := src, target := dst }) with
-  | some fact => fact.live
-  | none => false
-
-def checkNamedBlockLiveness
-    (dfCtx : DataFlowContext)
-    (irCtx : WfIRContext OpCode)
-    (blockMap : HashMap String BlockPtr)
-    (expected : Array (String × Bool)) : MismatchReport := Id.run do
-  let mut report := #[]
-  for (name, live) in expected do
-    match blockMap[name]? with
-    | some block =>
-      let observed := isBlockLive dfCtx block irCtx
-      if observed != live then
-        report := report.push s!"block {name}: expected live={live}, observed live={observed}"
-    | none =>
-      report := report.push s!"block {name}: missing block label"
-  report
-
-def checkNamedEdgeLiveness
-    (dfCtx : DataFlowContext)
-    (blockMap : HashMap String BlockPtr)
-    (expected : Array ((String × String) × Bool)) : MismatchReport := Id.run do
-  let mut report := #[]
-  for ((srcName, dstName), live) in expected do
-    match blockMap[srcName]?, blockMap[dstName]? with
-    | some src, some dst =>
-      let observed := isEdgeLive dfCtx src dst
-      if observed != live then
-        report := report.push s!"edge {srcName} -> {dstName}: expected live={live}, observed live={observed}"
-    | _, _ =>
-      report := report.push s!"edge {srcName} -> {dstName}: missing block label(s)"
-  report
-
 private def run
     (mlir : String)
     (expectedBlockLives : Array (String × Bool))
