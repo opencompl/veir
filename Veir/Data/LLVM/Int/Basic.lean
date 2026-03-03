@@ -211,8 +211,6 @@ def srem {w : Nat} (x y : Int w) : Int w := Id.run do
 
   val (x'.srem y')
 
-
-
 def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   match x with
   | .val v => .val (v.cast h)
