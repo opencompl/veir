@@ -126,7 +126,7 @@ def srai (shamt : BitVec 6) (rs1_val : BitVec 64) : BitVec 64 :=
 def add (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 := rs1_val + rs2_val
 
 /--
-  Subs the register rs2 from rs1 and stores the result in rd. Arithmetic overflow is ignored and
+  Subtracts the register rs2 from rs1 and stores the result in rd. Arithmetic overflow is ignored and
   the result is simply the low 64 bits of the result.
 -/
 def sub (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 := rs1_val - rs2_val
