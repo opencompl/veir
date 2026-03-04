@@ -338,7 +338,7 @@ def divw (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
   Perform a 64-bits by 64-bits unsigned integer division of rs1 by rs2.
 -/
 def divu (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
-  if rs2_val = 0#64 then  (-1)  else rs1_val.udiv rs2_val
+  if rs2_val = 0#64 then (-1) else rs1_val.udiv rs2_val
 
 /--
   Performs unsigned division of the lowest 32 bits of rs1 by the lowest 32 bits of rs2,
