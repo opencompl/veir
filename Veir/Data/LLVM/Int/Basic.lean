@@ -265,7 +265,6 @@ def lshr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
 
   val (x' >>> y')
 
-
 /--
 The ‘ashr’ instruction (arithmetic shift right) returns the first operand
 shifted to the right a specified number of bits with sign extension.
