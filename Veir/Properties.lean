@@ -132,7 +132,7 @@ match opCode with
 | _ => Unit
 
 instance : HasOpInfo OpCode where
-  getModuleOp := .builtin_module
+  moduleOpCode := .builtin_module
   propertiesOf := propertiesOf
   propertiesHash := by
     unfold propertiesOf
