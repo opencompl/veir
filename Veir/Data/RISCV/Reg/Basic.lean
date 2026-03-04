@@ -41,7 +41,7 @@ def auipc (imm : BitVec 20) (pc : BitVec 64) : BitVec 64 :=
 
 /--
   Adds the sign-extended 12-bit immediate to register rs1. Arithmetic overflow is ignored and the
-  result is simply the low XLEN bits of the result. ADDI rd, rs1, 0 is used to implement the MV
+  result is simply the low 64 bits of the result. ADDI rd, rs1, 0 is used to implement the MV
   rd, rs1 assembler pseudo-instruction.
 -/
 def addi (imm : BitVec 12) (rs1_val : BitVec 64) : BitVec 64 :=
