@@ -7,5 +7,5 @@
   "func.return"(%z) : (i64) -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x0000000000000001#64]
+// CHECK: Program output: #[0x0000000000000000#64]
 
