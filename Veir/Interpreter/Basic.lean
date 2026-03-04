@@ -199,24 +199,20 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let imm := BitVec.ofNat 12 properties.value.value.toNat
     return (#[.reg (RISCV.xori imm op)], .continue)
   | .riscv_addiw => do
-    let value := opPtr.getProperties! ctx .riscv_addiw
     let #[.reg op] := operands | none
-    let imm := BitVec.ofNat 12 value.value.value.toNat
+    let imm := BitVec.ofNat 12 properties.value.value.toNat
     return (#[.reg (RISCV.addiw imm op)], .continue)
   | .riscv_slli => do
-    let value := opPtr.getProperties! ctx .riscv_slli
     let #[.reg op] := operands | none
-    let imm := BitVec.ofNat 6 value.value.value.toNat
+    let imm := BitVec.ofNat 6 properties.value.value.toNat
     return (#[.reg (RISCV.slli imm op)], .continue)
   | .riscv_srli => do
-    let value := opPtr.getProperties! ctx .riscv_srli
     let #[.reg op] := operands | none
-    let imm := BitVec.ofNat 6 value.value.value.toNat
+    let imm := BitVec.ofNat 6 properties.value.value.toNat
     return (#[.reg (RISCV.srli imm op)], .continue)
   | .riscv_srai => do
-    let value := opPtr.getProperties! ctx .riscv_srai
     let #[.reg op] := operands | none
-    let imm := BitVec.ofNat 6 value.value.value.toNat
+    let imm := BitVec.ofNat 6 properties.value.value.toNat
     return (#[.reg (RISCV.srai imm op)], .continue)
   | _ => none
 
