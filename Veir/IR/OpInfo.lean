@@ -12,6 +12,7 @@ its properties
 -/
 class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
+  moduleOpCode: opCode
   propertiesOf : opCode → Type
   propertiesHash {op : opCode} : Hashable (propertiesOf op)
   propertiesDefault {op : opCode} : Inhabited (propertiesOf op)

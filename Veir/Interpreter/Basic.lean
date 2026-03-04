@@ -5,6 +5,7 @@ import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.RISCV.Reg.Basic
+import Veir.Properties
 
 open Veir.Data
 /-!
@@ -158,6 +159,16 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], .continue)
+  | .llvm_srem => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.srem lhs rhs)], .continue)
+  | .llvm_urem => do
+    let #[.int bw lhs, .int bw' rhs] := operands | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.urem lhs rhs)], .continue)
   | .func_return => do
     return (#[], .return operands)
   /- Bitblastable semantics of RISC-V assembly instructions. -/

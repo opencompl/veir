@@ -4,6 +4,7 @@ import Veir.Rewriter.Basic
 import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.Rewriter.Basic
+import Veir.Properties
 
 open Veir
 
@@ -263,7 +264,7 @@ end Custom
 namespace Program
 
 def empty : Option (IRContext OpCode × OperationPtr × InsertPoint) := do
-  let (ctx, topLevelOp) ← IRContext.create
+  let (ctx, topLevelOp) ← IRContext.create OpCode
   let region := topLevelOp.getRegion! ctx 0
   let block := (region.get ctx (by sorry)).firstBlock.get!
   let insertPoint := InsertPoint.atEnd block

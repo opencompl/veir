@@ -1,7 +1,6 @@
 import Veir.IR
 import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.LinkedList
-import Veir.Properties
 
 namespace Veir
 
@@ -603,8 +602,8 @@ def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
 set_option warn.sorry false in
 unseal Rewriter.createRegion in
 @[irreducible]
-def IRContext.create : Option (IRContext OpCode × OperationPtr) :=
-  rlet (ctx, operation) ← Rewriter.createEmptyOp (empty OpCode) .builtin_module default
+def IRContext.create OpInfo [HasOpInfo OpInfo] : Option (IRContext OpInfo × OperationPtr) :=
+  rlet (ctx, operation) ← Rewriter.createEmptyOp (empty OpInfo) (HasOpInfo.moduleOpCode) default
   rlet (ctx, region) ← Rewriter.createRegion ctx
   let ctx := Rewriter.initOpRegions ctx operation #[region] (hn := by grind [Rewriter.createEmptyOp, Operation.empty])
   let moduleRegion := operation.getRegion! ctx 0

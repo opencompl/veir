@@ -9,7 +9,7 @@ open Veir.Parser
   Parse an operation and print it.
 -/
 def testParseOp (s : String) : IO Unit :=
-  match IRContext.create with
+  match IRContext.create OpCode with
   | some (ctx, _) =>
     match ParserState.fromInput (s.toByteArray) with
     | .ok parser =>
