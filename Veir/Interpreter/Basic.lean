@@ -252,6 +252,33 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .riscv_and => do
     let #[.reg op1, .reg op2] := operands | none
     return (#[.reg (RISCV.and op2 op1)], .continue)
+  | .riscv_slliw => do
+    let #[.reg op1] := operands | none
+    let imm := BitVec.ofInt 5 properties.value.value
+    return (#[.reg (RISCV.slliw imm op1)], .continue)
+  | .riscv_srliw => do
+    let #[.reg op1] := operands | none
+    let imm := BitVec.ofInt 5 properties.value.value
+    return (#[.reg (RISCV.srliw imm op1)], .continue)
+  | .riscv_sraiw => do
+    let #[.reg op1] := operands | none
+    let imm := BitVec.ofInt 5 properties.value.value
+    return (#[.reg (RISCV.sraiw imm op1)], .continue)
+  | .riscv_addw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.addw op2 op1)], .continue)
+  | .riscv_subw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.subw op2 op1)], .continue)
+  | .riscv_sllw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.sllw op2 op1)], .continue)
+  | .riscv_srlw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.srlw op2 op1)], .continue)
+  | .riscv_sraw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.sraw op2 op1)], .continue)
   | _ => none
 
 /--
