@@ -209,7 +209,7 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     return (#[.reg (RISCV.srli imm op)], .continue)
   | .riscv_srai => do
     let #[.reg op] := operands | none
-    let imm := BitVec.toNat (BitVec.ofInt 6 properties.value.value)
+    let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.srai imm op)], .continue)
   | _ => none
 
