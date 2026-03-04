@@ -118,3 +118,67 @@ def srli (shamt : BitVec 6) (rs1_val : BitVec 64) : BitVec 64 := rs1_val >>> sha
 -/
 def srai (shamt : BitVec 6) (rs1_val : BitVec 64) : BitVec 64 :=
   BitVec.signExtend 64 (BitVec.sshiftRight' rs1_val shamt)
+
+/--
+  Adds the registers rs1 and rs2 and stores the result in rd. Arithmetic overflow is ignored and
+  the result is simply the low 64 bits of the result.
+-/
+def add (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 := rs1_val + rs2_val
+
+/--
+  Subtracts the register rs2 from rs1 and stores the result in rd. Arithmetic overflow is ignored and
+  the result is simply the low 64 bits of the result.
+-/
+def sub (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 := rs1_val - rs2_val
+
+/--
+  Performs logical left shift on the value in register rs1 by the shift amount held in the lower 5
+  bits of register rs2.
+-/
+def sll (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  let shamt := (BitVec.extractLsb 5 0 rs2_val);
+  rs1_val <<< shamt
+
+/--
+  Place the value 1 in register rd if register rs1 is less than register rs2 when both are treated
+  as signed numbers, else 0 is written to rd.
+-/
+def slt (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  BitVec.setWidth 64 (BitVec.ofBool (BitVec.slt rs1_val rs2_val))
+
+/--
+  Place the value 1 in register rd if register rs1 is less than register rs2 when both are treated
+  as unsigned numbers, else 0 is written to rd.
+-/
+def sltu (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  BitVec.setWidth 64 (BitVec.ofBool (BitVec.ult rs1_val rs2_val))
+
+/--
+  Performs bitwise XOR on registers rs1 and rs2 and place the result in rd.
+-/
+def xor (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 := rs1_val ^^^ rs2_val
+
+/--
+  Logical right shift on the value in register rs1 by the shift amount held in the lower 5 bits of
+  register rs2.
+-/
+def srl (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  let shamt := (BitVec.extractLsb 5 0 rs2_val)
+  rs1_val >>> shamt
+
+/--
+  Performs arithmetic right shift on the value in register rs1 by the shift amount held in the
+  lower 5 bits of register rs2.
+-/
+def sra (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  BitVec.sshiftRight' rs1_val (BitVec.extractLsb 5 0 rs2_val)
+
+/--
+  Performs bitwise OR on registers rs1 and rs2 and place the result in rd.
+-/
+def or (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 := rs1_val ||| rs2_val
+
+/--
+  Performs bitwise AND on registers rs1 and rs2 and place the result in rd.
+-/
+def and (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 := rs1_val &&& rs2_val
