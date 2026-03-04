@@ -255,3 +255,96 @@ def sraw (rs2_val : BitVec 64) (rs1_val : BitVec 64) :=
   let rs1 := BitVec.extractLsb 31 0 rs1_val
   let rs2 := BitVec.extractLsb 4 0 rs2_val
   BitVec.signExtend 64 (BitVec.sshiftRight' rs1 rs2)
+
+/-! # M Extension for Integer Multiplication and Division -/
+
+/--
+  Perform a 64-bits by 64-bits signed integer reminder of rs1 by rs2.
+-/
+def rem (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 := rs1_val.srem rs2_val
+
+/--
+  Perform a 64-bits by 64-bits unsigned integer reminder of rs1 by rs2.
+-/
+def remu (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 := rs1_val.umod rs2_val
+
+/--
+  Perform a 32-bits by 32-bits signed integer reminder of rs1 by rs2.
+-/
+def remw (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  let rs1 := BitVec.extractLsb 31 0 rs1_val
+  let rs2 := BitVec.extractLsb 31 0 rs2_val
+  BitVec.signExtend 64 (rs1.srem rs2)
+
+/--
+  Perform a 32-bits by 32-bits unsigned integer reminder of rs1 by rs2.
+-/
+def remuw (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  let rs1 := BitVec.extractLsb 31 0 rs1_val
+  let rs2 := BitVec.extractLsb 31 0 rs2_val
+  BitVec.signExtend 64 (rs1.umod rs2)
+
+/--
+  Performs a 64-bits times 64-bits multiplication of signed rs1 by signed rs2.
+-/
+def mul (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 := rs2_val * rs1_val
+
+/--
+  Performs a 64-bits times 64-bits multiplication of signed rs1 by signed rs2 and places the highest 64 bits in the destination register.
+-/
+def mulh (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  BitVec.extractLsb 127 64 ((BitVec.signExtend 129 rs1_val) * (BitVec.signExtend 129 rs2_val))
+
+/--
+  Performs a 64-bits times 64-bits multiplication of unsigned rs1 by unsigned rs2 and places the highest 64 bits in the destination register.
+-/
+def mulhu (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+   BitVec.extractLsb 127 64
+    (BitVec.extractLsb' 0 128 ((BitVec.zeroExtend 128 rs1_val) * (BitVec.zeroExtend 128 rs2_val)))
+
+/--
+  Performs a 64-bits times 64-bits multiplication of signed rs1 by unsigned rs2 and places the highest 64 bits in the destination register.
+-/
+def mulhsu (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  BitVec.extractLsb 127 64 (((BitVec.signExtend 129 rs1_val) * (BitVec.zeroExtend 129 rs2_val)))
+
+/--
+  Multiplies the lowest 32 bits of rs1 by the lowest 32 bits of rs2,
+  placing the sign extension of the lowest 32 bits of the result into the destination register.
+-/
+def mulw (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  BitVec.signExtend 64
+    (((BitVec.extractLsb 31 0 rs1_val) * (BitVec.extractLsb 31 0 rs2_val)))
+
+/--
+  Perform a 64-bits by 64-bits signed integer division of rs1 by rs2, rounding towards zero.
+-/
+def div (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  if rs2_val = 0#64 then
+    -1#64
+  else
+    rs1_val.sdiv rs2_val
+
+/--
+  Performs signed division of the lowest 32 bits of rs1 by the lowest 32 bits of rs2
+  placing the sign extension of the lowest 32 bits of the result into the destination register.
+-/
+def divw (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  let rs1 := BitVec.extractLsb 31 0 rs1_val
+  let rs2 := BitVec.extractLsb 31 0 rs2_val
+  BitVec.signExtend 64 (if rs2 = 0#32 then  -1#32 else rs1.sdiv rs2)
+
+/--
+  Perform a 64-bits by 64-bits unsigned integer division of rs1 by rs2.
+-/
+def divu (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  if rs2_val = 0#64 then  (-1)  else rs1_val.udiv rs2_val
+
+/--
+  Performs unsigned division of the lowest 32 bits of rs1 by the lowest 32 bits of rs2,
+  placing the sign extension of the lowest 32 bits of the result into the destination register.
+-/
+def divuw (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
+  let rs1 := BitVec.extractLsb 31 0 rs1_val
+  let rs2 := BitVec.extractLsb 31 0 rs2_val
+  BitVec.signExtend 64 (if rs2 = 0#32 then -1#32 else rs1.udiv rs2)
