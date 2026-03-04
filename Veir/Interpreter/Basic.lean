@@ -405,6 +405,43 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let #[.reg op1] := operands | none
     let imm := BitVec.ofInt 6 properties.value.value
     return (#[.reg (RISCV.rori imm op1)], .continue)
+  | .riscv_bclr => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.bclr op2 op1)], .continue)
+  | .riscv_bext => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.bext op2 op1)], .continue)
+  | .riscv_binv => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.binv op2 op1)], .continue)
+  | .riscv_bset => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.bset op2 op1)], .continue)
+  | .riscv_bclri => do
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofInt 6 properties.value.value
+    return (#[.reg (RISCV.bclri imm op)], .continue)
+  | .riscv_bexti => do
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofInt 6 properties.value.value
+    return (#[.reg (RISCV.bexti imm op)], .continue)
+  | .riscv_binvi => do
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofInt 6 properties.value.value
+    return (#[.reg (RISCV.binvi imm op)], .continue)
+  | .riscv_bseti => do
+    let #[.reg op] := operands | none
+    let imm := BitVec.ofInt 6 properties.value.value
+    return (#[.reg (RISCV.bseti imm op)], .continue)
+  | .riscv_pack => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.pack op2 op1)], .continue)
+  | .riscv_packh => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.packh op2 op1)], .continue)
+  | .riscv_packw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.packw op2 op1)], .continue)
   | _ => none
 
 /--
