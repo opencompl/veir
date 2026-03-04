@@ -5,6 +5,7 @@ import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.RISCV.Reg.Basic
+import Veir.Properties
 
 open Veir.Data
 /-!

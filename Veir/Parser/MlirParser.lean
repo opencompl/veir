@@ -3,6 +3,7 @@ import Veir.Parser.AttrParser
 import Veir.IR.Basic
 import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.Basic
+import Veir.Properties
 
 open Veir.Parser.Lexer
 open Veir.Parser

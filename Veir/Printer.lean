@@ -1,6 +1,7 @@
 import Veir.IR.Basic
 import Veir.IR.Grind
 import Veir.Rewriter.Basic
+import Veir.Properties
 
 open Veir
 

@@ -2,13 +2,14 @@ import Veir.Parser.MlirParser
 import Veir.Printer
 import Veir.IR.Basic
 import Veir.Verifier
+import Veir.Properties
 
 open Veir.Parser
 open Veir
 
 def parseOperation (filename : String) : ExceptT String IO (IRContext OpCode × OperationPtr) := do
   let fileContent ← IO.FS.readBinFile filename
-  let some (ctx, _) := IRContext.create
+  let some (ctx, _) := IRContext.create OpCode
     | throw "Failed to create IR context"
   match ParserState.fromInput fileContent with
   | .ok parser =>
