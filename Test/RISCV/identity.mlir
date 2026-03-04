@@ -111,9 +111,9 @@
 // CHECK-NEXT:     %{{.*}} = "riscv.slliw"(%{{.*}}) <{"value" = 13 : i5}> : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.srliw"(%{{.*}}) <{"value" = 17 : i5}> : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.sraiw"(%{{.*}}) <{"value" = 19 : i5}> : (i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.slliuw"(%{{.*}}) <{"value" = 13 : i6 }> : (i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.roriw"(%{{.*}}) <{"value" = 13 : i5 }> : (i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.rori"(%{{.*}}) <{"value" = 13 : i6 }> : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.slliuw"(%{{.*}}) <{"value" = 13 : i6}> : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.roriw"(%{{.*}}) <{"value" = 13 : i5}> : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.rori"(%{{.*}}) <{"value" = 13 : i6}> : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.bclri"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.bexti"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.binvi"(%{{.*}}) : (i64) -> i64
