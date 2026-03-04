@@ -11,7 +11,7 @@
   %y = "llvm.sdiv"(%lhs, %zero) : (i32, i32) -> i32
   %z = "llvm.sdiv"(%lhs, %negone) : (i32, i32) -> i32
   %a = "llvm.sdiv"(%negthree, %negtwo) : (i32, i32) -> i32
-  "func.return"(%x, %y, %z) : (i32, i32, i32) -> ()
+  "func.return"(%x, %y, %z, %a) : (i32, i32, i32, i32) -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x00000003#32, poison, 0xfffffff9#32]
+// CHECK: Program output: #[0x00000003#32, poison, 0xfffffff9#32, 0x00000001#32]
