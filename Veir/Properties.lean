@@ -135,6 +135,9 @@ match opCode with
 | .riscv_slliw => RISCVImmediateProperties
 | .riscv_srliw => RISCVImmediateProperties
 | .riscv_sraiw => RISCVImmediateProperties
+| .riscv_slliuw => RISCVImmediateProperties
+| .riscv_rori => RISCVImmediateProperties
+| .riscv_roriw => RISCVImmediateProperties
 | _ => Unit
 
 instance : HasOpInfo OpCode where
@@ -194,6 +197,9 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case riscv_slliw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_srliw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_sraiw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_slliuw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_rori => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case riscv_roriw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   all_goals exact (Except.ok ())
 
 /--
@@ -220,7 +226,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | .riscv_li  | .riscv_lui | .riscv_auipc | .riscv_andi | .riscv_ori | .riscv_xori
   | .riscv_addi | .riscv_slti | .riscv_sltiu | .riscv_addiw | .riscv_slli | .riscv_srli | .riscv_srai
-  | .riscv_slliw | .riscv_srliw | .riscv_sraiw =>
+  | .riscv_slliw | .riscv_srliw | .riscv_sraiw | .riscv_rori | .riscv_roriw | .riscv_slliuw =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | _ =>
     Std.HashMap.emptyWithCapacity 0
