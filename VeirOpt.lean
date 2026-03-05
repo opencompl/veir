@@ -4,7 +4,9 @@ import Veir.IR.Basic
 import Veir.Verifier
 import Veir.Properties
 import Veir.Pass
+
 import Veir.Passes.PrintIR
+import Veir.Passes.InstCombine
 
 open Veir.Parser
 open Veir
@@ -15,6 +17,7 @@ open Veir
 def availablePasses : Std.HashMap String (Pass OpCode) :=
   (Std.HashMap.emptyWithCapacity 1)
     |>.insert PrintIRPass.name PrintIRPass
+    |>.insert InstCombinePass.name InstCombinePass
 
 /--
   Arguments for the `veir-opt` command-line tool, parsed from the CLI.
