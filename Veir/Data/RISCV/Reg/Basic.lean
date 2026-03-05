@@ -553,14 +553,14 @@ def rori (shamt : BitVec 6) (rs1_val : BitVec 64) : BitVec 64 :=
 
 /--
   This instruction returns rs1 with a single bit cleared at the index specified
-  in rs2. The index is read from the lower log2(XLEN) bits of rs2.
+  in rs2. The index is read from the lower log2(64) bits of rs2.
 -/
 def bclr (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
   rs1_val &&& (~~~((BitVec.zeroExtend 64 1#1) <<< (BitVec.extractLsb 5 0 rs2_val)))
 
 /--
   This instruction returns a single bit extracted from rs1 at the index specified in rs2.
-  The index is read from the lower log2(XLEN) bits of rs2.
+  The index is read from the lower log2(64) bits of rs2.
 -/
 def bext (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
   BitVec.setWidth 64
@@ -569,21 +569,21 @@ def bext (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
 
 /--
   This instruction returns rs1 with a single bit inverted at the index specified in rs2.
-  The index is read from the lower log2(XLEN) bits of rs2.
+  The index is read from the lower log2(64) bits of rs2.
 -/
 def binv (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
   rs1_val ^^^ ((BitVec.zeroExtend 64 1#1) <<< (BitVec.extractLsb 5 0 rs2_val))
 
 /--
   This instruction returns rs1 with a single bit set at the index specified in rs2.
-  The index is read from the lower log2(XLEN) bits of rs2.
+  The index is read from the lower log2(64) bits of rs2.
 -/
 def bset (rs2_val : BitVec 64) (rs1_val : BitVec 64) : BitVec 64 :=
   rs1_val ||| ((BitVec.zeroExtend 64 1#1) <<< (BitVec.extractLsb 5 0 rs2_val))
 
 /--
   This instruction returns rs1 with a single bit cleared at the index specified in shamt.
-  The index is read from the lower log2(XLEN) bits of shamt.
+  The index is read from the lower log2(64) bits of shamt.
   For RV32, the encodings corresponding to shamt[5]=1 are reserved.
 -/
 def bclri (shamt : BitVec 6) (rs1_val : BitVec 64) :=
@@ -591,7 +591,7 @@ def bclri (shamt : BitVec 6) (rs1_val : BitVec 64) :=
 
 /--
   This instruction returns a single bit extracted from rs1 at the index specified in shamt.
-  The index is read from the lower log2(XLEN) bits of shamt.
+  The index is read from the lower log2(64) bits of shamt.
   For RV32, the encodings corresponding to shamt[5]=1 are reserved.
 -/
 def bexti (shamt : BitVec 6) (rs1_val : BitVec 64) :=
@@ -599,7 +599,7 @@ def bexti (shamt : BitVec 6) (rs1_val : BitVec 64) :=
 
 /--
   This instruction returns rs1 with a single bit inverted at the index specified in shamt.
-  The index is read from the lower log2(XLEN) bits of shamt.
+  The index is read from the lower log2(64) bits of shamt.
   For RV32, the encodings corresponding to shamt[5]=1 are reserved.
 -/
 def binvi (shamt : BitVec 6) (rs1_val : BitVec 64) :=
@@ -607,7 +607,7 @@ def binvi (shamt : BitVec 6) (rs1_val : BitVec 64) :=
 
 /--
   This instruction returns rs1 with a single bit set at the index specified in shamt.
-  The index is read from the lower log2(XLEN) bits of shamt.
+  The index is read from the lower log2(64) bits of shamt.
   For RV32, the encodings corresponding to shamt[5]=1 are reserved.
 -/
 def bseti (shamt : BitVec 6) (rs1_val : BitVec 64) :=
