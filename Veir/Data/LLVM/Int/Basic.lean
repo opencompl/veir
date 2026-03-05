@@ -211,6 +211,85 @@ def srem {w : Nat} (x y : Int w) : Int w := Id.run do
 
   val (x'.srem y')
 
+/--
+The ‘shl’ instruction returns the first operand shifted to the left by a specified
+number of bits.
+
+The value produced is `x` * 2^`y` mod 2^n, where n is the width of the result.
+If `y` is (statically or dynamically) equal to or larger than the number of bits
+in `x`, this instruction returns a poison value. If the arguments are vectors,
+each vector element of `x` is shifted by the corresponding shift amount in `y`.
+
+If the `nuw` keyword is present, then the shift produces a poison value if it
+shifts out any non-zero bits. If the `nsw` keyword is present, then the shift
+produces a poison value if it shifts out any bits that disagree with the
+resultant sign bit.
+-/
+def shl {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  if nsw ∧ (x' <<< y').sshiftRight' y' ≠ x' then
+    return poison
+
+  if nuw ∧ (x' <<< y') >>> y' ≠ x' then
+    return poison
+
+  if y' ≥ w then
+    return poison
+
+  val (x' <<< y')
+
+/--
+The ‘lshr’ instruction (logical shift right) returns the first operand shifted
+to the right a specified number of bits with zero fill.
+
+This instruction always performs a logical shift right operation. The most
+significant bits of the result will be filled with zero bits after the shift. If
+`y` is (statically or dynamically) equal to or larger than the number of bits in
+`x`, this instruction returns a poison value. If the arguments are vectors, each
+vector element of `x` is shifted by the corresponding shift amount in `y`.
+
+If the `exact` argument is true, the result value of the lshr is a poison value
+if any of the bits shifted out are non-zero.
+-/
+def lshr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  if y' ≥ w then
+    return poison
+
+  if exact ∧ (x' >>> y') <<< y' ≠ x' then
+    return poison
+
+  val (x' >>> y')
+
+/--
+The ‘ashr’ instruction (arithmetic shift right) returns the first operand
+shifted to the right a specified number of bits with sign extension.
+
+This instruction always performs an arithmetic shift right operation, The most
+significant bits of the result will be filled with the sign bit of `x`. If `y`
+is (statically or dynamically) equal to or larger than the number of bits in
+`x`, this instruction returns a poison value. If the arguments are vectors, each
+vector element of `x` is shifted by the corresponding shift amount in `y`.
+
+If the `exact` argument is true, the result value of the ashr is a poison value
+if any of the bits shifted out are non-zero.
+-/
+def ashr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  if y' ≥ w then
+    return poison
+
+  if exact ∧ (x' >>> y') <<< y' ≠ x' then
+    return poison
+
+  val (x'.sshiftRight' y')
+
 def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   match x with
   | .val v => .val (v.cast h)
