@@ -33,8 +33,7 @@ def parseTopLevelOp (s : String) : Option (OperationPtr × MlirParserState) :=
 def lookupConstantValue?
     (dfCtx : DataFlowContext)
     (anchor : LatticeAnchor) : Option ConstantValue := do
-  let state ← dfCtx.lattice[anchor]?
-  let constState ← state.getValue? ConstantLatticeState
+  let constState ← dfCtx.getState? anchor ConstantLatticeState
   return constState.value
 
 def checkExpectedLattice

@@ -91,12 +91,8 @@ def ConstantLatticeState.new (value : ValuePtr) (constant : ConstantValue) : Ana
 -- ===================== Example `DataFlowAnalysis` Children ===================== --
 namespace ConstantAnalysis
 
-def getConstantState? (dfCtx : DataFlowContext) (anchor : LatticeAnchor) : Option ConstantLatticeState := do
-  let state ← dfCtx.lattice[anchor]?
-  state.getValue? ConstantLatticeState
-
 def getLatticeValue (dfCtx : DataFlowContext) (anchor : LatticeAnchor) : ConstantValue :=
-  match getConstantState? dfCtx anchor with
+  match dfCtx.getState? anchor ConstantLatticeState with
   | some state =>
     state.value
   | none =>
@@ -120,7 +116,7 @@ def propagateConstant (value : ValuePtr) (constant : ConstantValue)
   if joined == oldValue then
     dfCtx
   else
-    match getConstantState? dfCtx anchor with
+    match dfCtx.getState? anchor ConstantLatticeState with
     | some oldState =>
       let nextState : ConstantLatticeState := { oldState with value := joined }
       let state := AnalysisState.new nextState

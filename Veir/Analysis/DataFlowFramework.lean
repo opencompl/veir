@@ -93,8 +93,7 @@ private def asDynamic (ctx : DataFlowContext) : Dynamic :=
 instance : Coe DataFlowContext WorkList where
   coe dfCtx := dfCtx.workList
 
--- =============================================================================== --
-
+-- ================== Safe API (DataFlowAnalysis/AnalysisState) ================== --
 namespace DataFlowAnalysis
 
 def init (analysis : DataFlowAnalysis) (top : OperationPtr) (dfCtx : DataFlowContext)
@@ -137,6 +136,18 @@ def getValue? (state : AnalysisState) (Impl : Type u) [TypeName Impl] : Option I
   state.valueDyn.get? Impl
 
 end AnalysisState
+-- =============================================================================== --
+
+-- =============================== DataFlowContext =============================== --
+namespace DataFlowContext
+
+def getState? (dfCtx : DataFlowContext) (anchor : LatticeAnchor)
+    (State : Type) [TypeName State] : Option State := do
+  let state ← dfCtx.lattice.get? anchor
+  AnalysisState.getValue? state State
+
+end DataFlowContext
+-- =============================================================================== --
 
 -- =============================== Fixpoint Solver =============================== --
 partial def run (dfCtx : DataFlowContext) (irCtx : IRContext OpCode) : DataFlowContext :=
