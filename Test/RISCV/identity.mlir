@@ -24,10 +24,10 @@
     %17 = "riscv.slliuw"(%0) <{"value" = 13 : i6 }> : (i64) -> i64
     %18 = "riscv.roriw"(%0) <{"value" = 13 : i5 }> : (i64) -> i64
     %19 = "riscv.rori"(%0) <{"value" = 13 : i6 }> : (i64) -> i64
-    %20 = "riscv.bclri"(%0) <{"value" = 13 : i6 }> : (i64) -> i64
-    %21 = "riscv.bexti"(%0) <{"value" = 13 : i6 }> : (i64) -> i64
-    %22 = "riscv.binvi"(%0) <{"value" = 13 : i6 }> : (i64) -> i64
-    %23 = "riscv.bseti"(%0) <{"value" = 13 : i6 }> : (i64) -> i64
+    %20 = "riscv.bclri"(%0) : (i64) -> i64
+    %21 = "riscv.bexti"(%0) : (i64) -> i64
+    %22 = "riscv.binvi"(%0) : (i64) -> i64
+    %23 = "riscv.bseti"(%0) : (i64) -> i64
     // Unary operations 
     %24 = "riscv.sextb"(%0) : (i64) -> i64
     %25 = "riscv.sexth"(%0) : (i64) -> i64
@@ -114,10 +114,10 @@
 // CHECK-NEXT:     %{{.*}} = "riscv.slliuw"(%{{.*}}) <{"value" = 13 : i6}> : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.roriw"(%{{.*}}) <{"value" = 13 : i5}> : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.rori"(%{{.*}}) <{"value" = 13 : i6}> : (i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.bclri"(%{{.*}}) <{"value" = 13 : i6}> : (i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.bexti"(%{{.*}}) <{"value" = 13 : i6}> : (i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.binvi"(%{{.*}}) <{"value" = 13 : i6}> : (i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.bseti"(%{{.*}}) <{"value" = 13 : i6}> : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.bclri"(%{{.*}}) : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.bexti"(%{{.*}}) : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.binvi"(%{{.*}}) : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.bseti"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.sextb"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.sexth"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.zexth"(%{{.*}}) : (i64) -> i64
