@@ -6,7 +6,7 @@
   %c = "riscv.li"() <{ value = -5 : i64 }> : () -> i64
   %d = "riscv.remuw"(%a, %b) : (i64, i64) -> i64
   %e = "riscv.remuw"(%a, %c) : (i64, i64) -> i64
-  "func.return"(%d, %e) : (i64, i64) -> ()
+  "func.return"(%d, %e) : (i64, i64, i64) -> ()
 }) : () -> ()
 
 // CHECK: Program output: #[0x0000000000000002#64, 0x0000000000000002#64]
