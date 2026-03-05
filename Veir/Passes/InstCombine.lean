@@ -88,5 +88,5 @@ def InstCombinePass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) 
 public def InstCombinePass : Pass OpCode :=
   { name := "instcombine"
     description :=
-      "Combine instructions into more efficient forms, e.g. fold constants or simplify llvmmetic."
+      "Combine instructions into more efficient forms, e.g., fold constants or simplify llvmmetic."
     run := InstCombinePass.impl }
