@@ -111,6 +111,9 @@ match opCode with
 | .arith_muli => NswNuwProperties
 | .arith_divsi => ExactProperties
 | .arith_divui => ExactProperties
+| .arith_shli => NswNuwProperties
+| .arith_shrsi => ExactProperties
+| .arith_shrui => ExactProperties
 | .llvm_add => NswNuwProperties
 | .llvm_sub => NswNuwProperties
 | .llvm_mul => NswNuwProperties
@@ -176,6 +179,9 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case arith_muli => exact (NswNuwProperties.fromAttrDict attrDict)
   case arith_divsi => exact (ExactProperties.fromAttrDict attrDict)
   case arith_divui => exact (ExactProperties.fromAttrDict attrDict)
+  case arith_shli => exact (NswNuwProperties.fromAttrDict attrDict)
+  case arith_shrsi => exact (ExactProperties.fromAttrDict attrDict)
+  case arith_shrui => exact (ExactProperties.fromAttrDict attrDict)
   case llvm_constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
   case llvm_add => exact (NswNuwProperties.fromAttrDict attrDict)
   case llvm_sub => exact (NswNuwProperties.fromAttrDict attrDict)
@@ -220,14 +226,15 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .llvm_constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
-  | .arith_addi | .arith_subi | .arith_muli | .llvm_add | .llvm_sub | .llvm_mul | .llvm_shl => Id.run do
+  | .arith_addi | .arith_subi | .arith_muli | .arith_shli | .llvm_add | .llvm_sub | .llvm_mul | .llvm_shl => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.nsw then
       dict := dict.insert "nsw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     if props.nuw then
       dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .arith_divsi | .arith_divui | .llvm_udiv | .llvm_sdiv | .llvm_lshr | .llvm_ashr => Id.run do
+  | .arith_divsi | .arith_divui | .arith_shrsi | .arith_shrui |
+    .llvm_udiv | .llvm_sdiv | .llvm_lshr | .llvm_ashr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.exact then
       dict := dict.insert "exact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
