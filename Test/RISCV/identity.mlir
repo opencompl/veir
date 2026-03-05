@@ -18,11 +18,11 @@
     %11 = "riscv.slli"(%0) <{"value" = 31 : i6}> : (i64) -> i64
     %12 = "riscv.srli"(%0) <{"value" = 33 : i6}> : (i64) -> i64
     %13 = "riscv.srai"(%0) <{"value" = 37 : i6}> : (i64) -> i64
-    %14 = "riscv.slliw"(%0)  : (i64) -> i64
-    %15 = "riscv.srliw"(%0) : (i64) -> i64
-    %16 = "riscv.sraiw"(%0) : (i64) -> i64
+    %14 = "riscv.slliw"(%0) <{ "value" = 13 : i5 }> : (i64) -> i64
+    %15 = "riscv.srliw"(%0) <{ "value" = 17 : i5 }> : (i64) -> i64
+    %16 = "riscv.sraiw"(%0) <{ "value" = 19 : i5 }> : (i64) -> i64
     %17 = "riscv.slliuw"(%0) : (i64) -> i64
-    %18 = "riscv.roriw"(%0) : (i64) -> i64
+    %18 = "riscv.roriw"(%0): (i64) -> i64
     %19 = "riscv.rori"(%0) : (i64) -> i64
     %20 = "riscv.bclri"(%0) : (i64) -> i64
     %21 = "riscv.bexti"(%0) : (i64) -> i64
@@ -108,9 +108,9 @@
 // CHECK-NEXT:     %{{.*}} = "riscv.slli"(%{{.*}}) <{"value" = 31 : i6}> : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.srli"(%{{.*}}) <{"value" = 33 : i6}> : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = 37 : i6}> : (i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.slliw"(%{{.*}}) : (i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.srliw"(%{{.*}}) : (i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "riscv.sraiw"(%{{.*}}) : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.slliw"(%{{.*}}) <{"value" = 13 : i5}> : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.srliw"(%{{.*}}) <{"value" = 17 : i5}> : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.sraiw"(%{{.*}}) <{"value" = 19 : i5}> : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.slliuw"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.roriw"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.rori"(%{{.*}}) : (i64) -> i64
