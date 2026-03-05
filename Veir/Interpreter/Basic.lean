@@ -294,6 +294,45 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .riscv_sraw => do
     let #[.reg op1, .reg op2] := operands | none
     return (#[.reg (RISCV.sraw op2 op1)], .continue)
+  | .riscv_rem => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.rem op2 op1)], .continue)
+  | .riscv_remu => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.remu op2 op1)], .continue)
+  | .riscv_remw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.remw op2 op1)], .continue)
+  | .riscv_remuw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.remuw op2 op1)], .continue)
+  | .riscv_mul => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.mul op2 op1)], .continue)
+  | .riscv_mulh => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.mulh op2 op1)], .continue)
+  | .riscv_mulhu => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.mulhu op2 op1)], .continue)
+  | .riscv_mulhsu => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.mulhsu op2 op1)], .continue)
+  | .riscv_mulw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.mulw op2 op1)], .continue)
+  | .riscv_div => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.div op2 op1)], .continue)
+  | .riscv_divw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.divw op2 op1)], .continue)
+  | .riscv_divu => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.divu op2 op1)], .continue)
+  | .riscv_divuw => do
+    let #[.reg op1, .reg op2] := operands | none
+    return (#[.reg (RISCV.divuw op2 op1)], .continue)
   | _ => none
 
 /--
