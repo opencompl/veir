@@ -295,6 +295,69 @@ def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   | .val v => .val (v.cast h)
   | .poison => .poison
 
+/--
+The ‘and’ instruction returns the bitwise logical and of its two operands.
+
+The truth table used for the ‘and’ instruction is:
+
+   In0 In1 Out
+    0   0   0
+    0   1   0
+    1   0   0
+    1   1   1
+-/
+def and {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  val (x' &&& y')
+
+
+/--
+The ‘or’ instruction returns the bitwise logical inclusive or of its two operands.
+
+The truth table used for the ‘or’ instruction is:
+
+   In0 In1 Out
+    0   0   0
+    0   1   1
+    1   0   1
+    1   1   1
+
+`disjoint` means that for each bit, that bit is zero in at least one of the
+inputs. This allows the Or to be treated as an Add since no carry can occur from
+any bit. If the `disjoint` keyword is present, the result value of the or is a
+poison value if both inputs have a one in the same bit position. For vectors,
+any bit. If the `disjoint` argument is true, the result value of the or is a
+poison value if both inputs have a one in the same bit position. For vectors,
+-/
+def or {w : Nat} (x y : Int w) (disjoint : Bool := false) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+
+  if disjoint ∧ (x' &&& y') ≠ 0 then
+    return poison
+
+  val (x' ||| y')
+
+/--
+The `xor` instruction returns the bitwise logical exclusive or of its two
+operands. The xor is used to implement the "one's complement" operation, which
+is the "~" operator in C.
+
+The truth table used for the ‘xor’ instruction is:
+
+    In0 In1 Out
+      0   0   0
+      0   1   1
+      1   0   1
+      1   1   0
+-/
+def xor {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (x' ^^^ y')
+
 end Int
 end
 end Veir.Data.LLVM

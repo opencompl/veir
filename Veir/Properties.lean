@@ -64,6 +64,22 @@ def ExactProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   return { exact := exact }
 
 /--
+  Properties of operations that can have the `disjoint` flags, such as
+  `llvm.or`.
+-/
+structure DisjointProperties where
+  disjoint : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def DisjointProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String DisjointProperties := do
+  let disjoint ← match attrDict["disjoint".toUTF8]? with
+    | some (.unitAttr _) => .ok true
+    | some attr => .error s!"expected 'disjoint' to be an optional unit attribute, but got {attr}"
+    | none => .ok false
+  return { disjoint := disjoint }
+
+/--
   Properties of the `llvm.constant` operation.
 -/
 structure LLVMConstantProperties where
@@ -114,6 +130,7 @@ match opCode with
 | .arith_shli => NswNuwProperties
 | .arith_shrsi => ExactProperties
 | .arith_shrui => ExactProperties
+| .arith_ori => DisjointProperties
 | .llvm_add => NswNuwProperties
 | .llvm_sub => NswNuwProperties
 | .llvm_mul => NswNuwProperties
@@ -122,6 +139,7 @@ match opCode with
 | .llvm_shl => NswNuwProperties
 | .llvm_lshr => ExactProperties
 | .llvm_ashr => ExactProperties
+| .llvm_or => DisjointProperties
 | .riscv_li => RISCVImmediateProperties
 | .riscv_lui => RISCVImmediateProperties
 | .riscv_auipc => RISCVImmediateProperties
@@ -182,6 +200,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case arith_shli => exact (NswNuwProperties.fromAttrDict attrDict)
   case arith_shrsi => exact (ExactProperties.fromAttrDict attrDict)
   case arith_shrui => exact (ExactProperties.fromAttrDict attrDict)
+  case arith_ori => exact (DisjointProperties.fromAttrDict attrDict)
   case llvm_constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
   case llvm_add => exact (NswNuwProperties.fromAttrDict attrDict)
   case llvm_sub => exact (NswNuwProperties.fromAttrDict attrDict)
@@ -191,6 +210,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case llvm_shl => exact (NswNuwProperties.fromAttrDict attrDict)
   case llvm_lshr => exact (ExactProperties.fromAttrDict attrDict)
   case llvm_ashr => exact (ExactProperties.fromAttrDict attrDict)
+  case llvm_or => exact (DisjointProperties.fromAttrDict attrDict)
   case riscv_li => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_lui => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_auipc => exact (RISCVImmediateProperties.fromAttrDict attrDict)
@@ -238,6 +258,11 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.exact then
       dict := dict.insert "exact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
+  | .arith_ori | .llvm_or => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    if props.disjoint then
+      dict := dict.insert "disjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .riscv_li  | .riscv_lui | .riscv_auipc | .riscv_andi | .riscv_ori | .riscv_xori
   | .riscv_addi | .riscv_slti | .riscv_sltiu | .riscv_addiw | .riscv_slli | .riscv_srli | .riscv_srai
