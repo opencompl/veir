@@ -65,11 +65,25 @@ def ByteArray.hexToNat? (str : ByteArray) : Option Nat := Id.run do
       return none
   some res
 
-set_option warn.sorry false in
+private theorem List.dropWhile_head_false (p : α → Bool) (l : List α)
+    (hl : List.dropWhile p l ≠ []) : p ((List.dropWhile p l).head hl) = false := by
+  induction l <;> grind [List.dropWhile]
+
+private theorem List.reverse_toArray_back {l : List α} (hl : l ≠ []) (h : 0 < l.reverse.toArray.size) :
+    l.reverse.toArray.back h = l.head hl := by
+  have hLen : 0 < l.length := List.ne_nil_iff_length_pos.mp hl
+  grind
+
 @[grind .]
 theorem Array.back_popWhile {as : Array α} {p : α → Bool} (h : 0 < (as.popWhile p).size) :
     p ((as.popWhile p).back h) = false := by
-  sorry
+  rcases as with ⟨as⟩
+  have hKey : (Array.mk as).popWhile p = (List.dropWhile p as.reverse).reverse.toArray :=
+    by rw [show Array.mk as = as.toArray from rfl, ← List.popWhile_toArray]
+  have hNe : List.dropWhile p as.reverse ≠ [] := by
+    intro heq; simp [hKey, heq] at h
+  simp only [hKey, List.reverse_toArray_back hNe]
+  exact List.dropWhile_head_false p as.reverse hNe
 
 theorem Array.reverse_singleton (a : α) :
     #[a].reverse = #[a] := by
@@ -205,16 +219,8 @@ private theorem rel_of_isEqvAux'  {xs ys : Array α}
     (heqv : Array.isEqvAux' xs ys hsz r i hi)
     {j : Nat} (hj : j < i) : r xs[j] ys[j] (by grind) (by grind) := by
   induction i with
-  | zero => contradiction
-  | succ i ih =>
-    simp only [Array.isEqvAux', Bool.and_eq_true] at heqv
-    by_cases hj' : j < i
-    next =>
-      exact ih _ heqv.right hj'
-    next =>
-      replace hj' : j = i := Nat.eq_of_le_of_lt_succ (Nat.not_lt.mp hj') hj
-      subst hj'
-      exact heqv.left
+  | zero => omega
+  | succ i ih => simp only [Array.isEqvAux', Bool.and_eq_true] at heqv; grind
 
 private theorem isEqvAux'_of_rel {xs ys : Array α}
     {r : (x: α) → (y : α) → x ∈ xs → y ∈ ys → Bool} (hsz : xs.size = ys.size) {i : Nat} (hi : i ≤ xs.size)
