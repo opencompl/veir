@@ -1,13 +1,13 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  %three = "llvm.constant"() <{ "value" = 3 : i32 }> : () -> i32
-  %five = "llvm.constant"() <{ "value" = 5 : i32 }> : () -> i32
-  %eight = "llvm.constant"() <{ "value" = 8 : i32 }> : () -> i32
-  %negseven = "llvm.constant"() <{ "value" = -7 : i32 }> : () -> i32
-  %x = "llvm.xor"(%three, %five) : (i32, i32) -> i32
-  %y = "llvm.xor"(%eight, %negseven) : (i32, i32) -> i32
-  %z = "llvm.xor"(%three, %eight) : (i32, i32) -> i32
+  %three = "arith.constant"() <{ "value" = 3 : i32 }> : () -> i32
+  %five = "arith.constant"() <{ "value" = 5 : i32 }> : () -> i32
+  %eight = "arith.constant"() <{ "value" = 8 : i32 }> : () -> i32
+  %negseven = "arith.constant"() <{ "value" = -7 : i32 }> : () -> i32
+  %x = "arith.xori"(%three, %five) : (i32, i32) -> i32
+  %y = "arith.xori"(%eight, %negseven) : (i32, i32) -> i32
+  %z = "arith.xori"(%three, %eight) : (i32, i32) -> i32
   "func.return"(%x, %y, %z) : (i32, i32, i32) -> ()
 }) : () -> ()
 
