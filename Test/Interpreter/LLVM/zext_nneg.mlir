@@ -3,8 +3,8 @@
 "builtin.module"() ({
   %cpos = "llvm.constant"() <{ "value" = 42 : i8 }> : () -> i8
   %cneg = "llvm.constant"() <{ "value" = -1 : i8 }> : () -> i8
-  %a = "llvm.sext"(%cpos) <{nneg}> : (i8) -> i32
-  %b = "llvm.sext"(%cneg) <{nneg}> : (i8) -> i32
+  %a = "llvm.zext"(%cpos) <{nneg}> : (i8) -> i32
+  %b = "llvm.zext"(%cneg) <{nneg}> : (i8) -> i32
   "func.return"(%a, %b) : (i32, i32) -> ()
 }) : () -> ()
 

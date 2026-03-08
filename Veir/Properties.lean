@@ -80,7 +80,7 @@ def DisjointProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   return { disjoint := disjoint }
 
 /--
-  Properties of operations that can have the `nneg` flag, such as `llvm.sext`.
+  Properties of operations that can have the `nneg` flag, such as `llvm.zext`.
 -/
 structure NnegProperties where
   nneg : Bool
@@ -156,9 +156,9 @@ match opCode with
 | .llvm_ashr => ExactProperties
 | .llvm_or => DisjointProperties
 | .llvm_trunc => NswNuwProperties
-| .llvm_sext => NnegProperties
+| .llvm_zext => NnegProperties
 | .arith_trunci => NswNuwProperties
-| .arith_extsi => NnegProperties
+| .arith_extui => NnegProperties
 | .riscv_li => RISCVImmediateProperties
 | .riscv_lui => RISCVImmediateProperties
 | .riscv_auipc => RISCVImmediateProperties
@@ -231,9 +231,9 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case llvm_ashr => exact (ExactProperties.fromAttrDict attrDict)
   case llvm_or => exact (DisjointProperties.fromAttrDict attrDict)
   case llvm_trunc => exact (NswNuwProperties.fromAttrDict attrDict)
-  case llvm_sext => exact (NnegProperties.fromAttrDict attrDict)
+  case llvm_zext => exact (NnegProperties.fromAttrDict attrDict)
   case arith_trunci => exact (NswNuwProperties.fromAttrDict attrDict)
-  case arith_extsi => exact (NnegProperties.fromAttrDict attrDict)
+  case arith_extui => exact (NnegProperties.fromAttrDict attrDict)
   case riscv_li => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_lui => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_auipc => exact (RISCVImmediateProperties.fromAttrDict attrDict)
@@ -288,7 +288,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     if props.disjoint then
       dict := dict.insert "disjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .arith_extsi | .llvm_sext => Id.run do
+  | .arith_extui | .llvm_zext => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     if props.nneg then
       dict := dict.insert "nneg".toUTF8 (Attribute.unitAttr UnitAttr.mk)
