@@ -26,6 +26,7 @@ inductive Arith where
 | constant
 | divsi
 | divui
+| extsi
 | extui
 | floordivsi
 | maxsi

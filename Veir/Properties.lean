@@ -80,6 +80,21 @@ def DisjointProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   return { disjoint := disjoint }
 
 /--
+  Properties of operations that can have the `nneg` flag, such as `llvm.sext`.
+-/
+structure NnegProperties where
+  nneg : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String NnegProperties := do
+  let nneg ← match attrDict["nneg".toUTF8]? with
+    | some (.unitAttr _) => .ok true
+    | some attr => .error s!"expected 'nneg' to be an optional unit attribute, but got {attr}"
+    | none => .ok false
+  return { nneg := nneg }
+
+/--
   Properties of the `llvm.constant` operation.
 -/
 structure LLVMConstantProperties where
@@ -140,6 +155,10 @@ match opCode with
 | .llvm_lshr => ExactProperties
 | .llvm_ashr => ExactProperties
 | .llvm_or => DisjointProperties
+| .llvm_trunc => NswNuwProperties
+| .llvm_sext => NnegProperties
+| .arith_trunci => NswNuwProperties
+| .arith_extsi => NnegProperties
 | .riscv_li => RISCVImmediateProperties
 | .riscv_lui => RISCVImmediateProperties
 | .riscv_auipc => RISCVImmediateProperties
@@ -211,6 +230,10 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case llvm_lshr => exact (ExactProperties.fromAttrDict attrDict)
   case llvm_ashr => exact (ExactProperties.fromAttrDict attrDict)
   case llvm_or => exact (DisjointProperties.fromAttrDict attrDict)
+  case llvm_trunc => exact (NswNuwProperties.fromAttrDict attrDict)
+  case llvm_sext => exact (NnegProperties.fromAttrDict attrDict)
+  case arith_trunci => exact (NswNuwProperties.fromAttrDict attrDict)
+  case arith_extsi => exact (NnegProperties.fromAttrDict attrDict)
   case riscv_li => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_lui => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_auipc => exact (RISCVImmediateProperties.fromAttrDict attrDict)
@@ -246,7 +269,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .llvm_constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
-  | .arith_addi | .arith_subi | .arith_muli | .arith_shli | .llvm_add | .llvm_sub | .llvm_mul | .llvm_shl => Id.run do
+  | .arith_addi | .arith_subi | .arith_muli | .arith_shli | .arith_trunci
+  | .llvm_add | .llvm_sub | .llvm_mul | .llvm_shl | .llvm_trunc => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.nsw then
       dict := dict.insert "nsw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
@@ -263,6 +287,11 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.disjoint then
       dict := dict.insert "disjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
+  | .arith_extsi | .llvm_sext => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    if props.nneg then
+      dict := dict.insert "nneg".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .riscv_li  | .riscv_lui | .riscv_auipc | .riscv_andi | .riscv_ori | .riscv_xori
   | .riscv_addi | .riscv_slti | .riscv_sltiu | .riscv_addiw | .riscv_slli | .riscv_srli | .riscv_srai

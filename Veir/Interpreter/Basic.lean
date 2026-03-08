@@ -254,6 +254,36 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.xor lhs rhs)], .continue)
+  | .llvm_trunc => do
+    let [.int _ val] := operands.toList | none
+    let resType ← resultTypes[0]?
+    let .integerType resBw := resType.val | none
+    return (#[.int resBw.bitwidth (LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw)], .continue)
+  | .llvm_zext => do
+    let [.int _ val] := operands.toList | none
+    let resType ← resultTypes[0]?
+    let .integerType resBw := resType.val | none
+    return (#[.int resBw.bitwidth (LLVM.Int.zext val resBw.bitwidth)], .continue)
+  | .llvm_sext => do
+    let [.int _ val] := operands.toList | none
+    let resType ← resultTypes[0]?
+    let .integerType resBw := resType.val | none
+    return (#[.int resBw.bitwidth (LLVM.Int.sext val resBw.bitwidth properties.nneg)], .continue)
+  | .arith_trunci => do
+    let [.int _ val] := operands.toList | none
+    let resType ← resultTypes[0]?
+    let .integerType resBw := resType.val | none
+    return (#[.int resBw.bitwidth (LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw)], .continue)
+  | .arith_extui => do
+    let [.int _ val] := operands.toList | none
+    let resType ← resultTypes[0]?
+    let .integerType resBw := resType.val | none
+    return (#[.int resBw.bitwidth (LLVM.Int.zext val resBw.bitwidth)], .continue)
+  | .arith_extsi => do
+    let [.int _ val] := operands.toList | none
+    let resType ← resultTypes[0]?
+    let .integerType resBw := resType.val | none
+    return (#[.int resBw.bitwidth (LLVM.Int.sext val resBw.bitwidth properties.nneg)], .continue)
   | .func_return => do
     return (#[], .return operands)
   /- Bitblastable semantics of RISC-V assembly instructions. -/

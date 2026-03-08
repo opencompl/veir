@@ -358,6 +358,47 @@ def xor {w : Nat} (x y : Int w) : Int w := Id.run do
   let val y' := y | poison
   val (x' ^^^ y')
 
+/--
+The 'trunc' instruction truncates its operand to the given type.
+
+The 'trunc' instruction truncates the high order bits in value and converts the
+remaining bits to the given type. Since the source size must be larger than the
+destination size, trunc cannot be a no-op cast. It will always truncate bits.
+-/
+def trunc {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (nsw : Bool := false) (nuw : Bool := false) : Int w₂ :=
+  match x with
+  | .poison => .poison
+  | .val v =>
+    if nsw && (v.truncate w₂).signExtend w₁ ≠ v then .poison
+    else if nuw && (v.truncate w₂).zeroExtend w₁ ≠ v then .poison
+    else .val (v.truncate w₂)
+
+/--
+The 'zext' instruction zero-extends its operand to the given type.
+
+The 'zext' instruction zero extends the value to the given type. Since the
+source type must be smaller than the destination type, zext fills the high order
+bits of the value with zero bits.
+-/
+def zext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) : Int w₂ :=
+  match x with
+  | .poison => .poison
+  | .val v => .val (v.zeroExtend w₂)
+
+/--
+The 'sext' instruction sign-extends its operand to the given type.
+
+The 'sext' instruction sign extends the value to the given type. Since the
+source type must be smaller than the destination type, sext fills the high order
+bits of the value with the sign bit (highest order bit) of the value.
+-/
+def sext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (nneg : Bool := false) : Int w₂ :=
+  match x with
+  | .poison => .poison
+  | .val v =>
+    if nneg && v.msb then .poison
+    else .val (v.signExtend w₂)
+
 end Int
 end
 end Veir.Data.LLVM
