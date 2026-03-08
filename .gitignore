@@ -15,6 +15,7 @@ GTAGS
 .projectile
 .lean_options
 .vs
+.mcp.json
 compile_commands.json
 *.idea
 tasks.json
