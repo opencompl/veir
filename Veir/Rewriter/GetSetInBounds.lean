@@ -1,6 +1,7 @@
 import Veir.Rewriter.Basic
 import Veir.Rewriter.LinkedList.GetSet
 import Veir.ForLean
+import Veir.IR.DeallocLemmas
 
 /-
  - The getters we consider are:
@@ -1465,31 +1466,31 @@ theorem BlockPtr.parent!_detachOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachOperands ctx op' hCtx hOp)).parent = (block.get! ctx).parent := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem BlockPtr.firstOp!_detachOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachOperands ctx op' hCtx hOp)).firstOp =
     (block.get! ctx).firstOp := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem BlockPtr.lastOp!_detachOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachOperands ctx op' hCtx hOp)).lastOp =
     (block.get! ctx).lastOp := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.prev!_detachOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachOperands ctx op' hCtx hOp)).prev =
     (operation.get! ctx).prev := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.next!_detachOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachOperands ctx op' hCtx hOp)).next =
     (operation.get! ctx).next := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.parent!_detachOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachOperands ctx op' hCtx hOp)).parent =
     (operation.get! ctx).parent := by
@@ -1866,31 +1867,31 @@ theorem BlockPtr.parent!_detachBlockOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).parent = (block.get! ctx).parent := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem BlockPtr.firstOp!_detachBlockOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).firstOp =
     (block.get! ctx).firstOp := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem BlockPtr.lastOp!_detachBlockOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).lastOp =
     (block.get! ctx).lastOp := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.prev!_detachBlockOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).prev =
     (operation.get! ctx).prev := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.next!_detachBlockOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).next =
     (operation.get! ctx).next := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.parent!_detachBlockOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).parent =
     (operation.get! ctx).parent := by
@@ -2517,6 +2518,198 @@ theorem OpOperandPtrPtr.get!_initOpRegions {opOperandPtr : OpOperandPtrPtr} :
   fun_induction Rewriter.initOpRegions <;> grind
 
 end Rewriter.initOpRegions
+
+/-! # Rewriter.eraseOp -/
+
+section Rewriter.eraseOp
+
+variable {op : OperationPtr}
+
+attribute [local grind] Rewriter.eraseOp
+
+-- The theorem `BlockPtr.firstUse!_detachBlockOperands` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem BlockPtr.prev!_eraseOp {block : BlockPtr} :
+    (block.get! (Rewriter.eraseOp ctx op hCtx hOp)).prev = (block.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_eraseOp {block : BlockPtr} :
+    (block.get! (Rewriter.eraseOp ctx op hCtx hOp)).next = (block.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_eraseOp {block : BlockPtr} :
+    (block.get! (Rewriter.eraseOp ctx op hCtx hOp)).parent = (block.get! ctx).parent := by
+  grind
+
+@[grind =]
+theorem BlockPtr.firstOp!_eraseOp {block : BlockPtr} :
+    (block.get! (Rewriter.eraseOp ctx op hCtx hOp)).firstOp =
+    if (op.get! ctx).prev = none ∧ block = (op.get! ctx).parent then
+      (op.get! ctx).next
+    else
+      (block.get! ctx).firstOp := by
+  grind
+
+@[grind =]
+theorem BlockPtr.lastOp!_eraseOp {block : BlockPtr} :
+    (block.get! (Rewriter.eraseOp ctx op hCtx hOp)).lastOp =
+    if (op.get! ctx).next = none ∧ block = (op.get! ctx).parent then
+      (op.get! ctx).prev
+    else
+      (block.get! ctx).lastOp := by
+  grind
+
+@[grind =]
+theorem OperationPtr.prev!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).prev =
+    if (op.get! ctx).parent ≠ none ∧ operation = (op.get! ctx).next then
+      (op.get! ctx).prev
+    else if (op.get! ctx).parent ≠ none ∧ operation = op then
+      none
+    else
+      (operation.get! ctx).prev := by
+  grind
+
+@[grind =]
+theorem OperationPtr.next!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).next =
+    if (op.get! ctx).parent ≠ none ∧ operation = (op.get! ctx).prev then
+      (op.get! ctx).next
+    else if (op.get! ctx).parent ≠ none ∧ operation = op then
+      none
+    else
+      (operation.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).parent =
+    if operation = op then none else (operation.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.opType!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).opType =
+    (operation.get! ctx).opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).attrs =
+    (operation.get! ctx).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getProperties! (Rewriter.eraseOp ctx op hCtx hOp) opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getNumOperands! (Rewriter.eraseOp ctx op hCtx hOp) =
+    operation.getNumOperands! ctx := by
+  grind
+
+-- The theorem `OpResultPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.OpChain` directly.
+
+-- The theorem `OpOperandPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.OpChain` directly.
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getOperands! (Rewriter.eraseOp ctx op hCtx hOp) = operation.getOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getNumSuccessors! (Rewriter.eraseOp ctx op hCtx hOp) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+-- The theorem `BlockOperandPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getNumRegions! (Rewriter.eraseOp ctx op hCtx hOp) =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getRegion! (Rewriter.eraseOp ctx op hCtx hOp) idx =
+    operation.getRegion! ctx idx := by
+  grind
+
+-- The theorem `BlockOperandPtrPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_eraseOp {block : BlockPtr} :
+    block.getNumArguments! (Rewriter.eraseOp ctx op hCtx hOp) =
+    block.getNumArguments! ctx := by
+  grind
+
+-- The theorem `BlockArgumentPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem RegionPtr.firstBlock!_eraseOp {region : RegionPtr} :
+    (region.get! (Rewriter.eraseOp ctx op hCtx hOp)).firstBlock =
+    (region.get! ctx).firstBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.lastBlock!_eraseOp {region : RegionPtr} :
+    (region.get! (Rewriter.eraseOp ctx op hCtx hOp)).lastBlock =
+    (region.get! ctx).lastBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.parent!_eraseOp {region : RegionPtr} :
+    (region.get! (Rewriter.eraseOp ctx op hCtx hOp)).parent =
+    (region.get! ctx).parent := by
+  grind
+
+-- The theorem `ValuePtr.getFirstUse!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem ValuePtr.getType!_eraseOp {value : ValuePtr} :
+    value.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    value.getType! (Rewriter.eraseOp ctx op hCtx hOp) =
+    value.getType! ctx := by
+  grind
+
+-- The theorem `OpOperandPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+end Rewriter.eraseOp
 
 /- replaceValue? -/
 
