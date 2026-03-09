@@ -127,6 +127,8 @@
 // CHECK-NEXT:     %{{.*}} = "riscv.clzw"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.ctz"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.ctzw"(%{{.*}}) : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.cpop"(%{{.*}}) : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.cpopw"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.sll"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
