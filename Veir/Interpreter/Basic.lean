@@ -518,6 +518,12 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .riscv_ctzw => do
     let #[.reg op] := operands | none
     return (#[.reg (RISCV.ctzw op)], .continue)
+  | .riscv_cpop => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.cpop op)], .continue)
+  | .riscv_cpopw => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.cpopw op)], .continue)
   | .riscv_roriw => do
     let #[.reg op1] := operands | none
     let imm := BitVec.ofInt 5 properties.value.value
