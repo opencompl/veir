@@ -2,6 +2,7 @@ module
 
 public import Std.Data.ExtHashSet
 public import Std.Data.HashMap
+import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false needs to see Array.popWhile.eq_def
 
 public section
 
@@ -85,36 +86,19 @@ theorem Array.back_popWhile {as : Array α} {p : α → Bool} (h : 0 < (as.popWh
   simp only [hKey, List.reverse_toArray_back hNe]
   exact List.dropWhile_head_false p as.reverse hNe
 
-private theorem Array.popWhile_eq_self {p : α → Bool} (x : Array α)
-    (hsize : 0 < x.size) (hfalse : p (x[x.size - 1]'(by omega)) = false) :
-    x.popWhile p = x := by
-  obtain ⟨ys, a, rfl⟩ := Array.exists_push_of_size_pos hsize
-  have ha : p a = false := by simpa using hfalse
-  simpa [Array.append_singleton, ha] using
-    (Array.popWhile_append (xs := ys) (ys := #[a]) (p := p))
-
-private theorem Array.popWhile_step {p : α → Bool} (x : Array α)
-    (hsize : 0 < x.size) (htrue : p (x[x.size - 1]'(by omega)) = true) :
-    x.popWhile p = x.pop.popWhile p := by
-  obtain ⟨ys, a, rfl⟩ := Array.exists_push_of_size_pos hsize
-  simp only [Array.pop_push]
-  simp only [← Array.append_singleton]
-  exact Array.popWhile_append_of_pos (xs := ys) (ys := #[a]) (p := p) (by simpa using htrue)
-
 theorem Array.getElem?_popWhile_of_false {p : α → Bool} {as : Array α} {i : Nat}
     (hi : i < as.size) (hp : p (as[i]'hi) = false) :
     (as.popWhile p)[i]? = as[i]? := by
-  if hsize : 0 < as.size then
-    if htrue : p (as[as.size - 1]'(by omega)) = true then
-      have hlt : i < as.size - 1 := by grind
-      have hi' : i < as.pop.size := by simpa [Array.size_pop] using hlt
-      rw [Array.popWhile_step as hsize htrue]
-      simpa [Array.getElem?_pop, hlt, hi] using
-        (Array.getElem?_popWhile_of_false (as := as.pop) (i := i) hi' (by grind))
-    else
-      rw [Array.popWhile_eq_self as hsize (by grind)]
-  else
-    omega
+  unfold Array.popWhile
+  simp only [show 0 < as.size from by omega, ↓reduceDIte]
+  split
+  · rename_i hback
+    have hlt : i < as.size - 1 := by grind
+    have hi' : i < as.pop.size := by simp [Array.size_pop]; omega
+    rw [Array.getElem?_popWhile_of_false hi' (by
+      simp [Array.getElem_pop] at hp ⊢; exact hp)]
+    simp [hlt]
+  · rfl
 termination_by as.size
 decreasing_by simp [Array.size_pop]; omega
 
