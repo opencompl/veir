@@ -40,8 +40,7 @@ def lui (imm : BitVec 20) : Reg :=
   then places the result in register rd.
 -/
 def auipc (imm : BitVec 20) (pc : Reg) : Reg :=
-  let ⟨pcVal⟩ := pc
-  ⟨BitVec.add (BitVec.signExtend 64 (BitVec.append imm (0x0 : BitVec 12))) pcVal⟩
+  ⟨BitVec.add (BitVec.signExtend 64 (BitVec.append imm (0x0 : BitVec 12))) pc.val⟩
 
 /--
   Adds the sign-extended 12-bit immediate to register rs1. Arithmetic overflow is ignored and the
