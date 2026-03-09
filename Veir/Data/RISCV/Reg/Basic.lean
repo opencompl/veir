@@ -558,6 +558,19 @@ def ctzw (rs1 : Reg) : Reg :=
   ⟨BitVec.zeroExtend 64 (BitVec.ctz (BitVec.extractLsb 31 0 rs1.val))⟩
 
 /--
+  This instructions counts the number of 1’s (i.e., set bits) in the source register.
+-/
+def cpop (rs1 : Reg) : Reg :=
+  ⟨BitVec.cpop rs1.val⟩
+
+/--
+  This instructions counts the number of 1’s (i.e., set bits) in the least-significant word of the
+  source register.
+-/
+def cpopw (rs1 : Reg) : Reg :=
+  let rs1w := BitVec.extractLsb 31 0 rs1.val
+  ⟨BitVec.zeroExtend 64 (BitVec.cpop rs1w)⟩
+/--
   This instruction performs a rotate right on the least-significant word of rs1 by the amount in the
   least-significant log2(64) bits of shamt. The resulting word value is sign-extended by
   copying bit 31 to all of the more-significant bits.
