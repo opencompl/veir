@@ -29,6 +29,20 @@ inductive IntPred where
   | sle
 deriving DecidableEq, Inhabited
 
+def IntPred.fromString (s : String) : Option IntPred :=
+  match s with
+  | "eq" => some .eq
+  | "ne" => some .ne
+  | "ugt" => some .ugt
+  | "uge" => some .uge
+  | "ult" => some .ult
+  | "ule" => some .ule
+  | "sgt" => some .sgt
+  | "sge" => some .sge
+  | "slt" => some .slt
+  | "sle" => some .sle
+  | _ => none
+
 namespace Int
 
 instance {w : Nat} : ToString (Int w) where

@@ -295,18 +295,8 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     let s' : String := String.fromUTF8! properties.p.value
-    match s' with
-      | "eq" => return (#[.int 1 (LLVM.Int.icmp lhs rhs LLVM.IntPred.eq)], .continue)
-      | "ne" => return (#[.int 1 (LLVM.Int.icmp lhs rhs LLVM.IntPred.ne)], .continue)
-      | "ugt" => return (#[.int 1 (LLVM.Int.icmp lhs rhs LLVM.IntPred.ugt)], .continue)
-      | "uge" => return (#[.int 1 (LLVM.Int.icmp lhs rhs LLVM.IntPred.uge)], .continue)
-      | "ult" => return (#[.int 1 (LLVM.Int.icmp lhs rhs LLVM.IntPred.ult)], .continue)
-      | "ule" => return (#[.int 1 (LLVM.Int.icmp lhs rhs LLVM.IntPred.ule)], .continue)
-      | "sgt" => return (#[.int 1 (LLVM.Int.icmp lhs rhs LLVM.IntPred.sgt)], .continue)
-      | "sge" => return (#[.int 1 (LLVM.Int.icmp lhs rhs LLVM.IntPred.sge)], .continue)
-      | "slt" => return (#[.int 1 (LLVM.Int.icmp lhs rhs LLVM.IntPred.slt)], .continue)
-      | "sle" => return (#[.int 1 (LLVM.Int.icmp lhs rhs LLVM.IntPred.sle)], .continue)
-      | _ => none
+    let some p := LLVM.IntPred.fromString s' | none
+    return (#[.int 1 (LLVM.Int.icmp lhs rhs p)], .continue)
   | .func_return => do
     return (#[], .return operands)
   /- Bitblastable semantics of RISC-V assembly instructions. -/
