@@ -50,19 +50,6 @@ instance {w : Nat} : ToString (Int w) where
     | .val v => toString v
     | .poison => "poison"
 
-instance : ToString IntPred where
-  toString
-    | .eq => "eq"
-    | .ne => "ne"
-    | .ugt => "ugt"
-    | .uge => "uge"
-    | .ult => "ult"
-    | .ule => "ule"
-    | .sgt => "sgt"
-    | .sge => "sge"
-    | .slt => "slt"
-    | .sle => "sle"
-
 /--
 The ‘add’ instruction returns the sum of its two operands.
 
