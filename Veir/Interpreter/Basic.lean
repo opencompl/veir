@@ -201,6 +201,42 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let .integerType resBw := resType.val | none
     if h: resBw.bitwidth <= w then none else
     return (#[.int resBw.bitwidth (LLVM.Int.sext val resBw.bitwidth (by omega))], .continue)
+  | .arith_cmpi => do
+    let resType ← resultTypes[0]?
+    let .integerType resultIntType := resType.val
+      | none
+    if resultIntType.bitwidth ≠ 1 then
+      none
+    else
+      let [.int bw lhs, .int bw' rhs] := operands.toList | none
+      if h : bw' ≠ bw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      let result : LLVM.Int 1 :=
+        match lhs, rhs with
+        | .val lhs, .val rhs =>
+          .val (BitVec.ofNat 1 (if lhs.toNat >= rhs.toNat then 1 else 0))
+        | _, _ => .poison
+      return (#[.int 1 result], .continue)
+  | .arith_select => do
+    let resType ← resultTypes[0]?
+    let .integerType resultIntType := resType.val
+      | none
+    let [.int condBitwidth cond, .int trueBitwidth trueValue, .int falseBitwidth falseValue] := operands.toList
+      | none
+    if hCond : condBitwidth ≠ 1 then
+      none
+    else if hTrue : trueBitwidth ≠ resultIntType.bitwidth then
+      none
+    else if hFalse : falseBitwidth ≠ resultIntType.bitwidth then
+      none
+    else
+      let trueValue := trueValue.cast (by simp at hTrue; exact hTrue)
+      let falseValue := falseValue.cast (by simp at hFalse; exact hFalse)
+      let result : LLVM.Int resultIntType.bitwidth :=
+        match cond with
+        | .val cond => if cond.toNat = 0 then falseValue else trueValue
+        | .poison => .poison
+      return (#[.int resultIntType.bitwidth result], .continue)
   | .llvm_constant => do
     let resType ← resultTypes[0]?
     let .integerType bw := resType.val
