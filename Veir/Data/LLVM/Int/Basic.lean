@@ -16,12 +16,38 @@ inductive Int (w : Nat) where
 | poison : Int w
 deriving DecidableEq, Inhabited
 
+inductive IntPred where
+  | eq
+  | ne
+  | ugt
+  | uge
+  | ult
+  | ule
+  | sgt
+  | sge
+  | slt
+  | sle
+deriving DecidableEq, Inhabited
+
 namespace Int
 
 instance {w : Nat} : ToString (Int w) where
   toString
     | .val v => toString v
     | .poison => "poison"
+
+instance : ToString IntPred where
+  toString
+    | .eq => "eq"
+    | .ne => "ne"
+    | .ugt => "ugt"
+    | .uge => "uge"
+    | .ult => "ult"
+    | .ule => "ule"
+    | .sgt => "sgt"
+    | .sge => "sge"
+    | .slt => "slt"
+    | .sle => "sle"
 
 /--
 The ‘add’ instruction returns the sum of its two operands.
@@ -410,6 +436,42 @@ def sext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (_h : w₁ < w₂) : Int w₂ 
   let val v := x | poison
 
   val (v.signExtend w₂)
+
+/--
+The `icmp` instruction takes three operands.
+The first operand is the condition code indicating the kind of comparison to perform.
+It is not a value, just a keyword.
+The possible condition codes (of type `IntPred`)are:
+
+  - `eq`: equal
+  - `ne`: not equal
+  - `ugt`: unsigned greater than
+  - `uge`: unsigned greater or equal
+  - `ult`: unsigned less than
+  - `ule`: unsigned less or equal
+  - `sgt`: signed greater than
+  - `sge`: signed greater or equal
+  - `slt`: signed less than
+  - `sle`: signed less or equal
+
+The remaining two arguments must be integer. They must also be identical types.
+-/
+def icmp {w : Nat} (x y : Int w) (p : IntPred) : Int 1 := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  if x == poison || y == poison then
+    return poison
+  match p with
+    | .eq => val (BitVec.ofBool (x' == y'))
+    | .ne => val (BitVec.ofBool (x' != y'))
+    | .sgt => val (BitVec.ofBool (y'.slt x'))
+    | .sge => val (BitVec.ofBool (y'.sle x'))
+    | .slt => val (BitVec.ofBool (x'.slt y'))
+    | .sle => val (BitVec.ofBool (x'.sle y'))
+    | .ugt => val (BitVec.ofBool (y'.ult x'))
+    | .uge => val (BitVec.ofBool (y'.ule x'))
+    | .ult => val (BitVec.ofBool (x'.ult y'))
+    | .ule => val (BitVec.ofBool (x'.ule y'))
 
 end Int
 end

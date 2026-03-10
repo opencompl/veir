@@ -323,6 +323,15 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : M (Optio
   else
     return some (Int.ofNat value)
 
+def parseOptionalIcmpPredicate : M (Option String) := do
+  match ← parseOptionalToken .stringLit with
+  | some token =>
+    let slice : Slice := {start := token.slice.start + 1, stop := token.slice.stop - 1} -- remove quotes
+    let slice := slice.of ((← get).input)
+    match String.fromUTF8? slice with
+    | some str => return some str
+    | none => throw "internal error: failed converting string literal"
+  | none => return none
 
 /--
   Parse an integer literal.
