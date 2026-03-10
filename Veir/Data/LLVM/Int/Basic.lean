@@ -43,6 +43,19 @@ def IntPred.fromString (s : String) : Option IntPred :=
   | "sle" => some .sle
   | _ => none
 
+def IntPred.eval (p : IntPred) (x y : BitVec w) : Bool :=
+  match p with
+  | .eq => x == y
+  | .ne => x != y
+  | .ugt => y.ult x
+  | .uge => y.ule x
+  | .ult => x.ult y
+  | .ule => x.ule y
+  | .sgt => y.slt x
+  | .sge => y.sle x
+  | .slt => x.slt y
+  | .sle => x.sle y
+
 namespace Int
 
 instance {w : Nat} : ToString (Int w) where
@@ -462,17 +475,7 @@ def icmp {w : Nat} (x y : Int w) (p : IntPred) : Int 1 := Id.run do
   let val y' := y | poison
   if x == poison || y == poison then
     return poison
-  match p with
-    | .eq => val (BitVec.ofBool (x' == y'))
-    | .ne => val (BitVec.ofBool (x' != y'))
-    | .sgt => val (BitVec.ofBool (y'.slt x'))
-    | .sge => val (BitVec.ofBool (y'.sle x'))
-    | .slt => val (BitVec.ofBool (x'.slt y'))
-    | .sle => val (BitVec.ofBool (x'.sle y'))
-    | .ugt => val (BitVec.ofBool (y'.ult x'))
-    | .uge => val (BitVec.ofBool (y'.ule x'))
-    | .ult => val (BitVec.ofBool (x'.ult y'))
-    | .ule => val (BitVec.ofBool (x'.ule y'))
+  val (BitVec.ofBool (IntPred.eval p x' y'))
 
 end Int
 end
