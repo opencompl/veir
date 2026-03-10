@@ -22,12 +22,8 @@ abbrev ArrayInv (stack : Array (Option α)) (index : HashMap α Nat) :=
 
 omit [DecidableEq α] in
 @[grind .]
-theorem ArrayInv.popNones (h : ArrayInv (α := α) stack index) : ArrayInv (stack.popWhile (· = none)) index := by
-  intro op i hi
-  have hstack := h op i hi
-  have ⟨hlt, hval⟩ := Array.getElem_of_getElem? hstack
-  rw [Array.getElem?_popWhile_of_false hlt (by simp [hval])]
-  exact hstack
+theorem ArrayInv.pop_nones (h : ArrayInv (α := α) stack index) : ArrayInv (stack.popWhile (· = none)) index := by
+  grind [Array.getElem_of_getElem?, Array.getElem?_popWhile_of_false]
 
 end array_inv
 
