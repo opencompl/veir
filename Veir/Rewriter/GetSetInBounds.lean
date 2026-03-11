@@ -2588,7 +2588,7 @@ theorem OperationPtr.next!_eraseOp {operation : OperationPtr} :
       (operation.get! ctx).next := by
   grind
 
-@[simp, grind =]
+@[grind =]
 theorem OperationPtr.parent!_eraseOp {operation : OperationPtr} :
     operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
     (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).parent =
