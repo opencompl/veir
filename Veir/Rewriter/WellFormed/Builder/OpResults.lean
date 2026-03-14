@@ -1,80 +1,86 @@
 import Veir.IR.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
+import Veir.Rewriter.GetSetInBounds
 
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 
-@[grind .]
-theorem Rewriter.pushResult_WellFormed {newResult} (ctx: IRContext OpInfo) (opPtr: OperationPtr)
-    (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx)
-    (hres : newResult.FieldsInBounds (opPtr.pushResult ctx newResult hop))
-    (hNoFirst : newResult.firstUse = none)
-    (hIndex : newResult.index = opPtr.getNumResults ctx)
-    (hOwner : newResult.owner = opPtr) :
-    (opPtr.pushResult ctx newResult hop).WellFormed := by
-  have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hctx
+/-! ## Rewriter.pushResult -/
+
+theorem BlockPtr.opChain_Rewriter_pushResult
+    (hWf : BlockPtr.OpChain block ctx array) :
+    BlockPtr.OpChain block (Rewriter.pushResult ctx op type hop) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem ValuePtr.defUse_Rewriter_pushResult
+    (hWf : ValuePtr.DefUse value ctx array missingUses) :
+    ValuePtr.DefUse value (Rewriter.pushResult ctx op type hop) array missingUses := by
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
+
+theorem ValuePtr.defUse_Rewriter_pushResult_newResult (ctxFIB : ctx.FieldsInBounds) :
+    ValuePtr.DefUse (op.nextResult ctx) (Rewriter.pushResult ctx op type hop) #[] ∅ := by
+  constructor <;> grind
+
+theorem BlockPtr.defUse_Rewriter_pushResult
+    (hWf : BlockPtr.DefUse block ctx array missingUses) :
+    BlockPtr.DefUse block (Rewriter.pushResult ctx op type hop) array missingUses := by
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
+
+theorem RegionPtr.blockChain_Rewriter_pushResult
+    (hWf : RegionPtr.BlockChain region ctx array) :
+    RegionPtr.BlockChain region (Rewriter.pushResult ctx op type hop) array := by
+  apply RegionPtr.blockChain_unchanged (ctx := ctx) hWf <;> grind
+
+theorem IRContext.wellFormed_Rewriter_pushResult :
+    ctx.WellFormed →
+    (Rewriter.pushResult ctx op type hop).WellFormed := by
+  intro wf
+  have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := wf
   constructor
-  case inBounds =>
-    grind
+  case inBounds => grind
   case valueDefUseChains =>
     intros val hval
-    by_cases heq : val = .opResult (opPtr.nextResult ctx)
-    · subst heq
-      exists #[]
-      constructor <;> grind [ValuePtr.getFirstUse]
-    · have ⟨array, harray⟩ := h₂ val (by grind)
+    have valCases : val.InBounds ctx ∨ val = op.nextResult ctx := by grind
+    cases valCases
+    case inl valInBounds =>
+      have ⟨array, harray⟩ := h₂ val (by grind)
       exists array
-      apply @ValuePtr.DefUse.unchanged _ _ ctx <;> grind
+      grind [ValuePtr.defUse_Rewriter_pushResult]
+    case inr hvalEq =>
+      grind [ValuePtr.defUse_Rewriter_pushResult_newResult]
   case blockDefUseChains =>
-    intros bl hbl
-    have ⟨array, harray⟩ := h₃ bl (by grind)
+    intros block hblock
+    have ⟨array, harray⟩ := h₃ block (by grind)
     exists array
-    apply @BlockPtr.DefUse.unchanged _ _ ctx <;> grind
+    grind [BlockPtr.defUse_Rewriter_pushResult]
   case opChain =>
-    intros op hop
-    have ⟨array, harray⟩ := h₄ op (by grind)
-    exists array
-    apply @BlockPtr.OpChain_unchanged _ _ ctx <;>
-      grind
+    intros block' hBlock'
+    have ⟨array', harray'⟩ := h₄ block' (by grind)
+    exists array'
+    grind [BlockPtr.opChain_Rewriter_pushResult]
   case blockChain =>
-    intros rg hrg
-    have ⟨array, harray⟩ := h₅ rg (by grind)
+    intros region hregion
+    have ⟨array, harray⟩ := h₅ region (by grind)
     exists array
     apply RegionPtr.blockChain_unchanged harray <;> grind
   case operations =>
-    intros op hop
-    have : op.InBounds ctx := by grind
-    have ⟨ha, hb, hc, hd, he, hf, hg, hh⟩ := h₆ op this
-    constructor
-    -- TODO: Understand why grind fails here
-    case region_parent => intros; constructor <;> simp <;> grind
-    -- Add the necessary lemmas to not manually add lemmas to grind here
-    all_goals grind [OperationPtr.getResult]
+    intros op' hop'
+    have : op'.InBounds ctx := by grind
+    have ⟨ha, hb, hc, hd, he, hf, hg, hh⟩ := h₆ op' this
+    constructor <;> grind
   case blocks =>
     intros bl hbl
     have : bl.InBounds ctx := by grind
-    have ⟨ha, hb, hc⟩ := h₇ bl this
-    constructor <;> grind
+    grind [Block.WellFormed_unchanged]
   case regions =>
-    intros rg hrg
-    have : rg.InBounds ctx := by grind
-    have ⟨ha, hb⟩ := h₈ rg this
-    constructor <;> grind
+    grind [Region.WellFormed_unchanged]
 
-theorem Rewriter.initOpResults_WellFormed (ctx: IRContext OpInfo) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
-    (index : Nat) (hop : opPtr.InBounds ctx) (hctx : IRContext.WellFormed ctx) (newCtx : IRContext OpInfo) hIndex :
-    Rewriter.initOpResults ctx opPtr resultTypes index hop hIndex = newCtx →
-    newCtx.WellFormed := by
-  induction h: resultTypes.size - index generalizing index ctx
-  case zero =>
-    grind [initOpResults]
-  case succ nr ih =>
-    unfold initOpResults
-    split; grind
-    lift_lets
-    intros result ctx' heq
-    have : result.FieldsInBounds ctx' := by constructor <;> grind
-    grind
+/-! ## Rewriter.initOpResults -/
+
+theorem IRContext.wellFormed_Rewriter_initOpResults :
+    ctx.WellFormed →
+    (Rewriter.initOpResults ctx opPtr resultTypes index hop hindex).WellFormed := by
+  fun_induction Rewriter.initOpResults <;> grind [IRContext.wellFormed_Rewriter_pushResult]

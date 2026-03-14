@@ -416,31 +416,55 @@ theorem Rewriter.initOpRegions_inBounds_mono (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (initOpRegions ctx opPtr regions n opPtrInBounds hregions hctx hn) := by
   fun_induction initOpRegions <;> grind
 
+def Rewriter.pushResult (ctx : IRContext OpInfo) (op : OperationPtr) (type : TypeAttr)
+    (hop : op.InBounds ctx := by grind)
+    : IRContext OpInfo :=
+  let index := op.getNumResults! ctx
+  let result : OpResult := { type := type, firstUse := none, index := index, owner := op }
+  op.pushResult ctx result (by grind)
+
+@[grind .]
+theorem Rewriter.pushResult_fieldsInBounds (hx : ctx.FieldsInBounds) :
+    (pushResult ctx op type hop).FieldsInBounds := by
+    simp only [pushResult]
+    apply OperationPtr.pushResult_fieldsInBounds
+    · constructor <;> grind
+    · grind
+
+@[grind .]
+theorem Rewriter.pushResult_inBounds_mono (ptr : GenericPtr) :
+    ptr.InBounds ctx → ptr.InBounds (pushResult ctx op type hop) := by
+  grind [pushResult]
+
 def Rewriter.initOpResults (ctx: IRContext OpInfo) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
     (index: Nat := 0) (hop : opPtr.InBounds ctx)
     (hidx : index = opPtr.getNumResults ctx) : IRContext OpInfo :=
   if h: index >= resultTypes.size then
     ctx
   else
-    let result: OpResult := { type := resultTypes[index], firstUse := none, index := index, owner := opPtr }
-    let ctx := opPtr.pushResult ctx result
-    Rewriter.initOpResults ctx opPtr resultTypes (index + 1) (by grind) (by grind)
+    let ctx := pushResult ctx opPtr resultTypes[index]
+    Rewriter.initOpResults ctx opPtr resultTypes (index + 1) (by grind [pushResult]) (by grind [pushResult])
   termination_by resultTypes.size - index
   decreasing_by lia
 
 @[grind .]
 theorem Rewriter.initOpResults_fieldsInBounds (hx : ctx.FieldsInBounds) :
     (initOpResults ctx opPtr resultTypes index h₁ h₂).FieldsInBounds := by
-  fun_induction initOpResults
-  · grind
-  · rename_i result ctx' heq
-    have : result.FieldsInBounds ctx' := by constructor <;> grind
-    grind
+  fun_induction initOpResults <;> grind
 
 @[grind .]
 theorem Rewriter.initOpResults_inBounds_mono (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (initOpResults ctx opPtr resultTypes index h₁ h₂) := by
   fun_induction initOpResults <;> grind
+
+@[grind =]
+theorem Rewriter.pushResult_inBounds_iff (ptr : GenericPtr) :
+    ptr.InBounds (pushResult ctx op type hop) ↔
+      (ptr.InBounds ctx ∨
+       ptr = .opResult (op.nextResult ctx) ∨
+       ptr = .value (op.nextResult ctx) ∨
+       ptr = .opOperandPtr (.valueFirstUse (op.nextResult ctx))) := by
+  cases ptr <;> try grind [pushResult, OperationPtr.nextResult]
 
 @[irreducible]
 protected def Rewriter.pushOperand (ctx : IRContext OpInfo) (opPtr : OperationPtr) (valuePtr : ValuePtr)
@@ -586,7 +610,6 @@ theorem Rewriter.createEmptyOp_fieldsInBounds
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   grind [createEmptyOp]
 
-set_option warn.sorry false in
 @[irreducible]
 def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr) (blockOperands : Array BlockPtr)
@@ -607,8 +630,7 @@ def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
   have newOpPtrZeroRes: 0 = newOpPtr.getNumResults ctx (by grind) := by grind [OperationPtr.getNumResults]
   let ctx := Rewriter.initOpResults ctx newOpPtr resultTypes 0 hib newOpPtrZeroRes
   have newOpPtrInBounds : newOpPtr.InBounds ctx := by grind
-  have : 0 = newOpPtr.getNumRegions ctx (by grind) := by sorry
-  let ctx := Rewriter.initOpRegions ctx newOpPtr regions
+  let ctx := Rewriter.initOpRegions ctx newOpPtr regions (newOpPtr.getNumRegions ctx)
   let ctx := Rewriter.initOpOperands ctx newOpPtr (by grind) operands (by grind) (by grind)
   let ctx := Rewriter.initBlockOperands ctx newOpPtr blockOperands (hoperands := by grind (ematch := 10))
   match _ : insertionPoint with
