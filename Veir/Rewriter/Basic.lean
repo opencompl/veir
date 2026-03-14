@@ -308,11 +308,44 @@ theorem Rewriter.replaceValue?_preserves_parent (op : OperationPtr) (hop : op.In
   have := @replaceValue?_preserves_parent'
   grind [Rewriter.replaceUse]
 
-set_option warn.sorry false in
 @[irreducible]
-def Rewriter.replaceValues (ctx: IRContext OpInfo) (values: List (ValuePtr × ValuePtr)) : Option (IRContext OpInfo) :=
-  values.foldlM (init := ctx) fun ctx (oldValue, newValue) =>
-    Rewriter.replaceValue? ctx oldValue newValue (by sorry) (by sorry) (by sorry)
+def Rewriter.replaceOpResults (ctx: IRContext OpInfo) (fromOp toOp : OperationPtr)
+  (index : Nat)
+  (fromOpIB : fromOp.InBounds ctx := by grind) (toOpIB : toOp.InBounds ctx := by grind)
+  (hNumFrom : fromOp.getNumResults! ctx ≥ index := by grind)
+  (hNumTo : toOp.getNumResults! ctx ≥ index := by grind)
+  (ctxInBounds : ctx.FieldsInBounds := by grind) : Option (IRContext OpInfo) :=
+  match index with
+  | 0 => ctx
+  | index + 1 => do
+    let oldResult := fromOp.getResult index
+    let newResult := toOp.getResult index
+    rlet ctx ← Rewriter.replaceValue? ctx oldResult newResult
+    replaceOpResults ctx fromOp toOp index
+
+theorem Rewriter.replaceOpResults_inBounds {ptr : GenericPtr} :
+    replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo ctxInBounds = some newCtx →
+    (ptr.InBounds ctx ↔ ptr.InBounds newCtx) := by
+  induction index generalizing ctx
+  · grind [replaceOpResults]
+  · simp only [replaceOpResults]
+    grind
+
+grind_pattern Rewriter.replaceOpResults_inBounds =>
+  Rewriter.replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo ctxInBounds,
+  some newCtx, ptr.InBounds ctx
+grind_pattern Rewriter.replaceOpResults_inBounds =>
+  Rewriter.replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo ctxInBounds,
+  some newCtx, ptr.InBounds newCtx
+
+@[grind <=]
+theorem Rewriter.replaceOpResults_fieldsInBounds :
+    replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo ctxInBounds = some newCtx →
+    newCtx.FieldsInBounds := by
+  induction index generalizing ctx
+  · grind [replaceOpResults]
+  · simp only [replaceOpResults]
+    grind
 
 @[irreducible]
 def Rewriter.replaceOp? (ctx: IRContext OpInfo) (oldOp newOp: OperationPtr)
@@ -325,22 +358,8 @@ def Rewriter.replaceOp? (ctx: IRContext OpInfo) (oldOp newOp: OperationPtr)
   if h : numOldResults ≠ numNewResults then
     none
   else
-    let mut newCtx : { c: IRContext OpInfo //
-        c.FieldsInBounds ∧
-        (∀ (ptr : GenericPtr), ptr.InBounds c ↔ ptr.InBounds ctx) ∧
-        (∀ (op : OperationPtr), ∀ h₁ h₂, (op.getNumResults ctx h₁) = (op.getNumResults c h₂)) ∧
-        (∀ (op : OperationPtr), ∀ h₁ h₂, (op.get ctx h₁).parent = (op.get c h₂).parent) } :=
-      ⟨ctx, by grind⟩
-    for h : i in 0...numOldResults do
-      let oldResult := oldOp.getResult i
-      let newResult := newOp.getResult i
-      -- TODO: fix and use rlet
-      match _ : (Rewriter.replaceValue? newCtx oldResult newResult (by grind) (by grind) (by grind)) with
-      | none => none
-      | some newCtxNoProof =>
-        newCtx := ⟨newCtxNoProof, (by grind)⟩
-    return Rewriter.eraseOp newCtx oldOp
-
+    rlet newCtx ← replaceOpResults ctx oldOp newOp numOldResults
+    eraseOp newCtx oldOp
 
 @[irreducible]
 def Rewriter.createBlock (ctx: IRContext OpInfo) (insertionPoint: Option BlockInsertPoint)
