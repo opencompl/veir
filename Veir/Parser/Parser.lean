@@ -323,7 +323,6 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : M (Optio
   else
     return some (Int.ofNat value)
 
-
 /--
   Parse an integer literal.
   The integer can either be in decimal form, hexadecimal form.

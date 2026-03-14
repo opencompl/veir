@@ -112,6 +112,23 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
   return { value := intAttr }
 
 /--
+  Properties of `llvm.icmp` operation, describing predicates for integer comparison.
+-/
+structure IcmpProperties where
+  p : StringAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String IcmpProperties := do
+  if attrDict.size > 1 then
+    throw s!"llvm.icmp: expected only one property, but got {attrDict.size} properties"
+  let some attr := attrDict["predicate".toUTF8]?
+    | throw "llvm.icmp: missing predicate"
+  let .stringAttr strAttr := attr
+    | throw s!"llvm.icmp: expected predicate to be a string attribute, but got {attr}"
+  return { p := strAttr }
+
+/--
   Properties of the RISC-V immediate operations.
 -/
 structure RISCVImmediateProperties where
@@ -157,6 +174,7 @@ match opCode with
 | .llvm_or => DisjointProperties
 | .llvm_trunc => NswNuwProperties
 | .llvm_zext => NnegProperties
+| .llvm_icmp => IcmpProperties
 | .arith_trunci => NswNuwProperties
 | .arith_extui => NnegProperties
 | .riscv_li => RISCVImmediateProperties
@@ -232,6 +250,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case llvm_or => exact (DisjointProperties.fromAttrDict attrDict)
   case llvm_trunc => exact (NswNuwProperties.fromAttrDict attrDict)
   case llvm_zext => exact (NnegProperties.fromAttrDict attrDict)
+  case llvm_icmp => exact (IcmpProperties.fromAttrDict attrDict)
   case arith_trunci => exact (NswNuwProperties.fromAttrDict attrDict)
   case arith_extui => exact (NnegProperties.fromAttrDict attrDict)
   case riscv_li => exact (RISCVImmediateProperties.fromAttrDict attrDict)
@@ -277,6 +296,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     if props.nuw then
       dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
+  | .llvm_icmp => Id.run do
+    (Std.HashMap.emptyWithCapacity 2).insert "predicate".toUTF8 (Attribute.stringAttr props.p)
   | .arith_divsi | .arith_divui | .arith_shrsi | .arith_shrui |
     .llvm_udiv | .llvm_sdiv | .llvm_lshr | .llvm_ashr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2

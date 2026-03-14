@@ -290,6 +290,13 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let .integerType resBw := resType.val | none
     if h: resBw.bitwidth <= w then none else
     return (#[.int resBw.bitwidth (LLVM.Int.sext val resBw.bitwidth (by omega))], .continue)
+  | .llvm_icmp => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simpa using h)
+    let s' : String := String.fromUTF8! properties.p.value
+    let some p := LLVM.IntPred.fromString s' | none
+    return (#[.int 1 (LLVM.Int.icmp lhs rhs p)], .continue)
   | .func_return => do
     return (#[], .return operands)
   /- Bitblastable semantics of RISC-V assembly instructions. -/

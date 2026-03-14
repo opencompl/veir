@@ -23,7 +23,7 @@
   %16 = "llvm.udiv"(%5, %5) : (i32, i32) -> i32
   %17 = "llvm.urem"(%5, %5) : (i32, i32) -> i32
   %18 = "llvm.srem"(%5, %5) : (i32, i32) -> i32
-  %19 = "llvm.icmp"(%5, %5) : (i32, i32) -> i1
+  %19 = "llvm.icmp"(%5, %5) <{"predicate" = "p"}> : (i32, i32) -> i1
   %20 = "llvm.select"(%6, %5, %5) : (i1, i32, i32) -> i32
   %21 = "llvm.trunc"(%5) : (i32) -> i1
   %22 = "llvm.sext"(%6) : (i1) -> i32
@@ -54,7 +54,7 @@
 // CHECK-NEXT:     %{{.*}} = "llvm.udiv"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "llvm.urem"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "llvm.srem"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
-// CHECK-NEXT:     %{{.*}} = "llvm.icmp"(%{{.*}}, %{{.*}}) : (i32, i32) -> i1
+// CHECK-NEXT:     %{{.*}} = "llvm.icmp"(%{{.*}}, %{{.*}}) <{"predicate" = "p"}> : (i32, i32) -> i1
 // CHECK-NEXT:     %{{.*}} = "llvm.select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i1, i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "llvm.trunc"(%{{.*}}) : (i32) -> i1
 // CHECK-NEXT:     %{{.*}} = "llvm.sext"(%{{.*}}) : (i1) -> i32
