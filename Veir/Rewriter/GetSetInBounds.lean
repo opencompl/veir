@@ -2845,6 +2845,283 @@ theorem ValuePtr.getType!_eraseOp {value : ValuePtr} :
 
 end Rewriter.eraseOp
 
+section Rewriter.createEmptyOp
+
+variable {op : OperationPtr}
+
+attribute [local grind] Rewriter.createEmptyOp
+
+@[simp]
+theorem BlockPtr.firstUse!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').firstUse = (block.get! ctx).firstUse := by
+  grind
+
+grind_pattern BlockPtr.firstUse!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').firstUse
+
+@[simp]
+theorem BlockPtr.prev!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').prev = (block.get! ctx).prev := by
+  grind
+
+grind_pattern BlockPtr.prev!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').prev
+
+@[simp]
+theorem BlockPtr.next!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').next = (block.get! ctx).next := by
+  grind
+
+grind_pattern BlockPtr.next!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').next
+
+@[simp]
+theorem BlockPtr.parent!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').parent = (block.get! ctx).parent := by
+  grind
+
+grind_pattern BlockPtr.parent!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').parent
+
+@[simp]
+theorem BlockPtr.firstOp!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').firstOp = (block.get! ctx).firstOp := by
+  grind
+
+grind_pattern BlockPtr.firstOp!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').firstOp
+
+@[simp]
+theorem BlockPtr.lastOp!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').lastOp = (block.get! ctx).lastOp := by
+  grind
+
+grind_pattern BlockPtr.lastOp!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').lastOp
+
+theorem OperationPtr.prev!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (operation.get! ctx').prev =
+    if operation = op then none else (operation.get! ctx).prev := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.prev!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').prev
+
+theorem OperationPtr.next!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (operation.get! ctx').next =
+    if operation = op then none else (operation.get! ctx).next := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.next!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').next
+
+theorem OperationPtr.parent!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (operation.get! ctx').parent =
+    if operation = op then none else (operation.get! ctx).parent := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.parent!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').parent
+
+theorem OperationPtr.opType!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (operation.get! ctx').opType =
+    if operation = op then opType else (operation.get! ctx).opType := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.opType!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').opType
+
+theorem OperationPtr.attrs!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (operation.get! ctx').attrs =
+    if operation = op then DictionaryAttr.empty else (operation.get! ctx).attrs := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.attrs!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').attrs
+
+theorem OperationPtr.getProperties!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getProperties! ctx' opType = if operation = op then properties else operation.getProperties! ctx opType := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.getProperties!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getProperties! ctx' opType
+
+theorem OperationPtr.getNumResults!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getNumResults! ctx' =
+    if operation = op then 0 else operation.getNumResults! ctx := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.getNumResults!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getNumResults! ctx'
+
+@[simp]
+theorem OpResultPtr.get!_createEmptyOp {opResult : OpResultPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    opResult.get! ctx' = opResult.get! ctx := by
+  grind
+
+grind_pattern OpResultPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), opResult.get! ctx'
+
+theorem OperationPtr.getNumOperands!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getNumOperands! ctx' =
+    if operation = op then 0 else operation.getNumOperands! ctx := by
+  grind
+
+grind_pattern OperationPtr.getNumOperands!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getNumOperands! ctx'
+
+@[simp]
+theorem OpOperandPtr.get!_createEmptyOp {operand : OpOperandPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operand.get! ctx' = operand.get! ctx := by
+  grind
+
+grind_pattern OpOperandPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operand.get! ctx'
+
+theorem OperationPtr.getOperands!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getOperands! ctx' =
+    if operation = op then #[] else operation.getOperands! ctx := by
+  grind
+
+grind_pattern OperationPtr.getOperands!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getOperands! ctx'
+
+theorem OperationPtr.getNumSuccessors!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getNumSuccessors! ctx' =
+    if operation = op then 0 else operation.getNumSuccessors! ctx := by
+  grind
+
+grind_pattern OperationPtr.getNumSuccessors!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getNumSuccessors! ctx'
+
+@[simp]
+theorem BlockOperandPtr.get!_createEmptyOp {operand : BlockOperandPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operand.get! ctx' = operand.get! ctx := by
+  grind
+
+grind_pattern BlockOperandPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operand.get! ctx'
+
+theorem OperationPtr.getNumRegions!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getNumRegions! ctx' =
+    if operation = op then 0 else operation.getNumRegions! ctx := by
+  grind
+
+grind_pattern OperationPtr.getNumRegions!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getNumRegions! ctx'
+
+@[simp]
+theorem OperationPtr.getRegion!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getRegion! ctx' idx = operation.getRegion! ctx idx := by
+  grind
+
+grind_pattern OperationPtr.getRegion!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getRegion! ctx' idx
+
+@[simp]
+theorem BlockOperandPtrPtr.get!_createEmptyOp {operandPtr : BlockOperandPtrPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operandPtr.get! ctx' = operandPtr.get! ctx := by
+  grind
+
+grind_pattern BlockOperandPtrPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operandPtr.get! ctx'
+
+@[simp]
+theorem BlockPtr.getNumArguments!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    block.getNumArguments! ctx' = block.getNumArguments! ctx := by
+  grind
+
+grind_pattern BlockPtr.getNumArguments!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), block.getNumArguments! ctx'
+
+@[simp]
+theorem BlockArgumentPtr.get!_createEmptyOp {blockArg : BlockArgumentPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    blockArg.get! ctx' = blockArg.get! ctx := by
+  grind
+
+grind_pattern BlockArgumentPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), blockArg.get! ctx'
+
+@[simp]
+theorem RegionPtr.firstBlock!_createEmptyOp {region : RegionPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (region.get! ctx').firstBlock = (region.get! ctx).firstBlock := by
+  grind
+
+grind_pattern RegionPtr.firstBlock!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (region.get! ctx').firstBlock
+
+@[simp]
+theorem RegionPtr.lastBlock!_createEmptyOp {region : RegionPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (region.get! ctx').lastBlock = (region.get! ctx).lastBlock := by
+  grind
+
+grind_pattern RegionPtr.lastBlock!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (region.get! ctx').lastBlock
+
+@[simp]
+theorem RegionPtr.parent!_createEmptyOp {region : RegionPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (region.get! ctx').parent = (region.get! ctx).parent := by
+  grind
+
+grind_pattern RegionPtr.parent!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (region.get! ctx').parent
+
+@[simp]
+theorem ValuePtr.getFirstUse!_createEmptyOp {value : ValuePtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    value.getFirstUse! ctx' = value.getFirstUse! ctx := by
+  grind
+
+grind_pattern ValuePtr.getFirstUse!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), value.getFirstUse! ctx'
+
+@[simp]
+theorem ValuePtr.getType!_createEmptyOp {value : ValuePtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    value.getType! ctx' = value.getType! ctx := by
+  grind
+
+grind_pattern ValuePtr.getType!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), value.getType! ctx'
+
+@[simp]
+theorem OpOperandPtrPtr.get!_createEmptyOp {opOperandPtr : OpOperandPtrPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    opOperandPtr.get! ctx' = opOperandPtr.get! ctx := by
+  grind
+
+grind_pattern OpOperandPtrPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), opOperandPtr.get! ctx'
+
+end Rewriter.createEmptyOp
+
 /- replaceValue? -/
 
 @[simp, grind .]
