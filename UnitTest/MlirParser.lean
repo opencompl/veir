@@ -1,6 +1,7 @@
 import Veir.Parser.MlirParser
 import Veir.IR.Basic
 import Veir.Printer
+import Veir.Rewriter.GetSetInBounds
 
 open Veir
 open Veir.Parser
@@ -9,11 +10,12 @@ open Veir.Parser
   Parse an operation and print it.
 -/
 def testParseOp (s : String) : IO Unit :=
-  match IRContext.create OpCode with
+  match hcreate : IRContext.create OpCode with
   | some (ctx, _) =>
+    have hctx : ctx.FieldsInBounds := (IRContext.create_fieldsInBounds hcreate).1
     match ParserState.fromInput (s.toByteArray) with
     | .ok parser =>
-      match (parseOp none).run (MlirParserState.fromContext ctx) parser with
+      match (parseOp none).run (MlirParserState.fromContext ctx hctx) parser with
       | .ok (op, state, _) => Printer.printOperation state.ctx op
       | .error err => .error err
     | .error err => .error err

@@ -599,7 +599,6 @@ def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
   | none =>
     (ctx, newOpPtr)
 
-set_option warn.sorry false in
 unseal Rewriter.createRegion in
 @[irreducible]
 def IRContext.create OpInfo [HasOpInfo OpInfo] : Option (IRContext OpInfo × OperationPtr) :=
@@ -607,5 +606,10 @@ def IRContext.create OpInfo [HasOpInfo OpInfo] : Option (IRContext OpInfo × Ope
   rlet (ctx, region) ← Rewriter.createRegion ctx
   let ctx := Rewriter.initOpRegions ctx operation #[region] (hn := by grind [Rewriter.createEmptyOp, Operation.empty])
   let moduleRegion := operation.getRegion! ctx 0
-  rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd moduleRegion)) (by grind) (by sorry)
+  have hctx : ctx.FieldsInBounds := by grind
+  have hopIn : operation.InBounds ctx := by grind
+  have hNumRegions : 0 < operation.getNumRegions! ctx := by grind [Rewriter.initOpRegions]
+  have hregion : moduleRegion.InBounds ctx := OperationPtr.getRegions!_inBounds hctx hopIn hNumRegions
+  rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd moduleRegion)) hctx (Option.maybe_some hregion)
   return (ctx, ⟨0⟩)
+
