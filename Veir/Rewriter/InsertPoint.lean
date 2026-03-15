@@ -27,6 +27,13 @@ def InsertPoint.InBounds (ip : InsertPoint) (ctx : IRContext OpInfo) : Prop :=
   | before op => op.InBounds ctx
   | atEnd bl => bl.InBounds ctx
 
+theorem InsertPoint.inBounds_def :
+    ip.InBounds ctx = (match ip with | before op => op.InBounds ctx | atEnd bl => bl.InBounds ctx) :=
+  by rfl
+
+instance : Decidable (InsertPoint.InBounds ip (ctx : IRContext OpInfo)) := by
+  cases ip <;> simp only [InsertPoint.inBounds_def] <;> infer_instance
+
 @[simp, grind =]
 theorem InsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBounds ctx := by rfl
 @[simp, grind =]
@@ -348,6 +355,14 @@ namespace BlockInsertPoint
 def InBounds : BlockInsertPoint → IRContext OpInfo → Prop
 | before op => op.InBounds
 | atEnd bl => bl.InBounds
+
+theorem inBounds_def :
+    BlockInsertPoint.InBounds bip ctx = (match bip with | before op => op.InBounds | atEnd bl => bl.InBounds) ctx :=
+  by rfl
+
+instance : Decidable (BlockInsertPoint.InBounds bip (ctx : IRContext OpInfo)) := by
+  cases bip <;> simp only [inBounds_def] <;> infer_instance
+
 @[grind =]
 theorem inBounds_before : (before op).InBounds ctx ↔ op.InBounds ctx := by rfl
 @[grind =]
