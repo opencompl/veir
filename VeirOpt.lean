@@ -1,9 +1,11 @@
 import Veir.Parser.MlirParser
+import Veir.Parser.DecidableInBounds
 import Veir.Printer
 import Veir.IR.Basic
 import Veir.Verifier
 import Veir.Properties
 import Veir.Pass
+import Veir.Rewriter.GetSetInBounds
 
 import Veir.Passes.PrintIR
 import Veir.Passes.InstCombine
@@ -54,19 +56,27 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   let pipeline ← parsePipelineOption flags
   return VeirOptArgs.mk filename pipeline
 
-def parseOperation (filename : String) : ExceptT String IO (IRContext OpCode × OperationPtr) := do
+/-- Result of parsing, bundled with proofs -/
+structure ParseResult where
+  ctx : IRContext OpCode
+  op : OperationPtr
+  hctx : ctx.FieldsInBounds
+
+def parseOperation (filename : String) : ExceptT String IO ParseResult := do
   let fileContent ← IO.FS.readBinFile filename
-  let some (ctx, _) := IRContext.create OpCode
-    | throw "Failed to create IR context"
-  match ParserState.fromInput fileContent with
-  | .ok parser =>
-    match (parseOp none).run (MlirParserState.fromContext ctx) parser with
-    | .ok (op, state, _) =>
-      return (state.ctx, op)
+  match hcreate : IRContext.create OpCode with
+  | none => throw "Failed to create IR context"
+  | some (ctx, _) =>
+    have hctx : ctx.FieldsInBounds := (IRContext.create_fieldsInBounds hcreate).1
+    match ParserState.fromInput fileContent with
+    | .ok parser =>
+      match (parseOp none).run (MlirParserState.fromContext ctx hctx) parser with
+      | .ok (op, state, _) =>
+        return ⟨state.ctx, op, state.hctx⟩
+      | .error errMsg =>
+        throw s!"Error parsing operation: {errMsg}"
     | .error errMsg =>
-      throw s!"Error parsing operation: {errMsg}"
-  | .error errMsg =>
-    throw s!"Error reading file: {errMsg}"
+      throw s!"Error reading file: {errMsg}"
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
@@ -78,13 +88,14 @@ def main (args : List String) : IO Unit := do
     match ← parseOperation filename with
     | .error errMsg =>
       IO.eprintln s!"Error: {errMsg}"
-    | .ok (ctx, op) =>
+    | .ok ⟨ctx, op, _⟩ =>
       match ctx.verify with
       | .error errMsg =>
         IO.eprintln s!"Error verifying input program: {errMsg}"
       | .ok _ =>
+        -- TODO: ctx.WellFormed needs proper verification
         match ← passes.run ⟨ctx, by sorry⟩ op with
         | .error errMsg =>
           IO.eprintln s!"Error: {errMsg}"
         | .ok finalCtx =>
-          Veir.Printer.printOperation finalCtx op
+          Veir.Printer.printOperation finalCtx.val op

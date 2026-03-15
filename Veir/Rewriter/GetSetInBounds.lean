@@ -2915,3 +2915,64 @@ theorem Rewriter.createOp_fieldsInBounds
     · grind
     · grind
   · grind
+
+section IRContext.create
+
+unseal IRContext.create Rewriter.createRegion Rewriter.createBlock in
+theorem IRContext.create_fieldsInBounds (h : IRContext.create OpInfo = some (ctx, op)) :
+    ctx.FieldsInBounds ∧ op.InBounds ctx := by
+  simp only [IRContext.create] at h
+  -- The rlet macro expands to match expressions, split on them
+  split at h
+  case h_1 => simp at h
+  case h_2 ctx1 op1 heq1 =>
+    split at h
+    case h_1 => simp at h
+    case h_2 ctx2 region heq2 =>
+      split at h
+      case h_1 => simp at h
+      case h_2 ctx3 block heq3 =>
+        simp only [pure, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        constructor
+        · -- ctx.FieldsInBounds
+          apply Rewriter.createBlock_fieldsInBounds_mono heq3
+          apply Rewriter.initOpRegions_fieldsInBounds
+          apply Rewriter.createRegion_fieldsInBounds heq2
+          apply Rewriter.createEmptyOp_fieldsInBounds heq1
+          exact empty_fieldsInBounds
+        · -- op.InBounds ctx, op = ⟨0⟩
+          -- Chain: createEmptyOp creates op1 at id 0, then we show InBounds is preserved
+          have h1 : op1.InBounds ctx1 := Rewriter.createEmptyOp_new_inBounds heq1
+          -- op1 is the operation created, and op = ⟨0⟩
+          -- From empty context, nextID = 0, so op1 = ⟨0⟩
+          have hop1_eq : op1 = ⟨0⟩ := by grind [Rewriter.createEmptyOp, OperationPtr.allocEmpty, empty]
+          rw [← hop1_eq]
+          -- Now show op1.InBounds ctx3
+          have h2 : (GenericPtr.operation op1).InBounds ctx2 := by
+            rw [Rewriter.createRegion_genericPtr_mono _ heq2]
+            left; exact h1
+          have h3 : (GenericPtr.operation op1).InBounds (Rewriter.initOpRegions ctx2 op1 #[region] 0
+              (by grind [Rewriter.createEmptyOp, Rewriter.createRegion, OperationPtr.allocEmpty])
+              (by grind [Rewriter.createRegion])
+              (by grind [Rewriter.createEmptyOp, Rewriter.createRegion, OperationPtr.allocEmpty])
+              (by grind [Rewriter.createEmptyOp, Operation.empty])) :=
+            Rewriter.initOpRegions_inBounds_mono _ h2
+          -- createBlock preserves InBounds through allocEmpty and insertBlock?
+          simp only [Rewriter.createBlock, bind] at heq3
+          split at heq3
+          case h_1 => simp at heq3
+          case h_2 ctx' blockPtr halloc =>
+            have h4 : (GenericPtr.operation op1).InBounds ctx' := by
+              rw [BlockPtr.allocEmpty_genericPtr_iff' _ halloc]
+              left; exact h3
+            simp only [Option.bind_eq_some_iff] at heq3
+            obtain ⟨ctx'', hinsert, heq'⟩ := heq3
+            simp only [Option.some.injEq, Prod.mk.injEq] at heq'
+            obtain ⟨rfl, _⟩ := heq'
+            have h5 : (GenericPtr.operation op1).InBounds ctx'' := by
+              rw [← Rewriter.insertBlock?_inBounds_mono (.operation op1) hinsert]
+              exact h4
+            exact h5
+
+end IRContext.create
