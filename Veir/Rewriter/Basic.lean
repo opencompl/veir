@@ -392,28 +392,56 @@ theorem Rewriter.createRegion_fieldsInBounds (h : createRegion ctx = some (ctx',
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   grind [createRegion]
 
+set_option linter.unusedVariables false
+def Rewriter.pushRegion (ctx : IRContext OpInfo) (op : OperationPtr) (region : RegionPtr)
+    (hop : op.InBounds ctx := by grind) (hregion : region.InBounds ctx := by grind)
+    (hRegionParent : (region.get! ctx).parent = none := by grind) :
+    IRContext OpInfo :=
+  let ctx := region.setParent ctx op
+  op.pushRegion ctx region
+
+@[simp, grind =]
+theorem Rewriter.pushRegion_inBounds_mono (ptr : GenericPtr) :
+    ptr.InBounds (pushRegion ctx op region h₁ h₂ h₃) ↔ ptr.InBounds ctx := by
+  simp only [pushRegion]
+  grind
+
+@[grind .]
+theorem Rewriter.pushRegion_fieldsInBounds (hx : ctx.FieldsInBounds) :
+    (pushRegion ctx op region h₁ h₂ h₃).FieldsInBounds := by
+  simp only [pushRegion]
+  apply OperationPtr.pushRegion_fieldsInBounds <;> grind
+
 def Rewriter.initOpRegions (ctx: IRContext OpInfo) (opPtr: OperationPtr) (regions : Array RegionPtr) (index : Nat := 0)
     (opPtrInBounds : opPtr.InBounds ctx := by grind)
-    (hregionInBounds : ∀ region, region ∈ regions → region.InBounds ctx := by grind)
-    (hctx : ctx.FieldsInBounds := by grind) (hn : index = opPtr.getNumRegions ctx := by grind) : IRContext OpInfo :=
+    (hregionInBounds : ∀ region ∈ regions, region.InBounds ctx := by grind)
+    (hctx : ctx.FieldsInBounds := by grind) (hn : index = opPtr.getNumRegions ctx := by grind) : Option (IRContext OpInfo) :=
   if h: index >= regions.size then
-    ctx
+    some ctx
   else
-    let ctx := opPtr.pushRegion ctx regions[index]
-    let ctx := regions[index].setParent ctx opPtr
-    Rewriter.initOpRegions ctx opPtr regions (index + 1) (by grind) (by grind)
+    let region := regions[index]
+    if hParent : (region.get! ctx).parent = none then
+      let ctx := pushRegion ctx opPtr region (hregion := by grind) (hRegionParent := hParent)
+      Rewriter.initOpRegions ctx opPtr regions (index + 1)
+        (hregionInBounds := by grind [Rewriter.pushRegion])
+        (hn := by grind [Rewriter.pushRegion])
+    else
+      none
   termination_by regions.size - index
   decreasing_by lia
 
 @[grind .]
-theorem Rewriter.initOpRegions_fieldsInBounds :
+theorem Rewriter.initOpRegions_fieldsInBounds {ctx' : IRContext OpInfo} :
     ctx.FieldsInBounds →
-    (initOpRegions ctx opPtr regions n opPtrInBounds hregions hctx hn).FieldsInBounds := by
+    initOpRegions ctx opPtr regions n opPtrInBounds hregions hctx hn = some ctx' →
+    ctx'.FieldsInBounds := by
   fun_induction initOpRegions <;> grind
 
 @[grind .]
-theorem Rewriter.initOpRegions_inBounds_mono (ptr : GenericPtr) :
-    ptr.InBounds ctx → ptr.InBounds (initOpRegions ctx opPtr regions n opPtrInBounds hregions hctx hn) := by
+theorem Rewriter.initOpRegions_inBounds_mono (ptr : GenericPtr) {ctx' : IRContext OpInfo} :
+    ptr.InBounds ctx →
+    initOpRegions ctx opPtr regions n opPtrInBounds hregions hctx hn = some ctx' →
+    ptr.InBounds ctx' := by
   fun_induction initOpRegions <;> grind
 
 def Rewriter.pushResult (ctx : IRContext OpInfo) (op : OperationPtr) (type : TypeAttr)
@@ -638,7 +666,7 @@ def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
   have newOpPtrZeroRes: 0 = newOpPtr.getNumResults ctx (by grind) := by grind [OperationPtr.getNumResults]
   let ctx := Rewriter.initOpResults ctx newOpPtr resultTypes 0 hib newOpPtrZeroRes
   have newOpPtrInBounds : newOpPtr.InBounds ctx := by grind
-  let ctx := Rewriter.initOpRegions ctx newOpPtr regions (newOpPtr.getNumRegions ctx)
+  rlet ctx ← Rewriter.initOpRegions ctx newOpPtr regions (newOpPtr.getNumRegions ctx)
   let ctx := Rewriter.initOpOperands ctx newOpPtr (by grind) operands (by grind) (by grind)
   let ctx := Rewriter.initBlockOperands ctx newOpPtr blockOperands (hoperands := by grind (ematch := 10))
   match _ : insertionPoint with
@@ -654,7 +682,7 @@ unseal Rewriter.createRegion in
 def IRContext.create OpInfo [HasOpInfo OpInfo] : Option (IRContext OpInfo × OperationPtr) :=
   rlet (ctx, operation) ← Rewriter.createEmptyOp (empty OpInfo) (HasOpInfo.moduleOpCode) default
   rlet (ctx, region) ← Rewriter.createRegion ctx
-  let ctx := Rewriter.initOpRegions ctx operation #[region] (hn := by grind [Rewriter.createEmptyOp, Operation.empty])
+  rlet ctx ← Rewriter.initOpRegions ctx operation #[region] (hn := by grind [Rewriter.createEmptyOp, Operation.empty])
   let moduleRegion := operation.getRegion! ctx 0
   rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd moduleRegion)) (by grind) (by sorry)
   return (ctx, ⟨0⟩)
