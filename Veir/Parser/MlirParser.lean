@@ -1,5 +1,6 @@
 import Veir.Parser.Parser
 import Veir.Parser.AttrParser
+import Veir.Parser.DecidableInBounds
 import Veir.IR.Basic
 import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.Basic
@@ -87,7 +88,6 @@ def registerValueDef (name : ByteArray) (value : ValuePtr) : MlirParserM Unit :=
 def setContext (ctx : IRContext OpCode) (hctx : ctx.FieldsInBounds := by grind) : MlirParserM Unit := do
   modify fun s => {s with ctx := ctx, hctx}
 
-set_option warn.sorry false in
 /--
   Create a block at the given insert point and register its name in the parsing context.
   If a block was already declared with the given name, use that block instead, and
@@ -96,34 +96,36 @@ set_option warn.sorry false in
 def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPtr := do
   let state ← get
   match state.blocks[name]? with
-  | some (block, true) => -- Block of this name is already defined.
+  | some (_, true) => -- Block of this name is already defined.
     throw s!"block %{String.fromUTF8! name} has already been defined"
   | some (block, false) => -- Block of this name was forward declared.
     /- Insert the block at the given location. -/
     let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
-    match hctx' : Rewriter.insertBlock? ctx block ip (by sorry) (by sorry) h_ctx_FieldsInBound with
+    let ⟨hip⟩ ← liftExcept (checkBlockInsertPointInBounds ip ctx)
+    let ⟨hblock⟩ ← liftExcept (checkBlockInBounds block ctx)
+    match heq : Rewriter.insertBlock? ctx block ip hblock hip h_ctx_FieldsInBound with
     | none => throw "internal error: failed to insert block"
     | some ctx' =>
-      setContext ctx'
-    /- Notify the parsing context that the block is defined. -/
-    modifyThe MlirParserState (fun state =>
-    {state with
-      blocks :=
-        state.blocks.insert name (block, true)})
-    return block
+      setContext ctx' (Rewriter.insertBlock?_fieldsInBounds_mono heq h_ctx_FieldsInBound)
+      /- Notify the parsing context that the block is defined. -/
+      modifyThe MlirParserState (fun state =>
+      {state with
+        blocks :=
+          state.blocks.insert name (block, true)})
+      return block
   | none => -- Block has not yet been declared or referenced.
     /- Create the block. -/
     let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
-    match hctx' : Rewriter.createBlock ctx ip h_ctx_FieldsInBound (by sorry) with
+    let ⟨hip⟩ ← liftExcept (checkBlockInsertPointInBounds ip ctx)
+    match heq : Rewriter.createBlock ctx ip h_ctx_FieldsInBound (Option.maybe_some hip) with
     | none => throw "internal error: failed to create block"
     | some (ctx', block) =>
-      setContext ctx'
+      setContext ctx' (Rewriter.createBlock_fieldsInBounds_mono heq h_ctx_FieldsInBound)
       /- Notify the parsing context that the block is defined. -/
       modifyThe MlirParserState fun s =>
       {s with blocks := s.blocks.insert name (block, true)}
       return block
 
-set_option warn.sorry false in
 /--
   Forward declare a block with the given name.
   If the block was already forward declared or defined, return the existing block.
@@ -137,10 +139,10 @@ def defineBlockUse (name : ByteArray) : MlirParserM BlockPtr := do
   | none => -- Block not yet encountered
     /- Create the block. -/
     let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
-    match hctx' : Rewriter.createBlock ctx none h_ctx_FieldsInBound (by sorry) with
+    match heq : Rewriter.createBlock ctx none h_ctx_FieldsInBound Option.maybe_none with
     | none => throw "internal error: failed to create block"
     | some (ctx', block) =>
-      setContext ctx'
+      setContext ctx' (Rewriter.createBlock_fieldsInBounds_mono heq h_ctx_FieldsInBound)
       /- Notify the parsing context that the block is forward declared. -/
       modifyThe MlirParserState fun s =>
       {s with blocks := s.blocks.insert name (block, false)}
@@ -290,7 +292,6 @@ def parseOpAttributes : MlirParserM DictionaryAttr := do
     | some attrs => return DictionaryAttr.fromArray attrs
   | .error err => throw err
 
-set_option warn.sorry false in
 /--
   Parse a block label, if present, and create and insert the block at the given insert point.
 -/
@@ -308,15 +309,10 @@ def parseOptionalBlockLabel (ip : BlockInsertPoint) : MlirParserM (Option BlockP
   /- Insert block arguments in the block. -/
   let blockArguments := arguments.mapIdx (fun index (_, type) => BlockArgument.mk (ValueImpl.mk type none) index () block)
   let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
-  let h_block_InBounds : block.InBounds ctx := by sorry
+  let ⟨h_block_InBounds⟩ ← liftExcept (checkBlockInBounds block ctx)
+  let ⟨h_block_NoArgs⟩ ← liftExcept (checkBlockHasNoArgs block ctx)
   let ctx' := block.setArguments ctx blockArguments h_block_InBounds
-  setContext ctx' (by
-    apply BlockPtr.setArguments_fieldsInBounds
-    · sorry -- Need to prove that the block had no arguments before
-    · intro arg h_mem
-      obtain ⟨i, _, rfl⟩ := Array.exists_of_mem_mapIdx h_mem
-      exact ⟨Option.maybe_none, h_block_InBounds⟩
-    · grind)
+  setContext ctx' (by grind [BlockArgument.FieldsInBounds])
   /- Register the block argument names in the parser state. -/
   for ((argName, argType), index) in arguments.zipIdx do
     registerValueDef argName (ValuePtr.blockArgument {block := block, index := index})
@@ -335,7 +331,6 @@ def parseEntryBlockLabel (ip : BlockInsertPoint) : MlirParserM BlockPtr := do
     let block ← defineBlock ByteArray.empty ip
     return block
 
-set_option warn.sorry false in
 mutual
 
 /--
@@ -373,19 +368,26 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
 
   /- Set context in monad to default to preserve linearity whilst modifying -/
   let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
-  setContext Inhabited.default (by
-    -- TODO(gzgz): extract into a separate theorem about `default` being
-    -- `FieldsInBound`
-    simp [default, instInhabitedIRContext.default]
-    constructor <;> simp [OperationPtr.InBounds, BlockPtr.InBounds, RegionPtr.InBounds])
+  setContext Inhabited.default
 
-  match hctx' : Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip (by sorry) (by sorry) (by sorry) (by sorry) h_ctx_FieldsInBound with
+  -- Check InBounds for all operands, block operands, regions, and insertion
+  -- TODO(gzgz): convert them to proofs as much as possible. `InsertPoint`
+  -- should be the easiest one to start with.
+  let ⟨hoper⟩ ← liftExcept (checkAllValuesInBounds operands ctx)
+  let ⟨hblockOperands⟩ ← liftExcept (checkAllBlocksInBounds blockOperands ctx)
+  let ⟨hregions⟩ ← liftExcept (checkAllRegionsInBounds regions ctx)
+  let ⟨hins⟩ ← liftExcept (checkMaybeInsertPointInBounds ip ctx)
+
+  match heq : Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip hoper hblockOperands hregions hins h_ctx_FieldsInBound with
   | none => throw "internal error: failed to create operation"
   | some (ctx', op) =>
-    let ctx'' := op.setAttributes ctx' attrs (by sorry)
+    let h_ctx'_FieldsInBound := Rewriter.createOp_fieldsInBounds heq h_ctx_FieldsInBound
+
+    let ⟨hop⟩ ← liftExcept (checkOpInBounds op ctx')
+    let ctx'' := op.setAttributes ctx' attrs hop
 
     /- Update the parser context. -/
-    setContext ctx''
+    setContext ctx'' (OperationPtr.setAttributes_fieldsInBounds h_ctx'_FieldsInBound)
 
     /- Register the new operation results in the parser state. -/
     for index in 0...(op.getNumResults! ctx') do
