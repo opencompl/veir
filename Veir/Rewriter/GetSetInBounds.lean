@@ -3380,6 +3380,63 @@ theorem OpResultPtr.get!_pushOperand {opResult : OpResultPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNumOperands!_pushOperand {operation : OperationPtr} :
+    operation.getNumOperands! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if operation = opPtr then
+      (operation.getNumOperands! ctx) + 1
+    else
+      operation.getNumOperands! ctx := by
+  grind
+
+@[grind =]
+theorem OpOperandPtr.get!_pushOperand {operand : OpOperandPtr} :
+    operand.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if operand = opPtr.nextOperand ctx then
+      {
+        value := valuePtr,
+        owner := opPtr,
+        back := .valueFirstUse valuePtr,
+        nextUse := valuePtr.getFirstUse! ctx
+      }
+    else
+      {
+        operand.get! ctx with
+        back :=
+          if valuePtr.getFirstUse! ctx = some operand then
+            .operandNextUse (opPtr.nextOperand ctx)
+          else (operand.get! ctx).back
+      } := by
+  have : (valuePtr.getFirstUse! ctx).maybe InBounds ctx := by grind
+  have : ¬ (opPtr.nextOperand ctx).InBounds ctx := by grind
+  split <;> grind
+
+/-
+This version of the theorem has if/else branches that are sometimes more convenient for reasonning.
+-/
+theorem OpOperandPtr.get!_pushOperand'
+    (valuePtr : ValuePtr) valuePtrInBounds (operandPtr : OpOperandPtr) :
+    operandPtr.get! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+      if operandPtr = opPtr.nextOperand ctx then
+        { value := valuePtr,
+          owner := opPtr,
+          back := OpOperandPtrPtr.valueFirstUse valuePtr,
+          nextUse := (valuePtr.getFirstUse! ctx) : OpOperand}
+      else if valuePtr.getFirstUse! ctx = some operandPtr then
+       { operandPtr.get! ctx with back := OpOperandPtrPtr.operandNextUse (opPtr.nextOperand ctx) }
+      else
+        operandPtr.get! ctx := by
+  apply OpOperand.ext <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_pushOperand {operation : OperationPtr} :
+    operation.getOperands! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if operation = opPtr then
+      (operation.getOperands! ctx).push valuePtr
+    else
+      operation.getOperands! ctx := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_pushOperand {operation : OperationPtr} :
     operation.getNumSuccessors! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     operation.getNumSuccessors! ctx := by
@@ -3446,6 +3503,23 @@ theorem RegionPtr.parent!_pushOperand {region : RegionPtr} :
 theorem ValuePtr.getType!_pushOperand {value : ValuePtr} :
     value.getType! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     value.getType! ctx := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getFirstUse!_pushOperand {value : ValuePtr} :
+    value.getFirstUse! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if value = valuePtr then some (opPtr.nextOperand! ctx) else value.getFirstUse! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OpOperandPtrPtr.get!_pushOperand {operandPtr : OpOperandPtrPtr} :
+    operandPtr.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    if operandPtr = .operandNextUse (opPtr.nextOperand ctx) then
+      valuePtr.getFirstUse! ctx
+    else if operandPtr = .valueFirstUse valuePtr then
+      some (opPtr.nextOperand! ctx)
+    else
+      operandPtr.get! ctx := by
   grind
 
 end Rewriter.pushOperand

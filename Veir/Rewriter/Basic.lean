@@ -485,6 +485,14 @@ theorem Rewriter.pushOperand_inBounds (ptr : GenericPtr) :
      ptr = .opOperandPtr (.operandNextUse ⟨opPtr, (opPtr.getNumOperands ctx)⟩)) := by
   grind [Rewriter.pushOperand]
 
+@[simp, grind =]
+theorem Rewriter.pushOperand_OperandPtr_InBounds_iff (valuePtr : ValuePtr) (hval : valuePtr.InBounds ctx) :
+    ∀ (operandPtr : OpOperandPtr),
+    (operandPtr.InBounds (Rewriter.pushOperand ctx opPtr valuePtr h₁ hval h₃)) ↔ ((operandPtr.InBounds ctx) ∨ operandPtr = opPtr.nextOperand ctx) := by
+  simp only [Rewriter.pushOperand]
+  simp [←GenericPtr.iff_opOperand]
+  grind
+
 @[grind .]
 theorem Rewriter.pushOperand_inBounds_mono (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) := by
