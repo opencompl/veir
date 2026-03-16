@@ -618,7 +618,7 @@ structure Block.WellFormed (block : Block) (ctx : IRContext OpInfo) (blockPtr : 
 
 structure Region.WellFormed (region : Region) (ctx : IRContext OpInfo) (regionPtr : RegionPtr) where
   inBounds : region.FieldsInBounds ctx
-  parent_op {op} (heq : region.parent = some op) : ∃ i, i < op.getNumRegions! ctx → op.getRegion! ctx i = regionPtr
+  parent_op {op} (heq : region.parent = some op) : ∃ i, i < op.getNumRegions! ctx ∧ op.getRegion! ctx i = regionPtr
 
 structure IRContext.WellFormed (ctx : IRContext OpInfo)
   (missingOperandUses : Std.ExtHashSet OpOperandPtr := ∅)

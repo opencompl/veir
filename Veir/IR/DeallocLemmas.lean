@@ -289,8 +289,11 @@ theorem Region.wellFormed_OperationPtr_dealloc
   · have := wf.regions regionPtr inBounds'
     have := this.inBounds
     grind [IRContext.fieldsInBounds_OperationPtr_dealloc, IRContext.WellFormed, Region.WellFormed]
-  · have := wf.regions regionPtr inBounds'
-    have := this.inBounds
+  · have ⟨h₁, h₂⟩ := wf.regions regionPtr inBounds'
+    intro parent hparent
+    simp only [RegionPtr.get!_OperationPtr_dealloc] at hparent
+    have ⟨i, hi₁, hi₂⟩ := h₂ hparent
+    exists i
     grind [IRContext.fieldsInBounds_OperationPtr_dealloc, IRContext.WellFormed, Region.WellFormed]
 
 theorem ValuePtr.defUse_OperationPtr_dealloc
