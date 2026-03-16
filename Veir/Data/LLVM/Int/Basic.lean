@@ -411,6 +411,15 @@ def sext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (_h : w₁ < w₂) : Int w₂ 
 
   val (v.signExtend w₂)
 
+/--
+ If the condition is an i1 and it evaluates to 1, the instruction returns the first value argument; otherwise, it returns the second value argument.
+-/
+def select {w : Nat} (c : Int 1) (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  let val c' := c | poison
+  val (if c' == 1#1 then x' else y')
+
 end Int
 end
 end Veir.Data.LLVM
