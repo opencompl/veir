@@ -115,7 +115,7 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
   Properties of `llvm.icmp` operation, describing predicates for integer comparison.
 -/
 structure IcmpProperties where
-  p : StringAttr
+  value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
@@ -124,9 +124,9 @@ def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     throw s!"llvm.icmp: expected only one property, but got {attrDict.size} properties"
   let some attr := attrDict["predicate".toUTF8]?
     | throw "llvm.icmp: missing predicate"
-  let .stringAttr strAttr := attr
+  let .integerAttr intAttr := attr
     | throw s!"llvm.icmp: expected predicate to be a string attribute, but got {attr}"
-  return { p := strAttr }
+  return { value := intAttr }
 
 /--
   Properties of the RISC-V immediate operations.
@@ -297,7 +297,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .llvm_icmp => Id.run do
-    (Std.HashMap.emptyWithCapacity 2).insert "predicate".toUTF8 (Attribute.stringAttr props.p)
+    (Std.HashMap.emptyWithCapacity 2).insert "predicate".toUTF8 (Attribute.integerAttr props.value)
   | .arith_divsi | .arith_divui | .arith_shrsi | .arith_shrui |
     .llvm_udiv | .llvm_sdiv | .llvm_lshr | .llvm_ashr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2

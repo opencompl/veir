@@ -29,18 +29,18 @@ inductive IntPred where
   | sle
 deriving DecidableEq, Inhabited
 
-def IntPred.fromString (s : String) : Option IntPred :=
+def IntPred.fromInt (s : Nat) : Option IntPred :=
   match s with
-  | "eq" => some .eq
-  | "ne" => some .ne
-  | "ugt" => some .ugt
-  | "uge" => some .uge
-  | "ult" => some .ult
-  | "ule" => some .ule
-  | "sgt" => some .sgt
-  | "sge" => some .sge
-  | "slt" => some .slt
-  | "sle" => some .sle
+  | 1 => some .eq
+  | 2 => some .ne
+  | 3 => some .ugt
+  | 4 => some .uge
+  | 5 => some .ult
+  | 6 => some .ule
+  | 7 => some .sgt
+  | 8 => some .sge
+  | 9 => some .slt
+  | 10 => some .sle
   | _ => none
 
 def IntPred.eval (p : IntPred) (x y : BitVec w) : Bool :=
@@ -473,8 +473,6 @@ The remaining two arguments must be integer. They must also be identical types.
 def icmp {w : Nat} (x y : Int w) (p : IntPred) : Int 1 := Id.run do
   let val x' := x | poison
   let val y' := y | poison
-  if x == poison || y == poison then
-    return poison
   val (BitVec.ofBool (IntPred.eval p x' y'))
 
 end Int
