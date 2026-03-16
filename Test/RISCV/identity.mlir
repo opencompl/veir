@@ -36,6 +36,8 @@
     %28 = "riscv.clzw"(%0) : (i64) -> i64
     %29 = "riscv.ctz"(%0) : (i64) -> i64
     %30 = "riscv.ctzw"(%0) : (i64) -> i64
+    %84 = "riscv.cpop"(%0) : (i64) -> i64
+    %85 = "riscv.cpopw"(%0) : (i64) -> i64
     // Binary operations 
     %31 = "riscv.add"(%0, %1) : (i64, i64) -> i64
     %32 = "riscv.sub"(%0, %1) : (i64, i64) -> i64
@@ -125,6 +127,8 @@
 // CHECK-NEXT:     %{{.*}} = "riscv.clzw"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.ctz"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.ctzw"(%{{.*}}) : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.cpop"(%{{.*}}) : (i64) -> i64
+// CHECK-NEXT:     %{{.*}} = "riscv.cpopw"(%{{.*}}) : (i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.sll"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64

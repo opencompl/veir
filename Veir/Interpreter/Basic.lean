@@ -201,6 +201,11 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let .integerType resBw := resType.val | none
     if h: resBw.bitwidth <= w then none else
     return (#[.int resBw.bitwidth (LLVM.Int.sext val resBw.bitwidth (by omega))], .continue)
+  | .arith_select => do
+    let [.int 1 cond, .int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simpa using h)
+    return (#[.int bw (LLVM.Int.select cond lhs rhs)], .continue)
   | .llvm_constant => do
     let resType ← resultTypes[0]?
     let .integerType bw := resType.val
@@ -524,6 +529,12 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .riscv_ctzw => do
     let #[.reg op] := operands | none
     return (#[.reg (RISCV.ctzw op)], .continue)
+  | .riscv_cpop => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.cpop op)], .continue)
+  | .riscv_cpopw => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.cpopw op)], .continue)
   | .riscv_roriw => do
     let #[.reg op1] := operands | none
     let imm := BitVec.ofInt 5 properties.value.value

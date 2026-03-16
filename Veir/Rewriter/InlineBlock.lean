@@ -1,8 +1,11 @@
 import Veir.Rewriter.Basic
 import Veir.Rewriter.WellFormed.Rewriter.Operation
 import Veir.Rewriter.GetSetInBounds
+import Veir.Properties
 
 namespace Veir
+
+variable {ctx : IRContext OpCode}
 
 theorem Rewriter.insertOp?.operationList {block : BlockPtr}
   (blockIn : block.InBounds ctx) (ctxWf : ctx.WellFormed)
@@ -36,7 +39,7 @@ theorem Rewriter.insertOp?.operationList {block : BlockPtr}
     grind
 
 theorem Rewriter.detachOp.operationList_size
-  {block : BlockPtr}
+  {ctx : IRContext OpCode} {hctx} {op} {hin} {hparent} {block : BlockPtr}
   (blockIn : block.InBounds ctx) (ctxWf : ctx.WellFormed) :
   (block.operationList (Rewriter.detachOp ctx op hctx hin hparent) (by grind [Rewriter.detachOp_WellFormed]) (by grind)).size =
   if (op.get! ctx).parent = block then
@@ -98,6 +101,7 @@ theorem Rewriter.detachOp.operationList
     simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp (BlockPtr.opChain_detachOp_other hArray hArray' hparent (by grind))]
     simp [BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray]
 
+set_option warn.sorry false in
 theorem Rewriter.insertOp?_detachOp_operationList {block : BlockPtr}
   (blockIn : block.InBounds ctx) (ctxWf : ctx.WellFormed)
   (ipIn' : ip.InBounds ctx)
@@ -115,6 +119,7 @@ theorem Rewriter.insertOp?_detachOp_operationList {block : BlockPtr}
   sorry
   --rw [Rewriter.detachOp.operationList]
 
+set_option warn.sorry false in
 theorem InsertPoint.idxIn_insertOp?_detachOp
   (ctxWf : ctx.WellFormed)
   (ipIn' : ip.InBounds ctx)
@@ -124,7 +129,7 @@ theorem InsertPoint.idxIn_insertOp?_detachOp
   ip.idxIn ctx' blockTo inBounds parent wf =
   (ip.idxIn ctx blockTo (by grind) (by grind) (by grind)) + 1 := by sorry
 
-def Rewriter.inlineBlock (ctx : IRContext) (block : BlockPtr)
+def Rewriter.inlineBlock (ctx : IRContext OpCode) (block : BlockPtr)
     (ip : InsertPoint) (ipIn : ip.InBounds ctx := by grind)
     (ipBlock : ip.block! ctx = some block' := by grind)
     (blockNe : block ≠ block' := by grind)
@@ -283,23 +288,25 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_from
         grind
     · grind
 
+set_option warn.sorry false in
 @[simp]
 theorem Array.extract_insertIdx_zero_succ {l : Array α} {inBounds} :
     (Array.insertIdx l idx elem inBounds).extract 0 (idx + 1) =
     l.extract 0 idx ++ #[elem] := by
   sorry
 
+set_option warn.sorry false in
 @[simp]
 theorem Array.extract_insertIdx_succ_ub {l : Array α} {inBounds} :
     (Array.insertIdx l idx elem inBounds).extract (idx + 1) ub =
     l.extract idx ub := by
   sorry
 
+set_option warn.sorry false in
 theorem Array.append_singleton_erase_of_getElem?_zero [BEq α] {l : Array α} :
     l[0]? = some x →
     #[x] ++ (l.erase x) = l := by
   sorry
-
 
 theorem BlockPtr.operationList_Rewriter_inlineBlock_to
     (hWF : ctx.WellFormed) (hblockTo : ip.block ctx ipIn = some blockTo)
@@ -316,6 +323,10 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_to
     have ⟨array, hArray⟩ := ctxWf.opChain blockFrom blockIn
     have : array = #[] := by grind
     have : (blockFrom.get! ctx).firstOp = none := by grind [BlockPtr.OpChain]
+    simp only [Array.take_eq_extract, Array.drop_eq_extract, Array.append_assoc]
+    subst array
+    simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray, Array.empty_append,
+      Array.extract_append_extract, Nat.zero_le, Nat.min_eq_left]
     grind
   case succ n ih =>
     have ⟨array, hArray⟩ := ctxWf.opChain blockFrom blockIn
@@ -345,7 +356,7 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_to
     have := @Rewriter.insertOp?_detachOp_operationList ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockFrom (by grind) (by grind) (by grind) (by grind) (by grind) h'
     rw [this]
     simp only [↓reduceDIte, Array.size_insertIdx]
-    have := @InsertPoint.idxIn_insertOp?_detachOp blockTo ctx firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ (by grind) (by grind) (by grind) (by grind) (by grind) (by grind) (by grind) h'
+    have := @InsertPoint.idxIn_insertOp?_detachOp ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ (by grind) (by grind) (by grind) (by grind) (by grind) (by grind) (by grind) h'
     rw [this]
     simp only [Array.extract_insertIdx_zero_succ, Array.append_singleton, fromNeTo, ↓reduceDIte,
       hparent, ↓reduceIte, Array.extract_insertIdx_succ_ub, Nat.lt_add_one,

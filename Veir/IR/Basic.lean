@@ -705,6 +705,11 @@ theorem getProperties!_eq_getProperties {op : OperationPtr} (inBounds : op.InBou
     op.getProperties! ctx opCode = op.getProperties ctx opCode inBounds (by grind) := by
   grind [getProperties, getProperties!]
 
+theorem getProperties!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
+    op.get! ctx = op.get! ctx' →
+    op.getProperties! ctx opCode = op.getProperties! ctx' opCode := by
+  grind [OperationPtr.get!, getProperties!]
+
 def setProperties {opCode : OpInfo} (op : OperationPtr) (ctx : IRContext OpInfo)
     (newProperties : HasOpInfo.propertiesOf opCode)
     (inBounds : op.InBounds ctx := by grind)

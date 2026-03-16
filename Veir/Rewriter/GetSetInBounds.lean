@@ -1,6 +1,7 @@
 import Veir.Rewriter.Basic
 import Veir.Rewriter.LinkedList.GetSet
 import Veir.ForLean
+import Veir.IR.DeallocLemmas
 
 /-
  - The getters we consider are:
@@ -1465,31 +1466,31 @@ theorem BlockPtr.parent!_detachOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachOperands ctx op' hCtx hOp)).parent = (block.get! ctx).parent := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem BlockPtr.firstOp!_detachOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachOperands ctx op' hCtx hOp)).firstOp =
     (block.get! ctx).firstOp := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem BlockPtr.lastOp!_detachOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachOperands ctx op' hCtx hOp)).lastOp =
     (block.get! ctx).lastOp := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.prev!_detachOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachOperands ctx op' hCtx hOp)).prev =
     (operation.get! ctx).prev := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.next!_detachOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachOperands ctx op' hCtx hOp)).next =
     (operation.get! ctx).next := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.parent!_detachOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachOperands ctx op' hCtx hOp)).parent =
     (operation.get! ctx).parent := by
@@ -1866,31 +1867,31 @@ theorem BlockPtr.parent!_detachBlockOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).parent = (block.get! ctx).parent := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem BlockPtr.firstOp!_detachBlockOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).firstOp =
     (block.get! ctx).firstOp := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem BlockPtr.lastOp!_detachBlockOperands {block : BlockPtr} :
     (block.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).lastOp =
     (block.get! ctx).lastOp := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.prev!_detachBlockOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).prev =
     (operation.get! ctx).prev := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.next!_detachBlockOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).next =
     (operation.get! ctx).next := by
   grind
 
-@[grind =]
+@[simp, grind =]
 theorem OperationPtr.parent!_detachBlockOperands {operation : OperationPtr} :
     (operation.get! (Rewriter.detachBlockOperands ctx op' hCtx hOp)).parent =
     (operation.get! ctx).parent := by
@@ -2009,79 +2010,79 @@ end Rewriter.detachBlockOperands
 /- replaceUse -/
 
 @[simp, grind .]
-theorem BlockOperandPtr.get_replaceUse {bop : BlockOperandPtr} {hbop} :
-    bop.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hbop =
-    bop.get ctx (by grind) := by
+theorem BlockOperandPtr.get!_replaceUse {bop : BlockOperandPtr} :
+    bop.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    bop.get! ctx := by
   unfold Rewriter.replaceUse
   grind
 
 @[simp, grind =]
-theorem BlockPtr.getFirstOp_replaceUse {b : BlockPtr} {hb} :
-    (b.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).firstOp =
-    (b.get ctx (by grind)).firstOp := by
+theorem BlockPtr.firstOp!_replaceUse {b : BlockPtr} :
+    (b.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).firstOp =
+    (b.get! ctx).firstOp := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem BlockPtr.getLastOp_replaceUse {b : BlockPtr} {hb} :
-    (b.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).lastOp =
-    (b.get ctx (by grind)).lastOp := by
+theorem BlockPtr.lastOp!_replaceUse {b : BlockPtr} :
+    (b.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).lastOp =
+    (b.get! ctx).lastOp := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem BlockPtr.getNext_replaceUse {b : BlockPtr} {hb} :
-    (b.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).next =
-    (b.get ctx (by grind)).next := by
+theorem BlockPtr.next!_replaceUse {b : BlockPtr} :
+    (b.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).next =
+    (b.get! ctx).next := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem BlockPtr.getPrev_replaceUse {b : BlockPtr} {hb} :
-    (b.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).prev =
-    (b.get ctx (by grind)).prev := by
+theorem BlockPtr.prev!_replaceUse {b : BlockPtr} :
+    (b.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).prev =
+    (b.get! ctx).prev := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem BlockPtr.getParent_replaceUse {b : BlockPtr} {hb} :
-    (b.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hb).parent =
-    (b.get ctx (by grind)).parent := by
+theorem BlockPtr.parent!_replaceUse {b : BlockPtr} :
+    (b.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).parent =
+    (b.get! ctx).parent := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OperationPtr.getParent_replaceUse {op : OperationPtr} {hop} :
-    (op.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).parent =
-    (op.get ctx (by grind)).parent := by
+theorem OperationPtr.parent!_replaceUse {op : OperationPtr} :
+    (op.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).parent =
+    (op.get! ctx).parent := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OperationPtr.getNext_replaceUse {op : OperationPtr} {hop} :
-    (op.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).next =
-    (op.get ctx (by grind)).next := by
+theorem OperationPtr.next!_replaceUse {op : OperationPtr} :
+    (op.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).next =
+    (op.get! ctx).next := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OperationPtr.getPrev_replaceUse {op : OperationPtr} {hop} :
-    (op.get (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).prev =
-    (op.get ctx (by grind)).prev := by
+theorem OperationPtr.prev!_replaceUse {op : OperationPtr} :
+    (op.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).prev =
+    (op.get! ctx).prev := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OperationPtr.getNumOperands_replaceUse :
-    OperationPtr.getNumOperands op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop =
-    OperationPtr.getNumOperands op ctx (by grind) := by
+theorem OperationPtr.getNumOperands!_replaceUse :
+    OperationPtr.getNumOperands! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    OperationPtr.getNumOperands! op ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OpOperandPtr.owner_replaceUse :
-    (OpOperandPtr.get opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).owner =
-    (OpOperandPtr.get opr ctx (by grind)).owner := by
+theorem OpOperandPtr.owner!_replaceUse :
+    (OpOperandPtr.get! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).owner =
+    (OpOperandPtr.get! opr ctx).owner := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OpOperandPtr.value_replaceUse :
-    (OpOperandPtr.get opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hop).value =
+theorem OpOperandPtr.value!_replaceUse :
+    (OpOperandPtr.get! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).value =
     if use = opr then
       value'
     else
-      (OpOperandPtr.get opr ctx (by grind)).value := by
+      (OpOperandPtr.get! opr ctx).value := by
   grind [Rewriter.replaceUse]
 
 @[grind =]
@@ -2101,43 +2102,37 @@ theorem OperationPtr.getNumSuccessors!_replaceUse :
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem BlockOperandPtr.get!_replaceUse :
-    BlockOperandPtr.get! bop (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
-    BlockOperandPtr.get! bop ctx := by
-  grind [Rewriter.replaceUse]
-
-@[simp, grind =]
-theorem OperationPtr.getNumResults_replaceUse :
+theorem OperationPtr.getNumResults!_replaceUse :
     OperationPtr.getNumResults! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     OperationPtr.getNumResults! op ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OpResultPtr.owner_replaceUse :
-    (OpResultPtr.get opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hopr).owner =
-    (OpResultPtr.get opr ctx (by grind)).owner := by
+theorem OpResultPtr.owner!_replaceUse :
+    (OpResultPtr.get! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).owner =
+    (OpResultPtr.get! opr ctx).owner := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OpResultPtr.index_replaceUse :
-    (OpResultPtr.get opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hopr).index =
-    (OpResultPtr.get opr ctx (by grind)).index := by
+theorem OpResultPtr.index!_replaceUse :
+    (OpResultPtr.get! opr (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).index =
+    (OpResultPtr.get! opr ctx).index := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OperationPtr.getNumRegions_replaceUse :
+theorem OperationPtr.getNumRegions!_replaceUse :
     OperationPtr.getNumRegions! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     OperationPtr.getNumRegions! op ctx := by
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem OperationPtr.getRegions_replaceUse :
+theorem OperationPtr.getRegions!_replaceUse :
     OperationPtr.getRegion! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     OperationPtr.getRegion! op ctx := by
   grind (instances := 2000) [Rewriter.replaceUse] -- TODO: instance threshold reached when adding lemmas for Region.allocEmpty
 
 @[simp, grind =]
-theorem BlockPtr.getNumArguments_replaceUse :
+theorem BlockPtr.getNumArguments!_replaceUse :
     BlockPtr.getNumArguments! block (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     BlockPtr.getNumArguments! block ctx := by
   grind [Rewriter.replaceUse]
@@ -2155,10 +2150,150 @@ theorem BlockArgumentPtr.index!_replaceUse :
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
-theorem RegionPtr.get_replaceUse :
-    RegionPtr.get reg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) hreg =
-    RegionPtr.get reg ctx (by grind) := by
+theorem RegionPtr.get!_replaceUse :
+    RegionPtr.get! reg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    RegionPtr.get! reg ctx := by
   grind (instances := 2000) [Rewriter.replaceUse]  -- TODO: instance threshold reached when adding lemmas for Region.allocEmpty
+
+/-! ## `Rewriter.replaceValue?` -/
+
+section Rewriter.replaceValue?
+
+attribute [local grind] Rewriter.replaceValue?
+
+@[simp, grind =>]
+theorem BlockOperandPtr.get!_replaceValue? {bop : BlockOperandPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    bop.get! newCtx = bop.get! ctx := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem BlockPtr.firstOp!_replaceValue? {b : BlockPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (b.get! newCtx).firstOp = (b.get! ctx).firstOp := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem BlockPtr.lastOp!_replaceValue? {b : BlockPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (b.get! newCtx).lastOp = (b.get! ctx).lastOp := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem BlockPtr.next!_replaceValue? {b : BlockPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (b.get! newCtx).next = (b.get! ctx).next := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem BlockPtr.prev!_replaceValue? {b : BlockPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (b.get! newCtx).prev = (b.get! ctx).prev := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem BlockPtr.parent!_replaceValue? {b : BlockPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (b.get! newCtx).parent = (b.get! ctx).parent := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OperationPtr.parent!_replaceValue? {op : OperationPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (op.get! newCtx).parent = (op.get! ctx).parent := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OperationPtr.next!_replaceValue? {op : OperationPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (op.get! newCtx).next = (op.get! ctx).next := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OperationPtr.prev!_replaceValue? {op : OperationPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (op.get! newCtx).prev = (op.get! ctx).prev := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OperationPtr.getNumOperands!_replaceValue? {op : OperationPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    op.getNumOperands! newCtx = op.getNumOperands! ctx := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OpOperandPtr.owner!_replaceValue? {opr : OpOperandPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (opr.get! newCtx).owner = (opr.get! ctx).owner := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+/-!
+ theorem `OpOperandPtr.value!_replaceValue?` and
+ `OperationPtr.getOperands!_replaceValue?` requires Well-formedness
+ preservation to be stated.
+-/
+
+@[simp, grind =>]
+theorem OperationPtr.getNumSuccessors!_replaceValue? {op : OperationPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    op.getNumSuccessors! newCtx = op.getNumSuccessors! ctx := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OperationPtr.getNumResults!_replaceValue? {op : OperationPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    op.getNumResults! newCtx = op.getNumResults! ctx := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OpResultPtr.owner!_replaceValue? {opr : OpResultPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (opr.get! newCtx).owner = (opr.get! ctx).owner := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OpResultPtr.index!_replaceValue? {opr : OpResultPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (opr.get! newCtx).index = (opr.get! ctx).index := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OperationPtr.getNumRegions!_replaceValue? {op : OperationPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    op.getNumRegions! newCtx = op.getNumRegions! ctx := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OperationPtr.getRegions_replaceValue? {op : OperationPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    op.getRegion! newCtx index = op.getRegion! ctx index := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem BlockPtr.getNumArguments!_replaceValue? {block : BlockPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    block.getNumArguments! newCtx = block.getNumArguments! ctx := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem BlockArgumentPtr.owner!_replaceValue? {arg : BlockArgumentPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (arg.get! newCtx).owner = (arg.get! ctx).owner := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem BlockArgumentPtr.index!_replaceValue? {arg : BlockArgumentPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    (arg.get! newCtx).index = (arg.get! ctx).index := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem RegionPtr.get!_replaceValue? {reg : RegionPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    reg.get! newCtx = reg.get! ctx := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+end Rewriter.replaceValue?
 
 /-! ## `Rewriter.initOpResults` -/
 
@@ -2517,6 +2652,475 @@ theorem OpOperandPtrPtr.get!_initOpRegions {opOperandPtr : OpOperandPtrPtr} :
   fun_induction Rewriter.initOpRegions <;> grind
 
 end Rewriter.initOpRegions
+
+/-! # Rewriter.eraseOp -/
+
+section Rewriter.eraseOp
+
+variable {op : OperationPtr}
+
+attribute [local grind] Rewriter.eraseOp
+
+-- The theorem `BlockPtr.firstUse!_detachBlockOperands` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem BlockPtr.prev!_eraseOp {block : BlockPtr} :
+    (block.get! (Rewriter.eraseOp ctx op hCtx hOp)).prev = (block.get! ctx).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_eraseOp {block : BlockPtr} :
+    (block.get! (Rewriter.eraseOp ctx op hCtx hOp)).next = (block.get! ctx).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_eraseOp {block : BlockPtr} :
+    (block.get! (Rewriter.eraseOp ctx op hCtx hOp)).parent = (block.get! ctx).parent := by
+  grind
+
+@[grind =]
+theorem BlockPtr.firstOp!_eraseOp {block : BlockPtr} :
+    (block.get! (Rewriter.eraseOp ctx op hCtx hOp)).firstOp =
+    if (op.get! ctx).prev = none ∧ block = (op.get! ctx).parent then
+      (op.get! ctx).next
+    else
+      (block.get! ctx).firstOp := by
+  grind
+
+@[grind =]
+theorem BlockPtr.lastOp!_eraseOp {block : BlockPtr} :
+    (block.get! (Rewriter.eraseOp ctx op hCtx hOp)).lastOp =
+    if (op.get! ctx).next = none ∧ block = (op.get! ctx).parent then
+      (op.get! ctx).prev
+    else
+      (block.get! ctx).lastOp := by
+  grind
+
+@[grind =]
+theorem OperationPtr.prev!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).prev =
+    if (op.get! ctx).parent ≠ none ∧ operation = (op.get! ctx).next then
+      (op.get! ctx).prev
+    else if (op.get! ctx).parent ≠ none ∧ operation = op then
+      none
+    else
+      (operation.get! ctx).prev := by
+  grind
+
+@[grind =]
+theorem OperationPtr.next!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).next =
+    if (op.get! ctx).parent ≠ none ∧ operation = (op.get! ctx).prev then
+      (op.get! ctx).next
+    else if (op.get! ctx).parent ≠ none ∧ operation = op then
+      none
+    else
+      (operation.get! ctx).next := by
+  grind
+
+@[grind =]
+theorem OperationPtr.parent!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).parent =
+    if operation = op then none else (operation.get! ctx).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.opType!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).opType =
+    (operation.get! ctx).opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).attrs =
+    (operation.get! ctx).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getProperties! (Rewriter.eraseOp ctx op hCtx hOp) opCode =
+    operation.getProperties! ctx opCode := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getNumOperands! (Rewriter.eraseOp ctx op hCtx hOp) =
+    operation.getNumOperands! ctx := by
+  grind
+
+-- The theorem `OpResultPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.OpChain` directly.
+
+-- The theorem `OpOperandPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.OpChain` directly.
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getOperands! (Rewriter.eraseOp ctx op hCtx hOp) = operation.getOperands! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getNumSuccessors! (Rewriter.eraseOp ctx op hCtx hOp) =
+    operation.getNumSuccessors! ctx := by
+  grind
+
+-- The theorem `BlockOperandPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getNumRegions! (Rewriter.eraseOp ctx op hCtx hOp) =
+    operation.getNumRegions! ctx := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getRegion! (Rewriter.eraseOp ctx op hCtx hOp) idx =
+    operation.getRegion! ctx idx := by
+  grind
+
+-- The theorem `BlockOperandPtrPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_eraseOp {block : BlockPtr} :
+    block.getNumArguments! (Rewriter.eraseOp ctx op hCtx hOp) =
+    block.getNumArguments! ctx := by
+  grind
+
+-- The theorem `BlockArgumentPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem RegionPtr.firstBlock!_eraseOp {region : RegionPtr} :
+    (region.get! (Rewriter.eraseOp ctx op hCtx hOp)).firstBlock =
+    (region.get! ctx).firstBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.lastBlock!_eraseOp {region : RegionPtr} :
+    (region.get! (Rewriter.eraseOp ctx op hCtx hOp)).lastBlock =
+    (region.get! ctx).lastBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.parent!_eraseOp {region : RegionPtr} :
+    (region.get! (Rewriter.eraseOp ctx op hCtx hOp)).parent =
+    (region.get! ctx).parent := by
+  grind
+
+-- The theorem `ValuePtr.getFirstUse!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem ValuePtr.getType!_eraseOp {value : ValuePtr} :
+    value.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    value.getType! (Rewriter.eraseOp ctx op hCtx hOp) =
+    value.getType! ctx := by
+  grind
+
+-- The theorem `OpOperandPtr.get!_eraseOp` is missing because it is quite complex to state.
+-- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
+-- this point, likely on `BlockPtr.DefUse` directly.
+
+end Rewriter.eraseOp
+
+section Rewriter.createEmptyOp
+
+variable {op : OperationPtr}
+
+attribute [local grind] Rewriter.createEmptyOp
+
+@[simp]
+theorem BlockPtr.firstUse!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').firstUse = (block.get! ctx).firstUse := by
+  grind
+
+grind_pattern BlockPtr.firstUse!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').firstUse
+
+@[simp]
+theorem BlockPtr.prev!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').prev = (block.get! ctx).prev := by
+  grind
+
+grind_pattern BlockPtr.prev!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').prev
+
+@[simp]
+theorem BlockPtr.next!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').next = (block.get! ctx).next := by
+  grind
+
+grind_pattern BlockPtr.next!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').next
+
+@[simp]
+theorem BlockPtr.parent!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').parent = (block.get! ctx).parent := by
+  grind
+
+grind_pattern BlockPtr.parent!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').parent
+
+@[simp]
+theorem BlockPtr.firstOp!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').firstOp = (block.get! ctx).firstOp := by
+  grind
+
+grind_pattern BlockPtr.firstOp!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').firstOp
+
+@[simp]
+theorem BlockPtr.lastOp!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (block.get! ctx').lastOp = (block.get! ctx).lastOp := by
+  grind
+
+grind_pattern BlockPtr.lastOp!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (block.get! ctx').lastOp
+
+theorem OperationPtr.prev!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (operation.get! ctx').prev =
+    if operation = op then none else (operation.get! ctx).prev := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.prev!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').prev
+
+theorem OperationPtr.next!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (operation.get! ctx').next =
+    if operation = op then none else (operation.get! ctx).next := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.next!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').next
+
+theorem OperationPtr.parent!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (operation.get! ctx').parent =
+    if operation = op then none else (operation.get! ctx).parent := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.parent!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').parent
+
+theorem OperationPtr.opType!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (operation.get! ctx').opType =
+    if operation = op then opType else (operation.get! ctx).opType := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.opType!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').opType
+
+theorem OperationPtr.attrs!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (operation.get! ctx').attrs =
+    if operation = op then DictionaryAttr.empty else (operation.get! ctx).attrs := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.attrs!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').attrs
+
+theorem OperationPtr.getProperties!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getProperties! ctx' opType = if operation = op then properties else operation.getProperties! ctx opType := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.getProperties!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getProperties! ctx' opType
+
+theorem OperationPtr.getNumResults!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getNumResults! ctx' =
+    if operation = op then 0 else operation.getNumResults! ctx := by
+  grind [Operation.empty]
+
+grind_pattern OperationPtr.getNumResults!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getNumResults! ctx'
+
+@[simp]
+theorem OpResultPtr.get!_createEmptyOp {opResult : OpResultPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    opResult.get! ctx' = opResult.get! ctx := by
+  grind
+
+grind_pattern OpResultPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), opResult.get! ctx'
+
+theorem OperationPtr.getNumOperands!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getNumOperands! ctx' =
+    if operation = op then 0 else operation.getNumOperands! ctx := by
+  grind
+
+grind_pattern OperationPtr.getNumOperands!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getNumOperands! ctx'
+
+@[simp]
+theorem OpOperandPtr.get!_createEmptyOp {operand : OpOperandPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operand.get! ctx' = operand.get! ctx := by
+  grind
+
+grind_pattern OpOperandPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operand.get! ctx'
+
+theorem OperationPtr.getOperands!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getOperands! ctx' =
+    if operation = op then #[] else operation.getOperands! ctx := by
+  grind
+
+grind_pattern OperationPtr.getOperands!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getOperands! ctx'
+
+theorem OperationPtr.getNumSuccessors!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getNumSuccessors! ctx' =
+    if operation = op then 0 else operation.getNumSuccessors! ctx := by
+  grind
+
+grind_pattern OperationPtr.getNumSuccessors!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getNumSuccessors! ctx'
+
+@[simp]
+theorem BlockOperandPtr.get!_createEmptyOp {operand : BlockOperandPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operand.get! ctx' = operand.get! ctx := by
+  grind
+
+grind_pattern BlockOperandPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operand.get! ctx'
+
+theorem OperationPtr.getNumRegions!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getNumRegions! ctx' =
+    if operation = op then 0 else operation.getNumRegions! ctx := by
+  grind
+
+grind_pattern OperationPtr.getNumRegions!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getNumRegions! ctx'
+
+@[simp]
+theorem OperationPtr.getRegion!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getRegion! ctx' idx = operation.getRegion! ctx idx := by
+  grind
+
+grind_pattern OperationPtr.getRegion!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getRegion! ctx' idx
+
+@[simp]
+theorem BlockOperandPtrPtr.get!_createEmptyOp {operandPtr : BlockOperandPtrPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operandPtr.get! ctx' = operandPtr.get! ctx := by
+  grind
+
+grind_pattern BlockOperandPtrPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operandPtr.get! ctx'
+
+@[simp]
+theorem BlockPtr.getNumArguments!_createEmptyOp {block : BlockPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    block.getNumArguments! ctx' = block.getNumArguments! ctx := by
+  grind
+
+grind_pattern BlockPtr.getNumArguments!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), block.getNumArguments! ctx'
+
+@[simp]
+theorem BlockArgumentPtr.get!_createEmptyOp {blockArg : BlockArgumentPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    blockArg.get! ctx' = blockArg.get! ctx := by
+  grind
+
+grind_pattern BlockArgumentPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), blockArg.get! ctx'
+
+@[simp]
+theorem RegionPtr.firstBlock!_createEmptyOp {region : RegionPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (region.get! ctx').firstBlock = (region.get! ctx).firstBlock := by
+  grind
+
+grind_pattern RegionPtr.firstBlock!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (region.get! ctx').firstBlock
+
+@[simp]
+theorem RegionPtr.lastBlock!_createEmptyOp {region : RegionPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (region.get! ctx').lastBlock = (region.get! ctx).lastBlock := by
+  grind
+
+grind_pattern RegionPtr.lastBlock!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (region.get! ctx').lastBlock
+
+@[simp]
+theorem RegionPtr.parent!_createEmptyOp {region : RegionPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    (region.get! ctx').parent = (region.get! ctx).parent := by
+  grind
+
+grind_pattern RegionPtr.parent!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (region.get! ctx').parent
+
+@[simp]
+theorem ValuePtr.getFirstUse!_createEmptyOp {value : ValuePtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    value.getFirstUse! ctx' = value.getFirstUse! ctx := by
+  grind
+
+grind_pattern ValuePtr.getFirstUse!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), value.getFirstUse! ctx'
+
+@[simp]
+theorem ValuePtr.getType!_createEmptyOp {value : ValuePtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    value.getType! ctx' = value.getType! ctx := by
+  grind
+
+grind_pattern ValuePtr.getType!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), value.getType! ctx'
+
+@[simp]
+theorem OpOperandPtrPtr.get!_createEmptyOp {opOperandPtr : OpOperandPtrPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    opOperandPtr.get! ctx' = opOperandPtr.get! ctx := by
+  grind
+
+grind_pattern OpOperandPtrPtr.get!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), opOperandPtr.get! ctx'
+
+end Rewriter.createEmptyOp
 
 /- replaceValue? -/
 

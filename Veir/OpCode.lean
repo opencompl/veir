@@ -152,6 +152,8 @@ inductive Riscv where
 | clzw
 | ctz
 | ctzw
+| cpop
+| cpopw
 | roriw
 | rori
 | bclr

@@ -20,10 +20,10 @@ variable [Hashable α] [DecidableEq α] [BEq α]
 abbrev ArrayInv (stack : Array (Option α)) (index : HashMap α Nat) :=
   ∀ (op : α) (i : Nat), index[op]? = some i → stack[i]? = some op
 
-set_option warn.sorry false in
+omit [DecidableEq α] in
 @[grind .]
-theorem ArrayInv.popNones (h : ArrayInv (α := α) stack index) : ArrayInv (stack.popWhile (· = none)) index := by
-  sorry
+theorem ArrayInv.pop_nones (h : ArrayInv (α := α) stack index) : ArrayInv (stack.popWhile (· = none)) index := by
+  grind [Array.getElem_of_getElem?, Array.getElem?_popWhile_of_false]
 
 end array_inv
 

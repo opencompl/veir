@@ -211,6 +211,37 @@ theorem Rewriter.replaceValue_DefUse_oldValue :
           grind [ValuePtr.DefUse]
       all_goals grind [ValuePtr.DefUse]
 
+theorem ValuePtr.hasUses!_replaceValue_oldValue :
+    ctx.WellFormed →
+    oldValue ≠ newValue →
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some ctx' →
+    oldValue.hasUses! ctx' = false := by
+  intro ctxWf neValues hctx'
+  have ⟨oldArray, hOldArray⟩ := ctxWf.valueDefUseChains oldValue (by grind)
+  have ⟨newArray, hNewArray⟩ := ctxWf.valueDefUseChains newValue (by grind)
+  simp only [Std.ExtHashSet.filter_empty] at hOldArray hNewArray
+  have := Rewriter.replaceValue_DefUse_oldValue hOldArray hNewArray neValues hctx'
+  have := this.firstElem
+  grind [ValuePtr.hasUses!_def]
+
+theorem ValuePtr.hasUses!_replaceValue_otherValue :
+    ctx.WellFormed →
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some ctx' →
+    oldValue ≠ newValue →
+    ∀ value, value.InBounds ctx →
+    value ≠ oldValue → value ≠ newValue →
+    value.hasUses! ctx' = value.hasUses! ctx := by
+  intro ctxWf hctx' neValues value valueInBounds valueNeold valueNeNew
+  have ⟨array, hArray⟩ := ctxWf.valueDefUseChains value (by grind)
+  have ⟨oldArray, hOldArray⟩ := ctxWf.valueDefUseChains oldValue (by grind)
+  have ⟨newArray, hNewArray⟩ := ctxWf.valueDefUseChains newValue (by grind)
+  simp only [Std.ExtHashSet.filter_empty] at hOldArray hNewArray hArray
+  have := Rewriter.replaceValue_DefUse_otherValue hArray hOldArray hNewArray (by grind)
+    (by grind) (by grind) hctx'
+  have := this.firstElem
+  have := hArray.firstElem
+  grind [ValuePtr.hasUses!_def]
+
 theorem Array.append_eq_erase_append_insertHead {α : Type} [BEq α] [LawfulBEq α] {arrayHead : α} {array arrayTail otherArray}:
     array = #[arrayHead] ++ arrayTail →
     array.reverse ++ otherArray = (array.erase arrayHead).reverse ++ (#[arrayHead] ++ otherArray) := by

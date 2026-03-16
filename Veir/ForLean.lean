@@ -2,7 +2,7 @@ module
 
 public import Std.Data.ExtHashSet
 public import Std.Data.HashMap
-
+import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
 
 /--
@@ -84,6 +84,11 @@ theorem Array.back_popWhile {as : Array α} {p : α → Bool} (h : 0 < (as.popWh
     intro heq; simp [hKey, heq] at h
   simp only [hKey, List.reverse_toArray_back hNe]
   exact List.dropWhile_head_false p as.reverse hNe
+
+theorem Array.getElem?_popWhile_of_false {p : α → Bool} {as : Array α} {i : Nat}
+    (hi : i < as.size) (hp : p (as[i]'hi) = false) :
+    (as.popWhile p)[i]? = as[i]? := by
+  fun_induction Array.popWhile <;> grind
 
 theorem Array.reverse_singleton (a : α) :
     #[a].reverse = #[a] := by
