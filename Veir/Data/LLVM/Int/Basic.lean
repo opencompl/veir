@@ -29,18 +29,20 @@ inductive IntPred where
   | sle
 deriving DecidableEq, Inhabited
 
-def IntPred.fromInt (s : Nat) : Option IntPred :=
+/-- Mapped as in MLIR:
+  https://github.com/llvm/llvm-project/blob/d3417c8bf35852af88f41aa721a719ea756fdd8c/mlir/include/mlir/Dialect/LLVMIR/LLVMEnums.td#L571 -/
+def IntPred.fromNat (s : Nat) : Option IntPred :=
   match s with
-  | 1 => some .eq
-  | 2 => some .ne
-  | 3 => some .ugt
-  | 4 => some .uge
-  | 5 => some .ult
-  | 6 => some .ule
-  | 7 => some .sgt
-  | 8 => some .sge
-  | 9 => some .slt
-  | 10 => some .sle
+  | 0 => some .eq
+  | 1 => some .ne
+  | 2 => some .slt
+  | 3 => some .sle
+  | 4 => some .sgt
+  | 5 => some .sge
+  | 6 => some .ult
+  | 7 => some .ule
+  | 8 => some .ugt
+  | 9 => some .uge
   | _ => none
 
 def IntPred.eval (p : IntPred) (x y : BitVec w) : Bool :=

@@ -294,7 +294,7 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simpa using h)
-    let some p := LLVM.IntPred.fromInt properties.value.value.toNat | none
+    let some p := LLVM.IntPred.fromNat properties.value.value.toNat | none
     return (#[.int 1 (LLVM.Int.icmp lhs rhs p)], .continue)
   | .func_return => do
     return (#[], .return operands)
