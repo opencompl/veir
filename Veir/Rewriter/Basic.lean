@@ -635,6 +635,12 @@ theorem Rewriter.createEmptyOp_new_inBounds
   grind [createEmptyOp]
 
 @[grind .]
+theorem Rewriter.createEmptyOp_new_not_inBounds
+    (h : createEmptyOp ctx opType properties = some (ctx', op)) :
+    ¬ op.InBounds ctx := by
+  grind [createEmptyOp]
+
+@[grind =>]
 theorem Rewriter.createEmptyOp_genericPtr_mono (ptr : GenericPtr)
     (heq : createEmptyOp ctx type properties = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
