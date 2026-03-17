@@ -221,6 +221,19 @@ theorem ext {op1 op2 : OpOperand}
 
 end OpOperand
 
+namespace BlockOperand
+
+@[ext]
+theorem ext {op1 op2 : BlockOperand}
+    (h_nextUse : op1.nextUse = op2.nextUse)
+    (h_back : op1.back = op2.back)
+    (h_owner : op1.owner = op2.owner)
+    (h_value : op1.value = op2.value) :
+    op1 = op2 := by
+  grind [cases BlockOperand]
+
+end BlockOperand
+
 /--
 An MLIR block.
 -/

@@ -335,6 +335,15 @@ theorem BlockPtr.DefUse_back_eq_of_getFirstUse
   have : (firstUse.get! ctx).value = block := by grind
   grind [Array.getElem?_of_mem]
 
+theorem BlockPtr.DefUse.value_eq_of_getFirstUse
+    (hvalueFirstUse : BlockPtr.DefUse block ctx array missingUses)
+    (h : (block.get! ctx).firstUse = some firstUse) :
+    (firstUse.get! ctx).value = block := by
+  grind
+
+grind_pattern BlockPtr.DefUse.value_eq_of_getFirstUse =>
+  BlockPtr.DefUse block ctx array missingUses, (block.get! ctx).firstUse, (firstUse.get! ctx).value
+
 theorem BlockPtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse
     {firstUse : BlockOperandPtr}
     (hDefUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)

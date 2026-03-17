@@ -574,7 +574,7 @@ protected def Rewriter.pushBlockOperand (ctx : IRContext OpInfo) (opPtr : Operat
   let ctx := (BlockOperandPtr.mk opPtr index).insertIntoCurrent ctx (by grind) (by grind)
   ctx
 
-@[grind .]
+@[grind =]
 theorem Rewriter.pushBlockOperand_inBounds (ptr : GenericPtr) :
     ptr.InBounds (Rewriter.pushBlockOperand ctx opPtr valuePtr h₁ h₂ h₃) ↔
     (ptr.InBounds ctx ∨

@@ -3803,6 +3803,50 @@ theorem OperationPtr.getOperands!_pushBlockOperand {operation : OperationPtr} :
     operation.getOperands! ctx := by
   grind
 
+@[grind =]
+theorem OperationPtr.getNumSuccessors!_pushBlockOperand {operation : OperationPtr} :
+    operation.getNumSuccessors! (Rewriter.pushBlockOperand ctx opPtr blockPtr h₁ h₂ h₃) =
+    if operation = opPtr then
+      (operation.getNumSuccessors! ctx) + 1
+    else
+      operation.getNumSuccessors! ctx := by
+  grind
+
+@[grind =]
+theorem BlockOperandPtr.get!_pushBlockOperand {operand : BlockOperandPtr} :
+    operand.get! (Rewriter.pushBlockOperand ctx opPtr blockPtr h₁ h₂ h₃) =
+    if operand = opPtr.nextBlockOperand ctx then
+      {
+        value := blockPtr,
+        owner := opPtr,
+        back := .blockFirstUse blockPtr,
+        nextUse := (blockPtr.get! ctx).firstUse
+      }
+    else
+      {
+        operand.get! ctx with
+        back :=
+          if (blockPtr.get! ctx).firstUse = some operand then
+            .blockOperandNextUse (opPtr.nextBlockOperand ctx)
+          else (operand.get! ctx).back
+      } := by
+  have : (blockPtr.get! ctx).firstUse.maybe InBounds ctx := by grind
+  have : ¬ (opPtr.nextBlockOperand ctx).InBounds ctx := by grind
+  split <;> grind
+
+theorem BlockOperandPtr.get!_pushBlockOperand' {operandPtr : BlockOperandPtr} :
+    operandPtr.get! (Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds) =
+      if operandPtr = opPtr.nextBlockOperand ctx then
+        { value := blockPtr,
+          owner := opPtr,
+          back := BlockOperandPtrPtr.blockFirstUse blockPtr,
+          nextUse := (blockPtr.get! ctx).firstUse : BlockOperand}
+      else if (blockPtr.get! ctx).firstUse = some operandPtr then
+       { operandPtr.get! ctx with back := BlockOperandPtrPtr.blockOperandNextUse (opPtr.nextBlockOperand ctx) }
+      else
+        operandPtr.get! ctx := by
+  apply BlockOperand.ext <;> grind
+
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_pushBlockOperand {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.pushBlockOperand ctx opPtr blockPtr h₁ h₂ h₃) =
