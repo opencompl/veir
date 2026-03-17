@@ -71,14 +71,11 @@ theorem InsertPoint.block!_detachOp_of_ne {ip : InsertPoint} (ipBlock : ip.block
 
 @[grind <=]
 theorem Rewriter.wellFormed_insertOp?_detachOp
-    (ctxWf : ctx.WellFormed)
-    (hip : ip.block! ctx = some block')
-    (hparent' : (op.get! ctx).parent ≠ some block') :
+    (ctxWf : ctx.WellFormed) :
     Rewriter.insertOp? (Rewriter.detachOp ctx op hctx hin hparent) op ip opIn ipIn ctxIn = some ctx' →
     ctx'.WellFormed := by
   intro h
-  apply Rewriter.insertOp?_WellFormed (Rewriter.detachOp ctx op hctx hin hparent) (ip := ip) (block := block') (newOp := op)
-    <;> grind [Rewriter.detachOp_WellFormed]
+  apply Rewriter.insertOp?_WellFormed _ h <;> grind [Rewriter.detachOp_WellFormed]
 
 theorem Rewriter.detachOp.operationList
   {block : BlockPtr}
@@ -150,15 +147,7 @@ def Rewriter.inlineBlock (ctx : IRContext OpCode) (block : BlockPtr)
     )
     (by grind)
     (by (have : block.InBounds ctx₀ := by grind); grind)
-    (by
-      apply Rewriter.insertOp?_WellFormed ctx₀ (by grind [Rewriter.detachOp_WellFormed])
-        firstOpPtr ip (block := block') (by grind) (by grind)
-      · simp only [InsertPoint.block!] at ipBlock |-
-        have : (firstOpPtr.get! ctx).parent = block := by grind [IRContext.WellFormed]
-        grind
-      · grind
-      · grind
-    )
+    (by grind [Rewriter.insertOp?_WellFormed, Rewriter.detachOp_WellFormed])
 termination_by (block.operationList ctx ctxWf blockIn).size
 decreasing_by
   rw [Rewriter.insertOp?.operationList (h := hctx) (block' := block')]

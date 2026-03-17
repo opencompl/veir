@@ -12,15 +12,12 @@ variable {ctx : IRContext OpInfo}
 
 section insertOp
 
-theorem Rewriter.insertOp?_WellFormed (ctx : IRContext OpInfo) (hctx : ctx.WellFormed)
-    (newOp : OperationPtr) (ip : InsertPoint)
-    (newOpIn : newOp.InBounds ctx := by grind)
-    (insIn : ip.InBounds ctx)
-    (hwf : ip.block! ctx = some block)
-    (ctxInBounds : ctx.FieldsInBounds) (newCtx : IRContext OpInfo) :
+theorem Rewriter.insertOp?_WellFormed (hctx : ctx.WellFormed) :
     Rewriter.insertOp? ctx newOp ip newOpIn insIn ctxInBounds = some newCtx →
     newCtx.WellFormed := by
   intros heq
+  have hwf : ∃ block, (ip.block! ctx) = some block := by grind [insertOp?]
+  have ⟨block, hwf⟩ := hwf
   have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hctx
   constructor
   case inBounds =>
