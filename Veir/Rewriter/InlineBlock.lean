@@ -105,7 +105,7 @@ theorem Rewriter.insertOp?_detachOp_operationList {block : BlockPtr}
   (hwf : ip.block! ctx = some block')
   (hparent' : (op.get! ctx).parent ≠ some block')
   (h : Rewriter.insertOp? (Rewriter.detachOp ctx op hctx hin hparent) op ip opIn ipIn ctxIn = some ctx') :
-  block.operationList ctx' (by grind) (by simp [← GenericPtr.iff_block]; rw [← Rewriter.insertOp?_inBounds_mono _ h]; grind) =
+  block.operationList ctx' (by grind) (by grind) =
   if h: block = block' then
     (block.operationList ctx ctxWf blockIn).insertIdx (ip.idxIn ctx block' (by grind) (by grind) (by grind)) op (by apply InsertPoint.idxIn.le_size_array; grind)
   else if (op.get! ctx).parent = block then

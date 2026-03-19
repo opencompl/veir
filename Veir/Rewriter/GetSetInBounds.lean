@@ -51,20 +51,6 @@ unseal Rewriter.insertOp?
 
 attribute [local grind] Rewriter.insertOp?
 
-@[grind .]
-theorem Rewriter.insertOp?_inBounds_mono (ptr : GenericPtr)
-    (heq : insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
-    ptr.InBounds ctx ↔ ptr.InBounds newCtx := by
-  simp only [insertOp?] at heq
-  grind
-
-@[grind .]
-theorem Rewriter.insertOp?_fieldsInBounds_mono
-    (heq : insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
-    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
-  simp only [insertOp?] at heq
-  grind
-
 @[simp]
 theorem BlockPtr.firstUse!_insertOp? {block : BlockPtr} :
     Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx →
@@ -4261,30 +4247,3 @@ theorem OperationPtr.getNumOperands_iff_replaceValue?
     OperationPtr.getNumOperands op ctx' h_op =
     OperationPtr.getNumOperands op ctx (by grind) := by
   grind [OpOperandPtr.inBounds_if_operand_size_eq]
-
-@[grind .]
-theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
-    (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
-    ptr.InBounds ctx → ptr.InBounds newCtx := by
-  simp only [createOp] at heq
-  split at heq; grind
-  split at heq
-  · grind
-  · split at heq
-    · split at heq; grind
-      intros hptr
-      rename_i h
-      simp at heq
-      have ⟨_, _⟩ := heq
-      subst newOp
-      subst newCtx
-      rw [←Rewriter.insertOp?_inBounds_mono ptr h]
-      grind
-    · grind
-
-@[grind .]
-theorem Rewriter.createOp_fieldsInBounds
-    (heq : createOp ctx opType numResults operands blockOperands numRegions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
-    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
-  simp only [createOp] at heq
-  grind

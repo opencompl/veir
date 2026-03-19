@@ -20,6 +20,22 @@ def Rewriter.insertOp? (ctx: IRContext OpInfo) (newOp: OperationPtr) (insertionP
     let next := insertionPoint.next
     newOp.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
 
+theorem Rewriter.insertOp?_inBounds_mono (ptr : GenericPtr)
+    (heq : insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
+    ptr.InBounds newCtx ↔ ptr.InBounds ctx := by
+  simp only [insertOp?] at heq
+  grind
+
+grind_pattern Rewriter.insertOp?_inBounds_mono =>
+  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, ptr.InBounds newCtx
+
+@[grind .]
+theorem Rewriter.insertOp?_fieldsInBounds_mono
+    (heq : insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
+    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
+  simp only [insertOp?] at heq
+  grind
+
 /--
   Set the parent, previous, and next operation pointers of an operation to `none`.
   This method should not be used from outside the rewriter, and is only used to
@@ -657,11 +673,11 @@ def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr) (blockOperands : Array BlockPtr)
     (regions: Array RegionPtr) (properties: HasOpInfo.propertiesOf opType)
     (insertionPoint: Option InsertPoint)
-    (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx)
-    (hblockOperands : ∀ oper, oper ∈ blockOperands → oper.InBounds ctx)
-    (hregions : ∀ reg, reg ∈ regions → reg.InBounds ctx)
-    (hins : insertionPoint.maybe InsertPoint.InBounds ctx)
-    (hx : ctx.FieldsInBounds) : Option (IRContext OpInfo × OperationPtr) :=
+    (hoper : ∀ oper, oper ∈ operands → oper.InBounds ctx := by grind)
+    (hblockOperands : ∀ oper, oper ∈ blockOperands → oper.InBounds ctx := by grind)
+    (hregions : ∀ reg, reg ∈ regions → reg.InBounds ctx := by grind)
+    (hins : insertionPoint.maybe InsertPoint.InBounds ctx := by grind)
+    (hx : ctx.FieldsInBounds := by grind) : Option (IRContext OpInfo × OperationPtr) :=
   rlet hnew : (ctx, newOpPtr) ← Rewriter.createEmptyOp ctx opType properties
   have hib : newOpPtr.InBounds ctx := by grind
   have : (newOpPtr.get ctx (by grind)).results = #[] := by
@@ -682,13 +698,23 @@ def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
   | none =>
     (ctx, newOpPtr)
 
-set_option warn.sorry false in
-unseal Rewriter.createRegion in
+@[grind .]
+theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
+    (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
+    ptr.InBounds ctx → ptr.InBounds newCtx := by
+  simp only [createOp] at heq
+  grind (gen := 10)
+
+@[grind .]
+theorem Rewriter.createOp_fieldsInBounds
+    (heq : createOp ctx opType numResults operands blockOperands numRegions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
+    ctx.FieldsInBounds → newCtx.FieldsInBounds := by
+  simp only [createOp] at heq
+  grind
+
 @[irreducible]
 def IRContext.create OpInfo [HasOpInfo OpInfo] : Option (IRContext OpInfo × OperationPtr) :=
-  rlet (ctx, operation) ← Rewriter.createEmptyOp (empty OpInfo) (HasOpInfo.moduleOpCode) default
-  rlet (ctx, region) ← Rewriter.createRegion ctx
-  rlet ctx ← Rewriter.initOpRegions ctx operation #[region] (hn := by grind [Rewriter.createEmptyOp, Operation.empty])
-  let moduleRegion := operation.getRegion! ctx 0
-  rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd moduleRegion)) (by grind) (by sorry)
-  return (ctx, ⟨0⟩)
+  rlet (ctx, region) ← Rewriter.createRegion (empty OpInfo)
+  rlet (ctx, operation) ← Rewriter.createOp ctx HasOpInfo.moduleOpCode #[] #[] #[] #[region] default none
+  rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd region)) (by grind) (by grind)
+  return (ctx, operation)
