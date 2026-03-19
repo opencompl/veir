@@ -650,6 +650,11 @@ structure IRContext.WellFormed (ctx : IRContext OpInfo)
 
 attribute [grind →] IRContext.WellFormed.inBounds
 
+@[grind .]
+theorem IRContext.empty_wellFormed [HasOpInfo opInfo] :
+    (IRContext.empty opInfo).WellFormed := by
+  grind [IRContext.WellFormed]
+
 theorem BlockPtr.OpChain_unchanged
     (hWf : blockPtr.OpChain ctx array missingOps)
     (blockPtrInBounds' : blockPtr.InBounds ctx')
