@@ -485,6 +485,16 @@ theorem Rewriter.pushResult_inBounds_mono (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (pushResult ctx op type hop) := by
   grind [pushResult]
 
+@[grind =]
+theorem Rewriter.pushResult_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (pushResult ctx op type hop) ↔
+    (ptr.InBounds ctx ∨
+      ptr = .opResult (op.nextResult ctx) ∨
+      ptr = .value (op.nextResult ctx) ∨
+      ptr = .opOperandPtr (.valueFirstUse (op.nextResult ctx)))
+    := by
+  grind [pushResult]
+
 def Rewriter.initOpResults (ctx: IRContext OpInfo) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
     (index: Nat := 0) (hop : opPtr.InBounds ctx)
     (hidx : index = opPtr.getNumResults ctx) : IRContext OpInfo :=
