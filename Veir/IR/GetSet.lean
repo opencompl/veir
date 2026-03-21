@@ -4436,6 +4436,12 @@ theorem OperationPtr.get!_RegionPtr_allocEmpty {operation : OperationPtr}
   grind
 
 @[grind =>]
+theorem OperationPtr.getProperties!_RegionPtr_allocEmpty {operation : OperationPtr}
+    (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
+    operation.getProperties! ctx' opCode = operation.getProperties! ctx opCode := by
+  grind
+
+@[grind =>]
 theorem OperationPtr.getNumResults!_RegionPtr_allocEmpty {operation : OperationPtr}
     (heq : RegionPtr.allocEmpty ctx = some (ctx', rg')) :
     operation.getNumResults! ctx' = operation.getNumResults! ctx := by
