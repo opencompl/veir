@@ -42,7 +42,11 @@ theorem Rewriter.createEmptyOp_wellFormed  (hctx : IRContext.WellFormed ctx) :
     by_cases opPtr = newOp
     · constructor <;> grind
     · have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hctx.operations opPtr (by grind)
-      constructor <;> grind
+      constructor
+      case neg.region_parent =>
+        simp only [OperationPtr.getRegion!_createEmptyOp h]
+        grind
+      all_goals grind
   case blocks =>
     intro bl hbl
     have := hctx.blocks bl (by grind)

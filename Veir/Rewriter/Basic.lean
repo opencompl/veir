@@ -399,6 +399,11 @@ theorem Rewriter.createRegion_new_inBounds (h : createRegion ctx = some (ctx', r
   grind [createRegion]
 
 @[grind .]
+theorem Rewriter.createRegion_new_not_inBounds (h : createRegion ctx = some (ctx', reg)) :
+    ¬ reg.InBounds ctx := by
+  grind [createRegion]
+
+@[grind =>]
 theorem Rewriter.createRegion_genericPtr_mono (ptr : GenericPtr) (heq : createRegion ctx = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .region ptr') := by
   grind [createRegion]
