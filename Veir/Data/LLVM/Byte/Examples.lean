@@ -1,5 +1,6 @@
 module
 
+meta import Std.Tactic.BVDecide
 import Std.Tactic.BVDecide
 import Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.LLVM.Byte.Lemmas
