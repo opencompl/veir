@@ -218,20 +218,14 @@ example.
 -/
 @[irreducible]
 def Rewriter.insertBlock? (ctx: IRContext OpInfo) (newBlock: BlockPtr)
-    (insertionPoint: BlockInsertPoint) (hib : insertionPoint.InBounds ctx := by grind)
+    (insertionPoint: BlockInsertPoint)
     (newBlockIn: newBlock.InBounds ctx := by grind)
+    (insIn : insertionPoint.InBounds ctx := by grind)
     (ctxInBounds: ctx.FieldsInBounds := by grind) : Option (IRContext OpInfo) :=
-  match _ : insertionPoint with
-    | .before existingBlock =>
-      rlet parent ← (existingBlock.get ctx (by grind)).parent
-      let prev := (existingBlock.get ctx (by grind)).prev
-      let next := some existingBlock
-      newBlock.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
-    | .atEnd region =>
-      let parent := region
-      let prev := (region.get ctx (by grind)).lastBlock
-      let next := none
-      newBlock.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
+    rlet parent ← insertionPoint.region ctx
+    let prev := insertionPoint.prev ctx (by grind)
+    let next := insertionPoint.next
+    newBlock.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
 
 def Rewriter.replaceUse (ctx: IRContext OpInfo) (use : OpOperandPtr) (newValue: ValuePtr)
     (useIn: use.InBounds ctx := by grind)
@@ -384,7 +378,7 @@ def Rewriter.createBlock (ctx: IRContext OpInfo) (insertionPoint: Option BlockIn
   rlet (ctx, newBlockPtr) ← BlockPtr.allocEmpty ctx
   match h : insertionPoint with
   | some insertionPoint => do
-    let ctx ← Rewriter.insertBlock? ctx newBlockPtr insertionPoint (by grind [Option.maybe, cases BlockInsertPoint])
+    let ctx ← Rewriter.insertBlock? ctx newBlockPtr insertionPoint (by grind) (by grind [Option.maybe, cases BlockInsertPoint]) (by grind)
     (ctx, newBlockPtr)
   | none =>
     (ctx, newBlockPtr)

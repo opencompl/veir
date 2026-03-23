@@ -321,17 +321,71 @@ def BlockInsertPoint.prev! (ip : BlockInsertPoint) (ctx : IRContext OpInfo) : Op
   | before block => (block.get! ctx).prev
   | atEnd region => (region.get! ctx).lastBlock
 
+def BlockInsertPoint.prev (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
+    (hIn : ip.InBounds ctx := by grind) : Option BlockPtr :=
+  match ip with
+  | before block => (block.get ctx (by grind)).prev
+  | atEnd region => (region.get ctx (by grind)).lastBlock
+
+@[grind _=_]
+theorem BlockInsertPoint.prev!_eq_prev {ip : BlockInsertPoint} {ctx : IRContext OpInfo}
+    (hIn : ip.InBounds ctx) :
+    ip.prev! ctx = ip.prev ctx hIn := by
+  cases ip <;> grind [BlockInsertPoint.prev!, BlockInsertPoint.prev]
+
+theorem BlockInsertPoint.prev!_inBounds {ip : BlockInsertPoint}
+    {ctxInBounds : ctx.FieldsInBounds} :
+    ip.InBounds ctx →
+    ip.prev! ctx = some blockPtr →
+    blockPtr.InBounds ctx := by
+  cases ip <;> simp_all only [BlockInsertPoint.prev!, BlockInsertPoint.InBounds] <;> grind
+
+grind_pattern BlockInsertPoint.prev!_inBounds =>
+  ip.InBounds ctx, ip.prev! ctx, some blockPtr
+
 @[grind]
 def BlockInsertPoint.next (ip : BlockInsertPoint) : Option BlockPtr :=
   match ip with
   | before bl => bl
   | atEnd _ => none
 
+theorem BlockInsertPoint.next_inBounds {ip : BlockInsertPoint} :
+    ip.InBounds ctx →
+    ip.next = some blockPtr →
+    blockPtr.InBounds ctx := by
+  cases ip <;> simp_all only [BlockInsertPoint.next, BlockInsertPoint.InBounds] <;> grind
+
+grind_pattern BlockInsertPoint.next_inBounds =>
+  ip.InBounds ctx, ip.next, some blockPtr
+
 @[grind]
 def BlockInsertPoint.region! (ip : BlockInsertPoint) (ctx : IRContext OpInfo) : Option RegionPtr :=
   match ip with
   | before bl => bl.get! ctx |>.parent
   | atEnd rg => some rg
+
+def BlockInsertPoint.region (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
+    (hIn : ip.InBounds ctx := by grind) : Option RegionPtr :=
+  match ip with
+  | before bl => (bl.get ctx (by grind)).parent
+  | atEnd rg => some rg
+
+@[grind _=_]
+theorem BlockInsertPoint.region!_eq_region (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
+    (hIn : ip.InBounds ctx) :
+    ip.region! ctx = ip.region ctx hIn := by
+  cases ip <;> grind [BlockInsertPoint.region!, BlockInsertPoint.region]
+
+theorem BlockInsertPoint.region_InBounds {ip : BlockInsertPoint} {ctx : IRContext OpInfo}
+    (ctxFieldsInBounds : ctx.FieldsInBounds) (hIn : ip.InBounds ctx) :
+    ip.region ctx hIn = some regionPtr →
+    ip.InBounds ctx →
+    regionPtr.InBounds ctx := by
+  simp only [BlockInsertPoint.region]
+  grind
+
+grind_pattern BlockInsertPoint.region_InBounds =>
+  ip.InBounds ctx, ip.region ctx hIn, some regionPtr, ip.InBounds ctx
 
 end BlockInsertPoint
 
