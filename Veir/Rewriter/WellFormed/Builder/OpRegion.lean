@@ -44,10 +44,12 @@ theorem IRContext.wellFormed_Rewriter_pushRegion :
       constructor
       · grind
       · simp only [RegionPtr.parent!_pushRegion]
-        split; rotate_left; grind
-        intro _
-        exists op.getNumRegions! ctx
-        grind
+        split; rotate_left
+        · simp only [OperationPtr.getRegion!_pushRegion]
+          grind
+        · intro _
+          exists op.getNumRegions! ctx
+          grind
     all_goals grind [Operation.WellFormed]
   case blocks =>
     intros bl hbl
@@ -71,6 +73,7 @@ theorem IRContext.wellFormed_Rewriter_pushRegion :
         grind
       · intro parent hparent
         have ⟨i, hi⟩ := h₂ hparent
+        simp only [OperationPtr.getRegion!_pushRegion]
         grind
 
 theorem Rewriter.initOpRegions_WellFormed (opPtr: OperationPtr)

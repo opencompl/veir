@@ -198,14 +198,8 @@ theorem BlockOperandPtr.allocEmpty_no_operands {blockOperand : BlockOperandPtr}
     blockOperand.op = op' → ¬ blockOperand.InBounds ctx' := by
   grind
 
-@[grind .]
+@[grind =>]
 theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
-    (heq : allocEmpty ctx type properties = some (ctx', ptr')) :
-    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ⟨ctx.nextID⟩) := by
-  grind
-
--- TODO: make this the main statement?
-theorem OperationPtr.allocEmpty_genericPtr_iff' (ptr : GenericPtr)
     (heq : allocEmpty ctx type properties = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
   grind
@@ -482,12 +476,8 @@ theorem BlockPtr.pushResult_genericPtr_mono_impl (ptr : GenericPtr) :
     ptr.InBounds ctx → ptr.InBounds (pushArgument block ctx newArguments h) := by
   grind
 
-@[grind .]
+@[grind =>]
 theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
-    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .block ⟨ctx.nextID⟩ ∨ ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse ⟨ctx.nextID⟩)) := by
-  grind
-
-theorem BlockPtr.allocEmpty_genericPtr_iff' (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .block ptr' ∨ ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse ptr')) := by
   grind
 
@@ -533,14 +523,8 @@ theorem RegionPtr.setLastBlock_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setLastBlock region ctx newLastBlock h) ↔ ptr.InBounds ctx := by
   grind
 
-@[grind .]
+@[grind =>]
 theorem RegionPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
-    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .region ⟨ctx.nextID⟩) := by
-  constructor <;> cases ptr <;> simp <;>
-    try grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
-           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
-
-theorem RegionPtr.allocEmpty_genericPtr_iff' (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .region ptr') := by
   constructor <;> cases ptr <;> simp <;>
     try grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,

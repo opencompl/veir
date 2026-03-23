@@ -668,7 +668,6 @@ theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
   prove_fieldsInBounds
 
 attribute [local grind] Operation.empty in
-attribute [local grind =>] OperationPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
 theorem OperationPtr.allocEmpty_fieldsInBounds
     (heq : allocEmpty ctx type prop = some (ctx', ptr')) :
@@ -742,7 +741,6 @@ theorem BlockPtr.setPrevBlock_fieldsInBounds (hp : newPrevBlock.maybe BlockPtr.I
   prove_fieldsInBounds_block ctx
 
 attribute [local grind] Block.empty in
-attribute [local grind =>] BlockPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
 theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
@@ -751,7 +749,6 @@ theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', p
 attribute [local grind →] Array.getElem_mem in
 attribute [local grind] Block.empty in
 attribute [local grind =] BlockArgumentPtr.inBounds_def in
-attribute [local grind =>] BlockPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
 theorem BlockPtr.setArguments_fieldsInBounds
     (hIncreaseSize : block.getNumArguments! ctx ≤ newArguments.size)
@@ -762,7 +759,6 @@ theorem BlockPtr.setArguments_fieldsInBounds
 attribute [local grind →] Array.getElem_mem in
 attribute [local grind] Block.empty in
 attribute [local grind =] BlockArgumentPtr.inBounds_def in
-attribute [local grind =>] BlockPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
 theorem BlockPtr.pushArgument_fieldsInBounds
     (hp : newArgument.FieldsInBounds ctx) :
@@ -820,7 +816,6 @@ theorem RegionPtr.setLastBlock_fieldsInBounds (hnew : newLastBlock.maybe BlockPt
   prove_fieldsInBounds_region ctx
 
 attribute [local grind] Region.empty in
-attribute [local grind =>] RegionPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
 theorem RegionPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', rg')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by

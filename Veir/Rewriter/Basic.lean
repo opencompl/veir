@@ -401,7 +401,7 @@ theorem Rewriter.createRegion_new_inBounds (h : createRegion ctx = some (ctx', r
 @[grind .]
 theorem Rewriter.createRegion_genericPtr_mono (ptr : GenericPtr) (heq : createRegion ctx = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .region ptr') := by
-  grind [createRegion, RegionPtr.allocEmpty_genericPtr_iff']
+  grind [createRegion]
 
 @[grind .]
 theorem Rewriter.createRegion_fieldsInBounds (h : createRegion ctx = some (ctx', rg)) :
@@ -660,7 +660,7 @@ theorem Rewriter.createEmptyOp_new_not_inBounds
 theorem Rewriter.createEmptyOp_genericPtr_mono (ptr : GenericPtr)
     (heq : createEmptyOp ctx type properties = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
-  grind [createEmptyOp, OperationPtr.allocEmpty_genericPtr_iff']
+  grind [createEmptyOp]
 
 @[grind .]
 theorem Rewriter.createEmptyOp_fieldsInBounds

@@ -70,7 +70,11 @@ theorem IRContext.wellFormed_Rewriter_pushResult :
     intros op' hop'
     have : op'.InBounds ctx := by grind
     have ⟨ha, hb, hc, hd, he, hf, hg, hh⟩ := h₆ op' this
-    constructor <;> grind
+    constructor
+    case region_parent =>
+      simp only [OperationPtr.getRegion!_pushResult]
+      grind
+    all_goals grind
   case blocks =>
     intros bl hbl
     have : bl.InBounds ctx := by grind

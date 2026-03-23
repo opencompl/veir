@@ -105,6 +105,7 @@ theorem Rewriter.pushBlockOperand_WellFormed (hOpWf : ctx.WellFormed) :
     have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hOpWf.operations opPtr' (by grind)
     constructor
     case region_parent =>
+      simp only [OperationPtr.getRegion!_pushBlockOperand]
       grind
     all_goals grind [Rewriter.pushBlockOperand, Operation.WellFormed, OperationPtr.getBlockOperand]
   case blocks =>
@@ -122,7 +123,8 @@ theorem Rewriter.pushBlockOperand_WellFormed (hOpWf : ctx.WellFormed) :
     have ⟨h₁, h₂⟩ := hOpWf.regions reg (by grind)
     constructor
     · grind [Rewriter.pushBlockOperand]
-    · grind
+    · simp only [OperationPtr.getRegion!_pushBlockOperand]
+      grind
 
 /--
 info: 'Veir.Rewriter.pushBlockOperand_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]

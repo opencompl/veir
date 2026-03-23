@@ -103,6 +103,7 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
     constructor
     case region_parent =>
       intros region regionInBounds
+      simp only [OperationPtr.getRegion!_pushOperand]
       grind
     all_goals grind [Rewriter.pushOperand, Operation.WellFormed, OperationPtr.getOpOperand]
   case blocks =>
@@ -120,7 +121,9 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
     have ⟨h₁, h₂⟩ := hOpWf.regions reg (by grind)
     constructor
     · grind [Rewriter.pushOperand]
-    · grind
+    · intro op heq
+      simp only [OperationPtr.getRegion!_pushOperand]
+      grind
 
 /--
 info: 'Veir.Rewriter.pushOperand_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
