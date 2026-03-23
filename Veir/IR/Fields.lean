@@ -671,7 +671,7 @@ attribute [local grind] Operation.empty in
 attribute [local grind =>] OperationPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
 theorem OperationPtr.allocEmpty_fieldsInBounds
-    (heq : allocEmpty ctx type prop = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type prop = (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds
 
@@ -744,7 +744,7 @@ theorem BlockPtr.setPrevBlock_fieldsInBounds (hp : newPrevBlock.maybe BlockPtr.I
 attribute [local grind] Block.empty in
 attribute [local grind =>] BlockPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
-theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds
 
@@ -822,7 +822,7 @@ theorem RegionPtr.setLastBlock_fieldsInBounds (hnew : newLastBlock.maybe BlockPt
 attribute [local grind] Region.empty in
 attribute [local grind =>] RegionPtr.allocEmpty_genericPtr_iff' in
 @[grind .]
-theorem RegionPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', rg')) :
+theorem RegionPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = (ctx', rg')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds
 

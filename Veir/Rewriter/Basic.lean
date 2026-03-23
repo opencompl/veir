@@ -365,7 +365,7 @@ def Rewriter.replaceOp? (ctx: IRContext OpInfo) (oldOp newOp: OperationPtr)
 def Rewriter.createBlock (ctx: IRContext OpInfo) (insertionPoint: Option BlockInsertPoint)
     (hctx : ctx.FieldsInBounds) (hip : insertionPoint.maybe BlockInsertPoint.InBounds ctx)
     : Option (IRContext OpInfo × BlockPtr) :=
-  rlet (ctx, newBlockPtr) ← BlockPtr.allocEmpty ctx
+  rlet (ctx, newBlockPtr) := BlockPtr.allocEmpty ctx
   match h : insertionPoint with
   | some insertionPoint => do
     let ctx ← Rewriter.insertBlock? ctx newBlockPtr insertionPoint (by grind [Option.maybe, cases BlockInsertPoint])
