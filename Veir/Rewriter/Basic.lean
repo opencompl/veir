@@ -468,7 +468,7 @@ def Rewriter.createBlock (ctx: IRContext OpInfo) (argTypes : Array TypeAttr)
     (insertionPoint: Option BlockInsertPoint)
     (hctx : ctx.FieldsInBounds) (hip : insertionPoint.maybe BlockInsertPoint.InBounds ctx)
     : Option (IRContext OpInfo × BlockPtr) :=
-  rlet (ctx, newBlockPtr) ← BlockPtr.allocEmpty ctx
+  rlet (ctx, newBlockPtr) := BlockPtr.allocEmpty ctx
   let ctx := Rewriter.initBlockArguments ctx newBlockPtr argTypes
   match h : insertionPoint with
   | some insertionPoint => do
@@ -483,11 +483,9 @@ theorem Rewriter.createBlock_inBounds_mono (ptr : GenericPtr) (heq : createBlock
     ptr.InBounds ctx → ptr.InBounds newCtx := by
   simp only [createBlock] at heq
   split at heq
+  · simp only [insertBlock?, Option.bind_eq_bind, Option.bind] at heq
+    grind
   · grind
-  · split at heq
-    · simp [Option.bind] at heq
-      split at heq <;> grind
-    · grind
 
 @[grind .]
 theorem Rewriter.createBlock_fieldsInBounds_mono
@@ -495,11 +493,9 @@ theorem Rewriter.createBlock_fieldsInBounds_mono
     ctx.FieldsInBounds → newCtx.FieldsInBounds := by
   simp only [createBlock] at heq
   split at heq
+  · simp only [insertBlock?, Option.bind_eq_bind, Option.bind] at heq
+    grind
   · grind
-  · split at heq
-    · simp [Option.bind] at heq
-      split at heq <;> grind
-    · grind
 
 def Rewriter.setBlockArguments (ctx : IRContext OpInfo) (blockPtr : BlockPtr)
     (types : Array TypeAttr) (hblock : blockPtr.InBounds ctx := by grind) : IRContext OpInfo :=

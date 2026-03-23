@@ -181,49 +181,49 @@ theorem OperationPtr.setAttributes_genericPtr_mono (ptr : GenericPtr) :
   grind
 
 @[grind .]
-theorem OpResultPtr.allocEmpty_no_results {opResult : OpResultPtr}
-    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
-    opResult.op = op' → ¬ opResult.InBounds ctx' := by
+theorem OpResultPtr.allocEmpty_no_results {opResult : OpResultPtr} :
+  opResult.op = (OperationPtr.allocEmpty ctx ty properties).2 →
+      ¬ opResult.InBounds (OperationPtr.allocEmpty ctx ty properties).1 := by
   grind
 
 @[grind .]
-theorem OpOperandPtr.allocEmpty_no_operands {opOperand : OpOperandPtr}
-    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
-    opOperand.op = op' → ¬ opOperand.InBounds ctx' := by
+theorem OpOperandPtr.allocEmpty_no_operands {opOperand : OpOperandPtr} :
+  opOperand.op = (OperationPtr.allocEmpty ctx ty properties).2 →
+      ¬ opOperand.InBounds (OperationPtr.allocEmpty ctx ty properties).1 := by
   grind
 
 @[grind .]
-theorem BlockOperandPtr.allocEmpty_no_operands {blockOperand : BlockOperandPtr}
-    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
-    blockOperand.op = op' → ¬ blockOperand.InBounds ctx' := by
+theorem BlockOperandPtr.allocEmpty_no_operands {blockOperand : BlockOperandPtr} :
+  blockOperand.op = (OperationPtr.allocEmpty ctx ty properties).2 →
+      ¬ blockOperand.InBounds (OperationPtr.allocEmpty ctx ty properties).1 := by
   grind
 
 @[grind =>]
 theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
-    (heq : allocEmpty ctx type properties = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type properties = (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
-  grind
+  grind (gen := 10) [IRContext.nextID_free]
 
 theorem OperationPtr.allocEmpty_operationPtr_iff (ptr : OperationPtr)
-    (heq : allocEmpty ctx type properties = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type properties = (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr =  ptr') := by
   grind
 
 @[grind . ]
 theorem OperationPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr)
-    (heq : allocEmpty ctx type properties = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type properties = (ctx', ptr')) :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
   grind
 
 @[grind .]
 theorem OperationPtr.allocEmpty_not_inBounds
-    (heq : allocEmpty ctx type properties = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type properties = (ctx', ptr')) :
     ¬ ptr'.InBounds ctx := by
-  grind
+  grind [IRContext.nextID_free]
 
 @[grind .]
 theorem OperationPtr.allocEmpty_newBlock_inBounds
-    (heq : allocEmpty ctx type properties = some (ctx', ptr)) :
+    (heq : allocEmpty ctx type properties = (ctx', ptr)) :
     ptr.InBounds ctx' := by
   grind
 
@@ -481,28 +481,30 @@ theorem BlockPtr.pushResult_genericPtr_mono_impl (ptr : GenericPtr) :
   grind
 
 @[grind =>]
-theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .block ptr' ∨ ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse ptr')) := by
+  have := ctx.nextID_free
   grind
 
 @[grind .]
-theorem BlockPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem BlockPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr) (heq : allocEmpty ctx = (ctx', ptr')) :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
   grind
 
 @[grind .]
-theorem BlockPtr.allocEmpty_newBlock_inBounds (heq : allocEmpty ctx = some (ctx', ptr)) :
+theorem BlockPtr.allocEmpty_newBlock_inBounds (heq : allocEmpty ctx = (ctx', ptr)) :
     ptr.InBounds ctx' := by
   grind
 
 @[grind .]
-theorem BlockPtr.allocEmpty_not_inBounds (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem BlockPtr.allocEmpty_not_inBounds (heq : allocEmpty ctx = (ctx', ptr')) :
     ¬ ptr'.InBounds ctx := by
+  have := ctx.nextID_free
   grind
 
 @[grind .]
 theorem BlockPtr.allocEmpty_no_argument {ba : BlockArgumentPtr}
-    (heq : allocEmpty ctx = some (ctx', ba')) :
+    (heq : allocEmpty ctx = (ctx', ba')) :
     ba.block = ba' → ¬ ba.InBounds ctx' := by
   grind
 
@@ -528,24 +530,25 @@ theorem RegionPtr.setLastBlock_genericPtr_mono (ptr : GenericPtr)  :
   grind
 
 @[grind =>]
-theorem RegionPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem RegionPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .region ptr') := by
   constructor <;> cases ptr <;> simp <;>
     try grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
            ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
 
 @[grind .]
-theorem RegionPtr.allocEmpty_newBlock_inBounds (heq : allocEmpty ctx = some (ctx', ptr)) :
+theorem RegionPtr.allocEmpty_newBlock_inBounds (heq : allocEmpty ctx = (ctx', ptr)) :
     ptr.InBounds ctx' := by
   grind [allocEmpty]
 
 @[grind ->]
-theorem RegionPtr.allocEmpty_newBlock_not_inBounds (heq : allocEmpty ctx = some (ctx', ptr)) :
+theorem RegionPtr.allocEmpty_newBlock_not_inBounds (heq : allocEmpty ctx = (ctx', ptr)) :
     ¬ ptr.InBounds ctx := by
+  have := ctx.nextID_free
   grind [allocEmpty]
 
 @[grind .]
-theorem RegionPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem RegionPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr) (heq : allocEmpty ctx = (ctx', ptr')) :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
   grind
 

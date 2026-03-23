@@ -29,12 +29,11 @@ theorem Rewriter.insertBlock?_WellFormed (hctx : ctx.WellFormed) :
   apply IRContext.wellFormed_BlockPtr_linkBetweenWithParent hctx h (ip := ip) <;>
     grind [Option.maybe₁_def]
 
-theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
-    (heq : BlockPtr.allocEmpty ctx = some (newCtx, bl)) :
-    newCtx.WellFormed := by
+theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed) :
+    (BlockPtr.allocEmpty ctx).1.WellFormed := by
   constructor
   case inBounds =>
-    exact BlockPtr.allocEmpty_fieldsInBounds heq hctx.inBounds
+    grind
   case valueDefUseChains =>
     intro value valueInBounds
     have ⟨array, harray⟩ := hctx.valueDefUseChains value (by grind)
@@ -42,7 +41,7 @@ theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
     apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
   case blockDefUseChains =>
     intro block blockInBounds
-    by_cases block = bl
+    by_cases block = (BlockPtr.allocEmpty ctx).2
     · exists #[]
       constructor <;> grind [Block.empty]
     · have ⟨array, harray⟩ := hctx.blockDefUseChains block (by grind)
@@ -50,7 +49,7 @@ theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
       apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
   case opChain =>
     intro block blockInBounds
-    by_cases block = bl
+    by_cases block = (BlockPtr.allocEmpty ctx).2
     · exists #[]
       constructor <;> grind [Block.empty]
     · have ⟨array, harray⟩ := hctx.opChain block (by grind)
@@ -67,7 +66,7 @@ theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
     apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
   case blocks =>
     intro block blockInBounds
-    by_cases bl = block
+    by_cases block = (BlockPtr.allocEmpty ctx).2
     · constructor <;> grind [Block.empty]
     · have := hctx.blocks block (by grind)
       apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
@@ -80,8 +79,7 @@ theorem Rewriter.createBlock_WellFormed (ctxWf : ctx.WellFormed) :
     Rewriter.createBlock ctx types ip hctx hip = some (newCtx, newBlock) →
     newCtx.WellFormed := by
   simp only [Rewriter.createBlock]
-  split; grind; rename_i ctx₁ newBlock₁ hctx₁
-  have : ctx₁.WellFormed := by grind [BlockPtr.allocEmpty_wellFormed]
+  have : (BlockPtr.allocEmpty ctx).1.WellFormed := by grind [BlockPtr.allocEmpty_wellFormed]
   split
   · simp only [Option.bind_eq_bind, Option.bind]
     grind [IRContext.wellFormed_Rewriter_initBlockArguments, Rewriter.insertBlock?_WellFormed]
