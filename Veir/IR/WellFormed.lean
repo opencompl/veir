@@ -604,6 +604,16 @@ structure RegionPtr.BlockChain (region : RegionPtr) (ctx : IRContext OpInfo) (ar
 
 attribute [grind →] RegionPtr.BlockChain.inBounds
 
+@[grind .]
+theorem RegionPtr.BlockChain_unique :
+    RegionPtr.BlockChain region ctx array →
+    RegionPtr.BlockChain region ctx array' →
+    array = array' := by
+  intros hWf hWf'
+  apply Array.ext_getElem?
+  intros i
+  induction i <;> grind [RegionPtr.BlockChain]
+
 -- TODO: weird to have op and opPtr
 structure Operation.WellFormed (op : Operation OpInfo) (ctx : IRContext OpInfo) (opPtr : OperationPtr) hop : Prop where
   inBounds : Operation.FieldsInBounds opPtr ctx hop
@@ -824,6 +834,30 @@ theorem BlockPtr.operationList.mem :
     (op.get ctx opInBounds).parent = some block ↔
     op ∈ BlockPtr.operationList block ctx hctx hblock := by
   grind [BlockPtr.OpChain, BlockPtr.operationListWF]
+
+noncomputable def RegionPtr.blockList (region : RegionPtr)
+    (ctx : IRContext OpInfo) (hctx : ctx.WellFormed := by grind)
+    (hregion : region.InBounds ctx := by grind) : Array BlockPtr :=
+  (hctx.blockChain region hregion).choose
+
+@[grind .]
+theorem RegionPtr.blockListWF (ctx : IRContext OpInfo) (region : RegionPtr)
+    (hregion : region.InBounds ctx := by grind)
+    (hctx : ctx.WellFormed := by grind) :
+    RegionPtr.BlockChain region ctx (RegionPtr.blockList region ctx hctx hregion) :=
+  Exists.choose_spec (hctx.blockChain region hregion)
+
+@[grind =]
+theorem RegionPtr.blockList_iff_RegionPtr_BlockChain :
+    RegionPtr.BlockChain region ctx array ↔
+    RegionPtr.blockList region ctx hctx hregion = array := by
+  grind [RegionPtr.blockListWF]
+
+@[grind =_]
+theorem RegionPtr.blockList.mem :
+    (bl.get ctx blInBounds).parent = some region ↔
+    bl ∈ RegionPtr.blockList region ctx hctx hregion := by
+  grind [RegionPtr.BlockChain, RegionPtr.blockListWF]
 
 noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext OpInfo) (hctx : ctx.WellFormed missingUses missingBlockUses) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
   (hctx.valueDefUseChains value hvalue).choose
