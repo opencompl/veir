@@ -63,19 +63,25 @@ theorem OpResult.hasUses_replaceOpResults_self :
         neOps hNewCtx idx (by grind) (by grind) (by grind)]
       grind [ValuePtr.hasUses!_replaceValue_oldValue]
 
+@[grind →]
+theorem OperationPtr.getNumResults!_replaceOpResults :
+    Rewriter.replaceOpResults ctx fromOp toOp idx fromOpIB toOpIB hNumFrom hNumTo ctxInBounds =
+      some newCtx →
+    fromOp.getNumResults! newCtx = fromOp.getNumResults! ctx := by
+  induction idx generalizing ctx
+  case zero => grind [Rewriter.replaceOpResults]
+  case succ idx hind =>
+    simp only [Rewriter.replaceOpResults]
+    grind
+
 theorem OperationPtr.hasUses_replaceOpResults :
     ctx.WellFormed →
     fromOp ≠ toOp →
     Rewriter.replaceOpResults ctx fromOp toOp (fromOp.getNumResults! ctx) fromOpIB
       toOpIB hNumFrom hNumTo ctxInBounds = some newCtx →
     fromOp.hasUses! newCtx = false := by
-  intro ctxWf neOps hNewCtx
-  simp only [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false]
-  intro index hindex
-  have : fromOp.getNumResults! ctx = fromOp.getNumResults! newCtx := by sorry
-  have := OpResult.hasUses_replaceOpResults_self ctxWf neOps hNewCtx
-  apply this
-  grind [Rewriter.replaceOpResults]
+  grind [OpResult.hasUses_replaceOpResults_self,
+    OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false]
 
 theorem OperationPtr.getNumRegions!_replaceOpResults :
     Rewriter.replaceOpResults ctx fromOp toOp idx fromOpIB toOpIB hNumFrom hNumTo ctxInBounds =
