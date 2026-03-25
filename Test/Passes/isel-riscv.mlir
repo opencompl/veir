@@ -10,6 +10,6 @@
     
     %add = "llvm.add"(%two, %one) : (i32, i32) -> i32
 
-    // CHECK-NEXT: %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
+    // CHECK-NEXT: %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 
 }) : () -> ()
