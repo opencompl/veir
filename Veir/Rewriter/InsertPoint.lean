@@ -297,8 +297,6 @@ theorem InsertPoint.idxIn_Before_lt_size :
 
 end InsertPoint
 
-section BlockInsertPoint
-
 /--
 - A position in the IR where we can insert an operation.
 -/
@@ -306,86 +304,200 @@ inductive BlockInsertPoint where
   | before (op: BlockPtr)
   | atEnd (block: RegionPtr)
 
+namespace BlockInsertPoint
+
 @[grind]
-def BlockInsertPoint.InBounds : BlockInsertPoint → IRContext OpInfo → Prop
+def InBounds : BlockInsertPoint → IRContext OpInfo → Prop
 | before op => op.InBounds
 | atEnd bl => bl.InBounds
 @[grind =]
-theorem BlockInsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBounds ctx := by rfl
+theorem inBounds_before : (before op).InBounds ctx ↔ op.InBounds ctx := by rfl
 @[grind =]
-theorem BlockInsertPoint.inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
+theorem inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
 @[grind]
-def BlockInsertPoint.prev! (ip : BlockInsertPoint) (ctx : IRContext OpInfo) : Option BlockPtr :=
+def prev! (ip : BlockInsertPoint) (ctx : IRContext OpInfo) : Option BlockPtr :=
   match ip with
   | before block => (block.get! ctx).prev
   | atEnd region => (region.get! ctx).lastBlock
 
-def BlockInsertPoint.prev (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
+def prev (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
     (hIn : ip.InBounds ctx := by grind) : Option BlockPtr :=
   match ip with
   | before block => (block.get ctx (by grind)).prev
   | atEnd region => (region.get ctx (by grind)).lastBlock
 
 @[grind _=_]
-theorem BlockInsertPoint.prev!_eq_prev {ip : BlockInsertPoint} {ctx : IRContext OpInfo}
+theorem prev!_eq_prev {ip : BlockInsertPoint} {ctx : IRContext OpInfo}
     (hIn : ip.InBounds ctx) :
     ip.prev! ctx = ip.prev ctx hIn := by
-  cases ip <;> grind [BlockInsertPoint.prev!, BlockInsertPoint.prev]
+  cases ip <;> grind [prev!, prev]
 
-theorem BlockInsertPoint.prev!_inBounds {ip : BlockInsertPoint}
+theorem prev!_inBounds {ip : BlockInsertPoint}
     {ctxInBounds : ctx.FieldsInBounds} :
     ip.InBounds ctx →
     ip.prev! ctx = some blockPtr →
     blockPtr.InBounds ctx := by
-  cases ip <;> simp_all only [BlockInsertPoint.prev!, BlockInsertPoint.InBounds] <;> grind
+  cases ip <;> simp_all only [prev!, InBounds] <;> grind
 
-grind_pattern BlockInsertPoint.prev!_inBounds =>
+grind_pattern prev!_inBounds =>
   ip.InBounds ctx, ip.prev! ctx, some blockPtr
 
 @[grind]
-def BlockInsertPoint.next (ip : BlockInsertPoint) : Option BlockPtr :=
+def next (ip : BlockInsertPoint) : Option BlockPtr :=
   match ip with
   | before bl => bl
   | atEnd _ => none
 
-theorem BlockInsertPoint.next_inBounds {ip : BlockInsertPoint} :
+theorem next_inBounds {ip : BlockInsertPoint} :
     ip.InBounds ctx →
     ip.next = some blockPtr →
     blockPtr.InBounds ctx := by
-  cases ip <;> simp_all only [BlockInsertPoint.next, BlockInsertPoint.InBounds] <;> grind
+  cases ip <;> simp_all only [next, InBounds] <;> grind
 
-grind_pattern BlockInsertPoint.next_inBounds =>
+grind_pattern next_inBounds =>
   ip.InBounds ctx, ip.next, some blockPtr
 
 @[grind]
-def BlockInsertPoint.region! (ip : BlockInsertPoint) (ctx : IRContext OpInfo) : Option RegionPtr :=
+def region! (ip : BlockInsertPoint) (ctx : IRContext OpInfo) : Option RegionPtr :=
   match ip with
   | before bl => bl.get! ctx |>.parent
   | atEnd rg => some rg
 
-def BlockInsertPoint.region (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
+def region (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
     (hIn : ip.InBounds ctx := by grind) : Option RegionPtr :=
   match ip with
   | before bl => (bl.get ctx (by grind)).parent
   | atEnd rg => some rg
 
 @[grind _=_]
-theorem BlockInsertPoint.region!_eq_region (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
+theorem region!_eq_region (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
     (hIn : ip.InBounds ctx) :
     ip.region! ctx = ip.region ctx hIn := by
-  cases ip <;> grind [BlockInsertPoint.region!, BlockInsertPoint.region]
+  cases ip <;> grind [region!, region]
 
-theorem BlockInsertPoint.region_InBounds {ip : BlockInsertPoint} {ctx : IRContext OpInfo}
+theorem region_InBounds {ip : BlockInsertPoint} {ctx : IRContext OpInfo}
     (ctxFieldsInBounds : ctx.FieldsInBounds) (hIn : ip.InBounds ctx) :
     ip.region ctx hIn = some regionPtr →
     ip.InBounds ctx →
     regionPtr.InBounds ctx := by
-  simp only [BlockInsertPoint.region]
+  simp only [region]
   grind
 
-grind_pattern BlockInsertPoint.region_InBounds =>
+grind_pattern region_InBounds =>
   ip.InBounds ctx, ip.region ctx hIn, some regionPtr, ip.InBounds ctx
+
+/--
+Get the index of the insertion point in the block list of the region.
+The index is where a new block would be inserted.
+-/
+noncomputable def idxIn
+    (insertPoint : BlockInsertPoint) (ctx : IRContext OpInfo)
+    (regionPtr : RegionPtr) (inBounds : insertPoint.InBounds ctx := by grind)
+    (regionIsParent : insertPoint.region ctx (by grind) = some regionPtr := by grind)
+    (ctxWf : ctx.WellFormed := by grind) : Nat :=
+  match insertPoint with
+  | before bl =>
+    let blList := RegionPtr.blockList regionPtr ctx (by grind) (by grind)
+    blList.idxOf bl
+  | atEnd r =>
+    (RegionPtr.blockList regionPtr ctx (by grind) (by grind)).size
+
+@[simp, grind =]
+theorem idxIn_before_eq :
+    idxIn (before bl) ctx regionPtr inBounds regionIsParent ctxWf =
+    (RegionPtr.blockList regionPtr ctx ctxWf (by grind)).idxOf bl := by
+  simp [idxIn]
+
+@[simp, grind =]
+theorem idxIn_atEnd_eq :
+    idxIn (atEnd regionPtr) ctx regionPtr inBounds regionIsParent ctxWf =
+    (RegionPtr.blockList regionPtr ctx ctxWf (by grind)).size := by
+  simp [idxIn]
+
+@[grind .]
+theorem idxIn.le_size_array :
+    RegionPtr.BlockChain regionPtr ctx array →
+    idxIn ip ctx regionPtr inBounds regionIsParent ctxWf ≤ array.size := by
+  simp only [idxIn]
+  grind
+
+@[grind .]
+theorem idxIn.le_size_blockList (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
+  (regionPtr : RegionPtr) (inBounds : ip.InBounds ctx)
+  (regionIsParent : ip.region ctx inBounds = some regionPtr)
+  (ctxWf : ctx.WellFormed)
+  (regionInBounds : regionPtr.InBounds ctx)  :
+    idxIn ip ctx regionPtr inBounds regionIsParent ctxWf ≤ (RegionPtr.blockList regionPtr ctx ctxWf regionInBounds).size := by
+  simp only [idxIn]
+  grind
+
+@[grind .]
+theorem idxIn.getElem? :
+    (regionPtr.blockList ctx ctxWf regionInBounds)[
+      idxIn ip ctx regionPtr inBounds regionIsParent ctxWf]? = ip.next := by
+  simp only [idxIn]
+  cases ip
+  case before bl =>
+    simp only [next]
+    apply Array.getElem?_idxOf
+    suffices _ : bl ∈ regionPtr.blockList ctx ctxWf regionInBounds by grind
+    have := RegionPtr.blockListWF ctx regionPtr regionInBounds ctxWf
+    have := this.allBlocksInChain
+    grind
+  case atEnd r =>
+    grind
+
+theorem idxIn_BlockInsertPoint_prev_none:
+    prev! ip ctx = none ↔
+    idxIn ip ctx regionPtr inBounds regionIsParent ctxWf = 0 := by
+  have ⟨array, harray⟩ := ctxWf.blockChain regionPtr (by grind)
+  grind [RegionPtr.BlockChain, cases BlockInsertPoint]
+
+grind_pattern idxIn_BlockInsertPoint_prev_none =>
+  prev! ip ctx, idxIn ip ctx regionPtr inBounds regionIsParent ctxWf
+
+theorem next_eq_none_iff_idxIn_eq_size_array
+    (hCtx : RegionPtr.BlockChain regionPtr ctx array) :
+    ip.next = none ↔
+    idxIn ip ctx regionPtr inBounds regionIsParent ctxWf = array.size := by
+  have ⟨array, harray⟩ := ctxWf.blockChain regionPtr (by grind)
+  grind [RegionPtr.BlockChain, cases BlockInsertPoint]
+
+grind_pattern next_eq_none_iff_idxIn_eq_size_array =>
+  RegionPtr.BlockChain regionPtr ctx array, ip.next,
+  idxIn ip ctx regionPtr inBounds regionIsParent ctxWf
+
+theorem idxIn_eq_iff_getElem?
+    (hctx : RegionPtr.BlockChain regionPtr ctx array) :
+    idxIn ip ctx regionPtr inBounds regionIsParent ctxWf < array.size →
+    array[idxIn ip ctx regionPtr inBounds regionIsParent ctxWf]? = ip.next := by
+  grind
+
+theorem idxIn_eq_size_blockList_iff_eq_atEnd
+    (hregion : ip.region! ctx = some regionPtr) :
+    ip.idxIn ctx regionPtr inBounds regionIsParent ctxWf =
+      (RegionPtr.blockList regionPtr ctx ctxWf regionInBounds).size ↔
+    ip = atEnd regionPtr := by
+  constructor
+  · intros hIdx
+    cases ip <;> grind [RegionPtr.blockList.mem]
+  · grind [RegionPtr.BlockChain]
+
+@[grind .]
+theorem idxIn.pred_lt_size :
+    RegionPtr.BlockChain regionPtr ctx array →
+    idxIn ip ctx regionPtr inBounds regionIsParent ctxWf > 0 →
+    idxIn ip ctx regionPtr inBounds regionIsParent ctxWf - 1 < array.size := by
+  intros hChain
+  have := idxIn.le_size_blockList ip ctx regionPtr (by grind) (by grind) (by grind) (by grind)
+  grind
+
+@[grind .]
+theorem idxIn_Before_lt_size :
+    idxIn (before bl) ctx regionPtr inBounds regionIsParent ctxWf <
+    (RegionPtr.blockList regionPtr ctx ctxWf regionInBounds).size := by
+  grind [RegionPtr.BlockChain, RegionPtr.blockListWF]
 
 end BlockInsertPoint
 
