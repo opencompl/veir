@@ -1797,6 +1797,12 @@ section setParentWithCheck
 unseal BlockPtr.setParentWithCheck
 attribute [local grind] BlockPtr.setParentWithCheck
 
+@[grind →]
+theorem BlockPtr.parent!_of_BlockPtr_setParentWithCheck_eq :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    (block'.get! ctx).parent = none := by
+  grind
+
 theorem BlockPtr.firstUse!_BlockPtr_setParentWithCheck {block : BlockPtr} :
     block'.setParentWithCheck ctx newParent selfIn = some newCtx →
     (block.get! newCtx).firstUse = (block.get! ctx).firstUse := by
@@ -2010,6 +2016,12 @@ section linkBetweenWithParent
 /- OperationPtr.linkBetweenWithParent -/
 unseal BlockPtr.linkBetweenWithParent
 attribute [local grind] BlockPtr.linkBetweenWithParent
+
+@[grind →]
+theorem BlockPtr.parent!_of_BlockPtr_linkBetweenWithParent_eq :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    (block'.get! ctx).parent = none := by
+  grind
 
 @[simp]
 theorem BlockPtr.firstUse!_BlockPtr_linkBetweenWithParent {block : BlockPtr} :

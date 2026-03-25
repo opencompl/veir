@@ -820,4 +820,177 @@ theorem IRContext.wellFormed_OperationPtr_linkBetweenWithParent
 
 end OperationPtr.linkBetweenWithParent
 
+section BlockPtr.linkBetweenWithParent
+
+variable {block : BlockPtr}
+
+theorem ValuePtr.defUse_BlockPtr_linkBetweenWithParent
+    (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx) :
+    ValuePtr.DefUse value ctx array missingUses →
+    ValuePtr.DefUse value newCtx array missingUses := by
+  intros
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.defUse_BlockPtr_linkBetweenWithParent
+    (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx) :
+    BlockPtr.DefUse block' ctx array missingUses →
+    BlockPtr.DefUse block' newCtx array missingUses := by
+  intros
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.opChain_BlockPtr_linkBetweenWithParent
+    (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx)
+    (hOpChain : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block' newCtx array := by
+  intros
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+set_option maxHeartbeats 400000 in
+theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
+    (ctxWf : ctx.WellFormed)
+    (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx)
+    (bip : BlockInsertPoint)
+    (bipInBounds : bip.InBounds ctx)
+    (bipRegion : bip.region! ctx = some parent)
+    (bipNext : bip.next = nextBlock)
+    (bipPrev : bip.prev! ctx = prevBlock)
+    (hBlockChain : RegionPtr.BlockChain parent ctx array) :
+    RegionPtr.BlockChain parent newCtx (array.insertIdx (bip.idxIn ctx parent (by grind) (by grind) ctxWf) block (by apply BlockInsertPoint.idxIn.le_size_array; grind)) := by
+  constructor
+  case inBounds => grind
+  case arrayInBounds => grind [Array.mem_insertIdx, RegionPtr.BlockChain]
+  case opParent => grind [Array.mem_insertIdx, RegionPtr.BlockChain]
+  case allBlocksInChain => grind [Array.mem_insertIdx, RegionPtr.BlockChain]
+  case first => grind [RegionPtr.BlockChain]
+  case last =>
+    simp only [Array.size_insertIdx, Nat.add_one_sub_one, Nat.lt_add_one, getElem?_pos]
+    grind [BlockInsertPoint.next_eq_none_iff_idxIn_eq_size_array, RegionPtr.BlockChain]
+  case prevFirst =>
+    intro bl
+    simp only [RegionPtr.firstBlock!_BlockPtr_linkBetweenWithParent hctx, and_true,
+      BlockPtr.prev!_BlockPtr_linkBetweenWithParent hctx]
+    split
+    · grind
+    · rename_i hprev
+      split
+      · subst nextBlock
+        simp only [reduceCtorEq, imp_false]
+        have ⟨prevOp, hprevOp⟩ := Option.ne_none_iff_exists.mp hprev
+        grind [RegionPtr.BlockChain]
+      · grind [RegionPtr.BlockChain]
+  case prev =>
+    intro i hi₁ hi₂
+    let idx := bip.idxIn ctx parent (by grind) (by grind) ctxWf
+    have : nextBlock = array[idx]? := by grind
+    by_cases h₁ : i < idx
+    · grind (gen := 10) (instances := 2000) [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+    · by_cases h₂ : i = idx
+      · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective,
+          BlockInsertPoint.prev!_eq_getElem!_idxIn]
+      · by_cases h₃ : i - 1 = idx
+        · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+        · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+  case next =>
+    intro i hi
+    simp only [Array.size_insertIdx] at hi
+    let idx := bip.idxIn ctx parent (by grind) (by grind) ctxWf
+    have : nextBlock = array[idx]? := by grind
+    by_cases h₁ : i + 1 < idx
+    · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective,
+        BlockInsertPoint.prev!_eq_getElem!_idxIn]
+    · by_cases h₂ : i + 1 = idx
+      · have := @BlockInsertPoint.prev!_eq_getElem!_idxIn
+        grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+      · by_cases h₃ : i = idx
+        · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+        · have : i > idx := by grind
+          cases hidx : idx <;> grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+
+
+theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_other
+    (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx)
+    (prevParent : prevBlock.maybe₁ (fun prev => (prev.get! ctx).parent = some parent) )
+    (nextParent : nextBlock.maybe₁ (fun next => (next.get! ctx).parent = some parent) )
+    (hNeRegion : parent ≠ region) :
+    RegionPtr.BlockChain region ctx array →
+    RegionPtr.BlockChain region newCtx array := by
+  intros blockChain
+  apply RegionPtr.blockChain_unchanged (ctx := ctx)
+    <;> grind [Option.maybe₁_def]
+
+theorem Operation.wellFormed_BlockPtr_linkBetweenWithParent
+    (ctxInBounds: IRContext.FieldsInBounds ctx)
+    (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx) :
+    (OperationPtr.get! opPtr ctx).WellFormed ctx opPtr opInBounds →
+    (OperationPtr.get! opPtr newCtx).WellFormed newCtx opPtr (by grind) := by
+  intros
+  apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Block.wellFormed_BlockPtr_linkBetweenWithParent
+    (ctxWf : IRContext.WellFormed ctx)
+    (prevBlockParent : prevBlock.maybe₁ (fun prev => (prev.get! ctx).parent = some parentRegion))
+    (nextBlockParent : nextBlock.maybe₁ (fun next => (next.get! ctx).parent = some parentRegion))
+    (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
+    (hWF : (BlockPtr.get! block' ctx).WellFormed ctx block' blockInBounds) :
+    (BlockPtr.get! block' newCtx).WellFormed newCtx block' (by grind) := by
+  by_cases hBlock : block' = block <;> constructor <;> grind [Block.WellFormed, Option.maybe₁_def]
+
+theorem Region.wellFormed_BlockPtr_linkBetweenWithParent
+    (ctxWf : IRContext.WellFormed ctx)
+    (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
+    (regionInBounds : region.InBounds ctx)
+    (hWF : (RegionPtr.get! region ctx).WellFormed ctx region) :
+    (RegionPtr.get! region newCtx).WellFormed newCtx region := by
+  by_cases hregion : region = parentRegion
+  · constructor <;> try grind [Region.WellFormed, Option.maybe₁_def]
+    simp only [OperationPtr.getRegion!_BlockPtr_linkBetweenWithParent hctx]
+    grind [Region.WellFormed]
+  · apply Region.WellFormed_unchanged (ctx := ctx) <;> grind [Region.WellFormed]
+
+theorem IRContext.wellFormed_BlockPtr_linkBetweenWithParent
+    (hWF : ctx.WellFormed)
+    (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
+    (prevBlockParent : prevBlock.maybe₁ (fun prev => (prev.get! ctx).parent = some parentRegion))
+    (nextBlockParent : nextBlock.maybe₁ (fun next => (next.get! ctx).parent = some parentRegion))
+    {ip : BlockInsertPoint}
+    (ipInBounds : ip.InBounds ctx)
+    (ipBlock : ip.region! ctx = parentRegion)
+    (ipNext : ip.next = nextBlock)
+    (ipPrev : ip.prev! ctx = prevBlock) :
+    newCtx.WellFormed := by
+  constructor
+  · grind
+  · intros valuePtr valuePtrInBounds
+    have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
+    exists array
+    grind [ValuePtr.defUse_BlockPtr_linkBetweenWithParent]
+  · intros blockPtr blockPtrInBounds
+    have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
+    exists array
+    simp_all
+    grind [BlockPtr.defUse_BlockPtr_linkBetweenWithParent]
+  · intros regionPtr regionPtrInBounds
+    have ⟨array, h⟩ := hWF.opChain regionPtr (by grind)
+    exists array
+    grind [BlockPtr.opChain_BlockPtr_linkBetweenWithParent]
+  · intros blockPtr blockPtrInBounds
+    have ⟨array, h⟩ := hWF.blockChain blockPtr (by grind)
+    by_cases hBlock : blockPtr = parentRegion
+    · subst hBlock
+      exact ⟨_, RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
+        hWF hctx ip ipInBounds ipBlock ipNext ipPrev h⟩
+    · exact ⟨_, RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_other
+        hctx prevBlockParent nextBlockParent (Ne.symm hBlock) h⟩
+  · intros opPtr opPtrInBounds
+    have := hWF.operations opPtr (by grind)
+    grind [Operation.wellFormed_BlockPtr_linkBetweenWithParent]
+  · intros blockPtr blockPtrInBounds
+    have := hWF.blocks blockPtr (by grind)
+    grind [Block.wellFormed_BlockPtr_linkBetweenWithParent]
+  · intros regionPtr regionPtrInBounds
+    have := hWF.regions regionPtr (by grind)
+    grind [Region.wellFormed_BlockPtr_linkBetweenWithParent]
+
+end BlockPtr.linkBetweenWithParent
+
 end Veir
