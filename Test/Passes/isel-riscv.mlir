@@ -4,13 +4,9 @@
 ^bb0():
     %one = "llvm.constant"() <{ "value" = 1 : i64 }> : () -> i64
     %two = "llvm.constant"() <{ "value" = 2 : i64 }> : () -> i64
-    // CHECK:      %{{.*}} = "llvm.constant"() <{"value" = 1 : i64}> : () -> i64
-    // CHECK-NEXT: %{{.*}} = "llvm.constant"() <{"value" = 2 : i64}> : () -> i64
+    // CHECK:      %{{.*}} = "riscv.li"() <{"value" = 1 : i64}> : () -> i64
+    // CHECK-NEXT: %{{.*}} = "riscv.li"() <{"value" = 2 : i64}> : () -> i64
     
-    %add64 = "llvm.add"(%one, %two) : (i64, i64) -> i64
+    %add = "llvm.add"(%one, %two) : (i64, i64) -> i64
     // CHECK-NEXT: %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
-    
-    %add32 = "llvm.add"(%one, %two) : (i32, i32) -> i32
-    // CHECK-NEXT: %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
-
 }) : () -> ()

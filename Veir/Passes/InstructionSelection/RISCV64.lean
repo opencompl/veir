@@ -24,7 +24,8 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let some const := matchConstantOp op rewriter.ctx
       | return rewriter
   if const.type.bitwidth ≠ 64 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp .riscv_li #[] #[]
+  let type := ((op.getResult 0).get! rewriter.ctx).type
+  let (rewriter, newOp) ← rewriter.createOp .riscv_li #[type] #[]
       #[] #[] {value := const} (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry
 
@@ -53,7 +54,6 @@ def ISelPass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) (op : O
   match RewritePattern.applyInContext pattern ctx ctx.property.inBounds with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ⟨ctx, sorry⟩
-
 
 public def IselRISCV64 : Pass OpCode :=
   { name := "isel-riscv64"
