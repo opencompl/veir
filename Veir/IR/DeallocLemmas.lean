@@ -269,6 +269,8 @@ theorem Block.wellFormed_OperationPtr_dealloc
   · grind [IRContext.fieldsInBounds_OperationPtr_dealloc]
   · grind [IRContext.WellFormed, Block.WellFormed]
   · grind [IRContext.WellFormed, Block.WellFormed]
+  · grind [IRContext.WellFormed, Block.WellFormed]
+  · grind [IRContext.WellFormed, Block.WellFormed]
 
 theorem Region.wellFormed_OperationPtr_dealloc
     (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))

@@ -107,15 +107,9 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
       grind
     all_goals grind [Rewriter.pushOperand, Operation.WellFormed, OperationPtr.getOpOperand]
   case blocks =>
-    intros bl hbl
-    constructor
-    · grind
-    · intros i hi
-      have ⟨h₁, h₂, h₃⟩ := hOpWf.blocks bl (by grind)
-      grind
-    · intros i hi
-      have ⟨h₁, h₂, h₃⟩ := hOpWf.blocks bl (by grind)
-      grind
+    intros bl blInBounds
+    have ⟨h₁, h₂, h₃, h₄, h₅⟩ := hOpWf.blocks bl (by grind)
+    constructor <;> grind
   case regions =>
     intros reg hreg
     have ⟨h₁, h₂⟩ := hOpWf.regions reg (by grind)

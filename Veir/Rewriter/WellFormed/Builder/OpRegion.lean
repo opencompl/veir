@@ -53,14 +53,8 @@ theorem IRContext.wellFormed_Rewriter_pushRegion :
     all_goals grind [Operation.WellFormed]
   case blocks =>
     intros bl hbl
-    constructor
-    · grind
-    · intros i hi
-      have ⟨h₁, h₂, h₃⟩ := wf.blocks bl (by grind)
-      grind
-    · intros i hi
-      have ⟨h₁, h₂, h₃⟩ := wf.blocks bl (by grind)
-      grind
+    have ⟨h₁, h₂, h₃, h₄, h₅⟩ := wf.blocks bl (by grind)
+    constructor <;> grind
   case regions =>
     intros reg hreg
     have ⟨h₁, h₂⟩ := wf.regions reg (by grind)

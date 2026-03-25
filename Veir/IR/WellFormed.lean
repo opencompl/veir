@@ -634,6 +634,10 @@ structure Block.WellFormed (block : Block) (ctx : IRContext OpInfo) (blockPtr : 
   inBounds : Block.FieldsInBounds blockPtr ctx hbl
   argument i (iInBounds : i < blockPtr.getNumArguments! ctx) : ((blockPtr.getArgument i).get! ctx).index = i
   argument_owners i (iInBounds : i < blockPtr.getNumArguments! ctx) : ((blockPtr.getArgument i).get! ctx).owner = blockPtr
+  prev_eq_of_parent_eq_none : (blockPtr.get! ctx).parent = none →
+    (blockPtr.get! ctx).prev = none
+  next_eq_of_parent_eq_none : (blockPtr.get! ctx).parent = none →
+    (blockPtr.get! ctx).next = none
 
 structure Region.WellFormed (region : Region) (ctx : IRContext OpInfo) (regionPtr : RegionPtr) where
   inBounds : region.FieldsInBounds ctx
@@ -791,6 +795,9 @@ theorem Operation.WellFormed_unchanged
 theorem Block.WellFormed_unchanged
     (hWf : (blockPtr.get! ctx).WellFormed ctx blockPtr blockPtrInBounds)
     (hInBounds' : Block.FieldsInBounds blockPtr ctx' blockPtrInBounds')
+    (hSameParent : (blockPtr.get! ctx).parent = (blockPtr.get! ctx').parent)
+    (hSamePrev : (blockPtr.get! ctx).prev = (blockPtr.get! ctx').prev)
+    (hSameNext : (blockPtr.get! ctx).next = (blockPtr.get! ctx').next)
     (hSameNumArguments : blockPtr.getNumArguments! ctx = blockPtr.getNumArguments! ctx')
     (hSameArgumentOwner :
       ∀ i, i < blockPtr.getNumArguments! ctx →
