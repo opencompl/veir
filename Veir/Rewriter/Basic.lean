@@ -280,7 +280,7 @@ theorem Rewriter.replaceValue?_fieldsInBounds :
   case succ d ih => simp [replaceValue?]; grind [Rewriter.replaceUse]
 
 @[grind .]
-theorem Rewriter.replaceValue?_preserves_results_size' (op : OperationPtr) (hop : op.InBounds ctx) :
+theorem Rewriter.replaceValue?_preserves_results_size (op : OperationPtr) (hop : op.InBounds ctx) :
     replaceValue? ctx old new h₁ h₂ h₃ d = some ctx' →
     op.getNumResults! ctx' = op.getNumResults! ctx := by
   induction d generalizing ctx ctx'
@@ -291,13 +291,6 @@ theorem Rewriter.replaceValue?_preserves_results_size' (op : OperationPtr) (hop 
     · rename_i firstUse hFirstUse
       intros hh
       rw [ih (ctx' := ctx') (ctx := Rewriter.replaceUse ctx firstUse new (by grind) (by grind) (by grind))] <;> grind [Rewriter.replaceUse]
-
-@[grind .]
-theorem Rewriter.replaceValue?_preserves_results_size (op : OperationPtr) (hop : op.InBounds ctx)
-    (hctx' : replaceValue? ctx old new h₁ h₂ h₃ d = some ctx') :
-    op.getNumResults! ctx' = op.getNumResults! ctx  := by
-  have := @replaceValue?_preserves_results_size'
-  grind
 
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_parent' (op : OperationPtr) (hop : op.InBounds ctx)

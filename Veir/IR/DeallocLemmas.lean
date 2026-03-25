@@ -94,7 +94,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
     exists operand.index
     subst op
     constructor
-    · grind [Std.Rco.mem_toList_iff_mem, OpOperandPtr.InBounds, OperationPtr.getNumOperands, OperationPtr.getOpOperand]
+    · grind [Std.Rco.mem_toList_iff_mem, OpOperandPtr.InBounds, OperationPtr.getNumOperands!, OperationPtr.getOpOperand]
     · simp [OperationPtr.getOpOperand]
   have inMissingSuccessorUses : ∀ blockOperand, blockOperand.InBounds ctx → blockOperand.op = op
         → blockOperand ∈ (Std.ExtHashSet.fromSuccessors ctx op) := by
@@ -104,15 +104,14 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
     exists blockOperand.index
     subst op
     constructor
-    · grind [Std.Rco.mem_toList_iff_mem, BlockOperandPtr.InBounds, OperationPtr.getNumSuccessors, OperationPtr.getBlockOperand]
+    · grind [Std.Rco.mem_toList_iff_mem, BlockOperandPtr.InBounds, OperationPtr.getNumSuccessors!, OperationPtr.getBlockOperand]
     · simp [OperationPtr.getBlockOperand]
   constructor
   · intro op' op'In
     constructor
     · intro res resInBounds resOp
       constructor
-      · simp only [← OpResultPtr.get!_eq_get]
-        simp (disch := grind) only [OpResultPtr.get!_OperationPtr_dealloc]
+      · simp (disch := grind) only [OpResultPtr.get!_OperationPtr_dealloc]
         simp only [Option.maybe_def]
         intro firstUse
         intro hFirstUse
@@ -122,8 +121,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
         · simp only
           have := wf.valueDefUseChains res (by grind)
           grind [ValuePtr.DefUse, Std.ExtHashSet.fromOperands]
-      · simp only [← OpResultPtr.get!_eq_get]
-        simp (disch := grind) only [OpResultPtr.get!_OperationPtr_dealloc]
+      · simp (disch := grind) only [OpResultPtr.get!_OperationPtr_dealloc]
         simp only [← GenericPtr.iff_operation]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         simp only
@@ -147,15 +145,13 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
       · simp only [Option.maybe_def]
         have ⟨array, harray⟩ := wf.blockDefUseChains (operand.get! ctx).value (by grind)
         grind [BlockPtr.DefUse, Array.getElem_of_mem]
-      · simp only [← BlockOperandPtr.get!_eq_get]
-        simp (disch := grind) only [BlockOperandPtr.get!_OperationPtr_dealloc]
+      · simp (disch := grind) only [BlockOperandPtr.get!_OperationPtr_dealloc]
         simp only [← GenericPtr.iff_blockOperandPtr]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         cases hback : (operand.get! ctx).back; rotate_right 1; simp only
         have ⟨array, harray⟩ := wf.blockDefUseChains (operand.get! ctx).value (by grind)
         grind [BlockPtr.DefUse, Array.getElem_of_mem]
-      · simp only [← BlockOperandPtr.get!_eq_get]
-        simp (disch := grind) only [BlockOperandPtr.get!_OperationPtr_dealloc]
+      · simp (disch := grind) only [BlockOperandPtr.get!_OperationPtr_dealloc]
         simp only [← GenericPtr.iff_operation]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         simp only
@@ -178,8 +174,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
       constructor
       · simp only [Option.maybe_def]
         grind [ValuePtr.DefUse, Array.getElem_of_mem]
-      · simp only [← OpOperandPtr.get!_eq_get]
-        simp (disch := grind) only [OpOperandPtr.get!_OperationPtr_dealloc]
+      · simp (disch := grind) only [OpOperandPtr.get!_OperationPtr_dealloc]
         simp only [← GenericPtr.iff_opOperandPtr]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         cases hback : (operand.get! ctx).back
@@ -201,8 +196,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
             simp only [ValuePtr.hasUses!_def,
               Option.isSome_eq_false_iff, Option.isNone_iff_eq_none] at hopResUses
             grind [ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse]
-      · simp only [← OpOperandPtr.get!_eq_get]
-        simp (disch := grind) only [OpOperandPtr.get!_OperationPtr_dealloc]
+      · simp (disch := grind) only [OpOperandPtr.get!_OperationPtr_dealloc]
         simp only [← GenericPtr.iff_operation]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         simp only
@@ -212,8 +206,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
         simp only [OperationPtr.getOpOperand] at this
         cases operand
         grind
-      · simp only [← OpOperandPtr.get!_eq_get]
-        simp (disch := grind) only [OpOperandPtr.get!_OperationPtr_dealloc]
+      · simp (disch := grind) only [OpOperandPtr.get!_OperationPtr_dealloc]
         simp only [← GenericPtr.iff_value]
         apply OpOperandPtr.dealloc.inBounds_dealloc_genericPtr; grind
         cases hvalue : (operand.get! ctx).value; rotate_left 1; grind
@@ -225,7 +218,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
         simp only [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false] at huses
         have hopResUses := huses opRes.index (by grind)
         have : op.getResult opRes.index = opRes := by cases opRes; grind [OperationPtr.getResult]
-        grind [ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse, ValuePtr.DefUse.hasUses_iff]
+        grind [ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse, ValuePtr.DefUse.hasUses!_iff]
   · intro block blockIn
     constructor
     · have ⟨array, harray⟩ := wf.blockDefUseChains block (by grind)
@@ -288,7 +281,8 @@ theorem Region.wellFormed_OperationPtr_dealloc
   constructor
   · have := wf.regions regionPtr inBounds'
     have := this.inBounds
-    grind [IRContext.fieldsInBounds_OperationPtr_dealloc, IRContext.WellFormed, Region.WellFormed]
+    have : (op.dealloc ctx inBounds).FieldsInBounds := by grind [IRContext.fieldsInBounds_OperationPtr_dealloc]
+    grind
   · have ⟨h₁, h₂⟩ := wf.regions regionPtr inBounds'
     intro parent hparent
     simp only [RegionPtr.get!_OperationPtr_dealloc] at hparent

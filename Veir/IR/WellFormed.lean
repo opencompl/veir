@@ -240,7 +240,7 @@ theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_empty
 @[grind .]
 theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
     {ctx : IRContext OpInfo} {use : OpOperandPtr} {useInBounds} (value : ValuePtr)
-    (useOfOtherValue' : (use.get ctx useInBounds).value ≠ value')
+    (useOfOtherValue' : (use.get! ctx).value ≠ value')
     (valueNe : value ≠ value') {array} :
     value'.DefUse ctx array missingUses →
     value'.DefUse (use.setValue ctx value useInBounds) array missingUses := by
@@ -476,7 +476,7 @@ theorem BlockPtr.DefUse.OpOperandPtr_setValue_other_empty
 @[grind .]
 theorem BlockPtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
     {ctx : IRContext OpInfo} {use : BlockOperandPtr} {useInBounds} (block : BlockPtr)
-    (useOfOtherValue' : (use.get ctx useInBounds).value ≠ block')
+    (useOfOtherValue' : (use.get! ctx).value ≠ block')
     (valueNe : block ≠ block') {array} :
     block'.DefUse ctx array missingUses →
     block'.DefUse (use.setValue ctx block useInBounds) array missingUses := by
@@ -740,7 +740,7 @@ theorem RegionPtr.blockChain_unchanged
   constructor <;> grind [RegionPtr.BlockChain]
 
 theorem Operation.WellFormed_unchanged
-    (hWf : (opPtr.get ctx opPtrInBounds).WellFormed ctx opPtr opPtrInBounds)
+    (hWf : (opPtr.get! ctx).WellFormed ctx opPtr opPtrInBounds)
     (hInBounds' : Operation.FieldsInBounds opPtr ctx' opPtrInBounds')
     (hSameNumOperands :
       opPtr.getNumOperands! ctx = opPtr.getNumOperands! ctx')
@@ -820,8 +820,8 @@ theorem BlockPtr.operationList_iff_BlockPtr_OpChain :
   grind [BlockPtr.operationListWF]
 
 @[grind =_]
-theorem BlockPtr.operationList.mem :
-    (op.get ctx opInBounds).parent = some block ↔
+theorem BlockPtr.operationList.mem (h : op.InBounds ctx) :
+    (op.get! ctx).parent = some block ↔
     op ∈ BlockPtr.operationList block ctx hctx hblock := by
   grind [BlockPtr.OpChain, BlockPtr.operationListWF]
 
@@ -833,8 +833,9 @@ theorem ValuePtr.defUseArrayWF {hctx : IRContext.WellFormed ctx missingUses miss
     ValuePtr.DefUse value ctx (ValuePtr.defUseArray value ctx hctx hvalue) (missingUses.filter (fun use => (use.get! ctx).value = value)) := by
   grind [ValuePtr.defUseArray, IRContext.WellFormed]
 
-theorem ValuePtr.defUseArray_contains_operand_use {hctx : IRContext.WellFormed ctx} :
-    (operand.get ctx operandInBounds).value = value ↔
+theorem ValuePtr.defUseArray_contains_operand_use
+{hctx : IRContext.WellFormed ctx} (h : operand.InBounds ctx) :
+    (operand.get! ctx).value = value ↔
     operand ∈ ValuePtr.defUseArray value ctx hctx hvalue := by
   grind [ValuePtr.DefUse, ValuePtr.defUseArrayWF]
 
@@ -866,9 +867,9 @@ theorem BlockPtr.OpChain_prev_ne
 
 theorem BlockPtr.OpChain_next_ne
     (hop : OperationPtr.InBounds op ctx) (hctx : ctx.WellFormed)
-    (hparent : (op.get ctx hop).parent = some block) :
+    (hparent : (op.get! ctx).parent = some block) :
     block.OpChain ctx array →
-    (op.get ctx hop).next ≠ some op := by
+    (op.get! ctx).next ≠ some op := by
   intros hNe
   have := hctx.inBounds
   have ⟨array, harray⟩ := hctx.opChain block (by grind)
@@ -878,10 +879,10 @@ theorem BlockPtr.OpChain_next_ne
   have : array[i + 1]? = some op := by grind [BlockPtr.OpChain]
   grind [BlockPtr.OpChain_array_injective]
 
-theorem ValuePtr.DefUse.hasUses_iff
+theorem ValuePtr.DefUse.hasUses!_iff
     (hWF : ValuePtr.DefUse value ctx array missingUses) :
-    value.hasUses ctx ↔ array ≠ #[] := by
-  grind [DefUse, hasUses_def]
+    value.hasUses! ctx ↔ array ≠ #[] := by
+  grind [DefUse, hasUses!_def]
 
 theorem ValuePtr.DefUse.getFirstUse!_none_iff
     (hWF : ValuePtr.DefUse value ctx array missingUses) :

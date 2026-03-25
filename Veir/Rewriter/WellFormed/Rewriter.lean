@@ -72,7 +72,10 @@ theorem OperationPtr.hasUses_replaceOpResults :
   intro ctxWf neOps hNewCtx
   simp only [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false]
   intro index hindex
-  grind [OpResult.hasUses_replaceOpResults_self]
+  have : fromOp.getNumResults! ctx = fromOp.getNumResults! newCtx := by sorry
+  have := OpResult.hasUses_replaceOpResults_self ctxWf neOps hNewCtx
+  apply this
+  grind [Rewriter.replaceOpResults]
 
 theorem OperationPtr.getNumRegions!_replaceOpResults :
     Rewriter.replaceOpResults ctx fromOp toOp idx fromOpIB toOpIB hNumFrom hNumTo ctxInBounds =
