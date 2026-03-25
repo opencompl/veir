@@ -17,7 +17,16 @@ def matchAdd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × 
 
 /-! # Lowering Patterns -/
 
-
+set_option warn.sorry false in
+/-- llvm.constant -> riscv.li -/
+def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some const := matchConstantOp op rewriter.ctx
+      | return rewriter
+  if const.type.bitwidth ≠ 64 then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp .riscv_li #[] #[]
+      #[] #[] {value := const} (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry
 
 set_option warn.sorry false in
 /-- llvm.add -> riscv.add -/
