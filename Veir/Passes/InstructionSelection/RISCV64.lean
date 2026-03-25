@@ -26,7 +26,7 @@ def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let some (lhs, rhs, properties) := matchAdd op rewriter.ctx
     | return rewriter
   /- the lowered instruction is `riscv_add`, regardless of the `nuw` and `nsw` flags -/
-  let (rewriter, newOp) ← rewriter.createOp .riscv_add #[lhs.getType! rewriter.ctx] #[lhs, lhs]
+  let (rewriter, newOp) ← rewriter.createOp .riscv_add #[lhs.getType! rewriter.ctx] #[lhs, rhs]
     #[] #[] () (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry
 

@@ -8,7 +8,7 @@
     // CHECK:      %{{.*}} = "llvm.constant"() <{"value" = 1 : i64}> : () -> i64
     // CHECK-NEXT: %{{.*}} = "llvm.constant"() <{"value" = 2 : i64}> : () -> i64
     
-    %add = "llvm.add"(%two, %one) : (i64, i64) -> i64
+    %add = "llvm.add"(%one, %two) : (i64, i64) -> i64
 
     // CHECK-NEXT: %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
 
