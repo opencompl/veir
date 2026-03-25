@@ -31,8 +31,8 @@ theorem Rewriter.insertOp?.operationList {block : BlockPtr}
           BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray]
   · have h := BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other (ctx := ctx) h (array := array) (block' := block)
     simp only [← InsertPoint.prev!_eq_prev] at h
-    have h := h (by grind [InsertPoint.prev.maybe₁_parent])
-    have h := h (by grind [InsertPoint.next.maybe₁_parent])
+    have h := h (by grind [InsertPoint.prev.maybe₁_parent_of_opChain])
+    have h := h (by grind [InsertPoint.next.maybe₁_parent_of_opChain])
     have h := h (by grind) (by grind)
     simp [BlockPtr.operationList_iff_BlockPtr_OpChain.mp h,
           BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray]

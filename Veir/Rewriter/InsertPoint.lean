@@ -144,18 +144,44 @@ theorem InsertPoint.block!_eq_of_prev!_eq_some
   intros hPrev
   cases ip <;> grind
 
-theorem InsertPoint.next.maybe₁_parent :
+theorem InsertPoint.next.maybe₁_parent_of_opChain :
     BlockPtr.OpChain blockPtr ctx array →
     InsertPoint.block! ip ctx = some blockPtr →
     ip.next.maybe₁ (fun op => (op.get! ctx).parent = some blockPtr) := by
   cases ip <;> grind
 
-theorem InsertPoint.prev.maybe₁_parent :
+theorem InsertPoint.next.maybe₁_parent :
+    ctx.WellFormed →
+    InsertPoint.block! ip ctx = some blockPtr →
+    ip.next = some nextOp →
+    (nextOp.get! ctx).parent = some blockPtr := by
+  cases ip <;> grind
+
+grind_pattern InsertPoint.next.maybe₁_parent =>
+  ctx.WellFormed, InsertPoint.block! ip ctx, some blockPtr, ip.next, some nextOp,
+  (nextOp.get! ctx).parent
+
+theorem InsertPoint.prev.maybe₁_parent_of_opChain :
     BlockPtr.OpChain blockPtr ctx array →
     InsertPoint.InBounds ip ctx →
     InsertPoint.block! ip ctx = some blockPtr →
     (ip.prev! ctx).maybe₁ (fun op => (op.get! ctx).parent = some blockPtr) := by
   cases ip <;> grind [Option.maybe₁_def]
+
+theorem InsertPoint.prev.maybe₁_parent :
+    ctx.WellFormed →
+    InsertPoint.InBounds ip ctx →
+    InsertPoint.block! ip ctx = some blockPtr →
+    ip.prev! ctx = some prevOp →
+    (prevOp.get! ctx).parent = some blockPtr := by
+  intro ctxWf ipInBounds hblock hprev
+  have ⟨array, harray⟩ := ctxWf.opChain blockPtr (by grind)
+  have := InsertPoint.prev.maybe₁_parent_of_opChain harray ipInBounds hblock
+  grind [Option.maybe₁_def]
+
+grind_pattern InsertPoint.prev.maybe₁_parent =>
+  ctx.WellFormed, InsertPoint.InBounds ip ctx, InsertPoint.block! ip ctx, some blockPtr,
+  ip.prev! ctx, some prevOp, (prevOp.get! ctx).parent
 
 /--
  - Get the index of the insertion point in the operation list of the block.

@@ -15,57 +15,11 @@ section insertOp
 theorem Rewriter.insertOp?_WellFormed (hctx : ctx.WellFormed) :
     Rewriter.insertOp? ctx newOp ip newOpIn insIn ctxInBounds = some newCtx →
     newCtx.WellFormed := by
-  intros heq
-  have hwf : ∃ block, (ip.block! ctx) = some block := by grind [insertOp?]
-  have ⟨block, hwf⟩ := hwf
-  have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hctx
-  constructor
-  case inBounds =>
-    grind
-  case valueDefUseChains =>
-    intros val hval
-    have ⟨array, harray⟩ := h₂ val (by grind)
-    exists array
-    apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
-  case blockDefUseChains =>
-    intros block hblock
-    have ⟨array, harray⟩ := h₃ block (by grind)
-    exists array
-    apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
-  case opChain =>
-    intros block' hblock'
-    have ⟨array, harray⟩ := h₄ block (by grind)
-    have ⟨array', harray⟩ := h₄ block' (by grind)
-    have hNewCtx : newOp.linkBetweenWithParent ctx (ip.prev! ctx) ip.next block (by grind) (by grind) (by grind) (by grind) = some newCtx := by grind [insertOp?]
-    simp only [insertOp?] at heq
-    by_cases block = block'
-    · subst block'
-      apply Exists.intro _
-      apply BlockPtr.opChain_OperationPtr_linkBetweenWithParent_self (ctx := ctx) (by grind)
-        hNewCtx (ip := ip) (by grind) (by grind) (by grind) (by grind) harray
-    · exists array'
-      apply BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other (ctx := ctx) hNewCtx <;>
-        grind [InsertPoint.prev.maybe₁_parent, InsertPoint.next.maybe₁_parent]
-  case blockChain =>
-    intros region hregion
-    have ⟨array, harray⟩ := h₅ region (by grind)
-    exists array
-    apply RegionPtr.blockChain_unchanged harray <;> grind
-  case operations =>
-    simp [insertOp?] at heq
-    split at heq; grind
-    intro op opInBounds
-    apply Operation.wellFormed_OperationPtr_linkBetweenWithParent ctxInBounds (hctx := heq)
-    · grind [InsertPoint.prev.maybe₁_parent]
-    · grind [InsertPoint.next.maybe₁_parent]
-    · grind
-    · grind
-  case blocks =>
-    intros bl hbl
-    have : bl.InBounds ctx := by grind
-    grind [Block.WellFormed_unchanged]
-  case regions =>
-    grind [Region.WellFormed_unchanged]
+  simp only [Rewriter.insertOp?]
+  split; grind; rename_i parent hparent
+  intro h
+  apply IRContext.wellFormed_OperationPtr_linkBetweenWithParent hctx h (ip := ip) <;>
+    grind [Option.maybe₁]
 
 end insertOp
 
