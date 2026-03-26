@@ -22,7 +22,7 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   let (rewriter, newOp) ← rewriter.createOp .riscv_li #[type] #[]
-      #[] #[] {value := const} (some $ .before op) sorry sorry sorry sorry
+      #[] #[] {value := const} (some $ .before op) (by simp) (by simp) (by simp) sorry
   rewriter.replaceOp op newOp sorry sorry sorry
 
 /-! # Pass implementation -/
