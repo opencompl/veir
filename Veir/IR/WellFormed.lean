@@ -614,6 +614,20 @@ theorem RegionPtr.BlockChain_unique :
   intros i
   induction i <;> grind [RegionPtr.BlockChain]
 
+theorem RegionPtr.BlockChain_array_injective
+    (hWF : RegionPtr.BlockChain region ctx array) :
+    ∀ (i j : Nat) iInBounds jInBounds, i ≠ j → array[i]'iInBounds ≠ array[j]'jInBounds := by
+  intros i
+  induction i
+  case zero => grind [RegionPtr.BlockChain]
+  case succ i ih =>
+    intros j
+    cases j
+    case zero => grind [RegionPtr.BlockChain]
+    case succ j =>
+      intros iInBounds jInBounds hNe
+      grind [RegionPtr.BlockChain]
+
 -- TODO: weird to have op and opPtr
 structure Operation.WellFormed (op : Operation OpInfo) (ctx : IRContext OpInfo) (opPtr : OperationPtr) hop : Prop where
   inBounds : Operation.FieldsInBounds opPtr ctx hop
@@ -1014,6 +1028,154 @@ theorem OperationPtr.parent!_next
   have ⟨array, harray⟩ := hWF.opChain block (by grind)
   have : nextOp ∈ array := by grind
   grind
+
+theorem IRContext.WellFormed.BlockPtr_next!_eq_some_of_prev!_eq_some
+    {ctx : IRContext OpInfo} {bl prevBl : BlockPtr} (hbl : bl.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses) :
+    (bl.get! ctx).prev = some prevBl →
+    (prevBl.get! ctx).next = some bl := by
+  cases hparent : (bl.get! ctx).parent
+  case none =>
+    grind [IRContext.WellFormed, RegionPtr.BlockChain, Block.WellFormed]
+  case some parent =>
+    intro hprev
+    have ⟨array, harray⟩ := wf.blockChain parent (by grind)
+    grind [Array.getElem?_of_mem, RegionPtr.BlockChain]
+
+grind_pattern IRContext.WellFormed.BlockPtr_next!_eq_some_of_prev!_eq_some =>
+  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).prev, some prevBl, (prevBl.get! ctx).next
+
+theorem IRContext.WellFormed.BlockPtr_prev!_eq_some_of_next!_eq_some
+    {ctx : IRContext OpInfo} {bl nextBl : BlockPtr} (hbl : bl.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses) :
+    (bl.get! ctx).next = some nextBl →
+    (nextBl.get! ctx).prev = some bl := by
+  cases hparent : (bl.get! ctx).parent
+  case none =>
+    grind [IRContext.WellFormed, RegionPtr.BlockChain, Block.WellFormed]
+  case some parent =>
+    intro hnext
+    have ⟨array, harray⟩ := wf.blockChain parent (by grind)
+    grind [Array.getElem?_of_mem, RegionPtr.BlockChain]
+
+grind_pattern IRContext.WellFormed.BlockPtr_prev!_eq_some_of_next!_eq_some =>
+  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).next, some nextBl, (nextBl.get! ctx).prev
+
+theorem IRContext.WellFormed.BlockPtr_parent!_ne_none_of_next!_ne_none
+    {bl : BlockPtr} (hbl : bl.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses) :
+    (bl.get! ctx).next ≠ none →
+    (bl.get! ctx).parent ≠ none := by
+  grind [IRContext.WellFormed, Block.WellFormed]
+
+grind_pattern IRContext.WellFormed.BlockPtr_parent!_ne_none_of_next!_ne_none =>
+  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).next, (bl.get! ctx).parent
+
+theorem IRContext.WellFormed.BlockPtr_parent!_ne_none_of_prev!_ne_none
+    {bl : BlockPtr} (hbl : bl.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses) :
+    (bl.get! ctx).prev ≠ none →
+    (bl.get! ctx).parent ≠ none := by
+  grind [IRContext.WellFormed, Block.WellFormed]
+
+grind_pattern IRContext.WellFormed.BlockPtr_parent!_ne_none_of_prev!_ne_none =>
+  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).prev, (bl.get! ctx).parent
+
+@[grind <=]
+theorem IRContext.WellFormed.exists_parent!_eq_some_of_next!_eq_some
+    {bl : BlockPtr} (hbl : bl.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses)
+    (hnext : (bl.get! ctx).next = some nextBl) :
+    ∃ parent, (bl.get! ctx).parent = some parent := by
+  have := IRContext.WellFormed.BlockPtr_parent!_ne_none_of_next!_ne_none hbl wf (by grind)
+  have := (Option.ne_none_iff_exists.mp this)
+  grind
+
+@[grind <=]
+theorem IRContext.WellFormed.exists_parent!_eq_some_of_prev!_eq_some
+    {bl : BlockPtr} (hbl : bl.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses)
+    (hprev : (bl.get! ctx).prev = some prevBl) :
+    ∃ parent, (bl.get! ctx).parent = some parent := by
+  have := IRContext.WellFormed.BlockPtr_parent!_ne_none_of_prev!_ne_none hbl wf (by grind)
+  have := (Option.ne_none_iff_exists.mp this)
+  grind
+
+theorem RegionPtr.BlockChain.mem_next!_of_mem
+    (bl nextBl : BlockPtr) (region : RegionPtr)
+    (hWF : region.BlockChain ctx array)
+    (hnext : (bl.get! ctx).next = some nextBl)
+    (hmem : bl ∈ array) :
+    nextBl ∈ array := by
+  grind [RegionPtr.BlockChain, Array.getElem_of_mem]
+
+grind_pattern RegionPtr.BlockChain.mem_next!_of_mem =>
+  region.BlockChain ctx array, (bl.get! ctx).next, some nextBl, bl ∈ array
+
+theorem RegionPtr.BlockChain.mem_prev!_of_mem
+    (bl prevBl : BlockPtr) (region : RegionPtr)
+    (hWF : region.BlockChain ctx array)
+    (hprev : (bl.get! ctx).prev = some prevBl)
+    (hmem : bl ∈ array) :
+    prevBl ∈ array := by
+  grind [RegionPtr.BlockChain, Array.getElem_of_mem]
+
+grind_pattern RegionPtr.BlockChain.mem_prev!_of_mem =>
+  region.BlockChain ctx array, (bl.get! ctx).prev, some prevBl, bl ∈ array
+
+theorem RegionPtr.BlockChain.mem_of_mem_next!
+    (bl nextBl : BlockPtr) (region : RegionPtr)
+    (ctxWF : ctx.WellFormed)
+    (hWF : region.BlockChain ctx array)
+    (hnext : (bl.get! ctx).next = some nextBl)
+    (hbl : bl.InBounds ctx)
+    (hmem : nextBl ∈ array) :
+    bl ∈ array := by
+  cases hparent : (bl.get! ctx).parent; grind
+  rename_i region'
+  have : region = region' := by grind [RegionPtr.BlockChain, Array.getElem_of_mem]
+  have ⟨array', harray'⟩ := ctxWF.blockChain region' (by grind)
+  grind
+
+grind_pattern RegionPtr.BlockChain.mem_of_mem_next! =>
+  ctx.WellFormed, region.BlockChain ctx array, (bl.get! ctx).next, some nextBl, nextBl ∈ array
+
+theorem BlockPtr.parent!_next {bl : BlockPtr}
+    (blInBounds : bl.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
+    (hnext : (bl.get! ctx).next = some nextBl) :
+    (bl.get! ctx).parent = (nextBl.get! ctx).parent := by
+  intros
+  have ⟨parent, hparent⟩ : ∃ region, (bl.get! ctx).parent = some region := by grind
+  have ⟨array, harray⟩ := hctx.blockChain parent (by grind)
+  have : bl ∈ array := by grind [RegionPtr.BlockChain]
+  grind [RegionPtr.BlockChain]
+
+grind_pattern BlockPtr.parent!_next =>
+  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).next, some nextBl
+
+theorem BlockPtr.parent!_prev {bl : BlockPtr}
+    (blInBounds : bl.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
+    (hprev : (bl.get! ctx).prev = some prevBl) :
+    (bl.get! ctx).parent = (prevBl.get! ctx).parent := by
+  intros
+  have ⟨parent, hparent⟩ : ∃ region, (bl.get! ctx).parent = some region := by grind
+  have ⟨array, harray⟩ := hctx.blockChain parent (by grind)
+  have : bl ∈ array := by grind [RegionPtr.BlockChain]
+  grind [RegionPtr.BlockChain]
+
+grind_pattern BlockPtr.parent!_prev =>
+  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).prev, some prevBl
+
+theorem RegionPtr.lastBlock!_parent! {reg : RegionPtr}
+    (regInBounds : reg.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
+    (hlast : (reg.get! ctx).lastBlock = some lastBl) :
+    (lastBl.get! ctx).parent = some reg := by
+  have ⟨array, harray⟩ := hctx.blockChain reg (by grind)
+  grind [RegionPtr.BlockChain]
+
+grind_pattern RegionPtr.lastBlock!_parent! =>
+  ctx.WellFormed missingUses missingSuccessorUses, (reg.get! ctx).lastBlock, some lastBl,
+  (lastBl.get! ctx).parent
 
 /--
   Compute the index of an operation in its parent's operations list.
