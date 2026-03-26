@@ -1,6 +1,6 @@
 import Veir.Pass
 import Veir.PatternRewriter.Basic
-import Veir.Passes.InstCombine
+import Veir.Passes.Matching
 
 namespace Veir
 
