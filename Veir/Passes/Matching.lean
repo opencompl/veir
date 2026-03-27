@@ -35,3 +35,7 @@ def matchConstantVal (val : ValuePtr) (ctx : IRContext OpCode) : Option IntegerA
   let .opResult opResultPtr := val | none
   let op := opResultPtr.op
   matchConstantOp op ctx
+
+def matchAdd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_add) := do
+  let (op, properties) ← matchOp op ctx .llvm_add 2
+  return (op[0]!, op[1]!, properties)

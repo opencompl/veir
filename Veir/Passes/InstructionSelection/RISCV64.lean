@@ -25,6 +25,16 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] {value := const} (some $ .before op) (by simp) (by simp) (by simp) sorry
   rewriter.replaceOp op newOp sorry sorry sorry
 
+/-- llvm.add -> riscv.add -/
+def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs, properties) := matchAdd op rewriter.ctx
+    | return rewriter
+  /- the lowered instruction is `riscv_add`, regardless of the `nuw` and `nsw` flags -/
+  let (rewriter, newOp) ← rewriter.createOp .riscv_add #[lhs.getType! rewriter.ctx] #[lhs, rhs]
+    #[] #[] sorry (some $ .before op) sorry (by simp) (by simp) sorry
+  rewriter.replaceOp op newOp sorry sorry sorry
+
 /-! # Pass implementation -/
 
 set_option warn.sorry false in
