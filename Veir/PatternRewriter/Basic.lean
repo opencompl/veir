@@ -163,15 +163,14 @@ def createOp (rewriter: PatternRewriter OpInfo) (opType: OpInfo)
   else
     ({ rewriter with ctx := newCtx, hasDoneAction := true , worklist := rewriter.worklist.push op, ctx_fib := by grind }, op)
 
-set_option warn.sorry false in
 def insertOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertPoint)
     (newOpIn: op.InBounds rewriter.ctx := by grind) (insIn : ip.InBounds rewriter.ctx) : Option (PatternRewriter OpInfo) := do
-  let newCtx ← Rewriter.insertOp? rewriter.ctx op ip (by grind) (by grind) (by grind)
+  rlet newCtx ← Rewriter.insertOp? rewriter.ctx op ip (by grind) (by grind) (by grind)
   some { rewriter with
     ctx := newCtx,
     hasDoneAction := true,
     worklist := rewriter.worklist.push op,
-    ctx_fib := by sorry
+    ctx_fib := by grind
   }
 
 set_option warn.sorry false in
@@ -201,16 +200,15 @@ def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     ctx_fib := by sorry -- relies on well-formedness!
   }
 
-set_option warn.sorry false in
 def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
     (oldIn: oldVal.InBounds rewriter.ctx := by grind)
     (newIn: newVal.InBounds rewriter.ctx := by grind) : Option (PatternRewriter OpInfo) := do
   -- TODO: add users of oldVal to worklist
   let rewriter := rewriter.addUsersInWorklist oldVal (by grind)
-  let ctx ← Rewriter.replaceValue? rewriter.ctx oldVal newVal (by grind) (by grind) (by grind)
+  rlet ctx ← Rewriter.replaceValue? rewriter.ctx oldVal newVal (by grind) (by grind) (by grind)
   some { rewriter with
     ctx,
-    ctx_fib := by sorry -- relies on well-formedness!
+    ctx_fib := by grind
     hasDoneAction := true
   }
 
