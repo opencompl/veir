@@ -146,6 +146,24 @@ def RISCVImmediateProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attr
   return { value := intAttr }
 
 /--
+  Properties of the `mod_arith.constant` operation.
+-/
+structure ModArithConstantProperties where
+  value : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def ModArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String ModArithConstantProperties := do
+  if attrDict.size > 1 then
+    throw s!"mod_arith.constant: expected only 'value' property, but got {attrDict.size} properties"
+  let some attr := attrDict["value".toUTF8]?
+    | throw "mod_arith.constant: missing 'value' property"
+  let .integerAttr intAttr := attr
+    | throw s!"mod_arith.constant: expected 'value' to be an integer attribute, but got {attr}"
+  return { value := intAttr }
+
+
+/--
   A type family that maps an operation code to the type of its properties.
   For operations that do not have any properties, the type is `Unit`.
 -/
@@ -200,6 +218,7 @@ match opCode with
 | .riscv_bexti => RISCVImmediateProperties
 | .riscv_binvi => RISCVImmediateProperties
 | .riscv_bseti => RISCVImmediateProperties
+| .mod_arith_constant => ModArithConstantProperties
 | _ => Unit
 
 instance : HasOpInfo OpCode where
@@ -276,6 +295,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case riscv_bexti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_binvi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
   case riscv_bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+  case mod_arith_constant => exact (ModArithConstantProperties.fromAttrDict attrDict)
   all_goals exact (Except.ok ())
 
 /--
@@ -317,7 +337,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv_li  | .riscv_lui | .riscv_auipc | .riscv_andi | .riscv_ori | .riscv_xori
   | .riscv_addi | .riscv_slti | .riscv_sltiu | .riscv_addiw | .riscv_slli | .riscv_srli | .riscv_srai
   | .riscv_slliw | .riscv_srliw | .riscv_sraiw | .riscv_rori | .riscv_roriw | .riscv_slliuw
-  | .riscv_bclri | .riscv_bexti | .riscv_binvi | .riscv_bseti =>
+  | .riscv_bclri | .riscv_bexti | .riscv_binvi | .riscv_bseti | .mod_arith_constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | _ =>
     Std.HashMap.emptyWithCapacity 0

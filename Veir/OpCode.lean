@@ -169,6 +169,13 @@ inductive Riscv where
 | packw
 
 @[opcodes]
+inductive Mod_Arith where
+| add
+| constant
+| mul
+| sub
+
+@[opcodes]
 inductive Test where
 | test
 

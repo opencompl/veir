@@ -146,3 +146,11 @@ macro "#assert " e:term : command =>
 
 #assert expectSuccessAttr "#foo<bar>" (UnregisteredAttr.mk "#foo<bar>" false)
 #assert expectSuccessAttr "#test.test<bar>" (UnregisteredAttr.mk "#test.test<bar>" false)
+
+/-! ## Modarith type -/
+
+#assert expectSuccessType "!mod_arith.int<17>" (ModArithType.mk 17 none)
+#assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk 257 (some (IntegerType.mk 32)))
+#assert expectSuccessAttr "!mod_arith.int<17>" (ModArithType.mk 17 none)
+#assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected"
+#assert expectErrorType "!mod_arith.int<17 : x>" "integer type expected after ':' in modarith type"

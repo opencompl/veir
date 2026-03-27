@@ -77,6 +77,15 @@ structure UnregisteredAttr where
   isType : Bool
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/--
+  The `!mod_arith.int` type from HEIR's modarith dialect.
+  The modulus type annotation is optional in syntax.
+-/
+structure ModArithType where
+  modulus : Int
+  modulusType : Option IntegerType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 mutual
 
 /--
@@ -132,6 +141,8 @@ inductive Attribute
 | functionType (type : FunctionType)
 /-- An attribute from an unknown dialect. -/
 | unregisteredAttr (attr : UnregisteredAttr)
+/-- HEIR modarith type -/
+| modArithType (type : ModArithType)
 deriving Inhabited, Repr, Hashable
 
 end
@@ -245,6 +256,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match ArrayAttr.decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case modArithType.modArithType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
@@ -275,6 +290,12 @@ instance : ToString UnitAttr where
 
 instance : ToString UnregisteredAttr where
   toString attr := attr.value
+
+instance : ToString ModArithType where
+  toString type := s!"!mod_arith.int<{type.modulus}" ++
+    (match type.modulusType with
+    | some modulusType => s!" : {modulusType}"
+    | none => "") ++ ">"
 
 mutual
 
@@ -338,6 +359,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .dictionaryAttr attr => attr.toString
   | .unregisteredAttr attr => ToString.toString attr
   | .functionType type => type.toString
+  | .modArithType type => ToString.toString type
 termination_by sizeOf attr
 
 end
@@ -383,6 +405,9 @@ instance : Coe DictionaryAttr Attribute where
 instance : Coe FunctionType Attribute where
   coe type := .functionType type
 
+instance : Coe ModArithType Attribute where
+  coe type := .modArithType type
+
 /-!
   ## TypeAttr definition
 
@@ -406,6 +431,7 @@ def isType (attr : Attribute) : Bool :=
   | .dictionaryAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .functionType _ => true
+  | .modArithType _ => true
 
 @[simp, grind =]
 theorem isType_integerType type : (integerType type).isType = true := by rfl
@@ -414,6 +440,8 @@ theorem isType_unregistered unregistered :
   (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
 @[simp, grind =]
 theorem isType_functionType type : (functionType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 
 end Attribute
 
@@ -451,6 +479,9 @@ instance : Coe IntegerType TypeAttr where
 
 instance : Coe FunctionType TypeAttr where
   coe type := ⟨.functionType type, by rfl⟩
+
+instance : Coe ModArithType TypeAttr where
+  coe type := ⟨.modArithType type, by rfl⟩
 
 end
 end Veir
