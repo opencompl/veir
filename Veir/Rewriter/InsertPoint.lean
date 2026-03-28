@@ -439,6 +439,58 @@ theorem region_InBounds {ip : BlockInsertPoint} {ctx : IRContext OpInfo}
 grind_pattern region_InBounds =>
   ip.InBounds ctx, ip.region ctx hIn, some regionPtr, ip.InBounds ctx
 
+@[grind =>]
+theorem BlockPtr_parent!_of_next_eq_some {ip : BlockInsertPoint} :
+  ip.next = some block →
+  (block.get! ctx).parent = ip.region! ctx := by
+  cases ip <;> grind
+
+@[grind =>]
+theorem BlockPtr_parent!_of_prev_eq_some {ip : BlockInsertPoint}
+    (hctx : ctx.WellFormed missingUses missingSuccessorUses)
+    (ipInBounds : ip.InBounds ctx) :
+    ip.region! ctx = some regionPtr →
+    ip.prev! ctx = some block →
+    (block.get! ctx).parent = ip.region! ctx := by
+  cases ip <;> grind
+
+theorem exists_parent_of_prev_eq_some {ip : BlockInsertPoint} (ctxWf : ctx.WellFormed)
+    (ipInBounds : ip.InBounds ctx) :
+    ip.prev! ctx = some prevOp →
+    ∃ parentOp, ip.region! ctx = some parentOp := by
+  cases ip
+  case before block =>
+    have := ctxWf.blocks block (by grind)
+    cases h : (block.get! ctx).parent <;> grind [Block.WellFormed]
+  case atEnd region =>
+    have := ctxWf.regions region (by grind)
+    cases h : (region.get! ctx).lastBlock <;> grind [Region.WellFormed]
+
+grind_pattern exists_parent_of_prev_eq_some =>
+  ctx.WellFormed, ip.InBounds ctx, ip.prev! ctx, some prevOp
+
+theorem prev_next {ip : BlockInsertPoint}
+    (ipInBounds : ip.InBounds ctx) :
+    ip.prev! ctx = some prevOp →
+    ip.next = some nextOp →
+    (nextOp.get! ctx).prev = some prevOp := by
+  cases ip <;> grind
+
+grind_pattern prev_next =>
+  ip.InBounds ctx, ip.prev! ctx, some prevOp, ip.next, some nextOp,
+  (nextOp.get! ctx).prev
+
+theorem next_prev {ip : BlockInsertPoint} :
+  ctx.WellFormed →
+  ip.InBounds ctx →
+  ip.prev! ctx = some prevOp →
+  ip.next = some nextOp →
+  (prevOp.get! ctx).next = some nextOp := by
+  cases ip <;> grind
+
+grind_pattern next_prev =>
+  ctx.WellFormed, ip.InBounds ctx, ip.prev! ctx, some prevOp, ip.next, some nextOp
+
 /--
 Get the index of the insertion point in the block list of the region.
 The index is where a new block would be inserted.
@@ -544,6 +596,19 @@ theorem idxIn.pred_lt_size :
   intros hChain
   have := idxIn.le_size_blockList ip ctx regionPtr (by grind) (by grind) (by grind) (by grind)
   grind
+
+theorem prev!_eq_getElem!_idxIn
+    (hChain : RegionPtr.BlockChain regionPtr ctx array)
+    (hIdx : idxIn ip ctx regionPtr inBounds regionIsParent ctxWf > 0) :
+    ip.prev! ctx = some (array[idxIn ip ctx regionPtr inBounds regionIsParent ctxWf - 1]'(by apply idxIn.pred_lt_size <;> grind)) := by
+  have := idxIn.le_size_blockList ip ctx regionPtr (by grind) (by grind) (by grind) (by grind)
+  have : array = regionPtr.blockList ctx (by grind) (by grind) := by grind
+  by_cases array.size = ip.idxIn ctx regionPtr inBounds regionIsParent ctxWf
+  · have : ip = atEnd regionPtr := by grind [idxIn_eq_size_blockList_iff_eq_atEnd]
+    grind [RegionPtr.BlockChain]
+  · have : ip.idxIn ctx regionPtr (by grind) (by grind) (by grind) < array.size := by grind
+    have := hChain.prev _ hIdx (by grind)
+    cases ip <;> grind
 
 @[grind .]
 theorem idxIn_Before_lt_size :
