@@ -282,8 +282,18 @@ instance : ToString IntegerType where
 instance : ToString IntegerAttr where
   toString attr := s!"{attr.value} : {attr.type}"
 
+def escapeStringLiteral (s : String) : String := Id.run do
+  let mut result := ""
+  for c in s.toList do
+    if c == '\\' then result := result ++ "\\\\"
+    else if c == '"' then result := result ++ "\\\""
+    else if c == '\n' then result := result ++ "\\n"
+    else if c == '\t' then result := result ++ "\\t"
+    else result := result.push c
+  return result
+
 instance : ToString StringAttr where
-  toString attr := s!"\"{String.fromUTF8! attr.value}\""
+  toString attr := s!"\"{escapeStringLiteral (String.fromUTF8! attr.value)}\""
 
 instance : ToString UnitAttr where
   toString _ := "unit"

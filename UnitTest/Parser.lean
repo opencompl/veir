@@ -220,10 +220,34 @@ section parseStringLiteral
 #eval testParser "\"unterminated string" parseStringLiteral
 
 /--
-  info: "Success: \\n"
+  info: "Success: \n"
 -/
 #guard_msgs in
 #eval testParser "\"\\n\"" parseStringLiteral
+
+/--
+  info: "Success: hello\tworld"
+-/
+#guard_msgs in
+#eval testParser "\"hello\\tworld\"" parseStringLiteral
+
+/--
+  info: "Success: say \"hi\""
+-/
+#guard_msgs in
+#eval testParser "\"say \\\"hi\\\"\"" parseStringLiteral
+
+/--
+  info: "Success: back\\slash"
+-/
+#guard_msgs in
+#eval testParser "\"back\\\\slash\"" parseStringLiteral
+
+/--
+  info: "Success: A"
+-/
+#guard_msgs in
+#eval testParser "\"\\41\"" parseStringLiteral
 
 /--
   info: "Success: (some (hello world!))"
