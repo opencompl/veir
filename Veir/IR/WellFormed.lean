@@ -590,7 +590,7 @@ theorem BlockPtr.OpChain.parent!_nextOp_eq
 structure RegionPtr.BlockChain (region : RegionPtr) (ctx : IRContext OpInfo) (array : Array BlockPtr) : Prop where
   inBounds : region.InBounds ctx
   arrayInBounds (h : bl ∈ array) : bl.InBounds ctx
-  opParent (h : bl ∈ array) : (bl.get! ctx).parent = some block
+  opParent (h : bl ∈ array) : (bl.get! ctx).parent = some region
   first : (region.get! ctx).firstBlock = array[0]?
   last : (region.get! ctx).lastBlock = array[array.size-1]?
   prevFirst (h : (region.get! ctx).firstBlock = some fbl) :
