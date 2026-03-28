@@ -22,9 +22,25 @@ def matchAddi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
   let (op, properties) ← matchOp op ctx .llvm_add 2
   return (op[0]!, op[1]!, properties)
 
+def matchSubi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_sub) := do
+  let (op, properties) ← matchOp op ctx .llvm_sub 2
+  return (op[0]!, op[1]!, properties)
+
 def matchMuli (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_mul) := do
   let (op, properties) ← matchOp op ctx .llvm_mul 2
   return (op[0]!, op[1]!, properties)
+
+def matchAndi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx .llvm_and 2
+  return (op[0]!, op[1]!)
+
+def matchOri (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_or) := do
+  let (op, properties) ← matchOp op ctx .llvm_or 2
+  return (op[0]!, op[1]!, properties)
+
+def matchXori (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx .llvm_xor 2
+  return (op[0]!, op[1]!)
 
 def matchConstantOp (op : OperationPtr) (ctx : IRContext OpCode) : Option IntegerAttr := do
   let .llvm_constant := op.getOpType! ctx | none
