@@ -341,7 +341,6 @@ theorem inBounds_before : (before op).InBounds ctx ↔ op.InBounds ctx := by rfl
 @[grind =]
 theorem inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
-@[grind]
 def prev! (ip : BlockInsertPoint) (ctx : IRContext OpInfo) : Option BlockPtr :=
   match ip with
   | before block => (block.get! ctx).prev
@@ -359,6 +358,18 @@ theorem prev!_eq_prev {ip : BlockInsertPoint} {ctx : IRContext OpInfo}
     ip.prev! ctx = ip.prev ctx hIn := by
   cases ip <;> grind [prev!, prev]
 
+@[simp, grind =]
+theorem prev!_before :
+    BlockInsertPoint.prev! (before blockPtr) ctx =
+    (blockPtr.get! ctx).prev := by
+  grind [prev!]
+
+@[simp, grind =]
+theorem prev!_atEnd :
+    BlockInsertPoint.prev! (atEnd regionPtr) ctx =
+    (regionPtr.get! ctx).lastBlock := by
+  grind [prev!]
+
 theorem prev!_inBounds {ip : BlockInsertPoint}
     {ctxInBounds : ctx.FieldsInBounds} :
     ip.InBounds ctx →
@@ -369,11 +380,18 @@ theorem prev!_inBounds {ip : BlockInsertPoint}
 grind_pattern prev!_inBounds =>
   ip.InBounds ctx, ip.prev! ctx, some blockPtr
 
-@[grind]
 def next (ip : BlockInsertPoint) : Option BlockPtr :=
   match ip with
   | before bl => bl
   | atEnd _ => none
+
+@[simp, grind =]
+theorem next_before :
+    BlockInsertPoint.next (before blockPtr) = some blockPtr := by rfl
+
+@[simp, grind =]
+theorem next_atEnd :
+    BlockInsertPoint.next (atEnd regionPtr) = none := by rfl
 
 theorem next_inBounds {ip : BlockInsertPoint} :
     ip.InBounds ctx →
@@ -401,6 +419,14 @@ theorem region!_eq_region (ip : BlockInsertPoint) (ctx : IRContext OpInfo)
     (hIn : ip.InBounds ctx) :
     ip.region! ctx = ip.region ctx hIn := by
   cases ip <;> grind [region!, region]
+
+@[simp, grind =]
+theorem region!_before :
+    BlockInsertPoint.region! (before blockPtr) ctx = (blockPtr.get! ctx).parent := by rfl
+
+@[simp, grind =]
+theorem region!_atEnd :
+    BlockInsertPoint.region! (atEnd regionPtr) ctx = some regionPtr := by rfl
 
 theorem region_InBounds {ip : BlockInsertPoint} {ctx : IRContext OpInfo}
     (ctxFieldsInBounds : ctx.FieldsInBounds) (hIn : ip.InBounds ctx) :
