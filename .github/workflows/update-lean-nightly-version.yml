@@ -1,7 +1,7 @@
 name: Update Lean Toolchain Version
 on:
   schedule:
-    - cron: '44 * * * *'
+    - cron: '44 14 * * *'
   workflow_dispatch:
 
 permissions: write-all
