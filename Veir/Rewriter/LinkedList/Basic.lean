@@ -220,23 +220,49 @@ theorem OperationPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
   unfold linkBetween; simp only; split <;> grind
 
 /--
+  Check if operation `self` is an ancestor of `block` by walking up parent pointers.
+  Returns `true` if setting `block` as parent of `self` would create a cycle.
+-/
+@[irreducible]
+def OperationPtr.containsBlock! (self : OperationPtr) (ctx : IRContext OpInfo) (block : BlockPtr)
+    (fuel : Nat := ctx.nextID) : Bool :=
+  match fuel with
+  | 0 => true
+  | n + 1 =>
+    match (block.get! ctx).parent with
+    | none => false
+    | some region =>
+      match (region.get! ctx).parent with
+      | none => false
+      | some parentOp =>
+        if parentOp == self then true
+        else
+          match (parentOp.get! ctx).parent with
+          | none => false
+          | some parentBlock => self.containsBlock! ctx parentBlock n
+
+/--
   Set `self` parent to be `parent`.
-  Checks that `self` does not already have a parent.
-  TODO: We should also check that `self` does not contain `parent`.
+  Checks that `self` does not already have a parent and that `self` does not contain `parent`
+  (which would create a cycle in the IR tree).
 -/
 @[irreducible]
 def OperationPtr.setParentWithCheck (self: OperationPtr) (ctx: IRContext OpInfo) (parent: BlockPtr)
     (selfIn: self.InBounds ctx := by grind) : Option (IRContext OpInfo) :=
-  match (self.get ctx (by grind)).parent with
-  | some _ => none
-  | none => self.setParent ctx (some parent)
+  if self.containsBlock! ctx parent then none
+  else
+    match (self.get ctx (by grind)).parent with
+    | some _ => none
+    | none => self.setParent ctx (some parent)
 
 @[irreducible]
 def OperationPtr.setParentWithCheck! (self : OperationPtr) (ctx : IRContext OpInfo) (parent : BlockPtr) :
     Option (IRContext OpInfo)  :=
-  match (self.get! ctx).parent with
-  | some _ => none
-  | none => self.setParent! ctx (some parent)
+  if self.containsBlock! ctx parent then none
+  else
+    match (self.get! ctx).parent with
+    | some _ => none
+    | none => self.setParent! ctx (some parent)
 
 @[grind _=_, eq_bang ←]
 theorem OperationPtr.setParentWithCheck!_eq_setParentWithCheck
@@ -382,23 +408,49 @@ theorem BlockPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
   unfold linkBetween; simp only; split <;> grind
 
 /--
+  Check if block `self` is an ancestor of `region` by walking up parent pointers.
+  Returns `true` if setting `region` as parent of `self` would create a cycle.
+-/
+@[irreducible]
+def BlockPtr.containsRegion! (self : BlockPtr) (ctx : IRContext OpInfo) (region : RegionPtr)
+    (fuel : Nat := ctx.nextID) : Bool :=
+  match fuel with
+  | 0 => true
+  | n + 1 =>
+    match (region.get! ctx).parent with
+    | none => false
+    | some parentOp =>
+      match (parentOp.get! ctx).parent with
+      | none => false
+      | some parentBlock =>
+        if parentBlock == self then true
+        else
+          match (parentBlock.get! ctx).parent with
+          | none => false
+          | some parentRegion => self.containsRegion! ctx parentRegion n
+
+/--
   Set `self` parent to be `parent`.
-  Checks that `self` does not already have a parent.
-  TODO: We should also check that `self` does not contain `parent`.
+  Checks that `self` does not already have a parent and that `self` does not contain `parent`
+  (which would create a cycle in the IR tree).
 -/
 @[irreducible]
 def BlockPtr.setParentWithCheck (self: BlockPtr) (ctx: IRContext OpInfo) (parent: RegionPtr)
     (selfIn: self.InBounds ctx := by grind) : Option (IRContext OpInfo) :=
-  match (self.get ctx (by grind)).parent with
-  | some _ => none
-  | none => self.setParent ctx (some parent)
+  if self.containsRegion! ctx parent then none
+  else
+    match (self.get ctx (by grind)).parent with
+    | some _ => none
+    | none => self.setParent ctx (some parent)
 
 @[irreducible]
 def BlockPtr.setParentWithCheck! (self : BlockPtr) (ctx : IRContext OpInfo) (parent : RegionPtr) :
     Option (IRContext OpInfo) :=
-  match (self.get! ctx).parent with
-  | some _ => none
-  | none => self.setParent! ctx (some parent)
+  if self.containsRegion! ctx parent then none
+  else
+    match (self.get! ctx).parent with
+    | some _ => none
+    | none => self.setParent! ctx (some parent)
 
 @[grind _=_, eq_bang ←]
 theorem BlockPtr.setParentWithCheck!_eq_setParentWithCheck
