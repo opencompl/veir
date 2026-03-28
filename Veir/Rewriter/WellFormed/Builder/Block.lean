@@ -1,13 +1,14 @@
 import Veir.IR.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.GetSetInBounds
+import Veir.Rewriter.WellFormed.Rewriter.Block
 
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 
-theorem allocEmpty_wellFormed (hctx : ctx.WellFormed)
+theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
     (heq : BlockPtr.allocEmpty ctx = some (newCtx, bl)) :
     newCtx.WellFormed := by
   constructor
@@ -53,3 +54,14 @@ theorem allocEmpty_wellFormed (hctx : ctx.WellFormed)
     intro region regionInBounds
     have := hctx.regions region (by grind)
     apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem Rewriter.createBlock_WellFormed (ctxWf : ctx.WellFormed) :
+    Rewriter.createBlock ctx ip hctx hip = some (newCtx, newBlock) →
+    newCtx.WellFormed := by
+  simp only [Rewriter.createBlock]
+  split; grind; rename_i ctx₁ newBlock hctx₁
+  have : ctx₁.WellFormed := by grind [BlockPtr.allocEmpty_wellFormed]
+  split
+  · simp only [Option.bind_eq_bind, Option.bind]
+    grind [Rewriter.insertBlock?_WellFormed]
+  · grind
