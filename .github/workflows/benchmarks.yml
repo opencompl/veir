@@ -17,6 +17,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ensure gh-pages branch exists
+        run: |
+          if ! git ls-remote --exit-code origin gh-pages > /dev/null 2>&1; then
+            echo "Creating gh-pages branch"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git switch --orphan gh-pages
+            git commit --allow-empty -m "Initialize gh-pages for benchmark data"
+            git push origin gh-pages
+            git checkout "$GITHUB_SHA"
+          fi
+
       - name: Build the project
         uses: leanprover/lean-action@v1
         with:
@@ -27,8 +39,7 @@ jobs:
           chmod +x .github/scripts/run_benchmarks.sh
           .github/scripts/run_benchmarks.sh 1000 100
 
-      - name: Store benchmark result (main branch)
-        if: github.ref == 'refs/heads/main'
+      - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: VeIR Benchmarks
@@ -36,25 +47,12 @@ jobs:
           output-file-path: benchmark-results.json
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
-          auto-push: true
+          auto-push: ${{ github.ref == 'refs/heads/main' }}
           alert-threshold: "110%"
           comment-on-alert: true
-          fail-on-alert: false
-
-      - name: Compare benchmark result (PRs)
-        if: github.event_name == 'pull_request'
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: VeIR Benchmarks
-          tool: customSmallerIsBetter
-          output-file-path: benchmark-results.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench
-          auto-push: false
-          alert-threshold: "110%"
-          comment-on-alert: true
-          fail-on-alert: true
-          comment-always: true
+          fail-on-alert: ${{ github.event_name == 'pull_request' }}
+          comment-always: ${{ github.event_name == 'pull_request' }}
+          save-data-file: ${{ github.ref == 'refs/heads/main' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload benchmark results artifact
