@@ -219,58 +219,58 @@ def parsePrefixedKeyword (prefixKind : TokenKind)
 
 /--
   Process escape sequences in a string literal byte array.
-  Supported escapes: `\\`, `\"`, `\n`, `\t`, and `\xHH` (hex byte).
+  Supported escapes: `\\`, `\"`, `\n`, `\t`, and `\HH` (hex byte).
 -/
 private def processEscapes (input : ByteArray) : Except String ByteArray := do
   let mut result : ByteArray := .empty
   let mut i := 0
   while h : i < input.size do
     let c := input[i]
-    if c == '\\'.toUInt8 then
-      if i + 1 >= input.size then
-        .error "unexpected end of string after '\\'"
-      else
-        let next := input.getD (i + 1) 0
-        if next == '\\'.toUInt8 then
-          result := result.push '\\'.toUInt8
-          i := i + 2
-        else if next == '"'.toUInt8 then
-          result := result.push '"'.toUInt8
-          i := i + 2
-        else if next == 'n'.toUInt8 then
-          result := result.push '\n'.toUInt8
-          i := i + 2
-        else if next == 't'.toUInt8 then
-          result := result.push '\t'.toUInt8
-          i := i + 2
-        else
-          -- Try \xHH hex escape
-          if i + 2 >= input.size then
-            .error "unknown escape in string literal"
-          else
-            let hex1 := input.getD (i + 1) 0
-            let hex2 := input.getD (i + 2) 0
-            if hex1.isHexDigit && hex2.isHexDigit then
-              let high := if hex1 >= 'a'.toUInt8 then hex1 - 'a'.toUInt8 + 10
-                else if hex1 >= 'A'.toUInt8 then hex1 - 'A'.toUInt8 + 10
-                else hex1 - '0'.toUInt8
-              let low := if hex2 >= 'a'.toUInt8 then hex2 - 'a'.toUInt8 + 10
-                else if hex2 >= 'A'.toUInt8 then hex2 - 'A'.toUInt8 + 10
-                else hex2 - '0'.toUInt8
-              result := result.push (high * 16 + low)
-              i := i + 3
-            else
-              .error "unknown escape in string literal"
-    else
+    if c != '\\'.toUInt8 then
       result := result.push c
       i := i + 1
+      continue
+    if i + 1 >= input.size then
+      throw "unexpected end of string after '\\'"
+    let next := input.getD (i + 1) 0
+    if next == '\\'.toUInt8 then
+      result := result.push '\\'.toUInt8
+      i := i + 2
+      continue
+    if next == '"'.toUInt8 then
+      result := result.push '"'.toUInt8
+      i := i + 2
+      continue
+    if next == 'n'.toUInt8 then
+      result := result.push '\n'.toUInt8
+      i := i + 2
+      continue
+    if next == 't'.toUInt8 then
+      result := result.push '\t'.toUInt8
+      i := i + 2
+      continue
+    -- Try \HH hex escape
+    if i + 2 >= input.size then
+      throw "unknown escape in string literal"
+    let hex1 := input.getD (i + 1) 0
+    let hex2 := input.getD (i + 2) 0
+    if !(hex1.isHexDigit && hex2.isHexDigit) then
+      throw "unknown escape in string literal"
+    let high := if hex1 >= 'a'.toUInt8 then hex1 - 'a'.toUInt8 + 10
+      else if hex1 >= 'A'.toUInt8 then hex1 - 'A'.toUInt8 + 10
+      else hex1 - '0'.toUInt8
+    let low := if hex2 >= 'a'.toUInt8 then hex2 - 'a'.toUInt8 + 10
+      else if hex2 >= 'A'.toUInt8 then hex2 - 'A'.toUInt8 + 10
+      else hex2 - '0'.toUInt8
+    result := result.push (high * 16 + low)
+    i := i + 3
   return result
 
 /--
   Parse optionally a string literal.
   If the next token is a string literal, consume it and return its string value.
   Otherwise, return none.
-  Handles escape sequences: `\\`, `\"`, `\n`, `\t`, and `\xHH`.
+  Handles escape sequences: `\\`, `\"`, `\n`, `\t`, and `\HH`.
 -/
 def parseOptionalStringLiteral : M (Option String) := do
   match ← parseOptionalToken .stringLit with
