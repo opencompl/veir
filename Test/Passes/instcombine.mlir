@@ -61,8 +61,11 @@
 
     // CHECK-NEXT: %[[ONE:.*]] = "llvm.constant"() <{"value" = 1 : i32}> : () -> i32
     // CHECK-NEXT: %[[Y:.*]] = "test.test"() : () -> i32
+    // sub x - x => 0
     // CHECK-NEXT: %[[ZERO1:.*]] = "llvm.constant"() <{"value" = 0 : i32}> : () -> i32
+    // and x & 0 => 0
     // CHECK-NEXT: %[[ZERO2:.*]] = "llvm.constant"() <{"value" = 0 : i32}> : () -> i32
+    // xor x ^ x => 0
     // CHECK-NEXT: %[[ZERO3:.*]] = "llvm.constant"() <{"value" = 0 : i32}> : () -> i32
 
     "test.test"(%mul_one, %add_zero, %sub_zero, %sub_self, %and_self, %and_zero, %or_zero, %or_self, %xor_zero, %xor_self) : (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) -> ()
