@@ -250,6 +250,30 @@ section parseStringLiteral
 #eval testParser "\"\\41\"" parseStringLiteral
 
 /--
+  info: "Success: a"
+-/
+#guard_msgs in
+#eval testParser "\"\\61\"" parseStringLiteral
+
+/--
+  info: "Success: *"
+-/
+#guard_msgs in
+#eval testParser "\"\\2a\"" parseStringLiteral
+
+/--
+  info: "Success: *"
+-/
+#guard_msgs in
+#eval testParser "\"\\2A\"" parseStringLiteral
+
+/--
+  info: "Success: O"
+-/
+#guard_msgs in
+#eval testParser "\"\\4f\"" parseStringLiteral
+
+/--
   info: "Success: (some (hello world!))"
 -/
 #guard_msgs in
