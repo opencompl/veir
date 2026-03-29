@@ -274,6 +274,39 @@ section parseStringLiteral
 #eval testParser "\"\\4f\"" parseStringLiteral
 
 /--
+  info: "Success: O"
+-/
+#guard_msgs in
+#eval testParser "\"\\4F\"" parseStringLiteral
+
+-- \c3\a9 is the two-byte UTF-8 encoding of é (U+00E9).
+-- We use this to test case variations on the first hex digit,
+-- since single-byte values with a letter first digit (>= 0xA0) aren't valid UTF-8 alone.
+/--
+  info: "Success: é"
+-/
+#guard_msgs in
+#eval testParser "\"\\c3\\a9\"" parseStringLiteral
+
+/--
+  info: "Success: é"
+-/
+#guard_msgs in
+#eval testParser "\"\\C3\\A9\"" parseStringLiteral
+
+/--
+  info: "Success: é"
+-/
+#guard_msgs in
+#eval testParser "\"\\c3\\A9\"" parseStringLiteral
+
+/--
+  info: "Success: é"
+-/
+#guard_msgs in
+#eval testParser "\"\\C3\\a9\"" parseStringLiteral
+
+/--
   info: "Success: (some (hello world!))"
 -/
 #guard_msgs in
