@@ -253,8 +253,7 @@ theorem Operation.wellFormed_OperationPtr_dealloc
   · grind [IRContext.WellFormed, Operation.WellFormed]
   · grind [IRContext.WellFormed, Operation.WellFormed]
   · grind [IRContext.WellFormed, Operation.WellFormed]
-  · simp (disch := grind) only [OperationPtr.getRegion!_OperationPtr_dealloc]
-    grind [IRContext.WellFormed, Operation.WellFormed]
+  · grind [Operation.WellFormed.region_parent_congr, IRContext.WellFormed, Operation.WellFormed]
   · grind [IRContext.WellFormed, Operation.WellFormed]
 
 theorem Block.wellFormed_OperationPtr_dealloc

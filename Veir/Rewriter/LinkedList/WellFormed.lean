@@ -754,9 +754,7 @@ theorem Operation.wellFormed_OperationPtr_linkBetweenWithParent
   intro wf
   constructor
   case region_parent =>
-    -- TODO: why does grind does not work here and require this simp?
-    simp only [OperationPtr.getRegion!_OperationPtr_linkBetweenWithParent hctx]
-    grind [IRContext.WellFormed, Operation.WellFormed]
+    grind [Operation.WellFormed.region_parent_congr, IRContext.WellFormed, Operation.WellFormed]
   all_goals grind [Option.maybe₁_def, IRContext.WellFormed, Operation.WellFormed]
 
 theorem Block.wellFormed_OperationPtr_linkBetweenWithParent

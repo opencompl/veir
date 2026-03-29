@@ -121,8 +121,7 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellForm
     have ⟨ha, hb, hc, hd, he, hf, hg, hh⟩ := h₆ op' this
     constructor
     case region_parent =>
-      -- TODO: why does grind does not work here and require this simp?
-      simp; grind
+      grind [Operation.WellFormed.region_parent_congr]
     case opChain_of_parent_none =>
       cases hParent: (op.get! ctx).parent
         <;> grind [BlockPtr.OpChain_next_ne, BlockPtr.OpChain_prev_ne]

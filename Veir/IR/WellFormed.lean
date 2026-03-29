@@ -1291,5 +1291,24 @@ theorem OperationPtr.idxInParentFromTail_next_lt_idxInParentFromTail
 grind_pattern OperationPtr.idxInParentFromTail_next_eq =>
   nextOp.idxInParentFromTail ctx hnextOp hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
 
+/--
+  Helper lemma to transfer `region_parent` across context changes without
+  needing to rewrite under binders.
+  `grind` cannot apply equational lemmas (like `getRegion!` get/set lemmas)
+  under binders such as `∃ i, ...`, so this lemma lifts the reasoning
+  above the binder.
+-/
+@[grind =>]
+theorem Operation.WellFormed.region_parent_congr
+    {opPtr : OperationPtr} {ctx ctx' : IRContext OpInfo}
+    (h_getRegion : opPtr.getRegion! ctx' = opPtr.getRegion! ctx)
+    (h_numRegions : opPtr.getNumRegions! ctx' = opPtr.getNumRegions! ctx)
+    (h_parent : (region.get! ctx').parent = (region.get! ctx).parent)
+    (_h_inBounds : region.InBounds ctx)
+    (h_wf : (∃ i, i < opPtr.getNumRegions! ctx ∧ opPtr.getRegion! ctx i = region) ↔
+             (region.get! ctx).parent = some opPtr) :
+    (∃ i, i < opPtr.getNumRegions! ctx' ∧ opPtr.getRegion! ctx' i = region) ↔
+    (region.get! ctx').parent = some opPtr := by
+  simp only [h_getRegion, h_numRegions, h_parent, h_wf]
 
 end Veir
