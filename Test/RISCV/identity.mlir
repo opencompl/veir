@@ -184,6 +184,6 @@
 // CHECK-NEXT:     %{{.*}} = "riscv.pack"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.packh"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
 // CHECK-NEXT:     %{{.*}} = "riscv.packw"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
-// CHECK-NEXT:     %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}, %{{.*}}) : (i64) -> !reg
-// CHECK-NEXT:     %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}, %{{.*}}) : (!reg) -> i64
+// CHECK-NEXT:     %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
+// CHECK-NEXT:     %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!reg) -> i64
 // CHECK-NEXT: }) : () -> ()
