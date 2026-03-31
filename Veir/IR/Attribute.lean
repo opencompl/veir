@@ -451,7 +451,6 @@ instance : Coe ModArithType Attribute where
 
 /-!
   ## TypeAttr definition
-_
   `TypeAttr` is defined as a subtype of `Attribute` that carries the additional invariant
   that the attribute is a valid type annotation (i.e., `isType` is true).
 -/
