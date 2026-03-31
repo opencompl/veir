@@ -607,7 +607,6 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     | _ , _ => none
   | _ => none
 
-
 /--
   Interpret a single operation given the current interpreter state.
   Return an updated interpreter state and a control flow action indicating how
