@@ -39,6 +39,22 @@ instance : ToString (RuntimeValue) where
     | .int _ val => ToString.toString val
     | .reg val => ToString.toString val
 
+
+/--
+  Cast `LLVM.Int` to `RISCV.Reg`.
+-/
+def LLVM.Int.toReg (i : LLVM.Int w) : RISCV.Reg :=
+  match i with
+  | .poison => .mk 0#64
+  | .val bv => .mk (bv.zeroExtend 64)
+
+/--
+  Cast `RISCV.Reg` to `LLVM.Int`.
+-/
+def RISCV.Reg.toInt (r : RISCV.Reg) (w : Nat) : LLVM.Int w :=
+  LLVM.Int.val (BitVec.zeroExtend w r.val)
+
+
 /--
   The state of the interpreter at a given point in time.
   It includes a mapping from IR values to their runtime values.
@@ -583,12 +599,14 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .builtin_unrealized_conversion_cast => do
     let resType ← resultTypes[0]?
     match resType.val, operands.toList with
-    | .registerType _, [.int 64 op] =>
-      return (#[.reg (.val op.val.toUInt64)], .continue)
-    | .integerType _, [.reg op] =>
-      return (#[.int 64 (.val op.toUInt64.toBitVec)], .continue)
+    | .registerType _, [.int bw val] =>
+      return (#[.reg (LLVM.Int.toReg val )], .continue)
+    | .integerType bw, [.reg val] =>
+      let .integerType resBw := resType.val | none
+      return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], .continue)
     | _ , _ => none
   | _ => none
+
 
 /--
   Interpret a single operation given the current interpreter state.
