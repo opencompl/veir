@@ -108,7 +108,7 @@ macro "#assert " e:term : command =>
 
 #assert expectSuccessAttr "\"hello\"" (StringAttr.mk "hello".toByteArray)
 #assert expectSuccessAttr "\"\"" (StringAttr.mk "".toByteArray)
-#assert expectSuccessAttr "\"\\\"\"" (StringAttr.mk "\\\"".toByteArray)
+#assert expectSuccessAttr "\"\\\"\"" (StringAttr.mk "\"".toByteArray)
 #assert expectSuccessAttr "\"hello world\"" (StringAttr.mk "hello world".toByteArray)
 #assert expectMissingAttr "hello"  -- bare identifier, not a string attribute
 
