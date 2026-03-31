@@ -49,12 +49,39 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   | _ => return none
 
 /--
+  Parse an optional register type, which is fundamentally a wrapper for `i64`.
+  A register type is represented as `!reg`.
+-/
+def parseOptionalRegisterType : AttrParserM (Option IntegerType) := do
+  match ← peekToken with
+  | { kind := .exclamationIdent, slice := slice } =>
+    if slice.size ≠ 4 then
+      return none
+    let typeSlice : Slice := {start := slice.start + 1, stop := slice.stop}
+    let identifier := typeSlice.of (← (getThe ParserState)).input
+    let some type := (String.fromUTF8? identifier) | return none
+    if type == "reg" then
+      let _ ← consumeToken
+      return some (IntegerType.mk 64)
+    return none
+  | _ => return none
+
+/--
   Parse an integer type, throwing an error if it is not present.
   An integer type is represented as `i` followed by a positive integer indicating
   its width, e.g., `i32`.
 -/
 def parseIntegerType (errorMsg : String := "integer type expected") : AttrParserM IntegerType := do
   match ← parseOptionalIntegerType with
+  | some integerType => return integerType
+  | none => throw errorMsg
+
+/--
+  Parse a register type, throwing an error if it is not present.
+  An integer type is represented as `!reg`
+-/
+def parseRegisterType (errorMsg : String := "register type expected") : AttrParserM IntegerType := do
+  match ← parseOptionalRegisterType with
   | some integerType => return integerType
   | none => throw errorMsg
 
@@ -255,6 +282,8 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
 -/
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
+    return some integerType
+  if let some integerType ← parseOptionalRegisterType then
     return some integerType
   if let some modArithType ← parseOptionalModArithType then
     return some modArithType
