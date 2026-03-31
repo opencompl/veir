@@ -16,6 +16,16 @@ namespace Veir
 def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCode) (opIn : op.InBounds ctx) : Except String PUnit :=
   match op.getOpType ctx opIn with
   | .builtin_unregistered => pure ()
+  | .builtin_unrealized_conversion_cast => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
   /- ARITH -/
   | .arith_addi => do
     if op.getNumOperands ctx opIn ≠ 2 then

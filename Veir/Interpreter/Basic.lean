@@ -580,6 +580,14 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .riscv_packw => do
     let #[.reg op1, .reg op2] := operands | none
     return (#[.reg (RISCV.packw op2 op1)], .continue)
+  | .builtin_unrealized_conversion_cast => do
+    let resType ← resultTypes[0]?
+    match resType.val, operands.toList with
+    | .registerType _, [.int 64 op] =>
+      return (#[.reg (.val op.val.toUInt64)], .continue)
+    | .integerType _, [.reg op] =>
+      return (#[.int 64 (.val op.toUInt64.toBitVec)], .continue)
+    | _ , _ => none
   | _ => none
 
 /--
