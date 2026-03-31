@@ -49,10 +49,6 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 structure RegisterType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-
-def RegisterType.toIntegerType (_ : RegisterType) : IntegerType :=
-  IntegerType.mk 64
-
 /--
   An integer literal with an associated integer type.
 -/
