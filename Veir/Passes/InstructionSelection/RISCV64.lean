@@ -22,7 +22,7 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] {value := const} (some $ .before op) (by simp) (by simp) (by simp) sorry
   let type := ((op.getResult 0).get! rewriter.ctx).type
   let .integerType type' := type.val | rewriter
-  -- if type'.bitwidth ≠ 64 then return rewriter
+  if type'.bitwidth ≠ 64 then return rewriter
   let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[newOp.getResult 0]
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op newOp sorry sorry sorry
