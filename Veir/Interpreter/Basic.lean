@@ -5,6 +5,7 @@ import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.RISCV.Reg.Basic
+import Veir.Data.Casting
 import Veir.Properties
 
 open Veir.Data
@@ -38,22 +39,6 @@ instance : ToString (RuntimeValue) where
   toString
     | .int _ val => ToString.toString val
     | .reg val => ToString.toString val
-
-
-/--
-  Cast `LLVM.Int` to `RISCV.Reg`.
--/
-def LLVM.Int.toReg (i : LLVM.Int w) : RISCV.Reg :=
-  match i with
-  | .poison => .mk 0#64
-  | .val bv => .mk (bv.zeroExtend 64)
-
-/--
-  Cast `RISCV.Reg` to `LLVM.Int`.
--/
-def RISCV.Reg.toInt (r : RISCV.Reg) (w : Nat) : LLVM.Int w :=
-  LLVM.Int.val (BitVec.zeroExtend w r.val)
-
 
 /--
   The state of the interpreter at a given point in time.
