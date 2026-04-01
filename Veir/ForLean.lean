@@ -5,6 +5,14 @@ public import Std.Data.HashMap
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
 
+@[inline]
+def ByteArray.eq (x y : ByteArray) : Bool := Id.run do
+  if h : x.size = y.size then go 0 h else false
+where
+  @[inline]
+  go n (h : x.size = y.size) :=
+    if _ : n < x.size then x[n] = y[n] && go (n+1) h else true
+
 /--
   We compare `ByteArray`s by with lexicographic ordering.
 -/

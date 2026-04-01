@@ -48,6 +48,7 @@ abbrev AttrParserM := StateT AttrParserState (EStateM String ParserState)
   Execute the action with the given initial state.
   Returns the result along with the final state, or an error message.
 -/
+@[inline]
 def AttrParserM.run (self : AttrParserM α)
   (attrState : AttrParserState) (parserState: ParserState) : Except String (α × AttrParserState × ParserState) :=
   match (StateT.run self attrState).run parserState with
@@ -58,6 +59,7 @@ def AttrParserM.run (self : AttrParserM α)
   Execute the action with the given initial state.
   Returns the result or an error message.
 -/
+@[inline]
 def AttrParserM.run' (self : AttrParserM α)
   (attrState : AttrParserState) (parserState: ParserState) : Except String α :=
   match self.run attrState parserState with

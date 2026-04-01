@@ -48,7 +48,7 @@ meta def emitFromName (ds : Array Dialect) : TermElabM Command := do
   for d in ds do
     for op in d.operations do
       if d.name = "builtin" ∧ op = "unregistered" then continue
-      res ← `(if name = $(Syntax.mkStrLit (d.mkOpName op)).toByteArray then $(mkIdent (d.mkQualifiedOpCode op)) else $res)
+      res ← `(if name.eq $(Syntax.mkStrLit (d.mkOpName op)).toByteArray then $(mkIdent (d.mkQualifiedOpCode op)) else $res)
   `(def $(mkIdent `OpCode.fromName) (name : $(mkIdent ``ByteArray)) : $(mkIdent `OpCode) := $res)
 
 meta def emitName (ds : Array Dialect) : TermElabM Command := do

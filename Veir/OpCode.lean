@@ -10,6 +10,7 @@ to an operation definition.
 
 import Std.Data.HashMap
 import Veir.Meta.OpCode
+import Veir.ForLean
 
 open Std
 
