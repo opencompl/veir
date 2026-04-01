@@ -6,6 +6,40 @@ open Veir.Parser
 
 namespace Veir.AttrParser
 
+private def bytePosToLineCol (input : ByteArray) (pos : Nat) : Nat × Nat := Id.run do
+  let mut line := 1
+  let mut col := 1
+  let endPos := Nat.min pos input.size
+  let mut i := 0
+  while i < endPos do
+    if input.getD i 0 = '\n'.toUInt8 then
+      line := line + 1
+      col := 1
+    else
+      col := col + 1
+    i := i + 1
+  (line, col)
+
+private def lineBoundsAt (input : ByteArray) (pos : Nat) : Nat × Nat := Id.run do
+  let p := Nat.min pos input.size
+  let mut start := p
+  while start > 0 && input.getD (start - 1) 0 != '\n'.toUInt8 do
+    start := start - 1
+  let mut stop := p
+  while stop < input.size && input.getD stop 0 != '\n'.toUInt8 do
+    stop := stop + 1
+  (start, stop)
+
+private def parserFailureContext (state : ParserState) : String := Id.run do
+  let tok := state.currentToken
+  let pos := tok.slice.start
+  let (line, col) := bytePosToLineCol state.input pos
+  let tokText := (String.fromUTF8? (tok.slice.of state.input)).getD "<non-utf8>"
+  let (lineStart, lineStop) := lineBoundsAt state.input pos
+  let lineText := (String.fromUTF8? (({ start := lineStart, stop := lineStop } : Lexer.Slice).of state.input)).getD "<non-utf8 line>"
+  let caret := String.ofList (List.replicate (Nat.max (col - 1) 0) ' ') ++ "^"
+  s!"at line {line}, column {col} (byte {pos}) near token {tok.kind} '{tokText}'\n{lineText}\n{caret}"
+
 structure AttrParserState
 
 abbrev AttrParserM := StateT AttrParserState (EStateM String ParserState)
@@ -64,11 +98,13 @@ def parseIntegerType (errorMsg : String := "integer type expected") : AttrParser
   literal and `type` is an integer type.
 -/
 def parseOptionalIntegerAttr : AttrParserM (Option IntegerAttr) := do
-  let some value ← parseOptionalInteger false true
+  let some value ← parseOptionalInteger true true
     | return none
-  parsePunctuation ":"
-  let integerType ← parseIntegerType "integer type expected after ':' in integer attribute"
-  return some (IntegerAttr.mk value integerType)
+  if ← parseOptionalPunctuation ":" then
+    let integerType ← parseIntegerType "integer type expected after ':' in integer attribute"
+    return some (IntegerAttr.mk value integerType)
+  else
+    return some (IntegerAttr.mk value (IntegerType.mk 1))
 
 /--
   Parse a string attribute, if present.
@@ -175,9 +211,12 @@ private def parseUnregisteredAttrBody (startPos : Option Nat := none) : AttrPars
 -/
 partial def parseOptionalDialectType : AttrParserM (Option TypeAttr) := do
   let startPos ← getPos
+  let endPos := (← peekToken).slice.stop
   let dialectName ← parseOptionalPrefixedKeyword .exclamationIdent
   let some dialectName := dialectName | return none
-  parsePunctuation "<"
+  if !(← parseOptionalPunctuation "<") then
+    let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return some (⟨UnregisteredAttr.mk (String.fromUTF8! value) true, by grind⟩)
   let _ ← parseUnregisteredAttrBody
   let endPos := (← peekToken).slice.stop
   parsePunctuation ">"
@@ -192,10 +231,40 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   let startPos ← getPos
   let dialectName ← parseOptionalPrefixedKeyword .hashIdent
   let some dialectName := dialectName | return none
-  parsePunctuation "<"
+  parsePunctuation "<" "bla"
   let _ ← parseUnregisteredAttrBody
   let endPos := (← peekToken).slice.stop
   parsePunctuation ">"
+  let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
+  return some (UnregisteredAttr.mk (String.fromUTF8! value) false)
+
+def parseOptionalUnregisteredBuiltinTypeName : AttrParserM (Option String) := do
+  if let true := ← parseOptionalKeyword "tensor".toByteArray then
+    return some "tensor"
+  if let true := ← parseOptionalKeyword "vector".toByteArray then
+    return some "vector"
+  if let true := ← parseOptionalKeyword "f64".toByteArray then
+    return some "f64"
+  if let true := ← parseOptionalKeyword "f32".toByteArray then
+    return some "f32"
+  return none
+
+def parseOptionalUnregisteredBuiltinType : AttrParserM (Option TypeAttr) := do
+  let startPos ← getPos
+  let some typeName := ← parseOptionalUnregisteredBuiltinTypeName | return none
+  if !(← parseOptionalPunctuation "<") then
+    let value := (Slice.mk startPos startPos).of (← getThe ParserState).input
+    return some (⟨UnregisteredAttr.mk (String.fromUTF8! value) true, by grind⟩)
+  let _ ← parseUnregisteredAttrBody (some startPos)
+  let endPos := (← peekToken).slice.stop
+  parsePunctuation ">" "blo"
+  let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
+  return some (⟨UnregisteredAttr.mk (String.fromUTF8! value) true, by grind⟩)
+
+def parseOptionalSymbol : AttrParserM (Option Attribute) := do
+  let startPos ← getPos
+  let endPos := (← peekToken).slice.stop
+  let some name ← parseOptionalPrefixedKeyword .atIdent | return none
   let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
   return some (UnregisteredAttr.mk (String.fromUTF8! value) false)
 
@@ -254,6 +323,7 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
   Parse a type, if present.
 -/
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
+  let oldState := (← getThe ParserState)
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
   if let some modArithType ← parseOptionalModArithType then
@@ -262,7 +332,10 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then
     return some functionType
+  else if let some unregisteredBuiltinType ← parseOptionalUnregisteredBuiltinType then
+    return some unregisteredBuiltinType
   else
+    --dbg_trace "no typed parsed: {parserFailureContext oldState}"
     return none
 
 /--
@@ -319,6 +392,27 @@ partial def parseOptionalDictionaryAttr : AttrParserM (Option DictionaryAttr) :=
     | return none
   return some (DictionaryAttr.fromArray entries)
 
+partial def parseOptionalUnregisteredBuiltinAttrName : AttrParserM (Option String) := do
+  if let true := ← parseOptionalKeyword "dense".toByteArray then
+    return some "dense"
+  if let true := ← parseOptionalKeyword "array".toByteArray then
+    return some "array"
+  return none
+
+partial def parseOptionalUnregisteredBuiltinAttr : AttrParserM (Option Attribute) := do
+  let startPos ← getPos
+  let some attrName := ← parseOptionalUnregisteredBuiltinAttrName | return none
+  if !(← parseOptionalPunctuation "<") then
+    let value := (Slice.mk startPos startPos).of (← getThe ParserState).input
+    return some (UnregisteredAttr.mk (String.fromUTF8! value) true)
+  let _ ← parseUnregisteredAttrBody (some startPos)
+  let endPos := (← peekToken).slice.stop
+  parsePunctuation ">" "blo"
+  if ← parseOptionalPunctuation ":" then
+    let _ ← parseType "type expected after ':' in unregistered builtin attribute"
+  let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
+  return some (UnregisteredAttr.mk (String.fromUTF8! value) false)
+
 /--
   Parse an attribute, if present.
 -/
@@ -337,6 +431,10 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some arrayAttr
   else if let some dictAttr ← parseOptionalDictionaryAttr then
     return some dictAttr
+  else if let some symbolAttr ← parseOptionalSymbol then
+    return some symbolAttr
+  else if let some unregisteredBuiltinAttr ← parseOptionalUnregisteredBuiltinAttr then
+    return some unregisteredBuiltinAttr
   else
     return none
 
@@ -345,9 +443,13 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
 -/
 partial def parseAttribute (errorMsg : String := "attribute expected") :
     AttrParserM Attribute := do
+  let oldState := (← getThe ParserState)
   match ← parseOptionalAttribute with
-  | some attr => return attr
-  | none => throw errorMsg
+  | some attr =>
+    return attr
+  | none =>
+    dbg_trace "no attribute parsed: {parserFailureContext oldState}"
+    throw errorMsg
 
 end
 

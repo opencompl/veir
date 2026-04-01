@@ -280,7 +280,7 @@ def parseOptionalStringLiteral : M (Option String) := do
     let processed ← ofExcept (processEscapes raw)
     match String.fromUTF8? processed with
     | some str => return some str
-    | none => throw "internal error: failed converting string literal"
+    | none => return some "<<<INVALID>>>"--throw "internal error: failed converting string literal"
   | none => return none
 
 /--
