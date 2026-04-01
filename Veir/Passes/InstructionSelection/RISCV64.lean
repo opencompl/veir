@@ -18,8 +18,9 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let some const := matchConstantOp op rewriter.ctx
       | return rewriter
   if const.type.bitwidth ≠ 64 then return rewriter
-  let ret := ((op.getResult 0).get! rewriter.ctx).type
-  let .integerType type := ret.val | rewriter
+  let type := ((op.getResult 0).get! rewriter.ctx).type
+  let .integerType type' := type.val | rewriter
+  if type'.bitwidth ≠ 64 then return rewriter
   let (rewriter, newOp) ← rewriter.createOp .riscv_li #[type] #[]
       #[] #[] {value := const} (some $ .before op) (by simp) (by simp) (by simp) sorry
   rewriter.replaceOp op newOp sorry sorry sorry
