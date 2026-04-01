@@ -96,8 +96,8 @@
 
 // CHECK: "builtin.module"() ({
 // CHECK-NEXT:   ^4():
-// CHECK-NEXT:     %{{.*}} = "riscv.li"() <{"value" = 13 : !reg}> : () -> !reg
-// CHECK-NEXT:     %{{.*}} = "riscv.li"() <{"value" = 17 : !reg}> : () -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.li"() <{"value" = 13 : i64}> : () -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.li"() <{"value" = 17 : i64}> : () -> !reg
 // CHECK-NEXT:     %{{.*}} = "riscv.lui"() <{"value" = 13 : i20}> : () -> !reg
 // CHECK-NEXT:     %{{.*}} = "riscv.auipc"(%{{.*}}) <{"value" = 13 : i20}> : (!reg) -> !reg
 // CHECK-NEXT:     %{{.*}} = "riscv.addi"(%{{.*}}) <{"value" = 5 : i12}> : (!reg) -> !reg
