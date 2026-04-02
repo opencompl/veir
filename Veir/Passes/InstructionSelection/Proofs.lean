@@ -6,6 +6,5 @@ import Veir.Data.Casting
 open Veir
 
 /-- constant in the non-poison case -/
-theorem constant_val :
-    (Data.LLVM.Int.val v) = RISCV.Reg.toInt (Data.RISCV.li v) 64 := by
-  rfl
+theorem constant_val (v : Int) :
+    (Data.LLVM.Int.val v) = RISCV.Reg.toInt (Data.RISCV.li v) 64 := by rfl
