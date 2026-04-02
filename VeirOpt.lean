@@ -8,6 +8,7 @@ import Veir.Pass
 import Veir.Passes.PrintIR
 import Veir.Passes.InstCombine
 import Veir.Passes.InstructionSelection.RISCV64
+import Veir.Passes.DCE.dce
 
 open Veir.Parser
 open Veir
@@ -20,6 +21,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert PrintIRPass.name PrintIRPass
     |>.insert InstCombinePass.name InstCombinePass
     |>.insert IselRISCV64.name IselRISCV64
+    |>.insert DCEPass.name DCEPass
 
 /--
   Arguments for the `veir-opt` command-line tool, parsed from the CLI.
