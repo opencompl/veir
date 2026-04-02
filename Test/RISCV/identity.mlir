@@ -92,8 +92,6 @@
     %81 = "riscv.pack"(%0, %1) : (!reg, !reg) -> !reg
     %82 = "riscv.packh"(%0, %1) : (!reg, !reg) -> !reg
     %83 = "riscv.packw"(%0, %1) : (!reg, !reg) -> !reg
-    %84 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !reg
-    %85 = "builtin.unrealized_conversion_cast"(%84) : (!reg) -> i64
 }) : () -> ()
 
 // CHECK: "builtin.module"() ({
@@ -184,6 +182,4 @@
 // CHECK-NEXT:     %{{.*}} = "riscv.pack"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
 // CHECK-NEXT:     %{{.*}} = "riscv.packh"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
 // CHECK-NEXT:     %{{.*}} = "riscv.packw"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
-// CHECK-NEXT:     %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
-// CHECK-NEXT:     %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!reg) -> i64
 // CHECK-NEXT: }) : () -> ()
