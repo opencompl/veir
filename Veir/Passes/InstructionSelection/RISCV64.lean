@@ -27,13 +27,39 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[newOp.getResult 0] #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op newOp sorry sorry sorry
 
+set_option warn.sorry false in
+/-- llvm.add -> riscv.add -/
+def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs, properties) := matchAdd op rewriter.ctx | return rewriter
+  /- only support `i64` -/
+  let .integerType ltype := (lhs.getType! rewriter.ctx).val | return rewriter
+  if ltype.bitwidth ≠ 64 then return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx).val | return rewriter
+  if rtype.bitwidth ≠ 64 then return rewriter
+  let type := ((op.getResult 0).get! rewriter.ctx).type
+  let .integerType type' := type.val | rewriter
+  if type'.bitwidth ≠ 64 then return rewriter
+  /- First, cast the operands to registers -/
+  let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Actual `riscv.add` -/
+  let (rewriter, addOp) ← rewriter.createOp .riscv_add #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Cast back result for type consistency-/
+  let (rewriter, castAddOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[addOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castAddOp sorry sorry sorry
+
 /-! # Pass implementation -/
 
 set_option warn.sorry false in
 def ISelPass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) (op : OperationPtr)
     (_ : op.InBounds ctx.val) :
     ExceptT String IO { ctx' : IRContext OpCode // ctx'.WellFormed } := do
-  let pattern := RewritePattern.GreedyRewritePattern #[constant]
+  let pattern := RewritePattern.GreedyRewritePattern #[constant, add]
   match RewritePattern.applyInContext pattern ctx ctx.property.inBounds with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ⟨ctx, sorry⟩

@@ -9,7 +9,10 @@ import Veir.Passes.PrintIR
 import Veir.Passes.InstCombine
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.DCE.dce
+<<<<<<< HEAD
 import Veir.Passes.CastsReconciliation.Reconciliation
+=======
+>>>>>>> origin
 
 open Veir.Parser
 open Veir
