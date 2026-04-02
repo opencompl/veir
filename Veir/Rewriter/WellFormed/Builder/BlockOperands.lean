@@ -72,13 +72,11 @@ theorem Rewriter.pushBlockOperand_DefUse (hOpWf : ctx.WellFormed) (blockPtr'InBo
     apply BlockPtr.DefUse.unchanged (ctx := ctx) <;>
       grind [BlockOperandPtr.get!_pushBlockOperand']
 
-/-
 /--
 info: 'Veir.Rewriter.pushBlockOperand_DefUse' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms Rewriter.pushBlockOperand_DefUse
--/
 
 theorem Rewriter.pushBlockOperand_WellFormed (hOpWf : ctx.WellFormed) :
     (Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds valuePtrInBounds ctxInBounds).WellFormed := by
@@ -122,7 +120,6 @@ theorem Rewriter.pushBlockOperand_WellFormed (hOpWf : ctx.WellFormed) :
     · simp only [OperationPtr.getRegion!_pushBlockOperand]
       grind
 
-/-
 /--
 info: 'Veir.Rewriter.pushBlockOperand_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
@@ -137,4 +134,3 @@ theorem Rewriter.initBlockOperands_WellFormed (hOpWf : ctx.WellFormed) :
   case succ n ih =>
     simp only [initBlockOperands]
     grind [Rewriter.pushBlockOperand_WellFormed]
--/

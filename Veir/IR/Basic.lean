@@ -865,15 +865,23 @@ grind_pattern get!_eq_getOperand!_of_fields_eq =>
 def set (operand : OpOperandPtr) (ctx : IRContext OpInfo) (newOperand : OpOperand)
     (operandIn : operand.InBounds ctx := by grind) : IRContext OpInfo :=
   let op := operand.op.get ctx
-  let ctx := operand.op.set ctx Inhabited.default
   { ctx with
     operations := ctx.operations.insert operand.op
       { op with
         operands := op.operands.set operand.index newOperand (by grind)} }
 
+def setFast (operand : OpOperandPtr) (ctx : IRContext OpInfo) (newOperand : OpOperand)
+    (operandIn : operand.InBounds ctx) : IRContext OpInfo :=
+  { ctx with
+    operations := ctx.operations.modify operand.op fun op =>
+      { op with
+        operands := op.operands.set operand.index newOperand (by sorry)} }
+
+@[csimp]
+theorem set_eq_setFast : @set = @setFast := by sorry
+
 def set! (operand : OpOperandPtr) (ctx : IRContext OpInfo) (newOperand : OpOperand) : IRContext OpInfo :=
   let op := operand.op.get! ctx
-  let ctx := operand.op.set ctx Inhabited.default
   { ctx with
     operations := ctx.operations.insert operand.op
       { op with
@@ -989,15 +997,22 @@ theorem get!_eq_of_OperationPtr_get!_eq {opr : BlockOperandPtr} :
 
 def set (operand : BlockOperandPtr) (ctx : IRContext OpInfo) (newOperand : BlockOperand) (operandIn : operand.InBounds ctx := by grind) : IRContext OpInfo :=
   let op := operand.op.get ctx
-  let ctx := operand.op.set ctx Inhabited.default
   { ctx with
     operations := ctx.operations.insert operand.op
       { op with
         blockOperands := op.blockOperands.set operand.index newOperand (by grind)} }
 
+def setFast (operand : BlockOperandPtr) (ctx : IRContext OpInfo) (newOperand : BlockOperand) (operandIn : operand.InBounds ctx) : IRContext OpInfo :=
+  { ctx with
+    operations := ctx.operations.modify operand.op fun op =>
+      { op with
+        blockOperands := op.blockOperands.set operand.index newOperand (by sorry)} }
+
+@[csimp]
+theorem set_eq_setFast : @set = @setFast := by sorry
+
 def set! (operand : BlockOperandPtr) (ctx : IRContext OpInfo) (newOperand : BlockOperand) : IRContext OpInfo :=
   let op := operand.op.get! ctx
-  let ctx := operand.op.set ctx Inhabited.default
   { ctx with
     operations := ctx.operations.insert operand.op
       { op with
@@ -1115,14 +1130,20 @@ theorem get!_eq_of_OperationPtr_get!_eq {res : OpResultPtr} :
 
 def set (result : OpResultPtr) (ctx : IRContext OpInfo) (newresult : OpResult) (resultIn : result.InBounds ctx := by grind) : IRContext OpInfo :=
   let op := result.op.get ctx
-  let ctx := result.op.set ctx Inhabited.default
   { ctx with
     operations := ctx.operations.insert result.op
       { op with results := op.results.set result.index newresult (by grind)} }
 
+def setFast (result : OpResultPtr) (ctx : IRContext OpInfo) (newresult : OpResult) (resultIn : result.InBounds ctx) : IRContext OpInfo :=
+  { ctx with
+    operations := ctx.operations.modify result.op fun op =>
+      { op with results := op.results.set result.index newresult (by sorry)} }
+
+@[csimp]
+theorem set_eq_setFast : @set = @setFast := by sorry
+
 def set! (result : OpResultPtr) (ctx : IRContext OpInfo) (newresult : OpResult) : IRContext OpInfo :=
   let op := result.op.get! ctx
-  let ctx := result.op.set ctx Inhabited.default
   { ctx with
     operations := ctx.operations.insert result.op
       { op with results := op.results.set! result.index newresult } }
@@ -1408,14 +1429,20 @@ theorem get!_eq_of_BlockPtr_get!_eq {arg : BlockArgumentPtr} :
 
 def set (arg : BlockArgumentPtr) (ctx : IRContext OpInfo) (newresult : BlockArgument) (argIn : arg.InBounds ctx := by grind) : IRContext OpInfo :=
   let block := arg.block.get ctx
-  let ctx := arg.block.set ctx Inhabited.default
   { ctx with
     blocks := ctx.blocks.insert arg.block
       { block with arguments := block.arguments.set arg.index newresult (by grind)} }
 
+def setFast (arg : BlockArgumentPtr) (ctx : IRContext OpInfo) (newresult : BlockArgument) (argIn : arg.InBounds ctx) : IRContext OpInfo :=
+  { ctx with
+    blocks := ctx.blocks.modify arg.block fun block =>
+      { block with arguments := block.arguments.set arg.index newresult (by sorry)} }
+
+@[csimp]
+theorem set_eq_set_fast : @set = @setFast := by sorry
+
 def set! (arg : BlockArgumentPtr) (ctx : IRContext OpInfo) (newresult : BlockArgument) : IRContext OpInfo :=
   let block := arg.block.get! ctx
-  let ctx := arg.block.set ctx Inhabited.default
   { ctx with
     blocks := ctx.blocks.insert arg.block
       { block with arguments := block.arguments.set! arg.index newresult } }

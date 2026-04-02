@@ -299,26 +299,22 @@ theorem OpOperandPtr.operation_inBounds_of_inBounds (h : opOperand.InBounds ctx)
 @[grind =]
 theorem OpOperandPtr.setNextUse_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setNextUse opOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 @[grind =]
 theorem OpOperandPtr.setBack_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setBack opOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 @[grind =]
 theorem OpOperandPtr.setOwner_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setOwner opOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 @[grind =]
 theorem OpOperandPtr.setValue_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setValue opOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 theorem OpOperandPtr.inBounds_if_operand_size_eq :
     (OperationPtr.getNumOperands opPtr ctx opIn = OperationPtr.getNumOperands opPtr' ctx' op'In) ↔
@@ -347,20 +343,17 @@ theorem OpResultPtr.operation_inBounds_of_inBounds (h : opRes.InBounds ctx) :
 @[grind =]
 theorem OpResultPtr.setType_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setType opRes ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 @[grind =]
 theorem OpResultPtr.setFirstUse_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setFirstUse opRes ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 @[grind =]
 theorem OpResultPtr.setOwner_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setOwner opRes ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 end opresult
 
@@ -376,20 +369,17 @@ theorem BlockArgumentPtr.operation_inBounds_of_inBounds (h : ba.InBounds ctx) :
 @[grind =]
 theorem BlockArgumentPtr.setType_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setType blockArgPtr ctx newType h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 @[grind =]
 theorem BlockArgumentPtr.setFirstUse_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setFirstUse blockArgPtr ctx newFirstUse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 @[grind =]
 theorem BlockArgumentPtr.setLoc_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setLoc blockArgPtr ctx newLoc h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 end blockargument
 
@@ -582,26 +572,22 @@ theorem BlockOperandPtr.operation_inBounds_of_inBounds (h : blockOperand.InBound
 @[grind =]
 theorem BlockOperandPtr.setNextUse_genericPtr_mono (ptr : GenericPtr) :
     ptr.InBounds (setNextUse blockOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 @[grind =]
 theorem BlockOperandPtr.setBack_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setBack blockOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 @[grind =]
 theorem BlockOperandPtr.setOwner_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setOwner blockOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 @[grind =]
 theorem BlockOperandPtr.setValue_genericPtr_mono (ptr : GenericPtr)  :
     ptr.InBounds (setValue blockOperand ctx newNextuse h) ↔ ptr.InBounds ctx := by
-  sorry
-  -- grind
+  grind
 
 end blockoperand
 
