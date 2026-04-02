@@ -1,7 +1,11 @@
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.Casting
-/-! In this file we prove the correctness of the instruction selection lowering patterns. -/
+
+/-!
+  In this file we prove the correctness of the lowering patterns used in the
+  instruction selection rewrites.
+-/
 
 open Veir
 
