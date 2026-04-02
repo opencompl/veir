@@ -7,7 +7,6 @@ namespace Veir
 /-! We implement a dead code elimination pass. -/
 
 set_option warn.sorry false in
-
 def eliminateDeadOp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   /- delete operations that are not used and return at least one result.
