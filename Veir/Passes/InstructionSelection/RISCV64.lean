@@ -40,15 +40,15 @@ def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let type := ((op.getResult 0).get! rewriter.ctx).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
-  /- first cast the operands to registers -/
+  /- First, cast the operands to registers -/
   let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- actual `riscv.add` -/
+  /- Actual `riscv.add` -/
   let (rewriter, addOp) ← rewriter.createOp .riscv_add #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- cast back result for type consistency-/
+  /- Cast back result for type consistency-/
   let (rewriter, castAddOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[addOp.getResult 0]
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castAddOp sorry sorry sorry
