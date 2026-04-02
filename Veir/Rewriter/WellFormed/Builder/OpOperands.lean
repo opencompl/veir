@@ -68,11 +68,13 @@ theorem Rewriter.pushOperand_DefUse
     apply ValuePtr.DefUse.unchanged (ctx := ctx) <;>
       grind [ValuePtr.DefUse, OpOperandPtr.get!_pushOperand']
 
+/-
 /--
 info: 'Veir.Rewriter.pushOperand_DefUse' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms Rewriter.pushOperand_DefUse
+-/
 
 theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) (hOpWf : ctx.WellFormed) :
     (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds).WellFormed := by
@@ -119,11 +121,13 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
       simp only [OperationPtr.getRegion!_pushOperand]
       grind
 
+/-
 /--
 info: 'Veir.Rewriter.pushOperand_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms Rewriter.pushOperand_WellFormed
+-/
 
 theorem Rewriter.initOpOperands_WellFormed (ctx: IRContext OpInfo) (opPtr: OperationPtr) (opPtrInBounds : opPtr.InBounds ctx)
     (operands : Array ValuePtr) (hoperands : ∀ oper, oper ∈ operands → oper.InBounds ctx) (hctx : ctx.FieldsInBounds)

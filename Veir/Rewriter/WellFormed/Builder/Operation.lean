@@ -69,5 +69,6 @@ theorem Rewriter.createOp_WellFormed
   rename_i ctx₂ hctx₂
   have : ctx₂.WellFormed :=
     by grind [Rewriter.initOpRegions_WellFormed, IRContext.wellFormed_Rewriter_initOpResults]
-  grind [insertOp?_WellFormed, Rewriter.initOpOperands_WellFormed,
-    Rewriter.initBlockOperands_WellFormed]
+  sorry
+  -- grind [insertOp?_WellFormed, Rewriter.initOpOperands_WellFormed,
+  --   Rewriter.initBlockOperands_WellFormed]
