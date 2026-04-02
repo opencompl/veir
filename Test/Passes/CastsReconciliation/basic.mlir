@@ -1,7 +1,5 @@
 // RUN: veir-opt %s -p=reconcile-cast| filecheck %s
 
-
-
 "builtin.module"() ({
   ^4():
     "func.func"() ({
