@@ -249,7 +249,7 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
   Greedy pattern application: transforms a list of patterns into a single pattern that applies
   them repeatedly in order.
 -/
-def RewritePattern.GreddyRewritePattern (patterns : Array (RewritePattern OpInfo)) : RewritePattern OpInfo :=
+def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo)) : RewritePattern OpInfo :=
   fun rewriter op => do
     let hasDoneAction := rewriter.hasDoneAction
     let mut rewriter := { rewriter with hasDoneAction := false }

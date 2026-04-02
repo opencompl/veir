@@ -182,7 +182,7 @@ set_option warn.sorry false in
 def InstCombinePass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) (op : OperationPtr)
     (_ : op.InBounds ctx.val) :
     ExceptT String IO { ctx' : IRContext OpCode // ctx'.WellFormed } := do
-  let pattern := RewritePattern.GreddyRewritePattern #[
+  let pattern := RewritePattern.GreedyRewritePattern #[
     mulITwoToAddi, mulIZeroToCst, mulIOneToX,
     addiZeroToX,
     subiZeroToX, subiSelfToZero,
