@@ -19,3 +19,19 @@ open Veir
 theorem constant_val (v : BitVec 64) :
     (Data.LLVM.Int.val v) = RISCV.Reg.toInt (Data.RISCV.li v) 64 := by
   simp [Data.RISCV.li, RISCV.Reg.toInt]
+
+/--
+  Prove the correctness of the `add` lowering pattern.
+-/
+theorem add (x y : Data.LLVM.Int 64) :
+    (Data.LLVM.Int.add x y) =
+    (let xcast := LLVM.Int.toReg x
+    let ycast := LLVM.Int.toReg y
+    let add := Data.RISCV.add ycast xcast
+    RISCV.Reg.toInt add 64) := by
+  rcases x with xval | xp <;> rcases y with yval | yp
+  · simp
+    rfl
+  · sorry
+  · sorry
+  · sorry
