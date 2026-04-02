@@ -51,6 +51,7 @@ inductive Arith where
 inductive Builtin where
 | unregistered
 | module
+| unrealized_conversion_cast
 
 @[opcodes]
 inductive Func where

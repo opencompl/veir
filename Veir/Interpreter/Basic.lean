@@ -5,6 +5,7 @@ import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.RISCV.Reg.Basic
+import Veir.Data.Casting
 import Veir.Properties
 
 open Veir.Data
@@ -580,6 +581,15 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .riscv_packw => do
     let #[.reg op1, .reg op2] := operands | none
     return (#[.reg (RISCV.packw op2 op1)], .continue)
+  | .builtin_unrealized_conversion_cast => do
+    let resType ← resultTypes[0]?
+    match resType.val, operands.toList with
+    | .registerType _, [.int bw val] =>
+      return (#[.reg (LLVM.Int.toReg val )], .continue)
+    | .integerType bw, [.reg val] =>
+      let .integerType resBw := resType.val | none
+      return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], .continue)
+    | _ , _ => none
   | _ => none
 
 /--
