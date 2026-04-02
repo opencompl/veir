@@ -13,7 +13,7 @@
         // CHECK:      "test.test"(%{{.*}}) : (i64) -> ()
     }) : () -> ()
   
-  // A chain of operations that is eventually unused.
+  // A chain of operations that is eventually unused
   ^5():
     "func.func"() ({
       ^6():
