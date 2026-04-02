@@ -27,7 +27,7 @@
         // CHECK-NEXT: "test.test"(%{{.*}}) : (i64) -> ()
     }) : () -> ()
   
-  // A chain of operations that is eventually used.
+  // A chain of operations that is eventually used
   ^6():
     "func.func"() ({
       ^6():
