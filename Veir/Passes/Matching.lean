@@ -51,3 +51,8 @@ def matchConstantVal (val : ValuePtr) (ctx : IRContext OpCode) : Option IntegerA
   let .opResult opResultPtr := val | none
   let op := opResultPtr.op
   matchConstantOp op ctx
+
+def matchCastOp (op : OperationPtr) (ctx : IRContext OpCode) : Option IntegerAttr := do
+  let .builtin_unrealized_conversion_cast := op.getOpType! ctx | none
+  let properties := op.getProperties! ctx .llvm_constant
+  return properties.value
