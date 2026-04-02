@@ -3,8 +3,13 @@ import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
 namespace Veir
+
+/-!
+  We reconcile casts in `builtin.unrealized_conversion_cast` operations,
+  when the input and output types are the same.
+-/
+
 set_option warn.sorry false in
-/-- Removes a cast from type A to type A, replacing the result with the operand. -/
 def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some cast := matchCastOp op rewriter.ctx | return rewriter
@@ -16,6 +21,7 @@ def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr
   let rewriter ← rewriter.replaceValue (op.getResult 0) input sorry sorry
   rewriter.eraseOp op sorry
 
+set_option warn.sorry false in
 def CastReconcilePass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) (op : OperationPtr)
     (_ : op.InBounds ctx.val) :
     ExceptT String IO { ctx' : IRContext OpCode // ctx'.WellFormed } := do
