@@ -15,5 +15,5 @@ open Veir
   We do not need to consider the poison case, as the semantics of `llvm_constant`
   are always concrete in the interpreter.
 -/
-theorem constant_val (v : Int) :
+theorem constant_val (_ : v = BitVec.ofInt 64 val) :
     (Data.LLVM.Int.val v) = RISCV.Reg.toInt (Data.RISCV.li v) 64 := by rfl
