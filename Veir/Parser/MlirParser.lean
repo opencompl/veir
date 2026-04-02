@@ -101,8 +101,8 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
   | some (block, false) => -- Block of this name was forward declared.
     /- Insert the block at the given location. -/
     let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
-    let ⟨hip⟩ ← liftExcept (checkBlockInsertPointInBounds ip ctx)
-    let ⟨hblock⟩ ← liftExcept (checkBlockInBounds block ctx)
+    let ⟨hip⟩ ← checkBlockInsertPointInBounds ip ctx
+    let ⟨hblock⟩ ← checkBlockInBounds block ctx
     match heq : Rewriter.insertBlock? ctx block ip hblock hip h_ctx_FieldsInBound with
     | none => throw "internal error: failed to insert block"
     | some ctx' =>
@@ -116,8 +116,8 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
   | none => -- Block has not yet been declared or referenced.
     /- Create the block. -/
     let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
-    let ⟨hip⟩ ← liftExcept (checkBlockInsertPointInBounds ip ctx)
-    match heq : Rewriter.createBlock ctx ip h_ctx_FieldsInBound (Option.maybe_some hip) with
+    let ⟨hip⟩ ← checkBlockInsertPointInBounds ip ctx
+    match heq : Rewriter.createBlock ctx ip h_ctx_FieldsInBound (by grind) with
     | none => throw "internal error: failed to create block"
     | some (ctx', block) =>
       setContext ctx' (Rewriter.createBlock_fieldsInBounds_mono heq h_ctx_FieldsInBound)
@@ -309,8 +309,8 @@ def parseOptionalBlockLabel (ip : BlockInsertPoint) : MlirParserM (Option BlockP
   /- Insert block arguments in the block. -/
   let blockArguments := arguments.mapIdx (fun index (_, type) => BlockArgument.mk (ValueImpl.mk type none) index () block)
   let ⟨ctx, h_ctx_FieldsInBound⟩ ← getContext
-  let ⟨h_block_InBounds⟩ ← liftExcept (checkBlockInBounds block ctx)
-  let ⟨h_block_NoArgs⟩ ← liftExcept (checkBlockHasNoArgs block ctx)
+  let ⟨h_block_InBounds⟩ ← checkBlockInBounds block ctx
+  let ⟨h_block_NoArgs⟩ ← checkBlockHasNoArgs block ctx
   let ctx' := block.setArguments ctx blockArguments h_block_InBounds
   setContext ctx' (by grind [BlockArgument.FieldsInBounds])
   /- Register the block argument names in the parser state. -/
@@ -373,17 +373,17 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   -- Check InBounds for all operands, block operands, regions, and insertion
   -- TODO(gzgz): convert them to proofs as much as possible. `InsertPoint`
   -- should be the easiest one to start with.
-  let ⟨hoper⟩ ← liftExcept (checkAllValuesInBounds operands ctx)
-  let ⟨hblockOperands⟩ ← liftExcept (checkAllBlocksInBounds blockOperands ctx)
-  let ⟨hregions⟩ ← liftExcept (checkAllRegionsInBounds regions ctx)
-  let ⟨hins⟩ ← liftExcept (checkMaybeInsertPointInBounds ip ctx)
+  let ⟨hoper⟩ ← checkAllValuesInBounds operands ctx
+  let ⟨hblockOperands⟩ ← checkAllBlocksInBounds blockOperands ctx
+  let ⟨hregions⟩ ← checkAllRegionsInBounds regions ctx
+  let ⟨hins⟩ ← checkMaybeInsertPointInBounds ip ctx
 
   match heq : Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip hoper hblockOperands hregions hins h_ctx_FieldsInBound with
   | none => throw "internal error: failed to create operation"
   | some (ctx', op) =>
     let h_ctx'_FieldsInBound := Rewriter.createOp_fieldsInBounds heq h_ctx_FieldsInBound
 
-    let ⟨hop⟩ ← liftExcept (checkOpInBounds op ctx')
+    let ⟨hop⟩ ← checkOpInBounds op ctx'
     let ctx'' := op.setAttributes ctx' attrs hop
 
     /- Update the parser context. -/

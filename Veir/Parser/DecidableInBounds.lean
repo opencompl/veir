@@ -101,10 +101,10 @@ def checkAllRegionsInBounds (regions : Array RegionPtr) (ctx : IRContext OpInfo)
 
 /-! ## Lifting to Monads -/
 
-/-- Lift an Except computation to any MonadExcept. -/
-def liftExcept [Monad m] [MonadExcept String m] (e : Except String α) : m α :=
-  match e with
-  | .ok a => pure a
-  | .error err => throw err
+/-- Lift `Except ε` to any monad with `MonadExcept ε`. Enables `←` syntax for check functions. -/
+instance [Monad m] [MonadExcept ε m] : MonadLift (Except ε) m where
+  monadLift e := match e with
+    | .ok a => pure a
+    | .error err => throw err
 
 end Veir.Parser

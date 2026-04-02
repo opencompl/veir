@@ -34,7 +34,7 @@ def parseOperation (filename : String) : ExceptT String IO ParseResult := do
       match (parseOp none).run (MlirParserState.fromContext ctx) parser with
       | .ok (op, state, _) =>
         -- Use runtime check for op.InBounds
-        let ⟨hopIn⟩ ← Veir.Parser.liftExcept (checkOpInBounds op state.ctx)
+        let ⟨hopIn⟩ ← checkOpInBounds op state.ctx
         return ⟨state.ctx, op, state.hctx, hopIn⟩
       | .error errMsg =>
         throw s!"Error parsing operation: {errMsg}"
