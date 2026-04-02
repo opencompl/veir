@@ -25,6 +25,33 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op newOp sorry sorry sorry
 
+set_option warn.sorry false in
+/-- llvm.add -> riscv.add -/
+def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs, properties) := matchAdd op rewriter.ctx
+    | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx).val
+    | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx).val
+    | return rewriter
+  let type := ((op.getResult 0).get! rewriter.ctx).type
+  /- only support `i64` -/
+  if ltype.bitwidth ≠ 64 then none
+  if rtype.bitwidth ≠ 64 then none
+  /- first cast the operands to registers -/
+  let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- actual `riscv.add` -/
+  let (rewriter, addOp) ← rewriter.createOp .riscv_add #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- cast back result for type consistency-/
+  let (rewriter, castAddOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[addOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castAddOp sorry sorry sorry
+
 /-! # Pass implementation -/
 
 set_option warn.sorry false in

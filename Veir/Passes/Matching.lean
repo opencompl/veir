@@ -22,6 +22,10 @@ def matchAddi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
   let (op, properties) ← matchOp op ctx .llvm_add 2
   return (op[0]!, op[1]!, properties)
 
+def matchAdd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_add) := do
+  let (op, properties) ← matchOp op ctx .llvm_add 2
+  return (op[0]!, op[1]!, properties)
+
 def matchSubi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_sub) := do
   let (op, properties) ← matchOp op ctx .llvm_sub 2
   return (op[0]!, op[1]!, properties)
