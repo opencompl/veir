@@ -64,3 +64,7 @@ def matchCastOp (op : OperationPtr) (ctx : IRContext OpCode) : Option IntegerAtt
   let .builtin_unrealized_conversion_cast := op.getOpType! ctx | none
   let properties := op.getProperties! ctx .llvm_constant
   return properties.value
+
+def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_ashr) := do
+  let (op, properties) ← matchOp op ctx .llvm_ashr 2
+  return (op[0]!, op[1]!, properties)
