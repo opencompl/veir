@@ -177,6 +177,12 @@ inductive Mod_Arith where
 | sub
 
 @[opcodes]
+inductive Datapath where
+| compress
+| partial_product
+| pos_partial_product
+
+@[opcodes]
 inductive Test where
 | test
 

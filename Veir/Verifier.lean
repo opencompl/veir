@@ -327,6 +327,36 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+  | .datapath_compress => do
+    if op.getNumOperands ctx opIn ≤ op.getNumResults ctx opIn then
+      throw "Number of inputs must be greater than the number of results"
+    if op.getNumResults ctx opIn < 2 then
+      throw "Expected at least 2 results"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .datapath_partial_product => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    -- if op.getNumResults ctx opIn ≠ 1 then
+    --   throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .datapath_pos_partial_product => do
+    if op.getNumOperands ctx opIn ≠ 3 then
+      throw "Expected 3 operands"
+    -- if op.getNumResults ctx opIn ≠ 1 then
+    --   throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
   /- FUNC -/
   | .func_func => do
     if op.getNumRegions ctx opIn ≠ 1 then
