@@ -8,17 +8,22 @@ namespace Veir
   We reconcile casts in `builtin.unrealized_conversion_cast` operations,
   when the input and output types are the same.
 -/
-
 set_option warn.sorry false in
 def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some cast := matchCastOp op rewriter.ctx | return rewriter
-  /- get the input and output types -/
   let input := op.getOperand! rewriter.ctx 0
   let inputType := input.getType! rewriter.ctx
+  /- if the operand's parent is a cast operation -/
+  let .opResult op' := input | return rewriter
+  let some cast := matchCastOp op'.op rewriter.ctx | return rewriter
+  let parentInput := (op'.op.getOperand! rewriter.ctx 0)
+  /- and the result's type coincides with the parent operation operand's type -/
+  let parentInputType := parentInput.getType! rewriter.ctx
   let resultType := ((op.getResult 0).get! rewriter.ctx).type
-  if inputType ≠ resultType then return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) input sorry sorry
+  if resultType ≠ parentInputType then return rewriter
+  /- replace the initial operation's output with the parent operations input -/
+  let rewriter ← rewriter.replaceValue (op.getResult 0) parentInput sorry sorry
   rewriter.eraseOp op sorry
 
 set_option warn.sorry false in
