@@ -5,11 +5,9 @@
   "func.func"() ({
     ^bb1(%0 : i64):
       %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i64
-      
       "test.test"(%1) : (i64) -> ()
-      
+      // CHECK: "test.test"(%{{.*}}) : (i64) -> ()
   }) : () -> ()
-  // CHECK: "test.test"(%{{.*}}) : (i64) -> ()
 
   // ^2():
   // "func.func"() ({
