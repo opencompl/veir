@@ -7,7 +7,6 @@ namespace Veir
 
 /-!
   We reconcile casts in `builtin.unrealized_conversion_cast` operations for `!reg` and `i64` types.
-
 -/
 set_option warn.sorry false in
 def reconcilePairingCast (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
