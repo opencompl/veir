@@ -1292,11 +1292,9 @@ grind_pattern OperationPtr.idxInParentFromTail_next_eq =>
   nextOp.idxInParentFromTail ctx hnextOp hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
 
 /--
-  Helper lemma to transfer `region_parent` across context changes without
-  needing to rewrite under binders.
-  `grind` cannot apply equational lemmas (like `getRegion!` get/set lemmas)
-  under binders such as `∃ i, ...`, so this lemma lifts the reasoning
-  above the binder.
+  Prove preservation of the `region_parent` field of `Operation.WellFormed`, if
+  region parents, number of regions, and region pointers are unchanged in the
+  new context.
 -/
 theorem Operation.WellFormed.region_parent.unchanged
     {opPtr : OperationPtr} {ctx ctx' : IRContext OpInfo}
