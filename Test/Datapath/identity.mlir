@@ -7,3 +7,9 @@
   %5, %6, %7 = "datapath.pos_partial_product"(%arg0, %arg1, %arg2) : (i3, i3, i3) -> (i3, i3, i3)
 }) : () -> ()
 
+// CHECK:      "builtin.module"() ({
+// CHECK-NEXT:   ^4(%{{.*}} : i3, %{{.*}} : i3, %{{.*}} : i3):
+// CHECK-NEXT:     %{{.*}}, %{{.*}} = "datapath.compress"(%{{.*}}, %{{.*}}, %{{.*}}) : (i3, i3, i3) -> (i3, i3)
+// CHECK-NEXT:     %{{.*}}, %{{.*}}, %{{.*}} = "datapath.partial_product"(%{{.*}}, %{{.*}}) : (i3, i3) -> (i3, i3, i3)
+// CHECK-NEXT:     %{{.*}}, %{{.*}}, %{{.*}} = "datapath.pos_partial_product"(%{{.*}}, %{{.*}}, %{{.*}}) : (i3, i3, i3) -> (i3, i3, i3)
+// CHECK-NEXT: }) : () -> ()
