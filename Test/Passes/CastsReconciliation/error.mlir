@@ -5,11 +5,11 @@
   ^1():
     "func.func"() ({
       ^1(%0 : i64):
-        %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i256
-        %2 = "builtin.unrealized_conversion_cast"(%1) : (i256) -> i64
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i8
+        %2 = "builtin.unrealized_conversion_cast"(%1) : (i8) -> i64
         "test.test"(%2) : (i64) -> ()
-        // CHECK:         "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> i256
-        // CHECK-NEXT:    "builtin.unrealized_conversion_cast"(%{{.*}}) : (i256) -> i64
+        // CHECK:         "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> i8
+        // CHECK-NEXT:    "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> i64
         // CHECK-NEXT:    "test.test"(%{{.*}}) : (i64) -> ()
     }) : () -> ()
 
