@@ -4,6 +4,6 @@
     "func.func"() ({
     ^bb(%a: i32, %b: i32):
         %add = "llvm.and"(%a, %b) : (i32, i32) -> i32
-        // CHECK-NEXT: %{{.*}} = "llvm.and"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
+        // CHECK-NEXT: %{{.*}} = "llvm.and"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
     }) : () -> ()
 }) : () -> ()
