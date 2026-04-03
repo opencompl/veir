@@ -6,8 +6,8 @@ import Veir.Passes.DCE.dce
 namespace Veir
 
 /-!
-  We reconcile casts in `builtin.unrealized_conversion_cast` operations,
-  when the input and output types are the same.
+  We reconcile casts in `builtin.unrealized_conversion_cast` operations for `!reg` and `i64` types.
+
 -/
 set_option warn.sorry false in
 def reconcilePairingCast (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
@@ -15,13 +15,16 @@ def reconcilePairingCast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some cast := matchCastOp op rewriter.ctx | return rewriter
   let input := op.getOperand! rewriter.ctx 0
   let inputType := input.getType! rewriter.ctx
-  /- If the operand's parent is a cast operation -/
+  if inputType ≠ RegisterType.mk ∧ inputType ≠ IntegerType.mk 64 then return rewriter
+  /- If the operand's parent is a cast operation whose input type is either `!reg` or `i64` -/
   let .opResult op' := input | return rewriter
   let some cast := matchCastOp op'.op rewriter.ctx | return rewriter
   let parentInput := (op'.op.getOperand! rewriter.ctx 0)
   /- And the result's type coincides with the parent operation operand's type -/
   let parentInputType := parentInput.getType! rewriter.ctx
   let resultType := ((op.getResult 0).get! rewriter.ctx).type
+  if resultType ≠ RegisterType.mk ∧ resultType ≠ IntegerType.mk 64 then return rewriter
+  if parentInputType ≠ RegisterType.mk ∧ parentInputType ≠ IntegerType.mk 64 then return rewriter
   if resultType ≠ parentInputType then return rewriter
   /- Replace the initial operation's output with the parent operations input -/
   let rewriter ← rewriter.replaceValue (op.getResult 0) parentInput sorry sorry
