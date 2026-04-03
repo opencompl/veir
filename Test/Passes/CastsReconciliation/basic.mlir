@@ -86,5 +86,20 @@
         "test.test"(%1) : (i8) -> ()
         // CHECK:        "test.test"(%{{.*}}) : (i8) -> ()
     }) : () -> ()
+    
+  ^9():
+    "func.func"() ({
+      ^1(%0 : i64):
+        // pairs of casts
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i256
+        %3 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i128
+        %2 = "builtin.unrealized_conversion_cast"(%1) : (i256) -> i64
+        %4 = "builtin.unrealized_conversion_cast"(%3) : (i128) -> i64
+        "test.test"(%2, %4) : (i64, i64) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT:   "test.test"([[ARG]], [[ARG]]) : (i64, i64) -> ()
+    }) : () -> ()
+    
+    
 
 }) : () -> ()
