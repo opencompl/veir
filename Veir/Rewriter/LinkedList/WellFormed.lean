@@ -754,7 +754,8 @@ theorem Operation.wellFormed_OperationPtr_linkBetweenWithParent
   intro wf
   constructor
   case region_parent =>
-    grind [Operation.WellFormed.region_parent_congr, IRContext.WellFormed, Operation.WellFormed]
+    intro region regionInBounds
+    apply Operation.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind [IRContext.WellFormed, Operation.WellFormed]
   all_goals grind [Option.maybe₁_def, IRContext.WellFormed, Operation.WellFormed]
 
 theorem Block.wellFormed_OperationPtr_linkBetweenWithParent

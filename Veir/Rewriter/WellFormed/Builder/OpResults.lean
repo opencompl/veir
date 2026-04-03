@@ -72,7 +72,8 @@ theorem IRContext.wellFormed_Rewriter_pushResult :
     have ⟨ha, hb, hc, hd, he, hf, hg, hh⟩ := h₆ op' this
     constructor
     case region_parent =>
-      grind [Operation.WellFormed.region_parent_congr]
+      intro region regionInBounds
+      apply Operation.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind
     all_goals grind
   case blocks =>
     intros bl hbl

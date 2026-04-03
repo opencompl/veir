@@ -1298,8 +1298,7 @@ grind_pattern OperationPtr.idxInParentFromTail_next_eq =>
   under binders such as `∃ i, ...`, so this lemma lifts the reasoning
   above the binder.
 -/
-@[grind =>]
-theorem Operation.WellFormed.region_parent_congr
+theorem Operation.WellFormed.region_parent.unchanged
     {opPtr : OperationPtr} {ctx ctx' : IRContext OpInfo}
     (h_getRegion : opPtr.getRegion! ctx' = opPtr.getRegion! ctx)
     (h_numRegions : opPtr.getNumRegions! ctx' = opPtr.getNumRegions! ctx)
