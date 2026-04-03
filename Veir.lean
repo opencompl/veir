@@ -7,6 +7,7 @@ import Veir.Rewriter.LinkedList.WellFormed
 import Veir.Rewriter.WellFormed.Rewriter
 import Veir.Rewriter.WellFormed.Builder
 import Veir.Rewriter.InlineBlock
+import Veir.Rewriter.WfRewriter
 import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.Benchmarks

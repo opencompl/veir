@@ -1308,4 +1308,22 @@ theorem Operation.WellFormed.region_parent.unchanged
     (region.get! ctx').parent = some opPtr := by
   simp only [h_getRegion, h_numRegions, h_parent, h_wf]
 
+/--
+  An IR context that also carries its well-formedness proof.
+  This is the type that users are expected to work with most of the time, unless they
+  need to explicitly break the well-formedness invariant during a transformation.
+-/
+@[expose]
+def WfIRContext (OpInfo : Type) [HasOpInfo OpInfo] :=
+  { ctx : IRContext OpInfo // ctx.WellFormed }
+
+public instance {OpInfo} [HasOpInfo OpInfo] :
+    Coe (WfIRContext OpInfo) (IRContext OpInfo) where
+  coe wfCtx := wfCtx.val
+
+@[grind! .]
+theorem WfIRContext_val_wellFormed (wfCtx : WfIRContext OpInfo) :
+    (wfCtx.val).WellFormed := by
+  grind
+
 end Veir
