@@ -1,6 +1,7 @@
 import Veir.Pass
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
+import Veir.Passes.DCE.dce
 
 namespace Veir
 
@@ -14,17 +15,24 @@ def reconcilePairingCast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some cast := matchCastOp op rewriter.ctx | return rewriter
   let input := op.getOperand! rewriter.ctx 0
   let inputType := input.getType! rewriter.ctx
-  /- if the operand's parent is a cast operation -/
+  /- If the operand's parent is a cast operation -/
   let .opResult op' := input | return rewriter
   let some cast := matchCastOp op'.op rewriter.ctx | return rewriter
   let parentInput := (op'.op.getOperand! rewriter.ctx 0)
-  /- and the result's type coincides with the parent operation operand's type -/
+  /- And the result's type coincides with the parent operation operand's type -/
   let parentInputType := parentInput.getType! rewriter.ctx
   let resultType := ((op.getResult 0).get! rewriter.ctx).type
   if resultType ≠ parentInputType then return rewriter
-  /- replace the initial operation's output with the parent operations input -/
+  /- Replace the initial operation's output with the parent operations input -/
   let rewriter ← rewriter.replaceValue (op.getResult 0) parentInput sorry sorry
-  rewriter.eraseOp op sorry
+  /- Erase the redundant cast operation -/
+  let rewriter ← rewriter.eraseOp op sorry
+  /- If unused and side-effect-free, erase the parent cast operation as well.
+    These need to be erased in this order, otherwise the parent operation will always be used. -/
+  if ¬ op'.op.hasUses! rewriter.ctx && hasSideEffects rewriter op'.op then
+    rewriter.eraseOp op'.op sorry
+  else
+    return rewriter
 
 set_option warn.sorry false in
 def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
