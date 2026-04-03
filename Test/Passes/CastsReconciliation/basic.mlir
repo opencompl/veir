@@ -7,7 +7,7 @@
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i64
         "test.test"(%1) : (i64) -> ()
-        // CHECK: "test.test"(%{{.*}}) : (i64) -> ()
+        // CHECK:      "test.test"(%{{.*}}) : (i64) -> ()
     }) : () -> ()
     
   ^2():
@@ -15,8 +15,8 @@
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !reg
         "test.test"(%1) : (!reg) -> ()
-        // CHECK: "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
-        // CHECK-NEXT: "test.test"(%{{.*}}) : (!reg) -> ()
+        // CHECK:       "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
+        // CHECK-NEXT:  "test.test"(%{{.*}}) : (!reg) -> ()
     }) : () -> ()
     
   ^3():
@@ -26,8 +26,8 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !reg
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!reg) -> i64
         "test.test"(%2) : (i64) -> ()
-        // CHECK: ^{{.*}}([[ARG:%.*]] : i64):
-        // CHECK-NEXT: "test.test"([[ARG]]) : (i64) -> ()
+        // CHECK:       ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT:  "test.test"([[ARG]]) : (i64) -> ()
     }) : () -> ()
 
   ^4():
@@ -38,7 +38,7 @@
         %2 = "test.test"(%1) : (!reg) -> (!reg)
         %3 = "builtin.unrealized_conversion_cast"(%1) : (!reg) -> i64
         "test.test"(%2, %3) : (!reg, i64) -> ()
-        // CHECK:       ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
         // CHECK-NEXT:   %{{.*}} = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !reg
         // CHECK-NEXT:   %{{.*}} = "test.test"(%{{.*}}) : (!reg) -> !reg
         // CHECK-NEXT:   "test.test"(%{{.*}}, [[ARG]]) : (!reg, i64) -> ()  
@@ -52,8 +52,8 @@
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!reg) -> !reg
         %3 = "builtin.unrealized_conversion_cast"(%2) : (!reg) -> i64
         "test.test"(%3) : (i64) -> ()
-        // CHECK:       ^{{.*}}([[ARG:%.*]] : i64):
-        // CHECK:   "test.test"([[ARG]]) : (i64) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT:   "test.test"([[ARG]]) : (i64) -> ()
     }) : () -> ()
   
   ^6():
@@ -65,7 +65,7 @@
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!reg) -> i64
         %4 = "builtin.unrealized_conversion_cast"(%3) : (!reg) -> i64
         "test.test"(%2, %4) : (i64, i64) -> ()
-        // CHECK:       ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
         // CHECK-NEXT:   "test.test"([[ARG]], [[ARG]]) : (i64, i64) -> ()
     }) : () -> ()
     
@@ -75,7 +75,7 @@
         // identity cast on block argument
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!reg) -> !reg
         "test.test"(%1) : (!reg) -> ()
-        // CHECK:       ^{{.*}}([[ARG:%.*]] : !reg):
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : !reg):
         // CHECK-NEXT:   "test.test"([[ARG]]) : (!reg) -> ()
     }) : () -> ()
   
@@ -84,7 +84,7 @@
       ^1(%0 : i8):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i8) -> i8
         "test.test"(%1) : (i8) -> ()
-        // CHECK: "test.test"(%{{.*}}) : (i8) -> ()
+        // CHECK:        "test.test"(%{{.*}}) : (i8) -> ()
     }) : () -> ()
 
 }) : () -> ()
