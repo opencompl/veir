@@ -50,5 +50,19 @@
                 
     }) : () -> ()
 
+
+  ^5():
+    "func.func"() ({
+      ^1(%0 : i64):
+        // the remaining cast is used
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i32
+        %2 = "test.test"(%1) : (i32) -> (i32)
+        %3 = "builtin.unrealized_conversion_cast"(%1) : (i32) -> i64
+        "test.test"(%2, %3) : (i32, i64) -> ()
+        // CHECK:       ^{{.*}}([[ARG:%.*]] : i64):
+        // CHECK-NEXT   %{{.*}} = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> i32
+        // CHECK-NEXT   %{{.*}} = "test.test"(%{{.*}}) : (i32) -> i32
+        // CHECK-NEXT   "test.test"(%{{.*}}, [[ARG]]) : (i32, i64) -> ()  
+    }) : () -> ()
     
 }) : () -> ()
