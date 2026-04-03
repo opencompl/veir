@@ -25,7 +25,7 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] {value := const} (some $ .before op) (by simp) (by simp) (by simp) sorry
   let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type]
       #[newOp.getResult 0] #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
-  rewriter.replaceOp op newOp sorry sorry sorry
+  rewriter.replaceOp op castOp sorry sorry sorry
 
 set_option warn.sorry false in
 /-- llvm.add -> riscv.add -/
