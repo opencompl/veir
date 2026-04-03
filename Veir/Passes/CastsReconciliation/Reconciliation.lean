@@ -15,16 +15,16 @@ def reconcilePairingCast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some cast := matchCastOp op rewriter.ctx | return rewriter
   let input := op.getOperand! rewriter.ctx 0
   let inputType := input.getType! rewriter.ctx
-  if inputType ≠ RegisterType.mk ∧ inputType ≠ IntegerType.mk 64 then return rewriter
-  /- If the operand's parent is a cast operation whose input type is either `!reg` or `i64` -/
+  let resultType := ((op.getResult 0).get! rewriter.ctx).type
+  /- Only consider casting between `!reg` and `i64` types-/
+  if ¬ (inputType = RegisterType.mk ∧ resultType = IntegerType.mk 64) ∧
+       ¬ (inputType = IntegerType.mk 64 ∧ resultType = RegisterType.mk) then return rewriter
+  /- If the operand's parent is a cast operation -/
   let .opResult op' := input | return rewriter
   let some cast := matchCastOp op'.op rewriter.ctx | return rewriter
   let parentInput := (op'.op.getOperand! rewriter.ctx 0)
   /- And the result's type coincides with the parent operation operand's type -/
   let parentInputType := parentInput.getType! rewriter.ctx
-  let resultType := ((op.getResult 0).get! rewriter.ctx).type
-  if resultType ≠ RegisterType.mk ∧ resultType ≠ IntegerType.mk 64 then return rewriter
-  if parentInputType ≠ RegisterType.mk ∧ parentInputType ≠ IntegerType.mk 64 then return rewriter
   if resultType ≠ parentInputType then return rewriter
   /- Replace the initial operation's output with the parent operations input -/
   let rewriter ← rewriter.replaceValue (op.getResult 0) parentInput sorry sorry
