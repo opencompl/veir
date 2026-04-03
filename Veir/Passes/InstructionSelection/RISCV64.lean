@@ -57,7 +57,7 @@ set_option warn.sorry false in
 /-- llvm.and -> riscv.and -/
 def and (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, properties) := matchAdd op rewriter.ctx | return rewriter
+  let some (lhs, rhs) := matchAnd op rewriter.ctx | return rewriter
   /- only support `i64` -/
   let .integerType ltype := (lhs.getType! rewriter.ctx).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
