@@ -78,5 +78,13 @@
         // CHECK:       ^{{.*}}([[ARG:%.*]] : !reg):
         // CHECK-NEXT:   "test.test"([[ARG]]) : (!reg) -> ()
     }) : () -> ()
+  
+  ^8():
+    "func.func"() ({
+      ^1(%0 : i8):
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (i8) -> i8
+        "test.test"(%1) : (i8) -> ()
+        // CHECK: "test.test"(%{{.*}}) : (i8) -> ()
+    }) : () -> ()
 
 }) : () -> ()
