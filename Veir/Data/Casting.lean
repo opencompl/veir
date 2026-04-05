@@ -1,5 +1,9 @@
-import Veir.Data.LLVM.Int.Basic
-import Veir.Data.RISCV.Reg.Basic
+module
+
+public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.RISCV.Reg.Basic
+
+public section
 
 /-!
   This file defines the conversions between different types used in lowering passes.
