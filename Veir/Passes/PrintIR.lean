@@ -3,9 +3,9 @@ import Veir.Printer
 
 namespace Veir
 
-def PrintIRPass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed })
+def PrintIRPass.impl (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.val) :
-    ExceptT String IO { ctx' : IRContext OpCode // ctx'.WellFormed } := do
+    ExceptT String IO (WfIRContext OpCode) := do
 
   IO.eprintln "// -----// IR Dump //----- //"
 

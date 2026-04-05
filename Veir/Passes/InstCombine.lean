@@ -23,9 +23,9 @@ def mulITwoToAddi (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 2 then
     return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[lhs.getType! rewriter.ctx] #[lhs, lhs]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[lhs.getType! rewriter.ctx.val] #[lhs, lhs]
     #[] #[] properties (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x * 0` to `0`. -/
@@ -37,12 +37,12 @@ def mulIZeroToCst (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
-  let .integerType type := (lhs.getType! rewriter.ctx).val
+  let .integerType type := (lhs.getType! rewriter.ctx.val).val
     | return rewriter
   let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx] #[]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.val] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x + 0` to `x`. -/
@@ -55,7 +55,7 @@ def addiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   if cst.value ≠ 0 then
     return rewriter
   let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
-  rewriter.eraseOp op sorry
+  rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x * 1` to `x`. -/
@@ -68,7 +68,7 @@ def mulIOneToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   if cst.value ≠ 1 then
     return rewriter
   let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
-  rewriter.eraseOp op sorry
+  rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x - 0` to `x`. -/
@@ -81,7 +81,7 @@ def subiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   if cst.value ≠ 0 then
     return rewriter
   let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
-  rewriter.eraseOp op sorry
+  rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x - x` to `0`. -/
@@ -91,12 +91,12 @@ def subiSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if lhs ≠ rhs then
     return rewriter
-  let .integerType type := (lhs.getType! rewriter.ctx).val
+  let .integerType type := (lhs.getType! rewriter.ctx.val).val
     | return rewriter
   let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx] #[]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.val] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x & x` to `x`. -/
@@ -107,7 +107,7 @@ def andiSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   if lhs ≠ rhs then
     return rewriter
   let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
-  rewriter.eraseOp op sorry
+  rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x & 0` to `0`. -/
@@ -119,12 +119,12 @@ def andiZeroToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
-  let .integerType type := (lhs.getType! rewriter.ctx).val
+  let .integerType type := (lhs.getType! rewriter.ctx.val).val
     | return rewriter
   let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx] #[]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.val] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x | 0` to `x`. -/
@@ -137,7 +137,7 @@ def oriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   if cst.value ≠ 0 then
     return rewriter
   let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
-  rewriter.eraseOp op sorry
+  rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x | x` to `x`. -/
@@ -148,7 +148,7 @@ def oriSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   if lhs ≠ rhs then
     return rewriter
   let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
-  rewriter.eraseOp op sorry
+  rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x ^ 0` to `x`. -/
@@ -161,7 +161,7 @@ def xoriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   if cst.value ≠ 0 then
     return rewriter
   let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
-  rewriter.eraseOp op sorry
+  rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- Rewrites `x ^ x` to `0`. -/
@@ -171,17 +171,15 @@ def xoriSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if lhs ≠ rhs then
     return rewriter
-  let .integerType type := (lhs.getType! rewriter.ctx).val
+  let .integerType type := (lhs.getType! rewriter.ctx.val).val
     | return rewriter
   let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx] #[]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.val] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
-set_option warn.sorry false in
-def InstCombinePass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) (op : OperationPtr)
-    (_ : op.InBounds ctx.val) :
-    ExceptT String IO { ctx' : IRContext OpCode // ctx'.WellFormed } := do
+def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.val) :
+    ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     mulITwoToAddi, mulIZeroToCst, mulIOneToX,
     addiZeroToX,
@@ -190,9 +188,9 @@ def InstCombinePass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) 
     oriZeroToX, oriSelfToX,
     xoriZeroToX, xoriSelfToZero
   ]
-  match RewritePattern.applyInContext pattern ctx ctx.property.inBounds with
+  match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
-  | some ctx => pure ⟨ctx, sorry⟩
+  | some ctx => pure ctx
 
 public def InstCombinePass : Pass OpCode :=
   { name := "instcombine"

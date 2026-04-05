@@ -1326,4 +1326,8 @@ theorem WfIRContext_val_wellFormed (wfCtx : WfIRContext OpInfo) :
     (wfCtx.val).WellFormed := by
   grind
 
+instance instWfIRContextInhabited {OpInfo} [HasOpInfo OpInfo] :
+    Inhabited (WfIRContext OpInfo) where
+  default := ⟨IRContext.empty OpInfo, IRContext.empty_wellFormed⟩
+
 end Veir
