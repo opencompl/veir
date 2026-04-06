@@ -105,6 +105,202 @@ def ashr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castSraOp sorry sorry sorry
 
+set_option warn.sorry false in
+/--
+    llvm.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
+    llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
+    llvm.icmp slt lhs rhs -> riscv.slt lhs rhs
+    llvm.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1
+    llvm.icmp sgt lhs rhs -> riscv.slt rhs lhs
+    llvm.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1
+    llvm.icmp ult lhs rhs -> riscv.sltu lhs rhs
+    llvm.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
+    llvm.icmp ugt lhs rhs -> riscv.sltu rhs lhs
+    llvm.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
+-/
+def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs, property) := matchIcmp op rewriter.ctx | return rewriter
+  /- only support `i64` -/
+  let .integerType ltype := (lhs.getType! rewriter.ctx).val | return rewriter
+  if ltype.bitwidth ≠ 64 then return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx).val | return rewriter
+  if rtype.bitwidth ≠ 64 then return rewriter
+  /- match depending on the opcode and build correct lowering -/
+  let p := property.value.value
+  match p with
+  | 0 =>
+    /- eq -/
+    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- `riscv.sltiu (riscv.xor lhs rhs) 1` -/
+    let (rewriter, xorOp) ← rewriter.createOp .riscv_xor #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+    let (rewriter, sltiuOp) ← rewriter.createOp .riscv_sltiu #[RegisterType.mk] #[xorOp.getResult 0]
+      #[] #[] c1 (some $ .before op) sorry (by simp) (by simp) sorry
+    /- Cast back result for type consistency-/
+    let type := ((op.getResult 0).get! rewriter.ctx).type
+    let .integerType type' := type.val | rewriter
+    let (rewriter, castEqOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[sltiuOp.getResult 0]
+        #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+    rewriter.replaceOp op castEqOp sorry sorry sorry
+  | 1 =>
+    /- ne -/
+    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- `riscv.sltu 0 (riscv.xor lhs rhs)` -/
+    let (rewriter, xorOp) ← rewriter.createOp .riscv_xor #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let c0 := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
+    let (rewriter, liOp) ← rewriter.createOp .riscv_li #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] c0 (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, sltuOp) ← rewriter.createOp .riscv_sltu #[RegisterType.mk] #[xorOp.getResult 0, liOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- Cast back result for type consistency-/
+    let type := ((op.getResult 0).get! rewriter.ctx).type
+    let .integerType type' := type.val | rewriter
+    let (rewriter, castNeOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[sltuOp.getResult 0]
+        #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+    rewriter.replaceOp op castNeOp sorry sorry sorry
+  | 2 =>
+    /- slt -/
+    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- `riscv.sltiu (riscv.xor lhs rhs) 1` -/
+    let (rewriter, sltOp) ← rewriter.createOp .riscv_slt #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- Cast back result for type consistency-/
+    let type := ((op.getResult 0).get! rewriter.ctx).type
+    let .integerType type' := type.val | rewriter
+    let (rewriter, castSltOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[sltOp.getResult 0]
+        #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+    rewriter.replaceOp op castSltOp sorry sorry sorry
+  | 3 =>
+    /- sle -/
+    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- `riscv.xori (riscv_slt rhs lhs) 1` -/
+    let (rewriter, sltOp) ← rewriter.createOp .riscv_slt #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+    let (rewriter, xoriOp) ← rewriter.createOp .riscv_xori #[RegisterType.mk] #[sltOp.getResult 0]
+      #[] #[] c1 (some $ .before op) sorry (by simp) (by simp) sorry
+    /- Cast back result for type consistency-/
+    let type := ((op.getResult 0).get! rewriter.ctx).type
+    let .integerType type' := type.val | rewriter
+    let (rewriter, castSleOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[xoriOp.getResult 0]
+        #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+    rewriter.replaceOp op castSleOp sorry sorry sorry
+  | 4 =>
+    /- sgt -/
+    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- `riscv.sltiu (riscv.xor lhs rhs) 1` -/
+    let (rewriter, sltOp) ← rewriter.createOp .riscv_slt #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- Cast back result for type consistency-/
+    let type := ((op.getResult 0).get! rewriter.ctx).type
+    let .integerType type' := type.val | rewriter
+    let (rewriter, castSgtOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[sltOp.getResult 0]
+        #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+    rewriter.replaceOp op castSgtOp sorry sorry sorry
+  | 5 =>
+    /- sge -/
+    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- `riscv.xori (riscv_slt lhs rhs) 1` -/
+    let (rewriter, sltOp) ← rewriter.createOp .riscv_slt #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+    let (rewriter, xoriOp) ← rewriter.createOp .riscv_xori #[RegisterType.mk] #[sltOp.getResult 0]
+      #[] #[] c1 (some $ .before op) sorry (by simp) (by simp) sorry
+    /- Cast back result for type consistency-/
+    let type := ((op.getResult 0).get! rewriter.ctx).type
+    let .integerType type' := type.val | rewriter
+    let (rewriter, castSgeOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[xoriOp.getResult 0]
+        #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+    rewriter.replaceOp op castSgeOp sorry sorry sorry
+  | 6 =>
+    /- ult -/
+    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- `riscv.sltu` -/
+    let (rewriter, sltOp) ← rewriter.createOp .riscv_sltu #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- Cast back result for type consistency-/
+    let type := ((op.getResult 0).get! rewriter.ctx).type
+    let .integerType type' := type.val | rewriter
+    let (rewriter, castUltOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[sltOp.getResult 0]
+        #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+    rewriter.replaceOp op castUltOp sorry sorry sorry
+  | 7 =>
+    /- ule -/
+    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- `riscv.xori (riscv_sltu rhs lhs) 1` -/
+    let (rewriter, sltOp) ← rewriter.createOp .riscv_sltu #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+    let (rewriter, xoriOp) ← rewriter.createOp .riscv_xori #[RegisterType.mk] #[sltOp.getResult 0]
+      #[] #[] c1 (some $ .before op) sorry (by simp) (by simp) sorry
+    /- Cast back result for type consistency-/
+    let type := ((op.getResult 0).get! rewriter.ctx).type
+    let .integerType type' := type.val | rewriter
+    let (rewriter, castUleOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[xoriOp.getResult 0]
+        #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+    rewriter.replaceOp op castUleOp sorry sorry sorry
+  | 8 =>
+    /- ugt -/
+    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- `riscv.sltu` -/
+    let (rewriter, sltOp) ← rewriter.createOp .riscv_sltu #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- Cast back result for type consistency-/
+    let type := ((op.getResult 0).get! rewriter.ctx).type
+    let .integerType type' := type.val | rewriter
+    let (rewriter, castUgtOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[sltOp.getResult 0]
+        #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+    rewriter.replaceOp op castUgtOp sorry sorry sorry
+  | 9 =>
+    /- uge -/
+    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    /- `riscv.xori (riscv_sltu lhs rhs) 1` -/
+    let (rewriter, sltOp) ← rewriter.createOp .riscv_sltu #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+    let (rewriter, xoriOp) ← rewriter.createOp .riscv_xori #[RegisterType.mk] #[sltOp.getResult 0]
+      #[] #[] c1 (some $ .before op) sorry (by simp) (by simp) sorry
+    /- Cast back result for type consistency-/
+    let type := ((op.getResult 0).get! rewriter.ctx).type
+    let .integerType type' := type.val | rewriter
+    let (rewriter, castUgeOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[xoriOp.getResult 0]
+        #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+    rewriter.replaceOp op castUgeOp sorry sorry sorry
+  | _ => return rewriter
+
 /-! # Pass implementation -/
 
 set_option warn.sorry false in
