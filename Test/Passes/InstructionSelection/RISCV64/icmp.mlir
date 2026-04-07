@@ -82,5 +82,3 @@
         // CHECK-NEXT: [[E:%.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (!reg) -> i1
     }) : () -> ()
 }) : () -> ()
-   
-   
