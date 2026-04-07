@@ -148,7 +148,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castEqOp sorry sorry sorry
   | 1 =>
-
     /- llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs) -/
     let (rewriter, xorOp) ← rewriter.createOp .riscv_xor #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -160,7 +159,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     let (rewriter, castNeOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[sltuOp.getResult 0]
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castNeOp sorry sorry sorry
-
   | 2 =>
     /- llvm.icmp slt lhs rhs -> riscv.slt lhs rhs  -/
     let (rewriter, sltOp) ← rewriter.createOp .riscv_slt #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
