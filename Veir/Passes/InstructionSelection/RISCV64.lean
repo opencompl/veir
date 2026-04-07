@@ -211,7 +211,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       pure (rewriter, retOp)
     | _ =>
       return rewriter
-
   let (rewriter, castEqOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[retOp.getResult 0]
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castEqOp sorry sorry sorry
