@@ -126,9 +126,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   if ltype.bitwidth ≠ 64 then return rewriter
   let .integerType rtype := (rhs.getType! rewriter.ctx).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  /- Casting back result for type consistency is always necessary. -/
-  let type := ((op.getResult 0).get! rewriter.ctx).type
-  let .integerType type' := type.val | rewriter
+  /- Return if the predicate is invalid. -/
   let p := property.value.value.toNat
   if 10 ≤ p then return rewriter
   /- Casting is necessary regardless of the predicate. -/
@@ -136,6 +134,9 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Casting back result for type consistency is always necessary. -/
+  let type := ((op.getResult 0).get! rewriter.ctx).type
+  let .integerType type' := type.val | rewriter
   /- Match depending on the predicate and build correct lowering. -/
   match p with
   | 0 =>
