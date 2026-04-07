@@ -7,7 +7,7 @@
         // CHECK:      [[A:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: [[B:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: [[C:%.*]] = "riscv.xor"([[A]], [[B]]) : (!reg, !reg) -> !reg
-        // CHECK-NEXT: [[D:%.*]] = "riscv.sltiu"([[C]]) <{"immediate" = 1 : i64}> : (!reg) -> !reg
+        // CHECK-NEXT: [[D:%.*]] = "riscv.sltiu"([[C]]) <{"value" = 1 : i64}> : (!reg) -> !reg
         // CHECK-NEXT: [[E:%.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (!reg) -> i1
 
     ^bb1(%a: i64, %b: i64):
@@ -15,7 +15,7 @@
         // CHECK:      [[A:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: [[B:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: [[C:%.*]] = "riscv.xor"([[A]], [[B]]) : (!reg, !reg) -> !reg
-        // CHECK-NEXT: [[D:%.*]] = "riscv.sltiu"([[C]]) <{"immediate" = 1 : i64}> : (!reg) -> !reg
+        // CHECK-NEXT: [[D:%.*]] = "riscv.sltiu"([[C]]) <{"value" = 1 : i64}> : (!reg) -> !reg
         // CHECK-NEXT: [[E:%.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (!reg) -> i1
  
     ^bb2(%a: i64, %b: i64):
@@ -31,7 +31,7 @@
         // CHECK-NEXT: [[B:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: [[C:%.*]] = "riscv.slt"([[B]], [[A]]) : (!reg, !reg) -> !reg
         // note: operands are swapped – rhs before lhs
-        // CHECK-NEXT: [[D:%.*]] = "riscv.xori"([[C]]) <{"immediate" = 1 : i64}> : (!reg) -> !reg
+        // CHECK-NEXT: [[D:%.*]] = "riscv.xori"([[C]]) <{"value" = 1 : i64}> : (!reg) -> !reg
         // CHECK-NEXT: [[E:%.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (!reg) -> i1
         
     ^bb4(%a: i64, %b: i64):
@@ -46,7 +46,7 @@
         // CHECK:      [[A:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: [[B:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: [[C:%.*]] = "riscv.slt"([[A]], [[B]]) : (!reg, !reg) -> !reg
-        // CHECK-NEXT: [[D:%.*]] = "riscv.xori"([[C]]) <{"immediate" = 1 : i64}> : (!reg) -> !reg
+        // CHECK-NEXT: [[D:%.*]] = "riscv.xori"([[C]]) <{"value" = 1 : i64}> : (!reg) -> !reg
         // CHECK-NEXT: [[E:%.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (!reg) -> i1
         
     ^bb6(%a: i64, %b: i64):
@@ -62,7 +62,7 @@
         // CHECK-NEXT: [[B:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: [[C:%.*]] = "riscv.sltu"([[B]], [[A]]) : (!reg, !reg) -> !reg
         // note: operands are swapped – rhs before lhs
-        // CHECK-NEXT: [[D:%.*]] = "riscv.xori"([[C]]) <{"immediate" = 1 : i64}> : (!reg) -> !reg
+        // CHECK-NEXT: [[D:%.*]] = "riscv.xori"([[C]]) <{"value" = 1 : i64}> : (!reg) -> !reg
         // CHECK-NEXT: [[E:%.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (!reg) -> i1
         
     ^bb8(%a: i64, %b: i64):
@@ -77,7 +77,7 @@
         // CHECK:      [[A:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: [[B:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: [[C:%.*]] = "riscv.sltu"([[A]], [[B]]) : (!reg, !reg) -> !reg
-        // CHECK-NEXT: [[D:%.*]] = "riscv.xori"([[C]]) <{"immediate" = 1 : i64}> : (!reg) -> !reg
+        // CHECK-NEXT: [[D:%.*]] = "riscv.xori"([[C]]) <{"value" = 1 : i64}> : (!reg) -> !reg
         // CHECK-NEXT: [[E:%.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (!reg) -> i1
     }) : () -> ()
 }) : () -> ()
