@@ -14,6 +14,9 @@
         %r = "llvm.icmp"(%a, %b) <{"predicate" = 6 : i64}> : (i64, i32) -> i1
         // CHECK:      "llvm.icmp"(%{{.*}}, %{{.*}}) <{"predicate" = 6 : i64}> : (i64, i32) -> i1
     
+    ^bb3(%a: i64, %b: i64):
+        %r = "llvm.icmp"(%a, %b) <{"predicate" = 11 : i64}> : (i64, i64) -> i1
+        // CHECK:      "llvm.icmp"(%{{.*}}, %{{.*}}) <{"predicate" = 11 : i64}> : (i64, i64) -> i1
   }) : () -> ()
 }) : () -> ()
 
