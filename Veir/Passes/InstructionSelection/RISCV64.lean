@@ -135,7 +135,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let type := ((op.getResult 0).get! rewriter.ctx).type
   let .integerType type' := type.val | rewriter
   /- Match depending on the predicate and build correct lowering. -/
-  let p := property.value.value
+  let p := property.value.value.toNat
   match p with
   | 0 =>
     /- llvm.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1 -/
@@ -148,17 +148,19 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castEqOp sorry sorry sorry
   | 1 =>
+
     /- llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs) -/
     let (rewriter, xorOp) ← rewriter.createOp .riscv_xor #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     let c0 := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-    let (rewriter, liOp) ← rewriter.createOp .riscv_li #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+    let (rewriter, liOp) ← rewriter.createOp .riscv_li #[RegisterType.mk] #[]
       #[] #[] c0 (some $ .before op) sorry (by simp) (by simp) sorry
     let (rewriter, sltuOp) ← rewriter.createOp .riscv_sltu #[RegisterType.mk] #[liOp.getResult 0, xorOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     let (rewriter, castNeOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[sltuOp.getResult 0]
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castNeOp sorry sorry sorry
+
   | 2 =>
     /- llvm.icmp slt lhs rhs -> riscv.slt lhs rhs  -/
     let (rewriter, sltOp) ← rewriter.createOp .riscv_slt #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
@@ -227,7 +229,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     let (rewriter, castUgeOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[xoriOp.getResult 0]
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castUgeOp sorry sorry sorry
-  | _ => return rewriter
+  | _ => rewriter
 
 /-! # Pass implementation -/
 
@@ -235,7 +237,7 @@ set_option warn.sorry false in
 def ISelPass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) (op : OperationPtr)
     (_ : op.InBounds ctx.val) :
     ExceptT String IO { ctx' : IRContext OpCode // ctx'.WellFormed } := do
-  let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr]
+  let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp]
   match RewritePattern.applyInContext pattern ctx ctx.property.inBounds with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ⟨ctx, sorry⟩
