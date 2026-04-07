@@ -128,13 +128,13 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   if rtype.bitwidth ≠ 64 then return rewriter
   /- match depending on the opcode and build correct lowering -/
   let p := property.value.value
+  /- casting is necessary regardless of the op -/
+  let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   match p with
   | 0 =>
-    /- eq -/
-    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     /- `riscv.sltiu (riscv.xor lhs rhs) 1` -/
     let (rewriter, xorOp) ← rewriter.createOp .riscv_xor #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -148,11 +148,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castEqOp sorry sorry sorry
   | 1 =>
-    /- ne -/
-    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     /- `riscv.sltu 0 (riscv.xor lhs rhs)` -/
     let (rewriter, xorOp) ← rewriter.createOp .riscv_xor #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -168,11 +163,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castNeOp sorry sorry sorry
   | 2 =>
-    /- slt -/
-    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     /- `riscv.sltiu (riscv.xor lhs rhs) 1` -/
     let (rewriter, sltOp) ← rewriter.createOp .riscv_slt #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -183,11 +173,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castSltOp sorry sorry sorry
   | 3 =>
-    /- sle -/
-    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     /- `riscv.xori (riscv_slt rhs lhs) 1` -/
     let (rewriter, sltOp) ← rewriter.createOp .riscv_slt #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -201,11 +186,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castSleOp sorry sorry sorry
   | 4 =>
-    /- sgt -/
-    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     /- `riscv.sltiu (riscv.xor lhs rhs) 1` -/
     let (rewriter, sltOp) ← rewriter.createOp .riscv_slt #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -216,11 +196,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castSgtOp sorry sorry sorry
   | 5 =>
-    /- sge -/
-    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     /- `riscv.xori (riscv_slt lhs rhs) 1` -/
     let (rewriter, sltOp) ← rewriter.createOp .riscv_slt #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -234,11 +209,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castSgeOp sorry sorry sorry
   | 6 =>
-    /- ult -/
-    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     /- `riscv.sltu` -/
     let (rewriter, sltOp) ← rewriter.createOp .riscv_sltu #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -249,11 +219,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castUltOp sorry sorry sorry
   | 7 =>
-    /- ule -/
-    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     /- `riscv.xori (riscv_sltu rhs lhs) 1` -/
     let (rewriter, sltOp) ← rewriter.createOp .riscv_sltu #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -267,11 +232,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castUleOp sorry sorry sorry
   | 8 =>
-    /- ugt -/
-    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     /- `riscv.sltu` -/
     let (rewriter, sltOp) ← rewriter.createOp .riscv_sltu #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -282,11 +242,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
     rewriter.replaceOp op castUgtOp sorry sorry sorry
   | 9 =>
-    /- uge -/
-    let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
     /- `riscv.xori (riscv_sltu lhs rhs) 1` -/
     let (rewriter, sltOp) ← rewriter.createOp .riscv_sltu #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
