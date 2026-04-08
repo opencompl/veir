@@ -116,21 +116,6 @@ meta def mkDialectCodeFromByteArray (ds : Array Dialect) : TermElabM Syntax := d
       Option $(mkIdent `DialectCode) := $res)
 
 /--
-Build an instance of this typeclass:
-
-class DDD where
-  opType : Type
-
-Given a dialect 'Arith`, the instantiation would be:
-
-instance : DDD where
-  opType := Arith
--/
-meta def mkDialectInstance (name : Name) : CommandElabM Command := do
-  `(public instance : Veir.DDD where
-     opType := $(mkIdent name))
-
-/--
 Create the following inductive:
 
 inductive OpCode3 where
@@ -151,9 +136,6 @@ meta def mkOpCode3Inductive (ds : Array Dialect) : TermElabM Syntax := do
   let ctors2 ← (ctors).mapM mkCtorWithType
   `(inductive $(mkIdent `OpCode) where $ctors2*
     deriving Inhabited, Repr, Hashable, DecidableEq)
-
-meta def mkDialectInstances (ds : Array Dialect) : CommandElabM (Array Command) := do
-  ds.mapM (λ d => mkDialectInstance d.mkDialectCodeSimple)
 
 meta def emitFromName (ds : Array Dialect) : TermElabM Command := do
   let mut res : TSyntax `term ← `(Option.none)
