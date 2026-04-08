@@ -4,8 +4,6 @@ public import Lean
 public import Lean.EnvExtension
 public meta import Veir.Meta.Attrs
 
-public import Veir.TC
-
 open Std
 open Lean Elab Command Meta
 
