@@ -9,7 +9,6 @@ to an operation definition.
 -/
 
 import Std.Data.HashMap
-public import Veir.TC
 import Veir.Meta.OpCode
 
 open Std
