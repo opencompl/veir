@@ -72,3 +72,7 @@ def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
 def matchIcmp (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_icmp) := do
   let (op, properties) ← matchOp op ctx .llvm_icmp 2
   return (op[0]!, op[1]!, properties)
+
+def matchOr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_or) := do
+  let (op, properties) ← matchOp op ctx .llvm_or 2
+  return (op[0]!, op[1]!, properties)
