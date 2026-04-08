@@ -15,15 +15,10 @@ namespace Veir
 -/
 def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCode) (opIn : op.InBounds ctx) : Except String PUnit :=
   match op.getOpType ctx opIn with
-  | .builtin .unregistered =>
-    pure ()
+  | .builtin .unregistered => pure ()
   | .builtin .unrealized_conversion_cast => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
-  /- ARITH -/
-  | .arith .constant => do
-    if op.getNumOperands ctx opIn ≠ 0 then
-      throw "Expected 0 operands"
     if op.getNumResults ctx opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx opIn ≠ 0 then
@@ -82,6 +77,15 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+   | .arith .constant => do
+    if op.getNumOperands ctx opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
   | .arith .cmpi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
