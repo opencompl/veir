@@ -364,7 +364,7 @@ def srem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   /- Actual `riscv.rem` -/
-  let (rewriter, remOp) ← rewriter.createOp .riscv_div #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+  let (rewriter, remOp) ← rewriter.createOp .riscv_rem #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   /- Cast back result for type consistency-/
   let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[remOp.getResult 0]
