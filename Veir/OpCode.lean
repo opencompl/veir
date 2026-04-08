@@ -220,8 +220,6 @@ the dialect type.
 set_option maxRecDepth 100000
 #generate_op_codes
 
-def test : OpCode := .arith Veir.Arith.constant
-
 def toType (code : DialectCode) : Type :=
   match code with
   | .arith => Arith
