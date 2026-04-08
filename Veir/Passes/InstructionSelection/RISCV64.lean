@@ -294,11 +294,7 @@ def mul (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   rewriter.replaceOp op castOp sorry sorry sorry
 
 set_option warn.sorry false in
-<<<<<<< HEAD
 /-- llvm.sdiv -> riscv.div -/
-=======
-/-- llvm.sdiv -> riscv.sdov -/
->>>>>>> origin
 def sdiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchSdiv op rewriter.ctx | return rewriter
