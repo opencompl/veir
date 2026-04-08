@@ -677,3 +677,37 @@ def packw (rs2 : Reg) (rs1 : Reg) : Reg :=
 /-! ## Zbkc: Carry-less multiplication for Cryptography -/
 
 /-! ## Zbkx: Carry-less multiplication for Cryptography -/
+
+/-! # Pseudo operations -/
+def mv (rs1 : Reg) : Reg :=
+  addi 0 rs1
+
+def not (rs1 : Reg) : Reg :=
+  xori (-1) rs1
+
+def neg (rs1 : Reg) : Reg :=
+  sub rs1 (li 0)
+
+def negw (rs1 : Reg) : Reg :=
+  subw rs1 (li 0)
+
+def sextw (rs1 : Reg) : Reg :=
+  addiw 0 rs1
+
+def zextb (rs1 : Reg) : Reg :=
+  andi 255 rs1
+
+def zextw (rs1 : Reg) : Reg :=
+  adduw (li 0) rs1
+
+def seqz (rs1 : Reg) : Reg :=
+  sltiu 1 rs1
+
+def snez (rs1 : Reg) : Reg :=
+  sltu rs1 (li 0)
+
+def sltz (rs1 : Reg) : Reg :=
+  slt (li 0) rs1
+
+def sgtz (rs1 : Reg) : Reg :=
+  slt rs1 (li 0)
