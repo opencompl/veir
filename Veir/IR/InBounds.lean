@@ -95,7 +95,7 @@ theorem OperationPtr.pushResult_genericPtr_mono (ptr : GenericPtr) :
     ∨ (ptr = GenericPtr.opResult (op.nextResult ctx))
     ∨ (ptr = GenericPtr.value (.opResult (op.nextResult ctx)))
     ∨ (ptr = GenericPtr.opOperandPtr (.valueFirstUse (.opResult (op.nextResult ctx)))))) := by
-  grind
+  grind [OperationPtr.getResult]
 
 @[grind .]
 theorem OperationPtr.pushResult_genericPtr_mono_impl (ptr : GenericPtr) :
@@ -117,7 +117,7 @@ theorem OperationPtr.pushOperand_genericPtr_iff (ptr : GenericPtr) :
     (ptr.InBounds ctx
     ∨ (ptr = GenericPtr.opOperand (op.nextOperand ctx))
     ∨ (ptr = GenericPtr.opOperandPtr (.operandNextUse (op.nextOperand ctx)))) := by
-  grind
+  grind [OperationPtr.getOpOperand]
 
 @[grind .]
 theorem OperationPtr.pushOperand_genericPtr_mono (ptr : GenericPtr) :
@@ -152,7 +152,7 @@ theorem OperationPtr.pushBlockOperand_genericPtr_iff (ptr : GenericPtr) :
     (ptr.InBounds ctx
     ∨ (ptr = GenericPtr.blockOperand (op.nextBlockOperand ctx))
     ∨ (ptr = GenericPtr.blockOperandPtr (.blockOperandNextUse (op.nextBlockOperand ctx)))) := by
-  grind
+  grind [OperationPtr.getBlockOperand]
 
 @[grind .]
 theorem OperationPtr.pushBlockOperand_genericPtr_mono (ptr : GenericPtr) :

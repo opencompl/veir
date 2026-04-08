@@ -3532,7 +3532,7 @@ theorem OpResultPtr.get!_pushOperand {opResult : OpResultPtr} :
       { opResult.get! ctx with firstUse := some (opPtr.nextOperand! ctx) }
     else
       opResult.get! ctx := by
-  grind
+  grind [OperationPtr.getOpOperand]
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands!_pushOperand {operation : OperationPtr} :
@@ -3563,7 +3563,7 @@ theorem OpOperandPtr.get!_pushOperand {operand : OpOperandPtr} :
       } := by
   have : (valuePtr.getFirstUse! ctx).maybe InBounds ctx := by grind
   have : ¬ (opPtr.nextOperand ctx).InBounds ctx := by grind
-  split <;> grind
+  split <;> grind [OperationPtr.getOpOperand]
 
 /-
 This version of the theorem has if/else branches that are sometimes more convenient for reasonning.
@@ -3634,7 +3634,7 @@ theorem BlockArgumentPtr.get!_pushOperand {blockArg : BlockArgumentPtr} :
       { blockArg.get! ctx with firstUse := some (opPtr.nextOperand! ctx) }
     else
       blockArg.get! ctx := by
-  grind
+  grind [OperationPtr.getOpOperand]
 
 @[simp, grind =]
 theorem RegionPtr.firstBlock!_pushOperand {region : RegionPtr} :
@@ -3664,7 +3664,7 @@ theorem ValuePtr.getType!_pushOperand {value : ValuePtr} :
 theorem ValuePtr.getFirstUse!_pushOperand {value : ValuePtr} :
     value.getFirstUse! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     if value = valuePtr then some (opPtr.nextOperand! ctx) else value.getFirstUse! ctx := by
-  grind
+  grind [OperationPtr.getOpOperand]
 
 @[simp, grind =]
 theorem OpOperandPtrPtr.get!_pushOperand {operandPtr : OpOperandPtrPtr} :
@@ -3691,7 +3691,7 @@ attribute [local grind] Rewriter.pushBlockOperand
 theorem BlockPtr.firstUse!_pushBlockOperand {block : BlockPtr} :
     (block.get! (Rewriter.pushBlockOperand ctx opPtr blockPtr h₁ h₂ h₃)).firstUse =
     if block = blockPtr then some (opPtr.nextBlockOperand! ctx) else (block.get! ctx).firstUse := by
-  grind
+  grind [OperationPtr.getBlockOperand]
 
 @[simp, grind =]
 theorem BlockPtr.prev!_pushBlockOperand {block : BlockPtr} :
@@ -3818,7 +3818,7 @@ theorem BlockOperandPtr.get!_pushBlockOperand {operand : BlockOperandPtr} :
       } := by
   have : (blockPtr.get! ctx).firstUse.maybe InBounds ctx := by grind
   have : ¬ (opPtr.nextBlockOperand ctx).InBounds ctx := by grind
-  split <;> grind
+  split <;> grind [OperationPtr.getBlockOperand]
 
 theorem BlockOperandPtr.get!_pushBlockOperand' {operandPtr : BlockOperandPtr} :
     operandPtr.get! (Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds) =
