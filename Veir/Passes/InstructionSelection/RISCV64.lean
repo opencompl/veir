@@ -375,7 +375,7 @@ set_option warn.sorry false in
 /-- llvm.urem -> riscv.remu -/
 def urem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _) := matchUdiv op rewriter.ctx | return rewriter
+  let some (lhs, rhs, _) := matchUrem op rewriter.ctx | return rewriter
   /- only support `i64` -/
   let .integerType ltype := (lhs.getType! rewriter.ctx).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
