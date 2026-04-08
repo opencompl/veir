@@ -299,7 +299,7 @@ set_option warn.sorry false in
 def ISelPass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) (op : OperationPtr)
     (_ : op.InBounds ctx.val) :
     ExceptT String IO { ctx' : IRContext OpCode // ctx'.WellFormed } := do
-  let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor]
+  let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul]
   match RewritePattern.applyInContext pattern ctx ctx.property.inBounds with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ⟨ctx, sorry⟩
