@@ -3,7 +3,7 @@
 "builtin.module"() ({
     "func.func"() ({
     ^bb0(%a: i64, %b: i64):
-        %udiv = "s"(%a, %b) : (i64, i64) -> i64
+        %udiv = "llvm.udiv"(%a, %b) : (i64, i64) -> i64
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT: %{{.*}} = "riscv.divu"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
