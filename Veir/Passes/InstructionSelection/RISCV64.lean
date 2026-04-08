@@ -267,7 +267,6 @@ def xor (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castXorOp sorry sorry sorry
 
-<<<<<<< HEAD
 set_option warn.sorry false in
 /-- llvm.mul -> riscv.mul -/
 def mul (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
@@ -346,20 +345,14 @@ def udiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castOp sorry sorry sorry
 
-=======
->>>>>>> origin
 /-! # Pass implementation -/
 
 set_option warn.sorry false in
 def ISelPass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) (op : OperationPtr)
     (_ : op.InBounds ctx.val) :
     ExceptT String IO { ctx' : IRContext OpCode // ctx'.WellFormed } := do
-<<<<<<< HEAD
   let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv]
-=======
-  let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor]
->>>>>>> origin
   match RewritePattern.applyInContext pattern ctx ctx.property.inBounds with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ⟨ctx, sorry⟩
