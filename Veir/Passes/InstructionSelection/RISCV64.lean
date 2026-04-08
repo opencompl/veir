@@ -397,6 +397,30 @@ def urem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castOp sorry sorry sorry
 
+set_option warn.sorry false in
+/-- llvm.sext -> riscv.srai (riscv.slli _ _) -/
+def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (operand, _) := matchSext op rewriter.ctx | return rewriter
+  /- Only support extensions fron `iX` to `iY` where both `X ≤ 64` and `Y ≤ 64`. -/
+  let .integerType ltype := (operand.getType! rewriter.ctx).val | return rewriter
+  if 64 ≤ ltype.bitwidth then return rewriter
+  let type := ((op.getResult 0).get! rewriter.ctx).type
+  let .integerType type' := type.val | rewriter
+  if 64 ≤ type'.bitwidth then return rewriter
+  /- First, cast the operand to registers -/
+  let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[operand]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Lowering pattern -/
+
+  let (rewriter, remuOp) ← rewriter.createOp .riscv_remu #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Cast back result for type consistency-/
+  let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[remuOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castOp sorry sorry sorry
+
+
 /-! # Pass implementation -/
 
 set_option warn.sorry false in
