@@ -80,3 +80,7 @@ def matchOr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × V
 def matchXor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_xor) := do
   let (op, properties) ← matchOp op ctx .llvm_xor 2
   return (op[0]!, op[1]!, properties)
+
+def matchMul (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_mul) := do
+  let (op, properties) ← matchOp op ctx .llvm_mul 2
+  return (op[0]!, op[1]!, properties)

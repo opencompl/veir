@@ -267,6 +267,32 @@ def xor (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castXorOp sorry sorry sorry
 
+set_option warn.sorry false in
+/-- llvm.mul -> riscv.mul -/
+def mul (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs, _) := matchMul op rewriter.ctx | return rewriter
+  /- only support `i64` -/
+  let .integerType ltype := (lhs.getType! rewriter.ctx).val | return rewriter
+  if ltype.bitwidth ≠ 64 then return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx).val | return rewriter
+  if rtype.bitwidth ≠ 64 then return rewriter
+  let type := ((op.getResult 0).get! rewriter.ctx).type
+  let .integerType type' := type.val | rewriter
+  if type'.bitwidth ≠ 64 then return rewriter
+  /- First, cast the operands to registers -/
+  let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[lhs]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, rcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[rhs]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Actual `riscv.xor` -/
+  let (rewriter, xorOp) ← rewriter.createOp .riscv_mul #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Cast back result for type consistency-/
+  let (rewriter, castXorOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[xorOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castXorOp sorry sorry sorry
+
 /-! # Pass implementation -/
 
 set_option warn.sorry false in
