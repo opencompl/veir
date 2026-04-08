@@ -1,5 +1,5 @@
 import Veir.Rewriter.Basic
-import Veir.Rewriter.WellFormed.Rewriter.Operation
+import Veir.Rewriter.WellFormed.Operation
 import Veir.Rewriter.GetSetInBounds
 import Veir.Properties
 
