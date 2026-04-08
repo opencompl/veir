@@ -574,7 +574,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  /- MOD .ARITH -/
+  /- MOD_ARITH -/
   | .mod_arith .add => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
@@ -627,6 +627,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 successors"
     pure ()
   | .riscv .lui => do
+    if op.getNumOperands ctx opIn ≠ 0 then
+      throw "Expected 0 operands"
     if op.getNumResults ctx opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx opIn ≠ 0 then
