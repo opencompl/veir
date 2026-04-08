@@ -207,11 +207,6 @@ elab "#generate_op_codes" : command  => do
   elabCommand <| ← Command.liftTermElabM <| mkDialectCodeFromByteArray dialects
   elabCommand <| ← Command.liftTermElabM <| mkDialectCodeFromName dialects
   elabCommand <| ← Command.liftTermElabM <| mkOpCode3Inductive dialects
-  -- elaborate the array of commands returned by `mkDialectInstances dialects`
-  --let instances ← mkDialectInstances dialects
-  --for inst in instances do
-  --   elabCommand inst
-  --elabCommand <| ← Command.liftTermElabM <| mkOpCodeType dialects
   elabCommand <| ← Command.liftTermElabM <| emitFromName dialects
   elabCommand <| ← Command.liftTermElabM <| emitName dialects
   pure ()
