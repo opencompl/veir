@@ -100,3 +100,4 @@ def matchSrem (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
 def matchUrem (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_urem) := do
   let (op, properties) ← matchOp op ctx .llvm_urem 2
   return (op[0]!, op[1]!, properties)
+  

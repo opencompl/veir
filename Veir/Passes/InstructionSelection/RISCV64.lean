@@ -394,6 +394,8 @@ def urem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   /- Cast back result for type consistency-/
   let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[remuOp.getResult 0]
+  /- Cast back result for type consistency-/
+  let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[divOp.getResult 0]
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castOp sorry sorry sorry
 
