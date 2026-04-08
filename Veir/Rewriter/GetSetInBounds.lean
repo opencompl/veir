@@ -1,7 +1,15 @@
-import Veir.Rewriter.Basic
+module
+
+public import Veir.IR.Basic
+public import Veir.Rewriter.Basic
+
+import all Veir.Rewriter.Basic
+
 import Veir.Rewriter.LinkedList.GetSet
 import Veir.ForLean
 import Veir.IR.DeallocLemmas
+
+public section
 
 /-
  - The getters we consider are:
@@ -99,11 +107,7 @@ theorem BlockPtr.firstOp!_insertOp? {block : BlockPtr} :
     else
       (block.get! ctx).firstOp := by
   simp only [Rewriter.insertOp?]
-  split
-  · split
-    · grind
-    · grind [InsertPoint.block!, InsertPoint.prev!]
-  · grind [InsertPoint.block!, InsertPoint.prev!]
+  grind [cases InsertPoint]
 
 grind_pattern BlockPtr.firstOp!_insertOp? =>
   Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, (block.get! newCtx).firstOp
@@ -131,7 +135,7 @@ theorem OperationPtr.prev!_insertOp? {operation : OperationPtr} :
     else
       (operation.get! ctx).prev := by
   simp only [Rewriter.insertOp?]
-  grind [InsertPoint.next, InsertPoint.prev!]
+  grind [cases InsertPoint]
 
 grind_pattern OperationPtr.prev!_insertOp? =>
   Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, (operation.get! newCtx).prev
@@ -146,7 +150,7 @@ theorem OperationPtr.next!_insertOp? {operation : OperationPtr} :
     else
       (operation.get! ctx).next := by
   simp only [Rewriter.insertOp?]
-  grind [InsertPoint.next, InsertPoint.prev!]
+  grind [cases InsertPoint]
 
 grind_pattern OperationPtr.next!_insertOp? =>
   Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, (operation.get! newCtx).next
@@ -752,7 +756,7 @@ theorem BlockPtr.prev!_insertBlock? {block : BlockPtr} :
       else
         (block.get! ctx).prev := by
   simp only [Rewriter.insertBlock?]
-  grind [BlockInsertPoint.next, BlockInsertPoint.prev!]
+  grind [cases BlockInsertPoint]
 
 grind_pattern BlockPtr.prev!_insertBlock? =>
   Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃, some newCtx, (block.get! newCtx).prev
@@ -767,7 +771,7 @@ theorem BlockPtr.next!_insertBlock? {block : BlockPtr} :
       else
         (block.get! ctx).next := by
   simp only [Rewriter.insertBlock?]
-  grind [BlockInsertPoint.next, BlockInsertPoint.prev!]
+  grind [cases BlockInsertPoint]
 
 grind_pattern BlockPtr.next!_insertBlock? =>
   Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃, some newCtx, (block.get! newCtx).next
@@ -943,11 +947,7 @@ theorem RegionPtr.firstBlock!_insertBlock? {region : RegionPtr} :
       else
         (region.get! ctx).firstBlock := by
   simp only [Rewriter.insertBlock?]
-  split
-  · split
-    · grind
-    · grind [InsertPoint.block!, InsertPoint.prev!]
-  · grind [InsertPoint.block!, InsertPoint.prev!]
+  grind
 
 grind_pattern RegionPtr.firstBlock!_insertBlock? =>
   Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃, some newCtx, (region.get! newCtx).firstBlock
@@ -960,11 +960,7 @@ theorem RegionPtr.lastBlock!_insertBlock? {region : RegionPtr} :
       else
         (region.get! ctx).lastBlock := by
   simp only [Rewriter.insertBlock?]
-  split
-  · split
-    · grind
-    · grind [InsertPoint.block!, InsertPoint.prev!]
-  · grind [InsertPoint.block!, InsertPoint.prev!]
+  grind
 
 grind_pattern RegionPtr.lastBlock!_insertBlock? =>
   Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃, some newCtx, (region.get! newCtx).lastBlock
@@ -3532,7 +3528,7 @@ theorem OpResultPtr.get!_pushOperand {opResult : OpResultPtr} :
       { opResult.get! ctx with firstUse := some (opPtr.nextOperand! ctx) }
     else
       opResult.get! ctx := by
-  grind [OperationPtr.getOpOperand]
+  grind [OperationPtr.getOpOperand_def]
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands!_pushOperand {operation : OperationPtr} :
@@ -3563,7 +3559,7 @@ theorem OpOperandPtr.get!_pushOperand {operand : OpOperandPtr} :
       } := by
   have : (valuePtr.getFirstUse! ctx).maybe InBounds ctx := by grind
   have : ¬ (opPtr.nextOperand ctx).InBounds ctx := by grind
-  split <;> grind [OperationPtr.getOpOperand]
+  split <;> grind [OperationPtr.getOpOperand_def]
 
 /-
 This version of the theorem has if/else branches that are sometimes more convenient for reasonning.
@@ -3634,7 +3630,7 @@ theorem BlockArgumentPtr.get!_pushOperand {blockArg : BlockArgumentPtr} :
       { blockArg.get! ctx with firstUse := some (opPtr.nextOperand! ctx) }
     else
       blockArg.get! ctx := by
-  grind [OperationPtr.getOpOperand]
+  grind [OperationPtr.getOpOperand_def]
 
 @[simp, grind =]
 theorem RegionPtr.firstBlock!_pushOperand {region : RegionPtr} :
@@ -3664,7 +3660,7 @@ theorem ValuePtr.getType!_pushOperand {value : ValuePtr} :
 theorem ValuePtr.getFirstUse!_pushOperand {value : ValuePtr} :
     value.getFirstUse! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     if value = valuePtr then some (opPtr.nextOperand! ctx) else value.getFirstUse! ctx := by
-  grind [OperationPtr.getOpOperand]
+  grind [OperationPtr.getOpOperand_def]
 
 @[simp, grind =]
 theorem OpOperandPtrPtr.get!_pushOperand {operandPtr : OpOperandPtrPtr} :
@@ -3691,7 +3687,7 @@ attribute [local grind] Rewriter.pushBlockOperand
 theorem BlockPtr.firstUse!_pushBlockOperand {block : BlockPtr} :
     (block.get! (Rewriter.pushBlockOperand ctx opPtr blockPtr h₁ h₂ h₃)).firstUse =
     if block = blockPtr then some (opPtr.nextBlockOperand! ctx) else (block.get! ctx).firstUse := by
-  grind [OperationPtr.getBlockOperand]
+  grind [OperationPtr.getBlockOperand_def]
 
 @[simp, grind =]
 theorem BlockPtr.prev!_pushBlockOperand {block : BlockPtr} :
@@ -3818,7 +3814,7 @@ theorem BlockOperandPtr.get!_pushBlockOperand {operand : BlockOperandPtr} :
       } := by
   have : (blockPtr.get! ctx).firstUse.maybe InBounds ctx := by grind
   have : ¬ (opPtr.nextBlockOperand ctx).InBounds ctx := by grind
-  split <;> grind [OperationPtr.getBlockOperand]
+  split <;> grind [OperationPtr.getBlockOperand_def]
 
 theorem BlockOperandPtr.get!_pushBlockOperand' {operandPtr : BlockOperandPtr} :
     operandPtr.get! (Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds) =

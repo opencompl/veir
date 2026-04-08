@@ -366,6 +366,9 @@ theorem getNumOperands!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
 def getOpOperand (op : OperationPtr) (index : Nat) : OpOperandPtr :=
   { op := op, index := index }
 
+theorem getOpOperand_def {op : OperationPtr} {index : Nat} :
+    getOpOperand op index = { op := op, index := index } := by rfl
+
 @[simp, grind =]
 theorem getOpOperand_index {op : OperationPtr} {index : Nat} :
     (getOpOperand op index).index = index := by
@@ -450,6 +453,9 @@ theorem getNumSuccessors!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
 def getBlockOperand (op : OperationPtr) (index : Nat) : BlockOperandPtr :=
   { op := op, index := index }
 
+theorem getBlockOperand_def {op : OperationPtr} {index : Nat} :
+    getBlockOperand op index = { op := op, index := index } := by rfl
+
 @[simp, grind =]
 theorem getBlockOperand_index {op : OperationPtr} {index : Nat} :
     (getBlockOperand op index).index = index := by
@@ -491,6 +497,9 @@ theorem getNumResults!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
 
 def getResult (op : OperationPtr) (index : Nat) : OpResultPtr :=
   { op := op, index := index }
+
+theorem getResult_def {op : OperationPtr} {index : Nat} :
+    getResult op index = { op := op, index := index } := by rfl
 
 @[simp, grind =]
 theorem getResult_index {op : OperationPtr} {index : Nat} :
