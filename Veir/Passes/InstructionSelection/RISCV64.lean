@@ -398,25 +398,44 @@ def urem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   rewriter.replaceOp op castOp sorry sorry sorry
 
 set_option warn.sorry false in
-/-- llvm.sext -> riscv.srai (riscv.slli _ _) -/
+/--
+  llvm.sext %x i8  to iY -> riscv.sextb %x
+  llvm.sext %x i16 to iY -> riscv.sexth %x
+  llvm.sext %x i32 to iY -> riscv.sextw %x
+
+  For every other width:
+  llvm.sext %x iX to iY-> riscv.srai (riscv.slli %x (64 - X)) (64 - X)
+-/
 def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchSext op rewriter.ctx | return rewriter
   /- Only support extensions fron `iX` to `iY` where both `X ≤ 64` and `Y ≤ 64`. -/
-  let .integerType ltype := (operand.getType! rewriter.ctx).val | return rewriter
-  if 64 ≤ ltype.bitwidth then return rewriter
+  let .integerType opType := (operand.getType! rewriter.ctx).val | return rewriter
+  if 64 ≤ opType.bitwidth then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx).type
-  let .integerType type' := type.val | rewriter
-  if 64 ≤ type'.bitwidth then return rewriter
+  let .integerType retType := type.val | rewriter
+  if 64 ≤ retType.bitwidth then return rewriter
+  /- Instruction is illegal if return type is smaller than operand type.
+    TODO: this should be verified by `veir-opt` even before the pass starts. -/
+  if retType.bitwidth ≤ opType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
-  let (rewriter, lcastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[operand]
+  let (rewriter, opCastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- Lowering pattern -/
-
-  let (rewriter, remuOp) ← rewriter.createOp .riscv_remu #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, retOp) ← match opType.bitwidth with
+    | 8 =>
+      let (rewriter, retOp) ← rewriter.createOp .riscv_sextb #[RegisterType.mk] #[opCastOp.getResult 0]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+      pure (rewriter, retOp)
+    | 16 =>
+      let (rewriter, retOp) ← rewriter.createOp .riscv_sexth #[RegisterType.mk] #[opCastOp.getResult 0]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+      pure (rewriter, retOp)
+    | 32 =>
+      /- pseudoinstruction -/
+      sorry
+    | _ => sorry
   /- Cast back result for type consistency-/
-  let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[remuOp.getResult 0]
+  let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[retOp.getResult 0]
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castOp sorry sorry sorry
 
