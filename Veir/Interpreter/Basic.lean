@@ -581,6 +581,39 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .riscv_packw => do
     let #[.reg op1, .reg op2] := operands | none
     return (#[.reg (RISCV.packw op2 op1)], .continue)
+  | .riscv_mv => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.mv op)], .continue)
+  | .riscv_not => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.not op)], .continue)
+  | .riscv_neg => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.neg op)], .continue)
+  | .riscv_negw => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.negw op)], .continue)
+  | .riscv_sextw => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.sextw op)], .continue)
+  | .riscv_zextb => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.zextb op)], .continue)
+  | .riscv_zextw => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.zextw op)], .continue)
+  | .riscv_seqz => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.seqz op)], .continue)
+  | .riscv_snez => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.snez op)], .continue)
+  | .riscv_sltz=> do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.sltz op)], .continue)
+  | .riscv_sgtz => do
+    let #[.reg op] := operands | none
+    return (#[.reg (RISCV.sgtz op)], .continue)
   | .builtin_unrealized_conversion_cast => do
     let resType ← resultTypes[0]?
     match resType.val, operands.toList with
