@@ -77,7 +77,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-   | .arith .cmpi => do
+  | .arith .cmpi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
