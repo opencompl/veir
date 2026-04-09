@@ -137,6 +137,14 @@ macro "#assert " e:term : command =>
   (ArrayAttr.mk #[IntegerAttr.mk 1 (IntegerType.mk 32), StringAttr.mk "foo".toByteArray])
 #assert expectSuccessAttr "[[]]" (ArrayAttr.mk #[ArrayAttr.mk #[]])
 
+/-! ## Dense array attribute -/
+
+#assert expectSuccessAttr "array<i8>" (DenseArrayAttr.mk (IntegerType.mk 8) #[])
+#assert expectSuccessAttr "array<i32: 10, 42>" (DenseArrayAttr.mk (IntegerType.mk 32) #[10, 42])
+#assert expectSuccessAttr "array<i64: -1>" (DenseArrayAttr.mk (IntegerType.mk 64) #[-1])
+#assert expectSuccessAttr "array<i16: 0>" (DenseArrayAttr.mk (IntegerType.mk 16) #[0])
+#assert expectErrorAttr "array<>" "integer type expected in dense array attribute"
+
 /-! ## Dialect type -/
 
 #assert expectSuccessType "!foo<bar>" ⟨UnregisteredAttr.mk "!foo<bar>" true, by grind⟩

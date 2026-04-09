@@ -80,6 +80,16 @@ structure UnitAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  An array of integer attributes.
+  The values are stored as an array of integers, and an associated integer type.
+  Note that the integers are not necessarily in the range of the integer type.
+-/
+structure DenseArrayAttr where
+  elementType : IntegerType
+  values : Array Int
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   An attribute from an unknown dialect.
   It can be either a type attribute or a non-type attribute.
 -/
@@ -150,6 +160,8 @@ inductive Attribute
 | unitAttr (attr : UnitAttr)
 /-- Array attribute -/
 | arrayAttr (attr : ArrayAttr)
+/-- Dense array attribute -/
+| denseArrayAttr (attr : DenseArrayAttr)
 /-- Dictionary attribute -/
 | dictionaryAttr (attr : DictionaryAttr)
 /-- Function type -/
@@ -283,6 +295,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case denseArrayAttr.denseArrayAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
@@ -326,6 +342,12 @@ instance : ToString StringAttr where
 
 instance : ToString UnitAttr where
   toString _ := "unit"
+
+instance : ToString DenseArrayAttr where
+  toString attr :=
+    let values := if attr.values.isEmpty then ""
+      else ": " ++ String.intercalate ", " (attr.values.toList.map ToString.toString)
+    s!"array<{attr.elementType}{values}>"
 
 instance : ToString UnregisteredAttr where
   toString attr := attr.value
@@ -397,6 +419,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .stringAttr attr => ToString.toString attr
   | .unitAttr attr => ToString.toString attr
   | .arrayAttr attr => attr.toString
+  | .denseArrayAttr attr => ToString.toString attr
   | .dictionaryAttr attr => attr.toString
   | .unregisteredAttr attr => ToString.toString attr
   | .functionType type => type.toString
@@ -440,6 +463,9 @@ instance : Coe UnregisteredAttr Attribute where
 instance : Coe ArrayAttr Attribute where
   coe attr := .arrayAttr attr
 
+instance : Coe DenseArrayAttr Attribute where
+  coe attr := .denseArrayAttr attr
+
 instance : Coe DictionaryAttr Attribute where
   coe attr := .dictionaryAttr attr
 
@@ -469,6 +495,7 @@ def isType (attr : Attribute) : Bool :=
   | .stringAttr _ => false
   | .unitAttr _ => false
   | .arrayAttr _ => false
+  | .denseArrayAttr _ => false
   | .dictionaryAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .functionType _ => true

@@ -14,6 +14,8 @@
   %12 = "test.test"() {arr = []} : () -> i32
   %13 = "test.test"() {arr = [unit]} : () -> i32
   %14 = "test.test"() {arr = [0 : i32, "hello"]} : () -> i32
+  %15 = "test.test"() {da = array<i8>} : () -> i32
+  %16 = "test.test"() {da = array<i32: 10, 42>} : () -> i32
 }) : () -> ()
 
 // CHECK-NEXT: "builtin.module"() ({
@@ -30,4 +32,6 @@
 // CHECK-NEXT:     %{{.*}} = "test.test"() {"arr" = []} : () -> i32
 // CHECK-NEXT:     %{{.*}} = "test.test"() {"arr" = [unit]} : () -> i32
 // CHECK-NEXT:     %{{.*}} = "test.test"() {"arr" = [0 : i32, "hello"]} : () -> i32
+// CHECK-NEXT:     %{{.*}} = "test.test"() {"da" = array<i8>} : () -> i32
+// CHECK-NEXT:     %{{.*}} = "test.test"() {"da" = array<i32: 10, 42>} : () -> i32
 // CHECK-NEXT: }) : () -> ()

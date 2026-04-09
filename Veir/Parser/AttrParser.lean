@@ -120,6 +120,21 @@ def parseOptionalUnitAttr : AttrParserM (Option UnitAttr) := do
     return some UnitAttr.mk
   return none
 
+/--
+  Parse a dense array attribute, if present.
+  Its syntax is `array<iN>` or `array<iN: v1, v2, ...>`.
+-/
+def parseOptionalDenseArrayAttr : AttrParserM (Option DenseArrayAttr) := do
+  if !(← parseOptionalKeyword "array".toByteArray) then
+    return none
+  parsePunctuation "<"
+  let elementType ← parseIntegerType "integer type expected in dense array attribute"
+  let mut values : Array Int := #[]
+  if ← parseOptionalPunctuation ":" then
+    values ← parseList (parseInteger false true)
+  parsePunctuation ">"
+  return some (DenseArrayAttr.mk elementType values)
+
 def isClosingBracket (kind : TokenKind) : Bool :=
   kind = .greater || kind = .rParen || kind = .rSquare || kind = .rBrace
 
@@ -355,6 +370,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some integerAttr
   else if let some stringAttr ← parseOptionalStringAttr then
     return some stringAttr
+  else if let some denseArrayAttr ← parseOptionalDenseArrayAttr then
+    return some denseArrayAttr
   else if let some unitAttr ← parseOptionalUnitAttr then
     return some unitAttr
   else if let some arrayAttr ← parseOptionalArrayAttr then
