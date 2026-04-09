@@ -37,33 +37,15 @@ meta def mkDialectCode (d : Dialect) : Name :=
 meta def mkDialectCodeSimple (d : Dialect) : Name :=
   .mkSimple <| d.name
 
-meta def mkOpCode (d : Dialect) (op : String) : Name :=
-  .mkSimple <| d.getName ++ "_" ++ op
-
-meta def mkQualifiedOpCode (d : Dialect) (op : String) : Name :=
-  .mkStr `Veir.OpCode <| d.getName ++ "_" ++ op
-
 meta def mkOpName (d : Dialect) (op : String) : String := d.getName ++ "." ++ op
 
 end Dialect
-
-meta def opCodeArray (ds : Array Dialect) : Array Name := Id.run do
-  let mut ctors := #[]
-  for d in ds do
-    for op in d.operations do
-      ctors := ctors.push (d.mkOpCode op)
-  pure ctors
 
 meta def dialectCodeArray (ds : Array Dialect) : Array Name := Id.run do
   let mut ctors := #[]
   for d in ds do
     ctors := ctors.push d.mkDialectCode
   pure ctors
-
-meta def mkOpCodeType (ds : Array Dialect) : TermElabM Syntax := do
-  let ctors ← (opCodeArray ds).mapM mkCtor
-  `(inductive $(mkIdent `OpCode) where $ctors*
-    deriving Inhabited, Repr, Hashable, DecidableEq)
 
 meta def mkDialectCodeType (ds : Array Dialect) : TermElabM Syntax := do
   let ctors ← (dialectCodeArray ds).mapM mkCtor
@@ -112,7 +94,7 @@ Use a chain of `if` statements instead of a `match` because `ByteArray` does
 not support pattern matching.
 -/
 meta def mkDialectCodeFromByteArray (ds : Array Dialect) : TermElabM Syntax := do
-  -- Return `Option none` nothing else
+  -- Return ` Builtin.unregistered` nothing else
   let mut res : TSyntax `term ← `(Option.none)
   for d in ds do
     res ← `(if name = $(Syntax.mkStrLit d.getName).toByteArray then some $(mkIdent (d.mkDialectCode)) else $res)
