@@ -271,6 +271,8 @@ structure IRContext (OpInfo : Type) [HasOpInfo OpInfo] where
   nextID : Nat
 deriving Inhabited, Repr
 
+theorem IRContext.default_def : (default : IRContext OpInfo) = IRContext.mk ∅ ∅ ∅ 0 := by rfl
+
 variable {ctx ctx' : IRContext OpInfo}
 
 /-! Empty objects. -/

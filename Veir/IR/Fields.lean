@@ -77,16 +77,13 @@ structure IRContext.FieldsInBounds (ctx : IRContext OpInfo) : Prop where
 
 attribute [local grind =] Option.maybe_def
 
-section default 
+section default
 
 @[grind .]
 theorem IRContext.default_FieldsInBounds : IRContext.FieldsInBounds (default : IRContext OpInfo) := by
-  stop
-  -- Invalid simp theorem `instInhabitedIRContext.default`: Expected a definition with an exposed body
-  -- TODO(gzgz): is this due to `module` weirdness? I can't figure it out.
-  simp [default, instInhabitedIRContext.default]
-  grind [IRContext.FieldsInBounds, OperationPtr.InBounds, BlockPtr.InBounds, RegionPtr.InBounds]
-
+  simp only [default_def]
+  grind [IRContext.FieldsInBounds, OperationPtr.inBounds_def,
+    BlockPtr.inBounds_def, RegionPtr.inBounds_def]
 
 end default
 
