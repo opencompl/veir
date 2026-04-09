@@ -1,8 +1,16 @@
+module
+
+public import Veir.IR.Basic
+public import Veir.Rewriter.Basic
+import all Veir.Rewriter.Basic
+
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSetInBounds
 import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.LinkedList.WellFormed
+
+public section
 
 namespace Veir
 
@@ -18,7 +26,7 @@ theorem Rewriter.insertBlock?_WellFormed (hctx : ctx.WellFormed) :
   split; grind; rename_i parent hparent
   intro h
   apply IRContext.wellFormed_BlockPtr_linkBetweenWithParent hctx h (ip := ip) <;>
-    grind [Option.maybe₁]
+    grind [Option.maybe₁_def]
 
 theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
     (heq : BlockPtr.allocEmpty ctx = some (newCtx, bl)) :

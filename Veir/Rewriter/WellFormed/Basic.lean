@@ -1,3 +1,5 @@
+module
+
 import Veir.Rewriter.WellFormed.Block
 import Veir.Rewriter.WellFormed.BlockOperands
 import Veir.Rewriter.WellFormed.IRContext

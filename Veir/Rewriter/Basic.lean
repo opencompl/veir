@@ -13,7 +13,7 @@ variable {ctx : IRContext OpInfo}
 /--
 - Insert an operation at a given location.
 -/
-@[irreducible]
+@[expose, irreducible]
 def Rewriter.insertOp? (ctx: IRContext OpInfo) (newOp: OperationPtr) (insertionPoint: InsertPoint)
     (newOpIn: newOp.InBounds ctx := by grind)
     (insIn : insertionPoint.InBounds ctx)
@@ -100,7 +100,7 @@ theorem Rewriter.detachOp_fieldsInBounds (hctx : ctx.FieldsInBounds) :
   Detach an operation from its parent if it has one.
   If it has no parent, return the context unchanged.
 -/
-@[irreducible, inline]
+@[expose, irreducible, inline]
 def Rewriter.detachOpIfAttached (ctx: IRContext OpInfo) (op: OperationPtr)
     (hctx : ctx.FieldsInBounds := by grind)
     (hop : op.InBounds ctx := by grind) : IRContext OpInfo :=
@@ -118,7 +118,7 @@ theorem Rewriter.detachOpIfAttached_fieldsInBounds (hctx : ctx.FieldsInBounds) :
     (detachOpIfAttached ctx op hctx hIn).FieldsInBounds := by
   grind [detachOpIfAttached]
 
-@[irreducible, inline]
+@[expose, irreducible, inline]
 def Rewriter.detachOperands.loop (ctx : IRContext OpInfo) (op : OperationPtr) (index : Nat)
     (hCtx : ctx.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind)
@@ -138,7 +138,7 @@ theorem Rewriter.detachOperands.loop_fieldsInBounds :
     ctx.FieldsInBounds → (detachOperands.loop ctx op index hCtx hOp hIndex).FieldsInBounds := by
   induction index generalizing ctx <;> simp only [detachOperands.loop] <;> grind
 
-@[irreducible, inline]
+@[expose, irreducible, inline]
 def Rewriter.detachOperands (ctx : IRContext OpInfo) (op : OperationPtr)
     (hCtx : ctx.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind) : IRContext OpInfo :=
@@ -158,7 +158,7 @@ theorem Rewriter.detachOperands_fieldsInBounds :
     ctx.FieldsInBounds → (detachOperands ctx op hCtx hOp).FieldsInBounds := by
   grind [detachOperands]
 
-@[irreducible, inline]
+@[expose, irreducible, inline]
 def Rewriter.detachBlockOperands.loop (ctx : IRContext OpInfo) (op : OperationPtr) (index : Nat)
     (hCtx : ctx.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind)
@@ -178,7 +178,7 @@ theorem Rewriter.detachBlockOperands.loop_fieldsInBounds :
     ctx.FieldsInBounds → (detachBlockOperands.loop ctx op index hCtx hOp hIndex).FieldsInBounds := by
   induction index generalizing ctx <;> simp only [detachBlockOperands.loop] <;> grind
 
-@[irreducible, inline]
+@[expose, irreducible, inline]
 def Rewriter.detachBlockOperands (ctx : IRContext OpInfo) (op : OperationPtr)
     (hCtx : ctx.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind) : IRContext OpInfo :=
@@ -198,7 +198,7 @@ theorem Rewriter.detachBlockOperands_fieldsInBounds :
     ctx.FieldsInBounds → (detachBlockOperands ctx op hCtx hOp).FieldsInBounds := by
   grind [detachBlockOperands]
 
-@[irreducible, inline]
+@[expose, irreducible, inline]
 def Rewriter.eraseOp (ctx : IRContext OpInfo) (op : OperationPtr)
     (hCtx : ctx.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind) : IRContext OpInfo :=
@@ -244,6 +244,7 @@ theorem Rewriter.insertBlock?_fieldsInBounds_mono
   simp only [insertBlock?] at heq
   grind
 
+@[expose, irreducible]
 def Rewriter.replaceUse (ctx: IRContext OpInfo) (use : OpOperandPtr) (newValue: ValuePtr)
     (useIn: use.InBounds ctx := by grind)
     (newIn: newValue.InBounds ctx := by grind)
@@ -266,7 +267,7 @@ theorem Rewriter.replaceUse_fieldsInBounds :
      ctx.FieldsInBounds → (replaceUse ctx use newValue useIn newIn ctxIn).FieldsInBounds := by
   grind [replaceUse]
 
-@[irreducible]
+@[expose, irreducible]
 def Rewriter.replaceValue? (ctx: IRContext OpInfo) (oldValue: ValuePtr) (newValue: ValuePtr)
     (oldIn: oldValue.InBounds ctx := by grind)
     (newIn: newValue.InBounds ctx := by grind)
@@ -328,7 +329,7 @@ theorem Rewriter.replaceValue?_preserves_parent (op : OperationPtr) (hop : op.In
   have := @replaceValue?_preserves_parent'
   grind [Rewriter.replaceUse]
 
-@[irreducible]
+@[expose, irreducible]
 def Rewriter.replaceOpResults (ctx: IRContext OpInfo) (fromOp toOp : OperationPtr)
   (index : Nat)
   (fromOpIB : fromOp.InBounds ctx := by grind) (toOpIB : toOp.InBounds ctx := by grind)
@@ -367,7 +368,7 @@ theorem Rewriter.replaceOpResults_fieldsInBounds :
   · simp only [replaceOpResults]
     grind
 
-@[irreducible]
+@[expose, irreducible]
 def Rewriter.replaceOp? (ctx: IRContext OpInfo) (oldOp newOp: OperationPtr)
     (oldIn: oldOp.InBounds ctx := by grind)
     (newIn: newOp.InBounds ctx := by grind)
@@ -461,6 +462,7 @@ theorem Rewriter.pushRegion_fieldsInBounds (hx : ctx.FieldsInBounds) :
   simp only [pushRegion]
   apply OperationPtr.pushRegion_fieldsInBounds <;> grind
 
+@[expose]
 def Rewriter.initOpRegions (ctx: IRContext OpInfo) (opPtr: OperationPtr) (regions : Array RegionPtr) (index : Nat := 0)
     (opPtrInBounds : opPtr.InBounds ctx := by grind)
     (hregionInBounds : ∀ region ∈ regions, region.InBounds ctx := by grind)
@@ -523,6 +525,7 @@ theorem Rewriter.pushResult_inBounds (ptr : GenericPtr) :
     := by
   grind [pushResult]
 
+@[expose]
 def Rewriter.initOpResults (ctx: IRContext OpInfo) (opPtr: OperationPtr) (resultTypes: Array TypeAttr)
     (index: Nat := 0) (hop : opPtr.InBounds ctx)
     (hidx : index = opPtr.getNumResults ctx) : IRContext OpInfo :=
@@ -590,7 +593,7 @@ theorem Rewriter.pushOperand_fieldsInBounds :
     (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃).FieldsInBounds := by
   grind [Rewriter.pushOperand]
 
-@[irreducible]
+@[expose, irreducible]
 def Rewriter.initOpOperands (ctx: IRContext OpInfo) (opPtr: OperationPtr) (opPtrInBounds : opPtr.InBounds ctx)
     (operands : Array ValuePtr) (hoperands : ∀ oper, oper ∈ operands → oper.InBounds ctx) (hctx : ctx.FieldsInBounds)
     (n : Nat := operands.size) (hn : 0 ≤ n ∧ n ≤ operands.size := by grind) : IRContext OpInfo :=
@@ -651,7 +654,7 @@ theorem Rewriter.pushBlockOperand_fieldsInBounds :
     (Rewriter.pushBlockOperand ctx opPtr valuePtr h₁ h₂ h₃).FieldsInBounds := by
   grind [Rewriter.pushBlockOperand]
 
-@[irreducible]
+@[expose, irreducible]
 def Rewriter.initBlockOperands (ctx: IRContext OpInfo) (opPtr: OperationPtr)
     (operands : Array BlockPtr) (n : Nat := operands.size) (opPtrInBounds : opPtr.InBounds ctx := by grind)
     (hctx : ctx.FieldsInBounds := by grind) (hoperands : ∀ oper, oper ∈ operands → oper.InBounds ctx := by grind)
@@ -711,7 +714,7 @@ theorem Rewriter.createEmptyOp_fieldsInBounds
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   grind [createEmptyOp]
 
-@[irreducible]
+@[expose, irreducible]
 def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr) (blockOperands : Array BlockPtr)
     (regions: Array RegionPtr) (properties: HasOpInfo.propertiesOf opType)
@@ -766,7 +769,7 @@ theorem Rewriter.createOp_fieldsInBounds
   simp only [createOp] at heq
   grind
 
-@[irreducible]
+@[expose, irreducible]
 def IRContext.create OpInfo [HasOpInfo OpInfo] : Option (IRContext OpInfo × OperationPtr) :=
   rlet (ctx, region) ← Rewriter.createRegion (empty OpInfo)
   rlet (ctx, operation) ← Rewriter.createOp ctx HasOpInfo.moduleOpCode #[] #[] #[] #[region] default none
