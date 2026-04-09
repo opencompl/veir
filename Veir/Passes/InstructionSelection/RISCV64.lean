@@ -446,6 +446,90 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castOp sorry sorry sorry
 
+set_option warn.sorry false in
+/--
+  llvm.zext %x iX  to iY where X ≤ 12 and X ≠ 8 -> riscv.andi %x (2 ^ X - 1)
+  e.g. llvm.zext %x i2  to iY -> riscv.andi %x 3
+       llvm.zext %x i3  to iY -> riscv.andi %x 7
+       ...
+       llvm.zext %x i11 to iY -> riscv.andi %x 2047
+
+  llvm.zext %x i8  to iY -> riscv.sextb %x
+  llvm.zext %x i16 to iY -> riscv.zexth %x
+  llvm.zext %x i32 to iY -> riscv.zextw %x
+
+  For every other width:
+  llvm.zext %x iX to iY-> riscv.srli (riscv.slli %x (64 - X)) (64 - X)
+-/
+def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (operand, _) := matchZext op rewriter.ctx | return rewriter
+  /- Only support extensions fron `iX` to `iY` where both `X ≤ 64` and `Y ≤ 64`. -/
+  let .integerType opType := (operand.getType! rewriter.ctx).val | return rewriter
+  if 64 ≤ opType.bitwidth then return rewriter
+  let type := ((op.getResult 0).get! rewriter.ctx).type
+  let .integerType retType := type.val | rewriter
+  if 64 ≤ retType.bitwidth then return rewriter
+  /- Instruction is illegal if return type is smaller than operand type.
+    TODO: this should be verified by `veir-opt` even before the pass starts. -/
+  if retType.bitwidth ≤ opType.bitwidth then return rewriter
+  /- First, cast the operand to registers -/
+  let (rewriter, opCastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[operand]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, retOp) ← match opType.bitwidth with
+    | 8 =>
+      let (rewriter, retOp) ← rewriter.createOp .riscv_zextb #[RegisterType.mk] #[opCastOp.getResult 0]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+      pure (rewriter, retOp)
+    | 16 =>
+      let (rewriter, retOp) ← rewriter.createOp .riscv_zexth #[RegisterType.mk] #[opCastOp.getResult 0]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+      pure (rewriter, retOp)
+    | 32 =>
+      let (rewriter, retOp) ← rewriter.createOp .riscv_zextw #[RegisterType.mk] #[opCastOp.getResult 0]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+      pure (rewriter, retOp)
+    | _ =>
+      if opType.bitwidth < 12 then
+        let c := RISCVImmediateProperties.mk (IntegerAttr.mk (2 ^ opType.bitwidth - 1) (IntegerType.mk 64))
+        let (rewriter, retOp) ← rewriter.createOp .riscv_andi #[RegisterType.mk] #[opCastOp.getResult 0]
+          #[] #[] c (some $ .before op) sorry (by simp) (by simp) sorry
+        pure (rewriter, retOp)
+      else
+        let c := RISCVImmediateProperties.mk (IntegerAttr.mk (64 - opType.bitwidth) (IntegerType.mk 64))
+        let (rewriter, slliOp) ← rewriter.createOp .riscv_slli #[RegisterType.mk] #[opCastOp.getResult 0]
+          #[] #[] c (some $ .before op) sorry (by simp) (by simp) sorry
+        let (rewriter, retOp) ← rewriter.createOp .riscv_srli #[RegisterType.mk] #[slliOp.getResult 0]
+          #[] #[] c (some $ .before op) sorry (by simp) (by simp) sorry
+        pure (rewriter, retOp)
+  /- Cast back result for type consistency-/
+  let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[retOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castOp sorry sorry sorry
+
+set_option warn.sorry false in
+/--
+  llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!reg) : iY
+-/
+def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (operand, _) := matchZext op rewriter.ctx | return rewriter
+  /- Only support extensions fron `iX` to `iY` where both `X ≤ 64` and `Y ≤ 64`. -/
+  let .integerType opType := (operand.getType! rewriter.ctx).val | return rewriter
+  if 64 ≤ opType.bitwidth then return rewriter
+  let type := ((op.getResult 0).get! rewriter.ctx).type
+  let .integerType retType := type.val | rewriter
+  if 64 ≤ retType.bitwidth then return rewriter
+  /- Instruction is illegal if return type is smaller than operand type.
+    TODO: this should be verified by `veir-opt` even before the pass starts. -/
+  if opType.bitwidth ≤ retType.bitwidth then return rewriter
+  /- First, cast the operand to registers -/
+  let (rewriter, opCastOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[RegisterType.mk] #[operand]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Then, cast register to expected output width. -/
+  let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[opCastOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castOp sorry sorry sorry
 
 /-! # Pass implementation -/
 
