@@ -410,6 +410,7 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchSext op rewriter.ctx | return rewriter
   /- Only support extensions fron `iX` to `iY` where both `X ≤ 64` and `Y ≤ 64`. -/
+  dbg_trace "matched sext"
   let .integerType opType := (operand.getType! rewriter.ctx).val | return rewriter
   if 64 ≤ opType.bitwidth then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx).type
@@ -513,7 +514,7 @@ set_option warn.sorry false in
 -/
 def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
-  let some (operand, _) := matchZext op rewriter.ctx | return rewriter
+  let some (operand, _) := matchTrunc op rewriter.ctx | return rewriter
   /- Only support extensions fron `iX` to `iY` where both `X ≤ 64` and `Y ≤ 64`. -/
   let .integerType opType := (operand.getType! rewriter.ctx).val | return rewriter
   if 64 ≤ opType.bitwidth then return rewriter
@@ -538,7 +539,7 @@ def ISelPass.impl (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed }) (op : O
     (_ : op.InBounds ctx.val) :
     ExceptT String IO { ctx' : IRContext OpCode // ctx'.WellFormed } := do
   let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul,
-    sdiv, udiv, srem, urem]
+    sdiv, udiv, srem, urem, sext, zext, trunc]
   match RewritePattern.applyInContext pattern ctx ctx.property.inBounds with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ⟨ctx, sorry⟩
