@@ -112,3 +112,11 @@ def matchTrunc (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr �
 def matchZext (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf .llvm_zext) := do
   let (op, properties) ← matchOp op ctx .llvm_zext 1
   return (op[0]!, properties)
+
+def matchShl (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_shl) := do
+  let (op, properties) ← matchOp op ctx .llvm_shl 2
+  return (op[0]!, op[1]!, properties)
+
+def matchSrl (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_lshr) := do
+  let (op, properties) ← matchOp op ctx .llvm_lshr 2
+  return (op[0]!, op[1]!, properties)
