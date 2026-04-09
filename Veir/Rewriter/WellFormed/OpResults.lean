@@ -1,7 +1,14 @@
-import Veir.IR.Basic
+module
+
+public import Veir.IR.Basic
+public import Veir.Rewriter.Basic
+
+import all Veir.Rewriter.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSetInBounds
+
+public section
 
 namespace Veir
 

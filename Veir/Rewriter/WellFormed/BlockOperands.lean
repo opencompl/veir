@@ -1,8 +1,15 @@
-import Veir.IR.Basic
+module
+
+public import Veir.IR.Basic
+public import Veir.Rewriter.Basic
+
+import all Veir.Rewriter.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSetInBounds
 import Veir.Rewriter.LinkedList.GetSet
+
+public section
 
 namespace Veir
 
@@ -10,7 +17,7 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable (ctx : IRContext OpInfo)
 variable (ctxInBounds : ctx.FieldsInBounds)
 variable (opPtr opPtr' : OperationPtr)
-variable (opPtrInBounds : opPtr.InBounds ctx := by grind)
+variable (opPtrInBounds : opPtr.InBounds ctx)
 
 include ctxInBounds in
 @[simp, local grind →]
@@ -107,7 +114,7 @@ theorem Rewriter.pushBlockOperand_WellFormed (hOpWf : ctx.WellFormed) :
     case region_parent =>
       simp only [OperationPtr.getRegion!_pushBlockOperand]
       grind
-    all_goals grind [Rewriter.pushBlockOperand, Operation.WellFormed, OperationPtr.getBlockOperand]
+    all_goals grind
   case blocks =>
     intros bl hbl
     have ⟨h₁, h₂, h₃, h₄, h₅⟩ := hOpWf.blocks bl (by grind)
@@ -116,7 +123,7 @@ theorem Rewriter.pushBlockOperand_WellFormed (hOpWf : ctx.WellFormed) :
     intros reg hreg
     have ⟨h₁, h₂⟩ := hOpWf.regions reg (by grind)
     constructor
-    · grind [Rewriter.pushBlockOperand]
+    · grind
     · simp only [OperationPtr.getRegion!_pushBlockOperand]
       grind
 

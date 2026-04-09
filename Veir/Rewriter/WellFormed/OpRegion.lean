@@ -1,6 +1,13 @@
-import Veir.IR.Basic
+module
+
+public import Veir.IR.Basic
+public import Veir.Rewriter.Basic
+
+import all Veir.Rewriter.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.GetSetInBounds
+
+public section
 
 namespace Veir
 
@@ -59,7 +66,7 @@ theorem IRContext.wellFormed_Rewriter_pushRegion :
     intros reg hreg
     have ⟨h₁, h₂⟩ := wf.regions reg (by grind)
     constructor
-    · grind [Rewriter.pushOperand]
+    · grind
     · simp only [RegionPtr.parent!_pushRegion]
       split
       · simp only [Option.some.injEq, forall_eq']

@@ -1,10 +1,19 @@
-import Veir.IR.Basic
+module
+
+public import Veir.IR.Basic
+public import Veir.Rewriter.Basic
+
+import all Veir.Rewriter.Basic
 import Veir.IR.WellFormed
-import Veir.Rewriter.Basic
+import Veir.Rewriter.GetSetInBounds
+import Veir.Rewriter.LinkedList.GetSet
 import Veir.Rewriter.WellFormed.BlockOperands
 import Veir.Rewriter.WellFormed.OpOperands
 import Veir.Rewriter.WellFormed.OpRegion
 import Veir.Rewriter.WellFormed.OpResults
+import Veir.IR.DeallocLemmas
+
+public section
 
 namespace Veir
 
@@ -20,7 +29,7 @@ theorem Rewriter.insertOp?_WellFormed (hctx : ctx.WellFormed) :
   split; grind; rename_i parent hparent
   intro h
   apply IRContext.wellFormed_OperationPtr_linkBetweenWithParent hctx h (ip := ip) <;>
-    grind [Option.maybe₁]
+    grind [Option.maybe₁_def]
 
 end insertOp
 
@@ -322,9 +331,9 @@ theorem Rewriter.eraseOp_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellForme
   apply IRContext.wellFormed_OperationPtr_dealloc
   · apply cast (a := hCtx₂); congr
     · simp only [Std.ExtHashSet.fromOperands]
-      grind [Std.ExtHashSet.insertMany_empty_eq_ofList, OperationPtr.getOpOperand]
+      grind [Std.ExtHashSet.insertMany_empty_eq_ofList, OperationPtr.getOpOperand_def]
     · simp only [Std.ExtHashSet.fromSuccessors]
-      grind [Std.ExtHashSet.insertMany_empty_eq_ofList, OperationPtr.getBlockOperand]
+      grind [Std.ExtHashSet.insertMany_empty_eq_ofList, OperationPtr.getBlockOperand_def]
   · simp only [←OperationPtr.hasUses!_eq_hasUses]
     simp only [Bool.not_eq_true]
     simp only [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false]

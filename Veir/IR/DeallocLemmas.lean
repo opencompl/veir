@@ -27,10 +27,12 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 
+@[expose, irreducible]
 def Std.ExtHashSet.fromOperands (ctx : IRContext OpInfo) (op : OperationPtr)
     : Std.ExtHashSet OpOperandPtr :=
   Std.ExtHashSet.ofList ((0...(op.getNumOperands! ctx)).toList.map (fun i => op.getOpOperand i))
 
+@[expose, irreducible]
 def Std.ExtHashSet.fromSuccessors (ctx : IRContext OpInfo) (op : OperationPtr)
     : Std.ExtHashSet BlockOperandPtr :=
   Std.ExtHashSet.ofList ((0...(op.getNumSuccessors! ctx)).toList.map (fun i => op.getBlockOperand i))

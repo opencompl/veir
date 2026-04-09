@@ -1,6 +1,15 @@
+module
+
+public import Veir.IR.Basic
+public import Veir.Rewriter.Basic
+
+import all Veir.Rewriter.Basic
+import Veir.Rewriter.GetSetInBounds
 import Veir.Rewriter.WellFormed.Operation
 import Veir.Rewriter.WellFormed.Value
 import Veir.Rewriter.WellFormed.Block
+
+public section
 
 namespace Veir
 
@@ -18,7 +27,7 @@ theorem IRContext.wellFormed_replaceOpResults :
   case zero => grind [Rewriter.replaceOpResults]
   case succ idx hind =>
     simp only [Rewriter.replaceOpResults]
-    grind [Option.maybe₁, Rewriter.replaceValue?_WellFormed]
+    grind [Option.maybe₁_def, Rewriter.replaceValue?_WellFormed]
 
 theorem OpResult.hasUses_replaceOpResults_self_ge :
     ctx.WellFormed →
@@ -35,7 +44,7 @@ theorem OpResult.hasUses_replaceOpResults_self_ge :
     split; grind; rename_i ctx' hctx'
     intro hNewCtx i hi hifromOp hitoOp
     simp only [ge_iff_le] at hi
-    have ctx'Wf : ctx'.WellFormed := by grind [Option.maybe₁, Rewriter.replaceValue?_WellFormed]
+    have ctx'Wf : ctx'.WellFormed := by grind [Option.maybe₁_def, Rewriter.replaceValue?_WellFormed]
     have valueInBounds : (ValuePtr.opResult (fromOp.getResult i)).InBounds ctx := by grind
     have := ValuePtr.hasUses!_replaceValue_otherValue ctxWf hctx'
       (by grind) _ valueInBounds (by grind) (by grind)
@@ -56,7 +65,7 @@ theorem OpResult.hasUses_replaceOpResults_self :
     intro hNewCtx i hi
     simp only [Nat.lt_succ_iff_lt_or_eq] at hi
     have ctx'Wf : ctx'.WellFormed := by
-      grind [Option.maybe₁, Rewriter.replaceValue?_WellFormed]
+      grind [Option.maybe₁_def, Rewriter.replaceValue?_WellFormed]
     cases hi
     · grind [ValuePtr.hasUses!_replaceValue_oldValue]
     · subst i
@@ -88,11 +97,7 @@ theorem OperationPtr.getNumRegions!_replaceOpResults :
     Rewriter.replaceOpResults ctx fromOp toOp idx fromOpIB toOpIB hNumFrom hNumTo ctxInBounds =
       some newCtx →
     fromOp.getNumRegions! newCtx = fromOp.getNumRegions! ctx := by
-  induction idx generalizing ctx
-  case zero => grind [Rewriter.replaceOpResults]
-  case succ idx hind =>
-    simp only [Rewriter.replaceOpResults]
-    grind
+  fun_induction Rewriter.replaceOpResults <;> grind
 
 grind_pattern OperationPtr.getNumRegions!_replaceOpResults =>
   Rewriter.replaceOpResults ctx fromOp toOp idx fromOpIB toOpIB hNumFrom hNumTo ctxInBounds, some newCtx, fromOp.getNumRegions! newCtx

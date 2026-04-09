@@ -1,9 +1,15 @@
-import Veir.IR.Basic
+module
+
+public import Veir.IR.Basic
+public import Veir.Rewriter.Basic
+
+import all Veir.Rewriter.Basic
 import Veir.IR.WellFormed
+import Veir.Rewriter.GetSetInBounds
 import Veir.Rewriter.LinkedList.GetSet
 import Veir.Rewriter.LinkedList.WellFormed
-import Veir.Rewriter.Basic
-import Veir.Rewriter.GetSetInBounds
+
+public section
 
 namespace Veir
 
@@ -148,7 +154,7 @@ theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext OpInfo) (oldValue: Val
     (depth: Nat) -- Fix this
     (hctx : IRContext.WellFormed ctx) :
     (Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth).maybe₁ IRContext.WellFormed := by
-  simp only [Option.maybe₁]
+  simp only [Option.maybe₁_def]
   induction depth generalizing ctx
   case zero => simp [replaceValue?]
   case succ depth ih =>
