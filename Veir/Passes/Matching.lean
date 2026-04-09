@@ -117,6 +117,6 @@ def matchShl (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × 
   let (op, properties) ← matchOp op ctx .llvm_shl 2
   return (op[0]!, op[1]!, properties)
 
-def matchSrl (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_lshr) := do
+def matchLshr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_lshr) := do
   let (op, properties) ← matchOp op ctx .llvm_lshr 2
   return (op[0]!, op[1]!, properties)
