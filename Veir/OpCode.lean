@@ -232,7 +232,7 @@ def toType (code : DialectCode) : Type :=
   | .datapath => Datapath
 
 /-
-Adapt `toType` to have a return value that is Hashable.
+TODO: Adapt `toType` to have a return value that is Hashable.
 -/
 
 

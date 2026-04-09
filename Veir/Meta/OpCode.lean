@@ -29,29 +29,45 @@ meta def mkCtorWithType (n : Name × Name) : TermElabM (TSyntax `Lean.Parser.Com
 namespace Dialect
 
 meta def getName (d : Dialect) : String :=
+  -- TODO: should we add underscores to translate from CamelCase to snake_case?
   d.name.toLower
 
+/--
+The dialect name as a Lean `Name` in lowercase for the `OpCode` inductive.
+-/
 meta def mkDialectCode (d : Dialect) : Name :=
   .mkSimple <| d.getName
 
+/--
+The dialect name as a Lean `Name`.
+-/
 meta def mkDialectCodeSimple (d : Dialect) : Name :=
   .mkSimple <| d.name
 
+/--
+The name of an operation as a `String`. Used for `fromByteArray` and `fromName`.
+-/
 meta def mkOpName (d : Dialect) (op : String) : String := d.getName ++ "." ++ op
 
 end Dialect
 
-meta def dialectCodeArray (ds : Array Dialect) : Array Name := Id.run do
-  let mut ctors := #[]
-  for d in ds do
-    ctors := ctors.push d.mkDialectCode
-  pure ctors
+/--
+Generate an array with the names of the dialects.
+-/
+meta def dialectCodeArray (ds : Array Dialect) : Array Name :=
+  ds.map Dialect.mkDialectCode
 
+/--
+Generate the inductive type `DialectCode` with a constructor for each dialect.
+-/
 meta def mkDialectCodeType (ds : Array Dialect) : TermElabM Syntax := do
   let ctors ← (dialectCodeArray ds).mapM mkCtor
   `(inductive $(mkIdent `DialectCode) where $ctors*
     deriving Inhabited, Repr, Hashable, DecidableEq)
 
+/--
+Generate a function `DialectCode.toByteArray`.
+-/
 meta def mkDialectCodeToByteArray (ds : Array Dialect) : TermElabM Syntax := do
   let mut alts := #[]
   for d in ds do
@@ -61,6 +77,9 @@ meta def mkDialectCodeToByteArray (ds : Array Dialect) : TermElabM Syntax := do
   `(def $(mkIdent `DialectCode.toByteArray) (code : $(mkIdent `DialectCode)) :
       ByteArray := match code with $alts:matchAlt* )
 
+/--
+Generate a function `DialectCode.toName`.
+-/
 meta def mkDialectCodeToName (ds : Array Dialect) : TermElabM Syntax := do
   let mut alts := #[]
   for d in ds do
@@ -94,7 +113,6 @@ Use a chain of `if` statements instead of a `match` because `ByteArray` does
 not support pattern matching.
 -/
 meta def mkDialectCodeFromByteArray (ds : Array Dialect) : TermElabM Syntax := do
-  -- Return ` Builtin.unregistered` nothing else
   let mut res : TSyntax `term ← `(Option.none)
   for d in ds do
     res ← `(if name = $(Syntax.mkStrLit d.getName).toByteArray then some $(mkIdent (d.mkDialectCode)) else $res)
@@ -104,7 +122,7 @@ meta def mkDialectCodeFromByteArray (ds : Array Dialect) : TermElabM Syntax := d
 /--
 Create the following inductive:
 
-inductive OpCode3 where
+inductive OpCode where
 | arith (op : Arith)
 | builtin (op : Builtin)
 | func (op : Func)
@@ -112,15 +130,11 @@ inductive OpCode3 where
 | riscv (op : Riscv)
 | test (op : Test)
 deriving Inhabited, Repr, Hashable, DecidableEq
-
 -/
-meta def mkOpCode3Inductive (ds : Array Dialect) : TermElabM Syntax := do
-  let mut ctors := #[]
-  for d in ds do
-    ctors := ctors.push (d.mkDialectCode, d.mkDialectCodeSimple)
-
-  let ctors2 ← (ctors).mapM mkCtorWithType
-  `(inductive $(mkIdent `OpCode) where $ctors2*
+meta def mkOpCodeInductive (ds : Array Dialect) : TermElabM Syntax := do
+  let ctors := ds.map (fun d => (d.mkDialectCode, d.mkDialectCodeSimple))
+  let ctors ← ctors.mapM mkCtorWithType
+  `(inductive $(mkIdent `OpCode) where $ctors*
     deriving Inhabited, Repr, Hashable, DecidableEq)
 
 meta def emitFromName (ds : Array Dialect) : TermElabM Command := do
@@ -174,7 +188,7 @@ elab "#generate_op_codes" : command  => do
   elabCommand <| ← Command.liftTermElabM <| mkDialectCodeToName dialects
   elabCommand <| ← Command.liftTermElabM <| mkDialectCodeFromByteArray dialects
   elabCommand <| ← Command.liftTermElabM <| mkDialectCodeFromName dialects
-  elabCommand <| ← Command.liftTermElabM <| mkOpCode3Inductive dialects
+  elabCommand <| ← Command.liftTermElabM <| mkOpCodeInductive dialects
   elabCommand <| ← Command.liftTermElabM <| emitFromName dialects
   elabCommand <| ← Command.liftTermElabM <| emitName dialects
   pure ()
