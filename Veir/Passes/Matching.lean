@@ -103,12 +103,12 @@ def matchUrem (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
 
 def matchSext (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_sext) := do
   let (op, properties) ← matchOp op ctx .llvm_sext 2
-  return (op[0]!, op[1]!, properties)
+  return (op[0]!, properties)
 
 def matchTrunc (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_trunc) := do
   let (op, properties) ← matchOp op ctx .llvm_trunc 2
-  return (op[0]!, op[1]!, properties)
+  return (op[0]!, properties)
 
 def matchZext (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf .llvm_zext) := do
   let (op, properties) ← matchOp op ctx .llvm_zext 2
-  return (op[0]!, op[1]!, properties)
+  return (op[0]!, properties)
