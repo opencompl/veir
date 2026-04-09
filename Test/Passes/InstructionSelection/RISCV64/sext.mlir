@@ -7,6 +7,7 @@
         %sextb = "llvm.sext"(%b) : (i16) -> i32
         %sextc = "llvm.sext"(%c) : (i32) -> i64
         %sexdt = "llvm.sext"(%d) : (i42) -> i54
+        
         // CHECK:           ^{{.*}}([[A:.*]] : i8, [[B:.*]] : i16, [[C:.*]] : i32, [[D:.*]] : i42):
         // CHECK-NEXT:      %[[E:.*]] = "builtin.unrealized_conversion_cast"([[A]]) : (i8) -> !reg
         // CHECK-NEXT:      %[[F:.*]] = "riscv.sextb"(%[[E]]) : (!reg) -> !reg
