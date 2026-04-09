@@ -168,6 +168,18 @@ inductive Riscv where
 | pack
 | packh
 | packw
+/- pseudooperations -/
+| mv
+| not
+| neg
+| negw
+| sextw
+| zextb
+| zextw
+| seqz
+| snez
+| sltz
+| sgtz
 
 @[opcodes]
 inductive Mod_Arith where

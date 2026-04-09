@@ -92,6 +92,18 @@
     %81 = "riscv.pack"(%0, %1) : (!reg, !reg) -> !reg
     %82 = "riscv.packh"(%0, %1) : (!reg, !reg) -> !reg
     %83 = "riscv.packw"(%0, %1) : (!reg, !reg) -> !reg
+    // pseudo instructions
+    %84 = "riscv.mv"(%83) : (!reg) -> !reg
+    %85 = "riscv.not"(%83) : (!reg) -> !reg
+    %86 = "riscv.neg"(%83) : (!reg) -> !reg
+    %87 = "riscv.negw"(%83) : (!reg) -> !reg
+    %88 = "riscv.sextw"(%83) : (!reg) -> !reg
+    %89 = "riscv.zextb"(%83) : (!reg) -> !reg
+    %90 = "riscv.zextw"(%83) : (!reg) -> !reg
+    %91 = "riscv.seqz"(%83) : (!reg) -> !reg
+    %92 = "riscv.snez"(%83) : (!reg) -> !reg
+    %93 = "riscv.sltz"(%83) : (!reg) -> !reg
+    %94 = "riscv.sgtz"(%83) : (!reg) -> !reg
 }) : () -> ()
 
 // CHECK: "builtin.module"() ({
@@ -182,4 +194,15 @@
 // CHECK-NEXT:     %{{.*}} = "riscv.pack"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
 // CHECK-NEXT:     %{{.*}} = "riscv.packh"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
 // CHECK-NEXT:     %{{.*}} = "riscv.packw"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.mv"(%{{.*}}) : (!reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.not"(%{{.*}}) : (!reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.neg"(%{{.*}}) : (!reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.negw"(%{{.*}}) : (!reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.sextw"(%{{.*}}) : (!reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.zextb"(%{{.*}}) : (!reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.zextw"(%{{.*}}) : (!reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.seqz"(%{{.*}}) : (!reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.snez"(%{{.*}}) : (!reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.sltz"(%{{.*}}) : (!reg) -> !reg 
+// CHECK-NEXT:     %{{.*}} = "riscv.sgtz"(%{{.*}}) : (!reg) -> !reg
 // CHECK-NEXT: }) : () -> ()

@@ -1,5 +1,6 @@
 import Veir.Rewriter.WellFormed.Rewriter.Operation
 import Veir.Rewriter.WellFormed.Rewriter.Value
+import Veir.Rewriter.WellFormed.Rewriter.Block
 
 namespace Veir
 
@@ -112,18 +113,16 @@ theorem IRContext.fieldsInBounds_replaceOp? :
   have ctx'Wf : ctx'.WellFormed := by grind [IRContext.wellFormed_replaceOpResults]
   grind [Rewriter.eraseOp_WellFormed]
 
-theorem IRContext.wellFormed_replaceOp? :
-    ctx.WellFormed →
-    oldOp ≠ newOp →
-    oldOp.getNumRegions! ctx = 0 →
-    Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn hpar = some newCtx →
+theorem IRContext.wellFormed_replaceOp? (ctxWf : ctx.WellFormed)
+    (hNewCtx : Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn hpar = some newCtx)
+    (neOps : oldOp ≠ newOp)
+    (noRegions : oldOp.getNumRegions! ctx = 0) :
     newCtx.WellFormed := by
-  intro ctxWf neOps noRegions
-  simp only [Rewriter.replaceOp?]
-  split; grind; rename_i hNumResults
-  split; grind; rename_i ctx' hctx'
-  simp only [Option.some.injEq]
-  intro hnewCtx; subst newCtx
+  simp only [Rewriter.replaceOp?] at hNewCtx
+  split at hNewCtx; grind; rename_i hNumResults
+  split at hNewCtx; grind; rename_i ctx' hctx'
+  simp only [Option.some.injEq] at hNewCtx
+  subst newCtx
   apply Rewriter.eraseOp_WellFormed
   · grind [IRContext.wellFormed_replaceOpResults]
   · grind

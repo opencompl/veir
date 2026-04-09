@@ -1,7 +1,10 @@
-import Veir.IR
-import Veir.Rewriter.InsertPoint
-import Veir.Rewriter.LinkedList
+module
 
+public import Veir.IR
+public import Veir.Rewriter.InsertPoint
+public import Veir.Rewriter.LinkedList
+
+public section
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
@@ -276,8 +279,8 @@ theorem Rewriter.replaceValue?_inBounds (ptr : GenericPtr) :
 theorem Rewriter.replaceValue?_fieldsInBounds :
      ctx.FieldsInBounds → (replaceValue? ctx old new h₁ h₂ h₃ d).maybe₁ IRContext.FieldsInBounds := by
   induction d generalizing ctx
-  case zero => simp [replaceValue?, Option.maybe₁]
-  case succ d ih => simp [replaceValue?]; grind [Rewriter.replaceUse]
+  case zero => simp [replaceValue?]
+  case succ d ih => simp only [replaceValue?]; grind [Rewriter.replaceUse]
 
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_results_size (op : OperationPtr) (hop : op.InBounds ctx) :
@@ -371,7 +374,8 @@ def Rewriter.createBlock (ctx: IRContext OpInfo) (insertionPoint: Option BlockIn
   rlet (ctx, newBlockPtr) ← BlockPtr.allocEmpty ctx
   match h : insertionPoint with
   | some insertionPoint => do
-    let ctx ← Rewriter.insertBlock? ctx newBlockPtr insertionPoint (by grind) (by grind [Option.maybe, cases BlockInsertPoint]) (by grind)
+    let ctx ← Rewriter.insertBlock? ctx newBlockPtr insertionPoint
+      (by grind) (by grind [cases BlockInsertPoint]) (by grind)
     (ctx, newBlockPtr)
   | none =>
     (ctx, newBlockPtr)
@@ -510,7 +514,7 @@ theorem Rewriter.pushResult_inBounds_iff (ptr : GenericPtr) :
        ptr = .opResult (op.nextResult ctx) ∨
        ptr = .value (op.nextResult ctx) ∨
        ptr = .opOperandPtr (.valueFirstUse (op.nextResult ctx))) := by
-  cases ptr <;> try grind [pushResult, OperationPtr.nextResult]
+  simp [pushResult, OperationPtr.pushResult_genericPtr_mono]
 
 @[irreducible]
 protected def Rewriter.pushOperand (ctx : IRContext OpInfo) (opPtr : OperationPtr) (valuePtr : ValuePtr)
@@ -518,7 +522,7 @@ protected def Rewriter.pushOperand (ctx : IRContext OpInfo) (opPtr : OperationPt
   let op := (opPtr.get ctx (by grind))
   let index := opPtr.getNumOperands ctx (by grind)
   let operand := { value := valuePtr, owner := opPtr, back := OpOperandPtrPtr.valueFirstUse valuePtr, nextUse := none : OpOperand}
-  have : operand.FieldsInBounds ctx := by constructor <;> grind [Option.maybe]
+  have : operand.FieldsInBounds ctx := by constructor <;> grind
   let ctx := opPtr.pushOperand ctx operand (by grind)
   let ctx := (OpOperandPtr.mk opPtr index).insertIntoCurrent ctx (by grind) (by grind)
   ctx
@@ -527,9 +531,9 @@ protected def Rewriter.pushOperand (ctx : IRContext OpInfo) (opPtr : OperationPt
 theorem Rewriter.pushOperand_inBounds (ptr : GenericPtr) :
     ptr.InBounds (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) ↔
     (ptr.InBounds ctx ∨
-     ptr = .opOperand ⟨opPtr, (opPtr.getNumOperands ctx)⟩ ∨
-     ptr = .opOperandPtr (.operandNextUse ⟨opPtr, (opPtr.getNumOperands ctx)⟩)) := by
-  grind [Rewriter.pushOperand]
+     ptr = .opOperand (opPtr.nextOperand ctx) ∨
+     ptr = .opOperandPtr (.operandNextUse (opPtr.nextOperand ctx))) := by
+  constructor <;> grind [Rewriter.pushOperand]
 
 @[simp, grind =]
 theorem Rewriter.pushOperand_OperandPtr_InBounds_iff (valuePtr : ValuePtr) (hval : valuePtr.InBounds ctx) :
@@ -587,7 +591,7 @@ protected def Rewriter.pushBlockOperand (ctx : IRContext OpInfo) (opPtr : Operat
   let op := (opPtr.get ctx (by grind))
   let index := opPtr.getNumSuccessors ctx (by grind)
   let operand := { value := blockPtr, owner := opPtr, back := BlockOperandPtrPtr.blockFirstUse blockPtr, nextUse := none : BlockOperand}
-  have : operand.FieldsInBounds ctx := by constructor <;> grind [Option.maybe]
+  have : operand.FieldsInBounds ctx := by constructor <;> grind
   let ctx := opPtr.pushBlockOperand ctx operand (by grind)
   let ctx := (BlockOperandPtr.mk opPtr index).insertIntoCurrent ctx (by grind) (by grind)
   ctx
@@ -596,8 +600,8 @@ protected def Rewriter.pushBlockOperand (ctx : IRContext OpInfo) (opPtr : Operat
 theorem Rewriter.pushBlockOperand_inBounds (ptr : GenericPtr) :
     ptr.InBounds (Rewriter.pushBlockOperand ctx opPtr valuePtr h₁ h₂ h₃) ↔
     (ptr.InBounds ctx ∨
-      ptr = .blockOperand ⟨opPtr, (opPtr.getNumSuccessors! ctx)⟩ ∨
-      ptr = .blockOperandPtr (.blockOperandNextUse ⟨opPtr, (opPtr.getNumSuccessors! ctx)⟩)) := by
+      ptr = .blockOperand (opPtr.nextBlockOperand ctx) ∨
+      ptr = .blockOperandPtr (.blockOperandNextUse (opPtr.nextBlockOperand ctx))) := by
   grind [Rewriter.pushBlockOperand]
 
 @[grind .]
@@ -682,20 +686,17 @@ def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
     (hx : ctx.FieldsInBounds := by grind) : Option (IRContext OpInfo × OperationPtr) :=
   rlet hnew : (ctx, newOpPtr) ← Rewriter.createEmptyOp ctx opType properties
   have hib : newOpPtr.InBounds ctx := by grind
-  have : (newOpPtr.get ctx (by grind)).results = #[] := by
-    grind [createEmptyOp, OperationPtr.allocEmpty, Operation.empty]
-  have : (newOpPtr.get ctx (by grind)).regions = #[] := by
-    grind [createEmptyOp, Operation.empty]
-  have : 0 = newOpPtr.getNumRegions ctx (by grind) := by grind [OperationPtr.getNumRegions]
-  have newOpPtrZeroRes: 0 = newOpPtr.getNumResults ctx (by grind) := by grind [OperationPtr.getNumResults]
-  let ctx := Rewriter.initOpResults ctx newOpPtr resultTypes 0 hib newOpPtrZeroRes
+  have : newOpPtr.getNumResults! ctx = 0 := by grind [createEmptyOp]
+  have : newOpPtr.getNumRegions! ctx = 0 := by grind [createEmptyOp]
+  let ctx := Rewriter.initOpResults ctx newOpPtr resultTypes 0 hib (by grind)
   have newOpPtrInBounds : newOpPtr.InBounds ctx := by grind
   rlet ctx ← Rewriter.initOpRegions ctx newOpPtr regions (newOpPtr.getNumRegions ctx)
   let ctx := Rewriter.initOpOperands ctx newOpPtr (by grind) operands (by grind) (by grind)
   let ctx := Rewriter.initBlockOperands ctx newOpPtr blockOperands (hoperands := by grind (ematch := 10))
   match _ : insertionPoint with
   | some insertionPoint =>
-    rlet ctx ← Rewriter.insertOp? ctx newOpPtr insertionPoint (by grind) (by cases insertionPoint <;> grind (ematch := 10) [Option.maybe]) (by grind) in
+    rlet ctx ← Rewriter.insertOp? ctx newOpPtr insertionPoint (by grind)
+      (by cases insertionPoint <;> grind) (by grind) in
     some (ctx, newOpPtr)
   | none =>
     (ctx, newOpPtr)
