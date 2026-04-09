@@ -1,12 +1,18 @@
-import Veir.Rewriter.Basic
+module
+
+public import Veir.Rewriter.Basic
+public import Veir.Properties
+
+import all Veir.Rewriter.Basic
 import Veir.Rewriter.WellFormed.Operation
 import Veir.Rewriter.GetSetInBounds
 import Veir.Properties
-import Veir.GlobalOpInfo
+
+public section
 
 namespace Veir
 
-variable {ctx : IRContext OpCode}
+variable [HasOpInfo OpInfo] {ctx : IRContext OpInfo}
 
 theorem Rewriter.insertOp?.operationList {block : BlockPtr}
   (blockIn : block.InBounds ctx) (ctxWf : ctx.WellFormed)
@@ -40,7 +46,7 @@ theorem Rewriter.insertOp?.operationList {block : BlockPtr}
     grind
 
 theorem Rewriter.detachOp.operationList_size
-  {ctx : IRContext OpCode} {hctx} {op} {hin} {hparent} {block : BlockPtr}
+  {hctx} {op} {hin} {hparent} {block : BlockPtr}
   (blockIn : block.InBounds ctx) (ctxWf : ctx.WellFormed) :
   (block.operationList (Rewriter.detachOp ctx op hctx hin hparent) (by grind [Rewriter.detachOp_WellFormed]) (by grind)).size =
   if (op.get! ctx).parent = block then
@@ -65,10 +71,7 @@ theorem Rewriter.detachOp.operationList_size
 @[grind =]
 theorem InsertPoint.block!_detachOp_of_ne {ip : InsertPoint} (ipBlock : ip.block! ctx ≠ (op.get! ctx).parent) :
     ip.block! (Rewriter.detachOp ctx op hctx hin hparent) = ip.block! ctx := by
-  cases ip
-  case before op' =>
-    grind
-  · grind [InsertPoint.block!]
+  grind [cases InsertPoint]
 
 @[grind <=]
 theorem Rewriter.wellFormed_insertOp?_detachOp
@@ -127,7 +130,7 @@ theorem InsertPoint.idxIn_insertOp?_detachOp
   ip.idxIn ctx' blockTo inBounds parent wf =
   (ip.idxIn ctx blockTo (by grind) (by grind) (by grind)) + 1 := by sorry
 
-def Rewriter.inlineBlock (ctx : IRContext OpCode) (block : BlockPtr)
+def Rewriter.inlineBlock (ctx : IRContext OpInfo) (block : BlockPtr)
     (ip : InsertPoint) (ipIn : ip.InBounds ctx := by grind)
     (ipBlock : ip.block! ctx = some block' := by grind)
     (blockNe : block ≠ block' := by grind)
@@ -137,14 +140,13 @@ def Rewriter.inlineBlock (ctx : IRContext OpCode) (block : BlockPtr)
   | none => some ctx
   | some firstOpPtr => do
   let ctx₀ := detachOp ctx firstOpPtr (by grind) (by grind) (by grind [IRContext.WellFormed])
-  rlet hctx: ctx₁ ← insertOp? ctx₀ firstOpPtr ip (by grind) (by cases ip <;> grind [InsertPoint.InBounds]) (by grind)
+  rlet hctx: ctx₁ ← insertOp? ctx₀ firstOpPtr ip (by grind) (by cases ip <;> grind [cases InsertPoint]) (by grind)
   inlineBlock ctx₁ block ip
-    (by cases ip <;> grind [InsertPoint.InBounds])
+    (by cases ip <;> grind [cases InsertPoint])
     (block' := block')
     (by
-      simp only [InsertPoint.block!] at ipBlock |-
       have : (firstOpPtr.get! ctx).parent = block := by grind [IRContext.WellFormed]
-      grind
+      grind [cases InsertPoint]
     )
     (by grind)
     (by (have : block.InBounds ctx₀ := by grind); grind)
@@ -163,8 +165,7 @@ decreasing_by
     · grind
   · grind
   · grind [Rewriter.insertOp?_WellFormed, Rewriter.detachOp_WellFormed]
-  · simp only [InsertPoint.block!] at ipBlock |-
-    have : (firstOpPtr.get! ctx).parent = block := by grind [IRContext.WellFormed]
+  · have : (firstOpPtr.get! ctx).parent = block := by grind [IRContext.WellFormed]
     grind
 
 def Rewriter.inlineBlock_wellFormed :
@@ -199,8 +200,7 @@ def Rewriter.inlineBlock_wellFormed :
           · grind
         · grind
         · grind [Rewriter.detachOp_WellFormed]
-        · simp only [InsertPoint.block!] at ipBlock |-
-          grind
+        · grind [cases InsertPoint]
 
 theorem Rewriter.inlineBlock_inBounds_block :
     Rewriter.inlineBlock ctx block ip ipIn ipBlock blockNe blockIn ctxWf = some newCtx →
@@ -236,8 +236,7 @@ theorem Rewriter.inlineBlock_inBounds_block :
           · grind
         · grind
         · grind [Rewriter.detachOp_WellFormed]
-        · simp only [InsertPoint.block!] at ipBlock |-
-          grind
+        · grind [cases InsertPoint]
 
 theorem BlockPtr.operationList_Rewriter_inlineBlock_from
     (hWF : ctx.WellFormed) (hblockTo : ip.block ctx ipIn = some blockTo)
@@ -273,9 +272,7 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_from
         rw [Rewriter.detachOp.operationList_size] <;> grind
       · grind
       · grind [Rewriter.detachOp_WellFormed]
-      · simp only [InsertPoint.block!] at ipBlock |-
-        have : (firstOpPtr.get! ctx).parent = blockFrom := by grind [IRContext.WellFormed]
-        grind
+      · grind
     · grind
 
 set_option warn.sorry false in
@@ -334,19 +331,19 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_to
     have ⟨arrayFrom, hArrayFrom⟩ := ctx₀Wf.opChain blockFrom (by grind)
     have hparent : (firstOpPtr.get! ctx).parent = some blockFrom := by grind
     have : (blockFrom.operationList ctx₀ (by grind) (by grind)).size = n := by
-      have := @Rewriter.insertOp?_detachOp_operationList ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockFrom (by grind) (by grind) (by grind) (by grind) (by grind) h'
+      have := @Rewriter.insertOp?_detachOp_operationList _ _ ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockFrom (by grind) (by grind) (by grind) (by grind) (by grind) h'
       rw [this]
       simp [fromNeTo, hparent]
       have : firstOpPtr ∈ array := by grind [BlockPtr.OpChain]
       grind
     have ih := @ih ctx₀ (by grind) (by grind) (by grind) (by grind) newCtx (by grind) (by grind) hNewCtx (by grind)
     simp only [ih, Array.take_eq_extract, Array.drop_eq_extract, Array.append_assoc]
-    have := @Rewriter.insertOp?_detachOp_operationList ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockTo (by grind) (by grind) (by grind) (by grind) (by grind) h'
+    have := @Rewriter.insertOp?_detachOp_operationList _ _ ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockTo (by grind) (by grind) (by grind) (by grind) (by grind) h'
     rw [this]
-    have := @Rewriter.insertOp?_detachOp_operationList ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockFrom (by grind) (by grind) (by grind) (by grind) (by grind) h'
+    have := @Rewriter.insertOp?_detachOp_operationList _ _ ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockFrom (by grind) (by grind) (by grind) (by grind) (by grind) h'
     rw [this]
     simp only [↓reduceDIte, Array.size_insertIdx]
-    have := @InsertPoint.idxIn_insertOp?_detachOp ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ (by grind) (by grind) (by grind) (by grind) (by grind) (by grind) (by grind) h'
+    have := @InsertPoint.idxIn_insertOp?_detachOp _ _ ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ (by grind) (by grind) (by grind) (by grind) (by grind) (by grind) (by grind) h'
     rw [this]
     simp only [Array.extract_insertIdx_zero_succ, Array.append_singleton, fromNeTo, ↓reduceDIte,
       hparent, ↓reduceIte, Array.extract_insertIdx_succ_ub, Nat.lt_add_one,
@@ -390,14 +387,14 @@ theorem BlockPtr.operationList_Rewriter_inlineBlock_other
     have ⟨arrayFrom, hArrayFrom⟩ := ctx₀Wf.opChain blockFrom (by grind)
     have hparent : (firstOpPtr.get! ctx).parent = some blockFrom := by grind
     have : (blockFrom.operationList ctx₀ (by grind) (by grind)).size = n := by
-      have := @Rewriter.insertOp?_detachOp_operationList ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockFrom (by grind) (by grind) (by grind) (by grind) (by grind) h'
+      have := @Rewriter.insertOp?_detachOp_operationList _ _ ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ blockFrom (by grind) (by grind) (by grind) (by grind) (by grind) h'
       rw [this]
       simp [fromNeTo, hparent]
       have : firstOpPtr ∈ array := by grind [BlockPtr.OpChain]
       grind
     have ih := @ih ctx₀ (by grind) (by grind) newCtx (by grind) (by grind) (by grind) hNewCtx (by grind [Rewriter.inlineBlock_inBounds_block]) (by grind)
     rw [ih]
-    have := @Rewriter.insertOp?_detachOp_operationList ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ block (by grind) (by grind) (by grind) (by grind) (by grind) h'
+    have := @Rewriter.insertOp?_detachOp_operationList _ _ ctx blockTo firstOpPtr (by grind) (by grind) (by grind) ip (by grind) (by grind) (by grind) ctx₀ block (by grind) (by grind) (by grind) (by grind) (by grind) h'
     rw [this]
     grind
 

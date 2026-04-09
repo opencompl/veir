@@ -1,10 +1,16 @@
-import Veir.IR.Basic
+module
+
+public import Veir.IR.Basic
+public import Veir.Properties
+public import Veir.GlobalOpInfo
+
 import Veir.IR.Grind
 import Veir.Rewriter.Basic
 import Veir.Properties
-import Veir.GlobalOpInfo
 
 open Veir
+
+public section
 
 namespace Veir.Printer
 

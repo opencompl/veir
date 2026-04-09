@@ -1,7 +1,13 @@
-import Veir.IR.WellFormed
-import Veir.Rewriter.Basic
-import Veir.Rewriter.WellFormed.Basic
+module
 
+public import Veir.IR.OpInfo
+public import Veir.IR.WellFormed
+public import Veir.Rewriter.InsertPoint
+public import Veir.Rewriter.Basic
+
+import Veir.Rewriter.WellFormed
+
+public section
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
@@ -72,7 +78,7 @@ def WfRewriter.replaceValue (wfCtx : WfIRContext OpInfo) (oldValue newValue : Va
     (newIn : newValue.InBounds wfCtx.raw := by grind)
     : Option (WfIRContext OpInfo) := do
   rlet h: ctx ← Rewriter.replaceValue? wfCtx oldValue newValue oldIn newIn (by grind)
-  return ⟨ctx, by grind [Rewriter.replaceValue?_WellFormed, Option.maybe₁]⟩
+  return ⟨ctx, by grind [Rewriter.replaceValue?_WellFormed, Option.maybe₁_def]⟩
 
 /--
 Replace all results of an operation with the results of another.
