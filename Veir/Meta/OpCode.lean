@@ -52,74 +52,6 @@ meta def mkOpName (d : Dialect) (op : String) : String := d.getName ++ "." ++ op
 end Dialect
 
 /--
-Generate an array with the names of the dialects.
--/
-meta def dialectCodeArray (ds : Array Dialect) : Array Name :=
-  ds.map Dialect.mkDialectCode
-
-/--
-Generate the inductive type `DialectCode` with a constructor for each dialect.
--/
-meta def mkDialectCodeType (ds : Array Dialect) : TermElabM Syntax := do
-  let ctors ← (dialectCodeArray ds).mapM mkCtor
-  `(inductive $(mkIdent `DialectCode) where $ctors*
-    deriving Inhabited, Repr, Hashable, DecidableEq)
-
-/--
-Generate a function `DialectCode.toByteArray`.
--/
-meta def mkDialectCodeToByteArray (ds : Array Dialect) : TermElabM Syntax := do
-  let mut alts := #[]
-  for d in ds do
-    alts := alts.push <| ←
-      `(Lean.Parser.Term.matchAltExpr |
-         | $(mkIdent (d.mkDialectCode)) => $(Syntax.mkStrLit d.getName).toByteArray)
-  `(def $(mkIdent `DialectCode.toByteArray) (code : $(mkIdent `DialectCode)) :
-      ByteArray := match code with $alts:matchAlt* )
-
-/--
-Generate a function `DialectCode.toName`.
--/
-meta def mkDialectCodeToName (ds : Array Dialect) : TermElabM Syntax := do
-  let mut alts := #[]
-  for d in ds do
-    alts := alts.push <| ←
-      `(Lean.Parser.Term.matchAltExpr |
-         | $(mkIdent (d.mkDialectCode)) => $(Syntax.mkStrLit d.getName))
-  `(def $(mkIdent `DialectCode.toName) (code : $(mkIdent `DialectCode)) :
-      String := match code with $alts:matchAlt* )
-
-/--
-Generate a function `DialectCode.fromName` that translates a dialect name
-given as a `String` to `Option DialectCode`.
--/
-meta def mkDialectCodeFromName (ds : Array Dialect) : TermElabM Syntax := do
-  let mut alts := #[]
-  for d in ds do
-    alts := alts.push <| ←
-      `(Lean.Parser.Term.matchAltExpr |
-         | $(Syntax.mkStrLit d.getName) => some $(mkIdent (d.mkDialectCode)))
-  alts := alts.push <| ←
-    `(Lean.Parser.Term.matchAltExpr |
-         | _ => none)
-  `(def $(mkIdent `DialectCode.fromName) (name : String) :
-      Option $(mkIdent `DialectCode) := match name with $alts:matchAlt* )
-
-/--
-Generate a function `DialectCode.fromByteArray` that translates a dialect name
-given as a `ByteArray` to `Option DialectCode`.
-
-Use a chain of `if` statements instead of a `match` because `ByteArray` does
-not support pattern matching.
--/
-meta def mkDialectCodeFromByteArray (ds : Array Dialect) : TermElabM Syntax := do
-  let mut res : TSyntax `term ← `(Option.none)
-  for d in ds do
-    res ← `(if name = $(Syntax.mkStrLit d.getName).toByteArray then some $(mkIdent (d.mkDialectCode)) else $res)
-  `(def $(mkIdent `DialectCode.fromByteArray) (name : ByteArray) :
-      Option $(mkIdent `DialectCode) := $res)
-
-/--
 Create the following inductive:
 
 inductive OpCode where
@@ -185,11 +117,6 @@ elab "#generate_op_codes" : command  => do
       | throwError m!"Type {t} is not defined or not an inductive."
     dialects := dialects.push <| mkDialect t.getString! info
 
-  elabCommand <| ← Command.liftTermElabM <| mkDialectCodeType dialects
-  elabCommand <| ← Command.liftTermElabM <| mkDialectCodeToByteArray dialects
-  elabCommand <| ← Command.liftTermElabM <| mkDialectCodeToName dialects
-  elabCommand <| ← Command.liftTermElabM <| mkDialectCodeFromByteArray dialects
-  elabCommand <| ← Command.liftTermElabM <| mkDialectCodeFromName dialects
   elabCommand <| ← Command.liftTermElabM <| mkOpCodeInductive dialects
   elabCommand <| ← Command.liftTermElabM <| emitFromName dialects
   elabCommand <| ← Command.liftTermElabM <| emitName dialects

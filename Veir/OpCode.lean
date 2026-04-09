@@ -220,31 +220,5 @@ the dialect type.
 set_option maxRecDepth 100000
 #generate_op_codes
 
-def toType (code : DialectCode) : Type :=
-  match code with
-  | .arith => Arith
-  | .builtin => Builtin
-  | .func => Func
-  | .llvm => Llvm
-  | .riscv => Riscv
-  | .test => Test
-  | .mod_arith => Mod_Arith
-  | .datapath => Datapath
-
-/-
-TODO: Adapt `toType` to have a return value that is Hashable.
--/
-
-
-theorem DialectCode.fromByteArray_toByteArray (d : DialectCode) :
-    DialectCode.fromByteArray (DialectCode.toByteArray d) = d := by
-  simp [DialectCode.toByteArray, DialectCode.fromByteArray]
-  cases d <;> simp[String.toByteArray_inj]
-
-theorem DialectCode.fromName_toByteArray (d : DialectCode) :
-    DialectCode.fromName (DialectCode.toName d) = d := by
-  simp [DialectCode.toName, DialectCode.fromName]
-  cases d <;> simp
-
 end
 end Veir
