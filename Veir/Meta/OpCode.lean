@@ -138,12 +138,14 @@ meta def mkOpCodeInductive (ds : Array Dialect) : TermElabM Syntax := do
     deriving Inhabited, Repr, Hashable, DecidableEq)
 
 meta def emitFromName (ds : Array Dialect) : TermElabM Command := do
-  let mut res : TSyntax `term ← `(Option.none)
+  let unreg : TSyntax `term := (mkIdent `Builtin.unregistered)
+  let builtin : TSyntax `term := (mkIdent `OpCode.builtin)
+  let mut res : TSyntax `term ← `($builtin $unreg)
   for d in ds do
     for op in d.operations do
       if d.getName = "builtin" ∧ op = "unregistered" then continue
-      res ← `(if name = $(Syntax.mkStrLit (d.mkOpName op)).toByteArray then some (($(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op)))) else $res)
-  `(def $(mkIdent `OpCode.fromName) (name : $(mkIdent ``ByteArray)) : Option $(mkIdent `OpCode) := $res)
+      res ← `(if name = $(Syntax.mkStrLit (d.mkOpName op)).toByteArray then ($(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op))) else $res)
+  `(def $(mkIdent `OpCode.fromName) (name : $(mkIdent ``ByteArray)) : $(mkIdent `OpCode) := $res)
 
 meta def emitName (ds : Array Dialect) : TermElabM Command := do
   let mut alts := #[]

@@ -340,7 +340,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let blockOperands ← parseBlockOperands
 
   /- Get the operation opcode. -/
-  let some opId := OpCode.fromName opName.toByteArray | return none
+  let opId := OpCode.fromName opName.toByteArray
 
   let properties ← parseOpProperties opId
   let regions ← parseOpRegions
