@@ -26,22 +26,26 @@ meta def mkCtor (n : Name) : TermElabM (TSyntax `Lean.Parser.Command.ctor) :=
 meta def mkCtorWithType (n : Name × Name) : TermElabM (TSyntax `Lean.Parser.Command.ctor) :=
     `(Lean.Parser.Command.ctor | | $(mkIdent n.1):ident (op : $(mkIdent n.2)))
 
-meta def Dialect.getName (d : Dialect) : String :=
+namespace Dialect
+
+meta def getName (d : Dialect) : String :=
   d.name.toLower
 
-meta def Dialect.mkDialectCode (d : Dialect) : Name :=
+meta def mkDialectCode (d : Dialect) : Name :=
   .mkSimple <| d.getName
 
-meta def Dialect.mkDialectCodeSimple (d : Dialect) : Name :=
+meta def mkDialectCodeSimple (d : Dialect) : Name :=
   .mkSimple <| d.name
 
-meta def Dialect.mkOpCode (d : Dialect) (op : String) : Name :=
+meta def mkOpCode (d : Dialect) (op : String) : Name :=
   .mkSimple <| d.getName ++ "_" ++ op
 
-meta def Dialect.mkQualifiedOpCode (d : Dialect) (op : String) : Name :=
+meta def mkQualifiedOpCode (d : Dialect) (op : String) : Name :=
   .mkStr `Veir.OpCode <| d.getName ++ "_" ++ op
 
-meta def Dialect.mkOpName (d : Dialect) (op : String) : String := d.getName ++ "." ++ op
+meta def mkOpName (d : Dialect) (op : String) : String := d.getName ++ "." ++ op
+
+end Dialect
 
 meta def opCodeArray (ds : Array Dialect) : Array Name := Id.run do
   let mut ctors := #[]
