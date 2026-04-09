@@ -431,9 +431,16 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
     | 32 =>
-      /- pseudoinstruction -/
-      sorry
-    | _ => sorry
+      let (rewriter, retOp) ← rewriter.createOp .riscv_sextw #[RegisterType.mk] #[opCastOp.getResult 0]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+      pure (rewriter, retOp)
+    | _ =>
+      let c := RISCVImmediateProperties.mk (IntegerAttr.mk (64 - opType.bitwidth) (IntegerType.mk 64))
+      let (rewriter, slliOp) ← rewriter.createOp .riscv_slli #[RegisterType.mk] #[opCastOp.getResult 0]
+        #[] #[] c (some $ .before op) sorry (by simp) (by simp) sorry
+      let (rewriter, retOp) ← rewriter.createOp .riscv_srai #[RegisterType.mk] #[slliOp.getResult 0]
+        #[] #[] c (some $ .before op) sorry (by simp) (by simp) sorry
+      pure (rewriter, retOp)
   /- Cast back result for type consistency-/
   let (rewriter, castOp) ← rewriter.createOp .builtin_unrealized_conversion_cast #[type] #[retOp.getResult 0]
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
