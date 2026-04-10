@@ -247,7 +247,7 @@ instance : HasDialectOpInfo Mod_Arith where
   A type family that maps an operation code to the type of its properties.
   For operations that do not have any properties, the type is `Unit`.
 -/
-@[expose]
+@[expose, simp]
 def propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith op => Arith.propertiesOf op
@@ -259,7 +259,7 @@ match opCode with
 instance : HasDialectOpInfo OpCode where
   propertiesOf := propertiesOf
   propertiesHash := by
-    simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
+    simp
     intros opCode
     cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   propertiesDefault := by
@@ -267,7 +267,7 @@ instance : HasDialectOpInfo OpCode where
     intros opCode
     cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   propertiesRepr := by
-    simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
+    simp
     intros opCode
     cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   propertiesDecideEq := by
