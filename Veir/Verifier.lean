@@ -15,8 +15,8 @@ namespace Veir
 -/
 def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCode) (opIn : op.InBounds ctx) : Except String PUnit :=
   match op.getOpType ctx opIn with
-  | .builtin_unregistered => pure ()
-  | .builtin_unrealized_conversion_cast => do
+  | .builtin .unregistered => pure ()
+  | .builtin .unrealized_conversion_cast => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -27,7 +27,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 successors"
     pure ()
   /- ARITH -/
-  | .arith_addi => do
+  | .arith .addi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -37,7 +37,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_addui_extended => do
+  | .arith .addui_extended => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 2 then
@@ -47,7 +47,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_andi => do
+  | .arith .andi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -57,7 +57,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_ceildivsi => do
+  | .arith .ceildivsi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -67,7 +67,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_ceildivui => do
+  | .arith .ceildivui => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -77,7 +77,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_cmpi => do
+  | .arith .cmpi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -87,7 +87,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_constant => do
+   | .arith .constant => do
     if op.getNumOperands ctx opIn ≠ 0 then
       throw "Expected 0 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -97,7 +97,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_divsi => do
+  | .arith .divsi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -107,7 +107,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_divui => do
+  | .arith .divui => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -117,7 +117,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_extui => do
+  | .arith .extui => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -127,7 +127,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_extsi => do
+  | .arith .extsi => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -137,7 +137,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_floordivsi => do
+  | .arith .floordivsi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -147,7 +147,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_maxsi => do
+  | .arith .maxsi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -157,7 +157,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_maxui => do
+  | .arith .maxui => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -167,7 +167,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_minsi => do
+  | .arith .minsi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -177,7 +177,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_minui => do
+  | .arith .minui => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -187,7 +187,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_muli => do
+  | .arith .muli => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -197,7 +197,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_mulsi_extended => do
+  | .arith .mulsi_extended => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 2 then
@@ -207,7 +207,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_mului_extended => do
+  | .arith .mului_extended => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 2 then
@@ -217,7 +217,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_ori => do
+  | .arith .ori => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -227,7 +227,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_remsi => do
+  | .arith .remsi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -237,7 +237,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_remui => do
+  | .arith .remui => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -247,7 +247,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_select => do
+  | .arith .select => do
     if op.getNumOperands ctx opIn ≠ 3 then
       throw "Expected 3 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -257,7 +257,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_shli => do
+  | .arith .shli => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -267,7 +267,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_shrsi => do
+  | .arith .shrsi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -277,7 +277,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_shrui => do
+  | .arith .shrui => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -287,7 +287,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_subi => do
+  | .arith .subi => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -297,7 +297,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_trunci => do
+  | .arith .trunci => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -307,7 +307,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .arith_xori => do
+  | .arith .xori => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -317,7 +317,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .builtin_module => do
+  | .builtin .module => do
     if op.getNumOperands ctx opIn ≠ 0 then
       throw "Expected 0 operands"
     if op.getNumResults ctx opIn ≠ 0 then
@@ -327,7 +327,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .datapath_compress => do
+  | .datapath .compress => do
     if op.getNumOperands ctx opIn ≤ op.getNumResults ctx opIn then
       throw "Number of inputs must be greater than the number of results"
     if op.getNumResults ctx opIn < 2 then
@@ -337,7 +337,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .datapath_partial_product => do
+  | .datapath .partial_product => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumRegions ctx opIn ≠ 0 then
@@ -345,7 +345,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .datapath_pos_partial_product => do
+  | .datapath .pos_partial_product => do
     if op.getNumOperands ctx opIn ≠ 3 then
       throw "Expected 3 operands"
     if op.getNumRegions ctx opIn ≠ 0 then
@@ -354,7 +354,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 successors"
     pure ()
   /- FUNC -/
-  | .func_func => do
+  | .func .func => do
     if op.getNumRegions ctx opIn ≠ 1 then
       throw "Expected 1 region"
     if op.getNumOperands ctx opIn ≠ 0 then
@@ -364,7 +364,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .func_return => do
+  | .func .return => do
     if op.getNumResults ctx opIn ≠ 0 then
       throw "Expected 0 results"
     if op.getNumRegions ctx opIn ≠ 0 then
@@ -373,10 +373,10 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 successors"
     pure ()
   /- TEST -/
-  | .test_test => do
+  | .test .test => do
     pure ()
   /- LLVM -/
-  | .llvm_constant => do
+  | .llvm .constant => do
     if op.getNumOperands ctx opIn ≠ 0 then
       throw "Expected 0 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -386,7 +386,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_and => do
+  | .llvm .and => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -396,7 +396,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_or => do
+  | .llvm .or => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -406,7 +406,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_xor => do
+  | .llvm .xor => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -416,7 +416,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_add => do
+  | .llvm .add => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -426,7 +426,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_sub => do
+  | .llvm .sub => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -436,7 +436,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_shl => do
+  | .llvm .shl => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -446,7 +446,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_lshr => do
+  | .llvm .lshr => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -456,7 +456,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_ashr => do
+  | .llvm .ashr => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -466,7 +466,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_mul => do
+  | .llvm .mul => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -476,7 +476,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_sdiv => do
+  | .llvm .sdiv => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -486,7 +486,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_udiv => do
+  | .llvm .udiv => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -496,7 +496,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_srem => do
+  | .llvm .srem => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -506,7 +506,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_urem => do
+  | .llvm .urem => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -516,7 +516,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_icmp => do
+  | .llvm .icmp => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -526,7 +526,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_select => do
+  | .llvm .select => do
     if op.getNumOperands ctx opIn ≠ 3 then
       throw "Expected 3 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -536,7 +536,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm_trunc => do
+  | .llvm .trunc => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -550,7 +550,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
         if opType.bitwidth ≤ retType.bitwidth then
           throw "Result's width must be smaller than operand's width"
     pure ()
-  | .llvm_sext => do
+  | .llvm .sext => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -564,7 +564,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
         if retType.bitwidth ≤ opType.bitwidth then
           throw "Operand's width must be smaller than result's width"
     pure ()
-  | .llvm_zext => do
+  | .llvm .zext => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -578,7 +578,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
         if retType.bitwidth ≤ opType.bitwidth then
           throw "Operand's width must be smaller than result's width"
     pure ()
-  | .llvm_return => do
+  | .llvm .return => do
     if op.getNumResults ctx opIn ≠ 0 then
       throw "Expected 0 results"
     if op.getNumRegions ctx opIn ≠ 0 then
@@ -587,7 +587,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 successors"
     pure ()
   /- MOD_ARITH -/
-  | .mod_arith_add => do
+  | .mod_arith .add => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -597,7 +597,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .mod_arith_constant => do
+  | .mod_arith .constant => do
     if op.getNumOperands ctx opIn ≠ 0 then
       throw "Expected 0 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -607,7 +607,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .mod_arith_mul => do
+  | .mod_arith .mul => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -617,7 +617,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .mod_arith_sub => do
+  | .mod_arith .sub => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -628,7 +628,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 successors"
     pure ()
   /- RISCV -/
-  | .riscv_li => do
+  | .riscv .li => do
     if op.getNumOperands ctx opIn ≠ 0 then
       throw "Expected 0 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -638,7 +638,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_lui => do
+  | .riscv .lui => do
     if op.getNumOperands ctx opIn ≠ 0 then
       throw "Expected 0 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -648,7 +648,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_auipc => do
+  | .riscv .auipc => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -658,7 +658,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_addi => do
+  | .riscv .addi => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -668,7 +668,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_slti => do
+  | .riscv .slti => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -678,7 +678,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sltiu => do
+  | .riscv .sltiu => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -688,7 +688,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_andi => do
+  | .riscv .andi => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -698,7 +698,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_ori => do
+  | .riscv .ori => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -708,7 +708,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_xori => do
+  | .riscv .xori => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -718,7 +718,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_addiw => do
+  | .riscv .addiw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -728,7 +728,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_slli => do
+  | .riscv .slli => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -738,7 +738,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_srli => do
+  | .riscv .srli => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -748,7 +748,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_srai => do
+  | .riscv .srai => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -758,7 +758,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_add => do
+  | .riscv .add => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -768,7 +768,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sub => do
+  | .riscv .sub => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -778,7 +778,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sll => do
+  | .riscv .sll => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -788,7 +788,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_slt => do
+  | .riscv .slt => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -798,7 +798,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sltu => do
+  | .riscv .sltu => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -808,7 +808,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_xor => do
+  | .riscv .xor => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -818,7 +818,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_srl => do
+  | .riscv .srl => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -828,7 +828,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sra => do
+  | .riscv .sra => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -838,7 +838,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_or => do
+  | .riscv .or => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -848,7 +848,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_and => do
+  | .riscv .and => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -858,7 +858,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_slliw => do
+  | .riscv .slliw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -868,7 +868,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_srliw => do
+  | .riscv .srliw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -878,7 +878,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sraiw => do
+  | .riscv .sraiw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -888,7 +888,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_addw => do
+  | .riscv .addw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -898,7 +898,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_subw => do
+  | .riscv .subw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -908,7 +908,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sllw => do
+  | .riscv .sllw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -918,7 +918,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_srlw => do
+  | .riscv .srlw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -928,7 +928,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sraw => do
+  | .riscv .sraw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -938,7 +938,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_rem => do
+  | .riscv .rem => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -948,7 +948,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_remu => do
+  | .riscv .remu => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -958,7 +958,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_remw => do
+  | .riscv .remw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -968,7 +968,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_remuw => do
+  | .riscv .remuw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -978,7 +978,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_mul => do
+  | .riscv .mul => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -988,7 +988,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_mulh => do
+  | .riscv .mulh => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -998,7 +998,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_mulhu => do
+  | .riscv .mulhu => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1008,7 +1008,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_mulhsu => do
+  | .riscv .mulhsu => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1018,7 +1018,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_mulw => do
+  | .riscv .mulw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1028,7 +1028,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_div => do
+  | .riscv .div => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1038,7 +1038,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_divw => do
+  | .riscv .divw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1048,7 +1048,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_divu => do
+  | .riscv .divu => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1058,7 +1058,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_divuw => do
+  | .riscv .divuw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1068,7 +1068,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_adduw => do
+  | .riscv .adduw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1078,7 +1078,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sh1adduw => do
+  | .riscv .sh1adduw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1088,7 +1088,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sh2adduw => do
+  | .riscv .sh2adduw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1098,7 +1098,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sh3adduw => do
+  | .riscv .sh3adduw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1108,7 +1108,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sh1add => do
+  | .riscv .sh1add => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1118,7 +1118,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sh2add => do
+  | .riscv .sh2add => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1128,7 +1128,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sh3add => do
+  | .riscv .sh3add => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1138,7 +1138,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_slliuw => do
+  | .riscv .slliuw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1148,7 +1148,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_andn => do
+  | .riscv .andn => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1158,7 +1158,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_orn => do
+  | .riscv .orn => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1168,7 +1168,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_xnor => do
+  | .riscv .xnor => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1178,7 +1178,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_max => do
+  | .riscv .max => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1188,7 +1188,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_maxu => do
+  | .riscv .maxu => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1198,7 +1198,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_min => do
+  | .riscv .min => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1208,7 +1208,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_minu => do
+  | .riscv .minu => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1218,7 +1218,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_rol => do
+  | .riscv .rol => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1228,7 +1228,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_ror => do
+  | .riscv .ror => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1238,7 +1238,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_rolw => do
+  | .riscv .rolw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1248,7 +1248,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_rorw => do
+  | .riscv .rorw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1258,7 +1258,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sextb => do
+  | .riscv .sextb => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1268,7 +1268,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sexth => do
+  | .riscv .sexth => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1278,7 +1278,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_zexth => do
+  | .riscv .zexth => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1288,7 +1288,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_clz => do
+  | .riscv .clz => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1298,7 +1298,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_clzw => do
+  | .riscv .clzw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1308,7 +1308,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_ctz => do
+  | .riscv .ctz => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1318,7 +1318,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_ctzw => do
+  | .riscv .ctzw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1328,7 +1328,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_cpop => do
+  | .riscv .cpop => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1338,7 +1338,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_cpopw => do
+  | .riscv .cpopw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1348,7 +1348,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_roriw => do
+  | .riscv .roriw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1358,7 +1358,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_rori => do
+  | .riscv .rori => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1368,7 +1368,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_bclr => do
+  | .riscv .bclr => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1378,7 +1378,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_bext => do
+  | .riscv .bext => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1388,7 +1388,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_binv => do
+  | .riscv .binv => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1398,7 +1398,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_bset => do
+  | .riscv .bset => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1408,7 +1408,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_bclri => do
+  | .riscv .bclri => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1418,7 +1418,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_bexti => do
+  | .riscv .bexti => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1428,7 +1428,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_binvi => do
+  | .riscv .binvi => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1438,7 +1438,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_bseti => do
+  | .riscv .bseti => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1448,7 +1448,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_pack => do
+  | .riscv .pack => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1458,7 +1458,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_packh => do
+  | .riscv .packh => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1468,7 +1468,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_packw => do
+  | .riscv .packw => do
     if op.getNumOperands ctx opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1478,7 +1478,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_mv => do
+  | .riscv .mv => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1488,7 +1488,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_not => do
+  | .riscv .not => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1498,7 +1498,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_neg => do
+  | .riscv .neg => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1508,7 +1508,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_negw => do
+  | .riscv .negw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1518,7 +1518,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sextw => do
+  | .riscv .sextw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1528,7 +1528,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_zextb => do
+  | .riscv .zextb => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1538,7 +1538,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_zextw => do
+  | .riscv .zextw => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1548,7 +1548,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_seqz => do
+  | .riscv .seqz => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1558,7 +1558,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_snez => do
+  | .riscv .snez => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1568,7 +1568,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sltz => do
+  | .riscv .sltz => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
@@ -1578,7 +1578,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .riscv_sgtz => do
+  | .riscv .sgtz => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operands"
     if op.getNumResults ctx opIn ≠ 1 then
