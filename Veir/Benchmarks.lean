@@ -40,8 +40,8 @@ def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) : 
     return rewriter
 
   -- Sum both constant values
-  let lhsVal := (lhsOp.getProperties! rewriter.ctx (.arith .constant)).value.value
-  let rhsVal := (rhsOp.getProperties! rewriter.ctx (.arith .constant)).value.value
+  let lhsVal := (lhsOp.getProperties! rewriter.ctx (OpCode.arith .constant)).value.value
+  let rhsVal := (rhsOp.getProperties! rewriter.ctx (OpCode.arith .constant)).value.value
   let newVal := ArithConstantProperties.mk (IntegerAttr.mk (lhsVal + rhsVal) (IntegerType.mk 32))
   let (rewriter, newOp) ← rewriter.createOp (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry
@@ -76,8 +76,8 @@ def addIConstantFoldingLocal (ctx: IRContext OpCode) (op: OperationPtr) :
     | some (ctx, none)
 
   -- Sum both constant values
-  let lhsVal := (lhsOp.getProperties! ctx (.arith .constant)).value.value
-  let rhsVal := (rhsOp.getProperties! ctx (.arith .constant)).value.value
+  let lhsVal := (lhsOp.getProperties! ctx (OpCode.arith .constant)).value.value
+  let rhsVal := (rhsOp.getProperties! ctx (OpCode.arith .constant)).value.value
   let newVal := ArithConstantProperties.mk (IntegerAttr.mk (lhsVal + rhsVal) (IntegerType.mk 32))
   let (ctx, newOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] newVal none sorry sorry sorry sorry sorry
   return (ctx, some (#[newOp], #[newOp.getResult 0]))
@@ -94,7 +94,7 @@ def addIZeroFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Opti
   let rhsOpStruct := rhsOp.get rewriter.ctx (by sorry)
   if rhsOpStruct.opType ≠ .arith .constant then
     return rewriter
-  if (rhsOp.getProperties! rewriter.ctx (.arith .constant)).value.value ≠ 0 then
+  if (rhsOp.getProperties! rewriter.ctx (OpCode.arith .constant)).value.value ≠ 0 then
     return rewriter
 
   -- Get the lhs value
@@ -120,7 +120,7 @@ def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Option
   let rhsOpStruct := rhsOp.get rewriter.ctx (by sorry)
   if rhsOpStruct.opType ≠ .arith .constant then
     return rewriter
-  if (rhsOp.getProperties! rewriter.ctx (.arith .constant)).value.value ≠ 2 then
+  if (rhsOp.getProperties! rewriter.ctx (OpCode.arith .constant)).value.value ≠ 2 then
     return rewriter
 
   -- Get the lhs value
@@ -165,8 +165,8 @@ def addIConstantFolding (ctx: IRContext OpCode) (op: OperationPtr) : Option (IRC
     return ctx
 
   -- Sum both constant values
-  let lhsVal := (lhsOp.getProperties! ctx (.arith .constant)).value.value
-  let rhsVal := (rhsOp.getProperties! ctx (.arith .constant)).value.value
+  let lhsVal := (lhsOp.getProperties! ctx (OpCode.arith .constant)).value.value
+  let rhsVal := (rhsOp.getProperties! ctx (OpCode.arith .constant)).value.value
   let newVal := ArithConstantProperties.mk (IntegerAttr.mk (lhsVal + rhsVal) (IntegerType.mk 32))
   let (ctx, newOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry sorry
   let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry
@@ -189,7 +189,7 @@ def addIZeroFolding (ctx: IRContext OpCode) (op: OperationPtr) : Option (IRConte
   let rhsOpStruct := rhsOp.get ctx (by sorry)
   if rhsOpStruct.opType ≠ .arith .constant then
     return ctx
-  if (rhsOp.getProperties! ctx (.arith .constant)).value.value ≠ 0 then
+  if (rhsOp.getProperties! ctx (OpCode.arith .constant)).value.value ≠ 0 then
     return ctx
 
   -- Get the lhs value
@@ -215,7 +215,7 @@ def mulITwoReduce (ctx: IRContext OpCode) (op: OperationPtr) : Option (IRContext
   let rhsOpStruct := rhsOp.get ctx (by sorry)
   if rhsOpStruct.opType ≠ .arith .constant then
     return ctx
-  if (rhsOp.getProperties! ctx (.arith .constant)).value.value ≠ 2 then
+  if (rhsOp.getProperties! ctx (OpCode.arith .constant)).value.value ≠ 2 then
     return ctx
 
   -- Get the lhs value
