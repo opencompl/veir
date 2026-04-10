@@ -24,7 +24,6 @@ theorem Rewriter.pushOperand_DefUse_getElem?
     := by
   grind [ValuePtr.DefUse]
 
-set_option maxHeartbeats 10000000 in -- TODO
 theorem Rewriter.pushOperand_DefUse
     (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) (hOpWf : ctx.WellFormed)
     (valuePtr' : ValuePtr) (valuePtr'InBounds : valuePtr'.InBounds ctx) :
@@ -44,12 +43,19 @@ theorem Rewriter.pushOperand_DefUse
       intros i hi
       simp at hi
       rw [Array.getElem?_append_right (by grind)]
-      simp
-      by_cases hi0 : i = 0 <;> grind [ValuePtr.DefUse]
+      simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add,
+        Nat.add_one_sub_one]
+      by_cases hi0 : i = 0
+      · grind [ValuePtr.DefUse]
+      · rw [Array.getElem_append_right (by grind)]
+        simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add]
+        have := @arrayWf.nextElems
+        grind
     case useValue =>
       intro use hUse
       have ⟨i, hI, hUseI⟩ := Array.mem_iff_getElem.mp hUse
-      grind [ValuePtr.DefUse]
+      have := @arrayWf.useValue
+      grind
     case firstUseBack =>
       grind [IRContext.WellFormed]
     case prevNextUse =>
@@ -58,7 +64,8 @@ theorem Rewriter.pushOperand_DefUse
       intros i hi₁ hi₂
       have iNeZero : i ≠ 0 := by grind
       simp [Array.getElem_append, iNeZero]
-      grind [ValuePtr.DefUse, Option.maybe_def]
+      have := @arrayWf.prevNextUse
+      grind
     case allUsesInChain =>
       grind [ValuePtr.DefUse, IRContext.WellFormed]
     all_goals grind
