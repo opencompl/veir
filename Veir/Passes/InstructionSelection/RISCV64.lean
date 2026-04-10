@@ -415,9 +415,6 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let type := ((op.getResult 0).get! rewriter.ctx).type
   let .integerType retType := type.val | rewriter
   if 64 < retType.bitwidth then return rewriter
-  /- Instruction is illegal if return type is smaller than operand type.
-    TODO: this should be verified by `veir-opt` even before the pass starts. -/
-  if retType.bitwidth ≤ opType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -472,9 +469,6 @@ def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let type := ((op.getResult 0).get! rewriter.ctx).type
   let .integerType retType := type.val | rewriter
   if 64 < retType.bitwidth then return rewriter
-  /- Instruction is illegal if return type is smaller than operand type.
-    TODO: this should be verified by `veir-opt` even before the pass starts. -/
-  if retType.bitwidth ≤ opType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -522,9 +516,6 @@ def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let type := ((op.getResult 0).get! rewriter.ctx).type
   let .integerType retType := type.val | rewriter
   if 64 < retType.bitwidth then return rewriter
-  /- Instruction is illegal if return type is smaller than operand type.
-    TODO: this should be verified by `veir-opt` even before the pass starts. -/
-  if opType.bitwidth ≤ retType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
