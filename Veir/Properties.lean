@@ -311,6 +311,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     all_goals exact (Except.ok ())
   case func =>
     all_goals exact (Except.ok ())
+  case cf =>
+    all_goals exact (Except.ok ())
   case builtin =>
     all_goals exact (Except.ok ())
   case arith op =>

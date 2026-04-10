@@ -64,6 +64,11 @@ inductive Func where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
+inductive Cf where
+| br
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
 inductive Llvm where
 | constant
 | and

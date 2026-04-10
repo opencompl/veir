@@ -372,6 +372,15 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+  /- CF -/
+  | .cf .br => do
+    if op.getNumResults ctx opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 1 then
+      throw "Expected 1 successor"
+    pure ()
   /- TEST -/
   | .test .test => do
     pure ()
