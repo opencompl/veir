@@ -1,7 +1,6 @@
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
-import Veir.Rewriter.WellFormed.Builder
-import Veir.Rewriter.WellFormed.Rewriter
+import Veir.Rewriter.WellFormed.Basic
 
 namespace Veir
 

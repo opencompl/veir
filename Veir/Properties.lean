@@ -170,133 +170,164 @@ def ModArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray At
 @[expose]
 def propertiesOf (opCode : OpCode) : Type :=
 match opCode with
-| .arith_constant => ArithConstantProperties
-| .llvm_constant => LLVMConstantProperties
-| .arith_addi => NswNuwProperties
-| .arith_subi => NswNuwProperties
-| .arith_muli => NswNuwProperties
-| .arith_divsi => ExactProperties
-| .arith_divui => ExactProperties
-| .arith_shli => NswNuwProperties
-| .arith_shrsi => ExactProperties
-| .arith_shrui => ExactProperties
-| .arith_ori => DisjointProperties
-| .llvm_add => NswNuwProperties
-| .llvm_sub => NswNuwProperties
-| .llvm_mul => NswNuwProperties
-| .llvm_udiv => ExactProperties
-| .llvm_sdiv => ExactProperties
-| .llvm_shl => NswNuwProperties
-| .llvm_lshr => ExactProperties
-| .llvm_ashr => ExactProperties
-| .llvm_or => DisjointProperties
-| .llvm_trunc => NswNuwProperties
-| .llvm_zext => NnegProperties
-| .llvm_icmp => IcmpProperties
-| .arith_trunci => NswNuwProperties
-| .arith_extui => NnegProperties
-| .riscv_li => RISCVImmediateProperties
-| .riscv_lui => RISCVImmediateProperties
-| .riscv_auipc => RISCVImmediateProperties
-| .riscv_andi => RISCVImmediateProperties
-| .riscv_ori => RISCVImmediateProperties
-| .riscv_xori => RISCVImmediateProperties
-| .riscv_addi => RISCVImmediateProperties
-| .riscv_slti => RISCVImmediateProperties
-| .riscv_sltiu => RISCVImmediateProperties
-| .riscv_addiw => RISCVImmediateProperties
-| .riscv_slli => RISCVImmediateProperties
-| .riscv_srli => RISCVImmediateProperties
-| .riscv_srai => RISCVImmediateProperties
-| .riscv_slliw => RISCVImmediateProperties
-| .riscv_srliw => RISCVImmediateProperties
-| .riscv_sraiw => RISCVImmediateProperties
-| .riscv_slliuw => RISCVImmediateProperties
-| .riscv_rori => RISCVImmediateProperties
-| .riscv_roriw => RISCVImmediateProperties
-| .riscv_bclri => RISCVImmediateProperties
-| .riscv_bexti => RISCVImmediateProperties
-| .riscv_binvi => RISCVImmediateProperties
-| .riscv_bseti => RISCVImmediateProperties
-| .mod_arith_constant => ModArithConstantProperties
+| .arith .constant => ArithConstantProperties
+| .llvm .constant => LLVMConstantProperties
+| .arith .addi => NswNuwProperties
+| .arith .subi => NswNuwProperties
+| .arith .muli => NswNuwProperties
+| .arith .divsi => ExactProperties
+| .arith .divui => ExactProperties
+| .arith .shli => NswNuwProperties
+| .arith .shrsi => ExactProperties
+| .arith .shrui => ExactProperties
+| .arith .ori => DisjointProperties
+| .llvm .add => NswNuwProperties
+| .llvm .sub => NswNuwProperties
+| .llvm .mul => NswNuwProperties
+| .llvm .udiv => ExactProperties
+| .llvm .sdiv => ExactProperties
+| .llvm .shl => NswNuwProperties
+| .llvm .lshr => ExactProperties
+| .llvm .ashr => ExactProperties
+| .llvm .or => DisjointProperties
+| .llvm .trunc => NswNuwProperties
+| .llvm .zext => NnegProperties
+| .llvm .icmp => IcmpProperties
+| .arith .trunci => NswNuwProperties
+| .arith .extui => NnegProperties
+| .riscv .li => RISCVImmediateProperties
+| .riscv .lui => RISCVImmediateProperties
+| .riscv .auipc => RISCVImmediateProperties
+| .riscv .andi => RISCVImmediateProperties
+| .riscv .ori => RISCVImmediateProperties
+| .riscv .xori => RISCVImmediateProperties
+| .riscv .addi => RISCVImmediateProperties
+| .riscv .slti => RISCVImmediateProperties
+| .riscv .sltiu => RISCVImmediateProperties
+| .riscv .addiw => RISCVImmediateProperties
+| .riscv .slli => RISCVImmediateProperties
+| .riscv .srli => RISCVImmediateProperties
+| .riscv .srai => RISCVImmediateProperties
+| .riscv .slliw => RISCVImmediateProperties
+| .riscv .srliw => RISCVImmediateProperties
+| .riscv .sraiw => RISCVImmediateProperties
+| .riscv .slliuw => RISCVImmediateProperties
+| .riscv .rori => RISCVImmediateProperties
+| .riscv .roriw => RISCVImmediateProperties
+| .riscv .bclri => RISCVImmediateProperties
+| .riscv .bexti => RISCVImmediateProperties
+| .riscv .binvi => RISCVImmediateProperties
+| .riscv .bseti => RISCVImmediateProperties
+| .mod_arith .constant => ModArithConstantProperties
 | _ => Unit
 
 instance : HasOpInfo OpCode where
-  moduleOpCode := .builtin_module
+  moduleOpCode := .builtin .module
   propertiesOf := propertiesOf
   propertiesHash := by
     unfold propertiesOf
     intros opCode
-    cases opCode <;> infer_instance
+    cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   propertiesDefault := by
     unfold propertiesOf
     intros opCode
-    cases opCode <;> infer_instance
+    cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   propertiesRepr := by
     unfold propertiesOf
     intros opCode
-    cases opCode <;> infer_instance
+    cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   propertiesDecideEq := by
     unfold propertiesOf
     intros opCode
-    cases opCode <;> infer_instance
+    cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   decideEq := by
     intros opCode1 opCode2
     cases opCode1 <;> cases opCode2 <;> infer_instance
 
+instance (opCode : OpCode) : Inhabited (propertiesOf opCode) := by
+  unfold propertiesOf
+  cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
+
+instance (opCode : OpCode) : Repr (propertiesOf opCode) := by
+  unfold propertiesOf
+  cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
+
+instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
+  unfold propertiesOf
+  cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
+
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (propertiesOf opCode) := by
   cases opCode
-  case arith_constant => exact (ArithConstantProperties.fromAttrDict attrDict)
-  case arith_addi => exact (NswNuwProperties.fromAttrDict attrDict)
-  case arith_subi => exact (NswNuwProperties.fromAttrDict attrDict)
-  case arith_muli => exact (NswNuwProperties.fromAttrDict attrDict)
-  case arith_divsi => exact (ExactProperties.fromAttrDict attrDict)
-  case arith_divui => exact (ExactProperties.fromAttrDict attrDict)
-  case arith_shli => exact (NswNuwProperties.fromAttrDict attrDict)
-  case arith_shrsi => exact (ExactProperties.fromAttrDict attrDict)
-  case arith_shrui => exact (ExactProperties.fromAttrDict attrDict)
-  case arith_ori => exact (DisjointProperties.fromAttrDict attrDict)
-  case llvm_constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
-  case llvm_add => exact (NswNuwProperties.fromAttrDict attrDict)
-  case llvm_sub => exact (NswNuwProperties.fromAttrDict attrDict)
-  case llvm_mul => exact (NswNuwProperties.fromAttrDict attrDict)
-  case llvm_udiv => exact (ExactProperties.fromAttrDict attrDict)
-  case llvm_sdiv => exact (ExactProperties.fromAttrDict attrDict)
-  case llvm_shl => exact (NswNuwProperties.fromAttrDict attrDict)
-  case llvm_lshr => exact (ExactProperties.fromAttrDict attrDict)
-  case llvm_ashr => exact (ExactProperties.fromAttrDict attrDict)
-  case llvm_or => exact (DisjointProperties.fromAttrDict attrDict)
-  case llvm_trunc => exact (NswNuwProperties.fromAttrDict attrDict)
-  case llvm_zext => exact (NnegProperties.fromAttrDict attrDict)
-  case llvm_icmp => exact (IcmpProperties.fromAttrDict attrDict)
-  case arith_trunci => exact (NswNuwProperties.fromAttrDict attrDict)
-  case arith_extui => exact (NnegProperties.fromAttrDict attrDict)
-  case riscv_li => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_lui => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_auipc => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_andi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_ori => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_xori => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_addi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_slti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_sltiu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_addiw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_slli => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_srli => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_srai => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_slliw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_srliw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_sraiw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_slliuw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_rori => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_roriw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_bclri => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_bexti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_binvi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case riscv_bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
-  case mod_arith_constant => exact (ModArithConstantProperties.fromAttrDict attrDict)
-  all_goals exact (Except.ok ())
+  case test =>
+    all_goals exact (Except.ok ())
+  case datapath =>
+    all_goals exact (Except.ok ())
+  case mod_arith op =>
+    cases op
+    case constant => exact (ModArithConstantProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
+  case riscv op =>
+    cases op
+    case li => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case lui => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case auipc => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case andi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case ori => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case xori => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case addi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case slti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case sltiu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case addiw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case slli => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case srli => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case srai => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case slliw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case srliw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case sraiw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case slliuw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case rori => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case roriw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case bclri => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case bexti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case binvi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
+  case llvm op =>
+    cases op
+    case constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
+    case add => exact (NswNuwProperties.fromAttrDict attrDict)
+    case sub => exact (NswNuwProperties.fromAttrDict attrDict)
+    case mul => exact (NswNuwProperties.fromAttrDict attrDict)
+    case udiv => exact (ExactProperties.fromAttrDict attrDict)
+    case sdiv => exact (ExactProperties.fromAttrDict attrDict)
+    case shl => exact (NswNuwProperties.fromAttrDict attrDict)
+    case lshr => exact (ExactProperties.fromAttrDict attrDict)
+    case ashr => exact (ExactProperties.fromAttrDict attrDict)
+    case or => exact (DisjointProperties.fromAttrDict attrDict)
+    case trunc => exact (NswNuwProperties.fromAttrDict attrDict)
+    case zext => exact (NnegProperties.fromAttrDict attrDict)
+    case icmp => exact (IcmpProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
+  case func =>
+    all_goals exact (Except.ok ())
+  case builtin =>
+    all_goals exact (Except.ok ())
+  case arith op =>
+    cases op
+    case constant => exact (ArithConstantProperties.fromAttrDict attrDict)
+    case addi => exact (NswNuwProperties.fromAttrDict attrDict)
+    case subi => exact (NswNuwProperties.fromAttrDict attrDict)
+    case muli => exact (NswNuwProperties.fromAttrDict attrDict)
+    case divsi => exact (ExactProperties.fromAttrDict attrDict)
+    case divui => exact (ExactProperties.fromAttrDict attrDict)
+    case shli => exact (NswNuwProperties.fromAttrDict attrDict)
+    case shrsi => exact (ExactProperties.fromAttrDict attrDict)
+    case shrui => exact (ExactProperties.fromAttrDict attrDict)
+    case ori => exact (DisjointProperties.fromAttrDict attrDict)
+    case trunci => exact (NswNuwProperties.fromAttrDict attrDict)
+    case extui => exact (NnegProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
 
 /--
   Converts the properties of an operation into a dictionary of attributes.
@@ -304,40 +335,40 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
 def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     Std.HashMap ByteArray Attribute :=
   match opCode with
-  | .arith_constant =>
+  | .arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
-  | .llvm_constant =>
+  | .llvm .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
-  | .arith_addi | .arith_subi | .arith_muli | .arith_shli | .arith_trunci
-  | .llvm_add | .llvm_sub | .llvm_mul | .llvm_shl | .llvm_trunc => Id.run do
+  | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci
+  | .llvm .add | .llvm .sub | .llvm .mul | .llvm .shl | .llvm .trunc => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.nsw then
       dict := dict.insert "nsw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     if props.nuw then
       dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .llvm_icmp => Id.run do
+  | .llvm .icmp => Id.run do
     (Std.HashMap.emptyWithCapacity 2).insert "predicate".toUTF8 (Attribute.integerAttr props.value)
-  | .arith_divsi | .arith_divui | .arith_shrsi | .arith_shrui |
-    .llvm_udiv | .llvm_sdiv | .llvm_lshr | .llvm_ashr => Id.run do
+  | .arith .divsi | .arith .divui | .arith .shrsi | .arith .shrui |
+    .llvm .udiv | .llvm .sdiv | .llvm .lshr | .llvm .ashr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.exact then
       dict := dict.insert "exact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .arith_ori | .llvm_or => Id.run do
+  | .arith .ori | .llvm .or => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.disjoint then
       dict := dict.insert "disjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .arith_extui | .llvm_zext => Id.run do
+  | .arith .extui | .llvm .zext => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     if props.nneg then
       dict := dict.insert "nneg".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .riscv_li  | .riscv_lui | .riscv_auipc | .riscv_andi | .riscv_ori | .riscv_xori
-  | .riscv_addi | .riscv_slti | .riscv_sltiu | .riscv_addiw | .riscv_slli | .riscv_srli | .riscv_srai
-  | .riscv_slliw | .riscv_srliw | .riscv_sraiw | .riscv_rori | .riscv_roriw | .riscv_slliuw
-  | .riscv_bclri | .riscv_bexti | .riscv_binvi | .riscv_bseti | .mod_arith_constant =>
+  | .riscv .li  | .riscv .lui | .riscv .auipc | .riscv .andi | .riscv .ori | .riscv .xori
+  | .riscv .addi | .riscv .slti | .riscv .sltiu | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
+  | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
+  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | _ =>
     Std.HashMap.emptyWithCapacity 0

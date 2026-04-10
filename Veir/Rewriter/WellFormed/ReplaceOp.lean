@@ -1,6 +1,6 @@
-import Veir.Rewriter.WellFormed.Rewriter.Operation
-import Veir.Rewriter.WellFormed.Rewriter.Value
-import Veir.Rewriter.WellFormed.Rewriter.Block
+import Veir.Rewriter.WellFormed.Operation
+import Veir.Rewriter.WellFormed.Value
+import Veir.Rewriter.WellFormed.Block
 
 namespace Veir
 

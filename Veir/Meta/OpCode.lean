@@ -23,41 +23,69 @@ meta def mkDialect (n : String) (info : InductiveVal) : Dialect := Id.run do
 meta def mkCtor (n : Name) : TermElabM (TSyntax `Lean.Parser.Command.ctor) :=
   `(Lean.Parser.Command.ctor | | $(mkIdent n):ident)
 
-meta def Dialect.mkOpCode (d : Dialect) (op : String) : Name :=
-  .mkSimple <| d.name ++ "_" ++ op
+meta def mkCtorWithType (n : Name × Name) : TermElabM (TSyntax `Lean.Parser.Command.ctor) :=
+    `(Lean.Parser.Command.ctor | | $(mkIdent n.1):ident (op : $(mkIdent n.2)))
 
-meta def Dialect.mkQualifiedOpCode (d : Dialect) (op : String) : Name :=
-  .mkStr `Veir.OpCode <| d.name ++ "_" ++ op
+namespace Dialect
 
-meta def Dialect.mkOpName (d : Dialect) (op : String) : String := d.name ++ "." ++ op
+meta def getName (d : Dialect) : String :=
+  -- TODO: should we add underscores to translate from CamelCase to snake_case?
+  d.name.toLower
 
-meta def opCodeArray (ds : Array Dialect) : Array Name := Id.run do
-  let mut ctors := #[]
-  for d in ds do
-    for op in d.operations do
-      ctors := ctors.push (d.mkOpCode op)
-  pure ctors
+/--
+The dialect name as a Lean `Name` in lowercase for the `OpCode` inductive.
+-/
+meta def mkDialectCode (d : Dialect) : Name :=
+  .mkSimple <| d.getName
 
-meta def mkOpCodeType (ds : Array Dialect) : TermElabM Syntax := do
-  let ctors ← (opCodeArray ds).mapM mkCtor
+/--
+The dialect name as a Lean `Name`.
+-/
+meta def mkDialectCodeSimple (d : Dialect) : Name :=
+  .mkSimple <| d.name
+
+/--
+The name of an operation as a `String`. Used for `fromByteArray` and `fromName`.
+-/
+meta def mkOpName (d : Dialect) (op : String) : String := d.getName ++ "." ++ op
+
+end Dialect
+
+/--
+Create the following inductive:
+
+inductive OpCode where
+| arith (op : Arith)
+| builtin (op : Builtin)
+| func (op : Func)
+| llvm (op : Llvm)
+| riscv (op : Riscv)
+| test (op : Test)
+deriving Inhabited, Repr, Hashable, DecidableEq
+-/
+meta def mkOpCodeInductive (ds : Array Dialect) : TermElabM Syntax := do
+  let ctors := ds.map (fun d => (d.mkDialectCode, d.mkDialectCodeSimple))
+  let ctors ← ctors.mapM mkCtorWithType
   `(inductive $(mkIdent `OpCode) where $ctors*
     deriving Inhabited, Repr, Hashable, DecidableEq)
 
 meta def emitFromName (ds : Array Dialect) : TermElabM Command := do
-  let mut res : TSyntax `term := mkIdent `OpCode.builtin_unregistered
+  let unreg : TSyntax `term := (mkIdent `Builtin.unregistered)
+  let builtin : TSyntax `term := (mkIdent `OpCode.builtin)
+  let mut res : TSyntax `term ← `($builtin $unreg)
   for d in ds do
     for op in d.operations do
-      if d.name = "builtin" ∧ op = "unregistered" then continue
-      res ← `(if name = $(Syntax.mkStrLit (d.mkOpName op)).toByteArray then $(mkIdent (d.mkQualifiedOpCode op)) else $res)
+      if d.getName = "builtin" ∧ op = "unregistered" then continue
+      res ← `(if name = $(Syntax.mkStrLit (d.mkOpName op)).toByteArray then ($(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op))) else $res)
   `(def $(mkIdent `OpCode.fromName) (name : $(mkIdent ``ByteArray)) : $(mkIdent `OpCode) := $res)
 
 meta def emitName (ds : Array Dialect) : TermElabM Command := do
   let mut alts := #[]
   for d in ds do
     for op in d.operations do
-      alts := alts.push <| ← 
-        `(Lean.Parser.Term.matchAltExpr | 
-           | $(mkIdent (d.mkQualifiedOpCode op)) => $(Syntax.mkStrLit (d.mkOpName op)).toByteArray)
+      alts := alts.push <| ←
+        `(Lean.Parser.Term.matchAltExpr |
+           | $(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op)) => $(Syntax.mkStrLit (d.mkOpName op)).toByteArray)
   `(def $(mkIdent `OpCode.name) (op : $(mkIdent `OpCode)) : ByteArray := match op with $alts:matchAlt* )
 
 /--
@@ -85,11 +113,11 @@ elab "#generate_op_codes" : command  => do
   let env ← getEnv
   let mut dialects := #[]
   for t in ts do
-    let some (.inductInfo info) := env.find? t 
+    let some (.inductInfo info) := env.find? t
       | throwError m!"Type {t} is not defined or not an inductive."
-    dialects := dialects.push <| mkDialect t.getString!.toLower info
+    dialects := dialects.push <| mkDialect t.getString! info
 
-  elabCommand <| ← Command.liftTermElabM <| mkOpCodeType dialects
+  elabCommand <| ← Command.liftTermElabM <| mkOpCodeInductive dialects
   elabCommand <| ← Command.liftTermElabM <| emitFromName dialects
   elabCommand <| ← Command.liftTermElabM <| emitName dialects
   pure ()

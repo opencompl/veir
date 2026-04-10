@@ -15,6 +15,8 @@ open Std
 
 namespace Veir
 
+public section
+
 @[opcodes]
 inductive Arith where
 | addi
@@ -46,17 +48,20 @@ inductive Arith where
 | subi
 | trunci
 | xori
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Builtin where
 | unregistered
 | module
 | unrealized_conversion_cast
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Func where
 | func
 | return
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Llvm where
@@ -80,6 +85,7 @@ inductive Llvm where
 | sext
 | zext
 | return
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Riscv where
@@ -180,6 +186,7 @@ inductive Riscv where
 | snez
 | sltz
 | sgtz
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Mod_Arith where
@@ -187,19 +194,25 @@ inductive Mod_Arith where
 | constant
 | mul
 | sub
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Datapath where
 | compress
 | partial_product
 | pos_partial_product
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Test where
 | test
+deriving Inhabited, Repr, Hashable, DecidableEq
 
-public section
 
+/-
+A type class that defines an MLIR dialect and translates from `DialectCode` to
+the dialect type.
+-/
 /-
   An operation code (OpCode) identifies the type of an operation.
   Each OpCode corresponds to a specific operation.
