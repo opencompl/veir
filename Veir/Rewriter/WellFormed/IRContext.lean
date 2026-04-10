@@ -1,9 +1,9 @@
 import Veir.IR.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.GetSetInBounds
-import Veir.Rewriter.WellFormed.Builder.Region
-import Veir.Rewriter.WellFormed.Builder.Operation
-import Veir.Rewriter.WellFormed.Builder.Block
+import Veir.Rewriter.WellFormed.Region
+import Veir.Rewriter.WellFormed.Operation
+import Veir.Rewriter.WellFormed.Block
 
 namespace Veir
 

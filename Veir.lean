@@ -4,8 +4,7 @@ import Veir.IR.Basic
 import Veir.IR.Fields
 import Veir.IR.WellFormed
 import Veir.Rewriter.LinkedList.WellFormed
-import Veir.Rewriter.WellFormed.Rewriter
-import Veir.Rewriter.WellFormed.Builder
+import Veir.Rewriter.WellFormed.Basic
 import Veir.Rewriter.InlineBlock
 import Veir.Rewriter.WfRewriter
 import Veir.Printer

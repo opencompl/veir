@@ -549,7 +549,7 @@ theorem OpOperandPtr.get!_OperationPtr_pushOperand {op : OperationPtr} {hop} {op
       newOperand
     else
       opOperand.get! ctx := by
-  grind
+  grind [OperationPtr.getOpOperand]
 
 @[grind =]
 theorem OperationPtr.getOperands!_OperationPtr_pushOperand {operation : OperationPtr} :
@@ -894,7 +894,7 @@ theorem BlockOperandPtr.get!_OperationPtr_pushBlockOperand {blockOperand : Block
       newOperand
     else
       blockOperand.get! ctx := by
-  grind
+  grind [OperationPtr.getBlockOperand]
 
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_OperationPtr_pushBlockOperand {operation : OperationPtr} :
@@ -1198,7 +1198,7 @@ theorem OpResultPtr.get!_OperationPtr_pushResult {opResult : OpResultPtr} :
       newResult
     else
       opResult.get! ctx := by
-  grind
+  grind [OperationPtr.getResult]
 
 @[grind =]
 theorem OperationPtr.getNumOperands!_OperationPtr_pushResult {operation : OperationPtr} :

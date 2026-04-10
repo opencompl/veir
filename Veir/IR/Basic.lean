@@ -366,6 +366,9 @@ theorem getNumOperands!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
 def getOpOperand (op : OperationPtr) (index : Nat) : OpOperandPtr :=
   { op := op, index := index }
 
+theorem getOpOperand_def {op : OperationPtr} {index : Nat} :
+    getOpOperand op index = { op := op, index := index } := by rfl
+
 @[simp, grind =]
 theorem getOpOperand_index {op : OperationPtr} {index : Nat} :
     (getOpOperand op index).index = index := by
@@ -450,6 +453,9 @@ theorem getNumSuccessors!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
 def getBlockOperand (op : OperationPtr) (index : Nat) : BlockOperandPtr :=
   { op := op, index := index }
 
+theorem getBlockOperand_def {op : OperationPtr} {index : Nat} :
+    getBlockOperand op index = { op := op, index := index } := by rfl
+
 @[simp, grind =]
 theorem getBlockOperand_index {op : OperationPtr} {index : Nat} :
     (getBlockOperand op index).index = index := by
@@ -491,6 +497,9 @@ theorem getNumResults!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
 
 def getResult (op : OperationPtr) (index : Nat) : OpResultPtr :=
   { op := op, index := index }
+
+theorem getResult_def {op : OperationPtr} {index : Nat} :
+    getResult op index = { op := op, index := index } := by rfl
 
 @[simp, grind =]
 theorem getResult_index {op : OperationPtr} {index : Nat} :
@@ -753,12 +762,10 @@ theorem setProperties!_eq_setProperties {op : OperationPtr}
     op.setProperties ctx newProperties inBounds := by
   grind [setProperties, setProperties!]
 
-@[grind]
 def nextOperand (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : OpOperandPtr :=
   .mk op (op.getNumOperands ctx (by grind))
 
-@[grind]
 def nextOperand! (op : OperationPtr) (ctx : IRContext OpInfo) : OpOperandPtr :=
   .mk op (op.getNumOperands! ctx)
 
@@ -767,12 +774,15 @@ theorem nextOperand!_eq_nextOperand {op : OperationPtr} (hin : op.InBounds ctx) 
     op.nextOperand! ctx = op.nextOperand ctx hin := by
   grind [nextOperand, nextOperand!]
 
-@[grind]
+@[grind =]
+theorem nextOperand!_eq_getOpOperand {op : OperationPtr} :
+    op.nextOperand! ctx = op.getOpOperand (op.getNumOperands! ctx) := by
+  rfl
+
 def nextBlockOperand (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : BlockOperandPtr :=
   .mk op (op.getNumSuccessors ctx (by grind))
 
-@[grind]
 def nextBlockOperand! (op : OperationPtr) (ctx : IRContext OpInfo) : BlockOperandPtr :=
   .mk op (op.getNumSuccessors! ctx)
 
@@ -781,12 +791,15 @@ theorem nextBlockOperand!_eq_nextBlockOperand {op : OperationPtr} (hin : op.InBo
     op.nextBlockOperand! ctx = op.nextBlockOperand ctx hin := by
   grind [nextBlockOperand, nextBlockOperand!]
 
-@[grind]
+@[grind =]
+theorem nextBlockOperand!_eq_getBlockOperand {op : OperationPtr} :
+    op.nextBlockOperand! ctx = op.getBlockOperand (op.getNumSuccessors! ctx) := by
+  rfl
+
 def nextResult (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : OpResultPtr :=
   .mk op (op.getNumResults ctx (by grind))
 
-@[grind]
 def nextResult! (op : OperationPtr) (ctx : IRContext OpInfo) : OpResultPtr :=
   .mk op (op.getNumResults! ctx)
 
@@ -794,6 +807,11 @@ def nextResult! (op : OperationPtr) (ctx : IRContext OpInfo) : OpResultPtr :=
 theorem nextResult!_eq_nextResult {op : OperationPtr} (hin : op.InBounds ctx) :
     op.nextResult! ctx = op.nextResult ctx hin := by
   grind [nextResult, nextResult!]
+
+@[grind =]
+theorem nextResult!_eq_getResult {op : OperationPtr} :
+    op.nextResult! ctx = op.getResult (op.getNumResults! ctx) := by
+  rfl
 
 def allocEmpty (ctx : IRContext OpInfo) (opType : OpInfo) (properties : HasOpInfo.propertiesOf opType) :
     Option (IRContext OpInfo × OperationPtr) :=
@@ -1322,14 +1340,22 @@ theorem getArgument_block {block : BlockPtr} {index : Nat} :
     (getArgument block index).block = block := by
   grind [getArgument]
 
-@[grind]
 def nextArgument (block : BlockPtr) (ctx : IRContext OpInfo)
     (inBounds: block.InBounds ctx := by grind) : BlockArgumentPtr :=
   getArgument block (block.getNumArguments ctx (by grind))
 
-@[grind]
 def nextArgument! (block : BlockPtr) (ctx : IRContext OpInfo) : BlockArgumentPtr :=
   getArgument block (block.getNumArguments! ctx)
+
+@[grind =_, eq_bang ←]
+theorem nextArgument!_eq_nextArgument {block : BlockPtr} (inBounds : block.InBounds ctx) :
+    block.nextArgument! ctx = block.nextArgument ctx inBounds := by
+  grind [nextArgument, nextArgument!, getArgument, getNumArguments, getNumArguments!]
+
+@[grind =]
+theorem nextArgument!_eq_getArgument {block : BlockPtr} :
+    block.nextArgument! ctx = getArgument block (block.getNumArguments! ctx) := by
+  grind [nextArgument!, getArgument, getNumArguments!]
 
 def setArguments (block : BlockPtr) (ctx : IRContext OpInfo)
     (newArguments : Array BlockArgument) (inBounds : block.InBounds ctx := by grind) : IRContext OpInfo :=
