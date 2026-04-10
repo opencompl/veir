@@ -162,6 +162,86 @@ def ModArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray At
     | throw s!"mod_arith.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
+@[expose, simp]
+def Arith.propertiesOf (op : Arith) : Type :=
+match op with
+| .constant => ArithConstantProperties
+| .addi => NswNuwProperties
+| .subi => NswNuwProperties
+| .muli => NswNuwProperties
+| .divsi => ExactProperties
+| .divui => ExactProperties
+| .shli => NswNuwProperties
+| .shrsi => ExactProperties
+| .shrui => ExactProperties
+| .ori => DisjointProperties
+| .trunci => NswNuwProperties
+| .extui => NnegProperties
+| _ => Unit
+
+@[expose, simp]
+def Llvm.propertiesOf (op : Llvm) : Type :=
+match op with
+| .constant => LLVMConstantProperties
+| .add => NswNuwProperties
+| .sub => NswNuwProperties
+| .mul => NswNuwProperties
+| .udiv => ExactProperties
+| .sdiv => ExactProperties
+| .shl => NswNuwProperties
+| .lshr => ExactProperties
+| .ashr => ExactProperties
+| .or => DisjointProperties
+| .trunc => NswNuwProperties
+| .zext => NnegProperties
+| .icmp => IcmpProperties
+| _ => Unit
+
+@[expose, simp]
+def Riscv.propertiesOf (op : Riscv) : Type :=
+match op with
+| .li => RISCVImmediateProperties
+| .lui => RISCVImmediateProperties
+| .auipc => RISCVImmediateProperties
+| .andi => RISCVImmediateProperties
+| .ori => RISCVImmediateProperties
+| .xori => RISCVImmediateProperties
+| .addi => RISCVImmediateProperties
+| .slti => RISCVImmediateProperties
+| .sltiu => RISCVImmediateProperties
+| .addiw => RISCVImmediateProperties
+| .slli => RISCVImmediateProperties
+| .srli => RISCVImmediateProperties
+| .srai => RISCVImmediateProperties
+| .slliw => RISCVImmediateProperties
+| .srliw => RISCVImmediateProperties
+| .sraiw => RISCVImmediateProperties
+| .slliuw => RISCVImmediateProperties
+| .rori => RISCVImmediateProperties
+| .roriw => RISCVImmediateProperties
+| .bclri => RISCVImmediateProperties
+| .bexti => RISCVImmediateProperties
+| .binvi => RISCVImmediateProperties
+| .bseti => RISCVImmediateProperties
+| _ => Unit
+
+@[expose, simp]
+def Mod_Arith.propertiesOf (op : Mod_Arith) : Type :=
+match op with
+| .constant => ModArithConstantProperties
+| .add | .sub | .mul => Unit
+
+instance : HasDialectOpInfo Arith where
+  propertiesOf := Arith.propertiesOf
+
+instance : HasDialectOpInfo Llvm where
+  propertiesOf := Llvm.propertiesOf
+
+instance : HasDialectOpInfo Riscv where
+  propertiesOf := Riscv.propertiesOf
+
+instance : HasDialectOpInfo Mod_Arith where
+  propertiesOf := Mod_Arith.propertiesOf
 
 /--
   A type family that maps an operation code to the type of its properties.
@@ -170,90 +250,47 @@ def ModArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray At
 @[expose]
 def propertiesOf (opCode : OpCode) : Type :=
 match opCode with
-| .arith .constant => ArithConstantProperties
-| .llvm .constant => LLVMConstantProperties
-| .arith .addi => NswNuwProperties
-| .arith .subi => NswNuwProperties
-| .arith .muli => NswNuwProperties
-| .arith .divsi => ExactProperties
-| .arith .divui => ExactProperties
-| .arith .shli => NswNuwProperties
-| .arith .shrsi => ExactProperties
-| .arith .shrui => ExactProperties
-| .arith .ori => DisjointProperties
-| .llvm .add => NswNuwProperties
-| .llvm .sub => NswNuwProperties
-| .llvm .mul => NswNuwProperties
-| .llvm .udiv => ExactProperties
-| .llvm .sdiv => ExactProperties
-| .llvm .shl => NswNuwProperties
-| .llvm .lshr => ExactProperties
-| .llvm .ashr => ExactProperties
-| .llvm .or => DisjointProperties
-| .llvm .trunc => NswNuwProperties
-| .llvm .zext => NnegProperties
-| .llvm .icmp => IcmpProperties
-| .arith .trunci => NswNuwProperties
-| .arith .extui => NnegProperties
-| .riscv .li => RISCVImmediateProperties
-| .riscv .lui => RISCVImmediateProperties
-| .riscv .auipc => RISCVImmediateProperties
-| .riscv .andi => RISCVImmediateProperties
-| .riscv .ori => RISCVImmediateProperties
-| .riscv .xori => RISCVImmediateProperties
-| .riscv .addi => RISCVImmediateProperties
-| .riscv .slti => RISCVImmediateProperties
-| .riscv .sltiu => RISCVImmediateProperties
-| .riscv .addiw => RISCVImmediateProperties
-| .riscv .slli => RISCVImmediateProperties
-| .riscv .srli => RISCVImmediateProperties
-| .riscv .srai => RISCVImmediateProperties
-| .riscv .slliw => RISCVImmediateProperties
-| .riscv .srliw => RISCVImmediateProperties
-| .riscv .sraiw => RISCVImmediateProperties
-| .riscv .slliuw => RISCVImmediateProperties
-| .riscv .rori => RISCVImmediateProperties
-| .riscv .roriw => RISCVImmediateProperties
-| .riscv .bclri => RISCVImmediateProperties
-| .riscv .bexti => RISCVImmediateProperties
-| .riscv .binvi => RISCVImmediateProperties
-| .riscv .bseti => RISCVImmediateProperties
-| .mod_arith .constant => ModArithConstantProperties
+| .arith op => Arith.propertiesOf op
+| .llvm op => Llvm.propertiesOf op
+| .riscv op => Riscv.propertiesOf op
+| .mod_arith op => Mod_Arith.propertiesOf op
 | _ => Unit
 
-instance : HasOpInfo OpCode where
-  moduleOpCode := .builtin .module
+instance : HasDialectOpInfo OpCode where
   propertiesOf := propertiesOf
   propertiesHash := by
-    unfold propertiesOf
+    simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
     intros opCode
     cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   propertiesDefault := by
-    unfold propertiesOf
+    simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
     intros opCode
     cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   propertiesRepr := by
-    unfold propertiesOf
+    simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
     intros opCode
     cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   propertiesDecideEq := by
-    unfold propertiesOf
+    simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
     intros opCode
     cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
   decideEq := by
     intros opCode1 opCode2
     cases opCode1 <;> cases opCode2 <;> infer_instance
 
+instance : HasOpInfo OpCode where
+  moduleOpCode := .builtin .module
+
 instance (opCode : OpCode) : Inhabited (propertiesOf opCode) := by
-  unfold propertiesOf
+  simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
   cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
 
 instance (opCode : OpCode) : Repr (propertiesOf opCode) := by
-  unfold propertiesOf
+  simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
   cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
 
 instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
-  unfold propertiesOf
+  simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
   cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
