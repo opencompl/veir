@@ -545,7 +545,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
-    if let .integerType opType := ((op.getOperands! ctx)[0]!.getType! ctx).val then
+    if let .integerType opType := ((op.getOperand! ctx 0).getType! ctx).val then
       if let .integerType retType := ((op.getResult 0).get! ctx).type.val then
         if opType.bitwidth ≤ retType.bitwidth then
           throw "Result's width must be smaller than operand's width"
@@ -559,7 +559,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
-    if let .integerType opType := ((op.getOperands! ctx)[0]!.getType! ctx).val then
+    if let .integerType opType := ((op.getOperand! ctx 0).getType! ctx).val then
       if let .integerType retType := ((op.getResult 0).get! ctx).type.val then
         if retType.bitwidth ≤ opType.bitwidth then
           throw "Operand's width must be smaller than result's width"
@@ -573,7 +573,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
-    if let .integerType opType := ((op.getOperands! ctx)[0]!.getType! ctx).val then
+    if let .integerType opType := ((op.getOperand! ctx 0).getType! ctx).val then
       if let .integerType retType := ((op.getResult 0).get! ctx).type.val then
         if retType.bitwidth ≤ opType.bitwidth then
           throw "Operand's width must be smaller than result's width"
