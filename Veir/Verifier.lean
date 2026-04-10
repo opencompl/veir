@@ -555,6 +555,11 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
+    let operand := (op.getOperands! ctx)[0]!
+    if let .integerType opType := (operand.getType! ctx).val then
+      if let .integerType retType := ((op.getResult 0).get! ctx).type.val then
+        if retType.bitwidth ≤ opType.bitwidth then
+          throw "Operand's width must be smaller than result's width"
     pure ()
   | .llvm_zext => do
     if op.getNumOperands ctx opIn ≠ 1 then
