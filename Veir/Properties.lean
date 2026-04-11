@@ -2,6 +2,7 @@ module
 
 public import Veir.OpCode
 public import Veir.IR.Attribute
+public import Veir.IR.Simp
 public import Veir.ForLean
 public import Veir.IR.OpInfo
 
@@ -162,7 +163,7 @@ def ModArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray At
     | throw s!"mod_arith.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
-@[expose, simp]
+@[expose, properties_of]
 def Arith.propertiesOf (op : Arith) : Type :=
 match op with
 | .constant => ArithConstantProperties
@@ -179,7 +180,7 @@ match op with
 | .extui => NnegProperties
 | _ => Unit
 
-@[expose, simp]
+@[expose, properties_of]
 def Llvm.propertiesOf (op : Llvm) : Type :=
 match op with
 | .constant => LLVMConstantProperties
@@ -197,7 +198,7 @@ match op with
 | .icmp => IcmpProperties
 | _ => Unit
 
-@[expose, simp]
+@[expose, properties_of]
 def Riscv.propertiesOf (op : Riscv) : Type :=
 match op with
 | .li => RISCVImmediateProperties
@@ -225,7 +226,7 @@ match op with
 | .bseti => RISCVImmediateProperties
 | _ => Unit
 
-@[expose, simp]
+@[expose, properties_of]
 def Mod_Arith.propertiesOf (op : Mod_Arith) : Type :=
 match op with
 | .constant => ModArithConstantProperties
@@ -247,7 +248,7 @@ instance : HasDialectOpInfo Mod_Arith where
   A type family that maps an operation code to the type of its properties.
   For operations that do not have any properties, the type is `Unit`.
 -/
-@[expose, simp]
+@[expose, properties_of]
 def propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith op => Arith.propertiesOf op
@@ -258,39 +259,20 @@ match opCode with
 
 instance : HasDialectOpInfo OpCode where
   propertiesOf := propertiesOf
-  propertiesHash := by
-    simp
-    intros opCode
-    cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
-  propertiesDefault := by
-    simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
-    intros opCode
-    cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
-  propertiesRepr := by
-    simp
-    intros opCode
-    cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
-  propertiesDecideEq := by
-    simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
-    intros opCode
-    cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
-  decideEq := by
-    intros opCode1 opCode2
-    cases opCode1 <;> cases opCode2 <;> infer_instance
 
 instance : HasOpInfo OpCode where
   moduleOpCode := .builtin .module
 
 instance (opCode : OpCode) : Inhabited (propertiesOf opCode) := by
-  simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
+  simp only [properties_of]
   cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
 
 instance (opCode : OpCode) : Repr (propertiesOf opCode) := by
-  simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
+  simp only [properties_of]
   cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
 
 instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
-  simp only [propertiesOf, Arith.propertiesOf, Llvm.propertiesOf, Riscv.propertiesOf, Mod_Arith.propertiesOf]
+  simp only [properties_of]
   cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :

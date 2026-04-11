@@ -9,3 +9,6 @@ public section
 
 /- Simp set converting safe operations to their unsafe (!) counterparts. -/
 register_simp_attr eq_bang
+
+/- Simp set for folding away `Dialect`.opProperties calls -/
+register_simp_attr properties_of

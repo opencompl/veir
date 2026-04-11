@@ -8,13 +8,21 @@ class HasDialectOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
   propertiesOf : opCode → Type := λ _ => Unit
   propertiesHash {op : opCode} : Hashable (propertiesOf op) := by
-    intros opCode; cases opCode <;> ((try simp); infer_instance)
+    simp only [properties_of]
+    intros opCode; cases opCode <;>
+    ((try rename_i op; cases op) <;> infer_instance)
   propertiesDefault {op : opCode} : Inhabited (propertiesOf op) := by
-    intros opCode; cases opCode <;> ((try simp); infer_instance)
+    simp only [properties_of]
+    intros opCode; cases opCode <;>
+    ((try rename_i op; cases op) <;> infer_instance)
   propertiesRepr {op : opCode} : Repr (propertiesOf op) := by
-    intros opCode; cases opCode <;> ((try simp); infer_instance)
+    simp only [properties_of]
+    intros opCode; cases opCode <;>
+    ((try rename_i op; cases op) <;> infer_instance)
   propertiesDecideEq {op : opCode} : DecidableEq (propertiesOf op) := by
-    intros opCode; cases opCode <;> ((try simp); infer_instance)
+    simp only [properties_of]
+    intros opCode; cases opCode <;>
+    ((try rename_i op; cases op) <;> infer_instance)
   decideEq : DecidableEq (opCode) := by
     intros opCode1 opCode2; cases opCode1 <;> cases opCode2 <;> infer_instance
 
