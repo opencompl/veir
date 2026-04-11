@@ -24,6 +24,7 @@ theorem Rewriter.pushOperand_DefUse_getElem?
     := by
   grind [ValuePtr.DefUse]
 
+set_option maxHeartbeats 10000000 in -- TODO
 theorem Rewriter.pushOperand_DefUse
     (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) (hOpWf : ctx.WellFormed)
     (valuePtr' : ValuePtr) (valuePtr'InBounds : valuePtr'.InBounds ctx) :
