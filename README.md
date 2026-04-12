@@ -1,6 +1,14 @@
 # Verified Intermediate Representation
 
-A verified implementation of the MLIR SSA-based datastructures.
+VeIR is compiler infrastructure written in Lean that mirrors
+[MLIR](https://mlir.llvm.org/), designed to bring formal
+verification to the compiler stack. It is compatible with MLIR
+through its textual format, allowing interoperability with
+existing MLIR tooling.
+
+The project currently contains a formal verification of the MLIR
+data structures, as well as a basic infrastructure to define
+dialects, passes, peephole rewrites, and interpreters.
 
 ## Testing
 
@@ -29,7 +37,7 @@ uv sync
 Then run the tests:
 
 ```bash
-uv run lit Test/
+uv run lit Test/ -v
 ```
 
 ## Running the benchmarks
