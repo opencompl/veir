@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776057949987,
+  "lastUpdate": 1776058118852,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -1554,6 +1554,162 @@ window.BENCHMARK_DATA = {
             "value": 1926000,
             "unit": "ns",
             "extra": "count=1000 pc=100 create=0.001926s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 776000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.000776s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tobias@grosser.es",
+            "name": "Tobias Grosser",
+            "username": "tobiasgrosser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "638d300a522ba763bb7df42535642008e797718e",
+          "message": "Fix formatting in README.md (#407)",
+          "timestamp": "2026-04-13T05:26:41Z",
+          "tree_id": "9408c3f5401499674b06b04cdda20e755df0e07c",
+          "url": "https://github.com/opencompl/veir/commit/638d300a522ba763bb7df42535642008e797718e"
+        },
+        "date": 1776058117056,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2291000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002291s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3753000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003753s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2263000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002263s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3148000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003148s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2316000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002316s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2459000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.002459s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1963000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001963s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 2002000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.002002s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2407000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002407s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5283000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.005283s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2399000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002399s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3028000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003028s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2208000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002208s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1951000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001951s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 2058000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002058s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1544000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001544s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2413000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002413s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3675000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003675s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1900000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001900s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 7000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.000007s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1924000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001924s"
           },
           {
             "name": "add-zero-lots-of-reuse-first/rewrite",
