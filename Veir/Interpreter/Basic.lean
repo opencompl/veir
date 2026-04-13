@@ -56,6 +56,13 @@ def InterpreterState.setVar (state : InterpreterState) (var : ValuePtr) (val : R
   {state with variables := state.variables.insert var val}
 
 /--
+  Set the value of a block argument.
+-/
+def InterpreterState.setBlockArgument (state : InterpreterState) (arg : BlockArgument) (val : RuntimeValue) :
+    InterpreterState :=
+  state.setVar (ValuePtr.blockArgument {block := arg.owner, index := arg.index}) val
+
+/--
   Get the value of a variable, if the variable exists.
 -/
 def InterpreterState.getVar? (state : InterpreterState) (var : ValuePtr)
@@ -88,6 +95,22 @@ def InterpreterState.setResultValues (state : InterpreterState) (ctx : IRContext
   InterpreterState.setResultValues_loop state ctx op resultValues (op.getNumResults! ctx)
 
 /--
+  Set the values of block arguments.
+-/
+def InterpreterState.setArgumentValues (state : InterpreterState) (ctx : IRContext OpInfo)
+    (block : BlockPtr) (values : Array RuntimeValue) : InterpreterState :=
+  let args := (block.get! ctx).arguments
+  let rec loop (state : InterpreterState) (i : Nat) :=
+    match i with
+    | 0 => state
+    | i + 1 =>
+      let arg := args[i]!
+      let value := values[i]!
+      let newState := state.setBlockArgument arg value
+      loop newState i
+  loop state (block.getNumArguments! ctx)
+
+/--
   Create an interpreter state with no variables defined.
 -/
 def InterpreterState.empty : InterpreterState :=
@@ -96,10 +119,12 @@ def InterpreterState.empty : InterpreterState :=
 /--
   How the control flow should proceed after interpreting an operation.
   - `return` indicates that the current block should return with the given values.
+  - `branch` indicates that the interpreter should jump to another block
   - `continue` indicates that the interpreter should continue to the next operation in the block.
 -/
 inductive ControlFlowAction where
   | return (vals : Array RuntimeValue)
+  | branch (vals : Array RuntimeValue) (dest : BlockPtr)
   | continue
 
 /--
@@ -111,7 +136,7 @@ inductive ControlFlowAction where
   returns `none`.
 -/
 def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
-    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockOperand)
     : Option ((Array RuntimeValue) × ControlFlowAction) :=
   match opType with
   | .arith .constant => do
@@ -304,6 +329,9 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     return (#[.int 1 (LLVM.Int.icmp lhs rhs p)], .continue)
   | .func .return => do
     return (#[], .return operands)
+  | .cf .br => do
+    let #[dest] := blockOperands | none
+    return (#[], .branch operands dest.value)
   /- Bitblastable semantics of RISC-V assembly instructions. -/
   | .riscv .li => do
     let imm := BitVec.ofInt 64 properties.value.value
@@ -636,7 +664,7 @@ def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : Interprete
     : Option (InterpreterState × ControlFlowAction) := do
   let operands ← state.getOperandValues ctx op
   let opType := op.getOpType! ctx
-  let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx opType) ((op.get! ctx).results.map (·.type)) operands
+  let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx opType) ((op.get! ctx).results.map (·.type)) operands (op.get! ctx).blockOperands
   let newState := state.setResultValues ctx op resultValues
   return (newState, action)
 
@@ -649,14 +677,16 @@ def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : Interprete
 -/
 def interpretOpList (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
     (opInBounds : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
-    : Option (Array RuntimeValue) := do
+    : Option (Array RuntimeValue × Option BlockPtr) := do
   let (state, action) ← interpretOp ctx op state
   match action with
   | .continue =>
     rlet next ← (op.get ctx).next
     interpretOpList ctx next state
   | .return results =>
-    return results
+    return (results, none)
+  | .branch results dest =>
+    return (results, some dest)
 termination_by op.idxInParentFromTail ctx
 decreasing_by grind
 
@@ -665,10 +695,25 @@ decreasing_by grind
   Return the values returned by the block, if any.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue) := do
+def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue × Option BlockPtr) := do
   let block := blockPtr.get ctx (by grind)
   rlet firstOp ← (blockPtr.get ctx).firstOp
   interpretOpList ctx firstOp state
+
+/--
+  Interpret a region, starting from the given block.
+  Return the values eventually returned, if any.
+  Return `none` if any errors occur during interpretation.
+-/
+def interpretRegion (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue) := do
+  rlet (res, succ) ← interpretBlock ctx blockPtr state blockInBounds wf
+  if let some succ := succ then
+    if h : succ.InBounds ctx then
+      let state := state.setArgumentValues ctx succ res
+      interpretRegion ctx succ state h wf else none
+  else
+    some res
+partial_fixpoint
 
 /--
   Interpret a builtin.module operation.
@@ -683,6 +728,6 @@ def interpretModule (ctx : IRContext OpCode) (op : OperationPtr)
     none
   else
     rlet block ← ((op.getRegion ctx 0).get ctx).firstBlock
-    interpretBlock ctx block InterpreterState.empty
+    interpretRegion ctx block InterpreterState.empty
 
 end Veir
