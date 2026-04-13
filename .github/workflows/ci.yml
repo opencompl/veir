@@ -35,7 +35,7 @@ jobs:
       - name: Run benchmarks
         run: |
           chmod +x .github/scripts/run_benchmarks.sh
-          .github/scripts/run_benchmarks.sh 1000 100
+          .github/scripts/run_benchmarks.sh 1000 100 5
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
@@ -46,7 +46,7 @@ jobs:
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
           auto-push: ${{ github.ref == 'refs/heads/main' }}
-          alert-threshold: "400%"
+          alert-threshold: "150%"
           comment-on-alert: false
           fail-on-alert: ${{ github.event_name == 'pull_request' }}
           comment-always: ${{ github.event_name == 'pull_request' }}
