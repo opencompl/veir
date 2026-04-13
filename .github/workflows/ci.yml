@@ -1,4 +1,4 @@
-name: Benchmarks
+name: CI
 
 on:
   push:
@@ -13,18 +13,16 @@ permissions:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Ensure gh-pages branch exists
         run: |
           if ! git ls-remote --exit-code origin gh-pages > /dev/null 2>&1; then
-            echo "Creating gh-pages branch"
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git switch --orphan gh-pages
-            git commit --allow-empty -m "Initialize gh-pages for benchmark data"
+            git commit --allow-empty -m "Initialize gh-pages"
             git push origin gh-pages
             git checkout "$GITHUB_SHA"
           fi
@@ -61,3 +59,55 @@ jobs:
         with:
           name: benchmark-results
           path: benchmark-results.json
+
+  build-docs:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build docs
+        uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: "docbuild"
+          build-args: "Veir:docs"
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs
+          path: docbuild/.lake/build/doc/
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: [benchmark, build-docs]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Download docs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs
+          path: docs-content
+
+      - name: Merge docs into gh-pages (preserving dev/)
+        run: |
+          # Remove old docs but keep dev/ (benchmarks) and .git/
+          find . -maxdepth 1 ! -name '.' ! -name '.git' ! -name 'dev' ! -name 'docs-content' -exec rm -rf {} +
+          # Copy fresh docs into root
+          cp -r docs-content/* .
+          rm -rf docs-content
+
+      - name: Push to gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && echo "No docs changes to deploy" && exit 0
+          git commit -m "Deploy docs for ${{ github.sha }}"
+          git pull --rebase origin gh-pages
+          git push origin gh-pages
