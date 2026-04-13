@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776031058543,
+  "lastUpdate": 1776055313567,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -780,6 +780,162 @@ window.BENCHMARK_DATA = {
             "value": 743000,
             "unit": "ns",
             "extra": "count=1000 pc=100 rewrite=0.000743s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "70980689+snarang181@users.noreply.github.com",
+            "name": "Samarth Narang",
+            "username": "snarang181"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8bb9748b4b66d7a7a76651f0293570e291e4f133",
+          "message": "Merge benchmarks and docs in a single CI workflow (#402)\n\n## Current Issue\n- opencompl.github.io/veir/dev/bench/ returns 404 because the docs\ndeployment (deploy-pages@v4) overwrites the benchmark pages that\nbenchmark-action pushes to gh-pages\n\n## Summary of PR\n\n- Merges benchmarks.yml and build_docs.yml into a single ci.yml with 3\njobs: benchmark, build-docs, and deploy\n- The deploy job checks out gh-pages (with fresh benchmark data),\noverlays docs on top preserving dev/, and pushes once so both docs and\nbenchmarks are served from the same branch\n- After merge to main, opencompl.github.io/veir/ serves docs and\nopencompl.github.io/veir/dev/bench/ serves benchmark charts",
+          "timestamp": "2026-04-13T04:39:37Z",
+          "tree_id": "1abe8c8043293f644618621bc0e8256fedabbb1f",
+          "url": "https://github.com/opencompl/veir/commit/8bb9748b4b66d7a7a76651f0293570e291e4f133"
+        },
+        "date": 1776055313172,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2254000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002254s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3691000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003691s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2073000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002073s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3104000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003104s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2125000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002125s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2396000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.002396s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1809000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001809s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1951000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001951s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2118000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002118s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5254000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.005254s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2223000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002223s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2981000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.002981s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2362000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002362s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1971000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001971s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1831000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001831s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1566000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001566s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2288000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002288s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3651000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003651s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1905000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001905s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 7000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.000007s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1851000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001851s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 748000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.000748s"
           }
         ]
       }
