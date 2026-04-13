@@ -1,11 +1,5 @@
 module
 
-public import Veir.OpCode
-public import Veir.IR.Attribute
-public import Veir.IR.Simp
-public import Veir.ForLean
-public import Veir.IR.OpInfo
-public import Veir.Properties
 public import Veir.Dialects.Arith.OpInfo
 public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
