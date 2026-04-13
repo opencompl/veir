@@ -15,11 +15,6 @@ VeIR currently offers the following features:
 | pass infrastructure                                   | ✅       |           |
 | peephole rewriter                                     | ✅       |           |
 | interpreter                                           | ✅       |           |
-|-------------------------------------------------------|----------|-----------|
-
-The project currently contains a formal verification of the MLIR
-data structures, as well as a basic infrastructure to define
-dialects, passes, peephole rewrites, and interpreters.
 
 ## Testing
 
