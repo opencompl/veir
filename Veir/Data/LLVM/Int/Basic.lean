@@ -69,8 +69,7 @@ instance {w : Nat} : ToString (Int w) where
   We define the semantics of a `constant` operation.
   The result of this operation is never poison.
 -/
-def constant (w : Nat) (v : _root_.Int) : Int w := Id.run do
-  val (BitVec.ofInt w v)
+def constant (w : Nat) (v : _root_.Int) : Int w := val (BitVec.ofInt w v)
 
 /--
 The ‘add’ instruction returns the sum of its two operands.
