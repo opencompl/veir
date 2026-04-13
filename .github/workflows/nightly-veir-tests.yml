@@ -1,0 +1,43 @@
+name: Nightly veir-tests
+
+on:
+  push:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  veir-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build veir
+        uses: leanprover/lean-action@v1
+        with:
+          build-args: "--iofail"
+
+      - name: Install LLVM tools
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 19
+          sudo apt-get install -y mlir-19-tools
+          echo "/usr/lib/llvm-19/bin" >> $GITHUB_PATH
+
+      - name: Clone veir-tests
+        uses: actions/checkout@v4
+        with:
+          repository: opencompl/veir-tests
+          path: veir-tests
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Run veir-tests
+        env:
+          VEIR_DIR: ${{ github.workspace }}
+        run: |
+          cd veir-tests
+          ./scripts/run-test.sh
