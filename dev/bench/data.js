@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776112493083,
+  "lastUpdate": 1776115107376,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -2808,6 +2808,162 @@ window.BENCHMARK_DATA = {
             "value": 799000,
             "unit": "ns",
             "extra": "count=1000 pc=100 rewrite=0.000799s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48860705+luisacicolini@users.noreply.github.com",
+            "name": "Luisa Cicolini",
+            "username": "luisacicolini"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7b7f813fef042d97440968d547b63b8aa75d76d3",
+          "message": "llvm: `constant` semantics (#415)\n\nWe add explicit, declarative semantics of `llvm.constant` operation.\nThis is useful to reason about the correctness of rewrites, e.g. in the\ncontext of instruction selection. The semantics are unchanged in\npractice, but wrapped in their own deifnition just like every other\noperation.\n\n---------\n\nCo-authored-by: Mathieu Fehr <mathieu.fehr@gmail.com>",
+          "timestamp": "2026-04-13T21:15:43Z",
+          "tree_id": "0105cef5191136de7da64240574f81861cfbce87",
+          "url": "https://github.com/opencompl/veir/commit/7b7f813fef042d97440968d547b63b8aa75d76d3"
+        },
+        "date": 1776115101819,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2193000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002193s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3794000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003794s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2122000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002122s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3119000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003119s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2399000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002399s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2429000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.002429s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1874000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001874s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1996000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001996s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2510000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002510s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5327000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.005327s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2406000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002406s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3023000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003023s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2234000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002234s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1948000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001948s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 2112000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002112s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1594000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001594s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2361000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002361s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3667000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003667s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1966000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001966s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 9000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.000009s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 2087000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002087s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 772000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.000772s"
           }
         ]
       }
