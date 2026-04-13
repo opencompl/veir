@@ -212,8 +212,7 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let resType ← resultTypes[0]?
     let .integerType bw := resType.val
       | none
-    return (#[.int bw.bitwidth
-      (.val (BitVec.ofInt bw.bitwidth properties.value.value))], .continue)
+    return (#[.int bw.bitwidth (LLVM.Int.constant bw.bitwidth properties.value.value)], .continue)
   | .llvm .add => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else

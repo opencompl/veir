@@ -66,10 +66,10 @@ instance {w : Nat} : ToString (Int w) where
     | .poison => "poison"
 
 /--
-  We define the semantics of a constant value
+  We define the semantics of a `constant` operation.
 -/
-def constant {w : Nat} (v : BitVec w) : Int w := Id.run do
-  val v
+def constant (w : Nat) (v : _root_.Int) : Int w := Id.run do
+  val (BitVec.ofInt w v)
 
 /--
 The ‘add’ instruction returns the sum of its two operands.
