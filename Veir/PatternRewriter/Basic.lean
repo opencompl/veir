@@ -212,6 +212,23 @@ def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
     hasDoneAction := true
   }
 
+def createBlock (rewriter: PatternRewriter OpInfo)
+    (insertPoint : Option BlockInsertPoint)
+    (insertPointIn : insertPoint.maybe BlockInsertPoint.InBounds rewriter.ctx := by grind)
+    : Option (PatternRewriter OpInfo × BlockPtr) := do
+  rlet (newCtx, op) ← Rewriter.createBlock rewriter.ctx insertPoint (by grind) (by grind)
+  ({ rewriter with ctx := newCtx, hasDoneAction := true, ctx_fib := by grind }, op)
+
+def insertBlock (rewriter: PatternRewriter OpInfo) (block: BlockPtr) (ip : BlockInsertPoint)
+    (newBlockIn: block.InBounds rewriter.ctx := by grind)
+    (ipIn : ip.InBounds rewriter.ctx := by grind) : Option (PatternRewriter OpInfo) := do
+  rlet newCtx ← Rewriter.insertBlock? rewriter.ctx block ip
+  some { rewriter with
+    ctx := newCtx,
+    hasDoneAction := true,
+    ctx_fib := by grind
+  }
+
 end PatternRewriter
 
 abbrev RewritePattern (OpInfo : Type) [HasOpInfo OpInfo] := (PatternRewriter OpInfo) → OperationPtr → Option (PatternRewriter OpInfo)
