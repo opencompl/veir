@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776077715840,
+  "lastUpdate": 1776112493083,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -2652,6 +2652,162 @@ window.BENCHMARK_DATA = {
             "value": 779000,
             "unit": "ns",
             "extra": "count=1000 pc=100 rewrite=0.000779s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48860705+luisacicolini@users.noreply.github.com",
+            "name": "Luisa Cicolini",
+            "username": "luisacicolini"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ae8ad8fd7bb37199d763ba596c540bbfcc3e279",
+          "message": "refinement relation from `LLVM.Int` to `RISCV.Reg` (#414)\n\nWe add the definition of the refinement relation from `LLVM.Int` to\n`RISCV.Reg`. This is the core relation we want to reason about when\nproving the correctness of instruction selection patterns. We say an\ninteger `i : LLVM.Int` is refined by a register `r : RISCV.Reg` if the\nbehaviours allowed by the register are a subset smaller or equal to the\ninteger's behaviour.\n\nFormally, an integer `i : LLVM.Int` is refined by a register `r :\nRISCV.Reg` iff:\n* if `i` is a concrete value `.val v`, then the register `r` must\ncontain `v` (i.e., `r.val = v`), and the two behave identically.\n* if `i` is a `.poison`, any value can refine it and the relation always\nholds, as the register displays a specific behaviour among the different\nones `poison` can have.",
+          "timestamp": "2026-04-13T20:32:35Z",
+          "tree_id": "46c589a66f455c412474313a5218d6f5144aa306",
+          "url": "https://github.com/opencompl/veir/commit/4ae8ad8fd7bb37199d763ba596c540bbfcc3e279"
+        },
+        "date": 1776112489468,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2391000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002391s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3711000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003711s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2194000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002194s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3112000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003112s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2094000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002094s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2458000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.002458s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1838000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001838s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1978000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001978s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2405000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002405s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5275000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.005275s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2170000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002170s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3111000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003111s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2400000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002400s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 2012000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.002012s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1950000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001950s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1555000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001555s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2168000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002168s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3634000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003634s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 2046000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002046s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1716000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001716s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 799000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.000799s"
           }
         ]
       }
