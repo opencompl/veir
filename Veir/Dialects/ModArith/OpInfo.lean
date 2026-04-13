@@ -1,4 +1,4 @@
-  module
+module
 
 public import Veir.OpCode
 public import Veir.IR.Attribute

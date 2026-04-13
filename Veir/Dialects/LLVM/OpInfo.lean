@@ -1,9 +1,6 @@
 module
 
-public import Veir.OpCode
-public import Veir.IR.Attribute
 public import Veir.IR.Simp
-public import Veir.ForLean
 public import Veir.IR.OpInfo
 public import Veir.Properties
 
@@ -31,3 +28,7 @@ match op with
 
 instance : HasDialectOpInfo Llvm where
   propertiesOf := Llvm.propertiesOf
+
+end
+
+end Veir

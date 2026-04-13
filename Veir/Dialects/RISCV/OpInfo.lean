@@ -1,13 +1,12 @@
 module
 
-public import Veir.OpCode
-public import Veir.IR.Attribute
 public import Veir.IR.Simp
-public import Veir.ForLean
 public import Veir.IR.OpInfo
 public import Veir.Properties
 
 namespace Veir
+
+public section
 
 @[expose, properties_of]
 def Riscv.propertiesOf (op : Riscv) : Type :=
@@ -39,3 +38,7 @@ match op with
 
 instance : HasDialectOpInfo Riscv where
   propertiesOf := Riscv.propertiesOf
+
+end
+
+end Veir
