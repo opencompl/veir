@@ -1,6 +1,6 @@
 # Verified Intermediate Representation
 
-VeIR is a compiler infrastructure written in Lean that offers both:  
+VeIR is a compiler infrastructure written in Lean that offers both:
 (a) an [MLIR](https://mlir.llvm.org/)-style imperative design and
 (b) (optional) ITP-level verification.
 VeIR connects with MLIR via the MLIR textual format, making it
