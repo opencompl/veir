@@ -9,6 +9,7 @@ public section
   This file defines the refinement relation from the `LLVM.Int` to `RISCV.Reg` type.
 -/
 
+open Classical in
 
 /--
   `LLVM.Int` is refined by `RISCV.Reg`.

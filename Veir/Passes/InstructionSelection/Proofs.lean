@@ -1,6 +1,7 @@
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.Casting
+import Veir.Data.Refinement
 import Std.Tactic.BVDecide
 
 /-!
@@ -9,6 +10,7 @@ import Std.Tactic.BVDecide
 -/
 
 open Veir
+open Classical
 
 /--
   Prove the correctness of the `constant` lowering pattern.
@@ -16,6 +18,6 @@ open Veir
   We do not need to consider the poison case, as the semantics of `llvm_constant`
   are always concrete in the interpreter.
 -/
-theorem constant_val (v : BitVec 64) :
-    (Data.LLVM.Int.val v) = RISCV.Reg.toInt (Data.RISCV.li v) 64 := by
-  simp [Data.RISCV.li, RISCV.Reg.toInt]
+theorem constant:
+    IntIsRefinedByReg (Data.LLVM.Int.constant 64 v) (Data.RISCV.li (BitVec.ofInt 64 v)) := by
+  simp [IntIsRefinedByReg, Data.LLVM.Int.constant, Data.RISCV.li]
