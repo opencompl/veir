@@ -2,6 +2,7 @@ import Veir.Rewriter.Basic
 import Veir.Rewriter.WellFormed.Operation
 import Veir.Rewriter.GetSetInBounds
 import Veir.Properties
+import Veir.GlobalOpInfo
 
 namespace Veir
 

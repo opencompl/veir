@@ -7,6 +7,7 @@ import Veir.Data.LLVM.Int.Basic
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.Casting
 import Veir.Properties
+import Veir.GlobalOpInfo
 
 open Veir.Data
 /-!

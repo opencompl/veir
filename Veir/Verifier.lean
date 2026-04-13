@@ -3,6 +3,7 @@ module
 public import Veir.IR.Basic
 public import Veir.IR.Fields
 public import Veir.Properties
+public import Veir.GlobalOpInfo
 import Veir.ForLean
 
 namespace Veir
