@@ -66,6 +66,12 @@ instance {w : Nat} : ToString (Int w) where
     | .poison => "poison"
 
 /--
+  We define the semantics of a constant value
+-/
+def constant {w : Nat} (v : BitVec w) : Int w := Id.run do
+  val v
+
+/--
 The ‘add’ instruction returns the sum of its two operands.
 
 If the sum has unsigned overflow, the result returned is the mathematical result
