@@ -47,7 +47,7 @@ jobs:
           benchmark-data-dir-path: dev/bench
           auto-push: ${{ github.ref == 'refs/heads/main' }}
           alert-threshold: "110%"
-          comment-on-alert: true
+          comment-on-alert: false
           fail-on-alert: ${{ github.event_name == 'pull_request' }}
           comment-always: ${{ github.event_name == 'pull_request' }}
           save-data-file: ${{ github.ref == 'refs/heads/main' }}
