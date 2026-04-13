@@ -58,6 +58,12 @@ jobs:
           sudo apt-get install -y mlir-19-tools
           echo "/usr/lib/llvm-19/bin" >> $GITHUB_PATH
 
+      - name: Verify LLVM tools
+        run: |
+          which mlir-opt && mlir-opt --version
+          which mlir-translate && mlir-translate --version
+          which lli && lli --version
+
       - name: Clone veir-tests
         uses: actions/checkout@v4
         with:
@@ -72,6 +78,10 @@ jobs:
       - name: Run veir-tests
         env:
           VEIR_DIR: ${{ github.workspace }}
+          LLI: /usr/lib/llvm-19/bin/lli
+          MLIR_OPT: /usr/lib/llvm-19/bin/mlir-opt
+          MLIR_TRANSLATE: /usr/lib/llvm-19/bin/mlir-translate
         run: |
           cd veir-tests
+          python3 scripts/convert.py tests/disjoint.mlir || true
           ./scripts/run-test.sh
