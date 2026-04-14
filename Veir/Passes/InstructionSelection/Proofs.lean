@@ -10,7 +10,7 @@ import Std.Tactic.BVDecide
 -/
 
 open Veir
-open Classical
+namespace RISCV64
 
 /--
   Prove the correctness of the `constant` lowering pattern.
@@ -19,33 +19,15 @@ open Classical
   are always concrete in the interpreter.
 -/
 theorem constant:
-    IntIsRefinedByReg (Data.LLVM.Int.constant 64 v) (Data.RISCV.li (BitVec.ofInt 64 v)) := by
-  simp [IntIsRefinedByReg, Data.LLVM.Int.constant, Data.RISCV.li]
-
-theorem constant':
-    IntIsRefinedByInt (Data.LLVM.Int.constant 64 v) (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 64) := by
-  simp [IntIsRefinedByInt, Data.LLVM.Int.constant, Data.RISCV.li, RISCV.Reg.toInt]
+    isRefinedBy (Data.LLVM.Int.constant 64 v) (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 64) := by
+  simp [isRefinedBy, Data.LLVM.Int.constant, Data.RISCV.li, RISCV.Reg.toInt]
 
 /--
   Prove the correctness of the `add` lowering pattern.
 -/
 theorem add:
-    IntIsRefinedByReg (Data.LLVM.Int.add x y) (Data.RISCV.add (LLVM.Int.toReg x) (LLVM.Int.toReg y)) := by
-  simp only [IntIsRefinedByReg, Data.LLVM.Int.add, Bool.false_eq_true, false_and, reduceIte,
-    pure_bind, Data.RISCV.add, LLVM.Int.toReg, BitVec.truncate_eq_setWidth, BitVec.setWidth_eq]
-  split
-  · split
-    · split
-      <;> bv_decide
-    · split
-      · bv_decide
-      · simp only [Id.run, Data.LLVM.Int.val.injEq] at *
-        bv_decide
-  · bv_decide
-
-theorem add':
-    IntIsRefinedByInt (Data.LLVM.Int.add x y) (RISCV.Reg.toInt (Data.RISCV.add (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
-  simp only [IntIsRefinedByInt, Data.LLVM.Int.add, Bool.false_eq_true, false_and, ↓reduceIte,
+    isRefinedBy (Data.LLVM.Int.add x y) (RISCV.Reg.toInt (Data.RISCV.add (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
+  simp only [isRefinedBy, Data.LLVM.Int.add, Bool.false_eq_true, false_and, ↓reduceIte,
     pure_bind, RISCV.Reg.toInt, Data.RISCV.add, LLVM.Int.toReg, BitVec.truncate_eq_setWidth,
     BitVec.setWidth_eq]
   split
