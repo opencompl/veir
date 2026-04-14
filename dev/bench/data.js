@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776115899257,
+  "lastUpdate": 1776174555100,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -3120,6 +3120,162 @@ window.BENCHMARK_DATA = {
             "value": 766000,
             "unit": "ns",
             "extra": "count=1000 pc=100 rewrite=0.000766s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48860705+luisacicolini@users.noreply.github.com",
+            "name": "Luisa Cicolini",
+            "username": "luisacicolini"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "969aa4564526a3cc4b67589088e1eabbc4ffaeb7",
+          "message": "instruction selection: `constant`, `add` refinement proof (#416)\n\nWe prove the correctness of the lowering pattern for `constant` and\n`add`. If we agree on this format and organization I will write more\nproofs and push them. Note that the proof for `constant` does not deal\nwith `.poison`, as `llvm.constant` is never poison.\n\nI think we have two options to consider wrt. lemmas' formulation: \n* wrapping the semantics of the `unrealized_conversion_cast`\n(i.e.,`toReg : i64 -> !reg`) directly in the lemma and proving the\nrefinement `i64` to `!reg`.\n* wrapping the semantics of the `unrealized_conversion_cast` *in both\ndirections* (i.e.,`toReg : i64 -> !reg` and `toInt : !reg -> i64`). This\nwould be more consistent with what the rewriter actually does, and the\nrefinement goes from `i64` to `i64`.\n\nI am pushing both option and look forward to gathering opinions :)\n\nAlso, the tactic is the usual:\n* unwrap semantics\n* split + get rid of monad\n* `bv_decide`\n\nIf we agree on these steps we can wrap it into an actual tactic, as we\ndid in `lean-MLIR` (for a subsequent PR).",
+          "timestamp": "2026-04-14T13:46:39Z",
+          "tree_id": "b069d00f97f4c975bc6184e8176cb404acea98fe",
+          "url": "https://github.com/opencompl/veir/commit/969aa4564526a3cc4b67589088e1eabbc4ffaeb7"
+        },
+        "date": 1776174551012,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2416000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002416s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3727000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003727s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2391000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002391s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3146000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003146s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2297000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002297s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2429000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.002429s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1973000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001973s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 2017000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.002017s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2378000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002378s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5528000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.005528s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2385000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002385s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3055000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003055s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2339000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002339s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1988000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001988s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1895000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001895s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1600000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.001600s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2330000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002330s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3654000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.003654s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 2032000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.002032s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 7000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.000007s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1981000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 create=0.001981s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 776000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 rewrite=0.000776s"
           }
         ]
       }
