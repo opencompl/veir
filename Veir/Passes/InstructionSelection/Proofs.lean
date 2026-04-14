@@ -9,8 +9,7 @@ import Std.Tactic.BVDecide
   instruction selection rewrites.
 -/
 
-open Veir
-namespace RISCV64
+namespace Veir.Data.RISCV
 
 /--
   Prove the correctness of the `constant` lowering pattern.
@@ -18,14 +17,14 @@ namespace RISCV64
   We do not need to consider the poison case, as the semantics of `llvm_constant`
   are always concrete in the interpreter.
 -/
-theorem constant:
-    isRefinedBy (Data.LLVM.Int.constant 64 v) (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 64) := by
+theorem constant_refinement:
+    isRefinedBy (LLVM.Int.constant 64 v) (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 64) := by
   simp [isRefinedBy, Data.LLVM.Int.constant, Data.RISCV.li, RISCV.Reg.toInt]
 
 /--
   Prove the correctness of the `add` lowering pattern.
 -/
-theorem add:
+theorem add_refinement:
     isRefinedBy (Data.LLVM.Int.add x y) (RISCV.Reg.toInt (Data.RISCV.add (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
   simp only [isRefinedBy, Data.LLVM.Int.add, Bool.false_eq_true, false_and, ↓reduceIte,
     pure_bind, RISCV.Reg.toInt, Data.RISCV.add, LLVM.Int.toReg, BitVec.truncate_eq_setWidth,
