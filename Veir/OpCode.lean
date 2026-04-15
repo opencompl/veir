@@ -66,6 +66,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 @[opcodes]
 inductive Cf where
 | br
+| cond_br
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]

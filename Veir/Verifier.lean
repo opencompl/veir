@@ -382,6 +382,22 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 1 then
       throw "Expected 1 successor"
     pure ()
+  | .cf .cond_br => do
+    if op.getNumResults ctx opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 2 then
+      throw "Expected 1 successor"
+    let weights := (op.getProperties! ctx (OpCode.cf .cond_br)).branch_weights
+    if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
+      throw "Expected 0 or 2 branch weights"
+    let sizes := (op.getProperties! ctx (OpCode.cf .cond_br)).operandSegmentSizes
+    if _ : sizes.values.size ≠ 3 then
+      throw "Expected 1 operand plus 2 variadic operands"
+    if sizes.values[0]! ≠ 1 then
+      throw "Expected 1 operand plus 2 variadic operands"
+    pure ()
   /- TEST -/
   | .test .test => do
     pure ()
