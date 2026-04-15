@@ -2,6 +2,7 @@ name = "docbuild"
 reservoir = false
 version = "0.1.0"
 packagesDir = "../.lake/packages"
+moreLeanArgs = ["-DmaxHeartbeats=500000"]
 
 [[require]]
 name = "Your Library Name"
