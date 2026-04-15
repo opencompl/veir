@@ -108,21 +108,50 @@ structure PatternRewriter (OpInfo : Type) [HasOpInfo OpInfo] where
   worklist: PatternRewriter.Worklist
   ctx_fib : ctx.FieldsInBounds
 
+instance PatternRewriter.hasIRContext : HasIRContext (PatternRewriter OpInfo) OpInfo where
+  getCtx := PatternRewriter.ctx
+
 variable {rewriter : PatternRewriter OpInfo}
 
 namespace PatternRewriter
 
+def pushOpToWorklist (rewriter : PatternRewriter OpInfo) (op : OperationPtr) :=
+  {rewriter with worklist := rewriter.worklist.push op}
+
+@[grind _=_]
+theorem test {ptr : GenericPtr} :
+    ptr.InBounds rewriter ↔ ptr.InBounds rewriter.ctx := by
+  sorry
+
+@[grind _=_]
+theorem test2 (opopr : OpOperandPtr) :
+    opopr.get! rewriter = opopr.get! rewriter.ctx := by sorry
+
+@[grind =]
+theorem pushOpToWorkList_genericPtr_mono {ptr : GenericPtr} {rewriter : PatternRewriter OpInfo} :
+    ptr.InBounds (rewriter.pushOpToWorklist op) ↔ ptr.InBounds rewriter := by
+  simp only [PatternRewriter.pushOpToWorklist]
+  grind
+
 private def addUseChainUserInWorklist (rewriter: PatternRewriter OpInfo) (useChain: Option OpOperandPtr) (maxIteration : Nat)
-    (huc : useChain.maybe OpOperandPtr.InBounds rewriter.ctx := by grind) : PatternRewriter OpInfo :=
+    (huc : useChain.maybe OpOperandPtr.InBounds rewriter := by grind) : PatternRewriter OpInfo :=
   match maxIteration with
   | maxIteration + 1 =>
     match useChain with
     | some use =>
-      let useStruct := (use.get rewriter.ctx (by grind))
+      let useStruct := (use.get rewriter (by grind))
       let userOp := useStruct.owner
       let nextUse := useStruct.nextUse
-      let rewriter := {rewriter with worklist := rewriter.worklist.push userOp}
-      rewriter.addUseChainUserInWorklist nextUse maxIteration
+      let rewriter := rewriter.pushOpToWorklist userOp
+      rewriter.addUseChainUserInWorklist nextUse maxIteration (by
+        intro opOperand _
+        subst nextUse
+        simp only [←GenericPtr.iff_opOperand]
+        simp only [rewriter, pushOpToWorkList_genericPtr_mono]
+        simp only [GenericPtr.iff_opOperand]
+        subst useStruct
+        grind
+      )
     | none => rewriter
   | 0 => rewriter
 

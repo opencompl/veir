@@ -1326,4 +1326,8 @@ theorem WfIRContext_val_wellFormed (wfCtx : WfIRContext OpInfo) :
     (wfCtx.val).WellFormed := by
   grind
 
+public instance WfIRContext.hasIRContext (OpInfo : Type) [HasOpInfo OpInfo] :
+    HasIRContext (WfIRContext OpInfo) OpInfo where
+  getCtx wfCtx := wfCtx.val
+
 end Veir

@@ -7,6 +7,8 @@ import Veir.ForLean
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {Ctx : Type} [HasIRContext Ctx OpInfo]
+variable {c c' : Ctx}
 
 public section
 
@@ -56,21 +58,21 @@ theorem OperationPtr.pushRegion_genericPtr_mono (ptr : GenericPtr)  :
 
 @[grind .]
 theorem OperationPtr.getOpOperand_inBounds (op : OperationPtr)
-    (hop : op.InBounds ctx) i (h₂ : i < op.getNumOperands ctx hop) :
-    (op.getOpOperand i).InBounds ctx := by
-  grind
+    (hop : op.InBounds c) i (h₂ : i < op.getNumOperands c hop) :
+    (op.getOpOperand i).InBounds c := by
+  grind [OperationPtr.getNumOperands]
 
 @[grind .]
 theorem OperationPtr.getBlockOperand_inBounds (op : OperationPtr)
-    (hop : op.InBounds ctx) i (h₂ : i < op.getNumSuccessors ctx hop) :
-    (op.getBlockOperand i).InBounds ctx := by
-  grind
+    (hop : op.InBounds c) i (h₂ : i < op.getNumSuccessors c hop) :
+    (op.getBlockOperand i).InBounds c := by
+  grind [OperationPtr.getNumSuccessors]
 
 @[grind .]
 theorem OperationPtr.getResult_inBounds (op : OperationPtr)
-    (hop : op.InBounds ctx) i (h₂ : i < op.getNumResults ctx hop) :
-    (op.getResult i).InBounds ctx := by
-  grind
+    (hop : op.InBounds c) i (h₂ : i < op.getNumResults c hop) :
+    (op.getResult i).InBounds c := by
+  grind [OperationPtr.getNumResults]
 
 @[grind =]
 theorem OperationPtr.setResults_genericPtr_mono (ptr : GenericPtr)
@@ -262,16 +264,19 @@ theorem BlockOperandPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc {blockOp
   grind
 
 @[grind .]
-theorem OperationPtr.nextOperand_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds ctx) : ¬ (opPtr.nextOperand ctx).InBounds ctx := by
-  grind
+theorem OperationPtr.nextOperand_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds c) :
+    ¬ (opPtr.nextOperand c).InBounds c := by
+  grind [OperationPtr.nextOperand, OperationPtr.getNumOperands]
 
 @[grind .]
-theorem OperationPtr.nextBlockOperand_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds ctx) : ¬ (opPtr.nextBlockOperand ctx).InBounds ctx := by
-  grind
+theorem OperationPtr.nextBlockOperand_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds c) :
+    ¬ (opPtr.nextBlockOperand c).InBounds c := by
+  grind [OperationPtr.nextBlockOperand, OperationPtr.getNumSuccessors]
 
 @[grind .]
-theorem OperationPtr.nextResult_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds ctx) : ¬ (opPtr.nextResult ctx).InBounds ctx := by
-  grind
+theorem OperationPtr.nextResult_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds c) :
+    ¬ (opPtr.nextResult c).InBounds c := by
+  grind [OperationPtr.nextResult, OperationPtr.getNumResults]
 
 end operation
 
@@ -292,8 +297,8 @@ theorem OpOperandPtr.get_set {op : OperationPtr} (hop : op.InBounds (opOperand.s
   grind
 
 @[grind .]
-theorem OpOperandPtr.operation_inBounds_of_inBounds (h : opOperand.InBounds ctx) :
-    opOperand.op.InBounds ctx := by
+theorem OpOperandPtr.operation_inBounds_of_inBounds (h : opOperand.InBounds c) :
+    opOperand.op.InBounds c := by
   grind [OpOperandPtr.InBounds]
 
 @[grind =]
@@ -317,15 +322,15 @@ theorem OpOperandPtr.setValue_genericPtr_mono (ptr : GenericPtr)  :
   grind
 
 theorem OpOperandPtr.inBounds_if_operand_size_eq :
-    (OperationPtr.getNumOperands opPtr ctx opIn = OperationPtr.getNumOperands opPtr' ctx' op'In) ↔
-    (∀ index, (OpOperandPtr.mk opPtr index).InBounds ctx ↔ (OpOperandPtr.mk opPtr' index).InBounds ctx') := by
+    (OperationPtr.getNumOperands opPtr c opIn = OperationPtr.getNumOperands opPtr' c' op'In) ↔
+    (∀ index, (OpOperandPtr.mk opPtr index).InBounds c ↔ (OpOperandPtr.mk opPtr' index).InBounds c') := by
   constructor
-  · grind
+  · grind [OperationPtr.getNumOperands]
   · intro hi
     apply Nat.eq_iff_forall_lessthan
     intros i
     have := hi i
-    grind
+    grind [OperationPtr.getNumOperands]
 
 end opoperand
 
@@ -333,11 +338,11 @@ section opresult
 
 attribute [local grind] OpResultPtr.setType OpResultPtr.setFirstUse OpResultPtr.setOwner
 
-variable {opRes : OpResultPtr} (h : opRes.InBounds ctx)
+variable {opRes : OpResultPtr}
 
 @[grind .]
-theorem OpResultPtr.operation_inBounds_of_inBounds (h : opRes.InBounds ctx) :
-    opRes.op.InBounds ctx := by
+theorem OpResultPtr.operation_inBounds_of_inBounds (h : opRes.InBounds c) :
+    opRes.op.InBounds c := by
   grind
 
 @[grind =]
@@ -362,8 +367,8 @@ section blockargument
 variable {ba : BlockArgumentPtr}
 
 @[grind .]
-theorem BlockArgumentPtr.operation_inBounds_of_inBounds (h : ba.InBounds ctx) :
-    ba.block.InBounds ctx := by
+theorem BlockArgumentPtr.operation_inBounds_of_inBounds (h : ba.InBounds c) :
+    ba.block.InBounds c := by
   grind
 
 @[grind =]
@@ -408,9 +413,9 @@ variable {block : BlockPtr} (h : block.InBounds ctx)
 
 @[grind .]
 theorem BlockPtr.getArgument_inBounds (block : BlockPtr)
-    (hblock : block.InBounds ctx) i (h₂ : i < block.getNumArguments ctx hblock) :
-    (block.getArgument i).InBounds ctx := by
-  grind
+    (hblock : block.InBounds c) i (h₂ : i < block.getNumArguments c hblock) :
+    (block.getArgument i).InBounds c := by
+  grind [BlockPtr.getNumArguments]
 
 @[grind =]
 theorem BlockPtr.setParent_genericPtr_mono (ptr : GenericPtr)  :
@@ -565,8 +570,8 @@ section blockoperand
 variable {blockOperand : BlockOperandPtr} (h : blockOperand.InBounds ctx)
 
 @[grind .]
-theorem BlockOperandPtr.operation_inBounds_of_inBounds (h : blockOperand.InBounds ctx) :
-    blockOperand.op.InBounds ctx := by
+theorem BlockOperandPtr.operation_inBounds_of_inBounds (h : blockOperand.InBounds c) :
+    blockOperand.op.InBounds c := by
   grind
 
 @[grind =]
