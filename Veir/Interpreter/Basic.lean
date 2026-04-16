@@ -330,6 +330,15 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .cf .br => do
     let #[dest] := blockOperands | none
     return (#[], some (.branch operands dest))
+  | .cf .cond_br => do
+    let #[destTrue, destFalse] := blockOperands | none
+    let some (RuntimeValue.int 1 (.val cond)) := operands[0]? | none
+    let some trueSize := properties.operandSegmentSizes.values[1]? | none
+    let trueSize := trueSize.toNat
+    if cond = 1#1 then
+      return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
   /- Bitblastable semantics of RISC-V assembly instructions. -/
   | .riscv .li => do
     let imm := BitVec.ofInt 64 properties.value.value
