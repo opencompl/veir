@@ -12,19 +12,19 @@ namespace Veir
   TODO: replace this with a side-effect property on `OpCode`.
 -/
 def hasSideEffects (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Bool :=
-  0 < op.getNumResults! rewriter.ctx.val
+  0 < op.getNumResults! rewriter.ctx.raw
 
 set_option warn.sorry false in
 def eliminateDeadOp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   /- delete operations that are not used and have no side effects -/
-  if ¬ op.hasUses! rewriter.ctx.val && hasSideEffects rewriter op then
+  if ¬ op.hasUses! rewriter.ctx.raw && hasSideEffects rewriter op then
     rewriter.eraseOp op sorry sorry sorry
   else
     return rewriter
 
 def DCEPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
-    (_ : op.InBounds ctx.val) : ExceptT String IO (WfIRContext OpCode) := do
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[eliminateDeadOp]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying DCE"

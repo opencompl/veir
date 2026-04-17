@@ -29,9 +29,9 @@ structure Pass (OpInfo : Type) [HasOpInfo OpInfo] where
     Returns the context on success, or an error message on failure.
   -/
   run :
-    ∀ (ctx : { ctx' : IRContext OpInfo // ctx'.WellFormed }) (op : OperationPtr),
-    op.InBounds ctx.val →
-    ExceptT String IO { ctx' : IRContext OpInfo // ctx'.WellFormed }
+    ∀ (ctx : WfIRContext OpInfo) (op : OperationPtr),
+    op.InBounds ctx.raw →
+    ExceptT String IO (WfIRContext OpInfo)
 
 /-- An ordered sequence of passes to run in succession. -/
 structure PassPipeline (OpInfo : Type) [HasOpInfo OpInfo] where
@@ -59,15 +59,15 @@ def ofString? {OpInfo : Type} [HasOpInfo OpInfo]
   Returns the final context on success, or an error message on failure.
 -/
 def run (pipeline : PassPipeline OpCode)
-    (ctx : { ctx' : IRContext OpCode // ctx'.WellFormed })
+    (ctx : WfIRContext OpCode)
     (moduleOp : OperationPtr) :
-    ExceptT String IO { ctx' : IRContext OpCode // ctx'.WellFormed } := do
+    ExceptT String IO (WfIRContext OpCode) := do
   let mut currentCtx := ctx
   for pass in pipeline.passes do
-    if h : moduleOp.InBounds currentCtx.val then
+    if h : moduleOp.InBounds currentCtx.raw then
       let ctx' ← try pass.run currentCtx moduleOp h
                  catch errMsg => throw s!"pass '{pass.name}' failed: {errMsg}"
-      if let .error errMsg := ctx'.val.verify then
+      if let .error errMsg := ctx'.raw.verify then
         throw s!"verification failed after pass '{pass.name}': {errMsg}"
       currentCtx := ctx'
     else

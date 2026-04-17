@@ -10,8 +10,8 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 @[inline]
 def WfRewriter.insertOp? (wfCtx : WfIRContext OpInfo) (newOp : OperationPtr)
     (insertionPoint : InsertPoint)
-    (newOpIn : newOp.InBounds wfCtx.val := by grind)
-    (insIn : insertionPoint.InBounds wfCtx.val := by grind)
+    (newOpIn : newOp.InBounds wfCtx.raw := by grind)
+    (insIn : insertionPoint.InBounds wfCtx.raw := by grind)
     : Option (WfIRContext OpInfo) := do
   rlet ctx ← Rewriter.insertOp? wfCtx newOp insertionPoint newOpIn insIn (by grind)
   return ⟨ctx, by grind [Rewriter.insertOp?_WellFormed]⟩
@@ -19,8 +19,8 @@ def WfRewriter.insertOp? (wfCtx : WfIRContext OpInfo) (newOp : OperationPtr)
 /-- Detach an operation from its parent. -/
 @[inline]
 def WfRewriter.detachOp (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
-    (hIn : op.InBounds wfCtx.val)
-    (hasParent : (op.get! wfCtx.val).parent.isSome)
+    (hIn : op.InBounds wfCtx.raw)
+    (hasParent : (op.get! wfCtx.raw).parent.isSome)
     : WfIRContext OpInfo :=
   ⟨Rewriter.detachOp wfCtx op (by grind) hIn (by grind),
     by grind [Rewriter.detachOp_WellFormed]⟩
@@ -31,7 +31,7 @@ If it has no parent, return the context unchanged.
 -/
 @[inline]
 def WfRewriter.detachOpIfAttached (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
-    (hop : op.InBounds wfCtx.val := by grind)
+    (hop : op.InBounds wfCtx.raw := by grind)
     : WfIRContext OpInfo :=
   ⟨Rewriter.detachOpIfAttached wfCtx op (by grind) hop,
     by grind [Rewriter.detachOpIfAttached_WellFormed]⟩
@@ -39,9 +39,9 @@ def WfRewriter.detachOpIfAttached (wfCtx : WfIRContext OpInfo) (op : OperationPt
 /-- Erase an operation. -/
 @[inline]
 def WfRewriter.eraseOp (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
-    (opRegions : op.getNumRegions! wfCtx.val = 0 := by grind)
-    (opUses : !op.hasUses! wfCtx.val := by grind)
-    (hOp : op.InBounds wfCtx.val := by grind)
+    (opRegions : op.getNumRegions! wfCtx.raw = 0 := by grind)
+    (opUses : !op.hasUses! wfCtx.raw := by grind)
+    (hOp : op.InBounds wfCtx.raw := by grind)
     : WfIRContext OpInfo :=
   ⟨Rewriter.eraseOp wfCtx op (by grind) hOp,
     by grind [Rewriter.eraseOp_WellFormed]⟩
@@ -50,8 +50,8 @@ def WfRewriter.eraseOp (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
 @[inline]
 def WfRewriter.insertBlock? (wfCtx : WfIRContext OpInfo) (newBlock : BlockPtr)
     (insertionPoint : BlockInsertPoint)
-    (newBlockIn : newBlock.InBounds wfCtx.val := by grind)
-    (insIn : insertionPoint.InBounds wfCtx.val := by grind)
+    (newBlockIn : newBlock.InBounds wfCtx.raw := by grind)
+    (insIn : insertionPoint.InBounds wfCtx.raw := by grind)
     : Option (WfIRContext OpInfo) := do
   rlet h: ctx ← Rewriter.insertBlock? wfCtx newBlock insertionPoint newBlockIn insIn (by grind)
   return ⟨ctx, by grind [Rewriter.insertBlock?_WellFormed]⟩
@@ -59,8 +59,8 @@ def WfRewriter.insertBlock? (wfCtx : WfIRContext OpInfo) (newBlock : BlockPtr)
 /-- Replace the operand of an operation with a new value. -/
 @[inline]
 def WfRewriter.replaceOperand (wfCtx : WfIRContext OpInfo) (use : OpOperandPtr) (newValue : ValuePtr)
-    (useIn : use.InBounds wfCtx.val := by grind)
-    (newIn : newValue.InBounds wfCtx.val := by grind)
+    (useIn : use.InBounds wfCtx.raw := by grind)
+    (newIn : newValue.InBounds wfCtx.raw := by grind)
     : WfIRContext OpInfo :=
   ⟨Rewriter.replaceUse wfCtx use newValue useIn newIn (by grind),
     by grind [Rewriter.replaceUse_WellFormed]⟩
@@ -68,8 +68,8 @@ def WfRewriter.replaceOperand (wfCtx : WfIRContext OpInfo) (use : OpOperandPtr) 
 /-- Replace a value with another value. -/
 @[inline]
 def WfRewriter.replaceValue (wfCtx : WfIRContext OpInfo) (oldValue newValue : ValuePtr)
-    (oldIn : oldValue.InBounds wfCtx.val := by grind)
-    (newIn : newValue.InBounds wfCtx.val := by grind)
+    (oldIn : oldValue.InBounds wfCtx.raw := by grind)
+    (newIn : newValue.InBounds wfCtx.raw := by grind)
     : Option (WfIRContext OpInfo) := do
   rlet h: ctx ← Rewriter.replaceValue? wfCtx oldValue newValue oldIn newIn (by grind)
   return ⟨ctx, by grind [Rewriter.replaceValue?_WellFormed, Option.maybe₁]⟩
@@ -81,10 +81,10 @@ Erase the replaced operation.
 @[inline]
 def WfRewriter.replaceOp? (wfCtx : WfIRContext OpInfo) (oldOp newOp : OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
-    (hpar : (oldOp.get! wfCtx.val).parent.isSome = true := by grind)
-    (noRegions : oldOp.getNumRegions! wfCtx.val = 0 := by grind)
-    (oldIn : oldOp.InBounds wfCtx.val := by grind)
-    (newIn : newOp.InBounds wfCtx.val := by grind)
+    (hpar : (oldOp.get! wfCtx.raw).parent.isSome = true := by grind)
+    (noRegions : oldOp.getNumRegions! wfCtx.raw = 0 := by grind)
+    (oldIn : oldOp.InBounds wfCtx.raw := by grind)
+    (newIn : newOp.InBounds wfCtx.raw := by grind)
     : Option (WfIRContext OpInfo) := do
   rlet h: ctx ← Rewriter.replaceOp? wfCtx oldOp newOp oldIn newIn (by grind) (by grind)
   return ⟨ctx, by apply IRContext.wellFormed_replaceOp? (hNewCtx := h) <;> grind⟩
@@ -93,7 +93,7 @@ def WfRewriter.replaceOp? (wfCtx : WfIRContext OpInfo) (oldOp newOp : OperationP
 @[inline]
 def WfRewriter.createBlock (wfCtx : WfIRContext OpInfo)
     (insertionPoint : Option BlockInsertPoint)
-    (hip : insertionPoint.maybe BlockInsertPoint.InBounds wfCtx.val)
+    (hip : insertionPoint.maybe BlockInsertPoint.InBounds wfCtx.raw)
     : Option (WfIRContext OpInfo × BlockPtr) := do
   rlet (ctx, blk) ← Rewriter.createBlock wfCtx insertionPoint (by grind) hip
   return (⟨ctx, by grind [Rewriter.createBlock_WellFormed]⟩, blk)
@@ -108,9 +108,9 @@ def WfRewriter.createRegion (wfCtx : WfIRContext OpInfo)
 /-- Insert a region at the end of an operation's region list. -/
 @[inline]
 def WfRewriter.pushRegion (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (region : RegionPtr)
-    (hop : op.InBounds wfCtx.val := by grind)
-    (hregion : region.InBounds wfCtx.val := by grind)
-    (hRegionParent : (region.get! wfCtx.val).parent = none := by grind)
+    (hop : op.InBounds wfCtx.raw := by grind)
+    (hregion : region.InBounds wfCtx.raw := by grind)
+    (hRegionParent : (region.get! wfCtx.raw).parent = none := by grind)
     : WfIRContext OpInfo :=
   ⟨Rewriter.pushRegion wfCtx op region hop hregion hRegionParent,
     by grind [IRContext.wellFormed_Rewriter_pushRegion]⟩
@@ -118,7 +118,7 @@ def WfRewriter.pushRegion (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (regi
 /-- Insert a result at the end of an operation's result list. -/
 @[inline]
 def WfRewriter.pushResult (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (type : TypeAttr)
-    (hop : op.InBounds wfCtx.val := by grind)
+    (hop : op.InBounds wfCtx.raw := by grind)
     : WfIRContext OpInfo :=
   ⟨Rewriter.pushResult wfCtx op type hop,
     by grind [IRContext.wellFormed_Rewriter_pushResult]⟩
@@ -126,8 +126,8 @@ def WfRewriter.pushResult (wfCtx : WfIRContext OpInfo) (op : OperationPtr) (type
 /-- Insert an operand at the end of an operation's operand list. -/
 @[inline]
 def WfRewriter.pushOperand (wfCtx : WfIRContext OpInfo) (opPtr : OperationPtr) (valuePtr : ValuePtr)
-    (opPtrInBounds : opPtr.InBounds wfCtx.val := by grind)
-    (valueInBounds : valuePtr.InBounds wfCtx.val := by grind)
+    (opPtrInBounds : opPtr.InBounds wfCtx.raw := by grind)
+    (valueInBounds : valuePtr.InBounds wfCtx.raw := by grind)
     : WfIRContext OpInfo :=
   ⟨Rewriter.pushOperand wfCtx opPtr valuePtr opPtrInBounds valueInBounds (by grind),
     by grind [Rewriter.pushOperand_WellFormed]⟩
@@ -135,8 +135,8 @@ def WfRewriter.pushOperand (wfCtx : WfIRContext OpInfo) (opPtr : OperationPtr) (
 /-- Insert a block operand at the end of an operation's block operand list. -/
 @[inline]
 def WfRewriter.pushBlockOperand (wfCtx : WfIRContext OpInfo) (opPtr : OperationPtr) (blockPtr : BlockPtr)
-    (opPtrInBounds : opPtr.InBounds wfCtx.val := by grind)
-    (blockInBounds : blockPtr.InBounds wfCtx.val := by grind)
+    (opPtrInBounds : opPtr.InBounds wfCtx.raw := by grind)
+    (blockInBounds : blockPtr.InBounds wfCtx.raw := by grind)
     : WfIRContext OpInfo :=
   ⟨Rewriter.pushBlockOperand wfCtx opPtr blockPtr opPtrInBounds blockInBounds (by grind),
     by grind [Rewriter.pushBlockOperand_WellFormed]⟩
@@ -147,10 +147,10 @@ def WfRewriter.createOp (wfCtx : WfIRContext OpInfo) (opType : OpInfo)
     (resultTypes : Array TypeAttr) (operands : Array ValuePtr) (blockOperands : Array BlockPtr)
     (regions : Array RegionPtr) (properties : HasOpInfo.propertiesOf opType)
     (insertionPoint : Option InsertPoint)
-    (hoper : ∀ oper, oper ∈ operands → oper.InBounds wfCtx.val := by grind)
-    (hblockOperands : ∀ oper, oper ∈ blockOperands → oper.InBounds wfCtx.val := by grind)
-    (hregions : ∀ reg, reg ∈ regions → reg.InBounds wfCtx.val := by grind)
-    (hins : insertionPoint.maybe InsertPoint.InBounds wfCtx.val := by grind)
+    (hoper : ∀ oper, oper ∈ operands → oper.InBounds wfCtx.raw := by grind)
+    (hblockOperands : ∀ oper, oper ∈ blockOperands → oper.InBounds wfCtx.raw := by grind)
+    (hregions : ∀ reg, reg ∈ regions → reg.InBounds wfCtx.raw := by grind)
+    (hins : insertionPoint.maybe InsertPoint.InBounds wfCtx.raw := by grind)
     : Option (WfIRContext OpInfo × OperationPtr) := do
   rlet (ctx, op) ← Rewriter.createOp wfCtx opType resultTypes operands blockOperands regions
     properties insertionPoint hoper hblockOperands hregions hins (by grind)

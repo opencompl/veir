@@ -23,7 +23,7 @@ def mulITwoToAddi (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 2 then
     return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[lhs.getType! rewriter.ctx.val] #[lhs, lhs]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[lhs.getType! rewriter.ctx.raw] #[lhs, lhs]
     #[] #[] properties (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -37,10 +37,10 @@ def mulIZeroToCst (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
-  let .integerType type := (lhs.getType! rewriter.ctx.val).val
+  let .integerType type := (lhs.getType! rewriter.ctx.raw).val
     | return rewriter
   let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.val] #[]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.raw] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -91,10 +91,10 @@ def subiSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if lhs ≠ rhs then
     return rewriter
-  let .integerType type := (lhs.getType! rewriter.ctx.val).val
+  let .integerType type := (lhs.getType! rewriter.ctx.raw).val
     | return rewriter
   let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.val] #[]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.raw] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -119,10 +119,10 @@ def andiZeroToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
-  let .integerType type := (lhs.getType! rewriter.ctx.val).val
+  let .integerType type := (lhs.getType! rewriter.ctx.raw).val
     | return rewriter
   let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.val] #[]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.raw] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -171,14 +171,14 @@ def xoriSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if lhs ≠ rhs then
     return rewriter
-  let .integerType type := (lhs.getType! rewriter.ctx.val).val
+  let .integerType type := (lhs.getType! rewriter.ctx.raw).val
     | return rewriter
   let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.val] #[]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .constant) #[lhs.getType! rewriter.ctx.raw] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
-def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.val) :
+def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     mulITwoToAddi, mulIZeroToCst, mulIOneToX,

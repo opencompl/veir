@@ -95,8 +95,8 @@ theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext OpInfo) :
 -/
 def Worklist.createFromContext (ctx: WfIRContext OpInfo) : Worklist := Id.run do
   let mut worklist := Worklist.empty
-  for h : op in ctx.val.operations.keys do
-    if (op.get ctx.val (by grind)).parent.isSome then
+  for h : op in ctx.raw.operations.keys do
+    if (op.get ctx.raw (by grind)).parent.isSome then
       worklist := worklist.push op
   worklist
 
@@ -113,12 +113,12 @@ variable {rewriter : PatternRewriter OpInfo}
 namespace PatternRewriter
 
 private def addUseChainUserInWorklist (rewriter: PatternRewriter OpInfo) (useChain: Option OpOperandPtr) (maxIteration : Nat)
-    (huc : useChain.maybe OpOperandPtr.InBounds rewriter.ctx.val := by grind) : PatternRewriter OpInfo :=
+    (huc : useChain.maybe OpOperandPtr.InBounds rewriter.ctx.raw := by grind) : PatternRewriter OpInfo :=
   match maxIteration with
   | maxIteration + 1 =>
     match useChain with
     | some use =>
-      let useStruct := (use.get rewriter.ctx.val (by grind))
+      let useStruct := (use.get rewriter.ctx.raw (by grind))
       let userOp := useStruct.owner
       let nextUse := useStruct.nextUse
       let rewriter := {rewriter with worklist := rewriter.worklist.push userOp}
@@ -129,7 +129,7 @@ private def addUseChainUserInWorklist (rewriter: PatternRewriter OpInfo) (useCha
 @[simp, grind =]
 theorem addUseChainUserInWorklist_same_ctx
     {rewriter : PatternRewriter OpInfo}
-    {huc : Option.maybe OpOperandPtr.InBounds useChain rewriter.ctx.val}:
+    {huc : Option.maybe OpOperandPtr.InBounds useChain rewriter.ctx.raw}:
     (addUseChainUserInWorklist rewriter useChain maxIteration huc).ctx = rewriter.ctx := by
   induction maxIteration generalizing rewriter useChain
   · grind [addUseChainUserInWorklist]
@@ -137,13 +137,13 @@ theorem addUseChainUserInWorklist_same_ctx
 
 -- TODO: move this somewhere
 @[local grind .]
-theorem ValuePtr.inBounds_getFirstUse {value : ValuePtr} (hv : value.InBounds ctx.val) :
-    (value.getFirstUse ctx.val hv).maybe OpOperandPtr.InBounds ctx.val := by
+theorem ValuePtr.inBounds_getFirstUse {value : ValuePtr} (hv : value.InBounds ctx.raw) :
+    (value.getFirstUse ctx.raw hv).maybe OpOperandPtr.InBounds ctx.raw := by
   grind [Option.maybe]
 
 private def addUsersInWorklist (rewriter: PatternRewriter OpInfo) (value: ValuePtr)
-    (hv : value.InBounds rewriter.ctx.val) : PatternRewriter OpInfo :=
-  let useChain := value.getFirstUse rewriter.ctx.val (by grind)
+    (hv : value.InBounds rewriter.ctx.raw) : PatternRewriter OpInfo :=
+  let useChain := value.getFirstUse rewriter.ctx.raw (by grind)
   rewriter.addUseChainUserInWorklist useChain 1_000_000_000 (by grind [Option.maybe])
 
 @[grind =]
@@ -156,10 +156,10 @@ def createOp (rewriter: PatternRewriter OpInfo) (opType: OpInfo)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr)
     (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: HasOpInfo.propertiesOf opType)
     (insertionPoint: Option InsertPoint)
-    (hoper : ∀ oper, oper ∈ operands → oper.InBounds rewriter.ctx.val)
-    (hblockOperands : ∀ blockOper, blockOper ∈ blockOperands → blockOper.InBounds rewriter.ctx.val)
-    (hregions : ∀ region, region ∈ regions → region.InBounds rewriter.ctx.val)
-    (hins : insertionPoint.maybe InsertPoint.InBounds rewriter.ctx.val) : Option ((PatternRewriter OpInfo) × OperationPtr) := do
+    (hoper : ∀ oper, oper ∈ operands → oper.InBounds rewriter.ctx.raw)
+    (hblockOperands : ∀ blockOper, blockOper ∈ blockOperands → blockOper.InBounds rewriter.ctx.raw)
+    (hregions : ∀ region, region ∈ regions → region.InBounds rewriter.ctx.raw)
+    (hins : insertionPoint.maybe InsertPoint.InBounds rewriter.ctx.raw) : Option ((PatternRewriter OpInfo) × OperationPtr) := do
   rlet (newCtx, op) ← WfRewriter.createOp rewriter.ctx opType resultTypes operands blockOperands regions properties insertionPoint hoper hblockOperands hregions hins
   if insertionPoint.isNone then
     ({ rewriter with ctx := newCtx}, op)
@@ -167,7 +167,7 @@ def createOp (rewriter: PatternRewriter OpInfo) (opType: OpInfo)
     ({ rewriter with ctx := newCtx, hasDoneAction := true , worklist := rewriter.worklist.push op}, op)
 
 def insertOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertPoint)
-    (newOpIn: op.InBounds rewriter.ctx.val := by grind) (insIn : ip.InBounds rewriter.ctx.val)
+    (newOpIn: op.InBounds rewriter.ctx.raw := by grind) (insIn : ip.InBounds rewriter.ctx.raw)
     : Option (PatternRewriter OpInfo) := do
   rlet newCtx ← WfRewriter.insertOp? rewriter.ctx op ip (by grind) (by grind)
   some { rewriter with
@@ -177,9 +177,9 @@ def insertOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertP
   }
 
 def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
-    (opRegions : op.getNumRegions! rewriter.ctx.val = 0 := by grind)
-    (opUses : !op.hasUses! rewriter.ctx.val := by grind)
-    (hOp : op.InBounds rewriter.ctx.val := by grind)
+    (opRegions : op.getNumRegions! rewriter.ctx.raw = 0 := by grind)
+    (opUses : !op.hasUses! rewriter.ctx.raw := by grind)
+    (hOp : op.InBounds rewriter.ctx.raw := by grind)
     : Option (PatternRewriter OpInfo) := do
   let newCtx ← WfRewriter.eraseOp rewriter.ctx op opRegions opUses hOp
   some { rewriter with
@@ -190,13 +190,13 @@ def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
 
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
-    (hpar : (oldOp.get! rewriter.ctx.val).parent.isSome = true := by grind)
-    (noRegions : oldOp.getNumRegions! rewriter.ctx.val = 0 := by grind)
-    (oldIn : oldOp.InBounds rewriter.ctx.val := by grind)
-    (newIn : newOp.InBounds rewriter.ctx.val := by grind)
+    (hpar : (oldOp.get! rewriter.ctx.raw).parent.isSome = true := by grind)
+    (noRegions : oldOp.getNumRegions! rewriter.ctx.raw = 0 := by grind)
+    (oldIn : oldOp.InBounds rewriter.ctx.raw := by grind)
+    (newIn : newOp.InBounds rewriter.ctx.raw := by grind)
     : Option (PatternRewriter OpInfo) := do
   let mut rw : {r : PatternRewriter OpInfo // r.ctx = rewriter.ctx } := ⟨rewriter, by grind⟩
-  for h : i in 0...(oldOp.getNumResults rewriter.ctx.val (by grind)) do
+  for h : i in 0...(oldOp.getNumResults rewriter.ctx.raw (by grind)) do
     rw := ⟨rw.val.addUsersInWorklist (oldOp.getResult i) (by grind), by grind⟩
   let rewriter := rw.val
   let newCtx ← WfRewriter.replaceOp? rewriter.ctx oldOp newOp (by grind) (by grind) (by grind) (by grind)
@@ -207,8 +207,8 @@ def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
   }
 
 def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
-    (oldIn: oldVal.InBounds rewriter.ctx.val := by grind)
-    (newIn: newVal.InBounds rewriter.ctx.val := by grind) : Option (PatternRewriter OpInfo) := do
+    (oldIn: oldVal.InBounds rewriter.ctx.raw := by grind)
+    (newIn: newVal.InBounds rewriter.ctx.raw := by grind) : Option (PatternRewriter OpInfo) := do
   -- TODO: add users of oldVal to worklist
   let rewriter := rewriter.addUsersInWorklist oldVal (by grind)
   rlet ctx ← WfRewriter.replaceValue rewriter.ctx oldVal newVal (by grind) (by grind)
@@ -219,14 +219,14 @@ def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
 
 def createBlock (rewriter: PatternRewriter OpInfo)
     (insertPoint : Option BlockInsertPoint)
-    (insertPointIn : insertPoint.maybe BlockInsertPoint.InBounds rewriter.ctx.val := by grind)
+    (insertPointIn : insertPoint.maybe BlockInsertPoint.InBounds rewriter.ctx.raw := by grind)
     : Option (PatternRewriter OpInfo × BlockPtr) := do
   rlet (newCtx, op) ← WfRewriter.createBlock rewriter.ctx insertPoint (by grind)
   ({ rewriter with ctx := newCtx, hasDoneAction := true }, op)
 
 def insertBlock (rewriter: PatternRewriter OpInfo) (block: BlockPtr) (ip : BlockInsertPoint)
-    (newBlockIn: block.InBounds rewriter.ctx.val := by grind)
-    (ipIn : ip.InBounds rewriter.ctx.val := by grind) : Option (PatternRewriter OpInfo) := do
+    (newBlockIn: block.InBounds rewriter.ctx.raw := by grind)
+    (ipIn : ip.InBounds rewriter.ctx.raw := by grind) : Option (PatternRewriter OpInfo) := do
   rlet newCtx ← WfRewriter.insertBlock? rewriter.ctx block ip
   some { rewriter with
     ctx := newCtx,
@@ -261,8 +261,8 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
       for (res, i) in newRes.zipIdx do
         rewriter ← rewriter.replaceValue (op.getResult i) res (by sorry) (by sorry)
       let mut operands : Array ValuePtr := #[]
-      for i in 0...op.getNumOperands rewriter.ctx.val (by sorry) do
-        operands := operands.push (op.getOperand! rewriter.ctx.val i)
+      for i in 0...op.getNumOperands rewriter.ctx.raw (by sorry) do
+        operands := operands.push (op.getOperand! rewriter.ctx.raw i)
       rewriter ← rewriter.eraseOp op (by sorry) (by sorry) (by sorry)
       return rewriter
 

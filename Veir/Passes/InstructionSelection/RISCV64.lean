@@ -18,7 +18,7 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let some const := matchConstantOp op rewriter.ctx
       | return rewriter
   if const.type.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   let (rewriter, newOp) ← rewriter.createOp (.riscv .li) #[RegisterType.mk] #[]
@@ -33,11 +33,11 @@ def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, properties) := matchAdd op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -59,11 +59,11 @@ def and (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchAnd op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -85,11 +85,11 @@ def ashr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, properties) := matchAshr op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -122,9 +122,9 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, property) := matchIcmp op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
   /- Return if the predicate is invalid. -/
   let p := property.value.value.toNat
@@ -135,7 +135,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let (rewriter, rcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[rhs]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   /- Casting back result for type consistency is always necessary. -/
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   /- Match depending on the predicate and build correct lowering. -/
   let (rewriter, retOp) ← match p with
@@ -221,11 +221,11 @@ def or (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchOr op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -247,11 +247,11 @@ def xor (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchXor op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -273,11 +273,11 @@ def mul (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchMul op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -299,11 +299,11 @@ def sdiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchSdiv op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -325,11 +325,11 @@ def udiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchUdiv op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -351,11 +351,11 @@ def srem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchSrem op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -377,11 +377,11 @@ def urem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchUrem op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -403,11 +403,11 @@ def sub (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchSub op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -436,9 +436,9 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchSext op rewriter.ctx | return rewriter
   /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
-  let .integerType opType := (operand.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if 64 < opType.bitwidth then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
   if 64 < retType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
@@ -490,9 +490,9 @@ def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchZext op rewriter.ctx | return rewriter
   /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
-  let .integerType opType := (operand.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if 64 < opType.bitwidth then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
   if 64 < retType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
@@ -537,9 +537,9 @@ def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchTrunc op rewriter.ctx | return rewriter
   /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
-  let .integerType opType := (operand.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if 64 < opType.bitwidth then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
   if 64 < retType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
@@ -556,11 +556,11 @@ def shl (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchShl op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -582,11 +582,11 @@ def lshr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchLshr op rewriter.ctx | return rewriter
   /- only support `i64` -/
-  let .integerType ltype := (lhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 then return rewriter
-  let .integerType rtype := (rhs.getType! rewriter.ctx.val).val | return rewriter
+  let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.val).type
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- First, cast the operands to registers -/
@@ -605,7 +605,7 @@ def lshr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 /-! # Pass implementation -/
 
-def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.val) :
+def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub]

@@ -4,13 +4,13 @@ import Veir.Printer
 namespace Veir
 
 def PrintIRPass.impl (ctx : WfIRContext OpCode)
-    (op : OperationPtr) (_ : op.InBounds ctx.val) :
+    (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
 
   IO.eprintln "// -----// IR Dump //----- //"
 
   let stdErr ← IO.getStderr
-  IO.withStdout stdErr (Printer.printModule ctx.val op)
+  IO.withStdout stdErr (Printer.printModule ctx.raw op)
   return ctx
 
 public def PrintIRPass : Pass OpCode :=

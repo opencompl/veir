@@ -1313,18 +1313,18 @@ theorem Operation.WellFormed.region_parent.unchanged
   This is the type that users are expected to work with most of the time, unless they
   need to explicitly break the well-formedness invariant during a transformation.
 -/
-@[expose]
-def WfIRContext (OpInfo : Type) [HasOpInfo OpInfo] :=
-  { ctx : IRContext OpInfo // ctx.WellFormed }
+structure WfIRContext (OpInfo : Type) [HasOpInfo OpInfo] where
+  raw : IRContext OpInfo
+  wellFormed : raw.WellFormed
 
 public instance {OpInfo} [HasOpInfo OpInfo] :
     Coe (WfIRContext OpInfo) (IRContext OpInfo) where
-  coe wfCtx := wfCtx.val
+  coe wfCtx := wfCtx.raw
 
 @[grind! .]
-theorem WfIRContext_val_wellFormed (wfCtx : WfIRContext OpInfo) :
-    (wfCtx.val).WellFormed := by
-  grind
+theorem WfIRContext_raw_wellFormed (wfCtx : WfIRContext OpInfo) :
+    (wfCtx.raw).WellFormed := by
+  grind [WfIRContext]
 
 instance instWfIRContextInhabited {OpInfo} [HasOpInfo OpInfo] :
     Inhabited (WfIRContext OpInfo) where
