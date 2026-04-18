@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776455310789,
+  "lastUpdate": 1776529282561,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -4524,6 +4524,162 @@ window.BENCHMARK_DATA = {
             "value": 766000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000766s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tobias@grosser.es",
+            "name": "Tobias Grosser",
+            "username": "tobiasgrosser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4a6f17f4b87aa871ddca12e5f541b3dd88ad3cb",
+          "message": "Ensure docs lean-toolchain version matches the version used for non-doc builds (#429)\n\nDocs builds should use the same `lean-toolchain` as the non-doc builds.\nWe implement this by making the doc lean-toolchain a symlink to the main\nlean-toolchain. The current version mismatch has caused some\ninconsistencies, including a failure when axioms in modules were not yet\nsupported in the doc builds. We also remove in this PR the workaround we\ncommitted in #422, which was due to not identifying this version\nmismatch.\n\nWe also change the nightly update script to update the `docbuild`\ndirectory.",
+          "timestamp": "2026-04-18T16:16:16Z",
+          "tree_id": "b76c5c94a931ad821d4f9824d7ad5d969a0f8637",
+          "url": "https://github.com/opencompl/veir/commit/a4a6f17f4b87aa871ddca12e5f541b3dd88ad3cb"
+        },
+        "date": 1776529278532,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2217000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002217s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3773000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003773s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2286000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002286s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3123000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003123s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2201000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002201s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2468000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002468s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1909000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001909s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1992000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001992s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2313000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002313s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5368000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005368s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2344000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002344s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3068000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003068s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2354000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002354s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1979000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001979s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1906000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001906s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1545000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001545s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2245000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002245s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3699000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003699s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1829000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001829s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 7000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000007s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1836000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001836s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 786000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000786s"
           }
         ]
       }
