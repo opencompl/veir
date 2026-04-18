@@ -52,6 +52,7 @@ jobs:
            sed -e "s/nightly.*/${{steps.leandate.outputs.date}}/" -i lean-toolchain
            cat lean-toolchain
            lake update --no-cache
+           (cd docbuild; lake update --no-cache)
         env:
           LAKE_NO_CACHE: true
 
