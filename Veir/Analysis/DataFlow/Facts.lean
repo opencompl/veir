@@ -67,22 +67,40 @@ deriving BEq, Hashable
 Tags to match on for different `DataFlowAnalysis` types.
 -/
 inductive AnalysisKind where
+  | dominance
 deriving BEq, Hashable, Repr, DecidableEq
 
 /--
 Tags to match on for different fact types.
 -/
 inductive FactKind where
+  | dominator
+  | regionMetadata
 deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
 
 abbrev WorkItem := InsertPoint × AnalysisKind
 abbrev WorkList := Queue WorkItem
 
 /--
+The immediate dominator fact attached to a block entry.
+-/
+structure DominatorPayload where
+  iDom : Option BlockPtr := none
+
+/--
+Hack to cache the post ordering of a region's blocks.
+
+Stored in the entry block of each region.
+-/
+structure RegionMetadataPayload where
+  postOrderIndex : HashMap BlockPtr Nat := {}
+
+/--
 The fact specific data stored for each fact kind.
 -/
 @[expose] def FactPayload : FactKind -> Type
-  | kind => nomatch kind
+  | .dominator => DominatorPayload
+  | .regionMetadata => RegionMetadataPayload
 
 /--
 A dataflow fact stored by the framework.
@@ -121,6 +139,23 @@ def enqueueDependents (fact : Fact kind) (workList : WorkList) : WorkList :=
       workList := workList.enqueue workItem
     workList
 
+def iDom (fact : Fact .dominator) : Option BlockPtr :=
+  fact.payload.iDom
+
+def setIDom (fact : Fact .dominator) (iDom : Option BlockPtr) : Fact .dominator :=
+  { fact with payload := { fact.payload with iDom := iDom } }
+
+def postOrderIndex (fact : Fact .regionMetadata) : HashMap BlockPtr Nat :=
+  fact.payload.postOrderIndex
+
+def setPostOrderIndex (fact : Fact .regionMetadata)
+    (postOrderIndex : HashMap BlockPtr Nat) : Fact .regionMetadata :=
+  { fact with payload := { fact.payload with postOrderIndex := postOrderIndex } }
+
 end Fact
+
+abbrev DominatorFact := Fact .dominator
+
+abbrev RegionMetadataFact := Fact .regionMetadata
 
 end Veir
