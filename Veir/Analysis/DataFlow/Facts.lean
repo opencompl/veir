@@ -19,28 +19,13 @@ namespace Veir
 In the mathematics of monotone dataflow frameworks, an analysis assigns abstract
 states (each from some lattice) to program points and repeatedly applies monotone
 transfer functions until a fixpoint is reached. A fixpoint `f` is such that 
-`f(x) = x`. In other words, when nothing changes.
+`f(x) = x`. So in other words, when nothing changes.
 
 This file defines the objects used to store those abstract states. A
 `Fact` is one piece of analysis information and a `LatticeAnchor` says 
 where in the IR that information lives (such as an SSA value or a CFG 
 edge).
 -/
-
-namespace InsertPoint
-
-/--
-Return whether the insertion point is at the beginning of a block.
--/
-def isBlockStart (point : InsertPoint) (irCtx : IRContext OpCode) : Bool :=
-  match point with
-  | .before op =>
-    match (op.get! irCtx).parent with
-    | some block => (block.get! irCtx).firstOp == some op
-    | none => false
-  | .atEnd block => (block.get! irCtx).firstOp == none
-
-end InsertPoint
 
 /--
 A directed control flow edge between two blocks.
@@ -59,6 +44,9 @@ inductive LatticeAnchor
   | CFGEdge (edge : CFGEdge)
 deriving BEq, Hashable
 
+instance : Coe InsertPoint LatticeAnchor where
+  coe := .InsertPoint
+
 /-!
 # Analyses and facts
 -/
@@ -67,22 +55,40 @@ deriving BEq, Hashable
 Tags to match on for different `DataFlowAnalysis` types.
 -/
 inductive AnalysisKind where
+  | dominance
 deriving BEq, Hashable, Repr, DecidableEq
 
 /--
 Tags to match on for different fact types.
 -/
 inductive FactKind where
+  | dominator
+  | regionMetadata
 deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
 
 abbrev WorkItem := InsertPoint × AnalysisKind
 abbrev WorkList := Queue WorkItem
 
 /--
+The immediate dominator fact attached to a block entry.
+-/
+structure DominatorPayload where
+  iDom : Option BlockPtr := none
+
+/--
+Caches the post ordering of a region's blocks.
+
+Stored in the entry block of each region.
+-/
+structure RegionMetadataPayload where
+  postOrderIndex : HashMap BlockPtr Nat := {}
+
+/--
 The fact specific data stored for each fact kind.
 -/
 @[expose] def FactPayload : FactKind -> Type
-  | kind => nomatch kind
+  | .dominator => DominatorPayload
+  | .regionMetadata => RegionMetadataPayload
 
 /--
 A dataflow fact stored by the framework.
@@ -121,6 +127,23 @@ def enqueueDependents (fact : Fact kind) (workList : WorkList) : WorkList :=
       workList := workList.enqueue workItem
     workList
 
+def iDom (fact : Fact .dominator) : Option BlockPtr :=
+  fact.payload.iDom
+
+def setIDom (fact : Fact .dominator) (iDom : Option BlockPtr) : Fact .dominator :=
+  { fact with payload := { fact.payload with iDom := iDom } }
+
+def postOrderIndex (fact : Fact .regionMetadata) : HashMap BlockPtr Nat :=
+  fact.payload.postOrderIndex
+
+def setPostOrderIndex (fact : Fact .regionMetadata)
+    (postOrderIndex : HashMap BlockPtr Nat) : Fact .regionMetadata :=
+  { fact with payload := { fact.payload with postOrderIndex := postOrderIndex } }
+
 end Fact
+
+abbrev DominatorFact := Fact .dominator
+
+abbrev RegionMetadataFact := Fact .regionMetadata
 
 end Veir
