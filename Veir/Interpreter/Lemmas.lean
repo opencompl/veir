@@ -1,9 +1,11 @@
 import Veir.Interpreter.Basic
+import Veir.Dominance
 
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {state state' : InterpreterState}
+variable {op op' : OperationPtr}
 
 @[grind =]
 theorem InterpreterState.getVar?_setVar :
@@ -80,3 +82,42 @@ theorem InterpreterState.setResultValues_comm {ctx : WfIRContext OpInfo}
     (state.setResultValues ctx.raw op₂ resValues₂).setResultValues ctx.raw op₁ resValues₁ := by
   ext val runtimeVal
   cases val <;> grind
+
+theorem InterpreterState.getVar?_setResultValues_operand_of_dominates {ctx : WfIRContext OpInfo}
+    (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
+    value ∈ op'.getOperands! ctx.raw →
+    (state.setResultValues ctx.raw op resValues).getVar? value =
+    state.getVar? value := by
+  intro valueInOperands
+  simp only [InterpreterState.getVar?_setResultValues]
+  have := IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom hdom value valueInOperands
+  cases value
+  case blockArgument blockArg => grind
+  case opResult opRes =>
+    simp only [ite_eq_right_iff, and_imp]
+    simp only [OperationPtr.getResults!.mem_iff_exists_index, ValuePtr.opResult.injEq, not_exists,
+      not_and] at this
+    grind [OperationPtr.getResult_def, cases OpResultPtr]
+
+@[grind =>]
+theorem InterpreterState.getOperandValues_setResultValues_of_dominates {ctx : WfIRContext OpInfo}
+    (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
+    (state.setResultValues ctx.raw op resValues).getOperandValues ctx.raw op' =
+    state.getOperandValues ctx.raw op' := by
+  apply InterpreterState.getOperandValues_eq_of_getVar?_eq
+  grind [InterpreterState.getVar?_setResultValues_operand_of_dominates]
+
+@[grind =>]
+theorem InterpreterState.getOperandValues_setResultValues_self {ctx : WfIRContext OpInfo}
+    (ctxDom : ctx.Dom) :
+    (state.setResultValues ctx.raw op resValues).getOperandValues ctx.raw op =
+    state.getOperandValues ctx.raw op := by
+  exact getOperandValues_setResultValues_of_dominates ctxDom OperationPtr.dominates_refl
+
+@[grind = ]
+theorem InterpreterState.setResultValues_setResultValues_self {ctx : WfIRContext OpCode} :
+    (state.setResultValues ctx.raw op resValues).setResultValues ctx.raw op resValues' =
+    state.setResultValues ctx.raw op resValues' := by
+  ext val runtimeVal
+  simp only [InterpreterState.getVar?_setResultValues]
+  grind
