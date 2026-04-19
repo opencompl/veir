@@ -405,14 +405,16 @@ theorem getOperands!_eq_getOperands {op : OperationPtr} (hin : op.InBounds ctx) 
     op.getOperands! ctx = op.getOperands ctx (by grind) := by
   grind [getOperands, getOperands!]
 
-theorem getOperands!.exists_index_of_mem {op : OperationPtr} :
-    value ∈ op.getOperands! ctx →
+theorem getOperands!.mem_iff_exists_index {op : OperationPtr} :
+    value ∈ op.getOperands! ctx ↔
     ∃ index, index < op.getNumOperands! ctx ∧ op.getOperand! ctx index = value := by
-  simp only [getOperands!, Array.mem_map, getOperand!, getNumOperands!, forall_exists_index, and_imp]
-  intro operand operandIn operandValue
-  have ⟨i, hi, hoperand⟩ := Array.getElem_of_mem operandIn
-  exists i
-  grind
+  simp only [getOperands!, Array.mem_map, getOperand!, getNumOperands!]
+  constructor
+  · rintro ⟨operand, ⟨hoperand, operandValue⟩⟩
+    have ⟨i, hi, hoperand⟩ := Array.getElem_of_mem hoperand
+    exists i
+    grind
+  · grind
 
 theorem getOperands!.mem_getOperand {op : OperationPtr} :
     index < op.getNumOperands! ctx →
@@ -529,10 +531,16 @@ theorem getOpResults!_eq_getOpResults {op : OperationPtr} (hin : op.InBounds ctx
     op.getOpResults! ctx = op.getOpResults ctx (by grind) := by
   grind [getOpResults, getOpResults!]
 
-theorem getOpResults!.exists_index_of_mem {op : OperationPtr} :
-    value ∈ op.getOpResults! ctx →
+theorem getOpResults!.mem_iff_exists_index {op : OperationPtr} :
+    value ∈ op.getOpResults! ctx ↔
     ∃ index, index < op.getNumResults! ctx ∧ op.getResult index = value := by
-  grind [getOpResults!, Array.getElem_of_mem]
+  simp only [getOpResults!, Array.mem_map, getResult, getNumResults!]
+  constructor
+  · rintro ⟨result, ⟨hresult, resultValue⟩⟩
+    have ⟨i, hi, hresult⟩ := Array.getElem_of_mem hresult
+    exists i
+    grind
+  · grind
 
 theorem getOpResults!.mem_getResult {op : OperationPtr} :
     index < op.getNumResults! ctx →
@@ -571,10 +579,16 @@ theorem getResults!_eq_getResults {op : OperationPtr} (hin : op.InBounds ctx) :
     op.getResults! ctx = op.getResults ctx (by grind) := by
   grind [getResults, getResults!]
 
-theorem getResults!.exists_index_of_mem {op : OperationPtr} :
-    value ∈ op.getResults! ctx →
+theorem getResults!.mem_iff_exists_index {op : OperationPtr} :
+    value ∈ op.getResults! ctx ↔
     ∃ index, index < op.getNumResults! ctx ∧ op.getResult index = value := by
-  grind [getResults!, Array.getElem_of_mem]
+  simp only [getResults!, Array.mem_map, getResult, getNumResults!]
+  constructor
+  · rintro ⟨result, ⟨hresult, resultValue⟩⟩
+    have ⟨i, hi, hresult⟩ := Array.getElem_of_mem hresult
+    exists i
+    grind
+  · grind
 
 theorem getResults!.mem_getResult {op : OperationPtr} :
     index < op.getNumResults! ctx →
