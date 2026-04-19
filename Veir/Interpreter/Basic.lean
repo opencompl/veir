@@ -63,14 +63,11 @@ def InterpreterState.getVar? (state : InterpreterState) (var : ValuePtr)
   state.variables[var]?
 
 @[ext]
-theorem InterpreterState.ext {state1 state2 : InterpreterState} :
-    (∀ var, state1.getVar? var = state2.getVar? var) →
-    state1 = state2 := by
-  intro h
-  have ⟨state1⟩ := state1; have ⟨state2⟩ := state2
-  simp only [mk.injEq]
-  ext key value
-  simp only [InterpreterState.getVar?] at h
+theorem InterpreterState.ext {s₁ s₂ : InterpreterState} :
+    (∀ var, s₁.getVar? var = s₂.getVar? var) →
+    s₁ = s₂ := by
+  rcases s₁; rcases s₂
+  simp only [getVar?, mk.injEq]
   grind
 
 /--
