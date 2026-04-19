@@ -382,16 +382,16 @@ theorem getOpOperand_op {op : OperationPtr} {index : Nat} :
   grind [getOpOperand]
 
 def getOperand (op : OperationPtr) (ctx : IRContext OpInfo) (index : Nat)
-    (inBounds : op.InBounds ctx := by grind) (h : index < getNumOperands op ctx inBounds := by grind) : ValuePtr :=
-  ((op.get ctx (by grind)).operands[index]'(by grind [getNumOperands])).value
+    (inBounds : op.InBounds ctx := by grind) (h : index < getNumOperands! op ctx := by grind) : ValuePtr :=
+  ((op.get ctx (by grind)).operands[index]'(by grind [getNumOperands!])).value
 
 def getOperand! (op : OperationPtr) (ctx : IRContext OpInfo) (index : Nat) : ValuePtr :=
   ((op.get! ctx).operands[index]!).value
 
 @[grind =_, eq_bang ←]
 theorem getOperand!_eq_getOperand {op : OperationPtr} {index : Nat}
-    {hin} (h : index < op.getNumOperands ctx hin) {hin'} :
-    op.getOperand! ctx index = op.getOperand ctx index hin' h := by
+    (opInBounds : op.InBounds ctx) (h : index < op.getNumOperands! ctx) :
+    op.getOperand! ctx index = op.getOperand ctx index opInBounds h := by
   grind [getOperand, getOperand!]
 
 def getOperands (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : Array ValuePtr :=
@@ -959,6 +959,12 @@ theorem setValue!_eq_setValue {operand : OpOperandPtr} (inBounds : operand.InBou
   grind [setValue, setValue!]
 
 end OpOperandPtr
+
+@[grind =]
+theorem OperationPtr.getOperand!_eq_OpOperandPtr_get! :
+    OperationPtr.getOperand! op ctx index =
+    (OpOperandPtr.get! (OperationPtr.getOpOperand op index) ctx).value := by
+  grind [OperationPtr.getOperand!, OpOperandPtr.get!]
 
 @[grind =]
 theorem OperationPtr.getOperand_eq_OpOperandPtr_get :

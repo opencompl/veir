@@ -287,6 +287,15 @@ theorem OperationPtr.getRegions!_inBounds :
 
 grind_pattern OperationPtr.getRegions!_inBounds => (operation.getRegion! ctx i), ctx.FieldsInBounds
 
+theorem OperationPtr.getOperands!_inBounds :
+    ctx.FieldsInBounds →
+    operation.InBounds ctx →
+    operand ∈ operation.getOperands! ctx →
+    operand.InBounds ctx := by
+  grind [getOperands!.exists_index_of_mem]
+
+grind_pattern OperationPtr.getOperands!_inBounds => operand ∈ operation.getOperands! ctx, ctx.FieldsInBounds
+
 end Operation
 
 section Block
