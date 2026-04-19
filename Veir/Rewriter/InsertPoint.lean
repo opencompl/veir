@@ -27,10 +27,22 @@ def InsertPoint.InBounds (ip : InsertPoint) (ctx : IRContext OpInfo) : Prop :=
   | before op => op.InBounds ctx
   | atEnd bl => bl.InBounds ctx
 
-@[grind =]
+@[simp, grind =]
 theorem InsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBounds ctx := by rfl
-@[grind =]
+@[simp, grind =]
 theorem InsertPoint.inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
+
+def InsertPoint.after (op : OperationPtr) (ctx : IRContext OpInfo) (blockPtr : BlockPtr)
+    (_opHasParent : (op.get! ctx).parent = some blockPtr := by grind)
+    (opInBounds : op.InBounds ctx := by grind) : InsertPoint :=
+  match (op.get ctx).next with
+  | some op => .before op
+  | none => InsertPoint.atEnd blockPtr
+
+@[grind .]
+theorem InsertPoint.after_inBounds (ctxWf : ctx.WellFormed) :
+    (InsertPoint.after op ctx blockPtr opHasParent opInBounds).InBounds ctx := by
+  grind [InsertPoint.after]
 
 @[grind]
 def InsertPoint.block! (insertionPoint : InsertPoint) (ctx : IRContext OpInfo) : Option BlockPtr :=
