@@ -517,6 +517,90 @@ theorem eq_getResult_of_OpResultPtr_op_eq {res : OpResultPtr} :
     res.op = op → res = op.getResult res.index := by
   grind [getResult, cases OpResultPtr]
 
+def getOpResults (op : OperationPtr) (ctx : IRContext OpInfo)
+  (inBounds : op.InBounds ctx := by grind) : Array OpResultPtr :=
+  Array.map (fun i => op.getResult i) (Array.range (op.getNumResults ctx inBounds))
+
+def getOpResults! (op : OperationPtr) (ctx : IRContext OpInfo) : Array OpResultPtr :=
+  Array.map (fun i => op.getResult i) (Array.range (op.getNumResults! ctx))
+
+@[grind =_, eq_bang ←]
+theorem getOpResults!_eq_getOpResults {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getOpResults! ctx = op.getOpResults ctx (by grind) := by
+  grind [getOpResults, getOpResults!]
+
+theorem getOpResults!.exists_index_of_mem {op : OperationPtr} :
+    value ∈ op.getOpResults! ctx →
+    ∃ index, index < op.getNumResults! ctx ∧ op.getResult index = value := by
+  grind [getOpResults!, Array.getElem_of_mem]
+
+theorem getOpResults!.mem_getResult {op : OperationPtr} :
+    index < op.getNumResults! ctx →
+    op.getResult index ∈ op.getOpResults! ctx := by
+  grind [getOpResults!, getResult, getNumResults!]
+
+@[simp, grind =]
+theorem getOpResults!.size_eq_getNumResults! {op : OperationPtr} :
+    (op.getOpResults! ctx).size = op.getNumResults! ctx := by
+  grind [getOpResults!, getNumResults!]
+
+@[simp, grind =]
+theorem getOpResults!.getElem!_eq_getResult {op : OperationPtr} :
+    index < op.getNumResults! ctx →
+    (op.getOpResults! ctx)[index]! = op.getResult index := by
+  simp only [getOpResults!, getResult]
+  grind
+
+@[simp, grind =]
+theorem getOpResults!.getElem_eq_getResult
+    {op : OperationPtr} {h : index < (op.getOpResults! ctx).size} :
+    index < op.getNumResults! ctx →
+    (op.getOpResults! ctx)[index]'h = op.getResult index := by
+  simp only [getOpResults!, getResult]
+  grind
+
+def getResults (op : OperationPtr) (ctx : IRContext OpInfo)
+  (inBounds : op.InBounds ctx := by grind) : Array ValuePtr :=
+  Array.map (fun i => op.getResult i) (Array.range (op.getNumResults ctx inBounds))
+
+def getResults! (op : OperationPtr) (ctx : IRContext OpInfo) : Array ValuePtr :=
+  Array.map (fun i => op.getResult i) (Array.range (op.getNumResults! ctx))
+
+@[grind =_, eq_bang ←]
+theorem getResults!_eq_getResults {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getResults! ctx = op.getResults ctx (by grind) := by
+  grind [getResults, getResults!]
+
+theorem getResults!.exists_index_of_mem {op : OperationPtr} :
+    value ∈ op.getResults! ctx →
+    ∃ index, index < op.getNumResults! ctx ∧ op.getResult index = value := by
+  grind [getResults!, Array.getElem_of_mem]
+
+theorem getResults!.mem_getResult {op : OperationPtr} :
+    index < op.getNumResults! ctx →
+    (op.getResult index : ValuePtr) ∈ op.getResults! ctx := by
+  grind [getResults!, getResult, getNumResults!]
+
+@[simp, grind =]
+theorem getResults!.size_eq_getNumResults! {op : OperationPtr} :
+    (op.getResults! ctx).size = op.getNumResults! ctx := by
+  grind [getResults!, getNumResults!]
+
+@[simp, grind =]
+theorem getResults!.getElem!_eq_getResult {op : OperationPtr} :
+    index < op.getNumResults! ctx →
+    (op.getResults! ctx)[index]! = op.getResult index := by
+  simp only [getResults!, getResult]
+  grind
+
+@[simp, grind =]
+theorem getResults!.getElem_eq_getResult
+    {op : OperationPtr} {h : index < (op.getResults! ctx).size} :
+    index < op.getNumResults! ctx →
+    (op.getResults! ctx)[index]'h = op.getResult index := by
+  simp only [getResults!, getResult]
+  grind
+
 def getNumRegions (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : Nat :=
   (op.get ctx (by grind)).regions.size
