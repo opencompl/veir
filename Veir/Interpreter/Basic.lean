@@ -56,13 +56,6 @@ def InterpreterState.setVar (state : InterpreterState) (var : ValuePtr) (val : R
   {state with variables := state.variables.insert var val}
 
 /--
-  Set the value of a block argument.
--/
-def InterpreterState.setBlockArgument (state : InterpreterState) (arg : BlockArgument) (val : RuntimeValue) :
-    InterpreterState :=
-  state.setVar (ValuePtr.blockArgument {block := arg.owner, index := arg.index}) val
-
-/--
   Get the value of a variable, if the variable exists.
 -/
 def InterpreterState.getVar? (state : InterpreterState) (var : ValuePtr)
@@ -99,14 +92,13 @@ def InterpreterState.setResultValues (state : InterpreterState) (ctx : IRContext
 -/
 def InterpreterState.setArgumentValues (state : InterpreterState) (ctx : IRContext OpInfo)
     (block : BlockPtr) (values : Array RuntimeValue) : InterpreterState :=
-  let args := (block.get! ctx).arguments
   let rec loop (state : InterpreterState) (i : Nat) :=
     match i with
     | 0 => state
     | i + 1 =>
-      let arg := args[i]!
+      let arg := block.getArgument i
       let value := values[i]!
-      let newState := state.setBlockArgument arg value
+      let newState := state.setVar arg value
       loop newState i
   loop state (block.getNumArguments! ctx)
 
@@ -134,7 +126,7 @@ inductive ControlFlowAction where
   returns `none`.
 -/
 def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
-    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockOperand)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
   | .arith .constant => do
@@ -329,7 +321,7 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     return (#[], some (.return operands))
   | .cf .br => do
     let #[dest] := blockOperands | none
-    return (#[], some (.branch operands dest.value))
+    return (#[], some (.branch operands dest))
   /- Bitblastable semantics of RISC-V assembly instructions. -/
   | .riscv .li => do
     let imm := BitVec.ofInt 64 properties.value.value
@@ -662,7 +654,7 @@ def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : Interprete
     : Option (InterpreterState × Option ControlFlowAction) := do
   let operands ← state.getOperandValues ctx op
   let opType := op.getOpType! ctx
-  let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx opType) ((op.get! ctx).results.map (·.type)) operands (op.get! ctx).blockOperands
+  let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx opType) ((op.get! ctx).results.map (·.type)) operands ((op.get! ctx).blockOperands.map (·.value))
   let newState := state.setResultValues ctx op resultValues
   return (newState, action)
 
