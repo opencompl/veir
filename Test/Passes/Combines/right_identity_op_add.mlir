@@ -5,7 +5,7 @@
     ^bb(%a : !reg):
         %c0 = "riscv.li"() <{"value" = 0 : i64}>: () -> !reg
         %add = "riscv.add"(%a, %c0) : (!reg, !reg) -> !reg
-        // The remaining value is unused and eliminated by DCE.
+        // The remaining value is unused and can be eliminated by DCE.
         // CHECK:      %[[zero:.*]] = "riscv.li"() <{"value" = 0 : i64}> : () -> !reg
         %c1 = "riscv.li"() <{"value" = 1 : i64}>: () -> !reg
         %add1 = "riscv.add"(%a, %c1) : (!reg, !reg) -> !reg
