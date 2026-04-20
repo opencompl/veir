@@ -9,7 +9,7 @@
         // CHECK:      %[[zero:.*]] = "riscv.li"() <{"value" = 0 : i64}> : () -> !reg
         %c1 = "riscv.li"() <{"value" = 1 : i64}>: () -> !reg
         %add1 = "riscv.add"(%a, %c1) : (!reg, !reg) -> !reg
-        // CHECK-NEXT:  %{{.*}} = "riscv.li"() <{"value" = 1 : i64}> : () -> !reg
-        // CHECK-NEXT:  %{{.*}} =  "riscv.add"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
+        // CHECK-NEXT:  %{{[[one:.*]]}} = "riscv.li"() <{"value" = 1 : i64}> : () -> !reg
+        // CHECK-NEXT:  %{{.*}} =  "riscv.add"(%{{.*}}, %[[one]]) : (!reg, !reg) -> !reg
     }) : () -> ()
 }) : () -> ()
