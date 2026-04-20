@@ -1,5 +1,6 @@
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.LLVM.Int.Basic
+import Veir.Data.LLVM.Int.Tactic
 import Veir.Data.Casting
 import Veir.Data.Refinement
 import Std.Tactic.BVDecide
@@ -19,6 +20,7 @@ namespace Veir.Data.RISCV
 -/
 theorem constant_refinement:
     isRefinedBy (LLVM.Int.constant 64 v) (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 64) := by
+  simp [simp_int]
   simp [isRefinedBy, Data.LLVM.Int.constant, Data.RISCV.li, RISCV.Reg.toInt]
 
 /--

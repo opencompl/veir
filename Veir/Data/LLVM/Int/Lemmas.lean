@@ -1,11 +1,38 @@
 module
 
 import all Veir.Data.LLVM.Int.Basic
+import all Veir.Data.LLVM.Int.Tactic
 import Veir.ForLean
 
 open Veir.Data.LLVM
 
 namespace Veir.Data.LLVM.Int
+
+/- # BitVec -/
+
+@[simp_int]
+def BitVec.ofInt (x : Veir.Data.LLVM.Int w) : BitVec w :=
+  match x with
+  | .val v => v
+  | .poison => 0#w
+
+@[simp_int]
+theorem Veir.Data.LLVM.Int.inj_val (x y : Veir.Data.LLVM.Int w)
+    (hx : x = Veir.Data.LLVM.Int.val v) (hy : y = Veir.Data.LLVM.Int.val v') :
+    x = y ↔ v = v' := by
+  simp [hx, hy]
+
+@[simp_int]
+theorem BitVec.ofInt_inj_val (x y : Veir.Data.LLVM.Int w)
+    (hx : x = Veir.Data.LLVM.Int.val v) (hy : y = Veir.Data.LLVM.Int.val v) :
+    BitVec.ofInt x = BitVec.ofInt y ↔ x = y := by
+  simp [hx, hy]
+
+@[simp_int]
+theorem BitVec.ofInt_inj_poison (x y : Veir.Data.LLVM.Int w)
+    (hx : x = Veir.Data.LLVM.Int.poison) (hy : y = Veir.Data.LLVM.Int.poison) :
+    BitVec.ofInt x = BitVec.ofInt y ↔ x = y := by
+  simp [hx, hy]
 
 /- # add -/
 

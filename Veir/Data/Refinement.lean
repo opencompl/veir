@@ -1,6 +1,7 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.LLVM.Int.Tactic
 public import Veir.Data.RISCV.Reg.Basic
 
 public section
@@ -15,6 +16,7 @@ public section
   In particular, any concrete `i'` refines a poison `i`, but a poison `i'` does *not* refine
   any `i`.
 -/
+@[simp_int]
 def isRefinedBy (i i' : Veir.Data.LLVM.Int 64) : Prop :=
   match i with
   | .val v =>
