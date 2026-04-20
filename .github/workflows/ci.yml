@@ -102,7 +102,7 @@ jobs:
           # Remove old docs but keep dev/ (benchmarks) and .git/
           find . -maxdepth 1 ! -name '.' ! -name '.git' ! -name 'dev' ! -name 'docs-content' -exec rm -rf {} +
           # Copy fresh docs into root
-          cp -rf docs-content/* .
+          cp -r docs-content/* . ; true
           rm -rf docs-content
 
       - name: Push to gh-pages
