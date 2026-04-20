@@ -1,5 +1,5 @@
 import Veir.Data.RISCV.Reg.Basic
-import Veir.Data.RISCV.Reg.Tactic
+import Veir.Data.RISCV.Reg.Simp
 import Veir.Data.Casting
 import Veir.Data.Refinement
 import Std.Tactic.BVDecide
