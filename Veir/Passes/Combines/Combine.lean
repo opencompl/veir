@@ -23,15 +23,15 @@ def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr
 
 /-! # Pass implementation -/
 
-def RISCVCombines.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+def RISCVCombine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[right_identity_zero_add]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
 
-public def RISCVCombines : Pass OpCode :=
+public def RISCVCombine : Pass OpCode :=
   { name := "riscv-combine"
     description :=
       "GlobalISel RISCV combines"
-    run := RISCVCombines.impl }
+    run := RISCVCombine.impl }
