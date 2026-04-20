@@ -131,6 +131,7 @@ def srai (shamt : BitVec 6) (rs1 : Reg) : Reg :=
   Adds the registers rs1 and rs2 and stores the result in rd. Arithmetic overflow is ignored and
   the result is simply the low 64 bits of the result.
 -/
+@[simp_int]
 def add (rs2 : Reg) (rs1 : Reg) : Reg :=
   ⟨rs1.val + rs2.val⟩
 

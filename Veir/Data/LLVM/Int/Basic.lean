@@ -87,6 +87,7 @@ appropriate for both signed and unsigned integers.
 If the `nuw` and/or `nsw` arguments are true, the result value of the add is a
 poison value if unsigned and/or signed overflow, respectively, occurs.
 -/
+@[simp_int]
 def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison

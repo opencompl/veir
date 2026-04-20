@@ -11,28 +11,43 @@ namespace Veir.Data.LLVM.Int
 /- # BitVec -/
 
 @[simp_int]
-def BitVec.ofInt (x : Veir.Data.LLVM.Int w) : BitVec w :=
+def ofInt (x : Int w) : BitVec w :=
   match x with
   | .val v => v
   | .poison => 0#w
 
 @[simp_int]
-theorem Veir.Data.LLVM.Int.inj_val (x y : Veir.Data.LLVM.Int w)
-    (hx : x = Veir.Data.LLVM.Int.val v) (hy : y = Veir.Data.LLVM.Int.val v') :
+theorem inj_val (x y : Int w)
+    (hx : x = Int.val v) (hy : y = Int.val v') :
     x = y ↔ v = v' := by
   simp [hx, hy]
 
 @[simp_int]
-theorem BitVec.ofInt_inj_val (x y : Veir.Data.LLVM.Int w)
-    (hx : x = Veir.Data.LLVM.Int.val v) (hy : y = Veir.Data.LLVM.Int.val v) :
-    BitVec.ofInt x = BitVec.ofInt y ↔ x = y := by
+theorem ofInt_inj_val (x y : Int w)
+    (hx : x = Int.val v) (hy : y = Int.val v) :
+    ofInt x = ofInt y ↔ x = y := by
   simp [hx, hy]
 
 @[simp_int]
-theorem BitVec.ofInt_inj_poison (x y : Veir.Data.LLVM.Int w)
-    (hx : x = Veir.Data.LLVM.Int.poison) (hy : y = Veir.Data.LLVM.Int.poison) :
-    BitVec.ofInt x = BitVec.ofInt y ↔ x = y := by
+theorem ofInt_inj_poison (x y : Int w)
+    (hx : x = .poison) (hy : y = .poison) :
+    ofInt x = ofInt y ↔ x = y := by
   simp [hx, hy]
+
+@[simp_int]
+theorem val_injEq {w : Nat} (v v' : BitVec w) :
+    (Int.val v = Int.val v') = (v = v') := by
+  simp
+
+@[simp_int]
+def casesOn'.{u}  {motive : Int w → Sort u}
+    (poison : motive Int.poison)
+    (value : (v : BitVec w) → motive (Int.val v))
+    : motive v? :=
+  match v? with
+  | .val a => value a
+  | .poison => poison
+
 
 /- # add -/
 

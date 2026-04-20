@@ -21,22 +21,12 @@ namespace Veir.Data.RISCV
 theorem constant_refinement:
     isRefinedBy (LLVM.Int.constant 64 v) (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 64) := by
   simp [simp_int]
-  simp [isRefinedBy, Data.LLVM.Int.constant, Data.RISCV.li, RISCV.Reg.toInt]
 
 /--
   Prove the correctness of the `add` lowering pattern.
 -/
 theorem add_refinement:
     isRefinedBy (Data.LLVM.Int.add x y) (RISCV.Reg.toInt (Data.RISCV.add (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
-  simp only [isRefinedBy, Data.LLVM.Int.add, Bool.false_eq_true, false_and, ↓reduceIte,
-    pure_bind, RISCV.Reg.toInt, Data.RISCV.add, LLVM.Int.toReg, BitVec.truncate_eq_setWidth,
-    BitVec.setWidth_eq]
-  split
-  · split
-    · split
-      <;> bv_decide
-    · split
-      · bv_decide
-      · simp only [Id.run, Data.LLVM.Int.val.injEq] at *
-        bv_decide
-  · bv_decide
+  simp [simp_int]
+  <;> split at *
+  <;> bv_decide
