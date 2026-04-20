@@ -98,6 +98,7 @@ jobs:
           path: docs-content
 
       - name: Merge docs into gh-pages (preserving dev/)
+        continue-on-error: true
         run: |
           # Remove old docs but keep dev/ (benchmarks) and .git/
           find . -maxdepth 1 ! -name '.' ! -name '.git' ! -name 'dev' ! -name 'docs-content' -exec rm -rf {} +
