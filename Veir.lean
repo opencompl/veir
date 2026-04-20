@@ -11,3 +11,4 @@ import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.Benchmarks
 import Veir.Parser.Lexer
+import Veir.Interpreter
