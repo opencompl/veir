@@ -1,0 +1,233 @@
+✖ [42/151] Building Veir.IR.Attribute (493ms)
+trace: .> LEAN_PATH=/workspace/veir/.lake/build/lib/lean /home/hhkit/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-19/bin/lean --tstack=400000 /workspace/veir/Veir/IR/Attribute.lean -o /workspace/veir/.lake/build/lib/lean/Veir/IR/Attribute.olean -i /workspace/veir/.lake/build/lib/lean/Veir/IR/Attribute.ilean -c /workspace/veir/.lake/build/ir/Veir/IR/Attribute.c --setup /workspace/veir/.lake/build/ir/Veir/IR/Attribute.setup.json --json
+error: Veir/IR/Attribute.lean:110:0: invalid mutual block: either all elements of the block must be inductive/structure declarations, or they must all be definitions/theorems/abbrevs
+error: Veir/IR/Attribute.lean:197:2: invalid {...} notation, expected type is not of the form (C ...)
+  DictionaryAttr
+error: Veir/IR/Attribute.lean:199:45: invalid {...} notation, expected type is not of the form (C ...)
+  DictionaryAttr
+error: Veir/IR/Attribute.lean:201:71: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  ft
+has type `FunctionType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:205:72: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  ft
+has type `FunctionType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:209:64: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  aa
+has type `ArrayAttr` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:213:76: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  da
+has type `DictionaryAttr` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:223:17: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  type1
+has type `FunctionType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:224:18: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  type1
+has type `FunctionType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:225:17: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  type2
+has type `FunctionType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:226:18: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  type2
+has type `FunctionType` which does not have the necessary form.
+warning: Veir/IR/Attribute.lean:233:0: unused termination hints, function is not recursive
+warning: Veir/IR/Attribute.lean:246:0: unused termination hints, function is not recursive
+warning: Veir/IR/Attribute.lean:263:0: unused termination hints, function is not recursive
+warning: Veir/IR/Attribute.lean:318:0: unused `termination_by`, function is not recursive
+error: Veir/IR/Attribute.lean:321:36: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  Attribute
+has type `Sort ?u.3` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:322:39: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  FunctionType
+has type `Sort ?u.3` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:323:36: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  ArrayAttr
+has type `Sort ?u.3` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:324:41: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  DictionaryAttr
+has type `Sort ?u.3` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:378:37: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  ptr
+has type `PointerType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:383:40: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  attr
+has type `ArrayAttr` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:393:4: Invalid dotted identifier notation: The expected type of `.unitAttr`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:399:17: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  attr
+has type `DictionaryAttr` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:408:41: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  type
+has type `FunctionType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:409:27: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  type
+has type `FunctionType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:409:27: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  type
+has type `FunctionType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:412:14: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  type
+has type `FunctionType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:413:6: Invalid dotted identifier notation: The expected type of `.functionType` could not be determined
+error: Veir/IR/Attribute.lean:416:34: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  type
+has type `FunctionType` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:412:14: failed to prove index is valid, possible solutions:
+  - Use `have`-expressions to prove the index is valid
+  - Use `a[i]!` notation instead, runtime check is performed, and 'Panic' error message is produced if index is not valid
+  - Use `a[i]?` notation instead, result is an `Option` type
+  - Use `a[i]'h` notation instead, where `h` is a proof that index is valid
+FunctionType : Sort ?u.13
+type : FunctionType
+inputs : String := ", ".intercalate sorry
+h✝ : sorry = 1
+⊢ ?m.80 sorry 0
+error: Veir/IR/Attribute.lean:434:4: Invalid dotted identifier notation: The expected type of `.integerType`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+warning: Veir/IR/Attribute.lean:385:0: unused termination hints, function is not recursive
+warning: Veir/IR/Attribute.lean:395:0: unused termination hints, function is not recursive
+warning: Veir/IR/Attribute.lean:401:0: unused termination hints, function is not recursive
+warning: Veir/IR/Attribute.lean:418:0: unused termination hints, function is not recursive
+warning: Veir/IR/Attribute.lean:446:0: unused `termination_by`, function is not recursive
+error: Veir/IR/Attribute.lean:451:14: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  Attribute
+has type `Type ?u.3` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:454:14: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  FunctionType
+has type `Type ?u.3` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:457:14: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  ArrayAttr
+has type `Type ?u.3` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:460:14: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  DictionaryAttr
+has type `Type ?u.3` which does not have the necessary form.
+error: Veir/IR/Attribute.lean:468:14: Invalid dotted identifier notation: The expected type of `.integerType`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:471:14: Invalid dotted identifier notation: The expected type of `.integerAttr`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:474:14: Invalid dotted identifier notation: The expected type of `.stringAttr`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:477:14: Invalid dotted identifier notation: The expected type of `.unitAttr`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:480:14: Invalid dotted identifier notation: The expected type of `.unregisteredAttr`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:483:14: Invalid dotted identifier notation: The expected type of `.arrayAttr`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:482:0: instance does not provide concrete values for (semi-)out-params
+  Coe ?ArrayAttr Attribute
+error: Veir/IR/Attribute.lean:486:14: Invalid dotted identifier notation: The expected type of `.denseArrayAttr`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:489:14: Invalid dotted identifier notation: The expected type of `.dictionaryAttr`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:488:0: instance does not provide concrete values for (semi-)out-params
+  Coe ?DictionaryAttr Attribute
+error: Veir/IR/Attribute.lean:492:14: Invalid dotted identifier notation: The expected type of `.functionType`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:491:0: instance does not provide concrete values for (semi-)out-params
+  Coe ?FunctionType Attribute
+error: Veir/IR/Attribute.lean:495:14: Invalid dotted identifier notation: The expected type of `.modArithType`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:512:4: Invalid dotted identifier notation: The expected type of `.integerType`
+  Attribute
+is not of the form `C ...` or `... → C ...` where C is a constant
+error: Veir/IR/Attribute.lean:526:35: Function expected at
+  integerType
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  type
+
+Hint: The identifier `integerType` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.
+error: Veir/IR/Attribute.lean:529:3: Function expected at
+  unregisteredAttr
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  unregistered
+
+Hint: The identifier `unregisteredAttr` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.
+error: Veir/IR/Attribute.lean:529:43: Invalid field notation: Type of
+  unregistered
+is not known; cannot resolve field `isType`
+
+Hint: Consider replacing the field projection with a call to one of the following:
+  • `isType`
+  • `UnregisteredAttr.isType`
+error: Veir/IR/Attribute.lean:531:36: Function expected at
+  functionType
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  type
+
+Hint: The identifier `functionType` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.
+error: Veir/IR/Attribute.lean:533:36: Function expected at
+  modArithType
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  type
+
+Hint: The identifier `modArithType` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.
+error: Veir/IR/Attribute.lean:541:16: don't know how to synthesize implicit argument `α`
+  @Subtype ?m.2 fun attr => Attribute.isType attr = true
+context:
+⊢ Sort u_1
+error: Veir/IR/Attribute.lean:541:25: don't know how to synthesize implicit argument `Attribute`
+  @Attribute.isType ?m.2 attr
+context:
+attr : ?m.2
+⊢ Sort u_1
+error: Veir/IR/Attribute.lean:541:17: Failed to infer type of binder `attr`
+error: Veir/IR/Attribute.lean:542:9: Failed to delta derive `Repr` instance for `TypeAttr`.
+
+Note: Delta deriving tries the following strategies: (1) inserting the definition into each explicit non-out-param parameter of a class and (2) unfolding definitions further.
+error: Veir/IR/Attribute.lean:542:15: Failed to delta derive `Hashable` instance for `TypeAttr`.
+
+Note: Delta deriving tries the following strategies: (1) inserting the definition into each explicit non-out-param parameter of a class and (2) unfolding definitions further.
+warning: Veir/IR/Attribute.lean:542:25: declaration uses `sorry`
+warning: Veir/IR/Attribute.lean:544:0: declaration uses `sorry`
+warning: Veir/IR/Attribute.lean:547:0: declaration uses `sorry`
+error: Veir/IR/Attribute.lean:550:0: stuck at solving universe constraint
+  ?u.2 + 1 =?= max 1 ?u.3
+while trying to unify
+  Type ?u.2 : Type (?u.2 + 1)
+with
+  Sort (max 1 ?u.3) : Type (max 1 ?u.3)
+error: Veir/IR/Attribute.lean:556:50: Invalid field notation: Field projection operates on types of the form `C ...` where C is a constant. The expression
+  attr
+has type `Attribute` which does not have the necessary form.
+warning: Veir/IR/Attribute.lean:566:0: declaration uses `sorry`
+warning: Veir/IR/Attribute.lean:567:6: unused variable `type`
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+error: Veir/IR/Attribute.lean:569:0: instance does not provide concrete values for (semi-)out-params
+  Coe ?FunctionType TypeAttr
+warning: Veir/IR/Attribute.lean:569:0: declaration uses `sorry`
+warning: Veir/IR/Attribute.lean:572:0: declaration uses `sorry`
+warning: Veir/IR/Attribute.lean:573:6: unused variable `type`
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Veir/IR/Attribute.lean:575:0: declaration uses `sorry`
+warning: Veir/IR/Attribute.lean:576:6: unused variable `type`
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+error: Lean exited with code 1
+Some required targets logged failures:
+- Veir.IR.Attribute

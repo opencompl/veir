@@ -107,6 +107,19 @@ structure ModArithType where
   modulusType : Option IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-!
+  # cuda-tile types go here
+-/
+
+/--
+  An elemental pointer type represents a single location in global device memory.
+  Pointers are typed, i.e., they carry the type they point to.
+-/
+
+structure PointerType where
+  pointeeType : IntegerType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 mutual
 
 /--
@@ -140,6 +153,7 @@ structure DictionaryAttr where
   /- TODO: figure out how to maintain a proof of sorted-ness and uniqueness. -/
 deriving Inhabited, Repr, Hashable
 
+
 /--
   A data structure that represents compile-time information in the IR.
   Attributes are used either as type annotations for SSA values, or
@@ -170,6 +184,8 @@ inductive Attribute
 | unregisteredAttr (attr : UnregisteredAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
+/-- cuda-tile pointer type -/
+| pointerType (type : PointerType)
 deriving Inhabited, Repr, Hashable
 
 end
@@ -295,6 +311,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case pointerType.pointerType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case denseArrayAttr.denseArrayAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -357,6 +377,9 @@ instance : ToString ModArithType where
     (match type.modulusType with
     | some modulusType => s!" : {modulusType}"
     | none => "") ++ ">"
+
+instance : ToString PointerType where
+  toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"
 
 mutual
 
@@ -424,6 +447,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .unregisteredAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
+  | .pointerType type => ToString.toString type
 termination_by sizeOf attr
 
 end
@@ -475,6 +499,9 @@ instance : Coe FunctionType Attribute where
 instance : Coe ModArithType Attribute where
   coe type := .modArithType type
 
+instance : Coe PointerType Attribute where
+  coe type := .pointerType type
+
 /-!
   ## TypeAttr definition
 
@@ -502,6 +529,7 @@ def isType (attr : Attribute) : Bool :=
   | .modArithType _ => true
   | .registerType _ => true
   | .registerAttr _ => true
+  | .pointerType _ => true
 
 @[simp, grind =]
 theorem isType_integerType type : (integerType type).isType = true := by rfl
@@ -512,6 +540,8 @@ theorem isType_unregistered unregistered :
 theorem isType_functionType type : (functionType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_pointerType type : (pointerType type).isType = true := by rfl
 
 end Attribute
 
@@ -555,6 +585,9 @@ instance : Coe ModArithType TypeAttr where
 
 instance : Coe RegisterType TypeAttr where
   coe type := ⟨.registerType type, by rfl⟩
+
+instance : Coe PointerType TypeAttr where
+  coe type := ⟨.pointerType type, by rfl⟩
 
 end
 end Veir
