@@ -15,8 +15,8 @@ set_option warn.sorry false in
 def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchRISCVAdd op rewriter.ctx | return rewriter
-  let .opResult rhsOp := rhs | none
-  let some (cstOp, cst) := matchRISCVLi rhsOp.op rewriter.ctx | return rewriter
+  let some rhsOp := rhs.getDefiningOp! rewriter.ctx | return rewriter
+  let some (cstOp, cst) := matchRISCVLi rhsOp | return rewriter
   let c := cst.value.value.toNat
   let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
   rewriter.eraseOp op sorry sorry sorry
