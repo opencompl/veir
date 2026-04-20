@@ -87,7 +87,6 @@ appropriate for both signed and unsigned integers.
 If the `nuw` and/or `nsw` arguments are true, the result value of the add is a
 poison value if unsigned and/or signed overflow, respectively, occurs.
 -/
-@[simp_int]
 def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -118,7 +117,6 @@ appropriate for both signed and unsigned integers.
 If the `nuw` and/or `nsw` arguments are true, the result value of the sub is a
 poison value if unsigned and/or signed overflow, respectively, occurs.
 -/
-@[simp_int]
 def sub {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) :
     Int w := Id.run do
   let val x' := x | poison
@@ -148,7 +146,6 @@ the width of the full product.
 the `nuw` and/or `nsw` arguments are true, the result value of the mul is a poison
 value if unsigned and/or signed overflow, respectively, occurs.
 -/
-@[simp_int]
 def mul {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -173,7 +170,6 @@ divisor is zero, the operation has undefined behavior.
 If the `exact` argument is true, the result value of the udiv is a poison value
 if `x` is not a multiple of `y` (as such, “((a udiv exact b) mul b) == a”).
 -/
-@[simp_int]
 def udiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -203,7 +199,6 @@ undefined behavior; this is a rare case, but can occur, for example, by doing a
 If the `exact` argument is true, the result value of the sdiv is a poison value
 if the result would be rounded.
 -/
-@[simp_int]
 def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -230,7 +225,6 @@ operations; for signed integer remainder, use ‘srem’.
 Taking the remainder of a division by zero is undefined behavior. For vectors,
 if any element of the divisor is zero, the operation has undefined behavior.
 -/
-@[simp_int]
 def urem {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -259,7 +253,6 @@ for example, by taking the remainder of a 32-bit division of -2147483648 by -1.
 using instructions that return both the result of the division and the
 remainder.)
 -/
-@[simp_int]
 def srem {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -283,7 +276,6 @@ shifts out any non-zero bits. If the `nsw` keyword is present, then the shift
 produces a poison value if it shifts out any bits that disagree with the
 resultant sign bit.
 -/
-@[simp_int]
 def shl {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -312,7 +304,6 @@ vector element of `x` is shifted by the corresponding shift amount in `y`.
 If the `exact` argument is true, the result value of the lshr is a poison value
 if any of the bits shifted out are non-zero.
 -/
-@[simp_int]
 def lshr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -338,7 +329,6 @@ vector element of `x` is shifted by the corresponding shift amount in `y`.
 If the `exact` argument is true, the result value of the ashr is a poison value
 if any of the bits shifted out are non-zero.
 -/
-@[simp_int]
 def ashr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -351,7 +341,6 @@ def ashr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
 
   val (x'.sshiftRight' y')
 
-@[simp_int]
 def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   match x with
   | .val v => .val (v.cast h)
@@ -368,7 +357,6 @@ The truth table used for the ‘and’ instruction is:
     1   0   0
     1   1   1
 -/
-@[simp_int]
 def and {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -394,7 +382,6 @@ poison value if both inputs have a one in the same bit position. For vectors,
 any bit. If the `disjoint` argument is true, the result value of the or is a
 poison value if both inputs have a one in the same bit position. For vectors,
 -/
-@[simp_int]
 def or {w : Nat} (x y : Int w) (disjoint : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -417,7 +404,6 @@ The truth table used for the ‘xor’ instruction is:
       1   0   1
       1   1   0
 -/
-@[simp_int]
 def xor {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -433,7 +419,6 @@ result is a poison value. If the `nsw` keyword is present, and any of the
 truncated bits are not the same as the top bit of the truncation result, the
 result is a poison value.
 -/
-@[simp_int]
 def trunc {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (nsw : Bool := false) (nuw : Bool := false) (_h : w₁ > w₂) : Int w₂ := Id.run do
   let val v := x | poison
 
@@ -456,7 +441,6 @@ When `zero` extending from i1, the result will always be either 0 or 1.
 If the `nneg` flag is set, and the zext argument is negative, the result is a
 poison value.
 -/
-@[simp_int]
 def zext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (nneg : Bool := false) (_h : w₁ < w₂) : Int w₂ := Id.run do
   let val v := x | poison
 
@@ -473,7 +457,6 @@ The `sext` instruction performs a sign extension by copying the sign bit
 
 When sign extending from i1, the extension always results in -1 or 0.
 -/
-@[simp_int]
 def sext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (_h : w₁ < w₂) : Int w₂ := Id.run do
   let val v := x | poison
 
@@ -498,7 +481,6 @@ The possible condition codes (of type `IntPred`)are:
 
 The remaining two arguments must be integer. They must also be identical types.
 -/
-@[simp_int]
 def icmp {w : Nat} (x y : Int w) (p : IntPred) : Int 1 := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -507,7 +489,6 @@ def icmp {w : Nat} (x y : Int w) (p : IntPred) : Int 1 := Id.run do
 /--
  If the condition is an i1 and it evaluates to 1, the instruction returns the first value argument; otherwise, it returns the second value argument.
 -/
-@[simp_int]
 def select {w : Nat} (c : Int 1) (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison

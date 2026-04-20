@@ -1,5 +1,7 @@
 module
 
+import all Veir.Data.LLVM.Int.Tactic
+
 namespace Veir.Data.RISCV
 
 public section
@@ -24,6 +26,7 @@ instance : ToString Reg where
 /--
   Load a 64-wide immediate into the destination register rd
 -/
+@[simp_int]
 def li (imm : BitVec 64) : Reg :=
   ⟨imm⟩
 
