@@ -15,6 +15,6 @@ namespace Veir.Data.RISCV
 /--
   Prove the correctness of the `right_identity_zero_add` combine.
 -/
-theorem add_refinement:
+theorem right_identity_zero_add:
     (RISCV.add lhs (Data.RISCV.li (BitVec.ofInt 64 0))) = lhs := by
   simp [riscv_semantics]
