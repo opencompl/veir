@@ -1,11 +1,53 @@
 module
 
 import all Veir.Data.LLVM.Int.Basic
+import all Veir.Data.LLVM.Int.Tactic
 import Veir.ForLean
 
 open Veir.Data.LLVM
 
 namespace Veir.Data.LLVM.Int
+
+/- # BitVec -/
+
+@[simp_int]
+def ofInt (x : Int w) : BitVec w :=
+  match x with
+  | .val v => v
+  | .poison => 0#w
+
+@[simp_int]
+theorem inj_val (x y : Int w)
+    (hx : x = Int.val v) (hy : y = Int.val v') :
+    x = y ↔ v = v' := by
+  simp [hx, hy]
+
+@[simp_int]
+theorem ofInt_inj_val (x y : Int w)
+    (hx : x = Int.val v) (hy : y = Int.val v) :
+    ofInt x = ofInt y ↔ x = y := by
+  simp [hx, hy]
+
+@[simp_int]
+theorem ofInt_inj_poison (x y : Int w)
+    (hx : x = .poison) (hy : y = .poison) :
+    ofInt x = ofInt y ↔ x = y := by
+  simp [hx, hy]
+
+@[simp_int]
+theorem val_injEq {w : Nat} (v v' : BitVec w) :
+    (Int.val v = Int.val v') = (v = v') := by
+  simp
+
+@[simp_int]
+def casesOn'.{u}  {motive : Int w → Sort u}
+    (poison : motive Int.poison)
+    (value : (v : BitVec w) → motive (Int.val v))
+    : motive v? :=
+  match v? with
+  | .val a => value a
+  | .poison => poison
+
 
 /- # add -/
 

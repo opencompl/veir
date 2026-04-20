@@ -1,5 +1,7 @@
 module
 
+import all Veir.Data.LLVM.Int.Tactic
+
 namespace Veir.Data.LLVM
 
 public section
@@ -69,6 +71,7 @@ instance {w : Nat} : ToString (Int w) where
   We define the semantics of a `constant` operation.
   The result of this operation is never poison.
 -/
+@[simp_int]
 def constant (w : Nat) (v : _root_.Int) : Int w := val (BitVec.ofInt w v)
 
 /--
@@ -84,6 +87,7 @@ appropriate for both signed and unsigned integers.
 If the `nuw` and/or `nsw` arguments are true, the result value of the add is a
 poison value if unsigned and/or signed overflow, respectively, occurs.
 -/
+@[simp_int]
 def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison

@@ -1,6 +1,7 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.LLVM.Int.Tactic
 public import Veir.Data.RISCV.Reg.Basic
 
 public section
@@ -14,6 +15,7 @@ public section
 /--
   Cast `LLVM.Int` to `RISCV.Reg`.
 -/
+@[simp_int]
 def LLVM.Int.toReg (i : Veir.Data.LLVM.Int w) : Veir.Data.RISCV.Reg :=
   match i with
   | .poison => .mk 0#64
@@ -22,5 +24,6 @@ def LLVM.Int.toReg (i : Veir.Data.LLVM.Int w) : Veir.Data.RISCV.Reg :=
 /--
   Cast `RISCV.Reg` to `LLVM.Int`.
 -/
+@[simp_int]
 def RISCV.Reg.toInt (r : Veir.Data.RISCV.Reg) (w : Nat) : Veir.Data.LLVM.Int w :=
   Veir.Data.LLVM.Int.val (BitVec.zeroExtend w r.val)
