@@ -1,4 +1,5 @@
 import Veir.Data.RISCV.Reg.Basic
+import Veir.Data.RISCV.Reg.Tactic
 import Veir.Data.Casting
 import Veir.Data.Refinement
 import Std.Tactic.BVDecide
@@ -16,4 +17,4 @@ namespace Veir.Data.RISCV
 -/
 theorem add_refinement:
     (RISCV.add lhs (Data.RISCV.li (BitVec.ofInt 64 0))) = lhs := by
-  simp [Data.RISCV.add, Data.RISCV.li]
+  simp [riscv_semantics]
