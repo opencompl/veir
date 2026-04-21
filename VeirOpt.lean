@@ -26,7 +26,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert DCEPass.name DCEPass
     |>.insert CastReconcilePass.name CastReconcilePass
     |>.insert CastReconcilePass.name CastReconcilePass
-    |>.insert RISCVCombine.name RISCVCombine
+    |>.insert RISCV.Combine.name RISCV.Combine
 
 /--
   Arguments for the `veir-opt` command-line tool, parsed from the CLI.

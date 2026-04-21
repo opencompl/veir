@@ -1,8 +1,4 @@
 import Veir.Data.RISCV.Reg.Basic
-import Veir.Data.RISCV.Reg.Simp
-import Veir.Data.Casting
-import Veir.Data.Refinement
-import Std.Tactic.BVDecide
 
 /-!
   In this file we prove the correctness of the lowering patterns used in the
