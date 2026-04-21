@@ -1,8 +1,7 @@
 import Veir.Data.RISCV.Reg.Basic
 
 /-!
-  In this file we prove the correctness of the lowering patterns used in the
-  instruction selection rewrites.
+  In this file we prove the correctness of the RISCV combines.
 -/
 
 namespace Veir.Data.RISCV
