@@ -8,9 +8,11 @@ public section
 
 /--
 The `Reg` type is a `BitVec 64` representing the content of a register.
+We design the type following Lean's stle, e.g., with UInt/SInt types.
 -/
 structure Reg where
   val : BitVec 64
+deriving DecidableEq
 
 instance : ToString Reg where
   toString r := toString r.val
@@ -26,7 +28,6 @@ instance : ToString Reg where
 /--
   Load a 64-wide immediate into the destination register rd
 -/
-@[riscv_semantics]
 def li (imm : BitVec 64) : Reg :=
   ⟨imm⟩
 
@@ -131,7 +132,6 @@ def srai (shamt : BitVec 6) (rs1 : Reg) : Reg :=
   Adds the registers rs1 and rs2 and stores the result in rd. Arithmetic overflow is ignored and
   the result is simply the low 64 bits of the result.
 -/
-@[riscv_semantics]
 def add (rs2 : Reg) (rs1 : Reg) : Reg :=
   ⟨rs1.val + rs2.val⟩
 
