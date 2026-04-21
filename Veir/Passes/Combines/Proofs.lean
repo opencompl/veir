@@ -13,5 +13,4 @@ namespace Veir.Data.RISCV
 -/
 theorem right_identity_zero_add:
     (RISCV.add lhs (Data.RISCV.li (BitVec.ofInt 64 0))) = lhs := by
-  apply Reg.val.inj
   simp [reg_toBitVec]

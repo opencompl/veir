@@ -12,7 +12,7 @@ theorem Reg.val.inj : {x y : Reg} → x.val = y.val → x = y
 
 @[reg_toBitVec]
 theorem val_inj (r1 r2 : Reg) :
-    r1.val = r2.val ↔ r1 = r2 := ⟨Reg.val.inj, (· ▸ rfl)⟩
+    r1 = r2 ↔ r1.val = r2.val := ⟨(· ▸ rfl), Reg.val.inj⟩
 
 @[reg_toBitVec]
 theorem val_li : (li imm).val = imm := (rfl)
