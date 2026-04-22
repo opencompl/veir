@@ -328,10 +328,10 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .func .return => do
     return (#[], some (.return operands))
   | .cf .br => do
-    let #[dest] := blockOperands | none
+    let [dest] := blockOperands.toList | none
     return (#[], some (.branch operands dest))
   | .cf .cond_br => do
-    let #[destTrue, destFalse] := blockOperands | none
+    let [destTrue, destFalse] := blockOperands.toList | none
     let some (RuntimeValue.int 1 (.val cond)) := operands[0]? | none
     let some trueSize := properties.operandSegmentSizes.values[1]? | none
     let trueSize := trueSize.toNat
