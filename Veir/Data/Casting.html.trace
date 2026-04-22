@@ -1,0 +1,19 @@
+{"synthetic": false,
+ "schemaVersion": "2025-09-10",
+ "outputs": null,
+ "log":
+ [{"message":
+   ".> ELAN=elan ELAN_HOME=/home/runner/.elan ELAN_TOOLCHAIN=leanprover/lean4-nightly:nightly-2026-04-22 LAKE=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-22/bin/lake LAKE_HOME=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-22 LAKE_CONFIG=/home/runner/.lake/config.toml LAKE_PKG_URL_MAP={} LAKE_NO_CACHE=false LAKE_CACHE_KEY= LAKE_CACHE_ARTIFACT_ENDPOINT= LAKE_CACHE_REVISION_ENDPOINT= LAKE_CACHE_SERVICE= LEAN=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-22/bin/lean LEAN_SYSROOT=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-22 LEAN_AR=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-22/bin/llvm-ar LEAN_CC= LAKE_CACHE_DIR=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-22/lake/cache LAKE_ARTIFACT_CACHE= LEAN_PATH=/home/runner/work/veir/veir/.lake/packages/MD4Lean/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/BibtexQuery/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/Cli/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/lib/lean:/home/runner/work/veir/veir/docbuild/.lake/build/lib/lean:/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-22/lib/lean LEAN_SRC_PATH=/home/runner/work/veir/veir/.lake/packages/MD4Lean:/home/runner/work/veir/veir/.lake/packages/MD4Lean:/home/runner/work/veir/veir/.lake/packages/BibtexQuery:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic:/home/runner/work/veir/veir/.lake/packages/Cli:/home/runner/work/veir/veir/.lake/packages/Cli:/home/runner/work/veir/veir:/home/runner/work/veir/veir:/home/runner/work/veir/veir/.lake/packages/doc-gen4:/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-22/src/lean/lake LEAN_GITHASH=b6f5892e2247b3ca3c9a535e286f26121656d10f PATH LD_LIBRARY_PATH=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-22/lib/lean:/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-04-22/lib:/home/runner/work/veir/veir/docbuild/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/lib:/home/runner/work/veir/veir/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/Cli/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/BibtexQuery/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/MD4Lean/.lake/build/lib /home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/bin/doc-gen4 single --build /home/runner/work/veir/veir/docbuild/.lake/build Veir.Data.Casting https://github.com/opencompl/veir/blob/c99f543d9275d685c49ff6202537d98d1755484e/Veir/Data/Casting.lean",
+   "level": "trace"}],
+ "inputs":
+ [["<collection>",
+   [["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Data/LLVM/Int/Basic.html",
+     "794719dd26b16058"],
+    ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Data/RISCV/Reg/Basic.html",
+     "5cd62541018b3d7b"]]],
+  ["/home/runner/work/veir/veir/docbuild/.lake/build/doc-data/references.json",
+   "16fb262bc340d332"],
+  ["/home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/bin/doc-gen4",
+   "23871809b271a4d9"],
+  ["Veir.Data.Casting:leanArts", "c807a96be4039dbf"]],
+ "depHash": "a788bc73fa0f86f5"}
