@@ -150,4 +150,10 @@ example (x y : Int 64) :
   cases x <;> cases y
   <;> bv_decide
 
+example (x : Int 64) :
+    x.add (val 0#64) = x := by
+  simp [llvm_toBitVec]
+  cases x
+  <;> bv_decide
+
 end Int
