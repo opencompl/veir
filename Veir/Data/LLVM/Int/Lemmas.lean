@@ -12,7 +12,7 @@ namespace Veir.Data.LLVM.Int
 structure IntBv (w : Nat) where
   toBitVec : BitVec w
   poison : Bool
-deriving Inhabited, Repr
+deriving Inhabited, Repr, DecidableEq
 
 /-- An `LLVM.Int w` is converted into a structure `IntBv`, where
   the `poison` field indicates whether the `Int` is poison. -/
@@ -23,15 +23,19 @@ def toIntBv (x : Int w) : IntBv w :=
 
 attribute [bv_normalize] IntBv.ext_iff
 
-@[simp]
+@[llvm_toBitVec]
 theorem toIntBv_poison :
     poison.toIntBv = ⟨0#w, true⟩ := by
   simp [toIntBv]
 
-@[simp]
+
+@[llvm_toBitVec]
 theorem toIntBv_val :
     (val v).toIntBv = ⟨v, false⟩ := by
   simp [toIntBv]
+
+attribute [bv_normalize] toIntBv_poison
+attribute [bv_normalize] toIntBv_val
 
 theorem BitVec.ne_iff_exists {x y : BitVec w} :
     x ≠ y ↔ ∃ i, x.getLsbD i ≠ y.getLsbD i := by
@@ -143,6 +147,12 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
 theorem right_identity_zero_add':
     (Veir.Data.LLVM.Int.add lhs (Veir.Data.LLVM.Int.constant 64 0)) = lhs := by
   simp [llvm_toBitVec]
-  cases lhs <;> simp
+  rcases lhs <;> bv_decide
+
+example (x y : Int 64) :
+    x.add y = y.add x := by
+  simp [llvm_toBitVec]
+  rcases x <;> rcases y
+  <;> bv_decide
 
 end Int
