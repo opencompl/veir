@@ -130,7 +130,4 @@ example (x : Int 64) :
     x.add (val 0#64) = x := by
   simp [llvm_toBitVec]
 
-  generalize x.toIntBv = z
-  bv_decide
-
 end Int
