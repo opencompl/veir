@@ -61,8 +61,11 @@ theorem toBitVec_zero_of_poison (x : IntBv w) :
   obtain ⟨bv, poison, h⟩ := x
   exact h
 
+theorem ext (l r : IntBv w) (h : l.toBitVec = r.toBitVec ∧ l.poison = r.poison) :
+    l = r := by
+  exact IntBv.ext_iff.mpr h
+
 /- We enable `bv_decide` to normalize `toIntBv` for values and poison. -/
-attribute [bv_normalize] IntBv.ext_iff
 attribute [bv_normalize] toIntBv_poison
 attribute [bv_normalize] toIntBv_val
 attribute [bv_normalize] toBitVec_zero_of_poison
@@ -81,5 +84,17 @@ theorem toIntBv_add {w : Nat} (x y : Int w) :
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec]
 
+example (x y : Int 64) :
+    (x.add y) = (y.add x) := by
+  simp [llvm_toBitVec]
+  apply ext
+  bv_decide
+
+example (x : Int 64) :
+    x.add (val 0#64) = x := by
+  simp [llvm_toBitVec]
+  generalize x.toIntBv = x'
+  apply ext
+  bv_decide
 
 end Int
