@@ -5,7 +5,7 @@ public import Lean
 register_simp_attr llvm_toBitVec
 
 open Lean Elab Tactic Meta Term
-/-- Cases on every local hypothesis of a given type, then calls simp. -/
+/-- Cases on every local hypothesis of a given type, then call `bv_decide` on all goals. -/
 elab "cases_bv_decide" t:term : tactic => do
   let targetTy ← elabType t
   let ctx ← getLCtx
