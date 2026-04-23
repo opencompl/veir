@@ -1,5 +1,4 @@
 import Veir.Data.RISCV.Reg.Basic
-import Veir.Data.LLVM.Int.Basic
 import Veir.Data.RISCV.Reg.Lemmas
 
 /-!
@@ -7,7 +6,6 @@ import Veir.Data.RISCV.Reg.Lemmas
 -/
 
 namespace Veir.Data.RISCV
-namespace Veir.Data.LLVM
 
 
 /--
