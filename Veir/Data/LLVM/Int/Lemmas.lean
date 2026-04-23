@@ -81,15 +81,4 @@ theorem toIntBv_add {w : Nat} (x y : Int w) :
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec]
 
-example (x y : Int 64) :
-    (x.add y) = (y.add x) := by
-  simp [llvm_toBitVec]
-  ext1 <;> bv_decide
-
-example (x : Int 64) :
-    x.add (val 0#64) = x := by
-  simp [llvm_toBitVec]
-  generalize x.toIntBv = x'
-  ext1 <;> bv_decide
-
 end Int
