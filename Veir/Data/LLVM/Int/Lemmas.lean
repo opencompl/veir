@@ -147,12 +147,13 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
 theorem right_identity_zero_add':
     (Veir.Data.LLVM.Int.add lhs (Veir.Data.LLVM.Int.constant 64 0)) = lhs := by
   simp [llvm_toBitVec]
-  rcases lhs <;> bv_decide
+
+  cases lhs <;> bv_decide
 
 example (x y : Int 64) :
     x.add y = y.add x := by
   simp [llvm_toBitVec]
-  rcases x <;> rcases y
+  cases x <;> cases y
   <;> bv_decide
 
 end Int
