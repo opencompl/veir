@@ -144,12 +144,6 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
   cases x <;> cases y <;>
   simp [BitVec.mul_comm, BitVec.smulOverflow_comm, BitVec.umulOverflow_comm]
 
-theorem right_identity_zero_add':
-    (Veir.Data.LLVM.Int.add lhs (Veir.Data.LLVM.Int.constant 64 0)) = lhs := by
-  simp [llvm_toBitVec]
-
-  cases lhs <;> bv_decide
-
 example (x y : Int 64) :
     x.add y = y.add x := by
   simp [llvm_toBitVec]
