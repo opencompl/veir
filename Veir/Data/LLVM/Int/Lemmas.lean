@@ -147,13 +147,12 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
 example (x y : Int 64) :
     x.add y = y.add x := by
   simp [llvm_toBitVec]
-  cases x <;> cases y
-  <;> bv_decide
+  cases_bv_decide (Int _)
+
 
 example (x : Int 64) :
     x.add (val 0#64) = x := by
   simp [llvm_toBitVec]
-  cases x
-  <;> bv_decide
+  cases_bv_decide (Int _)
 
 end Int
