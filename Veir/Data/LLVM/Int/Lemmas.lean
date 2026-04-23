@@ -75,7 +75,8 @@ theorem int_inj (i1 i2 : Int w) :
 
 theorem toBitVec_zero_of_poison (x : IntBv w) :
     x.poison = true → x.toBitVec = 0#w := by
-  sorry
+  obtain ⟨bv, poison, h⟩ := x
+  exact h
 
 attribute [bv_normalize] toBitVec_zero_of_poison
 
