@@ -9,6 +9,12 @@ open Veir.Data.LLVM
 
 namespace Veir.Data.LLVM.Int
 
+/--
+  We define a bitblastable structure `IntBv`, where the `toBitVec` fields contains a bitvector,
+  the `poison` field indicates whether the value is poison,
+  and `inv` preserves a proof that if the value is poison its corresponding bitvector
+  value is `0#w`.
+-/
 @[ext]
 structure IntBv (w : Nat) where
   toBitVec : BitVec w
@@ -23,42 +29,9 @@ def toIntBv (x : Int w) : IntBv w :=
   | .val v => ⟨v, false, by simp⟩
   | .poison => ⟨0#w, true, by simp⟩
 
-attribute [bv_normalize] IntBv.ext_iff
-
-@[llvm_toBitVec]
-theorem toIntBv_poison :
-    poison.toIntBv = ⟨0#w, true, by simp⟩ := by
-  simp [toIntBv]
-
-@[llvm_toBitVec]
-theorem toIntBv_val :
-    (val v).toIntBv = ⟨v, false, by simp⟩ := by
-  simp [toIntBv]
-
-
-attribute [bv_normalize] toIntBv_poison
-attribute [bv_normalize] toIntBv_val
-
-theorem BitVec.ne_iff_exists {x y : BitVec w} :
-    x ≠ y ↔ ∃ i, x.getLsbD i ≠ y.getLsbD i := by
-  constructor
-  · intro h
-    refine Nat.exists_testBit_ne_of_ne ?_
-    simp [← BitVec.toNat_inj] at h
-    simp [h]
-  · intro h
-    obtain ⟨i, hi⟩ := h
-    simp
-    exact Ne.symm fun a => hi (congrFun (congrArg BitVec.getLsbD (id (Eq.symm a))) i)
-
-theorem BitVec.append_eq_iff {x y : BitVec w} {z : BitVec v} :
-    x ++ z = y ++ z ↔ x = y := by
-  constructor
-  · intro h
-    exact (BitVec.append_left_inj z).mp h
-  · intro h
-    exact (BitVec.append_left_inj z).mpr h
-
+/--
+  We prove the injectivity of `toIntBv`.
+-/
 theorem Int.toIntBv.inj {w : Nat} : ∀ {x y : Int w}, x.toIntBv = y.toIntBv → x = y
   | .val v,  .val v',  h => by
     simp only [toIntBv, IntBv.mk.injEq, and_true] at h
@@ -73,14 +46,26 @@ theorem Int.toIntBv.inj {w : Nat} : ∀ {x y : Int w}, x.toIntBv = y.toIntBv →
 theorem int_inj (i1 i2 : Int w) :
     i1 = i2 ↔ i1.toIntBv = i2.toIntBv := ⟨(· ▸ rfl), Int.toIntBv.inj⟩
 
+@[llvm_toBitVec]
+theorem toIntBv_poison :
+    poison.toIntBv = ⟨0#w, true, by simp⟩ := by
+  simp [toIntBv]
+
+@[llvm_toBitVec]
+theorem toIntBv_val :
+    (val v).toIntBv = ⟨v, false, by simp⟩ := by
+  simp [toIntBv]
+
 theorem toBitVec_zero_of_poison (x : IntBv w) :
     x.poison = true → x.toBitVec = 0#w := by
   obtain ⟨bv, poison, h⟩ := x
   exact h
 
+/- We enable `bv_decide` to normalize `toIntBv` for values and poison. -/
+attribute [bv_normalize] IntBv.ext_iff
+attribute [bv_normalize] toIntBv_poison
+attribute [bv_normalize] toIntBv_val
 attribute [bv_normalize] toBitVec_zero_of_poison
-
-/- # add -/
 
 @[llvm_toBitVec]
 theorem toIntBv_constant {w : Nat} (v : _root_.Int) :
@@ -105,7 +90,6 @@ example (x : Int 64) :
     x.add (val 0#64) = x := by
   simp [llvm_toBitVec]
   generalize x.toIntBv = x'
-  have := toBitVec_zero_of_poison (x := x')
   ext1 <;> bv_decide
 
 end Int
