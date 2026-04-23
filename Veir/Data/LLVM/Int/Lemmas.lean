@@ -61,9 +61,38 @@ theorem toBitVec_zero_of_poison (x : IntBv w) :
   obtain ⟨bv, poison, h⟩ := x
   exact h
 
+@[bv_normalize]
+theorem eq_iff {w : Nat} {l r : IntBv w} :
+    l = r ↔ l.toBitVec = r.toBitVec ∧ l.poison = r.poison :=
+  IntBv.ext_iff
+
+@[bv_normalize]
+theorem toBitVec_ite {w} (b : Prop) [Decidable b] (x y : IntBv w) :
+    (if b then x else y).toBitVec = if b then x.toBitVec else y.toBitVec := by
+  split <;> rfl
+
+@[bv_normalize]
+theorem IntBv.poison_ite {w} (b : Prop) [Decidable b] (x y : IntBv w) :
+    (if b then x else y).poison = if b then x.poison else y.poison := by
+  split <;> rfl
+
+@[bv_normalize]
+theorem poison_toBitVec_constraint {w : Nat} (x : IntBv w) :
+    x.poison = true → x.toBitVec = 0#w := x.inv
+
 theorem ext (l r : IntBv w) (h : l.toBitVec = r.toBitVec ∧ l.poison = r.poison) :
     l = r := by
   exact IntBv.ext_iff.mpr h
+
+@[bv_normalize]
+theorem IntBv.toBitVec_bif {w} (b : Bool) (x y : IntBv w) :
+    (bif b then x else y).toBitVec = bif b then x.toBitVec else y.toBitVec := by
+  cases b <;> rfl
+
+@[bv_normalize]
+theorem IntBv.poison_bif {w} (b : Bool) (x y : IntBv w) :
+    (bif b then x else y).poison = bif b then x.poison else y.poison := by
+  cases b <;> rfl
 
 /- We enable `bv_decide` to normalize `toIntBv` for values and poison. -/
 attribute [bv_normalize] toIntBv_poison
@@ -87,14 +116,12 @@ theorem toIntBv_add {w : Nat} (x y : Int w) :
 example (x y : Int 64) :
     (x.add y) = (y.add x) := by
   simp [llvm_toBitVec]
-  apply ext
   bv_decide
 
 example (x : Int 64) :
     x.add (val 0#64) = x := by
   simp [llvm_toBitVec]
-  generalize x.toIntBv = x'
-  apply ext
+  generalize x.toIntBv = x
   bv_decide
 
 end Int
