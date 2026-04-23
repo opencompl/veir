@@ -149,7 +149,6 @@ example (x y : Int 64) :
   simp [llvm_toBitVec]
   cases_bv_decide (Int _)
 
-
 example (x : Int 64) :
     x.add (val 0#64) = x := by
   simp [llvm_toBitVec]
