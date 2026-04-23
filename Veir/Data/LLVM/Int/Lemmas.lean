@@ -116,11 +116,11 @@ theorem add_comm {w : Nat} (x y : Int w) : add x y = add y x := by
 
 /- # mul -/
 
-@[simp, grind =, llvm_toBitVec]
+@[simp, grind =]
 theorem poison_mul {w : Nat} (x : Int w) : mul poison x = poison := by
   simp only [mul, Id.run]
 
-@[simp, grind =, llvm_toBitVec]
+@[simp, grind =]
 theorem mul_poison {w : Nat} (x : Int w) : mul x poison = poison := by
   simp only [mul, Id.run]
   grind
