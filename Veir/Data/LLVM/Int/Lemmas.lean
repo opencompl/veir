@@ -12,7 +12,7 @@ namespace Veir.Data.LLVM.Int
 structure IntBv (w : Nat) where
   toBitVec : BitVec w
   poison : Bool
-deriving DecidableEq
+deriving Inhabited, Repr
 
 /-- An `LLVM.Int w` is converted into a structure `IntBv`, where
   the `poison` field indicates whether the `Int` is poison. -/
@@ -20,6 +20,8 @@ def toIntBv (x : Int w) : IntBv w :=
   match x with
   | .val v => ⟨v, false⟩
   | .poison => ⟨0#w, true⟩
+
+attribute [bv_normalize] IntBv.ext_iff
 
 @[simp]
 theorem toIntBv_poison :
