@@ -12,37 +12,28 @@ namespace Veir.Data.LLVM.Int
 @[ext]
 structure IntBv (w : Nat) where
   toBitVec : BitVec w
-  poison : BitVec 1
-deriving Inhabited, Repr, DecidableEq
+  poison : Bool
+  inv : poison → (toBitVec = 0#w) := by simp
+deriving DecidableEq
 
 /-- An `LLVM.Int w` is converted into a structure `IntBv`, where
   the `poison` field indicates whether the `Int` is poison. -/
 def toIntBv (x : Int w) : IntBv w :=
-  match x with
-  | .val v => ⟨v, 0#1⟩
-  | .poison => ⟨0#w, 1#1⟩
+  match h : x with
+  | .val v => ⟨v, false, by simp⟩
+  | .poison => ⟨0#w, true, by simp⟩
 
 attribute [bv_normalize] IntBv.ext_iff
 
-#check IntBv.ext_iff
-
 @[llvm_toBitVec]
 theorem toIntBv_poison :
-    poison.toIntBv = ⟨0#w, 1#1⟩ := by
+    poison.toIntBv = ⟨0#w, true, by simp⟩ := by
   simp [toIntBv]
 
 @[llvm_toBitVec]
 theorem toIntBv_val :
-    (val v).toIntBv = ⟨v, 0#1⟩ := by
+    (val v).toIntBv = ⟨v, false, by simp⟩ := by
   simp [toIntBv]
-
-@[llvm_toBitVec]
-theorem test {x : Int w} {motive : Int w → Sort u}
-    (v : (a : BitVec w) → motive (val a)) (p : motive poison) :
-    x.casesOn (motive := motive) v p =
-      if x.toIntBv.poison = 0#1 then (show x = val (x.toIntBv.toBitVec) by sorry)▸(v (x.toIntBv.toBitVec)) else
-        (show x = poison by sorry)▸p := by
-  sorry
 
 
 attribute [bv_normalize] toIntBv_poison
@@ -83,7 +74,7 @@ theorem int_inj (i1 i2 : Int w) :
     i1 = i2 ↔ i1.toIntBv = i2.toIntBv := ⟨(· ▸ rfl), Int.toIntBv.inj⟩
 
 theorem toBitVec_zero_of_poison (x : IntBv w) :
-    x.poison = 1#1 → x.toBitVec = 0#w := by
+    x.poison = true → x.toBitVec = 0#w := by
   sorry
 
 attribute [bv_normalize] toBitVec_zero_of_poison
@@ -91,75 +82,18 @@ attribute [bv_normalize] toBitVec_zero_of_poison
 /- # add -/
 
 @[llvm_toBitVec]
-theorem constant_val {w : Nat} (v : _root_.Int) :
-    (constant w v).toIntBv = ⟨BitVec.ofInt w v, 0#1⟩ := by
+theorem toIntBv_constant {w : Nat} (v : _root_.Int) :
+    (constant w v).toIntBv = ⟨BitVec.ofInt w v, false, by simp⟩ := by
   simp [constant, toIntBv]
 
-theorem poison_of_forall (h : ∀ (y' : BitVec w), y = val y' → False) :
-    y = poison := by
-  rcases y
-  · case _ v =>
-    specialize h v
-    simp at h
-  · rfl
-
-@[grind =, llvm_toBitVec]
-theorem poison_add {w : Nat} (x : Int w) : add poison x = poison := by
-  simp only [add, Id.run]
-
-@[grind =, llvm_toBitVec]
-theorem add_poison {w : Nat} (x : Int w) : add x poison = poison := by
-  simp only [add, Id.run]
-  grind
-
 @[llvm_toBitVec]
-theorem add_val {w : Nat} {v v' : BitVec w} : add (val v) (val v') = val (v + v') := by
-  simp only [add, Id.run]
-  grind
-
-@[llvm_toBitVec]
-theorem add_int {w : Nat} (x y : Int w) :
+theorem toIntBv_add {w : Nat} (x y : Int w) :
     (add x y).toIntBv =
-      if (x.toIntBv.poison ||| y.toIntBv.poison) = 1#1 then ⟨0#w, 1#1⟩
-        else ⟨x.toIntBv.toBitVec + y.toIntBv.toBitVec, 0#1⟩ := by
+      if (x.toIntBv.poison ∨ y.toIntBv.poison) = true then ⟨0#w, true, by simp⟩
+        else ⟨x.toIntBv.toBitVec + y.toIntBv.toBitVec, false, by simp⟩ := by
   simp [add, llvm_toBitVec, Id.run]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec]
-
-@[grind =]
-theorem add_assoc {w : Nat} (x y z : Int w) :
-    add (add x y) z = add x (add y z) := by
-  simp only [add, Id.run]
-  cases x <;> cases y <;> cases z <;> simp [BitVec.add_assoc]
-
-@[grind =]
-theorem add_comm {w : Nat} (x y : Int w) : add x y = add y x := by
-  simp only [add]
-  cases x <;> cases y <;> simp [BitVec.add_comm]
-
-/- # mul -/
-
-@[simp, grind =]
-theorem poison_mul {w : Nat} (x : Int w) : mul poison x = poison := by
-  simp only [mul, Id.run]
-
-@[simp, grind =]
-theorem mul_poison {w : Nat} (x : Int w) : mul x poison = poison := by
-  simp only [mul, Id.run]
-  grind
-
-@[grind =]
-theorem mul_assoc {w : Nat} (x y z : Int w) :
-    mul x (mul y z) = mul (mul x y) z := by
-  simp only [HMul.hMul, Mul.mul, mul, Id.run]
-  cases x <;> cases y <;> cases z <;> simp [BitVec.mul_assoc]
-
-@[grind =]
-theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
-    mul x y nsw nuw = mul y x nsw nuw := by
-  simp only [Id.run, Veir.Data.LLVM.Int.mul]
-  cases x <;> cases y <;>
-  simp [BitVec.mul_comm, BitVec.smulOverflow_comm, BitVec.umulOverflow_comm]
 
 example (x y : Int 64) :
     (x.add y) = (y.add x) := by
