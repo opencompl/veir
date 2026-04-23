@@ -3,3 +3,23 @@ module
 public import Lean
 
 register_simp_attr llvm_toBitVec
+
+open Lean Elab Tactic Meta
+/-- Cases on every local hypothesis of a given type, then calls simp. -/
+elab "cases_bv_decide" t:term : tactic => do
+  let targetTy ← liftTermElabM (Lean.Elab.Term.elabType t)
+  let ctx ← getLCtx
+  -- Collect all hypotheses whose type is definitionally equal to `targetTy`
+  let hyps := ctx.decls.toList.filterMap (·)
+               |>.filter fun decl =>
+                  !decl.isImplementationDetail &&
+                  !decl.isLet
+  for decl in hyps do
+    let declTy ← instantiateMVars decl.type
+    if ← isDefEq declTy targetTy then
+      -- Re-check goal hasn't been closed by a prior `cases`
+      let goals ← getGoals
+      if goals.isEmpty then break
+      setGoals goals
+      evalTactic (← `(tactic| cases $(mkIdent decl.userName)))
+  evalTactic (← `(tactic| bv_decide))
