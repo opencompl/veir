@@ -1,5 +1,6 @@
 module
 
+public meta import Std.Tactic.BVDecide.Reflect
 import all Veir.Data.LLVM.Int.Basic
 import Veir.ForLean
 import Veir.Data.LLVM.Int.Simp
@@ -11,28 +12,38 @@ namespace Veir.Data.LLVM.Int
 @[ext]
 structure IntBv (w : Nat) where
   toBitVec : BitVec w
-  poison : Bool
+  poison : BitVec 1
 deriving Inhabited, Repr, DecidableEq
 
 /-- An `LLVM.Int w` is converted into a structure `IntBv`, where
   the `poison` field indicates whether the `Int` is poison. -/
 def toIntBv (x : Int w) : IntBv w :=
   match x with
-  | .val v => ⟨v, false⟩
-  | .poison => ⟨0#w, true⟩
+  | .val v => ⟨v, 0#1⟩
+  | .poison => ⟨0#w, 1#1⟩
 
 attribute [bv_normalize] IntBv.ext_iff
 
+#check IntBv.ext_iff
+
 @[llvm_toBitVec]
 theorem toIntBv_poison :
-    poison.toIntBv = ⟨0#w, true⟩ := by
+    poison.toIntBv = ⟨0#w, 1#1⟩ := by
   simp [toIntBv]
-
 
 @[llvm_toBitVec]
 theorem toIntBv_val :
-    (val v).toIntBv = ⟨v, false⟩ := by
+    (val v).toIntBv = ⟨v, 0#1⟩ := by
   simp [toIntBv]
+
+@[llvm_toBitVec]
+theorem test {x : Int w} {motive : Int w → Sort u}
+    (v : (a : BitVec w) → motive (val a)) (p : motive poison) :
+    x.casesOn (motive := motive) v p =
+      if x.toIntBv.poison = 0#1 then (show x = val (x.toIntBv.toBitVec) by sorry)▸(v (x.toIntBv.toBitVec)) else
+        (show x = poison by sorry)▸p := by
+  sorry
+
 
 attribute [bv_normalize] toIntBv_poison
 attribute [bv_normalize] toIntBv_val
@@ -71,11 +82,17 @@ theorem Int.toIntBv.inj {w : Nat} : ∀ {x y : Int w}, x.toIntBv = y.toIntBv →
 theorem int_inj (i1 i2 : Int w) :
     i1 = i2 ↔ i1.toIntBv = i2.toIntBv := ⟨(· ▸ rfl), Int.toIntBv.inj⟩
 
+theorem toBitVec_zero_of_poison (x : IntBv w) :
+    x.poison = 1#1 → x.toBitVec = 0#w := by
+  sorry
+
+attribute [bv_normalize] toBitVec_zero_of_poison
+
 /- # add -/
 
 @[llvm_toBitVec]
 theorem constant_val {w : Nat} (v : _root_.Int) :
-    (constant w v).toIntBv = ⟨BitVec.ofInt w v, false⟩ := by
+    (constant w v).toIntBv = ⟨BitVec.ofInt w v, 0#1⟩ := by
   simp [constant, toIntBv]
 
 theorem poison_of_forall (h : ∀ (y' : BitVec w), y = val y' → False) :
@@ -103,8 +120,8 @@ theorem add_val {w : Nat} {v v' : BitVec w} : add (val v) (val v') = val (v + v'
 @[llvm_toBitVec]
 theorem add_int {w : Nat} (x y : Int w) :
     (add x y).toIntBv =
-      if x.toIntBv.poison ∨ y.toIntBv.poison then ⟨0#w, true⟩
-        else ⟨x.toIntBv.toBitVec + y.toIntBv.toBitVec, false⟩ := by
+      if (x.toIntBv.poison ||| y.toIntBv.poison) = 1#1 then ⟨0#w, 1#1⟩
+        else ⟨x.toIntBv.toBitVec + y.toIntBv.toBitVec, 0#1⟩ := by
   simp [add, llvm_toBitVec, Id.run]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec]
@@ -145,13 +162,15 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
   simp [BitVec.mul_comm, BitVec.smulOverflow_comm, BitVec.umulOverflow_comm]
 
 example (x y : Int 64) :
-    x.add y = y.add x := by
+    (x.add y) = (y.add x) := by
   simp [llvm_toBitVec]
-  cases_bv_decide (Int _)
+  ext1 <;> bv_decide
 
 example (x : Int 64) :
     x.add (val 0#64) = x := by
   simp [llvm_toBitVec]
-  cases_bv_decide (Int _)
+  generalize x.toIntBv = x'
+  have := toBitVec_zero_of_poison (x := x')
+  ext1 <;> bv_decide
 
 end Int
