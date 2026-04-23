@@ -72,9 +72,17 @@ theorem toBitVec_ite {w} (b : Prop) [Decidable b] (x y : IntBv w) :
   split <;> rfl
 
 @[bv_normalize]
-theorem IntBv.poison_ite {w} (b : Prop) [Decidable b] (x y : IntBv w) :
+theorem poison_ite {w} (b : Prop) [Decidable b] (x y : IntBv w) :
     (if b then x else y).poison = if b then x.poison else y.poison := by
   split <;> rfl
+
+@[llvm_toBitVec]
+theorem ite_poison_eq (x : Int w) :
+  ((if x.toIntBv.poison = true then
+    {toBitVec := 0#w, poison := true, inv := by simp}
+  else { toBitVec := x.toIntBv.toBitVec, poison := false, inv := by simp }) : IntBv w )=
+    x.toIntBv := by
+  rcases x <;> simp [llvm_toBitVec]
 
 @[bv_normalize]
 theorem poison_toBitVec_constraint {w : Nat} (x : IntBv w) :
@@ -121,7 +129,8 @@ example (x y : Int 64) :
 example (x : Int 64) :
     x.add (val 0#64) = x := by
   simp [llvm_toBitVec]
-  generalize x.toIntBv = x
+
+  generalize x.toIntBv = z
   bv_decide
 
 end Int
