@@ -1,3 +1,0 @@
-[submodule "Extern/cuda-tile"]
-	path = Extern/cuda-tile
-	url = git@github.com:NVIDIA/cuda-tile.git
