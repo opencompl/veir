@@ -28,7 +28,11 @@
   %21 = "llvm.trunc"(%5) : (i32) -> i1
   %22 = "llvm.sext"(%6) : (i1) -> i32
   %23 = "llvm.zext"(%6) : (i1) -> i32
-  "llvm.return"(%23) : (i32) -> ()
+  "llvm.cond_br"(%6, %5, %5) [^7, ^7] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
+^7(%arg6_0 : i32):
+  "llvm.br"(%arg6_0) [^8] : (i32) -> ()
+^8(%arg7_0 : i32):
+  "llvm.return"(%arg7_0) : (i32) -> ()
 }) : () -> ()
 
 // CHECK:       "builtin.module"() ({
@@ -59,5 +63,9 @@
 // CHECK-NEXT:     %{{.*}} = "llvm.trunc"(%{{.*}}) : (i32) -> i1
 // CHECK-NEXT:     %{{.*}} = "llvm.sext"(%{{.*}}) : (i1) -> i32
 // CHECK-NEXT:     %{{.*}} = "llvm.zext"(%{{.*}}) : (i1) -> i32
+// CHECK-NEXT:     "llvm.cond_br"(%{{.*}}, %{{.*}}, %{{.*}}) [^{{.*}}, ^{{.*}}] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
+// CHECK-NEXT:   ^{{.*}}(%{{.*}} : i32):
+// CHECK-NEXT:     "llvm.br"(%{{.*}}) [^{{.*}}] : (i32) -> ()
+// CHECK-NEXT:   ^{{.*}}(%{{.*}} : i32):
 // CHECK-NEXT:     "llvm.return"(%{{.*}}) : (i32) -> ()
 // CHECK-NEXT: }) : () -> ()

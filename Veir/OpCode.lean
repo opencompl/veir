@@ -90,6 +90,8 @@ inductive Llvm where
 | trunc
 | sext
 | zext
+| br
+| cond_br
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 

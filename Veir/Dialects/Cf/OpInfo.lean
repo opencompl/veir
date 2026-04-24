@@ -11,7 +11,7 @@ public section
 @[expose, properties_of]
 def Cf.propertiesOf (op : Cf) : Type :=
 match op with
-| .cond_br => CondBrConstantProperties
+| .cond_br => CondBrProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Cf where

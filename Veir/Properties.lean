@@ -167,14 +167,14 @@ def ModArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray At
   Properties of the `cond_br` operation.
 -/
 
-structure CondBrConstantProperties where
+structure CondBrProperties where
   branch_weights : DenseArrayAttr
   operandSegmentSizes : DenseArrayAttr
 
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-def CondBrConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String CondBrConstantProperties := do
+def CondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String CondBrProperties := do
   if attrDict.size > 2 then
     throw s!"cf.cond_br: expected only 'branch_weights' and 'operandSegmentSizes' properties, but got {attrDict.size} properties"
   let weightsAttr ← match attrDict["weightsAttr".toUTF8]? with
