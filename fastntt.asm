@@ -1,338 +1,337 @@
-	.att_syntax
-	.file	"fastntt.cpp"
-	.text
-	.globl	_Z6bflyCTiiiiRiS_               # -- Begin function _Z6bflyCTiiiiRiS_
-	.p2align	4
-	.type	_Z6bflyCTiiiiRiS_,@function
-_Z6bflyCTiiiiRiS_:                      # @_Z6bflyCTiiiiRiS_
-	.cfi_startproc
-# %bb.0:
-	pushq	%rbp
-	.cfi_def_cfa_offset 16
-	.cfi_offset %rbp, -16
-	movq	%rsp, %rbp
-	.cfi_def_cfa_register %rbp
-	movl	%edi, -16(%rbp)
-	movl	%esi, -12(%rbp)
-	movl	%edx, -8(%rbp)
-	movl	%ecx, -4(%rbp)
-	movq	%r8, -32(%rbp)
-	movq	%r9, -24(%rbp)
-	movl	-16(%rbp), %ecx
-	movl	-8(%rbp), %eax
-	imull	-12(%rbp), %eax
-	cltd
-	idivl	-4(%rbp)
-	addl	%edx, %ecx
-	movl	%ecx, %eax
-	cltd
-	idivl	-4(%rbp)
-	movq	-32(%rbp), %rax
-	movl	%edx, (%rax)
-	movl	-16(%rbp), %ecx
-	movl	-8(%rbp), %eax
-	imull	-12(%rbp), %eax
-	cltd
-	idivl	-4(%rbp)
-	subl	%edx, %ecx
-	addl	-4(%rbp), %ecx
-	movl	%ecx, %eax
-	cltd
-	idivl	-4(%rbp)
-	movq	-24(%rbp), %rax
-	movl	%edx, (%rax)
-	popq	%rbp
-	.cfi_def_cfa %rsp, 8
-	retq
-.Lfunc_end0:
-	.size	_Z6bflyCTiiiiRiS_, .Lfunc_end0-_Z6bflyCTiiiiRiS_
-	.cfi_endproc
-                                        # -- End function
-	.globl	_Z6bflyGSiiiiRiS_               # -- Begin function _Z6bflyGSiiiiRiS_
-	.p2align	4
-	.type	_Z6bflyGSiiiiRiS_,@function
-_Z6bflyGSiiiiRiS_:                      # @_Z6bflyGSiiiiRiS_
-	.cfi_startproc
-# %bb.0:
-	pushq	%rbp
-	.cfi_def_cfa_offset 16
-	.cfi_offset %rbp, -16
-	movq	%rsp, %rbp
-	.cfi_def_cfa_register %rbp
-	movl	%edi, -12(%rbp)
-	movl	%esi, -8(%rbp)
-	movl	%edx, -16(%rbp)
-	movl	%ecx, -4(%rbp)
-	movq	%r8, -32(%rbp)
-	movq	%r9, -24(%rbp)
-	movl	-12(%rbp), %eax
-	addl	-8(%rbp), %eax
-	cltd
-	idivl	-4(%rbp)
-	movq	-32(%rbp), %rax
-	movl	%edx, (%rax)
-	movl	-12(%rbp), %eax
-	subl	-8(%rbp), %eax
-	imull	-16(%rbp), %eax
-	cltd
-	idivl	-4(%rbp)
-	movq	-24(%rbp), %rax
-	movl	%edx, (%rax)
-	popq	%rbp
-	.cfi_def_cfa %rsp, 8
-	retq
-.Lfunc_end1:
-	.size	_Z6bflyGSiiiiRiS_, .Lfunc_end1-_Z6bflyGSiiiiRiS_
-	.cfi_endproc
-                                        # -- End function
-	.globl	_Z7fastNTTRSt6vectorIiSaIiEEiiRKS1_b # -- Begin function _Z7fastNTTRSt6vectorIiSaIiEEiiRKS1_b
-	.p2align	4
-	.type	_Z7fastNTTRSt6vectorIiSaIiEEiiRKS1_b,@function
-_Z7fastNTTRSt6vectorIiSaIiEEiiRKS1_b:   # @_Z7fastNTTRSt6vectorIiSaIiEEiiRKS1_b
-	.cfi_startproc
-# %bb.0:
-	pushq	%rbp
-	.cfi_def_cfa_offset 16
-	.cfi_offset %rbp, -16
-	movq	%rsp, %rbp
-	.cfi_def_cfa_register %rbp
-	pushq	%rbx
-	subq	$72, %rsp
-	.cfi_offset %rbx, -24
-	movq	%rdi, -48(%rbp)
-	movl	%esi, -28(%rbp)
-	movl	%edx, -72(%rbp)
-	movq	%rcx, -80(%rbp)
-	andb	$1, %r8b
-	movb	%r8b, -9(%rbp)
-	testb	$1, -9(%rbp)
-	je	.LBB2_2
-# %bb.1:
-	movl	-28(%rbp), %eax
-	jmp	.LBB2_3
-.LBB2_2:
-	movl	$2, %eax
-	jmp	.LBB2_3
-.LBB2_3:
-	movl	%eax, -16(%rbp)
-	testb	$1, -9(%rbp)
-	je	.LBB2_5
-# %bb.4:
-	movl	$1, %eax
-	jmp	.LBB2_6
-.LBB2_5:
-	movl	-28(%rbp), %eax
-	movl	$2, %ecx
-	cltd
-	idivl	%ecx
-.LBB2_6:
-	movl	%eax, -40(%rbp)
-	movl	-28(%rbp), %eax
-	movl	$2, %ecx
-	cltd
-	idivl	%ecx
-	movl	%eax, -36(%rbp)
-	movl	$0, -32(%rbp)
-.LBB2_7:                                # =>This Loop Header: Depth=1
-                                        #     Child Loop BB2_9 Depth 2
-                                        #       Child Loop BB2_11 Depth 3
-	movl	-32(%rbp), %eax
-	movl	-28(%rbp), %ecx
-	rep		bsfl	%ecx, %ecx
-	cmpl	%ecx, %eax
-	jge	.LBB2_24
-# %bb.8:                                #   in Loop: Header=BB2_7 Depth=1
-	movl	$0, -24(%rbp)
-.LBB2_9:                                #   Parent Loop BB2_7 Depth=1
-                                        # =>  This Loop Header: Depth=2
-                                        #       Child Loop BB2_11 Depth 3
-	movl	-24(%rbp), %ecx
-	movl	-28(%rbp), %eax
-	cltd
-	idivl	-16(%rbp)
-	cmpl	%eax, %ecx
-	jge	.LBB2_16
-# %bb.10:                               #   in Loop: Header=BB2_9 Depth=2
-	movl	$0, -20(%rbp)
-.LBB2_11:                               #   Parent Loop BB2_7 Depth=1
-                                        #     Parent Loop BB2_9 Depth=2
-                                        # =>    This Inner Loop Header: Depth=3
-	movl	-20(%rbp), %ecx
-	movl	-16(%rbp), %eax
-	movl	$2, %esi
-	cltd
-	idivl	%esi
-	cmpl	%eax, %ecx
-	jge	.LBB2_14
-# %bb.12:                               #   in Loop: Header=BB2_11 Depth=3
-	movq	-48(%rbp), %rdi
-	movl	-24(%rbp), %eax
-	imull	-16(%rbp), %eax
-	addl	-20(%rbp), %eax
-	movslq	%eax, %rsi
-	callq	_ZNSt6vectorIiSaIiEEixEm
-	movl	(%rax), %eax
-	movl	%eax, -68(%rbp)
-	movq	-48(%rbp), %rdi
-	movl	-24(%rbp), %ecx
-	imull	-16(%rbp), %ecx
-	addl	-20(%rbp), %ecx
-	movl	-16(%rbp), %eax
-	movl	$2, %esi
-	cltd
-	idivl	%esi
-	addl	%eax, %ecx
-	movslq	%ecx, %rsi
-	callq	_ZNSt6vectorIiSaIiEEixEm
-	movl	(%rax), %eax
-	movl	%eax, -64(%rbp)
-	movq	-80(%rbp), %rdi
-	movl	-20(%rbp), %eax
-	shll	%eax
-	addl	$1, %eax
-	imull	-36(%rbp), %eax
-	movslq	%eax, %rsi
-	callq	_ZNKSt6vectorIiSaIiEEixEm
-	movl	(%rax), %eax
-	movl	%eax, -60(%rbp)
-	movl	-68(%rbp), %edi
-	movl	-64(%rbp), %esi
-	movl	-60(%rbp), %edx
-	movl	-72(%rbp), %ecx
-	leaq	-56(%rbp), %r8
-	leaq	-52(%rbp), %r9
-	callq	_Z6bflyCTiiiiRiS_
-	movl	-56(%rbp), %ebx
-	movq	-48(%rbp), %rdi
-	movl	-24(%rbp), %eax
-	imull	-16(%rbp), %eax
-	addl	-20(%rbp), %eax
-	movslq	%eax, %rsi
-	callq	_ZNSt6vectorIiSaIiEEixEm
-	movl	%ebx, (%rax)
-	movl	-52(%rbp), %ebx
-	movq	-48(%rbp), %rdi
-	movl	-24(%rbp), %ecx
-	imull	-16(%rbp), %ecx
-	addl	-20(%rbp), %ecx
-	movl	-16(%rbp), %eax
-	movl	$2, %esi
-	cltd
-	idivl	%esi
-	addl	%eax, %ecx
-	movslq	%ecx, %rsi
-	callq	_ZNSt6vectorIiSaIiEEixEm
-	movl	%ebx, (%rax)
-# %bb.13:                               #   in Loop: Header=BB2_11 Depth=3
-	movl	-20(%rbp), %eax
-	addl	$1, %eax
-	movl	%eax, -20(%rbp)
-	jmp	.LBB2_11
-.LBB2_14:                               #   in Loop: Header=BB2_9 Depth=2
-	jmp	.LBB2_15
-.LBB2_15:                               #   in Loop: Header=BB2_9 Depth=2
-	movl	-24(%rbp), %eax
-	addl	$1, %eax
-	movl	%eax, -24(%rbp)
-	jmp	.LBB2_9
-.LBB2_16:                               #   in Loop: Header=BB2_7 Depth=1
-	movl	-36(%rbp), %eax
-	movl	$2, %ecx
-	cltd
-	idivl	%ecx
-	movl	%eax, -36(%rbp)
-	testb	$1, -9(%rbp)
-	je	.LBB2_18
-# %bb.17:                               #   in Loop: Header=BB2_7 Depth=1
-	movl	-16(%rbp), %eax
-	movl	$2, %ecx
-	cltd
-	idivl	%ecx
-	jmp	.LBB2_19
-.LBB2_18:                               #   in Loop: Header=BB2_7 Depth=1
-	movl	-16(%rbp), %eax
-	shll	%eax
-.LBB2_19:                               #   in Loop: Header=BB2_7 Depth=1
-	movl	%eax, -16(%rbp)
-	testb	$1, -9(%rbp)
-	je	.LBB2_21
-# %bb.20:                               #   in Loop: Header=BB2_7 Depth=1
-	movl	-40(%rbp), %eax
-	shll	%eax
-	jmp	.LBB2_22
-.LBB2_21:                               #   in Loop: Header=BB2_7 Depth=1
-	movl	-40(%rbp), %eax
-	movl	$2, %ecx
-	cltd
-	idivl	%ecx
-.LBB2_22:                               #   in Loop: Header=BB2_7 Depth=1
-	movl	%eax, -40(%rbp)
-# %bb.23:                               #   in Loop: Header=BB2_7 Depth=1
-	movl	-32(%rbp), %eax
-	addl	$1, %eax
-	movl	%eax, -32(%rbp)
-	jmp	.LBB2_7
-.LBB2_24:
-	addq	$72, %rsp
-	popq	%rbx
-	popq	%rbp
-	.cfi_def_cfa %rsp, 8
-	retq
-.Lfunc_end2:
-	.size	_Z7fastNTTRSt6vectorIiSaIiEEiiRKS1_b, .Lfunc_end2-_Z7fastNTTRSt6vectorIiSaIiEEiiRKS1_b
-	.cfi_endproc
-                                        # -- End function
-	.section	.text._ZNSt6vectorIiSaIiEEixEm,"axG",@progbits,_ZNSt6vectorIiSaIiEEixEm,comdat
-	.weak	_ZNSt6vectorIiSaIiEEixEm        # -- Begin function _ZNSt6vectorIiSaIiEEixEm
-	.p2align	4
-	.type	_ZNSt6vectorIiSaIiEEixEm,@function
-_ZNSt6vectorIiSaIiEEixEm:               # @_ZNSt6vectorIiSaIiEEixEm
-	.cfi_startproc
-# %bb.0:
-	pushq	%rbp
-	.cfi_def_cfa_offset 16
-	.cfi_offset %rbp, -16
-	movq	%rsp, %rbp
-	.cfi_def_cfa_register %rbp
-	movq	%rdi, -16(%rbp)
-	movq	%rsi, -8(%rbp)
-	movq	-16(%rbp), %rax
-	movq	(%rax), %rax
-	movq	-8(%rbp), %rcx
-	shlq	$2, %rcx
-	addq	%rcx, %rax
-	popq	%rbp
-	.cfi_def_cfa %rsp, 8
-	retq
-.Lfunc_end3:
-	.size	_ZNSt6vectorIiSaIiEEixEm, .Lfunc_end3-_ZNSt6vectorIiSaIiEEixEm
-	.cfi_endproc
-                                        # -- End function
-	.section	.text._ZNKSt6vectorIiSaIiEEixEm,"axG",@progbits,_ZNKSt6vectorIiSaIiEEixEm,comdat
-	.weak	_ZNKSt6vectorIiSaIiEEixEm       # -- Begin function _ZNKSt6vectorIiSaIiEEixEm
-	.p2align	4
-	.type	_ZNKSt6vectorIiSaIiEEixEm,@function
-_ZNKSt6vectorIiSaIiEEixEm:              # @_ZNKSt6vectorIiSaIiEEixEm
-	.cfi_startproc
-# %bb.0:
-	pushq	%rbp
-	.cfi_def_cfa_offset 16
-	.cfi_offset %rbp, -16
-	movq	%rsp, %rbp
-	.cfi_def_cfa_register %rbp
-	movq	%rdi, -16(%rbp)
-	movq	%rsi, -8(%rbp)
-	movq	-16(%rbp), %rax
-	movq	(%rax), %rax
-	movq	-8(%rbp), %rcx
-	shlq	$2, %rcx
-	addq	%rcx, %rax
-	popq	%rbp
-	.cfi_def_cfa %rsp, 8
-	retq
-.Lfunc_end4:
-	.size	_ZNKSt6vectorIiSaIiEEixEm, .Lfunc_end4-_ZNKSt6vectorIiSaIiEEixEm
-	.cfi_endproc
-                                        # -- End function
-	.ident	"Ubuntu clang version 18.1.3 (1ubuntu1)"
-	.section	".note.GNU-stack","",@progbits
+log2FloorAux:
+        addi    sp, sp, -32
+        sd      ra, 24(sp)
+        sd      s0, 16(sp)
+        addi    s0, sp, 32
+        sw      a0, -24(s0)
+        sw      a1, -28(s0)
+        lw      a0, -24(s0)
+        bnez    a0, .LBB0_2
+        j       .LBB0_1
+.LBB0_1:
+        li      a0, 0
+        sw      a0, -20(s0)
+        j       .LBB0_5
+.LBB0_2:
+        lw      a0, -24(s0)
+        li      a1, 1
+        bne     a0, a1, .LBB0_4
+        j       .LBB0_3
+.LBB0_3:
+        li      a0, 0
+        sw      a0, -20(s0)
+        j       .LBB0_5
+.LBB0_4:
+        lw      a0, -24(s0)
+        srliw   a1, a0, 31
+        addw    a0, a0, a1
+        sraiw   a0, a0, 1
+        lw      a1, -28(s0)
+        addiw   a1, a1, 1
+        call    log2FloorAux
+        sw      a0, -20(s0)
+        j       .LBB0_5
+.LBB0_5:
+        lw      a0, -20(s0)
+        ld      ra, 24(sp)
+        ld      s0, 16(sp)
+        addi    sp, sp, 32
+        ret
+
+log2Floor:
+        addi    sp, sp, -32
+        sd      ra, 24(sp)
+        sd      s0, 16(sp)
+        addi    s0, sp, 32
+        sw      a0, -20(s0)
+        lw      a0, -20(s0)
+        li      a1, 0
+        call    log2FloorAux
+        ld      ra, 24(sp)
+        ld      s0, 16(sp)
+        addi    sp, sp, 32
+        ret
+
+bflyCT:
+        addi    sp, sp, -48
+        sd      ra, 40(sp)
+        sd      s0, 32(sp)
+        addi    s0, sp, 48
+        sw      a0, -20(s0)
+        sw      a1, -24(s0)
+        sw      a2, -28(s0)
+        sw      a3, -32(s0)
+        sd      a4, -40(s0)
+        sd      a5, -48(s0)
+        lw      a0, -20(s0)
+        lw      a1, -28(s0)
+        lw      a2, -24(s0)
+        mulw    a2, a1, a2
+        lw      a1, -32(s0)
+        remw    a2, a2, a1
+        addw    a0, a0, a2
+        remw    a0, a0, a1
+        ld      a1, -40(s0)
+        sw      a0, 0(a1)
+        lw      a0, -20(s0)
+        lw      a1, -28(s0)
+        lw      a2, -24(s0)
+        mulw    a2, a1, a2
+        lw      a1, -32(s0)
+        remw    a2, a2, a1
+        subw    a0, a0, a2
+        addw    a0, a0, a1
+        remw    a0, a0, a1
+        ld      a1, -48(s0)
+        sw      a0, 0(a1)
+        ld      ra, 40(sp)
+        ld      s0, 32(sp)
+        addi    sp, sp, 48
+        ret
+
+bflyGS:
+        addi    sp, sp, -48
+        sd      ra, 40(sp)
+        sd      s0, 32(sp)
+        addi    s0, sp, 48
+        sw      a0, -20(s0)
+        sw      a1, -24(s0)
+        sw      a2, -28(s0)
+        sw      a3, -32(s0)
+        sd      a4, -40(s0)
+        sd      a5, -48(s0)
+        lw      a0, -20(s0)
+        lw      a1, -24(s0)
+        addw    a0, a0, a1
+        lw      a1, -32(s0)
+        remw    a0, a0, a1
+        ld      a1, -40(s0)
+        sw      a0, 0(a1)
+        lw      a0, -20(s0)
+        lw      a1, -24(s0)
+        subw    a0, a0, a1
+        lw      a1, -28(s0)
+        mulw    a0, a0, a1
+        lw      a1, -32(s0)
+        remw    a0, a0, a1
+        ld      a1, -48(s0)
+        sw      a0, 0(a1)
+        ld      ra, 40(sp)
+        ld      s0, 32(sp)
+        addi    sp, sp, 48
+        ret
+
+fastNTT:
+        addi    sp, sp, -144
+        sd      ra, 136(sp)
+        sd      s0, 128(sp)
+        addi    s0, sp, 144
+        sd      a0, -24(s0)
+        sw      a1, -28(s0)
+        sw      a2, -32(s0)
+        sd      a3, -40(s0)
+        sw      a4, -44(s0)
+        sw      a5, -48(s0)
+        lw      a0, -44(s0)
+        beqz    a0, .LBB4_2
+        j       .LBB4_1
+.LBB4_1:
+        lw      a0, -28(s0)
+        sd      a0, -104(s0)
+        j       .LBB4_3
+.LBB4_2:
+        li      a0, 2
+        sd      a0, -104(s0)
+        j       .LBB4_3
+.LBB4_3:
+        ld      a0, -104(s0)
+        sw      a0, -52(s0)
+        lw      a0, -44(s0)
+        beqz    a0, .LBB4_5
+        j       .LBB4_4
+.LBB4_4:
+        li      a0, 1
+        sd      a0, -112(s0)
+        j       .LBB4_6
+.LBB4_5:
+        lw      a0, -48(s0)
+        srliw   a1, a0, 31
+        addw    a0, a0, a1
+        sraiw   a0, a0, 1
+        sd      a0, -112(s0)
+        j       .LBB4_6
+.LBB4_6:
+        ld      a0, -112(s0)
+        sw      a0, -56(s0)
+        lw      a0, -28(s0)
+        srliw   a1, a0, 31
+        addw    a0, a0, a1
+        sraiw   a0, a0, 1
+        sw      a0, -60(s0)
+        li      a0, 0
+        sw      a0, -64(s0)
+        j       .LBB4_7
+.LBB4_7:
+        lw      a0, -64(s0)
+        sd      a0, -120(s0)
+        lw      a0, -28(s0)
+        call    log2Floor
+        mv      a1, a0
+        ld      a0, -120(s0)
+        bge     a0, a1, .LBB4_24
+        j       .LBB4_8
+.LBB4_8:
+        li      a0, 0
+        sw      a0, -68(s0)
+        j       .LBB4_9
+.LBB4_9:
+        lw      a0, -68(s0)
+        lw      a1, -28(s0)
+        lw      a2, -52(s0)
+        divw    a1, a1, a2
+        bge     a0, a1, .LBB4_16
+        j       .LBB4_10
+.LBB4_10:
+        li      a0, 0
+        sw      a0, -72(s0)
+        j       .LBB4_11
+.LBB4_11:
+        lw      a0, -72(s0)
+        lw      a1, -52(s0)
+        srliw   a2, a1, 31
+        addw    a1, a1, a2
+        sraiw   a1, a1, 1
+        bge     a0, a1, .LBB4_14
+        j       .LBB4_12
+.LBB4_12:
+        ld      a0, -24(s0)
+        lw      a1, -68(s0)
+        lw      a2, -52(s0)
+        mulw    a1, a1, a2
+        lw      a2, -72(s0)
+        addw    a1, a1, a2
+        slli    a1, a1, 2
+        add     a0, a0, a1
+        lw      a0, 0(a0)
+        sw      a0, -76(s0)
+        ld      a0, -24(s0)
+        lw      a1, -68(s0)
+        lw      a2, -52(s0)
+        mulw    a1, a1, a2
+        lw      a3, -72(s0)
+        addw    a1, a1, a3
+        srliw   a3, a2, 31
+        addw    a2, a2, a3
+        sraiw   a2, a2, 1
+        addw    a1, a1, a2
+        slli    a1, a1, 2
+        add     a0, a0, a1
+        lw      a0, 0(a0)
+        sw      a0, -80(s0)
+        ld      a0, -40(s0)
+        lw      a1, -72(s0)
+        slli    a1, a1, 1
+        addi    a1, a1, 1
+        lw      a2, -60(s0)
+        mulw    a1, a1, a2
+        slli    a1, a1, 2
+        add     a0, a0, a1
+        lw      a0, 0(a0)
+        sw      a0, -84(s0)
+        lw      a0, -76(s0)
+        lw      a1, -80(s0)
+        lw      a2, -84(s0)
+        lw      a3, -32(s0)
+        addi    a4, s0, -88
+        addi    a5, s0, -92
+        call    bflyCT
+        lw      a0, -88(s0)
+        ld      a1, -24(s0)
+        lw      a2, -68(s0)
+        lw      a3, -52(s0)
+        mulw    a2, a2, a3
+        lw      a3, -72(s0)
+        addw    a2, a2, a3
+        slli    a2, a2, 2
+        add     a1, a1, a2
+        sw      a0, 0(a1)
+        lw      a0, -92(s0)
+        ld      a1, -24(s0)
+        lw      a2, -68(s0)
+        lw      a3, -52(s0)
+        mulw    a2, a2, a3
+        lw      a4, -72(s0)
+        addw    a2, a2, a4
+        srliw   a4, a3, 31
+        addw    a3, a3, a4
+        sraiw   a3, a3, 1
+        addw    a2, a2, a3
+        slli    a2, a2, 2
+        add     a1, a1, a2
+        sw      a0, 0(a1)
+        j       .LBB4_13
+.LBB4_13:
+        lw      a0, -72(s0)
+        addiw   a0, a0, 1
+        sw      a0, -72(s0)
+        j       .LBB4_11
+.LBB4_14:
+        j       .LBB4_15
+.LBB4_15:
+        lw      a0, -68(s0)
+        addiw   a0, a0, 1
+        sw      a0, -68(s0)
+        j       .LBB4_9
+.LBB4_16:
+        lw      a0, -60(s0)
+        srliw   a1, a0, 31
+        addw    a0, a0, a1
+        sraiw   a0, a0, 1
+        sw      a0, -60(s0)
+        lw      a0, -44(s0)
+        beqz    a0, .LBB4_18
+        j       .LBB4_17
+.LBB4_17:
+        lw      a0, -52(s0)
+        srliw   a1, a0, 31
+        addw    a0, a0, a1
+        sraiw   a0, a0, 1
+        sd      a0, -128(s0)
+        j       .LBB4_19
+.LBB4_18:
+        lw      a0, -52(s0)
+        slliw   a0, a0, 1
+        sd      a0, -128(s0)
+        j       .LBB4_19
+.LBB4_19:
+        ld      a0, -128(s0)
+        sw      a0, -52(s0)
+        lw      a0, -44(s0)
+        beqz    a0, .LBB4_21
+        j       .LBB4_20
+.LBB4_20:
+        lw      a0, -56(s0)
+        slliw   a0, a0, 1
+        sd      a0, -136(s0)
+        j       .LBB4_22
+.LBB4_21:
+        lw      a0, -56(s0)
+        srliw   a1, a0, 31
+        addw    a0, a0, a1
+        sraiw   a0, a0, 1
+        sd      a0, -136(s0)
+        j       .LBB4_22
+.LBB4_22:
+        ld      a0, -136(s0)
+        sw      a0, -56(s0)
+        j       .LBB4_23
+.LBB4_23:
+        lw      a0, -64(s0)
+        addiw   a0, a0, 1
+        sw      a0, -64(s0)
+        j       .LBB4_7
+.LBB4_24:
+        ld      ra, 136(sp)
+        ld      s0, 128(sp)
+        addi    sp, sp, 144
+        ret

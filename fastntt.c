@@ -35,35 +35,47 @@
     Reference: 
     https://github.com/google/heir/blob/1210ad37dc9531d6e60d8ddbce81dbd79f7626a6/lib/Dialect/Polynomial/Conversions/PolynomialToModArith/PolynomialToModArith.cpp#L1060 
 */
-#include <stdio.h>
-#include <vector>
+#include <stddef.h>
 
-// bflyCT 
-void bflyCT(int A, int B, int root, int cmod, int &outA, int &outB) {
-    outA = (A + root * B % cmod) % cmod;
-    outB = (A - root * B % cmod + cmod) % cmod;
+// log2(0) = 0
+// log2(1) = 0
+// log2(2*n) = 1 + log2(n)
+int log2FloorAux(int n, int accum) {
+    if (n == 0) { return 0; }
+    if (n == 1) { return 0; }
+    return log2FloorAux(n / 2, accum + 1);
 }
 
-// bflyGS
-void bflyGS(int A, int B, int root, int cmod, int &outA, int &outB) {
-    outA = (A + B) % cmod;
-    outB = (A - B) * root % cmod;
+int log2Floor(int n) {
+    return log2FloorAux(n, 0);
 }
 
-void fastNTT(std::vector<int> &coeffs, int n, int cmod, const std::vector<int> &roots, bool inverse) {
-    int m = inverse ? n : 2; // batchSize or stride
-    int r = inverse ? 1 : n / 2; // exponent of the root
-    int rootExp = n / 2; // initial root exponent
-    
-    for (int s = 0; s < __builtin_ctz(n); s++) { // log2(n)
+/* bflyCT */
+void bflyCT(int A, int B, int root, int cmod, int *outA, int *outB) {
+    *outA = (A + root * B % cmod) % cmod;
+    *outB = (A - root * B % cmod + cmod) % cmod;
+}
+
+/* bflyGS */
+void bflyGS(int A, int B, int root, int cmod, int *outA, int *outB) {
+    *outA = (A + B) % cmod;
+    *outB = (A - B) * root % cmod;
+}
+
+void fastNTT(int *coeffs, int n, int cmod, const int *roots, int inverse, int degree) {
+    int m = inverse ? n : 2;
+    int r = inverse ? 1 : degree / 2;
+    int rootExp = n / 2;
+
+    for (int s = 0; s < log2Floor(n); s++) {
         for (int k = 0; k < n / m; k++) {
             for (int j = 0; j < m / 2; j++) {
-                int A = coeffs[k * m + j];
-                int B = coeffs[k * m + j + m / 2];
+                int A    = coeffs[k * m + j];
+                int B    = coeffs[k * m + j + m / 2];
                 int root = roots[(2 * j + 1) * rootExp];
                 int outA, outB;
-                bflyCT(A, B, root, cmod, outA, outB);
-                coeffs[k * m + j] = outA;
+                bflyCT(A, B, root, cmod, &outA, &outB);
+                coeffs[k * m + j]         = outA;
                 coeffs[k * m + j + m / 2] = outB;
             }
         }
@@ -72,4 +84,3 @@ void fastNTT(std::vector<int> &coeffs, int n, int cmod, const std::vector<int> &
         r = inverse ? r * 2 : r / 2;
     }
 }
-

@@ -1,18 +1,57 @@
-; ModuleID = 'fastntt.cpp'
-source_filename = "fastntt.cpp"
+; ModuleID = 'fastntt.c'
+source_filename = "fastntt.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux-gnu"
 
-%"struct.std::_Vector_base" = type { %"struct.std::_Vector_base<int, std::allocator<int>>::_Vector_impl" }
-%"struct.std::_Vector_base<int, std::allocator<int>>::_Vector_impl" = type { %"struct.std::_Vector_base<int, std::allocator<int>>::_Vector_impl_data" }
-%"struct.std::_Vector_base<int, std::allocator<int>>::_Vector_impl_data" = type { ptr, ptr, ptr }
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local i32 @log2FloorAux(i32 noundef %0, i32 noundef %1) #0 {
+  %3 = alloca i32, align 4
+  %4 = alloca i32, align 4
+  %5 = alloca i32, align 4
+  store i32 %0, ptr %4, align 4
+  store i32 %1, ptr %5, align 4
+  %6 = load i32, ptr %4, align 4
+  %7 = icmp eq i32 %6, 0
+  br i1 %7, label %8, label %9
 
-$_ZNSt6vectorIiSaIiEEixEm = comdat any
+8:                                                ; preds = %2
+  store i32 0, ptr %3, align 4
+  br label %19
 
-$_ZNKSt6vectorIiSaIiEEixEm = comdat any
+9:                                                ; preds = %2
+  %10 = load i32, ptr %4, align 4
+  %11 = icmp eq i32 %10, 1
+  br i1 %11, label %12, label %13
 
-; Function Attrs: mustprogress noinline nounwind optnone uwtable
-define dso_local void @_Z6bflyCTiiiiRiS_(i32 noundef %0, i32 noundef %1, i32 noundef %2, i32 noundef %3, ptr noundef nonnull align 4 dereferenceable(4) %4, ptr noundef nonnull align 4 dereferenceable(4) %5) #0 {
+12:                                               ; preds = %9
+  store i32 0, ptr %3, align 4
+  br label %19
+
+13:                                               ; preds = %9
+  %14 = load i32, ptr %4, align 4
+  %15 = sdiv i32 %14, 2
+  %16 = load i32, ptr %5, align 4
+  %17 = add nsw i32 %16, 1
+  %18 = call i32 @log2FloorAux(i32 noundef %15, i32 noundef %17)
+  store i32 %18, ptr %3, align 4
+  br label %19
+
+19:                                               ; preds = %13, %12, %8
+  %20 = load i32, ptr %3, align 4
+  ret i32 %20
+}
+
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local i32 @log2Floor(i32 noundef %0) #0 {
+  %2 = alloca i32, align 4
+  store i32 %0, ptr %2, align 4
+  %3 = load i32, ptr %2, align 4
+  %4 = call i32 @log2FloorAux(i32 noundef %3, i32 noundef 0)
+  ret i32 %4
+}
+
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local void @bflyCT(i32 noundef %0, i32 noundef %1, i32 noundef %2, i32 noundef %3, ptr noundef %4, ptr noundef %5) #0 {
   %7 = alloca i32, align 4
   %8 = alloca i32, align 4
   %9 = alloca i32, align 4
@@ -52,8 +91,8 @@ define dso_local void @_Z6bflyCTiiiiRiS_(i32 noundef %0, i32 noundef %1, i32 nou
   ret void
 }
 
-; Function Attrs: mustprogress noinline nounwind optnone uwtable
-define dso_local void @_Z6bflyGSiiiiRiS_(i32 noundef %0, i32 noundef %1, i32 noundef %2, i32 noundef %3, ptr noundef nonnull align 4 dereferenceable(4) %4, ptr noundef nonnull align 4 dereferenceable(4) %5) #0 {
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local void @bflyGS(i32 noundef %0, i32 noundef %1, i32 noundef %2, i32 noundef %3, ptr noundef %4, ptr noundef %5) #0 {
   %7 = alloca i32, align 4
   %8 = alloca i32, align 4
   %9 = alloca i32, align 4
@@ -85,13 +124,12 @@ define dso_local void @_Z6bflyGSiiiiRiS_(i32 noundef %0, i32 noundef %1, i32 nou
   ret void
 }
 
-; Function Attrs: mustprogress noinline nounwind optnone uwtable
-define dso_local void @_Z7fastNTTRSt6vectorIiSaIiEEiiRKS1_b(ptr noundef nonnull align 8 dereferenceable(24) %0, i32 noundef %1, i32 noundef %2, ptr noundef nonnull align 8 dereferenceable(24) %3, i1 noundef zeroext %4) #0 {
-  %6 = alloca ptr, align 8
-  %7 = alloca i32, align 4
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local void @fastNTT(ptr noundef %0, i32 noundef %1, i32 noundef %2, ptr noundef %3, i32 noundef %4, i32 noundef %5) #0 {
+  %7 = alloca ptr, align 8
   %8 = alloca i32, align 4
-  %9 = alloca ptr, align 8
-  %10 = alloca i8, align 1
+  %9 = alloca i32, align 4
+  %10 = alloca ptr, align 8
   %11 = alloca i32, align 4
   %12 = alloca i32, align 4
   %13 = alloca i32, align 4
@@ -103,242 +141,209 @@ define dso_local void @_Z7fastNTTRSt6vectorIiSaIiEEiiRKS1_b(ptr noundef nonnull 
   %19 = alloca i32, align 4
   %20 = alloca i32, align 4
   %21 = alloca i32, align 4
-  store ptr %0, ptr %6, align 8
-  store i32 %1, ptr %7, align 4
-  store i32 %2, ptr %8, align 4
-  store ptr %3, ptr %9, align 8
-  %22 = zext i1 %4 to i8
-  store i8 %22, ptr %10, align 1
-  %23 = load i8, ptr %10, align 1
-  %24 = trunc i8 %23 to i1
-  br i1 %24, label %25, label %27
+  %22 = alloca i32, align 4
+  %23 = alloca i32, align 4
+  store ptr %0, ptr %7, align 8
+  store i32 %1, ptr %8, align 4
+  store i32 %2, ptr %9, align 4
+  store ptr %3, ptr %10, align 8
+  store i32 %4, ptr %11, align 4
+  store i32 %5, ptr %12, align 4
+  %24 = load i32, ptr %11, align 4
+  %25 = icmp ne i32 %24, 0
+  br i1 %25, label %26, label %28
 
-25:                                               ; preds = %5
-  %26 = load i32, ptr %7, align 4
-  br label %28
+26:                                               ; preds = %6
+  %27 = load i32, ptr %8, align 4
+  br label %29
 
-27:                                               ; preds = %5
-  br label %28
+28:                                               ; preds = %6
+  br label %29
 
-28:                                               ; preds = %27, %25
-  %29 = phi i32 [ %26, %25 ], [ 2, %27 ]
-  store i32 %29, ptr %11, align 4
-  %30 = load i8, ptr %10, align 1
-  %31 = trunc i8 %30 to i1
-  br i1 %31, label %32, label %33
+29:                                               ; preds = %28, %26
+  %30 = phi i32 [ %27, %26 ], [ 2, %28 ]
+  store i32 %30, ptr %13, align 4
+  %31 = load i32, ptr %11, align 4
+  %32 = icmp ne i32 %31, 0
+  br i1 %32, label %33, label %34
 
-32:                                               ; preds = %28
-  br label %36
+33:                                               ; preds = %29
+  br label %37
 
-33:                                               ; preds = %28
-  %34 = load i32, ptr %7, align 4
-  %35 = sdiv i32 %34, 2
-  br label %36
+34:                                               ; preds = %29
+  %35 = load i32, ptr %12, align 4
+  %36 = sdiv i32 %35, 2
+  br label %37
 
-36:                                               ; preds = %33, %32
-  %37 = phi i32 [ 1, %32 ], [ %35, %33 ]
-  store i32 %37, ptr %12, align 4
-  %38 = load i32, ptr %7, align 4
-  %39 = sdiv i32 %38, 2
-  store i32 %39, ptr %13, align 4
-  store i32 0, ptr %14, align 4
-  br label %40
-
-40:                                               ; preds = %144, %36
-  %41 = load i32, ptr %14, align 4
-  %42 = load i32, ptr %7, align 4
-  %43 = call i32 @llvm.cttz.i32(i32 %42, i1 true)
-  %44 = icmp slt i32 %41, %43
-  br i1 %44, label %45, label %147
-
-45:                                               ; preds = %40
-  store i32 0, ptr %15, align 4
-  br label %46
-
-46:                                               ; preds = %118, %45
-  %47 = load i32, ptr %15, align 4
-  %48 = load i32, ptr %7, align 4
-  %49 = load i32, ptr %11, align 4
-  %50 = sdiv i32 %48, %49
-  %51 = icmp slt i32 %47, %50
-  br i1 %51, label %52, label %121
-
-52:                                               ; preds = %46
+37:                                               ; preds = %34, %33
+  %38 = phi i32 [ 1, %33 ], [ %36, %34 ]
+  store i32 %38, ptr %14, align 4
+  %39 = load i32, ptr %8, align 4
+  %40 = sdiv i32 %39, 2
+  store i32 %40, ptr %15, align 4
   store i32 0, ptr %16, align 4
-  br label %53
+  br label %41
 
-53:                                               ; preds = %114, %52
-  %54 = load i32, ptr %16, align 4
-  %55 = load i32, ptr %11, align 4
-  %56 = sdiv i32 %55, 2
-  %57 = icmp slt i32 %54, %56
-  br i1 %57, label %58, label %117
+41:                                               ; preds = %145, %37
+  %42 = load i32, ptr %16, align 4
+  %43 = load i32, ptr %8, align 4
+  %44 = call i32 @log2Floor(i32 noundef %43)
+  %45 = icmp slt i32 %42, %44
+  br i1 %45, label %46, label %148
 
-58:                                               ; preds = %53
-  %59 = load ptr, ptr %6, align 8
-  %60 = load i32, ptr %15, align 4
-  %61 = load i32, ptr %11, align 4
-  %62 = mul nsw i32 %60, %61
-  %63 = load i32, ptr %16, align 4
-  %64 = add nsw i32 %62, %63
-  %65 = sext i32 %64 to i64
-  %66 = call noundef nonnull align 4 dereferenceable(4) ptr @_ZNSt6vectorIiSaIiEEixEm(ptr noundef nonnull align 8 dereferenceable(24) %59, i64 noundef %65) #2
-  %67 = load i32, ptr %66, align 4
-  store i32 %67, ptr %17, align 4
-  %68 = load ptr, ptr %6, align 8
-  %69 = load i32, ptr %15, align 4
-  %70 = load i32, ptr %11, align 4
-  %71 = mul nsw i32 %69, %70
-  %72 = load i32, ptr %16, align 4
-  %73 = add nsw i32 %71, %72
-  %74 = load i32, ptr %11, align 4
-  %75 = sdiv i32 %74, 2
-  %76 = add nsw i32 %73, %75
-  %77 = sext i32 %76 to i64
-  %78 = call noundef nonnull align 4 dereferenceable(4) ptr @_ZNSt6vectorIiSaIiEEixEm(ptr noundef nonnull align 8 dereferenceable(24) %68, i64 noundef %77) #2
-  %79 = load i32, ptr %78, align 4
-  store i32 %79, ptr %18, align 4
-  %80 = load ptr, ptr %9, align 8
-  %81 = load i32, ptr %16, align 4
-  %82 = mul nsw i32 2, %81
-  %83 = add nsw i32 %82, 1
-  %84 = load i32, ptr %13, align 4
-  %85 = mul nsw i32 %83, %84
-  %86 = sext i32 %85 to i64
-  %87 = call noundef nonnull align 4 dereferenceable(4) ptr @_ZNKSt6vectorIiSaIiEEixEm(ptr noundef nonnull align 8 dereferenceable(24) %80, i64 noundef %86) #2
-  %88 = load i32, ptr %87, align 4
-  store i32 %88, ptr %19, align 4
-  %89 = load i32, ptr %17, align 4
-  %90 = load i32, ptr %18, align 4
-  %91 = load i32, ptr %19, align 4
-  %92 = load i32, ptr %8, align 4
-  call void @_Z6bflyCTiiiiRiS_(i32 noundef %89, i32 noundef %90, i32 noundef %91, i32 noundef %92, ptr noundef nonnull align 4 dereferenceable(4) %20, ptr noundef nonnull align 4 dereferenceable(4) %21)
-  %93 = load i32, ptr %20, align 4
-  %94 = load ptr, ptr %6, align 8
-  %95 = load i32, ptr %15, align 4
-  %96 = load i32, ptr %11, align 4
-  %97 = mul nsw i32 %95, %96
-  %98 = load i32, ptr %16, align 4
-  %99 = add nsw i32 %97, %98
-  %100 = sext i32 %99 to i64
-  %101 = call noundef nonnull align 4 dereferenceable(4) ptr @_ZNSt6vectorIiSaIiEEixEm(ptr noundef nonnull align 8 dereferenceable(24) %94, i64 noundef %100) #2
-  store i32 %93, ptr %101, align 4
-  %102 = load i32, ptr %21, align 4
-  %103 = load ptr, ptr %6, align 8
-  %104 = load i32, ptr %15, align 4
-  %105 = load i32, ptr %11, align 4
-  %106 = mul nsw i32 %104, %105
-  %107 = load i32, ptr %16, align 4
-  %108 = add nsw i32 %106, %107
-  %109 = load i32, ptr %11, align 4
-  %110 = sdiv i32 %109, 2
-  %111 = add nsw i32 %108, %110
-  %112 = sext i32 %111 to i64
-  %113 = call noundef nonnull align 4 dereferenceable(4) ptr @_ZNSt6vectorIiSaIiEEixEm(ptr noundef nonnull align 8 dereferenceable(24) %103, i64 noundef %112) #2
-  store i32 %102, ptr %113, align 4
-  br label %114
+46:                                               ; preds = %41
+  store i32 0, ptr %17, align 4
+  br label %47
 
-114:                                              ; preds = %58
-  %115 = load i32, ptr %16, align 4
-  %116 = add nsw i32 %115, 1
-  store i32 %116, ptr %16, align 4
-  br label %53, !llvm.loop !6
+47:                                               ; preds = %119, %46
+  %48 = load i32, ptr %17, align 4
+  %49 = load i32, ptr %8, align 4
+  %50 = load i32, ptr %13, align 4
+  %51 = sdiv i32 %49, %50
+  %52 = icmp slt i32 %48, %51
+  br i1 %52, label %53, label %122
 
-117:                                              ; preds = %53
-  br label %118
+53:                                               ; preds = %47
+  store i32 0, ptr %18, align 4
+  br label %54
 
-118:                                              ; preds = %117
-  %119 = load i32, ptr %15, align 4
-  %120 = add nsw i32 %119, 1
-  store i32 %120, ptr %15, align 4
-  br label %46, !llvm.loop !8
+54:                                               ; preds = %115, %53
+  %55 = load i32, ptr %18, align 4
+  %56 = load i32, ptr %13, align 4
+  %57 = sdiv i32 %56, 2
+  %58 = icmp slt i32 %55, %57
+  br i1 %58, label %59, label %118
 
-121:                                              ; preds = %46
-  %122 = load i32, ptr %13, align 4
-  %123 = sdiv i32 %122, 2
-  store i32 %123, ptr %13, align 4
-  %124 = load i8, ptr %10, align 1
-  %125 = trunc i8 %124 to i1
-  br i1 %125, label %126, label %129
+59:                                               ; preds = %54
+  %60 = load ptr, ptr %7, align 8
+  %61 = load i32, ptr %17, align 4
+  %62 = load i32, ptr %13, align 4
+  %63 = mul nsw i32 %61, %62
+  %64 = load i32, ptr %18, align 4
+  %65 = add nsw i32 %63, %64
+  %66 = sext i32 %65 to i64
+  %67 = getelementptr inbounds i32, ptr %60, i64 %66
+  %68 = load i32, ptr %67, align 4
+  store i32 %68, ptr %19, align 4
+  %69 = load ptr, ptr %7, align 8
+  %70 = load i32, ptr %17, align 4
+  %71 = load i32, ptr %13, align 4
+  %72 = mul nsw i32 %70, %71
+  %73 = load i32, ptr %18, align 4
+  %74 = add nsw i32 %72, %73
+  %75 = load i32, ptr %13, align 4
+  %76 = sdiv i32 %75, 2
+  %77 = add nsw i32 %74, %76
+  %78 = sext i32 %77 to i64
+  %79 = getelementptr inbounds i32, ptr %69, i64 %78
+  %80 = load i32, ptr %79, align 4
+  store i32 %80, ptr %20, align 4
+  %81 = load ptr, ptr %10, align 8
+  %82 = load i32, ptr %18, align 4
+  %83 = mul nsw i32 2, %82
+  %84 = add nsw i32 %83, 1
+  %85 = load i32, ptr %15, align 4
+  %86 = mul nsw i32 %84, %85
+  %87 = sext i32 %86 to i64
+  %88 = getelementptr inbounds i32, ptr %81, i64 %87
+  %89 = load i32, ptr %88, align 4
+  store i32 %89, ptr %21, align 4
+  %90 = load i32, ptr %19, align 4
+  %91 = load i32, ptr %20, align 4
+  %92 = load i32, ptr %21, align 4
+  %93 = load i32, ptr %9, align 4
+  call void @bflyCT(i32 noundef %90, i32 noundef %91, i32 noundef %92, i32 noundef %93, ptr noundef %22, ptr noundef %23)
+  %94 = load i32, ptr %22, align 4
+  %95 = load ptr, ptr %7, align 8
+  %96 = load i32, ptr %17, align 4
+  %97 = load i32, ptr %13, align 4
+  %98 = mul nsw i32 %96, %97
+  %99 = load i32, ptr %18, align 4
+  %100 = add nsw i32 %98, %99
+  %101 = sext i32 %100 to i64
+  %102 = getelementptr inbounds i32, ptr %95, i64 %101
+  store i32 %94, ptr %102, align 4
+  %103 = load i32, ptr %23, align 4
+  %104 = load ptr, ptr %7, align 8
+  %105 = load i32, ptr %17, align 4
+  %106 = load i32, ptr %13, align 4
+  %107 = mul nsw i32 %105, %106
+  %108 = load i32, ptr %18, align 4
+  %109 = add nsw i32 %107, %108
+  %110 = load i32, ptr %13, align 4
+  %111 = sdiv i32 %110, 2
+  %112 = add nsw i32 %109, %111
+  %113 = sext i32 %112 to i64
+  %114 = getelementptr inbounds i32, ptr %104, i64 %113
+  store i32 %103, ptr %114, align 4
+  br label %115
 
-126:                                              ; preds = %121
-  %127 = load i32, ptr %11, align 4
-  %128 = sdiv i32 %127, 2
-  br label %132
+115:                                              ; preds = %59
+  %116 = load i32, ptr %18, align 4
+  %117 = add nsw i32 %116, 1
+  store i32 %117, ptr %18, align 4
+  br label %54, !llvm.loop !6
 
-129:                                              ; preds = %121
-  %130 = load i32, ptr %11, align 4
-  %131 = mul nsw i32 %130, 2
-  br label %132
+118:                                              ; preds = %54
+  br label %119
 
-132:                                              ; preds = %129, %126
-  %133 = phi i32 [ %128, %126 ], [ %131, %129 ]
-  store i32 %133, ptr %11, align 4
-  %134 = load i8, ptr %10, align 1
-  %135 = trunc i8 %134 to i1
-  br i1 %135, label %136, label %139
+119:                                              ; preds = %118
+  %120 = load i32, ptr %17, align 4
+  %121 = add nsw i32 %120, 1
+  store i32 %121, ptr %17, align 4
+  br label %47, !llvm.loop !8
 
-136:                                              ; preds = %132
-  %137 = load i32, ptr %12, align 4
-  %138 = mul nsw i32 %137, 2
-  br label %142
+122:                                              ; preds = %47
+  %123 = load i32, ptr %15, align 4
+  %124 = sdiv i32 %123, 2
+  store i32 %124, ptr %15, align 4
+  %125 = load i32, ptr %11, align 4
+  %126 = icmp ne i32 %125, 0
+  br i1 %126, label %127, label %130
 
-139:                                              ; preds = %132
-  %140 = load i32, ptr %12, align 4
-  %141 = sdiv i32 %140, 2
-  br label %142
+127:                                              ; preds = %122
+  %128 = load i32, ptr %13, align 4
+  %129 = sdiv i32 %128, 2
+  br label %133
 
-142:                                              ; preds = %139, %136
-  %143 = phi i32 [ %138, %136 ], [ %141, %139 ]
-  store i32 %143, ptr %12, align 4
-  br label %144
+130:                                              ; preds = %122
+  %131 = load i32, ptr %13, align 4
+  %132 = mul nsw i32 %131, 2
+  br label %133
 
-144:                                              ; preds = %142
-  %145 = load i32, ptr %14, align 4
-  %146 = add nsw i32 %145, 1
-  store i32 %146, ptr %14, align 4
-  br label %40, !llvm.loop !9
+133:                                              ; preds = %130, %127
+  %134 = phi i32 [ %129, %127 ], [ %132, %130 ]
+  store i32 %134, ptr %13, align 4
+  %135 = load i32, ptr %11, align 4
+  %136 = icmp ne i32 %135, 0
+  br i1 %136, label %137, label %140
 
-147:                                              ; preds = %40
+137:                                              ; preds = %133
+  %138 = load i32, ptr %14, align 4
+  %139 = mul nsw i32 %138, 2
+  br label %143
+
+140:                                              ; preds = %133
+  %141 = load i32, ptr %14, align 4
+  %142 = sdiv i32 %141, 2
+  br label %143
+
+143:                                              ; preds = %140, %137
+  %144 = phi i32 [ %139, %137 ], [ %142, %140 ]
+  store i32 %144, ptr %14, align 4
+  br label %145
+
+145:                                              ; preds = %143
+  %146 = load i32, ptr %16, align 4
+  %147 = add nsw i32 %146, 1
+  store i32 %147, ptr %16, align 4
+  br label %41, !llvm.loop !9
+
+148:                                              ; preds = %41
   ret void
 }
 
-; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i32 @llvm.cttz.i32(i32, i1 immarg) #1
-
-; Function Attrs: mustprogress noinline nounwind optnone uwtable
-define linkonce_odr dso_local noundef nonnull align 4 dereferenceable(4) ptr @_ZNSt6vectorIiSaIiEEixEm(ptr noundef nonnull align 8 dereferenceable(24) %0, i64 noundef %1) #0 comdat align 2 {
-  %3 = alloca ptr, align 8
-  %4 = alloca i64, align 8
-  store ptr %0, ptr %3, align 8
-  store i64 %1, ptr %4, align 8
-  %5 = load ptr, ptr %3, align 8
-  %6 = getelementptr inbounds %"struct.std::_Vector_base", ptr %5, i32 0, i32 0
-  %7 = getelementptr inbounds %"struct.std::_Vector_base<int, std::allocator<int>>::_Vector_impl_data", ptr %6, i32 0, i32 0
-  %8 = load ptr, ptr %7, align 8
-  %9 = load i64, ptr %4, align 8
-  %10 = getelementptr inbounds i32, ptr %8, i64 %9
-  ret ptr %10
-}
-
-; Function Attrs: mustprogress noinline nounwind optnone uwtable
-define linkonce_odr dso_local noundef nonnull align 4 dereferenceable(4) ptr @_ZNKSt6vectorIiSaIiEEixEm(ptr noundef nonnull align 8 dereferenceable(24) %0, i64 noundef %1) #0 comdat align 2 {
-  %3 = alloca ptr, align 8
-  %4 = alloca i64, align 8
-  store ptr %0, ptr %3, align 8
-  store i64 %1, ptr %4, align 8
-  %5 = load ptr, ptr %3, align 8
-  %6 = getelementptr inbounds %"struct.std::_Vector_base", ptr %5, i32 0, i32 0
-  %7 = getelementptr inbounds %"struct.std::_Vector_base<int, std::allocator<int>>::_Vector_impl_data", ptr %6, i32 0, i32 0
-  %8 = load ptr, ptr %7, align 8
-  %9 = load i64, ptr %4, align 8
-  %10 = getelementptr inbounds i32, ptr %8, i64 %9
-  ret ptr %10
-}
-
-attributes #0 = { mustprogress noinline nounwind optnone uwtable "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-attributes #2 = { nounwind }
+attributes #0 = { noinline nounwind optnone uwtable "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
 
 !llvm.module.flags = !{!0, !1, !2, !3, !4}
 !llvm.ident = !{!5}
