@@ -24,35 +24,38 @@ deriving DecidableEq
 
 /-- An `LLVM.Int w` is converted into a structure `IntBv`, where
   the `poison` field indicates whether the `Int` is poison. -/
-def toIntBv (x : Int w) : IntBv w :=
+def toIntBv {w : Nat} (x : Int w) : IntBv w :=
   match h : x with
-  | .val v => ⟨v, false, by simp⟩
-  | .poison => ⟨0#w, true, by simp⟩
+  | .val v => {toBitVec := v, poison := false}
+  | .poison => {toBitVec := 0#w, poison := true}
 
 /--
   We prove the injectivity of `toIntBv`.
 -/
-theorem Int.toIntBv.inj {w : Nat} : ∀ {x y : Int w}, x.toIntBv = y.toIntBv → x = y
-  | .val v,  .val v',  h => by
+
+
+theorem Int.toIntBv.inj {w : Nat} {x y : Int w} (h : x.toIntBv = y.toIntBv) : x = y :=
+  match x, y with
+  | .val v,  .val v' => by
     simp only [toIntBv, IntBv.mk.injEq, and_true] at h
     simp [h]
-  | .poison, .poison, _ => rfl
-  | .val v,  .poison, h => by
+  | .poison, .poison => rfl
+  | .val v,  .poison => by
     simp [toIntBv] at h
-  | .poison, .val v,  h => by
+  | .poison, .val v => by
     simp [toIntBv] at h
 
 @[llvm_toBitVec]
-theorem int_inj (i1 i2 : Int w) :
-    i1 = i2 ↔ i1.toIntBv = i2.toIntBv := ⟨(· ▸ rfl), Int.toIntBv.inj⟩
+theorem int_inj {w : Nat} (i1 i2 : Int w) :
+    i1 = i2 ↔ i1.toIntBv = i2.toIntBv := ⟨(· ▸ rfl), by apply Int.toIntBv.inj⟩
 
 @[llvm_toBitVec]
-theorem toIntBv_poison :
+theorem toIntBv_poison {w : Nat} :
     poison.toIntBv = ⟨0#w, true, by simp⟩ := by
   simp [toIntBv]
 
 @[llvm_toBitVec]
-theorem toIntBv_val :
+theorem toIntBv_val {w : Nat} {v : BitVec w} :
     (val v).toIntBv = ⟨v, false, by simp⟩ := by
   simp [toIntBv]
 
@@ -62,25 +65,25 @@ theorem toBitVec_zero_of_poison (x : IntBv w) :
   exact h
 
 @[bv_normalize]
-theorem eq_iff {w : Nat} {l r : IntBv w} :
-    l = r ↔ l.toBitVec = r.toBitVec ∧ l.poison = r.poison :=
+theorem eq_iff {w : Nat} {x y : IntBv w} :
+    x = y ↔ x.toBitVec = y.toBitVec ∧ x.poison = y.poison :=
   IntBv.ext_iff
 
 @[bv_normalize]
-theorem toBitVec_ite {w} (b : Prop) [Decidable b] (x y : IntBv w) :
+theorem toBitVec_ite {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
     (if b then x else y).toBitVec = if b then x.toBitVec else y.toBitVec := by
   split <;> rfl
 
 @[bv_normalize]
-theorem poison_ite {w} (b : Prop) [Decidable b] (x y : IntBv w) :
+theorem poison_ite {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
     (if b then x else y).poison = if b then x.poison else y.poison := by
   split <;> rfl
 
 @[llvm_toBitVec]
-theorem ite_poison_eq (x : Int w) :
+theorem ite_poison_eq {w : Nat} (x : Int w) :
   ((if x.toIntBv.poison = true then
-    {toBitVec := 0#w, poison := true, inv := by simp}
-  else { toBitVec := x.toIntBv.toBitVec, poison := false, inv := by simp }) : IntBv w )=
+    {toBitVec := 0#w, poison := true}
+  else { toBitVec := x.toIntBv.toBitVec, poison := false}) : IntBv w )=
     x.toIntBv := by
   rcases x <;> simp [llvm_toBitVec]
 
@@ -88,17 +91,17 @@ theorem ite_poison_eq (x : Int w) :
 theorem poison_toBitVec_constraint {w : Nat} (x : IntBv w) :
     x.poison = true → x.toBitVec = 0#w := x.inv
 
-theorem ext (l r : IntBv w) (h : l.toBitVec = r.toBitVec ∧ l.poison = r.poison) :
-    l = r := by
+theorem ext {w : Nat} (x y : IntBv w) (h : x.toBitVec = y.toBitVec ∧ x.poison = y.poison) :
+    x = y := by
   exact IntBv.ext_iff.mpr h
 
 @[bv_normalize]
-theorem IntBv.toBitVec_bif {w} (b : Bool) (x y : IntBv w) :
+theorem IntBv.toBitVec_bif {w : Nat} (b : Bool) (x y : IntBv w) :
     (bif b then x else y).toBitVec = bif b then x.toBitVec else y.toBitVec := by
   cases b <;> rfl
 
 @[bv_normalize]
-theorem IntBv.poison_bif {w} (b : Bool) (x y : IntBv w) :
+theorem IntBv.poison_bif {w : Nat} (b : Bool) (x y : IntBv w) :
     (bif b then x else y).poison = bif b then x.poison else y.poison := by
   cases b <;> rfl
 
@@ -115,8 +118,8 @@ theorem toIntBv_constant {w : Nat} (v : _root_.Int) :
 @[llvm_toBitVec]
 theorem toIntBv_add {w : Nat} (x y : Int w) :
     (add x y).toIntBv =
-      if (x.toIntBv.poison ∨ y.toIntBv.poison) = true then ⟨0#w, true, by simp⟩
-        else ⟨x.toIntBv.toBitVec + y.toIntBv.toBitVec, false, by simp⟩ := by
+      if (x.toIntBv.poison ∨ y.toIntBv.poison) = true then {toBitVec := 0#w, poison := true}
+        else {toBitVec := x.toIntBv.toBitVec + y.toIntBv.toBitVec, poison := false} := by
   simp [add, llvm_toBitVec, Id.run]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec]
