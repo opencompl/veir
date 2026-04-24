@@ -32,9 +32,7 @@ def toIntBv {w : Nat} (x : Int w) : IntBv w :=
 /--
   We prove the injectivity of `toIntBv`.
 -/
-
-
-theorem Int.toIntBv.inj {w : Nat} {x y : Int w} (h : x.toIntBv = y.toIntBv) : x = y :=
+theorem toIntBv.inj {w : Nat} {x y : Int w} (h : x.toIntBv = y.toIntBv) : x = y :=
   match x, y with
   | .val v,  .val v' => by
     simp only [toIntBv, IntBv.mk.injEq, and_true] at h
@@ -47,7 +45,7 @@ theorem Int.toIntBv.inj {w : Nat} {x y : Int w} (h : x.toIntBv = y.toIntBv) : x 
 
 @[llvm_toBitVec]
 theorem int_inj {w : Nat} (i1 i2 : Int w) :
-    i1 = i2 ↔ i1.toIntBv = i2.toIntBv := ⟨(· ▸ rfl), by apply Int.toIntBv.inj⟩
+    i1 = i2 ↔ i1.toIntBv = i2.toIntBv := ⟨(· ▸ rfl), by apply toIntBv.inj⟩
 
 @[llvm_toBitVec]
 theorem toIntBv_poison {w : Nat} :
@@ -59,6 +57,7 @@ theorem toIntBv_val {w : Nat} {v : BitVec w} :
     (val v).toIntBv = ⟨v, false, by simp⟩ := by
   simp [toIntBv]
 
+@[bv_normalize]
 theorem toBitVec_zero_of_poison (x : IntBv w) :
     x.poison = true → x.toBitVec = 0#w := by
   obtain ⟨bv, poison, h⟩ := x
@@ -81,10 +80,8 @@ theorem poison_ite {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
 
 @[llvm_toBitVec]
 theorem ite_poison_eq {w : Nat} (x : Int w) :
-  ((if x.toIntBv.poison = true then
-    {toBitVec := 0#w, poison := true}
-  else { toBitVec := x.toIntBv.toBitVec, poison := false}) : IntBv w )=
-    x.toIntBv := by
+    (if x.toIntBv.poison = true then {toBitVec := 0#w, poison := true}
+    else { toBitVec := x.toIntBv.toBitVec, poison := false}) = x.toIntBv := by
   rcases x <;> simp [llvm_toBitVec]
 
 @[bv_normalize]
@@ -96,19 +93,16 @@ theorem ext {w : Nat} (x y : IntBv w) (h : x.toBitVec = y.toBitVec ∧ x.poison 
   exact IntBv.ext_iff.mpr h
 
 @[bv_normalize]
-theorem IntBv.toBitVec_bif {w : Nat} (b : Bool) (x y : IntBv w) :
+theorem toBitVec_bif {w : Nat} (b : Bool) (x y : IntBv w) :
     (bif b then x else y).toBitVec = bif b then x.toBitVec else y.toBitVec := by
   cases b <;> rfl
 
 @[bv_normalize]
-theorem IntBv.poison_bif {w : Nat} (b : Bool) (x y : IntBv w) :
+theorem poison_bif {w : Nat} (b : Bool) (x y : IntBv w) :
     (bif b then x else y).poison = bif b then x.poison else y.poison := by
   cases b <;> rfl
 
-/- We enable `bv_decide` to normalize `toIntBv` for values and poison. -/
-attribute [bv_normalize] toIntBv_poison
-attribute [bv_normalize] toIntBv_val
-attribute [bv_normalize] toBitVec_zero_of_poison
+/-! # LLVM IR operations unfolding to `toIntBv` -/
 
 @[llvm_toBitVec]
 theorem toIntBv_constant {w : Nat} (v : _root_.Int) :
