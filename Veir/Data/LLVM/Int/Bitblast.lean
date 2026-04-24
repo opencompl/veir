@@ -57,6 +57,12 @@ theorem toIntBv_val {w : Nat} {v : BitVec w} :
     (val v).toIntBv = ⟨v, false, by simp⟩ := by
   simp [toIntBv]
 
+@[llvm_toBitVec]
+theorem ite_toIntBv_eq {w : Nat} (x : Int w) :
+    (if x.toIntBv.poison = true then {toBitVec := 0#w, poison := true}
+    else { toBitVec := x.toIntBv.toBitVec, poison := false}) = x.toIntBv := by
+  rcases x <;> simp [llvm_toBitVec]
+
 @[bv_normalize]
 theorem toBitVec_zero_of_poison (x : IntBv w) :
     x.poison = true → x.toBitVec = 0#w := by
@@ -78,19 +84,9 @@ theorem poison_ite {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
     (if b then x else y).poison = if b then x.poison else y.poison := by
   split <;> rfl
 
-@[llvm_toBitVec]
-theorem ite_poison_eq {w : Nat} (x : Int w) :
-    (if x.toIntBv.poison = true then {toBitVec := 0#w, poison := true}
-    else { toBitVec := x.toIntBv.toBitVec, poison := false}) = x.toIntBv := by
-  rcases x <;> simp [llvm_toBitVec]
-
 @[bv_normalize]
 theorem poison_toBitVec_constraint {w : Nat} (x : IntBv w) :
     x.poison = true → x.toBitVec = 0#w := x.inv
-
-theorem ext {w : Nat} (x y : IntBv w) (h : x.toBitVec = y.toBitVec ∧ x.poison = y.poison) :
-    x = y := by
-  exact IntBv.ext_iff.mpr h
 
 @[bv_normalize]
 theorem toBitVec_bif {w : Nat} (b : Bool) (x y : IntBv w) :
