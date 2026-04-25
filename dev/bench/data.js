@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777059370572,
+  "lastUpdate": 1777088020003,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -8268,6 +8268,162 @@ window.BENCHMARK_DATA = {
             "value": 745000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000745s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mathieu.fehr@gmail.com",
+            "name": "Mathieu Fehr",
+            "username": "math-fehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "911a5f8bcd0b16554001064a0c94934c9a5d921c",
+          "message": "Add lemmas about the interpreter and dominance (#451)\n\nSince we do not have a dominance theory yet, we add a list of axioms for\nnow.\n\nCo-authored-by: Tobias Grosser <tobias@grosser.es>",
+          "timestamp": "2026-04-25T03:30:57Z",
+          "tree_id": "1ec513ea97e9908fd37c05176bfc3e2c0e5e1629",
+          "url": "https://github.com/opencompl/veir/commit/911a5f8bcd0b16554001064a0c94934c9a5d921c"
+        },
+        "date": 1777088015541,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 1850000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001850s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3374000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003374s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 1904000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001904s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2916000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002916s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 1873000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001873s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2188000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002188s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1559000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001559s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1738000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001738s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 1861000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001861s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 4805000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.004805s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 1841000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001841s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2693000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002693s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 1859000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001859s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1731000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001731s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1580000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001580s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1386000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001386s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 1860000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001860s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3273000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003273s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1570000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001570s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 9000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000009s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1572000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001572s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 767000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000767s"
           }
         ]
       }
