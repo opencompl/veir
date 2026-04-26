@@ -116,7 +116,7 @@ deriving Inhabited, Repr, DecidableEq, Hashable
   Pointers are typed, i.e., they carry the type they point to.
 -/
 
-structure PointerType where
+structure CudaTile.PointerType where
   pointeeType : IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
@@ -184,7 +184,7 @@ inductive Attribute
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
 /-- Cuda Tile pointer type -/
-| pointerType (type : PointerType)
+| cudaTilePointerType (type : CudaTile.PointerType)
 deriving Inhabited, Repr, Hashable
 
 end
@@ -310,7 +310,7 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
-  case pointerType.pointerType type1 type2 =>
+  case cudaTilePointerType.cudaTilePointerType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
@@ -377,7 +377,7 @@ instance : ToString ModArithType where
     | some modulusType => s!" : {modulusType}"
     | none => "") ++ ">"
 
-instance : ToString PointerType where
+instance : ToString CudaTile.PointerType where
   toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"
 
 mutual
@@ -446,7 +446,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .unregisteredAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
-  | .pointerType type => ToString.toString type
+  | .cudaTilePointerType type => ToString.toString type
 termination_by sizeOf attr
 
 end
@@ -498,8 +498,8 @@ instance : Coe FunctionType Attribute where
 instance : Coe ModArithType Attribute where
   coe type := .modArithType type
 
-instance : Coe PointerType Attribute where
-  coe type := .pointerType type
+instance : Coe CudaTile.PointerType Attribute where
+  coe type := .cudaTilePointerType type
 
 /-!
   ## TypeAttr definition
@@ -528,7 +528,7 @@ def isType (attr : Attribute) : Bool :=
   | .modArithType _ => true
   | .registerType _ => true
   | .registerAttr _ => true
-  | .pointerType _ => true
+  | .cudaTilePointerType _ => true
 
 @[simp, grind =]
 theorem isType_integerType type : (integerType type).isType = true := by rfl
@@ -540,7 +540,7 @@ theorem isType_functionType type : (functionType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_pointerType type : (pointerType type).isType = true := by rfl
+theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
 
 end Attribute
 
@@ -585,8 +585,8 @@ instance : Coe ModArithType TypeAttr where
 instance : Coe RegisterType TypeAttr where
   coe type := ⟨.registerType type, by rfl⟩
 
-instance : Coe PointerType TypeAttr where
-  coe type := ⟨.pointerType type, by rfl⟩
+instance : Coe CudaTile.PointerType TypeAttr where
+  coe type := ⟨.cudaTilePointerType type, by rfl⟩
 
 end
 end Veir

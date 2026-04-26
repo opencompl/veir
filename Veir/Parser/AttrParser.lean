@@ -242,7 +242,7 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   Its syntax is `!cuda_tile.ptr<type>`, where type will be a CudaTileNumberType
   At present, this is just integer types.
 -/
-partial def parseOptionalPointerType : AttrParserM (Option TypeAttr) := do
+partial def parseOptionalCudaTilePointerType : AttrParserM (Option TypeAttr) := do
   let token ← peekToken
   let .exclamationIdent := token.kind | return none
   let input := (← getThe ParserState).input
@@ -253,7 +253,7 @@ partial def parseOptionalPointerType : AttrParserM (Option TypeAttr) := do
   let some intTy ← parseOptionalIntegerType
     | throw "integer type expected"
   parsePunctuation ">"
-  return some (PointerType.mk intTy)
+  return some (CudaTile.PointerType.mk intTy)
 
 /--
   Parse HEIR's modarith type, if present.
@@ -315,8 +315,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some registerType
   if let some modArithType ← parseOptionalModArithType then
     return some modArithType
-  if let some pointerType := ← parseOptionalPointerType then
-    return some pointerType
+  if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
+    return some cudaTilePointerType
   if let some dialectType ← parseOptionalDialectType then
     return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then
