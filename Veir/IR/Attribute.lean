@@ -108,7 +108,7 @@ structure ModArithType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /-!
-  # cuda-tile types go here
+  # Cuda Tile types go here
 -/
 
 /--
@@ -153,7 +153,6 @@ structure DictionaryAttr where
   /- TODO: figure out how to maintain a proof of sorted-ness and uniqueness. -/
 deriving Inhabited, Repr, Hashable
 
-
 /--
   A data structure that represents compile-time information in the IR.
   Attributes are used either as type annotations for SSA values, or
@@ -184,7 +183,7 @@ inductive Attribute
 | unregisteredAttr (attr : UnregisteredAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
-/-- cuda-tile pointer type -/
+/-- Cuda Tile pointer type -/
 | pointerType (type : PointerType)
 deriving Inhabited, Repr, Hashable
 
