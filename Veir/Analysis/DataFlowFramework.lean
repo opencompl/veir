@@ -1,351 +1,182 @@
 module
 
+public import Std.Data.DHashMap
 public import Std.Data.HashMap
-public import Init.Data.Queue
-public import Veir.IR.Basic
-public import Veir.GlobalOpInfo
+public import Veir.Analysis.DataFlow.Facts
 
-open Std(HashMap Queue)
+open Std (DHashMap HashMap)
 
 public section
 
 namespace Veir
 
-inductive ProgramPoint where
-  | inBlock (block : BlockPtr) (nextOp : Option OperationPtr)
-  | standaloneOp (op : OperationPtr)
-deriving BEq, Hashable
+/-!
+# Dataflow framework 
+-/
 
-namespace ProgramPoint
-
-/-- Create the program point at the beginning of a block. -/
-def beforeBlock (block : BlockPtr) (irCtx : IRContext OpCode) : ProgramPoint :=
-  .inBlock block (block.get! irCtx).firstOp
-
-/-- Create the program point at the end of a block. -/
-def afterBlock (block : BlockPtr) : ProgramPoint :=
-  .inBlock block none
-
-/-- Create the program point immediately before an operation. -/
-def beforeOp (op : OperationPtr) (irCtx : IRContext OpCode) : ProgramPoint :=
-  match (op.get! irCtx).parent with
-  | some block =>
-    .inBlock block (some op)
-  | none =>
-    .standaloneOp op
-
-/-- Create the program point immediately after an operation. -/
-def afterOp (op : OperationPtr) (irCtx : IRContext OpCode) : ProgramPoint :=
-  match (op.get! irCtx).parent with
-  | some block =>
-    .inBlock block (op.get! irCtx).next
-  | none =>
-    .standaloneOp op
-
-/-- Return the containing block, if this point is inside a block. -/
-def getBlock? : ProgramPoint -> Option BlockPtr
-  | .inBlock block _ =>
-    some block
-  | .standaloneOp _ =>
-    none
-
-/-- Return whether the program point is at the beginning of a block. -/
-def isBlockStart (point : ProgramPoint) (irCtx : IRContext OpCode) : Bool :=
-  match point with
-  | .inBlock block nextOp =>
-    nextOp == (block.get! irCtx).firstOp
-  | .standaloneOp _ =>
-    false
-
-/-- Return the operation immediately preceding a non-block-start point. -/
-def getPrevOp! (point : ProgramPoint) (irCtx : IRContext OpCode) : OperationPtr :=
-  match point with
-  | .inBlock block (some nextOp) =>
-    match (nextOp.get! irCtx).prev with
-    | some prev =>
-      prev
-    | none =>
-      panic! s!"ProgramPoint.getPrevOp!: block-start point in block {block.id}"
-  | .inBlock block none =>
-    match (block.get! irCtx).lastOp with
-    | some lastOp =>
-      lastOp
-    | none =>
-      panic! s!"ProgramPoint.getPrevOp!: empty block {block.id} has no previous operation"
-  | .standaloneOp op =>
-    op
-
-end ProgramPoint
-
-@[expose] def CFGEdge := BlockPtr × BlockPtr
-
-instance : BEq CFGEdge :=
-  inferInstanceAs (BEq (BlockPtr × BlockPtr))
-
-instance : Hashable CFGEdge :=
-  inferInstanceAs (Hashable (BlockPtr × BlockPtr))
-
-namespace CFGEdge
-
-def getFrom (edge : CFGEdge) : BlockPtr :=
-  edge.1
-
-def getTo (edge : CFGEdge) : BlockPtr :=
-  edge.2
-
-end CFGEdge
-
-inductive LatticeAnchor
-  | ProgramPoint (point : ProgramPoint)
-  | ValuePtr (value : ValuePtr)
-  | CFGEdge (edge : CFGEdge)
-deriving BEq, Hashable
-
-class LatticeElement (Domain : Type) extends BEq Domain where
-  typeNameInst : TypeName Domain
-  bottom : Domain
-  top : Domain
-  join : Domain -> Domain -> Domain
-  meet : Domain -> Domain -> Domain
-
-attribute [instance] Veir.LatticeElement.toBEq
-
-@[reducible] instance [LatticeElement Value] : TypeName Value :=
-  LatticeElement.typeNameInst
-
--- =============================== DataFlowAnalysis ============================== --
--- `Dynamic` is ALWAYS `DataFlowContext`; panic if this invariant is broken.
-structure DataFlowAnalysis where
-  private mk ::
-  id : Lean.Name
-  initDyn : OperationPtr -> Dynamic -> IRContext OpCode -> Dynamic
-  visitDyn : ProgramPoint -> Dynamic -> IRContext OpCode -> Dynamic
--- =============================================================================== --
-
--- ================================== WorkList =================================== --
--- A queued item stores a program point and the analysis to run.
-@[expose] def WorkItem := ProgramPoint × Lean.Name
-@[expose] def WorkList := Queue WorkItem
--- =============================================================================== --
-
--- ============================= ErasedAnalysisState ============================= --
--- `valueDyn` stores the concrete state object. `onUpdateDyn` expects `(valueDyn, dfCtxDyn)`.
-structure ErasedAnalysisState where
-  private mk ::
-  valueDyn : Dynamic
-  -- State -> DataFlowContext -> IRContext -> DataFlowContext
-  onUpdateDyn : Dynamic -> Dynamic -> IRContext OpCode -> Dynamic
--- =============================================================================== --
-
--- =============================== DataFlowContext =============================== --
+/--
+The solver state containing all dataflow facts and the worklist of program points 
+to call transfer functions on.
+-/
 structure DataFlowContext where
-  /-- Registered analyses for the current solver run, keyed by analysis id. -/
-  analyses : HashMap Lean.Name DataFlowAnalysis
-
-  /-- 
-  Maps a program location to a set of states for that location, 
-  each belonging to a different analysis.
-  -/
-  lattice : HashMap LatticeAnchor (HashMap Lean.Name ErasedAnalysisState)
-
-  -- queue for the fixpoint solver
+  lattice : HashMap LatticeAnchor (DHashMap FactKind Fact)
   workList : WorkList
-deriving TypeName
 
 def DataFlowContext.empty : DataFlowContext :=
-  { analyses := ∅
-    lattice := ∅
-    workList := .empty
-  }
+  { lattice := ∅
+    workList := .empty }
 
-instance : Inhabited DataFlowContext where
-  default := DataFlowContext.empty
+/--
+Implement this class to register a custom type to be recognized as
+a fact type by the dataflow framework.
+-/
+class FactSpec (kind : FactKind) where
+  /--
+  Default state a fact starts in. Typically either bottom or top. 
+  -/
+  mkDefault : LatticeAnchor -> Fact kind
+  /--
+  Hook that's called when the fact changes state. Typically used to
+  enqueue a fact's dependents because it changed.
+  -/
+  propagate : Fact kind -> DataFlowContext -> IRContext OpCode -> DataFlowContext
 
-private unsafe def asDataFlowContextImpl (ctxDyn : Dynamic) : DataFlowContext :=
-  unsafeCast ctxDyn
+namespace Fact
 
-private unsafe def asDynamicImpl (ctx : DataFlowContext) : Dynamic :=
-  unsafeCast ctx
+/--
+Construct the default fact for a given lattice anchor. 
+-/
+def mkDefault (kind : FactKind) [FactSpec kind] (anchor : LatticeAnchor) : Fact kind :=
+  FactSpec.mkDefault (kind := kind) anchor
 
-@[implemented_by asDataFlowContextImpl]
-private opaque asDataFlowContext (ctxDyn : Dynamic) : DataFlowContext :=
-  match ctxDyn.get? DataFlowContext with
-  | some dfCtx =>
-    dfCtx
-  | none =>
-    panic! s!"expected DataFlowContext, got {ctxDyn.typeName}"
-
-@[implemented_by asDynamicImpl]
-private def asDynamic (ctx : DataFlowContext) : Dynamic :=
-  Dynamic.mk ctx
-
-instance : Coe DataFlowContext WorkList where
-  coe dfCtx := dfCtx.workList
--- =============================================================================== --
-
--- ================== Safe API (DataFlowAnalysis/AnalysisState) ================== --
-namespace DataFlowAnalysis
-
-def init (analysis : DataFlowAnalysis) (top : OperationPtr) (dfCtx : DataFlowContext)
+/--
+Run the fact kind's propagation hook.
+-/
+def propagate [FactSpec kind]
+    (fact : Fact kind)
+    (ctx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext :=
-  asDataFlowContext (analysis.initDyn top (asDynamic dfCtx) irCtx)
+  FactSpec.propagate (kind := kind) fact ctx irCtx
 
-def visit (analysis : DataFlowAnalysis) (point : ProgramPoint) (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext :=
-  asDataFlowContext (analysis.visitDyn point (asDynamic dfCtx) irCtx)
+end Fact
 
-def new
-    (id : Lean.Name)
-    (init : OperationPtr -> DataFlowContext -> IRContext OpCode -> DataFlowContext)
-    (visit : ProgramPoint -> DataFlowContext -> IRContext OpCode -> DataFlowContext) : DataFlowAnalysis :=
-  { id := id
-    initDyn := fun top dfCtxDyn irCtx =>
-      asDynamic (init top (asDataFlowContext dfCtxDyn) irCtx)
-    visitDyn := fun point dfCtxDyn irCtx =>
-      asDynamic (visit point (asDataFlowContext dfCtxDyn) irCtx)
-  }
+/--
+A single transfer problem scheduled by the fixpoint solver.
+-/
+structure DataFlowAnalysis where
+  /--
+  Tag to identify the implemented analysis.
+  -/
+  kind : AnalysisKind
+  /--
+  Given the top level operation pointer, initializes the analysis to a valid state.
+  This often involves enqueueing some number of work items into the work list, such
+  as every SSA value reachable from the top level operation pointer.
+  -/
+  init : OperationPtr -> DataFlowContext -> IRContext OpCode -> DataFlowContext
+  /--
+  The transfer function, visiting the given `InsertPoint`.
+  -/
+  visit : InsertPoint -> DataFlowContext -> IRContext OpCode -> DataFlowContext
 
-end DataFlowAnalysis
-
-structure AnalysisStateHeader where
-  anchor : LatticeAnchor
-  dependents : Array WorkItem
-
-def AnalysisStateHeader.enqueueDependents (state : AnalysisStateHeader) (workList : WorkList) : WorkList := Id.run do
-  let mut workList := workList
-  for workItem in state.dependents do
-    workList := workList.enqueue workItem
-  workList
-
-class AnalysisState (State : Type u) where
-  typeNameInst : TypeName State
-  mkState : LatticeAnchor -> State
-  onUpdate : State -> DataFlowContext -> IRContext OpCode -> DataFlowContext
-  toHeader : State -> AnalysisStateHeader
-
-@[reducible] instance [AnalysisState State] : TypeName State :=
-  AnalysisState.typeNameInst
-
-instance [AnalysisState State] : CoeOut State AnalysisStateHeader where
-  coe := AnalysisState.toHeader
-
-namespace AnalysisState
-
-def anchor (state : State) [AnalysisState State] : LatticeAnchor :=
-  (AnalysisState.toHeader state).anchor
-
-def dependents (state : State) [AnalysisState State] : Array WorkItem :=
-  (AnalysisState.toHeader state).dependents
-
-end AnalysisState
-
-namespace ErasedAnalysisState
-
-def onUpdate (state : ErasedAnalysisState) (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : DataFlowContext :=
-  asDataFlowContext (state.onUpdateDyn state.valueDyn (asDynamic dfCtx) irCtx)
-
-def new (state : Impl) [AnalysisState Impl] : ErasedAnalysisState :=
-  { valueDyn := Dynamic.mk state
-    onUpdateDyn := fun valueDyn dfCtxDyn irCtx =>
-      match valueDyn.get? Impl with
-      | some state =>
-        let dfCtx := asDataFlowContext dfCtxDyn
-        asDynamic (AnalysisState.onUpdate state dfCtx irCtx)
-      | none =>
-        asDynamic (panic! s!"expected value of type {TypeName.typeName Impl}, got {valueDyn.typeName}" : DataFlowContext)
-  }
-
-def getValue? (state : ErasedAnalysisState) (Impl : Type u) [AnalysisState Impl] : Option Impl :=
-  state.valueDyn.get? Impl
-
-end ErasedAnalysisState
--- =============================================================================== --
-
--- =============================== DataFlowContext =============================== --
 namespace DataFlowContext
 
-def getAnalysis? (dfCtx : DataFlowContext) (id : Lean.Name) : Option DataFlowAnalysis :=
-  dfCtx.analyses.get? id
+/--
+Enqueue one transfer problem onto the worklist.
+-/
+def enqueue (ctx : DataFlowContext) (workItem : WorkItem) : DataFlowContext :=
+  { ctx with workList := ctx.workList.enqueue workItem }
 
-def insertAnalysis (dfCtx : DataFlowContext) (analysis : DataFlowAnalysis) : DataFlowContext :=
-  { dfCtx with analyses := dfCtx.analyses.insert analysis.id analysis }
+/--
+Read the fact of kind `kind` stored at `anchor`, if any.
+-/
+def getFact? (kind : FactKind) [FactSpec kind]
+    (ctx : DataFlowContext) (anchor : LatticeAnchor) : Option (Fact kind) := do
+  let facts ← ctx.lattice.get? anchor
+  DHashMap.get? facts kind
 
-def getState? {State : Type} [AnalysisState State]
-  (dfCtx : DataFlowContext) (anchor : LatticeAnchor) : Option State := do
-  let states ← dfCtx.lattice.get? anchor
-  let state ← states.get? (TypeName.typeName State)  
-  ErasedAnalysisState.getValue? state State
+/--
+Read the fact of kind `kind` at `anchor`, creating the default fact if it is absent.
+Note that this doesn't modify the context.
+-/
+def getOrMkFact (kind : FactKind) [spec : FactSpec kind]
+    (ctx : DataFlowContext) (anchor : LatticeAnchor) : Fact kind :=
+  match ctx.getFact? kind anchor with
+  | some fact => fact
+  | none => Fact.mkDefault kind anchor
 
-def getOrMkState {State : Type} [AnalysisState State]
-  (dfCtx : DataFlowContext) (anchor : LatticeAnchor) : State :=
-  match dfCtx.getState? (State := State) anchor with
-  | some state => state
-  | none => AnalysisState.mkState anchor
+/--
+Overwrite the stored fact of kind `kind` for `anchor`. 
+-/
+private def setFact (kind : FactKind) [FactSpec kind]
+    (ctx : DataFlowContext) (anchor : LatticeAnchor) (fact : Fact kind) : DataFlowContext :=
+  let facts := (ctx.lattice.getD anchor ∅).insert kind fact
+  { ctx with lattice := ctx.lattice.insert anchor facts }
 
-private def writeState
-    (dfCtx : DataFlowContext)
+/--
+Apply an update with `f` to the fact of kind `kind` stored at `anchor`. 
+-/
+def modifyFact (kind : FactKind) [FactSpec kind]
+    (ctx : DataFlowContext) (anchor : LatticeAnchor) (f : Fact kind -> Fact kind) : DataFlowContext :=
+  let current := ctx.getOrMkFact kind anchor
+  ctx.setFact kind anchor (f current)
+
+/--
+Apply an update with `f` to the fact of kind `kind` stored at `anchor` and 
+`propagate` if it changed.
+-/
+def modifyFactAndPropagate (kind : FactKind) [spec : FactSpec kind]
+    (ctx : DataFlowContext)
     (anchor : LatticeAnchor)
-    (state : State)
-    [AnalysisState State] : DataFlowContext :=
-  let erasedState := ErasedAnalysisState.new state
-  let states := (dfCtx.lattice.getD anchor ∅).insert erasedState.valueDyn.typeName erasedState
-  { dfCtx with lattice := dfCtx.lattice.insert anchor states }
-
-def setState
-    (dfCtx : DataFlowContext)
-    (anchor : LatticeAnchor)
-    (f : State -> State)
-    [AnalysisState State] : DataFlowContext :=
-  let current := dfCtx.getOrMkState (State := State) anchor
-  dfCtx.writeState anchor (f current)
-
-def setStateAndUpdate
-    (dfCtx : DataFlowContext)
-    (anchor : LatticeAnchor)
-    (f : State -> State × Bool)
-    (irCtx : IRContext OpCode)
-    [AnalysisState State] : DataFlowContext :=
-  let current := dfCtx.getOrMkState (State := State) anchor
-  let (state, changed) := f current
-  let dfCtx := dfCtx.writeState anchor state
+    (f : Fact kind -> Fact kind × Bool)
+    (irCtx : IRContext OpCode) : DataFlowContext :=
+  let current := ctx.getOrMkFact kind anchor
+  let (fact, changed) := f current
+  let ctx := ctx.setFact kind anchor fact
   if changed then
-    AnalysisState.onUpdate state dfCtx irCtx
+    fact.propagate ctx irCtx
   else
-    dfCtx
+    ctx
 
 end DataFlowContext
--- =============================================================================== --
 
--- =============================== Fixpoint Solver =============================== --
-partial def run (dfCtx : DataFlowContext) (irCtx : IRContext OpCode) : DataFlowContext :=
-  match dfCtx.workList.dequeue? with
-  | none =>
-    dfCtx
-  | some ((point, analysisId), workList) =>
-    let dfCtx := { dfCtx with workList := workList }
-    match dfCtx.getAnalysis? analysisId with
+/--
+Analyses involved in the fixpoint loop.
+-/
+abbrev RegisteredAnalyses := HashMap AnalysisKind DataFlowAnalysis
+
+/--
+Run the worklist solver to completion.
+
+Returns `Option` since `run` may run forever.
+TODO: Eventually prove via monotonicity that this is in fact impossible.
+-/
+partial def run (analyses : RegisteredAnalyses) (ctx : DataFlowContext)
+    (irCtx : IRContext OpCode) : Option DataFlowContext :=
+  match ctx.workList.dequeue? with
+  | none => some ctx
+  | some ((point, analysisKind), workList) =>
+    let ctx := { ctx with workList := workList }
+    match analyses.get? analysisKind with
     | some analysis =>
-      let dfCtx := analysis.visit point dfCtx irCtx
-      run dfCtx irCtx
+      let ctx := analysis.visit point ctx irCtx
+      run analyses ctx irCtx
     | none =>
-      panic! s!"analysis {analysisId} is not registered in DataFlowContext"
+      panic! s!"analysis {reprStr analysisKind} is not registered"
 
+/--
+Initialize the registered analyses and run the worklist solver to a fixpoint.
+
+Returns `some` whenever it terminates.
+-/
 def fixpointSolve (top : OperationPtr) (analyses : Array DataFlowAnalysis)
-    (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
-  -- init
-  let mut dfCtx := DataFlowContext.empty
-  
-  -- Register analysis
+    (irCtx : IRContext OpCode) : Option DataFlowContext := Id.run do
+  let mut ctx := DataFlowContext.empty
+  let mut registeredAnalyses : RegisteredAnalyses := ∅
   for analysis in analyses do
-    dfCtx := dfCtx.insertAnalysis analysis
-  
-  -- Initialize analysis
+    registeredAnalyses := registeredAnalyses.insert analysis.kind analysis
   for analysis in analyses do
-    dfCtx := analysis.init top dfCtx irCtx
-
-  -- run
-  run dfCtx irCtx
--- =============================================================================== --
+    ctx := analysis.init top ctx irCtx
+  run registeredAnalyses ctx irCtx
 
 end Veir
