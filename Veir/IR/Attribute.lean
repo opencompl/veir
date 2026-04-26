@@ -108,17 +108,21 @@ structure ModArithType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /-!
-  # Cuda Tile types go here
+  # Cuda Tile types
 -/
+
+namespace CudaTile
 
 /--
   An elemental pointer type represents a single location in global device memory.
   Pointers are typed, i.e., they carry the type they point to.
 -/
 
-structure CudaTile.PointerType where
+structure PointerType where
   pointeeType : IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+end CudaTile
 
 mutual
 
