@@ -292,7 +292,7 @@ theorem OperationPtr.getOperands!_inBounds :
     operation.InBounds ctx →
     operand ∈ operation.getOperands! ctx →
     operand.InBounds ctx := by
-  grind [getOperands!.exists_index_of_mem]
+  grind [getOperands!.mem_iff_exists_index]
 
 grind_pattern OperationPtr.getOperands!_inBounds => operand ∈ operation.getOperands! ctx, ctx.FieldsInBounds
 

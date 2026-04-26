@@ -1,14 +1,18 @@
 module
 
+import all Veir.Data.RISCV.Reg.Simp
+
 namespace Veir.Data.RISCV
 
 public section
 
 /--
 The `Reg` type is a `BitVec 64` representing the content of a register.
+We design the type following Lean's stle, e.g., with UInt/SInt types.
 -/
 structure Reg where
   val : BitVec 64
+deriving DecidableEq
 
 instance : ToString Reg where
   toString r := toString r.val

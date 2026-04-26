@@ -405,14 +405,16 @@ theorem getOperands!_eq_getOperands {op : OperationPtr} (hin : op.InBounds ctx) 
     op.getOperands! ctx = op.getOperands ctx (by grind) := by
   grind [getOperands, getOperands!]
 
-theorem getOperands!.exists_index_of_mem {op : OperationPtr} :
-    value ∈ op.getOperands! ctx →
+theorem getOperands!.mem_iff_exists_index {op : OperationPtr} :
+    value ∈ op.getOperands! ctx ↔
     ∃ index, index < op.getNumOperands! ctx ∧ op.getOperand! ctx index = value := by
-  simp only [getOperands!, Array.mem_map, getOperand!, getNumOperands!, forall_exists_index, and_imp]
-  intro operand operandIn operandValue
-  have ⟨i, hi, hoperand⟩ := Array.getElem_of_mem operandIn
-  exists i
-  grind
+  simp only [getOperands!, Array.mem_map, getOperand!, getNumOperands!]
+  constructor
+  · rintro ⟨operand, ⟨hoperand, operandValue⟩⟩
+    have ⟨i, hi, hoperand⟩ := Array.getElem_of_mem hoperand
+    exists i
+    grind
+  · grind
 
 theorem getOperands!.mem_getOperand {op : OperationPtr} :
     index < op.getNumOperands! ctx →
@@ -516,6 +518,102 @@ theorem getResult_op {op : OperationPtr} {index : Nat} :
 theorem eq_getResult_of_OpResultPtr_op_eq {res : OpResultPtr} :
     res.op = op → res = op.getResult res.index := by
   grind [getResult, cases OpResultPtr]
+
+def getOpResults (op : OperationPtr) (ctx : IRContext OpInfo)
+  (inBounds : op.InBounds ctx := by grind) : Array OpResultPtr :=
+  Array.map (fun i => op.getResult i) (Array.range (op.getNumResults ctx inBounds))
+
+def getOpResults! (op : OperationPtr) (ctx : IRContext OpInfo) : Array OpResultPtr :=
+  Array.map (fun i => op.getResult i) (Array.range (op.getNumResults! ctx))
+
+@[grind =_, eq_bang ←]
+theorem getOpResults!_eq_getOpResults {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getOpResults! ctx = op.getOpResults ctx (by grind) := by
+  grind [getOpResults, getOpResults!]
+
+theorem getOpResults!.mem_iff_exists_index {op : OperationPtr} :
+    value ∈ op.getOpResults! ctx ↔
+    ∃ index, index < op.getNumResults! ctx ∧ op.getResult index = value := by
+  simp only [getOpResults!, Array.mem_map, getResult, getNumResults!]
+  constructor
+  · rintro ⟨result, ⟨hresult, resultValue⟩⟩
+    have ⟨i, hi, hresult⟩ := Array.getElem_of_mem hresult
+    exists i
+    grind
+  · grind
+
+theorem getOpResults!.mem_getResult {op : OperationPtr} :
+    index < op.getNumResults! ctx →
+    op.getResult index ∈ op.getOpResults! ctx := by
+  grind [getOpResults!, getResult, getNumResults!]
+
+@[simp, grind =]
+theorem getOpResults!.size_eq_getNumResults! {op : OperationPtr} :
+    (op.getOpResults! ctx).size = op.getNumResults! ctx := by
+  grind [getOpResults!, getNumResults!]
+
+@[simp, grind =]
+theorem getOpResults!.getElem!_eq_getResult {op : OperationPtr} :
+    index < op.getNumResults! ctx →
+    (op.getOpResults! ctx)[index]! = op.getResult index := by
+  simp only [getOpResults!, getResult]
+  grind
+
+@[simp, grind =]
+theorem getOpResults!.getElem_eq_getResult
+    {op : OperationPtr} {h : index < (op.getOpResults! ctx).size} :
+    index < op.getNumResults! ctx →
+    (op.getOpResults! ctx)[index]'h = op.getResult index := by
+  simp only [getOpResults!, getResult]
+  grind
+
+def getResults (op : OperationPtr) (ctx : IRContext OpInfo)
+  (inBounds : op.InBounds ctx := by grind) : Array ValuePtr :=
+  Array.map (fun i => op.getResult i) (Array.range (op.getNumResults ctx inBounds))
+
+def getResults! (op : OperationPtr) (ctx : IRContext OpInfo) : Array ValuePtr :=
+  Array.map (fun i => op.getResult i) (Array.range (op.getNumResults! ctx))
+
+@[grind =_, eq_bang ←]
+theorem getResults!_eq_getResults {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getResults! ctx = op.getResults ctx (by grind) := by
+  grind [getResults, getResults!]
+
+theorem getResults!.mem_iff_exists_index {op : OperationPtr} :
+    value ∈ op.getResults! ctx ↔
+    ∃ index, index < op.getNumResults! ctx ∧ op.getResult index = value := by
+  simp only [getResults!, Array.mem_map, getResult, getNumResults!]
+  constructor
+  · rintro ⟨result, ⟨hresult, resultValue⟩⟩
+    have ⟨i, hi, hresult⟩ := Array.getElem_of_mem hresult
+    exists i
+    grind
+  · grind
+
+theorem getResults!.mem_getResult {op : OperationPtr} :
+    index < op.getNumResults! ctx →
+    (op.getResult index : ValuePtr) ∈ op.getResults! ctx := by
+  grind [getResults!, getResult, getNumResults!]
+
+@[simp, grind =]
+theorem getResults!.size_eq_getNumResults! {op : OperationPtr} :
+    (op.getResults! ctx).size = op.getNumResults! ctx := by
+  grind [getResults!, getNumResults!]
+
+@[simp, grind =]
+theorem getResults!.getElem!_eq_getResult {op : OperationPtr} :
+    index < op.getNumResults! ctx →
+    (op.getResults! ctx)[index]! = op.getResult index := by
+  simp only [getResults!, getResult]
+  grind
+
+@[simp, grind =]
+theorem getResults!.getElem_eq_getResult
+    {op : OperationPtr} {h : index < (op.getResults! ctx).size} :
+    index < op.getNumResults! ctx →
+    (op.getResults! ctx)[index]'h = op.getResult index := by
+  simp only [getResults!, getResult]
+  grind
 
 def getNumRegions (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : Nat :=
@@ -1596,6 +1694,51 @@ theorem getFirstUse!_opResult_eq {res : OpResultPtr} {ctx : IRContext OpInfo} :
 theorem getFirstUse!_blockArgument_eq {ba : BlockArgumentPtr} {ctx : IRContext OpInfo} :
     (blockArgument ba).getFirstUse! ctx = (ba.get! ctx).firstUse := by
   grind [getFirstUse!]
+
+def getDefiningOp (value : ValuePtr) (ctx : IRContext OpInfo)
+    (valueIn : value.InBounds ctx := by grind) : Option OperationPtr :=
+  match value with
+  | opResult ptr => (ptr.get ctx).owner
+  | blockArgument _ => none
+
+def getDefiningOp! (value : ValuePtr) (ctx : IRContext OpInfo) : Option OperationPtr :=
+  match value with
+  | opResult ptr => some (ptr.get! ctx).owner
+  | blockArgument _ => none
+
+theorem getDefiningOp!_def {value : ValuePtr} :
+    value.getDefiningOp! ctx =
+      match value with
+      | opResult ptr => some (ptr.get! ctx).owner
+      | blockArgument _ => none := by
+  grind [getDefiningOp!]
+
+@[grind =_, eq_bang ←]
+theorem getDefiningOp!_eq_getDefiningOp {ptr : ValuePtr} (hin : ptr.InBounds ctx) :
+    ptr.getDefiningOp! ctx = ptr.getDefiningOp ctx hin := by
+  unfold getDefiningOp getDefiningOp!; grind
+
+@[simp, grind =]
+theorem getDefiningOp!_opResult :
+    (opResult res).getDefiningOp! ctx = some (res.get! ctx).owner := by
+  grind [getDefiningOp!]
+
+@[simp, grind =]
+theorem getDefiningOp!_blockArgument :
+    (blockArgument ba).getDefiningOp! ctx = none := by
+  grind [getDefiningOp!]
+
+@[grind =]
+theorem getDefiningOp!_eq_some_iff {value : ValuePtr} :
+    value.getDefiningOp! ctx = some op ↔
+    ∃ opRes, value = opResult opRes ∧ (opRes.get! ctx).owner = op := by
+  grind [getDefiningOp!, cases ValuePtr]
+
+@[grind =]
+theorem getDefiningOp!_eq_none_iff {value : ValuePtr} :
+    value.getDefiningOp! ctx = none ↔
+    ∃ blockArg, value = blockArgument blockArg := by
+  grind [getDefiningOp!, cases ValuePtr]
 
 /--
 Returns true if the value has any uses.

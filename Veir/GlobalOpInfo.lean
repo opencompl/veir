@@ -4,6 +4,7 @@ public import Veir.Dialects.Arith.OpInfo
 public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.ModArith.OpInfo
+public import Veir.Dialects.Cf.OpInfo
 
 namespace Veir
 
@@ -20,6 +21,7 @@ match opCode with
 | .llvm op => Llvm.propertiesOf op
 | .riscv op => Riscv.propertiesOf op
 | .mod_arith op => Mod_Arith.propertiesOf op
+| .cf op => Cf.propertiesOf op
 | _ => Unit
 
 instance : HasDialectOpInfo OpCode where
@@ -92,10 +94,13 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case trunc => exact (NswNuwProperties.fromAttrDict attrDict)
     case zext => exact (NnegProperties.fromAttrDict attrDict)
     case icmp => exact (IcmpProperties.fromAttrDict attrDict)
+    case cond_br => exact (CondBrProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case func =>
     all_goals exact (Except.ok ())
-  case cf =>
+  case cf op =>
+    cases op
+    case cond_br => exact (CondBrProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case builtin =>
     all_goals exact (Except.ok ())
@@ -135,6 +140,9 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | .llvm .icmp => Id.run do
     (Std.HashMap.emptyWithCapacity 2).insert "predicate".toUTF8 (Attribute.integerAttr props.value)
+  | .llvm .cond_br =>
+    let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
+    dict.insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
   | .arith .divsi | .arith .divui | .arith .shrsi | .arith .shrui |
     .llvm .udiv | .llvm .sdiv | .llvm .lshr | .llvm .ashr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
@@ -156,5 +164,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
   | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .cf .cond_br =>
+    let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
+    dict.insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
   | _ =>
     Std.HashMap.emptyWithCapacity 0

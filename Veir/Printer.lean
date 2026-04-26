@@ -186,8 +186,8 @@ partial def printOperation (ctx: IRContext OpCode) (op: OperationPtr) (indent: N
   printOpResults ctx op
   IO.print s!"\"{String.fromUTF8! opStruct.opType.name}\""
   printOpOperands ctx op
-  printOpProperties ctx op
   printBlockOperands ctx op
+  printOpProperties ctx op
   if op.getNumRegions! ctx > 0 then
     IO.print " "
     printRegions ctx op indent

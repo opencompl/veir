@@ -24,6 +24,7 @@ match op with
 | .trunc => NswNuwProperties
 | .zext => NnegProperties
 | .icmp => IcmpProperties
+| .cond_br => CondBrProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Llvm where

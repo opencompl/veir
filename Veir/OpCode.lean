@@ -66,6 +66,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 @[opcodes]
 inductive Cf where
 | br
+| cond_br
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
@@ -89,6 +90,8 @@ inductive Llvm where
 | trunc
 | sext
 | zext
+| br
+| cond_br
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 
