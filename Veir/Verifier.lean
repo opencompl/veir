@@ -1667,7 +1667,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .comb .extract | .comb .parity | .comb .replicate | .comb .reverse | .comb .truth_table => do
+  | .comb .extract | .comb .parity | .comb .replicate | .comb .reverse => do
     if op.getNumOperands ctx opIn ≠ 1 then
       throw "Expected 1 operand"
     if op.getNumResults ctx opIn ≠ 1 then

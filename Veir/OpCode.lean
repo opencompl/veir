@@ -232,7 +232,6 @@ inductive Comb where
 | shrs
 | shru
 | sub
-| truth_table
 | xor
 deriving Inhabited, Repr, Hashable, DecidableEq
 
