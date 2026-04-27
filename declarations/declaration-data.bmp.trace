@@ -31,8 +31,14 @@
      "f6dc70d74d938897"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Data/LLVM.html",
      "028727f1fc3dccfa"],
+    ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Data/FP/PackedFloat/Basic.html",
+     "fdef072c8b8425b2"],
+    ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Data/FP/PackedFloat.html",
+     "6251f953166fa63d"],
+    ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Data/FP.html",
+     "e17474be99c46618"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Data.html",
-     "83b532df86588f27"],
+     "31192cfa74a5ca1b"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Prelude.html",
      "e560b9a3af7b8db9"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/IR/OpInfo.html",
@@ -140,5 +146,5 @@
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Interpreter.html",
      "6068435506c27ed2"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir.html",
-     "e4f57c24b725297c"]]]],
- "depHash": "5a4fba219cbbf572"}
+     "c0aa59e21167fda2"]]]],
+ "depHash": "8ce408188aaf5ee9"}
