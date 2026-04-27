@@ -10,6 +10,13 @@ namespace Veir
 
 public section
 
+def getUnitAttr (key : String) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String Bool := do
+  match attrDict[key.toUTF8]? with
+  | some (.unitAttr _) => .ok true
+  | some attr => .error s!"expected '{key}' to be an optional unit attribute, but got {attr}"
+  | none => .ok false
+
 /--
   Properties of the `arith.constant` operation.
 -/
@@ -38,14 +45,8 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def NswNuwProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String NswNuwProperties := do
-  let nsw ← match attrDict["nsw".toUTF8]? with
-    | some (.unitAttr _) => .ok true
-    | some attr => .error s!"expected 'nsw' to be an optional unit attribute, but got {attr}"
-    | none => .ok false
-  let nuw ← match attrDict["nuw".toUTF8]? with
-    | some (.unitAttr _) => .ok true
-    | some attr => .error s!"expected 'nuw' to be an optional unit attribute, but got {attr}"
-    | none => .ok false
+  let nsw ← getUnitAttr "nsw" attrDict
+  let nuw ← getUnitAttr "nuw" attrDict
   return { nsw := nsw, nuw := nuw }
 
 /--
@@ -58,10 +59,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def ExactProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ExactProperties := do
-  let exact ← match attrDict["exact".toUTF8]? with
-    | some (.unitAttr _) => .ok true
-    | some attr => .error s!"expected 'exact' to be an optional unit attribute, but got {attr}"
-    | none => .ok false
+  let exact ← getUnitAttr "exact" attrDict
   return { exact := exact }
 
 /--
@@ -74,10 +72,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def DisjointProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String DisjointProperties := do
-  let disjoint ← match attrDict["disjoint".toUTF8]? with
-    | some (.unitAttr _) => .ok true
-    | some attr => .error s!"expected 'disjoint' to be an optional unit attribute, but got {attr}"
-    | none => .ok false
+  let disjoint ← getUnitAttr "disjoint" attrDict
   return { disjoint := disjoint }
 
 /--
@@ -89,10 +84,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String NnegProperties := do
-  let nneg ← match attrDict["nneg".toUTF8]? with
-    | some (.unitAttr _) => .ok true
-    | some attr => .error s!"expected 'nneg' to be an optional unit attribute, but got {attr}"
-    | none => .ok false
+  let nneg ← getUnitAttr "nneg" attrDict
   return { nneg := nneg }
 
 /--
