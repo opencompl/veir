@@ -5,6 +5,7 @@ public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
+public import Veir.Dialects.Comb.OpInfo
 
 namespace Veir
 
@@ -22,6 +23,7 @@ match opCode with
 | .riscv op => Riscv.propertiesOf op
 | .mod_arith op => Mod_Arith.propertiesOf op
 | .cf op => Cf.propertiesOf op
+| .comb op => Comb.propertiesOf op
 | _ => Unit
 
 instance : HasDialectOpInfo OpCode where
@@ -119,6 +121,11 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case trunci => exact (NswNuwProperties.fromAttrDict attrDict)
     case extui => exact (NnegProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
+  case comb op =>
+    cases op
+    case extract => exact (CombExtractProperties.fromAttrDict attrDict)
+    case icmp => exact (CombIcmpProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
 
 /--
   Converts the properties of an operation into a dictionary of attributes.
@@ -167,5 +174,9 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .cf .cond_br =>
     let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
     dict.insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
+  | .comb .extract =>
+    (Std.HashMap.emptyWithCapacity 1).insert "lowBit".toUTF8 (Attribute.integerAttr props.lowBit)
+  | .comb .icmp =>
+    (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr props.predicate)
   | _ =>
     Std.HashMap.emptyWithCapacity 0
