@@ -49,6 +49,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     all_goals exact (Except.ok ())
   case datapath =>
     all_goals exact (Except.ok ())
+  case comb =>
+    all_goals exact (Except.ok ())
   case mod_arith op =>
     cases op
     case constant => exact (ModArithConstantProperties.fromAttrDict attrDict)

@@ -58,6 +58,31 @@ inductive Builtin where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
+inductive Comb where
+| add
+| and
+| concat
+| divs
+| divu
+| extract
+| icmp
+| mods
+| modu
+| mul
+| mux
+| or
+| parity
+| replicate
+| reverse
+| shl
+| shrs
+| shru
+| sub
+| truth_table
+| xor
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
 inductive Func where
 | func
 | return

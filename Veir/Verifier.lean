@@ -328,6 +328,214 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if op.getNumSuccessors ctx opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+  | .comb .add => do
+    if op.getNumOperands ctx opIn < 1 then
+      throw "Expected at least 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .and => do
+    if op.getNumOperands ctx opIn < 1 then
+      throw "Expected at least 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .concat => do
+    if op.getNumOperands ctx opIn < 1 then
+      throw "Expected at least 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .divs => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .divu => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .extract => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .icmp => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .mods => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .modu => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .mul => do
+    if op.getNumOperands ctx opIn < 1 then
+      throw "Expected at least 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .mux => do
+    if op.getNumOperands ctx opIn ≠ 3 then
+      throw "Expected 3 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .or => do
+    if op.getNumOperands ctx opIn < 1 then
+      throw "Expected at least 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .parity => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .replicate => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .reverse => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .shl => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .shrs => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .shru => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .sub => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .truth_table => do
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .comb .xor => do
+    if op.getNumOperands ctx opIn < 1 then
+      throw "Expected at least 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
   | .datapath .compress => do
     if op.getNumOperands ctx opIn ≤ op.getNumResults ctx opIn then
       throw "Number of inputs must be greater than the number of results"
