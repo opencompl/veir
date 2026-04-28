@@ -72,6 +72,14 @@ theorem ite_toIntBv_eq {w : Nat} (x : Int w) :
     else { toBitVec := x.toIntBv.toBitVec, poison := false}) = x.toIntBv := by
   rcases x <;> simp [llvm_toBitVec]
 
+@[llvm_toBitVec]
+theorem toIntBv_eq {w : Nat} (x y : Int w) (cond : Bool):
+    (if cond then x else y).toIntBv = if cond then x.toIntBv else y.toIntBv := by
+  rcases x <;> rcases y <;> simp [llvm_toBitVec]
+  · split <;> simp [toIntBv]
+  · split <;> simp [toIntBv]
+  · split <;> simp [toIntBv]
+
 @[bv_normalize]
 theorem toBitVec_zero_of_poison (x : IntBv w) :
     x.poison = true → x.toBitVec = 0#w := by
@@ -138,7 +146,32 @@ theorem toIntBv_constant {w : Nat} (v : _root_.Int) :
   simp [constant, toIntBv]
 
 @[llvm_toBitVec]
+theorem toIntBv_add_nuw_nsw {nsw nuw : Bool} {w : Nat} {v v' : BitVec w} :
+    (if nsw = true ∧ v.saddOverflow v' = true then poison
+      else if nuw = true ∧ v.uaddOverflow v' = true then poison
+        else val (v + v')).toIntBv =
+    if nsw = true ∧ v.saddOverflow v' = true then
+      {toBitVec := 0#w, poison := true, inv := by simp}
+      else if nuw = true ∧ v.uaddOverflow v' = true then
+        {toBitVec := 0#w, poison := true, inv := by simp}
+        else { toBitVec := v + v', poison := false, inv := by simp } := by
+  sorry
+
+@[llvm_toBitVec]
 theorem toIntBv_add {w : Nat} (x y : Int w) :
+    (add x y nsw nuw).toIntBv =
+      if (x.toIntBv.poison ∨ y.toIntBv.poison) = true then {toBitVec := 0#w, poison := true}
+        else if (nsw ∧ BitVec.saddOverflow x.toIntBv.toBitVec y.toIntBv.toBitVec)
+          then {toBitVec := 0#w, poison := true}
+          else if (nuw ∧ BitVec.uaddOverflow x.toIntBv.toBitVec y.toIntBv.toBitVec)
+          then {toBitVec := 0#w, poison := true}
+            else {toBitVec := x.toIntBv.toBitVec + y.toIntBv.toBitVec, poison := false} := by
+  simp [add, llvm_toBitVec, Id.run]
+  rcases x <;> rcases y
+  <;> simp [llvm_toBitVec, pure, Id]
+
+@[llvm_toBitVec]
+theorem toIntBv_sub {w : Nat} (x y : Int w) :
     (add x y).toIntBv =
       if (x.toIntBv.poison ∨ y.toIntBv.poison) = true then {toBitVec := 0#w, poison := true}
         else {toBitVec := x.toIntBv.toBitVec + y.toIntBv.toBitVec, poison := false} := by
@@ -146,8 +179,9 @@ theorem toIntBv_add {w : Nat} (x y : Int w) :
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec]
 
-example (x y : Int 64) :
-    (x.add y) = (y.add x) := by
+
+example (x y z : Int 64) :
+    (x.add y) = (z.add x) := by
   simp [llvm_toBitVec]
   bv_decide
 
