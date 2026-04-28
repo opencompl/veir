@@ -1187,6 +1187,9 @@ theorem setValue!_eq_setValue {operand : BlockOperandPtr} (inBounds : operand.In
 
 end BlockOperandPtr
 
+theorem OperationPtr.getSuccessor!_def {op : OperationPtr} {index : Nat} :
+    getSuccessor! op ctx index = ((BlockOperandPtr.mk op index).get! ctx).value := by rfl
+
 /-!
  OpResultPtr accessors
 -/
