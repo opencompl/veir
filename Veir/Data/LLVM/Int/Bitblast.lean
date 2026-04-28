@@ -171,6 +171,20 @@ theorem toIntBv_sub {w : Nat} (x y : Int w) :
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec, pure, Id]
 
+@[llvm_toBitVec]
+theorem toIntBv_mul {w : Nat} (x y : Int w) :
+    (mul x y nsw nuw).toIntBv =
+      if (x.toIntBv.poison ∨ y.toIntBv.poison) = true then {toBitVec := 0#w, poison := true}
+        else if (nsw ∧ BitVec.smulOverflow x.toIntBv.toBitVec y.toIntBv.toBitVec)
+          then {toBitVec := 0#w, poison := true}
+            else if (nuw ∧ BitVec.umulOverflow x.toIntBv.toBitVec y.toIntBv.toBitVec)
+              then {toBitVec := 0#w, poison := true}
+                else {toBitVec := x.toIntBv.toBitVec * y.toIntBv.toBitVec, poison := false} := by
+  simp [mul, llvm_toBitVec, Id.run]
+  rcases x <;> rcases y
+  <;> simp [llvm_toBitVec, pure, Id]
+
+
 
 example (x y : Int 64) :
     (x.add y) = (y.add x) := by
