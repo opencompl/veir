@@ -206,6 +206,45 @@ theorem toIntBv_udiv {w : Nat} (x y : Int w) {exact : Bool}:
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec, pure, Id]
 
+@[llvm_toBitVec]
+theorem toIntBv_sdiv {w : Nat} (x y : Int w) {exact : Bool}:
+    (sdiv x y exact).toIntBv =
+      if (x.toIntBv.poison ∨ y.toIntBv.poison) = true then {toBitVec := 0#w, poison := true}
+        else if (y.toIntBv.toBitVec == 0 ||
+            (w != 1 && x.toIntBv.toBitVec == (BitVec.intMin w) && y.toIntBv.toBitVec == -1))
+          then {toBitVec := 0#w, poison := true}
+            else if (exact ∧ BitVec.smod x.toIntBv.toBitVec y.toIntBv.toBitVec ≠ 0)
+              then {toBitVec := 0#w, poison := true}
+                else if (y.toIntBv.toBitVec = 0)
+                  then {toBitVec := 0#w, poison := true}
+                    else {toBitVec := x.toIntBv.toBitVec.sdiv y.toIntBv.toBitVec, poison := false} := by
+  simp [sdiv, llvm_toBitVec, Id.run]
+  rcases x <;> rcases y
+  <;> simp [llvm_toBitVec, pure, Id]
+
+@[llvm_toBitVec]
+theorem toIntBv_urem {w : Nat} (x y : Int w) :
+    (urem x y).toIntBv =
+      if (x.toIntBv.poison ∨ y.toIntBv.poison) = true then {toBitVec := 0#w, poison := true}
+        else if (y.toIntBv.toBitVec == 0)
+          then {toBitVec := 0#w, poison := true}
+            else {toBitVec := x.toIntBv.toBitVec.umod y.toIntBv.toBitVec, poison := false} := by
+  simp [urem, llvm_toBitVec, Id.run]
+  rcases x <;> rcases y
+  <;> simp [llvm_toBitVec, pure, Id]
+
+@[llvm_toBitVec]
+theorem toIntBv_srem {w : Nat} (x y : Int w) :
+    (srem x y).toIntBv =
+      if (x.toIntBv.poison ∨ y.toIntBv.poison) = true then {toBitVec := 0#w, poison := true}
+        else if (y.toIntBv.toBitVec == 0 ||
+            (w != 1 && x.toIntBv.toBitVec  == (BitVec.intMin w) && y.toIntBv.toBitVec  == -1))
+          then {toBitVec := 0#w, poison := true}
+            else {toBitVec := x.toIntBv.toBitVec.srem y.toIntBv.toBitVec, poison := false} := by
+  simp [srem, llvm_toBitVec, Id.run]
+  rcases x <;> rcases y
+  <;> simp [llvm_toBitVec, pure, Id]
+
 example (x y : Int 64) :
     (x.add y) = (y.add x) := by
   simp [llvm_toBitVec]
