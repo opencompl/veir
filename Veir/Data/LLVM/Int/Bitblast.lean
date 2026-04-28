@@ -1,6 +1,5 @@
 module
 
-public meta import Std.Tactic.BVDecide.Reflect
 import all Veir.Data.LLVM.Int.Basic
 import Veir.ForLean
 import Veir.Data.LLVM.Int.Simp
