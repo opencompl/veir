@@ -29,6 +29,15 @@ def toIntBv {w : Nat} (x : Int w) : IntBv w :=
   | .val v => {toBitVec := v, poison := false}
   | .poison => {toBitVec := 0#w, poison := true}
 
+/-- Return a boolean if the LLVM.int `x` is poison. -/
+def isPoison {w : Nat} (x : Int w) : Bool :=
+  match x with
+  | .val _ => false
+  | .poison => true
+
+/-- Return a concrete bitvector value given an LLVM.Int. -/
+def getValue {w : Nat} (x : Int w) : BitVec w := x.toIntBv.toBitVec
+
 /--
   We prove the injectivity of `toIntBv`.
 -/
@@ -98,6 +107,29 @@ theorem poison_bif {w : Nat} (b : Bool) (x y : IntBv w) :
     (bif b then x else y).poison = bif b then x.poison else y.poison := by
   cases b <;> rfl
 
+@[llvm_toBitVec]
+theorem isPoison_of_poison {w : Nat} : poison.isPoison (w := w) = true := by
+  simp [isPoison]
+
+@[llvm_toBitVec]
+theorem isPoison_of_val {w : Nat} {v : BitVec w}: (val v).isPoison (w := w) = false := by
+  simp [isPoison]
+
+@[llvm_toBitVec]
+theorem getValue_of_poison {w : Nat} : (poison).getValue = 0#w := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem getValue_of_val {w : Nat} {v : BitVec w} : (val v).getValue = v := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem getValue_eq_toBitVec_of_not_poison {w : Nat} {x : Int w} (hx : ¬ x.isPoison) :
+    x.getValue = x.toIntBv.toBitVec := by
+  cases x
+  · simp [toIntBv, getValue]
+  · simp [isPoison] at hx
+
 /-! # LLVM IR operations unfolding to `toIntBv` -/
 
 @[llvm_toBitVec]
@@ -122,5 +154,10 @@ example (x y : Int 64) :
 example (x : Int 64) :
     x.add (val 0#64) = x := by
   simp [llvm_toBitVec]
+
+example (x y : Int 64) :
+    (x.add y) = (y.add x) := by
+  simp [llvm_toBitVec]
+  bv_decide
 
 end Int
