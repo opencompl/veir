@@ -202,6 +202,8 @@ deriving Inhabited, Repr, Hashable
 
 end
 
+def ArrayAttr.empty : ArrayAttr := { value := #[] }
+
 /--
   Construct a `DictionaryAttr` from an array of key-value pairs.
   TODO: ensure that entries are unique.

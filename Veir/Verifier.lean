@@ -636,6 +636,36 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
     if sizes.values[0]! ≠ 1 then
       throw "Expected 1 operand plus 2 variadic operands"
     pure ()
+  | .llvm .alloca => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm .load => do
+    if op.getNumOperands ctx opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm .store => do
+    if op.getNumOperands ctx opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
   /- MOD_ARITH -/
   | .mod_arith .add => do
     if op.getNumOperands ctx opIn ≠ 2 then

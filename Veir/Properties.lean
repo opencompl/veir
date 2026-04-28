@@ -180,6 +180,111 @@ def CondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   return { branch_weights := weightsAttr, operandSegmentSizes := sizesAttr }
 
 /--
+  Properties of LLVM memory operations.
+-/
+
+structure AllocaProperties where
+  alignment : IntegerAttr
+  elem_type : TypeAttr
+  inalloca : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def AllocaProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String AllocaProperties := do
+  let alignAttr ← match attrDict["alignment".toUTF8]? with
+    | some (.integerAttr alignAttr) => .ok alignAttr
+    | some attr => .error s!"expected 'alignment' to be an optional integer attribute, but got {attr}"
+    | none => .ok { value := 0, type := { bitwidth := 64 } }
+  let some typeAttr := attrDict["elem_type".toUTF8]?
+    | throw "alloca: missing 'elem_type' property"
+  if _ : typeAttr.isType = false then throw "alloca: expected 'elem_type' to be a type attribute" else
+  let inallocaAttr ← getUnitAttr "inalloca" attrDict
+  return { alignment := alignAttr, elem_type := typeAttr.asType, inalloca := inallocaAttr }
+
+structure LoadProperties where
+  alignment : IntegerAttr
+  volatile_ : Bool
+  nontemporal : Bool
+  invariant : Bool
+  invariantGroup : Bool
+  --ordering
+  syncscope : Option StringAttr
+  --dereferenceable
+  access_groups : ArrayAttr
+  alias_scopes : ArrayAttr
+  noalias_scopes : ArrayAttr
+  tbaa : ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LoadProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LoadProperties := do
+  let alignAttr ← match attrDict["alignment".toUTF8]? with
+  | some (.integerAttr alignAttr) => .ok alignAttr
+  | some attr => .error s!"expected 'alignment' to be an optional integer attribute, but got {attr}"
+  | none => .ok { value := 0, type := { bitwidth := 64 } }
+  let volatileAttr ← getUnitAttr "volatile_" attrDict
+  let nontemporalAttr ← getUnitAttr "nontemporal" attrDict
+  let invariantAttr ← getUnitAttr "invariant" attrDict
+  let invariantGroupAttr ← getUnitAttr "invariantGroup" attrDict
+  let syncscopeAttr ← match attrDict["syncscope".toUTF8]? with
+    | some (.stringAttr syncscopeAttr) => .ok (some syncscopeAttr)
+    | some attr => .error s!"expected 'syncscope' to be an optional string attribute, but got {attr}"
+    | none => .ok none
+  let accessAttr := attrDict["access_groups".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr accessAttr := accessAttr
+    | throw s!"store: expected 'access_groups' to be an array attribute, but got {accessAttr}"
+  let aliasAttr := attrDict["alias_scopes".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr aliasAttr := aliasAttr
+    | throw s!"store: expected 'alias_scopes' to be an array attribute, but got {aliasAttr}"
+  let noaliasAttr := attrDict["noalias_scopes".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr noaliasAttr := noaliasAttr
+    | throw s!"store: expected 'noalias_scopes' to be an array attribute, but got {noaliasAttr}"
+  let tbaaAttr := attrDict["tbaa".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr tbaaAttr := tbaaAttr
+    | throw s!"store: expected 'tbaa' to be an array attribute, but got {tbaaAttr}"
+  return { alignment := alignAttr, volatile_ := volatileAttr, nontemporal := nontemporalAttr, invariant := invariantAttr, invariantGroup := invariantGroupAttr, syncscope := syncscopeAttr, access_groups := accessAttr, alias_scopes := aliasAttr, noalias_scopes := noaliasAttr, tbaa := tbaaAttr }
+
+structure StoreProperties where
+  alignment : IntegerAttr
+  volatile_ : Bool
+  nontemporal : Bool
+  invariantGroup : Bool
+  --ordering
+  syncscope : Option StringAttr
+  access_groups : ArrayAttr
+  alias_scopes : ArrayAttr
+  noalias_scopes : ArrayAttr
+  tbaa : ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def StoreProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String StoreProperties := do
+  let alignAttr ← match attrDict["alignment".toUTF8]? with
+  | some (.integerAttr alignAttr) => .ok alignAttr
+  | some attr => .error s!"expected 'alignment' to be an optional integer attribute, but got {attr}"
+  | none => .ok { value := 0, type := { bitwidth := 64 } }
+  let volatileAttr ← getUnitAttr "volatile_" attrDict
+  let nontemporalAttr ← getUnitAttr "nontemporal" attrDict
+  let invariantGroupAttr ← getUnitAttr "invariantGroup" attrDict
+  let syncscopeAttr ← match attrDict["syncscope".toUTF8]? with
+    | some (.stringAttr syncscopeAttr) => .ok (some syncscopeAttr)
+    | some attr => .error s!"expected 'syncscope' to be an optional string attribute, but got {attr}"
+    | none => .ok none
+  let accessAttr := attrDict["access_groups".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr accessAttr := accessAttr
+    | throw s!"store: expected 'access_groups' to be an array attribute, but got {accessAttr}"
+  let aliasAttr := attrDict["alias_scopes".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr aliasAttr := aliasAttr
+    | throw s!"store: expected 'alias_scopes' to be an array attribute, but got {aliasAttr}"
+  let noaliasAttr := attrDict["noalias_scopes".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr noaliasAttr := noaliasAttr
+    | throw s!"store: expected 'noalias_scopes' to be an array attribute, but got {noaliasAttr}"
+  let tbaaAttr := attrDict["tbaa".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr tbaaAttr := tbaaAttr
+    | throw s!"store: expected 'tbaa' to be an array attribute, but got {tbaaAttr}"
+  return { alignment := alignAttr, volatile_ := volatileAttr, nontemporal := nontemporalAttr, invariantGroup := invariantGroupAttr, syncscope := syncscopeAttr, access_groups := accessAttr, alias_scopes := aliasAttr, noalias_scopes := noaliasAttr, tbaa := tbaaAttr }
+
+/--
   Properties of the `comb.extract` operation.
 -/
 structure CombExtractProperties where

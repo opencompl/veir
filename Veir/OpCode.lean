@@ -92,6 +92,9 @@ inductive Llvm where
 | zext
 | br
 | cond_br
+| alloca
+| load
+| store
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 

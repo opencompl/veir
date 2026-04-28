@@ -28,6 +28,12 @@
   %21 = "llvm.trunc"(%5) : (i32) -> i1
   %22 = "llvm.sext"(%6) : (i1) -> i32
   %23 = "llvm.zext"(%6) : (i1) -> i32
+  %24 = "llvm.alloca"(%5) <{elem_type = i32}> : (i32) -> !llvm.ptr
+  %25 = "llvm.alloca"(%5) <{elem_type = i32, alignment = 4 : i32, inalloca}> : (i32) -> !llvm.ptr
+  "llvm.store"(%24, %5) : (!llvm.ptr, i32) -> ()
+  "llvm.store"(%24, %5) <{alignment = 1 : i32, volatile_, nontemporal, invariantGroup, syncscope = "foo", access_groups = [], alias_scopes = [], noalias_scopes = [], tbaa = []}> : (!llvm.ptr, i32) -> ()
+  %26 = "llvm.load"(%24) : (!llvm.ptr) -> i32
+  %27 = "llvm.load"(%24) <{alignment = 1 : i32, volatile_, nontemporal, invariant, invariantGroup, syncscope = "foo", access_groups = [], alias_scopes = [], noalias_scopes = [], tbaa = []}> : (!llvm.ptr) -> i32
   "llvm.cond_br"(%6, %5, %5) [^7, ^7] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
 ^7(%arg6_0 : i32):
   "llvm.br"(%arg6_0) [^8] : (i32) -> ()
@@ -63,6 +69,12 @@
 // CHECK-NEXT:     %{{.*}} = "llvm.trunc"(%{{.*}}) : (i32) -> i1
 // CHECK-NEXT:     %{{.*}} = "llvm.sext"(%{{.*}}) : (i1) -> i32
 // CHECK-NEXT:     %{{.*}} = "llvm.zext"(%{{.*}}) : (i1) -> i32
+// CHECK-NEXT:     %{{.*}} = "llvm.alloca"(%{{.*}}) <{"alignment" = 0 : i64, "elem_type" = i32}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:     %{{.*}} = "llvm.alloca"(%{{.*}}) <{"alignment" = 4 : i32, "elem_type" = i32, inalloca}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:     "llvm.store"(%{{.*}}, %{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 0 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr, i32) -> ()
+// CHECK-NEXT:     "llvm.store"(%{{.*}}, %{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i32, invariantGroup, "noalias_scopes" = [], nontemporal, "syncscope" = "foo", "tbaa" = [], volatile_}> : (!llvm.ptr, i32) -> ()
+// CHECK-NEXT:     %{{.*}} = "llvm.load"(%{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 0 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:     %{{.*}} = "llvm.load"(%{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i32, invariant, invariantGroup, "noalias_scopes" = [], nontemporal, "syncscope" = "foo", "tbaa" = [], volatile_}> : (!llvm.ptr) -> i32
 // CHECK-NEXT:     "llvm.cond_br"(%{{.*}}, %{{.*}}, %{{.*}}) [^{{.*}}, ^{{.*}}] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
 // CHECK-NEXT:   ^{{.*}}(%{{.*}} : i32):
 // CHECK-NEXT:     "llvm.br"(%{{.*}}) [^{{.*}}] : (i32) -> ()

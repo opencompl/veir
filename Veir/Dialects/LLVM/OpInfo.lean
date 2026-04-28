@@ -25,6 +25,9 @@ match op with
 | .zext => NnegProperties
 | .icmp => IcmpProperties
 | .cond_br => CondBrProperties
+| .alloca => AllocaProperties
+| .load => LoadProperties
+| .store => StoreProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Llvm where
