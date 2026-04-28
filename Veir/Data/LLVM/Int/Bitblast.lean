@@ -73,8 +73,8 @@ theorem ite_toIntBv_eq {w : Nat} (x : Int w) :
   rcases x <;> simp [llvm_toBitVec]
 
 @[llvm_toBitVec]
-theorem toIntBv_eq {w : Nat} (x y : Int w) (cond : Bool):
-    (if cond then x else y).toIntBv = if cond then x.toIntBv else y.toIntBv := by
+theorem toIntBv_ite_eq {w : Nat} (x y : Int w) (c1 c2 : Bool) :
+    (if c1 ∧ c2 then x else y).toIntBv = if c1 ∧ c2 then x.toIntBv else y.toIntBv := by
   rcases x <;> rcases y <;> simp [llvm_toBitVec]
   · split <;> simp [toIntBv]
   · split <;> simp [toIntBv]
@@ -144,18 +144,6 @@ theorem getValue_eq_toBitVec_of_not_poison {w : Nat} {x : Int w} (hx : ¬ x.isPo
 theorem toIntBv_constant {w : Nat} (v : _root_.Int) :
     (constant w v).toIntBv = ⟨BitVec.ofInt w v, false, by simp⟩ := by
   simp [constant, toIntBv]
-
-@[llvm_toBitVec]
-theorem toIntBv_add_nuw_nsw {nsw nuw : Bool} {w : Nat} {v v' : BitVec w} :
-    (if nsw = true ∧ v.saddOverflow v' = true then poison
-      else if nuw = true ∧ v.uaddOverflow v' = true then poison
-        else val (v + v')).toIntBv =
-    if nsw = true ∧ v.saddOverflow v' = true then
-      {toBitVec := 0#w, poison := true, inv := by simp}
-      else if nuw = true ∧ v.uaddOverflow v' = true then
-        {toBitVec := 0#w, poison := true, inv := by simp}
-        else { toBitVec := v + v', poison := false, inv := by simp } := by
-  sorry
 
 @[llvm_toBitVec]
 theorem toIntBv_add {w : Nat} (x y : Int w) :
