@@ -3,19 +3,22 @@ import Veir.Data.LLVM.Int.Basic
 
 /-!
   This file contains some of the `InstCombine` tests retrieved from Lean-MLIR,
-  instantiated for integers with width `64`.
+  instantiated for integers with width `64`:
+  https://github.com/opencompl/lean-mlir/blob/main/SSA/Projects/InstCombine/AliveStatements.lean
+
+  We exclude the tests comprising unsupported operations, such as `neg` and `not`.
 -/
 
 open Veir.Data.LLVM
 namespace Veir.Data.Int
 
 theorem bv_AddSub_1152 :
-    ∀ (e e_1 : Int 1), LLVM.Int.LLVM.Int.add e_1 e = LLVM.Int.LLVM.Int.xor e_1 e := by
+    ∀ (e e_1 : Int 1), LLVM.Int.add e_1 e = LLVM.Int.xor e_1 e := by
   simp [llvm_toBitVec]
   bv_decide
 
 theorem bv_AddSub_1156 :
-    ∀ (e : Int 64), LLVM.Int.LLVM.Int.add e e =
+    ∀ (e : Int 64), LLVM.Int.add e e =
       LLVM.Int.shl e (LLVM.Int.constant (w := 64) 1) := by
     simp [llvm_toBitVec]
     bv_decide
