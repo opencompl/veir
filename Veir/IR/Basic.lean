@@ -232,6 +232,10 @@ theorem ext {op1 op2 : BlockOperand}
     op1 = op2 := by
   grind [cases BlockOperand]
 
+theorem default_value_eq :
+    (default : BlockOperand).value = default := by
+  rfl
+
 end BlockOperand
 
 /--
@@ -482,6 +486,55 @@ theorem getSuccessor!_eq_getSuccessor {op : OperationPtr} {index : Nat}
     {hin} (h : index < op.getNumSuccessors ctx hin) {hin'} :
     op.getSuccessor! ctx index = op.getSuccessor ctx index hin' h := by
   grind [getSuccessor, getSuccessor!]
+
+def getSuccessors (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : Array BlockPtr :=
+  (op.get ctx (by grind)).blockOperands.map (·.value)
+
+def getSuccessors! (op : OperationPtr) (ctx : IRContext OpInfo) : Array BlockPtr :=
+  (op.get! ctx).blockOperands.map (·.value)
+
+@[grind =_, eq_bang ←]
+theorem getSuccessors!_eq_getSuccessors {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getSuccessors! ctx = op.getSuccessors ctx (by grind) := by
+  grind [getSuccessors, getSuccessors!]
+
+theorem getSuccessors!.mem_iff_exists_index {op : OperationPtr} :
+    value ∈ op.getSuccessors! ctx ↔
+    ∃ index, index < op.getNumSuccessors! ctx ∧ op.getSuccessor! ctx index = value := by
+  simp only [getSuccessors!, Array.mem_map, getSuccessor!, getNumSuccessors!]
+  constructor
+  · rintro ⟨operand, ⟨hoperand, operandValue⟩⟩
+    have ⟨i, hi, hoperand⟩ := Array.getElem_of_mem hoperand
+    exists i
+    grind
+  · grind
+
+theorem getSuccessors!.mem_getSuccessor {op : OperationPtr} :
+    index < op.getNumSuccessors! ctx →
+    (op.getSuccessor! ctx index) ∈ op.getSuccessors! ctx := by
+  grind [getSuccessors!, getSuccessor!, getNumSuccessors!]
+
+@[simp, grind =]
+theorem getSuccessors!.size_eq_getNumSuccessors! {op : OperationPtr} :
+    (op.getSuccessors! ctx).size = op.getNumSuccessors! ctx := by
+  grind [getSuccessors!, getNumSuccessors!]
+
+@[simp, grind =]
+theorem getSuccessors!.getElem!_eq_getSuccessor! {op : OperationPtr} :
+    (op.getSuccessors! ctx)[index]! = op.getSuccessor! ctx index := by
+  simp only [getSuccessors!, getSuccessor!]
+  simp only [Array.getElem!_eq_getD, Array.getD_eq_getD_getElem?, Array.getElem?_map]
+  grind [BlockOperand.default_value_eq]
+
+@[simp, grind =]
+theorem getSuccessors!.getElem_eq_getSuccessor! {op : OperationPtr} {h} :
+    (op.getSuccessors! ctx)[index]'h = op.getSuccessor! ctx index := by
+  grind [getSuccessors!, getSuccessor!]
+
+theorem getSuccessors!_def {op : OperationPtr} :
+    op.getSuccessors! ctx =
+    Array.map (fun i => op.getSuccessor! ctx i) (Array.range (op.getNumSuccessors! ctx)) := by
+  grind
 
 def getNumResults (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : Nat :=
   (op.get ctx (by grind)).results.size
