@@ -72,14 +72,25 @@ theorem getValue_of_val {w : Nat} {v : BitVec w} :
 
 @[llvm_toBitVec]
 theorem toIntBv_isPoison_iff (x : Int w) :
-    x.isPoison ↔ x.toIntBv.poison = true := by
+    x.isPoison = x.toIntBv.poison := by
   cases x <;> simp [isPoison, llvm_toBitVec]
 
 @[llvm_toBitVec]
-theorem ite_toIntBv_eq {w : Nat} (x : Int w) :
-    (if x.toIntBv.poison = true then {toBitVec := 0#w, poison := true}
-    else { toBitVec := x.getValue, poison := false}) = x.toIntBv := by
-  rcases x <;> simp [llvm_toBitVec]
+theorem ite_eq_toIntBv {w : Nat} (x : Int w) :
+   (if x.isPoison then {toBitVec := 0#w, poison := true} else
+      {toBitVec := x.getValue, poison := false}) = x.toIntBv := by
+  rcases x <;> simp [llvm_toBitVec, isPoison]
+  <;> split <;> simp [toIntBv]
+
+@[llvm_toBitVec]
+theorem poison_ite_eq {w : Nat} (x y : Int w) (z : BitVec w):
+  (if x.isPoison = true ∨ y.isPoison = true then
+      ({ toBitVec := 0#w, poison := true, inv := by simp} : IntBv w) else
+      ({ toBitVec := z, poison := false, inv := by simp} : IntBv w)).poison =
+      (x.isPoison ∨ y.isPoison) := by
+  split
+  · case _ h =>  simp [h]
+  · case _ h => simpa using h
 
 @[llvm_toBitVec]
 theorem toIntBv_ite_eq {w : Nat} (x y : Int w) (c1 : Prop) [Decidable c1] :
@@ -160,6 +171,27 @@ theorem toIntBv_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
   simp only [add, Id.run, pure_bind]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec, pure, Id]
+
+@[llvm_toBitVec]
+theorem poison_toIntBv_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
+    (add x y nsw nuw).toIntBv.poison =
+        (x.isPoison ∨ y.isPoison ∨
+        (nsw ∧ BitVec.saddOverflow x.getValue y.getValue) ∨
+        (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue)) := by
+  simp only [toIntBv_add, eq_iff_iff]
+  split
+  · case _ h => rcases h with h|h <;> simp [h]
+  · split
+    · simp_all
+    · split <;> simp_all
+
+@[llvm_toBitVec]
+theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
+    (add x y nsw nuw).isPoison =
+        (x.isPoison ∨ y.isPoison ∨
+        (nsw ∧ BitVec.saddOverflow x.getValue y.getValue) ∨
+        (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue)) := by
+  simp [toIntBv_isPoison_iff, poison_toIntBv_add]
 
 @[llvm_toBitVec]
 theorem toIntBv_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} :
@@ -378,5 +410,18 @@ theorem toIntBv_select {w : Nat} (x y : Int w) (c : Int 1):
   simp only [select, Id.run, beq_iff_eq]
   rcases x <;> rcases y <;> rcases c
   <;> simp [llvm_toBitVec]
+
+
+
+theorem bv_AddSub_1165 :
+    ∀ (e e_1 : Int 64),
+      add (add (constant (w := 64) 0) e) (add (constant (w := 64) 0) e_1) =
+      add (constant (w := 64) 0) (add e e_1) := by
+  intros x y
+  simp [llvm_toBitVec]
+  bv_decide
+
+
+
 
 end Int

@@ -1,6 +1,7 @@
 module
 
 import all Veir.Data.LLVM.Int.Basic
+import all Veir.Data.LLVM.Int.Bitblast
 import Veir.ForLean
 
 open Veir.Data.LLVM
@@ -9,11 +10,11 @@ namespace Veir.Data.LLVM.Int
 
 /- # add -/
 
-@[simp, grind =]
+@[simp, grind =, llvm_toBitVec]
 theorem poison_add {w : Nat} (x : Int w) : add poison x = poison := by
   simp only [add, Id.run]
 
-@[simp, grind =]
+@[simp, grind =, llvm_toBitVec]
 theorem add_poison {w : Nat} (x : Int w) : add x poison = poison := by
   simp only [add, Id.run]
   grind
