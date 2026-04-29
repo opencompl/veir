@@ -34,6 +34,10 @@ def isPoison {w : Nat} (x : Int w) : Bool := x.toIntBv.poison
 /-- Return a concrete bitvector value given an LLVM.Int. -/
 def getValue {w : Nat} (x : Int w) : BitVec w := x.toIntBv.toBitVec
 
+/-- Evaluate an integer comparison as a `BitVec 1` type. -/
+def eval_toBitVec (p : IntPred) (x y : BitVec w) : BitVec 1 :=
+  BitVec.ofBool (IntPred.eval p x y)
+
 /--
   We prove the injectivity of `toIntBv`.
 -/
@@ -656,8 +660,8 @@ theorem getValue_sext (x : Int w₁) (h : w₁ < w₂)  :
 theorem toIntBv_icmp {w : Nat} (x y : Int w) (p : IntPred) :
     (icmp x y p).toIntBv =
       if x.isPoison ∨ y.isPoison then {toBitVec := 0#1, poison := true}
-        else {toBitVec := BitVec.ofBool (IntPred.eval p x.getValue y.getValue), poison := false} := by
-  simp only [icmp, Id.run]
+        else {toBitVec := eval_toBitVec p x.getValue y.getValue, poison := false} := by
+  simp only [icmp, Id.run, eval_toBitVec]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec]
 
@@ -670,7 +674,7 @@ theorem isPoison_icmp {w : Nat} (x y : Int w) (p : IntPred) :
 theorem getValue_icmp {w : Nat} (x y : Int w)(p : IntPred) :
     (icmp x y p).getValue =
       if x.isPoison ∨ y.isPoison then 0#1
-          else BitVec.ofBool (IntPred.eval p x.getValue y.getValue) := by
+          else eval_toBitVec p x.getValue y.getValue := by
   simp [getValue, llvm_toBitVec]
 
 @[llvm_toBitVec]
