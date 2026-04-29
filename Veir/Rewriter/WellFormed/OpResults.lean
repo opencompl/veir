@@ -6,7 +6,7 @@ public import Veir.Rewriter.Basic
 import all Veir.Rewriter.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
-import Veir.Rewriter.GetSetInBounds
+import Veir.Rewriter.GetSet
 
 public section
 

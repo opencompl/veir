@@ -6,7 +6,7 @@ import all Veir.Rewriter.Basic
 
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
-import Veir.Rewriter.GetSetInBounds
+import Veir.Rewriter.GetSet
 import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.LinkedList.WellFormed
 

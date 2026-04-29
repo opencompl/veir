@@ -1,7 +1,7 @@
 module
 
 public import Veir.Rewriter.WfRewriter.Basic
-public import Veir.Rewriter.GetSetInBounds
+public import Veir.Rewriter.GetSet
 
 import all Veir.Rewriter.WfRewriter.Basic
 
