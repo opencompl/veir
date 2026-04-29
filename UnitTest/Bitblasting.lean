@@ -20,7 +20,7 @@ theorem bv_AddSub_1152 :
 theorem bv_AddSub_1156 :
     ∀ (e : Int 64), LLVM.Int.add e e =
       LLVM.Int.shl e (LLVM.Int.constant (w := 64) 1) := by
-    simp [poison_ite_eq]
+    simp [llvm_toBitVec]
     bv_decide
 
 theorem bv_AddSub_1165 :
