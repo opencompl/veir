@@ -265,6 +265,24 @@ theorem toIntBv_udiv {w : Nat} (x y : Int w) {exact : Bool}:
   <;> simp [llvm_toBitVec, pure, Id]
 
 @[llvm_toBitVec]
+theorem isPoison_udiv {w : Nat} (x y : Int w) {exact : Bool} :
+    (udiv x y exact).isPoison =
+        (x.isPoison ∨ y.isPoison ∨
+        (exact ∧ BitVec.umod x.getValue y.getValue ≠ 0) ∨
+        (y.getValue = 0)) := by
+  simp [isPoison, llvm_toBitVec]
+  exact or_assoc
+
+@[llvm_toBitVec]
+theorem getValue_udiv {w : Nat} (x y : Int w) {exact : Bool} :
+    (udiv x y exact).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else if exact ∧ BitVec.umod x.getValue y.getValue ≠ 0 then 0#w
+          else if y.getValue = 0 then 0#w
+            else x.getValue.udiv y.getValue := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
 theorem toIntBv_sdiv {w : Nat} (x y : Int w) {exact : Bool}:
     (sdiv x y exact).toIntBv =
       if x.isPoison ∨ y.isPoison then {toBitVec := 0#w, poison := true}
@@ -280,6 +298,28 @@ theorem toIntBv_sdiv {w : Nat} (x y : Int w) {exact : Bool}:
     bne_iff_ne, ne_eq, pure_bind]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec, pure, Id]
+
+@[llvm_toBitVec]
+theorem isPoison_sdiv {w : Nat} (x y : Int w) {exact : Bool} :
+    (sdiv x y exact).isPoison =
+        (x.isPoison ∨ y.isPoison ∨
+        (y.getValue == 0 ||
+            (w != 1 && x.getValue == (BitVec.intMin w) && y.getValue == -1)) ∨
+        (exact ∧ BitVec.smod x.getValue y.getValue ≠ 0) ∨
+        (y.getValue = 0)) := by
+  simp [isPoison, llvm_toBitVec]
+  exact or_assoc
+
+@[llvm_toBitVec]
+theorem getValue_sdiv {w : Nat} (x y : Int w) {exact : Bool} :
+    (sdiv x y exact).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else if (y.getValue == 0 ||
+            (w != 1 && x.getValue == (BitVec.intMin w) && y.getValue == -1)) then 0#w
+          else if (exact ∧ BitVec.smod x.getValue y.getValue ≠ 0) then 0#w
+           else if y.getValue = 0 then 0#w
+            else x.getValue.sdiv y.getValue := by
+  simp [getValue, llvm_toBitVec]
 
 @[llvm_toBitVec]
 theorem toIntBv_urem {w : Nat} (x y : Int w) :
