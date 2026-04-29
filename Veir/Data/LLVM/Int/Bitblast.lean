@@ -117,7 +117,7 @@ theorem toBitVec_ite_eq {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
     (if b then x else y).toBitVec = if b then x.toBitVec else y.toBitVec := by
   split <;> rfl
 
-@[bv_normalize]
+@[bv_normalize, llvm_toBitVec]
 theorem poison_ite {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
     (if b then x else y).poison = if b then x.poison else y.poison := by
   split <;> rfl
@@ -172,25 +172,13 @@ theorem toIntBv_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
   <;> simp [llvm_toBitVec, pure, Id]
 
 @[llvm_toBitVec]
-theorem poison_toIntBv_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
-    (add x y nsw nuw).toIntBv.poison =
-        (x.isPoison ∨ y.isPoison ∨
-        (nsw ∧ BitVec.saddOverflow x.getValue y.getValue) ∨
-        (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue)) := by
-  simp only [toIntBv_add, eq_iff_iff]
-  split
-  · case _ h => rcases h with h|h <;> simp [h]
-  · split
-    · simp_all
-    · split <;> simp_all
-
-@[llvm_toBitVec]
 theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
     (add x y nsw nuw).isPoison =
         (x.isPoison ∨ y.isPoison ∨
         (nsw ∧ BitVec.saddOverflow x.getValue y.getValue) ∨
         (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue)) := by
-  simp [isPoison, poison_toIntBv_add]
+  simp [isPoison, llvm_toBitVec]
+  exact or_assoc
 
 @[llvm_toBitVec]
 theorem getValue_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
