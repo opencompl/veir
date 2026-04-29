@@ -685,7 +685,7 @@ def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : Interprete
     : Option (InterpreterState × Option ControlFlowAction) := do
   let operands ← state.getOperandValues ctx op
   let opType := op.getOpType! ctx
-  let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx opType) ((op.get! ctx).results.map (·.type)) operands ((op.get! ctx).blockOperands.map (·.value))
+  let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx opType) ((op.get! ctx).results.map (·.type)) operands (op.getSuccessors! ctx)
   let newState := state.setResultValues ctx op resultValues
   return (newState, action)
 
