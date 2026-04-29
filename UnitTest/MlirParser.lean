@@ -1,6 +1,7 @@
-import Veir.Parser.MlirParser
 import Veir.IR.Basic
+import Veir.Parser.MlirParser
 import Veir.Printer
+import Veir.Rewriter.WfRewriter
 
 open Veir
 open Veir.Parser
@@ -9,7 +10,7 @@ open Veir.Parser
   Parse an operation and print it.
 -/
 def testParseOp (s : String) : IO Unit :=
-  match IRContext.create OpCode with
+  match WfIRContext.create OpCode with
   | some (ctx, _) =>
     match ParserState.fromInput (s.toByteArray) with
     | .ok parser =>
