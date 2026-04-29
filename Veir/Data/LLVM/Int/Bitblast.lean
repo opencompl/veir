@@ -203,6 +203,24 @@ theorem toIntBv_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} :
   <;> simp [llvm_toBitVec, pure, Id]
 
 @[llvm_toBitVec]
+theorem isPoison_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} :
+    (sub x y nsw nuw).isPoison =
+        (x.isPoison ∨ y.isPoison ∨
+        (nsw ∧ BitVec.ssubOverflow x.getValue y.getValue) ∨
+        (nuw ∧ BitVec.usubOverflow x.getValue y.getValue)) := by
+  simp [isPoison, llvm_toBitVec]
+  exact or_assoc
+
+@[llvm_toBitVec]
+theorem getValue_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} :
+    (sub x y nsw nuw).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else if nsw ∧ BitVec.ssubOverflow x.getValue y.getValue then 0#w
+          else if nuw ∧ BitVec.usubOverflow x.getValue y.getValue then 0#w
+            else x.getValue - y.getValue := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
 theorem toIntBv_mul {w : Nat} (x y : Int w) {nsw nuw : Bool} :
     (mul x y nsw nuw).toIntBv =
       if x.isPoison ∨ y.isPoison then {toBitVec := 0#w, poison := true}
