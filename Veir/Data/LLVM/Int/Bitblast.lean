@@ -86,7 +86,7 @@ theorem ite_eq_toIntBv {w : Nat} (x : Int w) :
   <;> split <;> simp [toIntBv]
 
 @[llvm_toBitVec]
-theorem poison_ite_eq {w : Nat} (x y : Int w) (z : BitVec w):
+theorem poison_ite_eq {w : Nat} (x y : Int w) (z : BitVec w) :
   (if x.isPoison = true ∨ y.isPoison = true then
       ({ toBitVec := 0#w, poison := true, inv := by simp} : IntBv w) else
       ({ toBitVec := z, poison := false, inv := by simp} : IntBv w)).poison =
@@ -580,7 +580,7 @@ theorem getValue_xor {w : Nat} (x y : Int w) :
 
 @[llvm_toBitVec]
 theorem toIntBv_trunc {w₁ w₂ : Nat} (x : Int w₁) (nsw : Bool := false) (nuw : Bool := false)
-  (h : w₁ > w₂):
+  (h : w₁ > w₂) :
     (trunc x w₂ nsw nuw h).toIntBv =
       if x.isPoison then {toBitVec := 0#w₂, poison := true}
         else if nsw ∧ (x.getValue.truncate w₂).signExtend w₁ ≠ x.getValue
@@ -593,8 +593,24 @@ theorem toIntBv_trunc {w₁ w₂ : Nat} (x : Int w₁) (nsw : Bool := false) (nu
   rcases x
   <;> simp [llvm_toBitVec, pure, Id]
 
+theorem isPoison_trunc {w₁ w₂: Nat} (x : Int w₁) {nsw nuw : Bool} (h : w₁ > w₂) :
+    (trunc x w₂ nsw nuw h).isPoison =
+        (x.isPoison ∨
+        (nsw ∧ (x.getValue.truncate w₂).signExtend w₁ ≠ x.getValue) ∨
+        (nuw ∧ (x.getValue.truncate w₂).zeroExtend w₁ ≠ x.getValue)) := by
+  simp [isPoison, llvm_toBitVec]
+
 @[llvm_toBitVec]
-theorem toIntBv_zext {w₁ w₂ : Nat} (x : Int w₁) (nneg : Bool := false) (h : w₁ < w₂):
+theorem getValue_trunc {w₁ w₂: Nat} (x : Int w₁) {nsw nuw : Bool} (h : w₁ > w₂) :
+    (trunc x w₂ nsw nuw h).getValue =
+      if x.isPoison then 0#w₂
+        else if (nsw ∧ (x.getValue.truncate w₂).signExtend w₁ ≠ x.getValue) then 0#w₂
+            else if (nuw ∧ (x.getValue.truncate w₂).zeroExtend w₁ ≠ x.getValue) then 0#w₂
+              else x.getValue.truncate w₂ := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem toIntBv_zext {w₁ w₂ : Nat} (x : Int w₁) (nneg : Bool := false) (h : w₁ < w₂) :
     (zext x w₂ nneg h).toIntBv =
       if x.isPoison then {toBitVec := 0#w₂, poison := true}
         else if nneg ∧ x.getValue.msb then {toBitVec := 0#w₂, poison := true}
@@ -603,8 +619,21 @@ theorem toIntBv_zext {w₁ w₂ : Nat} (x : Int w₁) (nneg : Bool := false) (h 
   rcases x
   <;> simp [llvm_toBitVec, pure, Id]
 
+theorem isPoison_zext {w₁ w₂: Nat} (x : Int w₁) {nneg : Bool} (h : w₁ < w₂) :
+    (zext x w₂ nneg h).isPoison =
+        (x.isPoison ∨ nneg ∧ x.getValue.msb) := by
+  simp [isPoison, llvm_toBitVec]
+
 @[llvm_toBitVec]
-theorem toIntBv_sext {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ < w₂):
+theorem getValue_zext (x : Int w₁) {nneg : Bool} (h : w₁ < w₂)  :
+    (zext x w₂ nneg h).getValue =
+      if x.isPoison then 0#w₂
+        else if nneg ∧ x.getValue.msb then 0#w₂
+          else x.getValue.zeroExtend w₂ := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem toIntBv_sext {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ < w₂) :
     (sext x w₂ h).toIntBv =
       if x.isPoison then {toBitVec := 0#w₂, poison := true}
         else {toBitVec := x.getValue.signExtend w₂, poison := false} := by
@@ -612,8 +641,19 @@ theorem toIntBv_sext {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ < w₂):
   rcases x
   <;> simp [llvm_toBitVec]
 
+theorem isPoison_sext {w₁ w₂: Nat} (x : Int w₁) (h : w₁ < w₂) :
+    (sext x w₂ h).isPoison = x.isPoison := by
+  simp [isPoison, llvm_toBitVec]
+
 @[llvm_toBitVec]
-theorem toIntBv_icmp {w : Nat} (x y : Int w) (p : IntPred):
+theorem getValue_sext (x : Int w₁) (h : w₁ < w₂)  :
+    (sext x w₂ h).getValue =
+      if x.isPoison then 0#w₂
+          else x.getValue.signExtend w₂ := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem toIntBv_icmp {w : Nat} (x y : Int w) (p : IntPred) :
     (icmp x y p).toIntBv =
       if x.isPoison ∨ y.isPoison then {toBitVec := 0#1, poison := true}
         else {toBitVec := BitVec.ofBool (IntPred.eval p x.getValue y.getValue), poison := false} := by
@@ -622,7 +662,19 @@ theorem toIntBv_icmp {w : Nat} (x y : Int w) (p : IntPred):
   <;> simp [llvm_toBitVec]
 
 @[llvm_toBitVec]
-theorem toIntBv_select {w : Nat} (x y : Int w) (c : Int 1):
+theorem isPoison_icmp {w : Nat} (x y : Int w) (p : IntPred) :
+    (icmp x y p).isPoison = (x.isPoison ∨ y.isPoison) := by
+  simp [isPoison, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem getValue_icmp {w : Nat} (x y : Int w)(p : IntPred) :
+    (icmp x y p).getValue =
+      if x.isPoison ∨ y.isPoison then 0#1
+          else BitVec.ofBool (IntPred.eval p x.getValue y.getValue) := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem toIntBv_select {w : Nat} (x y : Int w) (c : Int 1) :
     (select c x y).toIntBv =
       if x.isPoison ∨ y.isPoison ∨ c.isPoison then {toBitVec := 0#w, poison := true}
         else
@@ -631,5 +683,18 @@ theorem toIntBv_select {w : Nat} (x y : Int w) (c : Int 1):
   simp only [select, Id.run, beq_iff_eq]
   rcases x <;> rcases y <;> rcases c
   <;> simp [llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem isPoison_select {w : Nat} (x y : Int w) (c : Int 1) :
+    (select c x y).isPoison = (x.isPoison ∨ y.isPoison ∨ c.isPoison) := by
+  simp [isPoison, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) :
+    (select c x y).getValue =
+      if x.isPoison ∨ y.isPoison ∨ c.isPoison then 0#w
+          else if c.getValue == 1#1 then x.getValue else y.getValue := by
+  simp [getValue, llvm_toBitVec]
+
 
 end Int
