@@ -399,6 +399,30 @@ theorem toIntBv_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} :
   <;> simp [llvm_toBitVec, pure, Id]
 
 @[llvm_toBitVec]
+theorem isPoison_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} :
+    (shl x y nsw nuw).isPoison =
+        (x.isPoison ∨ y.isPoison ∨
+        (nsw ∧
+            (x.getValue <<< y.getValue).sshiftRight' y.getValue ≠ x.getValue) ∨
+        (nuw ∧
+                (x.getValue <<< y.getValue) >>> y.getValue ≠ x.getValue) ∨
+        (y.getValue ≥ w)) := by
+  simp [isPoison, llvm_toBitVec]
+  exact or_assoc
+
+@[llvm_toBitVec]
+theorem getValue_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} :
+    (shl x y nsw nuw).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else if nsw ∧
+            (x.getValue <<< y.getValue).sshiftRight' y.getValue ≠ x.getValue then 0#w
+          else if nuw ∧
+                (x.getValue <<< y.getValue) >>> y.getValue ≠ x.getValue then 0#w
+            else if y.getValue ≥ w then 0#w
+              else x.getValue <<< y.getValue := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
 theorem toIntBv_lshr {w : Nat} (x y : Int w) {exact : Bool} :
     (lshr x y exact).toIntBv =
       if x.isPoison ∨ y.isPoison then {toBitVec := 0#w, poison := true}
@@ -411,6 +435,24 @@ theorem toIntBv_lshr {w : Nat} (x y : Int w) {exact : Bool} :
     BitVec.shiftLeft_eq', ne_eq, pure_bind]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec, pure, Id]
+
+@[llvm_toBitVec]
+theorem isPoison_lshr {w : Nat} (x y : Int w) {exact : Bool} :
+    (lshr x y exact).isPoison =
+        (x.isPoison ∨ y.isPoison ∨
+        y.getValue ≥ w ∨
+        (exact ∧ (x.getValue >>> y.getValue) <<< y.getValue ≠ x.getValue)) := by
+  simp [isPoison, llvm_toBitVec]
+  exact or_assoc
+
+@[llvm_toBitVec]
+theorem getValue_lshr {w : Nat} (x y : Int w) {exact : Bool} :
+    (lshr x y exact).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else if y.getValue ≥ w then 0#w
+          else if (exact ∧ (x.getValue >>> y.getValue) <<< y.getValue ≠ x.getValue) then 0#w
+            else x.getValue >>> y.getValue := by
+  simp [getValue, llvm_toBitVec]
 
 @[llvm_toBitVec]
 theorem toIntBv_ashr {w : Nat} (x y : Int w) {exact : Bool} :
@@ -427,6 +469,24 @@ theorem toIntBv_ashr {w : Nat} (x y : Int w) {exact : Bool} :
   <;> simp [llvm_toBitVec, pure, Id]
 
 @[llvm_toBitVec]
+theorem isPoison_ashr {w : Nat} (x y : Int w) {exact : Bool} :
+    (ashr x y exact).isPoison =
+        (x.isPoison ∨ y.isPoison ∨
+        y.getValue ≥ w ∨
+        (exact ∧ (x.getValue >>> y.getValue) <<< y.getValue ≠ x.getValue)) := by
+  simp [isPoison, llvm_toBitVec]
+  exact or_assoc
+
+@[llvm_toBitVec]
+theorem getValue_ashr {w : Nat} (x y : Int w) {exact : Bool} :
+    (ashr x y exact).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else if y.getValue ≥ w then 0#w
+          else if (exact ∧ (x.getValue >>> y.getValue) <<< y.getValue ≠ x.getValue) then 0#w
+            else x.getValue.sshiftRight' y.getValue := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
 theorem toIntBv_cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) :
     (cast x h).toIntBv =
       if x.isPoison then {toBitVec := 0#w₂, poison := true}
@@ -436,6 +496,19 @@ theorem toIntBv_cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) :
   <;> simp [llvm_toBitVec]
 
 @[llvm_toBitVec]
+theorem isPoison_cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) :
+    (cast x h).isPoison =
+        x.isPoison := by
+  simp [isPoison, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem getValue_cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) :
+    (cast x h).getValue =
+      if x.isPoison then 0#w₂
+        else (x.getValue.cast h) := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
 theorem toIntBv_and {w : Nat} (x y : Int w) :
     (and x y).toIntBv =
       if x.isPoison ∨ y.isPoison then {toBitVec := 0#w, poison := true}
@@ -443,6 +516,19 @@ theorem toIntBv_and {w : Nat} (x y : Int w) :
   simp only [and, Id.run]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem isPoison_and {w : Nat} (x y : Int w) :
+    (and x y).isPoison =
+        (x.isPoison ∨ y.isPoison) := by
+  simp [isPoison, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem getValue_and {w : Nat} (x y : Int w) :
+    (and x y).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else x.getValue &&& y.getValue := by
+  simp [getValue, llvm_toBitVec]
 
 @[llvm_toBitVec]
 theorem toIntBv_or {w : Nat} (x y : Int w) {disjoint : Bool} :
@@ -455,6 +541,22 @@ theorem toIntBv_or {w : Nat} (x y : Int w) {disjoint : Bool} :
   <;> simp [llvm_toBitVec, pure, Id]
 
 @[llvm_toBitVec]
+theorem isPoison_or {w : Nat} (x y : Int w) {disjoint : Bool} :
+    (or x y disjoint).isPoison =
+        (x.isPoison ∨ y.isPoison ∨
+        disjoint ∧ (x.getValue &&& y.getValue) ≠ 0) := by
+  simp [isPoison, llvm_toBitVec]
+  exact or_assoc
+
+@[llvm_toBitVec]
+theorem getValue_or {w : Nat} (x y : Int w) {disjoint : Bool} :
+    (or x y disjoint).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else if disjoint ∧ (x.getValue &&& y.getValue) ≠ 0 then 0#w
+            else x.getValue ||| y.getValue := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
 theorem toIntBv_xor {w : Nat} (x y : Int w) :
     (xor x y).toIntBv =
       if x.isPoison ∨ y.isPoison then {toBitVec := 0#w, poison := true}
@@ -462,6 +564,19 @@ theorem toIntBv_xor {w : Nat} (x y : Int w) :
   simp only [xor, Id.run]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem isPoison_xor {w : Nat} (x y : Int w) :
+    (xor x y).isPoison =
+        (x.isPoison ∨ y.isPoison) := by
+  simp [isPoison, llvm_toBitVec]
+
+@[llvm_toBitVec]
+theorem getValue_xor {w : Nat} (x y : Int w) :
+    (xor x y).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else x.getValue ^^^ y.getValue := by
+  simp [getValue, llvm_toBitVec]
 
 @[llvm_toBitVec]
 theorem toIntBv_trunc {w₁ w₂ : Nat} (x : Int w₁) (nsw : Bool := false) (nuw : Bool := false)
