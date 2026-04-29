@@ -334,6 +334,22 @@ theorem toIntBv_urem {w : Nat} (x y : Int w) :
   <;> simp [llvm_toBitVec, pure, Id]
 
 @[llvm_toBitVec]
+theorem isPoison_urem {w : Nat} (x y : Int w) :
+    (urem x y).isPoison =
+        (x.isPoison ∨ y.isPoison ∨
+        (y.getValue = 0)) := by
+  simp [isPoison, llvm_toBitVec]
+  exact or_assoc
+
+@[llvm_toBitVec]
+theorem getValue_urem {w : Nat} (x y : Int w) :
+    (urem x y).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+           else if y.getValue = 0 then 0#w
+            else x.getValue.umod y.getValue := by
+  simp [getValue, llvm_toBitVec]
+
+@[llvm_toBitVec]
 theorem toIntBv_srem {w : Nat} (x y : Int w) :
     (srem x y).toIntBv =
       if x.isPoison ∨ y.isPoison then {toBitVec := 0#w, poison := true}
@@ -345,6 +361,24 @@ theorem toIntBv_srem {w : Nat} (x y : Int w) :
     bne_iff_ne, ne_eq, pure_bind]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec, pure, Id]
+
+@[llvm_toBitVec]
+theorem isPoison_srem {w : Nat} (x y : Int w) :
+    (srem x y).isPoison =
+        (x.isPoison ∨ y.isPoison ∨
+        (y.getValue == 0 ||
+            (w != 1 && x.getValue  == (BitVec.intMin w) && y.getValue == -1))) := by
+  simp [isPoison, llvm_toBitVec]
+  exact or_assoc
+
+@[llvm_toBitVec]
+theorem getValue_srem {w : Nat} (x y : Int w) :
+    (srem x y).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else if y.getValue == 0 ||
+            (w != 1 && x.getValue  == (BitVec.intMin w) && y.getValue == -1) then 0#w
+            else x.getValue.srem y.getValue := by
+  simp [getValue, llvm_toBitVec]
 
 @[llvm_toBitVec]
 theorem toIntBv_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} :
