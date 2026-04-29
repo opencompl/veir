@@ -4,6 +4,7 @@ import all Veir.Data.LLVM.Int.Basic
 import Veir.ForLean
 import Veir.Data.LLVM.Int.Simp
 
+
 open Veir.Data.LLVM
 
 namespace Veir.Data.LLVM.Int
@@ -29,10 +30,7 @@ def toIntBv {w : Nat} (x : Int w) : IntBv w :=
   | .poison => {toBitVec := 0#w, poison := true}
 
 /-- Return a boolean if the LLVM.int `x` is poison. -/
-def isPoison {w : Nat} (x : Int w) : Bool :=
-  match x with
-  | .val _ => false
-  | .poison => true
+def isPoison {w : Nat} (x : Int w) : Bool := x.toIntBv.poison
 
 /-- Return a concrete bitvector value given an LLVM.Int. -/
 def getValue {w : Nat} (x : Int w) : BitVec w := x.toIntBv.toBitVec
@@ -67,13 +65,19 @@ theorem toIntBv_val {w : Nat} {v : BitVec w} :
 
 @[llvm_toBitVec]
 theorem getValue_of_val {w : Nat} {v : BitVec w} :
-    (val v).getValue = v := by
-  rfl
+    (val v).getValue = v := rfl
 
 @[llvm_toBitVec]
-theorem toIntBv_isPoison_iff (x : Int w) :
-    x.isPoison = x.toIntBv.poison := by
-  cases x <;> simp [isPoison, llvm_toBitVec]
+theorem getValue_of_poison {w : Nat} :
+    poison.getValue = 0#w := rfl
+
+@[llvm_toBitVec]
+theorem isPoison_of_val {w : Nat} {v : BitVec w} :
+    (val v).isPoison = false := rfl
+
+@[llvm_toBitVec]
+theorem isPoison_of_poison {w : Nat} :
+    poison.isPoison (w := w) = true := rfl
 
 @[llvm_toBitVec]
 theorem ite_eq_toIntBv {w : Nat} (x : Int w) :
@@ -110,7 +114,7 @@ theorem eq_iff {w : Nat} {x y : IntBv w} :
   IntBv.ext_iff
 
 @[bv_normalize]
-theorem toBitVec_ite {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
+theorem toBitVec_ite_eq {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
     (if b then x else y).toBitVec = if b then x.toBitVec else y.toBitVec := by
   split <;> rfl
 
@@ -133,24 +137,12 @@ theorem poison_bif {w : Nat} (b : Bool) (x y : IntBv w) :
     (bif b then x else y).poison = bif b then x.poison else y.poison := by
   cases b <;> rfl
 
-@[llvm_toBitVec]
-theorem isPoison_of_poison {w : Nat} : poison.isPoison (w := w) = true := by
-  simp [isPoison]
-
-@[llvm_toBitVec]
-theorem isPoison_of_val {w : Nat} {v : BitVec w}: (val v).isPoison (w := w) = false := by
-  simp [isPoison]
-
-@[llvm_toBitVec]
-theorem getValue_of_poison {w : Nat} : (poison).getValue = 0#w := by
-  simp [getValue, llvm_toBitVec]
-
-@[llvm_toBitVec]
+@[llvm_toBitVec, bv_normalize]
 theorem getValue_eq_toBitVec_of_not_poison {w : Nat} {x : Int w} (hx : ¬ x.isPoison) :
     x.getValue = x.toIntBv.toBitVec := by
   cases x
   · simp [toIntBv, getValue]
-  · simp [isPoison] at hx
+  · simp [isPoison, toIntBv] at hx
 
 /-! # LLVM IR operations unfolding to `toIntBv` -/
 
@@ -158,6 +150,14 @@ theorem getValue_eq_toBitVec_of_not_poison {w : Nat} {x : Int w} (hx : ¬ x.isPo
 theorem toIntBv_constant {w : Nat} (v : _root_.Int) :
     (constant w v).toIntBv = ⟨BitVec.ofInt w v, false, by simp⟩ := by
   simp [constant, toIntBv]
+
+@[llvm_toBitVec]
+theorem getValue_constant {w : Nat} (v : _root_.Int) :
+    (constant w v).getValue = BitVec.ofInt w v := rfl
+
+@[llvm_toBitVec]
+theorem isPoison_constant {w : Nat} (v : _root_.Int) :
+    (constant w v).isPoison = false := rfl
 
 @[llvm_toBitVec]
 theorem toIntBv_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
@@ -191,7 +191,18 @@ theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
         (x.isPoison ∨ y.isPoison ∨
         (nsw ∧ BitVec.saddOverflow x.getValue y.getValue) ∨
         (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue)) := by
-  simp [toIntBv_isPoison_iff, poison_toIntBv_add]
+  simp [isPoison, poison_toIntBv_add]
+
+
+@[llvm_toBitVec]
+theorem getValue_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
+    (add x y nsw nuw).getValue =
+      if x.isPoison ∨ y.isPoison then 0#w
+        else if nsw ∧ BitVec.saddOverflow x.getValue y.getValue then 0#w
+          else if nuw ∧ BitVec.uaddOverflow x.getValue y.getValue then 0#w
+            else x.getValue + y.getValue := by
+  simp [getValue, toIntBv_add]
+  split <;> sorry
 
 @[llvm_toBitVec]
 theorem toIntBv_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} :
