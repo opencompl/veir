@@ -163,7 +163,10 @@ macro "#assert " e:term : command =>
 #assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected"
 #assert expectErrorType "!mod_arith.int<17 : x>" "integer type expected after ':' in modarith type"
 
-/-! ## Pointer type -/
+/-! ## LLVM Pointer type -/
+#assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)
+
+/-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))
 #assert expectErrorType "!cuda_tile.ptr<16>" "integer type expected"

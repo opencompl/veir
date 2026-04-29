@@ -236,6 +236,17 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
   return some (UnregisteredAttr.mk (String.fromUTF8! value) false)
 
+/--
+  Parse an LLVM pointer type `!llvm.ptr`, if present.
+-/
+partial def parseOptionalLLVMPointerType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "llvm.ptr".toByteArray then return none
+  let _ ← consumeToken
+  return some LLVM.PointerType.mk
 
 /--
   Parse cuda-tile's pointer type, if present
@@ -315,6 +326,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some registerType
   if let some modArithType ← parseOptionalModArithType then
     return some modArithType
+  if let some llvmPointerType := ← parseOptionalLLVMPointerType then
+    return some llvmPointerType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
   if let some dialectType ← parseOptionalDialectType then
