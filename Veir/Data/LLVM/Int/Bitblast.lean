@@ -4,7 +4,6 @@ import all Veir.Data.LLVM.Int.Basic
 import Veir.ForLean
 import Veir.Data.LLVM.Int.Simp
 
-
 open Veir.Data.LLVM
 
 namespace Veir.Data.LLVM.Int
@@ -421,18 +420,5 @@ theorem toIntBv_select {w : Nat} (x y : Int w) (c : Int 1):
   simp only [select, Id.run, beq_iff_eq]
   rcases x <;> rcases y <;> rcases c
   <;> simp [llvm_toBitVec]
-
-
-
-theorem bv_AddSub_1165 :
-    ∀ (e e_1 : Int 64),
-      add (add (constant (w := 64) 0) e) (add (constant (w := 64) 0) e_1) =
-      add (constant (w := 64) 0) (add e e_1) := by
-  intros x y
-  simp [llvm_toBitVec]
-  bv_decide
-
-
-
 
 end Int
