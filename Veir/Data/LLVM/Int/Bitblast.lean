@@ -1,9 +1,10 @@
 module
 
 import all Veir.Data.LLVM.Int.Basic
+import all Veir.Data.Refinement
+public import Veir.Data.LLVM.Int.Basic
 import Veir.ForLean
 import Veir.Data.LLVM.Int.Simp
-import all Veir.Data.Refinement
 
 open Veir.Data.LLVM
 
@@ -35,12 +36,8 @@ def isPoison {w : Nat} (x : Int w) : Bool := x.toIntBv.poison
 /-- Return a concrete bitvector value given an LLVM.Int. -/
 def getValue {w : Nat} (x : Int w) : BitVec w := x.toIntBv.toBitVec
 
-/-- Evaluate an integer comparison as a `BitVec 1` type. -/
-def eval_toBitVec (p : IntPred) (x y : BitVec w) : BitVec 1 :=
-  BitVec.ofBool (IntPred.eval p x y)
-
 @[llvm_toBitVec]
-def isRefinedByBv (i i' : IntBv w) :=
+def isRefinedBy_toBitVec (i i' : IntBv w) :=
   i.poison ∨ (¬i.poison ∧ ¬i'.poison ∧ (i.toBitVec = i'.toBitVec))
 
 /--
@@ -56,6 +53,7 @@ theorem toIntBv.inj {w : Nat} {x y : Int w} (h : x.toIntBv = y.toIntBv) : x = y 
     simp [toIntBv] at h
   | .poison, .val v => by
     simp [toIntBv] at h
+
 
 @[llvm_toBitVec]
 theorem int_inj {w : Nat} (i1 i2 : Int w) :
@@ -110,22 +108,10 @@ theorem toIntBv_ite_eq {w : Nat} (x y : Int w) (c1 : Prop) [Decidable c1] :
   rcases x <;> rcases y <;> simp [llvm_toBitVec]
   <;> split <;> simp [toIntBv]
 
--- @[bv_normalize]
--- theorem ite_same_cond_nested {α} (c : Prop) [Decidable c] (a b : α) (f : α → α) :
---     (if c then a else f (if c then a else b)) = if c then a else f b := by
---   split <;> simp_all
-
--- @[bv_normalize]
--- theorem ite_or_comm_nested {α} (p q : Bool) (a b : α) (f : α → α) :
---     (if p = true ∨ q = true then a else f (if q = true ∨ p = true then a else b)) =
---     if p = true ∨ q = true then a else f b := by
---   split <;> simp_all
-
-
 @[bv_normalize, llvm_toBitVec]
-theorem isRefinedBy_toBv (x y : Int w) :
-    (x ⊑ y) ↔ isRefinedByBv x.toIntBv y.toIntBv := by
-  simp [isRefinedBy, isRefinedByBv]
+theorem isRefinedBy_toBitVec_eq (x y : Int w) :
+    (x ⊑ y) ↔ isRefinedBy_toBitVec x.toIntBv y.toIntBv := by
+  simp [isRefinedBy, isRefinedBy_toBitVec]
   rcases x <;> rcases y <;> simp [llvm_toBitVec]
 
 @[bv_normalize]
@@ -169,6 +155,8 @@ theorem getValue_eq_toBitVec_of_not_poison {w : Nat} {x : Int w} (hx : ¬ x.isPo
   cases x
   · simp [toIntBv, getValue]
   · simp [isPoison, toIntBv] at hx
+
+attribute [llvm_toBitVec] IntPred.eval
 
 /-! # LLVM IR operations unfolding to `toIntBv` -/
 
@@ -683,8 +671,8 @@ theorem getValue_sext (x : Int w₁) (h : w₁ < w₂)  :
 theorem toIntBv_icmp {w : Nat} (x y : Int w) (p : IntPred) :
     (icmp x y p).toIntBv =
       if x.isPoison ∨ y.isPoison then {toBitVec := 0#1, poison := true}
-        else {toBitVec := eval_toBitVec p x.getValue y.getValue, poison := false} := by
-  simp only [icmp, Id.run, eval_toBitVec]
+        else {toBitVec := BitVec.ofBool (IntPred.eval p x.getValue y.getValue), poison := false} := by
+  simp only [icmp, Id.run]
   rcases x <;> rcases y
   <;> simp [llvm_toBitVec]
 
@@ -697,7 +685,7 @@ theorem isPoison_icmp {w : Nat} (x y : Int w) (p : IntPred) :
 theorem getValue_icmp {w : Nat} (x y : Int w)(p : IntPred) :
     (icmp x y p).getValue =
       if x.isPoison ∨ y.isPoison then 0#1
-          else eval_toBitVec p x.getValue y.getValue := by
+          else BitVec.ofBool (IntPred.eval p x.getValue y.getValue) := by
   simp [getValue, llvm_toBitVec]
 
 @[llvm_toBitVec]
