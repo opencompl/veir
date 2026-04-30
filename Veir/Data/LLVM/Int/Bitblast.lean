@@ -3,6 +3,7 @@ module
 import all Veir.Data.LLVM.Int.Basic
 import Veir.ForLean
 import Veir.Data.LLVM.Int.Simp
+import all Veir.Data.Refinement
 
 open Veir.Data.LLVM
 
@@ -38,17 +39,9 @@ def getValue {w : Nat} (x : Int w) : BitVec w := x.toIntBv.toBitVec
 def eval_toBitVec (p : IntPred) (x y : BitVec w) : BitVec 1 :=
   BitVec.ofBool (IntPred.eval p x y)
 
-def IsRefinedByBv (i i' : IntBv w) :
-  i.poison ∨ (¬ i.poison ∧ i'.poison)
-
-def isRefinedBy (i i' : Veir.Data.LLVM.Int 64) : Prop :=
-  match i with
-  | .val v =>
-    match i' with
-    | .val v' => v = v'
-    | .poison => true
-  | .poison => true
-
+@[llvm_toBitVec]
+def isRefinedByBv (i i' : IntBv w) :=
+  i.poison ∨ (¬i.poison ∧ ¬i'.poison ∧ (i.toBitVec = i'.toBitVec))
 
 /--
   We prove the injectivity of `toIntBv`.
@@ -127,6 +120,13 @@ theorem toIntBv_ite_eq {w : Nat} (x y : Int w) (c1 : Prop) [Decidable c1] :
 --     (if p = true ∨ q = true then a else f (if q = true ∨ p = true then a else b)) =
 --     if p = true ∨ q = true then a else f b := by
 --   split <;> simp_all
+
+
+@[bv_normalize, llvm_toBitVec]
+theorem isRefinedBy_toBv (x y : Int w) :
+    (x ⊑ y) ↔ isRefinedByBv x.toIntBv y.toIntBv := by
+  simp [isRefinedBy, isRefinedByBv]
+  rcases x <;> rcases y <;> simp [llvm_toBitVec]
 
 @[bv_normalize]
 theorem toBitVec_zero_of_poison (x : IntBv w) :
@@ -722,6 +722,5 @@ theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) :
       if x.isPoison ∨ y.isPoison ∨ c.isPoison then 0#w
           else if c.getValue == 1#1 then x.getValue else y.getValue := by
   simp [getValue, llvm_toBitVec]
-
 
 end Int
