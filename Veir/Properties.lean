@@ -10,6 +10,13 @@ namespace Veir
 
 public section
 
+def getUnitAttr (key : String) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String Bool := do
+  match attrDict[key.toUTF8]? with
+  | some (.unitAttr _) => .ok true
+  | some attr => .error s!"expected '{key}' to be an optional unit attribute, but got {attr}"
+  | none => .ok false
+
 /--
   Properties of the `arith.constant` operation.
 -/
@@ -38,14 +45,8 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def NswNuwProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String NswNuwProperties := do
-  let nsw ← match attrDict["nsw".toUTF8]? with
-    | some (.unitAttr _) => .ok true
-    | some attr => .error s!"expected 'nsw' to be an optional unit attribute, but got {attr}"
-    | none => .ok false
-  let nuw ← match attrDict["nuw".toUTF8]? with
-    | some (.unitAttr _) => .ok true
-    | some attr => .error s!"expected 'nuw' to be an optional unit attribute, but got {attr}"
-    | none => .ok false
+  let nsw ← getUnitAttr "nsw" attrDict
+  let nuw ← getUnitAttr "nuw" attrDict
   return { nsw := nsw, nuw := nuw }
 
 /--
@@ -58,10 +59,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def ExactProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ExactProperties := do
-  let exact ← match attrDict["exact".toUTF8]? with
-    | some (.unitAttr _) => .ok true
-    | some attr => .error s!"expected 'exact' to be an optional unit attribute, but got {attr}"
-    | none => .ok false
+  let exact ← getUnitAttr "exact" attrDict
   return { exact := exact }
 
 /--
@@ -74,10 +72,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def DisjointProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String DisjointProperties := do
-  let disjoint ← match attrDict["disjoint".toUTF8]? with
-    | some (.unitAttr _) => .ok true
-    | some attr => .error s!"expected 'disjoint' to be an optional unit attribute, but got {attr}"
-    | none => .ok false
+  let disjoint ← getUnitAttr "disjoint" attrDict
   return { disjoint := disjoint }
 
 /--
@@ -89,10 +84,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String NnegProperties := do
-  let nneg ← match attrDict["nneg".toUTF8]? with
-    | some (.unitAttr _) => .ok true
-    | some attr => .error s!"expected 'nneg' to be an optional unit attribute, but got {attr}"
-    | none => .ok false
+  let nneg ← getUnitAttr "nneg" attrDict
   return { nneg := nneg }
 
 /--
@@ -167,14 +159,14 @@ def ModArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray At
   Properties of the `cond_br` operation.
 -/
 
-structure CondBrConstantProperties where
+structure CondBrProperties where
   branch_weights : DenseArrayAttr
   operandSegmentSizes : DenseArrayAttr
 
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-def CondBrConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String CondBrConstantProperties := do
+def CondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String CondBrProperties := do
   if attrDict.size > 2 then
     throw s!"cf.cond_br: expected only 'branch_weights' and 'operandSegmentSizes' properties, but got {attrDict.size} properties"
   let weightsAttr ← match attrDict["weightsAttr".toUTF8]? with
@@ -186,6 +178,145 @@ def CondBrConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attr
   let .denseArrayAttr sizesAttr := sizesAttr
     | throw s!"cf.cond_br: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
   return { branch_weights := weightsAttr, operandSegmentSizes := sizesAttr }
+
+/--
+  Properties of LLVM memory operations.
+-/
+
+structure AllocaProperties where
+  alignment : IntegerAttr
+  elem_type : TypeAttr
+  inalloca : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def AllocaProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String AllocaProperties := do
+  let alignAttr ← match attrDict["alignment".toUTF8]? with
+    | some (.integerAttr alignAttr) => .ok alignAttr
+    | some attr => .error s!"expected 'alignment' to be an optional integer attribute, but got {attr}"
+    | none => .ok { value := 0, type := { bitwidth := 64 } }
+  let some typeAttr := attrDict["elem_type".toUTF8]?
+    | throw "alloca: missing 'elem_type' property"
+  if _ : typeAttr.isType = false then throw "alloca: expected 'elem_type' to be a type attribute" else
+  let inallocaAttr ← getUnitAttr "inalloca" attrDict
+  return { alignment := alignAttr, elem_type := typeAttr.asType, inalloca := inallocaAttr }
+
+structure LoadProperties where
+  alignment : IntegerAttr
+  volatile_ : Bool
+  nontemporal : Bool
+  invariant : Bool
+  invariantGroup : Bool
+  --ordering
+  syncscope : Option StringAttr
+  --dereferenceable
+  access_groups : ArrayAttr
+  alias_scopes : ArrayAttr
+  noalias_scopes : ArrayAttr
+  tbaa : ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LoadProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LoadProperties := do
+  let alignAttr ← match attrDict["alignment".toUTF8]? with
+  | some (.integerAttr alignAttr) => .ok alignAttr
+  | some attr => .error s!"expected 'alignment' to be an optional integer attribute, but got {attr}"
+  | none => .ok { value := 0, type := { bitwidth := 64 } }
+  let volatileAttr ← getUnitAttr "volatile_" attrDict
+  let nontemporalAttr ← getUnitAttr "nontemporal" attrDict
+  let invariantAttr ← getUnitAttr "invariant" attrDict
+  let invariantGroupAttr ← getUnitAttr "invariantGroup" attrDict
+  let syncscopeAttr ← match attrDict["syncscope".toUTF8]? with
+    | some (.stringAttr syncscopeAttr) => .ok (some syncscopeAttr)
+    | some attr => .error s!"expected 'syncscope' to be an optional string attribute, but got {attr}"
+    | none => .ok none
+  let accessAttr := attrDict["access_groups".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr accessAttr := accessAttr
+    | throw s!"store: expected 'access_groups' to be an array attribute, but got {accessAttr}"
+  let aliasAttr := attrDict["alias_scopes".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr aliasAttr := aliasAttr
+    | throw s!"store: expected 'alias_scopes' to be an array attribute, but got {aliasAttr}"
+  let noaliasAttr := attrDict["noalias_scopes".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr noaliasAttr := noaliasAttr
+    | throw s!"store: expected 'noalias_scopes' to be an array attribute, but got {noaliasAttr}"
+  let tbaaAttr := attrDict["tbaa".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr tbaaAttr := tbaaAttr
+    | throw s!"store: expected 'tbaa' to be an array attribute, but got {tbaaAttr}"
+  return { alignment := alignAttr, volatile_ := volatileAttr, nontemporal := nontemporalAttr, invariant := invariantAttr, invariantGroup := invariantGroupAttr, syncscope := syncscopeAttr, access_groups := accessAttr, alias_scopes := aliasAttr, noalias_scopes := noaliasAttr, tbaa := tbaaAttr }
+
+structure StoreProperties where
+  alignment : IntegerAttr
+  volatile_ : Bool
+  nontemporal : Bool
+  invariantGroup : Bool
+  --ordering
+  syncscope : Option StringAttr
+  access_groups : ArrayAttr
+  alias_scopes : ArrayAttr
+  noalias_scopes : ArrayAttr
+  tbaa : ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def StoreProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String StoreProperties := do
+  let alignAttr ← match attrDict["alignment".toUTF8]? with
+  | some (.integerAttr alignAttr) => .ok alignAttr
+  | some attr => .error s!"expected 'alignment' to be an optional integer attribute, but got {attr}"
+  | none => .ok { value := 0, type := { bitwidth := 64 } }
+  let volatileAttr ← getUnitAttr "volatile_" attrDict
+  let nontemporalAttr ← getUnitAttr "nontemporal" attrDict
+  let invariantGroupAttr ← getUnitAttr "invariantGroup" attrDict
+  let syncscopeAttr ← match attrDict["syncscope".toUTF8]? with
+    | some (.stringAttr syncscopeAttr) => .ok (some syncscopeAttr)
+    | some attr => .error s!"expected 'syncscope' to be an optional string attribute, but got {attr}"
+    | none => .ok none
+  let accessAttr := attrDict["access_groups".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr accessAttr := accessAttr
+    | throw s!"store: expected 'access_groups' to be an array attribute, but got {accessAttr}"
+  let aliasAttr := attrDict["alias_scopes".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr aliasAttr := aliasAttr
+    | throw s!"store: expected 'alias_scopes' to be an array attribute, but got {aliasAttr}"
+  let noaliasAttr := attrDict["noalias_scopes".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr noaliasAttr := noaliasAttr
+    | throw s!"store: expected 'noalias_scopes' to be an array attribute, but got {noaliasAttr}"
+  let tbaaAttr := attrDict["tbaa".toUTF8]?.getD (.arrayAttr .empty)
+  let .arrayAttr tbaaAttr := tbaaAttr
+    | throw s!"store: expected 'tbaa' to be an array attribute, but got {tbaaAttr}"
+  return { alignment := alignAttr, volatile_ := volatileAttr, nontemporal := nontemporalAttr, invariantGroup := invariantGroupAttr, syncscope := syncscopeAttr, access_groups := accessAttr, alias_scopes := aliasAttr, noalias_scopes := noaliasAttr, tbaa := tbaaAttr }
+
+/--
+  Properties of the `comb.extract` operation.
+-/
+structure CombExtractProperties where
+  lowBit : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def CombExtractProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String CombExtractProperties := do
+  if attrDict.size > 1 then
+    throw s!"comb.extract: expected only one property, but got {attrDict.size} properties"
+  let some attr := attrDict["lowBit".toUTF8]?
+    | throw "comb.extract: missing 'lowBit' property"
+  let .integerAttr intAttr := attr
+    | throw s!"comb.extract: expected 'lowBit' to be an integer attribute, but got {attr}"
+  return { lowBit := intAttr }
+
+/--
+  Properties of `comb.icmp` operation, describing predicates for integer comparison.
+-/
+structure CombIcmpProperties where
+  predicate : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def CombIcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String CombIcmpProperties := do
+  if attrDict.size > 1 then
+    throw s!"comb.icmp: expected only one property, but got {attrDict.size} properties"
+  let some attr := attrDict["predicate".toUTF8]?
+    | throw "comb.icmp: missing 'predicate' property"
+  let .integerAttr intAttr := attr
+    | throw s!"comb.icmp: expected 'predicate' to be an integer attribute, but got {attr}"
+  return { predicate := intAttr }
 
 end
 end Veir

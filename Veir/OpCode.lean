@@ -90,6 +90,11 @@ inductive Llvm where
 | trunc
 | sext
 | zext
+| br
+| cond_br
+| alloca
+| load
+| store
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -207,6 +212,30 @@ inductive Datapath where
 | compress
 | partial_product
 | pos_partial_product
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
+inductive Comb where
+| add
+| and
+| concat
+| divs
+| divu
+| extract
+| icmp
+| mods
+| modu
+| mul
+| mux
+| or
+| parity
+| replicate
+| reverse
+| shl
+| shrs
+| shru
+| sub
+| xor
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]

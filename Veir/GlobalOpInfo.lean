@@ -5,6 +5,7 @@ public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
+public import Veir.Dialects.Comb.OpInfo
 
 namespace Veir
 
@@ -22,6 +23,7 @@ match opCode with
 | .riscv op => Riscv.propertiesOf op
 | .mod_arith op => Mod_Arith.propertiesOf op
 | .cf op => Cf.propertiesOf op
+| .comb op => Comb.propertiesOf op
 | _ => Unit
 
 instance : HasDialectOpInfo OpCode where
@@ -94,12 +96,16 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case trunc => exact (NswNuwProperties.fromAttrDict attrDict)
     case zext => exact (NnegProperties.fromAttrDict attrDict)
     case icmp => exact (IcmpProperties.fromAttrDict attrDict)
+    case cond_br => exact (CondBrProperties.fromAttrDict attrDict)
+    case alloca => exact (AllocaProperties.fromAttrDict attrDict)
+    case load => exact (LoadProperties.fromAttrDict attrDict)
+    case store => exact (StoreProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case func =>
     all_goals exact (Except.ok ())
   case cf op =>
     cases op
-    case cond_br => exact (CondBrConstantProperties.fromAttrDict attrDict)
+    case cond_br => exact (CondBrProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case builtin =>
     all_goals exact (Except.ok ())
@@ -117,6 +123,11 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case ori => exact (DisjointProperties.fromAttrDict attrDict)
     case trunci => exact (NswNuwProperties.fromAttrDict attrDict)
     case extui => exact (NnegProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
+  case comb op =>
+    cases op
+    case extract => exact (CombExtractProperties.fromAttrDict attrDict)
+    case icmp => exact (CombIcmpProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
 
 /--
@@ -139,6 +150,9 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | .llvm .icmp => Id.run do
     (Std.HashMap.emptyWithCapacity 2).insert "predicate".toUTF8 (Attribute.integerAttr props.value)
+  | .llvm .cond_br =>
+    let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
+    dict.insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
   | .arith .divsi | .arith .divui | .arith .shrsi | .arith .shrui |
     .llvm .udiv | .llvm .sdiv | .llvm .lshr | .llvm .ashr => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
@@ -161,7 +175,52 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .cf .cond_br =>
-    let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
+    let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (.denseArrayAttr props.branch_weights)
     dict.insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
+  | .llvm .alloca => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 3
+    dict := dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
+    dict := dict.insert "elem_type".toUTF8 props.elem_type
+    if props.inalloca then
+      dict := dict.insert "inalloca".toUTF8 (.unitAttr UnitAttr.mk)
+    dict
+  | .llvm .load => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 10
+    dict := dict.insert "alignment".toUTF8 (.integerAttr props.alignment)
+    if props.volatile_ then
+      dict := dict.insert "volatile_".toUTF8 (.unitAttr UnitAttr.mk)
+    if props.nontemporal then
+      dict := dict.insert "nontemporal".toUTF8 (.unitAttr UnitAttr.mk)
+    if props.invariant then
+      dict := dict.insert "invariant".toUTF8 (.unitAttr UnitAttr.mk)
+    if props.invariantGroup then
+      dict := dict.insert "invariantGroup".toUTF8 (.unitAttr UnitAttr.mk)
+    if let some syncscope := props.syncscope then
+      dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
+    dict := dict.insert "access_groups".toUTF8 (.arrayAttr props.access_groups)
+    dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
+    dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
+    dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
+    dict
+  | .llvm .store => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 9
+    dict := dict.insert "alignment".toUTF8 (.integerAttr props.alignment)
+    if props.volatile_ then
+      dict := dict.insert "volatile_".toUTF8 (.unitAttr UnitAttr.mk)
+    if props.nontemporal then
+      dict := dict.insert "nontemporal".toUTF8 (.unitAttr UnitAttr.mk)
+    if props.invariantGroup then
+      dict := dict.insert "invariantGroup".toUTF8 (.unitAttr UnitAttr.mk)
+    if let some syncscope := props.syncscope then
+      dict := dict.insert "syncscope".toUTF8 (.stringAttr syncscope)
+    dict := dict.insert "access_groups".toUTF8 (.arrayAttr props.access_groups)
+    dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
+    dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
+    dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
+    dict
+  | .comb .extract =>
+    (Std.HashMap.emptyWithCapacity 1).insert "lowBit".toUTF8 (Attribute.integerAttr props.lowBit)
+  | .comb .icmp =>
+    (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr props.predicate)
   | _ =>
     Std.HashMap.emptyWithCapacity 0

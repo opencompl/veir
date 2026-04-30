@@ -9,13 +9,14 @@ namespace Veir
 public section
 
 @[expose, properties_of]
-def Cf.propertiesOf (op : Cf) : Type :=
+def Comb.propertiesOf (op : Comb) : Type :=
 match op with
-| .cond_br => CondBrProperties
+| .extract => CombExtractProperties
+| .icmp => CombIcmpProperties
 | _ => Unit
 
-instance : HasDialectOpInfo Cf where
-  propertiesOf := Cf.propertiesOf
+instance : HasDialectOpInfo Comb where
+  propertiesOf := Comb.propertiesOf
 
 end
 

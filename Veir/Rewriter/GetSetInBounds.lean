@@ -34,6 +34,8 @@ public section
  - * OperationPtr.getOperands!
  - * OperationPtr.getNumSuccessors!
  - * BlockOperandPtr.get!
+ - * OperationPtr.getSuccessor!
+ - * OperationPtr.getSuccessors!
  - * OperationPtr.getNumRegions!
  - * OperationPtr.getRegion!
  - * BlockOperandPtrPtr.get!
@@ -268,6 +270,24 @@ grind_pattern BlockOperandPtr.get!_insertOp? =>
   Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, operand.get! newCtx
 
 @[simp]
+theorem OperationPtr.getSuccessor!_insertOp? {operation : OperationPtr} :
+    Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operation.getSuccessor! newCtx index = operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+grind_pattern OperationPtr.getSuccessor!_insertOp? =>
+  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, operation.getSuccessor! newCtx index
+
+@[simp]
+theorem OperationPtr.getSuccessors!_insertOp? {operation : OperationPtr} :
+    Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx →
+    operation.getSuccessors! newCtx = operation.getSuccessors! ctx := by
+  grind [OperationPtr.getSuccessors!_def]
+
+grind_pattern OperationPtr.getSuccessors!_insertOp? =>
+  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, operation.getSuccessors! newCtx
+
+@[simp]
 theorem OperationPtr.getNumRegions!_insertOp? {operation : OperationPtr} :
     Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx →
     operation.getNumRegions! newCtx = operation.getNumRegions! ctx := by
@@ -280,12 +300,12 @@ grind_pattern OperationPtr.getNumRegions!_insertOp? =>
 @[simp]
 theorem OperationPtr.getRegion!_insertOp? {operation : OperationPtr} :
     Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx →
-    operation.getRegion! newCtx = operation.getRegion! ctx := by
+    operation.getRegion! newCtx idx = operation.getRegion! ctx idx := by
   simp only [Rewriter.insertOp?]
   grind
 
 grind_pattern OperationPtr.getRegion!_insertOp? =>
-  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, operation.getRegion! newCtx
+  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, operation.getRegion! newCtx idx
 
 @[simp]
 theorem BlockOperandPtrPtr.get!_insertOp? {operandPtr : BlockOperandPtrPtr} :
@@ -476,6 +496,18 @@ theorem BlockOperandPtr.get!_unsetParentAndNeighbors {blockOperand : BlockOperan
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getSuccessor!_unsetParentAndNeighbors {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.unsetParentAndNeighbors ctx op' hIn) index =
+    operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_unsetParentAndNeighbors {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    operation.getSuccessors! ctx := by
+  grind [OperationPtr.getSuccessors!_def]
+
+@[simp, grind =]
 theorem OperationPtr.getNumRegions!_unsetParentAndNeighbors {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
     operation.getNumRegions! ctx := by
@@ -659,6 +691,18 @@ theorem BlockOperandPtr.get!_detachOp {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
     blockOperand.get! ctx := by
   grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_detachOp {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.detachOp ctx op' h₁ h₂ h₃) index =
+    operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_detachOp {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    operation.getSuccessors! ctx := by
+  grind [OperationPtr.getSuccessors!_def]
 
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_detachOp {operation : OperationPtr} :
@@ -873,6 +917,24 @@ theorem BlockOperandPtr.get!_insertBlock? {operand : BlockOperandPtr} :
 
 grind_pattern BlockOperandPtr.get!_insertBlock? =>
   Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃, some newCtx, operand.get! newCtx
+
+@[simp]
+theorem OperationPtr.getSuccessor!_insertBlock? {operation : OperationPtr} :
+    Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx →
+    operation.getSuccessor! newCtx index = operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+grind_pattern OperationPtr.getSuccessor!_insertBlock? =>
+  Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃, some newCtx, operation.getSuccessor! newCtx index
+
+@[simp]
+theorem OperationPtr.getSuccessors!_insertBlock? {operation : OperationPtr} :
+    Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx →
+    operation.getSuccessors! newCtx = operation.getSuccessors! ctx := by
+  grind [OperationPtr.getSuccessors!_def]
+
+grind_pattern OperationPtr.getSuccessors!_insertBlock? =>
+  Rewriter.insertBlock? ctx newBlock ip h₁ h₂ h₃, some newCtx, operation.getSuccessors! newCtx
 
 @[simp]
 theorem OperationPtr.getNumRegions!_insertBlock? {operation : OperationPtr} :
@@ -1123,6 +1185,18 @@ theorem BlockOperandPtr.get!_detachOpIfAttached {blockOperand : BlockOperandPtr}
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getSuccessor!_detachOpIfAttached {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) index =
+    operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_detachOpIfAttached {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    operation.getSuccessors! ctx := by
+  grind [OperationPtr.getSuccessors!_def]
+
+@[simp, grind =]
 theorem OperationPtr.getNumRegions!_detachOpIfAttached {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
     operation.getNumRegions! ctx := by
@@ -1340,6 +1414,22 @@ theorem BlockOperandPtr.get!_detachOperands_loop {blockOperand : BlockOperandPtr
     grind
 
 @[simp, grind =]
+theorem OperationPtr.getSuccessor!_detachOperands_loop {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) i =
+    operation.getSuccessor! ctx i := by
+  induction index generalizing ctx
+  · grind [Rewriter.detachOperands.loop, OperationPtr.getSuccessor!_def]
+  · simp only [Rewriter.detachOperands.loop]
+    grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_detachOperands_loop {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) =
+    operation.getSuccessors! ctx := by
+  simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_detachOperands_loop,
+    OperationPtr.getNumSuccessors!_detachOperands_loop]
+
+@[simp, grind =]
 theorem OperationPtr.getNumRegions!_detachOperands_loop {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) =
     operation.getNumRegions! ctx := by
@@ -1517,6 +1607,18 @@ theorem BlockOperandPtr.get!_detachOperands {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.detachOperands ctx op' hCtx hOp) =
     blockOperand.get! ctx := by
   grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_detachOperands {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.detachOperands ctx op' hCtx hOp) index =
+    operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_detachOperands {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.detachOperands ctx op' hCtx hOp) =
+    operation.getSuccessors! ctx := by
+  grind [OperationPtr.getSuccessors!_def]
 
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_detachOperands {operation : OperationPtr} :
@@ -1732,6 +1834,22 @@ theorem OperationPtr.getNumSuccessors!_detachBlockOperands_loop {operation : Ope
 -- this point, likely on `BlockPtr.DefUse` directly.
 
 @[simp, grind =]
+theorem OperationPtr.getSuccessor!_detachBlockOperands_loop {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) i =
+    operation.getSuccessor! ctx i := by
+  induction index generalizing ctx
+  · grind [Rewriter.detachBlockOperands.loop, OperationPtr.getSuccessor!_def]
+  · simp only [Rewriter.detachBlockOperands.loop]
+    grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_detachBlockOperands_loop {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
+    operation.getSuccessors! ctx := by
+  simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_detachBlockOperands_loop,
+    OperationPtr.getNumSuccessors!_detachBlockOperands_loop]
+
+@[simp, grind =]
 theorem OperationPtr.getNumRegions!_detachBlockOperands_loop {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.detachBlockOperands.loop ctx op' index hCtx hOp hIndex) =
     operation.getNumRegions! ctx := by
@@ -1938,6 +2056,19 @@ theorem OperationPtr.getRegion!_detachBlockOperands {operation : OperationPtr} :
 -- this point, likely on `BlockPtr.DefUse` directly.
 
 @[simp, grind =]
+theorem OperationPtr.getSuccessor!_detachBlockOperands {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.detachBlockOperands ctx op' hCtx hOp) i =
+    operation.getSuccessor! ctx i := by
+  grind [OperationPtr.getSuccessor!_def, Rewriter.detachBlockOperands]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_detachBlockOperands {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
+    operation.getSuccessors! ctx := by
+  simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_detachBlockOperands,
+    OperationPtr.getNumSuccessors!_detachBlockOperands]
+
+@[simp, grind =]
 theorem BlockPtr.getNumArguments!_detachBlockOperands {block : BlockPtr} :
     block.getNumArguments! (Rewriter.detachBlockOperands ctx op' hCtx hOp) =
     block.getNumArguments! ctx := by
@@ -1982,6 +2113,18 @@ theorem BlockOperandPtr.get!_replaceUse {bop : BlockOperandPtr} :
     bop.get! ctx := by
   unfold Rewriter.replaceUse
   grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_replaceUse {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) index =
+    operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def, Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_replaceUse {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    operation.getSuccessors! ctx := by
+  grind [OperationPtr.getSuccessors!_def, Rewriter.replaceUse]
 
 @[simp, grind =]
 theorem BlockPtr.firstOp!_replaceUse {b : BlockPtr} :
@@ -2133,6 +2276,18 @@ theorem BlockOperandPtr.get!_replaceValue? {bop : BlockOperandPtr} :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
     bop.get! newCtx = bop.get! ctx := by
   induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind
+
+@[simp, grind =>]
+theorem OperationPtr.getSuccessor!_replaceValue? {operation : OperationPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    operation.getSuccessor! newCtx index = operation.getSuccessor! ctx index := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =>]
+theorem OperationPtr.getSuccessors!_replaceValue? {operation : OperationPtr} :
+    Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
+    operation.getSuccessors! newCtx = operation.getSuccessors! ctx := by
+  induction depth generalizing ctx <;> simp only [Rewriter.replaceValue?] <;> grind [OperationPtr.getSuccessors!_def]
 
 @[simp, grind =>]
 theorem BlockPtr.firstOp!_replaceValue? {b : BlockPtr} :
@@ -2358,6 +2513,18 @@ theorem BlockOperandPtr.get!_pushResult {blockOperand : BlockOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getSuccessor!_pushResult {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.pushResult ctx op type hop) index =
+    operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_pushResult {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.pushResult ctx op type hop) =
+    operation.getSuccessors! ctx := by
+  grind [OperationPtr.getSuccessors!_def]
+
+@[simp, grind =]
 theorem OperationPtr.getNumRegions!_pushResult {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.pushResult ctx op type hop) =
     operation.getNumRegions! ctx := by
@@ -2544,6 +2711,19 @@ theorem BlockOperandPtr.get!_initOpResults {blockOperand : BlockOperandPtr} {ind
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =]
+theorem OperationPtr.getSuccessor!_initOpResults {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.initOpResults ctx op types index hop hidx) i =
+    operation.getSuccessor! ctx i := by
+  fun_induction Rewriter.initOpResults <;> grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_initOpResults {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.initOpResults ctx op types index hop hidx) =
+    operation.getSuccessors! ctx := by
+  simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_initOpResults,
+    OperationPtr.getNumSuccessors!_initOpResults]
+
+@[simp, grind =]
 theorem OperationPtr.getNumRegions!_initOpResults {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.initOpResults ctx op types index hop hidx) =
     operation.getNumRegions! ctx := by
@@ -2551,8 +2731,8 @@ theorem OperationPtr.getNumRegions!_initOpResults {operation : OperationPtr} :
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_initOpResults {operation : OperationPtr} :
-    operation.getRegion! (Rewriter.initOpResults ctx op types index hop hidx) =
-    operation.getRegion! ctx := by
+    operation.getRegion! (Rewriter.initOpResults ctx op types index hop hidx) idx =
+    operation.getRegion! ctx idx := by
   fun_induction Rewriter.initOpResults <;> grind
 
 @[simp, grind =]
@@ -2711,6 +2891,18 @@ theorem BlockOperandPtr.get!_pushRegion {blockOperand : BlockOperandPtr} :
     blockOperand.get! ctx := by
   grind
 
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_pushRegion {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.pushRegion ctx op region hop hregion hregionParent) index =
+    operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_pushRegion {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.pushRegion ctx op region hop hregion hregionParent) =
+    operation.getSuccessors! ctx := by
+  grind [OperationPtr.getSuccessors!_def]
+
 @[grind =]
 theorem OperationPtr.getNumRegions!_pushRegion {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.pushRegion ctx op region hop hregion hregionParent) =
@@ -2832,6 +3024,12 @@ theorem OperationPtr.getProperties!_initOpRegions {operation : OperationPtr} {ct
   fun_induction Rewriter.initOpRegions <;> grind
 
 @[simp, grind =>]
+theorem OperationPtr.getNumResults!_initOpRegions {operation : OperationPtr}
+    (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
+    operation.getNumResults! ctx' = operation.getNumResults! ctx := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =>]
 theorem OperationPtr.getNumOperands!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo}
     (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
     operation.getNumOperands! ctx' = operation.getNumOperands! ctx := by
@@ -2866,6 +3064,19 @@ theorem BlockOperandPtr.get!_initOpRegions {blockOperand : BlockOperandPtr}
     (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
     blockOperand.get! ctx' = blockOperand.get! ctx := by
   fun_induction Rewriter.initOpRegions <;> grind
+
+@[simp, grind =>]
+theorem OperationPtr.getSuccessor!_initOpRegions {operation : OperationPtr}
+    (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    operation.getSuccessor! ctx' i = operation.getSuccessor! ctx i := by
+  fun_induction Rewriter.initOpRegions <;> grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =>]
+theorem OperationPtr.getSuccessors!_initOpRegions {operation : OperationPtr}
+    (h : Rewriter.initOpRegions ctx op regions idx h₁ h₂ h₃ h₄ = some ctx') :
+    operation.getSuccessors! ctx' = operation.getSuccessors! ctx := by
+  simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_initOpRegions h,
+    OperationPtr.getNumSuccessors!_initOpRegions h]
 
 @[grind =>]
 theorem OperationPtr.getNumRegions!_initOpRegions {operation : OperationPtr}
@@ -3079,6 +3290,20 @@ theorem OperationPtr.getNumSuccessors!_eraseOp {operation : OperationPtr} :
 -- The theorem `BlockOperandPtr.get!_eraseOp` is missing because it is quite complex to state.
 -- In any case, we shouldn't need it in practice, as we should reason at a higher-level abstraction at
 -- this point, likely on `BlockPtr.DefUse` directly.
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getSuccessor! (Rewriter.eraseOp ctx op hCtx hOp) index =
+    operation.getSuccessor! ctx index := by
+  grind [_=_ OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getSuccessors! (Rewriter.eraseOp ctx op hCtx hOp) =
+    operation.getSuccessors! ctx := by
+  grind [_=_ OperationPtr.getSuccessors!_def]
 
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_eraseOp {operation : OperationPtr} :
@@ -3318,6 +3543,27 @@ theorem BlockOperandPtr.get!_createEmptyOp {operand : BlockOperandPtr} :
 
 grind_pattern BlockOperandPtr.get!_createEmptyOp =>
   Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operand.get! ctx'
+
+@[simp]
+theorem OperationPtr.getSuccessor!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getSuccessor! ctx' index = operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+grind_pattern OperationPtr.getSuccessor!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getSuccessor! ctx' index
+
+theorem OperationPtr.getSuccessors!_createEmptyOp {operation : OperationPtr} :
+    Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
+    operation.getSuccessors! ctx' =
+    if operation = op then #[] else operation.getSuccessors! ctx := by
+  intro h
+  simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_createEmptyOp h,
+    OperationPtr.getNumSuccessors!_createEmptyOp h]
+  by_cases heq : operation = op <;> simp [heq]
+
+grind_pattern OperationPtr.getSuccessors!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getSuccessors! ctx'
 
 theorem OperationPtr.getNumRegions!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
@@ -3585,6 +3831,19 @@ theorem BlockOperandPtr.get!_pushOperand {blockOperand : BlockOperandPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getSuccessor!_pushOperand {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) index =
+    operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_pushOperand {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    operation.getSuccessors! ctx := by
+  simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_pushOperand,
+    OperationPtr.getNumSuccessors!_pushOperand]
+
+@[simp, grind =]
 theorem OperationPtr.getNumRegions!_pushOperand {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
     operation.getNumRegions! ctx := by
@@ -3814,6 +4073,20 @@ theorem BlockOperandPtr.get!_pushBlockOperand' {operandPtr : BlockOperandPtr} :
         operandPtr.get! ctx := by
   apply BlockOperand.ext <;> grind
 
+@[grind =]
+theorem OperationPtr.getSuccessor!_pushBlockOperand {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.pushBlockOperand ctx opPtr blockPtr h₁ h₂ h₃) index =
+    if operation = opPtr ∧ index = operation.getNumSuccessors! ctx then blockPtr
+    else operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def, OperationPtr.getBlockOperand_def]
+
+@[grind =]
+theorem OperationPtr.getSuccessors!_pushBlockOperand {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.pushBlockOperand ctx opPtr blockPtr h₁ h₂ h₃) =
+    if operation = opPtr then (operation.getSuccessors! ctx).push blockPtr
+    else operation.getSuccessors! ctx := by
+  grind [OperationPtr.getSuccessor!_def, OperationPtr.getBlockOperand_def]
+
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_pushBlockOperand {operation : OperationPtr} :
     operation.getNumRegions! (Rewriter.pushBlockOperand ctx opPtr blockPtr h₁ h₂ h₃) =
@@ -3983,6 +4256,43 @@ theorem BlockOperandPtr.get!_initOpOperands {blockOperand : BlockOperandPtr} :
     blockOperand.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
     blockOperand.get! ctx := by
   fun_induction Rewriter.initOpOperands <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_initOpOperands {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) i =
+    operation.getSuccessor! ctx i := by
+  fun_induction Rewriter.initOpOperands <;> grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_initOpOperands {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
+    operation.getSuccessors! ctx := by
+  simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_initOpOperands,
+    OperationPtr.getNumSuccessors!_initOpOperands]
+
+@[grind =>]
+theorem OperationPtr.getNumOperands!_initOpOperands {operation : OperationPtr} :
+    operation.getNumOperands! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
+    if operation = op then
+      operation.getNumOperands! ctx + n
+    else
+      operation.getNumOperands! ctx := by
+  fun_induction Rewriter.initOpOperands <;> grind
+
+/-
+OpOperandPtr.get!_initOpOperands is too complex to be expressed, and should not be needed in practice,
+as we should reason at a higher-level abstraction at this point.
+-/
+
+@[grind =>]
+theorem OperationPtr.getOperands!_initOpOperands {operation : OperationPtr} :
+    operation.getOperands! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
+    if operation = op then
+      (operation.getOperands! ctx) ++ operands.extract (operands.size - n) operands.size
+    else
+      operation.getOperands! ctx := by
+  fun_induction Rewriter.initOpOperands <;>
+    grind [Array.singleton_getElem_append_extract_succ_eq]
 
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_initOpOperands {operation : OperationPtr} :
@@ -4170,6 +4480,35 @@ BlockOperandPtrPtr.get!_initBlockOperands is too complex to be expressed, and sh
 be needed in practice, as we should reason at a higher-level abstraction at this point.
 -/
 
+@[grind =]
+theorem OperationPtr.getSuccessor!_initBlockOperands {operation : OperationPtr} :
+    operation.getSuccessor! (Rewriter.initBlockOperands ctx op operands n h₁ h₂ h₃ hn) index =
+    if operation = op ∧ index ≥ operation.getNumSuccessors! ctx then
+      operands[index - operation.getNumSuccessors! ctx + operands.size - n]!
+    else
+      operation.getSuccessor! ctx index := by
+  simp only [← OperationPtr.getSuccessors!.getElem!_eq_getSuccessor!]
+  fun_induction Rewriter.initBlockOperands <;> grind
+
+@[grind =]
+theorem OperationPtr.getNumSuccessors!_initBlockOperands {operation : OperationPtr} :
+    operation.getNumSuccessors! (Rewriter.initBlockOperands ctx op operands n h₁ h₂ h₃ hn) =
+    if operation = op then
+      (operation.getNumSuccessors! ctx) + n
+    else
+      operation.getNumSuccessors! ctx := by
+  fun_induction Rewriter.initBlockOperands <;> grind
+
+@[grind =]
+theorem OperationPtr.getSuccessors!_initBlockOperands {operation : OperationPtr} :
+    operation.getSuccessors! (Rewriter.initBlockOperands ctx op operands n h₁ h₂ h₃ hn) =
+    if operation = op then
+      (operation.getSuccessors! ctx) ++ operands.extract (operands.size - n) operands.size
+    else
+      operation.getSuccessors! ctx := by
+  simp only [OperationPtr.getSuccessors!_def]
+  grind
+
 @[simp, grind =]
 theorem BlockPtr.getNumArguments!_initBlockOperands {block : BlockPtr} :
     block.getNumArguments! (Rewriter.initBlockOperands ctx op operands n h₁ h₂ h₃ hn) =
@@ -4287,6 +4626,20 @@ theorem BlockOperandPtr.get!_createRegion {operand : BlockOperandPtr} :
   grind
 
 @[simp, grind =>]
+theorem OperationPtr.getSuccessor!_createRegion {operation : OperationPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operation.getSuccessor! ctx' index = operation.getSuccessor! ctx index := by
+  grind [OperationPtr.getSuccessor!_def]
+
+@[simp, grind =>]
+theorem OperationPtr.getSuccessors!_createRegion {operation : OperationPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operation.getSuccessors! ctx' = operation.getSuccessors! ctx := by
+  intro h
+  simp only [OperationPtr.getSuccessors!_def, OperationPtr.getSuccessor!_createRegion h,
+    OperationPtr.getNumSuccessors!_createRegion h]
+
+@[simp, grind =>]
 theorem OperationPtr.getNumRegions!_createRegion {operation : OperationPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
     operation.getNumRegions! ctx' = operation.getNumRegions! ctx := by
@@ -4356,6 +4709,285 @@ theorem OpOperandPtrPtr.get!_createRegion {opOperandPtr : OpOperandPtrPtr} :
   grind
 
 end Rewriter.createRegion
+
+/-! ## `Rewriter.createOp` -/
+
+section Rewriter.createOp
+
+variable {newOp : OperationPtr}
+
+attribute [local grind] Rewriter.createOp
+
+/-
+BlockPtr.firstUse!_createOp is too complex to be expressed, and should not be needed in practice,
+as we should reason at a higher-level abstraction at this point.
+-/
+
+@[simp, grind =>]
+theorem BlockPtr.prev!_createOp {block : BlockPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (block.get! ctx').prev = (block.get! ctx).prev := by
+  grind (gen := 20)
+
+@[simp, grind =>]
+theorem BlockPtr.next!_createOp {block : BlockPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (block.get! ctx').next = (block.get! ctx).next := by
+  grind (gen := 20)
+
+@[simp, grind =>]
+theorem BlockPtr.parent!_createOp {block : BlockPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (block.get! ctx').parent = (block.get! ctx).parent := by
+  grind (gen := 20)
+
+@[grind =>]
+theorem BlockPtr.firstOp!_createOp {block : BlockPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (block.get! ctx').firstOp =
+    match insertionPoint with
+    | some ip =>
+      if ip.block! ctx = block ∧ ip.prev! ctx = none then some newOp
+      else (block.get! ctx).firstOp
+    | none => (block.get! ctx).firstOp := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20) [cases InsertPoint]
+
+@[grind =>]
+theorem BlockPtr.lastOp!_createOp {block : BlockPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (block.get! ctx').lastOp =
+    match insertionPoint with
+    | some ip =>
+      if ip.block! ctx = block ∧ ip.next = none then some newOp
+      else (block.get! ctx).lastOp
+    | none => (block.get! ctx).lastOp := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20) [cases InsertPoint]
+
+@[grind =>]
+theorem OperationPtr.prev!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (operation.get! ctx').prev =
+    match insertionPoint with
+    | some ip =>
+      if operation = newOp then ip.prev! ctx
+      else if operation = ip.next then some newOp
+      else (operation.get! ctx).prev
+    | none =>
+      if operation = newOp then none else (operation.get! ctx).prev := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20) [cases InsertPoint]
+
+@[grind =>]
+theorem OperationPtr.next!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (operation.get! ctx').next =
+    match insertionPoint with
+    | some ip =>
+      if operation = newOp then ip.next
+      else if operation = ip.prev! ctx then some newOp
+      else (operation.get! ctx).next
+    | none =>
+      if operation = newOp then none else (operation.get! ctx).next := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20) (splits := 20) [cases InsertPoint]
+
+@[grind =>]
+theorem OperationPtr.parent!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (operation.get! ctx').parent =
+    if operation = newOp then
+      match insertionPoint with
+      | some ip => ip.block! ctx
+      | none => none
+    else (operation.get! ctx).parent := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20) [cases InsertPoint, Operation.empty]
+
+@[grind =>]
+theorem OperationPtr.opType!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (operation.get! ctx').opType =
+    if operation = newOp then opType else (operation.get! ctx).opType := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20)
+
+@[grind =>]
+theorem OperationPtr.attrs!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (operation.get! ctx').attrs =
+    if operation = newOp then DictionaryAttr.empty else (operation.get! ctx).attrs := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20)
+
+@[grind =>]
+theorem OperationPtr.getProperties!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    operation.getProperties! ctx' opType =
+    if operation = newOp then properties else operation.getProperties! ctx opType := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20)
+
+@[grind =>]
+theorem OperationPtr.getNumResults!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    operation.getNumResults! ctx' =
+    if operation = newOp then resultTypes.size else operation.getNumResults! ctx := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20)
+
+/-
+OpResultPtr.get!_createOp is too complex to be expressed, and should not be needed in practice,
+as we should reason at a higher-level abstraction at this point.
+-/
+
+@[grind =>]
+theorem OperationPtr.getNumOperands!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    operation.getNumOperands! ctx' =
+    if operation = newOp then operands.size else operation.getNumOperands! ctx := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20)
+
+/-
+OpOperandPtr.get!_createOp is too complex to be expressed, and should not be needed in practice,
+as we should reason at a higher-level abstraction at this point.
+-/
+
+@[grind =>]
+theorem OperationPtr.getOperands!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    operation.getOperands! ctx' =
+    if operation = newOp then operands else operation.getOperands! ctx := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20)
+
+@[grind =>]
+theorem OperationPtr.getNumSuccessors!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    operation.getNumSuccessors! ctx' =
+    if operation = newOp then blockOperands.size else operation.getNumSuccessors! ctx := by
+  grind (gen := 20)
+
+/-
+BlockOperandPtr.get!_createOp is too complex to be expressed, and should not be needed in practice,
+as we should reason at a higher-level abstraction at this point.
+-/
+
+@[grind =>]
+theorem OperationPtr.getSuccessor!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    operation.getSuccessor! ctx' index =
+    if operation = newOp then blockOperands[index]!
+    else operation.getSuccessor! ctx index := by
+  simp only [Rewriter.createOp]
+  grind (gen := 20)
+
+@[grind =>]
+theorem OperationPtr.getSuccessors!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    operation.getSuccessors! ctx' =
+    if operation = newOp then blockOperands else operation.getSuccessors! ctx := by
+  grind (gen := 20)
+
+@[grind =>]
+theorem OperationPtr.getNumRegions!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    operation.getNumRegions! ctx' =
+    if operation = newOp then regions.size else operation.getNumRegions! ctx := by
+  grind (gen := 20)
+
+@[grind =>]
+theorem OperationPtr.getRegion!_createOp {operation : OperationPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    operation.getRegion! ctx' idx =
+    if _ : operation = newOp ∧ idx < regions.size then regions[idx]
+    else operation.getRegion! ctx idx := by
+  grind (gen := 20)
+
+/-
+BlockOperandPtrPtr.get!_createOp is too complex to be expressed, and should not be needed in practice,
+as we should reason at a higher-level abstraction at this point.
+-/
+
+@[simp, grind =>]
+theorem BlockPtr.getNumArguments!_createOp {block : BlockPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    block.getNumArguments! ctx' = block.getNumArguments! ctx := by
+  grind (gen := 20)
+
+/-
+BlockArgumentPtr.get!_createOp is too complex to be expressed, and should not be needed in practice,
+as we should reason at a higher-level abstraction at this point.
+-/
+
+@[simp, grind =>]
+theorem RegionPtr.firstBlock!_createOp {region : RegionPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (region.get! ctx').firstBlock = (region.get! ctx).firstBlock := by
+  grind (gen := 20)
+
+@[simp, grind =>]
+theorem RegionPtr.lastBlock!_createOp {region : RegionPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (region.get! ctx').lastBlock = (region.get! ctx).lastBlock := by
+  grind (gen := 20)
+
+@[simp, grind =>]
+theorem RegionPtr.parent!_createOp {region : RegionPtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    (region.get! ctx').parent =
+    if region ∈ regions then some newOp else (region.get! ctx).parent := by
+  grind (gen := 20)
+
+/-
+ValuePtr.getFirstUse!_createOp is too complex to be expressed, and should not be needed in practice,
+as we should reason at a higher-level abstraction at this point.
+-/
+
+@[grind =>]
+theorem ValuePtr.getType!_createOp {value : ValuePtr} :
+    Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
+    value.getType! ctx' =
+    match value with
+    | .opResult opRes =>
+      if _ : opRes.op = newOp ∧ opRes.index < resultTypes.size then
+        resultTypes[opRes.index]
+      else value.getType! ctx
+    | .blockArgument _ => value.getType! ctx := by
+  grind (gen := 20)
+
+/-
+OpOperandPtrPtr.get!_createOp is too complex to be expressed, and should not be needed in practice,
+as we should reason at a higher-level abstraction at this point.
+-/
+
+end Rewriter.createOp
 
 /- replaceValue? -/
 
