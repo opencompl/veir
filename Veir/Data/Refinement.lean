@@ -20,5 +20,5 @@ def isRefinedBy (i i' : Veir.Data.LLVM.Int 64) : Prop :=
   | .val v =>
     match i' with
     | .val v' => v = v'
-    | .poison => true
+    | .poison => false
   | .poison => true
