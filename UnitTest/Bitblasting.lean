@@ -498,7 +498,7 @@ theorem bv_Select_859' :
   bv_decide
 
 theorem bv_select_1100 :
-    ∀ (e e_1 : Int 64), LLVM.Int.select (LLVM.Int.constant (w :=1) 1) e_1 e ⊑ e_1 := by
+    ∀ (e e_1 : Int 64), LLVM.Int.select (LLVM.Int.constant (w := 1) 1) e_1 e ⊑ e_1 := by
   simp [llvm_toBitVec]
   bv_decide
 

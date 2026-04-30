@@ -150,11 +150,12 @@ theorem poison_bif {w : Nat} (b : Bool) (x y : IntBv w) :
   cases b <;> rfl
 
 @[llvm_toBitVec, bv_normalize]
-theorem getValue_eq_toBitVec_of_not_poison {w : Nat} {x : Int w} (hx : ¬ x.isPoison) :
-    x.getValue = x.toIntBv.toBitVec := by
-  cases x
-  · simp [toIntBv, getValue]
-  · simp [isPoison, toIntBv] at hx
+theorem getValue_eq_toBitVec_of_not_poison {w : Nat} {x : Int w} :
+    x.getValue = x.toIntBv.toBitVec := by rfl
+
+@[bv_normalize]
+theorem isPoison_eq_toIntBv_poison {w : Nat} (x : Int w) :
+    x.isPoison = x.toIntBv.poison := rfl
 
 attribute [llvm_toBitVec] IntPred.eval
 
