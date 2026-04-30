@@ -38,6 +38,18 @@ def getValue {w : Nat} (x : Int w) : BitVec w := x.toIntBv.toBitVec
 def eval_toBitVec (p : IntPred) (x y : BitVec w) : BitVec 1 :=
   BitVec.ofBool (IntPred.eval p x y)
 
+def IsRefinedByBv (i i' : IntBv w) :
+  i.poison ∨ (¬ i.poison ∧ i'.poison)
+
+def isRefinedBy (i i' : Veir.Data.LLVM.Int 64) : Prop :=
+  match i with
+  | .val v =>
+    match i' with
+    | .val v' => v = v'
+    | .poison => true
+  | .poison => true
+
+
 /--
   We prove the injectivity of `toIntBv`.
 -/
@@ -104,6 +116,17 @@ theorem toIntBv_ite_eq {w : Nat} (x y : Int w) (c1 : Prop) [Decidable c1] :
     (if c1 then x else y).toIntBv = if c1 then x.toIntBv else y.toIntBv:= by
   rcases x <;> rcases y <;> simp [llvm_toBitVec]
   <;> split <;> simp [toIntBv]
+
+-- @[bv_normalize]
+-- theorem ite_same_cond_nested {α} (c : Prop) [Decidable c] (a b : α) (f : α → α) :
+--     (if c then a else f (if c then a else b)) = if c then a else f b := by
+--   split <;> simp_all
+
+-- @[bv_normalize]
+-- theorem ite_or_comm_nested {α} (p q : Bool) (a b : α) (f : α → α) :
+--     (if p = true ∨ q = true then a else f (if q = true ∨ p = true then a else b)) =
+--     if p = true ∨ q = true then a else f b := by
+--   split <;> simp_all
 
 @[bv_normalize]
 theorem toBitVec_zero_of_poison (x : IntBv w) :
