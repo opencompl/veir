@@ -10,11 +10,11 @@ namespace Veir.Data.LLVM.Int
 
 /- # add -/
 
-@[simp, grind =, llvm_toBitVec]
+@[simp, grind =]
 theorem poison_add {w : Nat} (x : Int w) : add poison x = poison := by
   simp only [add, Id.run]
 
-@[simp, grind =, llvm_toBitVec]
+@[simp, grind =]
 theorem add_poison {w : Nat} (x : Int w) : add x poison = poison := by
   simp only [add, Id.run]
   grind
