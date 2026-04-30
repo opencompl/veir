@@ -208,18 +208,20 @@ private def parseUnregisteredAttrBody (startPos : Option Nat := none) : AttrPars
 
 /--
   Parse a dialect type, if present.
-  A dialect attribute has the form `!dialect.name<body>`.
+  A dialect attribute has the form `!dialect.name` or `!dialect.name<body>`.
 -/
 partial def parseOptionalDialectType : AttrParserM (Option TypeAttr) := do
   let startPos ← getPos
   let dialectName ← parseOptionalPrefixedKeyword .exclamationIdent
   let some dialectName := dialectName | return none
-  parsePunctuation "<"
-  let _ ← parseUnregisteredAttrBody
-  let endPos := (← peekToken).slice.stop
-  parsePunctuation ">"
-  let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
-  return some (⟨UnregisteredAttr.mk (String.fromUTF8! value) true, by grind⟩)
+  if let true ← parseOptionalPunctuation "<" then
+    let _ ← parseUnregisteredAttrBody
+    let endPos := (← peekToken).slice.stop
+    parsePunctuation ">"
+    let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return some (⟨UnregisteredAttr.mk (String.fromUTF8! value) true, by grind⟩)
+  else
+    return some (⟨UnregisteredAttr.mk ("!" ++ String.fromUTF8! dialectName) true, by grind⟩)
 
 /--
   Parse a dialect attribute, if present.

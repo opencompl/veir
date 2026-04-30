@@ -147,6 +147,7 @@ macro "#assert " e:term : command =>
 
 /-! ## Dialect type -/
 
+#assert expectSuccessType "!foo.bar" ⟨UnregisteredAttr.mk "!foo.bar" true, by grind⟩
 #assert expectSuccessType "!foo<bar>" ⟨UnregisteredAttr.mk "!foo<bar>" true, by grind⟩
 #assert expectSuccessType "!test.test<bar>" ⟨UnregisteredAttr.mk "!test.test<bar>" true, by grind⟩
 
