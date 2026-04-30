@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777497664742,
+  "lastUpdate": 1777538180247,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -10452,6 +10452,162 @@ window.BENCHMARK_DATA = {
             "value": 752000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000752s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48860705+luisacicolini@users.noreply.github.com",
+            "name": "Luisa Cicolini",
+            "username": "luisacicolini"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ca1dd404e93e93ac2eb94ab7a36da578bd20b6f1",
+          "message": "fix definition of refinement (#479)\n\nThe previous definition of refinement was incorrect, a poison can never\nrefine a concrete value.",
+          "timestamp": "2026-04-30T08:33:39Z",
+          "tree_id": "40990ec256dc43068fe65ca2d66168d165b89d75",
+          "url": "https://github.com/opencompl/veir/commit/ca1dd404e93e93ac2eb94ab7a36da578bd20b6f1"
+        },
+        "date": 1777538173849,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2296000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002296s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3893000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003893s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2302000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002302s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3252000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003252s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2330000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002330s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2493000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002493s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1930000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001930s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1990000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001990s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2308000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002308s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5424000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005424s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2313000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002313s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3121000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003121s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2297000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002297s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 2017000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002017s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1919000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001919s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1580000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001580s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2370000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002370s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3764000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003764s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1955000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001955s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1952000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001952s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 786000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000786s"
           }
         ]
       }
