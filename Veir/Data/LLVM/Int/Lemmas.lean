@@ -1,7 +1,6 @@
 module
 
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.LLVM.Int.Bitblast
 import Veir.ForLean
 
 open Veir.Data.LLVM
