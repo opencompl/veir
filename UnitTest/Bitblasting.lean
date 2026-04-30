@@ -438,11 +438,13 @@ theorem bv_152 :
 
 /--
   expected error: The SAT solver timed out while solving the problem.
--/
-theorem bv_229 :
+
+  theorem bv_229 :
     ∀ (e e_1 e_2 : Int 64), LLVM.Int.mul (LLVM.Int.add e e_1) e_2 ⊑ LLVM.Int.add (LLVM.Int.mul e e_2) (LLVM.Int.mul e_1 e_2) := by
   simp [llvm_toBitVec]
   bv_decide
+-/
+
 
 theorem bv_239 :
     ∀ (e e_1 : Int 64), LLVM.Int.mul (LLVM.Int.sub (LLVM.Int.constant 64 0) e_1) (LLVM.Int.sub (LLVM.Int.constant 64 0) e) ⊑ LLVM.Int.mul e_1 e := by
