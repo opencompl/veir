@@ -29,7 +29,7 @@ public section
  -   * Operation.prev
  -   * Operation.next
  -   * Operation.parent
- -   * Operation.opType
+ -   * OperationPtr.getOpType!
  -   * Operation.attrs
  - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
@@ -146,14 +146,14 @@ theorem OperationPtr.parent!_createEmptyOp {operation : OperationPtr} :
 grind_pattern OperationPtr.parent!_createEmptyOp =>
   Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').parent
 
-theorem OperationPtr.opType!_createEmptyOp {operation : OperationPtr} :
+theorem OperationPtr.getOpType!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
-    (operation.get! ctx').opType =
-    if operation = op then opType else (operation.get! ctx).opType := by
+    operation.getOpType! ctx' =
+    if operation = op then opType else operation.getOpType! ctx := by
   grind [Operation.empty]
 
-grind_pattern OperationPtr.opType!_createEmptyOp =>
-  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), (operation.get! ctx').opType
+grind_pattern OperationPtr.getOpType!_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (ctx', op), operation.getOpType! ctx'
 
 theorem OperationPtr.attrs!_createEmptyOp {operation : OperationPtr} :
     Rewriter.createEmptyOp ctx opType properties = some (ctx', op) →
@@ -461,11 +461,11 @@ theorem OperationPtr.parent!_createOp {operation : OperationPtr} :
   grind (gen := 20) [cases InsertPoint, Operation.empty]
 
 @[grind =>]
-theorem OperationPtr.opType!_createOp {operation : OperationPtr} :
+theorem OperationPtr.getOpType!_createOp {operation : OperationPtr} :
     Rewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint h₁ h₂ h₃ h₄ h₅ = some (ctx', newOp) →
-    (operation.get! ctx').opType =
-    if operation = newOp then opType else (operation.get! ctx).opType := by
+    operation.getOpType! ctx' =
+    if operation = newOp then opType else operation.getOpType! ctx := by
   simp only [Rewriter.createOp]
   grind (gen := 20)
 

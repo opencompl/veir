@@ -26,7 +26,7 @@ public section
  -   * Operation.prev
  -   * Operation.next
  -   * Operation.parent
- -   * Operation.opType
+ -   * OperationPtr.getOpType!
  -   * Operation.attrs
  - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
@@ -117,9 +117,9 @@ theorem OperationPtr.parent!_unsetParentAndNeighbors {operation : OperationPtr} 
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_unsetParentAndNeighbors {operation : OperationPtr} :
-    (operation.get! (Rewriter.unsetParentAndNeighbors ctx op' hIn)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_unsetParentAndNeighbors {operation : OperationPtr} :
+    operation.getOpType! (Rewriter.unsetParentAndNeighbors ctx op' hIn) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]
@@ -313,9 +313,9 @@ theorem OperationPtr.parent!_detachOp {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_detachOp {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachOp ctx op' h₁ h₂ h₃)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_detachOp {operation : OperationPtr} :
+    operation.getOpType! (Rewriter.detachOp ctx op' h₁ h₂ h₃) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]
@@ -509,9 +509,9 @@ theorem OperationPtr.parent!_detachOpIfAttached {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_detachOpIfAttached {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachOpIfAttached ctx op' hCtx hOp)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_detachOpIfAttached {operation : OperationPtr} :
+    operation.getOpType! (Rewriter.detachOpIfAttached ctx op' hCtx hOp) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]
@@ -707,10 +707,10 @@ theorem OperationPtr.parent!_eraseOp {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_eraseOp {operation : OperationPtr} :
+theorem OperationPtr.getOpType!_eraseOp {operation : OperationPtr} :
     operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
-    (operation.get! (Rewriter.eraseOp ctx op hCtx hOp)).opType =
-    (operation.get! ctx).opType := by
+    operation.getOpType! (Rewriter.eraseOp ctx op hCtx hOp) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]

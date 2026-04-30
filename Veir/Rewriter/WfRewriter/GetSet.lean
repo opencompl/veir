@@ -17,8 +17,8 @@ The getters we consider are:
   * Operation.prev
   * Operation.next
   * Operation.parent
-  * Operation.opType
   * Operation.attrs
+* OperationPtr.getOpType!
 * OperationPtr.getProperties!
 * OperationPtr.getNumResults!
 * OperationPtr.getNumOperands!
@@ -146,11 +146,11 @@ theorem OperationPtr.parent!_WfRewriter_createOp :
   grind (gen := 20) [cases InsertPoint, Operation.empty]
 
 @[grind =>]
-theorem OperationPtr.opType!_WfRewriter_createOp :
+theorem OperationPtr.getOpType!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
-    (operation.get! ctx'.raw).opType =
-    if operation = newOp then opType else (operation.get! ctx.raw).opType := by
+    operation.getOpType! ctx'.raw =
+    if operation = newOp then opType else operation.getOpType! ctx.raw := by
   simp only [WfRewriter.createOp]
   grind (gen := 20)
 

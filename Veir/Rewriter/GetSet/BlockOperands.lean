@@ -24,7 +24,7 @@ public section
  -   * Operation.prev
  -   * Operation.next
  -   * Operation.parent
- -   * Operation.opType
+ -   * OperationPtr.getOpType!
  -   * Operation.attrs
  - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
@@ -118,9 +118,9 @@ theorem OperationPtr.parent!_pushBlockOperand {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_pushBlockOperand {operation : OperationPtr} :
-    (operation.get! (Rewriter.pushBlockOperand ctx opPtr blockPtr h₁ h₂ h₃)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_pushBlockOperand {operation : OperationPtr} :
+    operation.getOpType! (Rewriter.pushBlockOperand ctx opPtr blockPtr h₁ h₂ h₃) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]
@@ -346,9 +346,9 @@ theorem OperationPtr.parent!_initBlockOperands {operation : OperationPtr} :
   fun_induction Rewriter.initBlockOperands <;> grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_initBlockOperands {operation : OperationPtr} :
-    (operation.get! (Rewriter.initBlockOperands ctx op operands n h₁ h₂ h₃ hn)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_initBlockOperands {operation : OperationPtr} :
+    operation.getOpType! (Rewriter.initBlockOperands ctx op operands n h₁ h₂ h₃ hn) =
+    operation.getOpType! ctx := by
   fun_induction Rewriter.initBlockOperands <;> grind
 
 @[simp, grind =]

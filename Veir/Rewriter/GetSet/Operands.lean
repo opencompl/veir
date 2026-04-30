@@ -24,7 +24,7 @@ public section
  -   * Operation.prev
  -   * Operation.next
  -   * Operation.parent
- -   * Operation.opType
+ -   * OperationPtr.getOpType!
  -   * Operation.attrs
  - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
@@ -117,9 +117,9 @@ theorem OperationPtr.parent!_pushOperand {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_pushOperand {operation : OperationPtr} :
-    (operation.get! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_pushOperand {operation : OperationPtr} :
+    operation.getOpType! (Rewriter.pushOperand ctx opPtr valuePtr h₁ h₂ h₃) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]
@@ -369,9 +369,9 @@ theorem OperationPtr.parent!_initOpOperands {operation : OperationPtr} :
   fun_induction Rewriter.initOpOperands <;> grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_initOpOperands {operation : OperationPtr} :
-    (operation.get! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_initOpOperands {operation : OperationPtr} :
+    operation.getOpType! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =
+    operation.getOpType! ctx := by
   fun_induction Rewriter.initOpOperands <;> grind
 
 @[simp, grind =]

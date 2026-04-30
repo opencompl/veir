@@ -24,7 +24,7 @@ public section
  -   * Operation.prev
  -   * Operation.next
  -   * Operation.parent
- -   * Operation.opType
+ -   * OperationPtr.getOpType!
  -   * Operation.attrs
  - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
@@ -71,6 +71,12 @@ theorem BlockPtr.get!_createRegion {block : BlockPtr} :
 theorem OperationPtr.get!_createRegion {operation : OperationPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
     operation.get! ctx' = operation.get! ctx := by
+  grind
+
+@[simp, grind =>]
+theorem OperationPtr.getOpType!_createRegion {operation : OperationPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operation.getOpType! ctx' = operation.getOpType! ctx := by
   grind
 
 @[simp, grind =>]

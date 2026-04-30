@@ -24,7 +24,7 @@ public section
  -   * Operation.prev
  -   * Operation.next
  -   * Operation.parent
- -   * Operation.opType
+ -   * OperationPtr.getOpType!
  -   * Operation.attrs
  - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
@@ -170,14 +170,14 @@ grind_pattern OperationPtr.parent!_insertOp? =>
   Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, (operation.get! newCtx).parent
 
 @[simp]
-theorem OperationPtr.opType!_insertOp? {operation : OperationPtr} :
+theorem OperationPtr.getOpType!_insertOp? {operation : OperationPtr} :
     Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx →
-    (operation.get! newCtx).opType = (operation.get! ctx).opType := by
+    operation.getOpType! newCtx = operation.getOpType! ctx := by
   simp only [Rewriter.insertOp?]
   grind
 
-grind_pattern OperationPtr.opType!_insertOp? =>
-  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, (operation.get! newCtx).opType
+grind_pattern OperationPtr.getOpType!_insertOp? =>
+  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, operation.getOpType! newCtx
 
 @[simp]
 theorem OperationPtr.attrs!_insertOp? {operation : OperationPtr} :

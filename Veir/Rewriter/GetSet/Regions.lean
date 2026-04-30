@@ -24,7 +24,7 @@ public section
  -   * Operation.prev
  -   * Operation.next
  -   * Operation.parent
- -   * Operation.opType
+ -   * OperationPtr.getOpType!
  -   * Operation.attrs
  - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
@@ -87,9 +87,9 @@ theorem OperationPtr.parent!_pushRegion {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_pushRegion {operation : OperationPtr} :
-    (operation.get! (Rewriter.pushRegion ctx op region hop hregion hregionParent)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_pushRegion {operation : OperationPtr} :
+    operation.getOpType! (Rewriter.pushRegion ctx op region hop hregion hregionParent) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]
@@ -260,9 +260,9 @@ theorem OperationPtr.parent!_initOpRegions {operation : OperationPtr} {ctx' : IR
   fun_induction Rewriter.initOpRegions <;> grind
 
 @[simp, grind =>]
-theorem OperationPtr.opType!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo}
+theorem OperationPtr.getOpType!_initOpRegions {operation : OperationPtr} {ctx' : IRContext OpInfo}
     (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx') :
-    (operation.get! ctx').opType = (operation.get! ctx).opType := by
+    operation.getOpType! ctx' = operation.getOpType! ctx := by
   fun_induction Rewriter.initOpRegions <;> grind
 
 @[simp, grind =>]

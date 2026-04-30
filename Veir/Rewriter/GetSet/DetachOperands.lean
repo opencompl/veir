@@ -24,7 +24,7 @@ public section
  -   * Operation.prev
  -   * Operation.next
  -   * Operation.parent
- -   * Operation.opType
+ -   * OperationPtr.getOpType!
  -   * Operation.attrs
  - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
@@ -138,9 +138,9 @@ theorem OperationPtr.parent!_detachOperands_loop {operation : OperationPtr} :
     grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_detachOperands_loop {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_detachOperands_loop {operation : OperationPtr} :
+    operation.getOpType! (Rewriter.detachOperands.loop ctx op' index hCtx hOp hIndex) =
+    operation.getOpType! ctx := by
   induction index generalizing ctx
   · grind [Rewriter.detachOperands.loop]
   · simp only [Rewriter.detachOperands.loop]
@@ -356,9 +356,9 @@ theorem OperationPtr.parent!_detachOperands {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_detachOperands {operation : OperationPtr} :
-    (operation.get! (Rewriter.detachOperands ctx op' hCtx hOp)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_detachOperands {operation : OperationPtr} :
+    operation.getOpType! (Rewriter.detachOperands ctx op' hCtx hOp) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]
