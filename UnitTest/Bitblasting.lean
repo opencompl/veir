@@ -13,23 +13,27 @@ import Veir.Data.Refinement
 open Veir.Data.LLVM
 namespace Veir.Data.Int
 
--- theorem bv_AddSub_1043 :
---     ∀ (e e_1 e_2 : Int 64),
---       LLVM.Int.add (LLVM.Int.add (LLVM.Int.xor (LLVM.Int.and e_1 e) e) (LLVM.Int.constant (w := 64) 1)) e_2 ⊑ LLVM.Int.sub e_2 (LLVM.Int.or e_1 (LLVM.Int.not e)) := by
---   simp [llvm_toBitVec]
---   bv_decide
+/-
+  `LLVM.not` is not supported in
 
--- theorem bv_AddSub_1152 :
---     ∀ (e e_1 : Int 1), LLVM.Int.add e_1 e ⊑ LLVM.Int.xor e_1 e := by
---   simp [llvm_toBitVec]
---   bv_decide
+  theorem bv_AddSub_1043 :
+    ∀ (e e_1 e_2 : Int 64),
+      LLVM.Int.add (LLVM.Int.add (LLVM.Int.xor (LLVM.Int.and e_1 e) e) (LLVM.Int.constant (w := 64) 1)) e_2 ⊑ LLVM.Int.sub e_2 (LLVM.Int.or e_1 (LLVM.Int.not e)) := by
+-/
 
+theorem bv_AddSub_1152 :
+    ∀ (e e_1 : Int 1), LLVM.Int.add e_1 e ⊑ LLVM.Int.xor e_1 e := by
+  simp [llvm_toBitVec]
+  bv_decide
+
+#guard_msgs in
 theorem bv_AddSub_1156 :
     ∀ (e : Int 64), (LLVM.Int.add e e) ⊑
         (LLVM.Int.shl e (LLVM.Int.constant (w := 64) 1)) := by
   simp [llvm_toBitVec]
   bv_decide
 
+#guard_msgs in
 theorem bv_AddSub_1164 :
     ∀ (e e_1 : Int 64), LLVM.Int.add (LLVM.Int.sub (LLVM.Int.constant (w := 64) 0) e) e_1 ⊑ LLVM.Int.sub e_1 e := by
   simp [llvm_toBitVec]
@@ -66,10 +70,15 @@ theorem bv_AddSub_1539 :
   simp [llvm_toBitVec]
   bv_decide
 
--- theorem bv_AddSub_1539_2 :
---     ∀ (e e_1 : Int 64), LLVM.Int.sub e e_1 ⊑ LLVM.Int.add e (LLVM.Int.neg e_1) := by
---   simp [llvm_toBitVec]
---   bv_decide
+/-
+  `LLVM.neg` is not supported in
+
+  theorem bv_AddSub_1539_2 :
+      ∀ (e e_1 : Int 64), LLVM.Int.sub e e_1 ⊑ LLVM.Int.add e (LLVM.Int.neg e_1) := by
+-/
+
+
+
 
 theorem bv_AddSub_1556 :
     ∀ (e e_1 : Int 1), LLVM.Int.sub e_1 e ⊑ LLVM.Int.xor e_1 e := by
@@ -237,13 +246,18 @@ theorem bv_AndOrXor_1733 :
   simp [llvm_toBitVec]
   bv_decide
 
--- theorem bv_AndOrXor_2063__X__C1__C2____X__C2__C1__C2 :
---     ∀ (e e_1 e_2 : Int 64), LLVM.Int.or (LLVM.Int.xor e e_1) e_2 ⊑ LLVM.Int.xor (LLVM.Int.or e e_2) (LLVM.Int.and e_1 (LLVM.Int.not e_2)) := by
---   simp [llvm_toBitVec]
---   bv_decide
+/-
+  `LLVM.not` is not supported in
+
+  theorem bv_AndOrXor_2063__X__C1__C2____X__C2__C1__C2 :
+      ∀ (e e_1 e_2 : Int 64), LLVM.Int.or (LLVM.Int.xor e e_1) e_2 ⊑
+      LLVM.Int.xor (LLVM.Int.or e e_2) (LLVM.Int.and e_1 (LLVM.Int.not e_2)) := by
+-/
+
+
 
 theorem bv_AndOrXor_2113___A__B__A___A__B :
-    ∀ (e e_1 : Int 64), LLVM.Int.or (LLVM.Int.and (LLVM.Int.xor e (LLVM.Int.constant (w := 64) (-1))) e_1) e ⊑ LLVM.Int.or e e_1 := by
+    ∀ (e e_1 : Int 64), LLVM.Int.or (LLVM.Int.and (LLVM.Int.xor e (LLVM.Int.constant 64 (-1))) e_1) e ⊑ LLVM.Int.or e e_1 := by
   simp [llvm_toBitVec]
   bv_decide
 
