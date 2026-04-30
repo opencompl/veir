@@ -42,7 +42,7 @@ def sigToRat (s : BitVec s) : Rat :=
 
 /--
 Treat an exponent bitvector as a rational number,
-where the exponent is interpreted as an integer.
+power of two where the exponent is the bitvector interpreted as an integer.
 -/
 def exToRat (e : BitVec e) : Rat :=
   2 ^ e.toInt
