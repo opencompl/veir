@@ -246,6 +246,12 @@ inductive Comb where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
+inductive HW where
+| module
+| output
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
 inductive Test where
 | test
 deriving Inhabited, Repr, Hashable, DecidableEq
