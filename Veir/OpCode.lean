@@ -95,7 +95,7 @@ inductive Llvm where
 | alloca
 | load
 | store
-| getelementprt
+| getelementptr
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 
