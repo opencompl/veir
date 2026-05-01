@@ -309,7 +309,7 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | none => .error "getelementptr: missing 'rawConstantIndices' property"
   let some typeAttr := attrDict["elem_type".toUTF8]?
     | throw "getelementptr: missing 'elem_type' property"
-  if h : typeAttr.isType = false then
+  if _ : typeAttr.isType = false then
     throw "getelementptr: expected 'elem_type' to be a type attribute"
   else
     return {
@@ -319,6 +319,7 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
       nusw,
       nuw
     }
+
 /--
   Properties of the `comb.extract` operation.
 -/
