@@ -290,18 +290,15 @@ def StoreProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
 structure GetelementptrProperties where
   rawConstantIndices : DenseArrayAttr
   elem_type : TypeAttr
-  inbounds : Bool
-  nusw : Bool
-  nuw : Bool
+  noWrapFlags : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String GetelementptrProperties := do
-  let inbounds ← getUnitAttr "inbounds" attrDict
-  let nusw ← getUnitAttr "nusw" attrDict
-  let nuw ← getUnitAttr "nuw" attrDict
-  /- `inbounds` implies `nusw` -/
-  let nusw := nusw || inbounds
+  let noWrapFlags ← match attrDict["noWrapFlags".toUTF8]? with
+    | some (.integerAttr noWrapFlag) => .ok noWrapFlag
+    | some attr => .error s!"expected 'noWrapFlag' to be an optional integer attribute, but got {attr}"
+    | none => .ok { value := 0, type := { bitwidth := 32 } }
   let rawConstantIndices ← match attrDict["rawConstantIndices".toUTF8]? with
     | some (.denseArrayAttr arr) => .ok arr
     | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute, 
@@ -309,16 +306,9 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | none => .error "getelementptr: missing 'rawConstantIndices' property"
   let some typeAttr := attrDict["elem_type".toUTF8]?
     | throw "getelementptr: missing 'elem_type' property"
-  if _ : typeAttr.isType = false then
-    throw "getelementptr: expected 'elem_type' to be a type attribute"
-  else
-    return {
-      rawConstantIndices,
-      elem_type := typeAttr.asType,
-      inbounds,
-      nusw,
-      nuw
-    }
+  if h : typeAttr.isType = false then
+    throw "getelementptr: expected 'elem_type' to be a type attribute" else
+  return {rawConstantIndices, elem_type := typeAttr.asType, noWrapFlags}
 
 /--
   Properties of the `comb.extract` operation.
