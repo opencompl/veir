@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777609889623,
+  "lastUpdate": 1777621081724,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -11076,6 +11076,162 @@ window.BENCHMARK_DATA = {
             "value": 778000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000778s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48860705+luisacicolini@users.noreply.github.com",
+            "name": "Luisa Cicolini",
+            "username": "luisacicolini"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "08825380b5c8626638be684b7bf04cb1d4d0eecc",
+          "message": "fix: generalized refinement for any width `w`  (#485)\n\nWe generalize the definition of the refinement relation for every width,\nand add support for the notation `⊑`.\n\nThis PR was originally part of #457, from where I am pulling out what is\nseparately upstreamable.",
+          "timestamp": "2026-05-01T07:35:19Z",
+          "tree_id": "d7c09bb8d79f93f02134a28ba98f4021d6f26dad",
+          "url": "https://github.com/opencompl/veir/commit/08825380b5c8626638be684b7bf04cb1d4d0eecc"
+        },
+        "date": 1777621075157,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2867000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002867s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3790000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003790s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2253000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002253s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3086000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003086s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2329000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002329s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2443000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002443s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1901000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001901s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1950000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001950s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2362000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002362s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5314000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005314s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2821000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002821s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3093000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003093s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 3040000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.003040s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 2037000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002037s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 2507000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002507s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1620000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001620s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 3104000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.003104s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3790000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003790s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1854000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001854s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1943000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001943s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 773000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000773s"
           }
         ]
       }
