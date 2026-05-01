@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777566216875,
+  "lastUpdate": 1777609889623,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -10920,6 +10920,162 @@ window.BENCHMARK_DATA = {
             "value": 742000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000742s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@gzgz.dev",
+            "name": "Gavin Zhao",
+            "username": "GZGavinZhao"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4689da7681854ed1617641a66d7e552d9d4ed289",
+          "message": "Parser linearity fix and optimization (#481)\n\nIncreases parser performance by 9.9x in benchmark and likely by a\nmagnitude from time complexity perspective. Original code by @ineol.\n\nRequired by #435.\n\nBenchmarked against\n[`sqlite-3-stripped.mlir`](https://github.com/opencompl/veir/blob/math-fehr/sqlite-test/sqlite3-stripped.mlir)\nfrom `math-fehr` branch. Old commit is\nhttps://github.com/opencompl/veir/commit/da74b917befb9688e6f959ee222f947c3eca92f0\nand new commit is current PR.\n\n```\n> hyperfine \"./old-veir-opt sqlite3-stripped.mlir\" \"./new-veir-opt sqlite3-stripped.mlir\"\nBenchmark 1: ./old-veir-opt sqlite3-stripped.mlir\n  Time (mean ± σ):     22.361 s ±  0.138 s    [User: 22.213 s, System: 0.062 s]\n  Range (min … max):   22.059 s … 22.501 s    10 runs\n\nBenchmark 2: ./new-veir-opt sqlite3-stripped.mlir\n  Time (mean ± σ):      2.259 s ±  0.027 s    [User: 2.225 s, System: 0.028 s]\n  Range (min … max):    2.222 s …  2.298 s    10 runs\n\nSummary\n  ./new-veir-opt sqlite3-stripped.mlir ran\n    9.90 ± 0.13 times faster than ./old-veir-opt sqlite3-stripped.mlir\n```\n\nCo-authored-by: Léo Stefanesco <leo.lveb@gmail.com>",
+          "timestamp": "2026-05-01T04:28:33Z",
+          "tree_id": "56e7b05cf3b7f40bc5554ab46f16e60caa52dc72",
+          "url": "https://github.com/opencompl/veir/commit/4689da7681854ed1617641a66d7e552d9d4ed289"
+        },
+        "date": 1777609884067,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2281000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002281s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3761000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003761s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2328000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002328s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3088000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003088s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2348000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002348s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2409000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002409s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1933000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001933s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1956000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001956s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2352000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002352s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5305000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005305s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2353000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002353s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3050000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003050s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2340000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002340s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 2010000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002010s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 2002000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002002s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1550000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001550s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2387000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002387s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3695000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003695s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 2050000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002050s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1949000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001949s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 778000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000778s"
           }
         ]
       }
