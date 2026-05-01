@@ -247,7 +247,6 @@ partial def parseOptionalLocationAttr : AttrParserM (Option Attribute) := do
     return none
   parsePunctuation "("
   let body ← parseUnregisteredAttrBody .rParen
-  let endPos := (← peekToken).slice.stop
   parsePunctuation ")"
   return some (LocationAttr.mk body)
 
