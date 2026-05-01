@@ -60,8 +60,7 @@ theorem interpretOp_some_iff :
   ∃ operandValues resValues,
     (state.getOperandValues ctx op) = some operandValues ∧
     interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-      ((op.get! ctx).results.map (·.type)) operandValues
-      (op.getSuccessors! ctx) = some (resValues, cf) ∧
+      (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) = some (resValues, cf) ∧
     state' = state.setResultValues ctx op resValues := by
   simp only [interpretOp, bind, Option.bind]
   grind

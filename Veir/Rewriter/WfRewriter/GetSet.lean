@@ -35,6 +35,7 @@ The getters we consider are:
   * lastBlock
   * parent
 * ValuePtr.getType!
+* OperationPtr.getResultTypes!
 -/
 
 public section
@@ -293,6 +294,18 @@ theorem ValuePtr.getType!_WfRewriter_createOp :
       else value.getType! ctx.raw
     | .blockArgument _ => value.getType! ctx.raw := by
   grind (gen := 20)
+
+@[grind =>]
+theorem OperationPtr.getResultTypes!_WfRewriter_createOp :
+    WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
+    operation.getResultTypes! ctx'.raw =
+    if operation = newOp then resultTypes else operation.getResultTypes! ctx.raw := by
+  intro h
+  ext i hi hi'
+  · grind
+  · have := ValuePtr.getType!_WfRewriter_createOp h (value := operation.getResult i)
+    grind
 
 end WfRewriter.createOp
 
