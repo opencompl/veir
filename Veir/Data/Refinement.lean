@@ -15,7 +15,7 @@ public section
   In particular, any concrete `i'` refines a poison `i`, but a poison `i'` does *not* refine
   any `i`.
 -/
-def isRefinedBy (i i' : Veir.Data.LLVM.Int 64) : Prop :=
+def isRefinedBy {w : Nat} (i i' : Veir.Data.LLVM.Int w) : Prop :=
   match i with
   | .val v =>
     match i' with
