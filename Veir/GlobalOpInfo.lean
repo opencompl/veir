@@ -220,8 +220,16 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
     dict
   | .llvm .getelementptr => Id.run do
-    let dict := (Std.HashMap.emptyWithCapacity 2).insert "rawConstantIndices".toUTF8 (.denseArrayAttr props.rawConstantIndices)
-    dict.elem_type "elem_type".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
+    let mut dict := Std.HashMap.emptyWithCapacity 5
+    dict := dict.insert "rawConstantIndices".toUTF8 (Attribute.denseArrayAttr props.rawConstantIndices)
+    dict := dict.insert "elem_type".toUTF8 props.elem_type
+    if props.inbounds then
+      dict := dict.insert "inbounds".toUTF8 (.unitAttr UnitAttr.mk)
+    if props.nusw then
+      dict := dict.insert "nusw".toUTF8 (.unitAttr UnitAttr.mk)
+    if props.nuw then
+      dict := dict.insert "nuw".toUTF8 (.unitAttr UnitAttr.mk)
+    dict
   | .comb .extract =>
     (Std.HashMap.emptyWithCapacity 1).insert "lowBit".toUTF8 (Attribute.integerAttr props.lowBit)
   | .comb .icmp =>
