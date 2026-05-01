@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777672059455,
+  "lastUpdate": 1777674334072,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -11856,6 +11856,162 @@ window.BENCHMARK_DATA = {
             "value": 792000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000792s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mathieu.fehr@gmail.com",
+            "name": "Mathieu Fehr",
+            "username": "math-fehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a3d0093f8c87471c851f867bb7f7f6e9178d74f5",
+          "message": "Add a new axiom for dominance, and improve grind pattern (#484)\n\nThe new axiom states that any user of an operation is being strictly\ndominated by it.",
+          "timestamp": "2026-05-01T22:22:40Z",
+          "tree_id": "a4549575ae73d3a5cf2de37f8fc04f2693bdf24c",
+          "url": "https://github.com/opencompl/veir/commit/a3d0093f8c87471c851f867bb7f7f6e9178d74f5"
+        },
+        "date": 1777674327031,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 1867000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001867s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3454000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003454s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 1867000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001867s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2864000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002864s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 1874000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001874s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2152000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002152s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1570000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001570s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1778000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001778s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 1870000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001870s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 4860000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.004860s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 1887000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001887s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2709000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002709s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 1961000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001961s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1749000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001749s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1558000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001558s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1392000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001392s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2053000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002053s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3446000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003446s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1577000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001577s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 9000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000009s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1559000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001559s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 764000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000764s"
           }
         ]
       }
