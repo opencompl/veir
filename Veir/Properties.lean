@@ -285,6 +285,41 @@ def StoreProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   return { alignment := alignAttr, volatile_ := volatileAttr, nontemporal := nontemporalAttr, invariantGroup := invariantGroupAttr, syncscope := syncscopeAttr, access_groups := accessAttr, alias_scopes := aliasAttr, noalias_scopes := noaliasAttr, tbaa := tbaaAttr }
 
 /--
+  Properties of the `llvm.getelementptr` operation
+-/
+structure GetelementptrProperties where
+  rawConstantIndices : DenseArrayAttr
+  elem_type : TypeAttr
+  inbounds : Bool
+  nusw : Bool
+  nuw : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String GetelementptrProperties := do
+  let inbounds ← getUnitAttr "inbounds" attrDict
+  let nusw ← getUnitAttr "nusw" attrDict
+  let nuw ← getUnitAttr "nuw" attrDict
+  /- `inbounds` implies `nusw` -/
+  let nusw := nusw || inbounds
+  let rawConstantIndices ← match attrDict["rawConstantIndices".toUTF8]? with
+    | some (.denseArrayAttr arr) => .ok arr
+    | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute, 
+        but got {attr}"
+    | none => .error "getelementptr: missing 'rawConstantIndices' property"
+  let some typeAttr := attrDict["elem_type".toUTF8]?
+    | throw "getelementptr: missing 'elem_type' property"
+  if h : typeAttr.isType = false then
+    throw "getelementptr: expected 'elem_type' to be a type attribute"
+  else
+    return {
+      rawConstantIndices,
+      elem_type := typeAttr.asType,
+      inbounds,
+      nusw,
+      nuw
+    }
+/--
   Properties of the `comb.extract` operation.
 -/
 structure CombExtractProperties where
