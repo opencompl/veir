@@ -63,17 +63,17 @@ theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
   case operations =>
     intro operation operationInBounds
     have := hctx.operations operation (by grind)
-    apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+    apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
   case blocks =>
     intro block blockInBounds
     by_cases bl = block
     · constructor <;> grind [Block.empty]
     · have := hctx.blocks block (by grind)
-      apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
+      apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
   case regions =>
     intro region regionInBounds
     have := hctx.regions region (by grind)
-    apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+    apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Rewriter.createBlock_WellFormed (ctxWf : ctx.WellFormed) :
     Rewriter.createBlock ctx ip hctx hip = some (newCtx, newBlock) →
