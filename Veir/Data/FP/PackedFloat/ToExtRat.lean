@@ -20,7 +20,7 @@ def pow2 (k : Int) : Rat := 2 ^ k
 /--
 The fractional contribution of the trailing significand: `sig.toNat / 2^s`.
 For a normal float this lies in `[0, 1)` and is added to the implicit leading
-`1`; for a subnormal float it is multiplied by the minimum exponent directly.
+`1`; for a subnormal float this is multiplied by the minimum exponent directly.
 -/
 def sigFrac {s : Nat} (sig : BitVec s) : Rat :=
   (sig.toNat : Rat) / ((2 ^ s : Nat) : Rat)
