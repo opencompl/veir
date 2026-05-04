@@ -3,6 +3,7 @@ module
 public import Veir.Data.FP.ExtRat.Basic
 public import Veir.Data.FP.PackedFloat.Basic
 public import Veir.Data.FP.Sign
+public import Veir.ForLean
 
 namespace Veir.Data.FP.PackedFloat
 
@@ -13,9 +14,6 @@ The exponent bias for a packed float with `e` exponent bits.
 For a double (`e = 11`), this is `2^10 - 1 = 1023`.
 -/
 def bias (e : Nat) : Nat := 2 ^ (e - 1) - 1
-
-/-- `2` raised to a (possibly negative) integer power, as a `Rat`. -/
-def pow2 (k : Int) : Rat := 2 ^ k
 
 /--
 The fractional contribution of the trailing significand: `sig.toNat / 2^s`.
@@ -44,7 +42,7 @@ def toExtRat {e s : Nat} (pf : PackedFloat e s) : ExtRat :=
   else if pf.ex = 0#e then
     if pf.sig = 0#s then ExtRat.Number 0
     else
-      ExtRat.Number (signToInt pf.sign * pow2 (1 - (bias e : Int)) * sigFrac pf.sig)
+      ExtRat.Number (signToInt pf.sign * Rat.twoPow (1 - (bias e : Int)) * sigFrac pf.sig)
   else
     ExtRat.Number (signToInt pf.sign *
-      pow2 ((pf.ex.toNat : Int) - (bias e : Int)) * (1 + sigFrac pf.sig))
+      Rat.twoPow ((pf.ex.toNat : Int) - (bias e : Int)) * (1 + sigFrac pf.sig))

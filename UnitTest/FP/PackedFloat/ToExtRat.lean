@@ -48,7 +48,7 @@ reinterpreting Lean's native `Float` (an IEEE-754 double) via
 #guard toFloat (ofFloat (-1.0 / 0.0)) == -1.0 / 0.0
 
 #guard toExtRat (ofFloat (0.0 / 0.0)) = ExtRat.NaN
-#guard Float.isNaN <| toFloat (ofFloat (0.0 / 0.0)) 
+#guard Float.isNaN <| toFloat (ofFloat (0.0 / 0.0))
 
 /-! ### Subnormals
 
@@ -61,8 +61,10 @@ def smallestPositiveSubnormal : PackedFloat 11 52 :=
   PackedFloat.mk (sign := false) (ex := 0#11) (sig := 1#52)
 
 /-
-construct the float that it corresponds to as a Lean float.
-The subnormal is larger than zero, but I'm not sure how to 
+Construct the float that 'smallestPositiveSubnormal'
+corresponds to as a Lean float.
+The subnormal is larger than zero, but I'm not sure how to
+test this precisely that it is the machine epsilon.
 -/
 #guard toFloat smallestPositiveSubnormal > 0.0
 
