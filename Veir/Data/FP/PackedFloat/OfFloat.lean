@@ -7,8 +7,8 @@ namespace Veir.Data.FP.PackedFloat
 /-- Convert a Lean double (`Float`) to a `PackedFloat`.
 Recall that a IEEE double has the following layout:
   - 1 bit for the sign
-  - 11 bits for the exponent 
-  - 52 bits for the significand 
+  - 11 bits for the exponent
+  - 52 bits for the significand
 This function reinterprets the bits of the `Float` as a `PackedFloat``
 with the corresponding sign, exponent, and significand fields.
 -/
