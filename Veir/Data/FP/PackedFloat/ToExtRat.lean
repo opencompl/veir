@@ -37,12 +37,12 @@ https://standards.ieee.org/ieee/754/6210/):
 -/
 def toExtRat {e s : Nat} (pf : PackedFloat e s) : ExtRat :=
   if pf.ex = BitVec.allOnes e then
-    if pf.sig = 0#s then ExtRat.Infinity pf.sign
-    else ExtRat.NaN
+    if pf.sig = 0#s then .infinity pf.sign
+    else .nan
   else if pf.ex = 0#e then
-    if pf.sig = 0#s then ExtRat.Number 0
+    if pf.sig = 0#s then .number 0
     else
-      ExtRat.Number (signToInt pf.sign * Rat.twoPow (1 - (bias e : Int)) * sigFrac pf.sig)
+      .number (signToInt pf.sign * Rat.twoPow (1 - (bias e : Int)) * sigFrac pf.sig)
   else
-    ExtRat.Number (signToInt pf.sign *
+    .number (signToInt pf.sign *
       Rat.twoPow ((pf.ex.toNat : Int) - (bias e : Int)) * (1 + sigFrac pf.sig))

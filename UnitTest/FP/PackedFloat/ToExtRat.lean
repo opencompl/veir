@@ -16,36 +16,36 @@ These tests check `PackedFloat.toExtRat` against the values produced by
 reinterpreting Lean's native `Float` (an IEEE-754 double) via
 `PackedFloat.ofFloat`. -/
 
-#guard toExtRat (ofFloat 0.0) = ExtRat.Number 0
-#guard toExtRat (ofFloat (-0.0)) = ExtRat.Number 0
-#guard toExtRat (ofFloat 1.0) = ExtRat.Number 1
+#guard toExtRat (ofFloat 0.0) = .number 0
+#guard toExtRat (ofFloat (-0.0)) = .number 0
+#guard toExtRat (ofFloat 1.0) = .number 1
 #guard toFloat (ofFloat 1.0) == 1.0
 
-#guard toExtRat (ofFloat (-1.0)) = ExtRat.Number (-1)
+#guard toExtRat (ofFloat (-1.0)) = .number (-1)
 #guard toFloat (ofFloat (-1.0)) == -1.0
 
-#guard toExtRat (ofFloat 2.0) = ExtRat.Number 2
+#guard toExtRat (ofFloat 2.0) = .number 2
 #guard toFloat (ofFloat (2.0)) == 2.0
 
-#guard toExtRat (ofFloat 0.5) = ExtRat.Number (1 / 2)
+#guard toExtRat (ofFloat 0.5) = .number (1 / 2)
 #guard toFloat (ofFloat (0.5)) == 0.5
 
-#guard toExtRat (ofFloat 1.5) = ExtRat.Number (3 / 2)
+#guard toExtRat (ofFloat 1.5) = .number (3 / 2)
 #guard toFloat (ofFloat (1.5)) == 1.5
 
-#guard toExtRat (ofFloat (-1.5)) = ExtRat.Number (-3 / 2)
+#guard toExtRat (ofFloat (-1.5)) = .number (-3 / 2)
 #guard toFloat (ofFloat (-1.5)) == -1.5
 
-#guard toExtRat (ofFloat 1024.0) = ExtRat.Number 1024
+#guard toExtRat (ofFloat 1024.0) = .number 1024
 #guard toFloat (ofFloat (1024.0)) == 1024.0
 
-#guard toExtRat (ofFloat (1.0 / 0.0)) = ExtRat.Infinity false
+#guard toExtRat (ofFloat (1.0 / 0.0)) = .infinity false
 #guard toFloat (ofFloat (1.0 / 0.0)) == 1.0 / 0.0
 
-#guard toExtRat (ofFloat (-1.0 / 0.0)) = ExtRat.Infinity true
+#guard toExtRat (ofFloat (-1.0 / 0.0)) = .infinity true
 #guard toFloat (ofFloat (-1.0 / 0.0)) == -1.0 / 0.0
 
-#guard toExtRat (ofFloat (0.0 / 0.0)) = ExtRat.NaN
+#guard toExtRat (ofFloat (0.0 / 0.0)) = .nan
 #guard Float.isNaN <| toFloat (ofFloat (0.0 / 0.0))
 
 /-! ### Subnormals
@@ -67,4 +67,4 @@ test this precisely that it is the machine epsilon.
 #guard toFloat smallestPositiveSubnormal > 0.0
 
 #guard toExtRat smallestPositiveSubnormal =
-  ExtRat.Number (1 / ((2 ^ 1074 : Nat) : Rat))
+  .number (1 / ((2 ^ 1074 : Nat) : Rat))

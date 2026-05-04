@@ -12,7 +12,7 @@ interpreted as: every bit pattern of a `PackedFloat` corresponds to either
 or a precise rational number.
 -/
 inductive ExtRat where
-  | NaN : ExtRat
-  | Infinity : (sign : Bool) → ExtRat
-  | Number : Rat → ExtRat
+  | nan : ExtRat
+  | infinity : (sign : Bool) → ExtRat
+  | number : Rat → ExtRat
 deriving DecidableEq, Repr, Inhabited
