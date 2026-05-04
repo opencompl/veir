@@ -292,12 +292,10 @@ theorem umulOverflow_comm {w : Nat} (x y : BitVec w) :
 
 end BitVec
 
-
 namespace Rat
 
 /-- `2` raised to a (possibly negative) integer power as a `Rat`. -/
 def twoPow (k : Int) : Rat := 2 ^ k
-
 
 end Rat
 
