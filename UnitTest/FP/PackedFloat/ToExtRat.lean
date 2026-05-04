@@ -1,11 +1,9 @@
 module
 
-public import Veir.Data.FP.ExtRat.Basic
-public import Veir.Data.FP.PackedFloat.ToExtRat
+import Veir.Data.FP.PackedFloat.ToExtRat
 
-public meta import Veir.Data.FP.ExtRat.Basic
-public meta import Veir.Data.FP.PackedFloat.OfFloat
-public meta import Veir.Data.FP.PackedFloat.ToExtRat
+meta import Veir.Data.FP.PackedFloat.OfFloat
+meta import Veir.Data.FP.PackedFloat.ToExtRat
 
 namespace UnitTest.Fp.PackedFloat.ToExtRat
 
