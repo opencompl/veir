@@ -40,29 +40,32 @@
 // log2(0) = 0
 // log2(1) = 0
 // log2(2*n) = 1 + log2(n)
-int log2FloorAux(int n, int accum) {
-    if (n == 0) { return 0; }
-    if (n == 1) { return 0; }
-    return log2FloorAux(n / 2, accum + 1);
+__attribute__((always_inline)) int log2FloorAux(int n) {
+    int result = 0;
+    while (n > 1) {
+        n >>= 1;
+        result++;
+    }
+    return result;
 }
 
-int log2Floor(int n) {
-    return log2FloorAux(n, 0);
+__attribute__((always_inline)) int log2Floor(int n) {
+    return log2FloorAux(n);
 }
 
 /* bflyCT */
-void bflyCT(int A, int B, int root, int cmod, int *outA, int *outB) {
+__attribute__((always_inline)) void bflyCT(int A, int B, int root, int cmod, int *outA, int *outB) {
     *outA = (A + root * B % cmod) % cmod;
     *outB = (A - root * B % cmod + cmod) % cmod;
 }
 
 /* bflyGS */
-void bflyGS(int A, int B, int root, int cmod, int *outA, int *outB) {
+__attribute__((always_inline)) void bflyGS(int A, int B, int root, int cmod, int *outA, int *outB) {
     *outA = (A + B) % cmod;
     *outB = (A - B) * root % cmod;
 }
 
-void fastNTT(int *coeffs, int n, int cmod, const int *roots, int inverse, int degree) {
+__attribute__((always_inline)) void fastNTT(int *coeffs, int n, int cmod, const int *roots, int inverse, int degree) {
     int m = inverse ? n : 2;
     int r = inverse ? 1 : degree / 2;
     int rootExp = n / 2;
