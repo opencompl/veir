@@ -5,8 +5,6 @@ public import Veir.Data.FP.ScientificBV
 
 namespace Veir.Data.FP
 
-namespace EScientificBV
-
 open ScientificBV
 
 public section
@@ -19,7 +17,7 @@ that includes the special values such as zero, infinity, and NaN.
 inductive EScientificBV (e s : Nat) where
   /-- zero with a sign bit. -/
   | zero (sign : Bool)
-  /-- a nonzero finite number in scientific notation. -/ 
+  /-- a nonzero finite number in scientific notation. -/
   | nonzeroFinite (sbv : ScientificBV e s)
   /-- an infinite number with a sign bit. -/
   | infinite (sign : Bool)
@@ -27,13 +25,6 @@ inductive EScientificBV (e s : Nat) where
   | nan
   deriving Inhabited, Repr
 
-def toExtRat {e s : Nat} : EScientificBV e s → Option ExtRat
-  | .zero sign => some (ExtRat.zero)
-  | .nonzeroFinite sbv => some (ExtRat.nonzeroFinite (toRat sbv))
-  | .infinite sign => some (ExtRat.infinite sign)
-  | .nan => none
-
 end -- public section
 
-end Veir.Data.FP.EScientificBV
-
+end Veir.Data.FP

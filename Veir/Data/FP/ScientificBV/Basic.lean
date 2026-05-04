@@ -3,13 +3,12 @@ public import Veir.Data.FP.Sign
 
 namespace Veir.Data.FP
 
-namespace ScientificBV
 
 public section
 
 /--
 `ScientificBV e s` is the *working* (scientific notation) representation of a
-floating-point number with `e` bits for the exponent, and 
+floating-point number with `e` bits for the exponent, and
 `s` bits for the significand.
 
 The scientific bv `s` is interpreted as the rational number
@@ -34,6 +33,8 @@ structure ScientificBV (e s : Nat) where
   sig : BitVec s
   deriving Inhabited, Repr
 
+namespace ScientificBV
+
 /--
 Treat a significand bitvector as a rational number in [1, 2),
 where the leading bit is implicitly 1 and the trailing bits are interpreted as a fraction.
@@ -57,3 +58,5 @@ def toRat {e s : Nat} (sbv : ScientificBV e s) : Rat :=
   let exponent := exToRat sbv.ex
   let significand := sigToRat sbv.sig
   sign * exponent * significand
+
+end ScientificBV
