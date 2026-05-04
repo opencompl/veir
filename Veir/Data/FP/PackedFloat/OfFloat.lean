@@ -26,5 +26,5 @@ def toFloat (pf : PackedFloat 11 52) : Float :=
   let bits : BitVec 64 := (BitVec.ofBool pf.sign) ++ pf.ex ++ pf.sig
   Float.ofBits (UInt64.ofBitVec bits)
 
-end
+end -- public section
 end Veir.Data.FP.PackedFloat
