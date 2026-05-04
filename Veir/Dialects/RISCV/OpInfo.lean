@@ -34,6 +34,8 @@ match op with
 | .bexti => RISCVImmediateProperties
 | .binvi => RISCVImmediateProperties
 | .bseti => RISCVImmediateProperties
+| .ld => RISCVImmediateProperties
+| .sd => RISCVImmediateProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Riscv where
