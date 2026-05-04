@@ -9,8 +9,8 @@ public section
 /-- Convert a Lean double (`Float`) to a `PackedFloat`.
 Recall that a IEEE double has the following layout:
   - 1 bit for the sign
-  - 11 bits for the exponent 
-  - 52 bits for the significand 
+  - 11 bits for the exponent
+  - 52 bits for the significand
 This function reinterprets the bits of the `Float` as a `PackedFloat``
 with the corresponding sign, exponent, and significand fields.
 -/
@@ -26,3 +26,4 @@ def toFloat (pf : PackedFloat 11 52) : Float :=
   let bits : BitVec 64 := (BitVec.ofBool pf.sign) ++ pf.ex ++ pf.sig
   Float.ofBits (UInt64.ofBitVec bits)
 
+end
