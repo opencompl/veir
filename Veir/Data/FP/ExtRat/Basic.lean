@@ -8,10 +8,11 @@ public section
 Extended rational numbers: rationals augmented with `NaN` and signed infinities.
 This is the mathematical model that an IEEE-754 floating-point number is
 interpreted as: every bit pattern of a `PackedFloat` corresponds to either
-`NaN`, a signed infinity, or a precise rational number.
+`NaN`, a signed infinity (where sign=true indicates negative infinity),
+or a precise rational number.
 -/
 inductive ExtRat where
   | NaN : ExtRat
-  | Infinity : Bool → ExtRat
+  | Infinity : (sign : Bool) → ExtRat
   | Number : Rat → ExtRat
 deriving DecidableEq, Repr, Inhabited

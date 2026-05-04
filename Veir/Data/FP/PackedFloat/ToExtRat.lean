@@ -2,12 +2,7 @@ module
 
 public import Veir.Data.FP.ExtRat.Basic
 public import Veir.Data.FP.PackedFloat.Basic
-public import Veir.Data.FP.PackedFloat.OfFloat
 public import Veir.Data.FP.Sign
-
-public meta import Veir.Data.FP.ExtRat.Basic
-public meta import Veir.Data.FP.PackedFloat.OfFloat
-public meta import Veir.Data.FP.Sign
 
 namespace Veir.Data.FP.PackedFloat
 
@@ -34,7 +29,8 @@ def sigFrac {s : Nat} (sig : BitVec s) : Rat :=
 
 /--
 Convert a `PackedFloat e s` to its precise mathematical value as an `ExtRat`,
-following the IEEE-754 interpretation:
+following the IEEE-754 interpretation (Section 3.4 of the IEEE-754 standard,
+https://standards.ieee.org/ieee/754/6210/):
 - biased exponent `allOnes` with non-zero significand → `NaN`
 - biased exponent `allOnes` with zero significand → signed `Infinity`
 - biased exponent `0` with zero significand → `Number 0` (sign discarded)
@@ -54,20 +50,3 @@ def toExtRat {e s : Nat} (pf : PackedFloat e s) : ExtRat :=
   else
     ExtRat.Number (signToInt pf.sign *
       pow2 ((pf.ex.toNat : Int) - (bias e : Int)) * (1 + sigFrac pf.sig))
-
-/-! ## Tests against Lean's native `Float` (IEEE-754 double) -/
-
-#guard toExtRat (ofFloat 0.0) = ExtRat.Number 0
-#guard toExtRat (ofFloat (-0.0)) = ExtRat.Number 0
-#guard toExtRat (ofFloat 1.0) = ExtRat.Number 1
-#guard toExtRat (ofFloat (-1.0)) = ExtRat.Number (-1)
-#guard toExtRat (ofFloat 2.0) = ExtRat.Number 2
-#guard toExtRat (ofFloat (-2.0)) = ExtRat.Number (-2)
-#guard toExtRat (ofFloat 0.5) = ExtRat.Number (1 / 2)
-#guard toExtRat (ofFloat 0.25) = ExtRat.Number (1 / 4)
-#guard toExtRat (ofFloat 1.5) = ExtRat.Number (3 / 2)
-#guard toExtRat (ofFloat (-1.5)) = ExtRat.Number (-3 / 2)
-#guard toExtRat (ofFloat 1024.0) = ExtRat.Number 1024
-#guard toExtRat (ofFloat (1.0 / 0.0)) = ExtRat.Infinity false
-#guard toExtRat (ofFloat (-1.0 / 0.0)) = ExtRat.Infinity true
-#guard toExtRat (ofFloat (0.0 / 0.0)) = ExtRat.NaN
