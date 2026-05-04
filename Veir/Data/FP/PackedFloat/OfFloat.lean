@@ -27,3 +27,4 @@ def toFloat (pf : PackedFloat 11 52) : Float :=
   Float.ofBits (UInt64.ofBitVec bits)
 
 end
+end Veir.Data.FP.PackedFloat
