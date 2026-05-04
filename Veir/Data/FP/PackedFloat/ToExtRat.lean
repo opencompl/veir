@@ -15,9 +15,7 @@ For a double (`e = 11`), this is `2^10 - 1 = 1023`.
 def bias (e : Nat) : Nat := 2 ^ (e - 1) - 1
 
 /-- `2` raised to a (possibly negative) integer power, as a `Rat`. -/
-def pow2 (k : Int) : Rat :=
-  if k ≥ 0 then ((2 ^ k.toNat : Nat) : Rat)
-  else 1 / ((2 ^ (-k).toNat : Nat) : Rat)
+def pow2 (k : Int) : Rat := 2 ^ k
 
 /--
 The fractional contribution of the trailing significand: `sig.toNat / 2^s`.
