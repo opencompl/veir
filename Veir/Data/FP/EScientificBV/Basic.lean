@@ -20,7 +20,7 @@ inductive EScientificBV (e s : Nat) where
   /-- a nonzero finite number in scientific notation. -/
   | nonzeroFinite (sbv : ScientificBV e s)
   /-- an infinite number with a sign bit. -/
-  | infinite (sign : Bool)
+  | infinity (sign : Bool)
   /-- a NaN (not a number). -/
   | nan
   deriving Inhabited, Repr
