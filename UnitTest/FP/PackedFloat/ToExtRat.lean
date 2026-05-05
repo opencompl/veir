@@ -48,7 +48,7 @@ reinterpreting Lean's native `Float` (an IEEE-754 double) via
 #guard toExtRat (ofFloat (0.0 / 0.0)) = .nan
 #guard Float.isNaN <| toFloat (ofFloat (0.0 / 0.0))
 
-/-! ### Subnormals
+/-! ## Subnormals
 
 The smallest representable positive double is the subnormal whose biased
 exponent is `0` and whose trailing significand is `1`:
