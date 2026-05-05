@@ -12,7 +12,7 @@ public section
 /--
 An extended scientific bitvector (EScientificBV)
 is a representation of floating-point numbers
-that includes the special values such as zero, infinity, and NaN.
+that includes the special values zero, infinity, and NaN.
 -/
 inductive EScientificBV (e s : Nat) where
   /-- zero with a sign bit. -/
