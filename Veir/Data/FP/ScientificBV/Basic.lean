@@ -37,9 +37,10 @@ namespace ScientificBV
 /--
 Treat a significand bitvector as a rational number in [1, 2),
 where the leading bit is implicitly 1 and the trailing bits are interpreted as a fraction.
+The denominator is `2^n` where `n` is the bit width of `s`.
 -/
-def sigToRat (s : BitVec s) : Rat :=
-  1 + s.toNat / (2 ^ s.toNat)
+def sigToRat {n : Nat} (s : BitVec n) : Rat :=
+  1 + (s.toNat : Rat) / ((2 ^ n : Nat) : Rat)
 
 /--
 Treat an exponent bitvector as a rational number,

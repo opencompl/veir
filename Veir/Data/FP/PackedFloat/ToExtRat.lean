@@ -25,7 +25,7 @@ def sigFrac {s : Nat} (sig : BitVec s) : Rat :=
   (sig.toNat : Rat) / ((2 ^ s : Nat) : Rat)
 
 def expFrac {e : Nat} (ex : BitVec e) : Rat :=
-  Rat.twoPow (((Nat.min ex.toNat 1) : Int) - (bias e : Int))
+  Rat.twoPow ((ex.toNat : Int) - (bias e : Int))
 
 /--
 Convert a `PackedFloat e s` to its precise mathematical value as an `ExtRat`,
@@ -43,6 +43,9 @@ def toExtRat {e s : Nat} (pf : PackedFloat e s) : ExtRat :=
   if pf.state = .infinite then .infinity pf.sign
   else if pf.state = .nan then .nan
   else if pf.state = .zero then .number 0
-  else 
-    -- subnormal or normal 
-    .number (signToInt pf.sign * expFrac pf.ex * sigFrac pf.sig)
+  else if pf.state = .subnormal then
+    -- subnormal: (-1)^sign * 2^(1 - bias) * (sig / 2^s)
+    .number (signToInt pf.sign * Rat.twoPow (1 - (bias e : Int)) * sigFrac pf.sig)
+  else
+    -- normal: (-1)^sign * 2^(ex - bias) * (1 + sig / 2^s)
+    .number (signToInt pf.sign * expFrac pf.ex * (1 + sigFrac pf.sig))

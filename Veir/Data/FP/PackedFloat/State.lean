@@ -20,8 +20,9 @@ def state (pf : PackedFloat e s) : State :=
   if pf.ex = BitVec.allOnes e then
     if pf.sig = 0#s then .infinite
     else .nan
-  else if pf.sig = 0#s then .zero
-  else if pf.ex = 0#e then .subnormal
+  else if pf.ex = 0#e then
+    if pf.sig = 0#s then .zero
+    else .subnormal
   else .normal
 
 end

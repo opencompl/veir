@@ -1,6 +1,6 @@
 module
 
-public import Veir.Data.FP.EScientificBV
+public import Veir.Data.FP.EScientificBV.Basic
 public import Veir.Data.FP.ExtRat
 
 namespace Veir.Data.FP.EScientificBV
@@ -23,4 +23,3 @@ def toExtRat {e s : Nat} : EScientificBV e s → ExtRat
   | .nan => .nan
 
   end -- public section
-

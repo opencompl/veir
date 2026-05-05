@@ -26,7 +26,7 @@ def unpack (pf : PackedFloat e s) : EScientificBV (scientificExpWidth e s) s :=
   | .subnormal => .nonzeroFinite <|
     { sign := pf.sign, ex := subnormalExp, sig := subnormalSig }
   | .normal => .nonzeroFinite <|
-     { sign := pf.sign, ex := pf.ex.signExtend (scientificExpWidth e s) - BitVec.ofInt _ (PackedFloat.bias e), sig := pf.sig }
+     { sign := pf.sign, ex := pf.ex.zeroExtend (scientificExpWidth e s) - BitVec.ofInt _ (PackedFloat.bias e), sig := pf.sig }
   where
       subnormalZeros := pf.sig.clz -- number of zeros in the significand that should be shifted by.
       shiftAmt := subnormalZeros + 1 -- number we need to shift by to eat the implicit leading 1.
