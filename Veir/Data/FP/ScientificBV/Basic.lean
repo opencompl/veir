@@ -9,7 +9,7 @@ public section
 
 /--
 `ScientificBV e s` is the *working* (scientific notation) representation of a
-floating-point number with `e` bits for the exponent, and 
+floating-point number with `e` bits for the exponent, and
 `s` bits for the significand.
 
 The scientific bv `s` is interpreted as the rational number

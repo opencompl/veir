@@ -228,8 +228,8 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
     · grind [Option.maybe_def]
     · grind [Option.maybe_def]
     · grind [Option.maybe_def]
-    · grind [Option.maybe_def, IRContext.WellFormed, Operation.WellFormed]
-    · grind [Option.maybe_def, IRContext.WellFormed, Operation.WellFormed]
+    · grind [Option.maybe_def, IRContext.WellFormed, OperationPtr.WellFormed]
+    · grind [Option.maybe_def, IRContext.WellFormed, OperationPtr.WellFormed]
     · intro arg harg hblock
       have ⟨array, harray⟩ := wf.valueDefUseChains arg (by grind)
       constructor <;> grind [ValuePtr.DefUse]
@@ -237,7 +237,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
     constructor
     · grind
     · grind
-    · grind [IRContext.WellFormed, Operation.WellFormed]
+    · grind [IRContext.WellFormed, OperationPtr.WellFormed]
 
 theorem Operation.wellFormed_OperationPtr_dealloc
     (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
@@ -246,18 +246,18 @@ theorem Operation.wellFormed_OperationPtr_dealloc
     (hparent : (op.get! ctx).parent = none)
     (hregions : op.getNumRegions! ctx = 0)
     (inBoundsAfter' : opPtr'.InBounds (OperationPtr.dealloc op ctx inBounds)) :
-    Operation.WellFormed op' (OperationPtr.dealloc op ctx inBounds) opPtr' inBoundsAfter' := by
+    OperationPtr.WellFormed (OperationPtr.dealloc op ctx inBounds) opPtr' inBoundsAfter' := by
   have := wf.operations opPtr' inBounds'
   constructor
   · grind [IRContext.fieldsInBounds_OperationPtr_dealloc]
-  · grind [IRContext.WellFormed, Operation.WellFormed]
-  · grind [IRContext.WellFormed, Operation.WellFormed]
-  · grind [IRContext.WellFormed, Operation.WellFormed]
-  · grind [IRContext.WellFormed, Operation.WellFormed]
-  · grind [IRContext.WellFormed, Operation.WellFormed]
+  · grind [IRContext.WellFormed, OperationPtr.WellFormed]
+  · grind [IRContext.WellFormed, OperationPtr.WellFormed]
+  · grind [IRContext.WellFormed, OperationPtr.WellFormed]
+  · grind [IRContext.WellFormed, OperationPtr.WellFormed]
+  · grind [IRContext.WellFormed, OperationPtr.WellFormed]
   · intro region regionInBounds
-    apply Operation.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind [IRContext.WellFormed, Operation.WellFormed]
-  · grind [IRContext.WellFormed, Operation.WellFormed]
+    apply OperationPtr.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind [IRContext.WellFormed, OperationPtr.WellFormed]
+  · grind [IRContext.WellFormed, OperationPtr.WellFormed]
 
 theorem Block.wellFormed_OperationPtr_dealloc
     (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
@@ -266,13 +266,13 @@ theorem Block.wellFormed_OperationPtr_dealloc
     (hparent : (op.get! ctx).parent = none)
     (hregions : op.getNumRegions! ctx = 0)
     (inBoundsAfter : blockPtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
-    Block.WellFormed block (OperationPtr.dealloc op ctx inBounds) blockPtr inBoundsAfter := by
+    BlockPtr.WellFormed (OperationPtr.dealloc op ctx inBounds) blockPtr inBoundsAfter := by
   constructor
   · grind [IRContext.fieldsInBounds_OperationPtr_dealloc]
-  · grind [IRContext.WellFormed, Block.WellFormed]
-  · grind [IRContext.WellFormed, Block.WellFormed]
-  · grind [IRContext.WellFormed, Block.WellFormed]
-  · grind [IRContext.WellFormed, Block.WellFormed]
+  · grind [IRContext.WellFormed, BlockPtr.WellFormed]
+  · grind [IRContext.WellFormed, BlockPtr.WellFormed]
+  · grind [IRContext.WellFormed, BlockPtr.WellFormed]
+  · grind [IRContext.WellFormed, BlockPtr.WellFormed]
 
 theorem Region.wellFormed_OperationPtr_dealloc
     (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))
@@ -281,7 +281,7 @@ theorem Region.wellFormed_OperationPtr_dealloc
     (hparent : (op.get! ctx).parent = none)
     (hregions : op.getNumRegions! ctx = 0)
     (inBoundsAfter : regionPtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
-    Region.WellFormed (regionPtr.get! (OperationPtr.dealloc op ctx inBounds)) (OperationPtr.dealloc op ctx inBounds) regionPtr := by
+    RegionPtr.WellFormed (OperationPtr.dealloc op ctx inBounds) regionPtr := by
   constructor
   · have := wf.regions regionPtr inBounds'
     have := this.inBounds
@@ -292,7 +292,7 @@ theorem Region.wellFormed_OperationPtr_dealloc
     simp only [RegionPtr.get!_OperationPtr_dealloc] at hparent
     have ⟨i, hi₁, hi₂⟩ := h₂ hparent
     exists i
-    grind [IRContext.fieldsInBounds_OperationPtr_dealloc, IRContext.WellFormed, Region.WellFormed]
+    grind [IRContext.fieldsInBounds_OperationPtr_dealloc, IRContext.WellFormed, RegionPtr.WellFormed]
 
 theorem ValuePtr.defUse_OperationPtr_dealloc
     (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))

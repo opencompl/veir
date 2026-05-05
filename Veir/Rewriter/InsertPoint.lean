@@ -488,10 +488,10 @@ theorem exists_parent_of_prev_eq_some {ip : BlockInsertPoint} (ctxWf : ctx.WellF
   cases ip
   case before block =>
     have := ctxWf.blocks block (by grind)
-    cases h : (block.get! ctx).parent <;> grind [Block.WellFormed]
+    cases h : (block.get! ctx).parent <;> grind [BlockPtr.WellFormed]
   case atEnd region =>
     have := ctxWf.regions region (by grind)
-    cases h : (region.get! ctx).lastBlock <;> grind [Region.WellFormed]
+    cases h : (region.get! ctx).lastBlock <;> grind [RegionPtr.WellFormed]
 
 grind_pattern exists_parent_of_prev_eq_some =>
   ctx.WellFormed, ip.InBounds ctx, ip.prev! ctx, some prevOp

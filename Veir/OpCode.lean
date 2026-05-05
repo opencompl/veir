@@ -186,6 +186,10 @@ inductive Riscv where
 | pack
 | packh
 | packw
+/- memory -/
+| ld
+| sd
+
 /- pseudooperations -/
 | mv
 | not

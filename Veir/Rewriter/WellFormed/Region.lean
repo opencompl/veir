@@ -40,12 +40,12 @@ theorem IRContext.wellFormed_Rewriter_createRegion (hctx : ctx.WellFormed) :
       apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
   · intro operation operationInBounds
     have := hctx.operations operation (by grind)
-    apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+    apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
   · intro block blockInBounds
     have := hctx.blocks block (by grind)
-    apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
+    apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
   · intro region' region'InBounds
     by_cases region = region'
     · constructor <;> grind
     · have := hctx.regions region' (by grind)
-      apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+      apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
