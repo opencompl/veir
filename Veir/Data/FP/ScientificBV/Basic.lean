@@ -3,8 +3,6 @@ public import Veir.Data.FP.Sign
 
 namespace Veir.Data.FP
 
-namespace ScientificBV
-
 public section
 
 /--
@@ -34,6 +32,8 @@ structure ScientificBV (e s : Nat) where
   sig : BitVec s
   deriving Inhabited, Repr
 
+namespace ScientificBV
+
 /--
 Treat a significand bitvector as a rational number in [1, 2),
 where the leading bit is implicitly 1 and the trailing bits are interpreted as a fraction.
@@ -57,3 +57,9 @@ def toRat {e s : Nat} (sbv : ScientificBV e s) : Rat :=
   let exponent := exToRat sbv.ex
   let significand := sigToRat sbv.sig
   sign * exponent * significand
+
+end ScientificBV
+
+end -- public section
+
+end Veir.Data.FP
