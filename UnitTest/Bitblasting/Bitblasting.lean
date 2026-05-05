@@ -12,7 +12,7 @@ import Veir.Data.Refinement
 
 /-- We introduce a tactic to automatically prove all the lemmas. -/
 macro "llvm_bv_decide" : tactic =>
-  `(tactic| (try simp [llvm_toBitVec]; try bv_decide; <;> sorry))
+  `(tactic| ((try simp [llvm_toBitVec]; try bv_decide); all_goals sorry))
 
 open Veir.Data.LLVM
 namespace Veir.Data.Int
