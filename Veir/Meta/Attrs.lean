@@ -1,10 +1,10 @@
-module 
+module
 
 public import Lean
 
 open Lean
 
-public meta initialize opCodesExt : TagDeclarationExtension ← mkTagDeclarationExtension 
+public meta initialize opCodesExt : TagDeclarationExtension ← mkTagDeclarationExtension
 
 meta initialize registerBuiltinAttribute {
   name := `opcodes

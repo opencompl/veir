@@ -104,6 +104,9 @@
     %92 = "riscv.snez"(%83) : (!reg) -> !reg
     %93 = "riscv.sltz"(%83) : (!reg) -> !reg
     %94 = "riscv.sgtz"(%83) : (!reg) -> !reg
+    // Memory operations
+    %95 = "riscv.ld"(%0) <{"value" = 5 : i12}> : (!reg) -> !reg
+    "riscv.sd"(%0, %1) <{"value" = 5 : i12}> : (!reg, !reg) -> ()
 }) : () -> ()
 
 // CHECK: "builtin.module"() ({
@@ -205,4 +208,6 @@
 // CHECK-NEXT:     %{{.*}} = "riscv.snez"(%{{.*}}) : (!reg) -> !reg
 // CHECK-NEXT:     %{{.*}} = "riscv.sltz"(%{{.*}}) : (!reg) -> !reg 
 // CHECK-NEXT:     %{{.*}} = "riscv.sgtz"(%{{.*}}) : (!reg) -> !reg
+// CHECK-NEXT:     %{{.*}} = "riscv.ld"(%{{.*}}) <{"value" = 5 : i12}> : (!reg) -> !reg
+// CHECK-NEXT:     "riscv.sd"(%{{.*}}, %{{.*}}) <{"value" = 5 : i12}> : (!reg, !reg) -> ()
 // CHECK-NEXT: }) : () -> ()

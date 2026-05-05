@@ -80,14 +80,14 @@ theorem IRContext.wellFormed_Rewriter_pushResult :
     constructor
     case region_parent =>
       intro region regionInBounds
-      apply Operation.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind
+      apply OperationPtr.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind
     all_goals grind
   case blocks =>
     intros bl hbl
     have : bl.InBounds ctx := by grind
-    grind [Block.WellFormed_unchanged]
+    grind [BlockPtr.WellFormed_unchanged]
   case regions =>
-    grind [Region.WellFormed_unchanged]
+    grind [RegionPtr.WellFormed_unchanged]
 
 /-! ## Rewriter.initOpResults -/
 

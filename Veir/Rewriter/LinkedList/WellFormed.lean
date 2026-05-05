@@ -79,21 +79,21 @@ theorem RegionPtr.blockChain_OpOperandPtr_insertIntoCurrent
 
 theorem Operation.wellFormed_OpOperandPtr_insertIntoCurrent
     {opPtr : OperationPtr} {opInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : (opPtr.get! ctx).WellFormed ctx opPtr opInBounds) :
-    (opPtr.get! (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) opPtr (by grind) := by
-  apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : opPtr.WellFormed ctx opInBounds) :
+    opPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Block.wellFormed_OpOperandPtr_insertIntoCurrent
     {blockPtr : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : (blockPtr.get! ctx).WellFormed ctx blockPtr blockInBounds) :
-    (blockPtr.get! (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) blockPtr (by grind) := by
-  apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : blockPtr.WellFormed ctx blockInBounds) :
+    blockPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Region.wellFormed_OpOperandPtr_insertIntoCurrent
     {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : OpOperandPtr} {useInBounds}
-    (hWF : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr) :
-    (RegionPtr.get! regionPtr (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) regionPtr := by
-  apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : regionPtr.WellFormed ctx) :
+    regionPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) := by
+  apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem IRContext.wellFormed_OpOperandPtr_insertIntoCurrent
     {ctx : IRContext OpInfo} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
@@ -264,21 +264,21 @@ theorem RegionPtr.blockChain_OpOperandPtr_removeFromCurrent
 
 theorem Operation.wellFormed_OpOperandPtr_removeFromCurrent
     {opPtr : OperationPtr} {opInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : (opPtr.get! ctx).WellFormed ctx opPtr opInBounds) :
-    (opPtr.get! (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) opPtr (by grind) := by
-  apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : opPtr.WellFormed ctx opInBounds) :
+    opPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Block.wellFormed_OpOperandPtr_removeFromCurrent
     {blockPtr : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : (blockPtr.get! ctx).WellFormed ctx blockPtr blockInBounds) :
-    (blockPtr.get! (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) blockPtr (by grind) := by
-  apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : blockPtr.WellFormed ctx blockInBounds) :
+    blockPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Region.wellFormed_OpOperandPtr_removeFromCurrent
     {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : OpOperandPtr} {useInBounds}
-    (hWF : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr) :
-    (RegionPtr.get! regionPtr (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) regionPtr := by
-  apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : regionPtr.WellFormed ctx) :
+    regionPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) := by
+  apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem IRContext.wellFormed_OpOperandPtr_removeFromCurrent
     {ctx : IRContext OpInfo} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
@@ -401,21 +401,21 @@ theorem RegionPtr.blockChain_BlockOperandPtr_insertIntoCurrent
 
 theorem Operation.wellFormed_BlockOperandPtr_insertIntoCurrent
     {opPtr : OperationPtr} {opInBounds} {use : BlockOperandPtr} {useInBounds}
-    (hWF : (opPtr.get! ctx).WellFormed ctx opPtr opInBounds) :
-    (opPtr.get! (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) opPtr (by grind) := by
-  apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : opPtr.WellFormed ctx opInBounds) :
+    opPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Block.wellFormed_BlockOperandPtr_insertIntoCurrent
     {blockPtr : BlockPtr} {blockInBounds} {use : BlockOperandPtr} {useInBounds}
-    (hWF : (blockPtr.get! ctx).WellFormed ctx blockPtr blockInBounds) :
-    (blockPtr.get! (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) blockPtr (by grind) := by
-  apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : blockPtr.WellFormed ctx blockInBounds) :
+    BlockPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) blockPtr (by grind) := by
+  apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Region.wellFormed_BlockOperandPtr_insertIntoCurrent
     {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : BlockOperandPtr} {useInBounds}
-    (hWF : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr) :
-    (RegionPtr.get! regionPtr (use.insertIntoCurrent ctx useInBounds ctxInBounds)).WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) regionPtr := by
-  apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : regionPtr.WellFormed ctx) :
+    regionPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) := by
+  apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem IRContext.wellFormed_BlockOperandPtr_insertIntoCurrent
     {ctx : IRContext OpInfo} {use : BlockOperandPtr} {useInBounds} {ctxInBounds}
@@ -586,21 +586,21 @@ theorem RegionPtr.blockChain_BlockOperandPtr_removeFromCurrent
 
 theorem Operation.wellFormed_BlockOperandPtr_removeFromCurrent
     {opPtr : OperationPtr} {opInBounds} {use : BlockOperandPtr} {useInBounds}
-    (hWF : (opPtr.get! ctx).WellFormed ctx opPtr opInBounds) :
-    (opPtr.get! (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) opPtr (by grind) := by
-  apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : opPtr.WellFormed ctx opInBounds) :
+    opPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Block.wellFormed_BlockOperandPtr_removeFromCurrent
     {blockPtr : BlockPtr} {blockInBounds} {use : BlockOperandPtr} {useInBounds}
-    (hWF : (blockPtr.get! ctx).WellFormed ctx blockPtr blockInBounds) :
-    (blockPtr.get! (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) blockPtr (by grind) := by
-  apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : blockPtr.WellFormed ctx blockInBounds) :
+    blockPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Region.wellFormed_BlockOperandPtr_removeFromCurrent
     {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : BlockOperandPtr} {useInBounds}
-    (hWF : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr) :
-    (RegionPtr.get! regionPtr (use.removeFromCurrent ctx useInBounds ctxInBounds)).WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) regionPtr := by
-  apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+    (hWF : regionPtr.WellFormed ctx) :
+    regionPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) := by
+  apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem IRContext.wellFormed_BlockOperandPtr_removeFromCurrent
     {ctx : IRContext OpInfo} {use : BlockOperandPtr} {useInBounds} {ctxInBounds}
@@ -749,30 +749,30 @@ theorem Operation.wellFormed_OperationPtr_linkBetweenWithParent
     (prevOpParent : prevOp.maybe₁ (fun prev => (prev.get! ctx).parent = some parentBlock))
     (nextOpParent : nextOp.maybe₁ (fun next => (next.get! ctx).parent = some parentBlock))
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    (OperationPtr.get! opPtr ctx).WellFormed ctx opPtr opInBounds →
-    (OperationPtr.get! opPtr newCtx).WellFormed newCtx opPtr (by grind) := by
+    OperationPtr.WellFormed ctx opPtr opInBounds →
+    OperationPtr.WellFormed newCtx opPtr (by grind) := by
   intro wf
   constructor
   case region_parent =>
     intro region regionInBounds
-    apply Operation.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind [IRContext.WellFormed, Operation.WellFormed]
-  all_goals grind [Option.maybe₁_def, IRContext.WellFormed, Operation.WellFormed]
+    apply OperationPtr.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind [IRContext.WellFormed, OperationPtr.WellFormed]
+  all_goals grind [Option.maybe₁_def, IRContext.WellFormed, OperationPtr.WellFormed]
 
 theorem Block.wellFormed_OperationPtr_linkBetweenWithParent
     (ctxInBounds: IRContext.FieldsInBounds ctx)
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    (BlockPtr.get! blockPtr ctx).WellFormed ctx blockPtr blockInBounds →
-    (BlockPtr.get! blockPtr newCtx).WellFormed newCtx blockPtr (by grind) := by
+    BlockPtr.WellFormed ctx blockPtr blockInBounds →
+    BlockPtr.WellFormed newCtx blockPtr (by grind) := by
   intros
-  apply Block.WellFormed_unchanged (ctx := ctx) <;> grind
+  apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Region.wellFormed_OperationPtr_linkBetweenWithParent
     (ctxInBounds: IRContext.FieldsInBounds ctx) (regionInBounds : regionPtr.InBounds ctx)
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr →
-    (RegionPtr.get! regionPtr newCtx).WellFormed newCtx regionPtr := by
+    RegionPtr.WellFormed ctx regionPtr →
+    RegionPtr.WellFormed newCtx regionPtr := by
   intros
-  apply Region.WellFormed_unchanged (ctx := ctx) <;> grind
+  apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem IRContext.wellFormed_OperationPtr_linkBetweenWithParent
     (hWF : ctx.WellFormed)
@@ -920,31 +920,31 @@ theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_other
 theorem Operation.wellFormed_BlockPtr_linkBetweenWithParent
     (ctxInBounds: IRContext.FieldsInBounds ctx)
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx) :
-    (OperationPtr.get! opPtr ctx).WellFormed ctx opPtr opInBounds →
-    (OperationPtr.get! opPtr newCtx).WellFormed newCtx opPtr (by grind) := by
+    OperationPtr.WellFormed ctx opPtr opInBounds →
+    OperationPtr.WellFormed newCtx opPtr (by grind) := by
   intros
-  apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind
+  apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Block.wellFormed_BlockPtr_linkBetweenWithParent
     (ctxWf : IRContext.WellFormed ctx)
     (prevBlockParent : prevBlock.maybe₁ (fun prev => (prev.get! ctx).parent = some parentRegion))
     (nextBlockParent : nextBlock.maybe₁ (fun next => (next.get! ctx).parent = some parentRegion))
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
-    (hWF : (BlockPtr.get! block' ctx).WellFormed ctx block' blockInBounds) :
-    (BlockPtr.get! block' newCtx).WellFormed newCtx block' (by grind) := by
-  by_cases hBlock : block' = block <;> constructor <;> grind [Block.WellFormed, Option.maybe₁_def]
+    (hWF : BlockPtr.WellFormed ctx block' blockInBounds) :
+    BlockPtr.WellFormed newCtx block' (by grind) := by
+  by_cases hBlock : block' = block <;> constructor <;> grind [BlockPtr.WellFormed, Option.maybe₁_def]
 
 theorem Region.wellFormed_BlockPtr_linkBetweenWithParent
     (ctxWf : IRContext.WellFormed ctx)
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
     (regionInBounds : region.InBounds ctx)
-    (hWF : (RegionPtr.get! region ctx).WellFormed ctx region) :
-    (RegionPtr.get! region newCtx).WellFormed newCtx region := by
+    (hWF : RegionPtr.WellFormed ctx region) :
+    RegionPtr.WellFormed newCtx region := by
   by_cases hregion : region = parentRegion
-  · constructor <;> try grind [Region.WellFormed, Option.maybe₁_def]
+  · constructor <;> try grind [RegionPtr.WellFormed, Option.maybe₁_def]
     simp only [OperationPtr.getRegion!_BlockPtr_linkBetweenWithParent hctx]
-    grind [Region.WellFormed]
-  · apply Region.WellFormed_unchanged (ctx := ctx) <;> grind [Region.WellFormed]
+    grind [RegionPtr.WellFormed]
+  · apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind [RegionPtr.WellFormed]
 
 theorem IRContext.wellFormed_BlockPtr_linkBetweenWithParent
     (hWF : ctx.WellFormed)
