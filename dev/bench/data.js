@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778005632672,
+  "lastUpdate": 1778017625472,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -13572,6 +13572,162 @@ window.BENCHMARK_DATA = {
             "value": 786000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000786s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "siddu.druid@gmail.com",
+            "name": "Siddharth",
+            "username": "bollu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b6b654de83641bbe22c714bc434aad7fcfa062d4",
+          "message": "feat: add FP state inductive (#502)\n\nThis PR adds a new C-style enum-inductive called 'state' which is\nbitblastable, and enumerates the possible states a floating point number\ncan be in. This will be used to define unpacking, and to redefine the\nrational interpretation of a packed number in a way that allows for\nreasoning across abstraction layers (packed / escientific) of the status\nof a given object.\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-05-05T21:44:06Z",
+          "tree_id": "7a45ecb19cbab069e53e8e1f18e1c88474dc2932",
+          "url": "https://github.com/opencompl/veir/commit/b6b654de83641bbe22c714bc434aad7fcfa062d4"
+        },
+        "date": 1778017616419,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2163000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002163s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3282000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003282s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2140000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002140s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2673000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002673s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2177000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002177s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2155000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002155s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1813000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001813s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1811000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001811s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2205000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002205s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 4707000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.004707s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2172000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002172s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2683000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002683s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2159000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002159s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1795000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001795s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1780000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001780s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1443000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001443s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2209000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002209s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3259000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003259s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1773000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001773s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 9000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000009s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1799000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001799s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 753000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000753s"
           }
         ]
       }
