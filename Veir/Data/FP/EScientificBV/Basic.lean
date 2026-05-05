@@ -15,13 +15,13 @@ is a representation of floating-point numbers
 that includes the special values zero, infinity, and NaN.
 -/
 inductive EScientificBV (e s : Nat) where
-  /-- zero with a sign bit. -/
+  /-- Zero with a sign bit -/
   | zero (sign : Bool)
-  /-- a nonzero finite number in scientific notation. -/
+  /-- A nonzero finite number in scientific notation -/
   | nonzeroFinite (sbv : ScientificBV e s)
-  /-- an infinite number with a sign bit. -/
+  /-- An infinite number with a sign bit -/
   | infinity (sign : Bool)
-  /-- a NaN (not a number). -/
+  /-- A NaN (not a number) -/
   | nan
   deriving Inhabited, Repr
 
