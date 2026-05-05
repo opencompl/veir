@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777978129480,
+  "lastUpdate": 1778005632672,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -13416,6 +13416,162 @@ window.BENCHMARK_DATA = {
             "value": 785000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000785s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "siddu.druid@gmail.com",
+            "name": "Siddharth",
+            "username": "bollu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dac9719bb97e2badc1c1350ca4aee92b6b285fce",
+          "message": "feat: add extended scientific rational approximations (EScientificBV) for exact FP (#498)\n\nThis adds a new, *non-bitblastable* inductive, `EScientificBV` that\naccurately represents the value of a `PackedFloat` as one of four\nstates: (1) plus minus zero, (2) plus minus infinity, (3) a finite\nnumber, and (4) NaN.\n\nThe design for rounding will be to go from an `ScientificBV unpackedSig\nunpackedExp` to `EScientificBV packedSig packedExp`. Finally, we will\npack the resulting `EScientificBV` up to get a `PackedFloat`.\n\nSo, overall, our operation pipeline for fast simulation of lower\nprecision floats will be of the form:\n\n```lean\n  xinit: FastFloat 3 5 + yinit: FastFloat 3 5 -- input types, isomorphic to float.\n -> x:float + y:float -> z:float  -- carry out operation in full precision\n -> zpacked:PackedFloat -> zunpacked:EScientificBV -- convert to IR \n -> zround:EScientificBV -- round on the IR \n -> zfinal:PackedFloat --recreate IEEEE representation\n -> zresult:float -- cast back into native type\n -> zresult:FastFloat 3 5 -- coerce into FastFloat wrapper.\n```\n\n\nI opt to make it non-bitblastable as it's much easier to read the\nsemantics from this version, which @luisacicolini and @tobiasgrosser\nwould appreciate. Furthermore, we should be able to use the same\napproach as `LLVM.Int` to then expose a bitblastable version that is\nproven isomorphic to this inductive, non-bitblastable version.\n\n---------\n\nCo-authored-by: Tobias Grosser <github@grosser.es>\nCo-authored-by: Luisa Cicolini <48860705+luisacicolini@users.noreply.github.com>",
+          "timestamp": "2026-05-05T18:24:23Z",
+          "tree_id": "c6f9f4065160a66231cacebec7fd28c1daf566df",
+          "url": "https://github.com/opencompl/veir/commit/dac9719bb97e2badc1c1350ca4aee92b6b285fce"
+        },
+        "date": 1778005623766,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2390000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002390s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3816000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003816s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2284000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002284s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3202000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003202s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2316000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002316s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2527000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002527s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1980000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001980s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 2000000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002000s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2261000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002261s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5419000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005419s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2256000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002256s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3104000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003104s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2351000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002351s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 2019000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002019s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 2115000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002115s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1604000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001604s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2328000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002328s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3870000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003870s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1971000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001971s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1922000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001922s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 786000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000786s"
           }
         ]
       }
