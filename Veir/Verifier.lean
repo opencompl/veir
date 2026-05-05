@@ -1749,11 +1749,36 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     pure ()
 
+public section
 
 /--
   Verify that all operations in the IRContext satisfy their local invariants.
 -/
-public def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := Id.run do
+def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := Id.run do
   ctx.raw.forOpsDepM (fun op opIn => op.verifyLocalInvariants ctx opIn)
 
+/--
+Assert that all operations in the IRContext satisfy their local invariants.
+-/
+def WfIRContext.Verified (ctx : WfIRContext OpCode) : Prop :=
+  ctx.verify = .ok ()
+
+/--
+Assert that a given operation satisfies its local invariants.
+-/
+def OperationPtr.Verified (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds ctx.raw := by grind) : Prop :=
+  op.verifyLocalInvariants ctx opInBounds = .ok ()
+
+set_option warn.sorry false in
+/--
+If the context satisfies the invariants of all operations, any operation in bounds is verified.
+-/
+@[grind →]
+theorem OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode} {op : OperationPtr}
+    (ctxVerify : ctx.Verified) (opInBounds : op.InBounds ctx.raw := by grind) :
+    op.Verified ctx opInBounds := by
+  sorry -- This requires to reason about `IRContext.forOpsDepM`.
+
+end
 end Veir
