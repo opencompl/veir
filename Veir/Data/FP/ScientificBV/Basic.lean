@@ -3,7 +3,6 @@ public import Veir.Data.FP.Sign
 
 namespace Veir.Data.FP
 
-
 public section
 
 /--
@@ -60,3 +59,7 @@ def toRat {e s : Nat} (sbv : ScientificBV e s) : Rat :=
   sign * exponent * significand
 
 end ScientificBV
+
+end -- public section
+
+end Veir.Data.FP
