@@ -21,4 +21,20 @@ inductive State
 | infinite
 /-- A not a number (NaN) value. -/
 | nan
+deriving DecidableEq, Repr
+
+namespace State
+
+/-- A state is finite iff it is zero, subnormal, or normal. -/
+def isFinite (s : State) : Prop :=
+  s = .zero ∨ s = .subnormal ∨ s = .normal
+
+instance {s : State} : Decidable (s.isFinite) := by 
+  sorry
+  
+/-- A state is nonzero finite iff it is subnormal or normal. -/
+def State.isNonzeroFinite (s : State) : Prop :=
+  s = .subnormal ∨ s = .normal
+
+end
 
