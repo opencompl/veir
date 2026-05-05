@@ -2,7 +2,6 @@ module
 
 public import Veir.Data.FP.PackedFloat.Basic
 public import Veir.Data.FP.State
-public import Veir.ForLean
 
 namespace Veir.Data.FP.PackedFloat
 
