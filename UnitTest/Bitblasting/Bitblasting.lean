@@ -1,5 +1,5 @@
-import Veir.Data.LLVM.Int.Bitblast
 import Veir.Data.LLVM.Int.Basic
+import Veir.Data.LLVM.Int.Simp
 import Veir.Data.Refinement
 
 /-!
@@ -12,7 +12,7 @@ import Veir.Data.Refinement
 
 /-- We introduce a tactic to automatically prove all the lemmas. -/
 macro "llvm_bv_decide" : tactic =>
-  `(tactic| (simp [llvm_toBitVec]; try bv_decide; sorry))
+  `(tactic| (try simp [llvm_toBitVec]; try bv_decide; <;> sorry))
 
 open Veir.Data.LLVM
 namespace Veir.Data.Int
