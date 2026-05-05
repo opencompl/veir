@@ -89,9 +89,7 @@ theorem bv_AddSub_1574 :
 theorem bv_AddSub_1614 :
     ∀ (e e_1 : Int 64), LLVM.Int.sub e_1 (LLVM.Int.add e_1 e) ⊑
       LLVM.Int.sub (LLVM.Int.constant 64 0) e := by
-  simp [llvm_toBitVec]
-
-  bv_decide
+  llvm_bv_decide
 
 theorem bv_AddSub_1619 :
     ∀ (e e_1 : Int 64), LLVM.Int.sub (LLVM.Int.sub e_1 e) e_1 ⊑ LLVM.Int.sub (LLVM.Int.constant 64 0) e := by
