@@ -62,7 +62,7 @@ def smallestPositiveSubnormal : PackedFloat 11 52 :=
 Construct the float that 'smallestPositiveSubnormal'
 corresponds to as a Lean float.
 The subnormal is larger than zero, but I'm not sure how to
-test this precisely that it is the machine epsilon.
+test precisely that it is the machine epsilon.
 -/
 #guard toFloat smallestPositiveSubnormal > 0.0
 
