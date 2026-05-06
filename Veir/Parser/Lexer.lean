@@ -117,7 +117,7 @@ namespace TokenKind
 /--
   Checks if the token kind is an at, hash, percent, caret, or exclamation identifier.
 -/
-@[expose, grind]
+@[grind]
 def isPrefixedIdentifier (tokenKind : TokenKind) : Bool :=
   tokenKind = .hashIdent || tokenKind = .percentIdent || tokenKind = .caretIdent ||
   tokenKind = .exclamationIdent || tokenKind = .atIdent

@@ -80,6 +80,14 @@ structure UnitAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  A source location.
+  This currently stores the raw string of the MLIR location syntax body.
+-/
+structure LocationAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   An array of integer attributes.
   The values are stored as an array of integers, and an associated integer type.
   Note that the integers are not necessarily in the range of the integer type.
@@ -106,6 +114,30 @@ structure ModArithType where
   modulus : Int
   modulusType : Option IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+namespace LLVM
+
+structure PointerType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end LLVM
+
+/-!
+  # Cuda Tile types
+-/
+
+namespace CudaTile
+
+/--
+  An elemental pointer type represents a single location in global device memory.
+  Pointers are typed, i.e., they carry the type they point to.
+-/
+
+structure PointerType where
+  pointeeType : IntegerType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end CudaTile
 
 mutual
 
@@ -158,6 +190,8 @@ inductive Attribute
 | stringAttr (attr : StringAttr)
 /-- Unit attribute -/
 | unitAttr (attr : UnitAttr)
+/-- Location attribute -/
+| locationAttr (attr : LocationAttr)
 /-- Array attribute -/
 | arrayAttr (attr : ArrayAttr)
 /-- Dense array attribute -/
@@ -170,9 +204,15 @@ inductive Attribute
 | unregisteredAttr (attr : UnregisteredAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
+/-- LLVM pointer type -/
+| llvmPointerType (type : LLVM.PointerType)
+/-- Cuda Tile pointer type -/
+| cudaTilePointerType (type : CudaTile.PointerType)
 deriving Inhabited, Repr, Hashable
 
 end
+
+def ArrayAttr.empty : ArrayAttr := { value := #[] }
 
 /--
   Construct a `DictionaryAttr` from an array of key-value pairs.
@@ -279,6 +319,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case locationAttr.locationAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case arrayAttr.arrayAttr attr1 attr2 =>
     exact (match ArrayAttr.decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -292,6 +336,12 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case registerAttr.registerAttr type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case llvmPointerType.llvmPointerType type1 type2 =>
+    exact (isTrue (by grind))
+  case cudaTilePointerType.cudaTilePointerType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
@@ -343,6 +393,9 @@ instance : ToString StringAttr where
 instance : ToString UnitAttr where
   toString _ := "unit"
 
+instance : ToString LocationAttr where
+  toString attr := s!"loc(" ++ attr.value ++ ")"
+
 instance : ToString DenseArrayAttr where
   toString attr :=
     let values := if attr.values.isEmpty then ""
@@ -357,6 +410,12 @@ instance : ToString ModArithType where
     (match type.modulusType with
     | some modulusType => s!" : {modulusType}"
     | none => "") ++ ">"
+
+instance : ToString LLVM.PointerType where
+  toString _ := "!llvm.ptr"
+
+instance : ToString CudaTile.PointerType where
+  toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"
 
 mutual
 
@@ -418,12 +477,15 @@ def Attribute.toString (attr : Attribute) : String :=
   | .registerAttr attr => ToString.toString attr
   | .stringAttr attr => ToString.toString attr
   | .unitAttr attr => ToString.toString attr
+  | .locationAttr attr => ToString.toString attr
   | .arrayAttr attr => attr.toString
   | .denseArrayAttr attr => ToString.toString attr
   | .dictionaryAttr attr => attr.toString
   | .unregisteredAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
+  | .llvmPointerType type => ToString.toString type
+  | .cudaTilePointerType type => ToString.toString type
 termination_by sizeOf attr
 
 end
@@ -457,6 +519,9 @@ instance : Coe StringAttr Attribute where
 instance : Coe UnitAttr Attribute where
   coe attr := .unitAttr attr
 
+instance : Coe LocationAttr Attribute where
+  coe attr := .locationAttr attr
+
 instance : Coe UnregisteredAttr Attribute where
   coe attr := .unregisteredAttr attr
 
@@ -474,6 +539,12 @@ instance : Coe FunctionType Attribute where
 
 instance : Coe ModArithType Attribute where
   coe type := .modArithType type
+
+instance : Coe LLVM.PointerType Attribute where
+  coe type := .llvmPointerType type
+
+instance : Coe CudaTile.PointerType Attribute where
+  coe type := .cudaTilePointerType type
 
 /-!
   ## TypeAttr definition
@@ -494,6 +565,7 @@ def isType (attr : Attribute) : Bool :=
   | .integerAttr _ => false
   | .stringAttr _ => false
   | .unitAttr _ => false
+  | .locationAttr _ => false
   | .arrayAttr _ => false
   | .denseArrayAttr _ => false
   | .dictionaryAttr _ => false
@@ -502,6 +574,8 @@ def isType (attr : Attribute) : Bool :=
   | .modArithType _ => true
   | .registerType _ => true
   | .registerAttr _ => true
+  | .llvmPointerType _ => true
+  | .cudaTilePointerType _ => true
 
 @[simp, grind =]
 theorem isType_integerType type : (integerType type).isType = true := by rfl
@@ -512,6 +586,10 @@ theorem isType_unregistered unregistered :
 theorem isType_functionType type : (functionType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_llvmPointerType type : (llvmPointerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
 
 end Attribute
 
@@ -555,6 +633,12 @@ instance : Coe ModArithType TypeAttr where
 
 instance : Coe RegisterType TypeAttr where
   coe type := ⟨.registerType type, by rfl⟩
+
+instance : Coe LLVM.PointerType TypeAttr where
+  coe type := ⟨.llvmPointerType type, by rfl⟩
+
+instance : Coe CudaTile.PointerType TypeAttr where
+  coe type := ⟨.cudaTilePointerType type, by rfl⟩
 
 end
 end Veir

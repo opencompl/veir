@@ -19,9 +19,9 @@ public section
  -   * Operation.prev
  -   * Operation.next
  -   * Operation.parent
- -   * Operation.opType
  -   * Operation.attrs
  -   * Operation.properties
+ - * OperationPtr.getOpType!
  - * OperationPtr.getProperties!
  - * OperationPtr.getNumResults!
  - * OpResultPtr.get!
@@ -113,9 +113,9 @@ theorem OperationPtr.parent!_OpOperandPtr_removeFromCurrent {operation : Operati
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
-    (operation.get! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_OpOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    (operation.getOpType! (opOperand'.removeFromCurrent ctx hopOperand' ctxInBounds)) =
+    (operation.getOpType! ctx) := by
   grind
 
 @[simp, grind =]
@@ -325,9 +325,9 @@ theorem OperationPtr.parent!_OpOperandPtr_insertIntoCurrent {operation : Operati
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
-    (operation.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_OpOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getOpType! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]
@@ -550,9 +550,9 @@ theorem OperationPtr.parent!_BlockOperandPtr_removeFromCurrent {operation : Oper
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
-    (operation.get! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_BlockOperandPtr_removeFromCurrent {operation : OperationPtr} :
+    operation.getOpType! (blockOperand'.removeFromCurrent ctx hOperand' ctxInBounds) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]
@@ -759,9 +759,9 @@ theorem OperationPtr.parent!_BlockOperandPtr_insertIntoCurrent {operation : Oper
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
-    (operation.get! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_BlockOperandPtr_insertIntoCurrent {operation : OperationPtr} :
+    operation.getOpType! (blockOperand'.insertIntoCurrent ctx hblockOperand' ctxInBounds) =
+    operation.getOpType! ctx := by
   grind
 
 @[simp, grind =]
@@ -958,9 +958,9 @@ theorem OperationPtr.parent!_OperationPtr_linkBetween {operation : OperationPtr}
   grind
 
 @[simp, grind =]
-theorem OperationPtr.opType!_OperationPtr_linkBetween {operation : OperationPtr} :
-    (operation.get! (op'.linkBetween ctx prev next selfIn prevIn nextIn)).opType =
-    (operation.get! ctx).opType := by
+theorem OperationPtr.getOpType!_OperationPtr_linkBetween {operation : OperationPtr} :
+    (operation.getOpType! (op'.linkBetween ctx prev next selfIn prevIn nextIn)) =
+    (operation.getOpType! ctx) := by
   simp only [OperationPtr.linkBetween]
   grind
 
@@ -1144,13 +1144,13 @@ grind_pattern OperationPtr.parent!_OperationPtr_setParentWithCheck =>
   op'.setParentWithCheck ctx newParent selfIn, some newCtx, (operation.get! newCtx).parent
 
 @[simp]
-theorem OperationPtr.opType!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
+theorem OperationPtr.getOpType!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
     op'.setParentWithCheck ctx newParent selfIn = some newCtx →
-    (operation.get! newCtx).opType = (operation.get! ctx).opType := by
+    operation.getOpType! newCtx = operation.getOpType! ctx := by
   grind
 
-grind_pattern OperationPtr.opType!_OperationPtr_setParentWithCheck =>
-  op'.setParentWithCheck ctx newParent selfIn, some newCtx, (operation.get! newCtx).opType
+grind_pattern OperationPtr.getOpType!_OperationPtr_setParentWithCheck =>
+  op'.setParentWithCheck ctx newParent selfIn, some newCtx, (operation.getOpType! newCtx)
 
 @[simp]
 theorem OperationPtr.attrs!_OperationPtr_setParentWithCheck {operation : OperationPtr} :
@@ -1433,13 +1433,13 @@ grind_pattern OperationPtr.parent!_OperationPtr_linkBetweenWithParent =>
   op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, (operation.get! newCtx).parent
 
 @[simp]
-theorem OperationPtr.opType!_OperationPtr_linkBetweenWithParent {operation : OperationPtr} :
+theorem OperationPtr.getOpType!_OperationPtr_linkBetweenWithParent {operation : OperationPtr} :
     op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
-    (operation.get! newCtx).opType = (operation.get! ctx).opType := by
+    (operation.getOpType! newCtx) = (operation.getOpType! ctx) := by
   grind
 
-grind_pattern OperationPtr.opType!_OperationPtr_linkBetweenWithParent =>
-  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, (operation.get! newCtx).opType
+grind_pattern OperationPtr.getOpType!_OperationPtr_linkBetweenWithParent =>
+  op'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, (operation.getOpType! newCtx)
 
 @[simp]
 theorem OperationPtr.attrs!_OperationPtr_linkBetweenWithParent {operation : OperationPtr} :
@@ -1679,6 +1679,13 @@ theorem OperationPtr.get!_BlockPtr_linkBetween {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getOpType!_BlockPtr_linkBetween {operation : OperationPtr} :
+    operation.getOpType! (block'.linkBetween ctx prev next selfIn prevIn nextIn) =
+    operation.getOpType! ctx := by
+  simp only [BlockPtr.linkBetween]
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumResults!_BlockPtr_linkBetween {operation : OperationPtr} :
     operation.getNumResults! (block'.linkBetween ctx prev next selfIn prevIn nextIn) = operation.getNumResults! ctx := by
   simp only [BlockPtr.linkBetween]
@@ -1863,6 +1870,15 @@ theorem OperationPtr.get!_BlockPtr_setParentWithCheck {operation : OperationPtr}
 
 grind_pattern OperationPtr.get!_BlockPtr_setParentWithCheck =>
   block'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.get! newCtx
+
+@[simp]
+theorem OperationPtr.getOpType!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
+    block'.setParentWithCheck ctx newParent selfIn = some newCtx →
+    operation.getOpType! newCtx = operation.getOpType! ctx := by
+  grind
+
+grind_pattern OperationPtr.getOpType!_BlockPtr_setParentWithCheck =>
+  block'.setParentWithCheck ctx newParent selfIn, some newCtx, operation.getOpType! newCtx
 
 @[simp]
 theorem OperationPtr.getNumResults!_BlockPtr_setParentWithCheck {operation : OperationPtr} :
@@ -2098,6 +2114,14 @@ theorem OperationPtr.get!_BlockPtr_linkBetweenWithParent {operation : OperationP
 
 grind_pattern OperationPtr.get!_BlockPtr_linkBetweenWithParent =>
   block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.get! newCtx
+
+theorem OperationPtr.getOpType!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :
+    block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn = some newCtx →
+    operation.getOpType! newCtx = operation.getOpType! ctx := by
+  grind
+
+grind_pattern OperationPtr.getOpType!_BlockPtr_linkBetweenWithParent =>
+  block'.linkBetweenWithParent ctx prev next parent selfIn prevIn nextIn parentIn, some newCtx, operation.getOpType! newCtx
 
 @[simp]
 theorem OperationPtr.getNumResults!_BlockPtr_linkBetweenWithParent {operation : OperationPtr} :

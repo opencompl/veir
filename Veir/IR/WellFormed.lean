@@ -628,8 +628,7 @@ theorem RegionPtr.BlockChain_array_injective
       intros iInBounds jInBounds hNe
       grind [RegionPtr.BlockChain]
 
--- TODO: weird to have op and opPtr
-structure Operation.WellFormed (op : Operation OpInfo) (ctx : IRContext OpInfo) (opPtr : OperationPtr) hop : Prop where
+structure OperationPtr.WellFormed (ctx : IRContext OpInfo) (opPtr : OperationPtr) hop : Prop where
   inBounds : Operation.FieldsInBounds opPtr ctx hop
   result_index i (iInBounds : i < opPtr.getNumResults! ctx) : ((opPtr.getResult i).get! ctx).index = i
   result_owner i (iInBounds : i < opPtr.getNumResults! ctx) :
@@ -644,7 +643,7 @@ structure Operation.WellFormed (op : Operation OpInfo) (ctx : IRContext OpInfo) 
   opChain_of_parent_none : (opPtr.get! ctx).parent = none →
     (opPtr.get! ctx).prev = none ∧ (opPtr.get! ctx).next = none
 
-structure Block.WellFormed (block : Block) (ctx : IRContext OpInfo) (blockPtr : BlockPtr) hbl : Prop where
+structure BlockPtr.WellFormed (ctx : IRContext OpInfo) (blockPtr : BlockPtr) hbl : Prop where
   inBounds : Block.FieldsInBounds blockPtr ctx hbl
   argument i (iInBounds : i < blockPtr.getNumArguments! ctx) : ((blockPtr.getArgument i).get! ctx).index = i
   argument_owners i (iInBounds : i < blockPtr.getNumArguments! ctx) : ((blockPtr.getArgument i).get! ctx).owner = blockPtr
@@ -653,9 +652,9 @@ structure Block.WellFormed (block : Block) (ctx : IRContext OpInfo) (blockPtr : 
   next_eq_of_parent_eq_none : (blockPtr.get! ctx).parent = none →
     (blockPtr.get! ctx).next = none
 
-structure Region.WellFormed (region : Region) (ctx : IRContext OpInfo) (regionPtr : RegionPtr) where
-  inBounds : region.FieldsInBounds ctx
-  parent_op {op} (heq : region.parent = some op) : ∃ i, i < op.getNumRegions! ctx ∧ op.getRegion! ctx i = regionPtr
+structure RegionPtr.WellFormed (ctx : IRContext OpInfo) (regionPtr : RegionPtr) where
+  inBounds : (regionPtr.get! ctx).FieldsInBounds ctx
+  parent_op {op} (heq : (regionPtr.get! ctx).parent = some op) : ∃ i, i < op.getNumRegions! ctx ∧ op.getRegion! ctx i = regionPtr
 
 structure IRContext.WellFormed (ctx : IRContext OpInfo)
   (missingOperandUses : Std.ExtHashSet OpOperandPtr := ∅)
@@ -670,11 +669,11 @@ structure IRContext.WellFormed (ctx : IRContext OpInfo)
   blockChain (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
     ∃ array, RegionPtr.BlockChain regionPtr ctx array
   operations (opPtr : OperationPtr) (opPtrInBounds : opPtr.InBounds ctx) :
-    (opPtr.get! ctx).WellFormed ctx opPtr opPtrInBounds
+    opPtr.WellFormed ctx opPtrInBounds
   blocks (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
-    (blockPtr.get! ctx).WellFormed ctx blockPtr blockPtrInBounds
+    blockPtr.WellFormed ctx blockPtrInBounds
   regions (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
-    (regionPtr.get! ctx).WellFormed ctx regionPtr
+    regionPtr.WellFormed ctx
 
 attribute [grind →] IRContext.WellFormed.inBounds
 
@@ -767,8 +766,8 @@ theorem RegionPtr.blockChain_unchanged
     regionPtr.BlockChain ctx' array := by
   constructor <;> grind [RegionPtr.BlockChain]
 
-theorem Operation.WellFormed_unchanged
-    (hWf : (opPtr.get! ctx).WellFormed ctx opPtr opPtrInBounds)
+theorem OperationPtr.WellFormed_unchanged
+    (hWf : opPtr.WellFormed ctx opPtrInBounds)
     (hInBounds' : Operation.FieldsInBounds opPtr ctx' opPtrInBounds')
     (hSameNumOperands :
       opPtr.getNumOperands! ctx = opPtr.getNumOperands! ctx')
@@ -803,11 +802,11 @@ theorem Operation.WellFormed_unchanged
       opPtr.getNumRegions! ctx = opPtr.getNumRegions! ctx')
     (hSameRegions :
       ∀ i, i < opPtr.getNumRegions! ctx → opPtr.getRegion! ctx i = opPtr.getRegion! ctx' i) :
-    (opPtr.get! ctx').WellFormed ctx' opPtr opPtrInBounds' := by
-  constructor <;> grind [Operation.WellFormed, Operation.FieldsInBounds]
+    opPtr.WellFormed ctx' opPtrInBounds' := by
+  constructor <;> grind [OperationPtr.WellFormed, Operation.FieldsInBounds]
 
-theorem Block.WellFormed_unchanged
-    (hWf : (blockPtr.get! ctx).WellFormed ctx blockPtr blockPtrInBounds)
+theorem BlockPtr.WellFormed_unchanged
+    (hWf : blockPtr.WellFormed ctx blockPtrInBounds)
     (hInBounds' : Block.FieldsInBounds blockPtr ctx' blockPtrInBounds')
     (hSameParent : (blockPtr.get! ctx).parent = (blockPtr.get! ctx').parent)
     (hSamePrev : (blockPtr.get! ctx).prev = (blockPtr.get! ctx').prev)
@@ -819,11 +818,11 @@ theorem Block.WellFormed_unchanged
     (hSameArgumentIndex :
       ∀ i, i < blockPtr.getNumArguments ctx →
       ((blockPtr.getArgument i).get! ctx).index = ((blockPtr.getArgument i).get! ctx').index) :
-    (blockPtr.get! ctx').WellFormed ctx' blockPtr blockPtrInBounds' := by
-  constructor <;> grind [Block.WellFormed]
+    blockPtr.WellFormed ctx' blockPtrInBounds' := by
+  constructor <;> grind [BlockPtr.WellFormed]
 
-theorem Region.WellFormed_unchanged
-    (hWf : (RegionPtr.get! regionPtr ctx).WellFormed ctx regionPtr)
+theorem RegionPtr.WellFormed_unchanged {regionPtr : RegionPtr}
+    (hWf : regionPtr.WellFormed ctx)
     (hInBounds' : (regionPtr.get! ctx').FieldsInBounds ctx')
     (hSameParentOp : (regionPtr.get! ctx).parent = (regionPtr.get! ctx').parent)
     (hSameNumRegions :
@@ -833,8 +832,8 @@ theorem Region.WellFormed_unchanged
       ∀ parent, (regionPtr.get! ctx).parent = some parent →
       ∀ i, i < parent.getNumRegions! ctx →
       parent.getRegion! ctx i = parent.getRegion! ctx' i) :
-    (regionPtr.get! ctx').WellFormed ctx' regionPtr := by
-  constructor <;> grind [Region.WellFormed]
+    regionPtr.WellFormed ctx' := by
+  constructor <;> grind [RegionPtr.WellFormed]
 
 noncomputable def BlockPtr.operationList (block : BlockPtr) (ctx : IRContext OpInfo) (hctx : ctx.WellFormed) (hblock : block.InBounds ctx) : Array OperationPtr :=
   (hctx.opChain block hblock).choose
@@ -951,7 +950,7 @@ theorem IRContext.WellFormed.OperationPtr_next!_eq_some_of_prev!_eq_some
     (prevOp.get! ctx).next = some op := by
   cases hparent : (op.get! ctx).parent
   case none =>
-    grind [IRContext.WellFormed, BlockPtr.OpChain, Operation.WellFormed]
+    grind [IRContext.WellFormed, BlockPtr.OpChain, OperationPtr.WellFormed]
   case some parent =>
     intro hprev
     have ⟨array, harray⟩ := wf.opChain parent (by grind)
@@ -964,7 +963,7 @@ theorem IRContext.WellFormed.OperationPtr_prev!_eq_some_of_next!_eq_some
     (nextOp.get! ctx).prev = some op := by
   cases hparent : (op.get! ctx).parent
   case none =>
-    grind [IRContext.WellFormed, BlockPtr.OpChain, Operation.WellFormed]
+    grind [IRContext.WellFormed, BlockPtr.OpChain, OperationPtr.WellFormed]
   case some parent =>
     intro hprev
     have ⟨array, harray⟩ := wf.opChain parent (by grind)
@@ -975,7 +974,7 @@ theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_next!_ne_none
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (op.get! ctx).next ≠ none →
     (op.get! ctx).parent ≠ none := by
-  grind [IRContext.WellFormed, Operation.WellFormed]
+  grind [IRContext.WellFormed, OperationPtr.WellFormed]
 
 grind_pattern IRContext.WellFormed.OperationPtr_parent!_ne_none_of_next!_ne_none =>
   ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).next, (op.get! ctx).parent
@@ -985,7 +984,7 @@ theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_prev!_ne_none
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (op.get! ctx).prev ≠ none →
     (op.get! ctx).parent ≠ none := by
-  grind [IRContext.WellFormed, Operation.WellFormed]
+  grind [IRContext.WellFormed, OperationPtr.WellFormed]
 
 grind_pattern IRContext.WellFormed.OperationPtr_parent!_ne_none_of_prev!_ne_none =>
   ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).prev, (op.get! ctx).parent
@@ -1036,7 +1035,7 @@ theorem IRContext.WellFormed.BlockPtr_next!_eq_some_of_prev!_eq_some
     (prevBl.get! ctx).next = some bl := by
   cases hparent : (bl.get! ctx).parent
   case none =>
-    grind [IRContext.WellFormed, RegionPtr.BlockChain, Block.WellFormed]
+    grind [IRContext.WellFormed, RegionPtr.BlockChain, BlockPtr.WellFormed]
   case some parent =>
     intro hprev
     have ⟨array, harray⟩ := wf.blockChain parent (by grind)
@@ -1052,7 +1051,7 @@ theorem IRContext.WellFormed.BlockPtr_prev!_eq_some_of_next!_eq_some
     (nextBl.get! ctx).prev = some bl := by
   cases hparent : (bl.get! ctx).parent
   case none =>
-    grind [IRContext.WellFormed, RegionPtr.BlockChain, Block.WellFormed]
+    grind [IRContext.WellFormed, RegionPtr.BlockChain, BlockPtr.WellFormed]
   case some parent =>
     intro hnext
     have ⟨array, harray⟩ := wf.blockChain parent (by grind)
@@ -1066,7 +1065,7 @@ theorem IRContext.WellFormed.BlockPtr_parent!_ne_none_of_next!_ne_none
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (bl.get! ctx).next ≠ none →
     (bl.get! ctx).parent ≠ none := by
-  grind [IRContext.WellFormed, Block.WellFormed]
+  grind [IRContext.WellFormed, BlockPtr.WellFormed]
 
 grind_pattern IRContext.WellFormed.BlockPtr_parent!_ne_none_of_next!_ne_none =>
   ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).next, (bl.get! ctx).parent
@@ -1076,7 +1075,7 @@ theorem IRContext.WellFormed.BlockPtr_parent!_ne_none_of_prev!_ne_none
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (bl.get! ctx).prev ≠ none →
     (bl.get! ctx).parent ≠ none := by
-  grind [IRContext.WellFormed, Block.WellFormed]
+  grind [IRContext.WellFormed, BlockPtr.WellFormed]
 
 grind_pattern IRContext.WellFormed.BlockPtr_parent!_ne_none_of_prev!_ne_none =>
   ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).prev, (bl.get! ctx).parent
@@ -1292,11 +1291,11 @@ grind_pattern OperationPtr.idxInParentFromTail_next_eq =>
   nextOp.idxInParentFromTail ctx hnextOp hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
 
 /--
-  Prove preservation of the `region_parent` field of `Operation.WellFormed`, if
+  Prove preservation of the `region_parent` field of `OperationPtr.WellFormed`, if
   region parents, number of regions, and region pointers are unchanged in the
   new context.
 -/
-theorem Operation.WellFormed.region_parent.unchanged
+theorem OperationPtr.WellFormed.region_parent.unchanged
     {opPtr : OperationPtr} {ctx ctx' : IRContext OpInfo}
     (h_getRegion : opPtr.getRegion! ctx' = opPtr.getRegion! ctx)
     (h_numRegions : opPtr.getNumRegions! ctx' = opPtr.getNumRegions! ctx)

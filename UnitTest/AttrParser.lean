@@ -147,6 +147,7 @@ macro "#assert " e:term : command =>
 
 /-! ## Dialect type -/
 
+#assert expectSuccessType "!foo.bar" ⟨UnregisteredAttr.mk "!foo.bar" true, by grind⟩
 #assert expectSuccessType "!foo<bar>" ⟨UnregisteredAttr.mk "!foo<bar>" true, by grind⟩
 #assert expectSuccessType "!test.test<bar>" ⟨UnregisteredAttr.mk "!test.test<bar>" true, by grind⟩
 
@@ -155,6 +156,16 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#foo<bar>" (UnregisteredAttr.mk "#foo<bar>" false)
 #assert expectSuccessAttr "#test.test<bar>" (UnregisteredAttr.mk "#test.test<bar>" false)
 
+/-! ## Location attribute -/
+
+#assert expectSuccessAttr "loc(mysource.cc:10:8)" (LocationAttr.mk "mysource.cc:10:8")
+#assert expectSuccessAttr r#"loc(callsite("foo" at "mysource.cc":10:8))"# (LocationAttr.mk r#"callsite("foo" at "mysource.cc":10:8)"#)
+#assert expectSuccessAttr r#"loc("mysource.cc":10:8 to 12:18)"# (LocationAttr.mk r#""mysource.cc":10:8 to 12:18"#)
+#assert expectSuccessAttr r#"loc(fused["mysource.cc":10:8, "mysource.cc":22:8])"# (LocationAttr.mk r#"fused["mysource.cc":10:8, "mysource.cc":22:8]"#)
+#assert expectSuccessAttr r#"loc(fused<CSE>["mysource.cc":10:8, "mysource.cc":22:8])"# (LocationAttr.mk r#"fused<CSE>["mysource.cc":10:8, "mysource.cc":22:8]"#)
+#assert expectSuccessAttr r#"loc("CSE"("mysource.cc":10:8))"# (LocationAttr.mk r#""CSE"("mysource.cc":10:8)"#)
+#assert expectSuccessAttr "loc(?)" (LocationAttr.mk "?")
+
 /-! ## Modarith type -/
 
 #assert expectSuccessType "!mod_arith.int<17>" (ModArithType.mk 17 none)
@@ -162,3 +173,11 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "!mod_arith.int<17>" (ModArithType.mk 17 none)
 #assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected"
 #assert expectErrorType "!mod_arith.int<17 : x>" "integer type expected after ':' in modarith type"
+
+/-! ## LLVM Pointer type -/
+#assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)
+
+/-! ## CUDA Pointer type -/
+#assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
+#assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))
+#assert expectErrorType "!cuda_tile.ptr<16>" "integer type expected"

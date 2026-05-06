@@ -2,7 +2,7 @@ import Veir.Prelude
 import Veir.IR.Basic
 import Veir.Rewriter.Basic
 import Veir.ForLean
-import Veir.Rewriter.GetSetInBounds
+import Veir.Rewriter.GetSet
 import Veir.Rewriter.WfRewriter
 
 open Std (HashMap)

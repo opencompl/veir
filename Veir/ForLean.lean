@@ -117,6 +117,11 @@ theorem Array.toList_erase [BEq α] (l : Array α) (a : α) :
     (l.erase a).toList = l.toList.erase a := by
   cases l; grind
 
+theorem Array.singleton_getElem_append_extract_succ_eq {a : Array α} {k : Nat} (h : k < a.size) :
+    #[a[k]] ++ a.extract (k + 1) a.size = a.extract k a.size := by
+  cases a
+  simp [←List.length_drop]
+
 theorem Array.head_tail_if_firstElem_nonnull (as : Array α) :
     as[0]? = some head →
     ∃ tail, as = #[head] ++ tail := by
@@ -286,3 +291,11 @@ theorem umulOverflow_comm {w : Nat} (x y : BitVec w) :
   grind [BitVec.umulOverflow]
 
 end BitVec
+
+namespace Rat
+
+/-- `2` raised to a (possibly negative) integer power as a `Rat`. -/
+def twoPow (k : Int) : Rat := 2 ^ k
+
+end Rat
+

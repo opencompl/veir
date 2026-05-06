@@ -325,6 +325,20 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let rhs := rhs.cast (by simpa using h)
     let some p := LLVM.IntPred.fromNat properties.value.value.toNat | none
     return (#[.int 1 (LLVM.Int.icmp lhs rhs p)], none)
+  | .llvm .return => do
+    return (#[], some (.return operands))
+  | .llvm .br => do
+    let [dest] := blockOperands.toList | none
+    return (#[], some (.branch operands dest))
+  | .llvm .cond_br => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.int 1 (.val cond)) := operands[0]? | none
+    let some trueSize := properties.operandSegmentSizes.values[1]? | none
+    let trueSize := trueSize.toNat
+    if cond = 1#1 then
+      return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
   | .func .return => do
     return (#[], some (.return operands))
   | .cf .br => do
@@ -671,7 +685,7 @@ def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : Interprete
     : Option (InterpreterState × Option ControlFlowAction) := do
   let operands ← state.getOperandValues ctx op
   let opType := op.getOpType! ctx
-  let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx opType) ((op.get! ctx).results.map (·.type)) operands ((op.get! ctx).blockOperands.map (·.value))
+  let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx opType) (op.getResultTypes! ctx) operands (op.getSuccessors! ctx)
   let newState := state.setResultValues ctx op resultValues
   return (newState, action)
 
