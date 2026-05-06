@@ -22,5 +22,5 @@ def toExtRat : EDyadic → ExtRat
   | .infinity sign => .infinity sign
   | .nan => .nan
 
-  end -- public section
+  end
 

@@ -18,7 +18,7 @@ inductive EDyadic where
   represent zero values (so the sign is represent),
   and we use `nonzeroFinite` to represent nonzero values.
   Thus, there is an implicit invariant that the `nonzeroFinite`
-  constructor should only be used with nonzero dyadics
+  constructor should only be used with nonzero dyadics.
   -/
   | nonzeroFinite (d : Dyadic)
   /-- An infinite number with a sign bit. -/
