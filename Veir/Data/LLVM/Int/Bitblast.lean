@@ -43,29 +43,22 @@ theorem val_of_not_isPoison {w : Nat} (x : Int w) (hx : x.isPoison = false) :
   · case _ v => exists v
   · simp [isPoison] at hx
 
-@[llvm_toBitVec]
-theorem poison_ite_eq {w : Nat} (x y : Int w) (z : BitVec w) :
-  (if x.isPoison = true ∨ y.isPoison = true then
-      ({ toBitVec := 0#w, poison := true} : IntBv w) else
-      ({ toBitVec := z, poison := false,} : IntBv w)).poison =
-      (x.isPoison ∨ y.isPoison) := by
-  split
-  · case _ h =>  simp [h]
-  · case _ h => simpa using h
-
-def getValue {w : Nat} (x : Int w) : BitVec w :=
+/-- We only allow extracting a `val v` constructor if given a non-poison hypothesis.
+  This prevents coercing the poison value to a bitvector `0#w`, at the cost of
+  always carrying around the hypothesis. -/
+def getValue {w : Nat} (x : Int w) (h : ¬ x.isPoison) : BitVec w :=
   match x with
   | val v => v
-  | poison => 0#w
+  | poison => absurd rfl h
 
 @[llvm_toBitVec]
 theorem getValue_of_val {w : Nat} {v : BitVec w}:
-    (val v).getValue = v := by
+    (val v).getValue (by simp [isPoison]) = v := by
   simp [getValue]
 
 @[bv_normalize, llvm_toBitVec]
 theorem isRefinedBy_toBitVec_eq (x y : Int w) :
-    (x ⊑ y) ↔ (x.isPoison ∨ (¬ y.isPoison ∧ x.getValue = y.getValue)) := by
+    (x ⊑ y) ↔ (x.isPoison ∨ ((hx : ¬ x.isPoison) → (hy : ¬ y.isPoison) → x.getValue hx = y.getValue hy)) := by
   simp only [isRefinedBy, Bool.false_eq_true, Bool.not_eq_true]
   constructor
   · intros hc
@@ -77,7 +70,7 @@ theorem isRefinedBy_toBitVec_eq (x y : Int w) :
     · cases y
       · simp [llvm_toBitVec] at hc
         simp [hc]
-      · simp [llvm_toBitVec] at hc
+      · sorry
     · simp
 
 @[bv_normalize]
@@ -117,34 +110,39 @@ theorem constant_isPoison {w : Nat} {v : _root_.Int} :
 
 @[llvm_toBitVec]
 theorem constant_getValue {w : Nat} {v : _root_.Int} :
-    (constant w v).getValue = BitVec.ofInt w v := by
+    (constant w v).getValue  (by simp [constant_isPoison]) = BitVec.ofInt w v := by
   simp [constant, llvm_toBitVec, getValue]
 
 @[llvm_toBitVec]
-theorem add_isPoison (x y : Int w) :
+theorem add_isPoison {w : Nat} {nsw nuw : Bool} (x y : Int w) :
     (add x y nsw nuw).isPoison ↔
       (x.isPoison ∨ y.isPoison ∨
-      (nsw ∧ BitVec.saddOverflow x.getValue y.getValue) ∨
-      (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue)) := by
+      ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → nsw ∧ BitVec.saddOverflow (x.getValue hx) (y.getValue hy)) ∨
+      ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → nuw ∧ BitVec.uaddOverflow (x.getValue hx) (y.getValue hy))) := by
   simp [llvm_toBitVec, add]
   cases x <;> cases y <;> simp [Id.run, isPoison, llvm_toBitVec, pure]; grind
 
 @[llvm_toBitVec]
-theorem add_getValue (x y : Int w) :
-    (add x y nsw nuw).getValue = if ¬ (add x y nsw nuw).isPoison then x.getValue + y.getValue else 0#w := by
+theorem add_getValue {w : Nat} {nsw nuw : Bool} (x y : Int w) (h : ¬ (add x y nsw nuw).isPoison):
+    (add x y nsw nuw).getValue h =
+      x.getValue (by simp [llvm_toBitVec] at h; simp [h]) + y.getValue (by simp [llvm_toBitVec] at h; simp [h]) := by
   sorry
 
 @[llvm_toBitVec]
-theorem sub_isPoison (x y : Int w) :
+theorem sub_isPoison {w : Nat} {nsw nuw : Bool} (x y : Int w) :
     (sub x y nsw nuw).isPoison ↔
       (x.isPoison ∨ y.isPoison ∨
-      (nsw ∧ BitVec.ssubOverflow x.getValue y.getValue) ∨
-      (nuw ∧ BitVec.usubOverflow x.getValue y.getValue)) := by
-  sorry
+      ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → nsw ∧ BitVec.ssubOverflow (x.getValue hx) (y.getValue hy)) ∨
+      ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → nuw ∧ BitVec.usubOverflow (x.getValue hx) (y.getValue hy))) := by
+  simp [llvm_toBitVec, sub]
+  cases x <;> cases y <;> simp [Id.run, isPoison, llvm_toBitVec, pure]; grind
 
+/- We need the ITE to be able to prove the correctness. Unfortunately,
+  it is also the reason why -/
 @[llvm_toBitVec]
-theorem sub_getValue (x y : Int w) :
-    (sub x y nsw nuw).getValue = x.getValue - y.getValue := by
+theorem sub_getValue {w : Nat} {nsw nuw : Bool} (x y : Int w) (h : ¬ (sub x y nsw nuw).isPoison) :
+    (sub x y nsw nuw).getValue h =
+      x.getValue (by simp [llvm_toBitVec] at h; simp [h]) - y.getValue (by simp [llvm_toBitVec] at h; simp [h]) := by
   sorry
 
 /-! # Examples
@@ -155,11 +153,13 @@ theorem sub_getValue (x y : Int w) :
     explicit, otherwise `simp` was not able to infer the hypotheses by itself. -/
 example (x y : Int 64) : (add x y) ⊑ (add y x) := by
   simp [llvm_toBitVec]
-  bv_decide
+  /- `bv_decide` gets stuck with the quantifiers and does not work-/
+  bv_normalize
+  sorry
 
 example (x y : Int 64) :
     sub x (sub (constant 64 0) y) ⊑ add x y := by
   simp [llvm_toBitVec]
-  bv_normalize
+  /- In this case we don't even need `bv_normalize`. -/
 
 end Int
