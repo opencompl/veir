@@ -1,8 +1,10 @@
 module
 
-import Veir.Data.FP.PackedFloat.Basic
+public import Veir.Data.FP.PackedFloat.Basic
 
 namespace Veir.Data.FP.PackedFloat
+
+public section
 
 /-- Convert a Lean double (`Float`) to a `PackedFloat`.
 Recall that a IEEE double has the following layout:
@@ -24,4 +26,5 @@ def toFloat (pf : PackedFloat 11 52) : Float :=
   let bits : BitVec 64 := (BitVec.ofBool pf.sign) ++ pf.ex ++ pf.sig
   Float.ofBits (UInt64.ofBitVec bits)
 
+end -- public section
 end Veir.Data.FP.PackedFloat
