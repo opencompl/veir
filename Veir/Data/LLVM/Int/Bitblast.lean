@@ -113,7 +113,7 @@ theorem add_isPoison (x y : Int w) :
 
 @[llvm_toBitVec]
 theorem add_getValue (x y : Int w) :
-    (add x y nsw nuw).getValue = if ¬ (add x y nsw nuw).isPoison then (x.getValue + y.getValue) else 0#w := by
+    (add x y nsw nuw).getValue = x.getValue + y.getValue := by
   sorry
 
 
@@ -127,7 +127,7 @@ theorem sub_isPoison (x y : Int w) :
 
 @[llvm_toBitVec]
 theorem sub_getValue (x y : Int w) :
-    (sub x y nsw nuw).getValue = if ¬ (sub x y nsw nuw).isPoison then (x.getValue - y.getValue) else 0#w := by
+    (sub x y nsw nuw).getValue = x.getValue - y.getValue := by
   sorry
 
 /-! # Examples
@@ -143,10 +143,6 @@ example (x y : Int 64) : (add x y) ⊑ (add y x) := by
 example (x y : Int 64) :
     sub x (sub (constant 64 0) y) ⊑ add x y := by
   simp [llvm_toBitVec]
-  /- Ideally, we would want to solve this goal by `bv_normalize` only.
-    Unfortunately, this is not possible because `bv_normalize` does not replace the ` bif y.isPoison`
-    with `false`. I tried adding some lemmas to facilitate this, but it did not work.  -/
   bv_normalize
-  sorry
 
 end Int
