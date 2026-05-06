@@ -79,13 +79,6 @@ theorem add_isPoison (x y : Int w) :
       y.isPoison ∨
       ((hx : ¬ x.isPoison) → (hy : ¬ y.isPoison) → nsw ∧ BitVec.saddOverflow (x.getValue) (y.getValue)) ∨
       ((hx : ¬ x.isPoison) → (hy : ¬ y.isPoison) → nuw ∧ BitVec.uaddOverflow (x.getValue) (y.getValue)) := by
-  simp [add]
-  cases x <;> cases y
-  · simp [llvm_toBitVec]
-
-    sorry
-
-
   sorry
 
 @[llvm_toBitVec]
