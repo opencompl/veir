@@ -28,6 +28,7 @@ match op with
 | .alloca => AllocaProperties
 | .load => LoadProperties
 | .store => StoreProperties
+| .getelementptr => GetelementptrProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Llvm where

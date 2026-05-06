@@ -2,8 +2,6 @@ module
 
 namespace Veir.Data.FP
 
-namespace PackedFloat
-
 public section
 
 /--

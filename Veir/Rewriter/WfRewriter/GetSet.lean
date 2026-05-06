@@ -1,7 +1,7 @@
 module
 
 public import Veir.Rewriter.WfRewriter.Basic
-public import Veir.Rewriter.GetSetInBounds
+public import Veir.Rewriter.GetSet
 
 import all Veir.Rewriter.WfRewriter.Basic
 
@@ -17,8 +17,8 @@ The getters we consider are:
   * Operation.prev
   * Operation.next
   * Operation.parent
-  * Operation.opType
   * Operation.attrs
+* OperationPtr.getOpType!
 * OperationPtr.getProperties!
 * OperationPtr.getNumResults!
 * OperationPtr.getNumOperands!
@@ -35,6 +35,7 @@ The getters we consider are:
   * lastBlock
   * parent
 * ValuePtr.getType!
+* OperationPtr.getResultTypes!
 -/
 
 public section
@@ -146,11 +147,11 @@ theorem OperationPtr.parent!_WfRewriter_createOp :
   grind (gen := 20) [cases InsertPoint, Operation.empty]
 
 @[grind =>]
-theorem OperationPtr.opType!_WfRewriter_createOp :
+theorem OperationPtr.getOpType!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
-    (operation.get! ctx'.raw).opType =
-    if operation = newOp then opType else (operation.get! ctx.raw).opType := by
+    operation.getOpType! ctx'.raw =
+    if operation = newOp then opType else operation.getOpType! ctx.raw := by
   simp only [WfRewriter.createOp]
   grind (gen := 20)
 
@@ -293,6 +294,18 @@ theorem ValuePtr.getType!_WfRewriter_createOp :
       else value.getType! ctx.raw
     | .blockArgument _ => value.getType! ctx.raw := by
   grind (gen := 20)
+
+@[grind =>]
+theorem OperationPtr.getResultTypes!_WfRewriter_createOp :
+    WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
+    operation.getResultTypes! ctx'.raw =
+    if operation = newOp then resultTypes else operation.getResultTypes! ctx.raw := by
+  intro h
+  ext i hi hi'
+  · grind
+  · have := ValuePtr.getType!_WfRewriter_createOp h (value := operation.getResult i)
+    grind
 
 end WfRewriter.createOp
 

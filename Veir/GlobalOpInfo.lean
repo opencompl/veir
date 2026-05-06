@@ -80,6 +80,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case bexti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case binvi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case ld => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case sd => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case llvm op =>
     cases op
@@ -100,6 +102,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case alloca => exact (AllocaProperties.fromAttrDict attrDict)
     case load => exact (LoadProperties.fromAttrDict attrDict)
     case store => exact (StoreProperties.fromAttrDict attrDict)
+    case getelementptr => exact (GetelementptrProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case func =>
     all_goals exact (Except.ok ())
@@ -172,7 +175,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .li  | .riscv .lui | .riscv .auipc | .riscv .andi | .riscv .ori | .riscv .xori
   | .riscv .addi | .riscv .slti | .riscv .sltiu | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
-  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .mod_arith .constant =>
+  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .cf .cond_br =>
     let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (.denseArrayAttr props.branch_weights)
@@ -217,6 +220,12 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict := dict.insert "alias_scopes".toUTF8 (.arrayAttr props.alias_scopes)
     dict := dict.insert "noalias_scopes".toUTF8 (.arrayAttr props.noalias_scopes)
     dict := dict.insert "tbaa".toUTF8 (.arrayAttr props.tbaa)
+    dict
+  | .llvm .getelementptr => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 3
+    dict := dict.insert "rawConstantIndices".toUTF8 (Attribute.denseArrayAttr props.rawConstantIndices)
+    dict := dict.insert "elem_type".toUTF8 props.elem_type
+    dict := dict.insert "noWrapFlags".toUTF8 (.integerAttr props.noWrapFlags)
     dict
   | .comb .extract =>
     (Std.HashMap.emptyWithCapacity 1).insert "lowBit".toUTF8 (Attribute.integerAttr props.lowBit)
