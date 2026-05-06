@@ -119,14 +119,21 @@ theorem add_isPoison {w : Nat} {nsw nuw : Bool} (x y : Int w) :
       (x.isPoison ∨ y.isPoison ∨
       ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → nsw ∧ BitVec.saddOverflow (x.getValue hx) (y.getValue hy)) ∨
       ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → nuw ∧ BitVec.uaddOverflow (x.getValue hx) (y.getValue hy))) := by
-  simp [llvm_toBitVec, add]
+  simp only [add, pure_bind, Bool.not_eq_true]
   cases x <;> cases y <;> simp [Id.run, isPoison, llvm_toBitVec, pure]; grind
 
 @[llvm_toBitVec]
 theorem add_getValue {w : Nat} {nsw nuw : Bool} (x y : Int w) (h : ¬ (add x y nsw nuw).isPoison):
     (add x y nsw nuw).getValue h =
       x.getValue (by simp [llvm_toBitVec] at h; simp [h]) + y.getValue (by simp [llvm_toBitVec] at h; simp [h]) := by
-  sorry
+  simp only [add, pure_bind]
+  simp only [add_isPoison, Bool.not_eq_true, not_or, Classical.not_forall, not_and] at h
+  cases x <;> cases y
+  · simp [llvm_toBitVec, Id.run, pure, getValue]
+    grind
+  · simp [llvm_toBitVec, getValue] at h
+  · simp [llvm_toBitVec, getValue] at h
+  · simp [llvm_toBitVec, getValue] at h
 
 @[llvm_toBitVec]
 theorem sub_isPoison {w : Nat} {nsw nuw : Bool} (x y : Int w) :
@@ -134,7 +141,7 @@ theorem sub_isPoison {w : Nat} {nsw nuw : Bool} (x y : Int w) :
       (x.isPoison ∨ y.isPoison ∨
       ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → nsw ∧ BitVec.ssubOverflow (x.getValue hx) (y.getValue hy)) ∨
       ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → nuw ∧ BitVec.usubOverflow (x.getValue hx) (y.getValue hy))) := by
-  simp [llvm_toBitVec, sub]
+  simp only [sub, pure_bind, Bool.not_eq_true]
   cases x <;> cases y <;> simp [Id.run, isPoison, llvm_toBitVec, pure]; grind
 
 /- We need the ITE to be able to prove the correctness. Unfortunately,
@@ -143,7 +150,89 @@ theorem sub_isPoison {w : Nat} {nsw nuw : Bool} (x y : Int w) :
 theorem sub_getValue {w : Nat} {nsw nuw : Bool} (x y : Int w) (h : ¬ (sub x y nsw nuw).isPoison) :
     (sub x y nsw nuw).getValue h =
       x.getValue (by simp [llvm_toBitVec] at h; simp [h]) - y.getValue (by simp [llvm_toBitVec] at h; simp [h]) := by
-  sorry
+  simp only [sub, pure_bind]
+  simp only [sub_isPoison, Bool.not_eq_true, not_or, Classical.not_forall, not_and] at h
+  cases x <;> cases y
+  · simp [llvm_toBitVec, Id.run, pure, getValue]
+    grind
+  · simp [llvm_toBitVec, getValue] at h
+  · simp [llvm_toBitVec, getValue] at h
+  · simp [llvm_toBitVec, getValue] at h
+
+@[llvm_toBitVec]
+theorem mul_isPoison {w : Nat} {nsw nuw : Bool} (x y : Int w) :
+    (mul x y nsw nuw).isPoison ↔
+      (x.isPoison ∨ y.isPoison ∨
+      ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → nsw ∧ BitVec.smulOverflow (x.getValue hx) (y.getValue hy)) ∨
+      ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → nuw ∧ BitVec.umulOverflow (x.getValue hx) (y.getValue hy))) := by
+  simp only [mul, pure_bind, Bool.not_eq_true]
+  cases x <;> cases y <;> simp [Id.run, isPoison, llvm_toBitVec, pure]; grind
+
+@[llvm_toBitVec]
+theorem mul_getValue {w : Nat} {nsw nuw : Bool} (x y : Int w) (h : ¬ (mul x y nsw nuw).isPoison) :
+    (mul x y nsw nuw).getValue h =
+      x.getValue (by simp [llvm_toBitVec] at h; simp [h]) * y.getValue (by simp [llvm_toBitVec] at h; simp [h]) := by
+  simp only [mul, pure_bind]
+  simp only [mul_isPoison, Bool.not_eq_true, not_or, Classical.not_forall, not_and] at h
+  cases x <;> cases y
+  · simp [llvm_toBitVec, Id.run, pure, getValue]
+    grind
+  · simp [llvm_toBitVec, getValue] at h
+  · simp [llvm_toBitVec, getValue] at h
+  · simp [llvm_toBitVec, getValue] at h
+
+@[llvm_toBitVec]
+theorem udiv_isPoison {w : Nat} {exact : Bool} (x y : Int w) :
+    (udiv x y exact).isPoison ↔
+      (x.isPoison ∨ y.isPoison ∨
+      ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → exact ∧ (x.getValue hx).umod (y.getValue hy) ≠ 0) ∨
+      ((hy : ¬ y.isPoison) → (y.getValue hy) = 0)) := by
+  simp only [udiv, pure_bind, Bool.not_eq_true]
+  cases x <;> cases y <;> simp [Id.run, isPoison, llvm_toBitVec, pure]; grind
+
+@[llvm_toBitVec]
+theorem udiv_getValue {w : Nat} {exact : Bool}  (x y : Int w) (h : ¬ (udiv x y exact).isPoison) :
+    (udiv x y exact).getValue h =
+      (x.getValue (by simp [llvm_toBitVec] at h; simp [h])).udiv (y.getValue (by simp [llvm_toBitVec] at h; simp [h])) := by
+  simp only [udiv, pure_bind]
+  simp only [udiv_isPoison, Bool.not_eq_true, not_or, Classical.not_forall, not_and] at h
+  cases x <;> cases y
+  · simp [llvm_toBitVec, Id.run, pure, getValue]
+    grind
+  · simp [llvm_toBitVec, getValue] at h
+  · simp [llvm_toBitVec, getValue] at h
+  · simp [llvm_toBitVec, getValue] at h
+    grind
+
+-- @[llvm_toBitVec]
+-- theorem sdiv_isPoison {w : Nat} {exact : Bool} (x y : Int w) :
+--     (sdiv x y exact).isPoison ↔
+--       (x.isPoison ∨ y.isPoison ∨
+--       ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → exact ∧
+--         ((y.getValue hy) = 0 ∨ (w ≠ 1 ∧ (x.getValue hx) = BitVec.intMin w ∧ (y.getValue hy) = -1))) ∨
+--       ((hx : ¬x.isPoison) → (hy : ¬ y.isPoison) → exact ∧ (x.getValue hx).smod (y.getValue hy) ≠ 0) ∨
+--       ((hy : ¬ y.isPoison) → (y.getValue hy) = 0)) := by
+--   simp only [sdiv, pure_bind, Bool.not_eq_true]
+--   cases x <;> cases y <;> simp [Id.run, isPoison, llvm_toBitVec, pure];
+
+--   grind
+
+-- @[llvm_toBitVec]
+-- theorem sdiv_getValue {w : Nat} {exact : Bool}  (x y : Int w) (h : ¬ (udiv x y exact).isPoison) :
+--     (udiv x y exact).getValue h =
+--       (x.getValue (by simp [llvm_toBitVec] at h; simp [h])).udiv (y.getValue (by simp [llvm_toBitVec] at h; simp [h])) := by
+--   simp only [udiv, pure_bind]
+--   simp only [udiv_isPoison, Bool.not_eq_true, not_or, Classical.not_forall, not_and] at h
+--   cases x <;> cases y
+--   · simp [llvm_toBitVec, Id.run, pure, getValue]
+--     grind
+--   · simp [llvm_toBitVec, getValue] at h
+--   · simp [llvm_toBitVec, getValue] at h
+--   · simp [llvm_toBitVec, getValue] at h
+--     grind
+
+
+
 
 /-! # Examples
   The following section includes examples we are using to compare across all the different implementations.
