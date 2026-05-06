@@ -39,6 +39,13 @@
   "llvm.br"(%arg6_0) [^8] : (i32) -> ()
 ^8(%arg7_0 : i32):
   "llvm.return"(%arg7_0) : (i32) -> ()
+^9(%ptr : !llvm.ptr):
+  %28 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, noWrapFlags = 3 : i32, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+  %29 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, noWrapFlags = 2 : i32, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+  %30 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, noWrapFlags = 1 : i32, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+  %31 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, noWrapFlags = 0 : i32, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+  %32 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+  "llvm.return"(%28, %29, %30, %31, %32) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
 }) : () -> ()
 
 // CHECK:       "builtin.module"() ({
@@ -80,4 +87,11 @@
 // CHECK-NEXT:     "llvm.br"(%{{.*}}) [^{{.*}}] : (i32) -> ()
 // CHECK-NEXT:   ^{{.*}}(%{{.*}} : i32):
 // CHECK-NEXT:     "llvm.return"(%{{.*}}) : (i32) -> ()
+// CHECK-NEXT:   ^{{.*}}(%{{.*}} : !llvm.ptr):
+// CHECK-NEXT:     %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+// CHECK-NEXT:     %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 2 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+// CHECK-NEXT:     %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 1 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.pt
+// CHECK-NEXT:     %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+// CHECK-NEXT:     %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+// CHECK-NEXT:     "llvm.return"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
 // CHECK-NEXT: }) : () -> ()

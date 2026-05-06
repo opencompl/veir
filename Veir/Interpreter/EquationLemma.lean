@@ -92,5 +92,5 @@ theorem interpretOp_equationLemmaAt (ctxDom : ctx.Dom)
   rcases hDom with hDom | hDom
   · apply interpretOp_equationHolds_other ctxDom hInterp
     · grind [OperationPtr.dominates_of_strictlyDominates]
-    · grind [interpretOp_equationHolds_other, OperationPtr.dominatesIp_before]
+    · grind [interpretOp_equationHolds_other]
   · grind [interpretOp_equationHolds_self]

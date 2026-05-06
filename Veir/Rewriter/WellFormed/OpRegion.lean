@@ -5,7 +5,7 @@ public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
 import Veir.IR.WellFormed
-import Veir.Rewriter.GetSetInBounds
+import Veir.Rewriter.GetSet
 
 public section
 
@@ -57,7 +57,7 @@ theorem IRContext.wellFormed_Rewriter_pushRegion :
         · intro _
           exists op.getNumRegions! ctx
           grind
-    all_goals grind [Operation.WellFormed]
+    all_goals grind [OperationPtr.WellFormed]
   case blocks =>
     intros bl hbl
     have ⟨h₁, h₂, h₃, h₄, h₅⟩ := wf.blocks bl (by grind)

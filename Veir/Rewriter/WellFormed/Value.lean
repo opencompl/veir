@@ -5,7 +5,7 @@ public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
 import Veir.IR.WellFormed
-import Veir.Rewriter.GetSetInBounds
+import Veir.Rewriter.GetSet
 import Veir.Rewriter.LinkedList.GetSet
 import Veir.Rewriter.LinkedList.WellFormed
 
@@ -139,13 +139,13 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext OpInfo) (use : OpOperandP
       apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
     case operations =>
       intros opPtr opPtrInBounds
-      apply Operation.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
+      apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
     case blocks =>
       intros blockPtr blockPtrInBounds
-      apply Block.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
+      apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
     case regions =>
       intros regionPtr regionPtrInBounds
-      apply Region.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
+      apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
 
 theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext OpInfo) (oldValue: ValuePtr) (newValue: ValuePtr)
     (oldIn: oldValue.InBounds ctx)

@@ -95,6 +95,7 @@ inductive Llvm where
 | alloca
 | load
 | store
+| getelementptr
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -185,6 +186,10 @@ inductive Riscv where
 | pack
 | packh
 | packw
+/- memory -/
+| ld
+| sd
+
 /- pseudooperations -/
 | mv
 | not

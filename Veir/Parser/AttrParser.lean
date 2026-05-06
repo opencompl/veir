@@ -155,10 +155,10 @@ def matchingBracket! (kind : TokenKind) : TokenKind :=
 /--
   Parse the body of an unregistered attribute, which is a balanced
   string for `<`, `(`, `[`, `{`, and may contain string literals.
-  The first `<` is expected to have already been consumed when this function is called.
-  The ending `>` is not consumed by this function.
+  The opening token is expected to have already been consumed when this function is called.
+  The ending token (by default `>`) is not consumed by this function.
 -/
-private def parseUnregisteredAttrBody (startPos : Option Nat := none) : AttrParserM String := do
+private def parseUnregisteredAttrBody (endToken : TokenKind := .greater) (startPos : Option Nat := none) : AttrParserM String := do
   let startPos := startPos.getD (← peekToken).slice.start
 
   /- This stack corresponds to the brackets that are still open. -/
@@ -182,7 +182,7 @@ private def parseUnregisteredAttrBody (startPos : Option Nat := none) : AttrPars
       /- If we don't have any open bracket, either we end the parsing if
          the bracket is the last `>`, or we raise an error. -/
       if bracketStack.isEmpty then
-        if token.kind == .greater then
+        if token.kind == endToken then
           endPos := token.slice.start
           break
         throw s!"unexpected closing bracket {closingName} in attribute body"
@@ -208,18 +208,20 @@ private def parseUnregisteredAttrBody (startPos : Option Nat := none) : AttrPars
 
 /--
   Parse a dialect type, if present.
-  A dialect attribute has the form `!dialect.name<body>`.
+  A dialect attribute has the form `!dialect.name` or `!dialect.name<body>`.
 -/
 partial def parseOptionalDialectType : AttrParserM (Option TypeAttr) := do
   let startPos ← getPos
   let dialectName ← parseOptionalPrefixedKeyword .exclamationIdent
   let some dialectName := dialectName | return none
-  parsePunctuation "<"
-  let _ ← parseUnregisteredAttrBody
-  let endPos := (← peekToken).slice.stop
-  parsePunctuation ">"
-  let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
-  return some (⟨UnregisteredAttr.mk (String.fromUTF8! value) true, by grind⟩)
+  if let true ← parseOptionalPunctuation "<" then
+    let _ ← parseUnregisteredAttrBody
+    let endPos := (← peekToken).slice.stop
+    parsePunctuation ">"
+    let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return some (⟨UnregisteredAttr.mk (String.fromUTF8! value) true, by grind⟩)
+  else
+    return some (⟨UnregisteredAttr.mk ("!" ++ String.fromUTF8! dialectName) true, by grind⟩)
 
 /--
   Parse a dialect attribute, if present.
@@ -235,6 +237,18 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   parsePunctuation ">"
   let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
   return some (UnregisteredAttr.mk (String.fromUTF8! value) false)
+
+/--
+  Parse a location attribute, if present.
+  A location attribute has the form `loc(body)`.
+-/
+partial def parseOptionalLocationAttr : AttrParserM (Option Attribute) := do
+  if !(← parseOptionalKeyword "loc".toByteArray) then
+    return none
+  parsePunctuation "("
+  let body ← parseUnregisteredAttrBody .rParen
+  parsePunctuation ")"
+  return some (LocationAttr.mk body)
 
 /--
   Parse an LLVM pointer type `!llvm.ptr`, if present.
@@ -397,6 +411,8 @@ partial def parseOptionalDictionaryAttr : AttrParserM (Option DictionaryAttr) :=
 partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
   if let some dialectAttr ← parseOptionalDialectAttr then
     return some dialectAttr
+  else if let some locationAttr ← parseOptionalLocationAttr then
+    return some locationAttr
   else if let some type ← parseOptionalType then
     return some type.val
   else if let some integerAttr ← parseOptionalIntegerAttr then

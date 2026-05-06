@@ -80,6 +80,14 @@ structure UnitAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  A source location.
+  This currently stores the raw string of the MLIR location syntax body.
+-/
+structure LocationAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   An array of integer attributes.
   The values are stored as an array of integers, and an associated integer type.
   Note that the integers are not necessarily in the range of the integer type.
@@ -182,6 +190,8 @@ inductive Attribute
 | stringAttr (attr : StringAttr)
 /-- Unit attribute -/
 | unitAttr (attr : UnitAttr)
+/-- Location attribute -/
+| locationAttr (attr : LocationAttr)
 /-- Array attribute -/
 | arrayAttr (attr : ArrayAttr)
 /-- Dense array attribute -/
@@ -309,6 +319,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case locationAttr.locationAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case arrayAttr.arrayAttr attr1 attr2 =>
     exact (match ArrayAttr.decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -378,6 +392,9 @@ instance : ToString StringAttr where
 
 instance : ToString UnitAttr where
   toString _ := "unit"
+
+instance : ToString LocationAttr where
+  toString attr := s!"loc(" ++ attr.value ++ ")"
 
 instance : ToString DenseArrayAttr where
   toString attr :=
@@ -460,6 +477,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .registerAttr attr => ToString.toString attr
   | .stringAttr attr => ToString.toString attr
   | .unitAttr attr => ToString.toString attr
+  | .locationAttr attr => ToString.toString attr
   | .arrayAttr attr => attr.toString
   | .denseArrayAttr attr => ToString.toString attr
   | .dictionaryAttr attr => attr.toString
@@ -500,6 +518,9 @@ instance : Coe StringAttr Attribute where
 
 instance : Coe UnitAttr Attribute where
   coe attr := .unitAttr attr
+
+instance : Coe LocationAttr Attribute where
+  coe attr := .locationAttr attr
 
 instance : Coe UnregisteredAttr Attribute where
   coe attr := .unregisteredAttr attr
@@ -544,6 +565,7 @@ def isType (attr : Attribute) : Bool :=
   | .integerAttr _ => false
   | .stringAttr _ => false
   | .unitAttr _ => false
+  | .locationAttr _ => false
   | .arrayAttr _ => false
   | .denseArrayAttr _ => false
   | .dictionaryAttr _ => false

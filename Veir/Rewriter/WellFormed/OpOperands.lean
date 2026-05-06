@@ -6,7 +6,7 @@ public import Veir.Rewriter.Basic
 import all Veir.Rewriter.Basic
 import Veir.IR.WellFormed
 import Veir.Rewriter.Basic
-import Veir.Rewriter.GetSetInBounds
+import Veir.Rewriter.GetSet
 import Veir.Rewriter.LinkedList.GetSet
 
 public section
@@ -120,7 +120,7 @@ theorem Rewriter.pushOperand_WellFormed  (valuePtr : ValuePtr) (valuePtrInBounds
       intros region regionInBounds
       simp only [OperationPtr.getRegion!_pushOperand]
       grind
-    all_goals grind [Operation.WellFormed]
+    all_goals grind [OperationPtr.WellFormed]
   case blocks =>
     intros bl blInBounds
     have ⟨h₁, h₂, h₃, h₄, h₅⟩ := hOpWf.blocks bl (by grind)
