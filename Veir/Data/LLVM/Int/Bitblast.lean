@@ -43,10 +43,15 @@ theorem val_of_not_isPoison {w : Nat} (x : Int w) (hx : x.isPoison = false) :
   · case _ v => exists v
   · simp [isPoison] at hx
 
-def getValue_old {w : Nat} (x : Int w) (hx : ¬ x.isPoison := by grind) : BitVec w :=
-  match x with
-  | Int.val v => v
-  | Int.poison => absurd rfl hx
+@[llvm_toBitVec]
+theorem poison_ite_eq {w : Nat} (x y : Int w) (z : BitVec w) :
+  (if x.isPoison = true ∨ y.isPoison = true then
+      ({ toBitVec := 0#w, poison := true} : IntBv w) else
+      ({ toBitVec := z, poison := false,} : IntBv w)).poison =
+      (x.isPoison ∨ y.isPoison) := by
+  split
+  · case _ h =>  simp [h]
+  · case _ h => simpa using h
 
 def getValue {w : Nat} (x : Int w) : BitVec w :=
   match x with
@@ -61,32 +66,44 @@ theorem getValue_of_val {w : Nat} {v : BitVec w}:
 @[bv_normalize, llvm_toBitVec]
 theorem isRefinedBy_toBitVec_eq (x y : Int w) :
     (x ⊑ y) ↔ (x.isPoison ∨ (¬ y.isPoison ∧ x.getValue = y.getValue)) := by
-  sorry
+  simp only [isRefinedBy, Bool.false_eq_true, Bool.not_eq_true]
+  constructor
+  · intros hc
+    split at hc
+    · grind
+    · simp [llvm_toBitVec]
+  · intros hc
+    split
+    · cases y
+      · simp [llvm_toBitVec] at hc
+        simp [hc]
+      · simp [llvm_toBitVec] at hc
+    · simp
 
--- @[bv_normalize]
--- theorem toBitVec_bif {w : Nat} (b : Bool) (x y : IntBv w) :
---     (bif b then x else y).toBitVec = bif b then x.toBitVec else y.toBitVec := by
---   cases b <;> rfl
+@[bv_normalize]
+theorem toBitVec_bif {w : Nat} (b : Bool) (x y : IntBv w) :
+    (bif b then x else y).toBitVec = bif b then x.toBitVec else y.toBitVec := by
+  cases b <;> rfl
 
--- @[bv_normalize]
--- theorem poison_bif {w : Nat} (b : Bool) (x y : IntBv w) :
---     (bif b then x else y).poison = bif b then x.poison else y.poison := by
---   cases b <;> rfl
+@[bv_normalize]
+theorem poison_bif {w : Nat} (b : Bool) (x y : IntBv w) :
+    (bif b then x else y).poison = bif b then x.poison else y.poison := by
+  cases b <;> rfl
 
--- @[bv_normalize]
--- theorem eq_iff {w : Nat} {x y : IntBv w} :
---     x = y ↔ x.toBitVec = y.toBitVec ∧ x.poison = y.poison :=
---   IntBv.ext_iff
+@[bv_normalize]
+theorem eq_iff {w : Nat} {x y : IntBv w} :
+    x = y ↔ x.toBitVec = y.toBitVec ∧ x.poison = y.poison :=
+  IntBv.ext_iff
 
--- @[bv_normalize, llvm_toBitVec]
--- theorem toBitVec_ite_eq {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
---     (if b then x else y).toBitVec = if b then x.toBitVec else y.toBitVec := by
---   split <;> rfl
+@[bv_normalize, llvm_toBitVec]
+theorem toBitVec_ite_eq {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
+    (if b then x else y).toBitVec = if b then x.toBitVec else y.toBitVec := by
+  split <;> rfl
 
--- @[bv_normalize, llvm_toBitVec]
--- theorem poison_ite {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
---     (if b then x else y).poison = if b then x.poison else y.poison := by
---   split <;> rfl
+@[bv_normalize, llvm_toBitVec]
+theorem poison_ite {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
+    (if b then x else y).poison = if b then x.poison else y.poison := by
+  split <;> rfl
 
 attribute [llvm_toBitVec] IntPred.eval
 
@@ -109,13 +126,13 @@ theorem add_isPoison (x y : Int w) :
       (x.isPoison ∨ y.isPoison ∨
       (nsw ∧ BitVec.saddOverflow x.getValue y.getValue) ∨
       (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue)) := by
-  sorry
+  simp [llvm_toBitVec, add]
+  cases x <;> cases y <;> simp [Id.run, isPoison, llvm_toBitVec, pure]; grind
 
 @[llvm_toBitVec]
 theorem add_getValue (x y : Int w) :
-    (add x y nsw nuw).getValue = x.getValue + y.getValue := by
+    (add x y nsw nuw).getValue = if ¬ (add x y nsw nuw).isPoison then x.getValue + y.getValue else 0#w := by
   sorry
-
 
 @[llvm_toBitVec]
 theorem sub_isPoison (x y : Int w) :
