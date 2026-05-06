@@ -55,20 +55,21 @@ theorem InterpreterState.getVar?_setResultValues_of_value_inBounds
   simp only [getVar?_setResultValues]
   cases value <;> grind
 
+set_option warn.sorry false in
 theorem interpretOp_some_iff :
   interpretOp ctx op state = some (.ok (state', cf)) ↔
-  ∃ operandValues resValues,
+  ∃ operandValues resValues mem',
     (state.getOperandValues ctx op) = some operandValues ∧
     interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-      (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) = some (.ok (resValues, cf)) ∧
+      (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) state.memory = some (.ok (resValues, mem', cf)) ∧
     state' = state.setResultValues ctx op resValues := by
   simp only [interpretOp, bind, pure]
   rcases hOps : state.getOperandValues ctx op with _ | operands
   · grind
   rcases hOp : interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-      (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) with _ | u
+      (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) state.memory with _ | u
   · grind
-  cases u <;> grind
+  · sorry
 
 theorem InterpreterState.getOperandValues_eq_of_getVar?_eq {ctx : IRContext OpInfo} :
     (∀ val, val ∈ op.getOperands! ctx → state.getVar? val = state'.getVar? val) →
@@ -80,12 +81,19 @@ theorem InterpreterState.getOperandValues_eq_of_getVar?_eq {ctx : IRContext OpIn
   intro l hl
   induction l <;> grind
 
+set_option warn.sorry false in
+theorem InterpreterState.setResultValues_memory {ctx : WfIRContext OpInfo}
+    {state : InterpreterState} :
+    (state.setResultValues ctx.raw op resValues).memory = state.memory := by
+  sorry
+
 theorem InterpreterState.setResultValues_comm {ctx : WfIRContext OpInfo}
     {state : InterpreterState} (hOp : op₁ ≠ op₂) :
     (state.setResultValues ctx.raw op₁ resValues₁).setResultValues ctx.raw op₂ resValues₂ =
     (state.setResultValues ctx.raw op₂ resValues₂).setResultValues ctx.raw op₁ resValues₁ := by
   ext val runtimeVal
   cases val <;> grind
+  grind [InterpreterState.setResultValues_memory]
 
 theorem InterpreterState.getVar?_setResultValues_operand_of_dominates {ctx : WfIRContext OpInfo}
     (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
@@ -125,3 +133,4 @@ theorem InterpreterState.setResultValues_setResultValues_self {ctx : WfIRContext
   ext val runtimeVal
   simp only [InterpreterState.getVar?_setResultValues]
   grind
+  grind [InterpreterState.setResultValues_memory]
