@@ -3,6 +3,7 @@ module
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.Refinement
 public import Veir.Data.LLVM.Int.Basic
+public meta import Std.Tactic.BVDecide.Reflect
 import Veir.ForLean
 import Veir.Data.LLVM.Int.Simp
 
@@ -711,5 +712,24 @@ theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) :
       if x.isPoison ∨ y.isPoison ∨ c.isPoison then 0#w
           else if c.getValue == 1#1 then x.getValue else y.getValue := by
   simp [getValue, llvm_toBitVec]
+
+
+/-! # Examples
+  The following section includes examples we are using to compare across all the different implementations.
+-/
+
+/-- We can prove some basic properties about LLVM operations. -/
+example (x y : Int 64) : (add x y) ⊑ (add y x) := by
+  simp [llvm_toBitVec]
+  bv_decide
+
+example (x y : Int 64)  :
+    sub x (sub (constant 64 0) y) ⊑ add x y := by
+  simp only [llvm_toBitVec]
+  bv_normalize
+  /- Ideally, we would want to solve this goal by `bv_normalize` only.
+    Unfortunately, this is not possible because of the coercion of `.poison` type to
+    `0#w` in `toIntBv`. -/
+  bv_decide
 
 end Int

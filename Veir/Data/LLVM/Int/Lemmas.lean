@@ -1,6 +1,7 @@
 module
 
 import all Veir.Data.LLVM.Int.Basic
+import all Veir.Data.LLVM.Int.Simp
 import Veir.ForLean
 
 open Veir.Data.LLVM
