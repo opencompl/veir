@@ -41,12 +41,10 @@ theorem bv_AddSub_1165 :
     ∀ (e e_1 : Int 64),
       LLVM.Int.add (LLVM.Int.sub (LLVM.Int.constant 64 0) e) (LLVM.Int.sub (LLVM.Int.constant 64 0) e_1) ⊑ LLVM.Int.sub (LLVM.Int.constant 64 0) (LLVM.Int.add e e_1) := by
   simp [llvm_toBitVec]
-  bv_decide
 
 theorem bv_AddSub_1176 :
     ∀ (e e_1 : Int 64), LLVM.Int.add e (LLVM.Int.sub (LLVM.Int.constant 64 0) e_1) ⊑ LLVM.Int.sub e e_1 := by
   simp [llvm_toBitVec]
-  bv_decide
 
 theorem bv_AddSub_1202 :
     ∀ (e e_1 : Int 64), LLVM.Int.add (LLVM.Int.xor e (LLVM.Int.constant 64 (-1))) e_1 ⊑ LLVM.Int.sub (LLVM.Int.sub e_1 (LLVM.Int.constant 64 1)) e := by
@@ -66,7 +64,6 @@ theorem bv_AddSub_1309 :
 theorem bv_AddSub_1539 :
     ∀ (e e_1 : Int 64), LLVM.Int.sub e_1 (LLVM.Int.sub (LLVM.Int.constant 64 0) e) ⊑ LLVM.Int.add e_1 e := by
   simp [llvm_toBitVec]
-  bv_decide
 
 /-
   `LLVM.neg` is not supported in

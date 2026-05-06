@@ -27,52 +27,77 @@ def isPoison {w : Nat} (x : Int w) :=
   | .val _ => false
   | .poison => true
 
-def poison_isPoison {w : Nat} : poison.isPoison (w := w) = true := by simp [isPoison]
+@[llvm_toBitVec]
+theorem poison_isPoison {w : Nat} : poison.isPoison (w := w) = true := by simp [isPoison]
 
-def val_isPoison {w : Nat} {v : BitVec w} : (val v).isPoison (w := w) = false := by simp [isPoison]
+@[llvm_toBitVec]
+theorem val_isPoison {w : Nat} {v : BitVec w} : (val v).isPoison (w := w) = false := by simp [isPoison]
 
-def val_of_not_isPoison {w : Nat} (x : Int w) (hx : x.isPoison = false) :
+theorem val_of_not_isPoison {w : Nat} (x : Int w) (hx : x.isPoison = false) :
     ∃ v, x = val v := by
   cases x
   · case _ v => exists v
   · simp [isPoison] at hx
 
-def getValue {w : Nat} (x : Int w) (hx : ¬ x.isPoison := by grind) : BitVec w :=
+def getValue_old {w : Nat} (x : Int w) (hx : ¬ x.isPoison := by grind) : BitVec w :=
   match x with
   | Int.val v => v
   | Int.poison => absurd rfl hx
 
+def getValue {w : Nat} (x : Int w)  : BitVec w :=
+  match x with
+  | val v => v
+  | poison => 0#w
+
+@[llvm_toBitVec]
+theorem getValue_of_val {w : Nat} {v : BitVec w}:
+    (val v).getValue = v := by
+  simp [getValue]
+
 @[bv_normalize, llvm_toBitVec]
 theorem isRefinedBy_toBitVec_eq (x y : Int w) :
     (x ⊑ y) ↔ (x.isPoison ∨
-      ((hx : ¬ x.isPoison) → (hy : ¬ y.isPoison) → (x.getValue hx = y.getValue hy))) := by
+      ((hx : ¬ x.isPoison) → (hy : ¬ y.isPoison) → (x.getValue = y.getValue))) := by
   sorry
 
 /-! # LLVM IR operations unfolding to `toIntBv` -/
 
-
 @[llvm_toBitVec]
 theorem constant_isPoison {w : Nat} {v : _root_.Int} :
-  (constant w v).isPoison = false := by sorry
+    (constant w v).isPoison = false := by
+  simp [constant, llvm_toBitVec]
 
 @[llvm_toBitVec]
 theorem constant_getValue {w : Nat} {v : _root_.Int} :
-  (constant w v).getValue (by simp [llvm_toBitVec]) = v := by sorry
+    (constant w v).getValue = BitVec.ofInt w v := by
+  simp [constant, llvm_toBitVec, getValue]
 
 @[llvm_toBitVec]
 theorem add_isPoison (x y : Int w) :
     (add x y nsw nuw).isPoison ↔
       x.isPoison ∨
       y.isPoison ∨
-      ((hx : ¬ x.isPoison) → (hy : ¬ y.isPoison) → nsw ∧ BitVec.saddOverflow (x.getValue hx) (y.getValue hy)) ∨
-      ((hx : ¬ x.isPoison) → (hy : ¬ y.isPoison) → nuw ∧ BitVec.uaddOverflow (x.getValue hx) (y.getValue hy)) := by
+      ((hx : ¬ x.isPoison) → (hy : ¬ y.isPoison) → nsw ∧ BitVec.saddOverflow (x.getValue) (y.getValue)) ∨
+      ((hx : ¬ x.isPoison) → (hy : ¬ y.isPoison) → nuw ∧ BitVec.uaddOverflow (x.getValue) (y.getValue)) := by
+  simp [add]
+  cases x <;> cases y
+  · simp [llvm_toBitVec]
+
+    sorry
+
+
   sorry
 
 @[llvm_toBitVec]
 theorem add_getValue (x y : Int w) (hadd : ¬ (add x y nsw nuw).isPoison):
-    (add x y nsw nuw).getValue hadd = x.getValue
-      (by rw [add_isPoison] at hadd; grind) + y.getValue (by rw [add_isPoison] at hadd; grind):= by
+    (add x y nsw nuw).getValue = x.getValue := by
   sorry
+
+@[llvm_toBitVec]
+theorem add_comm (x y : Int w) :
+    (add x y nsw nuw) ⊑ (add y x nsw nuw) := by
+  simp [llvm_toBitVec]
+  bv_decide
 
 @[llvm_toBitVec]
 theorem sub_isPoison (x y : Int w) :
@@ -89,15 +114,9 @@ theorem sub_getValue (x y : Int w) (hsub : ¬ (sub x y nsw nuw).isPoison):
       (by rw [sub_isPoison] at hsub; grind) + y.getValue (by rw [sub_isPoison] at hsub; grind):= by
   sorry
 
-theorem cast_eq_ofInt (i : _root_.Int) :
-  ↑ i = BitVec.ofInt w i := by sorry
-
 theorem bv_AddSub_1539 :
     ∀ (e e_1 : Int 64), sub e_1 (sub (constant 64 0) e) ⊑ add e_1 e := by
   intros x y
   simp [llvm_toBitVec]
-  bv_normalize
-  bv_decide
-  sorry
 
 end Int
