@@ -206,9 +206,6 @@ def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   if exact ∧ x'.smod y' ≠ 0 then
     return poison
 
-  if y' == 0 then
-    return poison
-
   val (x'.sdiv y')
 
 /--
