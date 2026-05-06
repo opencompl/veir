@@ -30,15 +30,22 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   /- ARITH -/
   | .arith .addi => do
-    if op.getNumOperands ctx.raw opIn ≠ 2 then
+    if _ : op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx.raw opIn ≠ 1 then
+    else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
+    else if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+    else if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    pure ()
+    else
+      let .integerType integerType := ((op.getOperand ctx.raw 0).getType ctx.raw).val
+        | throw "Expected integer type result"
+      if ((op.getOperand ctx.raw 0).getType ctx.raw).val ≠ ((op.getOperand ctx.raw 1).getType ctx.raw).val then
+        throw "Expected operands to have the same type"
+      if ((op.getResult 0).get ctx.raw).type.val ≠ ((op.getOperand ctx.raw 0).getType ctx.raw).val then
+        throw "Expected result type to match operand type"
+      pure ()
   | .arith .addui_extended => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
@@ -92,12 +99,15 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
    | .arith .constant => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 1 then
+    else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
+    else if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+    else if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    else if (op.getProperties! ctx.raw (.arith .constant)).value.type ≠
+          ((op.getResult 0).get ctx.raw).type.val then
+        throw "Expected result type to be equal to the constant's type"
     pure ()
   | .arith .divsi => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -1799,6 +1809,43 @@ theorem OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : W
     (ctxVerify : ctx.Verified) (opInBounds : op.InBounds ctx.raw := by grind) :
     op.Verified ctx opInBounds := by
   sorry -- This requires to reason about `IRContext.forOpsDepM`.
+
+/-!
+## Lemmas for verified operations
+
+These are the lemmas that give the information about the structure of verified operations.
+There is one lemma per operation, and they are all of the same form: given that an operation
+satisfies its local invariants, we can conclude that it has the expected number of operands,
+results, regions, and successors, and that the types of its operands and results are as expected.
+-/
+
+theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .constant) :
+    op.getNumResults! ctx.raw = 1 ∧
+    op.getNumOperands! ctx.raw = 0 ∧
+    op.getNumSuccessors! ctx.raw = 0 ∧
+    op.getNumRegions! ctx.raw = 0 ∧
+    ((op.getResult 0).get! ctx.raw).type.val =
+      (op.getProperties! ctx.raw (.arith .constant)).value.type := by
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
+    ite_not] at opVerify
+  grind
+
+theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .addi) :
+    op.getNumResults! ctx.raw = 1 ∧
+    op.getNumOperands! ctx.raw = 2 ∧
+    op.getNumSuccessors! ctx.raw = 0 ∧
+    op.getNumRegions! ctx.raw = 0 ∧
+    ∃ integerType,
+      ((op.getResult 0).get! ctx.raw).type.val = .integerType integerType ∧
+      ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType integerType ∧
+      ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .integerType integerType := by
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
+    ite_not] at opVerify
+  grind
 
 end
 end Veir
