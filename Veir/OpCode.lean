@@ -97,6 +97,8 @@ inductive Llvm where
 | store
 | getelementptr
 | return
+| func
+| module_flags
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
