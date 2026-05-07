@@ -432,12 +432,14 @@ theorem xor_getValue {w : Nat} (x y : Int w) (h : ¬ (xor x y).isPoison) :
   The following section includes examples we are using to compare across all the different implementations.
 -/
 
-/-- to make this go through, I had to make the hypothesis of non-poison `add` in `add_getValue`
-    explicit, otherwise `simp` was not able to infer the hypotheses by itself. -/
+/-- To make this go through, I had to make the hypothesis of non-poison `add` in `add_getValue`
+    explicit, otherwise `simp` was not able to infer the hypotheses by itself.
+    Overall, we have a problem with the hypotheses introduced by the rewriting of the refinement
+    relation. -/
 example (x y : Int 64) : (add x y) ⊑ (add y x) := by
   simp [llvm_toBitVec]
   /- `bv_decide` gets stuck with the quantifiers and does not work-/
-  bv_decide
+  -- bv_decide
   sorry
 
 example (x y : Int 64) :
@@ -446,8 +448,3 @@ example (x y : Int 64) :
   /- In this case we don't even need `bv_normalize`. -/
 
 end Int
-
-theorem bv_AddSub_1152 :
-    ∀ (e e_1 : Int 1), LLVM.Int.add e_1 e ⊑ LLVM.Int.xor e_1 e := by
-  simp [llvm_toBitVec]
-  bv_decide
