@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778135010200,
+  "lastUpdate": 1778149146962,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -14508,6 +14508,162 @@ window.BENCHMARK_DATA = {
             "value": 773000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000773s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48860705+luisacicolini@users.noreply.github.com",
+            "name": "Luisa Cicolini",
+            "username": "luisacicolini"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5ccd9cfb1f2c98fea4595c873ed5ec07d7027b2",
+          "message": "add bitblasting test (#499)\n\nWe add to unittest the tests for the bitblastability of the `LLVM.Int`\ntype.\nThe tests come from\n[lean-mlir](https://github.com/opencompl/lean-mlir/blob/main/SSA/Projects/InstCombine/AliveStatements.lean)\nand are instantiated for bitvectors of width 64.\n\nWe also introduce a simp set `llvm_toBitVec`, aimed at unfolding the\nsemantics of `LLVM.Int` operations to bitblastable ones - a call to this\nsimp set + a call to bv_decide should suffice to solve all lemmas on\nfixed-width `LLVM.Int` bitblastable operations.",
+          "timestamp": "2026-05-07T10:16:20Z",
+          "tree_id": "dad24d9489a9d4c66ae16a16efb50db0238ff844",
+          "url": "https://github.com/opencompl/veir/commit/c5ccd9cfb1f2c98fea4595c873ed5ec07d7027b2"
+        },
+        "date": 1778149138210,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2579000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002579s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3788000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003788s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2307000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002307s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3159000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003159s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2479000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002479s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2513000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002513s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 2045000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002045s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1989000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001989s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2578000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002578s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5362000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005362s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2561000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002561s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3076000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003076s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2522000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002522s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 2016000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002016s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 2170000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002170s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1586000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001586s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2485000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002485s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3715000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003715s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 2034000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002034s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 2214000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002214s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 786000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000786s"
           }
         ]
       }
