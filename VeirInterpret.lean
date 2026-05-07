@@ -35,7 +35,7 @@ def main (args : List String) : IO Unit := do
   | [filename] =>
     match ← parseOperation filename with
     | .ok (ctx, op) =>
-      match ctx.verify with
+      match (WfIRContext.mk ctx sorry).verify with
       | .ok _ =>
         match interpretModule ctx op (by sorry) (by sorry) with
         | some results => IO.println s!"Program output: {results}"
