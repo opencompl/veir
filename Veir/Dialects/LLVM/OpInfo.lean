@@ -31,6 +31,36 @@ match op with
 | .getelementptr => GetelementptrProperties
 | _ => Unit
 
+@[expose]
+def Llvm.getNumOperands (op : Llvm) : Option Nat :=
+match op with
+| .constant => some 0
+| .alloca
+| .br
+| .cond_br
+| .load => some 1
+| .add
+| .and
+| .xor
+| .srem
+| .urem
+| .select
+| .sext
+| .sub
+| .mul
+| .udiv
+| .sdiv
+| .shl
+| .lshr
+| .ashr
+| .or
+| .trunc
+| .zext
+| .icmp
+| .store => some 2
+| .getelementptr
+| .return => none
+
 instance : HasDialectOpInfo Llvm where
   propertiesOf := Llvm.propertiesOf
 

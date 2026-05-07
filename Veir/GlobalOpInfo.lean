@@ -29,6 +29,12 @@ match opCode with
 instance : HasDialectOpInfo OpCode where
   propertiesOf := propertiesOf
 
+@[expose]
+def getNumOperandsGlobal  (opCode : OpCode) : Option Nat :=
+match opCode with
+| .llvm op => Llvm.getNumOperands op
+| _ => none
+
 instance : HasOpInfo OpCode where
   moduleOpCode := .builtin .module
 

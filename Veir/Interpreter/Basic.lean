@@ -135,6 +135,7 @@ inductive ControlFlowAction where
 -/
 def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (h : (getNumOperandsGlobal opType = some operands.size) := sorry)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
   | .arith .constant => do
@@ -237,7 +238,10 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
       | none
     return (#[.int bw.bitwidth (LLVM.Int.constant bw.bitwidth properties.value.value)], none)
   | .llvm .add => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    let twoOperands : (Vector RuntimeValue 2) := (operands.toVector).cast (by
+      simp [getNumOperandsGlobal, Llvm.getNumOperands] at h
+      simp [h])
+    let #v[.int bw lhs, .int bw' rhs] := twoOperands | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.add lhs rhs properties.nsw properties.nuw)], none)
