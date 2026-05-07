@@ -1512,6 +1512,9 @@ theorem getNumArguments!_eq_of_BlockPtr_get!_eq {block : BlockPtr} :
 def getArgument (block : BlockPtr) (index : Nat) : BlockArgumentPtr :=
   { block := block, index := index }
 
+theorem getArgument_def {block : BlockPtr} {index : Nat} :
+    getArgument block index = ⟨block, index⟩ := by rfl
+
 @[simp, grind =]
 theorem getArgument_index {block : BlockPtr} {index : Nat} :
     (getArgument block index).index = index := by

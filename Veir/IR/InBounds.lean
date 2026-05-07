@@ -273,6 +273,11 @@ theorem OperationPtr.nextBlockOperand_not_inBounds (opPtr : OperationPtr) (h : o
 theorem OperationPtr.nextResult_not_inBounds (opPtr : OperationPtr) (h : opPtr.InBounds ctx) : ¬ (opPtr.nextResult ctx).InBounds ctx := by
   grind
 
+@[grind .]
+theorem BlockPtr.nextArgument_not_inBounds (blockPtr : BlockPtr) (h : blockPtr.InBounds ctx) :
+    ¬ (blockPtr.nextArgument ctx).InBounds ctx := by
+  grind
+
 end operation
 
 /- OpOperandPtr -/
