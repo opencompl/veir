@@ -86,7 +86,7 @@ Translate to MLIR:
 mlir-translate --import-llvm demorgan-opt.ll | mlir-opt --mlir-print-op-generic --mlir-print-local-scope > demorgan-opt.mlir
 ```
 
-Optimize using VeIR's InstCombine pass:
+Optimize using VeIR's InstCombine and DCE (dead code elimination) passes:
 ```bash
 lake exec veir-opt -p=instcombine,dce demorgan-opt.mlir
 ```
