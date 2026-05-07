@@ -83,7 +83,7 @@ opt -passes=sroa demorgan.ll -S -o demorgan-opt.ll
 
 Translate to MLIR:
 ```bash
-mlir-translate --import-llvm foo.ll | mlir-opt --mlir-print-op-generic --mlir-print-local-scope > demorgan-opt.mlir
+mlir-translate --import-llvm demorgan-opt.ll | mlir-opt --mlir-print-op-generic --mlir-print-local-scope > demorgan-opt.mlir
 ```
 
 Optimize using Veir's InstCombine pass:
