@@ -51,9 +51,9 @@ uv run lit Test/ -v
 lake exe run-benchmarks add-fold-worklist
 ```
 
-## From C to Veir
+## From C to VeIR
 
-This section gives an example showing how to run code through a Veir
+This section gives an example showing how to run code through a VeIR
 pass, starting from C code.
 
 Prerequisite: An up-to-date MLIR bin directory in your PATH.
@@ -73,7 +73,7 @@ _end_
 
 Compile to LLVM IR:
 ```bash
-clang -O0 -Xclang -disable-O0-optnone -S -emit-llvm demorgan.c
+clang -cc1 -O0 -disable-O0-optnone -emit-llvm demorgan.c
 ```
 
 Optimize it a little:
@@ -86,7 +86,7 @@ Translate to MLIR:
 mlir-translate --import-llvm demorgan-opt.ll | mlir-opt --mlir-print-op-generic --mlir-print-local-scope > demorgan-opt.mlir
 ```
 
-Optimize using Veir's InstCombine pass:
+Optimize using VeIR's InstCombine pass (currently no change):
 ```bash
 lake exec veir-opt -p=instcombine demorgan-opt.mlir
 ```
