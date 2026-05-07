@@ -7,6 +7,8 @@ public section
 class HasDialectOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
   propertiesOf : opCode → Type := λ _ => Unit
+  getNumOperands : opCode → Nat := λ _ => 0
+  getOperandType : (op : opCode) → Fin (getNumOperands op) → Type := λ _ _ => Unit
   propertiesHash {op : opCode} : Hashable (propertiesOf op) := by
     simp only [properties_of]
     intros opCode; cases opCode <;>

@@ -38,8 +38,22 @@ match op with
 | .sd => RISCVImmediateProperties
 | _ => Unit
 
+@[expose, properties_of]
+def Riscv.getNumOperands (op : Riscv) : Nat :=
+match op with
+| .or => 2
+| _ => 0
+
+@[expose, properties_of]
+def Riscv.getOperandType (op : Riscv) (_idx : Fin (Riscv.getNumOperands op)) : Type :=
+match op with
+| .or => Nat
+| _ => Unit
+
 instance : HasDialectOpInfo Riscv where
   propertiesOf := Riscv.propertiesOf
+  getNumOperands := Riscv.getNumOperands
+  getOperandType := Riscv.getOperandType
 
 end
 
