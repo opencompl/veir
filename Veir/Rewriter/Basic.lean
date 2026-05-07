@@ -382,6 +382,51 @@ def Rewriter.replaceOp? (ctx: IRContext OpInfo) (oldOp newOp: OperationPtr)
     eraseOp newCtx oldOp
 
 @[irreducible]
+protected def Rewriter.pushBlockArgument (ctx : IRContext OpInfo) (blockPtr : BlockPtr) (type : TypeAttr)
+    (blockPtrInBounds : blockPtr.InBounds ctx := by grind) : IRContext OpInfo :=
+  let index := blockPtr.getNumArguments ctx (by grind)
+  let argument := { type := type, firstUse := none, index := index, loc := (), owner := blockPtr : BlockArgument }
+  blockPtr.pushArgument ctx argument (by grind)
+
+@[grind =]
+theorem Rewriter.pushBlockArgument_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (Rewriter.pushBlockArgument ctx blockPtr type blockPtrInBounds) ↔
+    (ptr.InBounds ctx ∨
+     ptr = .blockArgument (blockPtr.nextArgument ctx) ∨
+     ptr = .value (.blockArgument (blockPtr.nextArgument ctx)) ∨
+     ptr = .opOperandPtr (.valueFirstUse (.blockArgument (blockPtr.nextArgument ctx)))) := by
+  constructor <;> grind [Rewriter.pushBlockArgument]
+
+@[grind .]
+theorem Rewriter.pushBlockArgument_fieldsInBounds (hctx : ctx.FieldsInBounds) :
+    (Rewriter.pushBlockArgument ctx blockPtr type blockPtrInBounds).FieldsInBounds := by
+  simp only [Rewriter.pushBlockArgument]
+  apply BlockPtr.pushArgument_fieldsInBounds
+  · constructor <;> grind
+  · exact hctx
+
+def Rewriter.initBlockArguments (ctx: IRContext OpInfo) (blockPtr: BlockPtr) (types: Array TypeAttr)
+    (index: Nat := 0) (hblock : blockPtr.InBounds ctx := by grind)
+    (hidx : index = blockPtr.getNumArguments ctx := by grind) : IRContext OpInfo :=
+  if h: index >= types.size then
+    ctx
+  else
+    let ctx := Rewriter.pushBlockArgument ctx blockPtr types[index]
+    Rewriter.initBlockArguments ctx blockPtr types (index + 1) (hidx := by grind [Rewriter.pushBlockArgument])
+  termination_by types.size - index
+  decreasing_by lia
+
+@[grind .]
+theorem Rewriter.initBlockArguments_fieldsInBounds (hx : ctx.FieldsInBounds) :
+    (initBlockArguments ctx blockPtr types index h₁ h₂).FieldsInBounds := by
+  fun_induction initBlockArguments <;> grind
+
+@[grind .]
+theorem Rewriter.initBlockArguments_inBounds_mono (ptr : GenericPtr) :
+    ptr.InBounds ctx → ptr.InBounds (initBlockArguments ctx blockPtr types index h₁ h₂) := by
+  fun_induction initBlockArguments <;> grind
+
+@[irreducible]
 def Rewriter.createBlock (ctx: IRContext OpInfo) (insertionPoint: Option BlockInsertPoint)
     (hctx : ctx.FieldsInBounds) (hip : insertionPoint.maybe BlockInsertPoint.InBounds ctx)
     : Option (IRContext OpInfo × BlockPtr) :=
