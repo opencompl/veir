@@ -547,7 +547,6 @@ theorem bv_InstCombineShift__497 :
 theorem bv_InstCombineShift__497''' :
     ∀ (e e_1 e_2 : Int 64), LLVM.Int.shl (LLVM.Int.add e e_2) e_1 ⊑ LLVM.Int.add (LLVM.Int.shl e e_1) (LLVM.Int.shl e_2 e_1) := by
   simp [llvm_toBitVec]
-  bv_decide
 
 theorem bv_InstCombineShift__582 :
     ∀ (e e_1 : Int 64), LLVM.Int.lshr (LLVM.Int.shl e e_1) e_1 ⊑ LLVM.Int.and e (LLVM.Int.lshr (LLVM.Int.constant 64 (-1)) e_1) := by
