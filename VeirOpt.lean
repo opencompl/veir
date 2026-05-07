@@ -88,7 +88,7 @@ def main (args : List String) : IO Unit := do
     | .error errMsg =>
       IO.eprintln s!"Error: {errMsg}"
     | .ok (ctx, op) =>
-      match ctx.verify with
+      match (WfIRContext.mk ctx sorry).verify with
       | .error errMsg =>
         IO.eprintln s!"Error verifying input program: {errMsg}"
       | .ok _ =>
