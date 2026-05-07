@@ -11,7 +11,7 @@ public section
 @[expose, properties_of]
 def Llvm.propertiesOf (op : Llvm) : Type :=
 match op with
-| .mlir.constant => LLVMConstantProperties
+| .mlir__constant => LLVMConstantProperties
 | .add => NswNuwProperties
 | .sub => NswNuwProperties
 | .mul => NswNuwProperties

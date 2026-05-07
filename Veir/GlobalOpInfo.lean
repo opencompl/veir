@@ -85,7 +85,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     all_goals exact (Except.ok ())
   case llvm op =>
     cases op
-    case constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
+    case mlir__constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
     case add => exact (NswNuwProperties.fromAttrDict attrDict)
     case sub => exact (NswNuwProperties.fromAttrDict attrDict)
     case mul => exact (NswNuwProperties.fromAttrDict attrDict)
@@ -141,7 +141,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   match opCode with
   | .arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
-  | .llvm .constant =>
+  | .llvm .mlir__constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci
   | .llvm .add | .llvm .sub | .llvm .mul | .llvm .shl | .llvm .trunc => Id.run do

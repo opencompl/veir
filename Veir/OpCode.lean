@@ -71,7 +71,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Llvm where
-| mlir.constant
+| mlir__constant
 | and
 | or
 | xor

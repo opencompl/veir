@@ -403,7 +403,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .test .test => do
     pure ()
   /- LLVM -/
-  | .llvm .constant => do
+  | .llvm .mlir__constant => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
     if op.getNumResults ctx.raw opIn ≠ 1 then

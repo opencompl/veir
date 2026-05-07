@@ -47,7 +47,7 @@ meta def mkDialectCodeSimple (d : Dialect) : Name :=
 /--
 The name of an operation as a `String`. Used for `fromByteArray` and `fromName`.
 -/
-meta def mkOpName (d : Dialect) (op : String) : String := d.getName ++ "." ++ op
+meta def mkOpName (d : Dialect) (op : String) : String := d.getName ++ "." ++ (op.replace "__" ".")
 
 end Dialect
 
@@ -75,6 +75,7 @@ meta def emitFromName (ds : Array Dialect) : TermElabM Command := do
   let mut res : TSyntax `term ← `($builtin $unreg)
   for d in ds do
     for op in d.operations do
+      let op := op.replace "." "__"
       if d.getName = "builtin" ∧ op = "unregistered" then continue
       res ← `(if name = $(Syntax.mkStrLit (d.mkOpName op)).toByteArray then ($(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op))) else $res)
   `(def $(mkIdent `OpCode.fromName) (name : $(mkIdent ``ByteArray)) : $(mkIdent `OpCode) := $res)
