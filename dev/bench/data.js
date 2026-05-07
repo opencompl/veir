@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778134350603,
+  "lastUpdate": 1778135010200,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -14352,6 +14352,162 @@ window.BENCHMARK_DATA = {
             "value": 778000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000778s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tobias@grosser.es",
+            "name": "Tobias Grosser",
+            "username": "tobiasgrosser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c56ebbdb68bbd534a474466edb855a04567cf07e",
+          "message": "Ensure unit-tests fail on io (#511)\n\nIn case unit tests print info or warnings, fail the build. This requires\nus to pass `--iofail` to `lake test`.\n\nAdditionally, this PR disables unit tests to be run while building the\nproject, as they would otherwise be run twice. We prefer to have a\nseparate build step for unit tests, such that failures there are\napparent.",
+          "timestamp": "2026-05-07T06:20:54Z",
+          "tree_id": "8b3ad89bfaf2e407725ffca21cf5b41ea4de5fd0",
+          "url": "https://github.com/opencompl/veir/commit/c56ebbdb68bbd534a474466edb855a04567cf07e"
+        },
+        "date": 1778135001798,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2373000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002373s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3855000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003855s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2383000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002383s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3203000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003203s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2382000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002382s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2472000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002472s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1926000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001926s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1996000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001996s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2326000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002326s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5394000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005394s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2369000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002369s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3094000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003094s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2294000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002294s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 2029000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002029s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1979000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001979s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1581000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001581s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2249000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002249s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3749000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003749s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1857000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001857s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1950000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001950s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 773000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000773s"
           }
         ]
       }
