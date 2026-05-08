@@ -678,8 +678,10 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     pure ()
   | .llvm .getelementptr => do
-    if op.getNumOperands ctx.raw opIn ≠ 2 then
-      throw "Expected 2 operands"
+    let props := op.getProperties! ctx.raw (.llvm .getelementptr)
+    let dynamicCount := props.rawConstantIndices.values.filter (· == -2147483648) |>.size
+    if op.getNumOperands ctx.raw opIn ≠ 1 + dynamicCount then
+      throw s!"Expected {1 + dynamicCount} operands"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 results"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
