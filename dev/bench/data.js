@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778222347766,
+  "lastUpdate": 1778222574210,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -16224,6 +16224,162 @@ window.BENCHMARK_DATA = {
             "value": 771000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000771s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mathieu.fehr@gmail.com",
+            "name": "Mathieu Fehr",
+            "username": "math-fehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "975785d355f496c953748e51c1547f8b4acc6b0a",
+          "message": "Add `Rewriter.initBlockArguments` and `Rewriter.pushBlockArguments` (#522)\n\nAlso, add the associated get/set and well-formedness lemmas.\nThese are based on the `Rewriter.initOpResults` ones, and are mostly a\ncopy-paste",
+          "timestamp": "2026-05-08T06:29:41Z",
+          "tree_id": "e885e06a6c66391b98fb59c9baf4e617c956b74a",
+          "url": "https://github.com/opencompl/veir/commit/975785d355f496c953748e51c1547f8b4acc6b0a"
+        },
+        "date": 1778222564247,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2377000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002377s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3794000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003794s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2266000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002266s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3089000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003089s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2264000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002264s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2424000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002424s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1876000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001876s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1916000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001916s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2174000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002174s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5319000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005319s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2233000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002233s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3032000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003032s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2241000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002241s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1898000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001898s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1915000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001915s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1506000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001506s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2238000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002238s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3685000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003685s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1954000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001954s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1986000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001986s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 782000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000782s"
           }
         ]
       }
