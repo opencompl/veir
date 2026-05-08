@@ -25,7 +25,7 @@ inductive EDyadic where
   | infinity (sign : Bool)
   /-- A NaN (not a number). -/
   | nan
-  deriving Inhabited
+  deriving Inhabited, DecidableEq
 
 instance : Repr EDyadic where
   reprPrec 
