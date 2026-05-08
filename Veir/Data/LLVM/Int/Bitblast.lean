@@ -56,37 +56,6 @@ theorem isPoison_of_val {w : Nat} {v : BitVec w} :
 theorem isPoison_of_poison {w : Nat} :
     poison.isPoison (w := w) = true := rfl
 
-/-
-@[bv_normalize, llvm_toBitVec]
-theorem poison_ite {w : Nat} (b : Prop) [Decidable b] (x y : IntBv w) :
-    (if b then x else y).poison = if b then x.poison else y.poison := by
-  split <;> rfl
-
-@[bv_normalize]
-theorem poison_toBitVec_constraint {w : Nat} (x : IntBv w) :
-    x.poison = true → x.toBitVec = 0#w := x.inv
-
-@[bv_normalize]
-theorem toBitVec_bif {w : Nat} (b : Bool) (x y : IntBv w) :
-    (bif b then x else y).toBitVec = bif b then x.toBitVec else y.toBitVec := by
-  cases b <;> rfl
-
-@[bv_normalize]
-theorem poison_bif {w : Nat} (b : Bool) (x y : IntBv w) :
-    (bif b then x else y).poison = bif b then x.poison else y.poison := by
-  cases b <;> rfl
-
-@[llvm_toBitVec, bv_normalize]
-theorem getValue_eq_toBitVec_of_not_poison {w : Nat} {x : Int w} :
-    x.getValue = x.toIntBv.toBitVec := by rfl
-
-@[bv_normalize]
-theorem isPoison_eq_toIntBv_poison {w : Nat} (x : Int w) :
-    x.isPoison = x.toIntBv.poison := rfl
-
-attribute [llvm_toBitVec] IntPred.eval
--/
-
 /-! # LLVM IR operations unfolding to `toIntBv` -/
 
 @[llvm_toBitVec]
