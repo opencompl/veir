@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778277485313,
+  "lastUpdate": 1778277754957,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -17316,6 +17316,162 @@ window.BENCHMARK_DATA = {
             "value": 752000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000752s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mathieu.fehr@gmail.com",
+            "name": "Mathieu Fehr",
+            "username": "math-fehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1b8c8ccb05c91adef96e05919439570c43c62bf7",
+          "message": "Improve inBounds lemmas for BlockPtr.setArguments (#527)\n\nThe previous implementation was too restrictive and was requiring the\nnew arguments to be larger than the old ones",
+          "timestamp": "2026-05-08T21:44:54Z",
+          "tree_id": "d1cbc56fe892e48fcd8e9a22e954c431f67bc735",
+          "url": "https://github.com/opencompl/veir/commit/1b8c8ccb05c91adef96e05919439570c43c62bf7"
+        },
+        "date": 1778277743860,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 1813000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001813s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3402000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003402s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 1827000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001827s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2823000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002823s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 1805000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001805s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2104000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002104s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1534000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001534s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1737000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001737s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 1811000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001811s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 4706000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.004706s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 1824000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001824s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2675000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002675s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 1860000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001860s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1723000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001723s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1517000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001517s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1380000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001380s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 1816000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001816s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3218000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003218s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1580000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001580s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 12000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000012s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1529000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001529s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 750000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000750s"
           }
         ]
       }
