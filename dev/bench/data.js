@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778223824900,
+  "lastUpdate": 1778227701484,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -16692,6 +16692,162 @@ window.BENCHMARK_DATA = {
             "value": 752000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000752s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "siddu.druid@gmail.com",
+            "name": "Siddharth",
+            "username": "bollu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "45c711597701b07a7852a58ad555c92449482126",
+          "message": "feat: add EDyadic for computable FP (#505)\n\nAs discussed with @tobiasgrosser, for computable rounding,\nit suffices to use the dyadics as a representation,\nsince it is a compressed, arbitrary-precision representation of numbers\nof the form `k/2^n` where `k` is not divisible by `2`.\n\nTherefore, we add an `EDyadic` type, and show how to convert it to a\nrational. As the next step, we will show how to convert a `PackedFloat`\ninto\nan `EDyadic`.\n\n\nPart of https://github.com/opencompl/veir/issues/504\n\n---------\n\nCo-authored-by: Luisa Cicolini <48860705+luisacicolini@users.noreply.github.com>",
+          "timestamp": "2026-05-08T08:05:43Z",
+          "tree_id": "687764b03c0d4b31fdfea320919700e087c7f2fe",
+          "url": "https://github.com/opencompl/veir/commit/45c711597701b07a7852a58ad555c92449482126"
+        },
+        "date": 1778227691726,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2151000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002151s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3628000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003628s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2207000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002207s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3072000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003072s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2129000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002129s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2364000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002364s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1818000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001818s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1912000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001912s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2187000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002187s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5192000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005192s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2267000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002267s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2932000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002932s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2131000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002131s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1880000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001880s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1787000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001787s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1478000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001478s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2080000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002080s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3542000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003542s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1786000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001786s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1910000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001910s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 798000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000798s"
           }
         ]
       }
