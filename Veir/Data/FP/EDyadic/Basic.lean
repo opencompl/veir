@@ -28,7 +28,7 @@ inductive EDyadic where
   deriving Inhabited, DecidableEq
 
 instance : Repr EDyadic where
-  reprPrec 
+  reprPrec
     | .zero sign,  _ => s!"EDyadic.zero {sign}"
     | .nonzeroFinite d,  _ => s!"EDyadic.finite {repr d.toRat}"
     | .infinity sign, _ => s!"EDyadic.infinity {sign}"

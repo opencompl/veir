@@ -41,18 +41,12 @@ def packOfOdd (e s : Nat) (n k : Int) : PackedFloat e s :=
   if 1 ≤ exVal ∧ exVal ≤ maxEx then
     let shifted : Nat := v <<< (s - j)
     let sigBits : Nat := shifted - 2 ^ s
-    { sign := sign,
-      ex := BitVec.ofInt e exVal,
-      sig := BitVec.ofNat s sigBits }
+    PackedFloat.mkNumber sign (BitVec.ofInt e exVal) (BitVec.ofNat s sigBits)
   else if exVal ≤ 0 then
     let shiftAmt : Int := biasInt + (s : Int) - 1 - k
-    { sign := sign,
-      ex := 0#e,
-      sig := BitVec.ofNat s (v <<< shiftAmt.toNat) }
+    PackedFloat.mkNumber sign 0#e (BitVec.ofNat s (v <<< shiftAmt.toNat))
   else
-    { sign := sign,
-      ex := BitVec.allOnes e,
-      sig := 0#s }
+    PackedFloat.mkInfinity e s sign
 
 /--
 Pack an `EDyadic` value into a `PackedFloat e s`.
@@ -67,17 +61,12 @@ This is a left inverse of `PackedFloat.toEDyadic` on representable values:
 The sign of `±0` and `±∞` is preserved. NaN is canonicalized to a single
 representation (significand `1`).
 -/
-def pack {e s : Nat} : EDyadic → PackedFloat e s
-  | .nan =>
-    { sign := false, ex := BitVec.allOnes e, sig := BitVec.ofNat s 1 }
-  | .infinity sign =>
-    { sign := sign, ex := BitVec.allOnes e, sig := 0#s }
-  | .zero sign =>
-    { sign := sign, ex := 0#e, sig := 0#s }
-  | .nonzeroFinite .zero =>
-    { sign := false, ex := 0#e, sig := 0#s }
-  | .nonzeroFinite (.ofOdd n k _) =>
-    packOfOdd e s n k
+def pack (e s : Nat) : EDyadic → PackedFloat e s
+  | .nan => PackedFloat.mkNaN e s
+  | .infinity sign => PackedFloat.mkInfinity e s sign
+  | .zero sign => PackedFloat.mkZero e s sign
+  | .nonzeroFinite .zero => PackedFloat.mkZero e s false
+  | .nonzeroFinite (.ofOdd n k _) => packOfOdd e s n k
 
 end -- public section
 
