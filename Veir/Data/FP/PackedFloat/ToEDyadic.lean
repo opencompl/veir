@@ -26,7 +26,7 @@ Unlike `toExtRat`, this preserves the sign of `±0`.
 def toEDyadic {e s : Nat} (pf : PackedFloat e s) : EDyadic :=
   if pf.state = .nan then .nan
   else if pf.state = .infinite then .infinity pf.sign
-  else if pf.state =.zero then .zero pf.sign
+  else if pf.state = .zero then .zero pf.sign
   else
     -- normal, subnormal.
     .nonzeroFinite (Dyadic.ofIntWithPrec (signToInt pf.sign * sig) prec)
