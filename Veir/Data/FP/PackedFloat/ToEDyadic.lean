@@ -3,6 +3,7 @@ module
 public import Veir.Data.FP.PackedFloat.Basic
 public import Veir.Data.FP.PackedFloat.State
 public import Veir.Data.FP.PackedFloat.ToExtRat
+public import Veir.Data.FP.Sign
 public import Veir.Data.FP.EDyadic.Basic
 
 namespace Veir.Data.FP.PackedFloat
@@ -28,10 +29,10 @@ def toEDyadic {e s : Nat} (pf : PackedFloat e s) : EDyadic :=
   else if pf.state =.zero then .zero pf.sign
   else
     -- normal, subnormal.
-    .nonzeroFinite (Dyadic.ofIntWithPrec (pf.sign.toInt * sig) prec)
+    .nonzeroFinite (Dyadic.ofIntWithPrec (signToInt pf.sign * sig) prec)
   where
     sig := pf.sig.toNat  + 2 ^ s * (decide (pf.state = .normal)).toNat
-    prec := (bias e : Int) + (s : Int) - (Nat.min pf.ex.toNat 1)
+    prec := (bias e : Int) + (s : Int) - (Nat.max pf.ex.toNat 1)
 
 
 end
