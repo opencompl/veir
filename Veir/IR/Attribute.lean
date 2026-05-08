@@ -107,6 +107,21 @@ structure UnregisteredAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  A flat symbol reference attribute, e.g. `@foo` or `@"my.func"`.
+  The value stores the raw text including the `@` prefix.
+-/
+structure FlatSymbolRefAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  A boolean attribute, written as `true` or `false`.
+-/
+structure BoolAttr where
+  value : Bool
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   The `!mod_arith.int` type from HEIR's modarith dialect.
   The modulus type annotation is optional in syntax.
 -/
@@ -202,6 +217,10 @@ inductive Attribute
 | functionType (type : FunctionType)
 /-- An attribute from an unknown dialect. -/
 | unregisteredAttr (attr : UnregisteredAttr)
+/-- A flat symbol reference, e.g. `@foo` or `@"my.func"`. -/
+| flatSymbolRefAttr (attr : FlatSymbolRefAttr)
+/-- A boolean attribute, written as `true` or `false`. -/
+| boolAttr (attr : BoolAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
 /-- LLVM pointer type -/
@@ -349,6 +368,14 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case flatSymbolRefAttr.flatSymbolRefAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case boolAttr.boolAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
 end
@@ -404,6 +431,12 @@ instance : ToString DenseArrayAttr where
 
 instance : ToString UnregisteredAttr where
   toString attr := attr.value
+
+instance : ToString FlatSymbolRefAttr where
+  toString attr := attr.value
+
+instance : ToString BoolAttr where
+  toString attr := if attr.value then "true" else "false"
 
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}" ++
@@ -482,6 +515,8 @@ def Attribute.toString (attr : Attribute) : String :=
   | .denseArrayAttr attr => ToString.toString attr
   | .dictionaryAttr attr => attr.toString
   | .unregisteredAttr attr => ToString.toString attr
+  | .flatSymbolRefAttr attr => ToString.toString attr
+  | .boolAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
@@ -524,6 +559,12 @@ instance : Coe LocationAttr Attribute where
 
 instance : Coe UnregisteredAttr Attribute where
   coe attr := .unregisteredAttr attr
+
+instance : Coe FlatSymbolRefAttr Attribute where
+  coe attr := .flatSymbolRefAttr attr
+
+instance : Coe BoolAttr Attribute where
+  coe attr := .boolAttr attr
 
 instance : Coe ArrayAttr Attribute where
   coe attr := .arrayAttr attr
@@ -570,6 +611,8 @@ def isType (attr : Attribute) : Bool :=
   | .denseArrayAttr _ => false
   | .dictionaryAttr _ => false
   | .unregisteredAttr attr => attr.isType
+  | .flatSymbolRefAttr _ => false
+  | .boolAttr _ => false
   | .functionType _ => true
   | .modArithType _ => true
   | .registerType _ => true
