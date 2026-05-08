@@ -39,12 +39,49 @@ theorem InsertPoint.inBounds_before : (before op).InBounds ctx ↔ op.InBounds c
 @[simp, grind =]
 theorem InsertPoint.inBounds_atEnd : (atEnd bl).InBounds ctx ↔ bl.InBounds ctx := by rfl
 
-def InsertPoint.after (op : OperationPtr) (ctx : IRContext OpInfo) (blockPtr : BlockPtr)
-    (_opHasParent : (op.get! ctx).parent = some blockPtr := by grind)
+def InsertPoint.atStart! (block : BlockPtr) (ctx : IRContext OpInfo) : InsertPoint :=
+  match (block.get! ctx).firstOp with
+  | some firstOp => .before firstOp
+  | none => .atEnd block
+
+def InsertPoint.atStart (block : BlockPtr) (ctx : IRContext OpInfo)
+    (hIn : block.InBounds ctx := by grind) : InsertPoint :=
+  match (block.get ctx (by grind)).firstOp with
+  | some firstOp => .before firstOp
+  | none => .atEnd block
+
+@[grind =_, eq_bang ←]
+theorem InsertPoint.atStart!_eq_atStart (block : BlockPtr) (ctx : IRContext OpInfo)
+    (hIn : block.InBounds ctx) :
+    InsertPoint.atStart! block ctx = InsertPoint.atStart block ctx hIn := by
+  cases (block.get ctx (by grind)).firstOp <;> grind [InsertPoint.atStart!, InsertPoint.atStart]
+
+def InsertPoint.after (op : OperationPtr) (ctx : IRContext OpInfo) (block : BlockPtr)
+    (_opHasParent : (op.get! ctx).parent = some block := by grind)
     (opInBounds : op.InBounds ctx := by grind) : InsertPoint :=
   match (op.get ctx).next with
   | some op => .before op
-  | none => InsertPoint.atEnd blockPtr
+  | none => InsertPoint.atEnd block
+
+def InsertPoint.after? (op : OperationPtr) (ctx : IRContext OpInfo) : Option InsertPoint :=
+  match (op.get! ctx).parent with
+  | some block =>
+    match (op.get! ctx).next with
+    | some nextOp => some (.before nextOp)
+    | none => some (.atEnd block)
+  | none => none
+
+theorem InsertPoint.after?_eq_some_of_after_eq :
+    InsertPoint.after op ctx block h₁ h₂ = ip →
+    InsertPoint.after? op ctx = some ip := by
+  grind [InsertPoint.after, InsertPoint.after?]
+
+theorem InsertPoint.after?_eq_of_after?_eq_some
+    (h : InsertPoint.after? op ctx = some ip)
+    (hblock : (op.get! ctx).parent = some block)
+    (hop : op.InBounds ctx) :
+    InsertPoint.after op ctx block (by grind) (by grind) = ip := by
+  grind [InsertPoint.after, InsertPoint.after?]
 
 @[grind .]
 theorem InsertPoint.after_inBounds (ctxWf : ctx.WellFormed) :
