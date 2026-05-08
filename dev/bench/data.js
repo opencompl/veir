@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778222078727,
+  "lastUpdate": 1778222347766,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -16068,6 +16068,162 @@ window.BENCHMARK_DATA = {
             "value": 772000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000772s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mathieu.fehr@gmail.com",
+            "name": "Mathieu Fehr",
+            "username": "math-fehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5a835e808f8b620ac30a3a4d6d3eb99ca4b9f761",
+          "message": "Add type information in arith.constant and arith.addi verifiers (#510)\n\nThis checks that the operands and result of an `arith.addi` have the\nsame integer type, and that the result of an `arith.constant` has the\nsame type as the property it holds.\n\nAlso, add a lemma that states the constraints of a verified\n`arith.constant` or `arith.addi`. While I would love to have these\nlemmas in `grind`, I do not know how to have a pattern that only\ntriggers if `getOpType! ctx = .arith .addi`. Currently, I can only make\nthis trigger when `getOpType! ctx` is in the context, which is way too\nweak and might trigger this too many times (especially when we are going\nto have more of these lemmas).",
+          "timestamp": "2026-05-08T06:29:01Z",
+          "tree_id": "1a13d76169a9aae06671477a880a9d36d78c886a",
+          "url": "https://github.com/opencompl/veir/commit/5a835e808f8b620ac30a3a4d6d3eb99ca4b9f761"
+        },
+        "date": 1778222336917,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2216000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002216s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3700000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003700s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2207000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002207s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3091000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003091s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2263000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002263s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2419000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002419s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1827000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001827s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1941000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001941s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2212000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002212s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5228000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005228s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2195000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002195s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2937000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002937s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2154000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002154s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1893000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001893s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1792000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001792s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1510000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001510s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2136000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002136s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3594000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003594s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1883000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001883s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1773000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001773s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 771000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000771s"
           }
         ]
       }
