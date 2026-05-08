@@ -15,9 +15,7 @@ open Veir.Data.LLVM.Int
 
 /-- We introduce a tactic to automatically prove all the lemmas. -/
 macro "llvm_bv_decide" : tactic =>
-  `(tactic| ((simp (contextual := true) [llvm_toBitVec]; all_goals sorry)))
-
-set_option warn.sorry false
+  `(tactic| (simp (contextual := true) [llvm_toBitVec]; all_goals bv_decide))
 
 /-
   `LLVM.not` is not supported in

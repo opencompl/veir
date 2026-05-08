@@ -22,6 +22,22 @@ def getValue {w : Nat} (x : Int w) (h : x.isPoison = false := by grind) : BitVec
   match x, h with
   | .val v, _ => v
 
+def getValueD {w : Nat} (x : Int w) : BitVec w :=
+  match x with
+  | .poison => 0#w
+  | .val v => v
+
+/--
+  Low priority rule to convert getValue to getValueD once no more simplification can be done.
+  This is needed because `bv_decide` cannot see different instantiations of `x.getValue proof`
+  as the same and abstracts them to separate values.
+-/
+@[llvm_toBitVec 1]
+theorem getValue_eq_getValueD {w : Nat} (x : Int w) (h : x.isPoison = false := by grind) :
+    x.getValue h = x.getValueD := by
+  unfold getValue getValueD
+  grind
+
 @[llvm_toBitVec]
 theorem eq_iff {w : Nat} (a b : Int w) :
   a = b ↔
@@ -30,7 +46,7 @@ theorem eq_iff {w : Nat} (a b : Int w) :
   unfold isPoison getValue
   grind
 
-@[llvm_toBitVec]
+@[llvm_toBitVec, grind =]
 theorem isRefinedBy_iff {w : Nat} (a b : Int w) :
   a ⊑ b ↔
     (a.isPoison = false → b.isPoison = false) ∧
@@ -373,9 +389,8 @@ theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) (h : (select c x y).
 
 /-- We can prove some basic properties about LLVM operations. -/
 example (x y : Int 64) : (add x y (nsw := true)) ⊑ (add y x) := by
-  simp (contextual := true) [llvm_toBitVec]
-  -- bv_decide
-  sorry
+  simp [llvm_toBitVec]
+  bv_decide
 
 example (x y : Int 64)  :
     sub x (sub (constant 64 0) y) ⊑ add x y := by
