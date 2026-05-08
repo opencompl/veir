@@ -1,6 +1,7 @@
 module
 
 public import Veir.Data.FP.PackedFloat.Basic
+public import Veir.Data.FP.PackedFloat.State
 public import Veir.Data.FP.PackedFloat.ToExtRat
 public import Veir.Data.FP.EDyadic.Basic
 
@@ -22,22 +23,17 @@ following the IEEE-754 interpretation:
 Unlike `toExtRat`, this preserves the sign of `±0`.
 -/
 def toEDyadic {e s : Nat} (pf : PackedFloat e s) : EDyadic :=
-  if pf.ex = BitVec.allOnes e then
-    if pf.sig = 0#s then .infinity pf.sign
-    else .nan
-  else if pf.ex = 0#e then
-    if pf.sig = 0#s then .zero pf.sign
-    else
-      let n : Int :=
-        if pf.sign then -(pf.sig.toNat : Int) else (pf.sig.toNat : Int)
-      let prec : Int := (bias e : Int) + (s : Int) - 1
-      .nonzeroFinite (Dyadic.ofIntWithPrec n prec)
+  if pf.state = .nan then .nan
+  else if pf.state = .infinite then .infinity pf.sign
+  else if pf.state =.zero then .zero pf.sign
   else
-    let mantissa : Nat := 2 ^ s + pf.sig.toNat
-    let n : Int := if pf.sign then -(mantissa : Int) else (mantissa : Int)
-    let prec : Int := (bias e : Int) + (s : Int) - (pf.ex.toNat : Int)
-    .nonzeroFinite (Dyadic.ofIntWithPrec n prec)
+    -- normal, subnormal.
+    .nonzeroFinite (Dyadic.ofIntWithPrec (pf.sign.toInt * sig) prec)
+  where
+    sig := pf.sig.toNat  + 2 ^ s * (decide (pf.state = .normal)).toNat
+    prec := (bias e : Int) + (s : Int) - (Nat.min pf.ex.toNat 1)
 
-end -- public section
+
+end
 
 end Veir.Data.FP.PackedFloat
