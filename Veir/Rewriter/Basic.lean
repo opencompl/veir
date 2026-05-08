@@ -391,10 +391,14 @@ protected def Rewriter.pushBlockArgument (ctx : IRContext OpInfo) (blockPtr : Bl
 @[grind =]
 theorem Rewriter.pushBlockArgument_inBounds (ptr : GenericPtr) :
     ptr.InBounds (Rewriter.pushBlockArgument ctx blockPtr type blockPtrInBounds) ↔
-    (ptr.InBounds ctx ∨
-     ptr = .blockArgument (blockPtr.nextArgument ctx) ∨
-     ptr = .value (.blockArgument (blockPtr.nextArgument ctx)) ∨
-     ptr = .opOperandPtr (.valueFirstUse (.blockArgument (blockPtr.nextArgument ctx)))) := by
+    match ptr with
+    | .blockArgument argPtr =>
+      argPtr.InBounds ctx ∨ argPtr = blockPtr.nextArgument ctx
+    | .value (.blockArgument argPtr) =>
+      argPtr.InBounds ctx ∨ argPtr = blockPtr.nextArgument ctx
+    | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
+      argPtr.InBounds ctx ∨ argPtr = blockPtr.nextArgument ctx
+    | _ => ptr.InBounds ctx := by
   constructor <;> grind [Rewriter.pushBlockArgument]
 
 @[grind .]
@@ -420,6 +424,39 @@ def Rewriter.initBlockArguments (ctx: IRContext OpInfo) (blockPtr: BlockPtr) (ty
 theorem Rewriter.initBlockArguments_fieldsInBounds (hx : ctx.FieldsInBounds) :
     (initBlockArguments ctx blockPtr types index h₁ h₂).FieldsInBounds := by
   fun_induction initBlockArguments <;> grind
+
+/--
+This theorem is a more general version of `initBlockArguments_inBounds` that is needed for the
+induction step in the proof of that theorem.
+-/
+theorem Rewriter.initBlockArguments_inBounds' (ptr : GenericPtr) :
+    ptr.InBounds (initBlockArguments ctx blockPtr types index h₁ h₂) ↔
+    match ptr with
+    | .blockArgument argPtr
+    | .value (.blockArgument argPtr)
+    | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
+      if argPtr.block = blockPtr then
+        /-
+          We need `argPtr.index < blockPtr.getNumArguments! ctx` because of the case where we
+          call `initBlockArguments` on a block that already has a larger number of arguments as
+          `types.size`.
+        -/
+        argPtr.index < types.size ∨ argPtr.index < blockPtr.getNumArguments! ctx
+      else
+        argPtr.InBounds ctx
+    | _ => ptr.InBounds ctx := by
+  fun_induction initBlockArguments <;> grind [BlockArgumentPtr.inBounds_def]
+
+@[grind =]
+theorem Rewriter.initBlockArguments_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (initBlockArguments ctx blockPtr types 0 h₁ h₂) ↔
+    match ptr with
+    | .blockArgument argPtr
+    | .value (.blockArgument argPtr)
+    | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
+      if argPtr.block = blockPtr then argPtr.index < types.size else argPtr.InBounds ctx
+    | _ => ptr.InBounds ctx := by
+  grind [Rewriter.initBlockArguments_inBounds']
 
 @[grind .]
 theorem Rewriter.initBlockArguments_inBounds_mono (ptr : GenericPtr) :
