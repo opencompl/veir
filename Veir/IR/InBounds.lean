@@ -448,18 +448,17 @@ theorem BlockPtr.setPrevBlock_genericPtr_mono (ptr : GenericPtr)  :
   grind
 
 @[grind =]
-theorem BlockPtr.setArguments_genericPtr_mono (ptr : GenericPtr)
-    (newResultsSize : BlockPtr.getNumArguments block ctx h ≤ newArguments.size) :
+theorem BlockPtr.setArguments_genericPtr_mono (ptr : GenericPtr) :
     (ptr.InBounds (setArguments block ctx newArguments h) ↔
-    (ptr.InBounds ctx
-    ∨ (∃ index, ptr = .blockArgument ⟨block, index⟩ ∧
-        index < newArguments.size ∧
-        index ≥ BlockPtr.getNumArguments block ctx h)
-    ∨ (∃ index, ptr = .value (.blockArgument ⟨block, index⟩) ∧
-        index < newArguments.size ∧ index ≥ BlockPtr.getNumArguments block ctx h)
-    ∨ (∃ index, ptr = .opOperandPtr (.valueFirstUse (.blockArgument ⟨block, index⟩)) ∧
-        index < newArguments.size ∧ index ≥ BlockPtr.getNumArguments block ctx h))) := by
-  grind
+    match ptr with
+    | .blockArgument ba =>
+      if ba.block = block then ba.index < newArguments.size else ptr.InBounds ctx
+    | .value (.blockArgument ba) =>
+      if ba.block = block then ba.index < newArguments.size else ptr.InBounds ctx
+    | .opOperandPtr (.valueFirstUse (.blockArgument ba)) =>
+      if ba.block = block then ba.index < newArguments.size else ptr.InBounds ctx
+    | _ => ptr.InBounds ctx) := by
+  cases ptr <;> grind
 
 @[grind .]
 theorem BlockPtr.setArguments_genericPtr_mono_impl (ptr : GenericPtr)
