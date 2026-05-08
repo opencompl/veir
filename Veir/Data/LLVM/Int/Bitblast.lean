@@ -30,10 +30,10 @@ def getValueD {w : Nat} (x : Int w) : BitVec w :=
 /--
   Low priority rule to convert getValue to getValueD once no more simplification can be done.
   This is needed because `bv_decide` cannot see different instantiations of `x.getValue proof`
-  as the same and abstracts them to separate values.
+  as the same and abstracts them to separate terms.
 -/
 @[llvm_toBitVec 1]
-theorem getValue_eq_getValueD {w : Nat} (x : Int w) (h : x.isPoison = false := by grind) :
+theorem getValue_eq_getValueD {w : Nat} (x : Int w) (h : x.isPoison = false) :
     x.getValue h = x.getValueD := by
   unfold getValue getValueD
   grind
