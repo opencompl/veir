@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778240572556,
+  "lastUpdate": 1778258879314,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -16998,6 +16998,162 @@ window.BENCHMARK_DATA = {
             "value": 1804000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_create=0.001804s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 770000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000770s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "john.regehr@gmail.com",
+            "name": "John Regehr",
+            "username": "regehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0d051a6b07397698c97f079c0403df93c2dd81ec",
+          "message": "support GEPs with more than one index (#532)\n\nwe were not supporting GEPs that do multi-dimensional indexing, this\nadds support for that",
+          "timestamp": "2026-05-08T16:44:31Z",
+          "tree_id": "0ea8307241e2c77d097eb3f5946222dde1865d8a",
+          "url": "https://github.com/opencompl/veir/commit/0d051a6b07397698c97f079c0403df93c2dd81ec"
+        },
+        "date": 1778258865514,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2237000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002237s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3695000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003695s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2131000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002131s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3099000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003099s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2222000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002222s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2422000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002422s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1868000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001868s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1946000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001946s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2207000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002207s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5246000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005246s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2310000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002310s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2961000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002961s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2148000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002148s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1899000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001899s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1853000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001853s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1506000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001506s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2269000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002269s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3688000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003688s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1935000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001935s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 7000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000007s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1819000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001819s"
           },
           {
             "name": "add-zero-lots-of-reuse-first/rewrite",
