@@ -1592,6 +1592,11 @@ theorem getArgument_block {block : BlockPtr} {index : Nat} :
     (getArgument block index).block = block := by
   grind [getArgument]
 
+@[simp, grind =]
+theorem getArgument_block_index {blockArg : BlockArgumentPtr} :
+    (blockArg.block.getArgument blockArg.index) = blockArg := by
+  cases blockArg; grind [getArgument]
+
 def nextArgument (block : BlockPtr) (ctx : IRContext OpInfo)
     (inBounds: block.InBounds ctx := by grind) : BlockArgumentPtr :=
   getArgument block (block.getNumArguments ctx (by grind))
