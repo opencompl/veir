@@ -42,6 +42,8 @@ BENCHMARKS=(
 
 OUTPUT_FILE="${BENCHMARK_OUTPUT:-benchmark-results.json}"
 
+lake build run-benchmarks >&2
+
 median() {
   local sorted
   sorted=($(printf '%s\n' "$@" | sort -g))
@@ -86,7 +88,7 @@ flt_lt() {
 
 run_one() {
   local bench="$1" out cs rs
-  out=$(lake exe run-benchmarks "$bench" "$COUNT" "$PC" 2>&1) || return 1
+  out=$(lake env run-benchmarks "$bench" "$COUNT" "$PC" 2>&1) || return 1
   cs=$(echo "$out" | sed -n 's/.*create time (s): \([0-9.]*\).*/\1/p')
   rs=$(echo "$out" | sed -n 's/.*rewrite time (s): \([0-9.]*\).*/\1/p')
   [ -n "$cs" ] && [ -n "$rs" ] && echo "$cs $rs"
