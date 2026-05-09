@@ -6993,6 +6993,12 @@ theorem OperationPtr.getProperties!_BlockPtr_setArguments {operation : Operation
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNumResults!_BlockPtr_setArguments {operation : OperationPtr} :
+    operation.getNumResults! (BlockPtr.setArguments operation' ctx hop' newOperands) =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
 theorem OpResultPtr.get!_BlockPtr_setArguments {opResult : OpResultPtr} :
     opResult.get! (BlockPtr.setArguments block' ctx newArguments hblock') =
     opResult.get! ctx := by
