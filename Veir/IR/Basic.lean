@@ -1597,6 +1597,54 @@ theorem getArgument_block_index {blockArg : BlockArgumentPtr} :
     (blockArg.block.getArgument blockArg.index) = blockArg := by
   cases blockArg; grind [getArgument]
 
+def getArguments (block : BlockPtr) (ctx : IRContext OpInfo)
+  (inBounds : block.InBounds ctx := by grind) : Array ValuePtr :=
+  Array.map (fun i => block.getArgument i) (Array.range (block.getNumArguments ctx inBounds))
+
+def getArguments! (block : BlockPtr) (ctx : IRContext OpInfo) : Array ValuePtr :=
+  Array.map (fun i => block.getArgument i) (Array.range (block.getNumArguments! ctx))
+
+@[grind =_, eq_bang ←]
+theorem getArguments!_eq_getArguments {block : BlockPtr} (hin : block.InBounds ctx) :
+    block.getArguments! ctx = block.getArguments ctx (by grind) := by
+  grind [getArguments, getArguments!]
+
+theorem getArguments!.mem_iff_exists_index {block : BlockPtr} :
+    value ∈ block.getArguments! ctx ↔
+    ∃ index, index < block.getNumArguments! ctx ∧ block.getArgument index = value := by
+  simp only [getArguments!, Array.mem_map, getArgument, getNumArguments!]
+  constructor
+  · rintro ⟨result, ⟨hresult, resultValue⟩⟩
+    have ⟨i, hi, hresult⟩ := Array.getElem_of_mem hresult
+    exists i
+    grind
+  · grind
+
+theorem getArguments!.mem_getArgument_iff {op : BlockPtr} :
+    (op.getArgument index : ValuePtr) ∈ op.getArguments! ctx ↔
+    index < op.getNumArguments! ctx := by
+  grind [getArguments!, getArgument, getNumArguments!]
+
+@[simp, grind =]
+theorem getArguments!.size_eq_getNumArguments! {op : BlockPtr} :
+    (op.getArguments! ctx).size = op.getNumArguments! ctx := by
+  grind [getArguments!, getNumArguments!]
+
+@[simp, grind =]
+theorem getArguments!.getElem!_eq_getArgument {op : BlockPtr} :
+    index < op.getNumArguments! ctx →
+    (op.getArguments! ctx)[index]! = op.getArgument index := by
+  simp only [getArguments!, getArgument]
+  grind
+
+@[simp, grind =]
+theorem getArguments!.getElem_eq_getArgument
+    {op : BlockPtr} {h : index < (op.getArguments! ctx).size} :
+    index < op.getNumArguments! ctx →
+    (op.getArguments! ctx)[index]'h = op.getArgument index := by
+  simp only [getArguments!, getArgument]
+  grind
+
 def nextArgument (block : BlockPtr) (ctx : IRContext OpInfo)
     (inBounds: block.InBounds ctx := by grind) : BlockArgumentPtr :=
   getArgument block (block.getNumArguments ctx (by grind))
@@ -1770,6 +1818,22 @@ def setOwner! (arg : BlockArgumentPtr) (ctx : IRContext OpInfo) (newOwner : Bloc
 theorem setOwner!_eq_setOwner {arg : BlockArgumentPtr} (inBounds : arg.InBounds ctx) :
     arg.setOwner! ctx newOwner = arg.setOwner ctx newOwner inBounds := by
   grind [setOwner, setOwner!]
+
+theorem exists_blockArgument_of_mem_getArguments! {bl : BlockPtr} :
+    value ∈ bl.getArguments! ctx →
+    ∃ blockArg, value = .blockArgument blockArg := by
+  grind [BlockPtr.getArguments!]
+
+theorem block_of_mem_getArguments! {blockArg : BlockArgumentPtr} (blockArgIn : blockArg.InBounds ctx) :
+    blockArg.block = bl ↔
+    (ValuePtr.blockArgument blockArg) ∈ bl.getArguments! ctx := by
+  simp only [BlockPtr.getArguments!]
+  simp only [Array.mem_map, Array.mem_range, ValuePtr.blockArgument.injEq]
+  constructor
+  · intro
+    exists blockArg.index
+    grind [BlockPtr.getNumArguments!, BlockArgumentPtr.InBounds]
+  · grind [BlockPtr.getArgument]
 
 end BlockArgumentPtr
 

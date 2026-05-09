@@ -362,6 +362,16 @@ theorem BlockPtr.arguments_inBounds :
 
 grind_pattern BlockPtr.arguments_inBounds => (block.getArgument i), ctx.FieldsInBounds
 
+theorem BlockPtr.getArguments!_inBounds :
+    ctx.FieldsInBounds →
+    block.InBounds ctx →
+    blockArg ∈ block.getArguments! ctx →
+    blockArg.InBounds ctx := by
+  grind [getArguments!.mem_iff_exists_index]
+
+grind_pattern BlockPtr.getArguments!_inBounds => blockArg ∈ block.getArguments! ctx, ctx.FieldsInBounds
+
+
 end Block
 
 section Region
