@@ -132,8 +132,6 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
     modifyContextM fun ctx => do
       let ⟨hip⟩ ← liftExcept (checkBlockInsertPointInBounds ip ctx.raw)
       let ⟨hblock⟩ ← liftExcept (checkBlockInBounds block ctx.raw)
-      -- TODO(gzgz): sometimes I can get away with writing `ctx`, sometimes I cannot. Check
-      -- whether that's just a one-off issue and use `ctx` when possible.
       match hctx' : Rewriter.insertBlock? ctx block ip hblock hip with
       | none => throw "internal error: failed to insert block"
       | some ctx' => pure ⟨ctx', by grind [Rewriter.insertBlock?_WellFormed]⟩
@@ -320,6 +318,7 @@ def parseOpAttributes : MlirParserM DictionaryAttr := do
     | some attrs => return DictionaryAttr.fromArray attrs
   | .error err => throw err
 
+set_option warn.sorry false in
 /--
   Parse a block label, if present, and create and insert the block at the given insert point.
 -/
@@ -358,6 +357,7 @@ def parseEntryBlockLabel (ip : BlockInsertPoint) : MlirParserM BlockPtr := do
     let block ← defineBlock ByteArray.empty ip
     return block
 
+set_option warn.sorry false in
 mutual
 
 /--
