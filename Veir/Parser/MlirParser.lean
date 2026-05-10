@@ -145,7 +145,7 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
     /- Create the block. -/
     let block ← modifyContextM' fun ctx => do
       let ⟨hip⟩ ← liftExcept (checkBlockInsertPointInBounds ip ctx.raw)
-      match hctx' : Rewriter.createBlock ctx ip (by grind) (by grind) with
+      match hctx' : Rewriter.createBlock ctx #[] ip (by grind) (by grind) with
       | none => throw "internal error: failed to create block"
       | some (ctx', block) => pure ⟨block, ⟨ctx', by grind [Rewriter.createBlock_WellFormed]⟩⟩
     /- Notify the parsing context that the block is defined. -/
@@ -166,7 +166,7 @@ def defineBlockUse (name : ByteArray) : MlirParserM BlockPtr := do
   | none => -- Block not yet encountered
     /- Create the block. -/
     let block ← modifyContextM' fun ctx => do
-      match hctx' : Rewriter.createBlock ctx none (by grind) Option.maybe_none with
+      match hctx' : Rewriter.createBlock ctx #[] none (by grind) Option.maybe_none with
       | none => throw "internal error: failed to create block"
       | some (ctx', block) => pure ⟨block, ⟨ctx', by grind [Rewriter.createBlock_WellFormed]⟩⟩
     /- Notify the parsing context that the block is forward declared. -/

@@ -218,10 +218,11 @@ def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
   }
 
 def createBlock (rewriter: PatternRewriter OpInfo)
+    (argTypes: Array TypeAttr)
     (insertPoint : Option BlockInsertPoint)
     (insertPointIn : insertPoint.maybe BlockInsertPoint.InBounds rewriter.ctx.raw := by grind)
     : Option (PatternRewriter OpInfo × BlockPtr) := do
-  rlet (newCtx, op) ← WfRewriter.createBlock rewriter.ctx insertPoint (by grind)
+  rlet (newCtx, op) ← WfRewriter.createBlock rewriter.ctx argTypes insertPoint (by grind)
   ({ rewriter with ctx := newCtx, hasDoneAction := true }, op)
 
 def insertBlock (rewriter: PatternRewriter OpInfo) (block: BlockPtr) (ip : BlockInsertPoint)

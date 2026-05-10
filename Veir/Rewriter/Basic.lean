@@ -464,10 +464,12 @@ theorem Rewriter.initBlockArguments_inBounds_mono (ptr : GenericPtr) :
   fun_induction initBlockArguments <;> grind
 
 @[irreducible]
-def Rewriter.createBlock (ctx: IRContext OpInfo) (insertionPoint: Option BlockInsertPoint)
+def Rewriter.createBlock (ctx: IRContext OpInfo) (argTypes : Array TypeAttr)
+    (insertionPoint: Option BlockInsertPoint)
     (hctx : ctx.FieldsInBounds) (hip : insertionPoint.maybe BlockInsertPoint.InBounds ctx)
     : Option (IRContext OpInfo × BlockPtr) :=
   rlet (ctx, newBlockPtr) ← BlockPtr.allocEmpty ctx
+  let ctx := Rewriter.initBlockArguments ctx newBlockPtr argTypes
   match h : insertionPoint with
   | some insertionPoint => do
     let ctx ← Rewriter.insertBlock? ctx newBlockPtr insertionPoint
@@ -477,7 +479,7 @@ def Rewriter.createBlock (ctx: IRContext OpInfo) (insertionPoint: Option BlockIn
     (ctx, newBlockPtr)
 
 @[grind .]
-theorem Rewriter.createBlock_inBounds_mono (ptr : GenericPtr) (heq : createBlock ctx ip hctx hip = some ⟨newCtx, newPtr⟩) :
+theorem Rewriter.createBlock_inBounds_mono (ptr : GenericPtr) (heq : createBlock ctx types ip hctx hip = some ⟨newCtx, newPtr⟩) :
     ptr.InBounds ctx → ptr.InBounds newCtx := by
   simp only [createBlock] at heq
   split at heq
@@ -489,7 +491,7 @@ theorem Rewriter.createBlock_inBounds_mono (ptr : GenericPtr) (heq : createBlock
 
 @[grind .]
 theorem Rewriter.createBlock_fieldsInBounds_mono
-    (heq : createBlock ctx ip hctx hip = some ⟨newCtx, newPtr⟩) :
+    (heq : createBlock ctx types ip hctx hip = some ⟨newCtx, newPtr⟩) :
     ctx.FieldsInBounds → newCtx.FieldsInBounds := by
   simp only [createBlock] at heq
   split at heq
@@ -877,5 +879,5 @@ theorem Rewriter.createOp_fieldsInBounds
 def IRContext.create OpInfo [HasOpInfo OpInfo] : Option (IRContext OpInfo × OperationPtr) :=
   rlet (ctx, region) ← Rewriter.createRegion (empty OpInfo)
   rlet (ctx, operation) ← Rewriter.createOp ctx HasOpInfo.moduleOpCode #[] #[] #[] #[region] default none
-  rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd region)) (by grind) (by grind)
+  rlet (ctx, block) ← Rewriter.createBlock ctx #[] (some (.atEnd region)) (by grind) (by grind)
   return (ctx, operation)

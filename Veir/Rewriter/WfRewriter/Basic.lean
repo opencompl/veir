@@ -98,10 +98,11 @@ def WfRewriter.replaceOp? (wfCtx : WfIRContext OpInfo) (oldOp newOp : OperationP
 /-- Create a new block and insert it at a given location. -/
 @[inline]
 def WfRewriter.createBlock (wfCtx : WfIRContext OpInfo)
+    (argTypes : Array TypeAttr)
     (insertionPoint : Option BlockInsertPoint)
     (hip : insertionPoint.maybe BlockInsertPoint.InBounds wfCtx.raw)
     : Option (WfIRContext OpInfo × BlockPtr) := do
-  rlet (ctx, blk) ← Rewriter.createBlock wfCtx insertionPoint (by grind) hip
+  rlet (ctx, blk) ← Rewriter.createBlock wfCtx argTypes insertionPoint (by grind) hip
   return (⟨ctx, by grind [Rewriter.createBlock_WellFormed]⟩, blk)
 
 /--
