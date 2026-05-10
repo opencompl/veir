@@ -1013,6 +1013,16 @@ theorem IRContext.WellFormed.ValuePtr_getFirstUse!_eq_of_back_eq_valueFirstUse
 grind_pattern IRContext.WellFormed.ValuePtr_getFirstUse!_eq_of_back_eq_valueFirstUse =>
   ctx.WellFormed, (firstUse.get! ctx).back, OpOperandPtrPtr.valueFirstUse value
 
+theorem IRContext.WellFormed.ValuePtr_hasUses_iff_operand_value_ne_value
+    (ctxWf : ctx.WellFormed)
+    {value : ValuePtr} (noUses : ¬ value.hasUses! ctx) (valueInBounds : value.InBounds ctx)
+    {operand : OpOperandPtr} (hoperand : operand.InBounds ctx) :
+    (operand.get! ctx).value ≠ value := by
+  grind [valueDefUseChains, ValuePtr.DefUse.hasUses!_iff, ValuePtr.DefUse]
+
+grind_pattern IRContext.WellFormed.ValuePtr_hasUses_iff_operand_value_ne_value =>
+  ctx.WellFormed, value.hasUses! ctx, (operand.get! ctx).value
+
 theorem BlockPtr.OpChain.mem_next!_of_mem
     (op nextOp : OperationPtr) (block : BlockPtr)
     (hWF : block.OpChain ctx array missingOps)
