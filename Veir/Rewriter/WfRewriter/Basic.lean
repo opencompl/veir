@@ -104,6 +104,20 @@ def WfRewriter.createBlock (wfCtx : WfIRContext OpInfo)
   rlet (ctx, blk) ← Rewriter.createBlock wfCtx insertionPoint (by grind) hip
   return (⟨ctx, by grind [Rewriter.createBlock_WellFormed]⟩, blk)
 
+/--
+Set the block arguments of a block.
+This replaces all existing block arguments with new ones of the given types, so the existing block
+arguments must have no uses.
+-/
+@[inline]
+def WfRewriter.setBlockArguments (wfCtx : WfIRContext OpInfo) (blockPtr : BlockPtr)
+    (types : Array TypeAttr)
+    (hblock : blockPtr.InBounds wfCtx.raw := by grind)
+    (noUses : ∀ blockArg ∈ blockPtr.getArguments! wfCtx.raw, ¬ blockArg.hasUses! wfCtx.raw := by grind)
+    : WfIRContext OpInfo :=
+  ⟨Rewriter.setBlockArguments wfCtx blockPtr types hblock,
+    by grind [IRContext.wellFormed_Rewriter_setBlockArguments]⟩
+
 /-- Create a new region. -/
 @[inline]
 def WfRewriter.createRegion (wfCtx : WfIRContext OpInfo)
