@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778314561246,
+  "lastUpdate": 1778382756200,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -18096,6 +18096,162 @@ window.BENCHMARK_DATA = {
             "value": 768000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000768s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@gzgz.dev",
+            "name": "Gavin Zhao",
+            "username": "GZGavinZhao"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e729cda4ecf4f81314833f53ff7b8955470f2f62",
+          "message": "Use runtime checks for WellFormed preconditions in parser (#435)\n\nThis is the first step towards a `sorry`-less parser. The difficult part\nof making the parser `sorry`-less is to prove that the `IRContext` is\n`WellFormed` at all times, which normally requires carrying around the\nproof of the `InBounds` of blocks, operands, regions, insertion points,\netc., at all times in the parser. While these proofs are possible to\nprove directly, doing this likely requires very complicated changes to\nthe parser and/or the addition of many helper lemmas that definitely\ndon't fit within a single PR.\n\nInstead, the approach is to start with only runtime checks and migrate\nto direct proofs one step at a time. Right now, instead of carrying\n`InBounds` proofs with us all the time, we use runtime checks to\nconstruct proofs that things are `InBounds` only when we need them to\nprove `WellFormed` of `IRContext` (runtime checks are possible because\nall the `XXX.InBounds` are `Decidable`). Then, we can gradually swap out\nthe runtime checks with direct proofs as we add more helper lemmas and\nas I understand how to utilize all the nice properties that\n`WfIRContext` provides. Note that the parser remains `sorry`-less\nthroughout this entire process; the only difference is whether the\n`InBounds` proofs are proved directly or checked at runtime using\n`Decidable`.\n\nThe only thing remaining that's making the parser not `sorry`-less is\nthe lack of some helper lemmas for proving `WellFormed` of `IRContext`,\nwhich @math-fehr is working on. This will also be addressed in future\nPRs. This PR is just to setup the runtime check infrastructure and make\nthe parser use it.\n\nI have benchmarked that runtime checks only makes the parser ~5% slower\non super large MLIR files, which is within the acceptable range to me.\nThe benchmark below compares between this PR and current HEAD\n(1b8c8ccb).\n```\n> hyperfine -w 2 \"./old-veir-opt sqlite3-stripped.mlir\" \"./runtime-checks-veir-opt sqlite3-stripped.mlir\"\nBenchmark 1: ./old-veir-opt sqlite3-stripped.mlir\n  Time (mean ± σ):      2.209 s ±  0.020 s    [User: 2.186 s, System: 0.020 s]\n  Range (min … max):    2.180 s …  2.247 s    10 runs\n\nBenchmark 2: ./runtime-checks-veir-opt sqlite3-stripped.mlir\n  Time (mean ± σ):      2.351 s ±  0.015 s    [User: 2.331 s, System: 0.017 s]\n  Range (min … max):    2.326 s …  2.371 s    10 runs\n\nSummary\n  ./old-veir-opt sqlite3-stripped.mlir ran\n    1.06 ± 0.01 times faster than ./runtime-checks-veir-opt sqlite3-stripped.mlir\n```",
+          "timestamp": "2026-05-10T03:09:24Z",
+          "tree_id": "1de5cddb83da6c41224bd8a262f4fc9ca1abc221",
+          "url": "https://github.com/opencompl/veir/commit/e729cda4ecf4f81314833f53ff7b8955470f2f62"
+        },
+        "date": 1778382745400,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 1818000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001818s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3399000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003399s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 1801000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001801s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2863000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002863s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 1824000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001824s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2122000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002122s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1520000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001520s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1725000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001725s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 1813000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001813s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 4753000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.004753s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 1825000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001825s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2670000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002670s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 1845000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001845s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1727000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001727s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1521000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001521s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1372000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001372s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 1837000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001837s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3187000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003187s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1523000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001523s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 9000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000009s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1501000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001501s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 742000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000742s"
           }
         ]
       }
