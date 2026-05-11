@@ -65,8 +65,7 @@ def pack (e s : Nat) : EDyadic → PackedFloat e s
   | .nan => PackedFloat.mkNaN e s
   | .infinity sign => PackedFloat.mkInfinity e s sign
   | .zero sign => PackedFloat.mkZero e s sign
-  | .nonzeroFinite .zero => PackedFloat.mkZero e s false
-  | .nonzeroFinite (.ofOdd n k _) => packOfOdd e s n k
+  | .nonzeroFinite (.ofOdd n k _) _ => packOfOdd e s n k
 
 end -- public section
 

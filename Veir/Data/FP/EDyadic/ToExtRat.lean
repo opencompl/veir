@@ -18,7 +18,7 @@ Everywhere else, the function is injective.
 -/
 def toExtRat : EDyadic → ExtRat
   | .zero _ => .number 0
-  | .nonzeroFinite d => .number d.toRat
+  | .nonzeroFinite d _ => .number d.toRat
   | .infinity sign => .infinity sign
   | .nan => .nan
 

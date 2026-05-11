@@ -28,7 +28,7 @@ def round {e s : Nat} (mode : RoundingMode) (etarget starget : Nat)
     (pf : PackedFloat e s) : PackedFloat etarget starget :=
   let edRounded : EDyadic :=
     match pf.toEDyadic with
-    | .nonzeroFinite d => Dyadic.round mode d etarget starget
+    | .nonzeroFinite d _ => Dyadic.round mode d etarget starget
     | special => special
   EDyadic.pack etarget starget edRounded
 

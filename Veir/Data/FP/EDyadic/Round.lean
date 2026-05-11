@@ -80,7 +80,7 @@ private def asEDyadicChecked (e : Nat) (signOnZero signOnOverflow : Bool)
     let biasI : Int := (PackedFloat.bias e : Int)
     let eVal' : Int := biasI + (n'.natAbs.log2 : Int) - k'
     if eVal' > (2 : Int) ^ e - 2 then .infinity signOnOverflow
-    else .nonzeroFinite (.ofOdd n' k' h')
+    else .nonzeroFinite (.ofOdd n' k' h') Dyadic.of_ne_zero
 
 /--
 The greatest representable `EDyadic` in target format `(e, s)` that is
@@ -100,7 +100,7 @@ def lower (x : Dyadic) (e s : Nat) : EDyadic :=
     let maxEx : Int := (2 : Int) ^ e - 2
     if eVal > maxEx then
       if sign then .infinity true
-      else .nonzeroFinite (maxFiniteDyadic e s)
+      else EDyadic.ofDyadic false (maxFiniteDyadic e s)
     else
       asEDyadicChecked e false true (Dyadic.roundDown xv (targetPrec xv e s))
 
@@ -121,7 +121,7 @@ def upper (x : Dyadic) (e s : Nat) : EDyadic :=
     let eVal : Int := biasedExp xv e
     let maxEx : Int := (2 : Int) ^ e - 2
     if eVal > maxEx then
-      if sign then .nonzeroFinite (-(maxFiniteDyadic e s))
+      if sign then EDyadic.ofDyadic true (-(maxFiniteDyadic e s))
       else .infinity false
     else
       asEDyadicChecked e sign false (Dyadic.roundUp xv (targetPrec xv e s))
