@@ -1,10 +1,6 @@
 module
 
-import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.Refinement
-public import Veir.Data.LLVM.Int.Basic
-public meta import Std.Tactic.BVDecide.Reflect
-import Veir.ForLean
 import Veir.Data.LLVM.Int.Simp
 
 open Veir.Data.LLVM
