@@ -53,54 +53,67 @@ private def targetPrec (x : Dyadic) (e s : Nat) : Int :=
 
 /-! ## Guard / sticky / even bits
 
-These mirror `UnpackedFloat.computeExtract{GuardBit,StickyBit,IsEven}`
-but on the unsigned magnitude `absN` of `x = n * 2^(-k)`. The shift
-count `b` is the number of bits below the target LSB: the guard bit is
-at position `b - 1` of `absN`, sticky is the OR of positions below the
-guard bit, and even asks whether the LSB of the truncated mantissa
-(position `b`) is zero. -/
+Given the unsigned magnitude `mag` of `x = n * 2^(-k)` and a shift
+count `shift` (the number of bits of `mag` below the target LSB):
 
-/-- Guard bit: bit at position `b - 1` of `absN`. -/
-private def computeExtractGuardBit (absN : Nat) (b : Nat) : Bool :=
-  if b = 0 then false else absN.testBit (b - 1)
+* the *guard bit* is the bit at position `shift - 1`;
+* the *sticky bit* is `true` iff any bit at a position below `shift - 1`
+  is set;
+* the *truncated mantissa* is `mag >>> shift`, whose evenness is given
+  by `computeIsTruncatedMagEven`.
 
-/-- Sticky bit: any bit below position `b - 1` of `absN` is set. -/
-private def computeExtractStickyBit (absN : Nat) (b : Nat) : Bool :=
-  if b ≤ 1 then false
-  else absN % (1 <<< (b - 1)) ≠ 0
+Together, `guard` and `sticky` determine whether `mag * 2^(-k)` lies
+strictly above, exactly at, or strictly below the midpoint of the two
+representable values that bracket it at precision `prec = k - shift`. -/
 
-/-- LSB of the truncated mantissa is zero. -/
-private def computeExtractIsEven (absN : Nat) (b : Nat) : Bool :=
-  ! absN.testBit b
+/-- The guard bit: the bit of `mag` at position `shift - 1`. -/
+private def computeGuardBit (mag : Nat) (shift : Nat) : Bool :=
+  if shift = 0 then false else mag.testBit (shift - 1)
+
+/-- The sticky bit: any bit of `mag` below position `shift - 1` is set. -/
+private def computeStickyBit (mag : Nat) (shift : Nat) : Bool :=
+  if shift ≤ 1 then false
+  else mag % (1 <<< (shift - 1)) ≠ 0
+
+/-- Whether the truncated mantissa `mag >>> shift` is even. -/
+private def computeIsTruncatedMagEven (mag : Nat) (shift : Nat) : Bool :=
+  ! mag.testBit shift
 
 /--
 A value needs rounding iff some bits below the target LSB are set,
 i.e., either the guard or the sticky bit is set.
 -/
-private def needsRounding (absN : Nat) (b : Nat) : Bool :=
-  computeExtractGuardBit absN b || computeExtractStickyBit absN b
+private def needsRounding (mag : Nat) (shift : Nat) : Bool :=
+  computeGuardBit mag shift || computeStickyBit mag shift
 
-/-! ## Round-toward-zero and successor-away-from-zero
+/-! ## Truncation and successor magnitudes
 
-Mirror `UnpackedFloat.computeRoundTowardZero` and
-`UnpackedFloat.computeSuccessorAwayFromZero`. These work on the unsigned
-magnitude `absN` and produce the unsigned magnitude of the result. -/
+Working with the unsigned magnitude `mag`, these helpers compute the
+two candidate result magnitudes at the target precision:
 
-/-- Truncated magnitude: `absN >>> b`. -/
-private def computeRoundTowardZeroMag (absN : Nat) (b : Nat) : Nat :=
-  absN >>> b
+* `computeTruncatedMag mag shift = mag >>> shift` is the magnitude that
+  rounds *toward zero*;
+* `computeSuccessorMag mag shift = (mag >>> shift) + 1` is one ULP
+  *away from zero*;
+* `computeRoundedAwayMag mag shift` returns the successor when rounding
+  is needed and the truncated magnitude when the input is already
+  exact at the target precision. -/
 
-/-- Successor of the truncated magnitude (one ULP away from zero). -/
-private def computeSuccessorAwayFromZeroMag (absN : Nat) (b : Nat) : Nat :=
-  computeRoundTowardZeroMag absN b + 1
+/-- Truncated magnitude: `mag >>> shift`. -/
+private def computeTruncatedMag (mag : Nat) (shift : Nat) : Nat :=
+  mag >>> shift
+
+/-- One ULP away from zero from the truncated magnitude. -/
+private def computeSuccessorMag (mag : Nat) (shift : Nat) : Nat :=
+  computeTruncatedMag mag shift + 1
 
 /--
-The successor-or-self magnitude: the successor if rounding is needed,
-otherwise the truncated magnitude (which equals the input).
+Successor magnitude if rounding is needed; otherwise the truncated
+magnitude (which equals the input value at the target precision).
 -/
-private def computeSuccessorAwayFromZeroNonnegAuxMag (absN : Nat) (b : Nat) : Nat :=
-  if needsRounding absN b then computeSuccessorAwayFromZeroMag absN b
-  else computeRoundTowardZeroMag absN b
+private def computeRoundedAwayMag (mag : Nat) (shift : Nat) : Nat :=
+  if needsRounding mag shift then computeSuccessorMag mag shift
+  else computeTruncatedMag mag shift
 
 /-! ## Building dyadics from a magnitude and sign -/
 
@@ -109,151 +122,144 @@ private def magToDyadic (sign : Bool) (mag : Nat) (prec : Int) : Dyadic :=
   if sign then Dyadic.ofIntWithPrec (-(mag : Int)) prec
   else Dyadic.ofIntWithPrec (mag : Int) prec
 
-/-! ## `lower` / `upper` magnitudes (nonneg / neg)
+/-! ## Bracketing dyadics: `lower` and `upper`
 
-Mirror `UnpackedFloat.computeLower{Nonneg,Neg}` and
-`UnpackedFloat.computeUpper{Nonneg,Neg}`. For `x ≥ 0` the bracketing
-magnitudes are `(trunc, trunc+1?)`. For `x < 0` the brackets reverse
-in sign: `lower = -upperNonneg`, `upper = -lowerNonneg`. -/
+`lower x` is the greatest representable value `≤ x` at precision `prec`,
+and `upper x` is the least representable value `≥ x`. They differ by at
+most one ULP. For `x ≥ 0` the brackets have magnitudes `(trunc,
+trunc+1?)`; for `x < 0` the brackets swap roles in magnitude. -/
 
-/-- For `x ≥ 0`: lower = truncated magnitude. -/
-private def computeLowerNonneg (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  magToDyadic false (computeRoundTowardZeroMag absN b) prec
+/-- For `x ≥ 0`: lower bracket = truncated magnitude. -/
+private def computeLowerNonneg (mag : Nat) (shift : Nat) (prec : Int) : Dyadic :=
+  magToDyadic false (computeTruncatedMag mag shift) prec
 
-/-- For `x ≥ 0`: upper = successor-or-self of the truncated magnitude. -/
-private def computeUpperNonneg (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  magToDyadic false (computeSuccessorAwayFromZeroNonnegAuxMag absN b) prec
+/-- For `x ≥ 0`: upper bracket = successor-or-truncated magnitude. -/
+private def computeUpperNonneg (mag : Nat) (shift : Nat) (prec : Int) : Dyadic :=
+  magToDyadic false (computeRoundedAwayMag mag shift) prec
 
-/-- For `x < 0`: lower = `-upperNonneg`. -/
-private def computeLowerNeg (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  -(computeUpperNonneg absN b prec)
+/-- For `x < 0`: lower bracket = `-(upper for the nonneg magnitude)`. -/
+private def computeLowerNeg (mag : Nat) (shift : Nat) (prec : Int) : Dyadic :=
+  -(computeUpperNonneg mag shift prec)
 
-/-- For `x < 0`: upper = `-lowerNonneg`. -/
-private def computeUpperNeg (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  -(computeLowerNonneg absN b prec)
+/-- For `x < 0`: upper bracket = `-(lower for the nonneg magnitude)`. -/
+private def computeUpperNeg (mag : Nat) (shift : Nat) (prec : Int) : Dyadic :=
+  -(computeLowerNonneg mag shift prec)
 
-/-- Sign-aware lower of `x = ±absN * 2^(-k)`. -/
-private def computeLower (sign : Bool) (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  if sign then computeLowerNeg absN b prec else computeLowerNonneg absN b prec
+/-- Sign-aware lower bracket of `x = ±mag * 2^(-k)`. -/
+private def computeLower (sign : Bool) (mag : Nat) (shift : Nat)
+    (prec : Int) : Dyadic :=
+  if sign then computeLowerNeg mag shift prec
+  else computeLowerNonneg mag shift prec
 
-/-- Sign-aware upper of `x = ±absN * 2^(-k)`. -/
-private def computeUpper (sign : Bool) (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  if sign then computeUpperNeg absN b prec else computeUpperNonneg absN b prec
+/-- Sign-aware upper bracket of `x = ±mag * 2^(-k)`. -/
+private def computeUpper (sign : Bool) (mag : Nat) (shift : Nat)
+    (prec : Int) : Dyadic :=
+  if sign then computeUpperNeg mag shift prec
+  else computeUpperNonneg mag shift prec
 
-/-! ## Position predicates: lower-half, tie-break, even
+/-! ## Position predicates: lower-half, tie-break, parity
 
-Mirror `UnpackedFloat.computeIs{LowerHalf,TieBreak,Even}` and the
-`Lower`/`Upper` parity helpers. -/
+These predicates classify `x`'s position within its bracketing
+interval `[lower, upper]`.
 
-/-- Nonneg `x`: x is in the lower half iff guard bit is zero. -/
-private def computeIsLowerHalfNonneg (absN : Nat) (b : Nat) : Bool :=
-  ! computeExtractGuardBit absN b
+* `computeIsLowerHalf`: `x` is closer to (or at) `lower` than to
+  `upper`, excluding the exact midpoint.
+* `computeIsTieBreak`: `x` is exactly at the midpoint.
+* `computeIsLowerEven` / `computeIsUpperEven`: the lower / upper
+  bracket's mantissa is even at the target precision.
 
-/--
-Neg `x`: x is in the lower half (i.e., closer to the more-negative
-bracket) iff guard bit is one. This mirrors
-`uf.neg.computeExtractGuardBit` in the unpacked-float setting.
--/
-private def computeIsLowerHalfNeg (absN : Nat) (b : Nat) : Bool :=
-  computeExtractGuardBit absN b
+For nonneg `x`, "lower half" means the guard bit is `0` (frac < 0.5).
+For neg `x`, the brackets reverse in magnitude, so "closer to lower"
+means the magnitude is past the midpoint, i.e., guard bit is `1`. -/
 
-/-- Sign-aware "x is in the lower half of `[lower, upper]`". -/
-private def computeIsLowerHalf (sign : Bool) (absN : Nat) (b : Nat) : Bool :=
-  if sign then computeIsLowerHalfNeg absN b else computeIsLowerHalfNonneg absN b
+/-- Nonneg `x`: `x` is in the lower half iff the guard bit is zero. -/
+private def computeIsLowerHalfNonneg (mag : Nat) (shift : Nat) : Bool :=
+  ! computeGuardBit mag shift
 
-/--
-Tie-break: `x` is exactly at the midpoint. This is symmetric across
-sign: guard bit set with no sticky bits below.
--/
-private def computeIsTieBreak (_sign : Bool) (absN : Nat) (b : Nat) : Bool :=
-  computeExtractGuardBit absN b && ! computeExtractStickyBit absN b
+/-- Neg `x`: `x` is in the lower half iff the guard bit is one. -/
+private def computeIsLowerHalfNeg (mag : Nat) (shift : Nat) : Bool :=
+  computeGuardBit mag shift
 
-/-- Whether the *lower* bracket's mantissa is even (sign-aware). -/
-private def computeIsEven (sign : Bool) (absN : Nat) (b : Nat) : Bool :=
-  if sign then ! computeExtractIsEven absN b
-  else computeExtractIsEven absN b
+/-- Sign-aware: `x` is in the lower half of `[lower, upper]`. -/
+private def computeIsLowerHalf (sign : Bool) (mag : Nat) (shift : Nat) : Bool :=
+  if sign then computeIsLowerHalfNeg mag shift
+  else computeIsLowerHalfNonneg mag shift
 
-/-- Whether the lower bracket's mantissa is even. -/
-private def computeIsEvenLower (sign : Bool) (absN : Nat) (b : Nat) : Bool :=
-  computeIsEven sign absN b
+/-- A tie: `x` is exactly at the midpoint of `[lower, upper]`.
+This is symmetric across the sign — the guard bit is set with no
+sticky bits below. -/
+private def computeIsTieBreak (mag : Nat) (shift : Nat) : Bool :=
+  computeGuardBit mag shift && ! computeStickyBit mag shift
 
-/-- Whether the upper bracket's mantissa is even. -/
-private def computeIsEvenUpper (sign : Bool) (absN : Nat) (b : Nat) : Bool :=
-  ! computeIsEven sign absN b
+/-- Whether the lower bracket's mantissa is even (sign-aware). -/
+private def computeIsLowerEven (sign : Bool) (mag : Nat) (shift : Nat) : Bool :=
+  if sign then ! computeIsTruncatedMagEven mag shift
+  else computeIsTruncatedMagEven mag shift
 
-/-! ## Per-mode rounding (mirrors `computeSmtLibRound{RNE,RNA,RTP,RTN,RTZ}`)
+/-- Whether the upper bracket's mantissa is even (sign-aware). -/
+private def computeIsUpperEven (sign : Bool) (mag : Nat) (shift : Nat) : Bool :=
+  ! computeIsLowerEven sign mag shift
 
-Each `computeSmtLibRound*` returns the rounded `Dyadic`. Overflow on the
-result (and the input early-overflow case) is handled by the
-public-facing `round`. -/
+/-! ## Per-mode rounding -/
 
 /-- Round-to-nearest, tie to even. -/
-private def computeSmtLibRoundRNE
-    (sign : Bool) (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  if ! computeIsLowerHalf sign absN b && ! computeIsTieBreak sign absN b then
-    computeUpper sign absN b prec
-  else if computeIsTieBreak sign absN b && computeIsEvenUpper sign absN b then
-    computeUpper sign absN b prec
-  else if computeIsTieBreak sign absN b && computeIsEvenLower sign absN b then
-    computeLower sign absN b prec
-  else if computeIsLowerHalf sign absN b then
-    computeLower sign absN b prec
+private def computeRoundRNE
+    (sign : Bool) (mag : Nat) (shift : Nat) (prec : Int) : Dyadic :=
+  if ! computeIsLowerHalf sign mag shift && ! computeIsTieBreak mag shift then
+    computeUpper sign mag shift prec
+  else if computeIsTieBreak mag shift && computeIsUpperEven sign mag shift then
+    computeUpper sign mag shift prec
+  else if computeIsTieBreak mag shift && computeIsLowerEven sign mag shift then
+    computeLower sign mag shift prec
+  else if computeIsLowerHalf sign mag shift then
+    computeLower sign mag shift prec
   else
-    -- unreachable: the four cases partition all (lowerHalf, tieBreak)
-    -- combinations except `(lowerHalf=true, tieBreak=true)`, which
-    -- can't occur (lowerHalf and tieBreak demand opposite guard bits
-    -- in the nonneg case; for neg both fire only together with the
-    -- even/odd check covering it).
-    computeLower sign absN b prec
+    -- Defensive default; unreachable given the partition of cases.
+    computeLower sign mag shift prec
 
 /-- Round-to-nearest, tie away from zero. -/
-private def computeSmtLibRoundRNA
-    (sign : Bool) (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  if sign = false && ! computeIsLowerHalf sign absN b then
-    computeUpper sign absN b prec
-  else if sign = false && computeIsLowerHalf sign absN b then
-    computeLower sign absN b prec
-  else if sign = true && ! computeIsLowerHalf sign absN b
-        && ! computeIsTieBreak sign absN b then
-    computeUpper sign absN b prec
+private def computeRoundRNA
+    (sign : Bool) (mag : Nat) (shift : Nat) (prec : Int) : Dyadic :=
+  if sign = false && ! computeIsLowerHalf sign mag shift then
+    computeUpper sign mag shift prec
+  else if sign = false && computeIsLowerHalf sign mag shift then
+    computeLower sign mag shift prec
+  else if sign = true && ! computeIsLowerHalf sign mag shift
+        && ! computeIsTieBreak mag shift then
+    computeUpper sign mag shift prec
   else if sign = true
-        && (computeIsLowerHalf sign absN b || computeIsTieBreak sign absN b) then
-    computeLower sign absN b prec
+        && (computeIsLowerHalf sign mag shift || computeIsTieBreak mag shift) then
+    computeLower sign mag shift prec
   else
-    computeLower sign absN b prec
+    computeLower sign mag shift prec
 
-/-- Round toward `+∞`: pick the upper bracket. -/
-private def computeSmtLibRoundRTP
-    (sign : Bool) (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  computeUpper sign absN b prec
+/-- Round toward `+∞`: always pick the upper bracket. -/
+private def computeRoundRTP
+    (sign : Bool) (mag : Nat) (shift : Nat) (prec : Int) : Dyadic :=
+  computeUpper sign mag shift prec
 
-/-- Round toward `−∞`: pick the lower bracket. -/
-private def computeSmtLibRoundRTN
-    (sign : Bool) (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  computeLower sign absN b prec
+/-- Round toward `−∞`: always pick the lower bracket. -/
+private def computeRoundRTN
+    (sign : Bool) (mag : Nat) (shift : Nat) (prec : Int) : Dyadic :=
+  computeLower sign mag shift prec
 
 /-- Round toward zero: pick the bracket whose magnitude is smaller. -/
-private def computeSmtLibRoundRTZ
-    (sign : Bool) (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
-  if sign then computeUpper sign absN b prec
-  else computeLower sign absN b prec
+private def computeRoundRTZ
+    (sign : Bool) (mag : Nat) (shift : Nat) (prec : Int) : Dyadic :=
+  if sign then computeUpper sign mag shift prec
+  else computeLower sign mag shift prec
 
-/--
-Dispatcher: round per the given mode. Mirrors
-`UnpackedFloat.computeSmtLibRoundAux`.
--/
-private def computeSmtLibRoundAux (mode : RoundingMode)
-    (sign : Bool) (absN : Nat) (b : Nat) (prec : Int) : Dyadic :=
+/-- Dispatcher: select the per-mode rounder. -/
+private def computeRoundByMode (mode : RoundingMode)
+    (sign : Bool) (mag : Nat) (shift : Nat) (prec : Int) : Dyadic :=
   match mode with
-  | .RNE => computeSmtLibRoundRNE sign absN b prec
-  | .RNA => computeSmtLibRoundRNA sign absN b prec
-  | .RTP => computeSmtLibRoundRTP sign absN b prec
-  | .RTN => computeSmtLibRoundRTN sign absN b prec
-  | .RTZ => computeSmtLibRoundRTZ sign absN b prec
+  | .RNE => computeRoundRNE sign mag shift prec
+  | .RNA => computeRoundRNA sign mag shift prec
+  | .RTP => computeRoundRTP sign mag shift prec
+  | .RTN => computeRoundRTN sign mag shift prec
+  | .RTZ => computeRoundRTZ sign mag shift prec
 
-/-! ## Overflow specials
-
-Mirror `computeRounderSpecialCaseOverflow`. -/
+/-! ## Overflow specials -/
 
 /-- The largest finite dyadic representable in `(e, s)`. -/
 private def maxFiniteDyadic (e s : Nat) : Dyadic :=
@@ -262,7 +268,12 @@ private def maxFiniteDyadic (e s : Nat) : Dyadic :=
 
 /--
 Mode-aware overflow special case: depending on the rounding mode and
-sign, return either infinity or the maximum normal number.
+sign, return either the signed infinity or `±maxFinite`.
+
+* `RNE` / `RNA`: always infinity.
+* `RTP`: `+∞` for nonneg, `-maxFinite` for neg.
+* `RTN`: `-∞` for neg, `+maxFinite` for nonneg.
+* `RTZ`: `±maxFinite`.
 -/
 private def specialCaseOverflow (mode : RoundingMode) (sign : Bool)
     (e s : Nat) : EDyadic :=
@@ -281,20 +292,20 @@ private def specialCaseOverflow (mode : RoundingMode) (sign : Bool)
 /-! ## Public surface: `lower`, `upper`, `round` -/
 
 /--
-Wrap a `Dyadic` as an `EDyadic` in target format `(e, s)`, dispatching
-to the appropriate overflow special when the rounded magnitude exceeds
-`maxFinite`. The `mode` controls the post-rounding overflow special;
-`sign` is the sign of the original input (and of the result).
+Wrap a rounded `Dyadic` as an `EDyadic` in target format `(e, s)`,
+dispatching to the appropriate overflow special when the result's
+magnitude exceeds `maxFinite`. The `mode` controls which overflow
+special is used; `sign` is the sign of the input (and of the result).
 -/
-private def wrapResult (mode : RoundingMode) (sign : Bool) (e s : Nat)
+private def liftRoundedDyadic (mode : RoundingMode) (sign : Bool) (e s : Nat)
     (d : Dyadic) : EDyadic :=
   match d with
   | .zero => .zero sign
-  | .ofOdd n' k' h' =>
+  | .ofOdd resultN resultK h =>
     let biasI : Int := (PackedFloat.bias e : Int)
-    let eVal' : Int := biasI + (n'.natAbs.log2 : Int) - k'
-    if eVal' > (2 : Int) ^ e - 2 then specialCaseOverflow mode sign e s
-    else .nonzeroFinite (.ofOdd n' k' h') Dyadic.of_ne_zero
+    let resultEVal : Int := biasI + (resultN.natAbs.log2 : Int) - resultK
+    if resultEVal > (2 : Int) ^ e - 2 then specialCaseOverflow mode sign e s
+    else .nonzeroFinite (.ofOdd resultN resultK h) Dyadic.of_ne_zero
 
 /--
 The greatest representable `EDyadic` in target format `(e, s)` that is
@@ -306,19 +317,19 @@ def lower (x : Dyadic) (e s : Nat) : EDyadic :=
   match x with
   | .zero => .zero false
   | .ofOdd n k hn =>
-    let xv : Dyadic := .ofOdd n k hn
+    let value : Dyadic := .ofOdd n k hn
     let sign : Bool := decide (n < 0)
-    let eVal : Int := biasedExp xv e
+    let eVal : Int := biasedExp value e
     let maxEx : Int := (2 : Int) ^ e - 2
     if eVal > maxEx then
       specialCaseOverflow .RTN sign e s
     else
-      let prec : Int := targetPrec xv e s
+      let prec : Int := targetPrec value e s
       let shift : Int := k - prec
       if shift ≤ 0 then
-        .nonzeroFinite xv Dyadic.of_ne_zero
+        .nonzeroFinite value Dyadic.of_ne_zero
       else
-        wrapResult .RTN sign e s
+        liftRoundedDyadic .RTN sign e s
           (computeLower sign n.natAbs shift.toNat prec)
 
 /--
@@ -331,50 +342,52 @@ def upper (x : Dyadic) (e s : Nat) : EDyadic :=
   match x with
   | .zero => .zero false
   | .ofOdd n k hn =>
-    let xv : Dyadic := .ofOdd n k hn
+    let value : Dyadic := .ofOdd n k hn
     let sign : Bool := decide (n < 0)
-    let eVal : Int := biasedExp xv e
+    let eVal : Int := biasedExp value e
     let maxEx : Int := (2 : Int) ^ e - 2
     if eVal > maxEx then
       specialCaseOverflow .RTP sign e s
     else
-      let prec : Int := targetPrec xv e s
+      let prec : Int := targetPrec value e s
       let shift : Int := k - prec
       if shift ≤ 0 then
-        .nonzeroFinite xv Dyadic.of_ne_zero
+        .nonzeroFinite value Dyadic.of_ne_zero
       else
-        wrapResult .RTP sign e s
+        liftRoundedDyadic .RTP sign e s
           (computeUpper sign n.natAbs shift.toNat prec)
 
 /--
 Round `x` per IEEE-754 mode `mode` in target format `(e, s)`.
 
-Mirrors `UnpackedFloat.computeSmtLibRound`:
-* `±0`, NaN, and ±∞ are propagated (this only handles `Dyadic`, so
-  `.zero` and `.ofOdd` are the cases).
-* For `|x|` exceeding the format's maxFinite (early overflow), the
+* `±0` is propagated as `EDyadic.zero false` (any zero `Dyadic` value
+  drops the sign here).
+* For `|x|` exceeding the format's `maxFinite` (early overflow), the
   result is the mode-aware overflow special.
-* Otherwise we round at the precision dictated by `x`'s exponent
-  class, via the per-mode `computeSmtLibRound*` family.
+* For `|x|` already representable at the target precision
+  (`shift ≤ 0`), the result is `x` itself.
+* Otherwise, dispatch to the per-mode rounder
+  (`computeRoundRNE`/`RNA`/`RTP`/`RTN`/`RTZ`) at the precision
+  dictated by `x`'s exponent class, and post-check for late overflow.
 -/
 def round (mode : RoundingMode) (x : Dyadic) (e s : Nat) : EDyadic :=
   match x with
   | .zero => .zero false
   | .ofOdd n k hn =>
-    let xv : Dyadic := .ofOdd n k hn
+    let value : Dyadic := .ofOdd n k hn
     let sign : Bool := decide (n < 0)
-    let eVal : Int := biasedExp xv e
+    let eVal : Int := biasedExp value e
     let maxEx : Int := (2 : Int) ^ e - 2
     if eVal > maxEx then
       specialCaseOverflow mode sign e s
     else
-      let prec : Int := targetPrec xv e s
+      let prec : Int := targetPrec value e s
       let shift : Int := k - prec
       if shift ≤ 0 then
-        .nonzeroFinite xv Dyadic.of_ne_zero
+        .nonzeroFinite value Dyadic.of_ne_zero
       else
-        wrapResult mode sign e s
-          (computeSmtLibRoundAux mode sign n.natAbs shift.toNat prec)
+        liftRoundedDyadic mode sign e s
+          (computeRoundByMode mode sign n.natAbs shift.toNat prec)
 
 end Dyadic
 
