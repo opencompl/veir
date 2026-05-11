@@ -1782,21 +1782,21 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   /- HW -/
   | .hw .module => do
-    if op.getNumOperands ctx opIn ≠ 0 then
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 1 then
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
       throw "Expected 1 region"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .hw .output => do
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
 
