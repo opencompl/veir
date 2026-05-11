@@ -16,6 +16,19 @@ For a double (`e = 11`), this is `2^10 - 1 = 1023`.
 def bias (e : Nat) : Nat := 2 ^ (e - 1) - 1
 
 /--
+The largest biased exponent representable as a finite normal number:
+`2^e - 2`. The all-ones pattern `2^e - 1` is reserved for ±∞ / NaN.
+For a double (`e = 11`), this is `2046`.
+-/
+def maxBiasedExponent (e : Nat) : Nat := 2 ^ e - 2
+
+/--
+The smallest biased exponent representable as a normal number: `1`.
+The biased exponent `0` is reserved for ±0 and subnormals.
+-/
+def minBiasedExponent : Nat := 1
+
+/--
 The fractional contribution of the trailing significand: `sig.toNat / 2^s`.
 For a normal float this lies in `[0, 1)` and is added to the implicit leading
 `1`; for a subnormal float this is multiplied by the minimum exponent directly.
