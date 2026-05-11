@@ -360,9 +360,9 @@ def upper (x : Dyadic) (e s : Nat) : EDyadic :=
 /--
 Round nonzero `x` per IEEE-754 mode `mode` in target format `(e, s)`.
 
-The precondition `hne : x ≠ 0` matches the invariant that
+The precondition `hne : x ≠ .zero` matches the invariant that
 `EDyadic.nonzeroFinite` carries: callers that already have a nonzero
-`Dyadic` (typically obtained by destructing `EDyadic.nonzeroFinite d hne`)
+`Dyadic` (typically obtained by destructing `EDyadic.nonzeroFinite d _`)
 can pass that proof directly. For concrete numeric literals, `by decide`
 fills the proof automatically.
 
@@ -375,7 +375,7 @@ fills the proof automatically.
   by `x`'s exponent class, and post-check for late overflow.
 -/
 def round (mode : RoundingMode) (x : Dyadic) (e s : Nat)
-    (hne : x ≠ 0 := by first | decide | native_decide) : EDyadic :=
+    (hne : x ≠ .zero := by first | decide | native_decide) : EDyadic :=
   match x, hne with
   | .zero, hne => absurd rfl hne
   | .ofOdd n k hn, _ =>
