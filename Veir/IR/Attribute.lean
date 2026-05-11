@@ -172,7 +172,7 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
   The `!hw.modty` type from CIRCT's hw dialect.
-  This represents a list of ports to a module
+  This represents a list of ports to a module.
 -/
 structure ModuleType where
   ports : Array ModulePort
