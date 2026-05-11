@@ -20,7 +20,7 @@ def isRefinedBy {w : Nat} (i i' : Veir.Data.LLVM.Int w) : Prop :=
   | .val v =>
     match i' with
     | .val v' => v = v'
-    | .poison => false
-  | .poison => true
+    | .poison => False
+  | .poison => True
 
 @[inherit_doc] infix:50 " ⊑ "  => isRefinedBy
