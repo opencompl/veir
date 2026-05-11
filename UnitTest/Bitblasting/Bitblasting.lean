@@ -1,7 +1,6 @@
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.LLVM.Int.Simp
 import Veir.Data.Refinement
-import Veir.Data.LLVM.Int.Bitblast
 
 open Veir.Data.LLVM.Int
 
