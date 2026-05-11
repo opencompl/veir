@@ -499,6 +499,31 @@ theorem Rewriter.createBlock_fieldsInBounds_mono
       split at heq <;> grind
     · grind
 
+def Rewriter.setBlockArguments (ctx : IRContext OpInfo) (blockPtr : BlockPtr)
+    (types : Array TypeAttr) (hblock : blockPtr.InBounds ctx := by grind) : IRContext OpInfo :=
+  let numArgs := blockPtr.getNumArguments ctx (by grind)
+  if _ : numArgs = 0 then
+    Rewriter.initBlockArguments ctx blockPtr types
+  else
+    let ctx := blockPtr.setArguments ctx #[]
+    Rewriter.initBlockArguments ctx blockPtr types
+
+@[grind =]
+theorem Rewriter.setBlockArguments_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (Rewriter.setBlockArguments ctx blockPtr types hblock) ↔
+    match ptr with
+    | .blockArgument argPtr
+    | .value (.blockArgument argPtr)
+    | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
+      if argPtr.block = blockPtr then argPtr.index < types.size else argPtr.InBounds ctx
+    | _ => ptr.InBounds ctx := by
+  grind [Rewriter.setBlockArguments]
+
+/-!
+`Rewriter.setBlockArguments` preserves `FieldsInBounds` only if the context is well-formed and no
+previous block argument is used. Otherwise, another pointer could point to one of the block arguments.
+-/
+
 @[irreducible, grind]
 def Rewriter.createRegion (ctx: IRContext OpInfo) : Option (IRContext OpInfo × RegionPtr) :=
   RegionPtr.allocEmpty ctx
