@@ -239,6 +239,14 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   return some (UnregisteredAttr.mk (String.fromUTF8! value) false)
 
 /--
+  Parse a flat symbol reference attribute, if present.
+  Its syntax is `@ident` or `@"string"`.
+-/
+def parseOptionalFlatSymbolRefAttr : AttrParserM (Option FlatSymbolRefAttr) := do
+  let some name ← parseOptionalPrefixedKeyword .atIdent | return none
+  return some (FlatSymbolRefAttr.mk ("@" ++ String.fromUTF8! name))
+
+/--
   Parse a location attribute, if present.
   A location attribute has the form `loc(body)`.
 -/
@@ -427,6 +435,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some arrayAttr
   else if let some dictAttr ← parseOptionalDictionaryAttr then
     return some dictAttr
+  else if let some symRefAttr ← parseOptionalFlatSymbolRefAttr then
+    return some symRefAttr
   else
     return none
 

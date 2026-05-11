@@ -1,11 +1,9 @@
 module
 
 import Veir.Data.FP.PackedFloat.ToEDyadic
-import Veir.Data.FP.EDyadic.ToExtRat
 
 meta import Veir.Data.FP.PackedFloat.OfFloat
 meta import Veir.Data.FP.PackedFloat.ToEDyadic
-meta import Veir.Data.FP.PackedFloat.ToExtRat
 meta import Veir.Data.FP.EDyadic.ToExtRat
 
 namespace UnitTest.Fp.PackedFloat.ToEDyadic

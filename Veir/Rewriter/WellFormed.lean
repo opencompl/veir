@@ -1,6 +1,7 @@
 module
 
 public import Veir.Rewriter.WellFormed.Block
+public import Veir.Rewriter.WellFormed.BlockArguments
 public import Veir.Rewriter.WellFormed.BlockOperands
 public import Veir.Rewriter.WellFormed.IRContext
 public import Veir.Rewriter.WellFormed.Operation

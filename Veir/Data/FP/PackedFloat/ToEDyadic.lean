@@ -1,9 +1,8 @@
 module
 
-public import Veir.Data.FP.PackedFloat.Basic
-public import Veir.Data.FP.PackedFloat.State
+import Veir.Data.FP.PackedFloat.State
 public import Veir.Data.FP.PackedFloat.ToExtRat
-public import Veir.Data.FP.Sign
+import Veir.Data.FP.Sign
 public import Veir.Data.FP.EDyadic.Basic
 
 namespace Veir.Data.FP.PackedFloat
@@ -26,7 +25,7 @@ Unlike `toExtRat`, this preserves the sign of `±0`.
 def toEDyadic {e s : Nat} (pf : PackedFloat e s) : EDyadic :=
   if pf.state = .nan then .nan
   else if pf.state = .infinite then .infinity pf.sign
-  else if pf.state =.zero then .zero pf.sign
+  else if pf.state = .zero then .zero pf.sign
   else
     -- normal, subnormal.
     .nonzeroFinite (Dyadic.ofIntWithPrec (signToInt pf.sign * sig) prec)

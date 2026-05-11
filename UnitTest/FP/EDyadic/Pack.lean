@@ -6,6 +6,7 @@ import Veir.Data.FP.PackedFloat.ToEDyadic
 meta import Veir.Data.FP.EDyadic.Pack
 meta import Veir.Data.FP.PackedFloat.OfFloat
 meta import Veir.Data.FP.PackedFloat.ToEDyadic
+meta import Veir.Data.FP.PackedFloat.State
 
 namespace UnitTest.Fp.EDyadic.Pack
 
