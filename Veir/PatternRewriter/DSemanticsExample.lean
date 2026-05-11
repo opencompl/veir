@@ -72,6 +72,39 @@ theorem matchConstantOp_interpretOp_unfold (opInBounds : op.InBounds ctx.raw) :
     LLVM.Int.val (BitVec.ofInt (arithConstant_getType ctx op (by sorry)).bitwidth properties.value) := by
   sorry
 
+@[simp]
+theorem toto (h : LLVM.Int w = LLVM.Int w') (x : BitVec w)
+    (h' : w = w') :
+    h ▸ (LLVM.Int.val x : LLVM.Int w) = LLVM.Int.val (h' ▸ x : BitVec w') := by
+  cases h'; rfl
+
+@[simp]
+theorem toto2 (h : w = w') (x : BitVec w) :
+    h ▸ x = x.cast h := by
+  grind
+
+@[simp]
+theorem toto3 (h : w = w') (x : Int) :
+    BitVec.cast h (BitVec.ofInt w x) = BitVec.ofInt w' x := by
+  grind
+
+@[simp]
+theorem toto4 (h : LLVM.Int w = LLVM.Int w') (h' : w = w') x y :
+    h ▸ LLVM.Int.add x y nsw nuw = LLVM.Int.add (h ▸ x) (h ▸ y) nsw nuw := by
+  grind
+
+@[simp]
+theorem eqRec_heq_iff_heq {α : Sort _} {a : α} {motive : (a' : α) → a = a' → Sort _}
+    (x : motive a (rfl : a = a)) {a' : α} (e : a = a') {β : Sort _} (y : β) :
+    HEq (@Eq.rec α a motive x a' e) y ↔ HEq x y := by
+  subst e; rfl
+
+@[simp]
+theorem heq_eqRec_iff_heq {α : Sort _} {a : α} {motive : (a' : α) → a = a' → Sort _}
+    (x : motive a (rfl : a = a)) {a' : α} (e : a = a') {β : Sort _} (y : β) :
+    HEq y (@Eq.rec α a motive x a' e) ↔ HEq y x := by
+  subst e; rfl
+
 def addIConstantFolding (ctx: WfIRContext OpCode) (op: OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   -- Match an `arith.addi`
@@ -160,17 +193,33 @@ theorem addIConstantFolding_preservesSemantics :
   simp only [InterpreterState.getVar'!_of_getVar'! hLhsRes]
   simp only [InterpreterState.getVar'!_of_getVar'! hRhsRes]
 
+  have h : arithAddi_getType ctx op (by grind) = arithConstant_getType ctx lhsOp (by grind) := by sorry
   have : newOp.getProperties! newCtx.raw (.arith .constant) = { value := { value := (lhsConst.value + rhsConst.value).bmod (2 ^ intType.bitwidth), type := intType } } := by sorry
   simp only [this]
+  simp (disch := grind) only [toto]
   rw [toto (h' := sorry /- Should be derivable.-/)]
-  rw [toto (h' := sorry /- Should be derivable.-/)]
-  -- works:
-  simp
+  simp only [toto2, toto3]
   have heq w k₁ k₂ nsw nuw :
     (LLVM.Int.val (BitVec.ofInt w k₁)).add (LLVM.Int.val (BitVec.ofInt w k₂)) nsw nuw =
     LLVM.Int.val (BitVec.ofInt w ((k₁ + k₂).bmod (2 ^ w))) := sorry
-  grind
-
+  rw [heq]
+  -- The two extra equalities we need (beyond the one you added above):
+  -- `h1` follows from `hIntType` + `arithConstant_getType_resultType` (lhsOp's result type).
+  -- `h2` follows from `ValuePtr.getType!_WfRewriter_createOp hNewCtx` + `arithConstant_getType_resultType`
+  --     (newOp's result type in the new context).
+  have h1 : arithConstant_getType ctx lhsOp (by sorry) = intType := by grind
+  have h2 : arithConstant_getType newCtx newOp (by sorry) = intType := by sorry
+  -- Align LHS bitwidth: first via the user's hypothesis, then via h1, both reach `intType`.
+  rw [h, h1]
+  -- Align RHS bitwidth: subst replaces `intType` with the RHS's `arithConstant_getType`,
+  -- making both sides use `arithConstant_getType newCtx newOp` (h2.symm form).
+  subst h2
+  -- At this point both sides are `(some ▸ chain) ▸ LLVM.Int.val (BitVec.ofInt W X)`
+  -- with the same `W` and `X` — only the `▸` cast structure differs (1 cast vs 2).
+  -- Discharge via HEq + eqRec_heq chaining.
+  apply eq_of_heq
+  simp only [eqRec_heq_iff_heq, heq_eqRec_iff_heq]
+  rfl
 
 
 theorem addIConstantFolding_preservesSemantics_alternative :
