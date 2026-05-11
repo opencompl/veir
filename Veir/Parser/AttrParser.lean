@@ -82,10 +82,15 @@ def parseRegisterType (errorMsg : String := "register type expected") : AttrPars
 
 /--
   Parse an integer attribute, if present.
-  An integer attribute has the form `value : type`, where `value` is an integer
-  literal and `type` is an integer type.
+  An integer attribute has the form `false`, `true` or `value : type`, where `value` is an
+  integer literal and `type` is an integer type.
 -/
 def parseOptionalIntegerAttr : AttrParserM (Option IntegerAttr) := do
+  if (← parseOptionalKeyword "false".toByteArray) then
+    return some (IntegerAttr.mk 0 (IntegerType.mk 1))
+  if (← parseOptionalKeyword "true".toByteArray) then
+    return some (IntegerAttr.mk 1 (IntegerType.mk 1))
+
   let some value ← parseOptionalInteger false true
     | return none
   parsePunctuation ":"

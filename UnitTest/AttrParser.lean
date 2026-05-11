@@ -103,6 +103,8 @@ macro "#assert " e:term : command =>
 
 #assert expectErrorAttr "0 : 2" "integer type expected after ':' in integer attribute"
 #assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.mk 32))
+#assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.mk 1))
+#assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.mk 1))
 
 /-! ## String attributes -/
 
