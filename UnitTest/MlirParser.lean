@@ -162,3 +162,45 @@ def testParseOp (s : String) : IO Unit :=
     \"test.test\"() [^bb0] : () -> ()
   }) : () -> ()
 }) : () -> ()"
+
+/--
+  info: "builtin.module"() ({
+  ^4():
+    %5_0, %5_1 = "test.test"() : () -> (i32, i64)
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %x:2 = \"test.test\"() : () -> (i32, i64)
+}) : () -> ()"
+
+/--
+  info: "builtin.module"() ({
+  ^4():
+    %5_0, %5_1, %5_2 = "test.test"() : () -> (i10, i32, i64)
+    %6 = "test.test"(%5_2, %5_0) : (i64, i10) -> i1
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a, %x:2 = \"test.test\"() : () -> (i10, i32, i64)
+  %b = \"test.test\"(%x#1, %a#0) : (i64, i10) -> i1
+}) : () -> ()"
+
+/--
+  error: use of undefined value %a#2
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a:2 = \"test.test\"() : () -> (i32, i64)
+  %b = \"test.test\"(%a#2) : (i32) -> i1
+}) : () -> ()"
+
+/--
+  error: type mismatch for value %a#1: expected i32, got i64
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a:2 = \"test.test\"() : () -> (i32, i64)
+  %b = \"test.test\"(%a#1) : (i32) -> i1
+}) : () -> ()"
