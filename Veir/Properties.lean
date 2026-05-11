@@ -348,6 +348,7 @@ def CombIcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   Properties of `hw.module`.
 -/
 structure HWModuleProperties where
+  module_type : HW.ModuleType
   sym_name : StringAttr
   per_port_attrs : ArrayAttr
   parameters : ArrayAttr
@@ -355,6 +356,9 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def HWModuleProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String HWModuleProperties := do
+  let some module_type := attrDict["module_type".toUTF8]? | throw "hw.module: requires attribute 'module_type'"
+  let .hwModuleType module_type := module_type | throw s!"hw.module: expected 'module_type' to be `!hw.modty`, but got {module_type}"
+
   let some sym_name := attrDict["sym_name".toUTF8]? | throw "hw.module: requires attribute 'sym_name'"
   let .stringAttr sym_name := sym_name | throw s!"hw.module: expected 'sym_name' to be a string attribute, but got {sym_name}"
 
@@ -364,7 +368,7 @@ def HWModuleProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   let parameters := attrDict["parameters".toUTF8]?.getD (.arrayAttr .empty)
   let .arrayAttr parameters := parameters | throw s!"hw.module: expected 'parameters' to be an array attribute, but got {parameters}"
 
-  return { sym_name, per_port_attrs, parameters }
+  return { module_type, sym_name, per_port_attrs, parameters }
 
 end
 end Veir

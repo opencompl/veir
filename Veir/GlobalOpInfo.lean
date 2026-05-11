@@ -239,6 +239,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr props.predicate)
   | .hw .module => Id.run do
     let dict := Std.HashMap.emptyWithCapacity 4
+    let dict := dict.insert "module_type".toUTF8 (.hwModuleType props.module_type)
     let dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
     let dict := dict.insert "per_port_attrs".toUTF8 (.arrayAttr props.per_port_attrs)
     let dict := dict.insert "parameters".toUTF8 (.arrayAttr props.parameters)
