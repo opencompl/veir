@@ -358,22 +358,27 @@ def upper (x : Dyadic) (e s : Nat) : EDyadic :=
           (computeUpper sign n.natAbs shift.toNat prec)
 
 /--
-Round `x` per IEEE-754 mode `mode` in target format `(e, s)`.
+Round nonzero `x` per IEEE-754 mode `mode` in target format `(e, s)`.
 
-* `±0` is propagated as `EDyadic.zero false` (any zero `Dyadic` value
-  drops the sign here).
+The precondition `hne : x ≠ 0` matches the invariant that
+`EDyadic.nonzeroFinite` carries: callers that already have a nonzero
+`Dyadic` (typically obtained by destructing `EDyadic.nonzeroFinite d hne`)
+can pass that proof directly. For concrete numeric literals, `by decide`
+fills the proof automatically.
+
 * For `|x|` exceeding the format's `maxFinite` (early overflow), the
   result is the mode-aware overflow special.
 * For `|x|` already representable at the target precision
   (`shift ≤ 0`), the result is `x` itself.
 * Otherwise, dispatch to the per-mode rounder
-  (`computeRoundRNE`/`RNA`/`RTP`/`RTN`/`RTZ`) at the precision
-  dictated by `x`'s exponent class, and post-check for late overflow.
+  (`computeRoundRNE`/`RNA`/`RTP`/`RTN`/`RTZ`) at the precision dictated
+  by `x`'s exponent class, and post-check for late overflow.
 -/
-def round (mode : RoundingMode) (x : Dyadic) (e s : Nat) : EDyadic :=
-  match x with
-  | .zero => .zero false
-  | .ofOdd n k hn =>
+def round (mode : RoundingMode) (x : Dyadic) (e s : Nat)
+    (hne : x ≠ 0 := by first | decide | native_decide) : EDyadic :=
+  match x, hne with
+  | .zero, hne => absurd rfl hne
+  | .ofOdd n k hn, _ =>
     let value : Dyadic := .ofOdd n k hn
     let sign : Bool := decide (n < 0)
     let eVal : Int := biasedExp value e

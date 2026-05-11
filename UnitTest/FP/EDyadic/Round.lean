@@ -16,10 +16,9 @@ open Veir.Data.FP.PackedFloat
 
 /-! ## Identity on representable values
 
-A `Dyadic` whose precision already fits in the target format rounds to
-itself. -/
+A nonzero `Dyadic` whose precision already fits in the target format
+rounds to itself. (Zero is excluded by `Dyadic.round`'s precondition.) -/
 
-#guard Dyadic.round .RNE 0 11 52 = .zero false
 #guard Dyadic.round .RNE (Dyadic.ofIntWithPrec 1 0) 11 52 =
   EDyadic.ofDyadic false (Dyadic.ofIntWithPrec 1 0)
 #guard Dyadic.round .RNE (Dyadic.ofIntWithPrec 3 1) 11 52 =
