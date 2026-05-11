@@ -311,6 +311,49 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
   parsePunctuation ">"
   return some (ModArithType.mk modulus modulusType)
 
+/--
+  Parse CIRCT's HW dialect's `ModulePort::Direction` type.
+  Its syntax is `(input|output|inout)`.
+-/
+def parseOptionalHWModulePortDirection : AttrParserM (Option HW.ModulePort.Direction) := do
+  if (← parseOptionalKeyword "input".toByteArray) then
+    return some .input
+  if (← parseOptionalKeyword "output".toByteArray) then
+    return some .output
+  if (← parseOptionalKeyword "inout".toByteArray) then
+    return some .inout
+  return none
+
+/--
+  Parse CIRCT's HW dialect's `ModulePort` type.
+  Its syntax is `(input|output|inout) name : iN`.
+-/
+def parseOptionalHWModulePort : AttrParserM (Option HW.ModulePort) := do
+  let .some dir ← parseOptionalHWModulePortDirection | return none
+  let name := String.fromUTF8! (← parseIdentifier)
+  parsePunctuation ":"
+  let type ← parseIntegerType
+  return some { dir, name, type }
+
+def parseHWModulePort (errorMsg : String := "module port expected") : AttrParserM (HW.ModulePort) := do
+  match ← parseOptionalHWModulePort with
+  | some ty => return ty
+  | none => throw errorMsg
+
+/--
+  Parse CIRCT's HW dialect's `ModuleType` type.
+  Its syntax is `!hw.modty<ports>` where `ports` is a comma delimited list of `ModulePort`s.
+-/
+def parseOptionalHWModuleType : AttrParserM (Option HW.ModuleType) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "hw.modty".toByteArray then return none
+  let _ ← consumeToken
+  let ports ← parseDelimitedList .angle parseHWModulePort
+  return some { ports }
+
 mutual
 
 /--
@@ -352,6 +395,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some llvmPointerType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
+  if let some hwModuleType ← parseOptionalHWModuleType then
+    return some hwModuleType
   if let some dialectType ← parseOptionalDialectType then
     return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then

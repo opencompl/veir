@@ -187,3 +187,14 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "@printf" (FlatSymbolRefAttr.mk "@printf")
 #assert expectSuccessAttr "@\"my.func\"" (FlatSymbolRefAttr.mk "@\"my.func\"")
 #assert expectMissingAttr "foo"
+
+/-! ## HW Module type -/
+#assert expectSuccessType "!hw.modty<>" (HW.ModuleType.mk #[])
+#assert expectSuccessType "!hw.modty<input a : i3, inout b : i6,  output c : i10>"
+  (HW.ModuleType.mk #[
+    {name := "a", type := IntegerType.mk 3, dir := .input},
+    {name := "b", type := IntegerType.mk 6, dir := .inout},
+    {name := "c", type := IntegerType.mk 10, dir := .output}])
+#assert expectErrorType "!hw.modty<foo>" "module port expected"
+#assert expectErrorType "!hw.modty<input : foo>" "identifier expected"
+#assert expectErrorType "!hw.modty<input a : foo>" "integer type expected"
