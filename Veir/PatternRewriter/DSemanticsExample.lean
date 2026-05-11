@@ -98,6 +98,7 @@ theorem ValuePtr.getDefiningOp!.numResults_zero {ctx : IRContext OpInfo} {op : O
 grind_pattern ValuePtr.getDefiningOp!.numResults_zero =>
     value.getDefiningOp! ctx, op.getNumResults! ctx
 
+set_option maxHeartbeats 100000000 in
 theorem addIConstantFolding_preservesSemantics :
     LocalRewritePattern.PreservesSemantics addIConstantFolding h hVal hTypes := by
   -- Unfold definition and cleanup hypotheses
@@ -161,7 +162,15 @@ theorem addIConstantFolding_preservesSemantics :
 
   have : newOp.getProperties! newCtx.raw (.arith .constant) = { value := { value := (lhsConst.value + rhsConst.value).bmod (2 ^ intType.bitwidth), type := intType } } := by sorry
   simp only [this]
-  sorry
+  rw [toto (h' := sorry /- Should be derivable.-/)]
+  rw [toto (h' := sorry /- Should be derivable.-/)]
+  -- works:
+  simp
+  have heq w k₁ k₂ nsw nuw :
+    (LLVM.Int.val (BitVec.ofInt w k₁)).add (LLVM.Int.val (BitVec.ofInt w k₂)) nsw nuw =
+    LLVM.Int.val (BitVec.ofInt w ((k₁ + k₂).bmod (2 ^ w))) := sorry
+  grind
+
 
 
 theorem addIConstantFolding_preservesSemantics_alternative :
