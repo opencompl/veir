@@ -28,7 +28,8 @@ def toEDyadic {e s : Nat} (pf : PackedFloat e s) : EDyadic :=
   else if pf.state = .zero then .zero pf.sign
   else
     -- normal, subnormal.
-    .nonzeroFinite (Dyadic.ofIntWithPrec (signToInt pf.sign * sig) prec)
+    EDyadic.ofDyadic pf.sign
+      (Dyadic.ofIntWithPrec (signToInt pf.sign * sig) prec)
   where
     sig := pf.sig.toNat  + 2 ^ s * (decide (pf.state = .normal)).toNat
     prec := (bias e : Int) + (s : Int) - (Nat.max pf.ex.toNat 1)
