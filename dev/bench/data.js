@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778581431585,
+  "lastUpdate": 1778593038024,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -19812,6 +19812,162 @@ window.BENCHMARK_DATA = {
             "value": 591000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000591s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48860705+luisacicolini@users.noreply.github.com",
+            "name": "Luisa Cicolini",
+            "username": "luisacicolini"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "549ee49f1a41b6a8adf69cc9bf926907739dc9d3",
+          "message": "add FastNTT parsing test (#551)\n\nAdd a new test to parse the LLVM IR lowering of the FastNTT algorithm,\nas per the steps detailed in #458. While not a unit test, this larger\ntest is useful to test various parts of our parser.\n\n---------\n\nCo-authored-by: Tobias Grosser <tobias@grosser.es>",
+          "timestamp": "2026-05-12T13:34:17Z",
+          "tree_id": "8393f9b51ac38fda6e72cce79e2681d411ebceff",
+          "url": "https://github.com/opencompl/veir/commit/549ee49f1a41b6a8adf69cc9bf926907739dc9d3"
+        },
+        "date": 1778593023788,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2312000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002312s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3163000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003163s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2304000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002304s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2656000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002656s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2277000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002277s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2102000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002102s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1997000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001997s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1742000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001742s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2344000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002344s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 4525000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.004525s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2333000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002333s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2577000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002577s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2293000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002293s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1722000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001722s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1909000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001909s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1391000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001391s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2387000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002387s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3145000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003145s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1967000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001967s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 9000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000009s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1998000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001998s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 736000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000736s"
           }
         ]
       }
