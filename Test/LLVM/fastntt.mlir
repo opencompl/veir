@@ -188,11 +188,11 @@
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT:   ^[[BB_MOD:.*]]():
-// CHECK-NEXT:     "builtin.unregistered"() : () -> ()
-// CHECK-NEXT:     "builtin.unregistered"() ({
+// CHECK-NEXT:     "llvm.module_flags"() : () -> ()
+// CHECK-NEXT:     "llvm.func"() ({
 // CHECK-NEXT:       ^[[BB_L2FA_ENTRY:.*]]([[L2FA_ARG:%.*]] : i32):
-// CHECK-NEXT:         [[L2FA_C0:%.*]] = "builtin.unregistered"() : () -> i32
-// CHECK-NEXT:         [[L2FA_C1:%.*]] = "builtin.unregistered"() : () -> i32
+// CHECK-NEXT:         [[L2FA_C0:%.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
+// CHECK-NEXT:         [[L2FA_C1:%.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
 // CHECK-NEXT:         "llvm.br"([[L2FA_C0]], [[L2FA_ARG]]) [^[[BB_L2FA_COND:.*]]] : (i32, i32) -> ()
 // CHECK-NEXT:       ^[[BB_L2FA_COND]]([[L2FA_V0:%.*]] : i32, [[L2FA_V1:%.*]] : i32):
 // CHECK-NEXT:         [[L2FA_CMP:%.*]] = "llvm.icmp"([[L2FA_V1]], [[L2FA_C1]]) <{"predicate" = 4 : i64}> : (i32, i32) -> i1
@@ -204,10 +204,10 @@
 // CHECK-NEXT:       ^[[BB_L2FA_EXIT]]():
 // CHECK-NEXT:         "llvm.return"([[L2FA_V0]]) : (i32) -> ()
 // CHECK-NEXT:     }) : () -> ()
-// CHECK-NEXT:     "builtin.unregistered"() ({
+// CHECK-NEXT:     "llvm.func"() ({
 // CHECK-NEXT:       ^[[BB_L2F_ENTRY:.*]]([[L2F_ARG:%.*]] : i32):
-// CHECK-NEXT:         [[L2F_C0:%.*]] = "builtin.unregistered"() : () -> i32
-// CHECK-NEXT:         [[L2F_C1:%.*]] = "builtin.unregistered"() : () -> i32
+// CHECK-NEXT:         [[L2F_C0:%.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
+// CHECK-NEXT:         [[L2F_C1:%.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
 // CHECK-NEXT:         "llvm.br"([[L2F_C0]], [[L2F_ARG]]) [^[[BB_L2F_COND:.*]]] : (i32, i32) -> ()
 // CHECK-NEXT:       ^[[BB_L2F_COND]]([[L2F_V0:%.*]] : i32, [[L2F_V1:%.*]] : i32):
 // CHECK-NEXT:         [[L2F_CMP:%.*]] = "llvm.icmp"([[L2F_V1]], [[L2F_C1]]) <{"predicate" = 4 : i64}> : (i32, i32) -> i1
@@ -219,7 +219,7 @@
 // CHECK-NEXT:       ^[[BB_L2F_EXIT]]():
 // CHECK-NEXT:         "llvm.return"([[L2F_V0]]) : (i32) -> ()
 // CHECK-NEXT:     }) : () -> ()
-// CHECK-NEXT:     "builtin.unregistered"() ({
+// CHECK-NEXT:     "llvm.func"() ({
 // CHECK-NEXT:       ^[[BB_BCT:.*]]([[BCT_A0:%.*]] : i32, [[BCT_A1:%.*]] : i32, [[BCT_A2:%.*]] : i32, [[BCT_A3:%.*]] : i32, [[BCT_P0:%.*]] : !llvm.ptr, [[BCT_P1:%.*]] : !llvm.ptr):
 // CHECK-NEXT:         [[BCT_M0:%.*]] = "llvm.mul"([[BCT_A2]], [[BCT_A1]]) : (i32, i32) -> i32
 // CHECK-NEXT:         [[BCT_R0:%.*]] = "llvm.srem"([[BCT_M0]], [[BCT_A3]]) : (i32, i32) -> i32
@@ -234,7 +234,7 @@
 // CHECK-NEXT:         "llvm.store"([[BCT_R3]], [[BCT_P1]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
 // CHECK-NEXT:         "llvm.return"() : () -> ()
 // CHECK-NEXT:     }) : () -> ()
-// CHECK-NEXT:     "builtin.unregistered"() ({
+// CHECK-NEXT:     "llvm.func"() ({
 // CHECK-NEXT:       ^[[BB_BGS:.*]]([[BGS_A0:%.*]] : i32, [[BGS_A1:%.*]] : i32, [[BGS_A2:%.*]] : i32, [[BGS_A3:%.*]] : i32, [[BGS_P0:%.*]] : !llvm.ptr, [[BGS_P1:%.*]] : !llvm.ptr):
 // CHECK-NEXT:         [[BGS_S0:%.*]] = "llvm.add"([[BGS_A0]], [[BGS_A1]]) : (i32, i32) -> i32
 // CHECK-NEXT:         [[BGS_R0:%.*]] = "llvm.srem"([[BGS_S0]], [[BGS_A3]]) : (i32, i32) -> i32
@@ -245,11 +245,11 @@
 // CHECK-NEXT:         "llvm.store"([[BGS_R1]], [[BGS_P1]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
 // CHECK-NEXT:         "llvm.return"() : () -> ()
 // CHECK-NEXT:     }) : () -> ()
-// CHECK-NEXT:     "builtin.unregistered"() ({
+// CHECK-NEXT:     "llvm.func"() ({
 // CHECK-NEXT:       ^[[BB_NTT:.*]]([[NTT_A0:%.*]] : !llvm.ptr, [[NTT_A1:%.*]] : i32, [[NTT_A2:%.*]] : i32, [[NTT_A3:%.*]] : !llvm.ptr, [[NTT_A4:%.*]] : i32, [[NTT_A5:%.*]] : i32):
-// CHECK-NEXT:         [[NTT_C0:%.*]] = "builtin.unregistered"() : () -> i32
-// CHECK-NEXT:         [[NTT_C1:%.*]] = "builtin.unregistered"() : () -> i32
-// CHECK-NEXT:         [[NTT_C2:%.*]] = "builtin.unregistered"() : () -> i32
+// CHECK-NEXT:         [[NTT_C0:%.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
+// CHECK-NEXT:         [[NTT_C1:%.*]] = "llvm.mlir.constant"() <{"value" = 2 : i32}> : () -> i32
+// CHECK-NEXT:         [[NTT_C2:%.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
 // CHECK-NEXT:         [[NTT_CMP0:%.*]] = "llvm.icmp"([[NTT_A4]], [[NTT_C0]]) <{"predicate" = 1 : i64}> : (i32, i32) -> i1
 // CHECK-NEXT:         "llvm.cond_br"([[NTT_CMP0]]) [^[[BB_NTT_1:.*]], ^[[BB_NTT_2:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
 // CHECK-NEXT:       ^[[BB_NTT_1]]():
