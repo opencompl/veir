@@ -1,3 +1,5 @@
+// RUN: veir-opt %s | filecheck %s
+
 // This test results from the lowering of a C implementation of the FastNTT algorithm, based on the Heir 
 // pseudocode: https://github.com/google/heir/blob/1210ad37dc9531d6e60d8ddbce81dbd79f7626a6/lib/Dialect/Polynomial/Conversions/PolynomialToModArith/PolynomialToModArith.cpp#L1060. 
 // We detail the flags and specifics of the lowering from C to LLVM IR in https://github.com/opencompl/veir/pull/458
