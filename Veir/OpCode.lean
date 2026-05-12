@@ -71,7 +71,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Llvm where
-| constant
+| mlir__constant
 | and
 | or
 | xor
@@ -97,6 +97,8 @@ inductive Llvm where
 | store
 | getelementptr
 | return
+| func
+| module_flags
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]

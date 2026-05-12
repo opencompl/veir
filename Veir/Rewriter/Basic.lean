@@ -382,10 +382,94 @@ def Rewriter.replaceOp? (ctx: IRContext OpInfo) (oldOp newOp: OperationPtr)
     eraseOp newCtx oldOp
 
 @[irreducible]
-def Rewriter.createBlock (ctx: IRContext OpInfo) (insertionPoint: Option BlockInsertPoint)
+protected def Rewriter.pushBlockArgument (ctx : IRContext OpInfo) (blockPtr : BlockPtr) (type : TypeAttr)
+    (blockPtrInBounds : blockPtr.InBounds ctx := by grind) : IRContext OpInfo :=
+  let index := blockPtr.getNumArguments ctx (by grind)
+  let argument := { type := type, firstUse := none, index := index, loc := (), owner := blockPtr : BlockArgument }
+  blockPtr.pushArgument ctx argument (by grind)
+
+@[grind =]
+theorem Rewriter.pushBlockArgument_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (Rewriter.pushBlockArgument ctx blockPtr type blockPtrInBounds) ↔
+    match ptr with
+    | .blockArgument argPtr =>
+      argPtr.InBounds ctx ∨ argPtr = blockPtr.nextArgument ctx
+    | .value (.blockArgument argPtr) =>
+      argPtr.InBounds ctx ∨ argPtr = blockPtr.nextArgument ctx
+    | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
+      argPtr.InBounds ctx ∨ argPtr = blockPtr.nextArgument ctx
+    | _ => ptr.InBounds ctx := by
+  constructor <;> grind [Rewriter.pushBlockArgument]
+
+@[grind .]
+theorem Rewriter.pushBlockArgument_fieldsInBounds (hctx : ctx.FieldsInBounds) :
+    (Rewriter.pushBlockArgument ctx blockPtr type blockPtrInBounds).FieldsInBounds := by
+  simp only [Rewriter.pushBlockArgument]
+  apply BlockPtr.pushArgument_fieldsInBounds
+  · constructor <;> grind
+  · exact hctx
+
+def Rewriter.initBlockArguments (ctx: IRContext OpInfo) (blockPtr: BlockPtr) (types: Array TypeAttr)
+    (index: Nat := 0) (hblock : blockPtr.InBounds ctx := by grind)
+    (hidx : index = blockPtr.getNumArguments ctx := by grind) : IRContext OpInfo :=
+  if h: index >= types.size then
+    ctx
+  else
+    let ctx := Rewriter.pushBlockArgument ctx blockPtr types[index]
+    Rewriter.initBlockArguments ctx blockPtr types (index + 1) (hidx := by grind [Rewriter.pushBlockArgument])
+  termination_by types.size - index
+  decreasing_by lia
+
+@[grind .]
+theorem Rewriter.initBlockArguments_fieldsInBounds (hx : ctx.FieldsInBounds) :
+    (initBlockArguments ctx blockPtr types index h₁ h₂).FieldsInBounds := by
+  fun_induction initBlockArguments <;> grind
+
+/--
+This theorem is a more general version of `initBlockArguments_inBounds` that is needed for the
+induction step in the proof of that theorem.
+-/
+theorem Rewriter.initBlockArguments_inBounds' (ptr : GenericPtr) :
+    ptr.InBounds (initBlockArguments ctx blockPtr types index h₁ h₂) ↔
+    match ptr with
+    | .blockArgument argPtr
+    | .value (.blockArgument argPtr)
+    | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
+      if argPtr.block = blockPtr then
+        /-
+          We need `argPtr.index < blockPtr.getNumArguments! ctx` because of the case where we
+          call `initBlockArguments` on a block that already has a larger number of arguments as
+          `types.size`.
+        -/
+        argPtr.index < types.size ∨ argPtr.index < blockPtr.getNumArguments! ctx
+      else
+        argPtr.InBounds ctx
+    | _ => ptr.InBounds ctx := by
+  fun_induction initBlockArguments <;> grind [BlockArgumentPtr.inBounds_def]
+
+@[grind =]
+theorem Rewriter.initBlockArguments_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (initBlockArguments ctx blockPtr types 0 h₁ h₂) ↔
+    match ptr with
+    | .blockArgument argPtr
+    | .value (.blockArgument argPtr)
+    | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
+      if argPtr.block = blockPtr then argPtr.index < types.size else argPtr.InBounds ctx
+    | _ => ptr.InBounds ctx := by
+  grind [Rewriter.initBlockArguments_inBounds']
+
+@[grind .]
+theorem Rewriter.initBlockArguments_inBounds_mono (ptr : GenericPtr) :
+    ptr.InBounds ctx → ptr.InBounds (initBlockArguments ctx blockPtr types index h₁ h₂) := by
+  fun_induction initBlockArguments <;> grind
+
+@[irreducible]
+def Rewriter.createBlock (ctx: IRContext OpInfo) (argTypes : Array TypeAttr)
+    (insertionPoint: Option BlockInsertPoint)
     (hctx : ctx.FieldsInBounds) (hip : insertionPoint.maybe BlockInsertPoint.InBounds ctx)
     : Option (IRContext OpInfo × BlockPtr) :=
   rlet (ctx, newBlockPtr) ← BlockPtr.allocEmpty ctx
+  let ctx := Rewriter.initBlockArguments ctx newBlockPtr argTypes
   match h : insertionPoint with
   | some insertionPoint => do
     let ctx ← Rewriter.insertBlock? ctx newBlockPtr insertionPoint
@@ -395,7 +479,7 @@ def Rewriter.createBlock (ctx: IRContext OpInfo) (insertionPoint: Option BlockIn
     (ctx, newBlockPtr)
 
 @[grind .]
-theorem Rewriter.createBlock_inBounds_mono (ptr : GenericPtr) (heq : createBlock ctx ip hctx hip = some ⟨newCtx, newPtr⟩) :
+theorem Rewriter.createBlock_inBounds_mono (ptr : GenericPtr) (heq : createBlock ctx types ip hctx hip = some ⟨newCtx, newPtr⟩) :
     ptr.InBounds ctx → ptr.InBounds newCtx := by
   simp only [createBlock] at heq
   split at heq
@@ -407,7 +491,7 @@ theorem Rewriter.createBlock_inBounds_mono (ptr : GenericPtr) (heq : createBlock
 
 @[grind .]
 theorem Rewriter.createBlock_fieldsInBounds_mono
-    (heq : createBlock ctx ip hctx hip = some ⟨newCtx, newPtr⟩) :
+    (heq : createBlock ctx types ip hctx hip = some ⟨newCtx, newPtr⟩) :
     ctx.FieldsInBounds → newCtx.FieldsInBounds := by
   simp only [createBlock] at heq
   split at heq
@@ -416,6 +500,31 @@ theorem Rewriter.createBlock_fieldsInBounds_mono
     · simp [Option.bind] at heq
       split at heq <;> grind
     · grind
+
+def Rewriter.setBlockArguments (ctx : IRContext OpInfo) (blockPtr : BlockPtr)
+    (types : Array TypeAttr) (hblock : blockPtr.InBounds ctx := by grind) : IRContext OpInfo :=
+  let numArgs := blockPtr.getNumArguments ctx (by grind)
+  if _ : numArgs = 0 then
+    Rewriter.initBlockArguments ctx blockPtr types
+  else
+    let ctx := blockPtr.setArguments ctx #[]
+    Rewriter.initBlockArguments ctx blockPtr types
+
+@[grind =]
+theorem Rewriter.setBlockArguments_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (Rewriter.setBlockArguments ctx blockPtr types hblock) ↔
+    match ptr with
+    | .blockArgument argPtr
+    | .value (.blockArgument argPtr)
+    | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
+      if argPtr.block = blockPtr then argPtr.index < types.size else argPtr.InBounds ctx
+    | _ => ptr.InBounds ctx := by
+  grind [Rewriter.setBlockArguments]
+
+/-!
+`Rewriter.setBlockArguments` preserves `FieldsInBounds` only if the context is well-formed and no
+previous block argument is used. Otherwise, another pointer could point to one of the block arguments.
+-/
 
 @[irreducible, grind]
 def Rewriter.createRegion (ctx: IRContext OpInfo) : Option (IRContext OpInfo × RegionPtr) :=
@@ -770,5 +879,5 @@ theorem Rewriter.createOp_fieldsInBounds
 def IRContext.create OpInfo [HasOpInfo OpInfo] : Option (IRContext OpInfo × OperationPtr) :=
   rlet (ctx, region) ← Rewriter.createRegion (empty OpInfo)
   rlet (ctx, operation) ← Rewriter.createOp ctx HasOpInfo.moduleOpCode #[] #[] #[] #[region] default none
-  rlet (ctx, block) ← Rewriter.createBlock ctx (some (.atEnd region)) (by grind) (by grind)
+  rlet (ctx, block) ← Rewriter.createBlock ctx #[] (some (.atEnd region)) (by grind) (by grind)
   return (ctx, operation)

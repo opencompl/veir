@@ -1,10 +1,10 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  %three = "llvm.constant"() <{ "value" = 3 : i32 }> : () -> i32
-  %five = "llvm.constant"() <{ "value" = 5 : i32 }> : () -> i32
-  %eight = "llvm.constant"() <{ "value" = 8 : i32 }> : () -> i32
-  %negseven = "llvm.constant"() <{ "value" = -7 : i32 }> : () -> i32
+  %three = "llvm.mlir.constant"() <{ "value" = 3 : i32 }> : () -> i32
+  %five = "llvm.mlir.constant"() <{ "value" = 5 : i32 }> : () -> i32
+  %eight = "llvm.mlir.constant"() <{ "value" = 8 : i32 }> : () -> i32
+  %negseven = "llvm.mlir.constant"() <{ "value" = -7 : i32 }> : () -> i32
   %x = "llvm.or"(%three, %five) : (i32, i32) -> i32
   %y = "llvm.or"(%eight, %negseven) : (i32, i32) -> i32
   %z = "llvm.or"(%three, %eight) : (i32, i32) -> i32

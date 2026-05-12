@@ -17,11 +17,12 @@ jobs:
         uses: leanprover/lean-action@v1
         with:
           build-args: "--iofail"
+          test: false
 
       - name: Run unit tests
         uses: leanprover/lean-action@v1
         with:
-          build-args: "--iofail"
+          test-args: "--iofail"
           test: true
 
       - name: Install uv

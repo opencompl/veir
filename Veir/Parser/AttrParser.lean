@@ -82,10 +82,15 @@ def parseRegisterType (errorMsg : String := "register type expected") : AttrPars
 
 /--
   Parse an integer attribute, if present.
-  An integer attribute has the form `value : type`, where `value` is an integer
-  literal and `type` is an integer type.
+  An integer attribute has the form `false`, `true` or `value : type`, where `value` is an
+  integer literal and `type` is an integer type.
 -/
 def parseOptionalIntegerAttr : AttrParserM (Option IntegerAttr) := do
+  if (← parseOptionalKeyword "false".toByteArray) then
+    return some (IntegerAttr.mk 0 (IntegerType.mk 1))
+  if (← parseOptionalKeyword "true".toByteArray) then
+    return some (IntegerAttr.mk 1 (IntegerType.mk 1))
+
   let some value ← parseOptionalInteger false true
     | return none
   parsePunctuation ":"
@@ -237,6 +242,14 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   parsePunctuation ">"
   let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
   return some (UnregisteredAttr.mk (String.fromUTF8! value) false)
+
+/--
+  Parse a flat symbol reference attribute, if present.
+  Its syntax is `@ident` or `@"string"`.
+-/
+def parseOptionalFlatSymbolRefAttr : AttrParserM (Option FlatSymbolRefAttr) := do
+  let some name ← parseOptionalPrefixedKeyword .atIdent | return none
+  return some (FlatSymbolRefAttr.mk ("@" ++ String.fromUTF8! name))
 
 /--
   Parse a location attribute, if present.
@@ -427,6 +440,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some arrayAttr
   else if let some dictAttr ← parseOptionalDictionaryAttr then
     return some dictAttr
+  else if let some symRefAttr ← parseOptionalFlatSymbolRefAttr then
+    return some symRefAttr
   else
     return none
 

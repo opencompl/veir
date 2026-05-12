@@ -103,6 +103,8 @@ macro "#assert " e:term : command =>
 
 #assert expectErrorAttr "0 : 2" "integer type expected after ':' in integer attribute"
 #assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.mk 32))
+#assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.mk 1))
+#assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.mk 1))
 
 /-! ## String attributes -/
 
@@ -181,3 +183,9 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))
 #assert expectErrorType "!cuda_tile.ptr<16>" "integer type expected"
+
+/-! ## Flat symbol reference attribute -/
+#assert expectSuccessAttr "@foo" (FlatSymbolRefAttr.mk "@foo")
+#assert expectSuccessAttr "@printf" (FlatSymbolRefAttr.mk "@printf")
+#assert expectSuccessAttr "@\"my.func\"" (FlatSymbolRefAttr.mk "@\"my.func\"")
+#assert expectMissingAttr "foo"

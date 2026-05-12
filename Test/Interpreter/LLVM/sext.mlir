@@ -1,8 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  %c127 = "llvm.constant"() <{ "value" = 127 : i8 }> : () -> i8
-  %cneg = "llvm.constant"() <{ "value" = -1 : i8 }> : () -> i8
+  %c127 = "llvm.mlir.constant"() <{ "value" = 127 : i8 }> : () -> i8
+  %cneg = "llvm.mlir.constant"() <{ "value" = -1 : i8 }> : () -> i8
   %a = "llvm.sext"(%c127) : (i8) -> i32
   %b = "llvm.sext"(%cneg) : (i8) -> i32
   "func.return"(%a, %b) : (i32, i32) -> ()

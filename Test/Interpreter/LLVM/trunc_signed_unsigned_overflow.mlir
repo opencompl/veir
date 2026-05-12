@@ -4,7 +4,7 @@
 //   nsw: sext(0x80) = -128 != 384, poison
 //   nuw: zext(0x80) = 128 != 384, poison
 "builtin.module"() ({
-  %c384 = "llvm.constant"() <{ "value" = 384 : i32 }> : () -> i32
+  %c384 = "llvm.mlir.constant"() <{ "value" = 384 : i32 }> : () -> i32
   %none    = "llvm.trunc"(%c384) : (i32) -> i8
   %nsw     = "llvm.trunc"(%c384) <{nsw}> : (i32) -> i8
   %nuw     = "llvm.trunc"(%c384) <{nuw}> : (i32) -> i8

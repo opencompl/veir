@@ -2,9 +2,9 @@
 
 "builtin.module"() ({
     "func.func"() ({
-        %one = "llvm.constant"() <{ "value" = 1 : i32 }> : () -> i32
-        %two = "llvm.constant"() <{ "value" = 2 : i32 }> : () -> i32
-        // CHECK:      %{{.*}} = "llvm.constant"() <{"value" = 1 : i32}> : () -> i32
-        // CHECK-NEXT: %{{.*}} = "llvm.constant"() <{"value" = 2 : i32}> : () -> i32
+        %one = "llvm.mlir.constant"() <{ "value" = 1 : i32 }> : () -> i32
+        %two = "llvm.mlir.constant"() <{ "value" = 2 : i32 }> : () -> i32
+        // CHECK:      %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
+        // CHECK-NEXT: %{{.*}} = "llvm.mlir.constant"() <{"value" = 2 : i32}> : () -> i32
     }) : () -> ()
 }) : () -> ()
