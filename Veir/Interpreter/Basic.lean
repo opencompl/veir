@@ -8,6 +8,7 @@ import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.Casting
 import Veir.Properties
 import Veir.GlobalOpInfo
+import Veir.Verifier
 
 open Veir.Data
 /-!
@@ -784,5 +785,66 @@ def interpretModule (ctx : IRContext OpCode) (op : OperationPtr)
     none
   else
     interpretRegion ctx (op.getRegion ctx 0) InterpreterState.empty
+
+@[simp, grind]
+def runtimeValueType (type : TypeAttr) : Type :=
+  match type.val with
+  | .integerType bw => LLVM.Int bw.bitwidth
+  | .registerType _ => RISCV.Reg
+  | _ => Unit
+
+structure TypedRuntimeValues (types : Array TypeAttr) where
+  values : Array (Σ t, runtimeValueType t)
+  valueSize : values.size = types.size
+  valueTyped : ∀ i, (hi : i < values.size) → values[i].fst = types[i]
+
+def TypedRuntimeValues.from (types : Array TypeAttr) (vals : Array (Σ t, runtimeValueType t)) (hSize : vals.size = types.size := by grind) (hTyped : ∀ i, (hi : i < vals.size) → vals[i].fst = types[i] := by grind) : TypedRuntimeValues types :=
+  ⟨vals, hSize, hTyped⟩
+
+def TypedRuntimeValues.get (vals : TypedRuntimeValues types) (i : Nat) (hi : i < types.size := by simp) : runtimeValueType types[i] :=
+  rlet ⟨fst, val⟩ := vals.values[i]'(by grind [TypedRuntimeValues.valueSize])
+  have h : types[i] = fst := by grind [TypedRuntimeValues.valueTyped]
+  h ▸ val
+
+structure ArithAddiOpSignature where
+  type : IntegerType
+
+@[simp, grind]
+def ArithAddiOpSignature.operandTypes (sig : ArithAddiOpSignature) : Array TypeAttr :=
+  #[(Attribute.integerType sig.type).asType, (Attribute.integerType sig.type).asType]
+
+@[simp, grind]
+def ArithAddiOpSignature.resultTypes (sig : ArithAddiOpSignature) : Array TypeAttr :=
+  #[(Attribute.integerType sig.type).asType]
+
+def interpretTest (sig : ArithAddiOpSignature) (operands : TypedRuntimeValues (sig.operandTypes)) : TypedRuntimeValues (sig.resultTypes) :=
+  let res := (operands.get 0).add (operands.get 1)
+  TypedRuntimeValues.from (sig.resultTypes) #[⟨sig.operandTypes[0]'(by simp), res⟩]
+
+@[grind cases, grind]
+inductive ArithAddiWithTensorOpSignature where
+  | integerVersion (type : IntegerType)
+  | tensorVersion (type : FunctionType) -- We don't have `TensorType` yet
+
+@[simp, grind]
+def ArithAddiWithTensorOpSignature.operandTypes (sig : ArithAddiWithTensorOpSignature) : Array TypeAttr :=
+  match sig with
+  | .integerVersion type => #[type, type]
+  | .tensorVersion type => #[type, type]
+
+@[simp, grind]
+def ArithAddiWithTensorOpSignature.resultTypes (sig : ArithAddiWithTensorOpSignature) : Array TypeAttr :=
+  match sig with
+  | .integerVersion type => #[type]
+  | .tensorVersion type =>  #[type]
+
+def interpretWithTensorTest (sig : ArithAddiWithTensorOpSignature) (operands : TypedRuntimeValues (sig.operandTypes)) : TypedRuntimeValues (sig.resultTypes) :=
+  match h : sig with
+  | .integerVersion type =>
+    let res : runtimeValueType (sig.operandTypes[0]'(by grind)) := h ▸ (operands.get 0).add (operands.get 1)
+    h ▸ TypedRuntimeValues.from (sig.resultTypes) #[⟨sig.operandTypes[0]'(by grind), res⟩]
+  | .tensorVersion type =>
+    let res : runtimeValueType (sig.operandTypes[0]'(by grind)) := h ▸ operands.get 0
+    h ▸ TypedRuntimeValues.from (sig.resultTypes) #[⟨sig.operandTypes[0]'(by grind), res⟩]
 
 end Veir
