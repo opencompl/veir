@@ -46,6 +46,7 @@ instance : ToString (RuntimeValue) where
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
 
+--@[ext]
 structure MemoryState where
   contents : ByteArray
   size : UInt64
@@ -55,11 +56,12 @@ def MemoryState.empty : MemoryState :=
 
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
-  ({contents := (ByteArray.empty.push 0).copySlice 0 state.contents (state.size + size).toNat 1, size := state.size + size}, state.size)
+  ({ contents := (ByteArray.empty.push 0).copySlice 0 state.contents (state.size + size).toNat 1, size := state.size + size }, state.size)
 
 def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
     : MemoryState :=
-  {state with contents := val.copySlice 0 state.contents addr.toNat val.size false}
+  let mem := ByteArray.rightpad addr.toNat 0 state.contents
+  { state with contents := val.copySlice 0 mem addr.toNat val.size false }
 
 def MemoryState.storeValue (state : MemoryState) (addr : UInt64) (val : RuntimeValue)
     : MemoryState :=
@@ -77,7 +79,7 @@ def MemoryState.loadValue (state : MemoryState) (addr : UInt64) (type : TypeAttr
     : Option RuntimeValue := do
   match type.val with
   | Attribute.integerType { bitwidth := 8 } => some (.int 8 (.val (BitVec.ofNat 8 (state.load addr 1)[0]!.toNat)))
-  | Attribute.integerType { bitwidth := 64 } => some (.int 64 (.val (BitVec.ofNat 64 (state.load 1 8).toUInt64LE!.toNat)))
+  | Attribute.integerType { bitwidth := 64 } => some (.int 64 (.val (BitVec.ofNat 64 (state.load addr 8).toUInt64LE!.toNat)))
   --| Attribute.llvmPointerType _ => some (.addr (state.load addr 8).toUInt64LE!)
   | _ => none
 

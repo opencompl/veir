@@ -299,3 +299,10 @@ def twoPow (k : Int) : Rat := 2 ^ k
 
 end Rat
 
+namespace ByteArray
+
+def rightpad (n : Nat) (x : UInt8) (xs : ByteArray) : ByteArray where
+  data := Array.rightpad n x xs.data
+
+end ByteArray
+
