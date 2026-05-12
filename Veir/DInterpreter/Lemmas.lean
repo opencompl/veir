@@ -36,6 +36,23 @@ theorem InterpreterState.getVar!_setVar' :
       state.getVar! var := by
   grind [InterpreterState.setVar', InterpreterState.getVar!]
 
+@[simp, grind =]
+theorem InterpreterState.getVar₁!_setVar₁_eq heq :
+    (InterpreterState.setVar₁ state var ty val heq).getVar₁! var ty = val := by
+  grind [InterpreterState.setVar₁, InterpreterState.getVar₁!]
+
+@[grind .]
+theorem InterpreterState.getVar₁!_eq (state : InterpreterState ctx) (heq : ty = ty') :
+    state.getVar₁! var ty =
+    heq ▸ state.getVar₁! var ty' := by
+  grind [InterpreterState.setVar₁, InterpreterState.getVar₁!]
+
+@[grind .]
+theorem InterpreterState.getVar₁!_eq₂ {state : InterpreterState ctx}
+    (h : state.getVar₁! var ty = val) (heq : ty = ty') :
+    state.getVar₁! var ty' = heq ▸ val := by
+  grind
+
 theorem InterpreterState.getVar'!_of_getVar'! :
     state.getVar'! var α hα = x →
     state.getVar'! var β hβ = (show α = β by rw [hα, hβ]) ▸ x := by

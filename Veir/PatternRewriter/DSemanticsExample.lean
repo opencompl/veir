@@ -5,6 +5,7 @@ import Veir.Passes.Matching
 import Veir.Rewriter.WfRewriter
 import Veir.PatternRewriter.DSemantics
 import Veir.Data.LLVM.Int.Basic
+import Mathlib.Tactic.DepRewrite
 
 open Veir.Data
 
@@ -48,7 +49,7 @@ theorem matchAddi_interpretOp_unfold (opInBounds : op.InBounds ctx.raw) :
     let intType := arithAddi_getType ctx op (by sorry)
     let lhsVal := state.getVar'! lhs (LLVM.Int intType.bitwidth) (by sorry)
     let rhsVal := state.getVar'! rhs (LLVM.Int intType.bitwidth) (by sorry)
-    newState.getVar'! (op.getResult 0) (LLVM.Int intType.bitwidth) (by sorry) =
+    newState.getVar₁! (op.getResult 0) intType =
     (lhsVal.add rhsVal properties.nsw properties.nuw) ∧ cf = none := by
   sorry
 
@@ -68,7 +69,7 @@ theorem matchConstantOp_implies :
 theorem matchConstantOp_interpretOp_unfold (opInBounds : op.InBounds ctx.raw) :
     matchConstantOp op ctx = some properties →
     interpretOp ctx op state = (newState, cf) →
-    newState.getVar'! (op.getResult 0) (LLVM.Int (arithConstant_getType ctx op (by sorry)).bitwidth) =
+    newState.getVar₁! (op.getResult 0) (arithConstant_getType ctx op (by sorry)) =
     LLVM.Int.val (BitVec.ofInt (arithConstant_getType ctx op (by sorry)).bitwidth properties.value) := by
   sorry
 
@@ -187,22 +188,25 @@ theorem addIConstantFolding_preservesSemantics :
     Nat.zero_add, Nat.lt_one_iff, List.getElem_toArray, exists_eq_left']
   intro idx hIdx; subst idx
   simp only [List.getElem_cons_zero]
-  simp only [InterpreterState.getVar!_setVar', ↓reduceDIte]
-  simp only [InterpreterState.getVar'!_eq_getVar!]
-  simp only [InterpreterState.getVar'!_of_getVar'! hRes]
-  simp only [InterpreterState.getVar'!_of_getVar'! hLhsRes]
-  simp only [InterpreterState.getVar'!_of_getVar'! hRhsRes]
+
+  have aa : ((ValuePtr.opResult (op.getResult 0)).getType! ctx.raw) = ⟨Attribute.integerType (arithAddi_getType ctx op sorry), (by grind)⟩ := by sorry
+  rw [aa, hRes]
 
   have h : arithAddi_getType ctx op (by grind) = arithConstant_getType ctx lhsOp (by grind) := by sorry
   have : newOp.getProperties! newCtx.raw (.arith .constant) = { value := { value := (lhsConst.value + rhsConst.value).bmod (2 ^ intType.bitwidth), type := intType } } := by sorry
+  have type_eq :
+    ((op.getResult 0).get! ctx.raw).type = ⟨Attribute.integerType (arithConstant_getType newCtx newOp (by grind)), by grind⟩  := by sorry
   simp only [this]
-  simp (disch := grind) only [toto]
-  rw [toto (h' := sorry /- Should be derivable.-/)]
-  simp only [toto2, toto3]
+  simp? [type_eq, *]
+  have bb : arithConstant_getType newCtx newOp (by grind) = arithAddi_getType ctx op (by grind) := by grind
+  rw! [bb]
+  simp [InterpreterState.getVar₁!_setVar₁_eq]
+
+
+
   have heq w k₁ k₂ nsw nuw :
     (LLVM.Int.val (BitVec.ofInt w k₁)).add (LLVM.Int.val (BitVec.ofInt w k₂)) nsw nuw =
     LLVM.Int.val (BitVec.ofInt w ((k₁ + k₂).bmod (2 ^ w))) := sorry
-  rw [heq]
   -- The two extra equalities we need (beyond the one you added above):
   -- `h1` follows from `hIntType` + `arithConstant_getType_resultType` (lhsOp's result type).
   -- `h2` follows from `ValuePtr.getType!_WfRewriter_createOp hNewCtx` + `arithConstant_getType_resultType`

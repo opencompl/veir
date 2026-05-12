@@ -59,6 +59,11 @@ def InterpreterState.setVar (state : InterpreterState ctx) (var : ValuePtr) (val
     InterpreterState ctx :=
   {state with variables := state.variables.insert var val}
 
+def InterpreterState.setVar₁ (state : InterpreterState ctx) (var : ValuePtr) ty
+    (val : runtimeValueType ty) (heq : ty = var.getType! ctx.raw := by grind)
+     : InterpreterState ctx :=
+  {state with variables := state.variables.insert var (heq ▸ val)}
+
 def InterpreterState.setVar' (state : InterpreterState ctx) (var : ValuePtr) (α : Type) (val : α)
     (hα : α = runtimeValueType (var.getType! ctx.raw) := by grind) :
     InterpreterState ctx :=
@@ -74,6 +79,13 @@ def InterpreterState.getVar? (state : InterpreterState ctx) (var : ValuePtr)
 def InterpreterState.getVar! (state : InterpreterState ctx) (var : ValuePtr)
     : runtimeValueType (var.getType! ctx.raw) :=
   state.variables.get! var
+
+def InterpreterState.getVar₁! (state : InterpreterState ctx) (var : ValuePtr) ty
+    : runtimeValueType ty :=
+  if heq : ty = var.getType! ctx.raw then
+    heq ▸ state.variables.get! var
+  else
+    default
 
 def InterpreterState.getVar'! (state : InterpreterState ctx) (var : ValuePtr)
     (α : Type) (hα : α = runtimeValueType (var.getType! ctx.raw) := by grind) :
@@ -141,7 +153,7 @@ def interpretConstant (ctx : WfIRContext OpCode) (op : OperationPtr) (state : In
   let resVal : ValuePtr := op.getResult 0
   let resType := arithConstant_getType ctx op
   let properties := op.getProperties! ctx.raw (.arith .constant)
-  state.setVar' resVal (LLVM.Int resType.bitwidth) (.val (BitVec.ofInt resType.bitwidth properties.value.value))
+  state.setVar₁ resVal resType (.val (BitVec.ofInt resType.bitwidth properties.value.value))
 
 def interpretAddi (ctx : WfIRContext OpCode) (op : OperationPtr) (state : InterpreterState ctx)
     (hAdd : op.getOpType! ctx.raw = .arith .addi := by grind) : InterpreterState ctx :=
@@ -151,7 +163,7 @@ def interpretAddi (ctx : WfIRContext OpCode) (op : OperationPtr) (state : Interp
   let properties := op.getProperties! ctx.raw (.arith .addi)
   let resVal := LLVM.Int.add lhsVal rhsVal properties.nsw properties.nuw
   let resVar := op.getResult 0
-  state.setVar' resVar (LLVM.Int resType.bitwidth) resVal
+  state.setVar₁ resVar resType resVal
 
 def interpretOp (ctx : WfIRContext OpCode) (op : OperationPtr) (state : InterpreterState ctx)
     : InterpreterState ctx × Option ControlFlowAction :=

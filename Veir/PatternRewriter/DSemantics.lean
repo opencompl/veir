@@ -75,4 +75,7 @@ def LocalRewritePattern.PreservesSemantics
   ∃ newState',
     interpretOpList' newCtx newOps.toList (state.move newCtx) (by grind [ReturnOps]) = (newState', cf) ∧
     ∀ idx (hIdx : idx < newValues.size),
-      newState.getVar! (op.getResult idx) = (hType' newCtx newOps newValues hpattern idx hIdx) ▸ newState'.getVar! newValues[idx]
+      newState.getVar₁! (op.getResult idx)
+        ((ValuePtr.opResult (op.getResult idx)).getType! ctx.raw) =
+      newState'.getVar₁! newValues[idx]
+        ((ValuePtr.opResult (op.getResult idx)).getType! ctx.raw)
