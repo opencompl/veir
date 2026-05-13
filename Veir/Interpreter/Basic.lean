@@ -751,12 +751,12 @@ def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : Inter
 
 /--
   Interpret a CFG, starting from the given block.
-  Return the values eventually returned, if any.
+  Return the resulting interpreter state and values eventually returned, if any.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlockCFG (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue) := do
+def interpretBlockCFG (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (InterpreterState × Array RuntimeValue) := do
   match interpretBlock ctx blockPtr state blockInBounds wf with
-  | some (_state, .return res) => some res
+  | some (state, .return res) => some (state, res)
   | some (state, .branch res succ) =>
     if h : succ.InBounds ctx then
       let state := state.setArgumentValues ctx succ res
@@ -766,11 +766,21 @@ partial_fixpoint
 
 /--
   Interpret a region, starting from its first block.
-  Return the values eventually returned, or `none` if any errors occur during interpretation.
+  Return the resulting interpreter state and values eventually returned, or `none`
+  if any errors occur during interpretation.
 -/
-def interpretRegion (ctx : IRContext OpCode) (region : RegionPtr) (state : InterpreterState) (regionIn : region.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue) := do
+def interpretRegion (ctx : IRContext OpCode) (region : RegionPtr) (state : InterpreterState) (regionIn : region.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (InterpreterState × Array RuntimeValue) := do
   rlet block ← (region.get ctx).firstBlock
-  interpretBlockCFG ctx block state
+  rlet firstOp ← (block.get ctx).firstOp
+  match firstOp.getOpType! ctx with
+  | .func .func | .llvm .func =>
+    if h : firstOp.getNumRegions ctx ≠ 1 then
+      none
+    else
+      interpretRegion ctx (firstOp.getRegion ctx 0) state
+  | _ =>
+    interpretBlockCFG ctx block state
+partial_fixpoint
 
 /--
   Interpret a builtin.module operation.
@@ -783,6 +793,7 @@ def interpretModule (ctx : IRContext OpCode) (op : OperationPtr)
   if h: op.getNumRegions ctx ≠ 1 then
     none
   else
-    interpretRegion ctx (op.getRegion ctx 0) InterpreterState.empty
+    let (_state, results) ← interpretRegion ctx (op.getRegion ctx 0) InterpreterState.empty
+    some results
 
 end Veir
