@@ -2,7 +2,6 @@ module
 
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Refinement
-public import Veir.Data.Refinement
 public import Veir.Data.LLVM.Int.Simp
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.Refinement
