@@ -56,14 +56,19 @@ theorem InterpreterState.getVar?_setResultValues_of_value_inBounds
   cases value <;> grind
 
 theorem interpretOp_some_iff :
-  interpretOp ctx op state = some (state', cf) ↔
+  interpretOp ctx op state = some (.ok (state', cf)) ↔
   ∃ operandValues resValues,
     (state.getOperandValues ctx op) = some operandValues ∧
     interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
-      (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) = some (resValues, cf) ∧
+      (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) = some (.ok (resValues, cf)) ∧
     state' = state.setResultValues ctx op resValues := by
-  simp only [interpretOp, bind, Option.bind]
-  grind
+  simp only [interpretOp, bind, pure]
+  rcases hOps : state.getOperandValues ctx op with _ | operands
+  · grind
+  rcases hOp : interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
+      (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) with _ | u
+  · grind
+  cases u <;> grind
 
 theorem InterpreterState.getOperandValues_eq_of_getVar?_eq {ctx : IRContext OpInfo} :
     (∀ val, val ∈ op.getOperands! ctx → state.getVar? val = state'.getVar? val) →

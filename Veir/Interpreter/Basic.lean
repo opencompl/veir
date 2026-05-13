@@ -125,12 +125,48 @@ inductive ControlFlowAction where
   | return (vals : Array RuntimeValue)
   | branch (vals : Array RuntimeValue) (dest : BlockPtr)
 
+/--
+  Wrapper for interpreter step results: either a successful value `ok` or the
+  program has triggered undefined behaviour (`ub`). UB is a property of the
+  execution, not of any value, so it lives here rather than inside `RuntimeValue`
+  or `LLVM.Int`.
+-/
+inductive UBOr (α : Type) where
+  | ok : α → UBOr α
+  | ub : UBOr α
+deriving Inhabited
+
+/--
+  The interpreter monad. `Option (UBOr α)` has three states:
+  - `some (.ok x)` — successful execution producing `x`.
+  - `some .ub`     — execution triggered undefined behaviour.
+  - `none`         — interpreter could not proceed (malformed IR, unsupported op).
+-/
+def Interp (α : Type) : Type := Option (UBOr α)
+
+instance : Monad Interp where
+  pure x := (some (.ok x) : Option (UBOr _))
+  bind x f := match (x : Option (UBOr _)) with
+    | none => none
+    | some .ub => some .ub
+    | some (.ok a) => f a
+
+instance : MonadLift Option Interp where
+  monadLift
+    | none => none
+    | some v => some (.ok v)
+
+instance : Inhabited (Interp α) := ⟨(none : Option (UBOr α))⟩
+
+/-- Signal undefined behaviour from inside the interpreter monad. -/
+@[inline] def Interp.ub : Interp α := some .ub
+
 def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
-    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
   | .constant => do
-    let resType ← resultTypes[0]?
+    let some resType := resultTypes[0]? | none
     let .integerType bw := resType.val
       | none
     return (#[.int bw.bitwidth
@@ -154,22 +190,56 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], none)
+    -- A poison divisor could refine to 0, so it is immediate UB just like a
+    -- concrete-zero divisor.
+    match rhs with
+    | .poison => Interp.ub
+    | .val v' =>
+      if v' = 0 then Interp.ub
+      else return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], none)
   | .divsi => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
+    match rhs with
+    | .poison => Interp.ub
+    | .val v' =>
+      if v' = 0 then Interp.ub
+      else if bw ≠ 1 ∧ v' = -1 then
+        -- Divisor is concretely -1; if the dividend could be intMin, the
+        -- overflow case applies and is UB.
+        match lhs with
+        | .poison => Interp.ub
+        | .val v =>
+          if v = BitVec.intMin bw then Interp.ub
+          else return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
+      else
+        return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
   | .remui => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.urem lhs rhs)], none)
+    match rhs with
+    | .poison => Interp.ub
+    | .val v' =>
+      if v' = 0 then Interp.ub
+      else return (#[.int bw (LLVM.Int.urem lhs rhs)], none)
   | .remsi => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
+    match rhs with
+    | .poison => Interp.ub
+    | .val v' =>
+      if v' = 0 then Interp.ub
+      else if bw ≠ 1 ∧ v' = -1 then
+        match lhs with
+        | .poison => Interp.ub
+        | .val v =>
+          if v = BitVec.intMin bw then Interp.ub
+          else return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
+      else
+        return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
   | .shli => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
@@ -202,19 +272,19 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     return (#[.int bw (LLVM.Int.xor lhs rhs)], none)
   | .trunci => do
     let [.int w val] := operands.toList | none
-    let resType ← resultTypes[0]?
+    let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     if h: resBw.bitwidth >= w then none else
     return (#[.int resBw.bitwidth (LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], none)
   | .extui => do
     let [.int w val] := operands.toList | none
-    let resType ← resultTypes[0]?
+    let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     if h: resBw.bitwidth <= w then none else
     return (#[.int resBw.bitwidth (LLVM.Int.zext val resBw.bitwidth properties.nneg (by omega))], none)
   | .extsi => do
     let [.int w val] := operands.toList | none
-    let resType ← resultTypes[0]?
+    let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     if h: resBw.bitwidth <= w then none else
     return (#[.int resBw.bitwidth (LLVM.Int.sext val resBw.bitwidth (by omega))], none)
@@ -227,10 +297,10 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
 
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
   | .mlir__constant => do
-    let resType ← resultTypes[0]?
+    let some resType := resultTypes[0]? | none
     let .integerType bw := resType.val
       | none
     return (#[.int bw.bitwidth (LLVM.Int.constant bw.bitwidth properties.value.value)], none)
@@ -253,22 +323,52 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
+    match rhs with
+    | .poison => Interp.ub
+    | .val v' =>
+      if v' = 0 then Interp.ub
+      else if bw ≠ 1 ∧ v' = -1 then
+        match lhs with
+        | .poison => Interp.ub
+        | .val v =>
+          if v = BitVec.intMin bw then Interp.ub
+          else return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
+      else
+        return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
   | .udiv => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], none)
+    match rhs with
+    | .poison => Interp.ub
+    | .val v' =>
+      if v' = 0 then Interp.ub
+      else return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], none)
   | .srem => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
+    match rhs with
+    | .poison => Interp.ub
+    | .val v' =>
+      if v' = 0 then Interp.ub
+      else if bw ≠ 1 ∧ v' = -1 then
+        match lhs with
+        | .poison => Interp.ub
+        | .val v =>
+          if v = BitVec.intMin bw then Interp.ub
+          else return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
+      else
+        return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
   | .urem => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.urem lhs rhs)], none)
+    match rhs with
+    | .poison => Interp.ub
+    | .val v' =>
+      if v' = 0 then Interp.ub
+      else return (#[.int bw (LLVM.Int.urem lhs rhs)], none)
   | .shl => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
@@ -301,19 +401,19 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     return (#[.int bw (LLVM.Int.xor lhs rhs)], none)
   | .trunc => do
     let [.int w val] := operands.toList | none
-    let resType ← resultTypes[0]?
+    let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     if h: resBw.bitwidth >= w then none else
     return (#[.int resBw.bitwidth (LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], none)
   | .zext => do
     let [.int w val] := operands.toList | none
-    let resType ← resultTypes[0]?
+    let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     if h: resBw.bitwidth <= w then none else
     return (#[.int resBw.bitwidth (LLVM.Int.zext val resBw.bitwidth properties.nneg (by omega))], none)
   | .sext => do
     let [.int w val] := operands.toList | none
-    let resType ← resultTypes[0]?
+    let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     if h: resBw.bitwidth <= w then none else
     return (#[.int resBw.bitwidth (LLVM.Int.sext val resBw.bitwidth (by omega))], none)
@@ -330,18 +430,22 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     return (#[], some (.branch operands dest))
   | .cond_br => do
     let [destTrue, destFalse] := blockOperands.toList | none
-    let some (RuntimeValue.int 1 (.val cond)) := operands[0]? | none
-    let some trueSize := properties.operandSegmentSizes.values[1]? | none
-    let trueSize := trueSize.toNat
-    if cond = 1#1 then
-      return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
-    else
-      return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+    let some condVal := operands[0]? | none
+    let some (trueSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
+    let trueSize := trueSizeInt.toNat
+    match condVal with
+    | .int 1 (.val cond) =>
+      if cond = 1#1 then
+        return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
+      else
+        return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+    | .int 1 .poison => Interp.ub
+    | _ => none
   | _ => none
 
 def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
-    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
   | .li => do
     let imm := BitVec.ofInt 64 properties.value.value
@@ -656,20 +760,24 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
 
 def Cf.interpretOp' (opType : Veir.Cf) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
   | .br => do
     let [dest] := blockOperands.toList | none
     return (#[], some (.branch operands dest))
   | .cond_br => do
     let [destTrue, destFalse] := blockOperands.toList | none
-    let some (RuntimeValue.int 1 (.val cond)) := operands[0]? | none
-    let some trueSize := properties.operandSegmentSizes.values[1]? | none
-    let trueSize := trueSize.toNat
-    if cond = 1#1 then
-      return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
-    else
-      return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+    let some condVal := operands[0]? | none
+    let some (trueSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
+    let trueSize := trueSizeInt.toNat
+    match condVal with
+    | .int 1 (.val cond) =>
+      if cond = 1#1 then
+        return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
+      else
+        return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+    | .int 1 .poison => Interp.ub
+    | _ => none
 
 /--
   Interpret a single operation given its opcode, type-dependent properties,
@@ -681,7 +789,7 @@ def Cf.interpretOp' (opType : Veir.Cf) (properties : HasDialectOpInfo.properties
 -/
 def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
   | .arith arithOp => do
     Arith.interpretOp' arithOp properties resultTypes operands blockOperands
@@ -694,7 +802,7 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .func .return => do
     return (#[], some (.return operands))
   | .builtin .unrealized_conversion_cast => do
-    let resType ← resultTypes[0]?
+    let some resType := resultTypes[0]? | none
     match resType.val, operands.toList with
     | .registerType _, [.int _bw val] =>
       return (#[.reg (LLVM.Int.toReg val )], none)
@@ -712,8 +820,8 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   return `none`.
 -/
 def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
-    : Option (InterpreterState × Option ControlFlowAction) := do
-  let operands ← state.getOperandValues ctx op
+    : Interp (InterpreterState × Option ControlFlowAction) := do
+  let some operands := state.getOperandValues ctx op | none
   let opType := op.getOpType! ctx
   let (resultValues, action) ← interpretOp' opType (op.getProperties! ctx opType) (op.getResultTypes! ctx) operands (op.getSuccessors! ctx)
   let newState := state.setResultValues ctx op resultValues
@@ -728,7 +836,7 @@ def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : Interprete
 -/
 def interpretOpList (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
     (opInBounds : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
-    : Option ControlFlowAction := do
+    : Interp ControlFlowAction := do
   let (state, action) ← interpretOp ctx op state
   match action with
   | none =>
@@ -744,7 +852,7 @@ decreasing_by grind
   Return a ControlFlowAction indicating how to continue the interpretation.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option ControlFlowAction := do
+def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Interp ControlFlowAction := do
   let block := blockPtr.get ctx (by grind)
   rlet firstOp ← (blockPtr.get ctx).firstOp
   interpretOpList ctx firstOp state
@@ -754,13 +862,14 @@ def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : Inter
   Return the values eventually returned, if any.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlockCFG (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue) := do
+def interpretBlockCFG (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Interp (Array RuntimeValue) := do
   match interpretBlock ctx blockPtr state blockInBounds wf with
-  | some (.return res) => some res
-  | some (.branch res succ) =>
+  | some (.ok (.return res)) => some (.ok res)
+  | some (.ok (.branch res succ)) =>
     if h : succ.InBounds ctx then
       let state := state.setArgumentValues ctx succ res
       interpretBlockCFG ctx succ state h wf else none
+  | some .ub => Interp.ub
   | none => none
 partial_fixpoint
 
@@ -768,7 +877,7 @@ partial_fixpoint
   Interpret a region, starting from its first block.
   Return the values eventually returned, or `none` if any errors occur during interpretation.
 -/
-def interpretRegion (ctx : IRContext OpCode) (region : RegionPtr) (state : InterpreterState) (regionIn : region.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue) := do
+def interpretRegion (ctx : IRContext OpCode) (region : RegionPtr) (state : InterpreterState) (regionIn : region.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Interp (Array RuntimeValue) := do
   rlet block ← (region.get ctx).firstBlock
   interpretBlockCFG ctx block state
 
@@ -779,7 +888,7 @@ def interpretRegion (ctx : IRContext OpCode) (region : RegionPtr) (state : Inter
 -/
 def interpretModule (ctx : IRContext OpCode) (op : OperationPtr)
     (opIn : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
-    : Option (Array RuntimeValue) := do
+    : Interp (Array RuntimeValue) := do
   if h: op.getNumRegions ctx ≠ 1 then
     none
   else

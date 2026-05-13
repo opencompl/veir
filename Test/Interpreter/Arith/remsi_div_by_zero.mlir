@@ -1,0 +1,11 @@
+// RUN: veir-interpret %s | filecheck %s
+
+// Signed remainder with a concrete zero divisor is immediate UB.
+"builtin.module"() ({
+  %lhs = "arith.constant"() <{ "value" = 7 : i32 }> : () -> i32
+  %zero = "arith.constant"() <{ "value" = 0 : i32 }> : () -> i32
+  %y = "arith.remsi"(%lhs, %zero) : (i32, i32) -> i32
+  "func.return"(%y) : (i32) -> ()
+}) : () -> ()
+
+// CHECK: Undefined behavior

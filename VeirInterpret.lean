@@ -38,7 +38,8 @@ def main (args : List String) : IO Unit := do
       match ctx.verify with
       | .ok _ =>
         match interpretModule ctx op (by sorry) (by sorry) with
-        | some results => IO.println s!"Program output: {results}"
+        | some (.ok results) => IO.println s!"Program output: {results}"
+        | some .ub => IO.println "Undefined behavior"
         | none => IO.eprintln "Error while interpreting module"
       | .error errMsg => IO.eprintln s!"Error verifying input program: {errMsg}"
     | .error errMsg =>

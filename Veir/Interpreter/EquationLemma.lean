@@ -30,11 +30,11 @@ equivalent to saying that the results of interpreting `op` on the given `state` 
 -/
 def InterpreterState.EquationHolds (state : InterpreterState) (ctx : WfIRContext OpCode)
     (op : OperationPtr) : Prop :=
-  ∃ controlFlow, interpretOp ctx op state = some (state, controlFlow)
+  ∃ controlFlow, interpretOp ctx op state = some (.ok (state, controlFlow))
 
 theorem interpretOp_equationHolds_self
     {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) :
-    interpretOp ctx op state = some (state', controlFlow) →
+    interpretOp ctx op state = some (.ok (state', controlFlow)) →
     state'.EquationHolds ctx op := by
   simp only [InterpreterState.EquationHolds]
   intro hInterp
@@ -44,7 +44,7 @@ theorem interpretOp_equationHolds_self
 
 theorem interpretOp_equationHolds_other
     {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) :
-    interpretOp ctx op₁ state = some (state', cf₁) →
+    interpretOp ctx op₁ state = some (.ok (state', cf₁)) →
     op₂.dominates op₁ ctx →
     state.EquationHolds ctx op₂ →
     state'.EquationHolds ctx op₂ := by
@@ -55,10 +55,9 @@ theorem interpretOp_equationHolds_other
   have ⟨operandValues₁, resValues₁, hOperandValues₁, hInterp₁', hResValues₁⟩ := interpretOp_some_iff.mp hInterp₁
   have ⟨operandValues₂, resValues₂, hOperandValues₂, hInterp₂', hResValues₂⟩ := interpretOp_some_iff.mp hInterp₂
   subst state'
-  simp only [interpretOp, bind, Option.bind, Option.pure_def]
+  simp only [interpretOp, bind, pure]
   simp only [InterpreterState.getOperandValues_setResultValues_of_dominates ctxDom hDom]
   simp only [hOperandValues₂, hInterp₂']
-  simp only [Option.some.injEq, Prod.mk.injEq, and_true]
   by_cases hOp : op₁ = op₂
   · grind
   · simp [InterpreterState.setResultValues_comm hOp, ←hResValues₂]
@@ -82,7 +81,7 @@ def InterpreterState.EquationLemmaAt (state : InterpreterState) (ctx : WfIRConte
 theorem interpretOp_equationLemmaAt (ctxDom : ctx.Dom)
     (stateWf : state.EquationLemmaAt ctx (InsertPoint.before op) opInBounds)
     (opHasParent : (op.get! ctx.raw).parent = some block) :
-    interpretOp ctx op state = some (state', controlFlow) →
+    interpretOp ctx op state = some (.ok (state', controlFlow)) →
     state'.EquationLemmaAt ctx (InsertPoint.after op ctx.raw block) := by
   intro hInterp
   simp only [InterpreterState.EquationLemmaAt] at stateWf ⊢
