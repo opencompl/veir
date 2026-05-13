@@ -103,7 +103,7 @@ theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
         (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue) := by
   simp only [isPoison, add, Id.run, pure_bind, getValue, Bool.decide_or, Bool.decide_and,
     Bool.decide_eq_true]
-  simp only [pure]
+  simp [pure]
   grind
 
 @[llvm_toBitVec, grind =]
