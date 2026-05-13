@@ -70,6 +70,12 @@
     "test.test"(%or_self) : (i32) -> ()
     // CHECK-NEXT: "test.test"(%[[X]]) : (i32) -> ()
 
+    // or disjoint x | x must not fold: it can produce poison for nonzero x.
+    %or_self_disjoint = "llvm.or"(%x, %x) <{disjoint}> : (i32, i32) -> i32
+    "test.test"(%or_self_disjoint) : (i32) -> ()
+    // CHECK-NEXT: %[[OR_SELF_DISJOINT:.*]] = "llvm.or"(%[[X]], %[[X]]) <{disjoint}> : (i32, i32) -> i32
+    // CHECK-NEXT: "test.test"(%[[OR_SELF_DISJOINT]]) : (i32) -> ()
+
     // xor x ^ 0 => x
     %xor_zero = "llvm.xor"(%x, %zero) : (i32, i32) -> i32
     "test.test"(%xor_zero) : (i32) -> ()

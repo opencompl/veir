@@ -143,9 +143,11 @@ set_option warn.sorry false in
 /-- Rewrites `x | x` to `x`. -/
 def oriSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _) := matchOri op rewriter.ctx
+  let some (lhs, rhs, properties) := matchOri op rewriter.ctx
     | return rewriter
   if lhs ≠ rhs then
+    return rewriter
+  if properties.disjoint then
     return rewriter
   let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
   rewriter.eraseOp op sorry sorry sorry
