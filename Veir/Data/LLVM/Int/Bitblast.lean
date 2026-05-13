@@ -52,6 +52,15 @@ theorem eq_iff {w : Nat} (a b : Int w) :
   simp [isPoison, getValue, llvm_toBitVec]
   grind
 
+@[ext, grind ext]
+theorem eq_ext {w : Nat} {a b : Int w} (hp : a.isPoison = b.isPoison) (hv : (a.getValueD = b.getValueD)) :
+    a = b := by
+  cases a <;> cases b
+  · simpa using hv
+  · simp [isPoison] at hp
+  · simp [isPoison] at hp
+  · simp
+
 /-- The value `getValue` of a `val v` is `v`. -/
 @[llvm_toBitVec, grind =]
 theorem getValue_of_val {w : Nat} {v : BitVec w} :
