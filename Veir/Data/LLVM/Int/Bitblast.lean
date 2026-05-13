@@ -121,7 +121,7 @@ theorem isPoison_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} :
         (nuw ∧ BitVec.usubOverflow x.getValue y.getValue) := by
   simp only [isPoison, sub, Id.run, pure_bind, getValue, Bool.decide_or, Bool.decide_and,
     Bool.decide_eq_true]
-  simp only [pure]
+  simp [pure]
   grind
 
 @[llvm_toBitVec, grind =]
