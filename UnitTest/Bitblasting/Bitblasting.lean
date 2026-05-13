@@ -5,7 +5,6 @@ import Veir.Data.Refinement
 
 open Veir.Data.LLVM.Int
 
-
 /-!
   This file contains some of the `InstCombine` tests retrieved from Lean-MLIR,
   instantiated for integers with width `64`:
