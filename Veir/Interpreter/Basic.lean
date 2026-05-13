@@ -31,7 +31,7 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /--
-  The representation of a value in the interpreter.
+  The type-erased representation of a value in the interpreter.
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
@@ -44,6 +44,52 @@ instance : ToString (RuntimeValue) where
     | .int _ val => ToString.toString val
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
+
+namespace RuntimeValue
+
+/--
+  A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
+  of a given `TypeAttr`.
+-/
+@[grind]
+def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
+  match val, ty with
+  | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
+  | .reg _, ⟨.registerType _, _⟩ => True
+  | .addr _, ⟨.llvmPointerType _, _⟩ => True
+  | _, _ => False
+
+instance : Decidable (Conforms val ty) := by
+  unfold Conforms
+  split <;> infer_instance
+
+@[grind <=]
+theorem Conforms.integerType :
+    Conforms runtimeValue (⟨.integerType intType, h⟩ : TypeAttr)
+    → ∃ val, runtimeValue = .int intType.bitwidth val := by
+  simp only [Conforms]
+  cases runtimeValue
+  case int bw val =>
+    simp only [int.injEq, exists_and_left]
+    intro _; subst bw
+    grind
+  all_goals grind
+
+@[grind <=]
+theorem Conforms.registerType :
+    Conforms runtimeValue (⟨.registerType regType, h⟩ : TypeAttr)
+    → ∃ val, runtimeValue = .reg val := by
+  simp only [Conforms]
+  cases runtimeValue <;> grind
+
+@[grind <=]
+theorem Conforms.llvmPointerType :
+    Conforms runtimeValue (⟨.llvmPointerType _, h⟩ : TypeAttr)
+    → ∃ val, runtimeValue = .addr val := by
+  simp only [Conforms]
+  cases runtimeValue <;> grind
+
+end RuntimeValue
 
 /--
   Memory state during interpretation
