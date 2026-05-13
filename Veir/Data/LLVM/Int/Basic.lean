@@ -340,6 +340,10 @@ def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   | .val v => .val (v.cast h)
   | .poison => .poison
 
+@[simp, grind =]
+theorem cast_self {w : Nat} (x : Int w) (h : w = w) : cast x h = x := by
+  cases x <;> simp [cast]
+
 /--
 The ‘and’ instruction returns the bitwise logical and of its two operands.
 

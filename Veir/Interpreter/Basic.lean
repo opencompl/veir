@@ -31,7 +31,32 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /--
-  The representation of a value in the interpreter.
+  A predicate indicating whether a given `TypeAttr` is a valid type for runtime values.
+  This is used to rule out types that have no corresponding `RuntimeValue` variant.
+-/
+@[grind]
+def supportedRuntimeValueType (ty : TypeAttr) : Prop :=
+  match ty.val with
+  | .integerType _ => True
+  | .registerType _ => True
+  | _ => False
+
+instance : Decidable (supportedRuntimeValueType ty) := by
+  unfold supportedRuntimeValueType
+  cases ty.val <;> infer_instance
+
+/--
+  The Lean type representing the runtime type of an MLIR type.
+-/
+@[simp, grind]
+def runtimeValueType (type : TypeAttr)
+    (hType : supportedRuntimeValueType type := by grind) : Type :=
+  match type with
+  | ⟨.integerType bw, _⟩ => LLVM.Int bw.bitwidth
+  | ⟨.registerType _, _⟩ => RISCV.Reg
+
+/--
+  The type-erased representation of a value in the interpreter.
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
@@ -44,6 +69,111 @@ instance : ToString (RuntimeValue) where
     | .int _ val => ToString.toString val
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
+
+namespace RuntimeValue
+
+/--
+  A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
+  of a given `TypeAttr`.
+-/
+@[grind]
+def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
+  match val, ty with
+  | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
+  | .reg _, ⟨.registerType _, _⟩ => True
+  | _, _ => False
+
+instance : Decidable (Conforms val ty) := by
+  unfold Conforms
+  split <;> infer_instance
+
+@[grind →]
+theorem supportedRuntimeValueType_of_Conforms : Conforms val ty → supportedRuntimeValueType ty := by
+  unfold Conforms supportedRuntimeValueType
+  split <;> grind
+
+@[grind <=]
+theorem Conforms.integerType :
+    Conforms runtimeValue (⟨.integerType intType, h⟩ : TypeAttr)
+    → ∃ val, runtimeValue = .int intType.bitwidth val := by
+  simp only [Conforms]
+  cases runtimeValue
+  case int bw val =>
+    simp only [int.injEq, exists_and_left]
+    intro _; subst bw
+    grind
+  all_goals grind
+
+@[grind <=]
+theorem Conforms.registerType :
+    Conforms runtimeValue (⟨.registerType regType, h⟩ : TypeAttr)
+    → ∃ val, runtimeValue = .reg val := by
+  simp only [Conforms]
+  cases runtimeValue <;> grind
+
+/--
+  Convert a type-erased `RuntimeValue` into its dependently-typed
+  representation for `ty`, returning `none` if the value does not conform to `ty`.
+-/
+def getDep? (val : RuntimeValue) (ty : TypeAttr)
+    (hType : supportedRuntimeValueType ty := by simp [supportedRuntimeValueType])
+    : Option (runtimeValueType ty) :=
+  match val, ty with
+  | .int bw v, ⟨.integerType intType, _⟩ =>
+    if h: intType.bitwidth = bw then
+      some (v.cast (w₂ := intType.bitwidth) (by grind))
+    else
+      none
+  | .reg r, ⟨.registerType _, _⟩ => some r
+  | _, _ => none
+
+/--
+  Convert a type-erased `RuntimeValue` into its dependently-typed representation for `ty`,
+  given a proof that the value conforms to `ty`.
+-/
+def getDep (ty : TypeAttr) (val : RuntimeValue) (h : val.Conforms ty := by grind) : runtimeValueType ty :=
+  match val, ty, h with
+  | .int bw v, ⟨.integerType intType, _⟩, h =>
+    v.cast (w₂ := intType.bitwidth) (by simp [Conforms] at h; grind)
+  | .reg r, ⟨.registerType _, _⟩, _ => r
+
+theorem getDep?_eq_some_iff : getDep? val ty h₁ = some x ↔ ∃ h, getDep ty val h = x := by
+  simp only [getDep?, getDep, Conforms]
+  split
+  · simp
+  · simp
+  · simp only [runtimeValueType, reduceCtorEq, false_iff, not_exists]
+    split <;> grind
+
+theorem getDep?_eq_some_getDep : getDep? val ty h₁ = some (getDep ty val h₂) := by
+  simp only [Conforms] at h₂
+  simp only [getDep?, getDep]
+  split at h₂ <;> grind
+
+/--
+  Convert a dependently-typed runtime value for `ty` back into its type-erased `RuntimeValue`
+  representation.
+-/
+def fromDep (ty : TypeAttr) {h : supportedRuntimeValueType ty} (val : runtimeValueType ty h)
+    : RuntimeValue :=
+  match ty with
+  | ⟨.integerType bw, _⟩ => .int bw.bitwidth (val : LLVM.Int bw.bitwidth)
+  | ⟨.registerType _, _⟩ => .reg (val : RISCV.Reg)
+
+theorem conforms_of_fromDep? : (fromDep ty val).Conforms ty := by
+  simp only [fromDep, Conforms]
+  split
+  next => grind
+  next => grind
+  next h₁ h₂ => split at h₁ <;> grind
+
+@[simp, grind =]
+theorem getDep_fromDep {val : runtimeValueType ty h₁} {h₂ : (fromDep ty val).Conforms ty} :
+    (fromDep ty val).getDep ty h₂ = val := by
+  simp only [fromDep]
+  split <;> simp [getDep]
+
+end RuntimeValue
 
 /--
   Memory state during interpretation
