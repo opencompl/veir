@@ -17,5 +17,5 @@ instance (w : Nat) : ToString (Bvint w) where
 /--
   The constant operation produces a constant value of standard integer type without a sign.
 -/
-def constant (imm : BitVec w) : Bvint w :=
+def constant {w : Nat} (imm : BitVec w) : Bvint w :=
   ⟨imm⟩
