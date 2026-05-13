@@ -341,9 +341,11 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
 
 def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    (h : HasDialectOpInfo.getNumOperands opType = operands.size := sorry)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
   | .li => do
+    let zero : BitVec 0 := BitVec.zero (HasDialectOpInfo.getNumOperands opType)
     let imm := BitVec.ofInt 64 properties.value.value
     return (#[.reg (RISCV.li imm)], none)
   | .lui => do
