@@ -8,8 +8,7 @@ open Veir.Data.LLVM
 namespace Veir.Data.LLVM.Int
 
 /-- Return true if the LLVM.Int `x` is poison. -/
-def isPoison {w : Nat} (x : Int w) : Bool :=
-  match x with
+def isPoison {w : Nat} : (x : Int w) -> Bool
   | .poison => true
   | .val _ => false
 
@@ -32,7 +31,6 @@ def getValueD {w : Nat} (x : Int w) : BitVec w :=
   more simplifications are available. This ultimately allows `bv_decide` to reason about different
   instantiations of `getValue` without abstracting them separately.
 -/
-@[llvm_toBitVec 1]
 theorem getValue_eq_getValueD {w : Nat} (x : Int w) (h : x.isPoison = false) :
     x.getValue h = x.getValueD := by
   simp [getValue, getValueD]
