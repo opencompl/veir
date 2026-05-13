@@ -27,8 +27,8 @@ def getValueD {w : Nat} (x : Int w) : BitVec w :=
 /-- The bitvector value of a non-poison `LLVM.Int` via `getValue` is equal to the default one,
   obtained by `getValueD`.
 
-  We set the priority of the lemma to `1` (low priority), such that it is only applied when no
-  more simplifications are available. This ultimately allows `bv_decide` to reason about different
+  This lemma is intended to be applied when no more simplifications are available, such that
+  ultimately allows `bv_decide` to reason about different
   instantiations of `getValue` without abstracting them separately.
 -/
 theorem getValue_eq_getValueD {w : Nat} (x : Int w) (h : x.isPoison = false) :
