@@ -9,6 +9,7 @@ import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSet
 import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.LinkedList.WellFormed
+import Veir.Rewriter.WellFormed.BlockArguments
 
 public section
 
@@ -76,14 +77,14 @@ theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
     apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
 theorem Rewriter.createBlock_WellFormed (ctxWf : ctx.WellFormed) :
-    Rewriter.createBlock ctx ip hctx hip = some (newCtx, newBlock) →
+    Rewriter.createBlock ctx types ip hctx hip = some (newCtx, newBlock) →
     newCtx.WellFormed := by
   simp only [Rewriter.createBlock]
-  split; grind; rename_i ctx₁ newBlock hctx₁
+  split; grind; rename_i ctx₁ newBlock₁ hctx₁
   have : ctx₁.WellFormed := by grind [BlockPtr.allocEmpty_wellFormed]
   split
   · simp only [Option.bind_eq_bind, Option.bind]
-    grind [Rewriter.insertBlock?_WellFormed]
-  · grind
+    grind [IRContext.wellFormed_Rewriter_initBlockArguments, Rewriter.insertBlock?_WellFormed]
+  · grind [IRContext.wellFormed_Rewriter_initBlockArguments]
 
 end Veir

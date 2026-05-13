@@ -6,6 +6,7 @@ public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
 public import Veir.Dialects.Comb.OpInfo
+public import Veir.Dialects.HW.OpInfo
 
 namespace Veir
 
@@ -24,6 +25,7 @@ match opCode with
 | .mod_arith op => Mod_Arith.propertiesOf op
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
+| .hw op => HW.propertiesOf op
 | _ => Unit
 
 instance : HasDialectOpInfo OpCode where
@@ -85,7 +87,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     all_goals exact (Except.ok ())
   case llvm op =>
     cases op
-    case constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
+    case mlir__constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
     case add => exact (NswNuwProperties.fromAttrDict attrDict)
     case sub => exact (NswNuwProperties.fromAttrDict attrDict)
     case mul => exact (NswNuwProperties.fromAttrDict attrDict)
@@ -132,6 +134,10 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case extract => exact (CombExtractProperties.fromAttrDict attrDict)
     case icmp => exact (CombIcmpProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
+  case hw op =>
+    cases op
+    case module => exact (HWModuleProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
 
 /--
   Converts the properties of an operation into a dictionary of attributes.
@@ -141,7 +147,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   match opCode with
   | .arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
-  | .llvm .constant =>
+  | .llvm .mlir__constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci
   | .llvm .add | .llvm .sub | .llvm .mul | .llvm .shl | .llvm .trunc => Id.run do
@@ -231,5 +237,12 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 1).insert "lowBit".toUTF8 (Attribute.integerAttr props.lowBit)
   | .comb .icmp =>
     (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr props.predicate)
+  | .hw .module => Id.run do
+    let dict := Std.HashMap.emptyWithCapacity 4
+    let dict := dict.insert "module_type".toUTF8 (.hwModuleType props.module_type)
+    let dict := dict.insert "sym_name".toUTF8 (.stringAttr props.sym_name)
+    let dict := dict.insert "per_port_attrs".toUTF8 (.arrayAttr props.per_port_attrs)
+    let dict := dict.insert "parameters".toUTF8 (.arrayAttr props.parameters)
+    dict
   | _ =>
     Std.HashMap.emptyWithCapacity 0

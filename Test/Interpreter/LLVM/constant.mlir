@@ -1,9 +1,9 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  %pos = "llvm.constant"() <{ "value" = 3 : i32 }> : () -> i32
-  %zero = "llvm.constant"() <{ "value" = 0 : i32 }> : () -> i32
-  %neg = "llvm.constant"() <{ "value" = -4 : i32 }> : () -> i32
+  %pos = "llvm.mlir.constant"() <{ "value" = 3 : i32 }> : () -> i32
+  %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
+  %neg = "llvm.mlir.constant"() <{ "value" = -4 : i32 }> : () -> i32
   "func.return"(%pos, %zero, %neg) : (i32, i32, i32) -> ()
 }) : () -> ()
 

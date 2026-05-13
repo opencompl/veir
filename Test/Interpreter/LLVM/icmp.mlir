@@ -1,8 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  %seven = "llvm.constant"() <{ value = 7 : i8 }> : () -> i8
-  %nine = "llvm.constant"() <{ value = 9 : i8 }> : () -> i8
+  %seven = "llvm.mlir.constant"() <{ value = 7 : i8 }> : () -> i8
+  %nine = "llvm.mlir.constant"() <{ value = 9 : i8 }> : () -> i8
   %x = "llvm.icmp"(%seven, %nine) <{ predicate = 0 : i64 }> : (i8, i8) -> i1
   %y = "llvm.icmp"(%seven, %nine) <{ predicate = 1 : i64 }> : (i8, i8) -> i1
   %z = "llvm.icmp"(%seven, %nine) <{ predicate = 2 : i64 }> : (i8, i8) -> i1

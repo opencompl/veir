@@ -24,5 +24,9 @@ def isRefinedBy {w : Nat} (i i' : Veir.Data.LLVM.Int w) : Prop :=
 @[inherit_doc] infix:50 " ⊑ "  => isRefinedBy
 
 theorem isRefinedBy_eq {w : Nat} (i i' : Veir.Data.LLVM.Int w) :
-  (i ⊑ i') ↔ (match i with
-    | .val v => )
+  (i ⊑ i') ↔ (
+    match i, i' with
+    | .val v, .val v' => v = v'
+    | .val _, .poison => False
+    | .poison, _ => True
+  ) := by rfl

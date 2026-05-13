@@ -12,3 +12,4 @@ public import Veir.Rewriter.GetSet.Operands
 public import Veir.Rewriter.GetSet.BlockOperands
 public import Veir.Rewriter.GetSet.CreateOp
 public import Veir.Rewriter.GetSet.CreateRegion
+public import Veir.Rewriter.GetSet.BlockArguments

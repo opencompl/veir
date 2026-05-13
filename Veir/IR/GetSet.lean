@@ -6993,6 +6993,12 @@ theorem OperationPtr.getProperties!_BlockPtr_setArguments {operation : Operation
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNumResults!_BlockPtr_setArguments {operation : OperationPtr} :
+    operation.getNumResults! (BlockPtr.setArguments operation' ctx hop' newOperands) =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
 theorem OpResultPtr.get!_BlockPtr_setArguments {opResult : OpResultPtr} :
     opResult.get! (BlockPtr.setArguments block' ctx newArguments hblock') =
     opResult.get! ctx := by
@@ -7237,14 +7243,11 @@ theorem BlockPtr.getNumArguments!_BlockPtr_pushArgument {block : BlockPtr} {hop}
 @[grind =]
 theorem BlockArgumentPtr.get!_BlockPtr_pushArgument {blockArg : BlockArgumentPtr} :
     blockArg.get! (BlockPtr.pushArgument block' ctx newArgument hblock') =
-    if blockArg.block = block' then
-      if blockArg.index = (block'.getNumArguments! ctx) then
-        newArgument
-      else
-        blockArg.get! ctx
+    if blockArg = block'.nextArgument! ctx then
+      newArgument
     else
       blockArg.get! ctx := by
-  grind
+  grind [BlockPtr.getArgument]
 
 @[simp, grind =]
 theorem RegionPtr.get!_BlockPtr_pushArgument {region : RegionPtr} :

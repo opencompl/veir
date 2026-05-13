@@ -103,6 +103,8 @@ macro "#assert " e:term : command =>
 
 #assert expectErrorAttr "0 : 2" "integer type expected after ':' in integer attribute"
 #assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.mk 32))
+#assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.mk 1))
+#assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.mk 1))
 
 /-! ## String attributes -/
 
@@ -181,3 +183,20 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))
 #assert expectErrorType "!cuda_tile.ptr<16>" "integer type expected"
+
+/-! ## Flat symbol reference attribute -/
+#assert expectSuccessAttr "@foo" (FlatSymbolRefAttr.mk "@foo")
+#assert expectSuccessAttr "@printf" (FlatSymbolRefAttr.mk "@printf")
+#assert expectSuccessAttr "@\"my.func\"" (FlatSymbolRefAttr.mk "@\"my.func\"")
+#assert expectMissingAttr "foo"
+
+/-! ## HW Module type -/
+#assert expectSuccessType "!hw.modty<>" (HW.ModuleType.mk #[])
+#assert expectSuccessType "!hw.modty<input a : i3, inout b : i6,  output c : i10>"
+  (HW.ModuleType.mk #[
+    {name := "a", type := IntegerType.mk 3, dir := .input},
+    {name := "b", type := IntegerType.mk 6, dir := .inout},
+    {name := "c", type := IntegerType.mk 10, dir := .output}])
+#assert expectErrorType "!hw.modty<foo>" "module port expected"
+#assert expectErrorType "!hw.modty<input : foo>" "identifier expected"
+#assert expectErrorType "!hw.modty<input a : foo>" "integer type expected"

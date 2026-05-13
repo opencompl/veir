@@ -229,7 +229,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
-  | .constant => do
+  | .mlir__constant => do
     let resType ← resultTypes[0]?
     let .integerType bw := resType.val
       | none
