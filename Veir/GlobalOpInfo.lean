@@ -136,6 +136,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     all_goals exact (Except.ok ())
   case hw op =>
     cases op
+    case constant => exact (HWConstantProperties.fromAttrDict attrDict)
     case module => exact (HWModuleProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
 
@@ -237,6 +238,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 1).insert "lowBit".toUTF8 (Attribute.integerAttr props.lowBit)
   | .comb .icmp =>
     (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr props.predicate)
+  | .hw .constant => Id.run do
+    (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .hw .module => Id.run do
     let dict := Std.HashMap.emptyWithCapacity 4
     let dict := dict.insert "module_type".toUTF8 (.hwModuleType props.module_type)

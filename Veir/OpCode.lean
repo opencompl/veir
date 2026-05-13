@@ -247,6 +247,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive HW where
+| constant
 | module
 | output
 deriving Inhabited, Repr, Hashable, DecidableEq

@@ -11,6 +11,7 @@ public section
 @[expose, properties_of]
 def HW.propertiesOf (op : HW) : Type :=
 match op with
+| .constant => HWConstantProperties
 | .module => HWModuleProperties
 | _ => Unit
 

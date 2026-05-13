@@ -345,6 +345,23 @@ def CombIcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   return { predicate := intAttr }
 
 /--
+  Properties of the `hw.constant` operation.
+-/
+structure HWConstantProperties where
+  value : IntegerAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def HWConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String HWConstantProperties := do
+  if attrDict.size > 1 then
+    throw s!"hw.constant: expected only 'value' property, but got {attrDict.size} properties"
+  let some attr := attrDict["value".toUTF8]?
+    | throw "hw.constant: missing 'value' property"
+  let .integerAttr intAttr := attr
+    | throw s!"hw.constant: expected 'value' to be an integer attribute, but got {attr}"
+  return { value := intAttr }
+
+/--
   Properties of `hw.module`.
 -/
 structure HWModuleProperties where
