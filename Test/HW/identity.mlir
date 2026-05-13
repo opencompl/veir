@@ -17,11 +17,11 @@
 // CHECK-NEXT:   ^4():
 // CHECK-NEXT:     %{{.*}} = "hw.constant"() <{"value" = 13 : i10}> : () -> i10
 // CHECK-NEXT:     "hw.module"() <{"module_type" = !hw.modty<output a : i10, input b : i10>, "parameters" = [], "per_port_attrs" = [], "sym_name" = "bar"}> ({
-// CHECK-NEXT:       ^7(%{{.*}}: i10):
+// CHECK-NEXT:       ^{{.*}}(%{{.*}}: i10):
 // CHECK-NEXT:         "hw.output"(%{{.*}}) : (i10) -> ()
 // CHECK-NEXT:     }) {"sym_visibility" = "public"} : () -> ()
 // CHECK-NEXT:     "hw.module"() <{"module_type" = !hw.modty<input a : i3, input b : i1, output c : i3, output d : i1>, "parameters" = [], "per_port_attrs" = [], "sym_name" = "foo"}> ({
-// CHECK-NEXT:       ^11(%{{.*}} : i3, %{{.*}}: i1):
+// CHECK-NEXT:       ^{{.*}}(%{{.*}} : i3, %{{.*}}: i1):
 // CHECK-NEXT:         "hw.output"(%{{.*}}, %{{.*}}) : (i3, i1) -> ()
 // CHECK-NEXT:     }) {"sym_visibility" = "private"} : () -> ()
 // CHECK-NEXT: }) : () -> ()
