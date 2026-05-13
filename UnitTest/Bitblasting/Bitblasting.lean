@@ -1,8 +1,12 @@
+
+
 import Veir.Data.LLVM.Int.Basic
+import Veir.Data.LLVM.Int.Bitblast
 import Veir.Data.LLVM.Int.Simp
 import Veir.Data.Refinement
 
 open Veir.Data.LLVM.Int
+
 
 /-!
   This file contains some of the `InstCombine` tests retrieved from Lean-MLIR,
@@ -35,6 +39,9 @@ example
 
 example
     (e e_1 : Veir.Data.LLVM.Int 64) : add (sub (constant 64 0) e) e_1 ⊑ sub e_1 e := by
+  simp [llvm_toBitVec]
+  simp only [Veir.Data.LLVM.Int.getValue_eq_getValueD]
+  bv_decide
   llvm_bv_decide
 
 example

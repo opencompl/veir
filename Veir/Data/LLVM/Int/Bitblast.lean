@@ -1,11 +1,15 @@
 module
 
+public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.Refinement
 import all Veir.Data.Refinement
 import Veir.Data.LLVM.Int.Simp
 
 open Veir.Data.LLVM
 
 namespace Veir.Data.LLVM.Int
+
+public section
 
 /-- Return true if the LLVM.Int `x` is poison. -/
 def isPoison {w : Nat} : (x : Int w) -> Bool
@@ -49,17 +53,17 @@ theorem eq_iff {w : Nat} (a b : Int w) :
 /-- The value `getValue` of a `val v` is `v`. -/
 @[llvm_toBitVec, grind =]
 theorem getValue_of_val {w : Nat} {v : BitVec w} :
-    (val v).getValue (by grind [isPoison]) = v := rfl
+    (val v).getValue (by grind [isPoison]) = v := by rfl
 
 /-- An element `val v` is not poison. -/
 @[llvm_toBitVec, grind =]
 theorem isPoison_of_val {w : Nat} {v : BitVec w} :
-    (val v).isPoison = false := rfl
+    (val v).isPoison = false := by rfl
 
 /-- A `poison` element is poison. -/
 @[llvm_toBitVec, grind =]
 theorem isPoison_of_poison {w : Nat} :
-    poison.isPoison (w := w) = true := rfl
+    poison.isPoison (w := w) = true := by rfl
 
 /-- An element `b : LLVM.Int` refines an element `a : LLVM.Int` if either `a` is a poison value
   (in which case, any concrete or poison value refines it) or if `a` is not a poison value,
@@ -69,7 +73,53 @@ theorem isRefinedBy_iff {w : Nat} (a b : Int w) :
   a ⊑ b ↔
     (a.isPoison = false → b.isPoison = false) ∧
     ((_ : a.isPoison = false) → (_ : b.isPoison = false) → a.getValue = b.getValue) := by
-  simp [isRefinedBy, llvm_toBitVec, isPoison, getValue]
+  simp [llvm_toBitVec, isPoison, getValue]
+  grind [isRefinedBy]
+
+/-! # LLVM IR operations unfolding to `toIntBv` -/
+
+@[llvm_toBitVec, grind =]
+theorem getValue_constant {w : Nat} (v : _root_.Int) :
+    (constant w v).getValue (by grind [constant]) = BitVec.ofInt w v := rfl
+
+@[llvm_toBitVec, grind =]
+theorem isPoison_constant {w : Nat} (v : _root_.Int) :
+    (constant w v).isPoison = false := rfl
+
+@[llvm_toBitVec, grind =]
+theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
+    (add x y nsw nuw).isPoison =
+      if h : x.isPoison = true ∨ y.isPoison = true then true
+      else
+        (nsw ∧ BitVec.saddOverflow x.getValue y.getValue) ∨
+        (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue) := by
+  simp only [isPoison, add, Id.run, pure_bind, getValue, Bool.decide_or, Bool.decide_and,
+    Bool.decide_eq_true]
+  simp only [pure]
+  grind
+
+@[llvm_toBitVec, grind =]
+theorem getValue_add {w : Nat} (x y : Int w) {nsw nuw : Bool} (h : (add x y nsw nuw).isPoison = false) :
+    (add x y nsw nuw).getValue h = x.getValue + y.getValue := by
+  simp [add, Id.run]
+  grind
+
+@[llvm_toBitVec, grind =]
+theorem isPoison_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} :
+    (sub x y nsw nuw).isPoison =
+      if h : x.isPoison = true ∨ y.isPoison = true then true
+      else
+        (nsw ∧ BitVec.ssubOverflow x.getValue y.getValue) ∨
+        (nuw ∧ BitVec.usubOverflow x.getValue y.getValue) := by
+  simp only [isPoison, sub, Id.run, pure_bind, getValue, Bool.decide_or, Bool.decide_and,
+    Bool.decide_eq_true]
+  simp only [pure]
+  grind
+
+@[llvm_toBitVec, grind =]
+theorem getValue_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} (h : (sub x y nsw nuw).isPoison = false) :
+    (sub x y nsw nuw).getValue h = x.getValue - y.getValue := by
+  simp [sub, Id.run]
   grind
 
 end Int
