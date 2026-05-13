@@ -1,11 +1,11 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
-import all Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Refinement
-import all Veir.Data.Refinement
 public import Veir.Data.Refinement
 public import Veir.Data.LLVM.Int.Simp
+import all Veir.Data.LLVM.Int.Basic
+import all Veir.Data.Refinement
 
 open Veir.Data.LLVM
 
