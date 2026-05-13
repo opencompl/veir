@@ -5,6 +5,7 @@ import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.RISCV.Reg.Basic
+import Veir.Data.HW.Basic
 import Veir.Data.Casting
 import Veir.Properties
 import Veir.GlobalOpInfo
@@ -34,12 +35,14 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
 | reg (value : RISCV.Reg)
+| bvint (bitwidth : Nat) (value : BitVec bitwidth)
 deriving Inhabited
 
 instance : ToString (RuntimeValue) where
   toString
     | .int _ val => ToString.toString val
     | .reg val => ToString.toString val
+    | .bvint _ val => ToString.toString val
 
 /--
   The state of the interpreter at a given point in time.
@@ -671,6 +674,16 @@ def Cf.interpretOp' (opType : Veir.Cf) (properties : HasDialectOpInfo.properties
     else
       return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
 
+def HW.interpretOp' (opType : Veir.HW) (properties : HasDialectOpInfo.propertiesOf opType)
+    (resultTypes : Array TypeAttr) (_blockOperands : Array BlockPtr)
+    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .constant => do
+    let resType ← resultTypes[0]?
+    let .integerType bw := resType.val
+      | none
+    return (#[.bvint bw.bitwidth (Veir.Data.HW.constant (BitVec.ofInt bw.bitwidth properties.value.value)).val], none)
+  | _ => none
 /--
   Interpret a single operation given its opcode, type-dependent properties,
   result types, and the runtime values of its operands.
@@ -691,6 +704,8 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     Riscv.interpretOp' riscvOp properties resultTypes operands blockOperands
   | .cf cfOp => do
     Cf.interpretOp' cfOp properties resultTypes operands blockOperands
+  | .hw hwOp => do
+    HW.interpretOp' hwOp properties resultTypes blockOperands
   | .func .return => do
     return (#[], some (.return operands))
   | .builtin .unrealized_conversion_cast => do
