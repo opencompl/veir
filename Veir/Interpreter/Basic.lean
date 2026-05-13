@@ -728,24 +728,24 @@ def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : Interprete
 -/
 def interpretOpList (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
     (opInBounds : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
-    : Option ControlFlowAction := do
+    : Option (InterpreterState × ControlFlowAction) := do
   let (state, action) ← interpretOp ctx op state
   match action with
   | none =>
     rlet next ← (op.get ctx).next
     interpretOpList ctx next state
   | some action =>
-    return action
+    return (state, action)
 termination_by op.idxInParentFromTail ctx
 decreasing_by grind
 
 /--
   Interpret a block of operations, starting from the first operation in the block.
-  Return a ControlFlowAction indicating how to continue the interpretation.
+  Return the resulting interpreter state and a ControlFlowAction indicating how
+  to continue the interpretation.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option ControlFlowAction := do
-  let block := blockPtr.get ctx (by grind)
+def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (InterpreterState × ControlFlowAction) := do
   rlet firstOp ← (blockPtr.get ctx).firstOp
   interpretOpList ctx firstOp state
 
@@ -756,8 +756,8 @@ def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : Inter
 -/
 def interpretBlockCFG (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (Array RuntimeValue) := do
   match interpretBlock ctx blockPtr state blockInBounds wf with
-  | some (.return res) => some res
-  | some (.branch res succ) =>
+  | some (_state, .return res) => some res
+  | some (state, .branch res succ) =>
     if h : succ.InBounds ctx then
       let state := state.setArgumentValues ctx succ res
       interpretBlockCFG ctx succ state h wf else none
