@@ -274,13 +274,13 @@ def shl {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
   let val x' := x | poison
   let val y' := y | poison
 
+  if y' ≥ w then
+    return poison
+
   if nsw ∧ (x' <<< y').sshiftRight' y' ≠ x' then
     return poison
 
   if nuw ∧ (x' <<< y') >>> y' ≠ x' then
-    return poison
-
-  if y' ≥ w then
     return poison
 
   val (x' <<< y')
