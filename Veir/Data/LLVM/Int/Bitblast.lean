@@ -3,6 +3,8 @@ module
 public import Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Refinement
+import all Veir.Data.Refinement
+public import Veir.Data.Refinement
 public import Veir.Data.LLVM.Int.Simp
 
 open Veir.Data.LLVM
@@ -74,7 +76,7 @@ theorem isRefinedBy_iff {w : Nat} (a b : Int w) :
     (a.isPoison = false → b.isPoison = false) ∧
     ((_ : a.isPoison = false) → (_ : b.isPoison = false) → a.getValue = b.getValue) := by
   simp [llvm_toBitVec, isPoison, getValue]
-  grind [isRefinedBy_eq]
+  grind [isRefinedBy]
 
 /-! # LLVM IR operations unfolding to `toIntBv` -/
 
