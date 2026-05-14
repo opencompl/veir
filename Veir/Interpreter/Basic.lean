@@ -56,7 +56,7 @@ def MemoryState.empty : MemoryState :=
 
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
-  ({ contents := (ByteArray.empty.push 0).copySlice 0 state.contents (state.size + size).toNat 1, size := state.size + size }, state.size)
+  ({ contents := ByteArray.rightpad (state.size + size).toNat 0 state.contents, size := state.size + size }, state.size)
 
 def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
     : MemoryState :=
@@ -500,7 +500,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let totalSize := (size * count.toNat).toUInt64
     let (mem, addr) := mem.alloc totalSize
     return (#[.addr addr], mem, none)
-  | load => do
+  | .load => do
     let [.addr addr] := operands.toList | none
     let [type] := resultTypes.toList | none
     let val ← mem.loadValue addr type
