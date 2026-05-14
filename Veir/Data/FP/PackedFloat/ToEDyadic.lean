@@ -32,7 +32,7 @@ def toEDyadic {e s : Nat} (pf : PackedFloat e s) : EDyadic :=
       (Dyadic.ofIntWithPrec (signToInt pf.sign * sig) prec)
   where
     sig := pf.sig.toNat  + 2 ^ s * (decide (pf.state = .normal)).toNat
-    prec := (bias e : Int) + (s : Int) - (Nat.max pf.ex.toNat 1)
+    prec := (FloatFormat.bias e : Int) + (s : Int) - (Nat.max pf.ex.toNat 1)
 
 
 end

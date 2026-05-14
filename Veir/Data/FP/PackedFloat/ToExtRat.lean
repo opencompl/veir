@@ -1,6 +1,7 @@
 module
 
 public import Veir.Data.FP.ExtRat.Basic
+public import Veir.Data.FP.FloatFormat
 public import Veir.Data.FP.PackedFloat.Basic
 public import Veir.Data.FP.Sign
 public import Veir.ForLean
@@ -9,11 +10,7 @@ namespace Veir.Data.FP.PackedFloat
 
 public section
 
-/--
-The exponent bias for a packed float with `e` exponent bits.
-For a double (`e = 11`), this is `2^10 - 1 = 1023`.
--/
-def bias (e : Nat) : Nat := 2 ^ (e - 1) - 1
+open FloatFormat (bias)
 
 /--
 The fractional contribution of the trailing significand: `sig.toNat / 2^s`.
