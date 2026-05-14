@@ -133,8 +133,7 @@ theorem getValue_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} (h : (sub x y nsw 
 @[llvm_toBitVec, grind =]
 theorem isPoison_mul {w : Nat} (x y : Int w) {nsw nuw : Bool} :
     (mul x y nsw nuw).isPoison =
-      if h : x.isPoison = true ∨ y.isPoison = true then
-        true
+      if h : x.isPoison = true ∨ y.isPoison = true then true
       else
         (nsw ∧ BitVec.smulOverflow x.getValue y.getValue) ∨
         (nuw ∧ BitVec.umulOverflow x.getValue y.getValue) := by
@@ -151,8 +150,7 @@ theorem getValue_mul {w : Nat} (x y : Int w) {nsw nuw : Bool} (h : (mul x y nsw 
 @[llvm_toBitVec, grind =]
 theorem isPoison_udiv {w : Nat} (x y : Int w) {exact : Bool} :
     (udiv x y exact).isPoison =
-      if h : x.isPoison = true ∨ y.isPoison = true then
-        true
+      if h : x.isPoison = true ∨ y.isPoison = true then true
       else
         (exact ∧ BitVec.umod x.getValue y.getValue ≠ 0) ∨
         (y.getValue = 0) := by
@@ -169,8 +167,7 @@ theorem getValue_udiv {w : Nat} (x y : Int w) {exact : Bool} (h : (udiv x y exac
 @[llvm_toBitVec, grind =]
 theorem isPoison_sdiv {w : Nat} (x y : Int w) {exact : Bool} :
     (sdiv x y exact).isPoison =
-      if h : x.isPoison = true ∨ y.isPoison = true then
-        true
+      if h : x.isPoison = true ∨ y.isPoison = true then true
       else
         (y.getValue == 0 || (w != 1 && x.getValue == (BitVec.intMin w) && y.getValue == -1)) ∨
         (exact ∧ BitVec.smod x.getValue y.getValue ≠ 0) ∨
@@ -188,8 +185,7 @@ theorem getValue_sdiv {w : Nat} (x y : Int w) {exact : Bool} (h : (sdiv x y exac
 @[llvm_toBitVec, grind =]
 theorem isPoison_urem {w : Nat} (x y : Int w) :
     (urem x y).isPoison =
-      if h : x.isPoison = true ∨ y.isPoison = true then
-        true
+      if h : x.isPoison = true ∨ y.isPoison = true then true
       else
         y.getValue = 0 := by
   simp only [urem, isPoison, getValue, Id.run, pure_bind]
@@ -205,8 +201,7 @@ theorem getValue_urem {w : Nat} (x y : Int w) (h : (urem x y).isPoison = false) 
 @[llvm_toBitVec, grind =]
 theorem isPoison_srem {w : Nat} (x y : Int w) :
     (srem x y).isPoison =
-      if h : x.isPoison = true ∨ y.isPoison = true then
-        true
+      if h : x.isPoison = true ∨ y.isPoison = true then true
       else
         (y.getValue == 0 || (w != 1 && x.getValue  == (BitVec.intMin w) && y.getValue == -1)) := by
   simp only [srem, isPoison, getValue, Id.run, pure_bind]
@@ -222,8 +217,7 @@ theorem getValue_srem {w : Nat} (x y : Int w) (h : (srem x y).isPoison = false) 
 @[llvm_toBitVec, grind =]
 theorem isPoison_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} :
     (shl x y nsw nuw).isPoison =
-      if h : x.isPoison = true ∨ y.isPoison = true then
-        true
+      if h : x.isPoison = true ∨ y.isPoison = true then true
       else
         (nsw ∧ (x.getValue <<< y.getValue).sshiftRight' y.getValue ≠ x.getValue) ∨
         (nuw ∧ (x.getValue <<< y.getValue) >>> y.getValue ≠ x.getValue) ∨
@@ -243,8 +237,7 @@ theorem getValue_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} (h : (shl x y nsw 
 @[llvm_toBitVec, grind =]
 theorem isPoison_lshr {w : Nat} (x y : Int w) {exact : Bool} :
     (lshr x y exact).isPoison =
-      if h : x.isPoison = true ∨ y.isPoison = true then
-        true
+      if h : x.isPoison = true ∨ y.isPoison = true then true
       else
         y.getValue ≥ w ∨
         (exact ∧ (x.getValue >>> y.getValue) <<< y.getValue ≠ x.getValue) := by
@@ -263,8 +256,7 @@ theorem getValue_lshr {w : Nat} (x y : Int w) {exact : Bool} (h : (lshr x y exac
 @[llvm_toBitVec, grind =]
 theorem isPoison_ashr {w : Nat} (x y : Int w) {exact : Bool} :
     (ashr x y exact).isPoison =
-      if h : x.isPoison = true ∨ y.isPoison = true then
-        true
+      if h : x.isPoison = true ∨ y.isPoison = true then true
       else
         y.getValue ≥ w ∨
         (exact ∧ (x.getValue >>> y.getValue) <<< y.getValue ≠ x.getValue) := by
@@ -307,8 +299,7 @@ theorem getValue_and {w : Nat} (x y : Int w) (h : (and x y).isPoison = false) :
 @[llvm_toBitVec, grind =]
 theorem isPoison_or {w : Nat} (x y : Int w) {disjoint : Bool} :
     (or x y disjoint).isPoison =
-      if h : x.isPoison ∨ y.isPoison then
-        true
+      if h : x.isPoison ∨ y.isPoison then true
       else
         disjoint ∧ ((x.getValue &&& y.getValue) ≠ 0) := by
   simp only [or, isPoison, getValue, Id.run, pure_bind]
@@ -336,8 +327,7 @@ theorem getValue_xor {w : Nat} (x y : Int w) (h : (xor x y).isPoison = false) :
 @[llvm_toBitVec, grind =]
 theorem isPoison_trunc {w₁ w₂: Nat} (x : Int w₁) {nsw nuw : Bool} (h : w₁ > w₂) :
     (trunc x w₂ nsw nuw h).isPoison =
-      if h : x.isPoison then
-        true
+      if h : x.isPoison then true
       else
         (nsw ∧ (x.getValue.truncate w₂).signExtend w₁ ≠ x.getValue) ∨
         (nuw ∧ (x.getValue.truncate w₂).zeroExtend w₁ ≠ x.getValue) := by
@@ -354,8 +344,7 @@ theorem getValue_trunc {w₁ w₂: Nat} (x : Int w₁) {nsw nuw : Bool} (h : w�
 @[llvm_toBitVec, grind =]
 theorem isPoison_zext {w₁ w₂: Nat} (x : Int w₁) {nneg : Bool} (h : w₁ < w₂) :
     (zext x w₂ nneg h).isPoison =
-      if h : x.isPoison then
-        true
+      if h : x.isPoison then true
       else
         nneg ∧ x.getValue.msb := by
   simp only [zext, isPoison, getValue, Id.run, pure_bind]
