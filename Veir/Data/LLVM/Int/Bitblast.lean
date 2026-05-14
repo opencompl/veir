@@ -169,7 +169,7 @@ theorem isPoison_sdiv {w : Nat} (x y : Int w) {exact : Bool} :
     (sdiv x y exact).isPoison =
       if h : x.isPoison = true ∨ y.isPoison = true then true
       else
-        (y.getValue == 0 || (w != 1 && x.getValue == (BitVec.intMin w) && y.getValue == -1)) ∨
+        (y.getValue = 0 ∨ (w ≠ 1 ∧ x.getValue = (BitVec.intMin w) ∧ y.getValue = -1)) ∨
         (exact ∧ BitVec.smod x.getValue y.getValue ≠ 0) ∨
         (y.getValue = 0) := by
   simp only [sdiv, isPoison, getValue, Id.run, pure_bind]
@@ -203,7 +203,7 @@ theorem isPoison_srem {w : Nat} (x y : Int w) :
     (srem x y).isPoison =
       if h : x.isPoison = true ∨ y.isPoison = true then true
       else
-        (y.getValue == 0 || (w != 1 && x.getValue  == (BitVec.intMin w) && y.getValue == -1)) := by
+        (y.getValue = 0 ∨ (w ≠ 1 ∧ x.getValue = (BitVec.intMin w) ∧ y.getValue = -1)) := by
   simp only [srem, isPoison, getValue, Id.run, pure_bind]
   simp [pure]
   grind
@@ -364,7 +364,7 @@ theorem isPoison_sext {w₁ w₂: Nat} (x : Int w₁) (h : w₁ < w₂) :
   grind
 
 @[llvm_toBitVec, grind =]
-theorem getValue_sext (x : Int w₁) (h : w₁ < w₂) (hpoison : (sext x w₂ h).isPoison = false) :
+theorem getValue_sext {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ < w₂) (hpoison : (sext x w₂ h).isPoison = false) :
     (sext x w₂ h).getValue hpoison = x.getValue.signExtend w₂ := by
   simp [sext, Id.run]
   grind
@@ -391,6 +391,6 @@ theorem isPoison_select {w : Nat} (x y : Int w) (c : Int 1) :
 
 @[llvm_toBitVec, grind =]
 theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) (h : (select c x y).isPoison = false) :
-    (select c x y).getValue h = if c.getValue == 1#1 then x.getValue else y.getValue := by
+    (select c x y).getValue = if c.getValue = 1#1 then x.getValue else y.getValue := by
   simp [select, Id.run]
   grind
