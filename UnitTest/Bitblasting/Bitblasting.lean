@@ -15,7 +15,7 @@ open Veir.Data.LLVM.Int
 
 /-- We introduce a tactic to automatically prove all the lemmas. -/
 macro "llvm_bv_decide" : tactic =>
-  `(tactic| ((try simp [llvm_toBitVec]; try bv_decide); all_goals sorry))
+  `(tactic| (try simp only [llvm_toBitVec]; try simp only [getValue_eq_getValueD]; try bv_decide); all_goals sorry)
 
 set_option warn.sorry false
 
@@ -36,22 +36,16 @@ example
 
 example
     (e e_1 : Veir.Data.LLVM.Int 64) : add (sub (constant 64 0) e) e_1 ⊑ sub e_1 e := by
-  simp [llvm_toBitVec]
-  simp only [getValue_eq_getValueD]
-  bv_decide
+  llvm_bv_decide
 
 example
     (e e_1 : Veir.Data.LLVM.Int 64) :
       add (sub (constant 64 0) e) (sub (constant 64 0) e_1) ⊑ sub (constant 64 0) (add e e_1) := by
-  simp [llvm_toBitVec]
-  simp only [getValue_eq_getValueD]
-  bv_decide
+  llvm_bv_decide
 
 example
     (e e_1 : Veir.Data.LLVM.Int 64) : add e (sub (constant 64 0) e_1) ⊑ sub e e_1 := by
-  simp [llvm_toBitVec]
-  simp only [getValue_eq_getValueD]
-  bv_decide
+  llvm_bv_decide
 
 example
     (e e_1 : Veir.Data.LLVM.Int 64) : add (xor e (constant 64 (-1))) e_1 ⊑ sub (sub e_1 (constant 64 1)) e := by
