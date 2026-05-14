@@ -3,7 +3,7 @@ import Veir.Rewriter.Basic
 import Veir.ForLean
 import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
-import Veir.Data.COMB.Basic
+import Veir.Data.Comb.Basic
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.HW.Basic
@@ -681,13 +681,13 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : HasDialectOpInfo.proper
   match opType with
   | .add => do
     let l : List _ := operands.toList
-    let .bvInt w fst := l[0]! | none
+    let .int w fst := l[0]! | none
     let some nl := l.mapM (
         fun e => do
-          let .bvInt w' val := e | none
+          let .int w' val := e | none
           if h : w' ≠ w then none else
           return val.cast (by simpa using h)) | none
-    return (#[.bvInt w (Veir.Data.COMB.add nl)], none)
+    return (#[.int w (Veir.Data.Comb.add nl)], none)
   | _ => none
 
 def HW.interpretOp' (opType : Veir.HW) (properties : HasDialectOpInfo.propertiesOf opType)
