@@ -27,8 +27,6 @@ def maxBiasedExponent (e : Nat) : Nat := 2 ^ e - 2
 #guard maxBiasedExponent 8 = 254
 -- Double precision: `maxBiasedExponent 11 = 2^11 - 2 = 2046`.
 #guard maxBiasedExponent 11 = 2046
-
-
 /--
 The smallest biased exponent representing a normal number: `1`.
 
