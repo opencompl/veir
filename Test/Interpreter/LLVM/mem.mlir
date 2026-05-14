@@ -9,4 +9,4 @@
   "func.return"(%4) : (i64) -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x00000008#32]
+// CHECK: Program output: #[0x0000000000000008#64]

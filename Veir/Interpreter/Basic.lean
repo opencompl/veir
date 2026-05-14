@@ -49,14 +49,13 @@ instance : ToString (RuntimeValue) where
 --@[ext]
 structure MemoryState where
   contents : ByteArray
-  size : UInt64
 
 def MemoryState.empty : MemoryState :=
-  { contents := ByteArray.emptyWithCapacity 1024, size := 8 }
+  { contents := ByteArray.emptyWithCapacity 1024 }
 
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
-  ({ contents := ByteArray.rightpad (state.size + size).toNat 0 state.contents, size := state.size + size }, state.size)
+  ({ contents := ByteArray.rightpad (state.contents.size + size.toNat) 0 state.contents }, state.contents.size.toUInt64)
 
 def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
     : MemoryState :=
