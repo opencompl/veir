@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778748408275,
+  "lastUpdate": 1778749938658,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -21528,6 +21528,162 @@ window.BENCHMARK_DATA = {
             "value": 764000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000764s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48860705+luisacicolini@users.noreply.github.com",
+            "name": "Luisa Cicolini",
+            "username": "luisacicolini"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9cb6560798c2528b53843f0cb663a89b8885dce5",
+          "message": "Bitblasting `LLVM.Int` (#550)\n\nWe introduce the minimal infrastructure to make `LLVM.Int` bitblastable.\nThis includes:\n* an `isPoison` method that returns `true` if the value is poison \n* a `getValueD` method that returns a bitvector with the `LLVM.Int`'s\nvalue if it is not poison, or a bitvector `0#w` otherwise\n* a `getValue` method that returns a bitvector with the `LLVM.Int`'s\nvalue, given a non-poison hypothesis.\n\nWe introduce lemmas to rewrite the equality and refinement relations\nusing these lemmas, and an additional `getValue_eq_getValueD` lemma that\nrewrites `getValue` to `getValueD`. We show how this infrastructure\nenables bitblasting for `add`, `sub`, and `constant` operations, already\nsolving some of the lemmas in `Bitblasting`. In a subsequent PR we will\nintroduce the same infra for all the `LLVM.Int` operations, and we will\npack the sequence\n```\nsimp [llvm_toBitVec]\nsimp only [getValue_eq_getValueD]\nbv_decide\n```\nin a tactic that shall solve all the goals in the `Bitblasting` test.\n\nCo-authored-by: @georgerennie @alexkeizer\n\n---------\n\nCo-authored-by: George Rennie <georgerennie@gmail.com>",
+          "timestamp": "2026-05-14T09:09:17Z",
+          "tree_id": "424b2396f72dd896d3b9e994b6819e45933c39f4",
+          "url": "https://github.com/opencompl/veir/commit/9cb6560798c2528b53843f0cb663a89b8885dce5"
+        },
+        "date": 1778749925009,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2213000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002213s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3135000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003135s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2275000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002275s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2624000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002624s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2209000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002209s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2094000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002094s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1930000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001930s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1741000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001741s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2292000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002292s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 4472000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.004472s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2352000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002352s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2589000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002589s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2283000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002283s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1766000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001766s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1907000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001907s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1415000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001415s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2249000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002249s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3107000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003107s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1807000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001807s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 9000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000009s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1930000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001930s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 723000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000723s"
           }
         ]
       }
