@@ -357,7 +357,6 @@ def parseEntryBlockLabel (ip : BlockInsertPoint) : MlirParserM BlockPtr := do
     let block ← defineBlock ByteArray.empty ip
     return block
 
-set_option warn.sorry false in
 mutual
 
 /--
@@ -404,7 +403,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
       let ⟨hop⟩ ← liftExcept (checkOpInBounds op ctx')
       let ctx'' := op.setAttributes ctx' attrs hop
       /- Update the parser context. -/
-      pure ⟨op, ⟨ctx'', by sorry⟩⟩
+      pure ⟨op, ⟨ctx'', by grind [Rewriter.createOp_WellFormed, OperationPtr.setAttributes_WellFormed]⟩⟩
 
   let ctx ← getContext
   for index in 0...(op.getNumResults! ctx.raw) do

@@ -198,6 +198,44 @@ theorem Rewriter.detachOpIfAttached_WellFormed (ctx : IRContext OpInfo) (wf : ct
 
 end detachOpIfAttached
 
+section setAttributes
+
+theorem OperationPtr.setAttributes_WellFormed (ctx : IRContext OpInfo) (op : OperationPtr)
+    (hctx : ctx.WellFormed) (hop : op.InBounds ctx) (newAttrs : DictionaryAttr) :
+    (op.setAttributes ctx newAttrs hop).WellFormed := by
+  have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hctx
+  constructor
+  · grind
+  · intro val hval
+    have ⟨array, harray⟩ := h₂ val (by grind)
+    exists array
+    simp only [Std.ExtHashSet.filter_empty] at harray ⊢
+    apply ValuePtr.DefUse.unchanged harray (ctx' := op.setAttributes ctx newAttrs hop) <;> grind
+  · intro blk hblk
+    have ⟨array, harray⟩ := h₃ blk (by grind)
+    exists array
+    simp only [Std.ExtHashSet.filter_empty] at harray ⊢
+    apply BlockPtr.DefUse.unchanged harray (ctx' := op.setAttributes ctx newAttrs hop) <;> grind
+  · intro blk hblk
+    have ⟨array, harray⟩ := h₄ blk (by grind)
+    exists array
+    apply BlockPtr.OpChain_unchanged harray (ctx' := op.setAttributes ctx newAttrs hop) <;> grind
+  · intro reg hreg
+    have ⟨array, harray⟩ := h₅ reg (by grind)
+    exists array
+    apply RegionPtr.blockChain_unchanged harray (ctx' := op.setAttributes ctx newAttrs hop) <;> grind
+  · intro op' hop'
+    have h_wf := h₆ op' (by grind)
+    apply OperationPtr.WellFormed_unchanged h_wf (ctx' := op.setAttributes ctx newAttrs hop) <;> grind
+  · intro blk hblk
+    have h_wf := h₇ blk (by grind)
+    apply BlockPtr.WellFormed_unchanged h_wf (ctx' := op.setAttributes ctx newAttrs hop) <;> grind
+  · intro reg hreg
+    have h_wf := h₈ reg (by grind)
+    apply RegionPtr.WellFormed_unchanged h_wf (ctx' := op.setAttributes ctx newAttrs hop) <;> grind
+
+end setAttributes
+
 theorem Rewriter.detachOperands.loop_wellFormed
     (wf : IRContext.WellFormed ctx missingOperands missingSuccessors)
     (hMissingOperands : ∀ i, i <= index → (OpOperandPtr.mk op i) ∉ missingOperands) :
