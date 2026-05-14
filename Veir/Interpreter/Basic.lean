@@ -771,16 +771,7 @@ partial_fixpoint
 -/
 def interpretRegion (ctx : IRContext OpCode) (region : RegionPtr) (state : InterpreterState) (regionIn : region.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Option (InterpreterState × Array RuntimeValue) := do
   rlet block ← (region.get ctx).firstBlock
-  rlet firstOp ← (block.get ctx).firstOp
-  match firstOp.getOpType! ctx with
-  | .func .func | .llvm .func =>
-    if h : firstOp.getNumRegions ctx ≠ 1 then
-      none
-    else
-      interpretRegion ctx (firstOp.getRegion ctx 0) state
-  | _ =>
-    interpretBlockCFG ctx block state
-partial_fixpoint
+  interpretBlockCFG ctx block state
 
 /--
   Interpret a builtin.module operation.
