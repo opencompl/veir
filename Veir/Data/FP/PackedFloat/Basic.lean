@@ -27,9 +27,9 @@ deriving DecidableEq, Repr, Inhabited
 namespace PackedFloat
 
 /--
-A canonical NaN `PackedFloat`: biased exponent all-ones with a nonzero
-trailing significand. The IEEE-754 standard does not specify a unique NaN
-bit pattern; this constructor returns one with significand `1`.
+A canonical NaN `PackedFloat`.
+Recall that a NaN pattern is given by a maximum exponent (all-ones) and a nonzero significand. The IEEE-754 standard does not specify a unique NaN bit pattern,
+so this constructor returns one with significand `1`.
 -/
 def mkNaN (e s : Nat) : PackedFloat e s :=
   { sign := false, ex := BitVec.allOnes e, sig := BitVec.ofNat s 1 }
@@ -42,18 +42,10 @@ def mkInfinity (e s : Nat) (sign : Bool) : PackedFloat e s :=
   { sign := sign, ex := BitVec.allOnes e, sig := 0#s }
 
 /--
-A signed `PackedFloat` zero: biased exponent and trailing significand
-both zero.
+A signed `PackedFloat` zero: biased exponent and trailing significand both zero.
 -/
 def mkZero (e s : Nat) (sign : Bool) : PackedFloat e s :=
   { sign := sign, ex := 0#e, sig := 0#s }
 
-/--
-A finite `PackedFloat` number, given the sign, biased exponent, and
-trailing significand. This is just `PackedFloat.mk` under another name,
-for symmetry with the special-value constructors.
--/
-def mkNumber (sign : Bool) (ex : BitVec e) (sig : BitVec s) : PackedFloat e s :=
-  { sign := sign, ex := ex, sig := sig }
 
 end PackedFloat
