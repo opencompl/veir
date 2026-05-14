@@ -26,6 +26,7 @@ match opCode with
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
 | .hw op => HW.propertiesOf op
+| .builtin .unregistered => UnregisteredProperties
 | _ => Unit
 
 instance : HasDialectOpInfo OpCode where
@@ -112,7 +113,9 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     cases op
     case cond_br => exact (CondBrProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
-  case builtin =>
+  case builtin op =>
+    cases op
+    case unregistered => exact (UnregisteredProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case arith op =>
     cases op
@@ -240,6 +243,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr props.predicate)
   | .hw .constant => Id.run do
     (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .builtin .unregistered =>
+    Std.HashMap.ofList props.properties.entries.toList
   | .hw .module => Id.run do
     let dict := Std.HashMap.emptyWithCapacity 4
     let dict := dict.insert "module_type".toUTF8 (.hwModuleType props.module_type)

@@ -380,6 +380,12 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let opId := OpCode.fromName opName.toByteArray
 
   let properties ← parseOpProperties opId
+  /- For `builtin.unregistered`, record the original op name in the properties so it can be
+     printed back out. The properties dictionary itself has already been populated by
+     `Properties.fromAttrDict` (see `UnregisteredProperties.fromAttrDict`). -/
+  let properties : propertiesOf opId := match opId, properties with
+    | .builtin .unregistered, props => { props with opName := opName.toByteArray }
+    | _, props => props
   let regions ← parseOpRegions
   let attrs ← parseOpAttributes
   let (inputTypes, outputTypes) ← parseOperationType

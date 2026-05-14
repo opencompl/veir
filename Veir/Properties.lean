@@ -6,9 +6,26 @@ public import Veir.IR.Simp
 public import Veir.ForLean
 public import Veir.IR.OpInfo
 
+/- This is needed as some properties have ByteArray and require Repr instances -/
+deriving instance Repr for ByteArray
+
 namespace Veir
 
 public section
+
+/--
+  Properties of a `builtin.unregistered` operation. Holds the original (parsed) operation name
+  and the original `<{...}>` properties dictionary so that the operation can be printed back
+  with its source representation preserved.
+-/
+structure UnregisteredProperties where
+  opName : ByteArray
+  properties : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def UnregisteredProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String UnregisteredProperties :=
+  .ok { opName := .empty, properties := DictionaryAttr.fromArray attrDict.toArray }
 
 def getUnitAttr (key : String) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String Bool := do

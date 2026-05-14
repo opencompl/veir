@@ -184,7 +184,13 @@ partial def printOperation (ctx: IRContext OpCode) (op: OperationPtr) (indent: N
   let opStruct := op.get! ctx
   printIndent indent
   printOpResults ctx op
-  IO.print s!"\"{String.fromUTF8! opStruct.opType.name}\""
+  /- Unregistered operations store their original operation name in the properties. -/
+  let nameBytes : ByteArray :=
+    match opStruct.opType with
+    | .builtin .unregistered =>
+      (op.getProperties! ctx (.builtin .unregistered)).opName
+    | _ => opStruct.opType.name
+  IO.print s!"\"{String.fromUTF8! nameBytes}\""
   printOpOperands ctx op
   printBlockOperands ctx op
   printOpProperties ctx op
