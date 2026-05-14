@@ -15,7 +15,7 @@ open Veir.Data.LLVM.Int
 
 /-- We introduce a tactic to automatically prove all the lemmas. -/
 macro "llvm_bv_decide" : tactic =>
-  `(tactic| (try simp only [llvm_toBitVec]; try simp only [getValue_eq_getValueD]; try bv_decide); all_goals sorry)
+  `(tactic| ((try simp only [llvm_toBitVec]; try simp only [getValue_eq_getValueD]; try bv_decide); all_goals sorry))
 
 set_option warn.sorry false
 
