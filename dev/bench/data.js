@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778727269714,
+  "lastUpdate": 1778731843002,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -21060,6 +21060,162 @@ window.BENCHMARK_DATA = {
             "value": 776000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000776s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "regehr@cs.utah.edu",
+            "name": "John Regehr",
+            "username": "regehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1d1d83d768d67b748610edcc9081b7de8610393b",
+          "message": "Regehr/interpreter multiple block fix (#565)\n\nthis fix follows @math-fehr's suggestion for threading the interpreter\nstate across basic blocks. it all looks sensible to me but the code is\nby LLM. the test cases are ones that have come up for me in practice\nwhen I'm trying to fuzz VeIR.",
+          "timestamp": "2026-05-14T04:07:46Z",
+          "tree_id": "f82cc87ecb2d3f7177e47dfc0c5b34a674ff143c",
+          "url": "https://github.com/opencompl/veir/commit/1d1d83d768d67b748610edcc9081b7de8610393b"
+        },
+        "date": 1778731829472,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2270000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002270s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3703000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003703s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2148000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002148s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3127000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003127s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2285000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002285s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2398000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002398s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1883000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001883s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1982000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001982s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2239000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002239s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5228000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005228s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2257000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002257s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3025000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003025s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2162000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002162s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1915000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001915s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1852000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001852s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1541000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001541s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2266000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002266s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3658000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003658s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1880000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001880s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 7000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000007s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1903000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001903s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 761000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000761s"
           }
         ]
       }
