@@ -6,6 +6,7 @@ import Veir.Rewriter.InsertPoint
 import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSet
 import Veir.Rewriter.WellFormed
+import Veir.Rewriter.WfRewriter
 import Veir.Properties
 import Veir.GlobalOpInfo
 
@@ -318,7 +319,6 @@ def parseOpAttributes : MlirParserM DictionaryAttr := do
     | some attrs => return DictionaryAttr.fromArray attrs
   | .error err => throw err
 
-set_option warn.sorry false in
 /--
   Parse a block label, if present, and create and insert the block at the given insert point.
 -/
@@ -334,11 +334,11 @@ def parseOptionalBlockLabel (ip : BlockInsertPoint) : MlirParserM (Option BlockP
   /- Create the block or get it if it was forward declared. -/
   let block ← defineBlock name ip
   /- Insert block arguments in the block. -/
-  let blockArguments := arguments.mapIdx (fun index (_, type) => BlockArgument.mk (ValueImpl.mk type none) index () block)
   modifyContextM fun ctx => do
+    let argTypes := arguments.map (·.2)
     let ⟨h_block_InBounds⟩ ← liftExcept (checkBlockInBounds block ctx.raw)
     let ⟨h_block_NoArgs⟩ ← liftExcept (checkBlockHasNoArgs block ctx.raw)
-    pure ⟨block.setArguments ctx blockArguments h_block_InBounds, by sorry⟩
+    pure (WfRewriter.setBlockArguments ctx block argTypes h_block_InBounds (by grind [BlockPtr.getArguments!.mem_iff_exists_index]))
   /- Register the block argument names in the parser state. -/
   for ((argName, argType), index) in arguments.zipIdx do
     registerValueDef argName (ValuePtr.blockArgument {block := block, index := index})
