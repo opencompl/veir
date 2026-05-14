@@ -46,40 +46,62 @@ instance : ToString (RuntimeValue) where
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
 
---@[ext]
+/--
+  Memory state during interpretation
+-/
+@[ext]
 structure MemoryState where
   contents : ByteArray
 
 def MemoryState.empty : MemoryState :=
   { contents := ByteArray.emptyWithCapacity 1024 }
 
+/--
+  Allocate the given number of bytes of memory.
+  Return the updated memory state and the freshly allocated address.
+-/
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
   ({ contents := ByteArray.rightpad (state.contents.size + size.toNat) 0 state.contents }, state.contents.size.toUInt64)
 
+/--
+  Store raw bytes to the given address in memory.
+  Has no effect if the access is out of bounds.
+-/
 def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
     : MemoryState :=
-  let mem := ByteArray.rightpad addr.toNat 0 state.contents
-  { state with contents := val.copySlice 0 mem addr.toNat val.size false }
+  { state with contents := val.copySlice 0 state.contents addr.toNat val.size false }
 
+/--
+  Store a value to memory.
+-/
 def MemoryState.storeValue (state : MemoryState) (addr : UInt64) (val : RuntimeValue)
     : MemoryState :=
   match val with
+  | .int 8 (.val v) => state.store addr (ByteArray.empty.push v.toNat.toUInt8)
   | .int 64 (.val v) | .reg {val := v} => state.store addr (Lean.Compiler.LCNF.uint64ToByteArrayLE v.toNat.toUInt64).toList.toByteArray
   | .int _ .poison => state
   | .addr v => state.store addr (Lean.Compiler.LCNF.uint64ToByteArrayLE v).toList.toByteArray
   | _ => state
 
+/--
+  Load raw bytes from the given memory address.
+  Returns a truncated result if the access is out of bounds.
+-/
 def MemoryState.load (state : MemoryState) (addr size : UInt64)
     : ByteArray :=
   state.contents.extract addr.toNat (addr + size).toNat
 
+/--
+  Load a value from the given memory address.
+  Panics if access is out of bounds.
+-/
 def MemoryState.loadValue (state : MemoryState) (addr : UInt64) (type : TypeAttr)
     : Option RuntimeValue := do
   match type.val with
   | Attribute.integerType { bitwidth := 8 } => some (.int 8 (.val (BitVec.ofNat 8 (state.load addr 1)[0]!.toNat)))
   | Attribute.integerType { bitwidth := 64 } => some (.int 64 (.val (BitVec.ofNat 64 (state.load addr 8).toUInt64LE!.toNat)))
-  --| Attribute.llvmPointerType _ => some (.addr (state.load addr 8).toUInt64LE!)
+  | Attribute.llvmPointerType _ => some (.addr (state.load addr 8).toUInt64LE!)
   | _ => none
 
 /--

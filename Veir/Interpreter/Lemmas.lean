@@ -94,6 +94,7 @@ theorem InterpreterState.setResultValues_comm {ctx : WfIRContext OpInfo}
   ext val runtimeVal
   cases val <;> grind
   grind [InterpreterState.setResultValues_memory]
+  grind [InterpreterState.setResultValues_memory]
 
 theorem InterpreterState.getVar?_setResultValues_operand_of_dominates {ctx : WfIRContext OpInfo}
     (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
@@ -133,4 +134,5 @@ theorem InterpreterState.setResultValues_setResultValues_self {ctx : WfIRContext
   ext val runtimeVal
   simp only [InterpreterState.getVar?_setResultValues]
   grind
+  grind [InterpreterState.setResultValues_memory]
   grind [InterpreterState.setResultValues_memory]
