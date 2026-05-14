@@ -18,30 +18,11 @@ namespace Veir.Parser
 
 variable {ctx : IRContext OpCode}
 
-/--
-  An indexed name combines an SSA name with an index, allowing for results with
-  multiple parts.
--/
-structure IndexedName where
-  name : ByteArray
-  index : Nat
-deriving Inhabited, Hashable, DecidableEq, Repr
-
-instance : Coe ByteArray IndexedName where
-  coe name := { name, index := 0 }
-
-instance : ToString IndexedName where
-  toString name :=
-    let string := String.fromUTF8! name.name
-    match name.index with
-    | 0 => s!"%{string}"
-    | n => s!"%{string}#{n}"
-
 structure MlirParserState where
   /-- The current IR context. -/
   ctx : WfIRContext OpCode
-  /-- The values that have been defined at that point in the parser. -/
-  values : Std.HashMap IndexedName ValuePtr
+  /-- The values that have been defined for a given name at that point in the parser. -/
+  values : Std.HashMap ByteArray (Array ValuePtr)
   /--
     The blocks that have been already parsed.
     The Bool value indicates whether the block has already been parsed
@@ -82,9 +63,9 @@ def getContext : MlirParserM (WfIRContext OpCode) := do
   return (← get).ctx
 
 /--
-  Get a value that has previously been parsed given its name.
+  Get the array of values associated with a previously parsed name.
 -/
-def getValue? (name : IndexedName) : MlirParserM (Option ValuePtr) := do
+def getValues? (name : ByteArray) : MlirParserM (Option (Array ValuePtr)) := do
   return (← get).values[name]?
 
 /--
@@ -94,11 +75,18 @@ def getInput : MlirParserM ByteArray := do
   return (← getThe ParserState).input
 
 /--
-  Register a parsed value with the given name.
+  Register an array of parsed values with the given name.
   This is used to keep track of values that have been defined during parsing.
 -/
-def registerValueDef (name : IndexedName) (value : ValuePtr) : MlirParserM Unit := do
-  modify fun s => { s with values := s.values.insert name value }
+def registerValueDefs (name : ByteArray) (values : Array ValuePtr) : MlirParserM Unit := do
+  modify fun s => { s with values := s.values.insert name values }
+
+/--
+  Register a single value with the given name.
+  This is used to keep track of values that have been defined during parsing.
+-/
+def registerValueDef (name : ByteArray) (value : ValuePtr) : MlirParserM Unit :=
+  registerValueDefs name #[value]
 
 /--
   Set the current IR context.
@@ -195,42 +183,31 @@ def defineBlockUse (name : ByteArray) : MlirParserM BlockPtr := do
     return block
 
 /--
-  Parse one or multiple operation results with the same name, appending them to an array of
-  results. This appends instead of returning an array of results to prevent the overhead of
-  flattening nested arrays.
-
-  For the syntax `%name` this appends a single result with index 0, and for `%name:count` it
-  appends `count` results with incrementing indices starting at 0.
+  Parse an operation result and the number of values it defines.
+  This corresponds to the syntax `%name` and `%name:numberOfResults`.
 -/
-@[inline]
-def parseOpResult (results : Array IndexedName) : MlirParserM (Array IndexedName) := do
+def parseOpResult : MlirParserM (ByteArray × Nat) := do
   let nameToken ← parseToken .percentIdent "operation result expected"
   let slice := { nameToken.slice with start := nameToken.slice.start + 1 } -- skip % character
-  let name : ByteArray := slice.of (← getInput)
+  let name := slice.of (← getInput)
 
-  -- If there is only one result defined, push it and return
-  let some _ ← parseOptionalToken .colon
-    | return results.push name
+  /- If the next token is ':', we parse the expected result count, otherwise we return the name. -/
+  if !(← parseOptionalToken .colon).isSome then
+    return (name, 1)
 
-  -- Multiple results are defined, so push each with a separate index
   let count := (← parseInteger false false).toNat
-  let mut results := results
-  for index in [0:count] do
-    results := results.push <| { name, index }
-  return results
+  if count ≤ 1 then
+    throw "expected named operation to have at least 1 result"
+
+  return (name, count)
 
 /--
   Parse the results before an operation definition,
   either as a list of values followed by '=', or nothing.
 -/
-def parseOpResults : MlirParserM (Array IndexedName) := do
+def parseOpResults : MlirParserM (Array (ByteArray × Nat)) := do
   let .percentIdent := (← peekToken).kind | return #[]
-
-  let mut results : Array IndexedName := #[]
-  results ← parseOpResult results
-  while ← parseOptionalPunctuation "," do
-    results ← parseOpResult results
-
+  let results ← parseList parseOpResult
   parsePunctuation "=" "'=' expected after operation results"
   return results
 
@@ -239,27 +216,50 @@ def parseOpResults : MlirParserM (Array IndexedName) := do
   This is used during parsing to allow parsing operands before their types.
   Once the operation type is known, `resolveOperand` can be used to create an SSA value and
   check that the type matches with previous uses.
+
+  `resultNumber` is used for the `%name#resultNumber` syntax to refer to an indexed result
+  when multiple are defined for the same value.
 -/
 structure UnresolvedOperand where
-  name : IndexedName
+  name : ByteArray
+  resultNumber : Option Nat
+
+/--
+  Get the name of an UnresolvedOperand as a String.
+-/
+def UnresolvedOperand.nameString (operand : UnresolvedOperand) : String :=
+  String.fromUTF8! operand.name
+
+/--
+  Get the result index of an UnresolvedOperand. If one was not specified explicitly, this
+  defaults to 0.
+-/
+def UnresolvedOperand.resultNumberD (operand : UnresolvedOperand) : Nat :=
+  operand.resultNumber.getD 0
+
+instance : ToString UnresolvedOperand where
+  toString operand :=
+    match operand.resultNumber with
+    | none => s!"%{operand.nameString}"
+    | some n => s!"%{operand.nameString}#{n}"
 
 /--
   Parse an operation operand.
-  This has the syntax `%name` or `%name#index`.
+  This has the syntax `%name` or `%name#resultNumber`.
 -/
 def parseOperand : MlirParserM UnresolvedOperand := do
   let nameToken ← parseToken .percentIdent "operand expected"
   let name : ByteArray := { nameToken.slice with start := nameToken.slice.start + 1 }.of (← getInput)
 
-  -- If no index is specified, return with the default index
-  let some index ← parseOptionalToken .hashIdent
-    | return UnresolvedOperand.mk name
+  /- If no result number is specified, return without one. -/
+  let some resultNumber ← parseOptionalToken .hashIdent
+    | return UnresolvedOperand.mk name none
 
-  -- Parse an integer index and add it to the operand
-  let index := { index.slice with start := index.slice.start + 1 }.of (← getInput) -- skip # character
-  let some index := String.fromUTF8? index >>= String.toNat?
-    | throw "integer literal expected"
-  return UnresolvedOperand.mk { name, index }
+  /- Parse the resultNumber as a Nat. -/
+  let resultNumber := { resultNumber.slice with start := resultNumber.slice.start + 1 }.of (← getInput) -- skip # character
+  let some resultNumber := String.fromUTF8? resultNumber >>= String.toNat?
+    | throw "invalid SSA value result number"
+  return UnresolvedOperand.mk name resultNumber
 
 /--
   Parse a list of operation operands delimited by parentheses.
@@ -288,11 +288,12 @@ def parseBlockOperands : MlirParserM (Array BlockPtr) := do
   Throw an error if the value is not defined or if the type does not match.
 -/
 def resolveOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) : MlirParserM ValuePtr := do
-  let some value := (← getValue? operand.name) | throw s!"use of undefined value {operand.name}"
+  let some values := (← getValues? operand.name) | throw s!"use of undefined value %{operand.nameString}"
+  let some value := values[operand.resultNumberD]? | throw s!"invalid result number {operand.resultNumberD} for %{operand.nameString}"
   let ⟨ctx, _⟩ ← getContext
   let parsedType := value.getType! ctx
   if parsedType ≠ expectedType then
-    throw s!"type mismatch for value {operand.name}: expected {expectedType}, got {parsedType}"
+    throw s!"type mismatch for value {operand}: expected {expectedType}, got {parsedType}"
   return value
 
 /--
@@ -441,9 +442,12 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let attrs ← parseOpAttributes
   let (inputTypes, outputTypes) ← parseOperationType
 
+  /- Results can have multiple parts so sum the sizes. -/
+  let numResults := results.foldl (· + ·.snd) 0
+
   /- Check that the number of results matches with the operation type. -/
-  if outputTypes.size ≠ results.size then
-    throw s!"operation '{opName}' declares {outputTypes.size} result types, but {results.size} result names were provided"
+  if outputTypes.size ≠ numResults then
+    throw s!"operation '{opName}' declares {outputTypes.size} result types, but {numResults} result values were provided"
 
   /- Check that the number and types of operands matches with the operation type. -/
   if inputTypes.size ≠ operands.size then
@@ -464,9 +468,13 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
       pure ⟨op, ⟨ctx'', by grind [Rewriter.createOp_WellFormed, OperationPtr.setAttributes_WellFormed]⟩⟩
 
   let ctx ← getContext
-  for index in 0...(op.getNumResults! ctx.raw) do
-    let resultValue := op.getResult index
-    registerValueDef results[index]! resultValue
+
+  /- Register the values for each result name. -/
+  let mut index := 0
+  for (name, count) in results do
+    let values := .ofFn <| fun (i : Fin count) => op.getResult (index + i)
+    registerValueDefs name values
+    index := index + count
   return op
 
 /--

@@ -188,7 +188,7 @@ def testParseOp (s : String) : IO Unit :=
 }) : () -> ()"
 
 /--
-  error: use of undefined value %a#2
+  error: invalid result number 2 for %a
 -/
 #guard_msgs in
 #eval! testParseOp "\"builtin.module\"() ({
@@ -203,4 +203,20 @@ def testParseOp (s : String) : IO Unit :=
 #eval! testParseOp "\"builtin.module\"() ({
   %a:2 = \"test.test\"() : () -> (i32, i64)
   %b = \"test.test\"(%a#1) : (i32) -> i1
+}) : () -> ()"
+
+/--
+  error: operation 'test.test' declares 4 result types, but 3 result values were provided
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a, %b:2 = \"test.test\"() : () -> (i1, i2, i3, i4)
+}) : () -> ()"
+
+/--
+  error: operation 'test.test' declares 2 result types, but 3 result values were provided
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a:2, %b = \"test.test\"() : () -> (i1, i2)
 }) : () -> ()"
