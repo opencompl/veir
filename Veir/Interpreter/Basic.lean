@@ -3,6 +3,7 @@ import Veir.Rewriter.Basic
 import Veir.ForLean
 import Veir.IR.WellFormed
 import Veir.PatternRewriter.Basic
+import Veir.Data.COMB.Basic
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.HW.Basic
@@ -674,6 +675,21 @@ def Cf.interpretOp' (opType : Veir.Cf) (properties : HasDialectOpInfo.properties
     else
       return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
 
+def Comb.interpretOp' (opType : Veir.Comb) (properties : HasDialectOpInfo.propertiesOf opType)
+    (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .add => do
+    let l : List _ := operands.toList
+    let .bvInt w fst := l[0]! | none
+    let some nl := l.mapM (
+        fun e => do
+          let .bvInt w' val := e | none
+          if h : w' ≠ w then none else
+          return val.cast (by simpa using h)) | none
+    return (#[.bvInt w (Veir.Data.COMB.add nl)], none)
+  | _ => none
+
 def HW.interpretOp' (opType : Veir.HW) (properties : HasDialectOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (_blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
@@ -704,6 +720,8 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     Riscv.interpretOp' riscvOp properties resultTypes operands blockOperands
   | .cf cfOp => do
     Cf.interpretOp' cfOp properties resultTypes operands blockOperands
+  | .comb combOp => do
+    Comb.interpretOp' combOp properties operands blockOperands
   | .hw hwOp => do
     HW.interpretOp' hwOp properties resultTypes blockOperands
   | .func .return => do
