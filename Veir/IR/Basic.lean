@@ -490,6 +490,29 @@ theorem getOperands!.getElem_eq_getOperand! {op : OperationPtr} {h} :
     (op.getOperands! ctx)[index]'h = op.getOperand! ctx index := by
   grind [getOperands!, getOperand!]
 
+def getOperandTypes (op : OperationPtr) (ctx : IRContext OpInfo)
+    (inBounds : op.InBounds ctx := by grind) : Array TypeAttr :=
+  (op.get ctx).operands.map fun opr =>
+    match opr.value with
+    | .opResult ptr => (ptr.op.get! ctx).results[ptr.index]!|>.type
+    | .blockArgument ptr => (ctx.blocks[ptr.block]!).arguments[ptr.index]!|>.type
+
+def getOperandTypes! (op : OperationPtr) (ctx : IRContext OpInfo) : Array TypeAttr :=
+  (op.get! ctx).operands.map fun opr =>
+    match opr.value with
+    | .opResult ptr => (ptr.op.get! ctx).results[ptr.index]!|>.type
+    | .blockArgument ptr => (ctx.blocks[ptr.block]!).arguments[ptr.index]!|>.type
+
+@[grind =_, eq_bang ←]
+theorem getOperandTypes!_eq_getOperandTypes {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getOperandTypes! ctx = op.getOperandTypes ctx (by grind) := by
+  grind [getOperandTypes, getOperandTypes!, get!_eq_get]
+
+@[grind =]
+theorem getOperandTypes!.size_eq_getNumOperands! {op : OperationPtr} :
+    (op.getOperandTypes! ctx).size = op.getNumOperands! ctx := by
+  grind [getOperandTypes!, getNumOperands!]
+
 def getNumSuccessors (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : Nat :=
   (op.get ctx (by grind)).blockOperands.size
 
@@ -2069,24 +2092,47 @@ theorem setType_BlockArgumentPtr (ptr : BlockArgumentPtr) (ctx : IRContext OpInf
 
 end ValuePtr
 
-theorem OperationPtr.getResultTypes!_def {op : OperationPtr} :
+namespace OperationPtr
+
+theorem getResultTypes!_def {op : OperationPtr} :
     op.getResultTypes! ctx =
     Array.map (fun v => v.getType! ctx) (op.getResults! ctx) := by
-  grind [OperationPtr.getResultTypes!, OperationPtr.getResult, ValuePtr.getType!, OpResultPtr.get!]
+  grind [getResultTypes!, getResult, ValuePtr.getType!, OpResultPtr.get!]
 
 @[simp, grind =]
-theorem OperationPtr.getResultTypes!.getElem!_eq {op : OperationPtr} :
+theorem getResultTypes!.getElem!_eq {op : OperationPtr} :
     index < op.getNumResults! ctx →
     (op.getResultTypes! ctx)[index]! = ((op.getResult index).get! ctx).type := by
   grind [getResultTypes!, getNumResults!, getResult, OpResultPtr.get!]
 
 @[simp, grind =]
-theorem OperationPtr.getResultTypes!.getElem_eq {op : OperationPtr}
+theorem getResultTypes!.getElem_eq {op : OperationPtr}
     {h : index < (op.getResultTypes! ctx).size} :
     (op.getResultTypes! ctx)[index]'h = ((op.getResult index).get! ctx).type := by
   simp only [getResultTypes!, getResult, OpResultPtr.get!]
   grind
 
+theorem getOperandTypes!_def {op : OperationPtr} :
+    op.getOperandTypes! ctx =
+    Array.map (fun v => v.getType! ctx) (op.getOperands! ctx) := by
+  simp only [getOperandTypes!, getOperands!, Array.map_map]
+  congr
+
+@[simp, grind =]
+theorem getOperandTypes!.getElem!_eq {op : OperationPtr} :
+    index < op.getNumOperands! ctx →
+    (op.getOperandTypes! ctx)[index]! = (op.getOperand! ctx index).getType! ctx := by
+  grind [getOperandTypes!, getNumOperands!, getOperand!, ValuePtr.getType!,
+    OpResultPtr.get!, BlockArgumentPtr.get!, BlockPtr.get!]
+
+@[simp, grind =]
+theorem getOperandTypes!.getElem_eq {op : OperationPtr}
+    {h : index < (op.getOperandTypes! ctx).size} :
+    (op.getOperandTypes! ctx)[index]'h = (op.getOperand! ctx index).getType! ctx := by
+  grind [getOperandTypes!, getOperand!, ValuePtr.getType!, OpResultPtr.get!,
+    BlockArgumentPtr.get!, BlockPtr.get!]
+
+end OperationPtr
 
 /-!
   OpOperandPtrPtr accessors
