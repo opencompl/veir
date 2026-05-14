@@ -49,8 +49,6 @@ where `s ∈ [1, 2)` is the significand after normalizing `n`.
 -/
 def unbiasedExp (n : Int) (k : Int) : Int :=
   (n.natAbs.log2 : Int) - k
-
-
 /--
 The IEEE-754 biased exponent, corresponding to a given unbiased exponent.
 Obtained by adding the bias to the unbiased exponent.
@@ -59,7 +57,7 @@ def biasedExp (e : Nat) (n : Int) (k : Int) : Int :=
   (bias e : Int) + unbiasedExp n k
 
 /--
-Left shift required to `n` such that when interprted as a `s`bit bitvetor,
+Left shift required to `n` such that when interprted as a `s`bit bitvector,
 the leading `1` is in the `msb` position.
 
 Suppose `n = 3 ~ 00011#5 (i.e. s = 5)`
@@ -97,7 +95,7 @@ which is exactly the stored `s`-bit trailing significand.
 -/
 def trailingSigMask (s : Nat) : Nat := 2 ^ s - 1
 
-end -- public section
+end
 
 end Veir.Data.FP.FloatFormat
 
