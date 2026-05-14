@@ -5,11 +5,11 @@ namespace Veir.Data.HW
 public section
 
 /-- A width `w` bitvector, representing signless integer type. -/
-structure Bvint (w : Nat) where
+structure BvInt (w : Nat) where
   val : BitVec w
 deriving DecidableEq
 
-instance (w : Nat) : ToString (Bvint w) where
+instance (w : Nat) : ToString (BvInt w) where
   toString r := toString r.val
 
 /-! # CIRCT HW Dialect Semantics -/
@@ -17,5 +17,5 @@ instance (w : Nat) : ToString (Bvint w) where
 /--
   The constant operation produces a constant value of standard integer type without a sign.
 -/
-def constant {w : Nat} (imm : BitVec w) : Bvint w :=
+def constant {w : Nat} (imm : BitVec w) : BvInt w :=
   ⟨imm⟩

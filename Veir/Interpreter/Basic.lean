@@ -35,14 +35,14 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
 | reg (value : RISCV.Reg)
-| bvint (bitwidth : Nat) (value : BitVec bitwidth)
+| bvInt (bitwidth : Nat) (value : BitVec bitwidth)
 deriving Inhabited
 
 instance : ToString (RuntimeValue) where
   toString
     | .int _ val => ToString.toString val
     | .reg val => ToString.toString val
-    | .bvint _ val => ToString.toString val
+    | .bvInt _ val => ToString.toString val
 
 /--
   The state of the interpreter at a given point in time.
@@ -682,7 +682,7 @@ def HW.interpretOp' (opType : Veir.HW) (properties : HasDialectOpInfo.properties
     let resType ← resultTypes[0]?
     let .integerType bw := resType.val
       | none
-    return (#[.bvint bw.bitwidth (Veir.Data.HW.constant (BitVec.ofInt bw.bitwidth properties.value.value)).val], none)
+    return (#[.bvInt bw.bitwidth (Veir.Data.HW.constant (BitVec.ofInt bw.bitwidth properties.value.value)).val], none)
   | _ => none
 /--
   Interpret a single operation given its opcode, type-dependent properties,
