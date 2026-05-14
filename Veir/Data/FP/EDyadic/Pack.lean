@@ -27,13 +27,13 @@ def packOfOdd (e s : Nat) (n k : Int) : PackedFloat e s :=
     -- Mask out the implicit hidden bit to obtain the stored trailing
     -- significand (equivalent to `alignedSig - 2^s` since bit `s` is set).
     let trailingSig : Nat := alignedSig &&& trailingSigMask s
-    PackedFloat.mkNumber sign (BitVec.ofInt e biasedEx) (BitVec.ofNat s trailingSig)
+    PackedFloat.mk sign (BitVec.ofInt e biasedEx) (BitVec.ofNat s trailingSig)
   else if biasedEx ≤ 0 then
     -- Subnormal range. Stored exponent is zero; shift `|n|` into the
     -- subnormal grid so its value matches `|n| * 2^(-k)` at the scale
     -- `2^(-bias - s + 1)`.
     let subnormalSig : Nat := n.natAbs <<< (subnormalSigShift e s k).toNat
-    PackedFloat.mkNumber sign 0#e (BitVec.ofNat s subnormalSig)
+    PackedFloat.mk sign 0#e (BitVec.ofNat s subnormalSig)
   else
     -- Overflow: biased exponent exceeds `maxBiasedExponent`; saturate.
     PackedFloat.mkInfinity e s sign
