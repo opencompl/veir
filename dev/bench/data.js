@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778734099055,
+  "lastUpdate": 1778748408275,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -21372,6 +21372,162 @@ window.BENCHMARK_DATA = {
             "value": 760000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000760s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "siddu.druid@gmail.com",
+            "name": "Siddharth",
+            "username": "bollu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fcce0dc1adf436674644f459f8b29e2aec5d4dce",
+          "message": "feat(PackedFloat): add mkNaN, mkInfinity, mkZero, mkNumber constructors (#561)\n\nThis PR adds smart constructors for the canonical bit patterns of a\n`PackedFloat`.\n\n---------\n\nCo-authored-by: Claude Opus 4.7 <noreply@anthropic.com>",
+          "timestamp": "2026-05-14T08:43:57Z",
+          "tree_id": "47e97cb46c367cb0478281530f4992483443fc0d",
+          "url": "https://github.com/opencompl/veir/commit/fcce0dc1adf436674644f459f8b29e2aec5d4dce"
+        },
+        "date": 1778748396417,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2340000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002340s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3716000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003716s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2212000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002212s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3110000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003110s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2254000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002254s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2419000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002419s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1937000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001937s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1940000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001940s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2335000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002335s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5289000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005289s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2248000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002248s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2991000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002991s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2278000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002278s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1927000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001927s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1928000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001928s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1584000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001584s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2227000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002227s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3630000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003630s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1932000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.001932s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000008s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 2014000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002014s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 764000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000764s"
           }
         ]
       }
