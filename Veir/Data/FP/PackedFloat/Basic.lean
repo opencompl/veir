@@ -28,7 +28,9 @@ namespace PackedFloat
 
 /--
 A canonical NaN `PackedFloat`.
-Recall that a NaN pattern is given by a maximum exponent (all-ones) and a nonzero significand. The IEEE-754 standard does not specify a unique NaN bit pattern,
+Recall that a NaN pattern is given by a maximum exponent (all-ones)
+and a nonzero significand.
+The IEEE-754 standard does not specify a unique NaN bit pattern,
 so this constructor returns one with significand `1`.
 -/
 def mkNaN (e s : Nat) : PackedFloat e s :=
