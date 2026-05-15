@@ -8,4 +8,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Error: Expected executable operations at module level or a zero-argument function named main()
+// CHECK: Error: No entry point: define a function named 'main' or use top-level executable ops
