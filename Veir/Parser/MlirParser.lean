@@ -39,7 +39,7 @@ structure MlirParserState where
   deriving Inhabited
 
 def MlirParserState.fromContext (ctx : WfIRContext OpCode) : MlirParserState :=
-  {ctx := ctx, values := #[Std.HashMap.emptyWithCapacity 128], blocks := Std.HashMap.emptyWithCapacity 1}
+  {ctx := ctx, values := #[Std.HashMap.emptyWithCapacity 2], blocks := Std.HashMap.emptyWithCapacity 1}
 
 abbrev MlirParserM := StateT MlirParserState (EStateM ParserError ParserState)
 
@@ -509,6 +509,9 @@ partial def parseOp (ip : Option InsertPoint) : MlirParserM OperationPtr := do
   Parse a region.
 -/
 partial def parseRegion : MlirParserM RegionPtr := do
+  /- Ensure variables defined in this region do not leak out of it. -/
+  inChildScope do
+
   /- Reset the block parsing state, as blocks are local to regions. -/
   let oldBlocks := (← getThe MlirParserState).blocks
   modifyThe MlirParserState fun s => {s with blocks := Std.HashMap.emptyWithCapacity 1}
@@ -523,9 +526,6 @@ partial def parseRegion : MlirParserM RegionPtr := do
   /- Case where there are no blocks inside the region. -/
   if (← parseOptionalPunctuation "}") then
     return region
-
-  /- Ensure variables defined in this region do not leak out of it. -/
-  inChildScope do
 
   /- Parse the first block separately, as it may not have a label. -/
   let _ ← parseEntryBlock (BlockInsertPoint.atEnd region)
