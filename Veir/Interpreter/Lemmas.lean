@@ -92,9 +92,9 @@ theorem InterpreterState.setResultValues_comm {ctx : WfIRContext OpInfo}
     (state.setResultValues ctx.raw op₁ resValues₁).setResultValues ctx.raw op₂ resValues₂ =
     (state.setResultValues ctx.raw op₂ resValues₂).setResultValues ctx.raw op₁ resValues₁ := by
   ext val runtimeVal
-  cases val <;> grind
-  grind [InterpreterState.setResultValues_memory]
-  grind [InterpreterState.setResultValues_memory]
+  · cases val <;> grind
+  · grind [InterpreterState.setResultValues_memory]
+  · grind [InterpreterState.setResultValues_memory]
 
 theorem InterpreterState.getVar?_setResultValues_operand_of_dominates {ctx : WfIRContext OpInfo}
     (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
@@ -133,6 +133,6 @@ theorem InterpreterState.setResultValues_setResultValues_self {ctx : WfIRContext
     state.setResultValues ctx.raw op resValues' := by
   ext val runtimeVal
   simp only [InterpreterState.getVar?_setResultValues]
-  grind
-  grind [InterpreterState.setResultValues_memory]
-  grind [InterpreterState.setResultValues_memory]
+  · grind
+  · grind [InterpreterState.setResultValues_memory]
+  · grind [InterpreterState.setResultValues_memory]

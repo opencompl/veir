@@ -25,9 +25,28 @@ def UInt8.isDigit (c : UInt8) : Bool :=
 def UInt8.isHexDigit (c : UInt8) : Bool :=
   c.isDigit || (c >= 'a'.toUInt8 && c <= 'f'.toUInt8) || (c >= 'A'.toUInt8 && c <= 'F'.toUInt8)
 
+def UInt64.toByteArrayLE (u : UInt64) : ByteArray :=
+  ByteArray.mk (Array.mk [
+    u.toUInt8,
+    (u >>> 0x08).toUInt8,
+    (u >>> 0x10).toUInt8,
+    (u >>> 0x18).toUInt8,
+    (u >>> 0x20).toUInt8,
+    (u >>> 0x28).toUInt8,
+    (u >>> 0x30).toUInt8,
+    (u >>> 0x38).toUInt8,
+  ])
+
+namespace ByteArray
+
+def extend (ba : ByteArray) (n : Nat) (val : UInt8) : ByteArray :=
+  n.fold (init := ba) fun _ _ ba => ba.push val
+
 @[inline]
-def ByteArray.getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
+def getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
   if h : i < ba.size then ba[i] else default
+
+end ByteArray
 
 /--
   Convert a hexadecimal digit character to its Nat value.
@@ -298,11 +317,4 @@ namespace Rat
 def twoPow (k : Int) : Rat := 2 ^ k
 
 end Rat
-
-namespace ByteArray
-
-def rightpad (n : Nat) (x : UInt8) (xs : ByteArray) : ByteArray where
-  data := Array.rightpad n x xs.data
-
-end ByteArray
 
