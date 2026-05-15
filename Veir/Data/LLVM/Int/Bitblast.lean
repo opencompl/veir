@@ -393,6 +393,6 @@ theorem isPoison_select {w : Nat} (x y : Int w) (c : Int 1) :
 
 @[llvm_toBitVec, grind =]
 theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) (h : (select c x y).isPoison = false) :
-    (select c x y).getValue h = if c.getValue = 1#1 then x.getValueD else y.getValueD := by
-  simp [select, Id.run, getValueD]
+    (select c x y).getValue h = if _ : c.getValue = 1#1 then x.getValue else y.getValue := by
+  simp [select, Id.run, getValue]
   grind
