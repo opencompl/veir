@@ -217,12 +217,12 @@ def parseOpResults : MlirParserM (Array (ByteArray × Nat)) := do
   Once the operation type is known, `resolveOperand` can be used to create an SSA value and
   check that the type matches with previous uses.
 
-  `resultNumber` is used for the `%name#resultNumber` syntax to refer to an indexed result
+  `index` is used for the `%name#index` syntax to refer to an indexed result
   when multiple are defined for the same value.
 -/
 structure UnresolvedOperand where
   name : ByteArray
-  resultNumber : Option Nat
+  index : Option Nat
 
 /--
   Get the name of an UnresolvedOperand as a String.
@@ -234,32 +234,32 @@ def UnresolvedOperand.nameString (operand : UnresolvedOperand) : String :=
   Get the result index of an UnresolvedOperand. If one was not specified explicitly, this
   defaults to 0.
 -/
-def UnresolvedOperand.resultNumberD (operand : UnresolvedOperand) : Nat :=
-  operand.resultNumber.getD 0
+def UnresolvedOperand.indexD (operand : UnresolvedOperand) : Nat :=
+  operand.index.getD 0
 
 instance : ToString UnresolvedOperand where
   toString operand :=
-    match operand.resultNumber with
+    match operand.index with
     | none => s!"%{operand.nameString}"
     | some n => s!"%{operand.nameString}#{n}"
 
 /--
   Parse an operation operand.
-  This has the syntax `%name` or `%name#resultNumber`.
+  This has the syntax `%name` or `%name#resultCount`.
 -/
 def parseOperand : MlirParserM UnresolvedOperand := do
   let nameToken ← parseToken .percentIdent "operand expected"
   let name : ByteArray := { nameToken.slice with start := nameToken.slice.start + 1 }.of (← getInput)
 
   /- If no result number is specified, return without one. -/
-  let some resultNumber ← parseOptionalToken .hashIdent
+  let some resultCount ← parseOptionalToken .hashIdent
     | return UnresolvedOperand.mk name none
 
-  /- Parse the resultNumber as a Nat. -/
-  let resultNumber := { resultNumber.slice with start := resultNumber.slice.start + 1 }.of (← getInput) -- skip # character
-  let some resultNumber := String.fromUTF8? resultNumber >>= String.toNat?
+  /- Parse the result count as a Nat. -/
+  let resultCount := { resultCount.slice with start := resultCount.slice.start + 1 }.of (← getInput) -- skip # character
+  let some resultCount := String.fromUTF8? resultCount >>= String.toNat?
     | throw "invalid SSA value result number"
-  return UnresolvedOperand.mk name resultNumber
+  return UnresolvedOperand.mk name resultCount
 
 /--
   Parse a list of operation operands delimited by parentheses.
@@ -289,7 +289,7 @@ def parseBlockOperands : MlirParserM (Array BlockPtr) := do
 -/
 def resolveOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) : MlirParserM ValuePtr := do
   let some values := (← getValues? operand.name) | throw s!"use of undefined value %{operand.nameString}"
-  let some value := values[operand.resultNumberD]? | throw s!"invalid result number {operand.resultNumberD} for %{operand.nameString}"
+  let some value := values[operand.indexD]? | throw s!"invalid result index {operand.indexD} for %{operand.nameString}"
   let ⟨ctx, _⟩ ← getContext
   let parsedType := value.getType! ctx
   if parsedType ≠ expectedType then

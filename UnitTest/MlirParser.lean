@@ -188,7 +188,7 @@ def testParseOp (s : String) : IO Unit :=
 }) : () -> ()"
 
 /--
-  error: invalid result number 2 for %a
+  error: invalid result index 2 for %a
 -/
 #guard_msgs in
 #eval! testParseOp "\"builtin.module\"() ({
