@@ -387,6 +387,17 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
     return some (FunctionType.mk inputs #[outputType])
 
 /--
+  Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"
+  sugar keywords `void` and `ptr` in addition to the regular MLIR type forms.
+-/
+partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
+  if ← parseOptionalKeyword "void".toByteArray then
+    return ⟨.unregisteredAttr (UnregisteredAttr.mk "!llvm.void" true), by grind⟩
+  if ← parseOptionalKeyword "ptr".toByteArray then
+    return (LLVM.PointerType.mk : TypeAttr)
+  parseType errorMsg
+
+/--
   Parse an LLVM function type `!llvm.func<resultType (paramTypes,...)>`, if present.
 -/
 partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
@@ -397,8 +408,8 @@ partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
   if typeName ≠ "llvm.func".toByteArray then return none
   let _ ← consumeToken
   parsePunctuation "<"
-  let result ← parseType "llvm.func result type expected"
-  let params ← parseDelimitedList .paren parseType
+  let result ← parseLLVMType "llvm.func result type expected"
+  let params ← parseDelimitedList .paren parseLLVMType
   parsePunctuation ">"
   let ft := FunctionType.mk (params.map (·.val)) #[result.val]
   return some ⟨.llvmFunctionType ft, by rfl⟩
