@@ -47,7 +47,7 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "arith.addi"() ({
   ^4():
-    %5_0, %5_1 = "arith.muli"() : () -> (i32, i32)
+    %5:2 = "arith.muli"() : () -> (i32, i32)
 }, {}) : () -> ()
 -/
 #guard_msgs in
@@ -166,7 +166,7 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "builtin.module"() ({
   ^4():
-    %5_0, %5_1 = "test.test"() : () -> (i32, i64)
+    %5:2 = "test.test"() : () -> (i32, i64)
 }) : () -> ()
 -/
 #guard_msgs in
@@ -177,8 +177,8 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "builtin.module"() ({
   ^4():
-    %5_0, %5_1, %5_2 = "test.test"() : () -> (i10, i32, i64)
-    %6 = "test.test"(%5_2, %5_0) : (i64, i10) -> i1
+    %5:3 = "test.test"() : () -> (i10, i32, i64)
+    %6 = "test.test"(%5#2, %5#0) : (i64, i10) -> i1
 }) : () -> ()
 -/
 #guard_msgs in
