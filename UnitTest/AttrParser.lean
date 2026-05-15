@@ -179,6 +179,20 @@ macro "#assert " e:term : command =>
 /-! ## LLVM Pointer type -/
 #assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)
 
+/-! ## LLVM Function type -/
+#assert expectSuccessType "!llvm.func<i32 (i32)>"
+  ⟨.llvmFunctionType (FunctionType.mk
+    #[(IntegerType.mk 32 : Attribute)] #[(IntegerType.mk 32 : Attribute)]), by rfl⟩
+#assert expectSuccessType "!llvm.func<i64 ()>"
+  ⟨.llvmFunctionType (FunctionType.mk #[] #[(IntegerType.mk 64 : Attribute)]), by rfl⟩
+#assert expectSuccessType "!llvm.func<i32 (i32, i64)>"
+  ⟨.llvmFunctionType (FunctionType.mk
+    #[(IntegerType.mk 32 : Attribute), (IntegerType.mk 64 : Attribute)]
+    #[(IntegerType.mk 32 : Attribute)]), by rfl⟩
+#assert expectSuccessType "!llvm.func<!llvm.ptr (!llvm.ptr)>"
+  ⟨.llvmFunctionType (FunctionType.mk
+    #[(LLVM.PointerType.mk : Attribute)] #[(LLVM.PointerType.mk : Attribute)]), by rfl⟩
+
 /-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))

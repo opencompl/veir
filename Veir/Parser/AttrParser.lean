@@ -387,6 +387,23 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
     return some (FunctionType.mk inputs #[outputType])
 
 /--
+  Parse an LLVM function type `!llvm.func<resultType (paramTypes,...)>`, if present.
+-/
+partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "llvm.func".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let result ← parseType "llvm.func result type expected"
+  let params ← parseDelimitedList .paren parseType
+  parsePunctuation ">"
+  let ft := FunctionType.mk (params.map (·.val)) #[result.val]
+  return some ⟨.llvmFunctionType ft, by rfl⟩
+
+/--
   Parse a type, if present.
 -/
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
@@ -398,6 +415,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some modArithType
   if let some llvmPointerType := ← parseOptionalLLVMPointerType then
     return some llvmPointerType
+  if let some llvmFunctionType ← parseOptionalLLVMFunctionType then
+    return some llvmFunctionType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
   if let some hwModuleType ← parseOptionalHWModuleType then

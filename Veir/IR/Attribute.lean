@@ -249,6 +249,8 @@ inductive Attribute
 | modArithType (type : ModArithType)
 /-- LLVM pointer type -/
 | llvmPointerType (type : LLVM.PointerType)
+/-- LLVM function type -/
+| llvmFunctionType (type : FunctionType)
 /-- Cuda Tile pointer type -/
 | cudaTilePointerType (type : CudaTile.PointerType)
 /-- CIRCT hw module type -/
@@ -386,6 +388,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isFalse hEq => isFalse (by grind))
   case llvmPointerType.llvmPointerType type1 type2 =>
     exact (isTrue (by grind))
+  case llvmFunctionType.llvmFunctionType type1 type2 =>
+    exact (match FunctionType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case cudaTilePointerType.cudaTilePointerType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -514,6 +520,19 @@ decreasing_by
   have : entry ∈ attr.entries := by grind
   grind [Array.sizeOf_lt_of_mem this, cases DictionaryAttr]
 
+def FunctionType.toLLVMString (type : FunctionType) : String :=
+  let params := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
+  let result := match _ : type.outputs.size with
+    | 1 => Attribute.toString type.outputs[0]
+    | _ => "<invalid>"
+  s!"!llvm.func<{result} ({params})>"
+termination_by sizeOf type
+decreasing_by
+  · apply FunctionType.sizeOf_elems_inputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+
 def FunctionType.toString (type : FunctionType) : String :=
   let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
   let outputs := match _ : type.outputs.size with
@@ -556,6 +575,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
+  | .llvmFunctionType type => type.toLLVMString
   | .cudaTilePointerType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
 termination_by sizeOf attr
@@ -654,6 +674,7 @@ def isType (attr : Attribute) : Bool :=
   | .registerType _ => true
   | .registerAttr _ => true
   | .llvmPointerType _ => true
+  | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
   | .hwModuleType _ => true
 
@@ -668,6 +689,8 @@ theorem isType_functionType type : (functionType type).isType = true := by rfl
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_llvmPointerType type : (llvmPointerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_llvmFunctionType type : (llvmFunctionType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
 @[simp, grind =]
