@@ -36,8 +36,8 @@
     %28 = "riscv.clzw"(%0) : (!reg) -> !reg
     %29 = "riscv.ctz"(%0) : (!reg) -> !reg
     %30 = "riscv.ctzw"(%0) : (!reg) -> !reg
-    %84 = "riscv.cpop"(%0) : (!reg) -> !reg
-    %85 = "riscv.cpopw"(%0) : (!reg) -> !reg
+    %cpop = "riscv.cpop"(%0) : (!reg) -> !reg
+    %cpopw = "riscv.cpopw"(%0) : (!reg) -> !reg
     // Binary operations 
     %31 = "riscv.add"(%0, %1) : (!reg, !reg) -> !reg
     %32 = "riscv.sub"(%0, %1) : (!reg, !reg) -> !reg
