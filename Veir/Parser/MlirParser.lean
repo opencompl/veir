@@ -23,8 +23,13 @@ variable {ctx : IRContext OpCode}
 structure MlirParserState where
   /-- The current IR context. -/
   ctx : WfIRContext OpCode
-  /-- The values that have been defined for a given name at that point in the parser. -/
-  values : Std.HashMap ByteArray (Array ValuePtr)
+  /--
+    Nested scopes of values that have been defined for given names at this point in
+    the parser. Names defined in outer scopes are visible in all contained scopes and each
+    name can only be defined within one scope. This does not yet support isolated from
+    above scopes.
+  -/
+  values : Array (Std.HashMap ByteArray (Array ValuePtr))
   /--
     The blocks that have been already parsed.
     The Bool value indicates whether the block has already been parsed
@@ -34,7 +39,7 @@ structure MlirParserState where
   deriving Inhabited
 
 def MlirParserState.fromContext (ctx : WfIRContext OpCode) : MlirParserState :=
-  {ctx := ctx, values := Std.HashMap.emptyWithCapacity 128, blocks := Std.HashMap.emptyWithCapacity 1}
+  {ctx := ctx, values := #[Std.HashMap.emptyWithCapacity 128], blocks := Std.HashMap.emptyWithCapacity 1}
 
 abbrev MlirParserM := StateT MlirParserState (EStateM ParserError ParserState)
 
@@ -68,7 +73,7 @@ def getContext : MlirParserM (WfIRContext OpCode) := do
   Get the array of values associated with a previously parsed name.
 -/
 def getValues? (name : ByteArray) : MlirParserM (Option (Array ValuePtr)) := do
-  return (← get).values[name]?
+  return (← get).values.findSomeRev? (·[name]?)
 
 /--
   Get the original input that is being parsed.
@@ -77,14 +82,28 @@ def getInput : MlirParserM ByteArray := do
   return (← getThe ParserState).input
 
 /--
-  Register an array of parsed values with the given name.
+  Run an action within a new nested scope. This scope will be able to see all definitions in
+  parent scopes and any definitions it add will only be visible within it and child scopes.
+-/
+def inChildScope {α : Type} (m : MlirParserM α) : MlirParserM α := do
+  /- Push a new scope. -/
+  modify fun s => { s with values := s.values.push (Std.HashMap.emptyWithCapacity 128) }
+  let result ← m
+  /- Pop the scope. -/
+  modify fun s => { s with values := s.values.pop }
+  return result
+
+/--
+  Register an array of parsed values with the given name in the current scope.
   This is used to keep track of values that have been defined during parsing.
 -/
 def registerValueDefs (name : ByteArray) (values : Array ValuePtr) : MlirParserM Unit := do
-  modify fun s => { s with values := s.values.insert name values }
+  if (← get).values.any (·.contains name) then
+    throw s!"value %{String.fromUTF8! name} has already been defined"
+  modify fun s => { s with values := s.values.modify (s.values.size - 1) (·.insert name values) }
 
 /--
-  Register a single value with the given name.
+  Register a single value with the given name in current scope.
   This is used to keep track of values that have been defined during parsing.
 -/
 def registerValueDef (name : ByteArray) (value : ValuePtr) : MlirParserM Unit :=
@@ -504,6 +523,9 @@ partial def parseRegion : MlirParserM RegionPtr := do
   /- Case where there are no blocks inside the region. -/
   if (← parseOptionalPunctuation "}") then
     return region
+
+  /- Ensure variables defined in this region do not leak out of it. -/
+  inChildScope do
 
   /- Parse the first block separately, as it may not have a label. -/
   let _ ← parseEntryBlock (BlockInsertPoint.atEnd region)
