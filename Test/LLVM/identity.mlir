@@ -6,7 +6,7 @@
     ^bb0():
       %5 = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32
       %6 = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i1
-      %8 = "llvm.and"(%5, %5) : (i32, i32) -> i32
+      %7 = "llvm.and"(%5, %5) : (i32, i32) -> i32
       %8 = "llvm.or"(%5, %5) : (i32, i32) -> i32
       %9 = "llvm.xor"(%5, %5) : (i32, i32) -> i32
       %add = "llvm.add"(%5, %5) : (i32, i32) -> i32
