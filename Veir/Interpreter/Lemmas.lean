@@ -81,11 +81,17 @@ theorem InterpreterState.getOperandValues_eq_of_getVar?_eq {ctx : IRContext OpIn
   intro l hl
   induction l <;> grind
 
-set_option warn.sorry false in
 theorem InterpreterState.setResultValues_memory {ctx : WfIRContext OpInfo}
     {state : InterpreterState} :
     (state.setResultValues ctx.raw op resValues).memory = state.memory := by
-  sorry
+  simp only [setResultValues]
+  generalize (op.getNumResults! ctx.raw) = numResults at *
+  fun_induction InterpreterState.setResultValues_loop
+  next =>
+    rfl
+  next newState ih1 =>
+    simp [ih1, newState]
+    rfl
 
 theorem InterpreterState.setResultValues_comm {ctx : WfIRContext OpInfo}
     {state : InterpreterState} (hOp : op₁ ≠ op₂) :
@@ -132,7 +138,7 @@ theorem InterpreterState.setResultValues_setResultValues_self {ctx : WfIRContext
     (state.setResultValues ctx.raw op resValues).setResultValues ctx.raw op resValues' =
     state.setResultValues ctx.raw op resValues' := by
   ext val runtimeVal
-  simp only [InterpreterState.getVar?_setResultValues]
-  · grind
+  · simp only [InterpreterState.getVar?_setResultValues]
+    grind
   · grind [InterpreterState.setResultValues_memory]
   · grind [InterpreterState.setResultValues_memory]
