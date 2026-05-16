@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778906413637,
+  "lastUpdate": 1778906473487,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -23400,6 +23400,162 @@ window.BENCHMARK_DATA = {
             "value": 772000,
             "unit": "ns",
             "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000772s"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mathieu.fehr@gmail.com",
+            "name": "Mathieu Fehr",
+            "username": "math-fehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c3d2eddd6be56adadb01e6e0237c0648f4db9ebf",
+          "message": "Make `hw.constant` use `LLVM.Int` instead of `BitVec` (#581)\n\nAs `IntegerType` should map to a unique Lean Type, we are using\n`LLVM.Int` even though `comb` uses `IntegerType` as bitvectors.\n\nAs `RuntimeValue.intBv` is not used anymore, I removed it as well for\nthe time being.",
+          "timestamp": "2026-05-16T04:22:12Z",
+          "tree_id": "13cba591fb3cc6c6a32cac878912e1520e7b5b96",
+          "url": "https://github.com/opencompl/veir/commit/c3d2eddd6be56adadb01e6e0237c0648f4db9ebf"
+        },
+        "date": 1778906459340,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2420000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002420s"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3756000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003756s"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2521000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002521s"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3183000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003183s"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2346000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002346s"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2468000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002468s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 2106000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002106s"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 2003000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.002003s"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2442000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002442s"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5344000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.005344s"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2550000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002550s"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3056000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003056s"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2532000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002532s"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1980000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001980s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 2203000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002203s"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1566000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.001566s"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2478000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002478s"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3655000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.003655s"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 2085000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002085s"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 7000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000007s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 2131000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_create=0.002131s"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 775000,
+            "unit": "ns",
+            "extra": "count=1000 pc=100 iterations=5 median_rewrite=0.000775s"
           }
         ]
       }
