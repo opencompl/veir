@@ -192,6 +192,26 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!llvm.func<!llvm.ptr (!llvm.ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(LLVM.PointerType.mk : Attribute)] #[(LLVM.PointerType.mk : Attribute)]), by rfl⟩
+-- LLVM pretty-print sugar: bare `void` and `ptr` keywords inside `!llvm.func<...>`.
+#assert expectSuccessType "!llvm.func<void ()>"
+  ⟨.llvmFunctionType (FunctionType.mk #[]
+    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)]), by rfl⟩
+#assert expectSuccessType "!llvm.func<void (i32)>"
+  ⟨.llvmFunctionType (FunctionType.mk
+    #[(IntegerType.mk 32 : Attribute)]
+    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)]), by rfl⟩
+#assert expectSuccessType "!llvm.func<i32 (ptr)>"
+  ⟨.llvmFunctionType (FunctionType.mk
+    #[(LLVM.PointerType.mk : Attribute)] #[(IntegerType.mk 32 : Attribute)]), by rfl⟩
+#assert expectSuccessType "!llvm.func<void (ptr, ptr)>"
+  ⟨.llvmFunctionType (FunctionType.mk
+    #[(LLVM.PointerType.mk : Attribute), (LLVM.PointerType.mk : Attribute)]
+    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)]), by rfl⟩
+-- Bare sugar mixed with the explicit `!llvm.ptr` form within one function type.
+#assert expectSuccessType "!llvm.func<void (!llvm.ptr, ptr)>"
+  ⟨.llvmFunctionType (FunctionType.mk
+    #[(LLVM.PointerType.mk : Attribute), (LLVM.PointerType.mk : Attribute)]
+    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)]), by rfl⟩
 
 /-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
