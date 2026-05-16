@@ -425,6 +425,11 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let rhs := rhs.cast (by simpa using h)
     let some p := LLVM.IntPred.fromNat properties.value.value.toNat | none
     return (#[.int 1 (LLVM.Int.icmp lhs rhs p)], none)
+  | .select => do
+    let [.int 1 cond, .int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simpa using h)
+    return (#[.int bw (LLVM.Int.select cond lhs rhs)], none)
   | .return => do
     return (#[], some (.return operands))
   | .br => do
