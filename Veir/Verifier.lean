@@ -572,6 +572,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    if let .integerType cType := ((op.getOperands! ctx)[0]!.getType! ctx).val then
+        if cType.bitwidth ≠ 1 then
+          throw "Condition must have `i1` type."
     pure ()
   | .llvm .trunc => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
