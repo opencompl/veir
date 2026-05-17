@@ -38,11 +38,14 @@ def OpCode.isTerminator (op : OpCode) : Bool :=
   | .llvm .br | .llvm .cond_br | .llvm .return => true
   -- Cf dialect: same story.
   | .cf .br | .cf .cond_br => true
-  -- func.return: terminates a function.def body.
+  -- func.return: terminates a func.func body.
   | .func .return => true
+  -- function.return: terminates the body of a function.def (Phase F.5,
+  -- LLZK Function dialect). Distinct from func.return because LLZK
+  -- carries its own Function dialect rather than using upstream
+  -- builtin func.
+  | .function .return => true
   -- Everything else: not a terminator (per default in MLIR).
-  -- Future: function.return when Phase G.1 Function dialect lands
-  -- (it will be `OpCode.function .return` via a new inductive).
   | _ => false
 
 end

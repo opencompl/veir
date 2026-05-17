@@ -9,6 +9,64 @@ Format: each note has a date, a short title, the discovery, and a
 
 ---
 
+## 2026-05-18 — Gotcha 7: LLZK `function.def` requires `function_type` even when empty
+
+**Discovery (F.5)**: A naïve port of `function.def` that stored only
+`sym_name` round-tripped through `veir-opt` but `llzk-opt` rejected
+it with a parser error. LLZK's TableGen declares
+`TypeAttrOf<FunctionType>:$function_type` as a *required* property
+(not `OptionalAttr`), and the C++ verifier asserts it. Even for an
+empty body with `() -> ()` signature the attribute must appear in
+the `<{...}>` properties dictionary — LLZK won't synthesize a
+default. VEIR's `FunctionDefProperties.fromAttrDict` now mirrors
+that requirement: missing `function_type` is a hard error at parse
+time.
+
+**How to apply**: When porting any `FunctionOpInterface`-like op
+from LLZK, copy the full TableGen property list — including ones
+that look "obvious" or "internal" (the function signature lives in
+the type-signature line in custom assembly but is a separate
+property in generic form). Test against `llzk-opt` early; relying
+solely on the VEIR round-trip will let a parsable-but-LLZK-rejected
+form slip through.
+
+**Upstream-fix candidate**: a coverage-row sweep that lists *all*
+required properties for each ported op (not just the ones VEIR
+encodes) would catch this class of gap earlier.
+
+---
+
+## 2026-05-18 — Pattern: LLZK `function.allow_*` markers are discardable attrs
+
+**Discovery (F.5)**: LLZK gates non-native-field ops, constraint
+ops, and witness ops by requiring the surrounding `function.def` to
+carry one of `function.allow_non_native_field_ops`,
+`function.allow_constraint`, `function.allow_witness`. These are
+*discardable* dialect attributes — they live in the trailing `{...}`
+attribute dictionary after the op's regions, not inside its
+properties `<{...}>`. Example:
+
+```
+"function.def"() <{sym_name = "f", function_type = () -> ()}> ({
+  ...
+}) {function.allow_non_native_field_ops} : () -> ()
+```
+
+VEIR's generic parser already accepts them as `UnregisteredAttr`
+entries on the op's discardable-attr dict and round-trips them
+unmodified. No structured port needed for the differential to lift —
+the C++ verifier only checks presence by name. (A future structured
+port would let VEIR verify the gate too; today we trust LLZK.)
+
+**How to apply**: When lifting an XFAIL differential that requires a
+`function.def` wrapper, just add the right `function.allow_*`
+discardable attr to the function. No new property field, no new
+attribute case — the round-trip works as-is. Record the gate in the
+coverage row for the dialect (Bool ↔ non-native-field, Constrain ↔
+constraint, Global write ↔ witness).
+
+---
+
 ## 2026-05-02 — VEIR dialect surface is closed-world
 
 **Discovery (Felt port)**: VEIR's dialect surface is centralized through

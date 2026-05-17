@@ -282,6 +282,13 @@ inductive Global where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
+inductive Function_ where
+| «def»
+| return
+-- `call` deferred to Phase C (variadic-of-variadic + SymbolRefAttr).
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
 inductive Datapath where
 | compress
 | partial_product

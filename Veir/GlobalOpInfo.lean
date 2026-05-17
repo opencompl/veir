@@ -11,6 +11,7 @@ public import Veir.Dialects.LLZK.String.OpInfo
 public import Veir.Dialects.LLZK.Include.OpInfo
 public import Veir.Dialects.LLZK.Bool.OpInfo
 public import Veir.Dialects.LLZK.Global.OpInfo
+public import Veir.Dialects.LLZK.Function.OpInfo
 public import Veir.Dialects.HW.OpInfo
 
 namespace Veir
@@ -35,6 +36,7 @@ match opCode with
 | .include op => Include_.propertiesOf op
 | .bool op => Bool_.propertiesOf op
 | .global op => Global.propertiesOf op
+| .function op => Function_.propertiesOf op
 | .hw op => HW.propertiesOf op
 | .builtin .unregistered => UnregisteredProperties
 | _ => Unit
@@ -86,6 +88,10 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case «def» => exact (GlobalDefProperties.fromAttrDict attrDict)
     case read => exact (GlobalRefProperties.fromAttrDict "global.read" attrDict)
     case write => exact (GlobalRefProperties.fromAttrDict "global.write" attrDict)
+  case function op =>
+    cases op
+    case «def» => exact (FunctionDefProperties.fromAttrDict attrDict)
+    case «return» => exact (Except.ok ())
   case felt op =>
     cases op
     case const => exact (FeltConstProperties.fromAttrDict attrDict)
@@ -213,6 +219,9 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | .global .read | .global .write =>
     (Std.HashMap.emptyWithCapacity 1).insert "name_ref".toUTF8 (Attribute.flatSymbolRefAttr props.name_ref)
+  | .function .«def» =>
+    let dict := (Std.HashMap.emptyWithCapacity 2).insert "sym_name".toUTF8 (Attribute.stringAttr props.sym_name)
+    dict.insert "function_type".toUTF8 (Attribute.functionType props.function_type)
   | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci
   | .llvm .add | .llvm .sub | .llvm .mul | .llvm .shl | .llvm .trunc => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
