@@ -1,6 +1,9 @@
 import Veir.ForLean
+import Veir.Parser.ParserError
 
 namespace Veir.Parser
+
+open Veir.Parser.ParserError
 
 namespace Lexer
 
@@ -238,16 +241,16 @@ decreasing_by
 
   The opening `"` is expected to have already been consumed at position `tokStart`.
 -/
-def lexStringLiteral (state : LexerState) (tokStart : Nat) : Except String (Token × LexerState) := do
+def lexStringLiteral (state : LexerState) (tokStart : Nat) : Except ParserError (Token × LexerState) := do
   if h: state.isEof then
-    .error "expected '\"' in string literal"
+    .error { msg := "expected '\"' in string literal" }
   else
     let c := state.input[state.pos]'(by grind [LexerState.isEof])
     if c == '"'.toUInt8 then
       let newState := { state with pos := state.pos + 1 }
       return (newState.mkToken .stringLit tokStart, newState)
     else if c == '\n'.toUInt8 then
-      .error "expected '\"' in string literal"
+      .error { msg := "expected '\"' in string literal" }
     else if c == '\\'.toUInt8 then
       if h: state.pos + 1 < state.input.size then
         let c1 := state.input[state.pos + 1]
@@ -260,11 +263,11 @@ def lexStringLiteral (state : LexerState) (tokStart : Nat) : Except String (Toke
             let nextState := { state with pos := state.pos + 3 }
             lexStringLiteral nextState tokStart
           else
-            .error "unknown escape in string literal"
+            .error { msg := "unknown escape in string literal" }
         else
-          .error "unknown escape in string literal"
+          .error { msg := "unknown escape in string literal" }
       else
-        .error "unknown escape in string literal"
+        .error { msg := "unknown escape in string literal" }
     else
       lexStringLiteral { state with pos := state.pos + 1 } tokStart
 termination_by state.input.size - state.pos
@@ -277,9 +280,9 @@ decreasing_by
 
   The first character `@` is expected to have already been parsed.
 -/
-def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except String (Token × LexerState) := do
+def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except ParserError (Token × LexerState) := do
   if h: state.isEof then
-    .error "expected identifier or string literal after '@'"
+    .error { msg := "expected identifier or string literal after '@'" }
   else
     let c := state.input[state.pos]'(by grind [LexerState.isEof])
     if UInt8.isAlphaOrUnderscore c then
@@ -290,7 +293,7 @@ def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except String (Token
       let (token, state) ← lexStringLiteral newState tokStart
       return (LexerState.mkToken state .atIdent tokStart, state)
     else
-      .error "expected identifier or string literal after '@'"
+      .error { msg := "expected identifier or string literal after '@'" }
 
 /--
   Lex an identifier that starts with a prefix followed by suffix-id.
@@ -305,7 +308,7 @@ def lexAtIdentifier (state : LexerState) (tokStart : Nat) : Except String (Token
   id-punct      ::= `$` | `.` | `_` | `-`
 -/
 def lexPrefixedIdentifier (state : LexerState) (tokStart : Nat)
-    (kind : TokenKind) : Except String (Token × LexerState) := do
+    (kind : TokenKind) : Except ParserError (Token × LexerState) := do
   let errorString := match kind with
     | .hashIdent => "invalid attribute name"
     | .percentIdent => "invalid SSA name"
@@ -314,7 +317,7 @@ def lexPrefixedIdentifier (state : LexerState) (tokStart : Nat)
     | _ => "internal error: invalid kind for prefixed identifier"
 
   if h: state.isEof then
-    .error errorString
+    .error { msg := errorString }
   else
     let c := state.input[state.pos]'(by grind [LexerState.isEof])
     if UInt8.isDigit c then
@@ -340,7 +343,7 @@ def lexPrefixedIdentifier (state : LexerState) (tokStart : Nat)
       let newState := { state with pos := pos }
       return (newState.mkToken kind tokStart, newState)
     else
-      .error errorString
+      .error { msg := errorString }
 
 /--
   Lex a number literal.
@@ -419,7 +422,7 @@ def lexNumber (state : LexerState) (firstChar : UInt8) (tokStart : Nat) : Token 
 /--
   Lex the next token from the input.
 -/
-partial def lex (state : LexerState) : Except String (Token × LexerState) :=
+partial def lex (state : LexerState) : Except ParserError (Token × LexerState) :=
   let tokStart := state.pos
   -- Check for end of file
   if h: state.isEof then
@@ -485,9 +488,9 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
           let newState := { state with pos := state.pos + 3 }
           return (newState.mkToken .ellipsis tokStart, newState)
         else
-          .error "expected three consecutive '.' for an ellipsis"
+          .error { msg := "expected three consecutive '.' for an ellipsis" }
       else
-        .error "expected three consecutive '.' for an ellipsis"
+        .error { msg := "expected three consecutive '.' for an ellipsis" }
     -- Parse `-` or `->`
     else if c == '-'.toUInt8 then
       if h: state.pos + 1 < state.input.size then
@@ -555,7 +558,7 @@ partial def lex (state : LexerState) : Except String (Token × LexerState) :=
       let newState := { state with pos := state.pos + 1 }
       return lexNumber newState c tokStart
     else
-      .error s!"Unexpected character '{Char.ofUInt8 c}' at position {state.pos}"
+      .error { msg := s!"Unexpected character '{Char.ofUInt8 c}' at position {state.pos}" }
 
 end Lexer
 

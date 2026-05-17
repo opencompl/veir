@@ -3,34 +3,35 @@ import Veir.IR.Basic
 
 open Veir
 open Veir.Parser
+open Veir.Parser.ParserError
 open Veir.AttrParser
 open Veir.Attribute
 
 /--
   Run parseOptionalType on the given input string.
 -/
-def testOptionalType (s : String) : Except String (Option TypeAttr) := do
+def testOptionalType (s : String) : Except ParserError (Option TypeAttr) := do
   let parser ← ParserState.fromInput (s.toByteArray)
   parseOptionalType.run' AttrParserState.mk parser
 
 /--
   Run parseType on the given input string.
 -/
-def testType (s : String) : Except String TypeAttr := do
+def testType (s : String) : Except ParserError TypeAttr := do
   let parser ← ParserState.fromInput (s.toByteArray)
   parseType.run' AttrParserState.mk parser
 
 /--
   Run parseOptionalAttr on the given input string.
 -/
-def testOptionalAttr (s : String) : Except String (Option Attribute) := do
+def testOptionalAttr (s : String) : Except ParserError (Option Attribute) := do
   let parser ← ParserState.fromInput (s.toByteArray)
   parseOptionalAttribute.run' AttrParserState.mk parser
 
 /--
   Run parseType on the given input string.
 -/
-def testAttr (s : String) : Except String Attribute := do
+def testAttr (s : String) : Except ParserError Attribute := do
   let parser ← ParserState.fromInput (s.toByteArray)
   parseAttribute.run' AttrParserState.mk parser
 
@@ -51,26 +52,28 @@ def expectSuccessAttr (s : String) (expected : Attribute) : Bool :=
   and returns the expected error in the parse variant.
 -/
 def expectMissingType (s : String) : Bool :=
-  testOptionalType s = .ok none && testType s = .error "type expected"
+  testOptionalType s = .ok none && (testType s).mapError (·.msg) = .error "type expected"
 
 /--
   Test that parsing an attribute in the given string returns none in the parseOptional variant,
   and returns the expected error in the parse variant.
 -/
 def expectMissingAttr (s : String) : Bool :=
-  testOptionalAttr s = .ok none && testAttr s = .error "attribute expected"
+  testOptionalAttr s = .ok none && (testAttr s).mapError (·.msg) = .error "attribute expected"
 
 /--
   Test that parsing a type in the given string returns the expected error in both variants.
 -/
 def expectErrorType (s : String) (expected : String) : Bool :=
-  testOptionalType s = .error expected && testType s = .error expected
+  (testOptionalType s).mapError (·.msg) = .error expected
+    && (testType s).mapError (·.msg) = .error expected
 
 /--
   Test that parsing an attribute in the given string returns the expected error in both variants.
 -/
 def expectErrorAttr (s : String) (expected : String) : Bool :=
-  testOptionalAttr s = .error expected && testAttr s = .error expected
+  (testOptionalAttr s).mapError (·.msg) = .error expected
+    && (testAttr s).mapError (·.msg) = .error expected
 
 /--
   Macro to simplify test assertions. Wraps the test in #guard_msgs and #eval,

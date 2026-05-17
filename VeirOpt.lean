@@ -72,10 +72,10 @@ def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode Ã
     match (parseOp none).run (MlirParserState.fromContext ctx) parser with
     | .ok (op, state, _) =>
       return (state.ctx, op)
-    | .error errMsg =>
-      throw s!"Error parsing operation: {errMsg}"
-  | .error errMsg =>
-    throw s!"Error reading file: {errMsg}"
+    | .error err =>
+      throw s!"Error parsing operation: {err}"
+  | .error err =>
+    throw s!"Error reading file: {err}"
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
