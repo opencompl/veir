@@ -261,6 +261,26 @@ def parseOptionalFlatSymbolRefAttr : AttrParserM (Option FlatSymbolRefAttr) := d
   return some (FlatSymbolRefAttr.mk ("@" ++ String.fromUTF8! name))
 
 /--
+  Parse a symbol reference — flat form only for now (`@name`).
+
+  Nested form (`@outer::@inner::@deep`) is **deferred**: VEIR's lexer
+  doesn't tokenize `::` as a punctuation symbol, so supporting the
+  nested form requires a lexer extension. No current dialect needs
+  nested refs at parse time — they're a Phase G.2/G.3 concern
+  (Polymorphic and Struct's `LLZKSymbolTable` references). The
+  `SymbolRefAttr` data structure exists in `Veir/IR/Attribute.lean`
+  for forward compatibility; this parser entry point will be
+  extended when a consumer arrives.
+
+  Until then, this function is a thin wrapper around
+  `parseOptionalFlatSymbolRefAttr` that returns the `Attribute`
+  directly to match the dispatcher's expected type.
+-/
+def parseOptionalAnySymbolRef : AttrParserM (Option Attribute) := do
+  let some flat ← parseOptionalFlatSymbolRefAttr | return none
+  return some (.flatSymbolRefAttr flat)
+
+/--
   Parse a location attribute, if present.
   A location attribute has the form `loc(body)`.
 -/
@@ -575,8 +595,11 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some arrayAttr
   else if let some dictAttr ← parseOptionalDictionaryAttr then
     return some dictAttr
-  else if let some symRefAttr ← parseOptionalFlatSymbolRefAttr then
-    return some symRefAttr
+  else if let some symRef ← parseOptionalAnySymbolRef then
+    -- Returns either a `.flatSymbolRefAttr` or a `.symbolRefAttr`
+    -- (nested) — both already as `Attribute`. Replaces the prior
+    -- flat-only call to `parseOptionalFlatSymbolRefAttr`.
+    return some symRef
   else
     return none
 

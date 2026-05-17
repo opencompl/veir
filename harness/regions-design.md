@@ -322,18 +322,33 @@ clean + the `Veir/Rewriter/WellFormed/` proofs re-verified.
 
 ### F.2 — Block arguments as SSA values + rewriter primitives
 
-- [ ] **F.2.1** Extend `ValuePtr` with a `.blockArg` variant
-      (`BlockArgPtr := { block : BlockPtr, index : Nat }`). Update
-      `Attribute.lean`, related pointer types.
-- [ ] **F.2.2** Extend `valueDefUseChains` invariant in
-      `Veir/IR/WellFormed.lean` to track block-argument producers
-      and uses. *This is the most substantive proof work in F.*
-- [ ] **F.2.3** Rewriter primitives in `Veir/Rewriter/`:
-      `createBlock`, `insertBlock`, `eraseBlock`, `moveBlock`,
-      `moveRegion`. Each with a `Veir/Rewriter/WellFormed/`
-      preservation theorem. Leverage the existing
-      `Veir/Rewriter/WellFormed/{Region,OpRegion,Block,BlockArguments}.lean`
-      pattern.
+**Revised 2026-05-17 (post-implementation survey)**: most of F.2 is
+already in place. Empirical findings:
+
+- [x] **F.2.1** ~~Extend `ValuePtr` with a `.blockArg` variant~~
+      Already done: `ValuePtr.blockArgument (ptr : BlockArgumentPtr)`
+      exists at `Veir/IR/Basic.lean:103-106`, with a `Coe`. The agent
+      survey originally read this as "separate type"; subsequent
+      direct read of the file corrected the finding.
+- [x] **F.2.2** ~~Extend `valueDefUseChains` invariant to track
+      block-argument producers~~ Already done: `ValuePtr.DefUse`
+      (`Veir/IR/WellFormed.lean:26`) is parameterized over a
+      `ValuePtr` — automatically covers both `.opResult` and
+      `.blockArgument` via the existing structure. `BlockArgument
+      extends ValueImpl` so it has the `firstUse` field.
+- [x] **F.2.3** Existing rewriter primitives (`createBlock`,
+      `insertBlock?`, `createRegion`) — all present in
+      `Veir/Rewriter/Basic.lean` with `WfRewriter` variants and
+      `Veir/Rewriter/WellFormed/` proofs. Block-level setters
+      (`setType`, `setFirstUse`, `setLoc` for block args) exist with
+      `*_fieldsInBounds` lemmas.
+- [ ] **F.2.4** ~~Add missing primitives~~ — DEFERRED. Three primitives
+      are *not* present: `eraseBlock`, `moveBlock`, `moveRegion`.
+      None are required for F.5 (the `function.def` port is
+      round-trip-only and doesn't rewrite block contents). They become
+      necessary when a verified pass needs to rewrite a function body
+      (e.g., DCE within a region, block-merging passes). Track as a
+      follow-up to Phase F; not blocking on the current critical path.
 
 ### F.3 — Verify-time terminator + IsolatedFromAbove
 

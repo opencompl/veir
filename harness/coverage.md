@@ -77,10 +77,10 @@ document for the protocol.
 | Feature | Status | Caveats |
 |---|---|---|
 | `FlatSymbolRefAttr` (`@name`) as an `Attribute` case | ✅ | Landed upstream PR #533. |
-| Nested `SymbolRefAttr` (`@outer::@inner`) | ❌ | Phase F (folded in from retired Phase B). |
+| Nested `SymbolRefAttr` (`@outer::@inner`) | ⚠️ Partial | **Data structure landed 2026-05-17** as `SymbolRefAttr { rootRef, nestedRefs }` in `Veir/IR/Attribute.lean`. Parser supports flat form only — nested form (`::`) requires a lexer extension (no current consumer needs it). Resolver (`Veir/IR/SymbolTable.lean`) accepts the structure and returns `none` on non-empty `nestedRefs` (conservative). Phase G.2/G.3 will need to enable nested form. |
 | `Symbol` trait (op declares a name) | ⚠️ | The trait is not encoded, but operationally an op can store a `FlatSymbolRefAttr` in its property dict and that round-trips. No invariant that the name is unique within a scope. |
-| `SymbolUserOpInterface` (op resolves a symbol) | ❌ | No lookup. Phase F (design alongside regions). |
-| `SymbolTable` trait (parent op contains symbols) | ❌ | Phase F (design). May require structural extension to verified IR. |
+| `SymbolUserOpInterface` (op resolves a symbol) | ⚠️ Partial | `Veir/IR/SymbolTable.lean` ships an **unverified** `IRContext.resolveSymbol` walker (Phase F.4, 2026-05-17). Per the Hybrid recommendation in `harness/regions-design.md` §7, this is *not* part of `WellFormed`; passes consuming it must handle `none` returns explicitly. |
+| `SymbolTable` trait (parent op contains symbols) | ❌ | Walker treats the whole IR as a single flat scope; no nested-scope resolution. Walking up region trees to enclosing SymbolTable ops is the F.4 → G design upgrade. |
 | `LLZKSymbolTable` (custom LLZK variant) | ❌ | Phase G (Polymorphic, Struct). |
 | Nested symbol lookup (`@A::@B`) | ❌ | Phase F: parser + semantic resolution land together with regions. |
 

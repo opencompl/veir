@@ -123,6 +123,26 @@ structure FlatSymbolRefAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  A nested symbol reference attribute, e.g., `@Outer::@Inner` or
+  `@A::@B::@C`. The `rootRef` is the outermost name; `nestedRefs` is
+  the list of inner segments (empty for the degenerate case, which
+  is equivalent to a `FlatSymbolRefAttr`).
+
+  Path semantics (per MLIR): `@A::@B` means "in the current scope,
+  look up `@A` (must be a `SymbolTable`-trait op); in that op's
+  scope, look up `@B`". The resolver lives in
+  `Veir/IR/SymbolTable.lean` — currently unverified per the Hybrid
+  recommendation in `harness/regions-design.md` §7.
+
+  Stored as `String` segments rather than `ByteArray` for parser
+  ergonomics; consistent with `FlatSymbolRefAttr.value`.
+-/
+structure SymbolRefAttr where
+  rootRef : String
+  nestedRefs : Array String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   The `!mod_arith.int` type from HEIR's modarith dialect.
   The modulus type annotation is optional in syntax.
 -/
@@ -290,6 +310,7 @@ inductive Attribute
 | unregisteredAttr (attr : UnregisteredAttr)
 /-- A flat symbol reference, e.g., `@foo` or `@"my.func"`. -/
 | flatSymbolRefAttr (attr : FlatSymbolRefAttr)
+| symbolRefAttr (attr : SymbolRefAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
 /-- LLZK felt type -/
@@ -467,6 +488,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case symbolRefAttr.symbolRefAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case hwModuleType.hwModuleType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -529,6 +554,15 @@ instance : ToString UnregisteredAttr where
 
 instance : ToString FlatSymbolRefAttr where
   toString attr := attr.value
+
+instance : ToString SymbolRefAttr where
+  -- Prints as `@root::@nested1::@nested2` (each segment includes its `@`).
+  -- rootRef already carries the leading `@` (parser stores it that way,
+  -- matching FlatSymbolRefAttr's convention).
+  toString attr :=
+    let nested := String.intercalate "::" (attr.nestedRefs.toList.map fun s => s)
+    if attr.nestedRefs.isEmpty then attr.rootRef
+    else s!"{attr.rootRef}::{nested}"
 
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}" ++
@@ -636,6 +670,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .dictionaryAttr attr => attr.toString
   | .unregisteredAttr attr => ToString.toString attr
   | .flatSymbolRefAttr attr => ToString.toString attr
+  | .symbolRefAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
   | .feltType type => ToString.toString type
@@ -686,6 +721,9 @@ instance : Coe UnregisteredAttr Attribute where
 
 instance : Coe FlatSymbolRefAttr Attribute where
   coe attr := .flatSymbolRefAttr attr
+
+instance : Coe SymbolRefAttr Attribute where
+  coe attr := .symbolRefAttr attr
 
 instance : Coe ArrayAttr Attribute where
   coe attr := .arrayAttr attr
@@ -748,6 +786,7 @@ def isType (attr : Attribute) : Bool :=
   | .dictionaryAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .flatSymbolRefAttr _ => false
+  | .symbolRefAttr _ => false
   | .functionType _ => true
   | .modArithType _ => true
   | .feltType _ => true
