@@ -462,7 +462,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
     match hctx' : Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip hoper hblockOperands hregions hins with
     | none => throw "internal error: failed to create operation"
     | some (ctx', op) =>
-      let ⟨hop⟩ ← checkOpInBounds op ctx'
+      have hop : op.InBounds ctx' := Rewriter.createOp_new_inBounds op hctx'
       let ctx'' := op.setAttributes ctx' attrs hop
       /- Update the parser context. -/
       pure ⟨op, ⟨ctx'', by grind [Rewriter.createOp_WellFormed, OperationPtr.setAttributes_WellFormed]⟩⟩
