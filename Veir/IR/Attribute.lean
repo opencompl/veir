@@ -45,6 +45,14 @@ structure IntegerType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+ A `!builtin.floating_point` attribute is a floating point literal with an
+ associated floating point type.
+-/
+structure FloatType where
+  bitwidth : Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   A register type is an integer type with width 64.
 -/
 structure RegisterType where
@@ -221,6 +229,8 @@ deriving Inhabited, Repr, Hashable
 inductive Attribute
 /-- Integer type -/
 | integerType (type : IntegerType)
+/-- Float type -/
+| floatType (type : FloatType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
 /-- Register type -/
@@ -342,6 +352,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case floatType.floatType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case unregisteredAttr.unregisteredAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -426,6 +440,9 @@ instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
 
 instance : ToString IntegerType where
   toString type := s!"i{type.bitwidth}"
+
+instance : ToString FloatType where
+  toString type := s!"f{type.bitwidth}"
 
 instance : ToString IntegerAttr where
   toString attr := s!"{attr.value} : {attr.type}"
@@ -561,6 +578,7 @@ decreasing_by
 def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
+  | .floatType type => ToString.toString type
   | .integerAttr attr => ToString.toString attr
   | .registerType type => ToString.toString type
   | .registerAttr attr => ToString.toString attr
@@ -601,6 +619,9 @@ instance : ToString DictionaryAttr where
 -/
 instance : Coe IntegerType Attribute where
   coe type := .integerType type
+
+instance : Coe FloatType Attribute where
+  coe type := .floatType type
 
 instance : Coe IntegerAttr Attribute where
   coe attr := .integerAttr attr
@@ -660,6 +681,7 @@ namespace Attribute
 def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
+  | .floatType _ => true
   | .integerAttr _ => false
   | .stringAttr _ => false
   | .unitAttr _ => false
@@ -680,6 +702,8 @@ def isType (attr : Attribute) : Bool :=
 
 @[simp, grind =]
 theorem isType_integerType type : (integerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_floatType type : (floatType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_unregistered unregistered :
   (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
@@ -729,6 +753,9 @@ def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : Typ
 
 instance : Coe IntegerType TypeAttr where
   coe type := ⟨.integerType type, by rfl⟩
+
+instance : Coe FloatType TypeAttr where
+  coe type := ⟨.floatType type, by rfl⟩
 
 instance : Coe FunctionType TypeAttr where
   coe type := ⟨.functionType type, by rfl⟩

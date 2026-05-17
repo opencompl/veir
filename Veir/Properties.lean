@@ -104,6 +104,21 @@ def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let nneg ← getUnitAttr "nneg" attrDict
   return { nneg := nneg }
 
+structure FastMathFlagsProperties where
+  fast : Bool
+  nan : Bool
+  ninf : Bool
+  nsz : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String FastMathFlagsProperties := do
+  let fast ← getUnitAttr "fast" attrDict
+  let nan ← getUnitAttr "nan" attrDict
+  let ninf ← getUnitAttr "ninf" attrDict
+  let nsz ← getUnitAttr "nsz" attrDict
+  return { fast, nan, ninf, nsz }
+
 /--
   Properties of the `llvm.constant` operation.
 -/

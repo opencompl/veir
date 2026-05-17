@@ -49,6 +49,24 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   | _ => return none
 
 /--
+  Parse an optional float type.
+  A float type is represented as `f` followed by a positive integer indicating its width, e.g., `f32`.
+-/
+def parseOptionalFloatType : AttrParserM (Option FloatType) := do
+  match ← peekToken with
+  | { kind := .bareIdent, slice := slice } =>
+    if slice.size < 2 then
+      return none
+    if (← (getThe ParserState)).input.getD slice.start 0 == 'f'.toUInt8 then
+      let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
+      let identifier := bitwidthSlice.of (← (getThe ParserState)).input
+      let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
+      let _ ← consumeToken
+      return some (FloatType.mk bitwidth)
+    return none
+  | _ => return none
+
+/--
   Parse an optional register type, which is fundamentally a wrapper for `i64`.
   A register type is represented as `!reg`.
 -/
@@ -420,6 +438,8 @@ partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
+  if let some floatType ← parseOptionalFloatType then
+    return some floatType
   if let some registerType ← parseOptionalRegisterType then
     return some registerType
   if let some modArithType ← parseOptionalModArithType then
