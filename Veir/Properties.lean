@@ -318,7 +318,7 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | none => .ok { value := 0, type := { bitwidth := 32 } }
   let rawConstantIndices ← match attrDict["rawConstantIndices".toUTF8]? with
     | some (.denseArrayAttr arr) => .ok arr
-    | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute, 
+    | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute,
         but got {attr}"
     | none => .error "getelementptr: missing 'rawConstantIndices' property"
   let some typeAttr := attrDict["elem_type".toUTF8]?
