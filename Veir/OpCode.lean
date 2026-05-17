@@ -99,6 +99,7 @@ inductive Llvm where
 | return
 | func
 | module_flags
+| fadd
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
