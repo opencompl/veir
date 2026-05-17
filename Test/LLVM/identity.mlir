@@ -52,6 +52,14 @@
       %36 = "llvm.fadd"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
       %37 = "llvm.fadd"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
       %38 = "llvm.fadd"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %39 = "llvm.fsub"(%fcst, %fcst) : (f64, f64) -> f64
+      %40 = "llvm.fsub"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
+      %41 = "llvm.fmul"(%fcst, %fcst) : (f64, f64) -> f64
+      %42 = "llvm.fmul"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
+      %43 = "llvm.fdiv"(%fcst, %fcst) : (f64, f64) -> f64
+      %44 = "llvm.fdiv"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
+      %45 = "llvm.frem"(%fcst, %fcst) : (f64, f64) -> f64
+      %46 = "llvm.frem"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
       "llvm.return"(%28, %29, %30, %31, %32) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
   }) : () -> ()
 }) : () -> ()
@@ -109,6 +117,14 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
 // CHECK-NEXT:       "llvm.return"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
 // CHECK-NEXT:   }) : () -> ()
 // CHECK-NEXT: }) : () -> ()
