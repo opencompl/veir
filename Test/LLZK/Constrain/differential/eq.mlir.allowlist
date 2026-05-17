@@ -1,0 +1,3 @@
+# LLZK normalizes i1 IntegerAttrs to literal `true`/`false`; VEIR
+# keeps the explicit `1 : i1` form. Cosmetic.
+"value = 1 : i1" -> "value = true"

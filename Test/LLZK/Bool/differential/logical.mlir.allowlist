@@ -1,0 +1,5 @@
+# LLZK normalizes i1 IntegerAttrs to the literal forms `true`/`false`;
+# VEIR preserves the explicit `1 : i1` / `0 : i1` form. Tracked under
+# the Bool coverage row — purely cosmetic, no semantic divergence.
+"value = 1 : i1" -> "value = true"
+"value = 0 : i1" -> "value = false"
