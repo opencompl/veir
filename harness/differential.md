@@ -5,26 +5,29 @@ implementation of an LLZK dialect and LLZK's own C++ implementation.
 
 **Status**: scaffold complete and exercised against a built `llzk-opt`.
 Hardened script + per-dialect tests land at `scripts/llzk-diff.sh`
-and `Test/LLZK/<dialect>/differential/` (8 inputs as of 2026-05-17:
-7 Tier-1 + 1 Tier-2 Global; no allowlists currently — the
-IntegerAttr-vs-`#felt<const N>` divergence that the Felt allowlist
-used to bridge was eliminated when the structured `FeltConstAttr`
-parser landed). Running the diffs requires a local build of
-`llzk-opt` (see §3.1). Tests carry `// REQUIRES: llzk-opt` and lit
-auto-skips them as `UNSUPPORTED` when the binary is missing — the
-suite stays green on hosts without LLZK built.
+and `Test/LLZK/<dialect>/differential/` (8 inputs as of 2026-05-18:
+all 8 PASS under a live `llzk-opt`). Four tests carry a per-test
+allowlist for the cosmetic `value = 1 : i1` ↔ `value = true` LLZK
+printer quirk; no semantic divergences remain. Running the diffs
+requires a local build of `llzk-opt` (see §3.1). Tests carry
+`// REQUIRES: llzk-opt` and lit auto-skips them as `UNSUPPORTED`
+when the binary is missing — the suite stays green on hosts without
+LLZK built.
 
 **Smoke check** (host without llzk-opt; full lit suite):
 ```
 $ uv run lit Test/ -v
 …
-Total Discovered Tests: 329
-  Unsupported:   8 (2.43%)   ← differential tests
-  Passed     : 321 (97.57%)
+Total Discovered Tests: 331
+  Unsupported:   8 (2.42%)   ← differential tests
+  Passed     : 323 (97.58%)
 ```
 
-**With `llzk-opt` active**: 324 PASS + 5 XFAIL + 0 FAIL. The 5 XFAIL
-differentials all need a `function.def` wrapper (Phase G.1) to lift.
+**With `llzk-opt` active**: 331 PASS + 0 XFAIL + 0 FAIL. Phase F.5
+(2026-05-18) ported `function.def` / `function.return` and lifted
+all 5 previously-XFAIL differentials by wrapping their bodies in a
+function carrying the relevant `function.allow_*` discardable attr
+(see the per-test prelude comment for which attr each uses).
 
 ---
 
@@ -91,11 +94,13 @@ in a per-test allowlist file. Each entry references the coverage row
 that documents the divergence:
 
 ```
-# Example syntax (no Test/LLZK/* currently uses an allowlist — the
-# original Felt IntegerAttr divergence that needed one was eliminated
-# in 2026-05-17 by adding the structured FeltConstAttr parser).
+# Example syntax. As of 2026-05-18 four tests carry an allowlist for
+# the cosmetic LLZK printer quirk on i1 IntegerAttrs (see
+# Test/LLZK/Bool/differential/logical.mlir.allowlist for a live
+# example).
 # Each line: "<from_pattern>" -> "<to_pattern>" (coverage row)
-# "<{value = some.dialect-printed-form}>" -> "<{value = veir-printed-form}>"   (coverage.md §SomeRow)
+"value = 1 : i1" -> "value = true"   (coverage.md §Bool / Cast / RAM / Constrain)
+"value = 0 : i1" -> "value = false"
 ```
 
 The rule is matched as a **fixed string** (no regex) and applied
