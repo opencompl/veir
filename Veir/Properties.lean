@@ -104,6 +104,21 @@ def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let nneg ← getUnitAttr "nneg" attrDict
   return { nneg := nneg }
 
+structure FastMathFlagsProperties where
+  fast : Bool
+  nnan : Bool
+  ninf : Bool
+  nsz : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String FastMathFlagsProperties := do
+  let fast ← getUnitAttr "fast" attrDict
+  let nnan ← getUnitAttr "nnan" attrDict
+  let ninf ← getUnitAttr "ninf" attrDict
+  let nsz ← getUnitAttr "nsz" attrDict
+  return { fast, nnan, ninf, nsz }
+
 /--
   Properties of the `llvm.constant` operation.
 -/
@@ -318,7 +333,7 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | none => .ok { value := 0, type := { bitwidth := 32 } }
   let rawConstantIndices ← match attrDict["rawConstantIndices".toUTF8]? with
     | some (.denseArrayAttr arr) => .ok arr
-    | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute, 
+    | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute,
         but got {attr}"
     | none => .error "getelementptr: missing 'rawConstantIndices' property"
   let some typeAttr := attrDict["elem_type".toUTF8]?

@@ -106,6 +106,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case load => exact (LoadProperties.fromAttrDict attrDict)
     case store => exact (StoreProperties.fromAttrDict attrDict)
     case getelementptr => exact (GetelementptrProperties.fromAttrDict attrDict)
+    case fadd => exact (FastMathFlagsProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case func =>
     all_goals exact (Except.ok ())
@@ -160,6 +161,17 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       dict := dict.insert "nsw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     if props.nuw then
       dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
+  | .llvm .fadd => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    if props.fast then
+      dict := dict.insert "fast".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    if props.nnan then
+      dict := dict.insert "nnan".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    if props.ninf then
+      dict := dict.insert "ninf".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    if props.nsz then
+      dict := dict.insert "nsz".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .llvm .icmp => Id.run do
     (Std.HashMap.emptyWithCapacity 2).insert "predicate".toUTF8 (Attribute.integerAttr props.value)

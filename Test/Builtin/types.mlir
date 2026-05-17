@@ -5,7 +5,7 @@
   %0 = "test.test"() : () -> i32
   %1 = "test.test"() : () -> ((i32) -> (i32))
   %2 = "test.test"() : () -> ((i32) -> ((i32) -> i32))
-  %2 = "test.test"() : () -> !unregistered.dialect<foo 3 + 2 - 4>
+  %3 = "test.test"() : () -> !unregistered.dialect<foo 3 + 2 - 4>
 }) : () -> ()
 
 // CHECK-NEXT: "builtin.module"() ({

@@ -47,7 +47,7 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "arith.addi"() ({
   ^4():
-    %5_0, %5_1 = "arith.muli"() : () -> (i32, i32)
+    %5:2 = "arith.muli"() : () -> (i32, i32)
 }, {}) : () -> ()
 -/
 #guard_msgs in
@@ -161,4 +161,62 @@ def testParseOp (s : String) : IO Unit :=
   \"builtin.module\"() ({
     \"test.test\"() [^bb0] : () -> ()
   }) : () -> ()
+}) : () -> ()"
+
+/--
+  info: "builtin.module"() ({
+  ^4():
+    %5:2 = "test.test"() : () -> (i32, i64)
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %x:2 = \"test.test\"() : () -> (i32, i64)
+}) : () -> ()"
+
+/--
+  info: "builtin.module"() ({
+  ^4():
+    %5:3 = "test.test"() : () -> (i10, i32, i64)
+    %6 = "test.test"(%5#2, %5#0) : (i64, i10) -> i1
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a, %x:2 = \"test.test\"() : () -> (i10, i32, i64)
+  %b = \"test.test\"(%x#1, %a#0) : (i64, i10) -> i1
+}) : () -> ()"
+
+/--
+  error: invalid result index 2 for %a
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a:2 = \"test.test\"() : () -> (i32, i64)
+  %b = \"test.test\"(%a#2) : (i32) -> i1
+}) : () -> ()"
+
+/--
+  error: type mismatch for value %a#1: expected i32, got i64
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a:2 = \"test.test\"() : () -> (i32, i64)
+  %b = \"test.test\"(%a#1) : (i32) -> i1
+}) : () -> ()"
+
+/--
+  error: operation 'test.test' declares 4 result types, but 3 result values were provided
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a, %b:2 = \"test.test\"() : () -> (i1, i2, i3, i4)
+}) : () -> ()"
+
+/--
+  error: operation 'test.test' declares 2 result types, but 3 result values were provided
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a:2, %b = \"test.test\"() : () -> (i1, i2)
 }) : () -> ()"

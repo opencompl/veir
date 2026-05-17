@@ -49,6 +49,24 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   | _ => return none
 
 /--
+  Parse an optional float type.
+  A float type is represented as `f` followed by a positive integer indicating its width, e.g., `f32`.
+-/
+def parseOptionalFloatType : AttrParserM (Option FloatType) := do
+  match ← peekToken with
+  | { kind := .bareIdent, slice := slice } =>
+    if slice.size < 2 then
+      return none
+    if (← (getThe ParserState)).input.getD slice.start 0 == 'f'.toUInt8 then
+      let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
+      let identifier := bitwidthSlice.of (← (getThe ParserState)).input
+      let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
+      let _ ← consumeToken
+      return some (FloatType.mk bitwidth)
+    return none
+  | _ => return none
+
+/--
   Parse an optional register type, which is fundamentally a wrapper for `i64`.
   A register type is represented as `!reg`.
 -/
@@ -387,17 +405,49 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
     return some (FunctionType.mk inputs #[outputType])
 
 /--
+  Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"
+  sugar keywords `void` and `ptr` in addition to the regular MLIR type forms.
+-/
+partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
+  if ← parseOptionalKeyword "void".toByteArray then
+    return ⟨.unregisteredAttr (UnregisteredAttr.mk "!llvm.void" true), by grind⟩
+  if ← parseOptionalKeyword "ptr".toByteArray then
+    return (LLVM.PointerType.mk : TypeAttr)
+  parseType errorMsg
+
+/--
+  Parse an LLVM function type `!llvm.func<resultType (paramTypes,...)>`, if present.
+-/
+partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "llvm.func".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let result ← parseLLVMType "llvm.func result type expected"
+  let params ← parseDelimitedList .paren parseLLVMType
+  parsePunctuation ">"
+  let ft := FunctionType.mk (params.map (·.val)) #[result.val]
+  return some ⟨.llvmFunctionType ft, by rfl⟩
+
+/--
   Parse a type, if present.
 -/
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
+  if let some floatType ← parseOptionalFloatType then
+    return some floatType
   if let some registerType ← parseOptionalRegisterType then
     return some registerType
   if let some modArithType ← parseOptionalModArithType then
     return some modArithType
   if let some llvmPointerType := ← parseOptionalLLVMPointerType then
     return some llvmPointerType
+  if let some llvmFunctionType ← parseOptionalLLVMFunctionType then
+    return some llvmFunctionType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
   if let some hwModuleType ← parseOptionalHWModuleType then

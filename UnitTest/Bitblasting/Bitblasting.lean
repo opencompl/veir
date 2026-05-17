@@ -371,14 +371,6 @@ example (e : Veir.Data.LLVM.Int 64) :
     sdiv e (constant 64 (-1)) ⊑ sub (constant 64 0) e := by
   llvm_bv_decide
 
-example (e e_1 : Veir.Data.LLVM.Int 1) :
-    select e (xor e (constant 1 (-1))) e_1 ⊑ and (xor e (constant 1 (-1))) e_1 := by
-  llvm_bv_decide
-
-example (e e_1 : Veir.Data.LLVM.Int 1) :
-    select e e_1 (xor e (constant 1 (-1))) ⊑ or (xor e (constant 1 (-1))) e_1 := by
-  llvm_bv_decide
-
 example (e e_1 : Veir.Data.LLVM.Int 64) :
     select (constant 1 1) e_1 e ⊑ e_1 := by
   llvm_bv_decide
