@@ -45,8 +45,7 @@ structure IntegerType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
- A `!builtin.floating_point` attribute is a floating point literal with an
- associated floating point type.
+ A floating point type with a given bitwidth.
 -/
 structure FloatType where
   bitwidth : Nat

@@ -60,7 +60,7 @@
 // CHECK-NEXT:   ^4():
 // CHECK-NEXT:     "llvm.module_flags"() : () -> ()
 // CHECK-NEXT:     "llvm.func"() ({
-// CHECK-NEXT:         ^7():
+// CHECK-NEXT:         ^7(%arg7_0 : f64):
 // CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i1
 // CHECK-NEXT:       %{{.*}} = "llvm.and"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
