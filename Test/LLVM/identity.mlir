@@ -49,7 +49,7 @@
       %32 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
       %34 = "llvm.fadd"(%fcst, %fcst) : (f64, f64) -> f64
       %35 = "llvm.fadd"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
-      %36 = "llvm.fadd"(%fcst, %fcst) <{nan}> : (f64, f64) -> f64
+      %36 = "llvm.fadd"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
       %37 = "llvm.fadd"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
       %38 = "llvm.fadd"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
       "llvm.return"(%28, %29, %30, %31, %32) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
@@ -106,7 +106,7 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
 // CHECK-NEXT:       "llvm.return"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()

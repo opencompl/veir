@@ -166,10 +166,10 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.fast then
       dict := dict.insert "fast".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    if props.nnan then
+      dict := dict.insert "nnan".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     if props.ninf then
       dict := dict.insert "ninf".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    if props.nan then
-      dict := dict.insert "nan".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     if props.nsz then
       dict := dict.insert "nsz".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
