@@ -31,6 +31,54 @@ instance for new types exists, printing is automatic.
 
 ---
 
+## 2026-05-17 — Lesson: empirical survey before architectural assumptions
+
+**Discovery (Phase F design note, F.1)**: The original Phase F
+estimate ("3-6 weeks, major architectural addition") assumed VEIR
+had *no* region support and Phase F would add the structural
+foundation from scratch. The F.1 research survey
+(`tasks/a862be48f77f98bb9.output`) revealed:
+
+- `Operation.regions : Array RegionPtr` is already a field of every
+  Operation.
+- `Region` and `Block` structures are defined in `Veir/IR/Basic.lean`.
+- FieldsInBounds + WellFormed proofs cover all three for structural
+  invariants (`region_parent` bijection, blocks-belong-to-regions,
+  etc.).
+- 8 files under `Veir/Rewriter/WellFormed/` already include
+  `Region.lean`, `OpRegion.lean`, `Block.lean`, `BlockArguments.lean`,
+  `BlockOperands.lean` — meaning even some rewriter primitives
+  (`Rewriter.initOpRegions`, `Rewriter.pushRegion`) are already
+  WellFormed-preserving.
+
+Revised estimate: 2-4 weeks. The remaining work is semantic
+invariants (terminator presence, IsolatedFromAbove), block-args-as-
+SSA-values, symbol-table machinery, and one prototype dialect
+(Function), not the full structural addition.
+
+**How to apply**: before estimating any architectural addition, run a
+focused survey of the existing codebase. The survey can spawn a
+read-only Agent in parallel with drafting the design framing — both
+finish faster than sequential. The Agent's specific job:
+
+1. Read the relevant module headers + grep for hints of pre-existing
+   support.
+2. Count LoC under the target subtrees as a proxy for the surface
+   that would need to change.
+3. Identify "structurally there but semantically empty" patterns —
+   features whose data structures exist but lack consumer dialects
+   or invariants.
+
+VEIR's pattern specifically: many features are structurally
+prepared but semantically incomplete. Don't assume "VEIR can't do X"
+without empirical confirmation; check whether the data structures
+for X are already in `Veir/IR/Basic.lean`.
+
+The F.1 design note (`harness/regions-design.md`) is the worked
+example.
+
+---
+
 ## 2026-05-17 — Pattern: round-trip is a port-quality bar
 
 **Discovery (FeltConstAttr post-audit, Real Issue #2)**: When adding a

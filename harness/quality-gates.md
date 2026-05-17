@@ -199,21 +199,14 @@ be unpushed only when the user asked).
 **Prevents**: regions / symbol-table architecture being implemented
 piecemeal without a coherent design.
 
-**How**:
-- Before any code lands under a Phase F branch, the design note
-  `harness/regions-design.md` (to be created) must answer:
-  - How regions extend `Veir/IR/Operation`'s structure
-  - How `WellFormed` extends to cover regions (or doesn't, with
-    workaround docs)
-  - How `SymbolTable` integrates with regions (the folded-in Phase B
-    questions)
-  - Migration plan for existing dialects (none affected; all current
-    dialects are region-free)
-  - Estimated proof debt added to `WellFormed` preservation
-- The design note is a separate commit before implementation. It
-  references the `harness/symbol-table-spike.md` historical context.
+**Status**: ✅ established 2026-05-17 — `harness/regions-design.md`
+lands the design. Key surprise documented there: structural region
+support is already in VEIR's verified IR; the design narrows to
+what semantic invariants + consumer dialects to add. Estimate
+revised from 3-6 weeks to 2-4 weeks (Alternative B, recommended).
 
-**Enforcement**: `plan.md` §Phase F's `[ ] F.1 Design note` checkbox.
+**Enforcement**: Phase F.2–F.5 implementation commits must reference
+`harness/regions-design.md` §8 sub-phase numbers.
 
 ---
 
@@ -249,8 +242,6 @@ those gates explicit and enforceable.
 
 ## Open gate items
 
-- §9 (Phase F design note): pending; required before any Phase F
-  implementation work.
 - Differential CI workflow with cache-only build: deferred until
   there's a tractable answer to the 24h-cold-build problem.
 

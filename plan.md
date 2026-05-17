@@ -33,6 +33,7 @@ to be maintained as work progresses, not written once.
 | Constrain dialect (eq only) | ⚠️ partial (constrain.in deferred) | `Test/LLZK/Constrain/{identity,invalid}.mlir` |
 | Global dialect (def, read, write) | ✅ ported (typed; uses FlatSymbolRefAttr) | `Test/LLZK/Global/{identity,invalid}.mlir` |
 | Structured `#felt<const N>` attribute | ✅ landed 2026-05-17 — first per-dialect structured attribute; un-XFAILed Felt differential | `Veir/IR/Attribute.lean` (FeltConstAttr) + `Veir/Parser/AttrParser.lean` |
+| Phase F design note (F.1) | ✅ landed 2026-05-17 — revealed regions are structurally ready in VEIR's verified IR; revised estimate down to 2-4 weeks | `harness/regions-design.md` |
 | First verified LLZK pass | ✅ Phase E.1 — `felt-combine` proves `felt.add x (felt.const 0) → x` | `Veir/Passes/Felt/{Combine,Proofs}.lean` |
 | Second verified LLZK pass (constant-fold) | ✅ Phase E.2 — `felt-combine` proves `felt.add (felt.const c1) (felt.const c2) → felt.const (c1+c2)` | `Veir/Passes/Felt/{Combine,Proofs}.lean` |
 | Third verified LLZK pass (self-subtraction) | ✅ Phase E.3 — `felt-combine` proves `felt.sub x x → felt.const 0` | `Veir/Passes/Felt/{Combine,Proofs}.lean` |
@@ -143,24 +144,28 @@ regions), and almost all LLZK transform passes.
 Includes the design questions that were originally Phase B (now
 retired) because they're tightly coupled to region semantics:
 
-- [ ] **F.1** Design note: structural region representation (block
-      ownership, terminator op verification, IsolatedFromAbove
-      semantics, region-as-symbol-table-scope). Includes the
-      former Phase B questions:
-  - [ ] nested `SymbolRefAttr` (`@A::@B`) parsing + storage
-  - [ ] `SymbolTable` trait on parent ops; child-lookup semantics
-  - [ ] `SymbolUserOpInterface` resolution at use sites
-  - [ ] whether `WellFormed` includes symbol integrity, or symbol
-        resolution stays an unverified pass-level concern (recommended
-        hybrid path from `harness/symbol-table-spike.md` still applies)
-- [ ] **F.2** Implementation in `Veir/IR/`.
-- [ ] **F.3** Update `Veir/Rewriter/` for region-aware rewrites.
-- [ ] **F.4** Re-prove WellFormed preservation.
-- [ ] **F.5** Prototype `Function.def` (a Symbol producer with a
-      region body) as the first concrete consumer of both pieces.
+- [x] **F.1** Design note `harness/regions-design.md` — landed 2026-05-17.
+      Big finding: structural regions are already in VEIR's verified IR
+      (Operation.regions field, Region/Block types, FieldsInBounds +
+      WellFormed proofs); only semantic invariants and consumer dialects
+      remain. Revised estimate down from 3-6 weeks to 2-4 weeks. Phased
+      implementation specified as F.2-F.5 below.
+- [ ] **F.2** `Veir/IR/` extensions — `BlockArgument` as `ValuePtr`
+      variant + `valueDefUseChains` extension + block-level rewriter
+      primitives (`createBlock`, `insertBlock`, `eraseBlock`, `moveBlock`,
+      `moveRegion`) with WellFormed-preservation proofs.
+- [ ] **F.3** Verify-time semantic invariants — terminator presence
+      + `IsolatedFromAbove` SSA closure. Per-OpCode `isTerminator`
+      classification.
+- [ ] **F.4** Symbol-table machinery (unverified per the recommended
+      Hybrid path) — `SymbolRefAttr` for nested paths,
+      `Veir/IR/SymbolTable.lean` walker `resolveSymbol`.
+- [ ] **F.5** Prototype `Function.def` port as the first concrete
+      consumer; lift the 5 XFAIL differential tests (Bool, Cast,
+      Constrain, RAM, Global write) by wrapping their ops in
+      `function.def`.
 
-This is its own project; the design note should land before
-committing to a schedule.
+See `harness/regions-design.md` for full specification.
 
 ### Phase G — Tier 3 dialects (gated by F)
 

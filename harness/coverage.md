@@ -114,13 +114,15 @@ document for the protocol.
 
 | Feature | Status | Caveats |
 |---|---|---|
-| Multi-block regions | ❌ | Phase F. **Major architectural addition.** |
-| Region entry block / argument list | ❌ | Phase F. |
-| Terminator op validation | ❌ | Phase F. |
-| `IsolatedFromAbove` trait | ❌ | Phase F. |
-| `AffineScope` trait | ❌ | Out of initial scope. |
+| Multi-block regions (structural) | ⚠️ Partial | **Surprise finding 2026-05-17**: `Operation.regions : Array RegionPtr`, `Region`, and `Block` are already defined in `Veir/IR/Basic.lean`; FieldsInBounds + WellFormed proofs exist for all three (`Veir/IR/Fields.lean`, `Veir/IR/WellFormed.lean`, `Veir/Rewriter/WellFormed/{Region,OpRegion,Block,BlockArguments,BlockOperands}.lean`). What's missing: dialect ops that *use* regions, block-arg-as-SSA-value integration, terminator invariants, symbol-table machinery. See `harness/regions-design.md` §3 for the full empirical state. |
+| Block arguments as SSA values | ❌ | `BlockArgument` exists as a separate type but isn't a `ValuePtr` variant; ops inside a region can't consume block args via the normal operand path. Phase F.2.1. |
+| Region entry block / argument list | ⚠️ Partial | Block-args structurally there; SSA integration is F.2.1. |
+| Terminator op validation | ❌ | No "every block ends in a terminator" invariant (neither structural nor verify-time). Phase F.3.1 — verify-time only, per `harness/regions-design.md` §7 Alternative B. |
+| `IsolatedFromAbove` trait | ❌ | Phase F.3.2 — verify-time only. |
+| Rewriter primitives (block-level) | ⚠️ Partial | `Rewriter.initOpRegions` and `Rewriter.pushRegion` exist with WellFormed-preservation proofs (`Veir/Rewriter/WellFormed/{Region,OpRegion}.lean`). Block-level primitives (`createBlock`, `insertBlock`, `eraseBlock`, `moveBlock`, `moveRegion`) are Phase F.2.3. |
+| `AffineScope` trait | ❌ | Out of initial scope (per `regions-design.md` §1). |
 | `AutomaticAllocationScope` | ❌ | Out of initial scope. |
-| `SingleBlock`, `NoTerminator`, `GraphRegionNoTerminator` | ❌ | Phase F (single-block variants). |
+| `SingleBlock`, `NoTerminator`, `GraphRegionNoTerminator` | ❌ | Phase F (single-block variants); LLZK Struct/Polymorphic use `GraphRegionNoTerminator`. |
 
 ---
 
