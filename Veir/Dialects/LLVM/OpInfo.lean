@@ -30,6 +30,7 @@ match op with
 | .store => StoreProperties
 | .getelementptr => GetelementptrProperties
 | .fadd => FastMathFlagsProperties
+| .func => LLVMFuncProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Llvm where

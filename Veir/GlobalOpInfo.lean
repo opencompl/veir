@@ -107,6 +107,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case store => exact (StoreProperties.fromAttrDict attrDict)
     case getelementptr => exact (GetelementptrProperties.fromAttrDict attrDict)
     case fadd => exact (FastMathFlagsProperties.fromAttrDict attrDict)
+    case func => exact (LLVMFuncProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case func =>
     all_goals exact (Except.ok ())
@@ -255,6 +256,13 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr props.predicate)
   | .hw .constant => Id.run do
     (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .llvm .func => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    if let some sym_name := props.sym_name then
+      dict := dict.insert "sym_name".toUTF8 (.stringAttr sym_name)
+    if let some function_type := props.function_type then
+      dict := dict.insert "function_type".toUTF8 function_type
+    dict
   | .builtin .unregistered =>
     Std.HashMap.ofList props.properties.entries.toList
   | .hw .module => Id.run do
