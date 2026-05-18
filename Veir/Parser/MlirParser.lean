@@ -26,6 +26,11 @@ structure MlirParserState where
   /-- The values that have been defined for a given name at that point in the parser. -/
   values : Std.HashMap ByteArray (Array ValuePtr)
   /--
+    The values defined in each currently active nested scope.
+    Each scope sees all values defined in parent scopes (those that appear earlier in the array).
+  -/
+  definitionsPerScope : Array (Std.HashSet ByteArray)
+  /--
     The blocks that have been already parsed.
     The Bool value indicates whether the block has already been parsed
     (true), or has been forward declared (false).
@@ -34,7 +39,12 @@ structure MlirParserState where
   deriving Inhabited
 
 def MlirParserState.fromContext (ctx : WfIRContext OpCode) : MlirParserState :=
-  {ctx := ctx, values := Std.HashMap.emptyWithCapacity 128, blocks := Std.HashMap.emptyWithCapacity 1}
+  {
+    ctx
+    values := Std.HashMap.emptyWithCapacity 128
+    definitionsPerScope := #[Std.HashSet.emptyWithCapacity 2]
+    blocks := Std.HashMap.emptyWithCapacity 1
+  }
 
 abbrev MlirParserM := StateT MlirParserState (EStateM ParserError ParserState)
 
@@ -77,14 +87,41 @@ def getInput : MlirParserM ByteArray := do
   return (← getThe ParserState).input
 
 /--
-  Register an array of parsed values with the given name.
+  Run an action within a new nested scope. This scope will be able to see all definitions in
+  parent scopes and any definitions it add will only be visible within it and child scopes.
+-/
+def inChildScope {α : Type} (m : MlirParserM α) : MlirParserM α := do
+  /- Push a new scope. -/
+  modify fun s => { s with definitionsPerScope := s.definitionsPerScope.push (.emptyWithCapacity 128) }
+
+  let result ← m
+
+  /- Pop the scope. -/
+  modify fun s => Id.run do
+    let mut values := s.values
+    /- Erase each variable defined in the last scope. -/
+    for name in s.definitionsPerScope.back! do
+      values := values.erase name
+    { s with values, definitionsPerScope := s.definitionsPerScope.pop }
+
+  return result
+
+/--
+  Register an array of parsed values with the given name in the current scope.
   This is used to keep track of values that have been defined during parsing.
 -/
 def registerValueDefs (name : ByteArray) (values : Array ValuePtr) : MlirParserM Unit := do
-  modify fun s => { s with values := s.values.insert name values }
+  if (← get).values.contains name then
+    throwString s!"value %{String.fromUTF8! name} has already been defined"
+
+  modify fun s =>
+    { s with
+      values := s.values.insert name values
+      definitionsPerScope := s.definitionsPerScope.modify (s.definitionsPerScope.size - 1) (·.insert name)
+    }
 
 /--
-  Register a single value with the given name.
+  Register a single value with the given name in current scope.
   This is used to keep track of values that have been defined during parsing.
 -/
 def registerValueDef (name : ByteArray) (value : ValuePtr) : MlirParserM Unit :=
@@ -490,6 +527,9 @@ partial def parseOp (ip : Option InsertPoint) : MlirParserM OperationPtr := do
   Parse a region.
 -/
 partial def parseRegion : MlirParserM RegionPtr := do
+  /- Ensure variables defined in this region do not leak out of it. -/
+  inChildScope do
+
   /- Reset the block parsing state, as blocks are local to regions. -/
   let oldBlocks := (← getThe MlirParserState).blocks
   modifyThe MlirParserState fun s => {s with blocks := Std.HashMap.emptyWithCapacity 1}

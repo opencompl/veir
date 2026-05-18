@@ -220,3 +220,61 @@ def testParseOp (s : String) : IO Unit :=
 #eval! testParseOp "\"builtin.module\"() ({
   %a:2, %b = \"test.test\"() : () -> (i1, i2)
 }) : () -> ()"
+
+/--
+  error: use of undefined value %a
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  "test.test"(%a) : (i32) -> ()
+}) : () -> ()"#
+
+/--
+  error: use of undefined value %a
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  "test.test"(%a#2) : (i32) -> ()
+}) : () -> ()"#
+
+/--
+  error: use of undefined value %a
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  "test.test"() ({
+    %a = "test.test"() : () -> i32
+  }) : () -> ()
+  "test.test"(%a) : (i32) -> ()
+}) : () -> ()"#
+
+/--
+  error: value %a has already been defined
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  %a = "test.test"() : () -> i32
+  %a = "test.test"() : () -> i32
+}) : () -> ()"#
+
+/--
+  error: value %a has already been defined
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  %a = "test.test"() : () -> i32
+  "test.test"() ({
+    %a = "test.test"() : () -> i32
+  }) : () -> ()
+}) : () -> ()"#
+
+/--
+  error: value %a has already been defined
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+^bb0:
+  %a = "test.test"() : () -> i32
+^bb1:
+  %a = "test.test"() : () -> i32
+}) : () -> ()"#
