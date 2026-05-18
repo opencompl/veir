@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""VeIR compiler driver.
+
+Compiles a C source file to MLIR ready for the VeIR interpreter
+"""
+
+from __future__ import annotations
+
+import argparse
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+
+BASE_TOOLS = ("clang", "opt", "mlir-translate", "mlir-opt")
+VEIR_TOOLS = ("lake",)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def check_tools(tools: tuple[str, ...]) -> None:
+    missing = [t for t in tools if shutil.which(t) is None]
+    if missing:
+        sys.exit(f"vcc: required tool(s) not found in PATH: {', '.join(missing)}")
+
+
+def run(cmd: list[str], *, stdin: bytes | None = None, cwd: Path | None = None) -> bytes:
+    result = subprocess.run(cmd, input=stdin, capture_output=True, cwd=cwd)
+    if result.returncode != 0:
+        err = result.stderr.decode("utf-8", errors="replace")
+        sys.exit(f"vcc: {cmd[0]} failed:\n{err}")
+    return result.stdout
+
+
+def compile_to_mlir(src: Path, dst: Path | None, veir_optimize: bool) -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        bc = tmp / (src.stem + ".bc")
+        bc_opt = tmp / (src.stem + "-opt.bc")
+
+        run(["clang", "-O0", "-Xclang", "-disable-O0-optnone", "-c", "-emit-llvm",
+             str(src), "-o", str(bc)])
+        # TODO -- as soon as we have our own mem2reg, stop running LLVM's
+        run(["opt", "-passes=sroa", str(bc), "-o", str(bc_opt)])
+        translated = run(["mlir-translate", "--import-llvm", str(bc_opt)])
+        mlir = run(
+            ["mlir-opt", "--mlir-print-op-generic", "--mlir-print-local-scope"],
+            stdin=translated,
+        )
+        if veir_optimize:
+            pre = tmp / (src.stem + ".mlir")
+            pre.write_bytes(mlir)
+            mlir = run(
+                ["lake", "exec", "veir-opt", "-p=instcombine,dce", str(pre)],
+                cwd=REPO_ROOT,
+            )
+        if dst is None:
+            sys.stdout.buffer.write(mlir)
+        else:
+            dst.write_bytes(mlir)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="vcc",
+        description="Compile a C file to MLIR for the VeIR interpreter.",
+    )
+    parser.add_argument("source", type=Path, help="C source file")
+    parser.add_argument(
+        "-o", "--output",
+        help="output .mlir path, or - for stdout (default: <source stem>.mlir)",
+    )
+    parser.add_argument(
+        "-O", dest="optimize", action="store_true",
+        help="run the VeIR optimizer (instcombine,dce) on the result",
+    )
+    args = parser.parse_args()
+
+    if not args.source.is_file():
+        sys.exit(f"vcc: source file not found: {args.source}")
+
+    check_tools(BASE_TOOLS + (VEIR_TOOLS if args.optimize else ()))
+
+    if args.output is None:
+        dst: Path | None = Path(args.source.stem + ".mlir")
+    elif args.output == "-":
+        dst = None
+    else:
+        dst = Path(args.output)
+    compile_to_mlir(args.source, dst, args.optimize)
+
+
+if __name__ == "__main__":
+    main()

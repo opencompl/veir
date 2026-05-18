@@ -90,3 +90,10 @@ Optimize using VeIR's InstCombine and DCE (dead code elimination) passes:
 ```bash
 lake exec veir-opt -p=instcombine,dce demorgan-opt.mlir
 ```
+
+Alternatively, you can batch up these commands using the provided
+compiler driver (and, in this case, emit the optimized MLIR to
+stdout):
+```bash
+Tools/vcc demorgan.c -O -o -
+```
