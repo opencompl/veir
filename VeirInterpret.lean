@@ -29,6 +29,43 @@ def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode �
   | .error errMsg =>
     throw s!"Error reading file: {errMsg}"
 
+/-- Returns true if `op` is an `llvm.func` with the given `name`. -/
+def isFuncWithName (ctx : IRContext OpCode) (op : OperationPtr) (name : String) : Bool :=
+  let opType := op.getOpType! ctx
+  let check : (opCode : OpCode) → propertiesOf opCode → Bool
+    | .llvm .func, props =>
+      match props.sym_name with
+      | none => false
+      | some sym_name => String.fromUTF8! sym_name.value == name
+    | _, _ => false
+  check opType (op.getProperties! ctx opType)
+
+/-- Returns true if the `llvm.func` properties describe a function with no arguments. -/
+private def hasNoArgs (props : LLVMFuncProperties) : Bool :=
+  match props.function_type with
+  | none => false
+  | some ft =>
+    match ft.val with
+    | .llvmFunctionType funcType => funcType.inputs.isEmpty
+    | _ => false
+
+/-- Searches the module's top-level ops for an `llvm.func @main` with no arguments. -/
+partial def findMainFunc (ctx : IRContext OpCode) (moduleOp : OperationPtr) : Option OperationPtr :=
+  let region := moduleOp.getRegion! ctx 0
+  match (region.get! ctx).firstBlock with
+  | none => none
+  | some blockPtr =>
+    let rec go : Option OperationPtr → Option OperationPtr
+      | none => none
+      | some op =>
+        let isMain : (opCode : OpCode) → propertiesOf opCode → Bool
+          | .llvm .func, props => isFuncWithName ctx op "main" && hasNoArgs props
+          | _, _ => false
+        let opType := op.getOpType! ctx
+        if isMain opType (op.getProperties! ctx opType) then some op
+        else go (op.get! ctx).next
+    go (blockPtr.get! ctx).firstOp
+
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
   match args with
@@ -37,10 +74,18 @@ def main (args : List String) : IO Unit := do
     | .ok (ctx, op) =>
       match ctx.verify with
       | .ok _ =>
-        match interpretModule ctx op (by sorry) (by sorry) with
-        | some (.ok results) => IO.println s!"Program output: {results}"
-        | some .ub => IO.println "Undefined behavior"
-        | none => IO.eprintln "Error while interpreting module"
+        let rawCtx : IRContext OpCode := ctx
+        match findMainFunc rawCtx op with
+        | some mainOp =>
+          match interpretRegion rawCtx (mainOp.getRegion! rawCtx 0) InterpreterState.empty (by sorry) (by sorry) with
+          | some (.ok (_, results)) => IO.println s!"Program output: {results}"
+          | some .ub => IO.println "Undefined behavior"
+          | none => IO.eprintln "Error while interpreting module"
+        | none =>
+          match interpretModule rawCtx op (by sorry) (by sorry) with
+          | some (.ok results) => IO.println s!"Program output: {results}"
+          | some .ub => IO.println "Undefined behavior"
+          | none => IO.eprintln "Error: No entry point: define a function named 'main' or use top-level executable ops"
       | .error errMsg => IO.eprintln s!"Error verifying input program: {errMsg}"
     | .error errMsg =>
       IO.eprintln s!"Error: {errMsg}"
