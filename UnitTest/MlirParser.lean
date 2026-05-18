@@ -16,8 +16,8 @@ def testParseOp (s : String) : IO Unit :=
     | .ok parser =>
       match (parseOp none).run (MlirParserState.fromContext ctx) parser with
       | .ok (op, state, _) => Printer.printOperation state.ctx op
-      | .error err => .error err
-    | .error err => .error err
+      | .error err => .error (toString err)
+    | .error err => .error (toString err)
   | none => .error "internal error: failed to create IR context"
 
 /--

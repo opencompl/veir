@@ -1,11 +1,12 @@
 import Veir.Parser.Parser
 
 open Veir.Parser
+open Veir.Parser.ParserError
 
 /--
   Run a parsing function on the given input string.
 -/
-def testParser [ToString α] (s : String) (f : EStateM String ParserState α) : String :=
+def testParser [ToString α] (s : String) (f : EStateM ParserError ParserState α) : String :=
   match ParserState.fromInput (s.toByteArray) with
   | .ok parser =>
     match f.run parser with

@@ -14,8 +14,10 @@ import Veir.Rewriter.GetSet
 
 namespace Veir.Parser
 
+open Veir.Parser.ParserError
+
 variable {OpInfo : Type} [HasOpInfo OpInfo]
-variable {m : Type → Type} [Monad m] [MonadExcept String m]
+variable {m : Type → Type} [Monad m] [MonadExcept ParserError m]
 
 /-! ## Option.maybe decidability
 
@@ -32,60 +34,60 @@ instance instDecidableMaybe (p : α → β → Prop) [inst : ∀ a b, Decidable 
 def checkBlockInBounds (block : BlockPtr) (ctx : IRContext OpInfo) :
     m (PLift (block.InBounds ctx)) :=
   if h : block.InBounds ctx then pure ⟨h⟩
-  else throw s!"internal error: block is not in bounds"
+  else throwString s!"internal error: block is not in bounds"
 
 /-- Check that a block insertion point is in bounds. -/
 def checkBlockInsertPointInBounds (ip : BlockInsertPoint) (ctx : IRContext OpInfo) :
     m (PLift (ip.InBounds ctx)) :=
   if h : ip.InBounds ctx then pure ⟨h⟩
-  else throw s!"internal error: block insertion point is not in bounds"
+  else throwString s!"internal error: block insertion point is not in bounds"
 
 /-- Check that an optional insertion point satisfies maybe-InBounds. -/
 def checkMaybeInsertPointInBounds (ip : Option InsertPoint) (ctx : IRContext OpInfo) :
     m (PLift (ip.maybe InsertPoint.InBounds ctx)) :=
   if h : ip.maybe InsertPoint.InBounds ctx then pure ⟨h⟩
-  else throw s!"internal error: optional insertion point is not in bounds"
+  else throwString s!"internal error: optional insertion point is not in bounds"
 
 /-- Check that a block has no arguments. -/
 def checkBlockHasNoArgs (block : BlockPtr) (ctx : IRContext OpInfo) :
     m (PLift (block.getNumArguments! ctx = 0)) :=
   if h : block.getNumArguments! ctx = 0 then pure ⟨h⟩
-  else throw s!"internal error: block has {block.getNumArguments! ctx} arguments, expected 0"
+  else throwString s!"internal error: block has {block.getNumArguments! ctx} arguments, expected 0"
 
 /-- Check that an operation is in bounds. -/
 def checkOpInBounds (op : OperationPtr) (ctx : IRContext OpInfo) :
     m (PLift (op.InBounds ctx)) :=
   if h : op.InBounds ctx then pure ⟨h⟩
-  else throw s!"internal error: operation is not in bounds"
+  else throwString s!"internal error: operation is not in bounds"
 
 /-- Check that a value is in bounds. -/
 def checkValueInBounds (value : ValuePtr) (ctx : IRContext OpInfo) :
     m (PLift (value.InBounds ctx)) :=
   if h : value.InBounds ctx then pure ⟨h⟩
-  else throw s!"internal error: value is not in bounds"
+  else throwString s!"internal error: value is not in bounds"
 
 /-- Check that a region is in bounds. -/
 def checkRegionInBounds (region : RegionPtr) (ctx : IRContext OpInfo) :
     m (PLift (region.InBounds ctx)) :=
   if h : region.InBounds ctx then pure ⟨h⟩
-  else throw s!"internal error: region is not in bounds"
+  else throwString s!"internal error: region is not in bounds"
 
 /-- Check that all values in an array are in bounds. -/
 def checkAllValuesInBounds (values : Array ValuePtr) (ctx : IRContext OpInfo) :
     m (PLift (∀ v, v ∈ values → v.InBounds ctx)) :=
   if h : ∀ v, v ∈ values → v.InBounds ctx then pure ⟨h⟩
-  else throw s!"internal error: not all values are in bounds"
+  else throwString s!"internal error: not all values are in bounds"
 
 /-- Check that all blocks in an array are in bounds. -/
 def checkAllBlocksInBounds (blocks : Array BlockPtr) (ctx : IRContext OpInfo) :
     m (PLift (∀ b, b ∈ blocks → b.InBounds ctx)) :=
   if h : ∀ b, b ∈ blocks → b.InBounds ctx then pure ⟨h⟩
-  else throw s!"internal error: not all blocks are in bounds"
+  else throwString s!"internal error: not all blocks are in bounds"
 
 /-- Check that all regions in an array are in bounds. -/
 def checkAllRegionsInBounds (regions : Array RegionPtr) (ctx : IRContext OpInfo) :
     m (PLift (∀ r, r ∈ regions → r.InBounds ctx)) :=
   if h : ∀ r, r ∈ regions → r.InBounds ctx then pure ⟨h⟩
-  else throw s!"internal error: not all regions are in bounds"
+  else throwString s!"internal error: not all regions are in bounds"
 
 end Veir.Parser

@@ -133,6 +133,30 @@ def format (e : ParserError) (filename : String) (input : ByteArray) : String :=
     (fun acc note => acc ++ "\n" ++ formatLabel filename input "note" (some note.pos) note.msg)
     primary
 
+/-!
+  ## Temporary Compatibility Functions
+
+  This section contains temporary functions that are only used to port existing code to the new
+  `ParserError`. Once all existing call sites have been updated to use `ParserError` with source
+  locations and notes, these functions will be removed.
+-/
+
+/--
+  Print a `ParserError` as just its message, so existing `#guard_msgs` /
+  FileCheck output are unchanged until all parser errors are enriched with source locations
+  and notes.
+-/
+instance : ToString ParserError := ⟨ParserError.msg⟩
+
+/--
+  Throws a `ParserError` with no source location or notes, given the error message.
+
+  This function is just temporary to avoid moving all existing `throw "msg"` to the new `ParserError`
+  at once, and will be removed once all call sites have been updated to provide source locations and
+  notes.
+-/
+def throwString [Monad M] [MonadExcept ParserError M] (msg : String) : M α :=
+  throw { msg }
 
 end -- public section
 
