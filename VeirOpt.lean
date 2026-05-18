@@ -1,4 +1,5 @@
 import Veir.Parser.MlirParser
+import Veir.Parser.ParserError
 import Veir.Printer
 import Veir.IR.Basic
 import Veir.Verifier
@@ -13,6 +14,7 @@ import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.Combines.Combine
 
 open Veir.Parser
+open Veir.Parser.ParserError
 open Veir
 
 /--
@@ -72,10 +74,10 @@ def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode Ã
     match (parseOp none).run (MlirParserState.fromContext ctx) parser with
     | .ok (op, state, _) =>
       return (state.ctx, op)
-    | .error errMsg =>
-      throw s!"Error parsing operation: {errMsg}"
-  | .error errMsg =>
-    throw s!"Error reading file: {errMsg}"
+    | .error err =>
+      throw (err.format filename fileContent)
+  | .error err =>
+    throw (err.format filename fileContent)
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
@@ -85,8 +87,7 @@ def main (args : List String) : IO Unit := do
     IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]"
   | .ok { filename, passes } =>
     match â† parseOperation filename with
-    | .error errMsg =>
-      IO.eprintln s!"Error: {errMsg}"
+    | .error errMsg => IO.eprintln errMsg
     | .ok (ctx, op) =>
       match ctx.verify with
       | .error errMsg =>

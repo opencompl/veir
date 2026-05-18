@@ -3,6 +3,8 @@ open Veir.Parser.Lexer
 
 namespace Veir.Parser
 
+open Veir.Parser.ParserError
+
 /--
   The state of a generic parser.
   It contains the state of the lexer (which includes the input and the current
@@ -16,7 +18,7 @@ structure ParserState where
 /--
   Create a new parser state at the beginning of the given input.
 -/
-def ParserState.fromInput (input : ByteArray) : Except String ParserState := do
+def ParserState.fromInput (input : ByteArray) : Except ParserError ParserState := do
   let lexerState := LexerState.mk input 0
   let (firstToken, lexerState) ← lex lexerState
   return ParserState.mk lexerState firstToken
@@ -39,7 +41,7 @@ def ParserState.input (state : ParserState) : ByteArray :=
 -/
 section ParserStateMethods
 
-variable [Monad M] [MonadExcept String M] [MonadStateOf ParserState M]
+variable [Monad M] [MonadExcept ParserError M] [MonadStateOf ParserState M]
 
 /--
   Get the current position in the input.
@@ -47,6 +49,19 @@ variable [Monad M] [MonadExcept String M] [MonadStateOf ParserState M]
 -/
 def getPos : M Nat := do
   return (←get).pos
+
+/--
+  Throw a `ParserError` whose location is the position currently pointed to by
+  the parser (i.e., the start of the current token).
+-/
+def throwAtCurrentPos (msg : String) : M α := do
+  throw { msg, pos := some (← getPos) }
+
+/--
+  Throw a `ParserError` whose location is the given byte offset.
+-/
+def throwAt (pos : Nat) (msg : String) : M α :=
+  throw { msg, pos := some pos }
 
 /--
   Consume the current token and return the updated parser state.
@@ -79,7 +94,7 @@ def parseOptionalToken (tokType : TokenKind) : M (Option Token) := do
 def parseToken (tokType : TokenKind) (errorMsg : String) : M Token := do
   match ← parseOptionalToken tokType with
   | some token => return token
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Peek at the current token without consuming it.
@@ -140,7 +155,7 @@ def parseOptionalPunctuation (c : String) (h : (isPunctuation c).isSome := by gr
 def parsePunctuation (c : String) (errorMsg : String := s!"Expected punctuation '{c}'") (h : (isPunctuation c).isSome := by grind) : M Unit := do
   match ← parseOptionalPunctuation c with
   | true => return ()
-  | false => throw errorMsg
+  | false => throwAtCurrentPos errorMsg
 
 /--
   Parse optionally an identifier with grammar rule `(letter|[_]) (letter|digit|[_$.])*`.
@@ -159,7 +174,7 @@ def parseOptionalIdentifier : M (Option ByteArray) := do
 def parseIdentifier (errorMsg : String := "identifier expected") : M ByteArray := do
   match ← parseOptionalIdentifier with
   | some ident => return ident
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse optionally a specific keyword.
@@ -188,7 +203,7 @@ def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword
   if ← parseOptionalKeyword keyword then
     return
   else
-    throw errorMsg
+    throwAtCurrentPos errorMsg
 
 /--
   Parse an identifier with a specific prefix, if present.
@@ -215,13 +230,13 @@ def parsePrefixedKeyword (prefixKind : TokenKind)
       M ByteArray := do
   match ← parseOptionalPrefixedKeyword prefixKind with
   | some ident => return ident
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Process escape sequences in a string literal byte array.
   Supported escapes: `\\`, `\"`, `\n`, `\t`, and `\HH` (hex byte).
 -/
-private def processEscapes (input : ByteArray) : Except String ByteArray := do
+private def processEscapes (input : ByteArray) (basePos : Nat) : Except ParserError ByteArray := do
   let mut result : ByteArray := .empty
   let mut i := 0
   while h : i < input.size do
@@ -231,7 +246,7 @@ private def processEscapes (input : ByteArray) : Except String ByteArray := do
       i := i + 1
       continue
     if i + 1 >= input.size then
-      throw "unexpected end of string after '\\'"
+      throwAt (basePos + i) "unexpected end of string after '\\'"
     let next := input.getD (i + 1) 0
     if next == '\\'.toUInt8 then
       result := result.push '\\'.toUInt8
@@ -251,11 +266,11 @@ private def processEscapes (input : ByteArray) : Except String ByteArray := do
       continue
     -- Try \HH hex escape
     if i + 2 >= input.size then
-      throw "unknown escape in string literal"
+      throwAt (basePos + i) "unknown escape in string literal"
     let hex1 := input.getD (i + 1) 0
     let hex2 := input.getD (i + 2) 0
     if !(hex1.isHexDigit && hex2.isHexDigit) then
-      throw "unknown escape in string literal"
+      throwAt (basePos + i) "unknown escape in string literal"
     let high := if hex1 >= 'a'.toUInt8 then hex1 - 'a'.toUInt8 + 10
       else if hex1 >= 'A'.toUInt8 then hex1 - 'A'.toUInt8 + 10
       else hex1 - '0'.toUInt8
@@ -277,10 +292,10 @@ def parseOptionalStringLiteral : M (Option String) := do
   | some token =>
     let slice : Slice := {start := token.slice.start + 1, stop := token.slice.stop - 1} -- remove quotes
     let raw := slice.of ((← get).input)
-    let processed ← ofExcept (processEscapes raw)
+    let processed ← ofExcept (processEscapes raw (token.slice.start + 1))
     match String.fromUTF8? processed with
     | some str => return some str
-    | none => throw "internal error: failed converting string literal"
+    | none => throwAt token.slice.start "internal error: failed converting string literal"
   | none => return none
 
 /--
@@ -290,7 +305,7 @@ def parseOptionalStringLiteral : M (Option String) := do
 def parseStringLiteral (errorMsg : String := "string literal expected") : M String := do
   match ← parseOptionalStringLiteral with
   | some str => return str
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parses either an identifier or a string literal, if present.
@@ -311,7 +326,7 @@ def parseIdentifierOrStringLiteral (errorMsg : String := "identifier or string l
     M ByteArray := do
   match ← parseOptionalIdentifierOrStringLiteral with
   | some identOrStr => return identOrStr
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse a boolean with grammar rule `true | false`, if present.
@@ -333,7 +348,7 @@ def parseOptionalBoolean : M (Option Bool) := do
 def parseBoolean (errorMsg : String := "boolean expected") : M Bool := do
   match ← parseOptionalBoolean with
   | some b => return b
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse an integer literal, if present.
@@ -342,6 +357,7 @@ def parseBoolean (errorMsg : String := "boolean expected") : M Bool := do
   Optionally, allow parsing `true` or `false` as `1` or `0`, respectively.
 -/
 def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : M (Option Int) := do
+  let startPos ← getPos
   -- First try to parse a boolean if allowed
   if allowBoolean then
     let boolean ← parseOptionalBoolean
@@ -356,7 +372,7 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : M (Optio
   -- Parse the actual integer literal
   let intToken ← parseOptionalToken .intLit
   if intToken = none && isNegative then
-    throw "expected integer literal after '-'"
+    throwAtCurrentPos "expected integer literal after '-'"
 
   -- Convert the integer literal token to an Int
   let some intToken := intToken | return none
@@ -367,7 +383,7 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : M (Optio
     else
       (String.fromUTF8? slice).bind String.toNat?
   let some value := value
-    | throw s!"internal error: failed converting '{intToken.slice.of ((← get).input)}' to an integer literal"
+    | throwAt startPos s!"internal error: failed converting '{intToken.slice.of ((← get).input)}' to an integer literal"
   if isNegative then
     return some (Int.negOfNat value)
   else
@@ -383,7 +399,7 @@ def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : M (Optio
 def parseInteger (allowBoolean : Bool) (allowNegative : Bool) (errorMsg : String := "integer expected") : M Int := do
   match ← parseOptionalInteger allowBoolean allowNegative with
   | some i => return i
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Delimiters that are supported when parsing lists.

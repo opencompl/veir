@@ -29,6 +29,8 @@ match op with
 | .load => LoadProperties
 | .store => StoreProperties
 | .getelementptr => GetelementptrProperties
+| .fadd => FastMathFlagsProperties
+| .func => LLVMFuncProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Llvm where

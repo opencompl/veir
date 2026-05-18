@@ -104,6 +104,21 @@ def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let nneg ← getUnitAttr "nneg" attrDict
   return { nneg := nneg }
 
+structure FastMathFlagsProperties where
+  fast : Bool
+  nnan : Bool
+  ninf : Bool
+  nsz : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String FastMathFlagsProperties := do
+  let fast ← getUnitAttr "fast" attrDict
+  let nnan ← getUnitAttr "nnan" attrDict
+  let ninf ← getUnitAttr "ninf" attrDict
+  let nsz ← getUnitAttr "nsz" attrDict
+  return { fast, nnan, ninf, nsz }
+
 /--
   Properties of the `llvm.constant` operation.
 -/
@@ -318,7 +333,7 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | none => .ok { value := 0, type := { bitwidth := 32 } }
   let rawConstantIndices ← match attrDict["rawConstantIndices".toUTF8]? with
     | some (.denseArrayAttr arr) => .ok arr
-    | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute, 
+    | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute,
         but got {attr}"
     | none => .error "getelementptr: missing 'rawConstantIndices' property"
   let some typeAttr := attrDict["elem_type".toUTF8]?
@@ -377,6 +392,33 @@ def HWConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
   let .integerAttr intAttr := attr
     | throw s!"hw.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
+
+/--
+  Properties of `llvm.func`. The `sym_name` and `function_type` attributes are
+  modelled explicitly; all other attributes (e.g. `CConv`, `linkage`, `visibility_`)
+  are preserved verbatim in `extra`.
+-/
+structure LLVMFuncProperties where
+  sym_name : Option StringAttr
+  function_type : Option TypeAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMFuncProperties := do
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr s) => pure (some s)
+    | some attr => throw s!"llvm.func: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => pure none
+  let funcType ← match attrDict["function_type".toUTF8]? with
+    | some attr =>
+      if _ : attr.isType = false then
+        throw "llvm.func: expected 'function_type' to be a type attribute"
+      else pure (some attr.asType)
+    | none => pure none
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "function_type".toUTF8)
+  return { sym_name := symName, function_type := funcType, extra }
 
 /--
   Properties of `hw.module`.

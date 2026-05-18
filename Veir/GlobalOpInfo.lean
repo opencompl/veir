@@ -106,6 +106,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case load => exact (LoadProperties.fromAttrDict attrDict)
     case store => exact (StoreProperties.fromAttrDict attrDict)
     case getelementptr => exact (GetelementptrProperties.fromAttrDict attrDict)
+    case fadd => exact (FastMathFlagsProperties.fromAttrDict attrDict)
+    case func => exact (LLVMFuncProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case func =>
     all_goals exact (Except.ok ())
@@ -160,6 +162,17 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       dict := dict.insert "nsw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     if props.nuw then
       dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
+  | .llvm .fadd => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    if props.fast then
+      dict := dict.insert "fast".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    if props.nnan then
+      dict := dict.insert "nnan".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    if props.ninf then
+      dict := dict.insert "ninf".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    if props.nsz then
+      dict := dict.insert "nsz".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .llvm .icmp => Id.run do
     (Std.HashMap.emptyWithCapacity 2).insert "predicate".toUTF8 (Attribute.integerAttr props.value)
@@ -243,6 +256,13 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr props.predicate)
   | .hw .constant => Id.run do
     (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .llvm .func => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    if let some sym_name := props.sym_name then
+      dict := dict.insert "sym_name".toUTF8 (.stringAttr sym_name)
+    if let some function_type := props.function_type then
+      dict := dict.insert "function_type".toUTF8 function_type
+    dict
   | .builtin .unregistered =>
     Std.HashMap.ofList props.properties.entries.toList
   | .hw .module => Id.run do

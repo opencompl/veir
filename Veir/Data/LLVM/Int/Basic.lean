@@ -274,13 +274,13 @@ def shl {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
   let val x' := x | poison
   let val y' := y | poison
 
+  if y' ≥ w then
+    return poison
+
   if nsw ∧ (x' <<< y').sshiftRight' y' ≠ x' then
     return poison
 
   if nuw ∧ (x' <<< y') >>> y' ≠ x' then
-    return poison
-
-  if y' ≥ w then
     return poison
 
   val (x' <<< y')
@@ -482,12 +482,13 @@ def icmp {w : Nat} (x y : Int w) (p : IntPred) : Int 1 := Id.run do
 
 /--
  If the condition is an i1 and it evaluates to 1, the instruction returns the first value argument; otherwise, it returns the second value argument.
+
+ If the condition is poison, the result is poison. Poison on the *non-selected* arm
+ does not propagate to the result.
 -/
 def select {w : Nat} (c : Int 1) (x y : Int w) : Int w := Id.run do
-  let val x' := x | poison
-  let val y' := y | poison
   let val c' := c | poison
-  val (if c' == 1#1 then x' else y')
+  if c' == 1#1 then x else y
 
 end Int
 end
