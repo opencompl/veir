@@ -75,17 +75,18 @@ def main (args : List String) : IO Unit := do
       match ctx.verify with
       | .ok _ =>
         let rawCtx : IRContext OpCode := ctx
+        let report : Interp (Array RuntimeValue) → String → IO Unit
+          | some (.ok results), _ => IO.println s!"Program output: {results}"
+          | some .ub,           _ => IO.println "Undefined behavior"
+          | none,             msg => IO.eprintln msg
         match findMainFunc rawCtx op with
         | some mainOp =>
-          match interpretRegion rawCtx (mainOp.getRegion! rawCtx 0) InterpreterState.empty (by sorry) (by sorry) with
-          | some (.ok (_, results)) => IO.println s!"Program output: {results}"
-          | some .ub => IO.println "Undefined behavior"
-          | none => IO.eprintln "Error while interpreting module"
+          let result := bind (interpretRegion rawCtx (mainOp.getRegion! rawCtx 0) InterpreterState.empty (by sorry) (by sorry))
+                             (fun (_, r) => pure r)
+          report result "Error while interpreting module"
         | none =>
-          match interpretModule rawCtx op (by sorry) (by sorry) with
-          | some (.ok results) => IO.println s!"Program output: {results}"
-          | some .ub => IO.println "Undefined behavior"
-          | none => IO.eprintln "Error: No entry point: define a function named 'main' or use top-level executable ops"
+          report (interpretModule rawCtx op (by sorry) (by sorry))
+                 "Error: No entry point: define a function named 'main' or use top-level executable ops"
       | .error errMsg => IO.eprintln s!"Error verifying input program: {errMsg}"
     | .error errMsg =>
       IO.eprintln s!"Error: {errMsg}"
