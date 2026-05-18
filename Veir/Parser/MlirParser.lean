@@ -112,7 +112,7 @@ def inChildScope {α : Type} (m : MlirParserM α) : MlirParserM α := do
 -/
 def registerValueDefs (name : ByteArray) (values : Array ValuePtr) : MlirParserM Unit := do
   if (← get).values.contains name then
-    throw s!"value %{String.fromUTF8! name} has already been defined"
+    throwString s!"value %{String.fromUTF8! name} has already been defined"
 
   modify fun s =>
     { s with
