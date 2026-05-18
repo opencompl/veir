@@ -394,6 +394,33 @@ def HWConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
   return { value := intAttr }
 
 /--
+  Properties of `llvm.func`. The `sym_name` and `function_type` attributes are
+  modelled explicitly; all other attributes (e.g. `CConv`, `linkage`, `visibility_`)
+  are preserved verbatim in `extra`.
+-/
+structure LLVMFuncProperties where
+  sym_name : Option StringAttr
+  function_type : Option TypeAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMFuncProperties := do
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr s) => pure (some s)
+    | some attr => throw s!"llvm.func: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => pure none
+  let funcType ← match attrDict["function_type".toUTF8]? with
+    | some attr =>
+      if _ : attr.isType = false then
+        throw "llvm.func: expected 'function_type' to be a type attribute"
+      else pure (some attr.asType)
+    | none => pure none
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "function_type".toUTF8)
+  return { sym_name := symName, function_type := funcType, extra }
+
+/--
   Properties of `hw.module`.
 -/
 structure HWModuleProperties where
