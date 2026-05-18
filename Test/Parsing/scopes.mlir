@@ -53,6 +53,6 @@
 // CHECK-NEXT:         "test.test"(%[[A]], %[[B]], %[[C5]]) : (i1, i2, i5) -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT:   ^{{.*}}():
-// CHECK-NEXT:     %[[B6:.*]], %[[C7:.*]] = "test.test"() : () -> (i6, i7)
-// CHECK-NEXT:     "test.test"(%[[A]], %[[B6]], %[[C7]]) : (i1, i6, i7) -> ()
+// CHECK-NEXT:     %[[B6C7:.*]]:2 = "test.test"() : () -> (i6, i7)
+// CHECK-NEXT:     "test.test"(%[[A]], %[[B6C7]]#0, %[[B6C7]]#1) : (i1, i6, i7) -> ()
 // CHECK-NEXT: }) : () -> ()
