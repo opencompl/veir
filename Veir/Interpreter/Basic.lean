@@ -55,68 +55,71 @@ structure MemoryState where
 def MemoryState.empty : MemoryState :=
   { contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff }
 
+structure VariableState where
+  variables : Std.ExtHashMap ValuePtr RuntimeValue
+
 /--
   The state of the interpreter at a given point in time.
   It includes a mapping from IR values to their runtime values.
 -/
+@[ext]
 structure InterpreterState where
-  variables : Std.ExtHashMap ValuePtr RuntimeValue
+  variables : VariableState
   memory : MemoryState
 
 /--
   Set the value of a variable.
 -/
-def InterpreterState.setVar (state : InterpreterState) (var : ValuePtr) (val : RuntimeValue) :
-    InterpreterState :=
-  {state with variables := state.variables.insert var val}
+def VariableState.setVar (state : VariableState) (var : ValuePtr) (val : RuntimeValue) :
+    VariableState :=
+  ⟨state.variables.insert var val⟩
 
 /--
   Get the value of a variable, if the variable exists.
 -/
-def InterpreterState.getVar? (state : InterpreterState) (var : ValuePtr)
+def VariableState.getVar? (state : VariableState) (var : ValuePtr)
     : Option RuntimeValue :=
   state.variables[var]?
 
 @[ext]
-theorem InterpreterState.ext {s₁ s₂ : InterpreterState} :
+theorem VariableState.ext {s₁ s₂ : VariableState} :
     (∀ var, s₁.getVar? var = s₂.getVar? var) →
-    s₁.memory = s₂.memory →
     s₁ = s₂ := by
   rcases s₁; rcases s₂
-  simp only [getVar?, mk.injEq]
+  simp only [VariableState.getVar?, mk.injEq]
   grind
 
 /--
   Get the value of the operands of an operation.
   If any operand is not in the state, return `none`.
 -/
-def InterpreterState.getOperandValues (state : InterpreterState)
+def VariableState.getOperandValues (state : VariableState)
     (ctx : IRContext OpInfo) (op : OperationPtr) : Option (Array RuntimeValue) := do
   (op.getOperands! ctx).mapM state.getVar?
 
-def InterpreterState.setResultValues_loop (state : InterpreterState)
-    (ctx : IRContext OpInfo) (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat) : InterpreterState :=
+def VariableState.setResultValues_loop (state : VariableState)
+    (ctx : IRContext OpInfo) (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat) : VariableState :=
   match i with
   | 0 => state
   | i + 1 =>
     let result := op.getResult i
     let value := resultValues[i]!
     let newState := state.setVar result value
-    InterpreterState.setResultValues_loop newState ctx op resultValues i
+    VariableState.setResultValues_loop newState ctx op resultValues i
 
 /--
   Set the values of the results of an operation.
 -/
-def InterpreterState.setResultValues (state : InterpreterState) (ctx : IRContext OpInfo)
-    (op : OperationPtr) (resultValues : Array RuntimeValue) : InterpreterState :=
-  InterpreterState.setResultValues_loop state ctx op resultValues (op.getNumResults! ctx)
+def VariableState.setResultValues (state : VariableState) (ctx : IRContext OpInfo)
+    (op : OperationPtr) (resultValues : Array RuntimeValue) : VariableState :=
+  VariableState.setResultValues_loop state ctx op resultValues (op.getNumResults! ctx)
 
 /--
   Set the values of block arguments.
 -/
-def InterpreterState.setArgumentValues (state : InterpreterState) (ctx : IRContext OpInfo)
-    (block : BlockPtr) (values : Array RuntimeValue) : InterpreterState :=
-  let rec loop (state : InterpreterState) (i : Nat) :=
+def VariableState.setArgumentValues (state : VariableState) (ctx : IRContext OpInfo)
+    (block : BlockPtr) (values : Array RuntimeValue) : VariableState :=
+  let rec loop (state : VariableState) (i : Nat) :=
     match i with
     | 0 => state
     | i + 1 =>
@@ -130,7 +133,7 @@ def InterpreterState.setArgumentValues (state : InterpreterState) (ctx : IRConte
   Create an interpreter state with no variables defined.
 -/
 def InterpreterState.empty : InterpreterState :=
-  { variables := Std.ExtHashMap.emptyWithCapacity 8, memory := .empty }
+  { variables := ⟨Std.ExtHashMap.emptyWithCapacity 8⟩, memory := .empty }
 
 /--
   How the control flow should proceed after interpreting a terminator.
@@ -959,10 +962,10 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
 -/
 def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
     : Interp (InterpreterState × Option ControlFlowAction) := do
-  let some operands := state.getOperandValues ctx op | none
+  let some operands := state.variables.getOperandValues ctx op | none
   let opType := op.getOpType! ctx
   let (resultValues, mem, action) ← interpretOp' opType (op.getProperties! ctx opType) (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) state.memory
-  let newState := {state.setResultValues ctx op resultValues with memory := mem}
+  let newState := ⟨state.variables.setResultValues ctx op resultValues, mem⟩
   return (newState, action)
 
 /--
@@ -1005,7 +1008,7 @@ def interpretBlockCFG (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : In
   | some (.ok (state, .return res)) => some (.ok (state, res))
   | some (.ok (state, .branch res succ)) =>
     if h : succ.InBounds ctx then
-      let state := state.setArgumentValues ctx succ res
+      let state := ⟨state.variables.setArgumentValues ctx succ res, state.memory⟩
       interpretBlockCFG ctx succ state h wf else none
   | some .ub => Interp.ub
   | none => none
