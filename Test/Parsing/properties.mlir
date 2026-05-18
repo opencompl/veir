@@ -1,4 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
     "test.test"() <{test = 23 : i32, "fo/no" = 1 : i32}> : () -> ()

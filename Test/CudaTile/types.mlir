@@ -1,4 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 "builtin.module"() ({
 ^bb0(%arg0: !cuda_tile.ptr<i1>):
     %0 = "test.test"() : () -> !cuda_tile.ptr<i1>
