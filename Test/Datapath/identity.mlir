@@ -1,4 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
 ^bb0(%arg0: i3, %arg1: i3, %arg2: i3):
