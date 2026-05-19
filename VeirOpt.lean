@@ -35,7 +35,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
 -/
 structure VeirOptArgs where
   /-- The input filename. -/
-  filename : String
+  filename : Option String
   /-- List of passes to run. -/
   passes : PassPipeline OpCode
 
@@ -59,16 +59,36 @@ def parsePipelineOption (args : List String) : Except String (PassPipeline OpCod
 -/
 def parseArgs (args : List String) : Except String VeirOptArgs := do
   let (flags, positional) := args.partition (·.startsWith "-")
-  let [filename] := positional
-    | .error "Expected exactly one positional argument for the input filename."
   -- Parses the `-p` flag if present.
   let pipeline ← parsePipelineOption flags
-  return VeirOptArgs.mk filename pipeline
 
-def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
-  let fileContent ← IO.FS.readBinFile filename
+  if positional.length == 0 then -- read from stdin
+    return VeirOptArgs.mk none pipeline
+
+  let [filename] := positional
+    | .error "Expected exactly one positional argument for the input filename."
+
+  if filename == "-" then
+    return VeirOptArgs.mk none pipeline
+
+  return VeirOptArgs.mk (some filename) pipeline
+
+def getFileContent (filename : Option String) : ExceptT String IO ByteArray := do
+  if let some f := filename then
+    try
+      return ← IO.FS.readBinFile f
+    catch e =>
+      throw s!"Error reading file '{filename}': {e}"
+
+  return ← IO.FS.Stream.readBinToEnd (←IO.getStdin)
+
+def parseOperation (filename : Option String) : ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
+  let fileContent ← getFileContent filename
   let some (ctx, _) := WfIRContext.create OpCode
     | throw "Failed to create IR context"
+
+  let filename := if let some f := filename then f else "<stdin>"
+
   match ParserState.fromInput fileContent with
   | .ok parser =>
     match (parseOp none).run (MlirParserState.fromContext ctx) parser with

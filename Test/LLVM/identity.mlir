@@ -52,6 +52,26 @@
       %36 = "llvm.fadd"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
       %37 = "llvm.fadd"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
       %38 = "llvm.fadd"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %39 = "llvm.fsub"(%fcst, %fcst) : (f64, f64) -> f64
+      %40 = "llvm.fsub"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
+      %41 = "llvm.fsub"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
+      %42 = "llvm.fsub"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
+      %43 = "llvm.fsub"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %44 = "llvm.fmul"(%fcst, %fcst) : (f64, f64) -> f64
+      %45 = "llvm.fmul"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
+      %46 = "llvm.fmul"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
+      %47 = "llvm.fmul"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
+      %48 = "llvm.fmul"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %49 = "llvm.fdiv"(%fcst, %fcst) : (f64, f64) -> f64
+      %50 = "llvm.fdiv"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
+      %51 = "llvm.fdiv"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
+      %52 = "llvm.fdiv"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
+      %53 = "llvm.fdiv"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %54 = "llvm.frem"(%fcst, %fcst) : (f64, f64) -> f64
+      %55 = "llvm.frem"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
+      %56 = "llvm.frem"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
+      %57 = "llvm.frem"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
+      %58 = "llvm.frem"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
       "llvm.return"(%28, %29, %30, %31, %32) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
   }) : () -> ()
 }) : () -> ()
@@ -109,6 +129,26 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
 // CHECK-NEXT:       "llvm.return"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
 // CHECK-NEXT:   }) : () -> ()
 // CHECK-NEXT: }) : () -> ()
