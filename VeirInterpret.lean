@@ -29,31 +29,21 @@ def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode �
   | .error errMsg =>
     throw s!"Error reading file: {errMsg}"
 
-/-- Returns true if `op` is an `llvm.func` with the given `name`. -/
-def isFuncWithName (ctx : IRContext OpCode) (op : OperationPtr) (name : String) : Bool :=
-  let opType := op.getOpType! ctx
-  let check : (opCode : OpCode) → propertiesOf opCode → Bool
-    | .llvm .func, props =>
-      match props.sym_name with
-      | none => false
-      | some sym_name => String.fromUTF8! sym_name.value == name
-    | _, _ => false
-  check opType (op.getProperties! ctx opType)
-
-/-- Returns true if the `llvm.func` properties describe a function with no arguments. -/
-private def hasNoArgs (props : LLVMFuncProperties) : Bool :=
-  match props.function_type with
-  | none => false
-  | some ft =>
-    match ft.val with
-    | .llvmFunctionType funcType => funcType.inputs.isEmpty
-    | _ => false
-
 /-- Returns true if `op` is an `llvm.func @main` with no arguments. -/
 private def isZeroArgMainFunc (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
   let opType := op.getOpType! ctx
   let check : (opCode : OpCode) → propertiesOf opCode → Bool
-    | .llvm .func, props => isFuncWithName ctx op "main" && hasNoArgs props
+    | .llvm .func, props =>
+      match props.sym_name with
+      | some sym_name =>
+        String.fromUTF8! sym_name.value == "main" &&
+          match props.function_type with
+          | some ft =>
+            match ft.val with
+            | .llvmFunctionType funcType => funcType.inputs.isEmpty
+            | _ => false
+          | none => false
+      | none => false
     | _, _ => false
   check opType (op.getProperties! ctx opType)
 
