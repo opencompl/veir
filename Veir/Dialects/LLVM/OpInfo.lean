@@ -29,7 +29,7 @@ match op with
 | .load => LoadProperties
 | .store => StoreProperties
 | .getelementptr => GetelementptrProperties
-| .fadd => FastMathFlagsProperties
+| .fadd | .fsub | .fmul | .fdiv | .frem => FastMathFlagsProperties
 | .func => LLVMFuncProperties
 | _ => Unit
 

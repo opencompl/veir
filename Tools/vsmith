@@ -1,0 +1,423 @@
+#!/usr/bin/env python3
+"""Differential fuzzer for VeIR optimization passes.
+
+Repeatedly generates random MLIR programs, interprets them before and after
+running an optimizer pipeline, and reports a reproducer if the observable
+outputs differ.
+"""
+
+# TODO
+#
+# - convert both src and tgt to LLVM IR and run llubi, check for
+#   agreement with veir-interpret
+
+from __future__ import annotations
+
+import argparse
+import itertools
+import multiprocessing
+import os
+import random
+import secrets
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+import traceback
+from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from vsmith_generate import generate
+
+
+@dataclass(frozen=True)
+class ToolResult:
+    returncode: int
+    output: str
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    ok: bool
+    skipped: bool
+    before: str
+    after: str | None
+    message: str
+
+
+class Spinner:
+    MIN_INTERVAL = 0.2
+
+    def __init__(self) -> None:
+        self.frames = ("|", "/", "-", "\\")
+        self.index = 0
+        self.last_len = 0
+        self.interactive = sys.stdout.isatty()
+        self.last_update = 0.0
+
+    def update(self, message: str) -> None:
+        now = time.monotonic()
+        if now - self.last_update < self.MIN_INTERVAL:
+            return
+        self.last_update = now
+        frame = self.frames[self.index % len(self.frames)]
+        self.index += 1
+        text = f"{frame} {message}"
+        if self.interactive:
+            padding = " " * max(0, self.last_len - len(text))
+            print(f"\r{text}{padding}", end="", flush=True)
+            self.last_len = len(text)
+        else:
+            print(text, flush=True)
+
+    def clear(self) -> None:
+        if self.interactive and self.last_len:
+            print(f"\r{' ' * self.last_len}\r", end="", flush=True)
+            self.last_len = 0
+
+    def finish(self, message: str) -> None:
+        self.clear()
+        print(message)
+
+
+def run_tool(repo: Path, cmd: list[str]) -> ToolResult:
+    result = subprocess.run(
+        cmd,
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return ToolResult(result.returncode, result.stdout + result.stderr)
+
+
+KNOWN_INTERPRETER_FAILURES = ("Undefined behavior",)
+
+
+def classify_failure(log: str) -> str:
+    for pattern in KNOWN_INTERPRETER_FAILURES:
+        if pattern in log:
+            return pattern
+    raise ValueError(f"interpreter produced no 'Program output:' line and no known failure pattern:\n{log}")
+
+
+def outcome_key(output: str | None) -> str:
+    if output is None:
+        return "optimizer failed"
+    if output.startswith("Program output:"):
+        values = parse_output_values(output)
+        if values is not None and any(v == "poison" for v in values):
+            return "program output (poison)"
+        return "program output"
+    return output
+
+
+def prebuild(repo: Path) -> None:
+    """Build veir-opt and veir-interpret so workers can exec them directly."""
+    result = subprocess.run(
+        ["lake", "build", "veir-opt", "veir-interpret"],
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"lake build failed:\n{result.stdout}")
+
+
+def interpret(repo: Path, interp_bin: Path, path: Path) -> tuple[str, str]:
+    """Return the last 'Program output: ...' line, or a classified failure string."""
+    result = run_tool(repo, [str(interp_bin), str(path)])
+    outputs = [line for line in result.output.splitlines() if line.startswith("Program output:")]
+    output = outputs[-1] if outputs else classify_failure(result.output)
+    return output, result.output
+
+
+def optimize(repo: Path, opt_bin: Path, src: Path, dst: Path, passes: str) -> tuple[bool, str]:
+    """Run veir-opt and write the result to dst. Returns (success, log)."""
+    result = run_tool(repo, [str(opt_bin), str(src), f"-p={passes}"])
+    output = result.output
+    failed = (
+        result.returncode != 0
+        or "Error:" in output
+        or "uncaught exception" in output
+        or "panic" in output.lower()
+        or not output.strip().startswith('"builtin.module"')
+    )
+    if failed:
+        return False, output
+    dst.write_text(output)
+    return True, output
+
+
+def parse_output_values(line: str) -> list[str] | None:
+    """Parse 'Program output: #[a, b, c]' into a list of element strings."""
+    prefix = "Program output:"
+    if not line.startswith(prefix):
+        return None
+    body = line[len(prefix):].strip()
+    if not (body.startswith("#[") and body.endswith("]")):
+        return None
+    inner = body[2:-1].strip()
+    return [elem.strip() for elem in inner.split(",")] if inner else []
+
+
+def refines(original: str, optimized: str) -> bool:
+    """Return True if optimized is a valid refinement of original.
+
+    poison in the original may map to any value; all other values must match.
+    """
+    orig = parse_output_values(original)
+    opt = parse_output_values(optimized)
+    if orig is None or opt is None or len(orig) != len(opt):
+        return original == optimized
+    return all(o == "poison" or o == p for o, p in zip(orig, opt))
+
+
+def check(repo: Path, interp_bin: Path, opt_bin: Path, src: Path, opt: Path, passes: str) -> CheckResult:
+    """Interpret, optimize, re-interpret, and compare."""
+    before, before_log = interpret(repo, interp_bin, src)
+
+    ok, opt_log = optimize(repo, opt_bin, src, opt, passes)
+    if not ok:
+        return CheckResult(
+            ok=False,
+            skipped=False,
+            before=before,
+            after=None,
+            message=f"optimizer failed on {src}\n{opt_log}",
+        )
+
+    after, after_log = interpret(repo, interp_bin, opt)
+    if not before.startswith("Program output:"):
+        return CheckResult(
+            ok=True,
+            skipped=True,
+            before=before,
+            after=after,
+            message=(
+                f"skipped ({before})\n"
+                f"source: {src}\noptimized: {opt}\n"
+                f"optimized output: {after}\n"
+                f"source log:\n{before_log}"
+                f"optimized log:\n{after_log}"
+            ),
+        )
+    if not after.startswith("Program output:"):
+        return CheckResult(
+            ok=False,
+            skipped=False,
+            before=before,
+            after=after,
+            message=(
+                f"optimized program is not interpretable\n"
+                f"source: {src}\noptimized: {opt}\n"
+                f"original output: {before}\ninterpreter output: {after}\n{after_log}"
+            ),
+        )
+    if not refines(before, after):
+        return CheckResult(
+            ok=False,
+            skipped=False,
+            before=before,
+            after=after,
+            message=(
+                f"semantic mismatch\n"
+                f"source: {src}\noptimized: {opt}\n"
+                f"original:  {before}\n"
+                f"optimized: {after}"
+            ),
+        )
+    return CheckResult(ok=True, skipped=False, before=before, after=after, message=before)
+
+
+def _worker(
+    repo: Path,
+    interp_bin: Path,
+    opt_bin: Path,
+    workdir: Path,
+    seed: int,
+    count: int,
+    start_index: int,
+    passes: str,
+    queue: "multiprocessing.Queue",
+) -> None:
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        workdir.mkdir(parents=True, exist_ok=True)
+        rng = random.Random(seed)
+        iterator = itertools.count() if count < 0 else range(count)
+        for i in iterator:
+            idx = start_index + i
+            src = workdir / f"case_{idx}.mlir"
+            opt = workdir / f"case_{idx}.opt.mlir"
+            generate(src, rng)
+            result = check(repo, interp_bin, opt_bin, src, opt, passes)
+            if not result.ok:
+                queue.put(("fail", result.message))
+                return
+            queue.put((
+                "ok",
+                outcome_key(result.before),
+                outcome_key(result.after),
+                result.skipped,
+                idx,
+                result.before,
+                result.after,
+            ))
+            src.unlink(missing_ok=True)
+            opt.unlink(missing_ok=True)
+        queue.put(("done",))
+    except BaseException:
+        queue.put(("fail", f"worker crashed:\n{traceback.format_exc()}"))
+
+
+def fuzz(
+    repo: Path,
+    interp_bin: Path,
+    opt_bin: Path,
+    workdir: Path,
+    iterations: int,
+    passes: str,
+    rng: random.Random,
+    num_workers: int,
+    spinner: Spinner,
+    verbose: bool,
+) -> bool:
+    infinite = iterations < 0
+    if not infinite and iterations == 0:
+        spinner.finish("no iterations")
+        return True
+
+    if infinite:
+        num_workers = max(1, num_workers)
+        base, extra = 0, 0
+    else:
+        num_workers = max(1, min(num_workers, iterations))
+        base, extra = divmod(iterations, num_workers)
+
+    ctx = multiprocessing.get_context()
+    queue: "multiprocessing.Queue" = ctx.Queue()
+    processes: list[multiprocessing.Process] = []
+    start = 0
+    for w in range(num_workers):
+        count = -1 if infinite else base + (1 if w < extra else 0)
+        seed = rng.getrandbits(64)
+        subdir = workdir / f"w{w}"
+        p = ctx.Process(
+            target=_worker,
+            args=(repo, interp_bin, opt_bin, subdir, seed, count, start, passes, queue),
+        )
+        p.start()
+        processes.append(p)
+        if not infinite:
+            start += count
+
+    source_counts: defaultdict[str, int] = defaultdict(int)
+    opt_counts: defaultdict[str, int] = defaultdict(int)
+    done = 0
+    failure_message: str | None = None
+    interrupted = False
+
+    try:
+        while infinite or done < num_workers:
+            try:
+                msg = queue.get()
+            except KeyboardInterrupt:
+                interrupted = True
+                break
+            tag = msg[0]
+            if tag == "done":
+                done += 1
+            elif tag == "fail":
+                failure_message = msg[1]
+                break
+            elif tag == "ok":
+                _, src_key, opt_key, skipped, idx, before, after = msg
+                source_counts[src_key] += 1
+                opt_counts[opt_key] += 1
+                if verbose:
+                    print(f"case {idx}:")
+                    print(f"  source:    {before}")
+                    print(f"  optimized: {after}")
+                elif not skipped:
+                    spinner.update(f"passed {source_counts['program output']} cases")
+    finally:
+        if failure_message is not None or interrupted:
+            for p in processes:
+                if p.is_alive():
+                    p.terminate()
+        for p in processes:
+            p.join()
+
+    if failure_message is not None:
+        spinner.clear()
+        print(failure_message)
+        return False
+
+    def fmt_counts(counts: defaultdict[str, int]) -> str:
+        return ", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
+
+    header = "interrupted, no mismatches detected" if interrupted else "no mismatches detected"
+    spinner.finish(
+        f"{header}\n"
+        f"  source:    {fmt_counts(source_counts)}\n"
+        f"  optimized: {fmt_counts(opt_counts)}"
+    )
+    return True
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--iterations", type=int, default=100,
+                        help="number of random programs to test, or -1 to run forever (default: 100)")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="random seed (default: fresh system entropy)")
+    parser.add_argument("--passes", default="instcombine,dce",
+                        help="veir-opt pass pipeline (default: instcombine,dce)")
+    parser.add_argument("--keep", action="store_true",
+                        help="keep workdir on success (always kept on failure)")
+    parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
+                        help="number of parallel workers (default: all available cores)")
+    parser.add_argument("--verbose", action="store_true",
+                        help="print per-case source/optimized outputs instead of the spinner")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str]) -> int:
+    args = parse_args(argv)
+    repo = Path(__file__).resolve().parents[1]
+    seed = args.seed if args.seed is not None else secrets.randbits(64)
+    rng = random.Random(seed)
+
+    workdir = Path(tempfile.mkdtemp(prefix="vsmith-"))
+
+    print(f"workdir: {workdir}")
+    print(f"seed:    {seed}")
+    print(f"passes:  {args.passes}")
+    print(f"workers: {args.workers}")
+
+    prebuild(repo)
+    interp_bin = repo / ".lake" / "build" / "bin" / "veir-interpret"
+    opt_bin = repo / ".lake" / "build" / "bin" / "veir-opt"
+
+    success = fuzz(
+        repo, interp_bin, opt_bin, workdir,
+        args.iterations, args.passes, rng,
+        args.workers, Spinner(), args.verbose,
+    )
+
+    if success and not args.keep:
+        shutil.rmtree(workdir)
+    else:
+        print(f"kept workdir: {workdir}")
+
+    return 0 if success else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

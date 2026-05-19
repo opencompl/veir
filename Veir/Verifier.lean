@@ -699,7 +699,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .llvm .fadd => do
+  | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx.raw opIn ≠ 1 then
