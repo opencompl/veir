@@ -1,7 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
-//
-// Lossless round-trip of a `func.func` carrying both the modelled `sym_name`
-// property and an unmodelled property preserved via `extra`.
+// RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "f", visibility = "private"}> ({
