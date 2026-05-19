@@ -1,4 +1,3 @@
-// REQUIRES: clang, opt, mlir-translate, mlir-opt
 // RUN: ./Tools/vcc -O %s -o - | filecheck %s
 
 unsigned d1(unsigned p, unsigned q) {
