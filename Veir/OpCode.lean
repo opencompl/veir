@@ -100,6 +100,10 @@ inductive Llvm where
 | func
 | module_flags
 | fadd
+| fsub
+| fmul
+| fdiv
+| frem
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]

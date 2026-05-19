@@ -107,6 +107,10 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case store => exact (StoreProperties.fromAttrDict attrDict)
     case getelementptr => exact (GetelementptrProperties.fromAttrDict attrDict)
     case fadd => exact (FastMathFlagsProperties.fromAttrDict attrDict)
+    case fsub => exact (FastMathFlagsProperties.fromAttrDict attrDict)
+    case fmul => exact (FastMathFlagsProperties.fromAttrDict attrDict)
+    case fdiv => exact (FastMathFlagsProperties.fromAttrDict attrDict)
+    case frem => exact (FastMathFlagsProperties.fromAttrDict attrDict)
     case func => exact (LLVMFuncProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case func =>
@@ -163,7 +167,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     if props.nuw then
       dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .llvm .fadd => Id.run do
+  | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2
     if props.fast then
       dict := dict.insert "fast".toUTF8 (Attribute.unitAttr UnitAttr.mk)
