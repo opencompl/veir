@@ -23,6 +23,46 @@ variable {state : InterpreterState}
 -/
 
 /--
+An operation is *pure* when its interpretation does not depend on, and does not modify, the
+memory state: running it under any memory yields the same result values and control flow, with
+the memory threaded through unchanged.
+
+Concretely, the result under `memory₁` is the result under `memory₂` with the output memory
+rewritten to the input memory.
+-/
+def OperationPtr.Pure (op : OperationPtr) (ctx : IRContext OpCode) : Prop :=
+  ∀ operands memory₁ memory₂,
+    interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
+      (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₁ =
+    (interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
+      (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₂ |>.map
+      (fun (r, _, cf) => (r, memory₁, cf)))
+
+namespace OperationPtr.Pure
+
+variable {op : OperationPtr} {ctx : IRContext OpCode}
+
+theorem interpretOp'_eq_interpretOp'_other_memory
+    (opPure : op.Pure ctx) (memory₂ : MemoryState) :
+      interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
+        (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₁ =
+      (interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
+        (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₂ |>.map
+      (fun (r, _, cf) => (r, memory₁, cf))) := by
+  grind [Pure]
+
+theorem interpretOp'_eq_ok_implies_memory_eq (h : op.Pure ctx) :
+      interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
+        (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) memory₁ =
+          some (.ok (resValues, memory₂, cf)) →
+      memory₁ = memory₂ := by
+  rw [h operands memory₁ memory₁]
+  simp only [Interp.map, Option.map, UBOr.map]
+  grind
+
+end OperationPtr.Pure
+
+/--
 `state.EquationHolds ctx op` holds when `state` records the result of interpreting `op`.
 This is encoded by stating that interpreting `op` in `state` produces `state` itself, which is
 equivalent to saying that the results of interpreting `op` on the given `state` are present in
@@ -32,38 +72,37 @@ def InterpreterState.EquationHolds (state : InterpreterState) (ctx : WfIRContext
     (op : OperationPtr) : Prop :=
   ∃ controlFlow, interpretOp ctx op state = some (.ok (state, controlFlow))
 
-set_option warn.sorry false in
 theorem interpretOp_equationHolds_self
     {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) :
+    op.Pure ctx →
     interpretOp ctx op state = some (.ok (state', controlFlow)) →
     state'.EquationHolds ctx op := by
   simp only [InterpreterState.EquationHolds]
-  intro hInterp
-  exists controlFlow
-  have ⟨operandValues, resValues, hOperandValues, hInterp', hResValues⟩ := interpretOp_some_iff.mp hInterp
-  sorry
+  grind [interpretOp_some_iff, OperationPtr.Pure.interpretOp'_eq_ok_implies_memory_eq]
 
-set_option warn.sorry false in
 theorem interpretOp_equationHolds_other
     {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) :
+    op₂.Pure ctx →
     interpretOp ctx op₁ state = some (.ok (state', cf₁)) →
     op₂.dominates op₁ ctx →
     state.EquationHolds ctx op₂ →
     state'.EquationHolds ctx op₂ := by
-  intro hInterp₁ hDom
+  intro op₂Pure hInterp₁ hDom
   simp only [InterpreterState.EquationHolds]
   rintro ⟨cf₂, hInterp₂⟩
   exists cf₂
-  have ⟨operandValues₁, resValues₁, hOperandValues₁, hInterp₁', hResValues₁⟩ := interpretOp_some_iff.mp hInterp₁
-  have ⟨operandValues₂, resValues₂, hOperandValues₂, hInterp₂', hResValues₂⟩ := interpretOp_some_iff.mp hInterp₂
-  sorry
-  /-subst state'
+  have ⟨operandValues₁, resValues₁, memory₁, hOperandValues₁, hInterp₁', hResValues₁⟩ := interpretOp_some_iff.mp hInterp₁
+  have ⟨operandValues₂, resValues₂, memory₂, hOperandValues₂, hInterp₂', hResValues₂⟩ := interpretOp_some_iff.mp hInterp₂
+  subst state'
   simp only [interpretOp, bind, pure]
-  simp only [InterpreterState.getOperandValues_setResultValues_of_dominates ctxDom hDom]
-  simp only [hOperandValues₂, hInterp₂']
+  simp only [VariableState.getOperandValues_setResultValues_of_dominates ctxDom hDom]
+  simp only [hOperandValues₂]
+  rw [OperationPtr.Pure.interpretOp'_eq_interpretOp'_other_memory op₂Pure state.memory]
+  simp only [Interp.map, Option.map, hInterp₂', UBOr.map]
   by_cases hOp : op₁ = op₂
   · grind
-  · simp [InterpreterState.setResultValues_comm hOp, ←hResValues₂]-/
+  · simp only [VariableState.setResultValues_comm hOp]
+    cases state; grind
 
 /-!
 ## SSA Invariant at a Program Point
@@ -78,6 +117,7 @@ their results are present in the state.
 def InterpreterState.EquationLemmaAt (state : InterpreterState) (ctx : WfIRContext OpCode)
     (location : InsertPoint) (_locInBounds : location.InBounds ctx.raw := by grind) : Prop :=
   ∀ (op : OperationPtr) (_opInBounds : op.InBounds ctx.raw),
+  op.Pure ctx →
   op.dominatesIp location ctx →
   state.EquationHolds ctx op
 
@@ -88,11 +128,11 @@ theorem interpretOp_equationLemmaAt (ctxDom : ctx.Dom)
     state'.EquationLemmaAt ctx (InsertPoint.after op ctx.raw block) := by
   intro hInterp
   simp only [InterpreterState.EquationLemmaAt] at stateWf ⊢
-  intro op' op'InBounds hDom
+  intro op' op'InBounds hPure hDom
   simp [OperationPtr.dominatesIp_iff] at hDom
   simp [OperationPtr.dominates_iff_strictlyDominates_or_eq] at hDom
   rcases hDom with hDom | hDom
-  · apply interpretOp_equationHolds_other ctxDom hInterp
+  · apply interpretOp_equationHolds_other ctxDom (by grind) hInterp
     · grind [OperationPtr.dominates_of_strictlyDominates]
     · grind [interpretOp_equationHolds_other]
   · grind [interpretOp_equationHolds_self]

@@ -155,6 +155,10 @@ inductive UBOr (α : Type) where
   | ub : UBOr α
 deriving Inhabited
 
+def UBOr.map {α β : Type} (f : α → β) : UBOr α → UBOr β
+  | .ok a => .ok (f a)
+  | .ub => .ub
+
 /--
   The interpreter monad. `Option (UBOr α)` has three states:
   - `some (.ok x)` — successful execution producing `x`.
@@ -162,6 +166,9 @@ deriving Inhabited
   - `none`         — interpreter could not proceed (malformed IR, unsupported op).
 -/
 def Interp (α : Type) : Type := Option (UBOr α)
+
+def Interp.map {α β : Type} (f : α → β) : Interp α → Interp β :=
+  Option.map (UBOr.map f)
 
 instance : Monad Interp where
   pure x := (some (.ok x) : Option (UBOr _))
