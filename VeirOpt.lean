@@ -59,14 +59,29 @@ def parsePipelineOption (args : List String) : Except String (PassPipeline OpCod
 -/
 def parseArgs (args : List String) : Except String VeirOptArgs := do
   let (flags, positional) := args.partition (·.startsWith "-")
-  let [filename] := positional
-    | .error "Expected exactly one positional argument for the input filename."
   -- Parses the `-p` flag if present.
   let pipeline ← parsePipelineOption flags
+
+  if positional.length == 0 then -- read from stdin
+    return VeirOptArgs.mk "-" pipeline
+
+  let [filename] := positional
+    | .error "Expected exactly one positional argument for the input filename."
+
   return VeirOptArgs.mk filename pipeline
 
+def getFileContent (filename : String) : ExceptT String IO ByteArray := do
+  if filename == "-" then
+    return ← IO.FS.Stream.readBinToEnd (←IO.getStdin)
+  else
+    -- Read from file
+    try
+      return ← IO.FS.readBinFile filename
+    catch e =>
+      throw s!"Error reading file '{filename}': {e}"
+
 def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
-  let fileContent ← IO.FS.readBinFile filename
+  let fileContent ← getFileContent filename
   let some (ctx, _) := WfIRContext.create OpCode
     | throw "Failed to create IR context"
   match ParserState.fromInput fileContent with
