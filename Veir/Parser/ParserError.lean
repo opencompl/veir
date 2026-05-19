@@ -106,13 +106,12 @@ def lineContaining (input : ByteArray) (loc : Nat) : Option String := Id.run do
   When `loc` is `none`, the header uses `<unknown location>` and no source line
   is printed.
 -/
-def formatLabel (filename : Option String) (input : ByteArray) (severity : String) (loc : Option Nat)
+def formatLabel (filename : String) (input : ByteArray) (severity : String) (loc : Option Nat)
     (msg : String) : String :=
   match loc with
   | none => s!"<unknown location>: {severity}: {msg}"
   | some loc =>
     let (line, col) := byteOffsetToLineCol input loc
-    let filename := if let some f := filename then f else "<stdin>"
     let header := s!"{filename}:{line}:{col}: {severity}: {msg}"
     match lineContaining input loc with
     | some srcLine =>
@@ -128,7 +127,7 @@ public section
   Render one primary `error` label followed by a `note` label per entry in
   `e.notes`, each via `formatLabel`. The primary location is taken from `e.pos`.
 -/
-def format (e : ParserError) (filename : Option String) (input : ByteArray) : String :=
+def format (e : ParserError) (filename : String) (input : ByteArray) : String :=
   let primary := formatLabel filename input "error" e.pos e.msg
   e.notes.foldl
     (fun acc note => acc ++ "\n" ++ formatLabel filename input "note" (some note.pos) note.msg)

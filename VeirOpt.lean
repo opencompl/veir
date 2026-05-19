@@ -86,6 +86,9 @@ def parseOperation (filename : Option String) : ExceptT String IO (WfIRContext O
   let fileContent ← getFileContent filename
   let some (ctx, _) := WfIRContext.create OpCode
     | throw "Failed to create IR context"
+
+  let filename := if let some f := filename then f else "<stdin>"
+
   match ParserState.fromInput fileContent with
   | .ok parser =>
     match (parseOp none).run (MlirParserState.fromContext ctx) parser with
