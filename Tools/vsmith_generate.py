@@ -298,7 +298,8 @@ class Generator:
 def generate(path: Path, rng: random.Random) -> None:
     """Write a random closed MLIR module to path."""
     gen = Generator(rng)
-    lines = ['"builtin.module"() ({']
+    lines: list[str] = []
+    return_type: str | None = None
     num_blocks = rng.randint(1, 20)
     block_arg_types: list[list[str]] = [[]]
     block_arg_names: list[list[str]] = [[]]
@@ -343,6 +344,7 @@ def generate(path: Path, rng: random.Random) -> None:
         successors = [f"^bb{succ}" for succ in range(block_id + 1, num_blocks)]
         if not successors:
             returned, typ = gen.random_return_value()
+            return_type = typ
             lines.append(f'  "llvm.return"({returned}) : ({typ}) -> ()')
             continue
 
@@ -382,8 +384,17 @@ def generate(path: Path, rng: random.Random) -> None:
         preds[true_block].add(block_id)
         preds[false_block].add(block_id)
 
-    lines.append("}) : () -> ()")
-    path.write_text("\n".join(lines) + "\n")
+    if return_type is None:
+        raise AssertionError("generated CFG has no return block")
+
+    module_lines = [
+        '"builtin.module"() ({',
+        f'  "llvm.func"() <{{sym_name = "main", function_type = !llvm.func<{return_type} ()>}}> ({{',
+    ]
+    module_lines.extend(f"    {line}" for line in lines)
+    module_lines.append("  }) : () -> ()")
+    module_lines.append("}) : () -> ()")
+    path.write_text("\n".join(module_lines) + "\n")
 
 
 def main(argv: list[str]) -> int:
