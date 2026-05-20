@@ -47,6 +47,12 @@ def add {p : Nat} (a b : Felt p) : Felt p := a + b
 /-- Field subtraction. -/
 def sub {p : Nat} (a b : Felt p) : Felt p := a - b
 
+/-- Field multiplication. -/
+def mul {p : Nat} (a b : Felt p) : Felt p := a * b
+
+/-- Field negation. -/
+def neg {p : Nat} (a : Felt p) : Felt p := -a
+
 end
 
 end Veir.Data.Felt

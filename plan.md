@@ -43,6 +43,7 @@ to be maintained as work progresses, not written once.
 | Third verified LLZK pass (self-subtraction) | ✅ Phase E.3 — `felt-combine` proves `felt.sub x x → felt.const 0` | `Veir/Passes/Felt/{Combine,Proofs}.lean` |
 | Fourth verified LLZK pass (assoc-const-fold) | ✅ Phase E.4 — `felt-combine` proves `felt.add (felt.add x c1) c2 → felt.add x (c1+c2)` | `Veir/Passes/Felt/{Combine,Proofs}.lean` |
 | Felt semantic model `ZMod p` | ✅ Phase E.5 (2026-05-19) — replaced provisional `Felt := Int` with `Felt p := ZMod p`; pulled in Mathlib; pinned toolchain to v4.30.0-rc2; all 4 verified rewrites re-proved with universal quantifier over modulus | `Veir/Data/Felt/Basic.lean`, `Veir/Passes/Felt/Proofs.lean` |
+| Tier 1+2 verified Felt rewrites | ✅ Phase E.5 follow-up (2026-05-20) — 11 new verified rewrites: mul identity/annihilation, constant folds for sub/mul/neg, x+(-x)=0, neg involution, constant-left canonicalization, telescoping (x+c)-c=x and (x-c)+c=x, mul-of-const associativity. `felt-combine` now ships 15 verified rewrites total. | `Veir/Passes/Felt/{Combine,Proofs}.lean`, `Test/LLZK/Felt/passes/` |
 | `index` type | ✅ added inline as infra during A.4 | `Veir/IR/Attribute.lean` |
 | Per-dialect attribute parser | ❌ none in VEIR (workaround: `IntegerAttr`) | `harness/coverage.md` §Attributes |
 | Symbol references (`@name`) | ❌ no `SymbolRefAttr` case in `Attribute` | `harness/coverage.md` §Symbols |
