@@ -143,6 +143,7 @@ def InterpreterState.empty : InterpreterState :=
 inductive ControlFlowAction where
   | return (vals : Array RuntimeValue)
   | branch (vals : Array RuntimeValue) (dest : BlockPtr)
+deriving Inhabited
 
 /--
   Wrapper for interpreter step results: either a successful value `ok` or the
@@ -994,6 +995,24 @@ def interpretOpList (ctx : IRContext OpCode) (op : OperationPtr) (state : Interp
     return (state, action)
 termination_by op.idxInParentFromTail ctx
 decreasing_by grind
+
+/--
+  Interpret a list of operations.
+  Return the new interpreter state, and a control flow action indicating how to continue
+  the interpretation.
+  If a `return` is encountered, the following operations are not interpreted.
+  Return `none` if any errors occur during interpretation.
+-/
+def interpretOpList' (ctx : WfIRContext OpCode) (ops : List OperationPtr) (state : InterpreterState)
+    (opInBounds : ∀ op ∈ ops, op.InBounds ctx.raw := by grind)
+    : Option (InterpreterState × Option ControlFlowAction) :=
+  match ops with
+  | [] => some (state, none)
+  | op :: ops => do
+    let (state, action) ← interpretOp ctx op state
+    match action with
+    | none => interpretOpList' ctx ops state (by grind)
+    | some cf => some (state, cf)
 
 /--
   Interpret a block of operations, starting from the first operation in the block.
