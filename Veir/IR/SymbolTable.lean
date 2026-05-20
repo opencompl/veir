@@ -78,9 +78,13 @@ def IRContext.resolveFlatSymbol {OpInfo : Type} [HasOpInfo OpInfo]
       if kv.1 = symKey then
         match kv.2 with
         | .stringAttr name =>
-          let storedRef := "@" ++ String.fromUTF8! name.value
-          if storedRef = ref.value then
-            return some opPtr
+          -- `String.fromUTF8?` (non-panicking): the parser only produces
+          -- UTF-8 StringAttrs today, but a panic here would leak through
+          -- any future caller that constructs StringAttrs programmatically.
+          if let some decoded := String.fromUTF8? name.value then
+            let storedRef := "@" ++ decoded
+            if storedRef = ref.value then
+              return some opPtr
         | _ => continue
   none
 

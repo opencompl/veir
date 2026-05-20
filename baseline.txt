@@ -142,3 +142,73 @@ Infrastructure:
 
 Tags:
   + verif-felt-right-identity-v1, verif-felt-combine-v2
+
+
+# Baseline at 9e665c69 (post-upstream-merge of 32 commits + Phase E.5/F.3-F.5)
+# Branch: llzkfelt_test1
+# Date: 2026-05-20
+# Toolchain: leanprover/lean4:v4.30.0-rc2 (pinned for Mathlib compat;
+#   upstream PR #595 nightly-2026-05-17 bump rejected)
+
+## lake build
+
+CLEAN (2563 build jobs). The job-count jump from 267 reflects two
+things: (1) Phase E.5 (2026-05-19) pulled in Mathlib as a transitive
+dep for `ZMod p`, and (2) the upstream merge added the Dataflow
+Framework (#264), `VEIR_ROUNDTRIP` (#605), ParserError refactor
+(#587/#588), and twenty-some smaller modules. Three pre-existing
+unused-simp-arg warnings at `Veir/Verifier.lean:2107` originate
+upstream (post-ParserError refactor) — not blocking.
+
+## lake test
+
+CLEAN. UnitTest target 122 jobs (was 110 pre-merge; +12 from upstream
+PRs adding ParserError tests, DataFlowFramework tests, and
+FP.EDyadic.Pack tests).
+
+## uv run lit Test/ -v
+
+356 total tests.
+  Without LLZK_OPT: 347 PASS + 9 UNSUPPORTED (differentials skipped)
+  With    LLZK_OPT: 355 PASS + 1 UNSUPPORTED + 0 XFAIL + 0 FAIL
+
+## scripts/check-llzk-quality-gates.sh
+
+All gates PASS.
+
+## Differential testing status (with LLZK_OPT set)
+
+PASS (8): String/literals, Include/from, Felt/arith, Bool/logical,
+  Cast/casts, Constrain/eq, RAM/load_store, Global/def_read_write.
+  Phase F.5 lifted the last 5 via function.def wrappers
+  (2026-05-18). Function dialect itself has no differential yet —
+  see REVIEW_2026-05-20.md §3 (added 2026-05-20).
+
+## Coverage delta since 310-baseline (post-FeltConstAttr)
+
+Verification machinery:
+  Felt semantic model       provisional Int → ZMod p (Phase E.5)
+  Verified Felt rewrites    4 → 15 (Tier 1+2 follow-up, all axiom-clean)
+
+Phase F:
+  F.1 (design note)         ❌ → ✅ (`harness/regions-design.md`)
+  F.3 (terminator classifier)  ❌ → ✅ (`Veir/IR/Terminators.lean`;
+                                       verify-time check still F.3.1)
+  F.4 (symbol-table walker, unverified) ❌ → ✅ (api-only, no consumers)
+  F.5 (function.def + function.return)  ❌ → ✅ (lifted 5 XFAILs)
+
+Phase F status correction (2026-05-20):
+  Block args as ValuePtr    coverage.md was ❌; corrected to ⚠️
+                            (data structure existed all along)
+
+Upstream merge (32 commits, committed as 9e665c69):
+  Dataflow Analysis Framework (#264)         pulled in, unused by LLZK
+  VariableState interpreter (#599)
+  VEIR_ROUNDTRIP substitution (#605)         used by 20 upstream tests
+  ParserError type (#587/#588)               required our throwString
+                                              adaptation in AttrParser
+  Nested-scope parser (#576)
+  caret-style printer (#589)
+
+Tags (pending):
+  + merge-upstream-2026-05-20

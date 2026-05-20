@@ -1,4 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 //
 // Note: sym_name is StringAttr (LLZK's SymbolNameAttr → "name"), not
 // FlatSymbolRefAttr (`@name`). The `@` form is only for SymbolRefAttr

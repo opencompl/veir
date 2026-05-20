@@ -32,7 +32,7 @@ to be maintained as work progresses, not written once.
 | Bool dialect (and/or/xor/not/assert/cmp) | ✅ ported (cmp via IntegerAttr enum workaround) | `Test/LLZK/Bool/{identity,invalid,cmp,cmp_invalid}.mlir` |
 | Constrain dialect (eq only) | ⚠️ partial (constrain.in deferred) | `Test/LLZK/Constrain/{identity,invalid}.mlir` |
 | Global dialect (def, read, write) | ✅ ported (typed; uses FlatSymbolRefAttr) | `Test/LLZK/Global/{identity,invalid}.mlir` |
-| Function dialect (def, return) | ⚠️ prototype (call/arg_attrs deferred to full G.1) | `Test/LLZK/Function/{identity,invalid}.mlir` |
+| Function dialect (def, return) | ⚠️ prototype (call/arg_attrs deferred to full G.1) | `Test/LLZK/Function/{identity,invalid,differential/function_def}.mlir` |
 | Structured `#felt<const N>` attribute | ✅ landed 2026-05-17 — first per-dialect structured attribute; un-XFAILed Felt differential | `Veir/IR/Attribute.lean` (FeltConstAttr) + `Veir/Parser/AttrParser.lean` |
 | Phase F design note (F.1) | ✅ landed 2026-05-17 — revealed regions are structurally ready in VEIR's verified IR; revised estimate down to 2-4 weeks | `harness/regions-design.md` |
 | Phase F.3 terminator classifier | ✅ landed 2026-05-17 — `OpCode.isTerminator` over LLVM/Cf/Func/Function dialects | `Veir/IR/Terminators.lean` |
@@ -46,7 +46,7 @@ to be maintained as work progresses, not written once.
 | Tier 1+2 verified Felt rewrites | ✅ Phase E.5 follow-up (2026-05-20) — 11 new verified rewrites: mul identity/annihilation, constant folds for sub/mul/neg, x+(-x)=0, neg involution, constant-left canonicalization, telescoping (x+c)-c=x and (x-c)+c=x, mul-of-const associativity. `felt-combine` now ships 15 verified rewrites total. | `Veir/Passes/Felt/{Combine,Proofs}.lean`, `Test/LLZK/Felt/passes/` |
 | `index` type | ✅ added inline as infra during A.4 | `Veir/IR/Attribute.lean` |
 | Per-dialect attribute parser | ❌ none in VEIR (workaround: `IntegerAttr`) | `harness/coverage.md` §Attributes |
-| Symbol references (`@name`) | ❌ no `SymbolRefAttr` case in `Attribute` | `harness/coverage.md` §Symbols |
+| Symbol references (`@name` flat; `@A::@B` nested) | ⚠️ Partial — flat `FlatSymbolRefAttr` ✅ (upstream PR #533) + nested `SymbolRefAttr` data structure ✅ (Phase F.4); nested-form parser deferred | `harness/coverage.md` §Symbols |
 | `AffineMapAttr` | ❌ unrepresented | `harness/coverage.md` §AffineMap |
 | Variadic-of-variadic operands | ❌ unrepresented | `harness/coverage.md` §Ops |
 | Regions (multi-block, terminators) | ❌ no `Region` in verified IR | `harness/coverage.md` §Structural |
@@ -193,8 +193,8 @@ retired) because they're tightly coupled to region semantics:
       pass. All 5 previously-XFAIL differential tests (Bool, Cast,
       Constrain, RAM, Global-write) now pass under live `llzk-opt` —
       wrapped in `function.def` with the appropriate `function.allow_*`
-      discardable attrs. Coverage shows 331/331 PASS with `LLZK_OPT`
-      active. **Deferred to G.1**: `function.call`, `arg_attrs`/`res_attrs`,
+      discardable attrs. Coverage at F.5 close: 331/331 PASS with `LLZK_OPT`
+      active (2026-05-18); post-upstream-merge 2026-05-20: 355 PASS / 1 UNSUPPORTED. **Deferred to G.1**: `function.call`, `arg_attrs`/`res_attrs`,
       `FunctionOpInterface`, `Symbol` trait, `IsolatedFromAbove`,
       structured `function.allow_*` attribute ports.
 
@@ -255,12 +255,14 @@ Three rules:
 ## Iteration commands (unchanged from Felt)
 
 ```bash
-lake build                       # 267/267 as of 2026-05-17
-lake test                        # UnitTest target — 110 jobs, clean
-uv run lit Test/ -v              # 327 total
-                                 #   without LLZK_OPT: 319 PASS + 8 UNSUPPORTED
-                                 #   with    LLZK_OPT: 322 PASS + 5 XFAIL + 0 FAIL
+lake build                       # clean (2563 jobs as of 2026-05-20; Mathlib +
+                                 # upstream merge inflated from 267)
+lake test                        # UnitTest target — 122 jobs, clean (was 110
+                                 # pre-merge; +12 from upstream)
+uv run lit Test/ -v              # 356 total as of 2026-05-20
+                                 #   without LLZK_OPT: 347 PASS + 9 UNSUPPORTED
+                                 #   with    LLZK_OPT: 355 PASS + 1 UNSUPPORTED + 0 XFAIL
 uv run lit Test/LLZK/<Dialect>/identity.mlir -v
-export LLZK_OPT=<path>           # activates the 5 XFAIL'd differentials + 4 PASS diffs
+export LLZK_OPT=<path>           # activates the 8 LLZK differentials (all PASS post-F.5)
 bash scripts/check-llzk-quality-gates.sh   # static quality gates (sorry/axiom, coverage, tags)
 ```

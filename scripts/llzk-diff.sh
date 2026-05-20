@@ -130,9 +130,16 @@ fi
 #     (VEIR quotes attribute keys, LLZK doesn't)
 #   - renumber SSA values in order of appearance: %anything -> %V<n>
 #   - rename block labels: ^bb0 / ^4 / etc. -> ^B0 (handles both alpha
-#     and numeric label prefixes)
-#   - elide empty block headers `^Bn():` on a line by themselves
-#     (VEIR emits an explicit empty block for the module body; LLZK doesn't)
+#     and numeric label prefixes), in-order-of-non-elided-appearance
+#   - elide empty block headers `^name():` on a line by themselves
+#     (VEIR emits an explicit empty block for the module body; LLZK doesn't).
+#     Elision happens BEFORE label numbering so the surviving blocks
+#     are numbered consistently across the two sides — otherwise a VEIR
+#     region with empty wrapper-block headers would shift the surviving
+#     block's label number.
+#   - strip the cosmetic space before the type colon in block-arg
+#     declarations: `^B0(%V0 : type)` -> `^B0(%V0: type)` (VEIR emits
+#     the space, LLZK doesn't; both are valid generic-MLIR).
 # Other forms of equivalent-but-different output should go through the
 # per-test allowlist, not this normalizer.
 normalize() {
@@ -142,7 +149,12 @@ import re, sys
 src, dst = sys.argv[1], sys.argv[2]
 
 ssa = {}
-blk = {}
+# Block labels are renumbered *scope-locally* — each region body gets
+# its own counter starting at 0. This matches LLZK's printing
+# convention (each region body's blocks start at ^bb0) and dodges the
+# divergence where VEIR's global block counter and LLZK's per-region
+# counter encode the same logical structure with different labels.
+blk_stack = [{}]  # stack of {raw_label: normalized_label} per region scope
 
 def sub_ssa(m):
     name = m.group(0)
@@ -152,15 +164,22 @@ def sub_ssa(m):
 
 def sub_blk(m):
     name = m.group(0)
-    if name not in blk:
-        blk[name] = f"^B{len(blk)}"
-    return blk[name]
+    top = blk_stack[-1]
+    if name not in top:
+        top[name] = f"^B{len(top)}"
+    return top[name]
 
 ssa_re = re.compile(r'%[A-Za-z0-9_.]+')
 blk_re = re.compile(r'\^[A-Za-z0-9_]+')
 key_quoted_open  = re.compile(r'<\{"([A-Za-z_][A-Za-z0-9_]*)" = ')
 key_quoted_comma = re.compile(r', "([A-Za-z_][A-Za-z0-9_]*)" = ')
-empty_block_hdr  = re.compile(r'^\s*\^B\d+\(\):\s*$')
+# Empty block header: a line with only `^<label>():` (any whitespace).
+# Matches the raw-label form (pre-renaming) so we can elide before the
+# block-label counter advances.
+empty_block_hdr_raw = re.compile(r'^\s*\^[A-Za-z0-9_]+\(\):\s*$')
+# Cosmetic: VEIR emits `(%name : type)` for block args; LLZK emits
+# `(%name: type)`. Both are valid generic-MLIR.
+blockarg_space_colon = re.compile(r'(%[A-Za-z0-9_.]+) : ')
 
 prev_blank = False
 out_lines = []
@@ -178,15 +197,32 @@ with open(src) as f:
             out_lines.append("")
             continue
         prev_blank = False
+        # drop empty block header lines (VEIR-only artifact) BEFORE we
+        # number their labels — otherwise the surviving labels' numbers
+        # would diverge between VEIR and LLZK.
+        if empty_block_hdr_raw.match(line):
+            continue
         # unquote attribute keys
         line = key_quoted_open.sub(lambda m: '<{' + m.group(1) + ' = ', line)
         line = key_quoted_comma.sub(lambda m: ', ' + m.group(1) + ' = ', line)
-        # block-label and SSA renaming
+        # strip cosmetic space-before-colon in block-arg type annotations
+        line = blockarg_space_colon.sub(r'\1: ', line)
+        # block-label and SSA renaming — block labels use the current
+        # region-scope counter (blk_stack top); SSA values use a flat
+        # counter (LLZK also uses flat SSA numbering across a file
+        # within generic form).
         line = blk_re.sub(sub_blk, line)
         line = ssa_re.sub(sub_ssa, line)
-        # drop empty block header lines (VEIR-only artifact)
-        if empty_block_hdr.match(line):
-            continue
+        # Region-scope stack: count `({` opens and `})` closes per line
+        # so the block-label counter resets at every region body. The
+        # generic-MLIR printer reliably uses `({` to open a region and
+        # `})` to close it; we count both in case multiple appear on
+        # the same line (unlikely but possible).
+        for _ in range(line.count("({")):
+            blk_stack.append({})
+        for _ in range(line.count("})")):
+            if len(blk_stack) > 1:
+                blk_stack.pop()
         out_lines.append(line)
 
 with open(dst, 'w') as f:

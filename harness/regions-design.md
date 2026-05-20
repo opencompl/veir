@@ -367,43 +367,51 @@ already in place. Empirical findings:
 
 ### F.4 — Symbol-table machinery (unverified)
 
-- [ ] **F.4.1** Add `SymbolRefAttr` to `Veir/IR/Attribute.lean` as
-      a `List ByteArray` (the dotted path). Distinct case from
-      `FlatSymbolRefAttr` (kept for the simple case;
-      `FlatSymbolRefAttr` can be implemented as a singleton
-      `SymbolRefAttr` later if desired).
-- [ ] **F.4.2** Parser `parseOptionalSymbolRefAttr` handles
-      `@outer::@inner::@deep`. Extends
-      `parseOptionalFlatSymbolRefAttr`.
-- [ ] **F.4.3** `Veir/IR/SymbolTable.lean` (new): unverified
-      walker:
-      ```lean
-      def IRContext.resolveSymbol
-          (ctx : IRContext OpInfo)
-          (fromOp : OperationPtr)
-          (ref : SymbolRefAttr) :
-          Option OperationPtr
-      ```
-      Walks up the region tree from `fromOp` to find enclosing
-      ops with the `SymbolTable` trait, then looks up each
-      path segment.
-- [ ] **F.4.4** `coverage.md` §Symbols rows updated.
+Status as of 2026-05-17: data structure + flat-form parser + walker
+landed. Walker has no consumers yet (Hybrid design: API-only until a
+real pass needs symbol resolution).
+
+- [x] **F.4.1** `SymbolRefAttr { rootRef : String, nestedRefs : Array String }`
+      landed in `Veir/IR/Attribute.lean:147` alongside `FlatSymbolRefAttr`
+      (which remains distinct, not collapsed into the singleton case).
+      Stored as `String` (not `List ByteArray`) for parser ergonomics.
+- [~] **F.4.2** Flat-form parser landed (`parseOptionalFlatSymbolRefAttr`
+      from upstream PR #533). Nested-form parser (`@outer::@inner::@deep`)
+      **deferred**: `::` is not yet in the punctuation table, and there is
+      no consumer to force the issue. Resolver returns `none` on
+      non-empty `nestedRefs` (conservative).
+- [x] **F.4.3** `Veir/IR/SymbolTable.lean` provides
+      `IRContext.resolveFlatSymbol`, `IRContext.resolveSymbol`, and
+      `IRContext.resolveSymbolAttr`. Today's resolver is **flat-scope-only**
+      (no region-tree walk; matches any op whose `sym_name` `StringAttr`
+      equals the requested ref). Region-tree walk lands when a real
+      consumer needs scoping. No verification: passes consuming it must
+      handle `none` returns explicitly.
+- [x] **F.4.4** `harness/coverage.md` §Symbols rows updated (rows 80–82
+      as of 2026-05-17).
 
 ### F.5 — Prototype: `function.def` port
 
-- [ ] **F.5.1** Port `Function` dialect. `function.def`: 0 operands,
-      0 results, 1 region. `function.return`: any number of
-      operands, 0 results, terminator (per-op `isTerminator := true`).
-      `function.call`: takes a `FlatSymbolRefAttr` `callee` + the
-      argument operands.
-- [ ] **F.5.2** Per the established checklist: identity + invalid
-      lit tests at `Test/LLZK/Function/`. Differential test at
-      `Test/LLZK/Function/differential/`.
-- [ ] **F.5.3** Rewrite the 5 currently-XFAIL differential tests
-      (Bool/Cast/Constrain/RAM/Global write) to use a
-      `function.def` wrapper with the appropriate
-      `function.allow_*` attribute. Flip `// XFAIL: llzk-opt`
-      to `// REQUIRES: llzk-opt`.
+Status as of 2026-05-18: `function.def` and `function.return` shipped;
+all 5 previously-XFAIL differential tests lifted to PASS.
+
+- [~] **F.5.1** `function.def` (`sym_name : StringAttr`,
+      `function_type : FunctionType`, 1 region body, 0 ops/0 results) and
+      `function.return` (variadic operands, 0 results, terminator) landed
+      in `Veir/Dialects/LLZK/Function/{OpInfo,Properties}.lean` and
+      registered via `OpCode.isTerminator`. **Deferred to G.1**:
+      `function.call` (needs `VariadicOfVariadic` + real `SymbolRefAttr`
+      use), `arg_attrs`/`res_attrs`, `FunctionOpInterface`, `Symbol` trait,
+      `IsolatedFromAbove`, structured `function.allow_*` attribute ports.
+- [~] **F.5.2** `Test/LLZK/Function/identity.mlir` and `invalid.mlir`
+      landed (round-trip + reject malformed). **Differential test at
+      `Test/LLZK/Function/differential/` added 2026-05-20** — closes the
+      original F.5.2 scope.
+- [x] **F.5.3** All 5 previously-XFAIL differentials (Bool/Cast/Constrain/
+      RAM/Global-write) wrapped in `function.def` with the appropriate
+      `function.allow_*` discardable attrs; flipped from `// XFAIL:
+      llzk-opt` to `// REQUIRES: llzk-opt`. As of 2026-05-18: 0 XFAILs
+      remain across the LLZK differential suite.
 
 ### Acceptance for F.1 (this doc)
 

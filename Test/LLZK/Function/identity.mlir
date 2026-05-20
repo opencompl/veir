@@ -1,4 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 //
 // Function dialect prototype (Phase F.5). Tests function.def with a
 // body region containing function.return as terminator.

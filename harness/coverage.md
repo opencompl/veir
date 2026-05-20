@@ -115,8 +115,8 @@ document for the protocol.
 | Feature | Status | Caveats |
 |---|---|---|
 | Multi-block regions (structural) | ⚠️ Partial | **Surprise finding 2026-05-17**: `Operation.regions : Array RegionPtr`, `Region`, and `Block` are already defined in `Veir/IR/Basic.lean`; FieldsInBounds + WellFormed proofs exist for all three (`Veir/IR/Fields.lean`, `Veir/IR/WellFormed.lean`, `Veir/Rewriter/WellFormed/{Region,OpRegion,Block,BlockArguments,BlockOperands}.lean`). What's missing: dialect ops that *use* regions, block-arg-as-SSA-value integration, terminator invariants, symbol-table machinery. See `harness/regions-design.md` §3 for the full empirical state. |
-| Block arguments as SSA values | ❌ | `BlockArgument` exists as a separate type but isn't a `ValuePtr` variant; ops inside a region can't consume block args via the normal operand path. Phase F.2.1. |
-| Region entry block / argument list | ⚠️ Partial | Block-args structurally there; SSA integration is F.2.1. |
+| Block arguments as SSA values | ⚠️ Partial | **Corrected 2026-05-20**: `ValuePtr.blockArgument (ptr : BlockArgumentPtr)` is already a `ValuePtr` variant in `Veir/IR/Basic.lean:103-105` with a `Coe BlockArgumentPtr ValuePtr` instance; `ValuePtr.DefUse` (`Veir/IR/WellFormed.lean`) is parameterized over `ValuePtr` so it covers both `.opResult` and `.blockArgument` automatically. Empirically: `Test/LLZK/Function/identity.mlir` round-trips `"function.return"(%arg10_0)` where `%arg10_0` is a block argument used as an operand. The earlier ❌ was wrong; `regions-design.md` §F.2.1 has the accurate `[x]`. ⚠️ rather than ✅ because no *verified pass* yet exercises block-args as a real consumer. |
+| Region entry block / argument list | ⚠️ Partial | Block-args structurally there and round-trip-usable as operands; verified-pass consumer still F.2.4+. |
 | Terminator op validation | ❌ | No "every block ends in a terminator" invariant (neither structural nor verify-time). Phase F.3.1 — verify-time only, per `harness/regions-design.md` §7 Alternative B. |
 | `IsolatedFromAbove` trait | ❌ | Phase F.3.2 — verify-time only. |
 | Rewriter primitives (block-level) | ⚠️ Partial | `Rewriter.initOpRegions` and `Rewriter.pushRegion` exist with WellFormed-preservation proofs (`Veir/Rewriter/WellFormed/{Region,OpRegion}.lean`). Block-level primitives (`createBlock`, `insertBlock`, `eraseBlock`, `moveBlock`, `moveRegion`) are Phase F.2.3. |
@@ -196,9 +196,9 @@ opcodes that implement the interface.
 
 | Capability | Status | Caveats |
 |---|---|---|
-| FileCheck lit suite | ✅ | 331 total as of 2026-05-18 (post-Function port + identity/invalid tests). Without `LLZK_OPT`: 323 PASS + 8 UNSUPPORTED. With `LLZK_OPT`: **331 PASS + 0 XFAIL + 0 FAIL** (Phase F.5 lifted all 5 XFAIL differentials). |
+| FileCheck lit suite | ✅ | 356 total as of 2026-05-20 (post-upstream-merge of 32 commits; +25 tests over the 331 of 2026-05-18). Without `LLZK_OPT`: 347 PASS + 9 UNSUPPORTED. With `LLZK_OPT`: **355 PASS + 1 UNSUPPORTED + 0 XFAIL + 0 FAIL** (Phase F.5 lifted all 5 XFAIL differentials). |
 | Differential testing (vs `llzk-opt`) | ✅ Supported | Active when `LLZK_OPT` env or `llzk-opt` on `$PATH`. **All 8 differential tests pass cleanly** as of 2026-05-18: Bool (`logical`, lifted via `function.allow_non_native_field_ops`), Cast (`casts`, same), Constrain (`eq`, via `function.allow_constraint`), Felt (`arith`, module-level since 2026-05-17), Global (`def_read_write`, via `function.allow_witness` + `llzk.lang` module marker), Include (`from`), RAM (`load_store`, via `function.allow_witness` + non-native-field), String (`literals`). Four tests use a `.allowlist` for the cosmetic `value = N : i1` ↔ `value = true/false` printer divergence; no semantic divergences remain. |
-| Unit tests (`lake test`) | ✅ | UnitTest target, 40/40. No Lean-level unit tests programmatically constructing and matching on LLZK `Attribute` cases (would catch Gotcha 2 from the Felt retro). |
+| Unit tests (`lake test`) | ✅ | UnitTest target, 122/122 (was 110 pre-merge; upstream PR #587/#588 added `UnitTest.ParserError`, PR #264 added `UnitTest.DataFlowFramework`, PR #554 added `UnitTest.FP.EDyadic.Pack`). No Lean-level unit tests programmatically constructing and matching on LLZK `Attribute` cases (would catch Gotcha 2 from the Felt retro). |
 | `veir-opt` CLI | ✅ | Single binary, parses and re-prints. Pass pipeline via `-p`. |
 | Benchmarks | ⚠️ | `RunBenchmarks.lean` exists; not currently exercised by LLZK code. |
 

@@ -1,4 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
   "include.from"() <{sym_name = "lib_a", path = "lib_a.llzk"}> : () -> ()

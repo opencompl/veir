@@ -1,4 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
 ^bb0(%a: !felt.type, %b: !felt.type, %i: i32):

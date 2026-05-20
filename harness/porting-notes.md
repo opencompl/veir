@@ -9,6 +9,46 @@ Format: each note has a date, a short title, the discovery, and a
 
 ---
 
+## 2026-05-20 — Gotcha 8: terminator classifier has a wildcard arm
+
+**Discovery (post-merge review)**: Phase F.3 introduced
+`Veir/IR/Terminators.lean` with `OpCode.isTerminator (op : OpCode) :
+Bool`, classifying which ops must appear last in a block. Unlike
+`Veir/Verifier.lean`'s `verifyLocalInvariants` (Gotcha 1), the
+terminator match has a default arm:
+
+```lean
+def OpCode.isTerminator (op : OpCode) : Bool :=
+  match op with
+  | .llvm .br | .llvm .cond_br | .llvm .return => true
+  | .cf .br | .cf .cond_br => true
+  | .func .return => true
+  | .function .return => true
+  | _ => false       -- ← this is the trap
+```
+
+The `_ => false` is *good hygiene* (the new file doesn't extend the
+verifier-style coupling), but it means that **a future dialect port
+that adds a terminator op will compile cleanly and silently fail to
+classify the new op as a terminator**. Gotcha 1 won't catch it for
+you — there is no build error to alert.
+
+**How to apply**: when porting a dialect with a terminator op (any op
+with the MLIR `Terminator` trait, e.g. `<dialect>.return`, branches),
+the dialect-port checklist's Phase 2 must include a step to add an
+arm to `Veir/IR/Terminators.lean`. Even if no current verifier
+consumer enforces "every block ends in a terminator" (Phase F.3.1
+is still deferred per `harness/regions-design.md`), the classifier is
+called from any future rewriter that walks a region. Adding the arm
+when you add the op is much cheaper than discovering the omission
+later.
+
+**Mitigation upstream**: this is the recommended pattern; we are not
+proposing a wildcard removal. The note exists so the next porter
+knows to update both files even though only one will fail to build.
+
+---
+
 ## 2026-05-20 — Pattern: `show <ZMod-equality>` then `simp` / `push_cast; ring`
 
 **Discovery (E.5 Tier 1+2 — 11 new Felt rewrites)**: Once the Felt
