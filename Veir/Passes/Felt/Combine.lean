@@ -10,15 +10,33 @@ import Veir.Passes.Felt.Proofs
 namespace Veir.FeltPass
 
 /-!
-  Felt-dialect peephole combines. First entry (Phase E.1) is the right-
-  identity rewrite `felt.add x (felt.const 0) -> x`. Soundness is proved in
-  `Veir/Passes/Felt/Proofs.lean` against the provisional `Veir/Data/Felt/`
-  semantic model (Felt ≈ Int, no modular reduction). The rewrite is
-  sound under any `ZMod p` model because `const 0` stays `0` after
-  reduction.
+  Felt-dialect peephole combines.
 
-  Mirrors `Veir/Passes/Combines/Combine.lean` (RISCV's right-identity-zero
-  add).
+  15 verified rewrites as of Tier 1+2 (2026-05-20):
+
+  - Phase E.1–E.4 (4): `right_identity_zero_add` (x+0→x),
+    `constant_fold_add` (c1+c2), `self_subtraction_to_zero` (x-x→0),
+    `assoc_const_fold_add` ((x+c1)+c2→x+(c1+c2)).
+  - Tier 1 (8): `right_identity_one_mul` (x·1→x), `right_zero_mul`
+    (x·0→0), `constant_fold_sub` / `constant_fold_mul` /
+    `constant_fold_neg`, `add_neg_to_zero` (x+(-x)→0),
+    `neg_neg_to_self` (-(-x)→x), `add_const_swap` (canonicalize
+    constants to right of `felt.add`).
+  - Tier 2 (3): `add_sub_const_cancel` ((x+c)-c→x),
+    `sub_add_const_cancel` ((x-c)+c→x), `assoc_const_fold_mul`
+    ((x·c1)·c2 → x·(c1·c2)).
+
+  Each pattern has a paired soundness theorem in
+  `Veir/Passes/Felt/Proofs.lean` proved against
+  `Felt p := ZMod p` (Phase E.5). All identities hold in any
+  commutative ring; primality is not yet threaded through.
+
+  Style note: each pattern follows the same shape — syntactic
+  `matchX`, build replacement op(s), `replaceValue` + `eraseOp` (for
+  pure projection) or `replaceOp` (when synthesizing a new op).
+  Rewriter precondition `sorry`s are consistent with current VEIR
+  pass-side practice (see `harness/coverage.md` §Verification
+  machinery, "Pattern preconditions discharged" row).
 -/
 
 /-! # Lowering Patterns -/

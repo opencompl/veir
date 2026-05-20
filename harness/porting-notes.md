@@ -9,6 +9,89 @@ Format: each note has a date, a short title, the discovery, and a
 
 ---
 
+## 2026-05-20 — Pattern: `show <ZMod-equality>` then `simp` / `push_cast; ring`
+
+**Discovery (E.5 Tier 1+2 — 11 new Felt rewrites)**: Once the Felt
+semantic model is `abbrev Felt (p : Nat) := ZMod p`, every Felt-rewrite
+soundness proof has the same three-line shape:
+
+```lean
+theorem name (p : Nat) (x : Felt p) (c : Int) :
+    <lhs in Felt-API> = <rhs in Felt-API> := by
+  show <same equation expanded to ZMod p with Int casts on constants>
+  simp        -- when no constant arithmetic is involved
+  -- OR
+  push_cast   -- pull Int casts to the outside
+  ring        -- normalize over the commutative ring ZMod p
+```
+
+The `show` line is load-bearing: `Felt p` is an `abbrev` for `ZMod p`,
+but the proof obligations use the wrapped Felt API (`add`, `mul`,
+`const p c`). `show` strips the API layer back to `+`, `*`, and
+`((c : Int) : ZMod p)` so Mathlib's `simp`-set or `ring` can apply.
+Without it, both tactics get stuck trying to unfold `add`/`const`.
+
+When the identity involves no integer constants (`x + (-x) = 0`,
+`x * 0 = 0`), `simp` alone closes it. When constants are involved
+and Mathlib's coercion lemmas need to commute past arithmetic,
+`push_cast; ring` is the two-tactic close.
+
+**How to apply**: For every new Felt rewrite added to `Combine.lean`,
+the soundness proof in `Proofs.lean` is mechanical — the `show` line
+is the only piece that requires thought. Don't try to be clever
+with `change` or manual `unfold`; the `show` form is more concise
+and more readable.
+
+**Re-evaluate when**: passes start needing `[Fact (p.Prime)]`
+(multiplicative inverses, Tier 3). At that point the proof shape
+extends with `haveI : Fact (p.Prime) := ⟨...⟩` and the closing
+tactic may need a different cast lemma.
+
+---
+
+## 2026-05-20 — Pattern: greedy rewriter composes small canonicalizers
+
+**Discovery (E.5 Tier 1)**: `add_const_swap` rewrites
+`add (const c) x → add x (const c)` — a no-op semantically, useful
+only as a *canonicalizer* that puts constants on the right. The
+payoff is composition: every other right-form rewrite
+(`right_identity_zero_add`, `add_sub_const_cancel`,
+`assoc_const_fold_add`, …) now fires regardless of whether the
+input had the constant on the left or the right. We don't have to
+write left-and-right variants of every rewrite.
+
+The greedy rewriter (`RewritePattern.applyInContext`) iterates to
+fixpoint, walking the IR and applying any matching pattern. After
+`add_const_swap` produces a swapped op, the next iteration sees
+`add x (const c)` and fires the right-form rewrites — without
+needing an explicit pipeline order. Two guards keep this from
+oscillating:
+
+1. `add_const_swap` requires the *left* operand to be a constant
+   AND the right not to be (otherwise `constant_fold_add` handles
+   the const-const case).
+2. After swapping, the new op has a non-constant on the left, so
+   `add_const_swap` no longer matches.
+
+The lit test `add_const_canonicalize.mlir` exercises the
+composition directly: input has `add (const 0) x`, expected output
+is `x` (canonicalize then right-identity in one greedy fixpoint).
+
+**How to apply**: For commutative binary ops with right-form
+patterns, add a single `_const_swap` canonicalizer and skip the
+left-form variants of every other pattern. Always guard the swap
+against the const-const case (let the dedicated constant-folder
+catch it) and confirm the swap rewrites toward a strictly-less
+matchable form so the rewriter doesn't loop.
+
+**Re-evaluate when**: porting a non-commutative dialect (e.g., a
+matrix op where left/right multiplication differ), or when
+introducing a rewrite that *could* re-produce the canonicalizer's
+input shape — at that point the no-oscillation argument needs to
+be checked explicitly.
+
+---
+
 ## 2026-05-19 — Pattern: adopting Mathlib means pinning to Mathlib's Lean
 
 **Discovery (E.5 — Felt := ZMod p upgrade)**: Adding Mathlib as a
