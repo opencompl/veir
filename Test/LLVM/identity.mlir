@@ -1,9 +1,9 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
   "llvm.module_flags"() : () -> ()
   "llvm.func"() ({
-    ^bb0():
+    ^bb0(%fcst : f64):
       %5 = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32
       %6 = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i1
       %7 = "llvm.and"(%5, %5) : (i32, i32) -> i32
@@ -47,6 +47,31 @@
       %30 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, noWrapFlags = 1 : i32, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
       %31 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, noWrapFlags = 0 : i32, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
       %32 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+      %34 = "llvm.fadd"(%fcst, %fcst) : (f64, f64) -> f64
+      %35 = "llvm.fadd"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
+      %36 = "llvm.fadd"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
+      %37 = "llvm.fadd"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
+      %38 = "llvm.fadd"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %39 = "llvm.fsub"(%fcst, %fcst) : (f64, f64) -> f64
+      %40 = "llvm.fsub"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
+      %41 = "llvm.fsub"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
+      %42 = "llvm.fsub"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
+      %43 = "llvm.fsub"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %44 = "llvm.fmul"(%fcst, %fcst) : (f64, f64) -> f64
+      %45 = "llvm.fmul"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
+      %46 = "llvm.fmul"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
+      %47 = "llvm.fmul"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
+      %48 = "llvm.fmul"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %49 = "llvm.fdiv"(%fcst, %fcst) : (f64, f64) -> f64
+      %50 = "llvm.fdiv"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
+      %51 = "llvm.fdiv"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
+      %52 = "llvm.fdiv"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
+      %53 = "llvm.fdiv"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %54 = "llvm.frem"(%fcst, %fcst) : (f64, f64) -> f64
+      %55 = "llvm.frem"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
+      %56 = "llvm.frem"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
+      %57 = "llvm.frem"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
+      %58 = "llvm.frem"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
       "llvm.return"(%28, %29, %30, %31, %32) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
   }) : () -> ()
 }) : () -> ()
@@ -55,7 +80,7 @@
 // CHECK-NEXT:   ^4():
 // CHECK-NEXT:     "llvm.module_flags"() : () -> ()
 // CHECK-NEXT:     "llvm.func"() ({
-// CHECK-NEXT:         ^7():
+// CHECK-NEXT:         ^7(%arg7_0 : f64):
 // CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i1
 // CHECK-NEXT:       %{{.*}} = "llvm.and"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
@@ -99,6 +124,31 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 1 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.pt
 // CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
 // CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
 // CHECK-NEXT:       "llvm.return"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
 // CHECK-NEXT:   }) : () -> ()
 // CHECK-NEXT: }) : () -> ()

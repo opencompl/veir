@@ -99,6 +99,11 @@ inductive Llvm where
 | return
 | func
 | module_flags
+| fadd
+| fsub
+| fmul
+| fdiv
+| frem
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
@@ -204,6 +209,13 @@ inductive Riscv where
 | snez
 | sltz
 | sgtz
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
+inductive Riscv_Cf where
+| branch
+| beq
+| bne
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]

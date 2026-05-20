@@ -28,7 +28,7 @@ https://standards.ieee.org/ieee/754/6210/):
 - biased exponent `allOnes` with zero significand → signed `Infinity`
 - biased exponent `0` with zero significand → `Number 0` (sign discarded)
 - biased exponent `0` with non-zero significand → subnormal:
-  `(-1)^sign * 2^(1 - bias) * (sig / 2^s)`
+  `(-1)^sign * 2^(-bias + 1) * (sig / 2^s)`
 - otherwise normal:
   `(-1)^sign * 2^(ex - bias) * (1 + sig / 2^s)`
 -/
@@ -39,7 +39,7 @@ def toExtRat {e s : Nat} (pf : PackedFloat e s) : ExtRat :=
   else if pf.ex = 0#e then
     if pf.sig = 0#s then .number 0
     else
-      .number (signToInt pf.sign * Rat.twoPow (1 - (bias e : Int)) * sigFrac pf.sig)
+      .number (signToInt pf.sign * Rat.twoPow (-(bias e : Int) + 1) * sigFrac pf.sig)
   else
     .number (signToInt pf.sign *
       Rat.twoPow ((pf.ex.toNat : Int) - (bias e : Int)) * (1 + sigFrac pf.sig))

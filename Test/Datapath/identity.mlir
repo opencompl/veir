@@ -1,4 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
 ^bb0(%arg0: i3, %arg1: i3, %arg2: i3):
@@ -9,7 +9,7 @@
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT:   ^4(%{{.*}} : i3, %{{.*}} : i3, %{{.*}} : i3):
-// CHECK-NEXT:     %{{.*}}, %{{.*}} = "datapath.compress"(%{{.*}}, %{{.*}}, %{{.*}}) : (i3, i3, i3) -> (i3, i3)
-// CHECK-NEXT:     %{{.*}}, %{{.*}}, %{{.*}} = "datapath.partial_product"(%{{.*}}, %{{.*}}) : (i3, i3) -> (i3, i3, i3)
-// CHECK-NEXT:     %{{.*}}, %{{.*}}, %{{.*}} = "datapath.pos_partial_product"(%{{.*}}, %{{.*}}, %{{.*}}) : (i3, i3, i3) -> (i3, i3, i3)
+// CHECK-NEXT:     %{{.*}}:2 = "datapath.compress"(%{{.*}}, %{{.*}}, %{{.*}}) : (i3, i3, i3) -> (i3, i3)
+// CHECK-NEXT:     %{{.*}}:3 = "datapath.partial_product"(%{{.*}}, %{{.*}}) : (i3, i3) -> (i3, i3, i3)
+// CHECK-NEXT:     %{{.*}}:3 = "datapath.pos_partial_product"(%{{.*}}, %{{.*}}, %{{.*}}) : (i3, i3, i3) -> (i3, i3, i3)
 // CHECK-NEXT: }) : () -> ()

@@ -1,4 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
 ^4():
@@ -45,7 +45,7 @@
 // CHECK-NEXT:     %{{.*}} = "arith.addi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.addi"(%{{.*}}, %{{.*}}) <{nuw}> : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.addi"(%{{.*}}, %{{.*}}) <{nsw, nuw}> : (i32, i32) -> i32
-// CHECK-NEXT:     %{{.*}}, %{{.*}} = "arith.addui_extended"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
+// CHECK-NEXT:     %{{.*}}:2 = "arith.addui_extended"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
 // CHECK-NEXT:     %{{.*}} = "arith.andi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.ceildivsi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.ceildivui"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
@@ -62,8 +62,8 @@
 // CHECK-NEXT:     %{{.*}} = "arith.muli"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.muli"(%{{.*}}, %{{.*}}) <{nuw}> : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.muli"(%{{.*}}, %{{.*}}) <{nsw, nuw}> : (i32, i32) -> i32
-// CHECK-NEXT:     %{{.*}}, %{{.*}} = "arith.mulsi_extended"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i32)
-// CHECK-NEXT:     %{{.*}}, %{{.*}} = "arith.mului_extended"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i32)
+// CHECK-NEXT:     %{{.*}}:2 = "arith.mulsi_extended"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i32)
+// CHECK-NEXT:     %{{.*}}:2 = "arith.mului_extended"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i32)
 // CHECK-NEXT:     %{{.*}} = "arith.ori"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.remsi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.remui"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
