@@ -293,7 +293,7 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     | .poison => Interp.ub
     | .val v' =>
       if v' = 0 then Interp.ub
-      else if bw ≠ 1 ∧ v' = -1 then
+      else if v' = -1 then
         -- Divisor is concretely -1; if the dividend could be intMin, the
         -- overflow case applies and is UB.
         match lhs with
@@ -320,7 +320,7 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     | .poison => Interp.ub
     | .val v' =>
       if v' = 0 then Interp.ub
-      else if bw ≠ 1 ∧ v' = -1 then
+      else if v' = -1 then
         match lhs with
         | .poison => Interp.ub
         | .val v =>
@@ -416,7 +416,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     | .poison => Interp.ub
     | .val v' =>
       if v' = 0 then Interp.ub
-      else if bw ≠ 1 ∧ v' = -1 then
+      else if v' = -1 then
         match lhs with
         | .poison => Interp.ub
         | .val v =>
@@ -441,7 +441,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     | .poison => Interp.ub
     | .val v' =>
       if v' = 0 then Interp.ub
-      else if bw ≠ 1 ∧ v' = -1 then
+      else if v' = -1 then
         match lhs with
         | .poison => Interp.ub
         | .val v =>

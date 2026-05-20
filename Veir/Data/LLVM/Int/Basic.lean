@@ -200,7 +200,7 @@ def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
 
-  if y' == 0 || (w != 1 && x' == (BitVec.intMin w) && y' == -1) then
+  if y' == 0 || (x' == (BitVec.intMin w) && y' == -1) then
     return poison
 
   if exact ∧ x'.smod y' ≠ 0 then
@@ -251,7 +251,7 @@ def srem {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
 
-  if y' == 0 || (w != 1 && x' == (BitVec.intMin w) && y' == -1) then
+  if y' == 0 || (x' == (BitVec.intMin w) && y' == -1) then
     return poison
 
   val (x'.srem y')
