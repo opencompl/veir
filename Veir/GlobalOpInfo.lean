@@ -3,6 +3,7 @@ module
 public import Veir.Dialects.Arith.OpInfo
 public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
+public import Veir.Dialects.RISCV_Cf.OpInfo
 public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
 public import Veir.Dialects.Comb.OpInfo
@@ -22,6 +23,7 @@ match opCode with
 | .arith op => Arith.propertiesOf op
 | .llvm op => Llvm.propertiesOf op
 | .riscv op => Riscv.propertiesOf op
+| .riscv_cf op => Riscv_Cf.propertiesOf op
 | .mod_arith op => Mod_Arith.propertiesOf op
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
@@ -85,6 +87,11 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case ld => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case sd => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
+  case riscv_cf op =>
+    cases op
+    case beq => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case bne => exact (RISCVBrProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case llvm op =>
     cases op
@@ -204,6 +211,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
   | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_cf .beq | .riscv_cf .bne =>
+    (Std.HashMap.emptyWithCapacity 1).insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
   | .cf .cond_br =>
     let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (.denseArrayAttr props.branch_weights)
     dict.insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)

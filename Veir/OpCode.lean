@@ -212,6 +212,13 @@ inductive Riscv where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
+inductive Riscv_Cf where
+| branch
+| beq
+| bne
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
 inductive Mod_Arith where
 | add
 | constant
