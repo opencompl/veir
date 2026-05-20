@@ -169,7 +169,7 @@ theorem isPoison_sdiv {w : Nat} (x y : Int w) {exact : Bool} :
     (sdiv x y exact).isPoison =
       if h : x.isPoison = true ∨ y.isPoison = true then true
       else
-        (y.getValue = 0 ∨ (w ≠ 1 ∧ x.getValue = (BitVec.intMin w) ∧ y.getValue = -1)) ∨
+        (y.getValue = 0 ∨ (x.getValue = (BitVec.intMin w) ∧ y.getValue = -1)) ∨
         (exact ∧ BitVec.smod x.getValue y.getValue ≠ 0) ∨
         (y.getValue = 0) := by
   simp only [sdiv, isPoison, getValue, Id.run, pure_bind]
@@ -203,7 +203,7 @@ theorem isPoison_srem {w : Nat} (x y : Int w) :
     (srem x y).isPoison =
       if h : x.isPoison = true ∨ y.isPoison = true then true
       else
-        (y.getValue = 0 ∨ (w ≠ 1 ∧ x.getValue = (BitVec.intMin w) ∧ y.getValue = -1)) := by
+        (y.getValue = 0 ∨ (x.getValue = (BitVec.intMin w) ∧ y.getValue = -1)) := by
   simp only [srem, isPoison, getValue, Id.run, pure_bind]
   simp [pure]
   grind
