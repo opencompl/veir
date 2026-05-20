@@ -52,7 +52,7 @@ def compile_to_mlir(src: Path, dst: Path | None, veir_optimize: bool) -> None:
             pre = tmp / (src.stem + ".mlir")
             pre.write_bytes(mlir)
             mlir = run(
-                ["lake", "exec", "veir-opt", "-p=instcombine,dce", str(pre)],
+                ["lake", "exec", "veir-opt", "-p=instcombine,dce,cse,dce", str(pre)],
                 cwd=REPO_ROOT,
             )
         if dst is None:
