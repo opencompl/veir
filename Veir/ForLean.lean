@@ -98,19 +98,19 @@ theorem List.idxOf_getElem [DecidableEq α] {l : List α} (H : Nodup l) (i : Nat
     idxOf l[i] l = i := by
   induction l generalizing i <;> grind
 
-theorem List.getElem?_idxOf [DecidableEq α] {l : List α} (h : l.idxOf x < l.length) :
+theorem List.Veir.getElem?_idxOf [DecidableEq α] {l : List α} (h : l.idxOf x < l.length) :
     l[l.idxOf x] = x := by
   induction l <;> grind
 
 @[simp, grind =]
 theorem Array.getElem?_idxOf [DecidableEq α] {l : Array α} (h : l.idxOf x < l.size) :
     l[l.idxOf x]? = some x := by
-  rcases l; grind [List.getElem?_idxOf]
+  rcases l; grind [List.Veir.getElem?_idxOf]
 
 @[simp, grind =]
 theorem Array.getElem_idxOf [DecidableEq α] {l : Array α} (h : l.idxOf x < l.size) :
     l[l.idxOf x] = x := by
-  rcases l; grind [List.getElem?_idxOf]
+  rcases l; grind [List.Veir.getElem?_idxOf]
 
 @[simp, grind =]
 theorem Array.toList_erase [BEq α] (l : Array α) (a : α) :

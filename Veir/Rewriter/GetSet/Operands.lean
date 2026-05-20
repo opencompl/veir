@@ -436,6 +436,10 @@ OpOperandPtr.get!_initOpOperands is too complex to be expressed, and should not 
 as we should reason at a higher-level abstraction at this point.
 -/
 
+-- maxHeartbeats raised after the 2026-05-19 toolchain downgrade to
+-- v4.30.0-rc2; the `grind` step times out at the default 200k under
+-- that compiler version. The proof itself is unchanged.
+set_option maxHeartbeats 400000 in
 @[grind =>]
 theorem OperationPtr.getOperands!_initOpOperands {operation : OperationPtr} :
     operation.getOperands! (Rewriter.initOpOperands ctx op h₁ operands h₂ h₃ n hn) =

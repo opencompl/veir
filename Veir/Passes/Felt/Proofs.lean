@@ -9,6 +9,13 @@ import Veir.Data.Felt.Basic
   are consistent with current VEIR practice (see `harness/coverage.md`
   §Verification machinery); the bar this file clears is the semantic
   theorem, not the precondition discharge.
+
+  Phase E.5 (2026-05-19) upgraded the proof model from `abbrev Felt
+  := Int` to `abbrev Felt p := ZMod p`. Each theorem now universally
+  quantifies over the modulus `p`, capturing the IR-level fact that
+  LLZK doesn't pin a specific field at the dialect level. The proofs
+  remain one-liners because Mathlib's commutative-ring instances on
+  `ZMod p` discharge the identities exactly as `Int.*` did.
 -/
 
 namespace Veir.Data.Felt
@@ -16,49 +23,42 @@ namespace Veir.Data.Felt
 /--
   `felt.add x (felt.const 0) = x`. Soundness of the
   `right_identity_zero_add` pattern in `Veir/Passes/Felt/Combine.lean`.
-
-  Proven against the provisional `Felt := Int` model. Lifts to any
-  `ZMod p` semantics because `const 0 = 0` in every modulus.
 -/
-theorem right_identity_zero_add (lhs : Felt) :
-    add lhs (const 0) = lhs := by
-  -- `Felt` is `abbrev Felt := Int` so it's reducible by default; only
-  -- the wrapper functions need to be unfolded. The remaining goal is
-  -- `lhs + 0 = lhs`, discharged by `Int.add_zero` via simp's default
-  -- simp set.
-  simp [add, const]
+theorem right_identity_zero_add (p : Nat) (lhs : Felt p) :
+    add lhs (const p 0) = lhs := by
+  show lhs + ((0 : Int) : ZMod p) = lhs
+  simp
 
 /--
   `felt.add (felt.const c1) (felt.const c2) = felt.const (c1 + c2)`.
   Soundness of `constant_fold_add` in `Veir/Passes/Felt/Combine.lean`.
 
-  Lifts to `ZMod p` because `+` commutes with the canonical ring
-  homomorphism `ℤ → ZMod p`.
+  The Mathlib coercion `Int → ZMod p` is a ring homomorphism, so
+  `↑c1 + ↑c2 = ↑(c1 + c2)` in `ZMod p`.
 -/
-theorem constant_fold_add (c1 c2 : Int) :
-    add (const c1) (const c2) = const (c1 + c2) := by
-  simp [add, const]
+theorem constant_fold_add (p : Nat) (c1 c2 : Int) :
+    add (const p c1) (const p c2) = const p (c1 + c2) := by
+  show ((c1 : ZMod p) + (c2 : ZMod p)) = ((c1 + c2 : Int) : ZMod p)
+  push_cast
+  ring
 
 /--
   `felt.sub x x = felt.const 0`. Soundness of `self_subtraction_to_zero`
   in `Veir/Passes/Felt/Combine.lean`.
-
-  Lifts to any `ZMod p` because `x - x = 0` is preserved by every ring
-  homomorphism.
 -/
-theorem self_subtraction_to_zero (x : Felt) :
-    sub x x = const 0 := by
-  simp [sub, const]
+theorem self_subtraction_to_zero (p : Nat) (x : Felt p) :
+    sub x x = const p 0 := by
+  show x - x = ((0 : Int) : ZMod p)
+  simp
 
 /--
   `felt.add (felt.add x c1) c2 = felt.add x (c1 + c2)`. Soundness of
   `assoc_const_fold_add` in `Veir/Passes/Felt/Combine.lean`.
-
-  Lifts to `ZMod p` because associativity of `+` is preserved by every
-  ring homomorphism.
 -/
-theorem assoc_const_fold_add (x : Felt) (c1 c2 : Int) :
-    add (add x (const c1)) (const c2) = add x (const (c1 + c2)) := by
-  simp [add, const, Int.add_assoc]
+theorem assoc_const_fold_add (p : Nat) (x : Felt p) (c1 c2 : Int) :
+    add (add x (const p c1)) (const p c2) = add x (const p (c1 + c2)) := by
+  show (x + (c1 : ZMod p)) + (c2 : ZMod p) = x + ((c1 + c2 : Int) : ZMod p)
+  push_cast
+  ring
 
 end Veir.Data.Felt

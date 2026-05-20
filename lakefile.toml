@@ -5,6 +5,11 @@ testRunner = "UnitTest"
 moreLeanArgs = ["--tstack=400000"]
 moreServerArgs = ["--tstack=400000"]
 
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+version = "git#master"
+
 [[lean_lib]]
 name = "Veir"
 root = "Veir"

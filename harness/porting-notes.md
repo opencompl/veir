@@ -9,6 +9,77 @@ Format: each note has a date, a short title, the discovery, and a
 
 ---
 
+## 2026-05-19 — Pattern: adopting Mathlib means pinning to Mathlib's Lean
+
+**Discovery (E.5 — Felt := ZMod p upgrade)**: Adding Mathlib as a
+`require` in `lakefile.toml` worked, and `lake exe cache get`
+fetched ~8.4k precompiled oleans in a minute. But the oleans are
+ABI-tied to the *exact* Lean version Mathlib was built against — in
+our case `v4.30.0-rc2`. We were on `nightly-2026-05-14`, ~1 month
+ahead, and trying to `import Mathlib.Data.ZMod.Basic` produced an
+`incompatible header` error on every olean.
+
+Mathlib doesn't track Lean nightlies — only stable releases and
+release candidates. There's no Mathlib branch that pairs with any
+given Lean nightly, so the practical choice is: **align the
+project's `lean-toolchain` to whatever Mathlib master uses** and
+rebuild everything. We downgraded to `v4.30.0-rc2`. One file
+(`Veir/Rewriter/GetSet/Operands.lean`) hit a `grind` heartbeat
+timeout under the older compiler and needed `set_option
+maxHeartbeats 400000 in`; nothing else regressed.
+
+A second pitfall: Mathlib defines theorems that VEIR also defined
+in `Veir/ForLean.lean` (e.g. `List.getElem?_idxOf`). When both end
+up in scope, Lean refuses to import: `environment already contains
+'List.getElem?_idxOf'`. The fix is to rename VEIR's local copies
+out of the way (e.g. `List.Veir.getElem?_idxOf`) — anything Mathlib
+duplicates is by definition standard and can be relied on
+elsewhere.
+
+**How to apply**: Before any future Mathlib-dependent work,
+re-check that the project's `lean-toolchain` still matches Mathlib
+master's `lean-toolchain`. If they've drifted, do the toolchain
+bump as a *separate* commit (with a build-only verification) before
+landing new proof content — that way regressions from the
+toolchain swap are isolated from regressions in the new code.
+
+**Upstream-fix candidate**: a script in `scripts/` that diffs our
+`lean-toolchain` against `.lake/packages/mathlib/lean-toolchain` and
+warns when they diverge.
+
+---
+
+## 2026-05-19 — Pattern: modulus-in-proof vs modulus-in-type for finite fields
+
+**Discovery (E.5)**: VEIR has two LLZK-adjacent dialects that
+represent finite-field values: HEIR's `mod_arith` and LLZK's `felt`.
+They make opposite design choices:
+
+- `mod_arith` bakes the modulus into the *type*:
+  `ModArithType { modulus : Int; modulusType : Option IntegerType }`.
+  Each value is statically tagged. No semantic model exists in
+  `Veir/Data/`; no verified rewrites run on it.
+- `felt` leaves the modulus *implicit* at the type level
+  (`!felt.type` with optional field-name annotation). Verified
+  rewrites must therefore quantify universally over the modulus to
+  be sound across `bn254`, `bls12-377`, etc.
+
+The Felt semantic model upgraded to `abbrev Felt (p : Nat) := ZMod p`,
+and the 4 existing verified rewrites take `(p : Nat)` as an extra
+parameter. Mathlib's `CommRing (ZMod p)` discharges the identities
+without needing `[Fact p.Prime]` — primality only becomes
+load-bearing once division enters the picture.
+
+**How to apply**: When porting another field-flavored dialect to
+VEIR, ask first: does the dialect pin the modulus statically (like
+`mod_arith`) or leave it implicit (like `felt`)? The answer
+determines whether the semantic model takes a `Nat` parameter or
+hard-codes a specific field. If implicit, the proofs must
+universally quantify; if pinned, they can specialize. Don't try to
+build one model that does both.
+
+---
+
 ## 2026-05-18 — Gotcha 7: LLZK `function.def` requires `function_type` even when empty
 
 **Discovery (F.5)**: A naïve port of `function.def` that stored only

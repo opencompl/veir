@@ -42,6 +42,7 @@ to be maintained as work progresses, not written once.
 | Second verified LLZK pass (constant-fold) | ✅ Phase E.2 — `felt-combine` proves `felt.add (felt.const c1) (felt.const c2) → felt.const (c1+c2)` | `Veir/Passes/Felt/{Combine,Proofs}.lean` |
 | Third verified LLZK pass (self-subtraction) | ✅ Phase E.3 — `felt-combine` proves `felt.sub x x → felt.const 0` | `Veir/Passes/Felt/{Combine,Proofs}.lean` |
 | Fourth verified LLZK pass (assoc-const-fold) | ✅ Phase E.4 — `felt-combine` proves `felt.add (felt.add x c1) c2 → felt.add x (c1+c2)` | `Veir/Passes/Felt/{Combine,Proofs}.lean` |
+| Felt semantic model `ZMod p` | ✅ Phase E.5 (2026-05-19) — replaced provisional `Felt := Int` with `Felt p := ZMod p`; pulled in Mathlib; pinned toolchain to v4.30.0-rc2; all 4 verified rewrites re-proved with universal quantifier over modulus | `Veir/Data/Felt/Basic.lean`, `Veir/Passes/Felt/Proofs.lean` |
 | `index` type | ✅ added inline as infra during A.4 | `Veir/IR/Attribute.lean` |
 | Per-dialect attribute parser | ❌ none in VEIR (workaround: `IntegerAttr`) | `harness/coverage.md` §Attributes |
 | Symbol references (`@name`) | ❌ no `SymbolRefAttr` case in `Attribute` | `harness/coverage.md` §Symbols |
@@ -132,6 +133,16 @@ First verified LLZK-touching pass, deliberately scoped small.
 - [x] **E.4** Lit test `Test/LLZK/Felt/passes/right_identity.mlir`
       exercises the pass and asserts only one of two `felt.add` ops
       survives. Done 2026-05-15.
+- [x] **E.5** Felt model upgrade — replace provisional `Felt := Int`
+      with `Felt p := ZMod p` via Mathlib. All 4 verified Felt rewrites
+      re-proved with the modulus universally quantified. Toolchain
+      downgraded `nightly-2026-05-14` → `v4.30.0-rc2` to match Mathlib
+      master. Done 2026-05-19. **Future**: when polynomial-level
+      reasoning over constraint systems is needed (likely G.2
+      Polymorphic or H.1 EnforceNoOverwrite), add CompPoly
+      ([Verified-zkEVM/CompPoly](https://github.com/Verified-zkEVM/CompPoly.git))
+      as a second dep for a computable polynomial type. Deferred
+      until there's a consumer.
 
 Acceptance: build green (267/267), lit green (322/322, +1 for the
 new pass test), zero `sorry` in new files (proof side; rewriter

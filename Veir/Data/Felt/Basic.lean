@@ -1,34 +1,51 @@
 module
 
+public import Mathlib.Data.ZMod.Basic
+public import Mathlib.Tactic.Ring
+
 namespace Veir.Data.Felt
 
 public section
 
-/--
-  A field-element value, provisionally modeled as `Int` (no modular reduction).
+/-!
+  ## Felt semantic model
 
-  Real LLZK semantics would treat a felt as an element of a specific finite
-  field `ZMod p` — but the modulus is left unspecified at the dialect level
-  (`!felt.type` versus `!felt.type<"bn254">`), and VEIR has no machinery to
-  thread the modulus through proofs today. Modeling as `Int` is sound for
-  identities that hold under reduction by *any* modulus (e.g. `x + 0 = x`):
-  the constant `0` reduces to `0` in every `ZMod p`, so the rewrite that
-  depends on the identity is sound regardless of which field the IR will
-  eventually be specialized to.
+  A field-element value, modeled as `ZMod p` where `p` is the
+  (eventual) prime modulus of the underlying field.
 
-  This is the provisional model for Phase E.1. Upgrade to a proper field
-  model when a pass depends on field-specific semantics.
+  LLZK leaves the modulus implicit at the dialect level (`!felt.type`
+  vs. `!felt.type<"bn254">`), so the IR is agnostic about which
+  specific `ZMod p` it will eventually be specialized to. The
+  semantic model therefore parameterizes on `p` and the surrounding
+  proofs quantify universally over `p`.
+
+  History: Phase E.1 through E.4 used the provisional `abbrev Felt
+  := Int`, sound only for identities that hold under reduction by
+  any modulus. Phase E.5 (2026-05-19) upgraded to the proper field
+  model after adding Mathlib as a dependency.
+
+  Note: identities such as `x + 0 = x` and `x - x = 0` hold in every
+  `ZMod p` regardless of primality, so the `[Fact p.Prime]` instance
+  is *not* threaded through these basic rewrites. Multiplicative
+  inverses and division will need primality; the relevant lemmas
+  will pick it up via `Fact (p.Prime)` at the call site.
+
+  The `linter.dupNamespace` warning on `Veir.Data.Felt.Felt` is
+  suppressed locally; changing the outer namespace would touch every
+  consumer.
 -/
-abbrev Felt := Int
 
-/-- The constant `n` as a felt. Mirrors `Veir.Data.RISCV.li`. -/
-def const (n : Int) : Felt := n
+set_option linter.dupNamespace false in
+abbrev Felt (p : Nat) := ZMod p
 
-/-- Field addition (provisional: `Int.add`). Mirrors `Veir.Data.RISCV.add`. -/
-def add (a b : Felt) : Felt := a + b
+/-- The constant `n` as a felt under modulus `p`. -/
+def const (p : Nat) (n : Int) : Felt p := (n : ZMod p)
 
-/-- Field subtraction (provisional: `Int.sub`). -/
-def sub (a b : Felt) : Felt := a - b
+/-- Field addition. -/
+def add {p : Nat} (a b : Felt p) : Felt p := a + b
+
+/-- Field subtraction. -/
+def sub {p : Nat} (a b : Felt p) : Felt p := a - b
 
 end
 
