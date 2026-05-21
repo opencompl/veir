@@ -5,6 +5,10 @@ testRunner = "UnitTest"
 moreLeanArgs = ["--tstack=400000"]
 moreServerArgs = ["--tstack=400000"]
 
+[[require]]
+name = "ExArray"
+path = "ExArray"
+
 [[lean_lib]]
 name = "Veir"
 root = "Veir"

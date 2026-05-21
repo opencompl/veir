@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+P=$(lean --print-prefix)
+CC=clang
+GMP_INCLUDE=$(pkg-config --cflags-only-I gmp)
+OPT=-Wno-unused-command-line-argument
+
+# /opt/homebrew/opt/llvm/bin/clang -fsanitize=address -I $P/include -I /opt/homebrew/opt/gmp/include -DLEAN_USE_GMP -fstack-clash-protection -fwrapv -fvisibility=hidden -L $P/lib -L $P/lib/lean -O0 -g ${@:1}
+$CC -I $P/include $GMP_INCLUDE -DLEAN_USE_GMP -fstack-clash-protection -fwrapv -fvisibility=hidden -L $P/lib -L $P/lib/lean -O3 $OPT ${@:1}

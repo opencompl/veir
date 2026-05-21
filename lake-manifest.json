@@ -1,6 +1,13 @@
 {"version": "1.2.0",
  "packagesDir": ".lake/packages",
- "packages": [],
+ "packages":
+ [{"type": "path",
+   "scope": "",
+   "name": "ExArray",
+   "manifestFile": "lake-manifest.json",
+   "inherited": false,
+   "dir": "ExArray",
+   "configFile": "lakefile.lean"}],
  "name": "VeIR",
  "lakeDir": ".lake",
  "fixedToolchain": false}
