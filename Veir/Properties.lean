@@ -412,6 +412,25 @@ def HWConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
   return { value := intAttr }
 
 /--
+  Properties of `func.func`. The `sym_name` attribute is modelled explicitly;
+  all other attributes are preserved verbatim in `extra`.
+-/
+structure FuncFuncProperties where
+  sym_name : Option StringAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def FuncFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String FuncFuncProperties := do
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr s) => pure (some s)
+    | some attr => throw s!"func.func: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => pure none
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8)
+  return { sym_name := symName, extra }
+
+/--
   Properties of `llvm.func`. The `sym_name` and `function_type` attributes are
   modelled explicitly; all other attributes (e.g. `CConv`, `linkage`, `visibility_`)
   are preserved verbatim in `extra`.
