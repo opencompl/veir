@@ -212,7 +212,6 @@ struct mpz_object {
 
 // [[gnu::noinline]]
 lean_obj_res buffed_ex_array_blit(b_lean_obj_arg *w, lean_obj_arg a, size_t offset, uint64_t len, lean_obj_arg o) {
-    len /= 8;
     lean_object *r = buffed_ex_array_ensure_exclusive(a);
     uint8_t *p = (uint8_t *)(buffed_ex_array_cptr(r) + offset);
     if (lean_is_scalar(o)) {
