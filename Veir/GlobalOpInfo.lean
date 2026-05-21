@@ -18,7 +18,7 @@ public section
   For operations that do not have any properties, the type is `Unit`.
 -/
 @[expose, properties_of]
-def propertiesOf (opCode : OpCode) : Type :=
+def _propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith op => Arith.propertiesOf op
 | .llvm op => Llvm.propertiesOf op
@@ -33,22 +33,12 @@ match opCode with
 | _ => Unit
 
 instance : HasDialectOpInfo OpCode where
-  propertiesOf := propertiesOf
+  propertiesOf := _propertiesOf
 
 instance : HasOpInfo OpCode where
   moduleOpCode := .builtin .module
 
-instance (opCode : OpCode) : Inhabited (propertiesOf opCode) := by
-  simp only [properties_of]
-  cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
-
-instance (opCode : OpCode) : Repr (propertiesOf opCode) := by
-  simp only [properties_of]
-  cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
-
-instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
-  simp only [properties_of]
-  cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
+abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (propertiesOf opCode) := by
