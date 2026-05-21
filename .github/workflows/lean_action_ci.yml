@@ -13,6 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Source environment variables
+        run: source .envrc
+
       - name: Build the project
         uses: leanprover/lean-action@v1
         with:
@@ -41,3 +44,14 @@ jobs:
 
       - name: Run filecheck tests
         run: uv run lit Test/ -v
+
+      - name: Build the ExArray package
+        uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: "ExArray"
+
+      - name: Run the ExArray test binary
+        run: |
+          pushd ExArray
+          lake exe test
+          popd
