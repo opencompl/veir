@@ -110,11 +110,13 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : Excep
       | _, _ => .error .none
 
 /-- Report an interpreter result to the CLI. Hard failures (`none`) use a generic error. -/
-def reportInterpResult (result : Interp (Array RuntimeValue)) : IO Unit :=
+def reportInterpResult (result : Interp (Array RuntimeValue)) : IO Unit := do
   match result with
   | some (.ok results) => IO.println s!"Program output: {results}"
   | some .ub => IO.println "Undefined behavior"
-  | none => IO.eprintln "Error while interpreting module"
+  | none =>
+    IO.eprintln "Error while interpreting module"
+    IO.Process.exit 1
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
@@ -134,11 +136,17 @@ def main (args : List String) : IO Unit := do
           reportInterpResult (interpretModule rawCtx op (by sorry) (by sorry))
         | .error .none =>
           IO.eprintln "Error: No entry point: define a zero-argument function named 'main' or use top-level executable ops"
+          IO.Process.exit 1
         | .error .multiple =>
           IO.eprintln "Error: Multiple entry points: define exactly one zero-argument function named 'main' or use only top-level executable ops"
-      | .error errMsg => IO.eprintln s!"Error verifying input program: {errMsg}"
+          IO.Process.exit 1
+      | .error errMsg =>
+        IO.eprintln s!"Error verifying input program: {errMsg}"
+        IO.Process.exit 1
     | .error errMsg =>
       IO.eprintln s!"Error: {errMsg}"
+      IO.Process.exit 1
   | _ =>
     IO.eprintln "Wrong number of arguments."
     IO.eprintln "Usage: veir-interpret <filename>"
+    IO.Process.exit 1

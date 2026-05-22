@@ -1,4 +1,4 @@
-// RUN: veir-opt %s 2>&1 | filecheck %s --strict-whitespace
+// RUN: not veir-opt %s 2>&1 | filecheck %s --strict-whitespace
 
 // Verify that parse errors go through ParserError.format.
 
