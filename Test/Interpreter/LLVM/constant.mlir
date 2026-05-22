@@ -1,10 +1,12 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  %pos = "llvm.mlir.constant"() <{ "value" = 3 : i32 }> : () -> i32
-  %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
-  %neg = "llvm.mlir.constant"() <{ "value" = -4 : i32 }> : () -> i32
-  "func.return"(%pos, %zero, %neg) : (i32, i32, i32) -> ()
+  "func.func"() <{sym_name = "main"}> ({
+    %pos = "llvm.mlir.constant"() <{ "value" = 3 : i32 }> : () -> i32
+    %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
+    %neg = "llvm.mlir.constant"() <{ "value" = -4 : i32 }> : () -> i32
+    "func.return"(%pos, %zero, %neg) : (i32, i32, i32) -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // CHECK: Program output: #[0x00000003#32, 0x00000000#32, 0xfffffffc#32]
