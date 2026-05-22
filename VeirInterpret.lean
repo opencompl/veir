@@ -133,7 +133,7 @@ def main (args : List String) : IO Unit := do
         | .ok .topLevel =>
           reportInterpResult (interpretModule rawCtx op (by sorry) (by sorry))
         | .error .none =>
-          IO.eprintln "Error: No entry point: define a function named 'main' or use top-level executable ops"
+          IO.eprintln "Error: No entry point: define a zero-argument function named 'main' or use top-level executable ops"
         | .error .multiple =>
           IO.eprintln "Error: Multiple entry points: define exactly one zero-argument function named 'main' or use only top-level executable ops"
       | .error errMsg => IO.eprintln s!"Error verifying input program: {errMsg}"

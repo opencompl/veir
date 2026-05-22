@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Error: No entry point: define a function named 'main' or use top-level executable ops
+// CHECK: Error: No entry point: define a zero-argument function named 'main' or use top-level executable ops
