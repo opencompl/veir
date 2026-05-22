@@ -33,4 +33,4 @@ def main (args : List String) : IO Unit := do
   | some bench => Veir.Benchmarks.runBenchmark bench count (getPCFrom args[2]?)
   | _ =>
     IO.eprintln "Please provide a benchmark name"
-    IO.Process.exit 1
+    IO.Process.exit 2
