@@ -149,4 +149,4 @@ def main (args : List String) : IO Unit := do
   | _ =>
     IO.eprintln "Wrong number of arguments."
     IO.eprintln "Usage: veir-interpret <filename>"
-    IO.Process.exit 1
+    IO.Process.exit 2
