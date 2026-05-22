@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779461313154,
+  "lastUpdate": 1779461976306,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -30944,6 +30944,184 @@ window.BENCHMARK_DATA = {
             "range": "± 12606",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=7 median=0.000795s stddev=0.000012606s cv=1.5822%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "regehr@cs.utah.edu",
+            "name": "John Regehr",
+            "username": "regehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "573a7e50e17a11e40724ad17577270ae196a04ba",
+          "message": "a small code style improvement suggested by Leo (#628)\n\nno functional change! just more idiomatic",
+          "timestamp": "2026-05-22T14:52:32Z",
+          "tree_id": "2e8c4aca47cce30736b047be32eefb873ccc4877",
+          "url": "https://github.com/opencompl/veir/commit/573a7e50e17a11e40724ad17577270ae196a04ba"
+        },
+        "date": 1779461959913,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2390000,
+            "range": "± 173998",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002390000s stddev=0.000173998s cv=7.1942%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3903000,
+            "range": "± 499165",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.003903000s stddev=0.000499165s cv=12.1754%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2302000,
+            "range": "± 25215",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002302s stddev=0.000025215s cv=1.0961%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3135000,
+            "range": "± 35654",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003135s stddev=0.000035654s cv=1.1352%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2326000,
+            "range": "± 111335",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002326000s stddev=0.000111335s cv=4.7840%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2538000,
+            "range": "± 181365",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002538000s stddev=0.000181365s cv=6.9387%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 2023000,
+            "range": "± 112705",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002023000s stddev=0.000112705s cv=5.6203%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 2041000,
+            "range": "± 100865",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002041000s stddev=0.000100865s cv=4.8435%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2462000,
+            "range": "± 121774",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=20 median=0.002462000s stddev=0.000121774s cv=4.9311%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5876500,
+            "range": "± 268537",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=20 median=0.005876500s stddev=0.000268537s cv=4.5959%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2405000,
+            "range": "± 43806",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002405s stddev=0.000043806s cv=1.8192%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3191000,
+            "range": "± 109235",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003191s stddev=0.000109235s cv=3.4023%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2392000,
+            "range": "± 109033",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002392s stddev=0.000109033s cv=4.6468%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 2075000,
+            "range": "± 56434",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002075s stddev=0.000056434s cv=2.7100%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1919000,
+            "range": "± 90990",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001919s stddev=0.000090990s cv=4.7067%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1608000,
+            "range": "± 41511",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001608s stddev=0.000041511s cv=2.5517%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2310500,
+            "range": "± 144463",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002310500s stddev=0.000144463s cv=6.1932%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3776500,
+            "range": "± 103473",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.003776500s stddev=0.000103473s cv=2.7229%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1984500,
+            "range": "± 104409",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001984500s stddev=0.000104409s cv=5.2211%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "range": "± 1725",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000008000s stddev=0.000001725s cv=19.8276%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 2013000,
+            "range": "± 46602",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002013s stddev=0.000046602s cv=2.3303%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 787000,
+            "range": "± 15710",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.000787s stddev=0.000015710s cv=1.9801%"
           }
         ]
       }
