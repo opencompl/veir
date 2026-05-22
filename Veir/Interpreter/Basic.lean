@@ -870,6 +870,34 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
     return (#[.reg (RISCV.sgtz op)], none)
   | _ => none
 
+def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInfo.propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    : Interp (Array RuntimeValue × Option ControlFlowAction) :=
+  match opType with
+  | .branch => do
+    let [dest] := blockOperands.toList | none
+    return (#[], some (.branch operands dest))
+  | .beq => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if lhs == rhs then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+  | .bne => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if lhs != rhs then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+
 def Cf.interpretOp' (opType : Veir.Cf) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
@@ -937,6 +965,9 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem
   | .riscv riscvOp => do
     let (vals, act) ← Riscv.interpretOp' riscvOp properties resultTypes operands blockOperands
+    return (vals, mem, act)
+  | .riscv_cf riscvCfOp => do
+    let (vals, act) ← Riscv_Cf.interpretOp' riscvCfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
   | .cf cfOp => do
     let (vals, act) ← Cf.interpretOp' cfOp properties resultTypes operands blockOperands
