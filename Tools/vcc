@@ -48,13 +48,16 @@ def compile_to_mlir(src: Path, dst: Path | None, veir_optimize: bool) -> None:
             ["mlir-opt", "--mlir-print-op-generic", "--mlir-print-local-scope"],
             stdin=translated,
         )
+        pre = tmp / (src.stem + ".mlir")
+        pre.write_bytes(mlir)
+        opt_cmd = ["lake", "exec", "veir-opt"]
         if veir_optimize:
-            pre = tmp / (src.stem + ".mlir")
-            pre.write_bytes(mlir)
-            mlir = run(
-                ["lake", "exec", "veir-opt", "-p=instcombine,dce", str(pre)],
-                cwd=REPO_ROOT,
-            )
+            opt_cmd.append("-p=instcombine,dce")
+        opt_cmd.append(str(pre))
+        mlir = run(
+            opt_cmd,
+            cwd=REPO_ROOT,
+        )
         if dst is None:
             sys.stdout.buffer.write(mlir)
         else:
@@ -80,7 +83,7 @@ def main() -> None:
     if not args.source.is_file():
         sys.exit(f"vcc: source file not found: {args.source}")
 
-    check_tools(BASE_TOOLS + (VEIR_TOOLS if args.optimize else ()))
+    check_tools(BASE_TOOLS + VEIR_TOOLS)
 
     if args.output is None:
         dst: Path | None = Path(args.source.stem + ".mlir")
