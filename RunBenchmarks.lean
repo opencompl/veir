@@ -29,8 +29,8 @@ def bench (f: IO Unit) (count : Nat) : IO Unit := do
 def main (args : List String) : IO Unit := do
   IO.println s!"Benchmark ({args})"
   let count := getCountFrom args[1]?
-  match args[0]? with
-  | some bench => Veir.Benchmarks.runBenchmark bench count (getPCFrom args[2]?)
-  | _ =>
+  if let some bench := args[0]? then
+    Veir.Benchmarks.runBenchmark bench count (getPCFrom args[2]?)
+  else
     IO.eprintln "Please provide a benchmark name"
     IO.Process.exit 2
