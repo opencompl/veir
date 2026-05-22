@@ -1,4 +1,4 @@
-// RUN: veir-interpret %s 2>&1 | filecheck %s
+// RUN: not veir-interpret %s 2>&1 | filecheck %s
 
 "builtin.module"() ({
   "llvm.func"() <{CConv = #llvm.cconv<ccc>, function_type = !llvm.func<i16 ()>, linkage = #llvm.linkage<external>, sym_name = "myfunc", unnamed_addr = 0 : i64, visibility_ = 0 : i64}> ({

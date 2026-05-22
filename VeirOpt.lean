@@ -105,16 +105,21 @@ def main (args : List String) : IO Unit := do
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
     IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]"
+    IO.Process.exit 1
   | .ok { filename, passes } =>
     match ← parseOperation filename with
-    | .error errMsg => IO.eprintln errMsg
+    | .error errMsg =>
+      IO.eprintln errMsg
+      IO.Process.exit 1
     | .ok (ctx, op) =>
       match ctx.verify with
       | .error errMsg =>
         IO.eprintln s!"Error verifying input program: {errMsg}"
+        IO.Process.exit 1
       | .ok _ =>
         match ← passes.run ⟨ctx, by sorry⟩ op with
         | .error errMsg =>
           IO.eprintln s!"Error: {errMsg}"
+          IO.Process.exit 1
         | .ok finalCtx =>
           Veir.Printer.printOperation finalCtx op
