@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779465732802,
+  "lastUpdate": 1779468252091,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -31300,6 +31300,184 @@ window.BENCHMARK_DATA = {
             "range": "± 33239",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=5 median=0.000793s stddev=0.000033239s cv=4.1518%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "b.a.w.spitters@gmail.com",
+            "name": "Bas Spitters",
+            "username": "spitters"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a99ffe7f49e2530441fe177489e96a241f16ddae",
+          "message": "Rename `List.getElem?_idxOf` → `List.getElem_idxOf` (resolves name collision with Mathlib) (#626)\n\n## Summary\n\n`Veir/ForLean.lean:120` declares a theorem named `List.getElem?_idxOf`\nwhose\nstatement does NOT use `getElem?` (the `Option`-returning variant):\n\n```lean\ntheorem List.getElem?_idxOf [DecidableEq α] {l : List α} (h : l.idxOf x < l.length) :\n    l[l.idxOf x] = x := by\n  induction l <;> grind\n```\n\nThe trailing `?` in the name is therefore inaccurate.\n\nIndependently, **Mathlib** (`Mathlib/Data/List/Basic.lean:654-657`)\ndeclares a\n*different* theorem under the **same** global name\n`List.getElem?_idxOf`,\nwhich does use `getElem?`:\n\n```lean\n@[simp]\ntheorem getElem?_idxOf [BEq α] [LawfulBEq α] {a : α} {l : List α} (h : a ∈ l) :\n    l[idxOf a l]? = some a := by ...\n```\n\nAny downstream project that imports both Veir and Mathlib (transitively\nvia,\ne.g., a typed-SSA front-end like `opencompl/lean-mlir` or third-party\ncrypto/compiler projects) currently fails to elaborate with:\n\n```\nimport Mathlib.Data.List.Basic failed,\nenvironment already contains 'List.getElem?_idxOf' from Veir.ForLean\n```\n\n## Fix\n\nRename Veir's theorem to `List.getElem_idxOf` — matching its actual\nstatement\n(no `?`), and aligning with the sibling `Array.getElem_idxOf` (line 130)\nwhich\nis already correctly named. Update the two internal callers.\n\nNo semantic change. Three single-token renames in `Veir/ForLean.lean`:\n\n* Line 120: declaration\n* Line 127: caller inside `Array.getElem?_idxOf`'s proof\n* Line 132: caller inside `Array.getElem_idxOf`'s proof\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+          "timestamp": "2026-05-22T16:22:06Z",
+          "tree_id": "4cf1073eeca287824a6f271f6716d7c88150a1d8",
+          "url": "https://github.com/opencompl/veir/commit/a99ffe7f49e2530441fe177489e96a241f16ddae"
+        },
+        "date": 1779468236468,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2162000,
+            "range": "± 54897",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002162s stddev=0.000054897s cv=2.5312%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3730000,
+            "range": "± 12194",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003730s stddev=0.000012194s cv=0.3266%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2236500,
+            "range": "± 110668",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=28 median=0.002236500s stddev=0.000110668s cv=4.9462%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3106000,
+            "range": "± 35362",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=28 median=0.003106000s stddev=0.000035362s cv=1.1373%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2241000,
+            "range": "± 57434",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002241s stddev=0.000057434s cv=2.5799%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2430000,
+            "range": "± 14755",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002430s stddev=0.000014755s cv=0.6085%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1886000,
+            "range": "± 86497",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001886s stddev=0.000086497s cv=4.7127%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1963000,
+            "range": "± 23933",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001963s stddev=0.000023933s cv=1.2165%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2114000,
+            "range": "± 107120",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002114s stddev=0.000107120s cv=4.9460%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5219000,
+            "range": "± 40725",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.005219s stddev=0.000040725s cv=0.7773%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2220000,
+            "range": "± 89556",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002220s stddev=0.000089556s cv=4.0384%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3000000,
+            "range": "± 25006",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003000s stddev=0.000025006s cv=0.8312%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2195500,
+            "range": "± 108395",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=10 median=0.002195500s stddev=0.000108395s cv=4.9232%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 2011500,
+            "range": "± 44523",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=10 median=0.002011500s stddev=0.000044523s cv=2.2047%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1926000,
+            "range": "± 93735",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=6 median=0.001926000s stddev=0.000093735s cv=4.8660%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1574500,
+            "range": "± 22624",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=6 median=0.001574500s stddev=0.000022624s cv=1.4313%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2108000,
+            "range": "± 53228",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002108s stddev=0.000053228s cv=2.5046%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3647000,
+            "range": "± 106880",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003647s stddev=0.000106880s cv=2.9007%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1833000,
+            "range": "± 76575",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=7 median=0.001833s stddev=0.000076575s cv=4.1776%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "range": "± 378",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=7 median=0.000008s stddev=0.000000378s cv=4.8110%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1881000,
+            "range": "± 19743",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001881s stddev=0.000019743s cv=1.0459%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 777000,
+            "range": "± 8468",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.000777s stddev=0.000008468s cv=1.0887%"
           }
         ]
       }
