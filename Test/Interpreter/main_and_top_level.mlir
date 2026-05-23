@@ -9,4 +9,4 @@
   "func.return"(%0) : (i32) -> ()
 }) : () -> ()
 
-// CHECK: Error: Multiple entry points: define exactly one zero-argument function named 'main' or use only top-level executable ops
+// CHECK: Error: Top-level operations are disallowed; define a zero-argument function named 'main'
