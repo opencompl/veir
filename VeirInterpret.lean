@@ -82,7 +82,7 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO Op
     IO.eprintln "Error: No entry point: define a zero-argument func.func or llvm.func named 'main'"
     IO.Process.exit 1
   | [mainOp] => return mainOp
-  | _ :: _ :: _ =>
+  | _ =>
     IO.eprintln "Error: Multiple entry points: define exactly one zero-argument func.func or llvm.func named 'main'"
     IO.Process.exit 1
 
