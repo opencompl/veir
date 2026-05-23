@@ -73,19 +73,18 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
 /-- Resolve the unique entry point of the module, if one exists. -/
 def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO OperationPtr := do
   let region := moduleOp.getRegion! ctx 0
-  match (region.get! ctx).firstBlock with
-  | none =>
+  let entryPoints ←
+    match (region.get! ctx).firstBlock with
+    | none => pure []
+    | some blockPtr => scanEntryPoints ctx (blockPtr.get! ctx).firstOp
+  match entryPoints with
+  | [] =>
     IO.eprintln "Error: No entry point: define a zero-argument func.func or llvm.func named 'main'"
     IO.Process.exit 1
-  | some blockPtr =>
-    match ← scanEntryPoints ctx (blockPtr.get! ctx).firstOp with
-    | [] =>
-      IO.eprintln "Error: No entry point: define a zero-argument func.func or llvm.func named 'main'"
-      IO.Process.exit 1
-    | [mainOp] => return mainOp
-    | _ :: _ :: _ =>
-      IO.eprintln "Error: Multiple entry points: define exactly one zero-argument func.func or llvm.func named 'main'"
-      IO.Process.exit 1
+  | [mainOp] => return mainOp
+  | _ :: _ :: _ =>
+    IO.eprintln "Error: Multiple entry points: define exactly one zero-argument func.func or llvm.func named 'main'"
+    IO.Process.exit 1
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
