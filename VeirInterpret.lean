@@ -30,6 +30,31 @@ def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode �
   | .error errMsg =>
     throw s!"Error reading file: {errMsg}"
 
+/-- Returns true if `op` is a viable zero-argument `@main` function. -/
+private def isZeroArgMainFunc (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
+  let opType := op.getOpType! ctx
+  let check : (opCode : OpCode) → propertiesOf opCode → Bool
+    | .llvm .func, props =>
+      if let some symName := props.sym_name then
+        String.fromUTF8! symName.value == "main" &&
+        match props.function_type with
+        | some ft =>
+          match ft.val with
+          | .llvmFunctionType funcType => funcType.inputs.isEmpty
+          | _ => false
+        | none => false
+      else false
+    | .func .func, props =>
+      if let some symName := props.sym_name then
+        String.fromUTF8! symName.value == "main" &&
+        let region := op.getRegion! ctx 0
+        match (region.get! ctx).firstBlock with
+        | some block => block.getNumArguments! ctx == 0
+        | none => false
+      else false
+    | _, _ => false
+  check opType (op.getProperties! ctx opType)
+
 /-- Scan the module's top-level ops for entry points. -/
 partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
     (entryPoints : List OperationPtr := []) : IO (List OperationPtr) := do
@@ -38,36 +63,11 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
   | some op =>
     let opType := op.getOpType! ctx
     match opType with
-    | .llvm .func =>
-      let props := op.getProperties! ctx (.llvm .func)
-      let entryPoints :=
-        if let some symName := props.sym_name then
-          if String.fromUTF8! symName.value == "main" then
-            match props.function_type with
-            | some ft =>
-              match ft.val with
-              | .llvmFunctionType funcType =>
-                if funcType.inputs.isEmpty then op :: entryPoints else entryPoints
-              | _ => entryPoints
-            | none => entryPoints
-          else entryPoints
-        else entryPoints
-      scanEntryPoints ctx (op.get! ctx).next entryPoints
-    | .func .func =>
-      let props := op.getProperties! ctx (.func .func)
-      let entryPoints :=
-        if let some symName := props.sym_name then
-          if String.fromUTF8! symName.value == "main" then
-            let region := op.getRegion! ctx 0
-            match (region.get! ctx).firstBlock with
-            | some block =>
-              if block.getNumArguments! ctx == 0 then op :: entryPoints else entryPoints
-            | none => entryPoints
-          else entryPoints
-        else entryPoints
+    | .llvm .func | .func .func =>
+      let entryPoints := if isZeroArgMainFunc ctx op then op :: entryPoints else entryPoints
       scanEntryPoints ctx (op.get! ctx).next entryPoints
     | _ =>
-      IO.eprintln "Error: Top-level operations are disallowed; put them into a zero-argument func.func or llvm.func named 'main'"
+      IO.eprintln "Error: Top-level operations are disallowed; define a zero-argument function named 'main'"
       IO.Process.exit 1
 
 /-- Resolve the unique entry point of the module, if one exists. -/
@@ -79,11 +79,11 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO Op
     | some blockPtr => scanEntryPoints ctx (blockPtr.get! ctx).firstOp
   match entryPoints with
   | [] =>
-    IO.eprintln "Error: No entry point: define a zero-argument func.func or llvm.func named 'main'"
+    IO.eprintln "Error: No entry point: define a zero-argument function named 'main'"
     IO.Process.exit 1
   | [mainOp] => return mainOp
   | _ =>
-    IO.eprintln "Error: Multiple entry points: define exactly one zero-argument func.func or llvm.func named 'main'"
+    IO.eprintln "Error: Multiple entry points: define exactly one zero-argument function named 'main'"
     IO.Process.exit 1
 
 set_option warn.sorry false in

@@ -11,4 +11,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Error: Multiple entry points: define exactly one zero-argument func.func or llvm.func named 'main'
+// CHECK: Error: Multiple entry points: define exactly one zero-argument function named 'main'

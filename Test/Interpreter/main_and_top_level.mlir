@@ -9,4 +9,4 @@
   "func.return"(%0) : (i32) -> ()
 }) : () -> ()
 
-// CHECK: Error: Top-level operations are disallowed; put them into a zero-argument func.func or llvm.func named 'main'
+// CHECK: Error: Top-level operations are disallowed; define a zero-argument function named 'main'

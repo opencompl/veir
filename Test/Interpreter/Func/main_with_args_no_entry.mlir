@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Error: No entry point: define a zero-argument func.func or llvm.func named 'main'
+// CHECK: Error: No entry point: define a zero-argument function named 'main'
