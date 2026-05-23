@@ -7,10 +7,11 @@ import Veir.Interpreter.Basic
 /-!
   # Veir Interpreter CLI Tool
 
-  This file implements a simple command-line tool that reads an MLIR file,
-  and then executes the block of the builtin.module operation in it using
-  the interpreter defined in `Veir.Interpreter`.
--/
+  This file implements a simple command-line tool that reads an MLIR
+  file, finds a zero-argument func.func or llvm.func named `main`, and
+  then executes that function using the interpreter defined in
+  `Veir.Interpreter`.
+ -/
 
 open Veir.Parser
 open Veir
@@ -29,94 +30,62 @@ def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode �
   | .error errMsg =>
     throw s!"Error reading file: {errMsg}"
 
-/-- Returns true if `op` is a viable zero-argument `@main` function. -/
-private def isZeroArgMainFunc (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  let opType := op.getOpType! ctx
-  let check : (opCode : OpCode) → propertiesOf opCode → Bool
-    | .llvm .func, props =>
-      if let some symName := props.sym_name then
-        String.fromUTF8! symName.value == "main" &&
-        match props.function_type with
-        | some ft =>
-          match ft.val with
-          | .llvmFunctionType funcType => funcType.inputs.isEmpty
-          | _ => false
-        | none => false
-      else false
-    | .func .func, props =>
-      if let some symName := props.sym_name then
-        String.fromUTF8! symName.value == "main" &&
-        let region := op.getRegion! ctx 0
-        match (region.get! ctx).firstBlock with
-        | some block => block.getNumArguments! ctx == 0
-        | none => false
-      else false
-    | _, _ => false
-  check opType (op.getProperties! ctx opType)
-
-/--
-  Returns true if a top-level op counts as module-level executable code for the CLI.
-  Under the current execution model, any non-function top-level op counts.
--/
-private def isTopLevelExecutableOp (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  match op.getOpType! ctx with
-  | .llvm .func => false
-  | .func .func => false
-  | _ => true
-
-inductive EntryPoint where
-  | mainFunc (op : OperationPtr)
-  | topLevel
-
-inductive EntryPointError where
-  | none
-  | multiple
-
-private structure EntryPointScan where
-  mainOp? : Option OperationPtr := none
-  hasMultipleMains : Bool := false
-  hasTopLevelCode : Bool := false
-
 /-- Scan the module's top-level ops for entry points. -/
 partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
-    (scan : EntryPointScan := {}) : EntryPointScan :=
+    (entryPoints : List OperationPtr := []) : IO (List OperationPtr) := do
   match op with
-  | none => scan
+  | none => return entryPoints
   | some op =>
-    let scan :=
-      if isZeroArgMainFunc ctx op then
-        match scan.mainOp? with
-        | none => { scan with mainOp? := some op }
-        | some _ => { scan with hasMultipleMains := true }
-      else if isTopLevelExecutableOp ctx op then
-        { scan with hasTopLevelCode := true }
-      else
-        scan
-    scanEntryPoints ctx (op.get! ctx).next scan
+    let opType := op.getOpType! ctx
+    match opType with
+    | .llvm .func =>
+      let props := op.getProperties! ctx (.llvm .func)
+      let entryPoints :=
+        if let some symName := props.sym_name then
+          if String.fromUTF8! symName.value == "main" then
+            match props.function_type with
+            | some ft =>
+              match ft.val with
+              | .llvmFunctionType funcType =>
+                if funcType.inputs.isEmpty then op :: entryPoints else entryPoints
+              | _ => entryPoints
+            | none => entryPoints
+          else entryPoints
+        else entryPoints
+      scanEntryPoints ctx (op.get! ctx).next entryPoints
+    | .func .func =>
+      let props := op.getProperties! ctx (.func .func)
+      let entryPoints :=
+        if let some symName := props.sym_name then
+          if String.fromUTF8! symName.value == "main" then
+            let region := op.getRegion! ctx 0
+            match (region.get! ctx).firstBlock with
+            | some block =>
+              if block.getNumArguments! ctx == 0 then op :: entryPoints else entryPoints
+            | none => entryPoints
+          else entryPoints
+        else entryPoints
+      scanEntryPoints ctx (op.get! ctx).next entryPoints
+    | _ =>
+      IO.eprintln "Error: Top-level operations are disallowed; put them into a zero-argument func.func or llvm.func named 'main'"
+      IO.Process.exit 1
 
 /-- Resolve the unique entry point of the module, if one exists. -/
-def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : Except EntryPointError EntryPoint :=
+def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO OperationPtr := do
   let region := moduleOp.getRegion! ctx 0
   match (region.get! ctx).firstBlock with
-  | none => .error .none
-  | some blockPtr =>
-    let scan := scanEntryPoints ctx (blockPtr.get! ctx).firstOp
-    if scan.hasMultipleMains || (scan.mainOp?.isSome && scan.hasTopLevelCode) then
-      .error .multiple
-    else
-      match scan.mainOp?, scan.hasTopLevelCode with
-      | some mainOp, false => .ok (.mainFunc mainOp)
-      | none, true => .ok .topLevel
-      | _, _ => .error .none
-
-/-- Report an interpreter result to the CLI. Hard failures (`none`) use a generic error. -/
-def reportInterpResult (result : Interp (Array RuntimeValue)) : IO Unit := do
-  match result with
-  | some (.ok results) => IO.println s!"Program output: {results}"
-  | some .ub => IO.println "Undefined behavior"
   | none =>
-    IO.eprintln "Error while interpreting module"
+    IO.eprintln "Error: No entry point: define a zero-argument func.func or llvm.func named 'main'"
     IO.Process.exit 1
+  | some blockPtr =>
+    match ← scanEntryPoints ctx (blockPtr.get! ctx).firstOp with
+    | [] =>
+      IO.eprintln "Error: No entry point: define a zero-argument func.func or llvm.func named 'main'"
+      IO.Process.exit 1
+    | [mainOp] => return mainOp
+    | _ :: _ :: _ =>
+      IO.eprintln "Error: Multiple entry points: define exactly one zero-argument func.func or llvm.func named 'main'"
+      IO.Process.exit 1
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
@@ -127,18 +96,14 @@ def main (args : List String) : IO Unit := do
       match ctx.verify with
       | .ok _ =>
         let rawCtx : IRContext OpCode := ctx
-        match resolveEntryPoint rawCtx op with
-        | .ok (.mainFunc mainOp) =>
-          let result := bind (interpretRegion rawCtx (mainOp.getRegion! rawCtx 0) InterpreterState.empty (by sorry) (by sorry))
-                             (fun (_, r) => pure r)
-          reportInterpResult result
-        | .ok .topLevel =>
-          reportInterpResult (interpretModule rawCtx op (by sorry) (by sorry))
-        | .error .none =>
-          IO.eprintln "Error: No entry point: define a zero-argument function named 'main' or use top-level executable ops"
-          IO.Process.exit 1
-        | .error .multiple =>
-          IO.eprintln "Error: Multiple entry points: define exactly one zero-argument function named 'main' or use only top-level executable ops"
+        let mainOp ← resolveEntryPoint rawCtx op
+        let result := bind (interpretRegion rawCtx (mainOp.getRegion! rawCtx 0) InterpreterState.empty (by sorry) (by sorry))
+                           (fun (_, r) => pure r)
+        match result with
+        | some (.ok results) => IO.println s!"Program output: {results}"
+        | some .ub => IO.println "Undefined behavior"
+        | none =>
+          IO.eprintln "Error while interpreting module"
           IO.Process.exit 1
       | .error errMsg =>
         IO.eprintln s!"Error verifying input program: {errMsg}"
