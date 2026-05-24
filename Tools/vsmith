@@ -595,8 +595,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help="number of random programs to test, or -1 to run forever (default: 100)")
     parser.add_argument("--seed", type=int, default=None,
                         help="random seed (default: fresh system entropy)")
-    parser.add_argument("--passes", default="instcombine,dce",
-                        help="veir-opt pass pipeline (default: instcombine,dce)")
+    parser.add_argument("--passes", default="instcombine,dce,cse,dce",
+                        help="veir-opt pass pipeline (default: instcombine,dce,cse,dce)")
     parser.add_argument("--keep", action="store_true",
                         help="keep workdir on success (always kept on failure)")
     parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
