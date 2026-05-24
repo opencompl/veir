@@ -207,15 +207,13 @@ def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
   }
 
 def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
+    (neValues : oldVal ≠ newVal := by grind)
     (oldIn: oldVal.InBounds rewriter.ctx.raw := by grind)
-    (newIn: newVal.InBounds rewriter.ctx.raw := by grind) : Option (PatternRewriter OpInfo) := do
+    (newIn: newVal.InBounds rewriter.ctx.raw := by grind) : PatternRewriter OpInfo :=
   -- TODO: add users of oldVal to worklist
   let rewriter := rewriter.addUsersInWorklist oldVal (by grind)
-  rlet ctx ← WfRewriter.replaceValue rewriter.ctx oldVal newVal (by grind) (by grind)
-  some { rewriter with
-    ctx,
-    hasDoneAction := true
-  }
+  let ctx := WfRewriter.replaceValue rewriter.ctx oldVal newVal
+  { rewriter with ctx, hasDoneAction := true}
 
 def createBlock (rewriter: PatternRewriter OpInfo)
     (argTypes: Array TypeAttr)
@@ -260,7 +258,7 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
       for newOp in newOps do
         rewriter ← rewriter.insertOp newOp (InsertPoint.before op) (by sorry) (by sorry)
       for (res, i) in newRes.zipIdx do
-        rewriter ← rewriter.replaceValue (op.getResult i) res (by sorry) (by sorry)
+        rewriter ← rewriter.replaceValue (op.getResult i) res (by sorry) (by sorry) (by sorry)
       let mut operands : Array ValuePtr := #[]
       for i in 0...op.getNumOperands rewriter.ctx.raw (by sorry) do
         operands := operands.push (op.getOperand! rewriter.ctx.raw i)

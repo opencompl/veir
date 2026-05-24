@@ -18,7 +18,7 @@ def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr
   let some rhsOp := rhs.getDefiningOp! rewriter.ctx.raw | return rewriter
   let some cst := matchLi rhsOp rewriter.ctx | return rewriter
   if cst.value.value ≠ 0 then return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
+  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
 /-! # Pass implementation -/
