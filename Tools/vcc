@@ -52,7 +52,7 @@ def compile_to_mlir(src: Path, dst: Path | None, veir_optimize: bool) -> None:
         pre.write_bytes(mlir)
         opt_cmd = ["lake", "exec", "veir-opt"]
         if veir_optimize:
-            opt_cmd.append("-p=instcombine,dce")
+            opt_cmd.append("-p=instcombine,dce,cse,dce")
         opt_cmd.append(str(pre))
         mlir = run(
             opt_cmd,
