@@ -16,14 +16,16 @@ jobs:
       - name: Source environment variables
         run: source .envrc
 
-      - uses: gerlero/add-apt-repository@v1
+      - name: Add LLVM apt repository
+        uses: gerlero/add-apt-repository@v1
         with:
           uri: http://apt.llvm.org/noble/ 
           key: https://apt.llvm.org/llvm-snapshot.gpg.key
           component: main
           suite: llvm-toolchain-noble-22
 
-      - uses: gerlero/apt-install@v1
+      - name: Install mlir-opt
+        uses: gerlero/apt-install@v1
         with:
           packages: mlir-22-tools
 
