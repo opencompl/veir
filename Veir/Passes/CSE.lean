@@ -107,10 +107,10 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
       return ordinaryKey ctx op kind
   | _ => none
 
+set_option warn.sorry false in
 /-- Perform CSE on a single BB: Walk the operations, building up a
     hash of available values. For any operation whose value is already
     available, replace it with the earlier one. -/
-set_option warn.sorry false in
 def processBlock
     (ctx : WfIRContext OpCode) (block : BlockPtr) :
     WfIRContext OpCode := Id.run do
