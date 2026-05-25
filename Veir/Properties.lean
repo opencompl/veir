@@ -457,6 +457,18 @@ def LLVMFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
     (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "function_type".toUTF8)
   return { sym_name := symName, function_type := funcType, extra }
 
+structure LLVMModuleFlagsProperties where
+  flags : ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMModuleFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMModuleFlagsProperties := do
+  let flagsAttr ← match attrDict["flags".toUTF8]? with
+    | some (.arrayAttr flagsAttr) => .ok flagsAttr
+    | some attr => .error s!"expected 'flags' to be an array attribute, but got {attr}"
+    | none => .error "llvm.module_flags: missing 'flags' property"
+  return { flags := flagsAttr }
+
 /--
   Properties of `hw.module`.
 -/

@@ -31,6 +31,7 @@ match op with
 | .getelementptr => GetelementptrProperties
 | .fadd | .fsub | .fmul | .fdiv | .frem => FastMathFlagsProperties
 | .func => LLVMFuncProperties
+| .module_flags => LLVMModuleFlagsProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Llvm where
