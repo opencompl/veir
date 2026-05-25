@@ -125,11 +125,8 @@ def processBlock
     if let some key := key? ctx.raw op then
         match available[key]? with
         | some earlier =>
-            match WfRewriter.replaceOp? ctx op earlier sorry sorry sorry sorry sorry with
-            | some ctx' =>
-                ctx := ctx'
-            -- TODO remove this panic as soon as possible!
-            | none => panic! "CSE: replaceOp failed"
+            ctx := WfRewriter.replaceValue ctx (op.getResult 0) (earlier.getResult 0) sorry sorry sorry
+            ctx := WfRewriter.eraseOp ctx op sorry sorry sorry
         | none =>
             available := available.insert key op
     current := next
