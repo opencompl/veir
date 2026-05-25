@@ -1425,6 +1425,26 @@ theorem OperationPtr.WellFormed.region_parent.unchanged
     (region.get! ctx').parent = some opPtr := by
   simp only [h_getRegion, h_numRegions, h_parent, h_wf]
 
+@[grind =]
+theorem OperationPtr.WellFormed.numOperands_eq_capOperands {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capOperands = opPtr.getNumOperands! ctx := by
+  sorry
+
+@[grind =]
+theorem OperationPtr.WellFormed.numSuccessors_eq_capOperands {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capBlockOperands = opPtr.getNumSuccessors! ctx := by
+  sorry
+
+@[grind =]
+theorem OperationPtr.WellFormed.numRegions_eq_capRegions {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capRegions = opPtr.getNumRegions! ctx := by
+  sorry
+
+@[grind =]
+theorem OperationPtr.WellFormed.numResults_eq_capResults {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capResults = opPtr.getNumResults! ctx := by
+  sorry
+
 /--
   An IR context that also carries its well-formedness proof.
   This is the type that users are expected to work with most of the time, unless they

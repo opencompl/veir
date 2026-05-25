@@ -110,7 +110,10 @@ theorem OpResultPtr.firstUse!_inBounds :
     ctx.FieldsInBounds →
     res.InBounds ctx →
     (res.get! ctx).firstUse.maybe OpOperandPtr.InBounds ctx := by
-  grind
+  grind =>
+    instantiate only [inBounds_of, = Option.maybe_def]
+    instantiate only [operation_inBounds_of_inBounds]
+    cases #fd14 <;> instantiate only [#992b] <;> cases #e9de <;> cases #6598
 
 grind_pattern OpResultPtr.firstUse!_inBounds => (res.get! ctx).firstUse, ctx.FieldsInBounds
 
@@ -720,7 +723,7 @@ theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
 attribute [local grind] Operation.empty in
 @[grind .]
 theorem OperationPtr.allocEmpty_fieldsInBounds
-    (heq : allocEmpty ctx type prop = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type prop capResults capBlockOperands capRegions capOperands = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds
 
@@ -792,7 +795,7 @@ theorem BlockPtr.setPrevBlock_fieldsInBounds (hp : newPrevBlock.maybe BlockPtr.I
 
 attribute [local grind] Block.empty in
 @[grind .]
-theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx capArguments = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds
 

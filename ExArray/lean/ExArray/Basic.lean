@@ -27,6 +27,15 @@ theorem Nat_mod_mod_eq_mod_mod_of_two_pow {a b c: Nat} :
 def _root_.BitVec.ofFn {w : Nat} (f : Fin w → Bool) : BitVec w :=
   BitVec.iunfoldr (fun i _ => ((), f i)) () |>.2
 
+@[expose]
+def Int64.maxNatValue : Nat := 9223372036854775807
+
+@[grind =]
+theorem Int64.maxNatValue_maxValue : maxValue.toInt.toNat = maxNatValue := by rfl
+
+@[grind =]
+theorem Int64.maxNatValue_maxValue_toInt : Int.ofNat maxNatValue = maxValue.toInt := by rfl
+
 /--
 An `ExArray` is essentially the same as `ByteArray` except that it has an
 `extend` function to append many zeroes in one call, and functions to read and
@@ -34,7 +43,7 @@ write fixed sized integers.
 -/
 structure ExArray where
   data : Array UInt8
-  data_fits_in_memory : data.size < UInt64.size
+  data_fits_in_memory : data.size < Int64.maxNatValue
 
 attribute [local grind! .] ExArray.data_fits_in_memory
 
@@ -79,13 +88,19 @@ theorem emptyWithCapacity_size : (emptyWithCapacity n).size = 0 := by rfl
 theorem emptyWithCapacity_usize : (emptyWithCapacity n).usize = 0 := by rfl
 
 @[grind .]
-theorem fits_in_memory (a : ExArray) : a.size < UInt64.size := by
+theorem fits_in_memory (a : ExArray) : a.size < Int64.maxNatValue := by
   cases a
   simpa only [size]
 
+@[grind .]
+theorem fits_in_memory_uint64 (a : ExArray) : a.size < UInt64.size := by
+  cases a
+  simp only [size]
+  grind
+
 @[grind →]
 theorem in_bounds_in_memory (a : ExArray) (i : Nat) :
-    (i ≤ a.size) → (i < UInt64.size) := by
+    (i ≤ a.size) → (i < Int64.maxNatValue) := by
   grind [a.fits_in_memory]
 
 @[simp, grind =]
@@ -110,7 +125,7 @@ theorem range_upper (a : ExArray) : a.range.upper = a.size := by simp [range]
 
 @[grind →]
 theorem included_range (a : ExArray) (r: CORange) :
-    IsIncluded r a.range → r.upper < UInt64.size := by
+    IsIncluded r a.range → r.upper < Int64.maxNatValue := by
   grind
 
 @[extern "buffed_ex_array_uset"]
@@ -169,19 +184,19 @@ theorem uget_ext {a b : ExArray} (h : a.size = b.size) :
   grind
 
 @[extern "buffed_ex_array_push"]
-def push (a: ExArray) (value: UInt8) (h: a.size + 1 < UInt64.size) : ExArray :=
+def push (a: ExArray) (value: UInt8) (h: a.size + 1 < Int64.maxNatValue) : ExArray :=
   { data := a.data.push value, data_fits_in_memory := (by simp_all only [size, Array.size_push]) }
 
 theorem push_size {a : ExArray} {value h} :
     (a.push value h).size = a.size + 1 := by
   simp only [push, size, Array.size_push]
 
-def extendNat : (a : ExArray) → (len : Nat) → (a.size + len < UInt64.size) → ExArray
+def extendNat : (a : ExArray) → (len : Nat) → (a.size + len < Int64.maxNatValue) → ExArray
   | a, 0, h => a
   | a, Nat.succ len', h => (a.push 0 (by lia)).extendNat len' (by simp [push_size]; lia)
 
 theorem extendNat_size :
-    ∀ (len : Nat) (a : ExArray) (h : a.size + len < UInt64.size),
+    ∀ (len : Nat) (a : ExArray) (h : a.size + len < Int64.maxNatValue),
     (a.extendNat len h).size = a.size + len := by
   intros len
   induction len with
@@ -192,21 +207,21 @@ theorem extendNat_size :
     lia
 
 @[extern "buffed_ex_array_extend"]
-def extend (a : ExArray) (len : UInt64) (h: a.size + len.toNat < UInt64.size := by grind) : ExArray :=
+def extend (a : ExArray) (len : UInt64) (h: a.size + len.toNat < Int64.maxNatValue := by grind) : ExArray :=
   a.extendNat len.toNat (by simpa [size])
 
 @[simp, grind =]
-theorem extend_size (a : ExArray) (len : UInt64) (h: a.size + len.toNat < UInt64.size) :
+theorem extend_size (a : ExArray) (len : UInt64) (h: a.size + len.toNat < Int64.maxNatValue) :
     (a.extend len h).size = a.size + len.toNat := by
   simp only [extend, extendNat_size]
 
 @[simp, grind =]
-theorem extend_range (a : ExArray) (len : UInt64) (h: a.size + len.toNat < UInt64.size) :
+theorem extend_range (a : ExArray) (len : UInt64) (h: a.size + len.toNat < Int64.maxNatValue) :
     (a.extend len h).range = 0...(a.size + len.toNat) := by
   simp [range]
 
 @[simp, grind .]
-theorem extend_range_included (a : ExArray) (len : UInt64) (h: a.size + len.toNat < UInt64.size) :
+theorem extend_range_included (a : ExArray) (len : UInt64) (h: a.size + len.toNat < Int64.maxNatValue) :
     IsIncluded a.range (a.extend len h).range := by
   grind
 
@@ -216,12 +231,12 @@ def blitRec {w: Nat} (buf : ExArray) (n : UInt64) (k : Nat) (x : BitVec w)
   | 0 => buf
   | k+1 =>
     let buf' := buf.uset n (UInt8.ofBitVec $ x.setWidth 8)
-    blitRec buf' (n + 1) k (x >>> 8)
+    blitRec buf' (n + 1) k (x >>> 8) (by grind)
 
 @[local simp, local grind =, extern "buffed_ex_array_blit"]
 def blit {w : @&Nat} (buf : ExArray) (n : UInt64) (numBytes : UInt64) (x : @&BitVec w)
     (h : IsIncluded (n.toNat...(n.toNat + numBytes.toNat)) buf.range := by grind) :=
-  blitRec buf n numBytes.toNat x (by grind)
+  blitRec buf n numBytes.toNat x
 
 @[simp, grind =]
 def blitNat (buf : ExArray) (n : UInt64) (len : UInt64) (x : Nat)

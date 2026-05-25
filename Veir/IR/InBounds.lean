@@ -182,48 +182,48 @@ theorem OperationPtr.setAttributes_genericPtr_mono (ptr : GenericPtr) :
 
 @[grind .]
 theorem OpResultPtr.allocEmpty_no_results {opResult : OpResultPtr}
-    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties capResults capBlockOperands capRegions capOperands = some (ctx', op')) :
     opResult.op = op' → ¬ opResult.InBounds ctx' := by
   grind
 
 @[grind .]
 theorem OpOperandPtr.allocEmpty_no_operands {opOperand : OpOperandPtr}
-    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties capResults capBlockOperands capRegions capOperands = some (ctx', op')) :
     opOperand.op = op' → ¬ opOperand.InBounds ctx' := by
   grind
 
 @[grind .]
 theorem BlockOperandPtr.allocEmpty_no_operands {blockOperand : BlockOperandPtr}
-    (heq : OperationPtr.allocEmpty ctx ty properties = some (ctx', op')) :
+    (heq : OperationPtr.allocEmpty ctx ty properties capResults capBlockOperands capRegions capOperands = some (ctx', op')) :
     blockOperand.op = op' → ¬ blockOperand.InBounds ctx' := by
   grind
 
 @[grind =>]
 theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
-    (heq : allocEmpty ctx type properties = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type properties capResults capBlockOperands capRegions capOperands = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
   grind
 
 theorem OperationPtr.allocEmpty_operationPtr_iff (ptr : OperationPtr)
-    (heq : allocEmpty ctx type properties = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type properties capResults capBlockOperands capRegions capOperands = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr =  ptr') := by
   grind
 
 @[grind . ]
 theorem OperationPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr)
-    (heq : allocEmpty ctx type properties = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type properties capResults capBlockOperands capRegions capOperands = some (ctx', ptr')) :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
   grind
 
 @[grind .]
 theorem OperationPtr.allocEmpty_not_inBounds
-    (heq : allocEmpty ctx type properties = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type properties capResults capBlockOperands capRegions capOperands = some (ctx', ptr')) :
     ¬ ptr'.InBounds ctx := by
   grind
 
 @[grind .]
 theorem OperationPtr.allocEmpty_newBlock_inBounds
-    (heq : allocEmpty ctx type properties = some (ctx', ptr)) :
+    (heq : allocEmpty ctx type properties capResults capBlockOperands capRegions capOperands = some (ctx', ptr)) :
     ptr.InBounds ctx' := by
   grind
 
@@ -481,28 +481,28 @@ theorem BlockPtr.pushResult_genericPtr_mono_impl (ptr : GenericPtr) :
   grind
 
 @[grind =>]
-theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx capArguments = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .block ptr' ∨ ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse ptr')) := by
   grind
 
 @[grind .]
-theorem BlockPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr) (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem BlockPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr) (heq : allocEmpty ctx capArguments = some (ctx', ptr')) :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
   grind
 
 @[grind .]
-theorem BlockPtr.allocEmpty_newBlock_inBounds (heq : allocEmpty ctx = some (ctx', ptr)) :
+theorem BlockPtr.allocEmpty_newBlock_inBounds (heq : allocEmpty ctx capArguments = some (ctx', ptr)) :
     ptr.InBounds ctx' := by
   grind
 
 @[grind .]
-theorem BlockPtr.allocEmpty_not_inBounds (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem BlockPtr.allocEmpty_not_inBounds (heq : allocEmpty ctx capArguments = some (ctx', ptr')) :
     ¬ ptr'.InBounds ctx := by
   grind
 
 @[grind .]
 theorem BlockPtr.allocEmpty_no_argument {ba : BlockArgumentPtr}
-    (heq : allocEmpty ctx = some (ctx', ba')) :
+    (heq : allocEmpty ctx capArguments = some (ctx', ba')) :
     ba.block = ba' → ¬ ba.InBounds ctx' := by
   grind
 

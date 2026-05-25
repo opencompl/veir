@@ -1,4 +1,4 @@
-module 
+module
 
 public section
 
@@ -23,7 +23,11 @@ The definition only disagrees when the ranges are empty.
 def IsIncluded (range1 range2 : CORange) : Prop :=
   range2.lower ≤ range1.lower ∧ range1.upper ≤ range2.upper
 
-instance : Decidable (IsIncluded r₁ r₂) := by 
+@[expose, grind=]
+def IsIncludedIN (range1 : Rco Int) (range2 : Rco Nat) : Prop :=
+  range2.lower ≤ range1.lower ∧ range1.upper ≤ range2.upper
+
+instance : Decidable (IsIncluded r₁ r₂) := by
   unfold IsIncluded
   infer_instance
 
@@ -38,7 +42,7 @@ theorem isIncluded_mem (range1 range2 : CORange) :
 def IsDisjoint (range1 range2 : CORange) : Prop :=
   range1.upper ≤ range2.lower ∨ range2.upper ≤ range1.lower
 
-instance : Decidable (IsDisjoint r₁ r₂) := by 
+instance : Decidable (IsDisjoint r₁ r₂) := by
   unfold IsDisjoint
   infer_instance
 

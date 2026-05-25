@@ -2,6 +2,17 @@ module
 
 public section
 
+axiom Array.usize_size (ar : Array α) : ar.usize.toUInt64.toNat = ar.size
+
+theorem Array.size_le_uint64_size (ar : Array α) : ar.size < UInt64.size := by
+  rw [← usize_size]
+  exact UInt64.toNat_lt_size ar.usize.toUInt64
+
+theorem Array.size_le_toNat {ar : Array α} {x : UInt64} (h : ar.usize.toUInt64 ≤ x) : ar.size ≤ x.toNat := by
+  have := Array.usize_size ar
+  rw [← this]
+  assumption
+
 macro:50 "rlet" pat:term ":=" expr:term rest:term : term =>
   `(match _ : $expr:term with
       | $pat => $rest)

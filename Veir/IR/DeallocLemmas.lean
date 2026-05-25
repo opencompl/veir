@@ -2,6 +2,7 @@ module
 
 public import Veir.IR.Basic
 public import Veir.IR.WellFormed
+import ExArray.Ranges
 
 import all Veir.IR.Basic -- TODO: encapsulate
 import Veir.ForLean
