@@ -94,8 +94,8 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor =>
       return commutativeBinopKey ctx op kind
   | .llvm .icmp =>
-      match Data.LLVM.IntPred.fromNat (op.getProperties! ctx (.llvm .icmp)).value.value.toNat with
-      | some .eq | some .ne =>
+      match (op.getProperties! ctx (.llvm .icmp)).predicate with
+      | .eq | .ne =>
         return commutativeBinopKey ctx op kind
       | _ =>
         return ordinaryKey ctx op kind

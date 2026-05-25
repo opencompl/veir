@@ -5,6 +5,7 @@ public import Veir.IR.Attribute
 public import Veir.IR.Simp
 public import Veir.ForLean
 public import Veir.IR.OpInfo
+public import Veir.Data.LLVM.Int.Basic
 
 /- This is needed as some properties have ByteArray and require Repr instances -/
 deriving instance Repr for ByteArray
@@ -136,22 +137,28 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     | throw s!"llvm.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
-/--
-  Properties of `llvm.icmp` operation, describing predicates for integer comparison.
--/
+/-- Properties of integer comparison operations in the LLVM and arith dialects. -/
 structure IcmpProperties where
-  value : IntegerAttr
+  predicate : Data.LLVM.IntPred
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+def IcmpProperties.fromAttrDictFor (opName : String) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String IcmpProperties := do
   if attrDict.size > 1 then
-    throw s!"llvm.icmp: expected only one property, but got {attrDict.size} properties"
+    throw s!"{opName}: expected only one property, but got {attrDict.size} properties"
   let some attr := attrDict["predicate".toUTF8]?
-    | throw "llvm.icmp: missing predicate"
+    | throw s!"{opName}: missing predicate"
   let .integerAttr intAttr := attr
-    | throw s!"llvm.icmp: expected predicate to be a string attribute, but got {attr}"
-  return { value := intAttr }
+    | throw s!"{opName}: expected predicate to be an integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"{opName}: invalid predicate {intAttr.value}"
+  let some predicate := Data.LLVM.IntPred.fromNat intAttr.value.toNat
+    | throw s!"{opName}: invalid predicate {intAttr.value}"
+  return { predicate }
+
+def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String IcmpProperties :=
+  IcmpProperties.fromAttrDictFor "llvm.icmp" attrDict
 
 /--
   Properties of the RISC-V immediate operations.

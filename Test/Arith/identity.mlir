@@ -49,7 +49,7 @@
 // CHECK-NEXT:     %{{.*}} = "arith.andi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.ceildivsi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.ceildivui"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
-// CHECK-NEXT:     %{{.*}} = "arith.cmpi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i1
+// CHECK-NEXT:     %{{.*}} = "arith.cmpi"(%{{.*}}, %{{.*}}) <{"predicate" = 0 : i64}> : (i32, i32) -> i1
 // CHECK-NEXT:     %{{.*}} = "arith.divsi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.divui"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:     %{{.*}} = "arith.extui"(%{{.*}}) : (i32) -> i64
