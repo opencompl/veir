@@ -1,7 +1,7 @@
 // RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
-  "llvm.module_flags"() : () -> ()
+  "llvm.module_flags"() <{flags = [#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>, #llvm.mlir.module_flag<min, "PIC Level", 2 : i32>, #llvm.mlir.module_flag<max, "PIE Level", 2 : i32>, #llvm.mlir.module_flag<max, "uwtable", 2 : i32>, #llvm.mlir.module_flag<max, "frame-pointer", 2 : i32>]}> : () -> ()
   "llvm.func"() ({
     ^bb0(%fcst : f64):
       %5 = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32
@@ -78,7 +78,7 @@
 
 // CHECK:       "builtin.module"() ({
 // CHECK-NEXT:   ^4():
-// CHECK-NEXT:     "llvm.module_flags"() : () -> ()
+// CHECK-NEXT:     "llvm.module_flags"() <{"flags" = [#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>, #llvm.mlir.module_flag<min, "PIC Level", 2 : i32>, #llvm.mlir.module_flag<max, "PIE Level", 2 : i32>, #llvm.mlir.module_flag<max, "uwtable", 2 : i32>, #llvm.mlir.module_flag<max, "frame-pointer", 2 : i32>]}> : () -> ()
 // CHECK-NEXT:     "llvm.func"() ({
 // CHECK-NEXT:         ^7(%arg7_0 : f64):
 // CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32

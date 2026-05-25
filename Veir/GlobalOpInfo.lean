@@ -110,6 +110,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case fdiv => exact (FastMathFlagsProperties.fromAttrDict attrDict)
     case frem => exact (FastMathFlagsProperties.fromAttrDict attrDict)
     case func => exact (LLVMFuncProperties.fromAttrDict attrDict)
+    case module_flags => exact (LLVMModuleFlagsProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case func op =>
     cases op
@@ -268,6 +269,10 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       dict := dict.insert "sym_name".toUTF8 (.stringAttr sym_name)
     if let some function_type := props.function_type then
       dict := dict.insert "function_type".toUTF8 function_type
+    dict
+  | .llvm .module_flags => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 3
+    dict := dict.insert "flags".toUTF8 (Attribute.arrayAttr props.flags)
     dict
   | .func .func => Id.run do
     let mut dict := Std.HashMap.ofList props.extra.entries.toList
