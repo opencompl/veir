@@ -54,7 +54,7 @@ def addiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
+  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
@@ -67,7 +67,7 @@ def mulIOneToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 1 then
     return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
+  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
@@ -80,7 +80,7 @@ def subiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
+  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
@@ -106,7 +106,7 @@ def andiSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if lhs ≠ rhs then
     return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
+  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
@@ -136,7 +136,7 @@ def oriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
+  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
@@ -147,7 +147,7 @@ def oriSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if lhs ≠ rhs then
     return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
+  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
@@ -160,7 +160,7 @@ def xoriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
+  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
@@ -195,7 +195,7 @@ def notNotToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | return rewriter
   let some inner := matchNot outerNotted rewriter.ctx
     | return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) inner sorry sorry
+  let rewriter := rewriter.replaceValue (op.getResult 0) inner sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
