@@ -1,4 +1,4 @@
-module 
+module
 
 public section
 
@@ -14,17 +14,33 @@ abbrev CORange := Rco Nat
 theorem mem_range_nat (i: Nat) (r: CORange) : (i ∈ r) ↔ r.lower ≤ i ∧ i < r.upper := by
   simp only [Membership.mem]
 
+@[grind=]
+theorem mem_range_int (i : Int) (r: Rco Int) : (i ∈ r) ↔ r.lower ≤ i ∧ i < r.upper := by
+  simp only [Membership.mem]
+
 /--
 This is a syntactic definition of range inclusion, that is a subset of
 the inclusion relation based on the set of elements in each range.
 The definition only disagrees when the ranges are empty.
 -/
-@[expose, grind=]
+@[expose, grind =]
 def IsIncluded (range1 range2 : CORange) : Prop :=
   range2.lower ≤ range1.lower ∧ range1.upper ≤ range2.upper
 
-instance : Decidable (IsIncluded r₁ r₂) := by 
+@[expose, grind =]
+def IsIncludedIN (range1 : Rco Int) (range2 : Rco Nat) : Prop :=
+  range2.lower ≤ range1.lower ∧ range1.upper ≤ range2.upper
+
+@[expose, grind =]
+def IsIncludedI (range1 : Rco Int) (range2 : Rco Int) : Prop :=
+  range2.lower ≤ range1.lower ∧ range1.upper ≤ range2.upper
+
+instance : Decidable (IsIncluded r₁ r₂) := by
   unfold IsIncluded
+  infer_instance
+
+instance : Decidable (IsIncludedI r₁ r₂) := by
+  unfold IsIncludedI
   infer_instance
 
 @[grind→]
@@ -38,8 +54,16 @@ theorem isIncluded_mem (range1 range2 : CORange) :
 def IsDisjoint (range1 range2 : CORange) : Prop :=
   range1.upper ≤ range2.lower ∨ range2.upper ≤ range1.lower
 
-instance : Decidable (IsDisjoint r₁ r₂) := by 
+@[expose]
+def IsDisjointI (range1 range2 : Std.Rco Int) : Prop :=
+  range1.upper ≤ range2.lower ∨ range2.upper ≤ range1.lower
+
+instance : Decidable (IsDisjoint r₁ r₂) := by
   unfold IsDisjoint
+  infer_instance
+
+instance : Decidable (IsDisjointI r₁ r₂) := by
+  unfold IsDisjointI
   infer_instance
 
 @[grind=]
@@ -47,9 +71,18 @@ theorem isDisjoint_def (range1 range2 : CORange) :
     IsDisjoint range1 range2 ↔
     (range1.upper ≤ range2.lower) ∨ (range2.upper ≤ range1.lower) := by rfl
 
+@[grind=]
+theorem isDisjointI_def (range1 range2 : Std.Rco Int) :
+    IsDisjointI range1 range2 ↔
+    (range1.upper ≤ range2.lower) ∨ (range2.upper ≤ range1.lower) := by rfl
+
 theorem isDisjoint_comm (range1 range2 : CORange) :
     IsDisjoint range1 range2 ↔ IsDisjoint range2 range1 := by
   simp only [IsDisjoint, or_comm]
+
+theorem isDisjointI_comm :
+    IsDisjointI range1 range2 ↔ IsDisjointI range2 range1 := by
+  simp only [IsDisjointI, or_comm]
 
 @[grind→]
 theorem isDisjoint_mem_left (range1 range2 : CORange) :
@@ -59,8 +92,22 @@ theorem isDisjoint_mem_left (range1 range2 : CORange) :
   grind only
 
 @[grind→]
+theorem isDisjointI_mem_left :
+    IsDisjointI range1 range2 →
+    ∀ (i : Int), (i ∈ range1) → (i ∉ range2) := by
+  simp only [IsDisjointI, mem_range_int]
+  grind only
+
+@[grind→]
 theorem isDisjoint_mem_right (range1 range2 : CORange) :
     IsDisjoint range1 range2 →
     ∀ (i: Nat), (i ∈ range2) → (i ∉ range1) := by
   simp only [IsDisjoint, mem_range_nat]
+  grind only
+
+@[grind→]
+theorem isDisjointI_mem_right :
+    IsDisjointI range1 range2 →
+    ∀ (i : Int), (i ∈ range2) → (i ∉ range1) := by
+  simp only [IsDisjointI, mem_range_int]
   grind only

@@ -165,6 +165,7 @@ deriving Inhabited, Repr, Hashable
 An MLIR operation.
 -/
 structure Operation (OpInfo : Type) [HasOpInfo OpInfo] where
+  capResults : Nat
   results : Array OpResult
   -- This is the operation pointer start
   prev : Option OperationPtr
@@ -177,8 +178,11 @@ structure Operation (OpInfo : Type) [HasOpInfo OpInfo] where
   attrs : DictionaryAttr
   -- This should be replaced with an arbitrary user object
   properties : HasOpInfo.propertiesOf opType
+  capBlockOperands : Nat
   blockOperands : Array BlockOperand
+  capRegions : Nat
   regions : Array RegionPtr
+  capOperands : Nat
   operands : Array OpOperand
 deriving Inhabited, Repr, Hashable
 
@@ -283,6 +287,7 @@ structure Block where
   -- validOpOrder : Bool      -- Unsupported yet
   firstOp : Option OperationPtr
   lastOp : Option OperationPtr
+  capArguments : Nat
   arguments : Array BlockArgument
 deriving Inhabited, Repr, Hashable
 
@@ -326,7 +331,7 @@ variable {ctx ctx' : IRContext OpInfo}
 /-! Empty objects. -/
 
 @[expose]
-def Operation.empty (opType : OpInfo) (prop : HasOpInfo.propertiesOf opType) : Operation OpInfo :=
+def Operation.empty (opType : OpInfo) (prop : HasOpInfo.propertiesOf opType) (capResults capBlockOperands capRegions capOperands : Nat) : Operation OpInfo :=
   { results := #[]
     prev := none
     next := none
@@ -337,6 +342,10 @@ def Operation.empty (opType : OpInfo) (prop : HasOpInfo.propertiesOf opType) : O
     blockOperands := #[]
     regions := #[]
     operands := #[]
+    capResults
+    capBlockOperands
+    capRegions
+    capOperands
   }
 
 @[expose]
@@ -348,7 +357,7 @@ def Region.empty : Region :=
   }
 
 @[expose]
-def Block.empty : Block :=
+def Block.empty (capArguments : Nat) : Block :=
   {
     arguments := #[]
     firstUse := none
@@ -357,6 +366,7 @@ def Block.empty : Block :=
     parent := none
     firstOp := none
     lastOp := none
+    capArguments
   }
 
 /-!
@@ -369,7 +379,7 @@ namespace OperationPtr
 def InBounds (op : OperationPtr) (ctx : IRContext OpInfo) : Prop :=
   op ∈ ctx.operations
 
-def inBounds_def : InBounds op ctx ↔ op ∈ ctx.operations := by rfl
+theorem inBounds_def : InBounds op ctx ↔ op ∈ ctx.operations := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds op ctx) := by
@@ -1057,14 +1067,20 @@ theorem nextResult!_eq_getResult {op : OperationPtr} :
     op.nextResult! ctx = op.getResult (op.getNumResults! ctx) := by
   rfl
 
-def allocEmpty (ctx : IRContext OpInfo) (opType : OpInfo) (properties : HasOpInfo.propertiesOf opType) :
+@[simp, grind]
+def allocEmptyAt (ctx : IRContext OpInfo) (opType : OpInfo) (properties : HasOpInfo.propertiesOf opType)
+    (capResults capBlockOperands capRegions capOperands : Nat) (addr : Nat) :
     Option (IRContext OpInfo × OperationPtr) :=
-  let newOpPtr : OperationPtr := ⟨ctx.nextID⟩
-  let operation := Operation.empty opType properties
+  let newOpPtr : OperationPtr := ⟨addr⟩
+  let operation := Operation.empty opType properties capResults capBlockOperands capRegions capOperands
   if _ : ctx.operations.contains newOpPtr then none else
   let ctx := { ctx with nextID := ctx.nextID + 1 }
   let ctx := newOpPtr.set ctx operation
   (ctx, newOpPtr)
+
+def allocEmpty (ctx : IRContext OpInfo) (opType : OpInfo) (properties : HasOpInfo.propertiesOf opType)
+  (capResults capBlockOperands capRegions capOperands : Nat) : Option (IRContext OpInfo × OperationPtr) :=
+  allocEmptyAt ctx opType properties capResults capBlockOperands capRegions capOperands ctx.nextID
 
 -- `inBounds` is unused as ExtHashMap does not require proof of key presence for `erase`.
 -- We still keep it as an API consistency.
@@ -1465,7 +1481,7 @@ namespace BlockPtr
 def InBounds (block : BlockPtr) (ctx : IRContext OpInfo) : Prop :=
   block ∈ ctx.blocks
 
-def inBounds_def : InBounds block ctx ↔ block ∈ ctx.blocks := by rfl
+theorem inBounds_def : InBounds block ctx ↔ block ∈ ctx.blocks := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds block ctx) := by
@@ -1572,15 +1588,19 @@ theorem setPrevBlock!_eq_setPrevBlock {block : BlockPtr} (inBounds : block.InBou
     block.setPrevBlock! ctx newPrev = block.setPrevBlock ctx newPrev inBounds := by
   grind [setPrevBlock, setPrevBlock!]
 
-def allocEmpty (ctx : IRContext OpInfo) : Option (IRContext OpInfo × BlockPtr) :=
-  let newBlockPtr : BlockPtr := ⟨ctx.nextID⟩
+@[grind, simp]
+def allocEmptyAtAddress (ctx : IRContext OpInfo) (capArguments : Nat) (address : Nat) : Option (IRContext OpInfo × BlockPtr) :=
+  let newBlockPtr : BlockPtr := ⟨address⟩
   let ctx : IRContext OpInfo := { ctx with nextID := ctx.nextID + 1}
   if _ : ctx.blocks.contains newBlockPtr then none else
-  let ctx := newBlockPtr.set ctx Block.empty
+  let ctx := newBlockPtr.set ctx (Block.empty capArguments)
   some (ctx, newBlockPtr)
 
-theorem allocEmpty_def (heq : allocEmpty ctx = some (ctx', ptr')) :
-    ctx' = set ⟨ctx.nextID⟩ {ctx with nextID := ctx.nextID + 1} Block.empty := by
+def allocEmpty (ctx : IRContext OpInfo) (capArguments : Nat) : Option (IRContext OpInfo × BlockPtr) :=
+  allocEmptyAtAddress ctx capArguments ctx.nextID
+
+theorem allocEmpty_def (heq : allocEmpty ctx capArguments = some (ctx', ptr')) :
+    ctx' = set ⟨ctx.nextID⟩ {ctx with nextID := ctx.nextID + 1} (Block.empty capArguments)  := by
   grind [allocEmpty]
 
 def getNumArguments (block : BlockPtr) (ctx : IRContext OpInfo) (inBounds : block.InBounds ctx := by grind) : Nat :=
@@ -2244,7 +2264,7 @@ namespace RegionPtr
 def InBounds (region : RegionPtr) (ctx : IRContext OpInfo) : Prop :=
   region ∈ ctx.regions
 
-def inBounds_def : region.InBounds ctx ↔ region ∈ ctx.regions := by rfl
+theorem inBounds_def : region.InBounds ctx ↔ region ∈ ctx.regions := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds region ctx) := by
@@ -2267,12 +2287,12 @@ theorem get!_of_not_inBounds {ptr : RegionPtr} (notInBounds : ¬ ptr.InBounds ct
 def set (ptr : RegionPtr) (ctx : IRContext OpInfo) (newRegion : Region) : IRContext OpInfo :=
   {ctx with regions := ctx.regions.insert ptr newRegion}
 
-def setParent (region : RegionPtr) (ctx : IRContext OpInfo) (newParent : OperationPtr)
+def setParent (region : RegionPtr) (ctx : IRContext OpInfo) (newParent : Option OperationPtr)
     (inBounds : region.InBounds ctx := by grind) : IRContext OpInfo :=
   let oldRegion := region.get ctx (by grind)
   region.set ctx { oldRegion with parent := newParent}
 
-def setParent! (region : RegionPtr) (ctx : IRContext OpInfo) (newParent : OperationPtr) : IRContext OpInfo :=
+def setParent! (region : RegionPtr) (ctx : IRContext OpInfo) (newParent : Option OperationPtr) : IRContext OpInfo :=
   let oldRegion := region.get! ctx
   region.set ctx {oldRegion with parent := newParent}
 
@@ -2309,13 +2329,17 @@ theorem setLastBlock!_eq_setLastBlock {region : RegionPtr} (inBounds : region.In
     region.setLastBlock! ctx newLastBlock = region.setLastBlock ctx newLastBlock inBounds := by
   grind [setLastBlock, setLastBlock!]
 
-def allocEmpty (ctx : IRContext OpInfo) : Option (IRContext OpInfo × RegionPtr) :=
-  let newRegionPtr : RegionPtr := ⟨ctx.nextID⟩
+@[grind, simp]
+def allocEmptyAt (ctx : IRContext OpInfo) (addr : Nat) : Option (IRContext OpInfo × RegionPtr) :=
+  let newRegionPtr : RegionPtr := ⟨addr⟩
   let region := Region.empty
   let ctx := { ctx with nextID := ctx.nextID + 1}
   if _ : ctx.regions.contains newRegionPtr then none else
   let ctx := newRegionPtr.set ctx region
   (ctx, newRegionPtr)
+
+def allocEmpty (ctx : IRContext OpInfo) : Option (IRContext OpInfo × RegionPtr) :=
+  allocEmptyAt ctx ctx.nextID
 
 end RegionPtr
 
@@ -2562,6 +2586,30 @@ instance : Decidable (InBounds ptr ctx) := by
 end generic_ptr
 end GenericPtr
 
+inductive TopLevelPtr where
+| operation (ptr : Veir.OperationPtr)
+| block (ptr : Veir.BlockPtr)
+| region (ptr : Veir.RegionPtr)
+
+namespace TopLevelPtr
+
+section top_level_ptr
+variable {ctx : IRContext OpInfo}
+
+def InBounds (ptr : TopLevelPtr) (ctx : IRContext OpInfo) : Prop :=
+  match ptr with
+  | .block ptr => ptr.InBounds ctx
+  | .operation ptr => ptr.InBounds ctx
+  | .region ptr => ptr.InBounds ctx
+
+@[simp, grind =, grind =_] theorem iff_block (ptr : BlockPtr) : (block ptr).InBounds ctx ↔ ptr.InBounds ctx := by
+  grind [InBounds]
+@[simp, grind =, grind =_] theorem iff_operation (ptr : OperationPtr) : (operation ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [InBounds]
+@[simp, grind =, grind =_] theorem iff_region (ptr : RegionPtr) : (region ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [InBounds]
+
+end top_level_ptr
+end TopLevelPtr
+
 /--
   Macro to mark all get/set defitinions as local grind lemmas
   This should only be used inside `Core/`, as the other files in this folder
@@ -2573,8 +2621,8 @@ macro "setup_grind_with_get_set_definitions" : command => `(
   attribute [local grind] OpOperandPtr.setNextUse OpOperandPtr.setBack OpOperandPtr.setOwner OpOperandPtr.setValue OpOperandPtr.set
   attribute [local grind] OpOperandPtrPtr.set OpOperandPtrPtr.get!
   attribute [local grind] ValuePtr.getFirstUse! ValuePtr.getFirstUse ValuePtr.setFirstUse ValuePtr.setType ValuePtr.getType ValuePtr.getType!
-  attribute [local grind] OpResultPtr.get! OpResultPtr.setFirstUse OpResultPtr.set OpResultPtr.setType
-  attribute [local grind] BlockArgumentPtr.get! BlockArgumentPtr.setFirstUse BlockArgumentPtr.set BlockArgumentPtr.setType BlockArgumentPtr.setLoc
+  attribute [local grind] OpResultPtr.get! OpResultPtr.setFirstUse OpResultPtr.set OpResultPtr.setType OpResultPtr.setOwner
+  attribute [local grind] BlockArgumentPtr.get! BlockArgumentPtr.setFirstUse BlockArgumentPtr.set BlockArgumentPtr.setType BlockArgumentPtr.setLoc BlockArgumentPtr.setIndex BlockArgumentPtr.setOwner
   attribute [local grind] OperationPtr.setOperands OperationPtr.setBlockOperands OperationPtr.setResults OperationPtr.pushResult OperationPtr.setRegions OperationPtr.pushRegion OperationPtr.setProperties OperationPtr.setAttributes OperationPtr.pushOperand OperationPtr.pushBlockOperand OperationPtr.allocEmpty OperationPtr.dealloc OperationPtr.setNextOp OperationPtr.setPrevOp OperationPtr.setParent OperationPtr.getNumResults! OperationPtr.getNumOperands! OperationPtr.getNumRegions! OperationPtr.getRegion! OperationPtr.getNumSuccessors! OperationPtr.getProperties! OperationPtr.set OperationPtr.getOperands! OperationPtr.getOpType!
   attribute [local grind] Operation.empty
   attribute [local grind] BlockPtr.get! BlockPtr.setParent BlockPtr.setFirstUse BlockPtr.setFirstOp BlockPtr.setLastOp BlockPtr.setNextBlock BlockPtr.setPrevBlock BlockPtr.allocEmpty Block.empty BlockPtr.getNumArguments! BlockPtr.set BlockPtr.setArguments BlockPtr.pushArgument

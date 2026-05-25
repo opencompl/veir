@@ -110,7 +110,10 @@ theorem OpResultPtr.firstUse!_inBounds :
     ctx.FieldsInBounds →
     res.InBounds ctx →
     (res.get! ctx).firstUse.maybe OpOperandPtr.InBounds ctx := by
-  grind
+  grind =>
+    instantiate only [inBounds_of, = Option.maybe_def]
+    instantiate only [operation_inBounds_of_inBounds]
+    cases #fd14 <;> instantiate only [#992b] <;> cases #e9de <;> cases #6598
 
 grind_pattern OpResultPtr.firstUse!_inBounds => (res.get! ctx).firstUse, ctx.FieldsInBounds
 
@@ -720,7 +723,7 @@ theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
 attribute [local grind] Operation.empty in
 @[grind .]
 theorem OperationPtr.allocEmpty_fieldsInBounds
-    (heq : allocEmpty ctx type prop = some (ctx', ptr')) :
+    (heq : allocEmpty ctx type prop capResults capBlockOperands capRegions capOperands = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds
 
@@ -747,6 +750,16 @@ theorem BlockOperandPtr.setValue_fieldsInBounds {blockOperand} {ctx : IRContext 
 @[grind .]
 theorem BlockArgumentPtr.setType_fieldsInBounds :
     ctx.FieldsInBounds → (setType blockArgPtr ctx newType h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockArgumentPtr.setIndex_fieldsInBounds :
+    ctx.FieldsInBounds → (setIndex blockArgPtr ctx idx h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockArgumentPtr.setOwner_fieldsInBounds (ownerIb : owner.InBounds ctx) :
+    ctx.FieldsInBounds → (setOwner blockArgPtr ctx owner h).FieldsInBounds := by
   prove_fieldsInBounds_block ctx
 
 @[grind .]
@@ -792,7 +805,7 @@ theorem BlockPtr.setPrevBlock_fieldsInBounds (hp : newPrevBlock.maybe BlockPtr.I
 
 attribute [local grind] Block.empty in
 @[grind .]
-theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', ptr')) :
+theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx capArguments = some (ctx', ptr')) :
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds
 
@@ -851,7 +864,12 @@ theorem OpResultPtr.setFirstUse_fieldsInBounds_maybe (hnew : newFirstUse.maybe O
   prove_fieldsInBounds_operation ctx
 
 @[grind .]
-theorem RegionPtr.setParent_fieldsInBounds (hnew : newParent.InBounds ctx) :
+theorem OpResultPtr.setOwner_fieldsInBounds {blockOperand} {ctx : IRContext OpInfo} {h newOwner} (hp : newOwner.InBounds ctx) :
+    ctx.FieldsInBounds → (setOwner blockOperand ctx newOwner h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem RegionPtr.setParent_fieldsInBounds (hnew : newParent.maybe OperationPtr.InBounds ctx) :
     ctx.FieldsInBounds → (setParent region ctx newParent h).FieldsInBounds := by
   prove_fieldsInBounds_region ctx
 

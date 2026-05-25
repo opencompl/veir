@@ -907,6 +907,25 @@ theorem TypeAttr.inj {attr1 attr2 : TypeAttr} :
 def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : TypeAttr :=
   ⟨attr, isType⟩
 
+def Attribute.isDict (attr : Attribute) : Bool :=
+  match attr with
+  | .dictionaryAttr _ => true
+  | _ => false
+
+/--
+  Coerce an attribute to a dictionary attribute if it is a dictionary attribute.
+-/
+def Attribute.asDict? (attr : Attribute) (isDict : attr.isDict := by grind) : Option DictionaryAttr :=
+  match _ : attr with
+  | .dictionaryAttr dict => some dict
+  | _ => none
+
+def Attribute.asDict (attr : Attribute) (isDict : attr.isDict := by grind) : DictionaryAttr :=
+  let res := attr.asDict?
+  match _ : res with
+  | some dict => dict
+  | none => by cases attr <;> grind [isDict, asDict?]
+
 /-!
   ## Coercion instances to TypeAttr
 

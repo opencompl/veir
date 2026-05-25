@@ -220,17 +220,6 @@ def Std.HashMap.forKeysDepM [BEq α] [Hashable α] {m : Type w → Type w'} [Mon
     (b : Std.HashMap α β) (f : ∀ (a : α), a ∈ b → m PUnit) : m PUnit :=
   b.forM (fun k v => do if h : k ∈ b then f k (by grind))
 
-section ranges
-
-open Std
-
-@[grind=]
-theorem mem_range_nat (i: Nat) (r: Rco Nat) : (i ∈ r) ↔ r.lower ≤ i ∧ i < r.upper := by
-  simp only [Membership.mem]
-
-end ranges
-
-
 /-!
   This section adapts the standard library's `Array.isEqv` to also provide a proof
   that the elements being related are members of their relative arrays. This
@@ -326,4 +315,3 @@ namespace Rat
 def twoPow (k : Int) : Rat := 2 ^ k
 
 end Rat
-

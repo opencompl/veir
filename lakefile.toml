@@ -4,6 +4,8 @@ defaultTargets = ["veir-opt", "veir-interpret", "run-benchmarks", "Veir"]
 testRunner = "UnitTest"
 moreLeanArgs = ["--tstack=400000"]
 moreServerArgs = ["--tstack=400000"]
+moreLeancArgs = ["-flto=full"]
+moreLinkArgs = ["-flto=full"]
 
 [[require]]
 name = "ExArray"
@@ -28,3 +30,8 @@ root = "RunBenchmarks"
 [[lean_exe]]
 name = "veir-interpret"
 root = "VeirInterpret"
+
+[[lean_exe]]
+name = "buffed-benchmark"
+root = "BuffedBenchmark"
+# moreLeancArgs = ["-g", "-O0"]
