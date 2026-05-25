@@ -25,7 +25,7 @@ jobs:
 
       - uses: gerlero/apt-install@v1
         with:
-          packages: mlir-opt-22
+          packages: mlir-tools-22
 
       - name: Rename MLIR-opt
         run: |
