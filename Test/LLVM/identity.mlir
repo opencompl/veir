@@ -77,10 +77,10 @@
 }) : () -> ()
 
 // CHECK:       "builtin.module"() ({
-// CHECK-NEXT:   ^4():
+// CHECK-NEXT:   ^{{.*}}():
 // CHECK-NEXT:     "llvm.module_flags"() <{"flags" = [#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>, #llvm.mlir.module_flag<min, "PIC Level", 2 : i32>, #llvm.mlir.module_flag<max, "PIE Level", 2 : i32>, #llvm.mlir.module_flag<max, "uwtable", 2 : i32>, #llvm.mlir.module_flag<max, "frame-pointer", 2 : i32>]}> : () -> ()
 // CHECK-NEXT:     "llvm.func"() ({
-// CHECK-NEXT:         ^7(%arg7_0 : f64):
+// CHECK-NEXT:         ^{{.*}}(%arg7_0 : f64):
 // CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i1
 // CHECK-NEXT:       %{{.*}} = "llvm.and"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
@@ -113,10 +113,10 @@
 // CHECK-NEXT:       "llvm.store"(%{{.*}}, %{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i32, invariantGroup, "noalias_scopes" = [], nontemporal, "syncscope" = "foo", "tbaa" = [], volatile_}> : (!llvm.ptr, i32) -> ()
 // CHECK-NEXT:       %{{.*}} = "llvm.load"(%{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 0 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.load"(%{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i32, invariant, invariantGroup, "noalias_scopes" = [], nontemporal, "syncscope" = "foo", "tbaa" = [], volatile_}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:       "llvm.cond_br"(%{{.*}}, %{{.*}}, %{{.*}}) [^{{.*}}, ^{{.*}}] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
-// CHECK-NEXT:     ^{{.*}}(%{{.*}} : i32):
-// CHECK-NEXT:       "llvm.br"(%{{.*}}) [^{{.*}}] : (i32) -> ()
-// CHECK-NEXT:     ^{{.*}}(%{{.*}} : i32):
+// CHECK-NEXT:       "llvm.cond_br"(%{{.*}}, %{{.*}}, %{{.*}}) [^[[b1:.*]], ^[[b1]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()
+// CHECK-NEXT:     ^[[b1]](%{{.*}} : i32):
+// CHECK-NEXT:       "llvm.br"(%{{.*}}) [^[[b2:.*]]] : (i32) -> ()
+// CHECK-NEXT:     ^[[b2]](%{{.*}} : i32):
 // CHECK-NEXT:       "llvm.return"(%{{.*}}) : (i32) -> ()
 // CHECK-NEXT:     ^{{.*}}(%{{.*}} : !llvm.ptr):
 // CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
