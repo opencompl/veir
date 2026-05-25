@@ -17,11 +17,13 @@ jobs:
         run: source .envrc
 
       - name: Install mlir-opt
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: mlir-22-tools
+          add-repository: "http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-22 main"
+
+      - name: Rename MLIR-opt
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 22
-          sudo apt-get install mlir-22-tools
           sudo ln -s /usr/bin/mlir-opt-22 /usr/bin/mlir-opt
 
       - name: Build the project
