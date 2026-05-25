@@ -19,7 +19,8 @@ jobs:
       - name: Install mlir-opt
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: mlir-22-tools
+          packages: "mlir-22-tools"
+          add-repository: "http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-22 main"
 
       - name: Rename MLIR-opt
         run: |
