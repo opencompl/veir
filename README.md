@@ -39,7 +39,7 @@ First, install dependencies:
 uv sync
 ```
 
-Then run the tests:
+Then run the tests (if you have `mlir-opt` in your path you can add `--param TEST_MLIR`):
 
 ```bash
 uv run lit Test/ -v
