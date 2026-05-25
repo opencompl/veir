@@ -18,8 +18,9 @@ jobs:
 
       - uses: gerlero/add-apt-repository@v1
         with:
-          uri: http://apt.llvm.org/noble/
+          uri: http://apt.llvm.org/noble/ 
           key: https://apt.llvm.org/llvm-snapshot.gpg.key
+          component: main
 
       - uses: gerlero/apt-install@v1
         with:
