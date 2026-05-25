@@ -21,6 +21,7 @@ jobs:
           uri: http://apt.llvm.org/noble/ 
           key: https://apt.llvm.org/llvm-snapshot.gpg.key
           component: main
+          suite: llvm-toolchain-noble
 
       - uses: gerlero/apt-install@v1
         with:
