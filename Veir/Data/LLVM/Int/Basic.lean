@@ -62,7 +62,7 @@ def IntPred.toNat : IntPred → Nat
     is that predicate's MLIR code. -/
 theorem IntPred.fromNat_eq_some_iff {n : Nat} {p : IntPred} :
     IntPred.fromNat n = some p ↔ p.toNat = n := by
-  cases p <;> simp [IntPred.fromNat, IntPred.toNat] <;> split <;> simp_all <;> omega
+  cases p <;> simp only [IntPred.fromNat, IntPred.toNat] <;> grind
 
 def IntPred.eval (p : IntPred) (x y : BitVec w) : Bool :=
   match p with
