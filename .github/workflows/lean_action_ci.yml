@@ -60,7 +60,7 @@ jobs:
         run: uv sync
 
       - name: Run filecheck tests
-        run: uv run lit Test/ -v --param TEST_MLIR
+        run: uv run lit Test/ -v
 
       - name: Build the ExArray package
         uses: leanprover/lean-action@v1
