@@ -16,6 +16,23 @@ jobs:
       - name: Source environment variables
         run: source .envrc
 
+      - name: Add LLVM apt repository
+        uses: gerlero/add-apt-repository@v1
+        with:
+          uri: http://apt.llvm.org/noble/ 
+          key: https://apt.llvm.org/llvm-snapshot.gpg.key
+          component: main
+          suite: llvm-toolchain-noble-22
+
+      - name: Install mlir-opt
+        uses: gerlero/apt-install@v1
+        with:
+          packages: mlir-22-tools
+
+      - name: Rename MLIR-opt
+        run: |
+          sudo ln -s /usr/bin/mlir-opt-22 /usr/bin/mlir-opt
+
       - name: Build the project
         uses: leanprover/lean-action@v1
         with:
