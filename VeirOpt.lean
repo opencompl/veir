@@ -93,7 +93,7 @@ def parseOperation (filename : Option String) : ExceptT String IO (WfIRContext O
 
   match ParserState.fromInput fileContent with
   | .ok parser =>
-    match (parseOp none).run (MlirParserState.fromContext ctx) parser with
+    match (parseModule).run (MlirParserState.fromContext ctx) parser with
     | .ok (op, state, _) =>
       return (state.ctx, op)
     | .error err =>

@@ -22,11 +22,11 @@ def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode Ã
     | throw "Failed to create IR context"
   match ParserState.fromInput fileContent with
   | .ok parser =>
-    match (parseOp none).run (MlirParserState.fromContext ctx) parser with
+    match (parseModule).run (MlirParserState.fromContext ctx) parser with
     | .ok (op, state, _) =>
       return (state.ctx, op)
     | .error errMsg =>
-      throw s!"Error parsing operation: {errMsg}"
+      throw s!"Error parsing module: {errMsg}"
   | .error errMsg =>
     throw s!"Error reading file: {errMsg}"
 

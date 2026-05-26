@@ -599,4 +599,40 @@ partial def parseOptionalBlock (ip : BlockInsertPoint) : MlirParserM (Option Blo
 
 end
 
+/--
+  Recursively walk the linked list of operations in a block and validate
+  that top-level operations do not have operands or results
+  (i.e., that they are definitions such as func.func, llvm.func, not instructions).
+-/
+partial def validateBodyOps (ctx : IRContext OpCode) : Option OperationPtr → MlirParserM Unit
+  | none => return ()
+  | some op => do
+    if op.getNumResults! ctx > 0 || op.getNumOperands! ctx > 0 then
+      throwString "top-level operation with operands or results is not allowed; only function and module definitions may appear at the module level"
+    validateBodyOps ctx ((op.get! ctx).next)
+
+/--
+  Validate that the body of a builtin.module only contains definition operations
+  (operations without operands or results at the operation level).
+  Requires that `moduleOp` is actually a builtin.module operation.
+-/
+def validateModuleBody (moduleOp : OperationPtr) : MlirParserM Unit := do
+  let wfCtx ← getContext
+  let ctx := wfCtx.raw
+  let opType := moduleOp.getOpType! ctx
+  if opType != .builtin .module then
+    throwString "top-level operation must be a builtin.module"
+  let region := moduleOp.getRegion! ctx 0
+  let some firstBlock := (region.get! ctx).firstBlock | return ()
+  validateBodyOps ctx (firstBlock.get! ctx).firstOp
+
+/--
+  Parse a complete MLIR module (builtin.module) and validate its body, ensuring
+  that only definition operations appear at the top level.
+-/
+def parseModule : MlirParserM OperationPtr := do
+  let op ← parseOp none
+  validateModuleBody op
+  return op
+
 end Veir.Parser
