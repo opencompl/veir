@@ -132,6 +132,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case muli => exact (NswNuwProperties.fromAttrDict attrDict)
     case divsi => exact (ExactProperties.fromAttrDict attrDict)
     case divui => exact (ExactProperties.fromAttrDict attrDict)
+    case cmpi => exact (IcmpProperties.fromAttrDictFor "arith.cmpi" attrDict)
     case shli => exact (NswNuwProperties.fromAttrDict attrDict)
     case shrsi => exact (ExactProperties.fromAttrDict attrDict)
     case shrui => exact (ExactProperties.fromAttrDict attrDict)
@@ -179,8 +180,9 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     if props.nsz then
       dict := dict.insert "nsz".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .llvm .icmp => Id.run do
-    (Std.HashMap.emptyWithCapacity 2).insert "predicate".toUTF8 (Attribute.integerAttr props.value)
+  | .arith .cmpi | .llvm .icmp => Id.run do
+    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr value)
   | .llvm .cond_br =>
     let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
     dict.insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)

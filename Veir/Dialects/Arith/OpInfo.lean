@@ -17,6 +17,7 @@ match op with
 | .muli => NswNuwProperties
 | .divsi => ExactProperties
 | .divui => ExactProperties
+| .cmpi => IcmpProperties
 | .shli => NswNuwProperties
 | .shrsi => ExactProperties
 | .shrui => ExactProperties

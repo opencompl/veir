@@ -27,7 +27,7 @@ inductive IntPred where
   | sge
   | slt
   | sle
-deriving DecidableEq, Inhabited
+deriving DecidableEq, Inhabited, Repr, Hashable
 
 /-- Mapped as in MLIR:
   https://github.com/llvm/llvm-project/blob/d3417c8bf35852af88f41aa721a719ea756fdd8c/mlir/include/mlir/Dialect/LLVMIR/LLVMEnums.td#L571 -/
@@ -44,6 +44,25 @@ def IntPred.fromNat (s : Nat) : Option IntPred :=
   | 8 => some .ugt
   | 9 => some .uge
   | _ => none
+
+/-- Mapped as in MLIR. See `IntPred.fromNat`. -/
+def IntPred.toNat : IntPred → Nat
+  | .eq => 0
+  | .ne => 1
+  | .slt => 2
+  | .sle => 3
+  | .sgt => 4
+  | .sge => 5
+  | .ult => 6
+  | .ule => 7
+  | .ugt => 8
+  | .uge => 9
+
+/-- Sanity check: A numeric code parses to a predicate exactly when it
+    is that predicate's MLIR code. -/
+theorem IntPred.fromNat_eq_some_iff {n : Nat} {p : IntPred} :
+    IntPred.fromNat n = some p ↔ p.toNat = n := by
+  cases p <;> simp only [IntPred.fromNat, IntPred.toNat] <;> grind
 
 def IntPred.eval (p : IntPred) (x y : BitVec w) : Bool :=
   match p with
