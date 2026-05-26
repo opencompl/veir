@@ -382,6 +382,24 @@ def parseOptionalHWModuleType : AttrParserM (Option HW.ModuleType) := do
 mutual
 
 /--
+  Parse an LLVM array type, if present.
+  Its syntax is `!llvm.array<size x type>`.
+-/
+partial def parseOptionalLLVMArrayType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "llvm.array".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let size ← parseInteger false false
+  parseKeyword "x".toByteArray
+  let ty ← parseType
+  parsePunctuation ">"
+  return some (LLVM.ArrayType.mk size.toNat ty)
+
+/--
   Parse a function type, if present.
   A function type has the form `(input1, input2, ...) -> (output1, output2, ...)` or
   `(input1, input2, ...) -> output`.
@@ -448,6 +466,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some modArithType
   if let some llvmPointerType := ← parseOptionalLLVMPointerType then
     return some llvmPointerType
+  if let some llvmArrayType := ← parseOptionalLLVMArrayType then
+    return some llvmArrayType
   if let some llvmFunctionType ← parseOptionalLLVMFunctionType then
     return some llvmFunctionType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
