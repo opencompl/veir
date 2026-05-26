@@ -23,8 +23,9 @@ variable {ctx : IRContext OpCode}
 structure MlirParserState where
   /-- The current IR context. -/
   ctx : WfIRContext OpCode
-  /-- The values that have been defined for a given name at that point in the parser. -/
-  values : Std.HashMap ByteArray (Array ValuePtr)
+  /-- The values that have been defined for a given name at that point in the parser,
+      along with the byte offset of where the value name token was parsed. -/
+  values : Std.HashMap ByteArray (Array ValuePtr × Location)
   /--
     The values defined in each currently active nested scope.
     Each scope sees all values defined in parent scopes (those that appear earlier in the array).
@@ -77,7 +78,7 @@ def getContext : MlirParserM (WfIRContext OpCode) := do
 /--
   Get the array of values associated with a previously parsed name.
 -/
-def getValues? (name : ByteArray) : MlirParserM (Option (Array ValuePtr)) := do
+def getValues? (name : ByteArray) : MlirParserM (Option (Array ValuePtr × Location)) := do
   return (← get).values[name]?
 
 /--
@@ -110,13 +111,14 @@ def inChildScope {α : Type} (m : MlirParserM α) : MlirParserM α := do
   Register an array of parsed values with the given name in the current scope.
   This is used to keep track of values that have been defined during parsing.
 -/
-def registerValueDefs (name : ByteArray) (values : Array ValuePtr) : MlirParserM Unit := do
-  if (← get).values.contains name then
-    throwString s!"value %{String.fromUTF8! name} has already been defined"
-
+def registerValueDefs (name : ByteArray) (pos : Location) (values : Array ValuePtr) : MlirParserM Unit := do
+  if let some (_, existingPos) := (← get).values[name]? then
+    let error := ParserError.mk s!"value %{String.fromUTF8! name} has already been defined" pos []
+    let error := error.addNote existingPos "previously defined here"
+    throw error
   modify fun s =>
     { s with
-      values := s.values.insert name values
+      values := s.values.insert name (values, pos)
       definitionsPerScope := s.definitionsPerScope.modify (s.definitionsPerScope.size - 1) (·.insert name)
     }
 
@@ -124,8 +126,8 @@ def registerValueDefs (name : ByteArray) (values : Array ValuePtr) : MlirParserM
   Register a single value with the given name in current scope.
   This is used to keep track of values that have been defined during parsing.
 -/
-def registerValueDef (name : ByteArray) (value : ValuePtr) : MlirParserM Unit :=
-  registerValueDefs name #[value]
+def registerValueDef (name : ByteArray) (pos : Location) (value : ValuePtr) : MlirParserM Unit :=
+  registerValueDefs name pos #[value]
 
 /--
   Set the current IR context.
@@ -225,26 +227,27 @@ def defineBlockUse (name : ByteArray) : MlirParserM BlockPtr := do
   Parse an operation result and the number of values it defines.
   This corresponds to the syntax `%name` and `%name:numberOfResults`.
 -/
-def parseOpResult : MlirParserM (ByteArray × Nat) := do
+def parseOpResult : MlirParserM (ByteArray × Nat × Location) := do
   let nameToken ← parseToken .percentIdent "operation result expected"
+  let tokenPos := nameToken.slice.start
   let slice := { nameToken.slice with start := nameToken.slice.start + 1 } -- skip % character
   let name := slice.of (← getInput)
 
   /- If the next token is ':', we parse the expected result count, otherwise we return the name. -/
   if !(← parseOptionalToken .colon).isSome then
-    return (name, 1)
+    return (name, 1, tokenPos)
 
   let count := (← parseInteger false false).toNat
   if count ≤ 1 then
     throwString "expected named operation to have at least 1 result"
 
-  return (name, count)
+  return (name, count, tokenPos)
 
 /--
   Parse the results before an operation definition,
   either as a list of values followed by '=', or nothing.
 -/
-def parseOpResults : MlirParserM (Array (ByteArray × Nat)) := do
+def parseOpResults : MlirParserM (Array (ByteArray × Nat × Location)) := do
   let .percentIdent := (← peekToken).kind | return #[]
   let results ← parseList parseOpResult
   parsePunctuation "=" "'=' expected after operation results"
@@ -262,6 +265,7 @@ def parseOpResults : MlirParserM (Array (ByteArray × Nat)) := do
 structure UnresolvedOperand where
   name : ByteArray
   index : Option Nat
+  pos : Location
 
 /--
   Get the name of an UnresolvedOperand as a String.
@@ -288,17 +292,18 @@ instance : ToString UnresolvedOperand where
 -/
 def parseOperand : MlirParserM UnresolvedOperand := do
   let nameToken ← parseToken .percentIdent "operand expected"
+  let tokenPos := nameToken.slice.start
   let name : ByteArray := { nameToken.slice with start := nameToken.slice.start + 1 }.of (← getInput)
 
   /- If no result number is specified, return without one. -/
   let some resultCount ← parseOptionalToken .hashIdent
-    | return UnresolvedOperand.mk name none
+    | return UnresolvedOperand.mk name none tokenPos
 
   /- Parse the result count as a Nat. -/
   let resultCount := { resultCount.slice with start := resultCount.slice.start + 1 }.of (← getInput) -- skip # character
   let some resultCount := String.fromUTF8? resultCount >>= String.toNat?
     | throwString "invalid SSA value result number"
-  return UnresolvedOperand.mk name resultCount
+  return UnresolvedOperand.mk name resultCount tokenPos
 
 /--
   Parse a list of operation operands delimited by parentheses.
@@ -327,12 +332,16 @@ def parseBlockOperands : MlirParserM (Array BlockPtr) := do
   Throw an error if the value is not defined or if the type does not match.
 -/
 def resolveOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) : MlirParserM ValuePtr := do
-  let some values := (← getValues? operand.name) | throwString s!"use of undefined value %{operand.nameString}"
-  let some value := values[operand.indexD]? | throwString s!"invalid result index {operand.indexD} for %{operand.nameString}"
+  let some (values, defPos) := (← getValues? operand.name)
+    | throwString s!"use of undefined value %{operand.nameString}"
+  let some value := values[operand.indexD]?
+    | throw (({ msg := s!"invalid result index {operand.indexD} for %{operand.nameString}",
+                pos := some operand.pos } : ParserError).addNote defPos "value defined here")
   let ⟨ctx, _⟩ ← getContext
   let parsedType := value.getType! ctx
   if parsedType ≠ expectedType then
-    throwString s!"type mismatch for value {operand}: expected {expectedType}, got {parsedType}"
+    throw (({ msg := s!"type mismatch for value {operand}: expected {expectedType}, got {parsedType}",
+              pos := some operand.pos } : ParserError).addNote defPos "value defined here")
   return value
 
 /--
@@ -369,14 +378,16 @@ def parseOperationType : MlirParserM (Array TypeAttr × Array TypeAttr) := do
 
 /--
   Parse an SSA value followed by a colon and a type, if present.
+  Also returns the location of the value definition.
 -/
-def parseTypedValue : MlirParserM (ByteArray × TypeAttr) := do
+def parseTypedValue : MlirParserM (ByteArray × TypeAttr × Location) := do
   let nameToken ← parseToken .percentIdent "value expected"
+  let tokenPos := nameToken.slice.start
   let slice := { nameToken.slice with start := nameToken.slice.start + 1 } -- skip % character
   let name := slice.of (← getInput)
   parsePunctuation ":"
   let ty ← parseType
-  return (name, ty)
+  return (name, ty, tokenPos)
 
 /--
   Parse the properties of an operation.
@@ -427,13 +438,13 @@ def parseOptionalBlockLabel (ip : BlockInsertPoint) : MlirParserM (Option BlockP
   let block ← defineBlock name ip
   /- Insert block arguments in the block. -/
   modifyContextM fun ctx => do
-    let argTypes := arguments.map (·.2)
+    let argTypes := arguments.map (·.2.1)
     let ⟨h_block_InBounds⟩ ← checkBlockInBounds block ctx.raw
     let ⟨h_block_NoArgs⟩ ← checkBlockHasNoArgs block ctx.raw
     pure (WfRewriter.setBlockArguments ctx block argTypes h_block_InBounds (by grind [BlockPtr.getArguments!.mem_iff_exists_index]))
   /- Register the block argument names in the parser state. -/
-  for ((argName, argType), index) in arguments.zipIdx do
-    registerValueDef argName (ValuePtr.blockArgument {block := block, index := index})
+  for ((argName, _argType, tokenPos), index) in arguments.zipIdx do
+    registerValueDef argName tokenPos (ValuePtr.blockArgument {block := block, index := index})
   return some block
 
 /--
@@ -482,7 +493,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let (inputTypes, outputTypes) ← parseOperationType
 
   /- Results can have multiple parts so sum the sizes. -/
-  let numResults := results.foldl (· + ·.snd) 0
+  let numResults := results.foldl (· + ·.2.1) 0
 
   /- Check that the number of results matches with the operation type. -/
   if outputTypes.size ≠ numResults then
@@ -510,9 +521,9 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
 
   /- Register the values for each result name. -/
   let mut index := 0
-  for (name, count) in results do
+  for (name, count, tokenPos) in results do
     let values := .ofFn <| fun (i : Fin count) => op.getResult (index + i)
-    registerValueDefs name values
+    registerValueDefs name tokenPos values
     index := index + count
   return op
 
