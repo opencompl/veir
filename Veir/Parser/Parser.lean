@@ -19,7 +19,7 @@ structure ParserState where
   Create a new parser state at the beginning of the given input.
 -/
 def ParserState.fromInput (input : ByteArray) : Except ParserError ParserState := do
-  let lexerState := LexerState.mk input 0
+  let lexerState := LexerState.mk input { byteOffset := 0 }
   let (firstToken, lexerState) ← lex lexerState
   return ParserState.mk lexerState firstToken
 
@@ -27,7 +27,7 @@ def ParserState.fromInput (input : ByteArray) : Except ParserError ParserState :
   Get the current position in the input.
   This is the starting position of the current token.
 -/
-def ParserState.pos (state : ParserState) : Nat :=
+def ParserState.pos (state : ParserState) : Location :=
   state.currentToken.slice.start
 
 /--
@@ -47,7 +47,7 @@ variable [Monad M] [MonadExcept ParserError M] [MonadStateOf ParserState M]
   Get the current position in the input.
   This is the starting position of the current token.
 -/
-def getPos : M Nat := do
+def getPos : M Location := do
   return (←get).pos
 
 /--
@@ -60,7 +60,7 @@ def throwAtCurrentPos (msg : String) : M α := do
 /--
   Throw a `ParserError` whose location is the given byte offset.
 -/
-def throwAt (pos : Nat) (msg : String) : M α :=
+def throwAt (pos : Location) (msg : String) : M α :=
   throw { msg, pos := some pos }
 
 /--
@@ -246,7 +246,7 @@ private def processEscapes (input : ByteArray) (basePos : Nat) : Except ParserEr
       i := i + 1
       continue
     if i + 1 >= input.size then
-      throwAt (basePos + i) "unexpected end of string after '\\'"
+      throwAt { byteOffset := basePos + i } "unexpected end of string after '\\'"
     let next := input.getD (i + 1) 0
     if next == '\\'.toUInt8 then
       result := result.push '\\'.toUInt8
@@ -266,11 +266,11 @@ private def processEscapes (input : ByteArray) (basePos : Nat) : Except ParserEr
       continue
     -- Try \HH hex escape
     if i + 2 >= input.size then
-      throwAt (basePos + i) "unknown escape in string literal"
+      throwAt { byteOffset := basePos + i } "unknown escape in string literal"
     let hex1 := input.getD (i + 1) 0
     let hex2 := input.getD (i + 2) 0
     if !(hex1.isHexDigit && hex2.isHexDigit) then
-      throwAt (basePos + i) "unknown escape in string literal"
+      throwAt { byteOffset := basePos + i } "unknown escape in string literal"
     let high := if hex1 >= 'a'.toUInt8 then hex1 - 'a'.toUInt8 + 10
       else if hex1 >= 'A'.toUInt8 then hex1 - 'A'.toUInt8 + 10
       else hex1 - '0'.toUInt8
@@ -290,9 +290,9 @@ private def processEscapes (input : ByteArray) (basePos : Nat) : Except ParserEr
 def parseOptionalStringLiteral : M (Option String) := do
   match ← parseOptionalToken .stringLit with
   | some token =>
-    let slice : Slice := {start := token.slice.start + 1, stop := token.slice.stop - 1} -- remove quotes
+    let slice : Slice := {start := token.slice.start + 1, stop := { byteOffset := token.slice.stop.byteOffset - 1 }} -- remove quotes
     let raw := slice.of ((← get).input)
-    let processed ← ofExcept (processEscapes raw (token.slice.start + 1))
+    let processed ← ofExcept (processEscapes raw (token.slice.start.byteOffset + 1))
     match String.fromUTF8? processed with
     | some str => return some str
     | none => throwAt token.slice.start "internal error: failed converting string literal"

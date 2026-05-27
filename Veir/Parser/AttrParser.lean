@@ -41,7 +41,7 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   | { kind := .bareIdent, slice := slice } =>
     if slice.size < 2 then
       return none
-    if (← (getThe ParserState)).input.getD slice.start 0 == 'i'.toUInt8 then
+    if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'i'.toUInt8 then
       let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
       let identifier := bitwidthSlice.of (← (getThe ParserState)).input
       let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
@@ -59,7 +59,7 @@ def parseOptionalFloatType : AttrParserM (Option FloatType) := do
   | { kind := .bareIdent, slice := slice } =>
     if slice.size < 2 then
       return none
-    if (← (getThe ParserState)).input.getD slice.start 0 == 'f'.toUInt8 then
+    if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'f'.toUInt8 then
       let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
       let identifier := bitwidthSlice.of (← (getThe ParserState)).input
       let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
@@ -183,12 +183,13 @@ def matchingBracket! (kind : TokenKind) : TokenKind :=
   The opening token is expected to have already been consumed when this function is called.
   The ending token (by default `>`) is not consumed by this function.
 -/
-private def parseUnregisteredAttrBody (endToken : TokenKind := .greater) (startPos : Option Nat := none) : AttrParserM String := do
+private def parseUnregisteredAttrBody (endToken : TokenKind := .greater)
+    (startPos : Option Parser.Location := none) : AttrParserM String := do
   let startPos := startPos.getD (← peekToken).slice.start
 
   /- This stack corresponds to the brackets that are still open. -/
   let mut bracketStack : Array TokenKind := #[]
-  let mut endPos : Nat := 0
+  let mut endPos : Parser.Location := { byteOffset := 0 }
 
   /- Read tokens one by one until we close the last `>` -/
   repeat

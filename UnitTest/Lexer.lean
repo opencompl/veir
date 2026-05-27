@@ -1,9 +1,10 @@
 import Veir.Parser.Lexer
 
 open Veir.Parser.Lexer
+open Veir.Parser
 
 def lexResult (s : String) : String :=
-  let res := lex (LexerState.mk (s.toByteArray) 0)
+  let res := lex (LexerState.mk (s.toByteArray) (Location.mk 0))
   match res with
   | .ok (tok, _) =>
     let value := String.fromUTF8! (tok.slice.of s.toByteArray)
