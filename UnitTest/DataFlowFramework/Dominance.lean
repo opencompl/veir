@@ -1,6 +1,7 @@
 import UnitTest.DataFlowFramework.Helpers
 
 import Veir.Analysis.DataFlow.DominanceAnalysis
+import Veir.IR.Dominance
 
 open Std (HashMap HashSet)
 open Veir
@@ -9,7 +10,7 @@ open Veir
 Compare one expected dominator label against the observed dominance information.
 
 This checks `dominates`, `properlyDominates`, and membership in the dominator
-set returned by `BlockPtr.getDoms?`.
+set returned by `BlockPtr.dominators?`.
 -/
 private def compareExpectedDominator
     (name : String)
@@ -26,12 +27,12 @@ private def compareExpectedDominator
     Id.run do
       let shouldProperlyDom := expectedDom ≠ name
       let mut report := #[]
-      if !Veir.DominanceAnalysis.dominates expectedBlock block dfCtx irCtx then
+      if !expectedBlock.dominates block dfCtx irCtx then
         report := report.push s!"dominators {name}: missing expected dominator {expectedDom}"
       if !observedDoms.contains expectedBlock then
         report := report.push
-          s!"dominators {name}: BlockPtr.getDoms? missing expected dominator {expectedDom}"
-      if Veir.DominanceAnalysis.properlyDominates expectedBlock block dfCtx irCtx ≠ shouldProperlyDom then
+          s!"dominators {name}: BlockPtr.dominators? missing expected dominator {expectedDom}"
+      if expectedBlock.properlyDominates block dfCtx irCtx ≠ shouldProperlyDom then
         report := report.push
           s!"dominators {name}: unexpected properlyDominates result for {expectedDom}"
       report
@@ -40,7 +41,7 @@ private def compareExpectedDominator
 Compare one observed block label against the expected dominator list.
 
 This also cross checks the three ways of observing dominance for consistency:
-`dominates`, `properlyDominates`, and membership in `BlockPtr.getDoms?`.
+`dominates`, `properlyDominates`, and membership in `BlockPtr.dominators?`.
 -/
 private def compareObservedDominator
     (name : String)
@@ -52,18 +53,18 @@ private def compareObservedDominator
     (observedName : String)
     (observedBlock : BlockPtr) : MismatchReport :=
   Id.run do
-    let observedByRelation := Veir.DominanceAnalysis.dominates observedBlock block dfCtx irCtx
+    let observedByRelation := observedBlock.dominates block dfCtx irCtx
     let observedBySet := observedDoms.contains observedBlock
-    let observedProperly := Veir.DominanceAnalysis.properlyDominates observedBlock block dfCtx irCtx
+    let observedProperly := observedBlock.properlyDominates block dfCtx irCtx
     let mut report := #[]
     if observedByRelation ≠ observedBySet then
-      report := report.push s!"dominators {name}: dominates/getDoms? disagree on {observedName}"
+      report := report.push s!"dominators {name}: dominates/dominators? disagree on {observedName}"
     if observedProperly ≠ (observedByRelation && observedBlock ≠ block) then
       report := report.push s!"dominators {name}: dominates/properlyDominates disagree on {observedName}"
     if observedByRelation && !expectedDoms.contains observedName then
       report := report.push s!"dominators {name}: unexpected dominator {observedName}"
     if observedBySet && !expectedDoms.contains observedName then
-      report := report.push s!"dominators {name}: BlockPtr.getDoms? has unexpected dominator {observedName}"
+      report := report.push s!"dominators {name}: BlockPtr.dominators? has unexpected dominator {observedName}"
     if observedProperly && (!expectedDoms.contains observedName || observedName = name) then
       report := report.push s!"dominators {name}: unexpected proper dominator {observedName}"
     report
@@ -107,7 +108,7 @@ private def compareNamedBlockDominators
   | none =>
     #[s!"dominators {name}: missing block label"]
   | some block =>
-    let observedDoms? := block.getDoms? dfCtx irCtx
+    let observedDoms? := block.dominators? dfCtx irCtx
     match expectedDoms? with
     | none =>
       if observedDoms?.isSome then
@@ -249,7 +250,7 @@ def testDomLine : String :=
      ]
 
 /-
-  Test: entry branches to a while-loop or to an if-statement, then join.
+  Test: entry branches to a while loop or to an if statement, then join.
                       ┌───┐
                   ┌───┤ 0 ├───┐
                   │   └───┘   │
@@ -296,6 +297,36 @@ def testDomIfLoopIf : String :=
      , ("bb7", some #["bb0", "bb7"])
      ]
 
+/-
+  Test: nested sibling regions inside the same outer block.
+
+          ┌───────────────┐
+          │ ┌───┐   ┌───┐ │
+          │ │ 1 │ 0 │ 2 │ │
+          │ └───┘   └───┘ │
+          └───────────────┘
+
+  The outer block dominates both nested entry blocks, but sibling nested blocks
+  do not dominate each other.
+-/
+def testDomNestedRegions : String :=
+  run
+    "\"builtin.module\"() ({\n\
+    ^bb0:\n\
+      \"test.test\"() ({\n\
+      ^bb1:\n\
+        \"test.test\"() : () -> ()\n\
+      }) : () -> ()\n\
+      \"test.test\"() ({\n\
+      ^bb2:\n\
+        \"test.test\"() : () -> ()\n\
+      }) : () -> ()\n\
+    }) : () -> ()"
+    #[ ("bb0", some #["bb0"])
+     , ("bb1", some #["bb0", "bb1"])
+     , ("bb2", some #["bb0", "bb2"])
+     ]
+
 /--
 info: "ok"
 -/
@@ -319,5 +350,11 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testDomIfLoopIf
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testDomNestedRegions
 
 end DominanceAnalysis
