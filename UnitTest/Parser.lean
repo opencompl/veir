@@ -39,14 +39,14 @@ section throwAt
 foo bar
     ^ -/
 #guard_msgs (whitespace := exact) in
-#eval! testParser "foo bar" (throwAt 4 "oops" : EStateM ParserError ParserState Unit)
+#eval! testParser "foo bar" (throwAt (Location.mk 4) "oops" : EStateM ParserError ParserState Unit)
 
 -- throwAt uses the given position even after consuming a token (ignores current position).
 /-- info: <test>:1:1: error: oops
 foo bar
 ^ -/
 #guard_msgs (whitespace := exact) in
-#eval! testParser "foo bar" (do let _ ← consumeToken; throwAt 0 "oops" : EStateM ParserError ParserState Unit)
+#eval! testParser "foo bar" (do let _ ← consumeToken; throwAt (Location.mk 0) "oops" : EStateM ParserError ParserState Unit)
 
 end throwAt
 

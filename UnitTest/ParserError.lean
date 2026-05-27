@@ -1,22 +1,23 @@
 module
 
 import all Veir.Parser.ParserError
+public meta import Veir.Parser.Location
 
 open Veir.Parser
 open Veir.Parser.ParserError
 
 /-- 1-based line:col for a byte offset into `s`. -/
 def test_byteOffsetToLineCol (s : String) (o : Nat) : String :=
-  let (line, col) := byteOffsetToLineCol s.toByteArray o
+  let (line, col) := byteOffsetToLineCol s.toByteArray (Location.mk o)
   s!"{line}:{col}"
 
 /-- The source line containing byte offset `o` of `s`. -/
 def test_lineContaining (s : String) (o : Nat) : Option String :=
-  lineContaining s.toByteArray o
+  lineContaining s.toByteArray (Location.mk o)
 
 def diag (filename s : String) (o : Option Nat) (msg : String)
     (notes : List (Nat × String)) : IO Unit :=
-  let e : ParserError := { msg, pos := o, notes := notes.map fun (pos, m) => { pos, msg := m } }
+  let e : ParserError := { msg, pos := o.map Location.mk, notes := notes.map fun (pos, m) => ParserErrorNote.mk m (Location.mk pos) }
   IO.print (e.format filename s.toByteArray)
 
 /-! ## `byteOffsetToLineCol` -/
@@ -76,5 +77,5 @@ hij
 #eval! do
   -- inject a 0xFF byte that makes the line non-UTF-8
   let src := "abc".toByteArray ++ ByteArray.mk #[0xFF] ++ "def".toByteArray
-  let e : ParserError := { msg := "bad byte", pos := some 0 }
+  let e : ParserError := { msg := "bad byte", pos := some (Location.mk 0) }
   IO.print (e.format "test.mlir" src)

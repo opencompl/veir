@@ -8,6 +8,8 @@ module
   source line with a `^` pointing to the error column.
 -/
 
+public import Veir.Parser.Location
+
 namespace Veir.Parser
 
 public section
@@ -24,17 +26,17 @@ public section
 /-- A secondary diagnostic location attached to a `ParserError`. -/
 structure ParserErrorNote where
   msg : String
-  pos : Nat
+  pos : Location
 deriving Inhabited, DecidableEq, Repr
 
 /-- Structured parse error carrying an optional source location and notes. -/
 structure ParserError where
   msg : String
-  pos : Option Nat := none
+  pos : Option Location := none
   notes : List ParserErrorNote := []
 deriving Inhabited, DecidableEq, Repr
 
-def ParserError.addNote (e : ParserError) (pos : Nat) (msg : String) : ParserError :=
+def ParserError.addNote (e : ParserError) (pos : Location) (msg : String) : ParserError :=
   { e with notes := e.notes ++ [{ msg, pos }] }
 
 end
@@ -57,8 +59,8 @@ namespace ParserError
   The column is the byte distance from the start of the current line, plus one.
   This assumes that only ASCII characters are present.
 -/
-def byteOffsetToLineCol (input : ByteArray) (loc : Nat) : Nat × Nat := Id.run do
-  let offset := min loc input.size
+def byteOffsetToLineCol (input : ByteArray) (loc : Location) : Nat × Nat := Id.run do
+  let offset := min loc.byteOffset input.size
   let mut line := 1
   let mut lineStart := 0
   for i in [0:offset] do
@@ -72,8 +74,8 @@ def byteOffsetToLineCol (input : ByteArray) (loc : Nat) : Nat × Nat := Id.run d
   `\n` (or the start of input) up to the next `\n` (or end of input), decoded as
   UTF-8. Returns `none` if the bytes are not valid UTF-8.
 -/
-def lineContaining (input : ByteArray) (loc : Nat) : Option String := Id.run do
-  let offset := min loc input.size
+def lineContaining (input : ByteArray) (loc : Location) : Option String := Id.run do
+  let offset := min loc.byteOffset input.size
   let mut start := 0
   for i in [0:offset] do
     if input.get! i == '\n'.toUInt8 then
@@ -106,7 +108,7 @@ def lineContaining (input : ByteArray) (loc : Nat) : Option String := Id.run do
   When `loc` is `none`, the header uses `<unknown location>` and no source line
   is printed.
 -/
-def formatLabel (filename : String) (input : ByteArray) (severity : String) (loc : Option Nat)
+def formatLabel (filename : String) (input : ByteArray) (severity : String) (loc : Option Location)
     (msg : String) : String :=
   match loc with
   | none => s!"<unknown location>: {severity}: {msg}"
