@@ -788,6 +788,11 @@ instance : Coe TypeAttr Attribute where
 instance : ToString TypeAttr where
   toString typeAttr := toString (typeAttr.val)
 
+theorem TypeAttr.inj {attr1 attr2 : TypeAttr} :
+  attr1 = attr2 ↔ (attr1 : Attribute) = (attr2 : Attribute) := by
+  unfold TypeAttr at *
+  grind
+
 /--
   Convert an attribute to a type attribute.
 -/

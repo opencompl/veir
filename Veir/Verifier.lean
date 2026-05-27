@@ -1910,11 +1910,12 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     op.getNumOperands! ctx.raw = 0 ∧
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 ∧
-    ((op.getResult 0).get! ctx.raw).type.val =
-      (op.getProperties! ctx.raw (.arith .constant)).value.type := by
+    ((op.getResult 0).get! ctx.raw).type =
+      ⟨(op.getProperties! ctx.raw (.arith .constant)).value.type, (by grind)⟩ := by
   simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
     bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
     ite_not] at opVerify
+  simp only [TypeAttr.inj]
   grind
 
 theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}
@@ -1924,12 +1925,13 @@ theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 ∧
     ∃ integerType,
-      ((op.getResult 0).get! ctx.raw).type.val = .integerType integerType ∧
-      ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType integerType ∧
-      ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .integerType integerType := by
+      ((op.getResult 0).get! ctx.raw).type = ⟨.integerType integerType, (by grind)⟩ ∧
+      ((op.getOperand! ctx.raw 0).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩ ∧
+      ((op.getOperand! ctx.raw 1).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩ := by
   simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
     bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
     ite_not] at opVerify
+  simp only [TypeAttr.inj]
   grind
 
 end
