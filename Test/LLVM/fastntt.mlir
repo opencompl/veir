@@ -1,5 +1,5 @@
-// RUN: VEIR_ROUNDTRIP
-// RUN: MLIR_ROUNDTRIP
+// RUN: VEIR_UNREGISTERED_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 // This test results from the lowering of a C implementation of the FastNTT algorithm, based on the Heir 
 // pseudocode: https://github.com/google/heir/blob/1210ad37dc9531d6e60d8ddbce81dbd79f7626a6/lib/Dialect/Polynomial/Conversions/PolynomialToModArith/PolynomialToModArith.cpp#L1060. 

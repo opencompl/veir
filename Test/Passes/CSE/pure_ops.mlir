@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=cse | filecheck %s
+// RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
 
 "builtin.module"() ({
   "llvm.func"() ({
