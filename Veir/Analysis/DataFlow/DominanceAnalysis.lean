@@ -279,31 +279,6 @@ def visit
       dfCtx.modifyFactAndPropagate .dominator anchor (fun fact =>
        (fact.setIDom (some newIDom), some newIDom ≠ fact.iDom)) irCtx
 
-/-- Recurse up the dominator tree to see if `dominator` dominates `block`. -/
-def dominates
-    (dominator block : BlockPtr)
-    (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool := Id.run do
-  let some fact ← block.getDominatorFact? dfCtx irCtx | false
-  if dominator = block then 
-    return true
-  let mut current := fact.iDom
-  while let some candidate := current do
-    if candidate = dominator then
-      return true
-    let next := candidate.getIDom? dfCtx irCtx
-    if next = some candidate then
-      return false
-    current := next
-  false
-
-/-- Same thing as `dominates` except a block dominating itself doesn't count. -/
-def properlyDominates
-    (dominator block : BlockPtr)
-    (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool :=
-  dominator ≠ block && dominates dominator block dfCtx irCtx
-
 end DominanceAnalysis
 
 def DominanceAnalysis : DataFlowAnalysis :=
