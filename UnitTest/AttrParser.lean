@@ -10,42 +10,50 @@ open Veir.Attribute
 /--
   Run parseOptionalType on the given input string.
 -/
-def testOptionalType (s : String) : Except ParserError (Option TypeAttr) := do
+def testOptionalType (s : String) (allowUnregisteredDialect : Bool := false) :
+    Except ParserError (Option TypeAttr) := do
   let parser ← ParserState.fromInput (s.toByteArray)
-  parseOptionalType.run' AttrParserState.mk parser
+  parseOptionalType.run' { allowUnregisteredDialect } parser
 
 /--
   Run parseType on the given input string.
 -/
-def testType (s : String) : Except ParserError TypeAttr := do
+def testType (s : String) (allowUnregisteredDialect : Bool := false) :
+    Except ParserError TypeAttr := do
   let parser ← ParserState.fromInput (s.toByteArray)
-  parseType.run' AttrParserState.mk parser
+  parseType.run' { allowUnregisteredDialect } parser
 
 /--
   Run parseOptionalAttr on the given input string.
 -/
-def testOptionalAttr (s : String) : Except ParserError (Option Attribute) := do
+def testOptionalAttr (s : String) (allowUnregisteredDialect : Bool := false) :
+    Except ParserError (Option Attribute) := do
   let parser ← ParserState.fromInput (s.toByteArray)
-  parseOptionalAttribute.run' AttrParserState.mk parser
+  parseOptionalAttribute.run' { allowUnregisteredDialect } parser
 
 /--
   Run parseType on the given input string.
 -/
-def testAttr (s : String) : Except ParserError Attribute := do
+def testAttr (s : String) (allowUnregisteredDialect : Bool := false) :
+    Except ParserError Attribute := do
   let parser ← ParserState.fromInput (s.toByteArray)
-  parseAttribute.run' AttrParserState.mk parser
+  parseAttribute.run' { allowUnregisteredDialect } parser
 
 /--
   Test that parsing a type in the given string succeeds and matches the expected type.
 -/
-def expectSuccessType (s : String) (expected : TypeAttr) : Bool :=
-  testOptionalType s = .ok (some expected) ∧ testType s = .ok expected
+def expectSuccessType (s : String) (expected : TypeAttr)
+    (allowUnregisteredDialect : Bool := false) : Bool :=
+  testOptionalType s allowUnregisteredDialect = .ok (some expected) ∧
+  testType s allowUnregisteredDialect = .ok expected
 
 /--
   Test that parsing an attribute in the given string succeeds and matches the expected attribute.
 -/
-def expectSuccessAttr (s : String) (expected : Attribute) : Bool :=
-  testOptionalAttr s = .ok (some expected) ∧ testAttr s = .ok expected
+def expectSuccessAttr (s : String) (expected : Attribute)
+    (allowUnregisteredDialect : Bool := false) : Bool :=
+  testOptionalAttr s allowUnregisteredDialect = .ok (some expected) ∧
+  testAttr s allowUnregisteredDialect = .ok expected
 
 /--
   Test that parsing a type in the given string returns none in the parseOptional variant,
@@ -64,16 +72,18 @@ def expectMissingAttr (s : String) : Bool :=
 /--
   Test that parsing a type in the given string returns the expected error in both variants.
 -/
-def expectErrorType (s : String) (expected : String) : Bool :=
-  (testOptionalType s).mapError (·.msg) = .error expected
-    && (testType s).mapError (·.msg) = .error expected
+def expectErrorType (s : String) (expected : String)
+    (allowUnregisteredDialect : Bool := false) : Bool :=
+  (testOptionalType s allowUnregisteredDialect).mapError (·.msg) = .error expected
+    && (testType s allowUnregisteredDialect).mapError (·.msg) = .error expected
 
 /--
   Test that parsing an attribute in the given string returns the expected error in both variants.
 -/
-def expectErrorAttr (s : String) (expected : String) : Bool :=
-  (testOptionalAttr s).mapError (·.msg) = .error expected
-    && (testAttr s).mapError (·.msg) = .error expected
+def expectErrorAttr (s : String) (expected : String)
+    (allowUnregisteredDialect : Bool := false) : Bool :=
+  (testOptionalAttr s allowUnregisteredDialect).mapError (·.msg) = .error expected
+    && (testAttr s allowUnregisteredDialect).mapError (·.msg) = .error expected
 
 /--
   Macro to simplify test assertions. Wraps the test in #guard_msgs and #eval,
@@ -150,16 +160,25 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "array<i16: 0>" (DenseArrayAttr.mk (IntegerType.mk 16) #[0])
 #assert expectErrorAttr "array<>" "integer type expected in dense array attribute"
 
-/-! ## Dialect type -/
+/-! ## Unregistered dialect type -/
 
-#assert expectSuccessType "!foo.bar" ⟨UnregisteredAttr.mk "!foo.bar" true, by grind⟩
-#assert expectSuccessType "!foo<bar>" ⟨UnregisteredAttr.mk "!foo<bar>" true, by grind⟩
-#assert expectSuccessType "!test.test<bar>" ⟨UnregisteredAttr.mk "!test.test<bar>" true, by grind⟩
+#assert expectSuccessType "!foo.bar" ⟨UnregisteredAttr.mk "!foo.bar" true, by grind⟩ true
+#assert expectSuccessType "!foo<bar>" ⟨UnregisteredAttr.mk "!foo<bar>" true, by grind⟩ true
+#assert expectSuccessType "!test.test<bar>" ⟨UnregisteredAttr.mk "!test.test<bar>" true, by grind⟩ true
 
-/-! ## Dialect attribute -/
+#assert expectErrorType "!foo.bar" "type is not registered. Consider using --allow-unregistered-dialect." false
+#assert expectErrorType "!foo<bar>" "type is not registered. Consider using --allow-unregistered-dialect." false
+#assert expectErrorType "!test.test<bar>" "type is not registered. Consider using --allow-unregistered-dialect." false
 
-#assert expectSuccessAttr "#foo<bar>" (UnregisteredAttr.mk "#foo<bar>" false)
-#assert expectSuccessAttr "#test.test<bar>" (UnregisteredAttr.mk "#test.test<bar>" false)
+
+/-! ## Unregistered dialect attribute -/
+
+#assert expectSuccessAttr "#foo<bar>" (UnregisteredAttr.mk "#foo<bar>" false) true
+#assert expectSuccessAttr "#test.test<bar>" (UnregisteredAttr.mk "#test.test<bar>" false) true
+
+#assert expectErrorAttr "#foo<bar>" "attribute is not registered. Consider using --allow-unregistered-dialect." false
+#assert expectErrorAttr "#test.test<bar>" "attribute is not registered. Consider using --allow-unregistered-dialect." false
+
 
 /-! ## Location attribute -/
 
