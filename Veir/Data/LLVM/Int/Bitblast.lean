@@ -53,7 +53,9 @@ theorem eq_iff {w : Nat} (a b : Int w) :
 theorem eq_ext {w : Nat} {a b : Int w} (hp : a.isPoison = b.isPoison) (hv : (a.getValueD = b.getValueD)) :
     a = b := by
   cases a <;> cases b
-  · simpa using hv
+  · simp only [val.injEq]
+    simp only [getValueD] at hv
+    assumption
   · simp [isPoison] at hp
   · simp [isPoison] at hp
   · simp
