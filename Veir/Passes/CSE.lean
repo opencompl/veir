@@ -81,9 +81,29 @@ def ordinaryKey
     Key :=
   makeKey ctx op kind (op.getOperands! ctx)
 
+/-- Compute the Key for an `llvm.icmp`, canonicalizing equivalent
+    predicate/operand pairs. So, for example, `sgt x y` becomes
+    `slt y x`. -/
+def icmpKey
+    (ctx : IRContext OpCode) (op : OperationPtr)
+    (props : propertiesOf (.llvm .icmp)) :
+    Key :=
+  let kind : Kind := ⟨.llvm .icmp, props⟩
+  let lhs := op.getOperand! ctx 0
+  let rhs := op.getOperand! ctx 1
+  let swappedKey (pred : Data.LLVM.IntPred) : Key :=
+    let props := { props with predicate := pred }
+    makeKey ctx op ⟨.llvm .icmp, props⟩ #[rhs, lhs]
+  match props.predicate with
+  | .eq | .ne => commutativeBinopKey ctx op kind
+  | .slt | .sle | .ult | .ule => ordinaryKey ctx op kind
+  | .sgt => swappedKey .slt
+  | .sge => swappedKey .sle
+  | .ugt => swappedKey .ult
+  | .uge => swappedKey .ule
+
 /-- Return op's Key if it is supported by this pass, otherwise return
-    None. TODO: It would be nice to recognize that x<y and y>x are the
-    same computation. We leave this for later. -/
+    None. -/
 def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   guard ((op.get! ctx).attrs.entries.size = 0)
   guard (op.getNumResults! ctx = 1)
@@ -94,11 +114,7 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor =>
       return commutativeBinopKey ctx op kind
   | .llvm .icmp =>
-      match (op.getProperties! ctx (.llvm .icmp)).predicate with
-      | .eq | .ne =>
-        return commutativeBinopKey ctx op kind
-      | _ =>
-        return ordinaryKey ctx op kind
+      return icmpKey ctx op (op.getProperties! ctx (.llvm .icmp))
   | .llvm .sub | .llvm .mlir__constant
   | .llvm .shl | .llvm .lshr | .llvm .ashr
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
