@@ -844,7 +844,7 @@ theorem BlockPtr.opChain_BlockPtr_linkBetweenWithParent
   intros
   apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
-set_option maxHeartbeats 400000 in
+set_option maxHeartbeats 600000 in
 theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
     (ctxWf : ctx.WellFormed)
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx)
@@ -888,7 +888,7 @@ theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
           BlockInsertPoint.prev!_eq_getElem!_idxIn]
       · by_cases h₃ : i - 1 = idx
         · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
-        · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+        · grind (splits := 10) [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
   case next =>
     intro i hi
     simp only [Array.size_insertIdx] at hi
