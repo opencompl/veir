@@ -31,7 +31,7 @@ def reconcileRegistersPairingCast (rewriter : PatternRewriter OpCode) (op : Oper
   let rewriter ← rewriter.eraseOp op sorry sorry sorry
   /- If unused and side-effect-free, erase the parent cast operation as well.
     These need to be erased in this order, otherwise the parent operation will always be used. -/
-  if ¬ op'.op.hasUses! rewriter.ctx.raw && hasSideEffects rewriter op'.op then
+  if ¬ op'.op.hasUses! rewriter.ctx.raw && ¬ hasSideEffects rewriter op'.op then
     rewriter.eraseOp op'.op sorry sorry sorry
   else
     return rewriter
@@ -72,7 +72,7 @@ def reconcileIntegersPairingCast (rewriter : PatternRewriter OpCode) (op : Opera
   let rewriter ← rewriter.eraseOp op sorry sorry sorry
   /- If unused and side-effect-free, erase the parent cast operation as well.
     These need to be erased in this order, otherwise the parent operation will always be used. -/
-  if ¬ op'.op.hasUses! rewriter.ctx.raw && hasSideEffects rewriter op'.op then
+  if ¬ op'.op.hasUses! rewriter.ctx.raw && ¬ hasSideEffects rewriter op'.op then
     rewriter.eraseOp op'.op sorry sorry sorry
   else
     return rewriter
