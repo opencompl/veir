@@ -221,6 +221,14 @@ structure DictionaryAttr where
 deriving Inhabited, Repr, Hashable
 
 /--
+  An attribute representing a fixed-sized array type
+-/
+structure LLVM.ArrayType where
+  size : Nat
+  type : Attribute
+deriving Repr, Hashable
+
+/--
   A data structure that represents compile-time information in the IR.
   Attributes are used either as type annotations for SSA values, or
   as extra information stored in operations.
@@ -258,6 +266,8 @@ inductive Attribute
 | modArithType (type : ModArithType)
 /-- LLVM pointer type -/
 | llvmPointerType (type : LLVM.PointerType)
+/-- LLVM array type -/
+| llvmArrayType (type : LLVM.ArrayType)
 /-- LLVM function type -/
 | llvmFunctionType (type : FunctionType)
 /-- Cuda Tile pointer type -/
@@ -267,6 +277,9 @@ inductive Attribute
 deriving Inhabited, Repr, Hashable
 
 end
+
+instance : Inhabited LLVM.ArrayType where
+  default := { size := 0, type := .llvmPointerType .mk }
 
 def ArrayAttr.empty : ArrayAttr := { value := #[] }
 
@@ -294,6 +307,10 @@ theorem ArrayAttr.sizeOf_elems_value {aa : ArrayAttr} (hx : x ∈ aa.value) :
 theorem DictionaryAttr.sizeOf_elems_entries {da : DictionaryAttr} (hx : x ∈ da.entries) :
     sizeOf x < sizeOf da := by
   grind [Array.sizeOf_lt_of_mem hx, cases DictionaryAttr]
+
+theorem LLVM.ArrayType.sizeOf_elems_type {t : ArrayType} :
+    sizeOf t.type < sizeOf t := by
+  grind [cases ArrayType]
 
 /-!
   ## DecidableEq instances
@@ -327,6 +344,22 @@ def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
 termination_by sizeOf arr1
 decreasing_by
   have := @ArrayAttr.sizeOf_elems_value
+  grind
+
+def LLVM.ArrayType.decEq (arr1 arr2 : LLVM.ArrayType) : Decidable (arr1 = arr2) :=
+  let size1 := arr1.size
+  let size2 := arr2.size
+  let type1 := arr1.type
+  let type2 := arr2.type
+  match Int.instDecidableEq size1 size2 with
+  | isTrue _ =>
+    match Attribute.decEq type1 type2 with
+    | isTrue _ => isTrue (by grind [cases LLVM.ArrayType])
+    | isFalse _ => isFalse (by grind)
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf arr1
+decreasing_by
+  have := @LLVM.ArrayType.sizeOf_elems_type
   grind
 
 def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
@@ -401,6 +434,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isFalse hEq => isFalse (by grind))
   case llvmPointerType.llvmPointerType type1 type2 =>
     exact (isTrue (by grind))
+  case llvmArrayType.llvmArrayType type1 type2 =>
+    exact (match LLVM.ArrayType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case llvmFunctionType.llvmFunctionType type1 type2 =>
     exact (match FunctionType.decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
@@ -571,6 +608,12 @@ decreasing_by
   · apply FunctionType.sizeOf_elems_outputs
     grind
 
+def LLVM.ArrayType.toString (type : LLVM.ArrayType) : String :=
+  s!"!llvm.array<{type.size} x {Attribute.toString type.type}>"
+termination_by sizeOf type
+decreasing_by
+  apply LLVM.ArrayType.sizeOf_elems_type
+
 /--
   Convert an attribute to a string representation.
 -/
@@ -592,6 +635,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
+  | .llvmArrayType type => type.toString
   | .llvmFunctionType type => type.toLLVMString
   | .cudaTilePointerType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
@@ -610,6 +654,9 @@ instance : ToString ArrayAttr where
 
 instance : ToString DictionaryAttr where
   toString := DictionaryAttr.toString
+
+instance : ToString LLVM.ArrayType where
+  toString := LLVM.ArrayType.toString
 
 /-!
   ## Coercion instances to Attribute
@@ -658,6 +705,9 @@ instance : Coe ModArithType Attribute where
 instance : Coe LLVM.PointerType Attribute where
   coe type := .llvmPointerType type
 
+instance : Coe LLVM.ArrayType Attribute where
+  coe type := .llvmArrayType type
+
 instance : Coe CudaTile.PointerType Attribute where
   coe type := .cudaTilePointerType type
 
@@ -695,6 +745,7 @@ def isType (attr : Attribute) : Bool :=
   | .registerType _ => true
   | .registerAttr _ => true
   | .llvmPointerType _ => true
+  | .llvmArrayType _ => true
   | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
   | .hwModuleType _ => true
@@ -767,6 +818,9 @@ instance : Coe RegisterType TypeAttr where
 
 instance : Coe LLVM.PointerType TypeAttr where
   coe type := ⟨.llvmPointerType type, by rfl⟩
+
+instance : Coe LLVM.ArrayType TypeAttr where
+  coe type := ⟨.llvmArrayType type, by rfl⟩
 
 instance : Coe CudaTile.PointerType TypeAttr where
   coe type := ⟨.cudaTilePointerType type, by rfl⟩
