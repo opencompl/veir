@@ -31,7 +31,7 @@ private def compareExpectedDominator
       if !observedDoms.contains expectedBlock then
         report := report.push
           s!"dominators {name}: BlockPtr.getDoms? missing expected dominator {expectedDom}"
-      if Veir.DominanceAnalysis.strictlyDominates expectedBlock block dfCtx irCtx != shouldStrictlyDom then
+      if Veir.DominanceAnalysis.strictlyDominates expectedBlock block dfCtx irCtx ≠ shouldStrictlyDom then
         report := report.push
           s!"dominators {name}: unexpected strictlyDominates result for {expectedDom}"
       report
@@ -56,9 +56,9 @@ private def compareObservedDominator
     let observedBySet := observedDoms.contains observedBlock
     let observedStrictly := Veir.DominanceAnalysis.strictlyDominates observedBlock block dfCtx irCtx
     let mut report := #[]
-    if observedByRelation != observedBySet then
+    if observedByRelation ≠ observedBySet then
       report := report.push s!"dominators {name}: dominates/getDoms? disagree on {observedName}"
-    if observedStrictly != (observedByRelation && observedBlock ≠ block) then
+    if observedStrictly ≠ (observedByRelation && observedBlock ≠ block) then
       report := report.push s!"dominators {name}: dominates/strictlyDominates disagree on {observedName}"
     if observedByRelation && !expectedDoms.contains observedName then
       report := report.push s!"dominators {name}: unexpected dominator {observedName}"

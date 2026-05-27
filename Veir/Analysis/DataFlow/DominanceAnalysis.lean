@@ -51,7 +51,7 @@ def getIDom? [FactSpec .dominator] (block : BlockPtr) (dfCtx : DataFlowContext)
 
 def getDoms? [FactSpec .dominator] (block : BlockPtr) (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Option (HashSet BlockPtr) := do
-  let fact <- block.getDominatorFact? dfCtx irCtx
+  let fact ← block.getDominatorFact? dfCtx irCtx
   let mut doms := (∅ : HashSet BlockPtr).insert block
   let mut current := fact.iDom
   while let some dom := current do
@@ -231,7 +231,7 @@ private def computeImmediateDominator
     (irCtx : IRContext OpCode) : Option BlockPtr := do
   let region := ((block.get! irCtx).parent).get!
   let entry := ((region.get! irCtx).firstBlock).get!
-  let metadata <- region.getRegionMetadataFact? dfCtx irCtx
+  let metadata ← region.getRegionMetadataFact? dfCtx irCtx
   if block = entry then 
     return entry
 
