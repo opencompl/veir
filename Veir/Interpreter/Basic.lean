@@ -248,6 +248,18 @@ def MemoryState.loadValue (state : MemoryState) (addr : UInt64) (type : TypeAttr
       return .addr ba.toUInt64LE!
   | _ => none
 
+/--
+  Returns the size of an LLVM type, in bytes.
+-/
+def sizeOfType (type : Attribute) : Option Nat :=
+  match type with
+  | .integerType { bitwidth } | .floatType { bitwidth } => some $ (bitwidth + 7) / 8
+  | .llvmPointerType _ => some 8
+  | .llvmArrayType { size, type } => do
+      let inner ← sizeOfType type
+      some (inner * size)
+  | _ => none
+
 
 def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
@@ -552,6 +564,13 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let [.addr addr, val] := operands.toList | none
     let mem ← mem.storeValue addr val
     return (#[], mem, none)
+  | .getelementptr => do
+    /- only supports exactly one dynamic index for now -/
+    let [.addr ptr, .int _ idx] := operands.toList | none
+    let size ← sizeOfType properties.elem_type.val
+    match idx with
+    | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
+    | .poison => Interp.ub
   | _ => none
 
 def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.propertiesOf opType)
