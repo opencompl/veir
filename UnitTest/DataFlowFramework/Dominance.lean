@@ -8,7 +8,7 @@ open Veir
 /--
 Compare one expected dominator label against the observed dominance information.
 
-This checks `dominates`, `strictlyDominates`, and membership in the dominator
+This checks `dominates`, `properlyDominates`, and membership in the dominator
 set returned by `BlockPtr.getDoms?`.
 -/
 private def compareExpectedDominator
@@ -24,23 +24,23 @@ private def compareExpectedDominator
     #[s!"dominators {name}: missing block label {expectedDom}"]
   | some expectedBlock =>
     Id.run do
-      let shouldStrictlyDom := expectedDom ≠ name
+      let shouldProperlyDom := expectedDom ≠ name
       let mut report := #[]
       if !Veir.DominanceAnalysis.dominates expectedBlock block dfCtx irCtx then
         report := report.push s!"dominators {name}: missing expected dominator {expectedDom}"
       if !observedDoms.contains expectedBlock then
         report := report.push
           s!"dominators {name}: BlockPtr.getDoms? missing expected dominator {expectedDom}"
-      if Veir.DominanceAnalysis.strictlyDominates expectedBlock block dfCtx irCtx ≠ shouldStrictlyDom then
+      if Veir.DominanceAnalysis.properlyDominates expectedBlock block dfCtx irCtx ≠ shouldProperlyDom then
         report := report.push
-          s!"dominators {name}: unexpected strictlyDominates result for {expectedDom}"
+          s!"dominators {name}: unexpected properlyDominates result for {expectedDom}"
       report
 
 /--
 Compare one observed block label against the expected dominator list.
 
 This also cross checks the three ways of observing dominance for consistency:
-`dominates`, `strictlyDominates`, and membership in `BlockPtr.getDoms?`.
+`dominates`, `properlyDominates`, and membership in `BlockPtr.getDoms?`.
 -/
 private def compareObservedDominator
     (name : String)
@@ -54,18 +54,18 @@ private def compareObservedDominator
   Id.run do
     let observedByRelation := Veir.DominanceAnalysis.dominates observedBlock block dfCtx irCtx
     let observedBySet := observedDoms.contains observedBlock
-    let observedStrictly := Veir.DominanceAnalysis.strictlyDominates observedBlock block dfCtx irCtx
+    let observedProperly := Veir.DominanceAnalysis.properlyDominates observedBlock block dfCtx irCtx
     let mut report := #[]
     if observedByRelation ≠ observedBySet then
       report := report.push s!"dominators {name}: dominates/getDoms? disagree on {observedName}"
-    if observedStrictly ≠ (observedByRelation && observedBlock ≠ block) then
-      report := report.push s!"dominators {name}: dominates/strictlyDominates disagree on {observedName}"
+    if observedProperly ≠ (observedByRelation && observedBlock ≠ block) then
+      report := report.push s!"dominators {name}: dominates/properlyDominates disagree on {observedName}"
     if observedByRelation && !expectedDoms.contains observedName then
       report := report.push s!"dominators {name}: unexpected dominator {observedName}"
     if observedBySet && !expectedDoms.contains observedName then
       report := report.push s!"dominators {name}: BlockPtr.getDoms? has unexpected dominator {observedName}"
-    if observedStrictly && (!expectedDoms.contains observedName || observedName = name) then
-      report := report.push s!"dominators {name}: unexpected strict dominator {observedName}"
+    if observedProperly && (!expectedDoms.contains observedName || observedName = name) then
+      report := report.push s!"dominators {name}: unexpected proper dominator {observedName}"
     report
 
 /--

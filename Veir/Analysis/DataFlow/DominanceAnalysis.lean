@@ -41,22 +41,42 @@ immediate dominator facts reach a fixpoint.
 
 namespace BlockPtr
 
+/--
+Look up the dominator fact stored at the entry insertion point of `block`.
+
+Returns `none` when dominance analysis has not attached a dominator fact to that
+block entry.
+-/
 def getDominatorFact? [FactSpec .dominator] (block : BlockPtr) (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Option DominatorFact :=
   dfCtx.getFact? .dominator (.InsertPoint (InsertPoint.atStart! block irCtx))
 
+/--
+Return the immediate dominator currently recorded for `block`.
+
+This is just `block.getDominatorFact?` projected to its `iDom` field, so it
+returns `none` when the fact is missing or when the fact has no immediate
+dominator yet.
+-/
 def getIDom? [FactSpec .dominator] (block : BlockPtr) (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Option BlockPtr :=
   block.getDominatorFact? dfCtx irCtx >>= (·.iDom)
 
+/--
+Collect the dominators currently reachable from `block` by following the `iDom`
+chain.
+
+The returned set always includes `block` itself. If `block` has no dominator
+fact, returns `none`. Otherwise, this walks the currently known immediate
+dominator chain until it reaches a root or a self-loop, so during analysis it
+may return only the known prefix of the full dominator set.
+-/
 def getDoms? [FactSpec .dominator] (block : BlockPtr) (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Option (HashSet BlockPtr) := do
   let fact ← block.getDominatorFact? dfCtx irCtx
   let mut doms := (∅ : HashSet BlockPtr).insert block
   let mut current := fact.iDom
   while let some dom := current do
-    if dom = block then
-      return doms
     doms := doms.insert dom
     let next := dom.getIDom? dfCtx irCtx
     if next = some dom then
@@ -68,6 +88,12 @@ end BlockPtr
 
 namespace RegionPtr
 
+/--
+Look up the region metadata fact stored at the entry block of `region`.
+
+Returns `none` when the region has no entry block or when region metadata has
+not been attached to that entry block.
+-/
 def getRegionMetadataFact? [FactSpec .regionMetadata] (region : RegionPtr) (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Option RegionMetadataFact :=
   (region.get! irCtx).firstBlock >>= 
@@ -123,53 +149,53 @@ private def collectPostOrder
     (irCtx : IRContext OpCode) : Array BlockPtr × HashMap BlockPtr Nat := Id.run do
   let mut postOrder : Array BlockPtr := #[]
   let mut postOrderIndex : HashMap BlockPtr Nat := {}
-  if let some entry := (region.get! irCtx).firstBlock then
-    let mut worklist : Array (BlockPtr × Bool) := #[(entry, false)]
-    let mut seen : HashSet BlockPtr := ∅
+  let some entry := (region.get! irCtx).firstBlock
+    | return (postOrder, postOrderIndex)
+  let mut stack : Array (BlockPtr × Bool) := #[(entry, false)]
+  let mut seen : HashSet BlockPtr := ∅
 
-    while !worklist.isEmpty do
-      let (block, visited) := worklist.back!
-      worklist := worklist.pop
+  while !stack.isEmpty do
+    let (block, visited) := stack.back!
+    stack := stack.pop
 
-      if visited then
-        postOrder := postOrder.push block
-        postOrderIndex := postOrderIndex.insert block postOrder.size
-      else if seen.contains block then
-        continue
-      else
-        seen := seen.insert block
-        worklist := worklist.push (block, true)
+    if visited then
+      postOrder := postOrder.push block
+      postOrderIndex := postOrderIndex.insert block postOrder.size
+    else if seen.contains block then
+      continue
+    else
+      seen := seen.insert block
+      stack := stack.push (block, true)
 
-        if let some terminator := (block.get! irCtx).lastOp then
-          for succ in terminator.getSuccessors! irCtx do
-            if !seen.contains succ then
-              worklist := worklist.push (succ, false)
+      if let some terminator := (block.get! irCtx).lastOp then
+        for succ in terminator.getSuccessors! irCtx do
+          if !seen.contains succ then
+            stack := stack.push (succ, false)
   (postOrder, postOrderIndex)
 
-/-- Initialize the dominators in post order and enqueue them in reverse post order. -/
+/-- Initialize the dominators and enqueue them in reverse post order. -/
 private def initializeRegion
     (region : RegionPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := dfCtx
-  if let some entry := (region.get! irCtx).firstBlock then
-    let (postOrder, postOrderIndex) := collectPostOrder region irCtx
-    let reversePostOrder := postOrder.reverse
-    dfCtx :=
-      dfCtx.modifyFact .regionMetadata (InsertPoint.atStart! entry irCtx) fun fact =>
-        fact.setPostOrderIndex postOrderIndex
+  let some entry := (region.get! irCtx).firstBlock
+    | return dfCtx
+  let (postOrder, postOrderIndex) := collectPostOrder region irCtx
+  let reversePostOrder := postOrder.reverse
+  dfCtx :=
+    dfCtx.modifyFact .regionMetadata (InsertPoint.atStart! entry irCtx) fun fact =>
+      fact.setPostOrderIndex postOrderIndex
 
-    for block in postOrder do
-      let mut dependents := #[]
-      if let some terminator := (block.get! irCtx).lastOp then
-        for succ in terminator.getSuccessors! irCtx do
-          dependents := dependents.push (InsertPoint.atStart! succ irCtx, kind)
-      dfCtx := dfCtx.modifyFact .dominator (InsertPoint.atStart! block irCtx) fun fact =>
-        (fact.setDependents dependents).setIDom
-          (if block = entry then some entry else none)
-
-    for block in reversePostOrder do
-      dfCtx := dfCtx.enqueue (InsertPoint.atStart! block irCtx, kind)
+  for block in reversePostOrder do
+    let mut dependents := #[]
+    if let some terminator := (block.get! irCtx).lastOp then
+      for succ in terminator.getSuccessors! irCtx do
+        dependents := dependents.push (InsertPoint.atStart! succ irCtx, kind)
+    dfCtx := dfCtx.modifyFact .dominator (InsertPoint.atStart! block irCtx) fun fact =>
+      (fact.setDependents dependents).setIDom
+        (if block = entry then some entry else none)
+    dfCtx := dfCtx.enqueue (InsertPoint.atStart! block irCtx, kind)
   dfCtx
 
 /-- Recursively initialize the analysis on nested regions. -/
@@ -246,8 +272,11 @@ private def computeImmediateDominator
       | continue
     let some _ := predBlock.getIDom? dfCtx irCtx
       | continue
-    newIDom := newIDom.elim predBlock 
-      (intersect predBlock · metadata.postOrderIndex dfCtx irCtx)
+    newIDom :=
+      match newIDom with
+      | none => predBlock
+      | some idom =>
+          intersect predBlock idom metadata.postOrderIndex dfCtx irCtx
 
   newIDom
 
@@ -294,7 +323,7 @@ def dominates
         false))
 
 /-- Same thing as `dominates` except a block dominating itself doesn't count. -/
-def strictlyDominates
+def properlyDominates
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=
