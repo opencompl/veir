@@ -3,7 +3,7 @@
  "outputs": null,
  "log":
  [{"message":
-   ".> ELAN=elan ELAN_HOME=/home/runner/.elan ELAN_TOOLCHAIN=leanprover/lean4-nightly:nightly-2026-05-27 LAKE=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/bin/lake LAKE_HOME=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27 LAKE_CONFIG=/home/runner/.lake/config.toml LAKE_PKG_URL_MAP={} LAKE_NO_CACHE=false LAKE_CACHE_KEY= LAKE_CACHE_ARTIFACT_ENDPOINT= LAKE_CACHE_REVISION_ENDPOINT= LAKE_CACHE_SERVICE= LEAN=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/bin/lean LEAN_SYSROOT=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27 LEAN_AR=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/bin/llvm-ar LEAN_CC= LAKE_CACHE_DIR=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/lake/cache LAKE_ARTIFACT_CACHE= LEAN_PATH=/home/runner/work/veir/veir/ExArray/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/MD4Lean/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/BibtexQuery/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/Cli/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/lib/lean:/home/runner/work/veir/veir/docbuild/.lake/build/lib/lean:/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/lib/lean LEAN_SRC_PATH=/home/runner/work/veir/veir/ExArray/lean:/home/runner/work/veir/veir/.lake/packages/MD4Lean:/home/runner/work/veir/veir/.lake/packages/MD4Lean:/home/runner/work/veir/veir/.lake/packages/BibtexQuery:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic:/home/runner/work/veir/veir/.lake/packages/Cli:/home/runner/work/veir/veir/.lake/packages/Cli:/home/runner/work/veir/veir:/home/runner/work/veir/veir:/home/runner/work/veir/veir/.lake/packages/doc-gen4:/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/src/lean/lake LEAN_GITHASH=417adddf13a81e2dcc093b295c86f09073e884ea PATH LD_LIBRARY_PATH=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/lib/lean:/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/lib:/home/runner/work/veir/veir/docbuild/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/lib:/home/runner/work/veir/veir/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/Cli/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/BibtexQuery/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/MD4Lean/.lake/build/lib:/home/runner/work/veir/veir/ExArray/.lake/build/lib /home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/bin/doc-gen4 single --build /home/runner/work/veir/veir/docbuild/.lake/build Veir.Interpreter.Basic https://github.com/opencompl/veir/blob/5b1a896fda4b5eda954dce21f87851c3591e5e5e/Veir/Interpreter/Basic.lean",
+   ".> ELAN=elan ELAN_HOME=/home/runner/.elan ELAN_TOOLCHAIN=leanprover/lean4-nightly:nightly-2026-05-27 LAKE=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/bin/lake LAKE_HOME=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27 LAKE_CONFIG=/home/runner/.lake/config.toml LAKE_PKG_URL_MAP={} LAKE_NO_CACHE=false LAKE_CACHE_KEY= LAKE_CACHE_ARTIFACT_ENDPOINT= LAKE_CACHE_REVISION_ENDPOINT= LAKE_CACHE_SERVICE= LEAN=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/bin/lean LEAN_SYSROOT=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27 LEAN_AR=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/bin/llvm-ar LEAN_CC= LAKE_CACHE_DIR=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/lake/cache LAKE_ARTIFACT_CACHE= LEAN_PATH=/home/runner/work/veir/veir/ExArray/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/MD4Lean/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/BibtexQuery/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/Cli/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/build/lib/lean:/home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/lib/lean:/home/runner/work/veir/veir/docbuild/.lake/build/lib/lean:/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/lib/lean LEAN_SRC_PATH=/home/runner/work/veir/veir/ExArray/lean:/home/runner/work/veir/veir/.lake/packages/MD4Lean:/home/runner/work/veir/veir/.lake/packages/MD4Lean:/home/runner/work/veir/veir/.lake/packages/BibtexQuery:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic:/home/runner/work/veir/veir/.lake/packages/Cli:/home/runner/work/veir/veir/.lake/packages/Cli:/home/runner/work/veir/veir:/home/runner/work/veir/veir:/home/runner/work/veir/veir/.lake/packages/doc-gen4:/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/src/lean/lake LEAN_GITHASH=417adddf13a81e2dcc093b295c86f09073e884ea PATH LD_LIBRARY_PATH=/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/lib/lean:/home/runner/.elan/toolchains/leanprover--lean4-nightly---nightly-2026-05-27/lib:/home/runner/work/veir/veir/docbuild/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/lib:/home/runner/work/veir/veir/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/Cli/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/UnicodeBasic/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/BibtexQuery/.lake/build/lib:/home/runner/work/veir/veir/.lake/packages/MD4Lean/.lake/build/lib:/home/runner/work/veir/veir/ExArray/.lake/build/lib /home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/bin/doc-gen4 single --build /home/runner/work/veir/veir/docbuild/.lake/build Veir.Interpreter.Basic https://github.com/opencompl/veir/blob/0dd8839e0c3b92cbf207bbda4356a5dccc967999/Veir/Interpreter/Basic.lean",
    "level": "trace"},
   {"message":
    "stdout:\nWARNING: Failed to calculate equational lemmata for Veir.Riscv.interpretOp': (deterministic) timeout at `delab`, maximum number of heartbeats (5000) has been reached\n\nNote: Use `set_option maxHeartbeats <num>` to set the limit.(invalid MessageData.lazy, missing context)",
@@ -11,15 +11,15 @@
  "inputs":
  [["<collection>",
    [["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/IR/Basic.html",
-     "3497a214937b7260"],
+     "c19dab326f8609ad"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Rewriter/Basic.html",
-     "7dbb27b44466cf1f"],
+     "18148efa156d37e3"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/ForLean.html",
-     "a016741015a8fb9c"],
+     "8c1b5869151d356d"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/IR/WellFormed.html",
-     "bf4ec5185fdea1a8"],
+     "b66b2a92aab76dfd"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/PatternRewriter/Basic.html",
-     "4aa7cf1ec84137f3"],
+     "e01f94b4ae3cbc05"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Data/Comb/Basic.html",
      "e221f9ba13448636"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Data/LLVM/Int/Basic.html",
@@ -31,12 +31,12 @@
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Data/Casting.html",
      "c19fda103ee0a627"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/Properties.html",
-     "c29a568bee4378e1"],
+     "67af7b5250862f94"],
     ["/home/runner/work/veir/veir/docbuild/.lake/build/doc/Veir/GlobalOpInfo.html",
-     "75b3845a371d079b"]]],
+     "c73557224a5c3f47"]]],
   ["/home/runner/work/veir/veir/docbuild/.lake/build/doc-data/references.json",
    "16fb262bc340d332"],
   ["/home/runner/work/veir/veir/.lake/packages/doc-gen4/.lake/build/bin/doc-gen4",
    "5c00d320fd922be8"],
-  ["Veir.Interpreter.Basic:leanArts", "71cbbbb14e7a458f"]],
- "depHash": "dfb7cb5b1720a109"}
+  ["Veir.Interpreter.Basic:leanArts", "83c79fc934eb6702"]],
+ "depHash": "8ae7a66d95cbb1c1"}
