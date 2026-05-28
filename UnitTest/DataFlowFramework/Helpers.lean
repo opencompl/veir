@@ -1,11 +1,10 @@
-import Veir.Analysis.DataFlowFramework 
+import Veir.Analysis.DataFlowFramework
+import Veir.Analysis.DataFlow.Domains
 import Veir.Parser.MlirParser
 
 open Std (HashMap)
 open Veir
 open Veir.Parser
-
-namespace UnitTest.DataFlowFramework
 
 /--
 Human readable mismatches collected by a dataflow test.
@@ -45,7 +44,7 @@ def blockLabelsFromMlir (mlir : String) : Array String := Id.run do
   for line in mlir.splitOn "\n" do
     let trimmed := (line.trimAsciiStart).toString
     if trimmed.startsWith "^" then
-      let name := ((trimmed.drop 1).takeWhile fun c => c != ':' && c != '(').toString
+      let name := ((trimmed.drop 1).takeWhile fun c => c ≠ ':' && c ≠ '(').toString
       names := names.push name
   names
 
@@ -55,7 +54,7 @@ Extract one textual SSA name from a definition fragment such as `%x : i32` or `%
 def parseSsaName? (fragment : String) : Option String :=
   let trimmed := (fragment.trimAsciiStart).toString
   if trimmed.startsWith "%" then
-    let name := ((trimmed.drop 1).takeWhile fun c => c != ':' && c != ' ' && c != '\t').toString
+    let name := ((trimmed.drop 1).takeWhile fun c => c ≠ ':' && c ≠ ' ' && c ≠ '\t').toString
     if name.isEmpty then none else some name
   else
     none
@@ -68,7 +67,7 @@ def definedSsaNamesFromMlir (mlir : String) : Array String := Id.run do
   for line in mlir.splitOn "\n" do
     let trimmed := (line.trimAsciiStart).toString
     if trimmed.startsWith "^" then
-      let args := (((trimmed.splitOn "(").drop 1 |>.headD "").takeWhile fun c => c != ')').toString
+      let args := (((trimmed.splitOn "(").drop 1 |>.headD "").takeWhile fun c => c ≠ ')').toString
       for arg in args.splitOn "," do
         if let some name := parseSsaName? arg then
           names := names.push name
@@ -87,18 +86,16 @@ partial def collectBlocksInSourceOrder
     (irCtx : IRContext OpCode)
     (acc : Array BlockPtr := #[]) : Array BlockPtr := Id.run do
   let mut acc := acc
-  for i in [0:op.getNumRegions! irCtx] do
-    let region := (op.getRegion! irCtx i).get! irCtx
-    let mut maybeBlock := region.firstBlock
-    while h : maybeBlock.isSome do
-      let block := maybeBlock.get h
+  for region in (op.get! irCtx).regions do
+    let region := region.get! irCtx
+    let mut currentBlock := region.firstBlock
+    while let some block := currentBlock do
       acc := acc.push block
-      let mut maybeOp := (block.get! irCtx).firstOp
-      while hOp : maybeOp.isSome do
-        let nestedOp := maybeOp.get hOp
+      let mut currentOp := (block.get! irCtx).firstOp
+      while let some nestedOp := currentOp do
         acc := collectBlocksInSourceOrder nestedOp irCtx acc
-        maybeOp := (nestedOp.get! irCtx).next
-      maybeBlock := (block.get! irCtx).next
+        currentOp := (nestedOp.get! irCtx).next
+      currentBlock := (block.get! irCtx).next
   acc
 
 /--
@@ -111,21 +108,19 @@ partial def collectDefinedValuesInSourceOrder
     (irCtx : IRContext OpCode)
     (acc : Array ValuePtr := #[]) : Array ValuePtr := Id.run do
   let mut acc := acc
-  for i in [0:top.getNumResults! irCtx] do
-    acc := acc.push (ValuePtr.opResult (top.getResult i))
-  for i in [0:top.getNumRegions! irCtx] do
-    let region := (top.getRegion! irCtx i).get! irCtx
-    let mut maybeBlock := region.firstBlock
-    while h : maybeBlock.isSome do
-      let block := maybeBlock.get h
-      for j in [0:block.getNumArguments! irCtx] do
-        acc := acc.push (ValuePtr.blockArgument (block.getArgument j))
-      let mut maybeOp := (block.get! irCtx).firstOp
-      while hOp : maybeOp.isSome do
-        let nestedOp := maybeOp.get hOp
+  for result in top.getResults! irCtx do
+    acc := acc.push result
+  for region in (top.get! irCtx).regions do
+    let region := region.get! irCtx
+    let mut currentBlock := region.firstBlock
+    while let some block := currentBlock do
+      for arg in block.getArguments! irCtx do
+        acc := acc.push arg
+      let mut currentOp := (block.get! irCtx).firstOp
+      while let some nestedOp := currentOp do
         acc := collectDefinedValuesInSourceOrder nestedOp irCtx acc
-        maybeOp := (nestedOp.get! irCtx).next
-      maybeBlock := (block.get! irCtx).next
+        currentOp := (nestedOp.get! irCtx).next
+      currentBlock := (block.get! irCtx).next
   acc
 
 /--
@@ -146,16 +141,18 @@ def recoverNames?
   let blocks := collectBlocksInSourceOrder top irCtx
   let valueNames := definedSsaNamesFromMlir mlir
   let values := collectDefinedValuesInSourceOrder top irCtx
-  if blockLabels.size != blocks.size || valueNames.size != values.size then
+  if blockLabels.size ≠ blocks.size || valueNames.size ≠ values.size then
     none
   else
     some <| Id.run do
       let mut blockMap : HashMap String BlockPtr := HashMap.emptyWithCapacity blockLabels.size
-      for i in [0:blockLabels.size] do
-        blockMap := blockMap.insert blockLabels[i]! blocks[i]!
+      for (blockLabel, block) in blockLabels.zip blocks do
+        blockMap := blockMap.insert blockLabel block
+
       let mut valueMap : HashMap String ValuePtr := HashMap.emptyWithCapacity valueNames.size
-      for i in [0:valueNames.size] do
-        valueMap := valueMap.insert valueNames[i]! values[i]!
+      for (valueName, value) in valueNames.zip values do
+        valueMap := valueMap.insert valueName value
+
       { blocks := blockMap, values := valueMap }
 
 /--
