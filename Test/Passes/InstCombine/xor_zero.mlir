@@ -1,16 +1,18 @@
 // RUN: veir-opt %s -p=instcombine | filecheck %s
 
 "builtin.module"() ({
-^bb0():
-    // --- Identity and annihilation patterns ---
-    %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
-    %x = "test.test"() : () -> i32
-    // CHECK:      %{{.*}} = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
-    // CHECK-NEXT: %[[X:.*]] = "test.test"() : () -> i32
+  "func.func"() <{function_type = () -> (), sym_name = "main"}> ({
+    ^bb0():
+      // --- Identity and annihilation patterns ---
+      %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
+      %x = "test.test"() : () -> i32
+      // CHECK:      %{{.*}} = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
+      // CHECK-NEXT: %[[X:.*]] = "test.test"() : () -> i32
 
-    // xor x ^ 0 => x
-    %xor_zero = "llvm.xor"(%x, %zero) : (i32, i32) -> i32
-    "test.test"(%xor_zero) : (i32) -> ()
-    // CHECK-NEXT: "test.test"(%[[X]]) : (i32) -> ()
-
+      // xor x ^ 0 => x
+      %xor_zero = "llvm.xor"(%x, %zero) : (i32, i32) -> i32
+      "test.test"(%xor_zero) : (i32) -> ()
+      // CHECK-NEXT: "test.test"(%[[X]]) : (i32) -> ()
+      "func.return"() : () -> ()
+  }) : () -> ()
 }) : () -> ()
