@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779988783643,
+  "lastUpdate": 1780005615000,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -35394,6 +35394,184 @@ window.BENCHMARK_DATA = {
             "range": "± 32199",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=30 median=0.000787500s stddev=0.000032199s cv=4.0463%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "spitters@cs.au.dk",
+            "name": "Bas Spitters",
+            "username": "spitters"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0dd8839e0c3b92cbf207bbda4356a5dccc967999",
+          "message": "Namespace List lemmas under Veir.List (followup to #626) (#633)\n\n## Summary\n\nFollowup to #626. After #626 renamed `List.getElem?_idxOf` to\n`List.getElem_idxOf` (resolving the Mathlib `Data.List.Basic`\ncollision),\ndownstream projects that import both Veir and Batteries/Mathlib still\nhit collisions on related lemmas:\n\n* **Batteries** (`Batteries.Data.List.Lemmas`) declares its own\n  `List.getElem_idxOf` — same name as the post-#626 Veir version.\n* **Mathlib** (`Mathlib.Data.List.Nodup`) declares `List.idxOf_getElem`\n  — same name as Veir's adjacent lemma above the renamed one.\n\nBoth still hit:\n```\nimport Mathlib.Data.List.Basic failed,\nenvironment already contains 'List.getElem_idxOf' from Veir.ForLean\n```\n(or the analogous error from Batteries).\n\n## Fix\n\nMove both `List.idxOf_getElem` and `List.getElem_idxOf` into the\n`Veir.List` namespace.  Update internal references in the Array\nwrappers (`Veir/ForLean.lean`) and in `Veir/IR/WellFormed.lean`\n(3 `grind [List.idxOf_getElem]` usages).\n\nNo semantic change.  Two single-block edits:\n\n* `Veir/ForLean.lean` (~14 lines around the renamed lemmas): wrap in\n`namespace Veir.List ... end Veir.List`; explicit-namespace\n`_root_.List` references in statements.\n* `Veir/IR/WellFormed.lean` (3 lines): `[List.idxOf_getElem]` →\n`[Veir.List.idxOf_getElem]`.\n\n## Verification\n\nVerified locally that a downstream consumer (CatCrypt) which imports\nboth Veir and Mathlib elaborates cleanly with the patch.  Without it,\nthe import sequence fails at the second collision after #626's first\nfix resolved the original `getElem?` form.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 4.7 <noreply@anthropic.com>",
+          "timestamp": "2026-05-28T21:39:57Z",
+          "tree_id": "0ec9d24526f30cf94aad826726081d98081a25da",
+          "url": "https://github.com/opencompl/veir/commit/0dd8839e0c3b92cbf207bbda4356a5dccc967999"
+        },
+        "date": 1780005597137,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 1474000,
+            "range": "± 41326",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001474s stddev=0.000041326s cv=2.7859%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 2624000,
+            "range": "± 41382",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002624s stddev=0.000041382s cv=1.5825%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 1463000,
+            "range": "± 14509",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001463s stddev=0.000014509s cv=0.9911%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2175000,
+            "range": "± 59509",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002175s stddev=0.000059509s cv=2.7079%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 1471000,
+            "range": "± 16808",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001471s stddev=0.000016808s cv=1.1403%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 1659000,
+            "range": "± 21845",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001659s stddev=0.000021845s cv=1.3082%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1189000,
+            "range": "± 60086",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001189s stddev=0.000060086s cv=4.9470%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1336000,
+            "range": "± 4848",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001336s stddev=0.000004848s cv=0.3631%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 1528000,
+            "range": "± 53453",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001528s stddev=0.000053453s cv=3.5381%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 3707000,
+            "range": "± 43649",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003707s stddev=0.000043649s cv=1.1787%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 1456000,
+            "range": "± 75017",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=7 median=0.001456s stddev=0.000075017s cv=4.9964%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2109000,
+            "range": "± 26607",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=7 median=0.002109s stddev=0.000026607s cv=1.2624%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 1473000,
+            "range": "± 66334",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001473s stddev=0.000066334s cv=4.4258%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1365000,
+            "range": "± 8972",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001365s stddev=0.000008972s cv=0.6563%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1219000,
+            "range": "± 20169",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001219s stddev=0.000020169s cv=1.6497%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1076000,
+            "range": "± 5450",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001076s stddev=0.000005450s cv=0.5061%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 1467000,
+            "range": "± 34288",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001467s stddev=0.000034288s cv=2.3376%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 2570000,
+            "range": "± 33091",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002570s stddev=0.000033091s cv=1.2816%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1215000,
+            "range": "± 55500",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001215000s stddev=0.000055500s cv=4.4840%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "range": "± 1143",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000008000s stddev=0.000001143s cv=13.8261%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1205000,
+            "range": "± 31921",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=27 median=0.001205s stddev=0.000031921s cv=2.6309%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 586000,
+            "range": "± 29489",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=27 median=0.000586s stddev=0.000029489s cv=4.9648%"
           }
         ]
       }
