@@ -399,7 +399,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 1 successor"
+      throw "Expected 2 successors"
     let weights := (op.getProperties! ctx.raw (OpCode.cf .cond_br)).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
