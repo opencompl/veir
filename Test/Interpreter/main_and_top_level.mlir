@@ -9,4 +9,4 @@
   "func.return"(%0) : (i32) -> ()
 }) : () -> ()
 
-// CHECK: Error: Top-level operations are disallowed; define a zero-argument function named 'main'
+// CHECK: Error: Error parsing module: top-level operation with operands or results is not allowed; only function and module definitions may appear at the module level
