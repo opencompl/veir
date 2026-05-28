@@ -12,6 +12,8 @@ public section
 
 namespace Veir
 
+open ForLean
+
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx ctx' : IRContext OpInfo}
 
