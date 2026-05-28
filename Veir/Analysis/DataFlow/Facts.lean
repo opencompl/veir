@@ -5,6 +5,7 @@ public import Init.Data.Queue
 public import Veir.IR.Basic
 public import Veir.GlobalOpInfo
 public import Veir.Rewriter.InsertPoint
+public import Veir.Analysis.DataFlow.Domains.ConstantDomain
 
 open Std (HashMap Queue)
 
@@ -55,6 +56,7 @@ Tags to match on for different `DataFlowAnalysis` types.
 -/
 inductive AnalysisKind where
   | dominance
+  | sparseConstantPropagation
 deriving BEq, Hashable, Repr, DecidableEq
 
 /--
@@ -63,6 +65,7 @@ Tags to match on for different fact types.
 inductive FactKind where
   | dominator
   | regionMetadata
+  | sparseConstant
 deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
 
 abbrev WorkItem := InsertPoint × AnalysisKind
@@ -94,6 +97,7 @@ The fact specific data stored for each fact kind.
 @[expose] def FactPayload : FactKind → Type
   | .dominator => DominatorPayload
   | .regionMetadata => RegionMetadataPayload
+  | .sparseConstant => SparsePayload AbstractConstant
 
 /--
 A dataflow fact stored by the framework.
