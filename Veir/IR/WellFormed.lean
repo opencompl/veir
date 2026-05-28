@@ -12,6 +12,8 @@ public section
 
 namespace Veir
 
+open ForLean
+
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx ctx' : IRContext OpInfo}
 
@@ -157,7 +159,7 @@ theorem ValuePtr.DefUse_array_erase_array_index
     array.idxOf array[i] = i := by
   have := ValuePtr.DefUse_array_toList_Nodup hWF
   rw [← Array.toArray_toList (xs := array)]
-  grind  [Veir.List.idxOf_getElem]
+  grind  [List.idxOf_getElem]
 
 @[grind .]
 theorem ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx :
@@ -393,7 +395,7 @@ theorem BlockPtr.DefUse_array_erase_array_index
     array.idxOf array[i] = i := by
   have := DefUse_array_toList_Nodup hWF
   rw [← Array.toArray_toList (xs := array)]
-  grind [Veir.List.idxOf_getElem]
+  grind [List.idxOf_getElem]
 
 @[grind .]
 theorem BlockPtr.DefUse.erase_getElem_array_eq_eraseIdx :
@@ -738,7 +740,7 @@ theorem BlockPtr.OpChain.idxOf_getElem_array
     array.idxOf array[i] = i := by
   have := BlockPtr.OpChain_array_toList_Nodup hWF
   rw [← Array.toArray_toList (xs := array)]
-  grind  [Veir.List.idxOf_getElem]
+  grind  [List.idxOf_getElem]
 
 @[grind .]
 theorem BlockPtr.OpChain.erase_getElem_array_eq_eraseIdx

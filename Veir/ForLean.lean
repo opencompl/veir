@@ -113,7 +113,7 @@ theorem Array.reverse_singleton (a : α) :
     #[a].reverse = #[a] := by
   simp
 
-namespace Veir.List
+namespace ForLean.List
 
 theorem idxOf_getElem [DecidableEq α] {l : _root_.List α} (H : l.Nodup) (i : Nat) (h : i < l.length) :
     _root_.List.idxOf l[i] l = i := by
@@ -123,17 +123,17 @@ theorem getElem_idxOf [DecidableEq α] {l : _root_.List α} (h : l.idxOf x < l.l
     l[l.idxOf x] = x := by
   induction l <;> grind
 
-end Veir.List
+end ForLean.List
 
 @[simp, grind =]
 theorem Array.getElem?_idxOf [DecidableEq α] {l : Array α} (h : l.idxOf x < l.size) :
     l[l.idxOf x]? = some x := by
-  rcases l; grind [Veir.List.getElem_idxOf]
+  rcases l; grind [ForLean.List.getElem_idxOf]
 
 @[simp, grind =]
 theorem Array.getElem_idxOf [DecidableEq α] {l : Array α} (h : l.idxOf x < l.size) :
     l[l.idxOf x] = x := by
-  rcases l; grind [Veir.List.getElem_idxOf]
+  rcases l; grind [ForLean.List.getElem_idxOf]
 
 @[simp, grind =]
 theorem Array.toList_erase [BEq α] (l : Array α) (a : α) :
