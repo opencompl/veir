@@ -24,7 +24,7 @@ to be maintained as work progresses, not written once.
 
 | Component | State | Pointer |
 |---|---|---|
-| Felt dialect (18 ops, `!felt.type`) | ✅ ported (round-trip, generic format) | `LLZK_PORT_RETRO.md`, `Test/LLZK/Felt/identity.mlir` |
+| Felt dialect (18 ops, `!felt.type`) | ⚠️ round-trip parity (generic format); semantic parity gap = ~12-15 eng-days — see `FELT_PARITY_ASSESSMENT_2026-05-28.md` | `LLZK_PORT_RETRO.md`, `Test/LLZK/Felt/identity.mlir` |
 | String dialect (`string.new`, `!string.type`) | ✅ ported (round-trip, generic format) | `Test/LLZK/String/identity.mlir` |
 | Include dialect (`include.from`) | ✅ ported (typed, with typed-path negative test) | `Test/LLZK/Include/{identity,invalid}.mlir` |
 | RAM dialect (`ram.load`, `ram.store`) | ✅ ported (typed) | `Test/LLZK/RAM/{identity,invalid}.mlir` |
@@ -61,6 +61,27 @@ to be maintained as work progresses, not written once.
 Phases are sized by **risk and infrastructure**, not by dialect count.
 Each phase has a build gate (`lake build` clean, full lit suite green) and
 ends with `harness/coverage.md` updated.
+
+### Pending: upstream merge (as of 2026-05-28)
+
+`upstream/main` is 37 commits ahead of our last merge base (`4c0e1d20`).
+Notable absorbtions queued:
+
+- **Dominance Analysis (#133)** — `Veir/Analysis/DataFlow/DominanceAnalysis.lean`.
+  Built on the Dataflow Framework (#264) we already pulled. Opens the
+  door to retiring `Veir/Dominance.lean`'s 9 axioms when we port a
+  pass that consumes proper dominance.
+- **Simple CSE (#610)** and folder-fix follow-ups — verified CSE
+  template we can mirror.
+- **`WfRewriter.replaceValue` (#637)** — no longer returns `Option`;
+  affects our `Veir/Passes/Felt/Combine.lean` call sites.
+- **DCE inverted-logic fix (#649)** — we use DCE in pipeline tests.
+- **nightly-2026-05-27 (#652)** — toolchain bump; **conflicts with
+  our `v4.30.0-rc2` Mathlib pin**. Resolution likely a kept-ours like
+  the previous merge.
+
+Not blocking the Felt parity work below, but should be absorbed
+before the next phase boundary.
 
 ### Phase A — Tier 1 dialect batch (≈2–3 weeks)
 
