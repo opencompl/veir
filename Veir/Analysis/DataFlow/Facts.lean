@@ -83,6 +83,13 @@ structure RegionMetadataPayload where
   postOrderIndex : HashMap BlockPtr Nat := {}
 
 /--
+A sparse dataflow fact payload for one abstract domain.
+-/
+structure SparsePayload (Domain : Type) where
+  useDefSubscribers : Array AnalysisKind := #[]
+  latticeElement : Domain
+
+/--
 The fact specific data stored for each fact kind.
 -/
 @[expose] def FactPayload : FactKind → Type
@@ -94,8 +101,8 @@ A dataflow fact stored by the framework.
 
 Each fact associates with a lattice anchor (some location in the program), has
 an array of dependents (other facts that "depend" on this fact's current state in
-some fashion), has an array of analysis subscribers (similar to dependents except
-it's entire analyses that depend on this fact's current state), and has the fact
+some fashion), has an array of analysis subscribers (similar to dependents except 
+it's entire analyses that depend on this fact's current state), and has the fact 
 specific payload determined by its `FactKind`.
 -/
 structure Fact (kind : FactKind) where
