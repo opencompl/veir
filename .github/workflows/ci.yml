@@ -38,6 +38,7 @@ jobs:
           .github/scripts/run_benchmarks.sh 1000 100 5
 
       - name: Store benchmark result
+        if: github.repository_owner == 'opencompl'
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: VeIR Benchmarks
