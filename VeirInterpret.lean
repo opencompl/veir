@@ -22,7 +22,8 @@ def parseOperation (filename : String) : ExceptT String IO (WfIRContext OpCode Ã
     | throw "Failed to create IR context"
   match ParserState.fromInput fileContent with
   | .ok parser =>
-    match (parseOp none).run (MlirParserState.fromContext ctx) parser with
+    let parserState := MlirParserState.fromContext ctx (allowUnregisteredDialect := true)
+    match (parseOp none).run parserState parser with
     | .ok (op, state, _) =>
       return (state.ctx, op)
     | .error errMsg =>

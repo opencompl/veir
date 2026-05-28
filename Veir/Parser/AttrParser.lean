@@ -8,7 +8,8 @@ namespace Veir.AttrParser
 
 open Veir.Parser.ParserError
 
-structure AttrParserState
+structure AttrParserState where
+  allowUnregisteredDialect : Bool := false
 
 abbrev AttrParserM := StateT AttrParserState (EStateM ParserError ParserState)
 
@@ -240,6 +241,8 @@ partial def parseOptionalDialectType : AttrParserM (Option TypeAttr) := do
   let startPos ← getPos
   let dialectName ← parseOptionalPrefixedKeyword .exclamationIdent
   let some dialectName := dialectName | return none
+  if !(← getThe AttrParserState).allowUnregisteredDialect then
+    throwAt startPos s!"type is not registered. Consider using --allow-unregistered-dialect."
   if let true ← parseOptionalPunctuation "<" then
     let _ ← parseUnregisteredAttrBody
     let endPos := (← peekToken).slice.stop
@@ -257,6 +260,8 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   let startPos ← getPos
   let dialectName ← parseOptionalPrefixedKeyword .hashIdent
   let some dialectName := dialectName | return none
+  if !(← getThe AttrParserState).allowUnregisteredDialect then
+    throwAt startPos s!"attribute is not registered. Consider using --allow-unregistered-dialect."
   parsePunctuation "<"
   let _ ← parseUnregisteredAttrBody
   let endPos := (← peekToken).slice.stop

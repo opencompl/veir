@@ -37,11 +37,15 @@ structure MlirParserState where
     (true), or has been forward declared (false).
   -/
   blocks : Std.HashMap ByteArray (BlockPtr × Bool)
+  /-- Whether to accept ops/types/attrs from unregistered dialects. -/
+  allowUnregisteredDialect : Bool := false
   deriving Inhabited
 
-def MlirParserState.fromContext (ctx : WfIRContext OpCode) : MlirParserState :=
+def MlirParserState.fromContext (ctx : WfIRContext OpCode)
+    (allowUnregisteredDialect : Bool := false) : MlirParserState :=
   {
     ctx
+    allowUnregisteredDialect
     values := Std.HashMap.emptyWithCapacity 128
     definitionsPerScope := #[Std.HashSet.emptyWithCapacity 2]
     blocks := Std.HashMap.emptyWithCapacity 1
@@ -348,7 +352,8 @@ def resolveOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) : Mli
   Parse a type, if present.
 -/
 def parseOptionalType : MlirParserM (Option TypeAttr) := do
-  match AttrParser.parseOptionalType.run AttrParserState.mk (← getThe ParserState) with
+  let allowUnregisteredDialect := (← get).allowUnregisteredDialect
+  match AttrParser.parseOptionalType.run { allowUnregisteredDialect } (← getThe ParserState) with
   | .ok (ty, _, parserState) =>
     set parserState
     return ty
@@ -399,7 +404,8 @@ def parseOpProperties (opCode : OpCode) : MlirParserM (propertiesOf opCode) := d
     match Properties.fromAttrDict opCode {} with
     | .ok properties => return properties
     | .error err => throwString err
-  match AttrParser.parseAttributeDictionary.run AttrParserState.mk (← getThe ParserState) with
+  let allowUnregisteredDialect := (← get).allowUnregisteredDialect
+  match AttrParser.parseAttributeDictionary.run { allowUnregisteredDialect } (← getThe ParserState) with
   | .ok (properties, _, parserState) =>
     set parserState
     parsePunctuation ">"
@@ -414,7 +420,7 @@ def parseOpProperties (opCode : OpCode) : MlirParserM (propertiesOf opCode) := d
   to parse valid MLIR syntax.
 -/
 def parseOpAttributes : MlirParserM DictionaryAttr := do
-  match AttrParser.parseOptionalAttributeDictionary.run AttrParserState.mk (← getThe ParserState) with
+  match AttrParser.parseOptionalAttributeDictionary.run { allowUnregisteredDialect := (← get).allowUnregisteredDialect } (← getThe ParserState) with
   | .ok (attrs, _, parserState) =>
     set parserState
     match attrs with
@@ -474,12 +480,18 @@ partial def parseOpRegions : MlirParserM (Array RegionPtr) := do
 partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option OperationPtr) := do
   /- Parse the operation. -/
   let results ← parseOpResults
+  let opNameStart ← getPos
   let some opName ← parseOptionalStringLiteral | return none
   let operands ← parseOperands
   let blockOperands ← parseBlockOperands
 
   /- Get the operation opcode. -/
   let opId := OpCode.fromName opName.toByteArray
+
+  if let .builtin .unregistered := opId then
+    if !(← get).allowUnregisteredDialect then
+      throwAt opNameStart
+        s!"op '{opName}' is not registered. Consider using --allow-unregistered-dialect."
 
   let properties ← parseOpProperties opId
   /- For `builtin.unregistered`, record the original op name in the properties so it can be
