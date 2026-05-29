@@ -40,7 +40,7 @@ jobs:
       - name: Run benchmarks
         run: |
           chmod +x .github/scripts/run_benchmarks.sh
-          .github/scripts/run_benchmarks.sh 1000 100 5
+          .github/scripts/run_benchmarks.sh 1000 100 1
 
       - name: Store benchmark result
         if: github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
