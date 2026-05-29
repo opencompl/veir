@@ -65,8 +65,8 @@ instance : Decidable (Conforms val ty) := by
 
 @[grind <=]
 theorem Conforms.integerType :
-    Conforms runtimeValue (⟨.integerType intType, h⟩ : TypeAttr)
-    → ∃ val, runtimeValue = .int intType.bitwidth val := by
+    Conforms runtimeValue ⟨.integerType intType, h⟩ →
+    ∃ val, runtimeValue = .int intType.bitwidth val := by
   simp only [Conforms]
   cases runtimeValue
   case int bw val =>
@@ -77,15 +77,15 @@ theorem Conforms.integerType :
 
 @[grind <=]
 theorem Conforms.registerType :
-    Conforms runtimeValue (⟨.registerType regType, h⟩ : TypeAttr)
-    → ∃ val, runtimeValue = .reg val := by
+    Conforms runtimeValue ⟨.registerType regType, h⟩ →
+    ∃ val, runtimeValue = .reg val := by
   simp only [Conforms]
   cases runtimeValue <;> grind
 
 @[grind <=]
 theorem Conforms.llvmPointerType :
-    Conforms runtimeValue (⟨.llvmPointerType _, h⟩ : TypeAttr)
-    → ∃ val, runtimeValue = .addr val := by
+    Conforms runtimeValue ⟨.llvmPointerType _, h⟩ →
+    ∃ val, runtimeValue = .addr val := by
   simp only [Conforms]
   cases runtimeValue <;> grind
 
