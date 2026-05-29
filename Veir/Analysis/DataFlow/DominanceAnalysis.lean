@@ -103,9 +103,8 @@ end RegionPtr
 
 namespace DominatorFact
 
-def mkDefault (anchor : LatticeAnchor) : DominatorFact :=
-  { anchor := anchor
-    dependents := #[]
+def mkDefault : DominatorFact :=
+  { dependents := #[]
     payload := { iDom := none } }
 
 def propagate (fact : DominatorFact) (dfCtx : DataFlowContext)
@@ -120,9 +119,8 @@ end DominatorFact
 
 namespace RegionMetadataFact
 
-def mkDefault (anchor : LatticeAnchor) : RegionMetadataFact :=
-  { anchor := anchor
-    dependents := #[]
+def mkDefault : RegionMetadataFact :=
+  { dependents := #[]
     payload := { postOrderIndex := {} } }
 
 def propagate (_fact : RegionMetadataFact) (dfCtx : DataFlowContext)
