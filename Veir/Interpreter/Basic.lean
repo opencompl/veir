@@ -1113,7 +1113,7 @@ decreasing_by grind
 -/
 def interpretBlock (blockPtr : BlockPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
     (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
-  Interp (InterpreterState ctx × ControlFlowAction) := do
+    Interp (InterpreterState ctx × ControlFlowAction) := do
   rlet firstOp ← (blockPtr.get ctx.raw).firstOp
   interpretOpList firstOp state
 
