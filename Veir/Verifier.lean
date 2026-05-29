@@ -213,7 +213,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx.raw opIn ≠ 2 then
-      throw "Expected 2 result"
+      throw "Expected 2 results"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
@@ -223,7 +223,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx.raw opIn ≠ 2 then
-      throw "Expected 2 result"
+      throw "Expected 2 results"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
@@ -637,7 +637,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 1 successor"
+      throw "Expected 2 successors"
     let weights := (op.getProperties! ctx.raw (.llvm .cond_br)).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
@@ -687,7 +687,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumOperands ctx.raw opIn ≠ 1 + dynamicCount then
       throw s!"Expected {1 + dynamicCount} operands"
     if op.getNumResults ctx.raw opIn ≠ 1 then
-      throw "Expected 1 results"
+      throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
@@ -699,7 +699,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
     if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 regions"
+      throw "Expected 1 region"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
@@ -1637,7 +1637,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .mv => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -1647,7 +1647,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .not => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -1657,7 +1657,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .neg => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -1667,7 +1667,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .negw => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -1677,7 +1677,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .sextw => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -1687,7 +1687,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .zextb => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -1697,7 +1697,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .zextw => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -1707,7 +1707,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .seqz => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -1717,7 +1717,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .snez => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -1727,7 +1727,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .sltz => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
@@ -1737,7 +1737,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .sgtz => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
-      throw "Expected 1 operands"
+      throw "Expected 1 operand"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
