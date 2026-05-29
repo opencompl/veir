@@ -88,7 +88,7 @@ flt_lt() {
 
 run_one() {
   local bench="$1" out cs rs
-  out=$(valgrind --tool=cachegrind --cache-sim=no --branch-sim=no .lake/build/bin/run-benchmarks "$bench" "$COUNT" "$PC" 2>&1) || return 1
+  out=$(valgrind --tool=cachegrind --cache-sim=no --branch-sim=no --log-file=out .lake/build/bin/run-benchmarks "$bench" "$COUNT" "$PC" 2>&1) || return 1
   cs=$(sed -n 's/.* I refs: *\(.*\) */\1/p' out | sed -e 's/,//g')
   cs=$(sed -n 's/.* I refs: *\(.*\) */\1/p' out | sed -e 's/,//g')
   rs=$(echo "$out" | sed -n 's/.*rewrite time (s): \([0-9.]*\).*/\1/p')
