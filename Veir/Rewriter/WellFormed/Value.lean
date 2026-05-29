@@ -41,7 +41,7 @@ theorem Rewriter.replaceUse_DefUse_oldValue
     (useOfValue' : (use.get! ctx).value = value)
     (hvalueNe : value ≠ value')
     (hWF : value.DefUse ctx array)
-    (hWF' : value'.DefUse ctx array') {newValueInBounds} :
+    (hWF' : value'.DefUse ctx array') (newValueInBounds) :
     value.DefUse (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)
       (array.erase use) := by
   simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
@@ -54,6 +54,22 @@ theorem Rewriter.replaceUse_DefUse_oldValue
   · apply ValuePtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne_self
     · grind
     · grind [ValuePtr.defUse_removeFromCurrent_other, ValuePtr.DefUse]
+
+theorem ValuePtr.defUseArray_Rewriter_replaceUse_oldValue
+    {oldValue newValue : ValuePtr}
+    {use : OpOperandPtr}
+    (useIn : use.InBounds ctx)
+    (ctxWf: ctx.WellFormed)
+    (useOfValue' : (use.get! ctx).value = oldValue)
+    (hvalueNe : oldValue ≠ newValue) {newValueInBounds} {ctx'Wf : (Rewriter.replaceUse ctx use newValue useIn newValueInBounds ctxIn).WellFormed} {oldValueBounds} :
+    ValuePtr.defUseArray oldValue (Rewriter.replaceUse ctx use newValue useIn newValueInBounds ctxIn) ctx'Wf oldValueBounds =
+    (ValuePtr.defUseArray oldValue ctx ctxWf (by grind)).erase use := by
+  have ⟨array, harray⟩ := ctxWf.valueDefUseChains oldValue (by grind)
+  simp only [Std.ExtHashSet.filter_empty] at harray
+  have ⟨array', harray'⟩ := ctxWf.valueDefUseChains newValue (by grind)
+  simp only [Std.ExtHashSet.filter_empty] at harray'
+  have := Rewriter.replaceUse_DefUse_oldValue useIn ctxWf.inBounds useOfValue' hvalueNe harray harray' (by grind)
+  grind [ValuePtr.defUseArrayWF]
 
 theorem Rewriter.replaceUse_DefUse_otherValue
     (ctxIn: ctx.FieldsInBounds)

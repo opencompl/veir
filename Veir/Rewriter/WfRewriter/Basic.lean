@@ -71,7 +71,6 @@ def WfRewriter.replaceOperand (wfCtx : WfIRContext OpInfo) (use : OpOperandPtr) 
   ⟨Rewriter.replaceUse wfCtx use newValue useIn newIn (by grind),
     by grind [Rewriter.replaceUse_WellFormed]⟩
 
-set_option warn.sorry false in
 /-- Replace a value with another value. -/
 def WfRewriter.replaceValue (ctx: WfIRContext OpInfo) (oldValue: ValuePtr) (newValue: ValuePtr)
     (neValues : oldValue ≠ newValue := by grind)
@@ -82,8 +81,11 @@ def WfRewriter.replaceValue (ctx: WfIRContext OpInfo) (oldValue: ValuePtr) (newV
   | some firstUse =>
     let ctx := Rewriter.replaceUse ctx.raw firstUse newValue
     replaceValue ⟨ctx, by grind [Rewriter.replaceUse_WellFormed]⟩ oldValue newValue
-  termination_by ValuePtr.defUseArray oldValue ctx.raw ctx.wellFormed oldIn
-  decreasing_by sorry
+  termination_by (ValuePtr.defUseArray oldValue ctx.raw ctx.wellFormed oldIn).size
+  decreasing_by
+    rename_i oldCtx
+    rw [ValuePtr.defUseArray_Rewriter_replaceUse_oldValue] <;>
+      grind [ValuePtr.defUseArray_contains_operand_use]
 
 /--
 Replace all results of an operation with the results of another.
