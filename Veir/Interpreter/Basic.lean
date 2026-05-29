@@ -134,8 +134,8 @@ def InterpreterState.empty (ctx : WfIRContext OpInfo) : InterpreterState ctx :=
   Set the value of a variable.
 -/
 def VariableState.setVar? (state : VariableState ctx) (var : ValuePtr)
-    (val : RuntimeValue) (inBounds : var.InBounds ctx.raw := by grind)
-    : Option (VariableState ctx) :=
+    (val : RuntimeValue) (inBounds : var.InBounds ctx.raw := by grind) :
+    Option (VariableState ctx) :=
   if h : val.Conforms (var.getType! ctx.raw) then
     some ⟨state.variables.insert var val,
       by grind [VariableState.ValuesConform, cases VariableState],
