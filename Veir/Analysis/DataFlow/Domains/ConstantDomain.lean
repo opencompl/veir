@@ -1,20 +1,11 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Analysis.DataFlow.Domains.LatticeElement
 
 public section
 
 namespace Veir
-
-/--
-An algebraic definition of a lattice. In particular, no partial order is defined
-on the domain.
--/
-class LatticeElement (Domain : Type) extends BEq Domain where
-  bottom : Domain
-  top : Domain
-  join : Domain → Domain → Domain
-  meet : Domain → Domain → Domain
 
 /-- A known integer constant tracked by sparse constant propagation. -/
 structure KnownConstant where
