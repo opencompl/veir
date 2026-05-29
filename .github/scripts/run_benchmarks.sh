@@ -89,7 +89,7 @@ flt_lt() {
 run_one() {
   local bench="$1" out cs rs
   out=$(valgrind --tool=cachegrind lake env run-benchmarks "$bench" "$COUNT" "$PC" 2>&1) || return 1
-  cs=$(cg_annotate cachegrind.out.* | grep "PROGRAM TOTALS" | awk '{print $1}'
+  cs=$(cg_annotate cachegrind.out.* | grep "PROGRAM TOTALS" | awk '{print $1}') || return 1
   rs=$(echo "$out" | sed -n 's/.*rewrite time (s): \([0-9.]*\).*/\1/p')
   [ -n "$cs" ] && [ -n "$rs" ] && echo "$cs $rs"
 }
