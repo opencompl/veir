@@ -19,7 +19,7 @@ set -euo pipefail
 
 COUNT="${1:-1000}"
 PC="${2:-50}"
-SAMPLES_MIN="${3:-5}"
+SAMPLES_MIN="${3:-1}"
 
 SAMPLES_MAX="${SAMPLES_MAX:-30}"
 TIME_BUDGET_SECS="${TIME_BUDGET_SECS:-180}"
