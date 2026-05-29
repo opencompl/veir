@@ -226,7 +226,7 @@ def CondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String CondBrProperties := do
   if attrDict.size > 2 then
     throw s!"cf.cond_br: expected only 'branch_weights' and 'operandSegmentSizes' properties, but got {attrDict.size} properties"
-  let weightsAttr ← match attrDict["weightsAttr".toUTF8]? with
+  let weightsAttr ← match attrDict["branch_weights".toUTF8]? with
     | some (.denseArrayAttr weightsAttr) => .ok weightsAttr
     | some attr => .error s!"expected 'branch_weights' to be an optional dense array attribute, but got {attr}"
     | none => .ok { elementType := { bitwidth := 32 }, values := #[] }
