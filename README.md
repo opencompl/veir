@@ -1,5 +1,17 @@
 # Verified Intermediate Representation
 
+> ⚠️ **Experimental fork — work in progress.**
+> This is the `project-llzk` organization's fork of
+> [opencompl/veir](https://github.com/opencompl/veir). The default
+> branch (`llzkfelt_test1`) carries an experimental Lean port of
+> [LLZK](https://github.com/Veridise/llzk-lib)'s Felt dialect that is
+> not yet upstreamed and not for production use. The companion
+> assurance infrastructure lives at
+> [project-llzk/llzk-lean](https://github.com/project-llzk/llzk-lean).
+>
+> For non-LLZK VEIR work, prefer the `main` branch (which tracks
+> upstream `opencompl/veir`).
+
 VeIR is a compiler infrastructure written in Lean that offers both an
 [MLIR](https://mlir.llvm.org/)-style imperative design and
 (optional) ITP-level verification.
