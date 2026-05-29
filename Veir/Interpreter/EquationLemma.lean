@@ -68,11 +68,12 @@ equivalent to saying that the results of interpreting `op` on the given `state` 
 `state` itself.
 -/
 def InterpreterState.EquationHolds {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
-    (op : OperationPtr) : Prop :=
+    (op : OperationPtr) (inBounds : op.InBounds ctx.raw := by grind) : Prop :=
   ∃ controlFlow, interpretOp op state = some (.ok (state, controlFlow))
 
 theorem interpretOp_equationHolds_self
-    {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} (ctxDom : ctx.Dom) :
+    {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} (ctxDom : ctx.Dom)
+    (inBounds : op.InBounds ctx.raw) :
     op.Pure ctx →
     interpretOp op state = some (.ok (state', controlFlow)) →
     state'.EquationHolds op := by
@@ -80,9 +81,10 @@ theorem interpretOp_equationHolds_self
   grind [OperationPtr.Pure.interpretOp'_eq_ok_implies_memory_eq, interpretOp_some_iff]
 
 theorem interpretOp_equationHolds_other
-    {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} (ctxDom : ctx.Dom) :
+    {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} (ctxDom : ctx.Dom)
+    {inBounds₁ : op₁.InBounds ctx.raw} {inBounds₂ : op₂.InBounds ctx.raw} :
     op₂.Pure ctx →
-    interpretOp op₁ state = some (.ok (state', cf₁)) →
+    interpretOp op₁ state inBounds₁ = some (.ok (state', cf₁)) →
     op₂.dominates op₁ ctx →
     state.EquationHolds op₂ →
     state'.EquationHolds op₂ := by
@@ -135,4 +137,5 @@ theorem interpretOp_equationLemmaAt {ctx : WfIRContext OpCode} {opInBounds} {sta
   · apply interpretOp_equationHolds_other ctxDom (by grind) hInterp
     · grind [OperationPtr.dominates_of_strictlyDominates]
     · grind [interpretOp_equationHolds_other]
+    · grind
   · grind [interpretOp_equationHolds_self]
