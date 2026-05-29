@@ -743,7 +743,7 @@ def isType (attr : Attribute) : Bool :=
   | .functionType _ => true
   | .modArithType _ => true
   | .registerType _ => true
-  | .registerAttr _ => true
+  | .registerAttr _ => false
   | .llvmPointerType _ => true
   | .llvmArrayType _ => true
   | .llvmFunctionType _ => true
@@ -761,6 +761,8 @@ theorem isType_unregistered unregistered :
 theorem isType_functionType type : (functionType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_registerType type : (registerType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_llvmPointerType type : (llvmPointerType type).isType = true := by rfl
 @[simp, grind =]
