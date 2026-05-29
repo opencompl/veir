@@ -379,6 +379,26 @@ def parseOptionalStringType : AttrParserM (Option TypeAttr) := do
   return some StringType.mk
 
 /--
+  Parse an optional felt-type field-name annotation: `<"name">`.
+  Returns `some name.toByteArray` if the annotation is present, or
+  `none` if no `<` follows the current position.
+
+  Helper shared between `parseOptionalFeltType` (which consumes it
+  after `!felt.type`) and `parseOptionalFeltConstAttr` (which
+  consumes it inside `#felt<const N : <"name">>` — the
+  inner-annotation form that LLZK's
+  `llzk-opt --mlir-print-op-generic` emits for named-field felt
+  constants).
+-/
+def parseOptionalFeltFieldName : AttrParserM (Option ByteArray) := do
+  if ← parseOptionalPunctuation "<" then
+    let some name ← parseOptionalStringLiteral
+      | throwString "felt type field name (string literal) expected"
+    parsePunctuation ">"
+    return some name.toByteArray
+  return none
+
+/--
   Parse an LLZK felt type, if present.
   Its syntax is `!felt.type` (unspecified field) or `!felt.type<"name">`
   (with a named field).
@@ -391,12 +411,8 @@ def parseOptionalFeltType : AttrParserM (Option TypeAttr) := do
   if typeName ≠ "felt.type".toByteArray then
     return none
   let _ ← consumeToken
-  if ← parseOptionalPunctuation "<" then
-    let some name ← parseOptionalStringLiteral
-      | throwString "felt type field name (string literal) expected"
-    parsePunctuation ">"
-    return some (FeltType.mk (some name.toByteArray))
-  return some (FeltType.mk none)
+  let fieldName ← parseOptionalFeltFieldName
+  return some (FeltType.mk fieldName)
 
 /--
   Parse an LLZK felt-const attribute, if present.
@@ -424,6 +440,21 @@ def parseOptionalFeltConstAttr : AttrParserM (Option FeltConstAttr) := do
   -- negative felt values (the printer always emits a leading `-`).
   let some val ← parseOptionalInteger false true
     | throwString "#felt<const ...> expects an integer value"
+  -- Optional inner field annotation (`: <"name">`). LLZK's
+  -- `llzk-opt --mlir-print-op-generic` emits named-field felt
+  -- constants in this inner-annotation form:
+  --     #felt<const N : <"babybear">> : !felt.type<"babybear">
+  -- We accept it as a hint, then re-validate against the outer
+  -- `!felt.type[<"name">]` annotation below. (Prior to this change
+  -- VEIR's parser hard-failed on the inner `:`; named-field
+  -- FeltConstAttr was the headline parser-incompatibility gap
+  -- documented in
+  --   llzk-lean/differential/corpus/expected-divergence/named_field_const.mlir
+  -- and now closed on VEIR's side.)
+  let innerFieldName ← if ← parseOptionalPunctuation ":" then
+                         parseOptionalFeltFieldName
+                       else
+                         pure none
   parsePunctuation ">"
   parsePunctuation ":"
   -- Field type: !felt.type or !felt.type<"name">.
@@ -432,6 +463,14 @@ def parseOptionalFeltConstAttr : AttrParserM (Option FeltConstAttr) := do
   -- Project the FeltType out of the TypeAttr wrapper.
   let Attribute.feltType ft := ftAttr.val
     | throwString "#felt<const N>'s type annotation must be !felt.type"
+  -- Consistency: if both inner and outer annotations carry a field
+  -- name, they must agree. (LLZK always emits them in sync, but a
+  -- malformed input where they disagree is a real bug we surface.)
+  match innerFieldName, ft.fieldName with
+  | some inner, some outer =>
+    if inner ≠ outer then
+      throwString "#felt<const N : <\"...\">> inner field name disagrees with outer !felt.type<\"...\"> annotation"
+  | _, _ => pure ()
   return some (FeltConstAttr.mk val ft)
 
 /--
