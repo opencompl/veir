@@ -39,7 +39,7 @@ class FactSpec (kind : FactKind) where
   Hook that's called when the fact changes state. Typically used to
   enqueue a fact's dependents because it changed.
   -/
-  propagate : Fact kind -> DataFlowContext -> IRContext OpCode -> DataFlowContext
+  propagate : Fact kind → DataFlowContext → IRContext OpCode → DataFlowContext
 
 namespace Fact
 
@@ -73,11 +73,11 @@ structure DataFlowAnalysis where
   This often involves enqueueing some number of work items into the work list, such
   as every SSA value reachable from the top level operation pointer.
   -/
-  init : OperationPtr -> DataFlowContext -> IRContext OpCode -> DataFlowContext
+  init : OperationPtr → DataFlowContext → IRContext OpCode → DataFlowContext
   /--
   The transfer function, visiting the given `InsertPoint`.
   -/
-  visit : InsertPoint -> DataFlowContext -> IRContext OpCode -> DataFlowContext
+  visit : InsertPoint → DataFlowContext → IRContext OpCode → DataFlowContext
 
 namespace DataFlowContext
 
@@ -117,7 +117,7 @@ private def setFact (kind : FactKind) [FactSpec kind]
 Apply an update with `f` to the fact of kind `kind` stored at `anchor`. 
 -/
 def modifyFact (kind : FactKind) [FactSpec kind]
-    (ctx : DataFlowContext) (anchor : LatticeAnchor) (f : Fact kind -> Fact kind) : DataFlowContext :=
+    (ctx : DataFlowContext) (anchor : LatticeAnchor) (f : Fact kind → Fact kind) : DataFlowContext :=
   let current := ctx.getOrMkFact kind anchor
   ctx.setFact kind anchor (f current)
 
@@ -128,7 +128,7 @@ Apply an update with `f` to the fact of kind `kind` stored at `anchor` and
 def modifyFactAndPropagate (kind : FactKind) [spec : FactSpec kind]
     (ctx : DataFlowContext)
     (anchor : LatticeAnchor)
-    (f : Fact kind -> Fact kind × Bool)
+    (f : Fact kind → Fact kind × Bool)
     (irCtx : IRContext OpCode) : DataFlowContext :=
   let current := ctx.getOrMkFact kind anchor
   let (fact, changed) := f current

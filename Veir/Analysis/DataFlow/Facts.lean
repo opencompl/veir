@@ -86,7 +86,7 @@ structure RegionMetadataPayload where
 /--
 The fact specific data stored for each fact kind.
 -/
-@[expose] def FactPayload : FactKind -> Type
+@[expose] def FactPayload : FactKind → Type
   | .dominator => DominatorPayload
   | .regionMetadata => RegionMetadataPayload
 
