@@ -13,7 +13,7 @@ namespace Veir.Data.LLVM.Int
 public section
 
 /-- Return true if the LLVM.Int `x` is poison. -/
-def isPoison {w : Nat} : (x : Int w) -> Bool
+def isPoison {w : Nat} : (x : Int w) → Bool
   | .poison => true
   | .val _ => false
 
