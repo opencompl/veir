@@ -27,6 +27,11 @@ jobs:
             git checkout "$GITHUB_SHA"
           fi
 
+      - name: Install valgrind
+        uses: gerlero/apt-install@v1
+        with:
+          packages: valgrind
+
       - name: Build the project
         uses: leanprover/lean-action@v1
         with:
