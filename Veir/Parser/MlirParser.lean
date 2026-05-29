@@ -20,6 +20,21 @@ open Veir.Parser.ParserError
 
 variable {ctx : IRContext OpCode}
 
+/--
+  The state of a block encountered during parsing.
+  A block is either `Defined` (its label has been parsed) or `ForwardDeclared`
+  (it has only been referenced, e.g. as a block operand, but not yet defined).
+-/
+inductive BlockEntry where
+  | Defined (block : BlockPtr)
+  | ForwardDeclared (block : BlockPtr)
+  deriving Inhabited
+
+/-- Get the block pointer of a `BlockEntry`, regardless of its state. -/
+def BlockEntry.block : BlockEntry → BlockPtr
+  | .Defined block => block
+  | .ForwardDeclared block => block
+
 structure MlirParserState where
   /-- The current IR context. -/
   ctx : WfIRContext OpCode
@@ -32,11 +47,10 @@ structure MlirParserState where
   -/
   definitionsPerScope : Array (Std.HashSet ByteArray)
   /--
-    The blocks that have been already parsed.
-    The Bool value indicates whether the block has already been parsed
-    (true), or has been forward declared (false).
+    The blocks that have been encountered during parsing, along with whether
+    they have been defined or only forward declared.
   -/
-  blocks : Std.HashMap ByteArray (BlockPtr × Bool)
+  blocks : Std.HashMap ByteArray BlockEntry
   /-- Whether to accept ops/types/attrs from unregistered dialects. -/
   allowUnregisteredDialect : Bool := false
   deriving Inhabited
@@ -178,9 +192,9 @@ def modifyContextM (f : WfIRContext OpCode → MlirParserM (WfIRContext OpCode))
 def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPtr := do
   let state ← get
   match state.blocks[name]? with
-  | some (block, true) => -- Block of this name is already defined.
+  | some (.Defined block) => -- Block of this name is already defined.
     throwString s!"block %{String.fromUTF8! name} has already been defined"
-  | some (block, false) => -- Block of this name was forward declared.
+  | some (.ForwardDeclared block) => -- Block of this name was forward declared.
     /- Insert the block at the given location. -/
     modifyContextM fun ctx => do
       let ⟨hip⟩ ← checkBlockInsertPointInBounds ip ctx.raw
@@ -192,7 +206,7 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
     modifyThe MlirParserState (fun state =>
     {state with
       blocks :=
-        state.blocks.insert name (block, true)})
+        state.blocks.insert name (.Defined block)})
     return block
   | none => -- Block has not yet been declared or referenced.
     /- Create the block. -/
@@ -203,7 +217,7 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
       | some (ctx', block) => pure ⟨block, ⟨ctx', by grind [Rewriter.createBlock_WellFormed]⟩⟩
     /- Notify the parsing context that the block is defined. -/
     modifyThe MlirParserState fun s =>
-    {s with blocks := s.blocks.insert name (block, true)}
+    {s with blocks := s.blocks.insert name (.Defined block)}
     return block
 
 /--
@@ -214,8 +228,8 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) : MlirParserM BlockPt
 def defineBlockUse (name : ByteArray) : MlirParserM BlockPtr := do
   let state ← get
   match state.blocks[name]? with
-  | some (block, _) => -- Block already defined or forward declared
-    return block
+  | some entry => -- Block already defined or forward declared
+    return entry.block
   | none => -- Block not yet encountered
     /- Create the block. -/
     let block ← modifyContextM' fun ctx => do
@@ -224,7 +238,7 @@ def defineBlockUse (name : ByteArray) : MlirParserM BlockPtr := do
       | some (ctx', block) => pure ⟨block, ⟨ctx', by grind [Rewriter.createBlock_WellFormed]⟩⟩
     /- Notify the parsing context that the block is forward declared. -/
     modifyThe MlirParserState fun s =>
-      {s with blocks := s.blocks.insert name (block, false)}
+      {s with blocks := s.blocks.insert name (.ForwardDeclared block)}
     return block
 
 /--
@@ -579,8 +593,8 @@ partial def parseRegion : MlirParserM RegionPtr := do
   parsePunctuation "}"
 
   /- Check that all blocks in the regions that were forward declared were parsed. -/
-  for (blockName, (_, parsed)) in (← getThe MlirParserState).blocks do
-    if !parsed then
+  for (blockName, entry) in (← getThe MlirParserState).blocks do
+    if let .ForwardDeclared _ := entry then
       throwString s!"block %{String.fromUTF8! blockName} was declared but not defined"
 
   /- Restore the previous block parsing state. -/
