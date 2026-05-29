@@ -126,8 +126,13 @@ fi
 # --- stage 3: normalize -------------------------------------------------------
 # Conservative normalization (Python to get reliable regex backreferences):
 #   - drop trailing whitespace; collapse runs of blank lines
-#   - unquote attribute keys: <{"key" = ...}> -> <{key = ...}>
+#   - unquote attribute keys in property-attr position:
+#       `<{"key" = ...}>` -> `<{key = ...}>`
 #     (VEIR quotes attribute keys, LLZK doesn't)
+#   - unquote attribute keys in discardable-attr position:
+#       `}) {"key" = ...}` -> `}) {key = ...}`
+#     (same VEIR-vs-LLZK gap; the regex is split because the prefix
+#     context differs between property and discardable attr blocks)
 #   - renumber SSA values in order of appearance: %anything -> %V<n>
 #   - rename block labels: ^bb0 / ^4 / etc. -> ^B0 (handles both alpha
 #     and numeric label prefixes), in-order-of-non-elided-appearance
@@ -140,6 +145,14 @@ fi
 #   - strip the cosmetic space before the type colon in block-arg
 #     declarations: `^B0(%V0 : type)` -> `^B0(%V0: type)` (VEIR emits
 #     the space, LLZK doesn't; both are valid generic-MLIR).
+#   - strip the inner field annotation on FeltConstAttr:
+#       `#felt<const N : <"name">>` -> `#felt<const N>`
+#     (LLZK emits the inner form; VEIR emits the outer-only form
+#     `#felt<const N> : !felt.type<"name">`. Both are valid; the
+#     outer type annotation always survives and carries the field.)
+#   - collapse empty region bodies: both `({    })` (VEIR's inline
+#     whitespace form) and `({\n})` (LLZK's two-line form) become
+#     `({})`. Functionally identical; cosmetically divergent.
 # Other forms of equivalent-but-different output should go through the
 # per-test allowlist, not this normalizer.
 normalize() {
@@ -171,8 +184,16 @@ def sub_blk(m):
 
 ssa_re = re.compile(r'%[A-Za-z0-9_.]+')
 blk_re = re.compile(r'\^[A-Za-z0-9_]+')
-key_quoted_open  = re.compile(r'<\{"([A-Za-z_][A-Za-z0-9_]*)" = ')
-key_quoted_comma = re.compile(r', "([A-Za-z_][A-Za-z0-9_]*)" = ')
+# Attr-key quote stripping. Attribute keys can contain dots
+# (`llzk.lang`, `function.allow_witness`), so the key character
+# class includes `.`. Three contexts:
+#   - `<{"key" = ` — property attrs, opening
+#   - `, "key" = `  — continuation in either context
+#   - `}) {"key" = ` — discardable attrs, opening (after region close).
+#     Also matches at top-level (e.g., `"builtin.module"() ({...}) {"llzk.lang"}`).
+key_quoted_open        = re.compile(r'<\{"([A-Za-z_][A-Za-z0-9_.]*)" = ')
+key_quoted_comma       = re.compile(r', "([A-Za-z_][A-Za-z0-9_.]*)" = ')
+key_quoted_discardable = re.compile(r'\) \{"([A-Za-z_][A-Za-z0-9_.]*)"')
 # Empty block header: a line with only `^<label>():` (any whitespace).
 # Matches the raw-label form (pre-renaming) so we can elide before the
 # block-label counter advances.
@@ -180,6 +201,12 @@ empty_block_hdr_raw = re.compile(r'^\s*\^[A-Za-z0-9_]+\(\):\s*$')
 # Cosmetic: VEIR emits `(%name : type)` for block args; LLZK emits
 # `(%name: type)`. Both are valid generic-MLIR.
 blockarg_space_colon = re.compile(r'(%[A-Za-z0-9_.]+) : ')
+# FeltConstAttr inner field annotation. LLZK emits the inner form
+# (`#felt<const 42 : <"babybear">>`); VEIR emits the outer-only
+# form (`#felt<const 42> : !felt.type<"babybear">`). Both are
+# valid; the outer annotation always survives downstream parsers.
+# Strip the inner annotation to canonicalize.
+felt_inner_annotation = re.compile(r'#felt<const (-?\d+) : <"[^"]+">>')
 
 prev_blank = False
 out_lines = []
@@ -202,11 +229,16 @@ with open(src) as f:
         # would diverge between VEIR and LLZK.
         if empty_block_hdr_raw.match(line):
             continue
-        # unquote attribute keys
+        # unquote attribute keys (property-attr, continuation, discardable-attr)
         line = key_quoted_open.sub(lambda m: '<{' + m.group(1) + ' = ', line)
         line = key_quoted_comma.sub(lambda m: ', ' + m.group(1) + ' = ', line)
+        line = key_quoted_discardable.sub(lambda m: ') {' + m.group(1), line)
         # strip cosmetic space-before-colon in block-arg type annotations
         line = blockarg_space_colon.sub(r'\1: ', line)
+        # strip FeltConstAttr inner field annotation (LLZK emits it;
+        # VEIR doesn't). The outer !felt.type<"name"> annotation
+        # downstream always carries the field information.
+        line = felt_inner_annotation.sub(r'#felt<const \1>', line)
         # block-label and SSA renaming — block labels use the current
         # region-scope counter (blk_stack top); SSA values use a flat
         # counter (LLZK also uses flat SSA numbering across a file
@@ -224,6 +256,16 @@ with open(src) as f:
             if len(blk_stack) > 1:
                 blk_stack.pop()
         out_lines.append(line)
+
+# --- post-process: empty region body collapse -----------------------------
+# Both VEIR's inline whitespace form `({    })` and LLZK's two-line
+# form `({\n})` become `({})`. We operate on the joined output so
+# the cross-line case can be caught.
+output = "\n".join(out_lines)
+# Greedy match of `({` + any whitespace (including newlines) + `})`.
+output = re.sub(r'\(\{\s*\}\)', '({})', output)
+# Re-split for any further line-level handling (none today).
+out_lines = output.split("\n")
 
 with open(dst, 'w') as f:
     f.write("\n".join(out_lines))
