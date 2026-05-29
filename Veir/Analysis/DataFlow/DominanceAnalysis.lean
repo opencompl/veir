@@ -305,20 +305,19 @@ def visit
 def dominates
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool :=
-    block.getDominatorFact? dfCtx irCtx |> (Option.elim · false 
-      (Id.run do
-        if dominator = block then 
-          return true
-        let mut current := ·.iDom
-        while let some candidate := current do
-          if candidate = dominator then
-            return true
-          let next := candidate.getIDom? dfCtx irCtx
-          if next = some candidate then
-            return false
-          current := next
-        false))
+    (irCtx : IRContext OpCode) : Bool := Id.run do
+  let some fact ← block.getDominatorFact? dfCtx irCtx | false
+  if dominator = block then 
+    return true
+  let mut current := fact.iDom
+  while let some candidate := current do
+    if candidate = dominator then
+      return true
+    let next := candidate.getIDom? dfCtx irCtx
+    if next = some candidate then
+      return false
+    current := next
+  false
 
 /-- Same thing as `dominates` except a block dominating itself doesn't count. -/
 def properlyDominates
