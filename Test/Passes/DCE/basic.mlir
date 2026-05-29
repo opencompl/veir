@@ -11,6 +11,7 @@
         %2 = "test.test"(%1) : (i64) -> i64
         "test.test"(%1) : (i64) -> ()
         // CHECK:      "test.test"(%{{.*}}) : (i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
   
   // A chain of operations that is eventually unused
@@ -25,6 +26,7 @@
         "test.test"(%1) : (i64) -> ()
         // CHECK:      %{{.*}} = "test.test"() : () -> i64
         // CHECK-NEXT: "test.test"(%{{.*}}) : (i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
   
   // A chain of operations that is eventually used
@@ -43,6 +45,7 @@
         // CHECK-NEXT: %{{.*}} = "test.test"(%{{.*}}) : (i64) -> i64    
         // CHECK-NEXT: %{{.*}} = "test.test"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64    
         // CHECK-NEXT: "test.test"(%{{.*}}) : (i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()
 

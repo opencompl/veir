@@ -7,5 +7,6 @@
         // CHECK: %{{.*}} = "llvm.or"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
         %add_disjoint = "llvm.or"(%a, %b) <{disjoint}>: (i32, i32) -> i32
         // CHECK-NEXT: %{{.*}} = "llvm.or"(%{{.*}}, %{{.*}}) <{disjoint}> : (i32, i32) -> i32
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

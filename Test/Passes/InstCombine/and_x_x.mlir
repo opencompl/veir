@@ -11,6 +11,6 @@
       %and_self = "llvm.and"(%x, %x) : (i32, i32) -> i32
       "test.test"(%and_self) : (i32) -> ()
       // CHECK-NEXT: "test.test"(%[[X]]) : (i32) -> ()
-      "function.return"() : () -> ()
+      "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

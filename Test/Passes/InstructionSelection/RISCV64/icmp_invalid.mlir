@@ -9,5 +9,6 @@
         // CHECK-NEXT:      "llvm.icmp"(%{{.*}}, %{{.*}}) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
         %r_6 = "llvm.icmp"(%c, %b) <{"predicate" = 6 : i64}> : (i64, i32) -> i1
         // CHECK-NEXT:      "llvm.icmp"(%{{.*}}, %{{.*}}) <{"predicate" = 6 : i64}> : (i64, i32) -> i1
+        "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

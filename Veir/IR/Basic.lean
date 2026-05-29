@@ -2493,6 +2493,14 @@ def IRContext.forOpsDepM (ctx : IRContext OpInfo) {m : Type w → Type w'} [Mona
     (p : ∀ (op : OperationPtr), op.InBounds ctx → m PUnit) : m PUnit :=
   ctx.operations.forKeysDepM (fun opPtr h => p opPtr (by grind [OperationPtr.InBounds]))
 
+/--
+  Run a function on all blocks in the context, providing each callback with a
+  proof that the block pointer is in bounds.
+-/
+def IRContext.forBlocksDepM (ctx : IRContext OpInfo) {m : Type w → Type w'} [Monad m]
+    (p : ∀ (block : BlockPtr), block.InBounds ctx → m PUnit) : m PUnit :=
+  ctx.blocks.forKeysDepM (fun blockPtr h => p blockPtr (by grind [BlockPtr.InBounds]))
+
 /-! Generic pointers -/
 
 inductive GenericPtr where

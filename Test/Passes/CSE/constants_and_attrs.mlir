@@ -22,5 +22,6 @@
     // CHECK-NEXT: %[[ADD_ATTR0:.*]] = "llvm.add"(%{{.*}}, %{{.*}}) {"tag" = "keep"} : (i32, i32) -> i32
     // CHECK-NEXT: %[[ADD_ATTR1:.*]] = "llvm.add"(%{{.*}}, %{{.*}}) {"tag" = "keep"} : (i32, i32) -> i32
     // CHECK-NEXT: "test.test"(%[[ADD_ATTR0]], %[[ADD_ATTR1]]) : (i32, i32) -> ()
+    "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

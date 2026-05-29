@@ -11,5 +11,6 @@
     // CHECK-NEXT: %[[LOAD0:.*]] = "llvm.load"(%{{.*}}) <{{.*}}> : (!llvm.ptr) -> i32
     // CHECK-NEXT: %[[LOAD1:.*]] = "llvm.load"(%{{.*}}) <{{.*}}> : (!llvm.ptr) -> i32
     // CHECK-NEXT: "test.test"(%[[LOAD0]], %[[LOAD1]]) : (i32, i32) -> ()
+    "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

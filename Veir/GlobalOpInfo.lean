@@ -292,3 +292,15 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | _ =>
     Std.HashMap.emptyWithCapacity 0
+
+/--
+  Does this OpCode count as an MLIR basic block terminator?
+-/
+def OpCode.isTerminator (opCode : OpCode) : Bool :=
+  match opCode with
+  | .cf .br | .cf .cond_br
+  | .func .return
+  | .llvm .br | .llvm .cond_br | .llvm .return
+  | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
+  | .hw .output => true
+  | _ => false

@@ -11,5 +11,6 @@
     // CHECK-NEXT: %[[ICMP_SLT0:.*]] = "llvm.icmp"(%{{.*}}, %{{.*}}) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
     // CHECK-NEXT: %[[ICMP_SLT1:.*]] = "llvm.icmp"(%{{.*}}, %{{.*}}) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
     // CHECK-NEXT: "test.test"(%[[ICMP_SLT0]], %[[ICMP_SLT1]]) : (i1, i1) -> ()
+    "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

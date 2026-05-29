@@ -18,6 +18,7 @@
         // CHECK-NEXT:      %[[N:.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (i42) -> !reg
         // CHECK-NEXT:      %[[Q:.*]] = "builtin.unrealized_conversion_cast"(%[[N]]) : (!reg) -> i37
         
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()
 

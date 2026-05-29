@@ -5,6 +5,7 @@
     ^bb0(%a: i128, %b : i16):
         %trunca = "llvm.trunc"(%a) : (i128) -> i16
         // CHECK:      %{{.*}} = "llvm.trunc"(%{{.*}}) : (i128) -> i16
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()
 

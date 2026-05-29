@@ -11,6 +11,7 @@
         // CHECK:         "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> i8
         // CHECK-NEXT:    "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> i64
         // CHECK-NEXT:    "test.test"(%{{.*}}) : (i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
 
   ^2():
@@ -24,6 +25,7 @@
         // CHECK-NEXT:    "builtin.unrealized_conversion_cast"(%{{.*}}) : (!reg) -> i32
         // CHECK-NEXT:    "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> i64
         // CHECK-NEXT:    "test.test"(%{{.*}}) : (i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
 
 }) : () -> ()
