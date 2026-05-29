@@ -3,10 +3,10 @@
 "builtin.module"() ({
   "func.func"() <{sym_name = "main"}> ({
     ^1():
-      %x = "riscv.li"() <{ "value" = 9 : i64 }> : () -> i64
-      "riscv_cf.branch"(%x) [^2] : (i64) -> ()
-    ^2(%y : i64):
-      "func.return"(%y) : (i64) -> ()
+      %x = "riscv.li"() <{ "value" = 9 : i64 }> : () -> !reg
+      "riscv_cf.branch"(%x) [^2] : (!reg) -> ()
+    ^2(%y : !reg):
+      "func.return"(%y) : (!reg) -> ()
   }) : () -> ()
 }) : () -> ()
 

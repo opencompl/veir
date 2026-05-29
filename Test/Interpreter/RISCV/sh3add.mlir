@@ -2,14 +2,14 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main"}> ({
-    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> i64
-    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> i64
-    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> i64
-    %d = "riscv.li"() <{ value = 4294967298 : i64 }> : () -> i64
-    %f = "riscv.sh3add"(%a, %b) : (i64, i64) -> i64
-    %g = "riscv.sh3add"(%a, %c) : (i64, i64) -> i64
-    %h = "riscv.sh3add"(%d, %a) : (i64, i64) -> i64
-    "func.return"(%f, %g, %h) : (i64, i64, i64) -> ()
+    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !reg
+    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> !reg
+    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> !reg
+    %d = "riscv.li"() <{ value = 4294967298 : i64 }> : () -> !reg
+    %f = "riscv.sh3add"(%a, %b) : (!reg, !reg) -> !reg
+    %g = "riscv.sh3add"(%a, %c) : (!reg, !reg) -> !reg
+    %h = "riscv.sh3add"(%d, %a) : (!reg, !reg) -> !reg
+    "func.return"(%f, %g, %h) : (!reg, !reg, !reg) -> ()
   }) : () -> ()
 }) : () -> ()
 

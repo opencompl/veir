@@ -2,9 +2,9 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main"}> ({
-    %a = "riscv.li"() <{ value = 5 : i64 }> : () -> i64
-    %b = "riscv.neg"(%a) : (i64) -> i64
-    "func.return"(%b) : (i64) -> ()
+    %a = "riscv.li"() <{ value = 5 : i64 }> : () -> !reg
+    %b = "riscv.neg"(%a) : (!reg) -> !reg
+    "func.return"(%b) : (!reg) -> ()
   }) : () -> ()
 }) : () -> ()
 
