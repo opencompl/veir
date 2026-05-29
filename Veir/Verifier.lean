@@ -658,7 +658,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     let properties := (op.getProperties! ctx.raw (.llvm .alloca))
     if properties.alignment.type.bitwidth ≠ 64 then
-      throw "Expected alignment to be an i64 constant"
+      throw "'llvm.alloca' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
 
     pure ()
   | .llvm .load => do
@@ -670,6 +670,10 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    let properties := (op.getProperties! ctx.raw (.llvm .load))
+    if properties.alignment.type.bitwidth ≠ 64 then
+      throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
+
     pure ()
   | .llvm .store => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -680,6 +684,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    let properties := (op.getProperties! ctx.raw (.llvm .store))
+    if properties.alignment.type.bitwidth ≠ 64 then
+      throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
     pure ()
   | .llvm .getelementptr => do
     let props := op.getProperties! ctx.raw (.llvm .getelementptr)
