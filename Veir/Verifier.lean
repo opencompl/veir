@@ -656,6 +656,10 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    let properties := (op.getProperties! ctx.raw (.llvm .alloca))
+    if properties.alignment.type.bitwidth ≠ 64 then
+      throw "Expected alignment to be an i64 constant"
+
     pure ()
   | .llvm .load => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then

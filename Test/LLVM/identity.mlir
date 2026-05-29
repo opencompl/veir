@@ -31,7 +31,7 @@
       %22 = "llvm.sext"(%6) : (i1) -> i32
       %23 = "llvm.zext"(%6) : (i1) -> i32
       %24 = "llvm.alloca"(%5) <{elem_type = i32}> : (i32) -> !llvm.ptr
-      %25 = "llvm.alloca"(%5) <{elem_type = i32, alignment = 4 : i32, inalloca}> : (i32) -> !llvm.ptr
+      %25 = "llvm.alloca"(%5) <{elem_type = i32, alignment = 4 : i64, inalloca}> : (i32) -> !llvm.ptr
       "llvm.store"(%5, %24) : (i32, !llvm.ptr) -> ()
       "llvm.store"(%5, %24) <{alignment = 1 : i32, volatile_, nontemporal, invariantGroup, syncscope = "foo", access_groups = [], alias_scopes = [], noalias_scopes = [], tbaa = []}> : (i32, !llvm.ptr) -> ()
       %26 = "llvm.load"(%24) : (!llvm.ptr) -> i32
@@ -108,7 +108,7 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.sext"(%{{.*}}) : (i1) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.zext"(%{{.*}}) : (i1) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.alloca"(%{{.*}}) <{"alignment" = 0 : i64, "elem_type" = i32}> : (i32) -> !llvm.ptr
-// CHECK-NEXT:       %{{.*}} = "llvm.alloca"(%{{.*}}) <{"alignment" = 4 : i32, "elem_type" = i32, inalloca}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:       %{{.*}} = "llvm.alloca"(%{{.*}}) <{"alignment" = 4 : i64, "elem_type" = i32, inalloca}> : (i32) -> !llvm.ptr
 // CHECK-NEXT:       "llvm.store"(%{{.*}}, %{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 0 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
 // CHECK-NEXT:       "llvm.store"(%{{.*}}, %{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i32, invariantGroup, "noalias_scopes" = [], nontemporal, "syncscope" = "foo", "tbaa" = [], volatile_}> : (i32, !llvm.ptr) -> ()
 // CHECK-NEXT:       %{{.*}} = "llvm.load"(%{{.*}}) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 0 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
