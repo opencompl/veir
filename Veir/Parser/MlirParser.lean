@@ -23,7 +23,7 @@ variable {ctx : IRContext OpCode}
 /--
   The state of a block encountered during parsing.
   A block is either `Defined` (its label has been parsed) or `ForwardDeclared`
-  (it has only been referenced, e.g. as a block operand, but not yet defined).
+  (it has only been referenced, e.g., as a block operand, but not yet defined).
 -/
 inductive BlockEntry where
   | Defined (block : BlockPtr)
