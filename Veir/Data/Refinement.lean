@@ -28,3 +28,11 @@ theorem isRefinedBy_eq {w : Nat} (i i' : Veir.Data.LLVM.Int w) :
             | .val v, .val v' => v = v'
             | .val _, .poison => False
             | .poison, _ => True) := by rfl
+
+@[simp, grind .]
+theorem isRefinedBy_refl {w : Nat} (i : Veir.Data.LLVM.Int w) : i ⊒ i := by
+  grind [isRefinedBy, cases Veir.Data.LLVM.Int]
+
+theorem isRefinedBy_trans {w : Nat} {i j k : Veir.Data.LLVM.Int w}
+    (h₁ : i ⊒ j) (h₂ : j ⊒ k) : i ⊒ k := by
+  grind [isRefinedBy, cases Veir.Data.LLVM.Int]
