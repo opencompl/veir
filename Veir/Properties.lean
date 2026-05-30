@@ -115,19 +115,20 @@ def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   return { nneg := nneg }
 
 structure FastMathFlagsProperties where
-  fast : Bool
-  nnan : Bool
-  ninf : Bool
-  nsz : Bool
+  attr : FastMathFlagsAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String FastMathFlagsProperties := do
-  let fast ← getUnitAttr "fast" attrDict
-  let nnan ← getUnitAttr "nnan" attrDict
-  let ninf ← getUnitAttr "ninf" attrDict
-  let nsz ← getUnitAttr "nsz" attrDict
-  return { fast, nnan, ninf, nsz }
+
+  let value ← match attrDict["fastmathFlags".toUTF8]? with
+    | none => .ok { fast := false, nnan := false, ninf := false, nsz := false }
+    | some (.fastMathFlagsAttr flags) => .ok flags
+    | some (.unregisteredAttr attr) =>
+        .error s!"expected 'fastmathFlags' to be a fast math flags attribute, but got unregistered {attr}"
+    | some attr => .error s!"expected 'fastmathFlags' to be a float fast math flags attribute, but got {attr}"
+
+  return ⟨value⟩
 
 /--
   Properties of the `llvm.constant` operation.

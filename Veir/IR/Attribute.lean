@@ -65,6 +65,16 @@ structure IntegerAttr where
   type : IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/--
+ Floating point fastmath flags attribute.
+-/
+structure FastMathFlagsAttr where
+  fast : Bool
+  nnan : Bool
+  ninf : Bool
+  nsz : Bool
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 structure RegisterAttr where
   value : Int
   type : RegisterType
@@ -241,6 +251,8 @@ inductive Attribute
 | floatType (type : FloatType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
+/-- Float fast math flags attribute -/
+| fastMathFlagsAttr (attr : FastMathFlagsAttr)
 /-- Register type -/
 | registerType (type : RegisterType)
 /-- Register attribute -/
@@ -393,6 +405,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case fastMathFlagsAttr.fastMathFlagsAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case unregisteredAttr.unregisteredAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -484,6 +500,17 @@ instance : ToString IntegerType where
 
 instance : ToString FloatType where
   toString type := s!"f{type.bitwidth}"
+
+instance : ToString FastMathFlagsAttr where
+  toString type := Id.run do
+    let mut array : List String := []
+    if type.fast then array := array ++ ["fast"]
+    else
+      if type.nnan then array := array ++ ["nnan"]
+      if type.ninf then array := array ++ ["ninf"]
+      if type.nsz then array := array ++ ["nsz"]
+      if !type.nnan && !type.ninf && !type.nsz then array := array ++ ["none"]
+    s!"#llvm.fastmath<{String.intercalate ", " array}>"
 
 instance : ToString IntegerAttr where
   toString attr := s!"{attr.value} : {attr.type}"
@@ -628,6 +655,7 @@ def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
   | .floatType type => ToString.toString type
+  | .fastMathFlagsAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
   | .registerType type => ToString.toString type
   | .registerAttr attr => ToString.toString attr
@@ -675,6 +703,9 @@ instance : Coe IntegerType Attribute where
 
 instance : Coe FloatType Attribute where
   coe type := .floatType type
+
+instance : Coe FastMathFlagsAttr Attribute where
+  coe flags := .fastMathFlagsAttr flags
 
 instance : Coe IntegerAttr Attribute where
   coe attr := .integerAttr attr
@@ -738,6 +769,7 @@ def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
   | .floatType _ => true
+  | .fastMathFlagsAttr _ => false
   | .integerAttr _ => false
   | .stringAttr _ => false
   | .unitAttr _ => false
@@ -761,6 +793,8 @@ def isType (attr : Attribute) : Bool :=
 theorem isType_integerType type : (integerType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_floatType type : (floatType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_fastMathFlags flags : (fastMathFlagsAttr flags).isType = false := by rfl
 @[simp, grind =]
 theorem isType_unregistered unregistered :
   (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
