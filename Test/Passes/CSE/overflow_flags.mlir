@@ -24,8 +24,8 @@
 ^add_flags(%c : i32, %d : i32):
     %add_nsw_only = "llvm.add"(%c, %d) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
     %add_nuw_only = "llvm.add"(%c, %d) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
-    %add_both_a   = "llvm.add"(%c, %d) <{nuw, nsw}> : (i32, i32) -> i32
-    %add_both_b   = "llvm.add"(%c, %d) <{nuw, nsw}> : (i32, i32) -> i32
+    %add_both_a   = "llvm.add"(%c, %d) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
+    %add_both_b   = "llvm.add"(%c, %d) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
     "test.test"(%add_nsw_only, %add_nuw_only, %add_both_a, %add_both_b) : (i32, i32, i32, i32) -> ()
 
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : i32, %{{.*}} : i32):
@@ -86,8 +86,8 @@
 ^trunc_flags(%t : i64):
     %trunc_nsw  = "llvm.trunc"(%t) <{"overflowFlags" = 1 : i32}> : (i64) -> i32
     %trunc_nuw  = "llvm.trunc"(%t) <{"overflowFlags" = 2 : i32}> : (i64) -> i32
-    %trunc_both_1 = "llvm.trunc"(%t) <{nuw, nsw}> : (i64) -> i32
-    %trunc_both_2 = "llvm.trunc"(%t) <{nuw, nsw}> : (i64) -> i32
+    %trunc_both_1 = "llvm.trunc"(%t) <{"overflowFlags" = 3 : i32}> : (i64) -> i32
+    %trunc_both_2 = "llvm.trunc"(%t) <{"overflowFlags" = 3 : i32}> : (i64) -> i32
     "test.test"(%trunc_nsw, %trunc_nuw, %trunc_both_1, %trunc_both_2) : (i32, i32, i32, i32) -> ()
 
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : i64):
