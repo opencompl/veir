@@ -219,36 +219,42 @@ macro "#assert " e:term : command =>
 /-! ## LLVM Function type -/
 #assert expectSuccessType "!llvm.func<i32 (i32)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[(IntegerType.mk 32 : Attribute)] #[(IntegerType.mk 32 : Attribute)]), by rfl⟩
+    #[(IntegerType.mk 32 : Attribute)] #[(IntegerType.mk 32 : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i64 ()>"
-  ⟨.llvmFunctionType (FunctionType.mk #[] #[(IntegerType.mk 64 : Attribute)]), by rfl⟩
+  ⟨.llvmFunctionType (FunctionType.mk #[] #[(IntegerType.mk 64 : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i32 (i32, i64)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(IntegerType.mk 32 : Attribute), (IntegerType.mk 64 : Attribute)]
-    #[(IntegerType.mk 32 : Attribute)]), by rfl⟩
+    #[(IntegerType.mk 32 : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<!llvm.ptr (!llvm.ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[(LLVM.PointerType.mk : Attribute)] #[(LLVM.PointerType.mk : Attribute)]), by rfl⟩
+    #[(LLVM.PointerType.mk : Attribute)] #[(LLVM.PointerType.mk : Attribute)] (isVarArg := false)), by rfl⟩
 -- LLVM pretty-print sugar: bare `void` and `ptr` keywords inside `!llvm.func<...>`.
 #assert expectSuccessType "!llvm.func<void ()>"
   ⟨.llvmFunctionType (FunctionType.mk #[]
-    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)]), by rfl⟩
+    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<void (i32)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(IntegerType.mk 32 : Attribute)]
-    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)]), by rfl⟩
+    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i32 (ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
-    #[(LLVM.PointerType.mk : Attribute)] #[(IntegerType.mk 32 : Attribute)]), by rfl⟩
+    #[(LLVM.PointerType.mk : Attribute)] #[(IntegerType.mk 32 : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<void (ptr, ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(LLVM.PointerType.mk : Attribute), (LLVM.PointerType.mk : Attribute)]
-    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)]), by rfl⟩
+    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)] (isVarArg := false)), by rfl⟩
 -- Bare sugar mixed with the explicit `!llvm.ptr` form within one function type.
 #assert expectSuccessType "!llvm.func<void (!llvm.ptr, ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(LLVM.PointerType.mk : Attribute), (LLVM.PointerType.mk : Attribute)]
-    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)]), by rfl⟩
+    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)] (isVarArg := false)), by rfl⟩
+-- Variadic function types: a trailing `...`, with or without fixed parameters.
+#assert expectSuccessType "!llvm.func<i32 (ptr, ...)>"
+  ⟨.llvmFunctionType (FunctionType.mk
+    #[(LLVM.PointerType.mk : Attribute)] #[(IntegerType.mk 32 : Attribute)] (isVarArg := true)), by rfl⟩
+#assert expectSuccessType "!llvm.func<i32 (...)>"
+  ⟨.llvmFunctionType (FunctionType.mk #[] #[(IntegerType.mk 32 : Attribute)] (isVarArg := true)), by rfl⟩
 
 /-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
