@@ -196,6 +196,7 @@ mutual
 structure FunctionType where
   inputs : Array Attribute
   outputs : Array Attribute
+  isVarArg : Bool := false
 deriving Inhabited, Repr, Hashable
 
 /--
@@ -325,7 +326,11 @@ def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) 
   match Array.instDecidabelEq' inputs1 inputs2 (fun x y _ _ => Attribute.decEq x y) with
   | isTrue _ =>
     match Array.instDecidabelEq' outputs1 outputs2 (fun x y _ _ => Attribute.decEq x y) with
-    | isTrue _ => isTrue (by grind [cases FunctionType])
+    | isTrue _ =>
+      if h : type1.isVarArg = type2.isVarArg then
+        isTrue (by grind [cases FunctionType])
+      else
+        isFalse (by grind)
     | isFalse _ => isFalse (by grind)
   | isFalse _ => isFalse (by grind)
 termination_by sizeOf type1
@@ -574,7 +579,9 @@ decreasing_by
   grind [Array.sizeOf_lt_of_mem this, cases DictionaryAttr]
 
 def FunctionType.toLLVMString (type : FunctionType) : String :=
-  let params := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
+  let paramStrs := type.inputs.toList.map Attribute.toString
+  let paramStrs := if type.isVarArg then paramStrs ++ ["..."] else paramStrs
+  let params := String.intercalate ", " paramStrs
   let result := match _ : type.outputs.size with
     | 1 => Attribute.toString type.outputs[0]
     | _ => "<invalid>"

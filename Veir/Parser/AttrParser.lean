@@ -385,6 +385,11 @@ def parseOptionalHWModuleType : AttrParserM (Option HW.ModuleType) := do
   let ports ← parseDelimitedList .angle parseHWModulePort
   return some { ports }
 
+/-- A parsed entry in an LLVM function type's parameter list. -/
+inductive LLVMFuncParam
+  | type (ty : TypeAttr)
+  | ellipsis
+
 mutual
 
 /--
@@ -424,11 +429,11 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
     -- Convert the parsed types to attributes, as FunctionType stores attributes instead
     -- of types.
     let outputs := outputs.map (fun x => x.val)
-    return some (FunctionType.mk inputs outputs)
+    return some (FunctionType.mk inputs outputs (isVarArg := false))
   | none =>
     -- If there is no list of output, check for a single output type.
     let outputType ← parseType "function type output expected"
-    return some (FunctionType.mk inputs #[outputType])
+    return some (FunctionType.mk inputs #[outputType] (isVarArg := false))
 
 /--
   Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"
@@ -443,6 +448,8 @@ partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM T
 
 /--
   Parse an LLVM function type `!llvm.func<resultType (paramTypes,...)>`, if present.
+  A trailing `...` parameter marks the function as variadic; the ellipsis is invalid
+  in any position other than the last.
 -/
 partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
   let token ← peekToken
@@ -453,9 +460,18 @@ partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
   let _ ← consumeToken
   parsePunctuation "<"
   let result ← parseLLVMType "llvm.func result type expected"
-  let params ← parseDelimitedList .paren parseLLVMType
+  let params ← parseDelimitedList .paren do
+    if (← parseOptionalToken .ellipsis).isSome then
+      return LLVMFuncParam.ellipsis
+    return LLVMFuncParam.type (← parseLLVMType)
   parsePunctuation ">"
-  let ft := FunctionType.mk (params.map (·.val)) #[result.val]
+  if params.pop.any (· matches .ellipsis) then
+    throwAtCurrentPos "'...' is only valid as the last parameter of an LLVM function type"
+  let isVarArg := params.any (· matches .ellipsis)
+  let paramTypes := params.filterMap fun
+    | .type ty => some ty.val
+    | .ellipsis => none
+  let ft := FunctionType.mk paramTypes #[result.val] isVarArg
   return some ⟨.llvmFunctionType ft, by rfl⟩
 
 /--
