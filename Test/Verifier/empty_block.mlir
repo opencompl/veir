@@ -6,4 +6,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: the block is empty
+// CHECK: Expected the block to end in a terminator, but the block is empty
