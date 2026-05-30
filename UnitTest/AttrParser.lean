@@ -56,34 +56,45 @@ def expectSuccessAttr (s : String) (expected : Attribute)
   testAttr s allowUnregisteredDialect = .ok expected
 
 /--
+  Extract the message and byte offset of a parser error, so tests can assert
+  both the message and the source location.
+-/
+def errorInfo (e : ParserError) : String × Option Nat :=
+  (e.msg, e.pos.map (·.byteOffset))
+
+/--
   Test that parsing a type in the given string returns none in the parseOptional variant,
-  and returns the expected error in the parse variant.
+  and returns the expected error and byte offset in the parse variant.
 -/
 def expectMissingType (s : String) : Bool :=
-  testOptionalType s = .ok none && (testType s).mapError (·.msg) = .error "type expected"
+  testOptionalType s = .ok none
+    && (testType s).mapError errorInfo = .error ("type expected", some 0)
 
 /--
   Test that parsing an attribute in the given string returns none in the parseOptional variant,
-  and returns the expected error in the parse variant.
+  and returns the expected error and byte offset in the parse variant.
 -/
 def expectMissingAttr (s : String) : Bool :=
-  testOptionalAttr s = .ok none && (testAttr s).mapError (·.msg) = .error "attribute expected"
+  testOptionalAttr s = .ok none
+    && (testAttr s).mapError errorInfo = .error ("attribute expected", some 0)
 
 /--
-  Test that parsing a type in the given string returns the expected error in both variants.
+  Test that parsing a type in the given string returns the expected error and byte offset
+  in both variants.
 -/
-def expectErrorType (s : String) (expected : String)
+def expectErrorType (s : String) (expected : String) (pos : Option Nat)
     (allowUnregisteredDialect : Bool := false) : Bool :=
-  (testOptionalType s allowUnregisteredDialect).mapError (·.msg) = .error expected
-    && (testType s allowUnregisteredDialect).mapError (·.msg) = .error expected
+  (testOptionalType s allowUnregisteredDialect).mapError errorInfo = .error (expected, pos)
+    && (testType s allowUnregisteredDialect).mapError errorInfo = .error (expected, pos)
 
 /--
-  Test that parsing an attribute in the given string returns the expected error in both variants.
+  Test that parsing an attribute in the given string returns the expected error and byte offset
+  in both variants.
 -/
-def expectErrorAttr (s : String) (expected : String)
+def expectErrorAttr (s : String) (expected : String) (pos : Option Nat)
     (allowUnregisteredDialect : Bool := false) : Bool :=
-  (testOptionalAttr s allowUnregisteredDialect).mapError (·.msg) = .error expected
-    && (testAttr s allowUnregisteredDialect).mapError (·.msg) = .error expected
+  (testOptionalAttr s allowUnregisteredDialect).mapError errorInfo = .error (expected, pos)
+    && (testAttr s allowUnregisteredDialect).mapError errorInfo = .error (expected, pos)
 
 /--
   Macro to simplify test assertions. Wraps the test in #guard_msgs and #eval,
@@ -98,7 +109,7 @@ macro "#assert " e:term : command =>
 
 /-! ## General errors -/
 
-#assert expectErrorType "\"" "expected '\"' in string literal"
+#assert expectErrorType "\"" "expected '\"' in string literal" none
 #assert expectMissingType "foo"
 #assert expectMissingAttr "i0x4"
 
@@ -114,7 +125,7 @@ macro "#assert " e:term : command =>
 
 /-! ## Integer attributes -/
 
-#assert expectErrorAttr "0 : 2" "integer type expected after ':' in integer attribute"
+#assert expectErrorAttr "0 : 2" "integer type expected after ':' in integer attribute" (some 4)
 #assert expectSuccessAttr "0 : i32" (IntegerAttr.mk 0 (IntegerType.mk 32))
 #assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.mk 1))
 #assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.mk 1))
@@ -158,7 +169,7 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "array<i32: 10, 42>" (DenseArrayAttr.mk (IntegerType.mk 32) #[10, 42])
 #assert expectSuccessAttr "array<i64: -1>" (DenseArrayAttr.mk (IntegerType.mk 64) #[-1])
 #assert expectSuccessAttr "array<i16: 0>" (DenseArrayAttr.mk (IntegerType.mk 16) #[0])
-#assert expectErrorAttr "array<>" "integer type expected in dense array attribute"
+#assert expectErrorAttr "array<>" "integer type expected in dense array attribute" (some 6)
 
 /-! ## Unregistered dialect type -/
 
@@ -166,9 +177,9 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!foo<bar>" ⟨UnregisteredAttr.mk "!foo<bar>" true, by grind⟩ true
 #assert expectSuccessType "!test.test<bar>" ⟨UnregisteredAttr.mk "!test.test<bar>" true, by grind⟩ true
 
-#assert expectErrorType "!foo.bar" "type is not registered. Consider using --allow-unregistered-dialect." false
-#assert expectErrorType "!foo<bar>" "type is not registered. Consider using --allow-unregistered-dialect." false
-#assert expectErrorType "!test.test<bar>" "type is not registered. Consider using --allow-unregistered-dialect." false
+#assert expectErrorType "!foo.bar" "type is not registered. Consider using --allow-unregistered-dialect." (some 0) false
+#assert expectErrorType "!foo<bar>" "type is not registered. Consider using --allow-unregistered-dialect." (some 0) false
+#assert expectErrorType "!test.test<bar>" "type is not registered. Consider using --allow-unregistered-dialect." (some 0) false
 
 
 /-! ## Unregistered dialect attribute -/
@@ -176,8 +187,8 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#foo<bar>" (UnregisteredAttr.mk "#foo<bar>" false) true
 #assert expectSuccessAttr "#test.test<bar>" (UnregisteredAttr.mk "#test.test<bar>" false) true
 
-#assert expectErrorAttr "#foo<bar>" "attribute is not registered. Consider using --allow-unregistered-dialect." false
-#assert expectErrorAttr "#test.test<bar>" "attribute is not registered. Consider using --allow-unregistered-dialect." false
+#assert expectErrorAttr "#foo<bar>" "attribute is not registered. Consider using --allow-unregistered-dialect." (some 0) false
+#assert expectErrorAttr "#test.test<bar>" "attribute is not registered. Consider using --allow-unregistered-dialect." (some 0) false
 
 
 /-! ## Location attribute -/
@@ -195,8 +206,8 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!mod_arith.int<17>" (ModArithType.mk 17 none)
 #assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk 257 (some (IntegerType.mk 32)))
 #assert expectSuccessAttr "!mod_arith.int<17>" (ModArithType.mk 17 none)
-#assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected"
-#assert expectErrorType "!mod_arith.int<17 : x>" "integer type expected after ':' in modarith type"
+#assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected" (some 15)
+#assert expectErrorType "!mod_arith.int<17 : x>" "integer type expected after ':' in modarith type" (some 20)
 
 /-! ## LLVM Pointer type -/
 #assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)
@@ -242,7 +253,7 @@ macro "#assert " e:term : command =>
 /-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))
-#assert expectErrorType "!cuda_tile.ptr<16>" "integer type expected"
+#assert expectErrorType "!cuda_tile.ptr<16>" "integer type expected" (some 15)
 
 /-! ## Flat symbol reference attribute -/
 #assert expectSuccessAttr "@foo" (FlatSymbolRefAttr.mk "@foo")
@@ -257,6 +268,6 @@ macro "#assert " e:term : command =>
     {name := "a", type := IntegerType.mk 3, dir := .input},
     {name := "b", type := IntegerType.mk 6, dir := .inout},
     {name := "c", type := IntegerType.mk 10, dir := .output}])
-#assert expectErrorType "!hw.modty<foo>" "module port expected"
-#assert expectErrorType "!hw.modty<input : foo>" "identifier expected"
-#assert expectErrorType "!hw.modty<input a : foo>" "integer type expected"
+#assert expectErrorType "!hw.modty<foo>" "module port expected" (some 10)
+#assert expectErrorType "!hw.modty<input : foo>" "identifier expected" (some 16)
+#assert expectErrorType "!hw.modty<input a : foo>" "integer type expected" (some 20)

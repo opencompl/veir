@@ -90,7 +90,7 @@ def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
 def parseIntegerType (errorMsg : String := "integer type expected") : AttrParserM IntegerType := do
   match ← parseOptionalIntegerType with
   | some integerType => return integerType
-  | none => throwString errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse a register type, throwing an error if it is not present.
@@ -99,7 +99,7 @@ def parseIntegerType (errorMsg : String := "integer type expected") : AttrParser
 def parseRegisterType (errorMsg : String := "register type expected") : AttrParserM RegisterType := do
   match ← parseOptionalRegisterType with
   | some registerType => return registerType
-  | none => throwString errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse an integer attribute, if present.
@@ -135,7 +135,7 @@ def parseStringAttr (errorMsg : String := "string attribute expected") :
     AttrParserM StringAttr := do
   match ← parseOptionalStringAttr with
   | some stringAttr => return stringAttr
-  | none => throwString errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse a unit attribute, if present.
@@ -212,17 +212,17 @@ private def parseUnregisteredAttrBody (endToken : TokenKind := .greater)
         if token.kind == endToken then
           endPos := token.slice.start
           break
-        throwString s!"unexpected closing bracket {closingName} in attribute body"
+        throwAt token.slice.start s!"unexpected closing bracket {closingName} in attribute body"
       /- If we have an open bracket, check that we are closing it
          with the right bracket kind. -/
       if bracketStack.back! != expected then
-        throwString s!"unexpected closing bracket {closingName} in attribute body"
+        throwAt token.slice.start s!"unexpected closing bracket {closingName} in attribute body"
       let _ ← consumeToken
       bracketStack := bracketStack.pop
 
     /- Checking for unexpected EOF -/
     else if token.kind == .eof then
-      throwString "unexpected end of file before closing of attribute body"
+      throwAt token.slice.start "unexpected end of file before closing of attribute body"
 
     /- Other tokens -/
     else
@@ -231,7 +231,7 @@ private def parseUnregisteredAttrBody (endToken : TokenKind := .greater)
   let body := (Slice.mk startPos endPos).of input
   match String.fromUTF8? body with
   | some s => return s
-  | none => throwString "failed converting attribute body to string"
+  | none => throwAt startPos "failed converting attribute body to string"
 
 /--
   Parse a dialect type, if present.
@@ -315,7 +315,7 @@ partial def parseOptionalCudaTilePointerType : AttrParserM (Option TypeAttr) := 
   let _ ← consumeToken
   parsePunctuation "<"
   let some intTy ← parseOptionalIntegerType
-    | throwString "integer type expected"
+    | throwAtCurrentPos "integer type expected"
   parsePunctuation ">"
   return some (CudaTile.PointerType.mk intTy)
 
@@ -333,7 +333,7 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
   let _ ← consumeToken
   parsePunctuation "<"
   let some modulus ← parseOptionalInteger false false
-    | throwString "modarith type modulus expected"
+    | throwAtCurrentPos "modarith type modulus expected"
   let modulusType ←
     if ← parseOptionalPunctuation ":" then
       some <$> parseIntegerType "integer type expected after ':' in modarith type"
@@ -369,7 +369,7 @@ def parseOptionalHWModulePort : AttrParserM (Option HW.ModulePort) := do
 def parseHWModulePort (errorMsg : String := "module port expected") : AttrParserM (HW.ModulePort) := do
   match ← parseOptionalHWModulePort with
   | some ty => return ty
-  | none => throwString errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse CIRCT's HW dialect's `ModuleType` type.
@@ -493,7 +493,7 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
 partial def parseType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   match ← parseOptionalType with
   | some ty => return ty
-  | none => throwString errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse an entry in an attribute dictionary, which has the form `name = value`
@@ -521,7 +521,7 @@ partial def parseAttributeDictionary (errorMsg : String := "attribute dictionary
     AttrParserM (Array (ByteArray × Attribute)) := do
   match ← parseOptionalAttributeDictionary with
   | some dict => return dict
-  | none => throwString errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse an array attribute, if present.
@@ -575,7 +575,7 @@ partial def parseAttribute (errorMsg : String := "attribute expected") :
     AttrParserM Attribute := do
   match ← parseOptionalAttribute with
   | some attr => return attr
-  | none => throwString errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 end
 
