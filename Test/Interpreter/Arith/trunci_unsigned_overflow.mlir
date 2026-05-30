@@ -6,8 +6,8 @@
     %c255 = "arith.constant"() <{ "value" = 255 : i32 }> : () -> i32
     // 256 does not fit in i8 unsigned: zext(trunc(256)) == 0 != 256, poison
     %c256 = "arith.constant"() <{ "value" = 256 : i32 }> : () -> i32
-    %a = "arith.trunci"(%c255) <{nuw}> : (i32) -> i8
-    %b = "arith.trunci"(%c256) <{nuw}> : (i32) -> i8
+    %a = "arith.trunci"(%c255) <{"overflowFlags" = 2 : i32}> : (i32) -> i8
+    %b = "arith.trunci"(%c256) <{"overflowFlags" = 2 : i32}> : (i32) -> i8
     "func.return"(%a, %b) : (i8, i8) -> ()
   }) : () -> ()
 }) : () -> ()

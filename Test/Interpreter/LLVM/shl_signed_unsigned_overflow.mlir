@@ -5,9 +5,9 @@
     %lhs = "llvm.mlir.constant"() <{ "value" = 4 : i8 }> : () -> i8
     %rhs = "llvm.mlir.constant"() <{ "value" = 6 : i8 }> : () -> i8
     %none = "llvm.shl"(%lhs, %rhs) : (i8, i8) -> i8
-    %nsw = "llvm.shl"(%lhs, %rhs) <{nsw}> : (i8, i8) -> i8
-    %nuw = "llvm.shl"(%lhs, %rhs) <{nuw}> : (i8, i8) -> i8
-    %nuw_nsw = "llvm.shl"(%lhs, %rhs) <{nuw, nsw}> : (i8, i8) -> i8
+    %nsw = "llvm.shl"(%lhs, %rhs) <{"overflowFlags" = 1 : i32}> : (i8, i8) -> i8
+    %nuw = "llvm.shl"(%lhs, %rhs) <{"overflowFlags" = 2 : i32}> : (i8, i8) -> i8
+    %nuw_nsw = "llvm.shl"(%lhs, %rhs) <{"overflowFlags" = 3 : i32}> : (i8, i8) -> i8
     "func.return"(%none, %nsw, %nuw, %nuw_nsw) : (i8, i8, i8, i8) -> ()
   }) : () -> ()
 }) : () -> ()
