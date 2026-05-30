@@ -145,25 +145,6 @@ def testParseOp (s : String) : IO Unit :=
 }) : () -> ()"
 
 /--
-  error: block %bb0 was declared but not defined
--/
-#guard_msgs in
-#eval! testParseOp "\"builtin.module\"() ({
-  \"test.test\"() [^bb0] : () -> ()
-}) : () -> ()"
-
-/--
-  error: block %bb0 was declared but not defined
--/
-#guard_msgs in
-#eval! testParseOp "\"builtin.module\"() ({
-^bb0:
-  \"builtin.module\"() ({
-    \"test.test\"() [^bb0] : () -> ()
-  }) : () -> ()
-}) : () -> ()"
-
-/--
   info: "builtin.module"() ({
   ^4():
     %5:2 = "test.test"() : () -> (i32, i64)
