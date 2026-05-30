@@ -21,6 +21,7 @@
 
 // `add nsw`, `add nuw`, and `add nsw,nuw` all remain distinct; the duplicate
 // `add nsw,nuw` does merge with itself.
+    "llvm.return"() : () -> ()
 ^add_flags(%c : i32, %d : i32):
     %add_nsw_only = "llvm.add"(%c, %d) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
     %add_nuw_only = "llvm.add"(%c, %d) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
@@ -35,6 +36,7 @@
     // CHECK-NEXT: "test.test"(%[[ADD_NSW_ONLY]], %[[ADD_NUW_ONLY]], %[[ADD_BOTH]], %[[ADD_BOTH]])
 
 // Commutativity applies under matching flags: `add nsw a b` and `add nsw b a` merge.
+    "llvm.return"() : () -> ()
 ^add_comm(%e : i32, %f : i32):
     %add_comm_1 = "llvm.add"(%e, %f) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
     %add_comm_2 = "llvm.add"(%f, %e) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
@@ -45,6 +47,7 @@
     // CHECK-NEXT: "test.test"(%[[ADD_COMM]], %[[ADD_COMM]])
 
 // `mul nsw` vs `mul nuw` are distinct; `mul nsw` with commuted operands merges.
+    "llvm.return"() : () -> ()
 ^mul_flags(%g : i32, %h : i32):
     %mul_nsw = "llvm.mul"(%g, %h) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
     %mul_nuw = "llvm.mul"(%g, %h) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
@@ -57,6 +60,7 @@
     // CHECK-NEXT: "test.test"(%[[MUL_NSW]], %[[MUL_NUW]], %[[MUL_NSW]])
 
 // `sub` is non-commutative; nsw still partitions identity.
+    "llvm.return"() : () -> ()
 ^sub_flags(%i : i32, %j : i32):
     %sub_nsw_1 = "llvm.sub"(%i, %j) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
     %sub_nsw_2 = "llvm.sub"(%i, %j) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
@@ -69,6 +73,7 @@
     // CHECK-NEXT: "test.test"(%[[SUB_NSW]], %[[SUB_NSW]], %[[SUB_PLAIN]])
 
 // `shl` carries nsw/nuw; three flag combos must remain three ops.
+    "llvm.return"() : () -> ()
 ^shl_flags(%k : i32, %l : i32):
     %shl_nsw_1 = "llvm.shl"(%k, %l) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
     %shl_nsw_2 = "llvm.shl"(%k, %l) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
@@ -83,6 +88,7 @@
     // CHECK-NEXT: "test.test"(%[[SHL_NSW]], %[[SHL_NSW]], %[[SHL_NUW]], %[[SHL_PLAIN]])
 
 // `trunc` carries nsw/nuw; three flag combos remain three ops.
+    "llvm.return"() : () -> ()
 ^trunc_flags(%t : i64):
     %trunc_nsw  = "llvm.trunc"(%t) <{"overflowFlags" = 1 : i32}> : (i64) -> i32
     %trunc_nuw  = "llvm.trunc"(%t) <{"overflowFlags" = 2 : i32}> : (i64) -> i32
@@ -95,5 +101,6 @@
     // CHECK-NEXT: %[[TRUNC_NUW:.*]] = "llvm.trunc"(%{{.*}}) <{"overflowFlags" = 2 : i32}> : (i64) -> i32
     // CHECK-NEXT: %[[TRUNC_BOTH:.*]] = "llvm.trunc"(%{{.*}}) <{"overflowFlags" = 3 : i32}> : (i64) -> i32
     // CHECK-NEXT: "test.test"(%[[TRUNC_NSW]], %[[TRUNC_NUW]], %[[TRUNC_BOTH]], %[[TRUNC_BOTH]])
+    "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

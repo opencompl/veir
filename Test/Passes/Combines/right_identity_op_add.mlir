@@ -12,5 +12,6 @@
         %add1 = "riscv.add"(%a, %c1) : (!reg, !reg) -> !reg
         // CHECK-NEXT:       [[one:%.*]] = "riscv.li"() <{"value" = 1 : i64}> : () -> !reg
         // CHECK-NEXT:       %{{.*}} =  "riscv.add"([[arg]], [[one]]) : (!reg, !reg) -> !reg
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

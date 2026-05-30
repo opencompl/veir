@@ -300,3 +300,32 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | _ =>
     Std.HashMap.emptyWithCapacity 0
+
+inductive RegionKind where
+| SSACFG
+| Graph
+deriving Inhabited, Repr, DecidableEq
+
+/--
+  Return the kind of the region with the given index inside this operation.
+  This mirrors MLIR's RegionKindInterface default: regions are SSACFG unless
+  the operation is known to define graph regions.
+-/
+def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
+  match opCode with
+  | .builtin .module
+  | .builtin .unregistered
+  | .test .test => .Graph
+  | _ => .SSACFG
+
+/--
+  Does this OpCode count as an MLIR basic block terminator?
+-/
+def OpCode.isTerminator (opCode : OpCode) : Bool :=
+  match opCode with
+  | .cf .br | .cf .cond_br
+  | .func .return
+  | .llvm .br | .llvm .cond_br | .llvm .return
+  | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
+  | .hw .output => true
+  | _ => false

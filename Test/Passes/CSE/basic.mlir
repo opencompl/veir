@@ -20,6 +20,7 @@
     // CHECK-NEXT: %[[SUB1:.*]] = "llvm.sub"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
     // CHECK-NEXT: "test.test"(%[[SUB0]], %[[SUB1]]) : (i32, i32) -> ()
 
+    "llvm.return"() : () -> ()
 ^bb1(%arg2 : i32, %arg3 : i32):
     %sum_other_block = "llvm.add"(%arg2, %arg3) : (i32, i32) -> i32
     "test.test"(%sum_other_block) : (i32) -> ()
@@ -27,5 +28,6 @@
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : i32, %{{.*}} : i32):
     // CHECK-NEXT: %[[OTHER:.*]] = "llvm.add"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
     // CHECK-NEXT: "test.test"(%[[OTHER]]) : (i32) -> ()
+    "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

@@ -8,5 +8,6 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"([[A]]) : (!reg) -> i64
         // CHECK-NEXT: [[B:%.*]] = "riscv.li"() <{"value" = 2 : i64}> : () -> !reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"([[B]]) : (!reg) -> i64
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

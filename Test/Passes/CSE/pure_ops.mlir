@@ -73,5 +73,6 @@
     // CHECK-NEXT: %[[ZEXT_I16:.*]] = "llvm.zext"(%[[COND0]]) : (i1) -> i16
     // CHECK-NEXT: %[[ZEXT_I32:.*]] = "llvm.zext"(%[[COND0]]) : (i1) -> i32
     // CHECK-NEXT: "test.test"(%[[SEXT]], %[[SEXT]], %[[ZEXT_I16]], %[[ZEXT_I32]], %[[ZEXT_I32]]) : (i32, i32, i16, i32, i32) -> ()
+    "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

@@ -8,6 +8,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i64
         "test.test"(%1) : (i64) -> ()
         // CHECK:      "test.test"(%{{.*}}) : (i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
     
   ^2():
@@ -17,6 +18,7 @@
         "test.test"(%1) : (!reg) -> ()
         // CHECK:       "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !reg
         // CHECK-NEXT:  "test.test"(%{{.*}}) : (!reg) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
     
   ^3():
@@ -28,6 +30,7 @@
         "test.test"(%2) : (i64) -> ()
         // CHECK:       ^{{.*}}([[ARG:%.*]] : i64):
         // CHECK-NEXT:  "test.test"([[ARG]]) : (i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
 
   ^4():
@@ -42,6 +45,7 @@
         // CHECK-NEXT:   %{{.*}} = "builtin.unrealized_conversion_cast"([[ARG]]) : (i64) -> !reg
         // CHECK-NEXT:   %{{.*}} = "test.test"(%{{.*}}) : (!reg) -> !reg
         // CHECK-NEXT:   "test.test"(%{{.*}}, [[ARG]]) : (!reg, i64) -> ()  
+        "func.return"() : () -> ()
     }) : () -> ()
     
   ^5():
@@ -54,6 +58,7 @@
         "test.test"(%3) : (i64) -> ()
         // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
         // CHECK-NEXT:   "test.test"([[ARG]]) : (i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
   
   ^6():
@@ -67,6 +72,7 @@
         "test.test"(%2, %4) : (i64, i64) -> ()
         // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
         // CHECK-NEXT:   "test.test"([[ARG]], [[ARG]]) : (i64, i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
     
   ^7():
@@ -77,6 +83,7 @@
         "test.test"(%1) : (!reg) -> ()
         // CHECK:        ^{{.*}}([[ARG:%.*]] : !reg):
         // CHECK-NEXT:   "test.test"([[ARG]]) : (!reg) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
   
   ^8():
@@ -85,6 +92,7 @@
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i8) -> i8
         "test.test"(%1) : (i8) -> ()
         // CHECK:        "test.test"(%{{.*}}) : (i8) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
     
   ^9():
@@ -98,6 +106,7 @@
         "test.test"(%2, %4) : (i64, i64) -> ()
         // CHECK:        ^{{.*}}([[ARG:%.*]] : i64):
         // CHECK-NEXT:   "test.test"([[ARG]], [[ARG]]) : (i64, i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
     
     

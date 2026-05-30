@@ -6,5 +6,6 @@
         %two = "llvm.mlir.constant"() <{ "value" = 2 : i32 }> : () -> i32
         // CHECK:      %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
         // CHECK-NEXT: %{{.*}} = "llvm.mlir.constant"() <{"value" = 2 : i32}> : () -> i32
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

@@ -14,5 +14,6 @@
         // CHECK-NEXT: %{{.*}} = "riscv.divu"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!reg) -> i64
 
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

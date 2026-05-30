@@ -10,6 +10,7 @@
       ^10(%arg10_0 : i32):
         "riscv_cf.bne"(%arg10_0, %arg10_0, %arg10_0, %arg10_0) [^10, ^9] <{"operandSegmentSizes" = array<i32: 1, 1, 1, 1>}> : (i32, i32, i32, i32) -> ()
       ^9(%arg9_0 : i32):
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()
 
@@ -23,5 +24,6 @@
 // CHECK-NEXT:       ^[[b2]](%{{.*}} : i32):
 // CHECK-NEXT:         "riscv_cf.bne"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) [^[[b2]], ^[[b3]]] <{"operandSegmentSizes" = array<i32: 1, 1, 1, 1>}> : (i32, i32, i32, i32) -> ()
 // CHECK-NEXT:       ^[[b3]](%{{.*}} : i32):
+// CHECK-NEXT:         "func.return"() : () -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT: }) : () -> ()

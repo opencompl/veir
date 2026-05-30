@@ -1875,13 +1875,56 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     pure ()
 
+/--
+  Return the kind of this region.
+-/
+def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCode) : RegionKind :=
+  match (region.get! ctx.raw).parent with
+  | some parentOp =>
+    let parent := parentOp.get! ctx.raw
+    parent.opType.getRegionKind (parent.regions.idxOf region)
+  | none => .SSACFG
+
+/--
+  Verify that a terminator only ever appears as the last operation of its block:
+  an operation that is a terminator must not be followed by another operation.
+-/
+def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let operation := op.get ctx.raw opIn
+  if operation.opType.isTerminator && operation.next.isSome then
+    throw "Expected a terminator to be the last operation of its block"
+
+/--
+  Check that a block is non-empty and its last operation is a
+  terminator.
+-/
+def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  let b := block.get ctx.raw blockIn
+  match b.lastOp with
+  | none => throw "Expected the block to end in a terminator, but the block is empty"
+  | some lastOp =>
+    if !(lastOp.getOpType! ctx.raw).isTerminator then
+      throw "Expected the last operation of a block to be a terminator"
+
 public section
 
 /--
   Verify that all operations in the IRContext satisfy their local invariants.
 -/
-def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := Id.run do
-  ctx.raw.forOpsDepM (fun op opIn => op.verifyLocalInvariants ctx opIn)
+def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
+  ctx.raw.forOpsDepM (fun op opIn => do
+    op.verifyLocalInvariants ctx opIn
+    match (op.get ctx.raw opIn).parent with
+    | some _ => op.verifyTerminatorPosition ctx opIn
+    | none => pure ())
+  ctx.raw.forBlocksDepM (fun block blockIn => do
+    match (block.get ctx.raw blockIn).parent with
+    | some region =>
+      if region.getRegionKind ctx = .SSACFG then
+        block.verifyTerminator ctx blockIn
+    | none => pure ())
 
 /--
 Assert that all operations in the IRContext satisfy their local invariants.
