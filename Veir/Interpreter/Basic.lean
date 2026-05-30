@@ -122,6 +122,12 @@ structure VariableState (ctx : WfIRContext OpInfo) where
   variablesIn : ∀ val, val ∈ variables → val.InBounds ctx.raw
 
 /--
+  Create a variable state with no variables defined.
+-/
+def VariableState.empty (ctx : WfIRContext OpInfo) : VariableState ctx :=
+  ⟨Std.ExtHashMap.emptyWithCapacity 8, by simp [VariableState.ValuesConform], by simp⟩
+
+/--
   The state of the interpreter at a given point in time.
   It includes a mapping from IR values to their runtime values.
 -/
@@ -134,7 +140,7 @@ structure InterpreterState (ctx : WfIRContext OpInfo) where
   Create an interpreter state with no variables defined.
 -/
 def InterpreterState.empty (ctx : WfIRContext OpInfo) : InterpreterState ctx :=
-  { variables := ⟨Std.ExtHashMap.emptyWithCapacity 8, by simp [VariableState.ValuesConform], by simp⟩, memory := .empty }
+  { variables := .empty ctx, memory := .empty }
 
 /--
   Set the value of a variable.
@@ -1180,6 +1186,25 @@ def interpretRegion (region : RegionPtr) (values : Array RuntimeValue) {ctx : Wf
     Interp (InterpreterState ctx × Array RuntimeValue) := do
   rlet block ← (region.get ctx.raw).firstBlock
   interpretBlockCFG block values state
+
+/--
+  Interpret an operation representing a function, given the runtime values of its arguments
+  and the current memory state. Return the resulting memory state and the values eventually
+  returned.
+
+  Unlike the other interpreter functions, this does not take an `InterpreterState`:
+  a function call starts with a fresh, empty variable state, since the caller's SSA
+  values are not visible inside the callee.
+-/
+def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
+    (mem : MemoryState) (opIn : op.InBounds ctx.raw := by grind) :
+    Interp (MemoryState × Array RuntimeValue) := do
+  if h : op.getNumRegions ctx.raw ≠ 1 then
+    none
+  else
+    let state : InterpreterState ctx := ⟨.empty ctx, mem⟩
+    let (state, results) ← interpretRegion (op.getRegion ctx.raw 0) values state
+    return (state.memory, results)
 
 /--
   Interpret a builtin.module operation.
