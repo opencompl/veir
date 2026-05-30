@@ -867,7 +867,9 @@ theorem RegionPtr.WellFormed_unchanged {regionPtr : RegionPtr}
     regionPtr.WellFormed ctx' := by
   constructor <;> grind [RegionPtr.WellFormed]
 
-noncomputable def BlockPtr.operationList (block : BlockPtr) (ctx : IRContext OpInfo) (hctx : ctx.WellFormed) (hblock : block.InBounds ctx) : Array OperationPtr :=
+noncomputable def BlockPtr.operationList (block : BlockPtr) (ctx : IRContext OpInfo)
+    (hctx : ctx.WellFormed := by grind) (hblock : block.InBounds ctx := by grind) :
+    Array OperationPtr :=
   (hctx.opChain block hblock).choose
 
 theorem BlockPtr.operationListWF (ctx : IRContext OpInfo) (block : BlockPtr) (hblock : block.InBounds ctx)
