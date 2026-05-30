@@ -91,6 +91,21 @@ theorem VariableState.getVar?_setResultValues? :
       varState.getVar? value := by
   grind [VariableState.setResultValues?, VariableState.getVar?_setResultValues?_loop]
 
+theorem VariableState.getVar?_setResultValues?_of_notMem_getResults! {value resultValues} :
+    value ∉ op.getResults! ctx.raw →
+    varState.setResultValues? op resultValues inBounds = some varState' →
+    varState'.getVar? value = varState.getVar? value := by
+  intro hNotMemResults hSetResults
+  simp only [VariableState.getVar?_setResultValues? hSetResults]
+  rcases value with ⟨op₂, index⟩ | _
+  · simp only [OperationPtr.getResults!.mem_iff_exists_index, ValuePtr.opResult.injEq, not_exists,
+    not_and] at hNotMemResults
+    grind [OperationPtr.getResult_def]
+  · grind
+
+grind_pattern VariableState.getVar?_setResultValues?_of_notMem_getResults! =>
+  op.getResults! ctx, varState.setResultValues? op resultValues, varState'.getVar? value
+
 @[grind =>]
 theorem VariableState.getVar?_setResultValues?_of_value_inBounds
     (valueInBounds : value.InBounds ctx.raw) :
