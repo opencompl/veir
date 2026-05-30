@@ -1136,31 +1136,33 @@ decreasing_by grind
 
 /--
   Interpret a block of operations, starting from the first operation in the block.
+  The block arguments are set from `values` before interpreting the operations.
   Return the resulting interpreter state and a ControlFlowAction indicating how
   to continue the interpretation.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlock (blockPtr : BlockPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
-    (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
+def interpretBlock (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
+    (state : InterpreterState ctx) (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
     Interp (InterpreterState ctx × ControlFlowAction) := do
+  let newVars ← state.variables.setArgumentValues? blockPtr values
+  let state := ⟨newVars, state.memory⟩
   rlet firstOp ← (blockPtr.get ctx.raw).firstOp
   interpretOpList firstOp state
 
 /--
   Interpret a CFG, starting from the given block.
+  The arguments of the starting block are set from `values`.
   Return the resulting interpreter state and values eventually returned, if any.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlockCFG (blockPtr : BlockPtr) {ctx : WfIRContext OpCode}
+def interpretBlockCFG (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
     (state : InterpreterState ctx) (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
     Interp (InterpreterState ctx × Array RuntimeValue) := do
-  match interpretBlock blockPtr state blockInBounds with
+  match interpretBlock blockPtr values state blockInBounds with
   | some (.ok (state, .return res)) => some (.ok (state, res))
   | some (.ok (state, .branch res succ)) =>
     if h : succ.InBounds ctx.raw then
-      rlet newVars ← state.variables.setArgumentValues? succ res
-      let state := ⟨newVars, state.memory⟩
-      interpretBlockCFG succ state h
+      interpretBlockCFG succ res state h
     else
       none
   | some .ub => Interp.ub
@@ -1169,14 +1171,15 @@ partial_fixpoint
 
 /--
   Interpret a region, starting from its first block.
+  The arguments of the first block are set from `values`.
   Return the resulting interpreter state and values eventually returned, or `none`
   if any errors occur during interpretation.
 -/
-def interpretRegion (region : RegionPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
-    (regionIn : region.InBounds ctx.raw := by grind) :
+def interpretRegion (region : RegionPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
+    (state : InterpreterState ctx) (regionIn : region.InBounds ctx.raw := by grind) :
     Interp (InterpreterState ctx × Array RuntimeValue) := do
   rlet block ← (region.get ctx.raw).firstBlock
-  interpretBlockCFG block state
+  interpretBlockCFG block values state
 
 /--
   Interpret a builtin.module operation.
@@ -1188,7 +1191,7 @@ def interpretModule (ctx : WfIRContext OpCode) (op : OperationPtr)
   if h: op.getNumRegions ctx.raw ≠ 1 then
     none
   else
-    let (_state, results) ← interpretRegion (op.getRegion ctx.raw 0) (InterpreterState.empty ctx)
+    let (_state, results) ← interpretRegion (op.getRegion ctx.raw 0) #[] (InterpreterState.empty ctx)
     return results
 
 end Veir

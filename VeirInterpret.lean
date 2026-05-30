@@ -97,7 +97,7 @@ def main (args : List String) : IO Unit := do
       | .ok _ =>
         let rawCtx : IRContext OpCode := ctx
         let mainOp ← resolveEntryPoint rawCtx op
-        let result := bind (interpretRegion (mainOp.getRegion! rawCtx 0) (InterpreterState.empty ctx) (by sorry))
+        let result := bind (interpretRegion (mainOp.getRegion! rawCtx 0) #[] (InterpreterState.empty ctx) (by sorry))
                            (fun (_, r) => pure r)
         match result with
         | some (.ok results) => IO.println s!"Program output: {results}"
