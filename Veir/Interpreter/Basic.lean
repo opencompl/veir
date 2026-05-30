@@ -113,6 +113,7 @@ def VariableState.ValuesConform (state : Std.ExtHashMap ValuePtr RuntimeValue)
 structure VariableState (ctx : WfIRContext OpInfo) where
   variables : Std.ExtHashMap ValuePtr RuntimeValue
   conforms : VariableState.ValuesConform variables ctx
+  variablesIn : ∀ val, val ∈ variables → val.InBounds ctx.raw
 
 /--
   The state of the interpreter at a given point in time.
@@ -127,15 +128,18 @@ structure InterpreterState (ctx : WfIRContext OpInfo) where
   Create an interpreter state with no variables defined.
 -/
 def InterpreterState.empty (ctx : WfIRContext OpInfo) : InterpreterState ctx :=
-  { variables := ⟨Std.ExtHashMap.emptyWithCapacity 8, by simp [VariableState.ValuesConform]⟩, memory := .empty }
+  { variables := ⟨Std.ExtHashMap.emptyWithCapacity 8, by simp [VariableState.ValuesConform], by simp⟩, memory := .empty }
 
 /--
   Set the value of a variable.
 -/
 def VariableState.setVar? (state : VariableState ctx) (var : ValuePtr)
-    (val : RuntimeValue) : Option (VariableState ctx) :=
+    (val : RuntimeValue) (inBounds : var.InBounds ctx.raw := by grind) :
+    Option (VariableState ctx) :=
   if h : val.Conforms (var.getType! ctx.raw) then
-    some ⟨state.variables.insert var val, by grind [VariableState.ValuesConform, cases VariableState]⟩
+    some ⟨state.variables.insert var val,
+      by grind [VariableState.ValuesConform, cases VariableState],
+      by grind [cases VariableState]⟩
   else
     none
 
@@ -163,7 +167,9 @@ def VariableState.getOperandValues (state : VariableState ctx)
   (op.getOperands! ctx.raw).mapM state.getVar?
 
 def VariableState.setResultValues?_loop (state : VariableState ctx)
-    (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat) : Option (VariableState ctx) :=
+    (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat)
+    (opInBounds : op.InBounds ctx.raw := by grind) (iInBounds : i ≤ op.getNumResults! ctx.raw := by grind)
+    : Option (VariableState ctx) :=
   match i with
   | 0 => state
   | i + 1 => do
@@ -176,15 +182,19 @@ def VariableState.setResultValues?_loop (state : VariableState ctx)
   Set the values of the results of an operation.
 -/
 def VariableState.setResultValues? (state : VariableState ctx)
-    (op : OperationPtr) (resultValues : Array RuntimeValue) : Option (VariableState ctx) :=
+    (op : OperationPtr) (resultValues : Array RuntimeValue) (opInBounds : op.InBounds ctx.raw := by grind)
+    : Option (VariableState ctx) :=
   VariableState.setResultValues?_loop state op resultValues (op.getNumResults! ctx.raw)
 
 /--
   Set the values of block arguments.
 -/
 def VariableState.setArgumentValues? (state : VariableState ctx)
-    (block : BlockPtr) (values : Array RuntimeValue) : Option (VariableState ctx) :=
-  let rec loop (state : VariableState ctx) (i : Nat) :=
+    (block : BlockPtr) (values : Array RuntimeValue)
+    (blockInBounds : block.InBounds ctx.raw := by grind)
+    : Option (VariableState ctx) :=
+  let rec loop (state : VariableState ctx) (i : Nat)
+      (iInBounds : i ≤ block.getNumArguments! ctx.raw := by grind) :=
     match i with
     | 0 => state
     | i + 1 => do
@@ -1076,6 +1086,7 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   return `none`.
 -/
 def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (inBounds : op.InBounds ctx.raw := by grind)
     : Interp (InterpreterState ctx × Option ControlFlowAction) := do
   let some operands := state.variables.getOperandValues op | none
   let opType := op.getOpType! ctx

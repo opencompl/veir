@@ -11,12 +11,12 @@ variable {op op' : OperationPtr}
 
 theorem VariableState.setVar?_eq_none_iff_of_varState
     (varState₂ : VariableState ctx) :
-    varState.setVar? var' val = none ↔ varState₂.setVar? var' val = none := by
+    varState.setVar? var' val inBounds = none ↔ varState₂.setVar? var' val = none := by
   grind [VariableState.setVar?]
 
 theorem VariableState.setResultValues?_loop_eq_none_iff_of_varState
     (varState₂ : VariableState ctx) :
-    varState.setResultValues?_loop op resValues idx = none ↔
+    varState.setResultValues?_loop op resValues idx inBounds hi = none ↔
     varState₂.setResultValues?_loop op resValues idx = none := by
   induction idx generalizing varState varState₂ with
   | zero => grind [setResultValues?_loop]
@@ -26,20 +26,20 @@ theorem VariableState.setResultValues?_loop_eq_none_iff_of_varState
 
 theorem VariableState.setResultValues?_eq_none_iff_of_varState
     (varState₂ : VariableState ctx) :
-    varState.setResultValues? op resValues = none ↔
+    varState.setResultValues? op resValues inBounds = none ↔
     varState₂.setResultValues? op resValues = none := by
   simp only [setResultValues?]
   grind [VariableState.setResultValues?_loop_eq_none_iff_of_varState]
 
 theorem VariableState.setVar?_eq_some_of_varState
     (varState₂ : VariableState ctx) :
-    varState.setVar? var' val = some varStateA →
+    varState.setVar? var' val inBounds = some varStateA →
     ∃ varStateB, varState₂.setVar? var' val = some varStateB := by
   grind [VariableState.setVar?]
 
 theorem VariableState.setResultValues?_loop_eq_some_of_varState
     (varState₂ : VariableState ctx) :
-    varState.setResultValues?_loop op resValues idx = some varStateA →
+    varState.setResultValues?_loop op resValues idx inBounds hi = some varStateA →
     ∃ varStateB, varState₂.setResultValues?_loop op resValues idx = some varStateB := by
   cases hc : varState₂.setResultValues?_loop op resValues idx
   · grind [VariableState.setResultValues?_loop_eq_none_iff_of_varState]
@@ -47,7 +47,7 @@ theorem VariableState.setResultValues?_loop_eq_some_of_varState
 
 theorem VariableState.setResultValues?_eq_some_of_varState
     (varState₂ : VariableState ctx) :
-    varState.setResultValues? op resValues = some varStateA →
+    varState.setResultValues? op resValues inBounds = some varStateA →
     ∃ varStateB, varState₂.setResultValues? op resValues = some varStateB := by
   rcases hc : varState₂.setResultValues? op resValues
   · grind [VariableState.setResultValues?_eq_none_iff_of_varState]
@@ -55,13 +55,13 @@ theorem VariableState.setResultValues?_eq_some_of_varState
 
 @[grind =>]
 theorem VariableState.getVar?_of_setVar? :
-    VariableState.setVar? varState var' val = some varState' →
+    VariableState.setVar? varState var' val inBounds = some varState' →
     varState'.getVar? var =
     if var = var' then some val else varState.getVar? var := by
   grind [VariableState.setVar?, VariableState.getVar?]
 
 theorem VariableState.getVar?_setResultValues?_loop :
-    varState.setResultValues?_loop op resultValues idx = some varState' →
+    varState.setResultValues?_loop op resultValues idx inBounds hi = some varState' →
     varState'.getVar? value =
     match value with
     | .opResult {op := op', index := index} =>
@@ -79,7 +79,7 @@ theorem VariableState.getVar?_setResultValues?_loop :
 
 @[grind =>]
 theorem VariableState.getVar?_setResultValues? :
-    varState.setResultValues? op resultValues = some varState' →
+    varState.setResultValues? op resultValues inBounds = some varState' →
     varState'.getVar? value =
     match value with
     | .opResult {op := op', index := index} =>
@@ -94,7 +94,7 @@ theorem VariableState.getVar?_setResultValues? :
 @[grind =>]
 theorem VariableState.getVar?_setResultValues?_of_value_inBounds
     (valueInBounds : value.InBounds ctx.raw) :
-    varState.setResultValues? op resultValues = some varState' →
+    varState.setResultValues? op resultValues inBounds = some varState' →
     varState'.getVar? value =
     match value with
     | .opResult {op := op', index := index} =>
@@ -108,8 +108,9 @@ theorem VariableState.getVar?_setResultValues?_of_value_inBounds
   simp only [getVar?_setResultValues? h]
   cases value <;> grind
 
-theorem interpretOp_some_iff {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} :
-  interpretOp op state = some (.ok (state', cf)) ↔
+theorem interpretOp_some_iff {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx}
+  {inBounds : op.InBounds ctx.raw} :
+  interpretOp op state inBounds = some (.ok (state', cf)) ↔
   ∃ operandValues resValues mem' varState',
     (state.variables.getOperandValues op) = some operandValues ∧
     interpretOp' (op.getOpType! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
@@ -132,10 +133,10 @@ theorem VariableState.getOperandValues_eq_of_getVar?_eq :
 
 theorem VariableState.setResultValues?_comm
     (hOp : op₁ ≠ op₂) :
-    varState.setResultValues? op₁ resValues₁ = some varState' →
-    varState'.setResultValues? op₂ resValues₂ = some varState'' →
-    ∃ varState₂, varState.setResultValues? op₂ resValues₂ = some varState₂ ∧
-    varState₂.setResultValues? op₁ resValues₁ = some varState'' := by
+    varState.setResultValues? op₁ resValues₁ inBounds₁ = some varState' →
+    varState'.setResultValues? op₂ resValues₂ inBounds₂ = some varState'' →
+    ∃ varState₂, varState.setResultValues? op₂ resValues₂ inBounds₂ = some varState₂ ∧
+    varState₂.setResultValues? op₁ resValues₁ inBounds₁ = some varState'' := by
   intros h₁ h₂
   have ⟨varState₂, hvs₂⟩ := setResultValues?_eq_some_of_varState varState h₂
   have ⟨varState₂', hvs₂'⟩ := setResultValues?_eq_some_of_varState varState₂ h₁
@@ -148,7 +149,7 @@ theorem VariableState.setResultValues?_comm
 theorem VariableState.getVar?_setResultValues?_operand_of_dominates
     (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
     value ∈ op'.getOperands! ctx.raw →
-    varState.setResultValues? op resValues = some varState' →
+    varState.setResultValues? op resValues inBounds = some varState' →
     varState'.getVar? value =
     varState.getVar? value := by
   intro valueInOperands h
@@ -165,7 +166,7 @@ theorem VariableState.getVar?_setResultValues?_operand_of_dominates
 @[grind =>]
 theorem VariableState.getOperandValues_setResultValues?_of_dominates
     (ctxDom : ctx.Dom) (hdom : op'.dominates op ctx) :
-    varState.setResultValues? op resValues = some varState' →
+    varState.setResultValues? op resValues inBounds = some varState' →
     varState'.getOperandValues op' = varState.getOperandValues op' := by
   intro h
   apply VariableState.getOperandValues_eq_of_getVar?_eq
@@ -174,15 +175,15 @@ theorem VariableState.getOperandValues_setResultValues?_of_dominates
 @[grind =>]
 theorem VariableState.getOperandValues_setResultValues?_self
     (ctxDom : ctx.Dom) :
-    (varState.setResultValues? op resValues) = varState' →
+    (varState.setResultValues? op resValues inBounds) = varState' →
     varState'.getOperandValues op = varState.getOperandValues op := by
   exact getOperandValues_setResultValues?_of_dominates ctxDom OperationPtr.dominates_refl
 
 @[grind =>]
 theorem VariableState.setResultValues?_setResultValues?_self :
-    varState.setResultValues? op resValues = some varState' →
-    varState'.setResultValues? op resValues' =
-    varState.setResultValues? op resValues' := by
+    varState.setResultValues? op resValues inBounds = some varState' →
+    varState'.setResultValues? op resValues' inBounds' =
+    varState.setResultValues? op resValues' inBounds' := by
   intro h
   rcases hopt : varState.setResultValues? op resValues' with _ | vs2
   · grind [VariableState.setResultValues?_eq_none_iff_of_varState]
