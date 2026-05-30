@@ -163,11 +163,19 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci
   | .llvm .add | .llvm .sub | .llvm .mul | .llvm .shl | .llvm .trunc => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 2
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+
+    let mut val := 0
     if props.nsw then
-      dict := dict.insert "nsw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+      val := val + 1
+
     if props.nuw then
-      dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+      val := val + 2
+
+    if val > 0 then
+      let attr := IntegerAttr.mk (Int.ofNat val) (IntegerType.mk 32)
+      dict := dict.insert "overflowFlags".toUTF8 (Attribute.integerAttr attr)
+
     dict
   | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 2

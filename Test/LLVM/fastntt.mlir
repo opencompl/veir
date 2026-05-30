@@ -200,7 +200,7 @@
 // CHECK-NEXT:         "llvm.cond_br"([[L2FA_CMP]]) [^[[BB_L2FA_BODY:.*]], ^[[BB_L2FA_EXIT:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
 // CHECK-NEXT:       ^[[BB_L2FA_BODY]]():
 // CHECK-NEXT:         [[L2FA_SHR:%.*]] = "llvm.ashr"([[L2FA_V1]], [[L2FA_C1]]) : (i32, i32) -> i32
-// CHECK-NEXT:         [[L2FA_ADD:%.*]] = "llvm.add"([[L2FA_V0]], [[L2FA_C1]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[L2FA_ADD:%.*]] = "llvm.add"([[L2FA_V0]], [[L2FA_C1]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         "llvm.br"([[L2FA_ADD]], [[L2FA_SHR]]) [^[[BB_L2FA_COND]]] : (i32, i32) -> ()
 // CHECK-NEXT:       ^[[BB_L2FA_EXIT]]():
 // CHECK-NEXT:         "llvm.return"([[L2FA_V0]]) : (i32) -> ()
@@ -215,33 +215,33 @@
 // CHECK-NEXT:         "llvm.cond_br"([[L2F_CMP]]) [^[[BB_L2F_BODY:.*]], ^[[BB_L2F_EXIT:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
 // CHECK-NEXT:       ^[[BB_L2F_BODY]]():
 // CHECK-NEXT:         [[L2F_SHR:%.*]] = "llvm.ashr"([[L2F_V1]], [[L2F_C1]]) : (i32, i32) -> i32
-// CHECK-NEXT:         [[L2F_ADD:%.*]] = "llvm.add"([[L2F_V0]], [[L2F_C1]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[L2F_ADD:%.*]] = "llvm.add"([[L2F_V0]], [[L2F_C1]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         "llvm.br"([[L2F_ADD]], [[L2F_SHR]]) [^[[BB_L2F_COND]]] : (i32, i32) -> ()
 // CHECK-NEXT:       ^[[BB_L2F_EXIT]]():
 // CHECK-NEXT:         "llvm.return"([[L2F_V0]]) : (i32) -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT:     "llvm.func"() <{{{.*}}}> ({
 // CHECK-NEXT:       ^[[BB_BCT:.*]]([[BCT_A0:%.*]] : i32, [[BCT_A1:%.*]] : i32, [[BCT_A2:%.*]] : i32, [[BCT_A3:%.*]] : i32, [[BCT_P0:%.*]] : !llvm.ptr, [[BCT_P1:%.*]] : !llvm.ptr):
-// CHECK-NEXT:         [[BCT_M0:%.*]] = "llvm.mul"([[BCT_A2]], [[BCT_A1]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[BCT_M0:%.*]] = "llvm.mul"([[BCT_A2]], [[BCT_A1]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         [[BCT_R0:%.*]] = "llvm.srem"([[BCT_M0]], [[BCT_A3]]) : (i32, i32) -> i32
-// CHECK-NEXT:         [[BCT_S0:%.*]] = "llvm.add"([[BCT_A0]], [[BCT_R0]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[BCT_S0:%.*]] = "llvm.add"([[BCT_A0]], [[BCT_R0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         [[BCT_R1:%.*]] = "llvm.srem"([[BCT_S0]], [[BCT_A3]]) : (i32, i32) -> i32
 // CHECK-NEXT:         "llvm.store"([[BCT_R1]], [[BCT_P0]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         [[BCT_M1:%.*]] = "llvm.mul"([[BCT_A2]], [[BCT_A1]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[BCT_M1:%.*]] = "llvm.mul"([[BCT_A2]], [[BCT_A1]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         [[BCT_R2:%.*]] = "llvm.srem"([[BCT_M1]], [[BCT_A3]]) : (i32, i32) -> i32
-// CHECK-NEXT:         [[BCT_SB:%.*]] = "llvm.sub"([[BCT_A0]], [[BCT_R2]]) : (i32, i32) -> i32
-// CHECK-NEXT:         [[BCT_AD:%.*]] = "llvm.add"([[BCT_SB]], [[BCT_A3]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[BCT_SB:%.*]] = "llvm.sub"([[BCT_A0]], [[BCT_R2]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         [[BCT_AD:%.*]] = "llvm.add"([[BCT_SB]], [[BCT_A3]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         [[BCT_R3:%.*]] = "llvm.srem"([[BCT_AD]], [[BCT_A3]]) : (i32, i32) -> i32
 // CHECK-NEXT:         "llvm.store"([[BCT_R3]], [[BCT_P1]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
 // CHECK-NEXT:         "llvm.return"() : () -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT:     "llvm.func"() <{{{.*}}}> ({
 // CHECK-NEXT:       ^[[BB_BGS:.*]]([[BGS_A0:%.*]] : i32, [[BGS_A1:%.*]] : i32, [[BGS_A2:%.*]] : i32, [[BGS_A3:%.*]] : i32, [[BGS_P0:%.*]] : !llvm.ptr, [[BGS_P1:%.*]] : !llvm.ptr):
-// CHECK-NEXT:         [[BGS_S0:%.*]] = "llvm.add"([[BGS_A0]], [[BGS_A1]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[BGS_S0:%.*]] = "llvm.add"([[BGS_A0]], [[BGS_A1]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         [[BGS_R0:%.*]] = "llvm.srem"([[BGS_S0]], [[BGS_A3]]) : (i32, i32) -> i32
 // CHECK-NEXT:         "llvm.store"([[BGS_R0]], [[BGS_P0]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         [[BGS_SB:%.*]] = "llvm.sub"([[BGS_A0]], [[BGS_A1]]) : (i32, i32) -> i32
-// CHECK-NEXT:         [[BGS_M0:%.*]] = "llvm.mul"([[BGS_SB]], [[BGS_A2]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[BGS_SB:%.*]] = "llvm.sub"([[BGS_A0]], [[BGS_A1]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         [[BGS_M0:%.*]] = "llvm.mul"([[BGS_SB]], [[BGS_A2]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         [[BGS_R1:%.*]] = "llvm.srem"([[BGS_M0]], [[BGS_A3]]) : (i32, i32) -> i32
 // CHECK-NEXT:         "llvm.store"([[BGS_R1]], [[BGS_P1]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
 // CHECK-NEXT:         "llvm.return"() : () -> ()
@@ -275,7 +275,7 @@
 // CHECK-NEXT:         "llvm.cond_br"([[NTT_CMP2]]) [^[[BB_NTT_9:.*]], ^[[BB_NTT_10:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
 // CHECK-NEXT:       ^[[BB_NTT_9]]():
 // CHECK-NEXT:         [[NTT_SHR0:%.*]] = "llvm.ashr"([[NTT_V7]], [[NTT_C2]]) : (i32, i32) -> i32
-// CHECK-NEXT:         [[NTT_ADD0:%.*]] = "llvm.add"([[NTT_V6]], [[NTT_C2]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[NTT_ADD0:%.*]] = "llvm.add"([[NTT_V6]], [[NTT_C2]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         "llvm.br"([[NTT_ADD0]], [[NTT_SHR0]]) [^[[BB_NTT_8]]] : (i32, i32) -> ()
 // CHECK-NEXT:       ^[[BB_NTT_10]]():
 // CHECK-NEXT:         [[NTT_CMP3:%.*]] = "llvm.icmp"([[NTT_V5]], [[NTT_V6]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
@@ -295,17 +295,17 @@
 // CHECK-NEXT:       ^[[BB_NTT_17]]():
 // CHECK:              "llvm.br"() [^[[BB_NTT_19:.*]]] : () -> ()
 // CHECK-NEXT:       ^[[BB_NTT_19]]():
-// CHECK-NEXT:         [[NTT_ADD1:%.*]] = "llvm.add"([[NTT_V9]], [[NTT_C2]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[NTT_ADD1:%.*]] = "llvm.add"([[NTT_V9]], [[NTT_C2]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         "llvm.br"([[NTT_ADD1]]) [^[[BB_NTT_16]]] : (i32) -> ()
 // CHECK-NEXT:       ^[[BB_NTT_18]]():
 // CHECK-NEXT:         "llvm.br"() [^[[BB_NTT_20:.*]]] : () -> ()
 // CHECK-NEXT:       ^[[BB_NTT_20]]():
-// CHECK-NEXT:         [[NTT_ADD2:%.*]] = "llvm.add"([[NTT_V8]], [[NTT_C2]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[NTT_ADD2:%.*]] = "llvm.add"([[NTT_V8]], [[NTT_C2]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         "llvm.br"([[NTT_ADD2]]) [^[[BB_NTT_13]]] : (i32) -> ()
 // CHECK-NEXT:       ^[[BB_NTT_15]]():
 // CHECK:              "llvm.br"() [^[[BB_NTT_21:.*]]] : () -> ()
 // CHECK-NEXT:       ^[[BB_NTT_21]]():
-// CHECK-NEXT:         [[NTT_ADD3:%.*]] = "llvm.add"([[NTT_V5]], [[NTT_C2]]) : (i32, i32) -> i32
+// CHECK-NEXT:         [[NTT_ADD3:%.*]] = "llvm.add"([[NTT_V5]], [[NTT_C2]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:         "llvm.br"({{.*}}) [^[[BB_NTT_7]]] : (i32, i32, i32, i32) -> ()
 // CHECK-NEXT:       ^[[BB_NTT_12]]():
 // CHECK-NEXT:         "llvm.return"() : () -> ()

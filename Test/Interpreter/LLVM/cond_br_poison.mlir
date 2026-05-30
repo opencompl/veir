@@ -6,7 +6,7 @@
   "func.func"() <{sym_name = "main"}> ({
     ^entry():
       %one    = "llvm.mlir.constant"() <{"value" = 1 : i1}> : () -> i1
-      %poison = "llvm.add"(%one, %one) <{nuw}> : (i1, i1) -> i1
+      %poison = "llvm.add"(%one, %one) <{"overflowFlags" = 2 : i32}> : (i1, i1) -> i1
       %tval   = "llvm.mlir.constant"() <{"value" = 42 : i32}> : () -> i32
       %fval   = "llvm.mlir.constant"() <{"value" = 99 : i32}> : () -> i32
       "llvm.cond_br"(%poison, %tval, %fval) [^t, ^f]

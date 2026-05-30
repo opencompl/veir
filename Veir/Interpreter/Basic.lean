@@ -29,9 +29,10 @@ open Veir.Data
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {ctx : WfIRContext OpInfo}
 
 /--
-  The representation of a value in the interpreter.
+  The type-erased representation of a value in the interpreter.
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
@@ -45,6 +46,52 @@ instance : ToString (RuntimeValue) where
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
 
+namespace RuntimeValue
+
+/--
+  A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
+  of a given `TypeAttr`.
+-/
+@[grind]
+def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
+  match val, ty with
+  | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
+  | .reg _, ⟨.registerType _, _⟩ => True
+  | .addr _, ⟨.llvmPointerType _, _⟩ => True
+  | _, _ => False
+
+instance : Decidable (Conforms val ty) := by
+  unfold Conforms
+  split <;> infer_instance
+
+@[grind <=]
+theorem Conforms.integerType :
+    Conforms runtimeValue ⟨.integerType intType, h⟩ →
+    ∃ val, runtimeValue = .int intType.bitwidth val := by
+  simp only [Conforms]
+  cases runtimeValue
+  case int bw val =>
+    simp only [int.injEq, exists_and_left]
+    intro _; subst bw
+    grind
+  all_goals grind
+
+@[grind <=]
+theorem Conforms.registerType :
+    Conforms runtimeValue ⟨.registerType regType, h⟩ →
+    ∃ val, runtimeValue = .reg val := by
+  simp only [Conforms]
+  cases runtimeValue <;> grind
+
+@[grind <=]
+theorem Conforms.llvmPointerType :
+    Conforms runtimeValue ⟨.llvmPointerType _, h⟩ →
+    ∃ val, runtimeValue = .addr val := by
+  simp only [Conforms]
+  cases runtimeValue <;> grind
+
+end RuntimeValue
+
 /--
   Memory state during interpretation
 -/
@@ -55,34 +102,56 @@ structure MemoryState where
 def MemoryState.empty : MemoryState :=
   { contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff }
 
-structure VariableState where
+/--
+  Property that a hash map from `ValuePtr` to `RuntimeValue` conforms to the value types in the
+  IR context. This is an invariant that must be maintained by the variable state of the interpreter.
+-/
+def VariableState.ValuesConform (state : Std.ExtHashMap ValuePtr RuntimeValue)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  ∀ val var, (h : val ∈ state) → state[val] = var → var.Conforms (val.getType! ctx.raw)
+
+structure VariableState (ctx : WfIRContext OpInfo) where
   variables : Std.ExtHashMap ValuePtr RuntimeValue
+  conforms : VariableState.ValuesConform variables ctx
+  variablesIn : ∀ val, val ∈ variables → val.InBounds ctx.raw
 
 /--
   The state of the interpreter at a given point in time.
   It includes a mapping from IR values to their runtime values.
 -/
 @[ext]
-structure InterpreterState where
-  variables : VariableState
+structure InterpreterState (ctx : WfIRContext OpInfo) where
+  variables : VariableState ctx
   memory : MemoryState
+
+/--
+  Create an interpreter state with no variables defined.
+-/
+def InterpreterState.empty (ctx : WfIRContext OpInfo) : InterpreterState ctx :=
+  { variables := ⟨Std.ExtHashMap.emptyWithCapacity 8, by simp [VariableState.ValuesConform], by simp⟩, memory := .empty }
 
 /--
   Set the value of a variable.
 -/
-def VariableState.setVar (state : VariableState) (var : ValuePtr) (val : RuntimeValue) :
-    VariableState :=
-  ⟨state.variables.insert var val⟩
+def VariableState.setVar? (state : VariableState ctx) (var : ValuePtr)
+    (val : RuntimeValue) (inBounds : var.InBounds ctx.raw := by grind) :
+    Option (VariableState ctx) :=
+  if h : val.Conforms (var.getType! ctx.raw) then
+    some ⟨state.variables.insert var val,
+      by grind [VariableState.ValuesConform, cases VariableState],
+      by grind [cases VariableState]⟩
+  else
+    none
 
 /--
   Get the value of a variable, if the variable exists.
 -/
-def VariableState.getVar? (state : VariableState) (var : ValuePtr)
+def VariableState.getVar? (state : VariableState ctx) (var : ValuePtr)
     : Option RuntimeValue :=
   state.variables[var]?
 
 @[ext]
-theorem VariableState.ext {s₁ s₂ : VariableState} :
+theorem VariableState.ext {s₁ s₂ : VariableState ctx} :
     (∀ var, s₁.getVar? var = s₂.getVar? var) →
     s₁ = s₂ := by
   rcases s₁; rcases s₂
@@ -93,47 +162,47 @@ theorem VariableState.ext {s₁ s₂ : VariableState} :
   Get the value of the operands of an operation.
   If any operand is not in the state, return `none`.
 -/
-def VariableState.getOperandValues (state : VariableState)
-    (ctx : IRContext OpInfo) (op : OperationPtr) : Option (Array RuntimeValue) := do
-  (op.getOperands! ctx).mapM state.getVar?
+def VariableState.getOperandValues (state : VariableState ctx)
+    (op : OperationPtr) : Option (Array RuntimeValue) := do
+  (op.getOperands! ctx.raw).mapM state.getVar?
 
-def VariableState.setResultValues_loop (state : VariableState)
-    (ctx : IRContext OpInfo) (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat) : VariableState :=
+def VariableState.setResultValues?_loop (state : VariableState ctx)
+    (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat)
+    (opInBounds : op.InBounds ctx.raw := by grind) (iInBounds : i ≤ op.getNumResults! ctx.raw := by grind)
+    : Option (VariableState ctx) :=
   match i with
   | 0 => state
-  | i + 1 =>
+  | i + 1 => do
     let result := op.getResult i
     let value := resultValues[i]!
-    let newState := state.setVar result value
-    VariableState.setResultValues_loop newState ctx op resultValues i
+    let newState ← state.setVar? result value
+    VariableState.setResultValues?_loop newState op resultValues i
 
 /--
   Set the values of the results of an operation.
 -/
-def VariableState.setResultValues (state : VariableState) (ctx : IRContext OpInfo)
-    (op : OperationPtr) (resultValues : Array RuntimeValue) : VariableState :=
-  VariableState.setResultValues_loop state ctx op resultValues (op.getNumResults! ctx)
+def VariableState.setResultValues? (state : VariableState ctx)
+    (op : OperationPtr) (resultValues : Array RuntimeValue) (opInBounds : op.InBounds ctx.raw := by grind)
+    : Option (VariableState ctx) :=
+  VariableState.setResultValues?_loop state op resultValues (op.getNumResults! ctx.raw)
 
 /--
   Set the values of block arguments.
 -/
-def VariableState.setArgumentValues (state : VariableState) (ctx : IRContext OpInfo)
-    (block : BlockPtr) (values : Array RuntimeValue) : VariableState :=
-  let rec loop (state : VariableState) (i : Nat) :=
+def VariableState.setArgumentValues? (state : VariableState ctx)
+    (block : BlockPtr) (values : Array RuntimeValue)
+    (blockInBounds : block.InBounds ctx.raw := by grind)
+    : Option (VariableState ctx) :=
+  let rec loop (state : VariableState ctx) (i : Nat)
+      (iInBounds : i ≤ block.getNumArguments! ctx.raw := by grind) :=
     match i with
     | 0 => state
-    | i + 1 =>
+    | i + 1 => do
       let arg := block.getArgument i
       let value := values[i]!
-      let newState := state.setVar arg value
+      let newState ← state.setVar? arg value
       loop newState i
-  loop state (block.getNumArguments! ctx)
-
-/--
-  Create an interpreter state with no variables defined.
--/
-def InterpreterState.empty : InterpreterState :=
-  { variables := ⟨Std.ExtHashMap.emptyWithCapacity 8⟩, memory := .empty }
+  loop state (block.getNumArguments! ctx.raw)
 
 /--
   How the control flow should proceed after interpreting a terminator.
@@ -1016,12 +1085,15 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   return `none`.
 -/
-def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
-    : Interp (InterpreterState × Option ControlFlowAction) := do
-  let some operands := state.variables.getOperandValues ctx op | none
+def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (inBounds : op.InBounds ctx.raw := by grind)
+    : Interp (InterpreterState ctx × Option ControlFlowAction) := do
+  let some operands := state.variables.getOperandValues op | none
   let opType := op.getOpType! ctx
-  let (resultValues, mem, action) ← interpretOp' opType (op.getProperties! ctx opType) (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) state.memory
-  let newState := ⟨state.variables.setResultValues ctx op resultValues, mem⟩
+  let (resultValues, mem, action) ← interpretOp' opType (op.getProperties! ctx opType)
+    (op.getResultTypes! ctx.raw) operands (op.getSuccessors! ctx.raw) state.memory
+  let newVars ← state.variables.setResultValues? op resultValues
+  let newState := ⟨newVars, mem⟩
   return (newState, action)
 
 /--
@@ -1031,17 +1103,17 @@ def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : Interprete
   Return a ControlFlowAction indicating how to continue the interpretation.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretOpList (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
-    (opInBounds : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
-    : Interp (InterpreterState × ControlFlowAction) := do
-  let (state, action) ← interpretOp ctx op state
+def interpretOpList (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (opInBounds : op.InBounds ctx.raw := by grind)
+    : Interp (InterpreterState ctx × ControlFlowAction) := do
+  let (state, action) ← interpretOp op state
   match action with
   | none =>
-    rlet next ← (op.get ctx).next
-    interpretOpList ctx next state
+    rlet next ← (op.get ctx.raw).next
+    interpretOpList next state
   | some action =>
     return (state, action)
-termination_by op.idxInParentFromTail ctx
+termination_by op.idxInParentFromTail ctx.raw
 decreasing_by grind
 
 /--
@@ -1050,22 +1122,29 @@ decreasing_by grind
   to continue the interpretation.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Interp (InterpreterState × ControlFlowAction) := do
-  rlet firstOp ← (blockPtr.get ctx).firstOp
-  interpretOpList ctx firstOp state
+def interpretBlock (blockPtr : BlockPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
+    Interp (InterpreterState ctx × ControlFlowAction) := do
+  rlet firstOp ← (blockPtr.get ctx.raw).firstOp
+  interpretOpList firstOp state
 
 /--
   Interpret a CFG, starting from the given block.
   Return the resulting interpreter state and values eventually returned, if any.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlockCFG (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Interp (InterpreterState × Array RuntimeValue) := do
-  match interpretBlock ctx blockPtr state blockInBounds wf with
+def interpretBlockCFG (blockPtr : BlockPtr) {ctx : WfIRContext OpCode}
+    (state : InterpreterState ctx) (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
+    Interp (InterpreterState ctx × Array RuntimeValue) := do
+  match interpretBlock blockPtr state blockInBounds with
   | some (.ok (state, .return res)) => some (.ok (state, res))
   | some (.ok (state, .branch res succ)) =>
-    if h : succ.InBounds ctx then
-      let state := ⟨state.variables.setArgumentValues ctx succ res, state.memory⟩
-      interpretBlockCFG ctx succ state h wf else none
+    if h : succ.InBounds ctx.raw then
+      rlet newVars ← state.variables.setArgumentValues? succ res
+      let state := ⟨newVars, state.memory⟩
+      interpretBlockCFG succ state h
+    else
+      none
   | some .ub => Interp.ub
   | none => none
 partial_fixpoint
@@ -1075,22 +1154,23 @@ partial_fixpoint
   Return the resulting interpreter state and values eventually returned, or `none`
   if any errors occur during interpretation.
 -/
-def interpretRegion (ctx : IRContext OpCode) (region : RegionPtr) (state : InterpreterState) (regionIn : region.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Interp (InterpreterState × Array RuntimeValue) := do
-  rlet block ← (region.get ctx).firstBlock
-  interpretBlockCFG ctx block state
+def interpretRegion (region : RegionPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (regionIn : region.InBounds ctx.raw := by grind) :
+    Interp (InterpreterState ctx × Array RuntimeValue) := do
+  rlet block ← (region.get ctx.raw).firstBlock
+  interpretBlockCFG block state
 
 /--
   Interpret a builtin.module operation.
   This is done by interpreting the unique region of the operation.
   Return the values eventually returned, or `none` if any errors occur during interpretation.
 -/
-def interpretModule (ctx : IRContext OpCode) (op : OperationPtr)
-    (opIn : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
-    : Interp (Array RuntimeValue) := do
-  if h: op.getNumRegions ctx ≠ 1 then
+def interpretModule (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (opIn : op.InBounds ctx.raw := by grind) : Interp (Array RuntimeValue) := do
+  if h: op.getNumRegions ctx.raw ≠ 1 then
     none
   else
-    let (_state, results) ← interpretRegion ctx (op.getRegion ctx 0) InterpreterState.empty
+    let (_state, results) ← interpretRegion (op.getRegion ctx.raw 0) (InterpreterState.empty ctx)
     return results
 
 end Veir

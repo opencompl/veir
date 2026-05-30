@@ -10,14 +10,14 @@
       %8 = "llvm.or"(%5, %5) : (i32, i32) -> i32
       %9 = "llvm.xor"(%5, %5) : (i32, i32) -> i32
       %add = "llvm.add"(%5, %5) : (i32, i32) -> i32
-      %add_nsw = "llvm.add"(%5, %5) <{nsw}> : (i32, i32) -> i32
-      %add_nuw = "llvm.add"(%5, %5) <{nuw}> : (i32, i32) -> i32
-      %add_nsw_nuw = "llvm.add"(%5, %5) <{nsw, nuw}> : (i32, i32) -> i32
+      %add_nsw = "llvm.add"(%5, %5) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+      %add_nuw = "llvm.add"(%5, %5) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
+      %add_nsw_nuw = "llvm.add"(%5, %5) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
       %11 = "llvm.sub"(%5, %5) : (i32, i32) -> i32
       %mul = "llvm.mul"(%5, %5) : (i32, i32) -> i32
-      %mul_nsw = "llvm.mul"(%5, %5) <{nsw}> : (i32, i32) -> i32
-      %mul_nuw = "llvm.mul"(%5, %5) <{nuw}> : (i32, i32) -> i32
-      %mul_nsw_nuw = "llvm.mul"(%5, %5) <{nsw, nuw}> : (i32, i32) -> i32
+      %mul_nsw = "llvm.mul"(%5, %5) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+      %mul_nuw = "llvm.mul"(%5, %5) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
+      %mul_nsw_nuw = "llvm.mul"(%5, %5) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
       %12 = "llvm.shl"(%5, %5) : (i32, i32) -> i32
       %13 = "llvm.lshr"(%5, %5) : (i32, i32) -> i32
       %14 = "llvm.ashr"(%5, %5) : (i32, i32) -> i32
@@ -42,10 +42,6 @@
     ^8(%arg7_0 : i32):
       "llvm.return"(%arg7_0) : (i32) -> ()
     ^9(%ptr : !llvm.ptr):
-      %28 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, noWrapFlags = 3 : i32, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
-      %29 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, noWrapFlags = 2 : i32, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
-      %30 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, noWrapFlags = 1 : i32, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
-      %31 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, noWrapFlags = 0 : i32, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
       %32 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
       %34 = "llvm.fadd"(%fcst, %fcst) : (f64, f64) -> f64
       %35 = "llvm.fadd"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
@@ -87,14 +83,14 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.or"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.xor"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
-// CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) <{nsw}> : (i32, i32) -> i32
-// CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) <{nuw}> : (i32, i32) -> i32
-// CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) <{nsw, nuw}> : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.sub"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.mul"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
-// CHECK-NEXT:       %{{.*}} = "llvm.mul"(%{{.*}}, %{{.*}}) <{nsw}> : (i32, i32) -> i32
-// CHECK-NEXT:       %{{.*}} = "llvm.mul"(%{{.*}}, %{{.*}}) <{nuw}> : (i32, i32) -> i32
-// CHECK-NEXT:       %{{.*}} = "llvm.mul"(%{{.*}}, %{{.*}}) <{nsw, nuw}> : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.shl"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.lshr"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.ashr"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
@@ -119,10 +115,6 @@
 // CHECK-NEXT:     ^[[b2]](%{{.*}} : i32):
 // CHECK-NEXT:       "llvm.return"(%{{.*}}) : (i32) -> ()
 // CHECK-NEXT:     ^{{.*}}(%{{.*}} : !llvm.ptr):
-// CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
-// CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 2 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
-// CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 1 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.pt
-// CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
 // CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64

@@ -10,7 +10,7 @@
     %z = "comb.add"(%c3, %c5, %c10) : (i8, i8, i8) -> i8
 
     %c255 = "hw.constant"() <{ "value" = 255 : i8 }> : () -> i8
-    %nuw_nsw = "llvm.add"(%c255, %c5) <{nuw, nsw}> : (i8, i8) -> i8
+    %nuw_nsw = "llvm.add"(%c255, %c5) <{"overflowFlags" = 3 : i32}> : (i8, i8) -> i8
     %poison = "comb.add"(%nuw_nsw, %c5) : (i8, i8) -> i8
     "func.return"(%x, %y, %z, %poison) : (i8, i8, i8, i8) -> ()
   }) : () -> ()
