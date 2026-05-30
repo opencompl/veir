@@ -1876,17 +1876,14 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
 
 /--
-  Are blocks in `region` required to end with a terminator?
+  Return the kind of this region.
 -/
-def RegionPtr.requiresTerminator (region : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
+def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCode) : RegionKind :=
   match (region.get! ctx.raw).parent with
   | some parentOp =>
-    match parentOp.getOpType! ctx.raw with
-    | .builtin .module => false
-    | .builtin .unregistered => false
-    | .test .test => false
-    | _ => true
-  | none => false
+    let parent := parentOp.get! ctx.raw
+    parent.opType.getRegionKind (parent.regions.idxOf region)
+  | none => .SSACFG
 
 /--
   Verify that a terminator only ever appears as the last operation of its block:
@@ -1929,7 +1926,7 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
   ctx.raw.forBlocksDepM (fun block blockIn => do
     match (block.get ctx.raw blockIn).parent with
     | some region =>
-      if region.requiresTerminator ctx then
+      if region.getRegionKind ctx = .SSACFG then
         block.verifyTerminator ctx blockIn
     | none => pure ())
 
