@@ -448,8 +448,8 @@ partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM T
 
 /--
   Parse an LLVM function type `!llvm.func<resultType (paramTypes,...)>`, if present.
-  A `...` parameter marks the function as variadic; its placement within the list is
-  left to the verifier.
+  A trailing `...` parameter marks the function as variadic; the ellipsis is invalid
+  in any position other than the last.
 -/
 partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
   let token ← peekToken
@@ -465,6 +465,8 @@ partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
       return LLVMFuncParam.ellipsis
     return LLVMFuncParam.type (← parseLLVMType)
   parsePunctuation ">"
+  if params.pop.any (· matches .ellipsis) then
+    throwAtCurrentPos "'...' is only valid as the last parameter of an LLVM function type"
   let isVarArg := params.any (· matches .ellipsis)
   let paramTypes := params.filterMap fun
     | .type ty => some ty.val
