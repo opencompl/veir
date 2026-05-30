@@ -1922,7 +1922,7 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
     match (op.get ctx.raw opIn).parent with
     | some block =>
       match (block.get! ctx.raw).parent with
-      | some region =>
+      | some _ =>
         op.verifyTerminatorPosition ctx opIn
       | none => pure ()
     | none => pure ())
