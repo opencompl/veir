@@ -1917,11 +1917,7 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
   ctx.raw.forOpsDepM (fun op opIn => do
     op.verifyLocalInvariants ctx opIn
     match (op.get ctx.raw opIn).parent with
-    | some block =>
-      match (block.get! ctx.raw).parent with
-      | some _ =>
-        op.verifyTerminatorPosition ctx opIn
-      | none => pure ()
+    | some _ => op.verifyTerminatorPosition ctx opIn
     | none => pure ())
   ctx.raw.forBlocksDepM (fun block blockIn => do
     match (block.get ctx.raw blockIn).parent with
