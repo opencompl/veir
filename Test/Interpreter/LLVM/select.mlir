@@ -12,10 +12,10 @@
     // Poison i32 via `llvm.add nuw` of -1 + 1 (unsigned overflow).
     %neg1 = "llvm.mlir.constant"() <{ "value" = -1 : i32 }> : () -> i32
     %one  = "llvm.mlir.constant"() <{ "value" = 1 : i32 }> : () -> i32
-    %p32  = "llvm.add"(%neg1, %one) <{nuw}> : (i32, i32) -> i32
+    %p32  = "llvm.add"(%neg1, %one) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
 
     // Poison i1 via `llvm.add nuw` of 1 + 1.
-    %p1 = "llvm.add"(%t, %t) <{nuw}> : (i1, i1) -> i1
+    %p1 = "llvm.add"(%t, %t) <{"overflowFlags" = 2 : i32}> : (i1, i1) -> i1
 
     // Concrete condition, concrete arms.
     %r1 = "llvm.select"(%t, %a, %b) : (i1, i32, i32) -> i32

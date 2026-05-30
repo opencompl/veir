@@ -6,7 +6,7 @@
   "func.func"() <{sym_name = "main"}> ({
     ^entry():
       %one    = "arith.constant"() <{"value" = 1 : i1}> : () -> i1
-      %poison = "arith.addi"(%one, %one) <{nuw}> : (i1, i1) -> i1
+      %poison = "arith.addi"(%one, %one) <{"overflowFlags" = 2 : i32}> : (i1, i1) -> i1
       %tval   = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
       %fval   = "arith.constant"() <{"value" = 99 : i32}> : () -> i32
       "cf.cond_br"(%poison, %tval, %fval) [^t, ^f]

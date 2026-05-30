@@ -23,15 +23,15 @@
 // `add nsw,nuw` does merge with itself.
 ^add_flags(%c : i32, %d : i32):
     %add_nsw_only = "llvm.add"(%c, %d) <{nsw}> : (i32, i32) -> i32
-    %add_nuw_only = "llvm.add"(%c, %d) <{nuw}> : (i32, i32) -> i32
+    %add_nuw_only = "llvm.add"(%c, %d) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
     %add_both_a   = "llvm.add"(%c, %d) <{nuw, nsw}> : (i32, i32) -> i32
     %add_both_b   = "llvm.add"(%c, %d) <{nuw, nsw}> : (i32, i32) -> i32
     "test.test"(%add_nsw_only, %add_nuw_only, %add_both_a, %add_both_b) : (i32, i32, i32, i32) -> ()
 
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : i32, %{{.*}} : i32):
     // CHECK-NEXT: %[[ADD_NSW_ONLY:.*]] = "llvm.add"(%{{.*}}, %{{.*}}) <{nsw}> : (i32, i32) -> i32
-    // CHECK-NEXT: %[[ADD_NUW_ONLY:.*]] = "llvm.add"(%{{.*}}, %{{.*}}) <{nuw}> : (i32, i32) -> i32
-    // CHECK-NEXT: %[[ADD_BOTH:.*]] = "llvm.add"(%{{.*}}, %{{.*}}) <{nsw, nuw}> : (i32, i32) -> i32
+    // CHECK-NEXT: %[[ADD_NUW_ONLY:.*]] = "llvm.add"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
+    // CHECK-NEXT: %[[ADD_BOTH:.*]] = "llvm.add"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
     // CHECK-NEXT: "test.test"(%[[ADD_NSW_ONLY]], %[[ADD_NUW_ONLY]], %[[ADD_BOTH]], %[[ADD_BOTH]])
 
 // Commutativity applies under matching flags: `add nsw a b` and `add nsw b a` merge.
@@ -47,13 +47,13 @@
 // `mul nsw` vs `mul nuw` are distinct; `mul nsw` with commuted operands merges.
 ^mul_flags(%g : i32, %h : i32):
     %mul_nsw = "llvm.mul"(%g, %h) <{nsw}> : (i32, i32) -> i32
-    %mul_nuw = "llvm.mul"(%g, %h) <{nuw}> : (i32, i32) -> i32
+    %mul_nuw = "llvm.mul"(%g, %h) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
     %mul_nsw_dup = "llvm.mul"(%h, %g) <{nsw}> : (i32, i32) -> i32
     "test.test"(%mul_nsw, %mul_nuw, %mul_nsw_dup) : (i32, i32, i32) -> ()
 
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : i32, %{{.*}} : i32):
     // CHECK-NEXT: %[[MUL_NSW:.*]] = "llvm.mul"(%{{.*}}, %{{.*}}) <{nsw}> : (i32, i32) -> i32
-    // CHECK-NEXT: %[[MUL_NUW:.*]] = "llvm.mul"(%{{.*}}, %{{.*}}) <{nuw}> : (i32, i32) -> i32
+    // CHECK-NEXT: %[[MUL_NUW:.*]] = "llvm.mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
     // CHECK-NEXT: "test.test"(%[[MUL_NSW]], %[[MUL_NUW]], %[[MUL_NSW]])
 
 // `sub` is non-commutative; nsw still partitions identity.
@@ -72,28 +72,28 @@
 ^shl_flags(%k : i32, %l : i32):
     %shl_nsw_1 = "llvm.shl"(%k, %l) <{nsw}> : (i32, i32) -> i32
     %shl_nsw_2 = "llvm.shl"(%k, %l) <{nsw}> : (i32, i32) -> i32
-    %shl_nuw   = "llvm.shl"(%k, %l) <{nuw}> : (i32, i32) -> i32
+    %shl_nuw   = "llvm.shl"(%k, %l) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
     %shl_plain = "llvm.shl"(%k, %l) : (i32, i32) -> i32
     "test.test"(%shl_nsw_1, %shl_nsw_2, %shl_nuw, %shl_plain) : (i32, i32, i32, i32) -> ()
 
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : i32, %{{.*}} : i32):
     // CHECK-NEXT: %[[SHL_NSW:.*]] = "llvm.shl"(%{{.*}}, %{{.*}}) <{nsw}> : (i32, i32) -> i32
-    // CHECK-NEXT: %[[SHL_NUW:.*]] = "llvm.shl"(%{{.*}}, %{{.*}}) <{nuw}> : (i32, i32) -> i32
+    // CHECK-NEXT: %[[SHL_NUW:.*]] = "llvm.shl"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
     // CHECK-NEXT: %[[SHL_PLAIN:.*]] = "llvm.shl"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
     // CHECK-NEXT: "test.test"(%[[SHL_NSW]], %[[SHL_NSW]], %[[SHL_NUW]], %[[SHL_PLAIN]])
 
 // `trunc` carries nsw/nuw; three flag combos remain three ops.
 ^trunc_flags(%t : i64):
     %trunc_nsw  = "llvm.trunc"(%t) <{nsw}> : (i64) -> i32
-    %trunc_nuw  = "llvm.trunc"(%t) <{nuw}> : (i64) -> i32
+    %trunc_nuw  = "llvm.trunc"(%t) <{"overflowFlags" = 2 : i32}> : (i64) -> i32
     %trunc_both_1 = "llvm.trunc"(%t) <{nuw, nsw}> : (i64) -> i32
     %trunc_both_2 = "llvm.trunc"(%t) <{nuw, nsw}> : (i64) -> i32
     "test.test"(%trunc_nsw, %trunc_nuw, %trunc_both_1, %trunc_both_2) : (i32, i32, i32, i32) -> ()
 
     // CHECK-LABEL: ^{{.*}}(%{{.*}} : i64):
     // CHECK-NEXT: %[[TRUNC_NSW:.*]] = "llvm.trunc"(%{{.*}}) <{nsw}> : (i64) -> i32
-    // CHECK-NEXT: %[[TRUNC_NUW:.*]] = "llvm.trunc"(%{{.*}}) <{nuw}> : (i64) -> i32
-    // CHECK-NEXT: %[[TRUNC_BOTH:.*]] = "llvm.trunc"(%{{.*}}) <{nsw, nuw}> : (i64) -> i32
+    // CHECK-NEXT: %[[TRUNC_NUW:.*]] = "llvm.trunc"(%{{.*}}) <{"overflowFlags" = 2 : i32}> : (i64) -> i32
+    // CHECK-NEXT: %[[TRUNC_BOTH:.*]] = "llvm.trunc"(%{{.*}}) <{"overflowFlags" = 3 : i32}> : (i64) -> i32
     // CHECK-NEXT: "test.test"(%[[TRUNC_NSW]], %[[TRUNC_NUW]], %[[TRUNC_BOTH]], %[[TRUNC_BOTH]])
   }) : () -> ()
 }) : () -> ()

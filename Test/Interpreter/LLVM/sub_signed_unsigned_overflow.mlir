@@ -6,7 +6,7 @@
     %rhs = "llvm.mlir.constant"() <{ "value" = 220 : i8 }> : () -> i8
     %none = "llvm.sub"(%lhs, %rhs) : (i8, i8) -> i8
     %nsw = "llvm.sub"(%lhs, %rhs) <{nsw}> : (i8, i8) -> i8
-    %nuw = "llvm.sub"(%lhs, %rhs) <{nuw}> : (i8, i8) -> i8
+    %nuw = "llvm.sub"(%lhs, %rhs) <{"overflowFlags" = 2 : i32}> : (i8, i8) -> i8
     %nuw_nsw = "llvm.sub"(%lhs, %rhs) <{nuw, nsw}> : (i8, i8) -> i8
     "func.return"(%none, %nsw, %nuw, %nuw_nsw) : (i8, i8, i8, i8) -> ()
   }) : () -> ()
