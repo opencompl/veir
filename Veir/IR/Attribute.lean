@@ -80,7 +80,7 @@ structure RegisterAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
-  A floating point attribute storing a Lean `Float` value with an associated float type.
+A floating point attribute storing a Lean `Float` value with an associated float type.
 -/
 structure FloatAttr where
   value : Float
