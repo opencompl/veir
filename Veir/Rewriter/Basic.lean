@@ -881,3 +881,15 @@ def IRContext.create OpInfo [HasOpInfo OpInfo] : Option (IRContext OpInfo × Ope
   rlet (ctx, operation) ← Rewriter.createOp ctx HasOpInfo.moduleOpCode #[] #[] #[] #[region] default none
   rlet (ctx, block) ← Rewriter.createBlock ctx #[] (some (.atEnd region)) (by grind) (by grind)
   return (ctx, operation)
+
+@[grind →]
+theorem IRContext.create_fieldsInBounds {op: OperationPtr} (h : IRContext.create OpInfo = some (ctx, op)) :
+    ctx.FieldsInBounds := by
+  simp only [IRContext.create] at h
+  grind
+
+@[grind →]
+theorem IRContext.create_inBounds {op: OperationPtr} (h : IRContext.create OpInfo = some (ctx, op)) :
+    op.InBounds ctx := by
+  simp only [IRContext.create] at h
+  grind (gen := 10)
