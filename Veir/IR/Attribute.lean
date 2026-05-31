@@ -280,6 +280,8 @@ inductive Attribute
 | floatType (type : FloatType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
+/-- Float attribute -/
+| floatAttr (attr : FloatAttr)
 /-- Float fast math flags attribute -/
 | fastMathFlagsAttr (attr : FastMathFlagsAttr)
 /-- Register type -/
@@ -316,8 +318,6 @@ inductive Attribute
 | cudaTilePointerType (type : CudaTile.PointerType)
 /-- CIRCT hw module type -/
 | hwModuleType (type : HW.ModuleType)
-/-- Float attribute -/
-| floatAttr (attr : FloatAttr)
 deriving Inhabited, Repr, Hashable
 
 end
@@ -456,6 +456,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case floatAttr.floatAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case stringAttr.stringAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -508,10 +512,6 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isFalse hEq => isFalse (by grind))
   case hwModuleType.hwModuleType type1 type2 =>
     exact (match decEq type1 type2 with
-      | isTrue hEq => isTrue (by grind)
-      | isFalse hEq => isFalse (by grind))
-  case floatAttr.floatAttr attr1 attr2 =>
-    exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   all_goals exact isFalse (by grind)
@@ -695,6 +695,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .floatType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
+  | .floatAttr attr => ToString.toString attr
   | .registerType type => ToString.toString type
   | .registerAttr attr => ToString.toString attr
   | .stringAttr attr => ToString.toString attr
@@ -712,7 +713,6 @@ def Attribute.toString (attr : Attribute) : String :=
   | .llvmFunctionType type => type.toLLVMString
   | .cudaTilePointerType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
-  | .floatAttr attr => s!"{attr.value} : {attr.type}"
 termination_by sizeOf attr
 
 end
