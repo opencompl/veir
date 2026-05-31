@@ -705,8 +705,8 @@ When there's no applicable <code>mspec</code> spec, <code>mvcgen</code> will try
 function <code>foo</code> occurring in <code>prog</code>,</li><li>unfold a definition <code>def bar_def ... := ...</code> in <code>prog</code>,</li><li>unfold any method of the <code><a href="./Init/Data/Float.html#instBEqFloat">instBEqFloat</a> : <a href="./Init/Prelude.html#BEq">BEq</a> <a href="./Init/Data/Float.html#Float">Float</a></code> instance in <code>prog</code>.</li><li>it will no longer substitute away <code>let</code>-expressions that occur at most once in <code>P</code>, <code>Q</code> or <code>prog</code>.</li></ul><h3 id="Config-options" class="markdown-heading">Config options <a class="hover-link" href="#Config-options">#</a></h3><p><code>+noLetElim</code> is just one config option of many. Check out <code>Lean.Elab.Tactic.Do.VCGen.Config</code> for all
 options. Of particular note is <code>stepLimit = some 42</code>, which is useful for bisecting bugs in
 <code>mvcgen</code> and tracing its execution.</p><h3 id="Extended-syntax" class="markdown-heading">Extended syntax <a class="hover-link" href="#Extended-syntax">#</a></h3><p>Often, <code>mvcgen</code> will be used like this:</p><pre><code>mvcgen [...]
-case inv1 =&gt; by exact I1
-case inv2 =&gt; by exact I2
+case inv1 =&gt; exact I1
+case inv2 =&gt; exact I2
 all_goals (mleave; try grind)
 </code></pre><p>There is special syntax for this:</p><pre><code>mvcgen [...] invariants
 · I1
