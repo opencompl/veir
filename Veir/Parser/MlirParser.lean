@@ -558,7 +558,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   Parse an operation.
 -/
 partial def parseOp (ip : Option InsertPoint) : MlirParserM OperationPtr := do
-  let some op ← parseOptionalOp ip | throwString "operation expected"
+  let some op ← parseOptionalOp ip | throwAtCurrentPos "operation expected"
   return op
 
 /--
