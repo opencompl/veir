@@ -130,8 +130,8 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
   return some (StringAttr.mk str.toByteArray)
 
 /--
-  Parse a float attribute, if present.
-  Only `1.0 : f64` is supported; the value is stored as Lean's `Float`.
+Parse a float attribute, if present.
+Only `1.0 : f64` is supported; the value is stored as Lean's `Float`.
 -/
 def parseOptionalFloatAttr : AttrParserM (Option FloatAttr) := do
   let some tok ← parseOptionalToken .floatLit | return none
