@@ -80,6 +80,18 @@ theorem Conforms.integerType :
   all_goals grind
 
 @[grind <=]
+theorem Conforms.floatType :
+    Conforms runtimeValue ⟨.floatType fltType, h⟩ →
+    ∃ val, runtimeValue = .float fltType.bitwidth val := by
+  simp only [Conforms]
+  cases runtimeValue
+  case float bw val =>
+    simp only [float.injEq, exists_and_left]
+    intro _; subst bw
+    grind
+  all_goals grind
+
+@[grind <=]
 theorem Conforms.registerType :
     Conforms runtimeValue ⟨.registerType regType, h⟩ →
     ∃ val, runtimeValue = .reg val := by
