@@ -1169,6 +1169,24 @@ theorem IRContext.WellFormed.exists_parent!_eq_some_of_prev!_eq_some
   have := (Option.ne_none_iff_exists.mp this)
   grind
 
+theorem IRContext.WellFormed.firstOp!_eq_some_iff
+    {block : BlockPtr} (blockInBounds : block.InBounds ctx)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses) :
+    (block.get! ctx).firstOp = some op ↔
+    ((op.get! ctx).parent = some block ∧ (op.get! ctx).prev = none) := by
+  constructor
+  · grind [IRContext.WellFormed, BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self]
+  · have ⟨array, harray⟩ := wf.opChain block (by grind)
+    grind [BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self]
+
+grind_pattern IRContext.WellFormed.firstOp!_eq_some_iff =>
+  ctx.WellFormed missingUses missingSuccessorUses, (block.get! ctx).firstOp, some op
+
+grind_pattern IRContext.WellFormed.firstOp!_eq_some_iff =>
+  ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).parent, some block,
+  (op.get! ctx).prev
+
 theorem RegionPtr.BlockChain.mem_next!_of_mem
     (bl nextBl : BlockPtr) (region : RegionPtr)
     (hWF : region.BlockChain ctx array)
