@@ -62,28 +62,6 @@ def getIDom? [FactSpec .dominator] (block : BlockPtr) (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Option BlockPtr :=
   block.getDominatorFact? dfCtx irCtx >>= (·.iDom)
 
-/--
-Collect the dominators currently reachable from `block` by following the `iDom`
-chain.
-
-The returned set always includes `block` itself. If `block` has no dominator
-fact, returns `none`. Otherwise, this walks the currently known immediate
-dominator chain until it reaches a root or a self-loop, so during analysis it
-may return only the known prefix of the full dominator set.
--/
-def getDoms? [FactSpec .dominator] (block : BlockPtr) (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Option (HashSet BlockPtr) := do
-  let fact ← block.getDominatorFact? dfCtx irCtx
-  let mut doms := (∅ : HashSet BlockPtr).insert block
-  let mut current := fact.iDom
-  while let some dom := current do
-    doms := doms.insert dom
-    let next := dom.getIDom? dfCtx irCtx
-    if next = some dom then
-      return doms
-    current := next
-  doms
-
 end BlockPtr
 
 namespace RegionPtr
