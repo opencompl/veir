@@ -1,6 +1,7 @@
 import UnitTest.DataFlowFramework.Helpers
 
 import Veir.Analysis.DataFlow.DominanceAnalysis
+import Veir.IR.Dominance
 
 open Std (HashSet)
 open Veir
@@ -9,6 +10,7 @@ open Veir
 private structure ExpectedBlockDominators where
   name : String
   dominators : HashSet String
+  iDom : String
 
 /--
 Compare one expected dominator label against the observed dominance information.
@@ -59,8 +61,31 @@ private def compareObservedDominator
     report := report.push s!"dominators {expected.name}: unexpected proper dominator {observedName}"
   report
 
+
 /--
-Compare the observed dominator information for one reachable block.
+Compare `BlockPtr.immediateDominator?` against the expected block label.
+-/
+private def compareImmediateDominator
+    (recovered : RecoveredNames)
+    (expected : ExpectedBlockDominators)
+    (dfCtx : DataFlowContext)
+    (irCtx : IRContext OpCode) : MismatchReport := Id.run do
+  let some block := recovered.blocks[expected.name]?
+    | return #[s!"idom {expected.name}: missing block label"]
+  let some observedIDom := block.immediateDominator? dfCtx irCtx
+    | return #[s!"idom {expected.name}: expected immediate dominator {expected.iDom}, observed none"]
+  let some expectedIDom := recovered.blocks[expected.iDom]?
+    | return #[s!"idom {expected.name}: missing block label {expected.iDom}"]
+  if observedIDom = expectedIDom then
+    return #[]
+  let observedName :=
+    (recovered.blocks.toList.findSome? fun (name, block) =>
+      if block = observedIDom then some name else none).getD "none"
+  return #[s!"idom {expected.name}: expected {expected.iDom}, observed {observedName}"]
+
+/--
+Compare the observed dominator information against the
+expected dominator information for one reachable block.
 
 This runs both passes of the reachable block check: every expected dominator must
 be observed, and every observed dominator must be expected.
@@ -81,12 +106,13 @@ private def compareReachableDominators
   report
 
 /--
-Compare the observed dominator information for one named block.
+Compare the observed dominator information against the
+expected dominator information for one named block.
 
 An empty expected dominator set means the block should be unreachable and
 therefore should not have an initialized dominator fact.
 -/
-private def compareNamedBlockDominators
+private def compareDominators
     (recovered : RecoveredNames)
     (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
@@ -115,7 +141,8 @@ private def compareNamedDominators
     (irCtx : IRContext OpCode) : MismatchReport := Id.run do
   let mut report := #[]
   for expected in expectations do
-    report := report ++ compareNamedBlockDominators recovered expected dfCtx irCtx
+    report := report ++ compareDominators recovered expected dfCtx irCtx
+    report := report ++ compareImmediateDominator recovered expected dfCtx irCtx
   report
 
 namespace DominanceAnalysis
@@ -162,9 +189,9 @@ def testDomLoop : String :=
 ^bb2:\n\
   \"test.test\"() [^bb1] : () -> ()\n\
 }) : () -> ()"
-    #[ { name := "bb0", dominators := { "bb0" } }
-     , { name := "bb1", dominators := { "bb0", "bb1" } }
-     , { name := "bb2", dominators := { "bb0", "bb1", "bb2" } }
+    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
+     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb0" }
+     , { name := "bb2", dominators := { "bb0", "bb1", "bb2" }, iDom := "bb1" }
      ]
 
 /-
@@ -191,10 +218,10 @@ def testDomDiamond : String :=
 ^bb3:\n\
   \"test.test\"() : () -> ()\n\
 }) : () -> ()"
-    #[ { name := "bb0", dominators := { "bb0" } }
-     , { name := "bb1", dominators := { "bb0", "bb1" } }
-     , { name := "bb2", dominators := { "bb0", "bb2" } }
-     , { name := "bb3", dominators := { "bb0", "bb3" } }
+    #[ { name := "bb0", dominators := { "bb0" },        iDom := "bb0" }
+     , { name := "bb1", dominators := { "bb0", "bb1" }, iDom := "bb0" }
+     , { name := "bb2", dominators := { "bb0", "bb2" }, iDom := "bb0" }
+     , { name := "bb3", dominators := { "bb0", "bb3" }, iDom := "bb0" }
      ]
 
 /-
@@ -227,10 +254,10 @@ def testDomLine : String :=
 ^bb3:\n\
   \"test.test\"() : () -> ()\n\
 }) : () -> ()"
-    #[ { name := "bb0", dominators := { "bb0" } }
-     , { name := "bb1", dominators := { "bb0", "bb1" } }
-     , { name := "bb2", dominators := { "bb0", "bb1", "bb2" } }
-     , { name := "bb3", dominators := { "bb0", "bb1", "bb2", "bb3" } }
+    #[ { name := "bb0", dominators := { "bb0" },                      iDom := "bb0" }
+     , { name := "bb1", dominators := { "bb0", "bb1" },               iDom := "bb0" }
+     , { name := "bb2", dominators := { "bb0", "bb1", "bb2" },        iDom := "bb1" }
+     , { name := "bb3", dominators := { "bb0", "bb1", "bb2", "bb3" }, iDom := "bb2" }
      ]
 
 /-
@@ -271,14 +298,14 @@ def testDomIfLoopIf : String :=
 ^bb7:\n\
   \"test.test\"() : () -> ()\n\
 }) : () -> ()"
-    #[ { name := "bb0", dominators := { "bb0" } }
-     , { name := "bb1", dominators := { "bb0", "bb1" } }
-     , { name := "bb2", dominators := { "bb0", "bb2" } }
-     , { name := "bb3", dominators := { "bb0", "bb2", "bb3" } }
-     , { name := "bb4", dominators := { "bb0", "bb2", "bb4" } }
-     , { name := "bb5", dominators := { "bb0", "bb1", "bb5" } }
-     , { name := "bb6", dominators := { "bb0", "bb2", "bb6" } }
-     , { name := "bb7", dominators := { "bb0", "bb7" } }
+    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
+     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb0" }
+     , { name := "bb2", dominators := { "bb0", "bb2" },        iDom := "bb0" }
+     , { name := "bb3", dominators := { "bb0", "bb2", "bb3" }, iDom := "bb2" }
+     , { name := "bb4", dominators := { "bb0", "bb2", "bb4" }, iDom := "bb2" }
+     , { name := "bb5", dominators := { "bb0", "bb1", "bb5" }, iDom := "bb1" }
+     , { name := "bb6", dominators := { "bb0", "bb2", "bb6" }, iDom := "bb2" }
+     , { name := "bb7", dominators := { "bb0", "bb7" },        iDom := "bb0" }
      ]
 
 /--
