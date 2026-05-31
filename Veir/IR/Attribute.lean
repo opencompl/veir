@@ -88,7 +88,7 @@ structure FloatAttr where
 deriving Inhabited, Repr
 
 /--
-  Temporary bridge lemma for deciding `FloatAttr` equality via `Float.toBits`.
+Temporary bridge lemma for deciding `FloatAttr` equality via `Float.toBits`.
 -/
 axiom floatEqOfToBitsEq {a b : Float} : a.toBits = b.toBits → a = b
 
