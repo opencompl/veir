@@ -122,7 +122,7 @@ def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     Except String FastMathFlagsProperties := do
 
   let value ← match attrDict["fastmathFlags".toUTF8]? with
-    | none => .ok { fast := false, nnan := false, ninf := false, nsz := false }
+    | none => .ok { nnan := false, ninf := false, nsz := false }
     | some (.fastMathFlagsAttr flags) => .ok flags
     | some (.unregisteredAttr attr) =>
         .error s!"expected 'fastmathFlags' to be a fast math flags attribute, but got unregistered {attr}"

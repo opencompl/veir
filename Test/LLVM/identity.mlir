@@ -143,7 +143,7 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nnan, ninf, nsz>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
 // CHECK-NEXT:       "llvm.return"(%{{.*}}) : (i32) -> ()
 // CHECK-NEXT:   }) : () -> ()
 // CHECK-NEXT: }) : () -> ()

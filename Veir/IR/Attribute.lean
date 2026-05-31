@@ -69,7 +69,6 @@ deriving Inhabited, Repr, DecidableEq, Hashable
  Floating point fastmath flags attribute.
 -/
 structure FastMathFlagsAttr where
-  fast : Bool
   nnan : Bool
   ninf : Bool
   nsz : Bool
@@ -504,7 +503,7 @@ instance : ToString FloatType where
 instance : ToString FastMathFlagsAttr where
   toString type := Id.run do
     let mut array : List String := []
-    if type.fast then array := array ++ ["fast"]
+    if type.nnan && type.ninf && type.nsz then array := array ++ ["fast"]
     else
       if type.nnan then array := array ++ ["nnan"]
       if type.ninf then array := array ++ ["ninf"]

@@ -163,17 +163,17 @@ def parseOptionalDenseArrayAttr : AttrParserM (Option DenseArrayAttr) := do
 
 def parseFastMathFlag : AttrParserM FastMathFlagsAttr := do
   if (← parseOptionalKeyword "fast".toByteArray) then
-    return { fast := true, nnan := false, ninf := false, nsz := false }
+    return { nnan := true, ninf := true, nsz := true }
   else if (← parseOptionalKeyword "nnan".toByteArray) then
-    return { fast := false, nnan := true, ninf := false, nsz := false }
+    return { nnan := true, ninf := false, nsz := false }
   else if (← parseOptionalKeyword "ninf".toByteArray) then
-    return { fast := false, nnan := false, ninf := true, nsz := false }
+    return { nnan := false, ninf := true, nsz := false }
   else if (← parseOptionalKeyword "nsz".toByteArray) then
-    return { fast := false, nnan := false, ninf := false, nsz := true }
+    return { nnan := false, ninf := false, nsz := true }
   else if (← parseOptionalKeyword "none".toByteArray) then
-    return { fast := false, nnan := false, ninf := false, nsz := false }
+    return { nnan := false, ninf := false, nsz := false }
   else
-    return { fast := false, nnan := false, ninf := false, nsz := false }
+    return { nnan := false, ninf := false, nsz := false }
 
 /--
   Parse an optional fastmath flags attribute, if present.
@@ -182,10 +182,9 @@ def parseFloatFastMathFlagsAttr : AttrParserM (Option FastMathFlagsAttr) := do
   parsePunctuation "<"
   let values ← parseList parseFastMathFlag
   parsePunctuation ">"
-  let mut floatFastMathFlags := FastMathFlagsAttr.mk false false false false
+  let mut floatFastMathFlags := FastMathFlagsAttr.mk false false false
   for flag in values do
     floatFastMathFlags := { floatFastMathFlags with
-      fast := floatFastMathFlags.fast || flag.fast,
       nnan := floatFastMathFlags.nnan || flag.nnan,
       ninf := floatFastMathFlags.ninf || flag.ninf,
       nsz := floatFastMathFlags.nsz || flag.nsz }
