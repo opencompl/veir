@@ -92,8 +92,21 @@ lake exec veir-opt -p=instcombine,dce demorgan-opt.mlir
 ```
 
 Alternatively, you can batch up these commands using the provided
-compiler driver (and, in this case, emit the optimized MLIR to
-stdout):
+compiler driver and emit the optimized MLIR to stdout:
 ```bash
-Tools/vcc demorgan.c -O -o -
+Tools/vcc demorgan.c --emit-mlir -O -o -
+```
+
+Without an explicit emit mode, `vcc` translates VeIR's output back to
+LLVM IR and asks `clang` to produce an executable:
+```bash
+cat << _end_ > hello.c
+#include <stdio.h>
+
+int main(void) {
+  printf("hello, world\n");
+}
+_end_
+
+Tools/vcc hello.c -o hello
 ```
