@@ -645,10 +645,4 @@ theorem OperationPtr.getNumOperands_iff_replaceValue?
     OperationPtr.getNumOperands op ctx (by grind) := by
   grind [OpOperandPtr.inBounds_if_operand_size_eq]
 
-@[grind →]
-theorem IRContext.create_fieldsInBounds {op: OperationPtr} (h : IRContext.create OpInfo = some (ctx, op)) :
-    ctx.FieldsInBounds ∧ op.InBounds ctx := by
-  simp only [IRContext.create] at h
-  constructor <;> grind (gen := 10)
-
 end Veir
