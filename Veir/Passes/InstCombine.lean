@@ -19,7 +19,7 @@ def mulITwoToAddi (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, properties) := matchMuli op rewriter.ctx
     | return rewriter
-  let some cst := matchConstantVal rhs rewriter.ctx
+  let some cst := matchConstantIntVal rhs rewriter.ctx
     | return rewriter
   if cst.value ≠ 2 then
     return rewriter
@@ -33,7 +33,7 @@ def mulIZeroToCst (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, properties) := matchMuli op rewriter.ctx
     | return rewriter
-  let some cst := matchConstantVal rhs rewriter.ctx
+  let some cst := matchConstantIntVal rhs rewriter.ctx
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
@@ -50,7 +50,7 @@ def addiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchAddi op rewriter.ctx
     | return rewriter
-  let some cst := matchConstantVal rhs rewriter.ctx
+  let some cst := matchConstantIntVal rhs rewriter.ctx
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
@@ -63,7 +63,7 @@ def mulIOneToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchMuli op rewriter.ctx
     | return rewriter
-  let some cst := matchConstantVal rhs rewriter.ctx
+  let some cst := matchConstantIntVal rhs rewriter.ctx
     | return rewriter
   if cst.value ≠ 1 then
     return rewriter
@@ -76,7 +76,7 @@ def subiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchSubi op rewriter.ctx
     | return rewriter
-  let some cst := matchConstantVal rhs rewriter.ctx
+  let some cst := matchConstantIntVal rhs rewriter.ctx
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
@@ -115,7 +115,7 @@ def andiZeroToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchAndi op rewriter.ctx
     | return rewriter
-  let some cst := matchConstantVal rhs rewriter.ctx
+  let some cst := matchConstantIntVal rhs rewriter.ctx
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
@@ -132,7 +132,7 @@ def oriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchOri op rewriter.ctx
     | return rewriter
-  let some cst := matchConstantVal rhs rewriter.ctx
+  let some cst := matchConstantIntVal rhs rewriter.ctx
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
@@ -156,7 +156,7 @@ def xoriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchXori op rewriter.ctx
     | return rewriter
-  let some cst := matchConstantVal rhs rewriter.ctx
+  let some cst := matchConstantIntVal rhs rewriter.ctx
     | return rewriter
   if cst.value ≠ 0 then
     return rewriter
@@ -183,7 +183,7 @@ def matchNot (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
   let .opResult opResultPtr := val | none
   let op := opResultPtr.op
   let (lhs, rhs) ← matchXori op ctx
-  let cst ← matchConstantVal rhs ctx
+  let cst ← matchConstantIntVal rhs ctx
   guard (cst.value = -1)
   return lhs
 
