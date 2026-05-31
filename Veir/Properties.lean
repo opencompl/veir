@@ -131,7 +131,7 @@ def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
   return ⟨value⟩
 
 /--
-  The two type of constants an LLVM constant can store.
+The two types of constants an LLVM constant can store.
 -/
 inductive LLVMConstantValue where
 | integer (value : IntegerAttr)
