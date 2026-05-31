@@ -17,10 +17,10 @@ This is the completeness half of the reachable block check: every expected
 dominator must be observed.
 -/
 private def compareExpectedDominator
-    (expected : ExpectedBlockDominators)
     (block : BlockPtr)
-    (recovered : RecoveredNames)
     (expectedDom : String)
+    (recovered : RecoveredNames)
+    (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : MismatchReport := Id.run do
   let some expectedBlock := recovered.blocks[expectedDom]?
@@ -41,23 +41,23 @@ This is the soundness half of the reachable block check: every observed
 dominator must be expected.
 -/
 private def compareObservedDominator
-    (expected : ExpectedBlockDominators)
     (block : BlockPtr)
     (observedName : String)
     (observedBlock : BlockPtr)
+    (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : MismatchReport := Id.run do
-    let observedByRelation := Veir.DominanceAnalysis.dominates observedBlock block dfCtx irCtx
-    let observedProperly := Veir.DominanceAnalysis.properlyDominates observedBlock block dfCtx irCtx
-    let mut report := #[]
-    if observedProperly ≠ (observedByRelation && observedBlock ≠ block) then
-      report := report.push
-        s!"dominators {expected.name}: dominates/properlyDominates disagree on {observedName}"
-    if observedByRelation && !expected.dominators.contains observedName then
-      report := report.push s!"dominators {expected.name}: unexpected dominator {observedName}"
-    if observedProperly && (!expected.dominators.contains observedName || observedName = expected.name) then
-      report := report.push s!"dominators {expected.name}: unexpected proper dominator {observedName}"
-    report
+  let observedByRelation := Veir.DominanceAnalysis.dominates observedBlock block dfCtx irCtx
+  let observedProperly := Veir.DominanceAnalysis.properlyDominates observedBlock block dfCtx irCtx
+  let mut report := #[]
+  if observedProperly ≠ (observedByRelation && observedBlock ≠ block) then
+    report := report.push
+      s!"dominators {expected.name}: dominates/properlyDominates disagree on {observedName}"
+  if observedByRelation && !expected.dominators.contains observedName then
+    report := report.push s!"dominators {expected.name}: unexpected dominator {observedName}"
+  if observedProperly && (!expected.dominators.contains observedName || observedName = expected.name) then
+    report := report.push s!"dominators {expected.name}: unexpected proper dominator {observedName}"
+  report
 
 /--
 Compare the observed dominator information for one reachable block.
@@ -66,18 +66,18 @@ This runs both passes of the reachable block check: every expected dominator mus
 be observed, and every observed dominator must be expected.
 -/
 private def compareReachableDominators
-    (expected : ExpectedBlockDominators)
     (block : BlockPtr)
     (recovered : RecoveredNames)
+    (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : MismatchReport := Id.run do
   let mut report := #[]
   for expectedDom in expected.dominators.toArray do
     report := report ++ compareExpectedDominator
-      expected block recovered expectedDom dfCtx irCtx
+      block expectedDom recovered expected dfCtx irCtx
   for (observedName, observedBlock) in recovered.blocks.toList do
     report := report ++ compareObservedDominator
-      expected block observedName observedBlock dfCtx irCtx
+      block observedName observedBlock expected dfCtx irCtx
   report
 
 /--
@@ -102,7 +102,7 @@ private def compareNamedBlockDominators
   | false, none =>
       return #[s!"dominators {expected.name}: expected initialized state, observed unreachable block"]
   | false, some _ =>
-      return compareReachableDominators expected block recovered dfCtx irCtx
+      return compareReachableDominators block recovered expected dfCtx irCtx
 
 /--
 Compare the observed dominator relation against an expected map keyed by block
