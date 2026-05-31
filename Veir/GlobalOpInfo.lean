@@ -178,16 +178,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
 
     dict
   | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 2
-    if props.fast then
-      dict := dict.insert "fast".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    if props.nnan then
-      dict := dict.insert "nnan".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    if props.ninf then
-      dict := dict.insert "ninf".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    if props.nsz then
-      dict := dict.insert "nsz".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
+    (Std.HashMap.emptyWithCapacity 1).insert "fastmathFlags".toUTF8 (Attribute.fastMathFlagsAttr props.attr)
   | .arith .cmpi | .llvm .icmp => Id.run do
     let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
     (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr value)

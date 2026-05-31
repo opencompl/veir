@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_ROUNDTRIP
 
 "builtin.module"() ({
   "llvm.module_flags"() <{flags = [#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>, #llvm.mlir.module_flag<min, "PIC Level", 2 : i32>, #llvm.mlir.module_flag<max, "PIE Level", 2 : i32>, #llvm.mlir.module_flag<max, "uwtable", 2 : i32>, #llvm.mlir.module_flag<max, "frame-pointer", 2 : i32>]}> : () -> ()
@@ -44,30 +45,31 @@
     ^9(%ptr : !llvm.ptr):
       %32 = "llvm.getelementptr"(%ptr, %6) <{elem_type = !llvm.struct<(i32, f32)>, rawConstantIndices = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
       %34 = "llvm.fadd"(%fcst, %fcst) : (f64, f64) -> f64
-      %35 = "llvm.fadd"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
-      %36 = "llvm.fadd"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
-      %37 = "llvm.fadd"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
-      %38 = "llvm.fadd"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %35 = "llvm.fadd"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<none, fast>}> : (f64, f64) -> f64
+      %36 = "llvm.fadd"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
+      %37 = "llvm.fadd"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
+      %38 = "llvm.fadd"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
       %39 = "llvm.fsub"(%fcst, %fcst) : (f64, f64) -> f64
-      %40 = "llvm.fsub"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
-      %41 = "llvm.fsub"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
-      %42 = "llvm.fsub"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
-      %43 = "llvm.fsub"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %40 = "llvm.fsub"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+      %41 = "llvm.fsub"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
+      %42 = "llvm.fsub"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
+      %43 = "llvm.fsub"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
       %44 = "llvm.fmul"(%fcst, %fcst) : (f64, f64) -> f64
-      %45 = "llvm.fmul"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
-      %46 = "llvm.fmul"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
-      %47 = "llvm.fmul"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
-      %48 = "llvm.fmul"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %45 = "llvm.fmul"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+      %46 = "llvm.fmul"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
+      %47 = "llvm.fmul"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
+      %48 = "llvm.fmul"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
       %49 = "llvm.fdiv"(%fcst, %fcst) : (f64, f64) -> f64
-      %50 = "llvm.fdiv"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
-      %51 = "llvm.fdiv"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
-      %52 = "llvm.fdiv"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
-      %53 = "llvm.fdiv"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
-      %54 = "llvm.frem"(%fcst, %fcst) : (f64, f64) -> f64
-      %55 = "llvm.frem"(%fcst, %fcst) <{fast}> : (f64, f64) -> f64
-      %56 = "llvm.frem"(%fcst, %fcst) <{nnan}> : (f64, f64) -> f64
-      %57 = "llvm.frem"(%fcst, %fcst) <{ninf}> : (f64, f64) -> f64
-      %58 = "llvm.frem"(%fcst, %fcst) <{nsz}> : (f64, f64) -> f64
+      %50 = "llvm.fdiv"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+      %51 = "llvm.fdiv"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
+      %52 = "llvm.fdiv"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
+      %53 = "llvm.fdiv"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
+      %54 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<none>}> : (f64, f64) -> f64
+      %55 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+      %56 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
+      %57 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
+      %58 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
+      %59 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz, nnan, ninf>}> : (f64, f64) -> f64
       "llvm.return"(%arg7_0) : (i32) -> ()
   }) : () -> ()
 }) : () -> ()
@@ -116,31 +118,32 @@
 // CHECK-NEXT:       "llvm.return"(%{{.*}}) : (i32) -> ()
 // CHECK-NEXT:     ^{{.*}}(%{{.*}} : !llvm.ptr):
 // CHECK-NEXT:       %{{.*}} = "llvm.getelementptr"(%{{.*}}, %{{.*}}) <{"elem_type" = !llvm.struct<(i32, f32)>, "noWrapFlags" = 0 : i32, "rawConstantIndices" = array<i32: -2147483648, 0>}> : (!llvm.ptr, i1) -> !llvm.ptr
-// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{fast}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{nnan}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{ninf}> : (f64, f64) -> f64
-// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{nsz}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<none>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fadd"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<none>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fsub"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<none>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fmul"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<none>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.fdiv"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<none>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nnan>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
 // CHECK-NEXT:       "llvm.return"(%{{.*}}) : (i32) -> ()
 // CHECK-NEXT:   }) : () -> ()
 // CHECK-NEXT: }) : () -> ()
