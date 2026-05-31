@@ -36,6 +36,7 @@ variable {ctx : WfIRContext OpInfo}
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
+| float (bitwidth : Nat) (value : Float)
 | addr (value : UInt64)
 | reg (value : RISCV.Reg)
 deriving Inhabited
@@ -43,6 +44,7 @@ deriving Inhabited
 instance : ToString (RuntimeValue) where
   toString
     | .int _ val => ToString.toString val
+    | .float _ val => ToString.toString val
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
 
@@ -56,6 +58,7 @@ namespace RuntimeValue
 def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   match val, ty with
   | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
+  | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
   | .reg _, ⟨.registerType _, _⟩ => True
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | _, _ => False
@@ -485,9 +488,17 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
   match opType with
   | .mlir__constant => do
     let some resType := resultTypes[0]? | none
-    let .integerType bw := resType.val
-      | none
-    return (#[.int bw.bitwidth (LLVM.Int.constant bw.bitwidth properties.value.value)], mem, none)
+    match properties.value with
+    | .integer intAttr =>
+      let .integerType bw := resType.val
+        | none
+      return (#[.int bw.bitwidth (LLVM.Int.constant bw.bitwidth intAttr.value)], mem, none)
+    | .float floatAttr =>
+      let .floatType bw := resType.val
+        | none
+      if bw.bitwidth ≠ 64 then
+        none
+      return (#[.float 64 floatAttr.value], mem, none)
   | .add => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else

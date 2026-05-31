@@ -1,8 +1,10 @@
 import Veir.Parser.Parser
 import Veir.IR.Basic
+import Veir.IR.Attribute
 
 open Veir.Parser.Lexer
 open Veir.Parser
+open Veir
 
 namespace Veir.AttrParser
 
@@ -126,6 +128,22 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
   let some str ← parseOptionalStringLiteral
     | return none
   return some (StringAttr.mk str.toByteArray)
+
+/--
+  Parse a float attribute, if present.
+  Only `1.0 : f64` is supported; the value is stored as Lean's `Float`.
+-/
+def parseOptionalFloatAttr : AttrParserM (Option FloatAttr) := do
+  let some tok ← parseOptionalToken .floatLit | return none
+  let str := String.fromUTF8! (tok.slice.of (← getThe ParserState).input)
+  if str ≠ "1.0" then
+    throwAtCurrentPos s!"unsupported floating-point literal '{str}', only '1.0 : f64' is supported"
+  parsePunctuation ":"
+  let some floatType ← parseOptionalFloatType
+    | throwAtCurrentPos "float type expected after ':' in float attribute"
+  if floatType.bitwidth ≠ 64 then
+    throwAtCurrentPos "unsupported float type, only f64 is supported"
+  return some (Veir.FloatAttr.mk 1.0 floatType)
 
 /--
   Parse a string attribute.
@@ -602,6 +620,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some type.val
   else if let some integerAttr ← parseOptionalIntegerAttr then
     return some integerAttr
+  else if let some floatAttr ← parseOptionalFloatAttr then
+    return some floatAttr
   else if let some stringAttr ← parseOptionalStringAttr then
     return some stringAttr
   else if let some denseArrayAttr ← parseOptionalDenseArrayAttr then

@@ -39,7 +39,7 @@ def mulIZeroToCst (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     return rewriter
   let .integerType type := (lhs.getType! rewriter.ctx.raw).val
     | return rewriter
-  let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
   let (rewriter, newOp) ← rewriter.createOp (.llvm .mlir__constant) #[lhs.getType! rewriter.ctx.raw] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
@@ -93,7 +93,7 @@ def subiSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     return rewriter
   let .integerType type := (lhs.getType! rewriter.ctx.raw).val
     | return rewriter
-  let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
   let (rewriter, newOp) ← rewriter.createOp (.llvm .mlir__constant) #[lhs.getType! rewriter.ctx.raw] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
@@ -121,7 +121,7 @@ def andiZeroToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     return rewriter
   let .integerType type := (lhs.getType! rewriter.ctx.raw).val
     | return rewriter
-  let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
   let (rewriter, newOp) ← rewriter.createOp (.llvm .mlir__constant) #[lhs.getType! rewriter.ctx.raw] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
@@ -173,7 +173,7 @@ def xoriSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     return rewriter
   let .integerType type := (lhs.getType! rewriter.ctx.raw).val
     | return rewriter
-  let cstProp := LLVMConstantProperties.mk (IntegerAttr.mk 0 type)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
   let (rewriter, newOp) ← rewriter.createOp (.llvm .mlir__constant) #[lhs.getType! rewriter.ctx.raw] #[]
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
