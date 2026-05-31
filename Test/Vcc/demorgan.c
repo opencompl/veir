@@ -1,4 +1,8 @@
-// RUN: ./Tools/vcc -O %s -o - | filecheck %s
+// RUN: ./Tools/vcc --emit-mlir -O %s -o - | filecheck %s
+// RUN: ./Tools/vcc -c %s -o %t.o
+// RUN: test -s %t.o
+// RUN: ./Tools/vcc -S %s -o %t.s
+// RUN: test -s %t.s
 
 unsigned d1(unsigned p, unsigned q) {
   return ~(~p & ~q);
