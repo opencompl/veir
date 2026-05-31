@@ -2408,6 +2408,11 @@ end BlockOperandPtrPtr
 
 namespace OperationPtr
 
+def getParentOp! (op : OperationPtr) (ctx : IRContext OpInfo) : Option OperationPtr := do
+  rlet block ← (op.get! ctx).parent
+  rlet region ← (block.get! ctx).parent
+  (region.get! ctx).parent
+
 def hasUses.loop (op : OperationPtr) (ctx : IRContext OpInfo) (index : Nat)
     (opIn : op.InBounds ctx := by grind)
     (hresult : index < op.getNumResults ctx := by grind) : Bool :=
