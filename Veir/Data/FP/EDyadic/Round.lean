@@ -293,6 +293,55 @@ private def computeRoundRTZ
   if sign then computeUpper sign mag k prec e s
   else computeLower sign mag k prec e s
 
+/-! ## Nearest rounders: RNE, RNA, and the per-mode dispatcher
+
+`computeRoundRNE` (round-to-nearest, tie-to-even) and `computeRoundRNA`
+(round-to-nearest, tie-away-from-zero) consult the position predicates
+to choose between `lower` and `upper`. `computeRoundByMode` is the unified dispatcher
+used by `Dyadic.round`. The end-to-end behaviour of each mode is
+exercised in `UnitTest.FP.EDyadic.Round`. -/
+
+/-- Round-to-nearest, tie to even. -/
+private def computeRoundRNE
+    (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  if ! computeIsLowerHalf sign mag k prec e && ! computeIsTieBreak mag k prec e then
+    computeUpper sign mag k prec e s
+  else if computeIsTieBreak mag k prec e && computeIsUpperEven sign mag k prec then
+    computeUpper sign mag k prec e s
+  else if computeIsTieBreak mag k prec e && computeIsLowerEven sign mag k prec then
+    computeLower sign mag k prec e s
+  else if computeIsLowerHalf sign mag k prec e then
+    computeLower sign mag k prec e s
+  else
+    -- Defensive default; unreachable given the partition of cases.
+    computeLower sign mag k prec e s
+
+/-- Round-to-nearest, tie away from zero. -/
+private def computeRoundRNA
+    (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  if sign = false && ! computeIsLowerHalf sign mag k prec e then
+    computeUpper sign mag k prec e s
+  else if sign = false && computeIsLowerHalf sign mag k prec e then
+    computeLower sign mag k prec e s
+  else if sign = true && ! computeIsLowerHalf sign mag k prec e
+        && ! computeIsTieBreak mag k prec e then
+    computeUpper sign mag k prec e s
+  else if sign = true
+        && (computeIsLowerHalf sign mag k prec e || computeIsTieBreak mag k prec e) then
+    computeLower sign mag k prec e s
+  else
+    computeLower sign mag k prec e s
+
+/-- Dispatcher: select the per-mode rounder. -/
+private def computeRoundByMode (mode : RoundingMode)
+    (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  match mode with
+  | .RNE => computeRoundRNE sign mag k prec e s
+  | .RNA => computeRoundRNA sign mag k prec e s
+  | .RTP => computeRoundRTP sign mag k prec e s
+  | .RTN => computeRoundRTN sign mag k prec e s
+  | .RTZ => computeRoundRTZ sign mag k prec e s
+
 end Dyadic
 
 end
