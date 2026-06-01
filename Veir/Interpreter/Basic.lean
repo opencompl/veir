@@ -531,33 +531,23 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    if (LLVM.Int.sdiv lhs rhs).isPoison then Interp.ub
-    else return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], mem, none)
+    let res := LLVM.Int.sdiv lhs rhs properties.exact
+    if _ : res.isPoison then Interp.ub
+    else return (#[.int bw (.val res.getValue)], mem, none)
   | .udiv => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    match rhs with
-    | .poison => Interp.ub
-    | .val v' =>
-      if v' = 0 then Interp.ub
-      else return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], mem, none)
+    let res := LLVM.Int.udiv lhs rhs properties.exact
+    if _ : res.isPoison then Interp.ub
+    else return (#[.int bw (.val res.getValue)], mem, none)
   | .srem => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    match rhs with
-    | .poison => Interp.ub
-    | .val v' =>
-      if v' = 0 then Interp.ub
-      else if v' = -1 then
-        match lhs with
-        | .poison => Interp.ub
-        | .val v =>
-          if v = BitVec.intMin bw then Interp.ub
-          else return (#[.int bw (LLVM.Int.srem lhs rhs)], mem, none)
-      else
-        return (#[.int bw (LLVM.Int.srem lhs rhs)], mem, none)
+    let res := LLVM.Int.srem lhs rhs
+    if _ : res.isPoison then Interp.ub
+    else return (#[.int bw (.val res.getValue)], mem, none)
   | .urem => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
