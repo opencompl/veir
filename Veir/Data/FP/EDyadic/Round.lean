@@ -1,8 +1,14 @@
 module
 
+public import Veir.Data.FP.EDyadic.Basic
+public import Veir.Data.FP.FloatFormat
+public meta import Veir.Data.FP.FloatFormat -- for #guard evaluation.
+
 namespace Veir.Data.FP
 
 public section
+
+open FloatFormat (bias maxBiasedExponent)
 
 /-- IEEE-754 rounding modes. -/
 inductive RoundingMode
@@ -102,6 +108,58 @@ This is used when implementing round to nearest even.
 The truncated magnitude is even iff the LSB is false. -/
 private def computeIsTruncatedMagEven (mag : Nat) (k prec : Int) : Bool :=
   ! mag.testBit (lsbIndex k prec)
+
+/-! ## Nonnegative Lower Computation
+
+Here, we implement the `lower` computation for nonnegative inputs.
+
+-/
+
+/-- Truncated magnitude when rounding from source precision `k` to target
+precision `prec`: `mag >>> (k - prec)`. -/
+private def computeTruncatedMag (mag : Nat) (k prec : Int) : Nat :=
+  mag >>> (k - prec).toNat
+
+/-- The largest finite representable floating point in `(e, s)`,
+encoded as a `Dyadic`.
+
+= 1.111111111111 * 2 ^ (maxBiasedExponent e - bias e)
+  +--s bits--+
+= (2^(s+1) - 1) / 2^-s * 2^(maxBiasedExponent e - bias e)
+= (2^(s+1) - 1) * 2^((maxBiasedExponent e - bias e) - s)
+= (2^(s+1) - 1) * 2^(-(s - (maxBiasedExponent e - bias e)))
+-/
+private def maxFiniteDyadic (e s : Nat) : Dyadic :=
+  Dyadic.ofIntWithPrec ((2 : Int)^(s+1) - 1)
+    ((s : Int) - (maxBiasedExponent e - bias e : Int))
+
+/-- `mag · 2^(-k)` is strictly larger than the largest representable value
+of format `(e, _)`. The largest finite biased exponent is `2^e - 2`;
+anything above overflows. Used by the bracket helpers and position
+predicates to detect far-overflow inputs. -/
+private def isOverflow (mag : Nat) (k : Int) (e : Nat) : Bool :=
+  (bias e : Int) + (mag.log2 : Int) - k > maxBiasedExponent e
+
+/-- For `x = mag · 2^(-k) ≥ 0`: the greatest representable value `≤ x`
+in format `(e, s)`, as an `EDyadic`.
+
+- Overflow: Past `maxFinite`: `+maxFinite`.
+- Normal: Already at target precision (`k ≤ prec`): the input value itself.
+- Normal: Otherwise truncate: `mag >>> (k - prec)`.
+- Underflow: If the truncation is zero, saturate to `+0`.
+  Recall that `lower` computes the *greatest lower bound* of the input.
+  Thus, of the two choices between `-0` and `+0` both of which map to `0`,
+  we pick `+0` as `+0` is the greatest value `≤ 0`.
+-/
+private def computeLowerNonneg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  if isOverflow mag k e then
+    EDyadic.ofDyadic false (maxFiniteDyadic e s)
+  else if k ≤ prec then
+    EDyadic.ofDyadic false (Dyadic.ofIntWithPrec (mag : Int) k)
+  else
+    let truncMag := computeTruncatedMag mag k prec
+    if truncMag = 0 then .zero false
+    else EDyadic.ofDyadic false (Dyadic.ofIntWithPrec (truncMag : Int) prec)
 
 end Dyadic
 
