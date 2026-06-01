@@ -564,6 +564,19 @@ theorem BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self {op : OperationPtr}
     grind [BlockPtr.OpChain]
   · grind [BlockPtr.OpChain]
 
+theorem BlockPtr.OpChain.next!_eq_none_iff_lastOp!_eq_self {op : OperationPtr}
+    (hopInBounds : op.InBounds ctx)
+    (hchain : BlockPtr.OpChain block ctx array)
+    (hop : (op.get! ctx).parent = some block) :
+    ((op.get! ctx).next = none ↔ (block.get! ctx).lastOp = some op) := by
+  constructor
+  · intro hprev
+    have opInArray : op ∈ array := by grind [BlockPtr.OpChain]
+    have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem opInArray
+    have : i = array.size - 1 := by grind [BlockPtr.OpChain]
+    grind [BlockPtr.OpChain]
+  · grind [BlockPtr.OpChain]
+
 @[grind .]
 theorem BlockPtr.OpChain.parent!_firstOp_eq
     (hChain : BlockPtr.OpChain block ctx array missingOps)
@@ -1184,6 +1197,24 @@ grind_pattern IRContext.WellFormed.firstOp!_eq_some_iff =>
   ctx.WellFormed missingUses missingSuccessorUses, (block.get! ctx).firstOp, some op
 
 grind_pattern IRContext.WellFormed.firstOp!_eq_some_iff =>
+  ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).parent, some block,
+  (op.get! ctx).prev
+
+theorem IRContext.WellFormed.lastOp!_eq_some_iff
+    {block : BlockPtr} (blockInBounds : block.InBounds ctx)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx)
+    (wf : ctx.WellFormed missingUses missingSuccessorUses) :
+    (block.get! ctx).lastOp = some op ↔
+    ((op.get! ctx).parent = some block ∧ (op.get! ctx).next = none) := by
+  constructor
+  · grind [IRContext.WellFormed, BlockPtr.OpChain.next!_eq_none_iff_lastOp!_eq_self]
+  · have ⟨array, harray⟩ := wf.opChain block (by grind)
+    grind [BlockPtr.OpChain.next!_eq_none_iff_lastOp!_eq_self]
+
+grind_pattern IRContext.WellFormed.lastOp!_eq_some_iff =>
+  ctx.WellFormed missingUses missingSuccessorUses, (block.get! ctx).lastOp, some op
+
+grind_pattern IRContext.WellFormed.lastOp!_eq_some_iff =>
   ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).parent, some block,
   (op.get! ctx).prev
 
