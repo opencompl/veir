@@ -65,7 +65,7 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   let (flags, positional) := args.partition (·.startsWith "-")
   -- Parses the `-p` flag if present.
   let pipeline ← parsePipelineOption flags
-  let allowUnregisteredDialect := true
+  let allowUnregisteredDialect := flags.contains "--allow-unregistered-dialect"
 
   if positional.length == 0 then -- read from stdin
     return { filename := none, passes := pipeline, allowUnregisteredDialect }

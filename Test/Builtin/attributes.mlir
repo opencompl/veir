@@ -1,4 +1,4 @@
-// RUN: VEIR_ROUNDTRIP
+// RUN: VEIR_UNREGISTERED_ROUNDTRIP
 
 "builtin.module"() ({
   "func.func"() <{function_type = () -> (), sym_name = "main"}> ({

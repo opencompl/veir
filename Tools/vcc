@@ -50,7 +50,7 @@ def compile_to_mlir(src: Path, veir_optimize: bool) -> bytes:
         )
         pre = tmp / (src.stem + ".mlir")
         pre.write_bytes(mlir)
-        opt_cmd = ["lake", "exec", "veir-opt"]
+        opt_cmd = ["lake", "exec", "veir-opt", "--allow-unregistered-dialect"]
         if veir_optimize:
             opt_cmd.append("-p=instcombine,dce,cse,dce")
         opt_cmd.append(str(pre))
