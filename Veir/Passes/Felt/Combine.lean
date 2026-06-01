@@ -6,13 +6,21 @@ import Veir.Passes.Felt.Matching
 -- are orphan files in the current lakefile; we depart from that
 -- precedent here to defend against silent proof bitrot.)
 import Veir.Passes.Felt.Proofs
+-- Fully sorry-free, axiom-clean versions of `right_identity_zero_add` and
+-- `constant_fold_add` (rewriter preconditions discharged, not admitted).
+import Veir.Passes.Felt.RewriteLemmas
 
 namespace Veir.FeltPass
 
 /-!
   Felt-dialect peephole combines.
 
-  15 verified rewrites as of Tier 1+2 (2026-05-20):
+  15 peephole rewrites as of Tier 1+2 (2026-05-20). They cover **5 of
+  the 18 `felt` opcodes** (`const`, `add`, `sub`, `mul`, `neg`); the
+  other 13 (`div`, `inv`, `pow`, `uintdiv`/`sintdiv`, `umod`/`smod`,
+  `bit_and`/`bit_or`/`bit_xor`/`bit_not`, `shl`/`shr`) are declared in
+  the opcode enum but have no properties, matcher, pattern, proof, or
+  interpreter case — the field- and prime-dependent ops are not ported.
 
   - Phase E.1–E.4 (4): `right_identity_zero_add` (x+0→x),
     `constant_fold_add` (c1+c2), `self_subtraction_to_zero` (x-x→0),
@@ -26,50 +34,35 @@ namespace Veir.FeltPass
     `sub_add_const_cancel` ((x-c)+c→x), `assoc_const_fold_mul`
     ((x·c1)·c2 → x·(c1·c2)).
 
-  Each pattern has a paired soundness theorem in
-  `Veir/Passes/Felt/Proofs.lean` proved against
-  `Felt p := ZMod p` (Phase E.5). All identities hold in any
-  commutative ring; primality is not yet threaded through.
+  ## What "verified" means here (read before relying on it)
+
+  Each pattern has a paired theorem in `Veir/Passes/Felt/Proofs.lean`
+  proving the **algebraic identity** over `Felt p := ZMod p` (Phase
+  E.5; holds in any commutative ring — primality is not threaded). That
+  theorem is machine-checked and axiom-clean. **However**, the link
+  from the theorem to the IR rewrite is NOT proven: every rewriter
+  well-formedness precondition below is discharged with `sorry`
+  (`set_option warn.sorry false` suppresses the warning), so this pass
+  transitively depends on `sorryAx`. The theorems justify the *arithmetic*;
+  they do not establish that the *IR transformation* is semantics- or
+  well-formedness-preserving. Discharging the preconditions (via the
+  sorry-free `WfRewriter` layer) is tracked as follow-up. See `REVIEW.md`
+  (findings VC2/VC3) for the full trust-boundary writeup.
 
   Style note: each pattern follows the same shape — syntactic
   `matchX`, build replacement op(s), `replaceValue` + `eraseOp` (for
   pure projection) or `replaceOp` (when synthesizing a new op).
-  Rewriter precondition `sorry`s are consistent with current VEIR
-  pass-side practice (see `harness/coverage.md` §Verification
-  machinery, "Pattern preconditions discharged" row).
 -/
 
 /-! # Lowering Patterns -/
 
-set_option warn.sorry false in
-/-- felt.add x (felt.const 0) -> x -/
-def right_identity_zero_add (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
-    Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _) := matchAdd op rewriter.ctx | return rewriter
-  let some rhsOp := rhs.getDefiningOp! rewriter.ctx.raw | return rewriter
-  let some cst := matchConst rhsOp rewriter.ctx | return rewriter
-  if cst.value.value ≠ 0 then return rewriter
-  let rewriter ← rewriter.replaceValue (op.getResult 0) lhs sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
-
-set_option warn.sorry false in
-/-- felt.add (felt.const c1) (felt.const c2) -> felt.const (c1+c2) -/
-def constant_fold_add (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
-    Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _) := matchAdd op rewriter.ctx | return rewriter
-  let some cstL := matchConstFromValue lhs rewriter.ctx | return rewriter
-  let some cstR := matchConstFromValue rhs rewriter.ctx | return rewriter
-  let sumVal := cstL.value.value + cstR.value.value
-  -- Preserve the input constants' field type (they're TypesUnify'd by
-  -- felt.add's input constraint, so picking either is fine).
-  let cstProp : FeltConstProperties :=
-    { value := { value := sumVal, fieldType := cstL.value.fieldType } }
-  -- lhs and the original add result share the same `!felt.type` type;
-  -- reuse lhs's type for the new const op (mirrors InstCombine's pattern).
-  let resultType := lhs.getType! rewriter.ctx.raw
-  let (rewriter, newOp) ← rewriter.createOp (OpCode.felt Felt.const)
-    #[resultType] #[] #[] #[] cstProp (some <| .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+-- `right_identity_zero_add` (felt.add x (felt.const 0) → x) and
+-- `constant_fold_add` (felt.add (const c1) (const c2) → const (c1+c2)) are now
+-- the fully sorry-free, axiom-clean versions in `RewriteLemmas.lean` (imported
+-- above). They are referenced unqualified by the `Combine` pass list below.
+-- The remaining 13 patterns still admit their rewriter preconditions with
+-- `sorry` (see REVIEW.md VC2); porting them onto the same lemma library +
+-- defensive-guard recipe is tracked follow-up.
 
 set_option warn.sorry false in
 /-- felt.sub x x -> felt.const 0 -/
@@ -110,6 +103,8 @@ def assoc_const_fold_add (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some (x, c1Val, _) := matchAddFromValue innerVal rewriter.ctx | return rewriter
   -- Inner add's rhs must be a constant.
   let some c1 := matchConstFromValue c1Val rewriter.ctx | return rewriter
+  -- VC3: require matching field types before folding (see constant_fold_add).
+  if c1.value.fieldType ≠ c2.value.fieldType then return rewriter
   -- Build the combined constant (c1+c2) and create a fresh add.
   let combinedVal := c1.value.value + c2.value.value
   let combinedCst : FeltConstProperties :=
@@ -169,6 +164,8 @@ def constant_fold_sub (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
   let some (lhs, rhs, _) := matchSub op rewriter.ctx | return rewriter
   let some cstL := matchConstFromValue lhs rewriter.ctx | return rewriter
   let some cstR := matchConstFromValue rhs rewriter.ctx | return rewriter
+  -- VC3: require matching field types before folding (see constant_fold_add).
+  if cstL.value.fieldType ≠ cstR.value.fieldType then return rewriter
   let diffVal := cstL.value.value - cstR.value.value
   let cstProp : FeltConstProperties :=
     { value := { value := diffVal, fieldType := cstL.value.fieldType } }
@@ -184,6 +181,8 @@ def constant_fold_mul (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
   let some (lhs, rhs, _) := matchMul op rewriter.ctx | return rewriter
   let some cstL := matchConstFromValue lhs rewriter.ctx | return rewriter
   let some cstR := matchConstFromValue rhs rewriter.ctx | return rewriter
+  -- VC3: require matching field types before folding (see constant_fold_add).
+  if cstL.value.fieldType ≠ cstR.value.fieldType then return rewriter
   let prodVal := cstL.value.value * cstR.value.value
   let cstProp : FeltConstProperties :=
     { value := { value := prodVal, fieldType := cstL.value.fieldType } }
@@ -293,6 +292,8 @@ def assoc_const_fold_mul (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some c2 := matchConstFromValue c2Val rewriter.ctx | return rewriter
   let some (x, c1Val, _) := matchMulFromValue innerVal rewriter.ctx | return rewriter
   let some c1 := matchConstFromValue c1Val rewriter.ctx | return rewriter
+  -- VC3: require matching field types before folding (see constant_fold_add).
+  if c1.value.fieldType ≠ c2.value.fieldType then return rewriter
   let combinedVal := c1.value.value * c2.value.value
   let combinedCst : FeltConstProperties :=
     { value := { value := combinedVal, fieldType := c1.value.fieldType } }

@@ -4,11 +4,12 @@ import Veir.Data.Felt.Basic
   Soundness proofs for `Veir/Passes/Felt/Combine.lean`.
 
   Each pattern in `Combine.lean` is paired with an algebraic identity
-  here. The pattern matches the syntactic shape; this file proves the
-  semantic equivalence. The pass-side `sorry`s on rewriter preconditions
-  are consistent with current VEIR practice (see `harness/coverage.md`
-  §Verification machinery); the bar this file clears is the semantic
-  theorem, not the precondition discharge.
+  here, proven over `Felt p := ZMod p`. This file proves the *arithmetic
+  identity only*; it does NOT prove that the IR rewrite preserves program
+  semantics or well-formedness. The pass-side rewriter preconditions are
+  discharged with `sorry` in `Combine.lean`, so the bar this file clears
+  is the algebraic theorem, not the transformation. See `REVIEW.md`
+  (finding VC2) for the full trust-boundary writeup.
 
   Phase E.5 (2026-05-19) upgraded the proof model from `abbrev Felt
   := Int` to `abbrev Felt p := ZMod p`. Each theorem now universally
