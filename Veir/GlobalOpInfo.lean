@@ -320,7 +320,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   match opCode with
   | .cf .br | .cf .cond_br
   | .func .return
-  | .llvm .br | .llvm .cond_br | .llvm .return
+  | .llvm .br | .llvm .cond_br | .llvm .return | .llvm .unreachable
   | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
   | .hw .output => true
   | _ => false

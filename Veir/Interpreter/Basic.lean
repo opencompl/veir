@@ -636,6 +636,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     return (#[.int bw (LLVM.Int.select cond lhs rhs)], mem, none)
   | .return => do
     return (#[], mem, some (.return operands))
+  | .unreachable =>
+    Interp.ub
   | .br => do
     let [dest] := blockOperands.toList | none
     return (#[], mem, some (.branch operands dest))

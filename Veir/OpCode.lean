@@ -92,6 +92,7 @@ inductive Llvm where
 | zext
 | br
 | cond_br
+| unreachable
 | alloca
 | load
 | store
