@@ -18,6 +18,6 @@ inductive RoundingMode
   | RTZ
   deriving DecidableEq, Repr
 
-end -- public section
+end
 
 end Veir.Data.FP
