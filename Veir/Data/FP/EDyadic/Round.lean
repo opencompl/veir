@@ -342,6 +342,48 @@ private def computeRoundByMode (mode : RoundingMode)
   | .RTN => computeRoundRTN sign mag k prec e s
   | .RTZ => computeRoundRTZ sign mag k prec e s
 
+/-! ## Public surface: `round` to target format `(e, s)` -/
+
+/--
+We compute `prec`, the number of bits to the right of the point used
+when rounding `x = ±|n| · 2^(-k)` into format `(e, s)`. The rounded value
+is of the form `mag · 2^(-prec)` for some integer `mag`, so we want `prec`
+such that this form matches the IEEE-754 encoding of `x`.
+
+Let `E := log2(|n|) - k` be the unbiased exponent of `x`.
+
+- if `x` is normal, the encoding is `x = (2^s + m) · 2^(E - s)`,
+  and matching `mag = 2^s + m`:
+    -prec = E - s
+    prec  = s - E
+          = s - (log2(|n|) - k)
+          = s + k - log2(|n|)
+- if `x` is subnormal, the encoding is `x = m · 2^(1 - bias - s)`,
+  and matching `mag = m`:
+    -prec = 1 - bias - s
+    prec  = bias + s - 1
+-/
+private def targetPrec (x : Dyadic) (e s : Nat) : Int :=
+  match x with
+  | .zero => 0  -- unused: callers exclude zero
+  | .ofOdd n k _ =>
+    min ((k : Int) + s - n.natAbs.log2) ((bias e : Int) + s - 1)
+
+/--
+Round nonzero `x` per IEEE-754 mode `mode` in target format `(e, s)`.
+Since zeros have ambiguous signs, we do not allow `x` to be zero,
+and instead require the caller to handle zero as a special case.
+-/
+def round (mode : RoundingMode) (x : Dyadic) (e s : Nat)
+    (hne : x ≠ .zero := by first | decide | native_decide) : EDyadic :=
+  match x, hne with
+  | .zero, hne => absurd rfl hne
+  | .ofOdd n k hn, _ =>
+    let value : Dyadic := .ofOdd n k hn
+    let sign : Bool := decide (n < 0)
+    let prec : Int := targetPrec value e s
+    computeRoundByMode mode sign n.natAbs k prec e s
+
 end Dyadic
 
 end
