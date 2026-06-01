@@ -457,19 +457,23 @@ mutual
 
 /--
   Parse an LLVM array type, if present.
-  Its syntax is `!llvm.array<size x type>`.
+  Its syntax is `!llvm.array<size x type>`,
+  or (exclusively) the shorter form `array<size x type>` if the corresponding argument is set.
 -/
-partial def parseOptionalLLVMArrayType : AttrParserM (Option TypeAttr) := do
-  let token ← peekToken
-  let .exclamationIdent := token.kind | return none
-  let input := (← getThe ParserState).input
-  let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName ≠ "llvm.array".toByteArray then return none
-  let _ ← consumeToken
+partial def parseOptionalLLVMArrayType (short := false) : AttrParserM (Option TypeAttr) := do
+  if short then
+    let .true ← parseOptionalKeyword "array".toByteArray | return none
+  else
+    let token ← peekToken
+    let .exclamationIdent := token.kind | return none
+    let input := (← getThe ParserState).input
+    let typeName := { token.slice with start := token.slice.start + 1 }.of input
+    if typeName ≠ "llvm.array".toByteArray then return none
+    let _ ← consumeToken
   parsePunctuation "<"
   let size ← parseInteger false false
   parseKeyword "x".toByteArray
-  let ty ← parseType
+  let ty ← parseLLVMType
   parsePunctuation ">"
   return some (LLVM.ArrayType.mk size.toNat ty)
 
@@ -507,6 +511,8 @@ partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM T
     return LLVM.VoidType.mk
   if ← parseOptionalKeyword "ptr".toByteArray then
     return (LLVM.PointerType.mk : TypeAttr)
+  if let some type ← parseOptionalLLVMArrayType true then
+    return type
   parseType errorMsg
 
 /--
