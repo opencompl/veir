@@ -11,7 +11,7 @@
 
 ---
 
-## 0. Remediation landed (2026-06-01)
+## 0. Remediation landed (2026-06-01; F1 close 2026-06-02)
 
 Fixes applied to this repo during the review (verified by a full `lake build`
 under the repo's `v4.30.0-rc2` toolchain + `#print axioms`):
@@ -22,14 +22,30 @@ under the repo's `v4.30.0-rc2` toolchain + `#print axioms`):
 - **VC3 (cross-field fold unsoundness): FIXED.** Field-type-equality guard added
   to all 5 fold patterns; demonstrated live (`veir-opt -p=felt-combine`: a
   `bn254 + babybear` add stays unfolded; a same-field add folds).
-- **VC2 (admitted preconditions): partially resolved — 2 of 15 patterns are now
+- **VC2 (admitted preconditions): RESOLVED — all 15 of 15 patterns are now
   fully sorry-free AND axiom-clean** (`[propext, Classical.choice, Quot.sound]`,
-  no `sorryAx`, no `Dom` axiom): `right_identity_zero_add` (projection shape) and
-  `constant_fold_add` (synthesis shape). Their proofs + a reusable lemma library
-  live in the new `Veir/Passes/Felt/RewriteLemmas.lean`; `Combine.lean` imports
-  them. Both structural shapes are thus proven closeable. The remaining 13
-  patterns still admit preconditions (tracked follow-up — mechanical, reusing
-  the same library + recipe).
+  no `sorryAx`, no `Dom` axiom), verified by `lake build Veir.Passes.Felt.Combine`
+  + `#print axioms` on each of the 15 (2026-06-02, F1). All pattern definitions
+  now live in `Veir/Passes/Felt/RewriteLemmas.lean`; `Combine.lean` defines no
+  pattern itself and references them unqualified in the `felt-combine` pass list.
+  The close is built on three reusable, precondition-discharging tails plus a
+  per-matcher in-bounds lemma library, all in `RewriteLemmas.lean`:
+  - `projectToOperand` — projection shape (`replaceValue` + `eraseOp`): used by
+    `right_identity_zero_add`, `right_identity_one_mul`, `neg_neg_to_self`,
+    `add_sub_const_cancel`, `sub_add_const_cancel`.
+  - `replaceWithNewOp` — single-`createOp` synthesis (`createOp` + `replaceOp`):
+    used by `constant_fold_{add,sub,mul,neg}`, `self_subtraction_to_zero`,
+    `right_zero_mul`, `add_neg_to_zero`, `add_const_swap`.
+  - `replaceWithBinOpOfConst` — two-`createOp` synthesis (const then binop):
+    used by `assoc_const_fold_{add,mul}`.
+  In-bounds lemmas: `matchOp_inBounds` generalized over `opType` (with per-opcode
+  wrappers `matchOp_inBounds_{add,mul,sub,neg,const}`); `match{Add,Mul,Sub,Neg}_spec`
+  / `_inBounds`; `match{Neg,Add,Sub,Mul}FromValue_operand0_inBounds`;
+  `getResult0_inBounds`, `getOperand_inBounds`, `newOp_getNumResults!_createOp`.
+  All preconditions are discharged (not admitted); the three `WfIRContext` gaps
+  (region count, result≠operand, op-has-parent) are supplied by sound defensive
+  runtime guards as before. **The cross-field fold guard (VC3) is preserved** in
+  the new `constant_fold_{sub,mul}` and `assoc_const_fold_{add,mul}` definitions.
 - **VM1 (doc rot):** the two load-bearing dangling `harness/coverage.md`
   citations (`Combine.lean`, `Proofs.lean`) re-pointed to `REVIEW.md`.
 

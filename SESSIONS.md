@@ -256,3 +256,11 @@ scripted; PRs opened; commit.
 - 2026-06-01 — Review complete (both repos); fixes VC1/VC3/VM1 + H4; **structural
   close: 2/15 patterns sorry-free + axiom-clean** in `RewriteLemmas.lean`; this
   playbook written. Next: **F1**.
+- 2026-06-02 — **F1 DONE. All 15/15 Felt patterns sorry-free + axiom-clean**
+  (`[propext, Classical.choice, Quot.sound]`), verified by `lake build
+  Veir.Passes.Felt.Combine` + `#print axioms` on each. All patterns moved into
+  `RewriteLemmas.lean` on three reusable tails (`projectToOperand`,
+  `replaceWithNewOp`, `replaceWithBinOpOfConst`) + a per-matcher in-bounds lemma
+  library; `Combine.lean` defines no pattern itself. VC3 cross-field guard
+  preserved. REVIEW.md §0 updated. Next candidates: **F2** (interpreter-semantics
+  scoping spike — gates F3/the verified-drop-in end goal), or any of F4/F5/F6/F7.
