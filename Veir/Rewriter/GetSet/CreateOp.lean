@@ -402,7 +402,7 @@ theorem BlockPtr.firstOp!_createOp {block : BlockPtr} :
       else (block.get! ctx).firstOp
     | none => (block.get! ctx).firstOp := by
   simp only [Rewriter.createOp]
-  grind (gen := 20) [cases InsertPoint]
+  grind (gen := 20) (instances := 2000) [cases InsertPoint]
 
 @[grind =>]
 theorem BlockPtr.lastOp!_createOp {block : BlockPtr} :
