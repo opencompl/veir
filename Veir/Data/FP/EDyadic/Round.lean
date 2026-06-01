@@ -396,6 +396,7 @@ def round (mode : RoundingMode) (x : Dyadic) (e s : Nat)
     let prec : Int := targetPrec value e s
     computeRoundByMode mode sign n.natAbs k prec e s
 
+
 end Dyadic
 
 end
