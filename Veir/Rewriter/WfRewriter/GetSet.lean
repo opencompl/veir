@@ -310,4 +310,180 @@ theorem OperationPtr.getResultTypes!_WfRewriter_createOp :
 
 end WfRewriter.createOp
 
+/-! ## `WfRewriter.insertOp?` -/
+
+section WfRewriter.insertOp?
+
+attribute [local grind] WfRewriter.insertOp?
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.prev!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (block.get! ctx'.raw).prev = (block.get! ctx.raw).prev := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.next!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (block.get! ctx'.raw).next = (block.get! ctx.raw).next := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.parent!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (block.get! ctx'.raw).parent = (block.get! ctx.raw).parent := by
+  grind
+
+@[grind =>, simp_getset]
+theorem BlockPtr.firstOp!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (block.get! ctx'.raw).firstOp =
+    if insertionPoint.block! ctx.raw = block ∧ insertionPoint.prev! ctx.raw = none then some newOp
+    else (block.get! ctx.raw).firstOp := by
+  grind
+
+@[grind =>, simp_getset]
+theorem BlockPtr.lastOp!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (block.get! ctx'.raw).lastOp =
+    if insertionPoint.block! ctx.raw = block ∧ insertionPoint.next = none then some newOp
+    else (block.get! ctx.raw).lastOp := by
+  grind
+
+@[grind =>, simp_getset]
+theorem OperationPtr.prev!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (operation.get! ctx'.raw).prev =
+    if operation = insertionPoint.next then some newOp
+    else if operation = newOp then insertionPoint.prev! ctx.raw
+    else (operation.get! ctx.raw).prev := by
+  grind
+
+@[grind =>, simp_getset]
+theorem OperationPtr.next!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (operation.get! ctx'.raw).next =
+    if operation = insertionPoint.prev! ctx.raw then some newOp
+    else if operation = newOp then insertionPoint.next
+    else (operation.get! ctx.raw).next := by
+  grind
+
+@[grind =>, simp_getset]
+theorem OperationPtr.parent!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (operation.get! ctx'.raw).parent =
+    if operation = newOp then insertionPoint.block! ctx.raw
+    else (operation.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getOpType!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getOpType! ctx'.raw = operation.getOpType! ctx.raw := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.attrs!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (operation.get! ctx'.raw).attrs = (operation.get! ctx.raw).attrs := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getProperties!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getProperties! ctx'.raw opType = operation.getProperties! ctx.raw opType := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getNumResults!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getNumResults! ctx'.raw = operation.getNumResults! ctx.raw := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getNumOperands!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getNumOperands! ctx'.raw = operation.getNumOperands! ctx.raw := by
+  grind
+
+@[grind =>, simp_getset]
+theorem OperationPtr.getOperand!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getOperand! ctx'.raw index = operation.getOperand! ctx.raw index := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getOperands!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getOperands! ctx'.raw = operation.getOperands! ctx.raw := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getNumSuccessors!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getNumSuccessors! ctx'.raw = operation.getNumSuccessors! ctx.raw := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getSuccessor!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getSuccessor! ctx'.raw index = operation.getSuccessor! ctx.raw index := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getSuccessors!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getSuccessors! ctx'.raw = operation.getSuccessors! ctx.raw := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getNumRegions!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getNumRegions! ctx'.raw = operation.getNumRegions! ctx.raw := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getRegion!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getRegion! ctx'.raw idx = operation.getRegion! ctx.raw idx := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getNumArguments!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    block.getNumArguments! ctx'.raw = block.getNumArguments! ctx.raw := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem RegionPtr.firstBlock!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (region.get! ctx'.raw).firstBlock = (region.get! ctx.raw).firstBlock := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem RegionPtr.lastBlock!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (region.get! ctx'.raw).lastBlock = (region.get! ctx.raw).lastBlock := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem RegionPtr.parent!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    (region.get! ctx'.raw).parent = (region.get! ctx.raw).parent := by
+  grind
+
+@[grind =>, simp_getset]
+theorem ValuePtr.getType!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    value.getType! ctx'.raw = value.getType! ctx.raw := by
+  grind
+
+@[grind =>, simp_getset]
+theorem OperationPtr.getResultTypes!_wfRewriter_insertOp? :
+    WfRewriter.insertOp? ctx newOp insertionPoint newOpIn insIn = some ctx' →
+    operation.getResultTypes! ctx'.raw = operation.getResultTypes! ctx.raw := by
+  grind
+
+end WfRewriter.insertOp?
+
 end Veir
