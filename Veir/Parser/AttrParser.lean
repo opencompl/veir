@@ -341,6 +341,18 @@ partial def parseOptionalLocationAttr : AttrParserM (Option Attribute) := do
   return some (LocationAttr.mk body)
 
 /--
+  Parse an LLVM void type `!llvm.void`, if present.
+-/
+partial def parseOptionalLLVMVoidType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "llvm.void".toByteArray then return none
+  let _ ← consumeToken
+  return some LLVM.VoidType.mk
+
+/--
   Parse an LLVM pointer type `!llvm.ptr`, if present.
 -/
 partial def parseOptionalLLVMPointerType : AttrParserM (Option TypeAttr) := do
@@ -492,7 +504,7 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
 -/
 partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   if ← parseOptionalKeyword "void".toByteArray then
-    return ⟨.unregisteredAttr (UnregisteredAttr.mk "!llvm.void" true), by grind⟩
+    return LLVM.VoidType.mk
   if ← parseOptionalKeyword "ptr".toByteArray then
     return (LLVM.PointerType.mk : TypeAttr)
   parseType errorMsg
@@ -537,6 +549,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some registerType
   if let some modArithType ← parseOptionalModArithType then
     return some modArithType
+  if let some llvmVoidType := ← parseOptionalLLVMVoidType then
+    return some llvmVoidType
   if let some llvmPointerType := ← parseOptionalLLVMPointerType then
     return some llvmPointerType
   if let some llvmArrayType := ← parseOptionalLLVMArrayType then

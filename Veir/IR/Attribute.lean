@@ -172,6 +172,9 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 namespace LLVM
 
+structure VoidType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 structure PointerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
@@ -308,6 +311,8 @@ inductive Attribute
 | flatSymbolRefAttr (attr : FlatSymbolRefAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
+/-- LLVM void type -/
+| llvmVoidType (type : LLVM.VoidType)
 /-- LLVM pointer type -/
 | llvmPointerType (type : LLVM.PointerType)
 /-- LLVM array type -/
@@ -488,6 +493,8 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case llvmVoidType.llvmVoidType type1 type2 =>
+    exact (isTrue (by grind))
   case llvmPointerType.llvmPointerType type1 type2 =>
     exact (isTrue (by grind))
   case llvmArrayType.llvmArrayType type1 type2 =>
@@ -596,6 +603,9 @@ instance : ToString ModArithType where
     | some modulusType => s!" : {modulusType}"
     | none => "") ++ ">"
 
+instance : ToString LLVM.VoidType where
+  toString _ := "!llvm.void"
+
 instance : ToString LLVM.PointerType where
   toString _ := "!llvm.ptr"
 
@@ -648,7 +658,10 @@ def FunctionType.toLLVMString (type : FunctionType) : String :=
   let paramStrs := if type.isVarArg then paramStrs ++ ["..."] else paramStrs
   let params := String.intercalate ", " paramStrs
   let result := match _ : type.outputs.size with
-    | 1 => Attribute.toString type.outputs[0]
+    | 1 =>
+      match type.outputs[0] with
+      | .llvmVoidType _ => "void"
+      | _ => Attribute.toString type.outputs[0]
     | _ => "<invalid>"
   s!"!llvm.func<{result} ({params})>"
 termination_by sizeOf type
@@ -708,6 +721,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .flatSymbolRefAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
+  | .llvmVoidType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
   | .llvmArrayType type => type.toString
   | .llvmFunctionType type => type.toLLVMString
@@ -782,6 +796,9 @@ instance : Coe FunctionType Attribute where
 instance : Coe ModArithType Attribute where
   coe type := .modArithType type
 
+instance : Coe LLVM.VoidType Attribute where
+  coe type := .llvmVoidType type
+
 instance : Coe LLVM.PointerType Attribute where
   coe type := .llvmPointerType type
 
@@ -826,6 +843,7 @@ def isType (attr : Attribute) : Bool :=
   | .modArithType _ => true
   | .registerType _ => true
   | .registerAttr _ => false
+  | .llvmVoidType _ => true
   | .llvmPointerType _ => true
   | .llvmArrayType _ => true
   | .llvmFunctionType _ => true
@@ -847,6 +865,8 @@ theorem isType_functionType type : (functionType type).isType = true := by rfl
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_registerType type : (registerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_llvmVoidType type : (llvmVoidType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_llvmPointerType type : (llvmPointerType type).isType = true := by rfl
 @[simp, grind =]
@@ -908,6 +928,9 @@ instance : Coe ModArithType TypeAttr where
 
 instance : Coe RegisterType TypeAttr where
   coe type := ⟨.registerType type, by rfl⟩
+
+instance : Coe LLVM.VoidType TypeAttr where
+  coe type := ⟨.llvmVoidType type, by rfl⟩
 
 instance : Coe LLVM.PointerType TypeAttr where
   coe type := ⟨.llvmPointerType type, by rfl⟩

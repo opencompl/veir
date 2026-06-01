@@ -212,6 +212,9 @@ macro "#assert " e:term : command =>
 /-! ## LLVM Pointer type -/
 #assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)
 
+/-! ## LLVM Void type -/
+#assert expectSuccessType "!llvm.void" (LLVM.VoidType.mk)
+
 /-! ## LLVM Array type -/
 #assert expectSuccessType "!llvm.array<2 x i32>" (LLVM.ArrayType.mk 2 $ IntegerType.mk 32)
 #assert expectSuccessAttr "!llvm.array<2 x !llvm.array<3x i64>>" (LLVM.ArrayType.mk 2 $ LLVM.ArrayType.mk 3 $ IntegerType.mk 64)
@@ -232,23 +235,23 @@ macro "#assert " e:term : command =>
 -- LLVM pretty-print sugar: bare `void` and `ptr` keywords inside `!llvm.func<...>`.
 #assert expectSuccessType "!llvm.func<void ()>"
   ⟨.llvmFunctionType (FunctionType.mk #[]
-    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)] (isVarArg := false)), by rfl⟩
+    #[(LLVM.VoidType.mk : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<void (i32)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(IntegerType.mk 32 : Attribute)]
-    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)] (isVarArg := false)), by rfl⟩
+    #[(LLVM.VoidType.mk : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<i32 (ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(LLVM.PointerType.mk : Attribute)] #[(IntegerType.mk 32 : Attribute)] (isVarArg := false)), by rfl⟩
 #assert expectSuccessType "!llvm.func<void (ptr, ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(LLVM.PointerType.mk : Attribute), (LLVM.PointerType.mk : Attribute)]
-    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)] (isVarArg := false)), by rfl⟩
+    #[(LLVM.VoidType.mk : Attribute)] (isVarArg := false)), by rfl⟩
 -- Bare sugar mixed with the explicit `!llvm.ptr` form within one function type.
 #assert expectSuccessType "!llvm.func<void (!llvm.ptr, ptr)>"
   ⟨.llvmFunctionType (FunctionType.mk
     #[(LLVM.PointerType.mk : Attribute), (LLVM.PointerType.mk : Attribute)]
-    #[(UnregisteredAttr.mk "!llvm.void" true : Attribute)] (isVarArg := false)), by rfl⟩
+    #[(LLVM.VoidType.mk : Attribute)] (isVarArg := false)), by rfl⟩
 -- Variadic function types: a trailing `...`, with or without fixed parameters.
 #assert expectSuccessType "!llvm.func<i32 (ptr, ...)>"
   ⟨.llvmFunctionType (FunctionType.mk
