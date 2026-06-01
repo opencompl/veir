@@ -50,20 +50,22 @@ def matchXori (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
   let (op, _) ← matchOp op ctx (.llvm .xor) 2
   return (op[0]!, op[1]!)
 
-def matchConstantOp (op : OperationPtr) (ctx : IRContext OpCode) : Option IntegerAttr := do
+def matchConstantIntOp (op : OperationPtr) (ctx : IRContext OpCode) : Option IntegerAttr := do
   let .llvm .mlir__constant := op.getOpType! ctx | none
   let properties := op.getProperties! ctx (.llvm .mlir__constant)
-  return properties.value
+  let .integer intAttr := properties.value | none
+  return intAttr
 
-def matchConstantVal (val : ValuePtr) (ctx : IRContext OpCode) : Option IntegerAttr := do
+def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) : Option IntegerAttr := do
   let .opResult opResultPtr := val | none
   let op := opResultPtr.op
-  matchConstantOp op ctx
+  matchConstantIntOp op ctx
 
 def matchCastOp (op : OperationPtr) (ctx : IRContext OpCode) : Option IntegerAttr := do
   let .builtin .unrealized_conversion_cast := op.getOpType! ctx | none
   let properties := op.getProperties! ctx (.llvm .mlir__constant)
-  return properties.value
+  let .integer intAttr := properties.value | none
+  return intAttr
 
 def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .ashr)) := do
   let (op, properties) ← matchOp op ctx (.llvm .ashr) 2

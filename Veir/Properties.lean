@@ -131,10 +131,18 @@ def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
   return ⟨value⟩
 
 /--
+The two types of constants an LLVM constant can store.
+-/
+inductive LLVMConstantValue where
+| integer (value : IntegerAttr)
+| float (value : FloatAttr)
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+/--
   Properties of the `llvm.constant` operation.
 -/
 structure LLVMConstantProperties where
-  value : IntegerAttr
+  value : LLVMConstantValue
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
@@ -143,9 +151,13 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     throw s!"llvm.constant: expected only 'value' property, but got {attrDict.size} properties"
   let some attr := attrDict["value".toUTF8]?
     | throw "llvm.constant: missing 'value' property"
-  let .integerAttr intAttr := attr
-    | throw s!"llvm.constant: expected 'value' to be an integer attribute, but got {attr}"
-  return { value := intAttr }
+  match attr with
+  | .integerAttr intAttr =>
+    return { value := .integer intAttr }
+  | .floatAttr floatAttr =>
+    return { value := .float floatAttr }
+  | _ =>
+    throw s!"llvm.constant: expected 'value' to be an integer or float attribute, but got {attr}"
 
 /-- Properties of integer comparison operations in the LLVM and arith dialects. -/
 structure IcmpProperties where

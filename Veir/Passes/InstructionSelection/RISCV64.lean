@@ -15,7 +15,7 @@ set_option warn.sorry false in
 /-- llvm.constant -> riscv.li -/
 def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
-  let some const := matchConstantOp op rewriter.ctx
+  let some const := matchConstantIntOp op rewriter.ctx
       | return rewriter
   if const.type.bitwidth ≠ 64 then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type

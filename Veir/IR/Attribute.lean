@@ -80,6 +80,36 @@ structure RegisterAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+A floating point attribute storing a Lean `Float` value with an associated float type.
+-/
+structure FloatAttr where
+  value : Float
+  type : FloatType
+deriving Inhabited, Repr
+
+/--
+Temporary bridge lemma for deciding `FloatAttr` equality via `Float.toBits`.
+-/
+axiom floatEqOfToBitsEq {a b : Float} : a.toBits = b.toBits → a = b
+
+instance : DecidableEq FloatAttr
+  | a, b =>
+    if hv : a.value.toBits = b.value.toBits then
+      if ht : a.type = b.type then
+        have hval : a.value = b.value := floatEqOfToBitsEq hv
+        isTrue (by
+          cases a
+          cases b
+          simp_all)
+      else
+        isFalse (by intro h; exact ht (congrArg FloatAttr.type h))
+    else
+      isFalse (by intro h; exact hv (congrArg (Float.toBits ∘ FloatAttr.value) h))
+
+instance : Hashable FloatAttr where
+  hash a := mixHash (hash a.value.toBits) (hash a.type)
+
+/--
   An attribute containing a string.
   The string is stored as a `ByteArray` as unicode is not supported.
 -/
@@ -250,6 +280,8 @@ inductive Attribute
 | floatType (type : FloatType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
+/-- Float attribute -/
+| floatAttr (attr : FloatAttr)
 /-- Float fast math flags attribute -/
 | fastMathFlagsAttr (attr : FastMathFlagsAttr)
 /-- Register type -/
@@ -424,6 +456,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case floatAttr.floatAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case stringAttr.stringAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -512,6 +548,9 @@ instance : ToString FastMathFlagsAttr where
     s!"#llvm.fastmath<{String.intercalate ", " array}>"
 
 instance : ToString IntegerAttr where
+  toString attr := s!"{attr.value} : {attr.type}"
+
+instance : ToString FloatAttr where
   toString attr := s!"{attr.value} : {attr.type}"
 
 instance : ToString RegisterType where
@@ -656,6 +695,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .floatType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
+  | .floatAttr attr => ToString.toString attr
   | .registerType type => ToString.toString type
   | .registerAttr attr => ToString.toString attr
   | .stringAttr attr => ToString.toString attr
@@ -727,6 +767,9 @@ instance : Coe FlatSymbolRefAttr Attribute where
 instance : Coe ArrayAttr Attribute where
   coe attr := .arrayAttr attr
 
+instance : Coe FloatAttr Attribute where
+  coe attr := .floatAttr attr
+
 instance : Coe DenseArrayAttr Attribute where
   coe attr := .denseArrayAttr attr
 
@@ -770,6 +813,7 @@ def isType (attr : Attribute) : Bool :=
   | .floatType _ => true
   | .fastMathFlagsAttr _ => false
   | .integerAttr _ => false
+  | .floatAttr _ => false
   | .stringAttr _ => false
   | .unitAttr _ => false
   | .locationAttr _ => false
