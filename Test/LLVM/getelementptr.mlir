@@ -15,7 +15,7 @@
       %g2 = "llvm.getelementptr"(%ptr, %i, %j) <{elem_type = !llvm.array<10 x i8>, rawConstantIndices = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
 
       // 3 dynamic indices: ptr[i][j][k]
-      %g3 = "llvm.getelementptr"(%ptr, %i, %j, %k) <{elem_type = !llvm.array<10 x !llvm.array<10 x i8>>, rawConstantIndices = array<i32: -2147483648, -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64, i64) -> !llvm.ptr
+      %g3 = "llvm.getelementptr"(%ptr, %i, %j, %k) <{elem_type = !llvm.array<10 x array<10 x i8>>, rawConstantIndices = array<i32: -2147483648, -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64, i64) -> !llvm.ptr
 
       // 4 dynamic indices: ptr[i][j][k][l]
       %g4 = "llvm.getelementptr"(%ptr, %i, %j, %k, %l) <{elem_type = !llvm.array<10 x !llvm.array<10 x !llvm.array<10 x i8>>>, rawConstantIndices = array<i32: -2147483648, -2147483648, -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64, i64, i64) -> !llvm.ptr
