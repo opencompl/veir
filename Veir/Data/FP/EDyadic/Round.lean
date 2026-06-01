@@ -160,6 +160,53 @@ private def computeLowerNonneg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic 
     if truncMag = 0 then .zero false
     else EDyadic.ofDyadic false (Dyadic.ofIntWithPrec (truncMag : Int) prec)
 
+/-! ## Nonnegative Upper Computation
+
+`computeSuccessorMag` computes the successor of the truncated magnitude.
+This corresponds to the magnitude of the `upper` candidate.
+
+`computeUpperNonneg` returns the
+least representable value `≥ x` for `x = mag · 2^(-k) ≥ 0`.
+-/
+
+/-- One plus the truncated magnitude, which is the significand of the
+number that is adjacent to `lower`. -/
+private def computeSuccessorMag (mag : Nat) (k prec : Int) : Nat :=
+  computeTruncatedMag mag k prec + 1
+
+/--
+Magnitude of the `upper` candidate.
+Recall that if a number is exactly representable, then `lower = upper`.
+- When guard and sticky are both zero, (i.e., we have no imprecision),
+  we return the truncated magnitude,
+  which is the magnitude of `lower` (which equals `upper` in this case.).
+- When either guard or sticky is nonzero, we are performing some approximation,
+  and so we round up to the successor of the truncated magnitude.
+-/
+private def computeUpperNonnegMag (mag : Nat) (k prec : Int) : Nat :=
+  if computeGuardBit mag k prec || computeStickyBit mag k prec then
+    computeSuccessorMag mag k prec
+  else computeTruncatedMag mag k prec
+
+/-- For `x = mag · 2^(-k) ≥ 0`: the least representable value `≥ x`.
+
+- if `x` overflows (`≥ maxFinite`): `lower = +maxFinite`.
+- if `x` is nonzero finite and already at target precision (`k ≤ prec`): `upper = x`
+- if `x` is nonzero finite and not at target precision, we compuer the upper `mag`.
+  - If the exponent, or the upper `mag` are too large, 
+    then we have an overflow, and we return `+infinity`.
+  - Otherwise, we return the upper candidate `mag` at target precision.
+-/
+private def computeUpperNonneg (mag : Nat) (k prec : Int) (e _s : Nat) : EDyadic :=
+  if isOverflow mag k e then
+    .infinity false
+  else if k ≤ prec then
+    EDyadic.ofDyadic false (Dyadic.ofIntWithPrec (mag : Int) k)
+  else
+    let roundedAway := computeUpperNonnegMag mag k prec
+    if isOverflow roundedAway prec e then .infinity false
+    else EDyadic.ofDyadic false (Dyadic.ofIntWithPrec (roundedAway : Int) prec)
+
 end Dyadic
 
 end
