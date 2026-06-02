@@ -40,8 +40,8 @@
 // log2(0) = 0
 // log2(1) = 0
 // log2(2*n) = 1 + log2(n)
-__attribute__((always_inline)) int log2FloorAux(int n) {
-    int result = 0;
+__attribute__((always_inline)) long log2FloorAux(long n) {
+    long result = 0;
     while (n > 1) {
         n >>= 1;
         result++;
@@ -49,34 +49,34 @@ __attribute__((always_inline)) int log2FloorAux(int n) {
     return result;
 }
 
-__attribute__((always_inline)) int log2Floor(int n) {
+__attribute__((always_inline)) long log2Floor(long n) {
     return log2FloorAux(n);
 }
 
 /* bflyCT */
-__attribute__((always_inline)) void bflyCT(int A, int B, int root, int cmod, int *outA, int *outB) {
+__attribute__((always_inline)) void bflyCT(long A, long B, long root, long cmod, long *outA, long *outB) {
     *outA = (A + root * B % cmod) % cmod;
     *outB = (A - root * B % cmod + cmod) % cmod;
 }
 
 /* bflyGS */
-__attribute__((always_inline)) void bflyGS(int A, int B, int root, int cmod, int *outA, int *outB) {
+__attribute__((always_inline)) void bflyGS(long A, long B, long root, long cmod, long *outA, long *outB) {
     *outA = (A + B) % cmod;
     *outB = (A - B) * root % cmod;
 }
 
-__attribute__((always_inline)) void fastNTT(int *coeffs, int n, int cmod, const int *roots, int inverse, int degree) {
-    int m = inverse ? n : 2;
-    int r = inverse ? 1 : degree / 2;
-    int rootExp = n / 2;
+__attribute__((always_inline)) void fastNTT(long *coeffs, long n, long cmod, const long *roots, long inverse, long degree) {
+    long m = inverse ? n : 2;
+    long r = inverse ? 1 : degree / 2;
+    long rootExp = n / 2;
 
-    for (int s = 0; s < log2Floor(n); s++) {
-        for (int k = 0; k < n / m; k++) {
-            for (int j = 0; j < m / 2; j++) {
-                int A    = coeffs[k * m + j];
-                int B    = coeffs[k * m + j + m / 2];
-                int root = roots[(2 * j + 1) * rootExp];
-                int outA, outB;
+    for (long s = 0; s < log2Floor(n); s++) {
+        for (long k = 0; k < n / m; k++) {
+            for (long j = 0; j < m / 2; j++) {
+                long A    = coeffs[k * m + j];
+                long B    = coeffs[k * m + j + m / 2];
+                long root = roots[(2 * j + 1) * rootExp];
+                long outA, outB;
                 bflyCT(A, B, root, cmod, &outA, &outB);
                 coeffs[k * m + j]         = outA;
                 coeffs[k * m + j + m / 2] = outB;
