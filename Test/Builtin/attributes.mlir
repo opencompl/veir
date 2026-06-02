@@ -1,37 +1,48 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 
 "builtin.module"() ({
-^bb0():
-  %3 = "test.test"() {str = "hello world"} : () -> i32
-  %4 = "test.test"() {empty = ""} : () -> i32
-  %5 = "test.test"() {escaped = "line1\nline2\ttab"} : () -> i32
-  %6 = "test.test"() {unregistered = #unregistered.dialect<foo 3 + 2>} : () -> i32
-  %7 = "test.test"() {u = unit} : () -> i32
-  %8 = "test.test"() {u} : () -> i32
-  %9 = "test.test"() {dict = {a = 0 : i32, b = "hello"}} : () -> i32
-  %10 = "test.test"() {empty_dict = {}} : () -> i32
-  %11 = "test.test"() {dict_unit = {x, y}} : () -> i32
-  %12 = "test.test"() {arr = []} : () -> i32
-  %13 = "test.test"() {arr = [unit]} : () -> i32
-  %14 = "test.test"() {arr = [0 : i32, "hello"]} : () -> i32
-  %15 = "test.test"() {da = array<i8>} : () -> i32
-  %16 = "test.test"() {da = array<i32: 10, 42>} : () -> i32
+  "func.func"() <{function_type = () -> (), sym_name = "main"}> ({
+    ^bb0():
+      %3 = "test.test"() {str = "hello world"} : () -> i32
+      %4 = "test.test"() {empty = ""} : () -> i32
+      %5 = "test.test"() {escaped = "line1\nline2\ttab"} : () -> i32
+      %6 = "test.test"() {unregistered = #unregistered.dialect<foo 3 + 2>} : () -> i32
+      %7 = "test.test"() {u = unit} : () -> i32
+      %8 = "test.test"() {u} : () -> i32
+      %9 = "test.test"() {dict = {a = 0 : i32, b = "hello"}} : () -> i32
+      %10 = "test.test"() {empty_dict = {}} : () -> i32
+      %11 = "test.test"() {dict_unit = {x, y}} : () -> i32
+      %12 = "test.test"() {arr = []} : () -> i32
+      %13 = "test.test"() {arr = [unit]} : () -> i32
+      %14 = "test.test"() {arr = [0 : i32, "hello"]} : () -> i32
+      %15 = "test.test"() {da = array<i8>} : () -> i32
+      %16 = "test.test"() {da = array<i32: 10, 42>} : () -> i32
+      %17 = "test.test"() {sym = @foo} : () -> i32
+      %18 = "test.test"() {sym = @"my.func"} : () -> i32
+      "func.return"() : () -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // CHECK-NEXT: "builtin.module"() ({
 // CHECK-NEXT:   ^{{.*}}():
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"str" = "hello world"} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"empty" = ""} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"escaped" = "line1\nline2\ttab"} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"unregistered" = #unregistered.dialect<foo 3 + 2>} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {u} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {u} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"dict" = {"a" = 0 : i32, "b" = "hello"}} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"empty_dict" = {}} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"dict_unit" = {x, y}} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"arr" = []} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"arr" = [unit]} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"arr" = [0 : i32, "hello"]} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"da" = array<i8>} : () -> i32
-// CHECK-NEXT:     %{{.*}} = "test.test"() {"da" = array<i32: 10, 42>} : () -> i32
+// CHECK-NEXT:     "func.func"() <{"function_type" = () -> (), "sym_name" = "main"}> ({
+// CHECK-NEXT:       ^{{.*}}():
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"str" = "hello world"} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"empty" = ""} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"escaped" = "line1\nline2\ttab"} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"unregistered" = #unregistered.dialect<foo 3 + 2>} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {u} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {u} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"dict" = {"a" = 0 : i32, "b" = "hello"}} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"empty_dict" = {}} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"dict_unit" = {x, y}} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"arr" = []} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"arr" = [unit]} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"arr" = [0 : i32, "hello"]} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"da" = array<i8>} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"da" = array<i32: 10, 42>} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"sym" = @foo} : () -> i32
+// CHECK-NEXT:         %{{.*}} = "test.test"() {"sym" = @"my.func"} : () -> i32
+// CHECK-NEXT:         "func.return"() : () -> ()
+// CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT: }) : () -> ()

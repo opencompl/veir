@@ -1,4 +1,5 @@
 import Veir.Parser.MlirParser
+import Veir.Parser.ParserError
 import Veir.Printer
 import Veir.IR.Basic
 import Veir.Verifier
@@ -7,12 +8,14 @@ import Veir.Pass
 
 import Veir.Passes.PrintIR
 import Veir.Passes.InstCombine
+import Veir.Passes.CSE
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.DCE.dce
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.Combines.Combine
 
 open Veir.Parser
+open Veir.Parser.ParserError
 open Veir
 
 /--
@@ -22,6 +25,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
   (Std.HashMap.emptyWithCapacity 1)
     |>.insert PrintIRPass.name PrintIRPass
     |>.insert InstCombinePass.name InstCombinePass
+    |>.insert CSEPass.name CSEPass
     |>.insert IselRISCV64.name IselRISCV64
     |>.insert DCEPass.name DCEPass
     |>.insert CastReconcilePass.name CastReconcilePass
@@ -33,9 +37,11 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
 -/
 structure VeirOptArgs where
   /-- The input filename. -/
-  filename : String
+  filename : Option String
   /-- List of passes to run. -/
   passes : PassPipeline OpCode
+  /-- Whether to accept ops/types/attrs from unregistered dialects. -/
+  allowUnregisteredDialect : Bool
 
 /--
   Parse the `-p` flag to construct a pass pipeline.
@@ -57,43 +63,70 @@ def parsePipelineOption (args : List String) : Except String (PassPipeline OpCod
 -/
 def parseArgs (args : List String) : Except String VeirOptArgs := do
   let (flags, positional) := args.partition (·.startsWith "-")
-  let [filename] := positional
-    | .error "Expected exactly one positional argument for the input filename."
   -- Parses the `-p` flag if present.
   let pipeline ← parsePipelineOption flags
-  return VeirOptArgs.mk filename pipeline
+  let allowUnregisteredDialect := true
 
-def parseOperation (filename : String) : ExceptT String IO (IRContext OpCode × OperationPtr) := do
-  let fileContent ← IO.FS.readBinFile filename
-  let some (ctx, _) := IRContext.create OpCode
+  if positional.length == 0 then -- read from stdin
+    return { filename := none, passes := pipeline, allowUnregisteredDialect }
+
+  let [filename] := positional
+    | .error "Expected exactly one positional argument for the input filename."
+
+  if filename == "-" then
+    return { filename := none, passes := pipeline, allowUnregisteredDialect }
+
+  return { filename := some filename, passes := pipeline, allowUnregisteredDialect }
+
+def getFileContent (filename : Option String) : ExceptT String IO ByteArray := do
+  if let some f := filename then
+    try
+      return ← IO.FS.readBinFile f
+    catch e =>
+      throw s!"Error reading file '{filename}': {e}"
+
+  return ← IO.FS.Stream.readBinToEnd (←IO.getStdin)
+
+def parseOperation (filename : Option String) (allowUnregisteredDialect : Bool := false) :
+    ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
+  let fileContent ← getFileContent filename
+  let some (ctx, _) := WfIRContext.create OpCode
     | throw "Failed to create IR context"
+
+  let filename := if let some f := filename then f else "<stdin>"
+
   match ParserState.fromInput fileContent with
   | .ok parser =>
-    match (parseOp none).run (MlirParserState.fromContext ctx) parser with
+    let state := MlirParserState.fromContext ctx allowUnregisteredDialect
+    match (parseOp none).run state parser with
     | .ok (op, state, _) =>
       return (state.ctx, op)
-    | .error errMsg =>
-      throw s!"Error parsing operation: {errMsg}"
-  | .error errMsg =>
-    throw s!"Error reading file: {errMsg}"
+    | .error err =>
+      throw (err.format filename fileContent)
+  | .error err =>
+    throw (err.format filename fileContent)
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
-    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]"
-  | .ok { filename, passes } =>
-    match ← parseOperation filename with
+    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"] [--allow-unregistered-dialect]"
+    IO.Process.exit 1
+  | .ok { filename, passes, allowUnregisteredDialect } =>
+    match ← parseOperation filename allowUnregisteredDialect with
     | .error errMsg =>
-      IO.eprintln s!"Error: {errMsg}"
+      IO.eprintln errMsg
+      IO.Process.exit 1
     | .ok (ctx, op) =>
       match ctx.verify with
       | .error errMsg =>
         IO.eprintln s!"Error verifying input program: {errMsg}"
+        IO.Process.exit 1
       | .ok _ =>
         match ← passes.run ⟨ctx, by sorry⟩ op with
         | .error errMsg =>
           IO.eprintln s!"Error: {errMsg}"
+          IO.Process.exit 1
         | .ok finalCtx =>
           Veir.Printer.printOperation finalCtx op

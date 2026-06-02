@@ -362,6 +362,16 @@ theorem BlockPtr.arguments_inBounds :
 
 grind_pattern BlockPtr.arguments_inBounds => (block.getArgument i), ctx.FieldsInBounds
 
+theorem BlockPtr.getArguments!_inBounds :
+    ctx.FieldsInBounds →
+    block.InBounds ctx →
+    blockArg ∈ block.getArguments! ctx →
+    blockArg.InBounds ctx := by
+  grind [getArguments!.mem_iff_exists_index]
+
+grind_pattern BlockPtr.getArguments!_inBounds => blockArg ∈ block.getArguments! ctx, ctx.FieldsInBounds
+
+
 end Block
 
 section Region
@@ -509,8 +519,16 @@ theorem Operation.fieldsInBounds_unchanged {op : OperationPtr} (ctx ctx' : IRCon
     (opInBounds': op.InBounds ctx')
     (hh : ctx.FieldsInBounds)
     (hFIB : Operation.FieldsInBounds op ctx opInBounds)
-    (hSameInBounds : ∀ ptr, GenericPtr.InBounds ptr ctx ↔ GenericPtr.InBounds ptr ctx')
-    (hSameOps : ∀ op, op.InBounds ctx → OperationPtr.get! op ctx = OperationPtr.get! op ctx') :
+    (hSameInBoundsOp : ∀ op : OperationPtr, op.InBounds ctx → op.InBounds ctx')
+    (hSameInBoundsOpRes : ∀ opRes : OpResultPtr, opRes.InBounds ctx ↔ opRes.InBounds ctx')
+    (hSameInBoundsOpOperand : ∀ opOperand : OpOperandPtr, opOperand.InBounds ctx ↔ opOperand.InBounds ctx')
+    (hSameInBoundsOpOperandPtr : ∀ opOperandPtr : OpOperandPtrPtr, opOperandPtr.InBounds ctx → opOperandPtr.InBounds ctx')
+    (hSameInBoundsBlockOperand : ∀ blockOperand : BlockOperandPtr, blockOperand.InBounds ctx ↔ blockOperand.InBounds ctx')
+    (hSameInBoundsBlockOperandPtr : ∀ blockOperandPtr : BlockOperandPtrPtr, blockOperandPtr.InBounds ctx → blockOperandPtr.InBounds ctx')
+    (hSameInBoundsBlock : ∀ block : BlockPtr, block.InBounds ctx → block.InBounds ctx')
+    (hSameInBoundsRegion : ∀ region : RegionPtr, region.InBounds ctx → region.InBounds ctx')
+    (hSameInBoundsValue : ∀ value : ValuePtr, value.InBounds ctx → value.InBounds ctx')
+    (hSameInBoundsOp : ∀ op, op.InBounds ctx → OperationPtr.get! op ctx = OperationPtr.get! op ctx') :
     Operation.FieldsInBounds op ctx' (by grind) := by
   have heq : op.get! ctx = op.get! ctx' := by grind
   constructor
@@ -535,7 +553,12 @@ theorem Block.fieldsInBounds_unchanged (block : BlockPtr) (ctx ctx' : IRContext 
     (blockInBounds': block.InBounds ctx')
     (hh : ctx.FieldsInBounds)
     (_hFIB : Block.FieldsInBounds block ctx blockInBounds)
-    (hSameInBounds : ∀ ptr, GenericPtr.InBounds ptr ctx ↔ GenericPtr.InBounds ptr ctx')
+    (hSameInBoundsOp : ∀ op : OperationPtr, op.InBounds ctx → op.InBounds ctx')
+    (hSameInBoundsOpOperand : ∀ opOperand : OpOperandPtr, opOperand.InBounds ctx → opOperand.InBounds ctx')
+    (hSameInBoundsBlockOperand : ∀ blockOperand : BlockOperandPtr, blockOperand.InBounds ctx → blockOperand.InBounds ctx')
+    (hSameInBoundsBlock : ∀ block : BlockPtr, block.InBounds ctx → block.InBounds ctx')
+    (hSameInBoundsBlockArgument : ∀ blockArg : BlockArgumentPtr, blockArg.InBounds ctx ↔ blockArg.InBounds ctx')
+    (hSameInBoundsRegion : ∀ region : RegionPtr, region.InBounds ctx → region.InBounds ctx')
     (hSameBlocks : ∀ block, block.InBounds ctx → BlockPtr.get! block ctx = BlockPtr.get! block ctx') :
     Block.FieldsInBounds block ctx' blockInBounds' := by
   constructor
@@ -551,7 +574,8 @@ theorem Block.fieldsInBounds_unchanged (block : BlockPtr) (ctx ctx' : IRContext 
 theorem Region.fieldsInBounds_unchanged (region : RegionPtr) (ctx ctx' : IRContext OpInfo)
     (regionInBounds : region.InBounds ctx)
     (hFIB : (region.get! ctx).FieldsInBounds ctx)
-    (hSameInBounds : ∀ ptr, GenericPtr.InBounds ptr ctx → GenericPtr.InBounds ptr ctx')
+    (hSameInBoundsOp : ∀ op : OperationPtr, op.InBounds ctx → op.InBounds ctx')
+    (hSameInBoundsBlock : ∀ block : BlockPtr, block.InBounds ctx → block.InBounds ctx')
     (hSameRegions : ∀ region, region.InBounds ctx → RegionPtr.get! region ctx = RegionPtr.get! region ctx') :
     (region.get! ctx').FieldsInBounds ctx' := by
   grind

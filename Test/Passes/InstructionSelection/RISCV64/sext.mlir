@@ -23,6 +23,7 @@
         // CHECK-NEXT:      %[[P:.*]] = "riscv.srai"(%[[O]]) <{"value" = 22 : i64}> : (!reg) -> !reg
         // CHECK-NEXT:      %[[Q:.*]] = "builtin.unrealized_conversion_cast"(%[[P]]) : (!reg) -> i54
         
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()
 

@@ -41,22 +41,16 @@ def printValue (ctx : IRContext OpCode) (value : ValuePtr) : IO Unit := do
     if opStruct.results.size = 1 then
       IO.print s!"%{opResult.owner.id}"
     else
-      IO.print s!"%{opResult.owner.id}_{opResult.index}"
+      IO.print s!"%{opResult.owner.id}#{opResult.index}"
   | ValuePtr.blockArgument blockArgPtr =>
     let blockArg := blockArgPtr.get! ctx
     IO.print s!"%arg{blockArg.owner.id}_{blockArg.index}"
 
-def printOpResult (ctx: IRContext OpCode) (result: OpResultPtr) : IO Unit := do
-  printValue ctx (ValuePtr.opResult result)
-
 def printOpResults (ctx: IRContext OpCode) (op: OperationPtr) : IO Unit := do
   if op.getNumResults! ctx ≠ 0 then
-    let res := op.getResult 0
-    printValue ctx res
-    for index in 1...(op.getNumResults! ctx) do
-      IO.print ", "
-      let res := op.getResult index
-      printValue ctx res
+    IO.print s!"%{op.id}"
+    if op.getNumResults! ctx > 1 then
+      IO.print s!":{op.getNumResults! ctx}"
     IO.print " = "
 
 def printOpOperands (ctx: IRContext OpCode) (op: OperationPtr) : IO Unit := do
@@ -184,7 +178,13 @@ partial def printOperation (ctx: IRContext OpCode) (op: OperationPtr) (indent: N
   let opStruct := op.get! ctx
   printIndent indent
   printOpResults ctx op
-  IO.print s!"\"{String.fromUTF8! opStruct.opType.name}\""
+  /- Unregistered operations store their original operation name in the properties. -/
+  let nameBytes : ByteArray :=
+    match opStruct.opType with
+    | .builtin .unregistered =>
+      (op.getProperties! ctx (.builtin .unregistered)).opName
+    | _ => opStruct.opType.name
+  IO.print s!"\"{String.fromUTF8! nameBytes}\""
   printOpOperands ctx op
   printBlockOperands ctx op
   printOpProperties ctx op

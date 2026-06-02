@@ -71,7 +71,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
 inductive Llvm where
-| constant
+| mlir__constant
 | and
 | or
 | xor
@@ -92,11 +92,19 @@ inductive Llvm where
 | zext
 | br
 | cond_br
+| unreachable
 | alloca
 | load
 | store
 | getelementptr
 | return
+| func
+| module_flags
+| fadd
+| fsub
+| fmul
+| fdiv
+| frem
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
@@ -205,6 +213,13 @@ inductive Riscv where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
+inductive Riscv_Cf where
+| branch
+| beq
+| bne
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
 inductive Mod_Arith where
 | add
 | constant
@@ -241,6 +256,13 @@ inductive Comb where
 | shru
 | sub
 | xor
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
+inductive HW where
+| constant
+| module
+| output
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]

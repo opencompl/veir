@@ -1,0 +1,661 @@
+#!/usr/bin/env python3
+"""Differential fuzzer for VeIR optimization passes.
+
+Repeatedly generates random MLIR programs, interprets them before and after
+running an optimizer pipeline, and reports a reproducer if the observable
+outputs differ.
+"""
+
+from __future__ import annotations
+
+import argparse
+import itertools
+import multiprocessing
+import os
+import random
+import re
+import secrets
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+import traceback
+from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable
+
+sys.path.insert(0, str(Path(__file__).parent))
+from vsmith_generate import generate
+
+
+@dataclass(frozen=True)
+class ToolResult:
+    returncode: int
+    output: str
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    ok: bool
+    before: str
+    after: str | None
+    message: str
+    before_llvm: tuple[tuple[str, str], ...] = ()
+    after_llvm: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
+class LlvmInterpResult:
+    veir_output: str
+    final_value: str
+    log: str
+
+
+@dataclass(frozen=True)
+class LlvmInterpreter:
+    name: str
+    bin: Path
+    extra_args: tuple[str, ...]
+    classifier: Callable[[str], tuple[str, str]]
+
+
+class Spinner:
+    MIN_INTERVAL = 0.2
+
+    def __init__(self) -> None:
+        self.frames = ("|", "/", "-", "\\")
+        self.index = 0
+        self.last_len = 0
+        self.interactive = sys.stdout.isatty()
+        self.last_update = 0.0
+
+    def update(self, message: str) -> None:
+        now = time.monotonic()
+        if now - self.last_update < self.MIN_INTERVAL:
+            return
+        self.last_update = now
+        frame = self.frames[self.index % len(self.frames)]
+        self.index += 1
+        text = f"{frame} {message}"
+        if self.interactive:
+            padding = " " * max(0, self.last_len - len(text))
+            print(f"\r{text}{padding}", end="", flush=True)
+            self.last_len = len(text)
+        else:
+            print(text, flush=True)
+
+    def clear(self) -> None:
+        if self.interactive and self.last_len:
+            print(f"\r{' ' * self.last_len}\r", end="", flush=True)
+            self.last_len = 0
+
+    def finish(self, message: str) -> None:
+        self.clear()
+        print(message)
+
+
+def run_tool(repo: Path, cmd: list[str]) -> ToolResult:
+    result = subprocess.run(
+        cmd,
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return ToolResult(result.returncode, result.stdout + result.stderr)
+
+
+KNOWN_INTERPRETER_FAILURES = ("Undefined behavior",)
+
+
+def classify_failure(log: str) -> str:
+    for pattern in KNOWN_INTERPRETER_FAILURES:
+        if pattern in log:
+            return pattern
+    raise ValueError(f"interpreter produced no 'Program output:' line and no known failure pattern:\n{log}")
+
+
+def outcome_key(output: str | None) -> str:
+    if output is None:
+        return "optimizer failed"
+    if output.startswith("Program output:"):
+        values = parse_output_values(output)
+        if values is not None and any(v == "poison" for v in values):
+            return "program output (poison)"
+        return "program output"
+    return output
+
+
+def prebuild(repo: Path) -> None:
+    """Build veir-opt and veir-interpret so workers can exec them directly."""
+    result = subprocess.run(
+        ["lake", "build", "veir-opt", "veir-interpret"],
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"lake build failed:\n{result.stdout}")
+
+
+def interpret(repo: Path, interp_bin: Path, path: Path) -> tuple[str, str]:
+    """Return the last 'Program output: ...' line, or a classified failure string."""
+    result = run_tool(repo, [str(interp_bin), str(path)])
+    outputs = [line for line in result.output.splitlines() if line.startswith("Program output:")]
+    output = outputs[-1] if outputs else classify_failure(result.output)
+    return output, result.output
+
+
+def translate_to_llvm(repo: Path, mlir_path: Path, ll_path: Path) -> tuple[bool, str]:
+    """Translate VEIR's LLVM dialect to LLVM IR."""
+    translator = repo / "Tools" / "veir2llvm"
+    result = run_tool(repo, [str(translator), str(mlir_path)])
+    if result.returncode != 0:
+        return False, result.output
+    if not result.output.strip().startswith("define "):
+        return False, result.output
+    ll_path.write_text(result.output)
+    return True, result.output
+
+
+def format_int_output(width: int, value: int) -> str:
+    mask = (1 << width) - 1
+    unsigned = value & mask
+    digits = max(1, (width + 3) // 4)
+    return f"0x{unsigned:0{digits}x}#{width}"
+
+
+def classify_llubi_output(log: str) -> tuple[str, str]:
+    """Return llubi's result in veir-interpret format and llubi's final value."""
+    for line in log.splitlines():
+        if "Immediate UB detected" in line:
+            return "Undefined behavior", line.strip()
+    for line in log.splitlines():
+        if "poison return value" in line:
+            return "Program output: #[poison]", "poison"
+
+    values: dict[str, str] = {}
+    llubi_values: dict[str, str] = {}
+    for line in log.splitlines():
+        assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*=>\s*(poison|i(\d+)\s+(-?\d+))\s*$", line)
+        if assignment:
+            name = assignment.group(1)
+            if assignment.group(2) == "poison":
+                values[name] = "poison"
+                llubi_values[name] = "poison"
+            else:
+                values[name] = format_int_output(int(assignment.group(3)), int(assignment.group(4)))
+                llubi_values[name] = assignment.group(2)
+            continue
+
+        bool_assignment = re.search(r"^\s*(%[-A-Za-z0-9_.$]+)\s*=.*=>\s*([TF])\s*$", line)
+        if bool_assignment:
+            values[bool_assignment.group(1)] = "0x1#1" if bool_assignment.group(2) == "T" else "0x0#1"
+            llubi_values[bool_assignment.group(1)] = bool_assignment.group(2)
+            continue
+
+        ret_const = re.search(r"^\s*ret\s+i(\d+)\s+(-?\d+)\s*$", line)
+        if ret_const:
+            width = int(ret_const.group(1))
+            value = int(ret_const.group(2))
+            return f"Program output: #[{format_int_output(width, value)}]", f"i{width} {value}"
+
+        ret_bool = re.search(r"^\s*ret\s+i1\s+(true|false)\s*$", line)
+        if ret_bool:
+            value = ret_bool.group(1)
+            return f"Program output: #[{'0x1#1' if value == 'true' else '0x0#1'}]", value
+
+        ret_value = re.search(r"^\s*ret\s+i(\d+)\s+(%[-A-Za-z0-9_.$]+)\s*$", line)
+        if ret_value:
+            value = values.get(ret_value.group(2))
+            llubi_value = llubi_values.get(ret_value.group(2))
+            if value is None:
+                raise ValueError(f"llubi return value was not recorded:\n{log}")
+            if llubi_value is None:
+                raise ValueError(f"llubi return value was not recorded:\n{log}")
+            return f"Program output: #[{value}]", llubi_value
+
+        if re.fullmatch(r"\s*ret\s+void\s*", line):
+            return "Program output: #[]", "void"
+
+    raise ValueError(f"llubi produced no recognizable result:\n{log}")
+
+
+ALIVE_EXEC_RETURNED_RE = re.compile(
+    r"^Returned\s+#([xb])([0-9a-fA-F]+)\s+/\s+non-poison=(true|false)\s*$"
+)
+
+
+def classify_alive_exec_output(log: str) -> tuple[str, str]:
+    """Return alive-exec's result in veir-interpret format and alive-exec's final value."""
+    if "UB triggered!" in log:
+        return "Undefined behavior", "UB triggered"
+
+    final_line: str | None = None
+    for line in log.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Returned "):
+            final_line = stripped
+
+    if final_line is None:
+        raise ValueError(f"alive-exec produced no recognizable result:\n{log}")
+
+    m = ALIVE_EXEC_RETURNED_RE.match(final_line)
+    if not m:
+        raise ValueError(
+            f"alive-exec result line not recognized:\n  {final_line}\nfull log:\n{log}"
+        )
+    radix, digits, non_poison = m.group(1), m.group(2), m.group(3)
+    if non_poison == "false":
+        return "Program output: #[poison]", "poison"
+    if radix == "x":
+        width = 4 * len(digits)
+        unsigned = int(digits, 16)
+    else:
+        width = len(digits)
+        unsigned = int(digits, 2)
+    return f"Program output: #[{format_int_output(width, unsigned)}]", final_line
+
+
+def run_llvm_interp(repo: Path, interp: LlvmInterpreter, ll_path: Path) -> LlvmInterpResult:
+    """Run an LLVM IR interpreter and return its classified result plus raw output."""
+    result = run_tool(repo, [str(interp.bin), *interp.extra_args, str(ll_path)])
+    veir_output, final_value = interp.classifier(result.output)
+    return LlvmInterpResult(veir_output, final_value, result.output)
+
+
+def check_llvm_interp_equiv(
+    repo: Path,
+    interp: LlvmInterpreter,
+    mlir_path: Path,
+    ll_path: Path,
+    veir_output: str,
+    label: str,
+) -> tuple[bool, str, str | None]:
+    """Check that an LLVM IR interpreter exactly agrees with veir-interpret."""
+    try:
+        result = run_llvm_interp(repo, interp, ll_path)
+    except ValueError as e:
+        return (
+            False,
+            f"{interp.name} output could not be classified for {label} program\n"
+            f"source: {mlir_path}\nllvm: {ll_path}\n{e}",
+            None,
+        )
+    if result.veir_output != veir_output:
+        pad = max(len("veir-interpret"), len(interp.name))
+        return (
+            False,
+            f"{interp.name} mismatch on {label} program\n"
+            f"source: {mlir_path}\nllvm: {ll_path}\n"
+            f"{'veir-interpret':<{pad}}: {veir_output}\n"
+            f"{interp.name:<{pad}}: {result.veir_output}\n"
+            f"{interp.name} log:\n{result.log}",
+            result.final_value,
+        )
+    return True, "", result.final_value
+
+
+def check_llvm_interps(
+    repo: Path,
+    interps: list[LlvmInterpreter],
+    mlir_path: Path,
+    veir_output: str,
+    label: str,
+) -> tuple[bool, str, tuple[tuple[str, str], ...]]:
+    """Translate to LLVM IR once, then cross-check each interpreter against veir-interpret."""
+    ll_path = mlir_path.with_suffix(".ll")
+    ok, translate_log = translate_to_llvm(repo, mlir_path, ll_path)
+    if not ok:
+        return (
+            False,
+            f"veir2llvm failed on {label} program\n"
+            f"source: {mlir_path}\nllvm: {ll_path}\n{translate_log}",
+            (),
+        )
+    collected: list[tuple[str, str]] = []
+    for interp in interps:
+        ok, msg, value = check_llvm_interp_equiv(repo, interp, mlir_path, ll_path, veir_output, label)
+        if value is not None:
+            collected.append((interp.name, value))
+        if not ok:
+            return False, msg, tuple(collected)
+    return True, "", tuple(collected)
+
+
+def optimize(repo: Path, opt_bin: Path, src: Path, dst: Path, passes: str) -> tuple[bool, str]:
+    """Run veir-opt and write the result to dst. Returns (success, log)."""
+    result = run_tool(repo, [str(opt_bin), str(src), f"-p={passes}"])
+    output = result.output
+    failed = (
+        result.returncode != 0
+        or "Error:" in output
+        or "uncaught exception" in output
+        or "panic" in output.lower()
+        or not output.strip().startswith('"builtin.module"')
+    )
+    if failed:
+        return False, output
+    dst.write_text(output)
+    return True, output
+
+
+def parse_output_values(line: str) -> list[str] | None:
+    """Parse 'Program output: #[a, b, c]' into a list of element strings."""
+    prefix = "Program output:"
+    if not line.startswith(prefix):
+        return None
+    body = line[len(prefix):].strip()
+    if not (body.startswith("#[") and body.endswith("]")):
+        return None
+    inner = body[2:-1].strip()
+    return [elem.strip() for elem in inner.split(",")] if inner else []
+
+
+def refines(original: str, optimized: str) -> bool:
+    """Return True if optimized is a valid refinement of original.
+
+    Undefined behavior in the original may map to any interpreter outcome.
+    Poison values in the original may map to poison or concrete values.
+    Concrete values in the original must be preserved exactly.
+    """
+    if original == "Undefined behavior":
+        return optimized == "Undefined behavior" or optimized.startswith("Program output:")
+
+    orig = parse_output_values(original)
+    opt = parse_output_values(optimized)
+    if orig is None or opt is None or len(orig) != len(opt):
+        return original == optimized
+    return all(o == "poison" or o == p for o, p in zip(orig, opt))
+
+
+def check(
+    repo: Path,
+    interp_bin: Path,
+    opt_bin: Path,
+    llvm_interps: list[LlvmInterpreter],
+    src: Path,
+    opt: Path,
+    passes: str,
+) -> CheckResult:
+    """Interpret, optimize, re-interpret, and compare."""
+    before, _ = interpret(repo, interp_bin, src)
+    before_llvm: tuple[tuple[str, str], ...] = ()
+    if llvm_interps:
+        ok, message, before_llvm = check_llvm_interps(repo, llvm_interps, src, before, "source")
+        if not ok:
+            return CheckResult(
+                ok=False,
+                before=before,
+                after=None,
+                message=message,
+                before_llvm=before_llvm,
+            )
+
+    ok, opt_log = optimize(repo, opt_bin, src, opt, passes)
+    if not ok:
+        return CheckResult(
+            ok=False,
+            before=before,
+            after=None,
+            message=f"optimizer failed on {src}\n{opt_log}",
+            before_llvm=before_llvm,
+        )
+
+    after, _ = interpret(repo, interp_bin, opt)
+    after_llvm: tuple[tuple[str, str], ...] = ()
+    if llvm_interps:
+        ok, message, after_llvm = check_llvm_interps(repo, llvm_interps, opt, after, "optimized")
+        if not ok:
+            return CheckResult(
+                ok=False,
+                before=before,
+                after=after,
+                message=message,
+                before_llvm=before_llvm,
+                after_llvm=after_llvm,
+            )
+
+    if not refines(before, after):
+        return CheckResult(
+            ok=False,
+            before=before,
+            after=after,
+            before_llvm=before_llvm,
+            after_llvm=after_llvm,
+            message=(
+                f"semantic mismatch\n"
+                f"source: {src}\noptimized: {opt}\n"
+                f"original:  {before}\n"
+                f"optimized: {after}"
+            ),
+        )
+    return CheckResult(
+        ok=True,
+        before=before,
+        after=after,
+        message=before,
+        before_llvm=before_llvm,
+        after_llvm=after_llvm,
+    )
+
+
+def _worker(
+    repo: Path,
+    interp_bin: Path,
+    opt_bin: Path,
+    llvm_interps: list[LlvmInterpreter],
+    workdir: Path,
+    seed: int,
+    count: int,
+    start_index: int,
+    passes: str,
+    queue: "multiprocessing.Queue",
+) -> None:
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        workdir.mkdir(parents=True, exist_ok=True)
+        rng = random.Random(seed)
+        iterator = itertools.count() if count < 0 else range(count)
+        for i in iterator:
+            idx = start_index + i
+            src = workdir / f"case_{idx}.mlir"
+            opt = workdir / f"case_{idx}.opt.mlir"
+            generate(src, rng)
+            result = check(repo, interp_bin, opt_bin, llvm_interps, src, opt, passes)
+            if not result.ok:
+                queue.put(("fail", result.message))
+                return
+            queue.put((
+                "ok",
+                outcome_key(result.before),
+                outcome_key(result.after),
+                idx,
+                result.before,
+                result.after,
+                result.before_llvm,
+                result.after_llvm,
+            ))
+            src.unlink(missing_ok=True)
+            opt.unlink(missing_ok=True)
+            src.with_suffix(".ll").unlink(missing_ok=True)
+            opt.with_suffix(".ll").unlink(missing_ok=True)
+        queue.put(("done",))
+    except BaseException:
+        queue.put(("fail", f"worker crashed:\n{traceback.format_exc()}"))
+
+
+def fuzz(
+    repo: Path,
+    interp_bin: Path,
+    opt_bin: Path,
+    llvm_interps: list[LlvmInterpreter],
+    workdir: Path,
+    iterations: int,
+    passes: str,
+    rng: random.Random,
+    num_workers: int,
+    spinner: Spinner,
+    verbose: bool,
+) -> bool:
+    infinite = iterations < 0
+    if not infinite and iterations == 0:
+        spinner.finish("no iterations")
+        return True
+
+    if infinite:
+        num_workers = max(1, num_workers)
+        base, extra = 0, 0
+    else:
+        num_workers = max(1, min(num_workers, iterations))
+        base, extra = divmod(iterations, num_workers)
+
+    ctx = multiprocessing.get_context()
+    queue: "multiprocessing.Queue" = ctx.Queue()
+    processes: list[multiprocessing.Process] = []
+    start = 0
+    for w in range(num_workers):
+        count = -1 if infinite else base + (1 if w < extra else 0)
+        seed = rng.getrandbits(64)
+        subdir = workdir / f"w{w}"
+        p = ctx.Process(
+            target=_worker,
+            args=(repo, interp_bin, opt_bin, llvm_interps, subdir, seed, count, start, passes, queue),
+        )
+        p.start()
+        processes.append(p)
+        if not infinite:
+            start += count
+
+    source_counts: defaultdict[str, int] = defaultdict(int)
+    opt_counts: defaultdict[str, int] = defaultdict(int)
+    done = 0
+    failure_message: str | None = None
+    interrupted = False
+
+    try:
+        while infinite or done < num_workers:
+            try:
+                msg = queue.get()
+            except KeyboardInterrupt:
+                interrupted = True
+                break
+            tag = msg[0]
+            if tag == "done":
+                done += 1
+            elif tag == "fail":
+                failure_message = msg[1]
+                break
+            elif tag == "ok":
+                _, src_key, opt_key, idx, before, after, before_llvm, after_llvm = msg
+                source_counts[src_key] += 1
+                opt_counts[opt_key] += 1
+                if verbose:
+                    print(f"case {idx}:")
+                    print(f"  source:    {before}")
+                    for name, value in before_llvm:
+                        print(f"  source {name}: {value}")
+                    print(f"  optimized: {after}")
+                    for name, value in after_llvm:
+                        print(f"  optimized {name}: {value}")
+                else:
+                    spinner.update(f"passed {sum(source_counts.values())} cases")
+    finally:
+        if failure_message is not None or interrupted:
+            for p in processes:
+                if p.is_alive():
+                    p.terminate()
+        for p in processes:
+            p.join()
+
+    if failure_message is not None:
+        spinner.clear()
+        print(failure_message)
+        return False
+
+    def fmt_counts(counts: defaultdict[str, int]) -> str:
+        return ", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
+
+    header = "interrupted, no mismatches detected" if interrupted else "no mismatches detected"
+    spinner.finish(
+        f"{header}\n"
+        f"  source:    {fmt_counts(source_counts)}\n"
+        f"  optimized: {fmt_counts(opt_counts)}"
+    )
+    return True
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--iterations", type=int, default=100,
+                        help="number of random programs to test, or -1 to run forever (default: 100)")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="random seed (default: fresh system entropy)")
+    parser.add_argument("--passes", default="instcombine,dce,cse,dce",
+                        help="veir-opt pass pipeline (default: instcombine,dce,cse,dce)")
+    parser.add_argument("--keep", action="store_true",
+                        help="keep workdir on success (always kept on failure)")
+    parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
+                        help="number of parallel workers (default: all available cores)")
+    parser.add_argument("--verbose", action="store_true",
+                        help="print per-case source/optimized outputs instead of the spinner")
+    parser.add_argument("--llubi", action="store_true",
+                        help="cross-check veir-interpret against llubi via Tools/veir2llvm")
+    parser.add_argument("--alive-exec", action="store_true",
+                        help="cross-check veir-interpret against alive-exec via Tools/veir2llvm")
+    return parser.parse_args(argv)
+
+
+def resolve_llvm_interp(
+    name: str, flag: str, extra_args: tuple[str, ...], classifier: Callable[[str], tuple[str, str]]
+) -> LlvmInterpreter:
+    resolved = shutil.which(name)
+    if resolved is None:
+        raise SystemExit(f"{flag} was requested, but {name!r} was not found in PATH")
+    return LlvmInterpreter(name=name, bin=Path(resolved), extra_args=extra_args, classifier=classifier)
+
+
+def main(argv: list[str]) -> int:
+    args = parse_args(argv)
+    repo = Path(__file__).resolve().parents[1]
+    llvm_interps: list[LlvmInterpreter] = []
+    if args.llubi:
+        llvm_interps.append(resolve_llvm_interp("llubi", "--llubi", ("--verbose",), classify_llubi_output))
+    if args.alive_exec:
+        llvm_interps.append(resolve_llvm_interp("alive-exec", "--alive-exec", (), classify_alive_exec_output))
+    seed = args.seed if args.seed is not None else secrets.randbits(64)
+    rng = random.Random(seed)
+
+    workdir = Path(tempfile.mkdtemp(prefix="vsmith-"))
+
+    print(f"workdir: {workdir}")
+    print(f"seed:    {seed}")
+    print(f"passes:  {args.passes}")
+    print(f"workers: {args.workers}")
+    for interp in llvm_interps:
+        print(f"{interp.name + ':':<12}{interp.bin}")
+
+    prebuild(repo)
+    interp_bin = repo / ".lake" / "build" / "bin" / "veir-interpret"
+    opt_bin = repo / ".lake" / "build" / "bin" / "veir-opt"
+
+    success = fuzz(
+        repo, interp_bin, opt_bin, llvm_interps, workdir,
+        args.iterations, args.passes, rng,
+        args.workers, Spinner(), args.verbose,
+    )
+
+    if success and not args.keep:
+        shutil.rmtree(workdir)
+    else:
+        print(f"kept workdir: {workdir}")
+
+    return 0 if success else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

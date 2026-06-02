@@ -27,7 +27,7 @@ inductive IntPred where
   | sge
   | slt
   | sle
-deriving DecidableEq, Inhabited
+deriving DecidableEq, Inhabited, Repr, Hashable
 
 /-- Mapped as in MLIR:
   https://github.com/llvm/llvm-project/blob/d3417c8bf35852af88f41aa721a719ea756fdd8c/mlir/include/mlir/Dialect/LLVMIR/LLVMEnums.td#L571 -/
@@ -44,6 +44,25 @@ def IntPred.fromNat (s : Nat) : Option IntPred :=
   | 8 => some .ugt
   | 9 => some .uge
   | _ => none
+
+/-- Mapped as in MLIR. See `IntPred.fromNat`. -/
+def IntPred.toNat : IntPred → Nat
+  | .eq => 0
+  | .ne => 1
+  | .slt => 2
+  | .sle => 3
+  | .sgt => 4
+  | .sge => 5
+  | .ult => 6
+  | .ule => 7
+  | .ugt => 8
+  | .uge => 9
+
+/-- Sanity check: A numeric code parses to a predicate exactly when it
+    is that predicate's MLIR code. -/
+theorem IntPred.fromNat_eq_some_iff {n : Nat} {p : IntPred} :
+    IntPred.fromNat n = some p ↔ p.toNat = n := by
+  cases p <;> simp only [IntPred.fromNat, IntPred.toNat] <;> grind
 
 def IntPred.eval (p : IntPred) (x y : BitVec w) : Bool :=
   match p with
@@ -200,13 +219,10 @@ def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
 
-  if y' == 0 || (w != 1 && x' == (BitVec.intMin w) && y' == -1) then
+  if y' == 0 || (x' == (BitVec.intMin w) && y' == -1) then
     return poison
 
   if exact ∧ x'.smod y' ≠ 0 then
-    return poison
-
-  if y' == 0 then
     return poison
 
   val (x'.sdiv y')
@@ -254,7 +270,7 @@ def srem {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
 
-  if y' == 0 || (w != 1 && x' == (BitVec.intMin w) && y' == -1) then
+  if y' == 0 || (x' == (BitVec.intMin w) && y' == -1) then
     return poison
 
   val (x'.srem y')
@@ -277,13 +293,13 @@ def shl {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
   let val x' := x | poison
   let val y' := y | poison
 
+  if y' ≥ w then
+    return poison
+
   if nsw ∧ (x' <<< y').sshiftRight' y' ≠ x' then
     return poison
 
   if nuw ∧ (x' <<< y') >>> y' ≠ x' then
-    return poison
-
-  if y' ≥ w then
     return poison
 
   val (x' <<< y')
@@ -342,6 +358,10 @@ def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   match x with
   | .val v => .val (v.cast h)
   | .poison => .poison
+
+@[simp, grind =]
+theorem cast_self {w : Nat} (x : Int w) (h : w = w) : cast x h = x := by
+  cases x <;> simp [cast]
 
 /--
 The ‘and’ instruction returns the bitwise logical and of its two operands.
@@ -485,12 +505,13 @@ def icmp {w : Nat} (x y : Int w) (p : IntPred) : Int 1 := Id.run do
 
 /--
  If the condition is an i1 and it evaluates to 1, the instruction returns the first value argument; otherwise, it returns the second value argument.
+
+ If the condition is poison, the result is poison. Poison on the *non-selected* arm
+ does not propagate to the result.
 -/
 def select {w : Nat} (c : Int 1) (x y : Int w) : Int w := Id.run do
-  let val x' := x | poison
-  let val y' := y | poison
   let val c' := c | poison
-  val (if c' == 1#1 then x' else y')
+  if c' == 1#1 then x else y
 
 end Int
 end

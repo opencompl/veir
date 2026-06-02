@@ -1,6 +1,7 @@
 module
 
 import Veir.ForLean
+public import Std.Data.Iterators.Producers.Array
 
 /-!
   # Attributes
@@ -44,6 +45,13 @@ structure IntegerType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+ A floating point type with a given bitwidth.
+-/
+structure FloatType where
+  bitwidth : Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   A register type is an integer type with width 64.
 -/
 structure RegisterType where
@@ -57,10 +65,49 @@ structure IntegerAttr where
   type : IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/--
+ Floating point fastmath flags attribute.
+-/
+structure FastMathFlagsAttr where
+  nnan : Bool
+  ninf : Bool
+  nsz : Bool
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 structure RegisterAttr where
   value : Int
   type : RegisterType
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+A floating point attribute storing a Lean `Float` value with an associated float type.
+-/
+structure FloatAttr where
+  value : Float
+  type : FloatType
+deriving Inhabited, Repr
+
+/--
+Temporary bridge lemma for deciding `FloatAttr` equality via `Float.toBits`.
+-/
+axiom floatEqOfToBitsEq {a b : Float} : a.toBits = b.toBits → a = b
+
+instance : DecidableEq FloatAttr
+  | a, b =>
+    if hv : a.value.toBits = b.value.toBits then
+      if ht : a.type = b.type then
+        have hval : a.value = b.value := floatEqOfToBitsEq hv
+        isTrue (by
+          cases a
+          cases b
+          simp_all)
+      else
+        isFalse (by intro h; exact ht (congrArg FloatAttr.type h))
+    else
+      isFalse (by intro h; exact hv (congrArg (Float.toBits ∘ FloatAttr.value) h))
+
+instance : Hashable FloatAttr where
+  hash a := mixHash (hash a.value.toBits) (hash a.type)
 
 /--
   An attribute containing a string.
@@ -107,6 +154,14 @@ structure UnregisteredAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  A flat symbol reference attribute, e.g., `@foo` or `@"my.func"`.
+  The value stores the raw text including the `@` prefix.
+-/
+structure FlatSymbolRefAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   The `!mod_arith.int` type from HEIR's modarith dialect.
   The modulus type annotation is optional in syntax.
 -/
@@ -116,6 +171,9 @@ structure ModArithType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 namespace LLVM
+
+structure VoidType
+deriving Inhabited, Repr, DecidableEq, Hashable
 
 structure PointerType
 deriving Inhabited, Repr, DecidableEq, Hashable
@@ -139,6 +197,38 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 end CudaTile
 
+namespace HW
+
+/--
+  The `ModulePort::Direction` type from CIRCT's hw dialect.
+  This represents the direction of a module port.
+-/
+inductive ModulePort.Direction
+| input
+| output
+| inout
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `ModulePort` type from CIRCT's hw dialect.
+  This represents a port to a module with a direction, type and name.
+-/
+structure ModulePort where
+  name : String
+  type : IntegerType
+  dir : ModulePort.Direction
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `!hw.modty` type from CIRCT's hw dialect.
+  This represents a list of ports to a module.
+-/
+structure ModuleType where
+  ports : Array ModulePort
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end HW
+
 mutual
 
 /--
@@ -148,6 +238,7 @@ mutual
 structure FunctionType where
   inputs : Array Attribute
   outputs : Array Attribute
+  isVarArg : Bool := false
 deriving Inhabited, Repr, Hashable
 
 /--
@@ -173,6 +264,14 @@ structure DictionaryAttr where
 deriving Inhabited, Repr, Hashable
 
 /--
+  An attribute representing a fixed-sized array type
+-/
+structure LLVM.ArrayType where
+  size : Nat
+  type : Attribute
+deriving Repr, Hashable
+
+/--
   A data structure that represents compile-time information in the IR.
   Attributes are used either as type annotations for SSA values, or
   as extra information stored in operations.
@@ -180,8 +279,14 @@ deriving Inhabited, Repr, Hashable
 inductive Attribute
 /-- Integer type -/
 | integerType (type : IntegerType)
+/-- Float type -/
+| floatType (type : FloatType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
+/-- Float attribute -/
+| floatAttr (attr : FloatAttr)
+/-- Float fast math flags attribute -/
+| fastMathFlagsAttr (attr : FastMathFlagsAttr)
 /-- Register type -/
 | registerType (type : RegisterType)
 /-- Register attribute -/
@@ -202,15 +307,28 @@ inductive Attribute
 | functionType (type : FunctionType)
 /-- An attribute from an unknown dialect. -/
 | unregisteredAttr (attr : UnregisteredAttr)
+/-- A flat symbol reference, e.g., `@foo` or `@"my.func"`. -/
+| flatSymbolRefAttr (attr : FlatSymbolRefAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
+/-- LLVM void type -/
+| llvmVoidType (type : LLVM.VoidType)
 /-- LLVM pointer type -/
 | llvmPointerType (type : LLVM.PointerType)
+/-- LLVM array type -/
+| llvmArrayType (type : LLVM.ArrayType)
+/-- LLVM function type -/
+| llvmFunctionType (type : FunctionType)
 /-- Cuda Tile pointer type -/
 | cudaTilePointerType (type : CudaTile.PointerType)
+/-- CIRCT hw module type -/
+| hwModuleType (type : HW.ModuleType)
 deriving Inhabited, Repr, Hashable
 
 end
+
+instance : Inhabited LLVM.ArrayType where
+  default := { size := 0, type := .llvmPointerType .mk }
 
 def ArrayAttr.empty : ArrayAttr := { value := #[] }
 
@@ -239,6 +357,10 @@ theorem DictionaryAttr.sizeOf_elems_entries {da : DictionaryAttr} (hx : x ∈ da
     sizeOf x < sizeOf da := by
   grind [Array.sizeOf_lt_of_mem hx, cases DictionaryAttr]
 
+theorem LLVM.ArrayType.sizeOf_elems_type {t : ArrayType} :
+    sizeOf t.type < sizeOf t := by
+  grind [cases ArrayType]
+
 /-!
   ## DecidableEq instances
 -/
@@ -252,7 +374,11 @@ def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) 
   match Array.instDecidabelEq' inputs1 inputs2 (fun x y _ _ => Attribute.decEq x y) with
   | isTrue _ =>
     match Array.instDecidabelEq' outputs1 outputs2 (fun x y _ _ => Attribute.decEq x y) with
-    | isTrue _ => isTrue (by grind [cases FunctionType])
+    | isTrue _ =>
+      if h : type1.isVarArg = type2.isVarArg then
+        isTrue (by grind [cases FunctionType])
+      else
+        isFalse (by grind)
     | isFalse _ => isFalse (by grind)
   | isFalse _ => isFalse (by grind)
 termination_by sizeOf type1
@@ -271,6 +397,22 @@ def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
 termination_by sizeOf arr1
 decreasing_by
   have := @ArrayAttr.sizeOf_elems_value
+  grind
+
+def LLVM.ArrayType.decEq (arr1 arr2 : LLVM.ArrayType) : Decidable (arr1 = arr2) :=
+  let size1 := arr1.size
+  let size2 := arr2.size
+  let type1 := arr1.type
+  let type2 := arr2.type
+  match Int.instDecidableEq size1 size2 with
+  | isTrue _ =>
+    match Attribute.decEq type1 type2 with
+    | isTrue _ => isTrue (by grind [cases LLVM.ArrayType])
+    | isFalse _ => isFalse (by grind)
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf arr1
+decreasing_by
+  have := @LLVM.ArrayType.sizeOf_elems_type
   grind
 
 def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
@@ -295,6 +437,14 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case floatType.floatType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case fastMathFlagsAttr.fastMathFlagsAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case unregisteredAttr.unregisteredAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -308,6 +458,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case integerAttr.integerAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case floatAttr.floatAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
@@ -339,14 +493,32 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case llvmVoidType.llvmVoidType type1 type2 =>
+    exact (isTrue (by grind))
   case llvmPointerType.llvmPointerType type1 type2 =>
     exact (isTrue (by grind))
+  case llvmArrayType.llvmArrayType type1 type2 =>
+    exact (match LLVM.ArrayType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case llvmFunctionType.llvmFunctionType type1 type2 =>
+    exact (match FunctionType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case cudaTilePointerType.cudaTilePointerType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case denseArrayAttr.denseArrayAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case flatSymbolRefAttr.flatSymbolRefAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case hwModuleType.hwModuleType type1 type2 =>
+    exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   all_goals exact isFalse (by grind)
@@ -368,7 +540,24 @@ instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
 instance : ToString IntegerType where
   toString type := s!"i{type.bitwidth}"
 
+instance : ToString FloatType where
+  toString type := s!"f{type.bitwidth}"
+
+instance : ToString FastMathFlagsAttr where
+  toString type := Id.run do
+    let mut array : List String := []
+    if type.nnan && type.ninf && type.nsz then array := array ++ ["fast"]
+    else
+      if type.nnan then array := array ++ ["nnan"]
+      if type.ninf then array := array ++ ["ninf"]
+      if type.nsz then array := array ++ ["nsz"]
+      if !type.nnan && !type.ninf && !type.nsz then array := array ++ ["none"]
+    s!"#llvm.fastmath<{String.intercalate ", " array}>"
+
 instance : ToString IntegerAttr where
+  toString attr := s!"{attr.value} : {attr.type}"
+
+instance : ToString FloatAttr where
   toString attr := s!"{attr.value} : {attr.type}"
 
 instance : ToString RegisterType where
@@ -405,17 +594,37 @@ instance : ToString DenseArrayAttr where
 instance : ToString UnregisteredAttr where
   toString attr := attr.value
 
+instance : ToString FlatSymbolRefAttr where
+  toString attr := attr.value
+
 instance : ToString ModArithType where
   toString type := s!"!mod_arith.int<{type.modulus}" ++
     (match type.modulusType with
     | some modulusType => s!" : {modulusType}"
     | none => "") ++ ">"
 
+instance : ToString LLVM.VoidType where
+  toString _ := "!llvm.void"
+
 instance : ToString LLVM.PointerType where
   toString _ := "!llvm.ptr"
 
 instance : ToString CudaTile.PointerType where
   toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"
+
+instance : ToString HW.ModulePort.Direction where
+  toString
+  | .input => "input"
+  | .output => "output"
+  | .inout => "inout"
+
+instance : ToString HW.ModulePort where
+  toString attr := s!"{attr.dir} {attr.name} : {attr.type}"
+
+instance : ToString HW.ModuleType where
+  toString attr :=
+    let values := attr.ports.iter.map ToString.toString |>.intercalateString ", "
+    s!"!hw.modty<{values}>"
 
 mutual
 
@@ -444,6 +653,24 @@ decreasing_by
   have : entry ∈ attr.entries := by grind
   grind [Array.sizeOf_lt_of_mem this, cases DictionaryAttr]
 
+def FunctionType.toLLVMString (type : FunctionType) : String :=
+  let paramStrs := type.inputs.toList.map Attribute.toString
+  let paramStrs := if type.isVarArg then paramStrs ++ ["..."] else paramStrs
+  let params := String.intercalate ", " paramStrs
+  let result := match _ : type.outputs.size with
+    | 1 =>
+      match type.outputs[0] with
+      | .llvmVoidType _ => "void"
+      | _ => Attribute.toString type.outputs[0]
+    | _ => "<invalid>"
+  s!"!llvm.func<{result} ({params})>"
+termination_by sizeOf type
+decreasing_by
+  · apply FunctionType.sizeOf_elems_inputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+
 def FunctionType.toString (type : FunctionType) : String :=
   let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
   let outputs := match _ : type.outputs.size with
@@ -466,13 +693,22 @@ decreasing_by
   · apply FunctionType.sizeOf_elems_outputs
     grind
 
+def LLVM.ArrayType.toString (type : LLVM.ArrayType) : String :=
+  s!"!llvm.array<{type.size} x {Attribute.toString type.type}>"
+termination_by sizeOf type
+decreasing_by
+  apply LLVM.ArrayType.sizeOf_elems_type
+
 /--
   Convert an attribute to a string representation.
 -/
 def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
+  | .floatType type => ToString.toString type
+  | .fastMathFlagsAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
+  | .floatAttr attr => ToString.toString attr
   | .registerType type => ToString.toString type
   | .registerAttr attr => ToString.toString attr
   | .stringAttr attr => ToString.toString attr
@@ -482,10 +718,15 @@ def Attribute.toString (attr : Attribute) : String :=
   | .denseArrayAttr attr => ToString.toString attr
   | .dictionaryAttr attr => attr.toString
   | .unregisteredAttr attr => ToString.toString attr
+  | .flatSymbolRefAttr attr => ToString.toString attr
   | .functionType type => type.toString
   | .modArithType type => ToString.toString type
+  | .llvmVoidType type => ToString.toString type
   | .llvmPointerType type => ToString.toString type
+  | .llvmArrayType type => type.toString
+  | .llvmFunctionType type => type.toLLVMString
   | .cudaTilePointerType type => ToString.toString type
+  | .hwModuleType type => ToString.toString type
 termination_by sizeOf attr
 
 end
@@ -502,6 +743,9 @@ instance : ToString ArrayAttr where
 instance : ToString DictionaryAttr where
   toString := DictionaryAttr.toString
 
+instance : ToString LLVM.ArrayType where
+  toString := LLVM.ArrayType.toString
+
 /-!
   ## Coercion instances to Attribute
 
@@ -509,6 +753,12 @@ instance : ToString DictionaryAttr where
 -/
 instance : Coe IntegerType Attribute where
   coe type := .integerType type
+
+instance : Coe FloatType Attribute where
+  coe type := .floatType type
+
+instance : Coe FastMathFlagsAttr Attribute where
+  coe flags := .fastMathFlagsAttr flags
 
 instance : Coe IntegerAttr Attribute where
   coe attr := .integerAttr attr
@@ -525,8 +775,14 @@ instance : Coe LocationAttr Attribute where
 instance : Coe UnregisteredAttr Attribute where
   coe attr := .unregisteredAttr attr
 
+instance : Coe FlatSymbolRefAttr Attribute where
+  coe attr := .flatSymbolRefAttr attr
+
 instance : Coe ArrayAttr Attribute where
   coe attr := .arrayAttr attr
+
+instance : Coe FloatAttr Attribute where
+  coe attr := .floatAttr attr
 
 instance : Coe DenseArrayAttr Attribute where
   coe attr := .denseArrayAttr attr
@@ -540,11 +796,20 @@ instance : Coe FunctionType Attribute where
 instance : Coe ModArithType Attribute where
   coe type := .modArithType type
 
+instance : Coe LLVM.VoidType Attribute where
+  coe type := .llvmVoidType type
+
 instance : Coe LLVM.PointerType Attribute where
   coe type := .llvmPointerType type
 
+instance : Coe LLVM.ArrayType Attribute where
+  coe type := .llvmArrayType type
+
 instance : Coe CudaTile.PointerType Attribute where
   coe type := .cudaTilePointerType type
+
+instance : Coe HW.ModuleType Attribute where
+  coe type := .hwModuleType type
 
 /-!
   ## TypeAttr definition
@@ -562,7 +827,10 @@ namespace Attribute
 def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
+  | .floatType _ => true
+  | .fastMathFlagsAttr _ => false
   | .integerAttr _ => false
+  | .floatAttr _ => false
   | .stringAttr _ => false
   | .unitAttr _ => false
   | .locationAttr _ => false
@@ -570,15 +838,24 @@ def isType (attr : Attribute) : Bool :=
   | .denseArrayAttr _ => false
   | .dictionaryAttr _ => false
   | .unregisteredAttr attr => attr.isType
+  | .flatSymbolRefAttr _ => false
   | .functionType _ => true
   | .modArithType _ => true
   | .registerType _ => true
-  | .registerAttr _ => true
+  | .registerAttr _ => false
+  | .llvmVoidType _ => true
   | .llvmPointerType _ => true
+  | .llvmArrayType _ => true
+  | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
+  | .hwModuleType _ => true
 
 @[simp, grind =]
 theorem isType_integerType type : (integerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_floatType type : (floatType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_fastMathFlags flags : (fastMathFlagsAttr flags).isType = false := by rfl
 @[simp, grind =]
 theorem isType_unregistered unregistered :
   (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
@@ -587,9 +864,19 @@ theorem isType_functionType type : (functionType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 @[simp, grind =]
+theorem isType_registerType type : (registerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_llvmVoidType type : (llvmVoidType type).isType = true := by rfl
+@[simp, grind =]
 theorem isType_llvmPointerType type : (llvmPointerType type).isType = true := by rfl
 @[simp, grind =]
+theorem isType_llvmArrayType type : (llvmArrayType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_llvmFunctionType type : (llvmFunctionType type).isType = true := by rfl
+@[simp, grind =]
 theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
 
 end Attribute
 
@@ -609,6 +896,11 @@ instance : Coe TypeAttr Attribute where
 instance : ToString TypeAttr where
   toString typeAttr := toString (typeAttr.val)
 
+theorem TypeAttr.inj {attr1 attr2 : TypeAttr} :
+  attr1 = attr2 ↔ (attr1 : Attribute) = (attr2 : Attribute) := by
+  unfold TypeAttr at *
+  grind
+
 /--
   Convert an attribute to a type attribute.
 -/
@@ -625,6 +917,9 @@ def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : Typ
 instance : Coe IntegerType TypeAttr where
   coe type := ⟨.integerType type, by rfl⟩
 
+instance : Coe FloatType TypeAttr where
+  coe type := ⟨.floatType type, by rfl⟩
+
 instance : Coe FunctionType TypeAttr where
   coe type := ⟨.functionType type, by rfl⟩
 
@@ -634,11 +929,20 @@ instance : Coe ModArithType TypeAttr where
 instance : Coe RegisterType TypeAttr where
   coe type := ⟨.registerType type, by rfl⟩
 
+instance : Coe LLVM.VoidType TypeAttr where
+  coe type := ⟨.llvmVoidType type, by rfl⟩
+
 instance : Coe LLVM.PointerType TypeAttr where
   coe type := ⟨.llvmPointerType type, by rfl⟩
 
+instance : Coe LLVM.ArrayType TypeAttr where
+  coe type := ⟨.llvmArrayType type, by rfl⟩
+
 instance : Coe CudaTile.PointerType TypeAttr where
   coe type := ⟨.cudaTilePointerType type, by rfl⟩
+
+instance : Coe HW.ModuleType TypeAttr where
+  coe type := ⟨.hwModuleType type, by rfl⟩
 
 end
 end Veir

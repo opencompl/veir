@@ -1,18 +1,55 @@
 import Veir.Parser.Parser
 
 open Veir.Parser
+open Veir.Parser.ParserError
 
 /--
-  Run a parsing function on the given input string.
+  Like `testParser`, but returns the full error including position.
 -/
-def testParser [ToString α] (s : String) (f : EStateM String ParserState α) : String :=
-  match ParserState.fromInput (s.toByteArray) with
+def testParser [ToString α] (s : String) (f : EStateM ParserError ParserState α) : IO Unit :=
+  match ParserState.fromInput s.toByteArray with
   | .ok parser =>
     match f.run parser with
-    | .ok res _ => s!"Success: {toString res}"
-    | .error err _ => s!"Error: {err}"
-  | .error lexErr =>
-    s!"Error: {lexErr}"
+    | .ok res _ => IO.print (reprStr s!"Success: {toString res}")
+    | .error err _ => IO.print (ParserError.format err "<test>" s.toByteArray)
+  | .error lexErr => IO.print (ParserError.format lexErr "<test>" s.toByteArray)
+
+section throwAtCurrentPos
+
+-- throwAtCurrentPos records position 0 at the start of input.
+/-- info: <test>:1:1: error: oops
+foo
+^ -/
+#guard_msgs (whitespace := exact) in
+#eval! testParser "foo" (throwAtCurrentPos "oops" : EStateM ParserError ParserState Unit)
+
+-- throwAtCurrentPos records the position of the current token after consuming one.
+/-- info: <test>:1:5: error: oops
+foo bar
+    ^ -/
+#guard_msgs (whitespace := exact) in
+#eval! testParser "foo bar" (do let _ ← consumeToken; throwAtCurrentPos "oops" : EStateM ParserError ParserState Unit)
+
+
+end throwAtCurrentPos
+
+section throwAt
+
+/-- info: <test>:1:5: error: oops
+foo bar
+    ^ -/
+#guard_msgs (whitespace := exact) in
+#eval! testParser "foo bar" (throwAt (Location.mk 4) "oops" : EStateM ParserError ParserState Unit)
+
+-- throwAt uses the given position even after consuming a token (ignores current position).
+/-- info: <test>:1:1: error: oops
+foo bar
+^ -/
+#guard_msgs (whitespace := exact) in
+#eval! testParser "foo bar" (do let _ ← consumeToken; throwAt (Location.mk 0) "oops" : EStateM ParserError ParserState Unit)
+
+end throwAt
+
 
 section parsePunctuation
 
@@ -38,10 +75,10 @@ section parseIdentifier
 #guard_msgs in
 #eval testParser "foo" (parseIdentifier)
 
-/--
-  info: "Error: custom error"
--/
-#guard_msgs in
+/-- info: <test>:1:1: error: custom error
+->
+^ -/
+#guard_msgs (whitespace := exact) in
 #eval testParser "->" (parseIdentifier "custom error")
 
 /--
@@ -84,10 +121,10 @@ section parseBoolean
 #guard_msgs in
 #eval testParser "true" (parseBoolean)
 
-/--
-  info: "Error: error message"
--/
-#guard_msgs in
+/-- info: <test>:1:1: error: error message
+no
+^ -/
+#guard_msgs (whitespace := exact) in
 #eval testParser "no" (parseBoolean "error message")
 
 end parseBoolean
@@ -180,10 +217,10 @@ section parseKeyword
 #guard_msgs in
 #eval testParser "while" (parseKeyword "while".toByteArray)
 
-/--
-  info: "Error: expected keyword 'if'"
--/
-#guard_msgs in
+/-- info: <test>:1:1: error: expected keyword 'if'
+while
+^ -/
+#guard_msgs (whitespace := exact) in
 #eval testParser "while" (parseKeyword "if".toByteArray)
 
 /--
@@ -207,14 +244,14 @@ section parseStringLiteral
 #guard_msgs in
 #eval testParser "\"hello world!\"" parseStringLiteral
 
-/--
-  info: "Error: string literal expected"
--/
-#guard_msgs in
+/-- info: <test>:1:1: error: string literal expected
+hello world!
+^ -/
+#guard_msgs (whitespace := exact) in
 #eval testParser "hello world!" parseStringLiteral
 
 /--
-  info: "Error: expected '\"' in string literal"
+  info: <unknown location>: error: expected '"' in string literal
 -/
 #guard_msgs in
 #eval testParser "\"unterminated string" parseStringLiteral
@@ -346,22 +383,22 @@ section parseList
 
 /-! # Test some error cases. -/
 
-/--
-  info: "Error: closing delimiter ')' expected"
--/
-#guard_msgs in
+/-- info: <test>:1:9: error: closing delimiter ')' expected
+(1, 2, 3
+        ^ -/
+#guard_msgs (whitespace := exact) in
 #eval testParser "(1, 2, 3" (parseDelimitedList .paren (parseInteger false false))
 
-/--
-  info: "Error: integer expected"
--/
-#guard_msgs in
-#eval testParser "(1, 2, " (parseDelimitedList .paren (parseInteger false false))
+/-- info: <test>:1:7: error: integer expected
+(1, 2,
+      ^ -/
+#guard_msgs (whitespace := exact) in
+#eval testParser "(1, 2," (parseDelimitedList .paren (parseInteger false false))
 
-/--
-  info: "Error: integer expected"
--/
-#guard_msgs in
+/-- info: <test>:1:8: error: integer expected
+(1, 2, )
+       ^ -/
+#guard_msgs (whitespace := exact) in
 #eval testParser "(1, 2, )" (parseDelimitedList .paren (parseInteger false false))
 
 /-! # Test empty list. -/
@@ -478,10 +515,10 @@ section parseList
 #guard_msgs in
 #eval testParser "%foo" (parseOptionalPrefixedKeyword .percentIdent)
 
-/--
-  info: "Error: expected keyword with prefix '@'"
--/
-#guard_msgs in
+/-- info: <test>:1:1: error: expected keyword with prefix '@'
+#foo
+^ -/
+#guard_msgs (whitespace := exact) in
 #eval testParser "#foo" (parsePrefixedKeyword .atIdent)
 
 /--

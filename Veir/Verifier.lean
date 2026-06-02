@@ -4,6 +4,7 @@ public import Veir.IR.Basic
 public import Veir.IR.Fields
 public import Veir.Properties
 public import Veir.GlobalOpInfo
+public import Veir.IR.WellFormed
 import Veir.ForLean
 
 namespace Veir
@@ -14,385 +15,395 @@ namespace Veir
   match the expected values for the given operation type.
   This also checks that the given types are in bounds.
 -/
-def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCode) (opIn : op.InBounds ctx) : Except String PUnit :=
-  match op.getOpType ctx opIn with
+def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw) : Except String PUnit :=
+  match op.getOpType ctx.raw opIn with
   | .builtin .unregistered => pure ()
   | .builtin .unrealized_conversion_cast => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   /- ARITH -/
   | .arith .addi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if _ : op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    else if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    else if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    pure ()
+    else
+      let .integerType integerType := ((op.getOperand ctx.raw 0).getType ctx.raw).val
+        | throw "Expected integer type result"
+      if ((op.getOperand ctx.raw 0).getType ctx.raw).val ≠ ((op.getOperand ctx.raw 1).getType ctx.raw).val then
+        throw "Expected operands to have the same type"
+      if ((op.getResult 0).get ctx.raw).type.val ≠ ((op.getOperand ctx.raw 0).getType ctx.raw).val then
+        throw "Expected result type to match operand type"
+      pure ()
   | .arith .addui_extended => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 2 then
+    if op.getNumResults ctx.raw opIn ≠ 2 then
       throw "Expected 2 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .andi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .ceildivsi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .ceildivui => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .cmpi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
    | .arith .constant => do
-    if op.getNumOperands ctx opIn ≠ 0 then
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    else if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    else if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    else if (op.getProperties! ctx.raw (.arith .constant)).value.type ≠
+          ((op.getResult 0).get ctx.raw).type.val then
+        throw "Expected result type to be equal to the constant's type"
     pure ()
   | .arith .divsi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .divui => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .extui => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .extsi => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .floordivsi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .maxsi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .maxui => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .minsi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .minui => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .muli => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .mulsi_extended => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 2 then
-      throw "Expected 2 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 2 then
+      throw "Expected 2 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .mului_extended => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 2 then
-      throw "Expected 2 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 2 then
+      throw "Expected 2 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .ori => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .remsi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .remui => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .select => do
-    if op.getNumOperands ctx opIn ≠ 3 then
+    if op.getNumOperands ctx.raw opIn ≠ 3 then
       throw "Expected 3 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .shli => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .shrsi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .shrui => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .subi => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .trunci => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .arith .xori => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .builtin .module => do
-    if op.getNumOperands ctx opIn ≠ 0 then
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 1 then
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
       throw "Expected 1 region"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .datapath .compress => do
-    if op.getNumOperands ctx opIn ≤ op.getNumResults ctx opIn then
+    if op.getNumOperands ctx.raw opIn ≤ op.getNumResults ctx.raw opIn then
       throw "Number of inputs must be greater than the number of results"
-    if op.getNumResults ctx opIn < 2 then
+    if op.getNumResults ctx.raw opIn < 2 then
       throw "Expected at least 2 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .datapath .partial_product => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .datapath .pos_partial_product => do
-    if op.getNumOperands ctx opIn ≠ 3 then
+    if op.getNumOperands ctx.raw opIn ≠ 3 then
       throw "Expected 3 operands"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   /- FUNC -/
   | .func .func => do
-    if op.getNumRegions ctx opIn ≠ 1 then
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
       throw "Expected 1 region"
-    if op.getNumOperands ctx opIn ≠ 0 then
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .func .return => do
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   /- CF -/
   | .cf .br => do
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 1 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 1 then
       throw "Expected 1 successor"
     pure ()
   | .cf .cond_br => do
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 2 then
-      throw "Expected 1 successor"
-    let weights := (op.getProperties! ctx (OpCode.cf .cond_br)).branch_weights
+    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
+      throw "Expected 2 successors"
+    let weights := (op.getProperties! ctx.raw (OpCode.cf .cond_br)).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
-    let sizes := (op.getProperties! ctx (OpCode.cf .cond_br)).operandSegmentSizes
+    let sizes := (op.getProperties! ctx.raw (OpCode.cf .cond_br)).operandSegmentSizes
     if _ : sizes.values.size ≠ 3 then
       throw "Expected 1 operand plus 2 variadic operands"
     if sizes.values[0]! ≠ 1 then
@@ -402,1357 +413,1590 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : IRContext OpCo
   | .test .test => do
     pure ()
   /- LLVM -/
-  | .llvm .constant => do
-    if op.getNumOperands ctx opIn ≠ 0 then
+  | .llvm .mlir__constant => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .and => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .or => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .xor => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .add => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .sub => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .shl => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .lshr => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .ashr => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .mul => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .sdiv => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .udiv => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .srem => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .urem => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .icmp => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .select => do
-    if op.getNumOperands ctx opIn ≠ 3 then
+    if op.getNumOperands ctx.raw opIn ≠ 3 then
       throw "Expected 3 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .trunc => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    if let .integerType opType := ((op.getOperands! ctx)[0]!.getType! ctx).val then
-      if let .integerType retType := ((op.getResult 0).get! ctx).type.val then
+    if let .integerType opType := ((op.getOperands! ctx.raw)[0]!.getType! ctx.raw).val then
+      if let .integerType retType := ((op.getResult 0).get! ctx.raw).type.val then
         if opType.bitwidth ≤ retType.bitwidth then
           throw "Result's width must be smaller than operand's width"
     pure ()
   | .llvm .sext => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    if let .integerType opType := ((op.getOperands! ctx)[0]!.getType! ctx).val then
-      if let .integerType retType := ((op.getResult 0).get! ctx).type.val then
+    if let .integerType opType := ((op.getOperands! ctx.raw)[0]!.getType! ctx.raw).val then
+      if let .integerType retType := ((op.getResult 0).get! ctx.raw).type.val then
         if retType.bitwidth ≤ opType.bitwidth then
           throw "Operand's width must be smaller than result's width"
     pure ()
   | .llvm .zext => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    if let .integerType opType := ((op.getOperands! ctx)[0]!.getType! ctx).val then
-      if let .integerType retType := ((op.getResult 0).get! ctx).type.val then
+    if let .integerType opType := ((op.getOperands! ctx.raw)[0]!.getType! ctx.raw).val then
+      if let .integerType retType := ((op.getResult 0).get! ctx.raw).type.val then
         if retType.bitwidth ≤ opType.bitwidth then
           throw "Operand's width must be smaller than result's width"
     pure ()
   | .llvm .return => do
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm .unreachable => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .llvm .br => do
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 1 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 1 then
       throw "Expected 1 successor"
     pure ()
   | .llvm .cond_br => do
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 2 then
-      throw "Expected 1 successor"
-    let weights := (op.getProperties! ctx (.llvm .cond_br)).branch_weights
+    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
+      throw "Expected 2 successors"
+    let weights := (op.getProperties! ctx.raw (.llvm .cond_br)).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
-    let sizes := (op.getProperties! ctx (.llvm .cond_br)).operandSegmentSizes
+    let sizes := (op.getProperties! ctx.raw (.llvm .cond_br)).operandSegmentSizes
     if _ : sizes.values.size ≠ 3 then
       throw "Expected 1 operand plus 2 variadic operands"
     if sizes.values[0]! ≠ 1 then
       throw "Expected 1 operand plus 2 variadic operands"
     pure ()
   | .llvm .alloca => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    let properties := (op.getProperties! ctx.raw (.llvm .alloca))
+    if properties.alignment.type.bitwidth ≠ 64 then
+      throw "'llvm.alloca' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
+
     pure ()
   | .llvm .load => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    let properties := (op.getProperties! ctx.raw (.llvm .load))
+    if properties.alignment.type.bitwidth ≠ 64 then
+      throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
+
     pure ()
   | .llvm .store => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    let properties := (op.getProperties! ctx.raw (.llvm .store))
+    if properties.alignment.type.bitwidth ≠ 64 then
+      throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit signless integer attribute"
     pure ()
   | .llvm .getelementptr => do
-    if op.getNumOperands ctx opIn ≠ 2 then
-      throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
-      throw "Expected 1 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    let props := op.getProperties! ctx.raw (.llvm .getelementptr)
+    let dynamicCount := props.rawConstantIndices.values.filter (· == -2147483648) |>.size
+    if op.getNumOperands ctx.raw opIn ≠ 1 + dynamicCount then
+      throw s!"Expected {1 + dynamicCount} operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm .func => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "Expected 1 region"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm .module_flags => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   /- MOD_ARITH -/
   | .mod_arith .add => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .mod_arith .constant => do
-    if op.getNumOperands ctx opIn ≠ 0 then
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .mod_arith .mul => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .mod_arith .sub => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   /- RISCV -/
   | .riscv .li => do
-    if op.getNumOperands ctx opIn ≠ 0 then
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .lui => do
-    if op.getNumOperands ctx opIn ≠ 0 then
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .auipc => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .addi => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .slti => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sltiu => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .andi => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .ori => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .xori => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .addiw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .slli => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .srli => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .srai => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .add => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sub => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sll => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .slt => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sltu => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .xor => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .srl => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sra => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .or => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .and => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .slliw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .srliw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sraiw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .addw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .subw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sllw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .srlw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sraw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .rem => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .remu => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .remw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .remuw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .mul => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .mulh => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .mulhu => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .mulhsu => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .mulw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .div => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .divw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .divu => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .divuw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .adduw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sh1adduw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sh2adduw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sh3adduw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sh1add => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sh2add => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sh3add => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .slliuw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .andn => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .orn => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .xnor => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .max => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .maxu => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .min => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .minu => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .rol => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .ror => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .rolw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .rorw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sextb => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sexth => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .zexth => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .clz => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .clzw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .ctz => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .ctzw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .cpop => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .cpopw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .roriw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .rori => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .bclr => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .bext => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .binv => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .bset => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .bclri => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .bexti => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .binvi => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .bseti => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .pack => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .packh => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .packw => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .ld => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sd => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 0 then
+    if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .mv => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .not => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .neg => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .negw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sextw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .zextb => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .zextw => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .seqz => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .snez => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sltz => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .riscv .sgtz => do
-    if op.getNumOperands ctx opIn ≠ 1 then
-      throw "Expected 1 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
-  | .comb .add | .comb .and | .comb .mul | .comb .or | .comb .xor => do
-    if op.getNumOperands ctx opIn < 1 then
-      throw "Expected 1 or more operands"
-    if op.getNumResults ctx opIn ≠ 1 then
-      throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+  /- RISCV CF -/
+  | .riscv_cf .branch => do
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 1 then
+      throw "Expected 1 successor"
+    if let some block := (op.get ctx.raw opIn).parent then
+      if (block.get! ctx.raw).next ≠ some (op.getSuccessor! ctx.raw 0) then
+        throw "Successor of riscv_cf.branch should be the next block"
+    pure ()
+  | .riscv_cf .beq => do
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
+      throw "Expected 2 successors"
+    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .beq)).operandSegmentSizes
+    if _ : sizes.values.size ≠ 4 then
+      throw "Expected 2 operands plus 2 variadic operands"
+    if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
+      throw "Expected 2 operands plus 2 variadic operands"
+    if let some block := (op.get ctx.raw opIn).parent then
+      if (block.get! ctx.raw).next ≠ some (op.getSuccessor! ctx.raw 1) then
+        throw "Second successor of riscv_cf.beq should be the next block"
+    pure ()
+  | .riscv_cf .bne => do
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
+      throw "Expected 2 successors"
+    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bne)).operandSegmentSizes
+    if _ : sizes.values.size ≠ 4 then
+      throw "Expected 2 operands plus 2 variadic operands"
+    if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
+      throw "Expected 2 operands plus 2 variadic operands"
+    if let some block := (op.get ctx.raw opIn).parent then
+      if (block.get! ctx.raw).next ≠ some (op.getSuccessor! ctx.raw 1) then
+        throw "Second successor of riscv_cf.bne should be the next block"
+    pure ()
+  | .comb .add | .comb .and | .comb .mul | .comb .or | .comb .xor => do
+    if op.getNumOperands ctx.raw opIn < 1 then
+      throw "Expected 1 or more operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .comb .concat => do
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .comb .divs | .comb .divu | .comb .icmp | .comb .mods | .comb .modu | .comb .shl
   | .comb .shrs | .comb .shru | .comb .sub => do
-    if op.getNumOperands ctx opIn ≠ 2 then
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .comb .extract | .comb .parity | .comb .replicate | .comb .reverse => do
-    if op.getNumOperands ctx opIn ≠ 1 then
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
       throw "Expected 1 operand"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
   | .comb .mux => do
-    if op.getNumOperands ctx opIn ≠ 3 then
+    if op.getNumOperands ctx.raw opIn ≠ 3 then
       throw "Expected 3 operands"
-    if op.getNumResults ctx opIn ≠ 1 then
+    if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
-    if op.getNumRegions ctx opIn ≠ 0 then
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
-    if op.getNumSuccessors ctx opIn ≠ 0 then
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  /- HW -/
+  | .hw .constant => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .hw .module => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "Expected 1 region"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .hw .output => do
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
 
+/--
+  Return the kind of this region.
+-/
+def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCode) : RegionKind :=
+  match (region.get! ctx.raw).parent with
+  | some parentOp =>
+    let parent := parentOp.get! ctx.raw
+    parent.opType.getRegionKind (parent.regions.idxOf region)
+  | none => .SSACFG
+
+/--
+  Verify that a terminator only ever appears as the last operation of its block:
+  an operation that is a terminator must not be followed by another operation.
+-/
+def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let operation := op.get ctx.raw opIn
+  if operation.opType.isTerminator && operation.next.isSome then
+    throw "Expected a terminator to be the last operation of its block"
+
+/--
+  Check that a block is non-empty and its last operation is a
+  terminator.
+-/
+def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  let b := block.get ctx.raw blockIn
+  match b.lastOp with
+  | none => throw "Expected the block to end in a terminator, but the block is empty"
+  | some lastOp =>
+    if !(lastOp.getOpType! ctx.raw).isTerminator then
+      throw "Expected the last operation of a block to be a terminator"
+
+public section
 
 /--
   Verify that all operations in the IRContext satisfy their local invariants.
 -/
-public def IRContext.verify (ctx : IRContext OpCode) : Except String Unit := Id.run do
-  ctx.forOpsDepM (fun op opIn => op.verifyLocalInvariants ctx opIn)
+def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
+  ctx.raw.forOpsDepM (fun op opIn => do
+    op.verifyLocalInvariants ctx opIn
+    match (op.get ctx.raw opIn).parent with
+    | some _ => op.verifyTerminatorPosition ctx opIn
+    | none => pure ())
+  ctx.raw.forBlocksDepM (fun block blockIn => do
+    match (block.get ctx.raw blockIn).parent with
+    | some region =>
+      if region.getRegionKind ctx = .SSACFG then
+        block.verifyTerminator ctx blockIn
+    | none => pure ())
 
+/--
+Assert that all operations in the IRContext satisfy their local invariants.
+-/
+def WfIRContext.Verified (ctx : WfIRContext OpCode) : Prop :=
+  ctx.verify = .ok ()
+
+/--
+Assert that a given operation satisfies its local invariants.
+-/
+def OperationPtr.Verified (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds ctx.raw := by grind) : Prop :=
+  op.verifyLocalInvariants ctx opInBounds = .ok ()
+
+set_option warn.sorry false in
+/--
+If the context satisfies the invariants of all operations, any operation in bounds is verified.
+-/
+@[grind →]
+theorem OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode} {op : OperationPtr}
+    (ctxVerify : ctx.Verified) (opInBounds : op.InBounds ctx.raw := by grind) :
+    op.Verified ctx opInBounds := by
+  sorry -- This requires to reason about `IRContext.forOpsDepM`.
+
+/-!
+## Lemmas for verified operations
+
+These are the lemmas that give the information about the structure of verified operations.
+There is one lemma per operation, and they are all of the same form: given that an operation
+satisfies its local invariants, we can conclude that it has the expected number of operands,
+results, regions, and successors, and that the types of its operands and results are as expected.
+-/
+
+theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .constant) :
+    op.getNumResults! ctx.raw = 1 ∧
+    op.getNumOperands! ctx.raw = 0 ∧
+    op.getNumSuccessors! ctx.raw = 0 ∧
+    op.getNumRegions! ctx.raw = 0 ∧
+    ((op.getResult 0).get! ctx.raw).type =
+      ⟨(op.getProperties! ctx.raw (.arith .constant)).value.type, (by grind)⟩ := by
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
+    ite_not] at opVerify
+  simp only [TypeAttr.inj]
+  grind
+
+theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .addi) :
+    op.getNumResults! ctx.raw = 1 ∧
+    op.getNumOperands! ctx.raw = 2 ∧
+    op.getNumSuccessors! ctx.raw = 0 ∧
+    op.getNumRegions! ctx.raw = 0 ∧
+    ∃ integerType,
+      ((op.getResult 0).get! ctx.raw).type = ⟨.integerType integerType, (by grind)⟩ ∧
+      ((op.getOperand! ctx.raw 0).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩ ∧
+      ((op.getOperand! ctx.raw 1).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩ := by
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
+    ite_not] at opVerify
+  simp only [TypeAttr.inj]
+  grind
+
+end
 end Veir

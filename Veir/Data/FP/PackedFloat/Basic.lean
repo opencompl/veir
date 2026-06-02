@@ -23,3 +23,31 @@ structure PackedFloat (exWidth sigWidth : Nat) where
      The leading bit of the significand is implicitly encoded in the biased exponent. -/
     sig : BitVec sigWidth
 deriving DecidableEq, Repr, Inhabited
+
+namespace PackedFloat
+
+/--
+A canonical NaN `PackedFloat`.
+Recall that a NaN pattern is given by a maximum exponent (all-ones)
+and a nonzero significand.
+The IEEE-754 standard does not specify a unique NaN bit pattern,
+so this constructor returns one with significand `1`.
+-/
+def mkNaN (e s : Nat) : PackedFloat e s :=
+  { sign := false, ex := BitVec.allOnes e, sig := BitVec.ofNat s 1 }
+
+/--
+A signed `PackedFloat` infinity: biased exponent all-ones with a zero
+trailing significand.
+-/
+def mkInfinity (e s : Nat) (sign : Bool) : PackedFloat e s :=
+  { sign := sign, ex := BitVec.allOnes e, sig := 0#s }
+
+/--
+A signed `PackedFloat` zero: biased exponent and trailing significand both zero.
+-/
+def mkZero (e s : Nat) (sign : Bool) : PackedFloat e s :=
+  { sign := sign, ex := 0#e, sig := 0#s }
+
+
+end PackedFloat

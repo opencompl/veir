@@ -1,6 +1,7 @@
-import Veir.Parser.MlirParser
 import Veir.IR.Basic
+import Veir.Parser.MlirParser
 import Veir.Printer
+import Veir.Rewriter.WfRewriter
 
 open Veir
 open Veir.Parser
@@ -9,14 +10,14 @@ open Veir.Parser
   Parse an operation and print it.
 -/
 def testParseOp (s : String) : IO Unit :=
-  match IRContext.create OpCode with
+  match WfIRContext.create OpCode with
   | some (ctx, _) =>
     match ParserState.fromInput (s.toByteArray) with
     | .ok parser =>
       match (parseOp none).run (MlirParserState.fromContext ctx) parser with
       | .ok (op, state, _) => Printer.printOperation state.ctx op
-      | .error err => .error err
-    | .error err => .error err
+      | .error err => .error (toString err)
+    | .error err => .error (toString err)
   | none => .error "internal error: failed to create IR context"
 
 /--
@@ -46,7 +47,7 @@ def testParseOp (s : String) : IO Unit :=
 /--
   info: "arith.addi"() ({
   ^4():
-    %5_0, %5_1 = "arith.muli"() : () -> (i32, i32)
+    %5:2 = "arith.muli"() : () -> (i32, i32)
 }, {}) : () -> ()
 -/
 #guard_msgs in
@@ -144,20 +145,117 @@ def testParseOp (s : String) : IO Unit :=
 }) : () -> ()"
 
 /--
-  error: block %bb0 was declared but not defined
+  info: "builtin.module"() ({
+  ^4():
+    %5:2 = "test.test"() : () -> (i32, i64)
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testParseOp "\"builtin.module\"() ({
-  \"test.test\"() [^bb0] : () -> ()
+  %x:2 = \"test.test\"() : () -> (i32, i64)
 }) : () -> ()"
 
 /--
-  error: block %bb0 was declared but not defined
+  info: "builtin.module"() ({
+  ^4():
+    %5:3 = "test.test"() : () -> (i10, i32, i64)
+    %6 = "test.test"(%5#2, %5#0) : (i64, i10) -> i1
+}) : () -> ()
 -/
 #guard_msgs in
 #eval! testParseOp "\"builtin.module\"() ({
-^bb0:
-  \"builtin.module\"() ({
-    \"test.test\"() [^bb0] : () -> ()
-  }) : () -> ()
+  %a, %x:2 = \"test.test\"() : () -> (i10, i32, i64)
+  %b = \"test.test\"(%x#1, %a#0) : (i64, i10) -> i1
 }) : () -> ()"
+
+/--
+  error: invalid result index 2 for %a
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a:2 = \"test.test\"() : () -> (i32, i64)
+  %b = \"test.test\"(%a#2) : (i32) -> i1
+}) : () -> ()"
+
+/--
+  error: type mismatch for value %a#1: expected i32, got i64
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a:2 = \"test.test\"() : () -> (i32, i64)
+  %b = \"test.test\"(%a#1) : (i32) -> i1
+}) : () -> ()"
+
+/--
+  error: operation 'test.test' declares 4 result types, but 3 result values were provided
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a, %b:2 = \"test.test\"() : () -> (i1, i2, i3, i4)
+}) : () -> ()"
+
+/--
+  error: operation 'test.test' declares 2 result types, but 3 result values were provided
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+  %a:2, %b = \"test.test\"() : () -> (i1, i2)
+}) : () -> ()"
+
+/--
+  error: use of undefined value %a
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  "test.test"(%a) : (i32) -> ()
+}) : () -> ()"#
+
+/--
+  error: use of undefined value %a
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  "test.test"(%a#2) : (i32) -> ()
+}) : () -> ()"#
+
+/--
+  error: use of undefined value %a
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  "test.test"() ({
+    %a = "test.test"() : () -> i32
+  }) : () -> ()
+  "test.test"(%a) : (i32) -> ()
+}) : () -> ()"#
+
+/--
+  error: value %a has already been defined
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  %a = "test.test"() : () -> i32
+  %a = "test.test"() : () -> i32
+}) : () -> ()"#
+
+/--
+  error: value %a has already been defined
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  %a = "test.test"() : () -> i32
+  "test.test"() ({
+    %a = "test.test"() : () -> i32
+  }) : () -> ()
+}) : () -> ()"#
+
+/--
+  error: value %a has already been defined
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+^bb0:
+  %a = "test.test"() : () -> i32
+^bb1:
+  %a = "test.test"() : () -> i32
+}) : () -> ()"#

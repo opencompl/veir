@@ -1,12 +1,14 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  %a = "riscv.li"() <{ value = 2 : i64 }> : () -> i64
-  %b = "riscv.li"() <{ value = 5 : i64 }> : () -> i64
-  %c = "riscv.li"() <{ value = -5 : i64 }> : () -> i64
-  %d = "riscv.sh3adduw"(%a, %b) : (i64, i64) -> i64
-  %e = "riscv.sh3adduw"(%a, %c) : (i64, i64) -> i64
-  "func.return"(%d, %e) : (i64, i64) -> ()
+  "func.func"() <{sym_name = "main"}> ({
+    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !reg
+    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> !reg
+    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> !reg
+    %d = "riscv.sh3adduw"(%a, %b) : (!reg, !reg) -> !reg
+    %e = "riscv.sh3adduw"(%a, %c) : (!reg, !reg) -> !reg
+    "func.return"(%d, %e) : (!reg, !reg) -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // CHECK: Program output: #[0x0000000000000015#64, 0x000000000000000b#64]

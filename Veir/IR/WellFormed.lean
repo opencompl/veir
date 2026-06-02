@@ -12,6 +12,8 @@ public section
 
 namespace Veir
 
+open ForLean
+
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx ctx' : IRContext OpInfo}
 
@@ -45,6 +47,16 @@ attribute [grind →] ValuePtr.DefUse.valueInBounds
 attribute [grind →] ValuePtr.DefUse.missingUsesInBounds
 attribute [grind →] ValuePtr.DefUse.arrayInBounds
 
+@[grind .]
+theorem ValuePtr.DefUse_unique :
+    ValuePtr.DefUse value ctx array missingUses →
+    ValuePtr.DefUse value ctx array' missingUses →
+    array = array' := by
+  intros hWf hWf'
+  apply Array.ext_getElem?
+  intros i
+  induction i <;> grind [ValuePtr.DefUse]
+
 theorem ValuePtr.DefUse.unchanged
     (hWf : valuePtr.DefUse ctx array missingUses)
     (valuePtrInBounds' : valuePtr.InBounds ctx')
@@ -65,6 +77,13 @@ theorem ValuePtr.DefUse.unchanged
       (usePtr.get! ctx) = (usePtr.get! ctx')) :
     valuePtr.DefUse ctx' array missingUses := by
   constructor <;> grind [ValuePtr.DefUse]
+
+@[grind →]
+theorem ValuePtr.DefUse.OpOperandPtr_value_of_getFirstUse
+    {firstUse : OpOperandPtr} (hFirstUse : value.getFirstUse! ctx = some firstUse)
+    (hDefUse : value.DefUse ctx array missingUses) :
+    (firstUse.get! ctx).value = value := by
+  grind [ValuePtr.DefUse]
 
 theorem ValuePtr.DefUse.ValuePtr_getFirstUse_ne_of_value_ne
     {use use' : OpOperandPtr}
@@ -887,6 +906,12 @@ theorem ValuePtr.defUseArrayWF {hctx : IRContext.WellFormed ctx missingUses miss
     ValuePtr.DefUse value ctx (ValuePtr.defUseArray value ctx hctx hvalue) (missingUses.filter (fun use => (use.get! ctx).value = value)) := by
   grind [ValuePtr.defUseArray, IRContext.WellFormed]
 
+@[grind .]
+theorem ValuePtr.defUseArray_iff_ValuePtr_DefUse {hctx : ctx.WellFormed missingUses missingBlockUses} :
+    ValuePtr.DefUse value ctx array (missingUses.filter (fun use => (use.get! ctx).value = value)) ↔
+    ValuePtr.defUseArray value ctx hctx hvalue = array := by
+  grind [ValuePtr.defUseArrayWF]
+
 theorem ValuePtr.defUseArray_contains_operand_use
 {hctx : IRContext.WellFormed ctx} (h : operand.InBounds ctx) :
     (operand.get! ctx).value = value ↔
@@ -988,6 +1013,50 @@ theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_prev!_ne_none
 
 grind_pattern IRContext.WellFormed.OperationPtr_parent!_ne_none_of_prev!_ne_none =>
   ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).prev, (op.get! ctx).parent
+
+theorem IRContext.WellFormed.OpOperandPtr_value!_eq_of_back!_eq_valueFirstUse
+    {ctx : IRContext OpInfo} (wf : ctx.WellFormed)
+    {firstUse : OpOperandPtr} (firstUseInBounds : firstUse.InBounds ctx) :
+    (firstUse.get! ctx).back = .valueFirstUse value →
+    (firstUse.get! ctx).value = value := by
+  have ⟨array, harray⟩ := wf.valueDefUseChains (firstUse.get! ctx).value (by grind)
+  have hMem : firstUse ∈ array := by grind [ValuePtr.DefUse]
+  grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
+
+grind_pattern IRContext.WellFormed.OpOperandPtr_value!_eq_of_back!_eq_valueFirstUse =>
+  ctx.WellFormed, (firstUse.get! ctx).back, OpOperandPtrPtr.valueFirstUse value
+
+theorem IRContext.WellFormed.OpOperandPtr_value_of_getFirstUse (wf : ctx.WellFormed)
+    (valueInBounds : value.InBounds ctx) {firstUse : OpOperandPtr}
+    (hFirstUse : value.getFirstUse! ctx = some firstUse) :
+    (firstUse.get! ctx).value = value := by
+  have ⟨array, harray⟩ := wf.valueDefUseChains value (by grind)
+  grind [ValuePtr.DefUse]
+
+grind_pattern IRContext.WellFormed.OpOperandPtr_value_of_getFirstUse =>
+  ctx.WellFormed, value.getFirstUse! ctx, some firstUse
+
+theorem IRContext.WellFormed.ValuePtr_getFirstUse!_eq_of_back_eq_valueFirstUse
+    {ctx : IRContext OpInfo} (wf : ctx.WellFormed) {firstUse : OpOperandPtr}
+    (firstUseInBounds : firstUse.InBounds ctx)
+    (heq : (firstUse.get! ctx).back = .valueFirstUse value) :
+    value.getFirstUse! ctx = some firstUse := by
+  have ⟨array, harray⟩ := wf.valueDefUseChains value (by grind)
+  have := @ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse
+  grind [IRContext.WellFormed.OpOperandPtr_value!_eq_of_back!_eq_valueFirstUse, ValuePtr.DefUse]
+
+grind_pattern IRContext.WellFormed.ValuePtr_getFirstUse!_eq_of_back_eq_valueFirstUse =>
+  ctx.WellFormed, (firstUse.get! ctx).back, OpOperandPtrPtr.valueFirstUse value
+
+theorem IRContext.WellFormed.ValuePtr_hasUses_iff_operand_value_ne_value
+    (ctxWf : ctx.WellFormed)
+    {value : ValuePtr} (noUses : ¬ value.hasUses! ctx) (valueInBounds : value.InBounds ctx)
+    {operand : OpOperandPtr} (hoperand : operand.InBounds ctx) :
+    (operand.get! ctx).value ≠ value := by
+  grind [valueDefUseChains, ValuePtr.DefUse.hasUses!_iff, ValuePtr.DefUse]
+
+grind_pattern IRContext.WellFormed.ValuePtr_hasUses_iff_operand_value_ne_value =>
+  ctx.WellFormed, value.hasUses! ctx, (operand.get! ctx).value
 
 theorem BlockPtr.OpChain.mem_next!_of_mem
     (op nextOp : OperationPtr) (block : BlockPtr)

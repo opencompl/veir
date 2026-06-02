@@ -72,13 +72,20 @@ def WfRewriter.replaceOperand (wfCtx : WfIRContext OpInfo) (use : OpOperandPtr) 
     by grind [Rewriter.replaceUse_WellFormed]⟩
 
 /-- Replace a value with another value. -/
-@[inline]
-def WfRewriter.replaceValue (wfCtx : WfIRContext OpInfo) (oldValue newValue : ValuePtr)
-    (oldIn : oldValue.InBounds wfCtx.raw := by grind)
-    (newIn : newValue.InBounds wfCtx.raw := by grind)
-    : Option (WfIRContext OpInfo) := do
-  rlet h: ctx ← Rewriter.replaceValue? wfCtx oldValue newValue oldIn newIn (by grind)
-  return ⟨ctx, by grind [Rewriter.replaceValue?_WellFormed, Option.maybe₁_def]⟩
+def WfRewriter.replaceValue (ctx: WfIRContext OpInfo) (oldValue: ValuePtr) (newValue: ValuePtr)
+    (neValues : oldValue ≠ newValue := by grind)
+    (oldIn: oldValue.InBounds ctx.raw := by grind)
+    (newIn: newValue.InBounds ctx.raw := by grind) : WfIRContext OpInfo := Id.run do
+  match h : oldValue.getFirstUse ctx.raw with
+  | none => return ctx
+  | some firstUse =>
+    let ctx := Rewriter.replaceUse ctx.raw firstUse newValue
+    replaceValue ⟨ctx, by grind [Rewriter.replaceUse_WellFormed]⟩ oldValue newValue
+  termination_by (ValuePtr.defUseArray oldValue ctx.raw ctx.wellFormed oldIn).size
+  decreasing_by
+    rename_i oldCtx
+    rw [ValuePtr.defUseArray_Rewriter_replaceUse_oldValue] <;>
+      grind [ValuePtr.defUseArray_contains_operand_use]
 
 /--
 Replace all results of an operation with the results of another.
@@ -98,11 +105,26 @@ def WfRewriter.replaceOp? (wfCtx : WfIRContext OpInfo) (oldOp newOp : OperationP
 /-- Create a new block and insert it at a given location. -/
 @[inline]
 def WfRewriter.createBlock (wfCtx : WfIRContext OpInfo)
+    (argTypes : Array TypeAttr)
     (insertionPoint : Option BlockInsertPoint)
     (hip : insertionPoint.maybe BlockInsertPoint.InBounds wfCtx.raw)
     : Option (WfIRContext OpInfo × BlockPtr) := do
-  rlet (ctx, blk) ← Rewriter.createBlock wfCtx insertionPoint (by grind) hip
+  rlet (ctx, blk) ← Rewriter.createBlock wfCtx argTypes insertionPoint (by grind) hip
   return (⟨ctx, by grind [Rewriter.createBlock_WellFormed]⟩, blk)
+
+/--
+Set the block arguments of a block.
+This replaces all existing block arguments with new ones of the given types, so the existing block
+arguments must have no uses.
+-/
+@[inline]
+def WfRewriter.setBlockArguments (wfCtx : WfIRContext OpInfo) (blockPtr : BlockPtr)
+    (types : Array TypeAttr)
+    (hblock : blockPtr.InBounds wfCtx.raw := by grind)
+    (noUses : ∀ blockArg ∈ blockPtr.getArguments! wfCtx.raw, ¬ blockArg.hasUses! wfCtx.raw := by grind)
+    : WfIRContext OpInfo :=
+  ⟨Rewriter.setBlockArguments wfCtx blockPtr types hblock,
+    by grind [IRContext.wellFormed_Rewriter_setBlockArguments]⟩
 
 /-- Create a new region. -/
 @[inline]

@@ -2,6 +2,7 @@ module
 
 public import Veir.Rewriter.WfRewriter.Basic
 public import Veir.Rewriter.GetSet
+public import Veir.Rewriter.WfRewriter.GetSetTactic
 
 import all Veir.Rewriter.WfRewriter.Basic
 
@@ -56,28 +57,28 @@ BlockPtr.firstUse!_WfRewriter_createOp is too complex to be expressed, and shoul
 in practice, as we should reason at a higher-level abstraction at this point.
 -/
 
-@[simp, grind =>]
+@[simp, grind =>, simp_getset]
 theorem BlockPtr.prev!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
     (block.get! ctx'.raw).prev = (block.get! ctx.raw).prev := by
   grind
 
-@[simp, grind =>]
+@[simp, grind =>, simp_getset]
 theorem BlockPtr.next!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
     (block.get! ctx'.raw).next = (block.get! ctx.raw).next := by
   grind
 
-@[simp, grind =>]
+@[simp, grind =>, simp_getset]
 theorem BlockPtr.parent!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
     (block.get! ctx'.raw).parent = (block.get! ctx.raw).parent := by
   grind
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem BlockPtr.firstOp!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -90,7 +91,7 @@ theorem BlockPtr.firstOp!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20) [cases InsertPoint]
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem BlockPtr.lastOp!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -103,7 +104,7 @@ theorem BlockPtr.lastOp!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20) [cases InsertPoint]
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.prev!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -118,7 +119,7 @@ theorem OperationPtr.prev!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20) [cases InsertPoint]
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.next!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -133,7 +134,7 @@ theorem OperationPtr.next!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20) (splits := 20) [cases InsertPoint]
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.parent!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -146,7 +147,7 @@ theorem OperationPtr.parent!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20) [cases InsertPoint, Operation.empty]
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getOpType!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -155,7 +156,7 @@ theorem OperationPtr.getOpType!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.attrs!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -164,7 +165,7 @@ theorem OperationPtr.attrs!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getProperties!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -173,7 +174,7 @@ theorem OperationPtr.getProperties!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getNumResults!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -182,7 +183,7 @@ theorem OperationPtr.getNumResults!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getNumOperands!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -191,7 +192,7 @@ theorem OperationPtr.getNumOperands!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getOperand!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -202,7 +203,7 @@ theorem OperationPtr.getOperand!_WfRewriter_createOp :
   -- lemma for `getOperands!` instead.
   grind (gen := 20) [=_ getOperands!.getElem!_eq_getOperand!]
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getOperands!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -211,7 +212,7 @@ theorem OperationPtr.getOperands!_WfRewriter_createOp :
   simp only [WfRewriter.createOp]
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getNumSuccessors!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -219,7 +220,7 @@ theorem OperationPtr.getNumSuccessors!_WfRewriter_createOp :
     if operation = newOp then blockOperands.size else operation.getNumSuccessors! ctx.raw := by
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getSuccessor!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -227,7 +228,7 @@ theorem OperationPtr.getSuccessor!_WfRewriter_createOp :
     if operation = newOp then blockOperands[index]! else operation.getSuccessor! ctx.raw index := by
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getSuccessors!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -236,7 +237,7 @@ theorem OperationPtr.getSuccessors!_WfRewriter_createOp :
   grind (gen := 20)
 
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getNumRegions!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -244,7 +245,7 @@ theorem OperationPtr.getNumRegions!_WfRewriter_createOp :
     if operation = newOp then regions.size else operation.getNumRegions! ctx.raw := by
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getRegion!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -253,28 +254,28 @@ theorem OperationPtr.getRegion!_WfRewriter_createOp :
     else operation.getRegion! ctx.raw idx := by
   grind (gen := 20)
 
-@[simp, grind =>]
+@[simp, grind =>, simp_getset]
 theorem BlockPtr.getNumArguments!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
     block.getNumArguments! ctx'.raw = block.getNumArguments! ctx.raw := by
   grind (gen := 20)
 
-@[simp, grind =>]
+@[simp, grind =>, simp_getset]
 theorem RegionPtr.firstBlock!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
     (region.get! ctx'.raw).firstBlock = (region.get! ctx.raw).firstBlock := by
   grind (gen := 20)
 
-@[simp, grind =>]
+@[simp, grind =>, simp_getset]
 theorem RegionPtr.lastBlock!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
     (region.get! ctx'.raw).lastBlock = (region.get! ctx.raw).lastBlock := by
   grind (gen := 20)
 
-@[simp, grind =>]
+@[simp, grind =>, simp_getset]
 theorem RegionPtr.parent!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -282,7 +283,7 @@ theorem RegionPtr.parent!_WfRewriter_createOp :
     if region ∈ regions then some newOp else (region.get! ctx.raw).parent := by
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem ValuePtr.getType!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →
@@ -295,7 +296,7 @@ theorem ValuePtr.getType!_WfRewriter_createOp :
     | .blockArgument _ => value.getType! ctx.raw := by
   grind (gen := 20)
 
-@[grind =>]
+@[grind =>, simp_getset]
 theorem OperationPtr.getResultTypes!_WfRewriter_createOp :
     WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
       insertionPoint hoper hblockOperands hregions hins = some (ctx', newOp) →

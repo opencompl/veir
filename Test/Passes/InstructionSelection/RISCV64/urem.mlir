@@ -9,5 +9,6 @@
         // CHECK-NEXT: %{{.*}} = "riscv.remu"(%{{.*}}, %{{.*}}) : (!reg, !reg) -> !reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!reg) -> i64
 
+        "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

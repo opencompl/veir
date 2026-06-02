@@ -15,7 +15,7 @@ set_option warn.sorry false in
 /-- llvm.constant -> riscv.li -/
 def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
-  let some const := matchConstantOp op rewriter.ctx
+  let some const := matchConstantIntOp op rewriter.ctx
       | return rewriter
   if const.type.bitwidth ≠ 64 then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
@@ -126,9 +126,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   if ltype.bitwidth ≠ 64 then return rewriter
   let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
   if rtype.bitwidth ≠ 64 then return rewriter
-  /- Return if the predicate is invalid. -/
-  let p := property.value.value.toNat
-  if 10 ≤ p then return rewriter
   /- Casting is necessary regardless of the predicate. -/
   let (rewriter, lcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[lhs]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -138,8 +135,8 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   /- Match depending on the predicate and build correct lowering. -/
-  let (rewriter, retOp) ← match p with
-    | 0 =>
+  let (rewriter, retOp) ← match property.predicate with
+    | .eq =>
       /- llvm.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1 -/
       let (rewriter, xorOp) ← rewriter.createOp (.riscv .xor) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -147,7 +144,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       let (rewriter, retOp) ← rewriter.createOp (.riscv .sltiu) #[RegisterType.mk] #[xorOp.getResult 0]
         #[] #[] c1 (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
-    | 1 =>
+    | .ne =>
       /- llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs) -/
       let (rewriter, xorOp) ← rewriter.createOp (.riscv .xor) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -157,12 +154,12 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       let (rewriter, retOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[liOp.getResult 0, xorOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
-    | 2 =>
+    | .slt =>
       /- llvm.icmp slt lhs rhs -> riscv.slt lhs rhs  -/
       let (rewriter, retOp) ← rewriter.createOp (.riscv .slt) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
-    | 3 =>
+    | .sle =>
       /- llvm.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1 -/
       let (rewriter, sltOp) ← rewriter.createOp (.riscv .slt) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -170,12 +167,12 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       let (rewriter, retOp) ← rewriter.createOp (.riscv .xori) #[RegisterType.mk] #[sltOp.getResult 0]
         #[] #[] c1 (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
-    | 4 =>
+    | .sgt =>
       /- llvm.icmp sgt lhs rhs -> riscv.slt rhs lhs -/
       let (rewriter, retOp) ← rewriter.createOp (.riscv .slt) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
-    | 5 =>
+    | .sge =>
       /- llvm.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1 -/
       let (rewriter, sltOp) ← rewriter.createOp (.riscv .slt) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -183,12 +180,12 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       let (rewriter, retOp) ← rewriter.createOp (.riscv .xori) #[RegisterType.mk] #[sltOp.getResult 0]
         #[] #[] c1 (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
-    | 6 =>
+    | .ult =>
       /- llvm.icmp ult lhs rhs -> riscv.sltu lhs rhs -/
       let (rewriter, retOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
-    | 7 =>
+    | .ule =>
       /- llvm.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1 -/
       let (rewriter, sltuOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -196,12 +193,12 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       let (rewriter, retOp) ← rewriter.createOp (.riscv .xori) #[RegisterType.mk] #[sltuOp.getResult 0]
         #[] #[] c1 (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
-    | 8 =>
+    | .ugt =>
       /- llvm.icmp ugt lhs rhs -> riscv.sltu rhs lhs -/
       let (rewriter, retOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
-    | 9 =>
+    | .uge =>
       /- llvm.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1 -/
       let (rewriter, sltuOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -209,8 +206,6 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       let (rewriter, retOp) ← rewriter.createOp (.riscv .xori) #[RegisterType.mk] #[sltuOp.getResult 0]
         #[] #[] c1 (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
-    | _ =>
-      return rewriter
   let (rewriter, castEqOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
         #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castEqOp sorry sorry sorry sorry sorry

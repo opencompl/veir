@@ -1,21 +1,26 @@
 import Veir.Parser.Parser
 import Veir.IR.Basic
+import Veir.IR.Attribute
 
 open Veir.Parser.Lexer
 open Veir.Parser
+open Veir
 
 namespace Veir.AttrParser
 
-structure AttrParserState
+open Veir.Parser.ParserError
 
-abbrev AttrParserM := StateT AttrParserState (EStateM String ParserState)
+structure AttrParserState where
+  allowUnregisteredDialect : Bool := false
+
+abbrev AttrParserM := StateT AttrParserState (EStateM ParserError ParserState)
 
 /--
   Execute the action with the given initial state.
   Returns the result along with the final state, or an error message.
 -/
 def AttrParserM.run (self : AttrParserM α)
-  (attrState : AttrParserState) (parserState: ParserState) : Except String (α × AttrParserState × ParserState) :=
+  (attrState : AttrParserState) (parserState: ParserState) : Except ParserError (α × AttrParserState × ParserState) :=
   match (StateT.run self attrState).run parserState with
   | .ok (a, attrState) parserState => .ok (a, attrState, parserState)
   | .error err _ => .error err
@@ -25,7 +30,7 @@ def AttrParserM.run (self : AttrParserM α)
   Returns the result or an error message.
 -/
 def AttrParserM.run' (self : AttrParserM α)
-  (attrState : AttrParserState) (parserState: ParserState) : Except String α :=
+  (attrState : AttrParserState) (parserState: ParserState) : Except ParserError α :=
   match self.run attrState parserState with
   | .ok (a, _, _) => .ok a
   | .error err => .error err
@@ -39,12 +44,30 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   | { kind := .bareIdent, slice := slice } =>
     if slice.size < 2 then
       return none
-    if (← (getThe ParserState)).input.getD slice.start 0 == 'i'.toUInt8 then
+    if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'i'.toUInt8 then
       let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
       let identifier := bitwidthSlice.of (← (getThe ParserState)).input
       let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
       let _ ← consumeToken
       return some (IntegerType.mk bitwidth)
+    return none
+  | _ => return none
+
+/--
+  Parse an optional float type.
+  A float type is represented as `f` followed by a positive integer indicating its width, e.g., `f32`.
+-/
+def parseOptionalFloatType : AttrParserM (Option FloatType) := do
+  match ← peekToken with
+  | { kind := .bareIdent, slice := slice } =>
+    if slice.size < 2 then
+      return none
+    if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'f'.toUInt8 then
+      let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
+      let identifier := bitwidthSlice.of (← (getThe ParserState)).input
+      let some bitwidth := (String.fromUTF8? identifier).bind String.toNat? | return none
+      let _ ← consumeToken
+      return some (FloatType.mk bitwidth)
     return none
   | _ => return none
 
@@ -69,7 +92,7 @@ def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
 def parseIntegerType (errorMsg : String := "integer type expected") : AttrParserM IntegerType := do
   match ← parseOptionalIntegerType with
   | some integerType => return integerType
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse a register type, throwing an error if it is not present.
@@ -78,14 +101,19 @@ def parseIntegerType (errorMsg : String := "integer type expected") : AttrParser
 def parseRegisterType (errorMsg : String := "register type expected") : AttrParserM RegisterType := do
   match ← parseOptionalRegisterType with
   | some registerType => return registerType
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse an integer attribute, if present.
-  An integer attribute has the form `value : type`, where `value` is an integer
-  literal and `type` is an integer type.
+  An integer attribute has the form `false`, `true` or `value : type`, where `value` is an
+  integer literal and `type` is an integer type.
 -/
 def parseOptionalIntegerAttr : AttrParserM (Option IntegerAttr) := do
+  if (← parseOptionalKeyword "false".toByteArray) then
+    return some (IntegerAttr.mk 0 (IntegerType.mk 1))
+  if (← parseOptionalKeyword "true".toByteArray) then
+    return some (IntegerAttr.mk 1 (IntegerType.mk 1))
+
   let some value ← parseOptionalInteger false true
     | return none
   parsePunctuation ":"
@@ -102,6 +130,22 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
   return some (StringAttr.mk str.toByteArray)
 
 /--
+Parse a float attribute, if present.
+Only `1.0 : f64` is supported; the value is stored as Lean's `Float`.
+-/
+def parseOptionalFloatAttr : AttrParserM (Option FloatAttr) := do
+  let some tok ← parseOptionalToken .floatLit | return none
+  let str := String.fromUTF8! (tok.slice.of (← getThe ParserState).input)
+  if str ≠ "1.0" then
+    throwAtCurrentPos s!"unsupported floating-point literal '{str}', only '1.0 : f64' is supported"
+  parsePunctuation ":"
+  let some floatType ← parseOptionalFloatType
+    | throwAtCurrentPos "float type expected after ':' in float attribute"
+  if floatType.bitwidth ≠ 64 then
+    throwAtCurrentPos "unsupported float type, only f64 is supported"
+  return some (Veir.FloatAttr.mk 1.0 floatType)
+
+/--
   Parse a string attribute.
   Its syntax is a string literal enclosed in double quotes, e.g., `"foo"`.
 -/
@@ -109,7 +153,7 @@ def parseStringAttr (errorMsg : String := "string attribute expected") :
     AttrParserM StringAttr := do
   match ← parseOptionalStringAttr with
   | some stringAttr => return stringAttr
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse a unit attribute, if present.
@@ -135,6 +179,35 @@ def parseOptionalDenseArrayAttr : AttrParserM (Option DenseArrayAttr) := do
   parsePunctuation ">"
   return some (DenseArrayAttr.mk elementType values)
 
+def parseFastMathFlag : AttrParserM FastMathFlagsAttr := do
+  if (← parseOptionalKeyword "fast".toByteArray) then
+    return { nnan := true, ninf := true, nsz := true }
+  else if (← parseOptionalKeyword "nnan".toByteArray) then
+    return { nnan := true, ninf := false, nsz := false }
+  else if (← parseOptionalKeyword "ninf".toByteArray) then
+    return { nnan := false, ninf := true, nsz := false }
+  else if (← parseOptionalKeyword "nsz".toByteArray) then
+    return { nnan := false, ninf := false, nsz := true }
+  else if (← parseOptionalKeyword "none".toByteArray) then
+    return { nnan := false, ninf := false, nsz := false }
+  else
+    return { nnan := false, ninf := false, nsz := false }
+
+/--
+  Parse an optional fastmath flags attribute, if present.
+-/
+def parseFloatFastMathFlagsAttr : AttrParserM (Option FastMathFlagsAttr) := do
+  parsePunctuation "<"
+  let values ← parseList parseFastMathFlag
+  parsePunctuation ">"
+  let mut floatFastMathFlags := FastMathFlagsAttr.mk false false false
+  for flag in values do
+    floatFastMathFlags := { floatFastMathFlags with
+      nnan := floatFastMathFlags.nnan || flag.nnan,
+      ninf := floatFastMathFlags.ninf || flag.ninf,
+      nsz := floatFastMathFlags.nsz || flag.nsz }
+  return some floatFastMathFlags
+
 def isClosingBracket (kind : TokenKind) : Bool :=
   kind = .greater || kind = .rParen || kind = .rSquare || kind = .rBrace
 
@@ -158,12 +231,13 @@ def matchingBracket! (kind : TokenKind) : TokenKind :=
   The opening token is expected to have already been consumed when this function is called.
   The ending token (by default `>`) is not consumed by this function.
 -/
-private def parseUnregisteredAttrBody (endToken : TokenKind := .greater) (startPos : Option Nat := none) : AttrParserM String := do
+private def parseUnregisteredAttrBody (endToken : TokenKind := .greater)
+    (startPos : Option Parser.Location := none) : AttrParserM String := do
   let startPos := startPos.getD (← peekToken).slice.start
 
   /- This stack corresponds to the brackets that are still open. -/
   let mut bracketStack : Array TokenKind := #[]
-  let mut endPos : Nat := 0
+  let mut endPos : Parser.Location := { byteOffset := 0 }
 
   /- Read tokens one by one until we close the last `>` -/
   repeat
@@ -185,17 +259,17 @@ private def parseUnregisteredAttrBody (endToken : TokenKind := .greater) (startP
         if token.kind == endToken then
           endPos := token.slice.start
           break
-        throw s!"unexpected closing bracket {closingName} in attribute body"
+        throwAt token.slice.start s!"unexpected closing bracket {closingName} in attribute body"
       /- If we have an open bracket, check that we are closing it
          with the right bracket kind. -/
       if bracketStack.back! != expected then
-        throw s!"unexpected closing bracket {closingName} in attribute body"
+        throwAt token.slice.start s!"unexpected closing bracket {closingName} in attribute body"
       let _ ← consumeToken
       bracketStack := bracketStack.pop
 
     /- Checking for unexpected EOF -/
     else if token.kind == .eof then
-      throw "unexpected end of file before closing of attribute body"
+      throwAt token.slice.start "unexpected end of file before closing of attribute body"
 
     /- Other tokens -/
     else
@@ -204,7 +278,7 @@ private def parseUnregisteredAttrBody (endToken : TokenKind := .greater) (startP
   let body := (Slice.mk startPos endPos).of input
   match String.fromUTF8? body with
   | some s => return s
-  | none => throw "failed converting attribute body to string"
+  | none => throwAt startPos "failed converting attribute body to string"
 
 /--
   Parse a dialect type, if present.
@@ -214,6 +288,8 @@ partial def parseOptionalDialectType : AttrParserM (Option TypeAttr) := do
   let startPos ← getPos
   let dialectName ← parseOptionalPrefixedKeyword .exclamationIdent
   let some dialectName := dialectName | return none
+  if !(← getThe AttrParserState).allowUnregisteredDialect then
+    throwAt startPos s!"type is not registered. Consider using --allow-unregistered-dialect."
   if let true ← parseOptionalPunctuation "<" then
     let _ ← parseUnregisteredAttrBody
     let endPos := (← peekToken).slice.stop
@@ -231,12 +307,26 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   let startPos ← getPos
   let dialectName ← parseOptionalPrefixedKeyword .hashIdent
   let some dialectName := dialectName | return none
+
+  if dialectName = "llvm.fastmath".toByteArray then do
+    return ← parseFloatFastMathFlagsAttr
+
+  if !(← getThe AttrParserState).allowUnregisteredDialect then
+    throwAt startPos s!"attribute is not registered. Consider using --allow-unregistered-dialect."
   parsePunctuation "<"
   let _ ← parseUnregisteredAttrBody
   let endPos := (← peekToken).slice.stop
   parsePunctuation ">"
   let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
   return some (UnregisteredAttr.mk (String.fromUTF8! value) false)
+
+/--
+  Parse a flat symbol reference attribute, if present.
+  Its syntax is `@ident` or `@"string"`.
+-/
+def parseOptionalFlatSymbolRefAttr : AttrParserM (Option FlatSymbolRefAttr) := do
+  let some name ← parseOptionalPrefixedKeyword .atIdent | return none
+  return some (FlatSymbolRefAttr.mk ("@" ++ String.fromUTF8! name))
 
 /--
   Parse a location attribute, if present.
@@ -249,6 +339,18 @@ partial def parseOptionalLocationAttr : AttrParserM (Option Attribute) := do
   let body ← parseUnregisteredAttrBody .rParen
   parsePunctuation ")"
   return some (LocationAttr.mk body)
+
+/--
+  Parse an LLVM void type `!llvm.void`, if present.
+-/
+partial def parseOptionalLLVMVoidType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "llvm.void".toByteArray then return none
+  let _ ← consumeToken
+  return some LLVM.VoidType.mk
 
 /--
   Parse an LLVM pointer type `!llvm.ptr`, if present.
@@ -276,7 +378,7 @@ partial def parseOptionalCudaTilePointerType : AttrParserM (Option TypeAttr) := 
   let _ ← consumeToken
   parsePunctuation "<"
   let some intTy ← parseOptionalIntegerType
-    | throw "integer type expected"
+    | throwAtCurrentPos "integer type expected"
   parsePunctuation ">"
   return some (CudaTile.PointerType.mk intTy)
 
@@ -294,7 +396,7 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
   let _ ← consumeToken
   parsePunctuation "<"
   let some modulus ← parseOptionalInteger false false
-    | throw "modarith type modulus expected"
+    | throwAtCurrentPos "modarith type modulus expected"
   let modulusType ←
     if ← parseOptionalPunctuation ":" then
       some <$> parseIntegerType "integer type expected after ':' in modarith type"
@@ -303,7 +405,77 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
   parsePunctuation ">"
   return some (ModArithType.mk modulus modulusType)
 
+/--
+  Parse CIRCT's HW dialect's `ModulePort::Direction` type.
+  Its syntax is `(input|output|inout)`.
+-/
+def parseOptionalHWModulePortDirection : AttrParserM (Option HW.ModulePort.Direction) := do
+  if (← parseOptionalKeyword "input".toByteArray) then
+    return some .input
+  if (← parseOptionalKeyword "output".toByteArray) then
+    return some .output
+  if (← parseOptionalKeyword "inout".toByteArray) then
+    return some .inout
+  return none
+
+/--
+  Parse CIRCT's HW dialect's `ModulePort` type.
+  Its syntax is `(input|output|inout) name : iN`.
+-/
+def parseOptionalHWModulePort : AttrParserM (Option HW.ModulePort) := do
+  let .some dir ← parseOptionalHWModulePortDirection | return none
+  let name := String.fromUTF8! (← parseIdentifier)
+  parsePunctuation ":"
+  let type ← parseIntegerType
+  return some { dir, name, type }
+
+def parseHWModulePort (errorMsg : String := "module port expected") : AttrParserM (HW.ModulePort) := do
+  match ← parseOptionalHWModulePort with
+  | some ty => return ty
+  | none => throwAtCurrentPos errorMsg
+
+/--
+  Parse CIRCT's HW dialect's `ModuleType` type.
+  Its syntax is `!hw.modty<ports>` where `ports` is a comma delimited list of `ModulePort`s.
+-/
+def parseOptionalHWModuleType : AttrParserM (Option HW.ModuleType) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "hw.modty".toByteArray then return none
+  let _ ← consumeToken
+  let ports ← parseDelimitedList .angle parseHWModulePort
+  return some { ports }
+
+/-- A parsed entry in an LLVM function type's parameter list. -/
+inductive LLVMFuncParam
+  | type (ty : TypeAttr)
+  | ellipsis
+
 mutual
+
+/--
+  Parse an LLVM array type, if present.
+  Its syntax is `!llvm.array<size x type>`,
+  or (exclusively) the shorter form `array<size x type>` if the corresponding argument is set.
+-/
+partial def parseOptionalLLVMArrayType (short := false) : AttrParserM (Option TypeAttr) := do
+  if short then
+    let .true ← parseOptionalKeyword "array".toByteArray | return none
+  else
+    let token ← peekToken
+    let .exclamationIdent := token.kind | return none
+    let input := (← getThe ParserState).input
+    let typeName := { token.slice with start := token.slice.start + 1 }.of input
+    if typeName ≠ "llvm.array".toByteArray then return none
+    let _ ← consumeToken
+  parsePunctuation "<"
+  let size ← parseInteger false false
+  parseKeyword "x".toByteArray
+  let ty ← parseLLVMType
+  parsePunctuation ">"
+  return some (LLVM.ArrayType.mk size.toNat ty)
 
 /--
   Parse a function type, if present.
@@ -324,11 +496,52 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
     -- Convert the parsed types to attributes, as FunctionType stores attributes instead
     -- of types.
     let outputs := outputs.map (fun x => x.val)
-    return some (FunctionType.mk inputs outputs)
+    return some (FunctionType.mk inputs outputs (isVarArg := false))
   | none =>
     -- If there is no list of output, check for a single output type.
     let outputType ← parseType "function type output expected"
-    return some (FunctionType.mk inputs #[outputType])
+    return some (FunctionType.mk inputs #[outputType] (isVarArg := false))
+
+/--
+  Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"
+  sugar keywords `void` and `ptr` in addition to the regular MLIR type forms.
+-/
+partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
+  if ← parseOptionalKeyword "void".toByteArray then
+    return LLVM.VoidType.mk
+  if ← parseOptionalKeyword "ptr".toByteArray then
+    return (LLVM.PointerType.mk : TypeAttr)
+  if let some type ← parseOptionalLLVMArrayType true then
+    return type
+  parseType errorMsg
+
+/--
+  Parse an LLVM function type `!llvm.func<resultType (paramTypes,...)>`, if present.
+  A trailing `...` parameter marks the function as variadic; the ellipsis is invalid
+  in any position other than the last.
+-/
+partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "llvm.func".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let result ← parseLLVMType "llvm.func result type expected"
+  let params ← parseDelimitedList .paren do
+    if (← parseOptionalToken .ellipsis).isSome then
+      return LLVMFuncParam.ellipsis
+    return LLVMFuncParam.type (← parseLLVMType)
+  parsePunctuation ">"
+  if params.pop.any (· matches .ellipsis) then
+    throwAtCurrentPos "'...' is only valid as the last parameter of an LLVM function type"
+  let isVarArg := params.any (· matches .ellipsis)
+  let paramTypes := params.filterMap fun
+    | .type ty => some ty.val
+    | .ellipsis => none
+  let ft := FunctionType.mk paramTypes #[result.val] isVarArg
+  return some ⟨.llvmFunctionType ft, by rfl⟩
 
 /--
   Parse a type, if present.
@@ -336,14 +549,24 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
+  if let some floatType ← parseOptionalFloatType then
+    return some floatType
   if let some registerType ← parseOptionalRegisterType then
     return some registerType
   if let some modArithType ← parseOptionalModArithType then
     return some modArithType
+  if let some llvmVoidType := ← parseOptionalLLVMVoidType then
+    return some llvmVoidType
   if let some llvmPointerType := ← parseOptionalLLVMPointerType then
     return some llvmPointerType
+  if let some llvmArrayType := ← parseOptionalLLVMArrayType then
+    return some llvmArrayType
+  if let some llvmFunctionType ← parseOptionalLLVMFunctionType then
+    return some llvmFunctionType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
+  if let some hwModuleType ← parseOptionalHWModuleType then
+    return some hwModuleType
   if let some dialectType ← parseOptionalDialectType then
     return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then
@@ -357,7 +580,7 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
 partial def parseType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   match ← parseOptionalType with
   | some ty => return ty
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse an entry in an attribute dictionary, which has the form `name = value`
@@ -385,7 +608,7 @@ partial def parseAttributeDictionary (errorMsg : String := "attribute dictionary
     AttrParserM (Array (ByteArray × Attribute)) := do
   match ← parseOptionalAttributeDictionary with
   | some dict => return dict
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse an array attribute, if present.
@@ -417,6 +640,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some type.val
   else if let some integerAttr ← parseOptionalIntegerAttr then
     return some integerAttr
+  else if let some floatAttr ← parseOptionalFloatAttr then
+    return some floatAttr
   else if let some stringAttr ← parseOptionalStringAttr then
     return some stringAttr
   else if let some denseArrayAttr ← parseOptionalDenseArrayAttr then
@@ -427,6 +652,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some arrayAttr
   else if let some dictAttr ← parseOptionalDictionaryAttr then
     return some dictAttr
+  else if let some symRefAttr ← parseOptionalFlatSymbolRefAttr then
+    return some symRefAttr
   else
     return none
 
@@ -437,7 +664,7 @@ partial def parseAttribute (errorMsg : String := "attribute expected") :
     AttrParserM Attribute := do
   match ← parseOptionalAttribute with
   | some attr => return attr
-  | none => throw errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 end
 
