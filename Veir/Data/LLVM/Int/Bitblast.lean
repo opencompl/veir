@@ -80,7 +80,7 @@ theorem isPoison_of_poison {w : Nat} :
   `b` is not a poison value, and their concrete bitvector values are the same. -/
 @[llvm_toBitVec, grind =]
 theorem isRefinedBy_iff {w : Nat} (a b : Int w) :
-  a ⊑ b ↔
+  a ⊒ b ↔
     (a.isPoison = false → b.isPoison = false) ∧
     ((_ : a.isPoison = false) → (_ : b.isPoison = false) → a.getValue = b.getValue) := by
   simp [llvm_toBitVec, isPoison, getValue]
