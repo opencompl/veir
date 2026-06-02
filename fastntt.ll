@@ -4,146 +4,15 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:
 target triple = "x86_64-pc-linux-gnu"
 
 ; Function Attrs: alwaysinline nounwind uwtable
-define dso_local i64 @log2FloorAux(i64 noundef %0) #0 {
-  %2 = alloca i64, align 8
-  %3 = alloca i64, align 8
-  store i64 %0, ptr %2, align 8
-  store i64 0, ptr %3, align 8
-  br label %4
-
-4:                                                ; preds = %7, %1
-  %5 = load i64, ptr %2, align 8
-  %6 = icmp sgt i64 %5, 1
-  br i1 %6, label %7, label %12
-
-7:                                                ; preds = %4
-  %8 = load i64, ptr %2, align 8
-  %9 = ashr i64 %8, 1
-  store i64 %9, ptr %2, align 8
-  %10 = load i64, ptr %3, align 8
-  %11 = add nsw i64 %10, 1
-  store i64 %11, ptr %3, align 8
-  br label %4, !llvm.loop !6
-
-12:                                               ; preds = %4
-  %13 = load i64, ptr %3, align 8
-  ret i64 %13
-}
-
-; Function Attrs: alwaysinline nounwind uwtable
-define dso_local i64 @log2Floor(i64 noundef %0) #0 {
-  %2 = alloca i64, align 8
-  %3 = alloca i64, align 8
-  %4 = alloca i64, align 8
-  store i64 %0, ptr %4, align 8
-  %5 = load i64, ptr %4, align 8
-  store i64 %5, ptr %2, align 8
-  store i64 0, ptr %3, align 8
-  br label %6
-
-6:                                                ; preds = %9, %1
-  %7 = load i64, ptr %2, align 8
-  %8 = icmp sgt i64 %7, 1
-  br i1 %8, label %9, label %14
-
-9:                                                ; preds = %6
-  %10 = load i64, ptr %2, align 8
-  %11 = ashr i64 %10, 1
-  store i64 %11, ptr %2, align 8
-  %12 = load i64, ptr %3, align 8
-  %13 = add nsw i64 %12, 1
-  store i64 %13, ptr %3, align 8
-  br label %6, !llvm.loop !6
-
-14:                                               ; preds = %6
-  %15 = load i64, ptr %3, align 8
-  ret i64 %15
-}
-
-; Function Attrs: alwaysinline nounwind uwtable
-define dso_local void @bflyCT(i64 noundef %0, i64 noundef %1, i64 noundef %2, i64 noundef %3, ptr noundef %4, ptr noundef %5) #0 {
-  %7 = alloca i64, align 8
-  %8 = alloca i64, align 8
-  %9 = alloca i64, align 8
-  %10 = alloca i64, align 8
-  %11 = alloca ptr, align 8
-  %12 = alloca ptr, align 8
-  store i64 %0, ptr %7, align 8
-  store i64 %1, ptr %8, align 8
-  store i64 %2, ptr %9, align 8
-  store i64 %3, ptr %10, align 8
-  store ptr %4, ptr %11, align 8
-  store ptr %5, ptr %12, align 8
-  %13 = load i64, ptr %7, align 8
-  %14 = load i64, ptr %9, align 8
-  %15 = load i64, ptr %8, align 8
-  %16 = mul nsw i64 %14, %15
-  %17 = load i64, ptr %10, align 8
-  %18 = srem i64 %16, %17
-  %19 = add nsw i64 %13, %18
-  %20 = load i64, ptr %10, align 8
-  %21 = srem i64 %19, %20
-  %22 = load ptr, ptr %11, align 8
-  store i64 %21, ptr %22, align 8
-  %23 = load i64, ptr %7, align 8
-  %24 = load i64, ptr %9, align 8
-  %25 = load i64, ptr %8, align 8
-  %26 = mul nsw i64 %24, %25
-  %27 = load i64, ptr %10, align 8
-  %28 = srem i64 %26, %27
-  %29 = sub nsw i64 %23, %28
-  %30 = load i64, ptr %10, align 8
-  %31 = add nsw i64 %29, %30
-  %32 = load i64, ptr %10, align 8
-  %33 = srem i64 %31, %32
-  %34 = load ptr, ptr %12, align 8
-  store i64 %33, ptr %34, align 8
-  ret void
-}
-
-; Function Attrs: alwaysinline nounwind uwtable
-define dso_local void @bflyGS(i64 noundef %0, i64 noundef %1, i64 noundef %2, i64 noundef %3, ptr noundef %4, ptr noundef %5) #0 {
-  %7 = alloca i64, align 8
-  %8 = alloca i64, align 8
-  %9 = alloca i64, align 8
-  %10 = alloca i64, align 8
-  %11 = alloca ptr, align 8
-  %12 = alloca ptr, align 8
-  store i64 %0, ptr %7, align 8
-  store i64 %1, ptr %8, align 8
-  store i64 %2, ptr %9, align 8
-  store i64 %3, ptr %10, align 8
-  store ptr %4, ptr %11, align 8
-  store ptr %5, ptr %12, align 8
-  %13 = load i64, ptr %7, align 8
-  %14 = load i64, ptr %8, align 8
-  %15 = add nsw i64 %13, %14
-  %16 = load i64, ptr %10, align 8
-  %17 = srem i64 %15, %16
-  %18 = load ptr, ptr %11, align 8
-  store i64 %17, ptr %18, align 8
-  %19 = load i64, ptr %7, align 8
-  %20 = load i64, ptr %8, align 8
-  %21 = sub nsw i64 %19, %20
-  %22 = load i64, ptr %9, align 8
-  %23 = mul nsw i64 %21, %22
-  %24 = load i64, ptr %10, align 8
-  %25 = srem i64 %23, %24
-  %26 = load ptr, ptr %12, align 8
-  store i64 %25, ptr %26, align 8
-  ret void
-}
-
-; Function Attrs: alwaysinline nounwind uwtable
 define dso_local void @fastNTT(ptr noundef %0, i64 noundef %1, i64 noundef %2, ptr noundef %3, i64 noundef %4, i64 noundef %5) #0 {
   %7 = alloca i64, align 8
   %8 = alloca i64, align 8
   %9 = alloca i64, align 8
   %10 = alloca i64, align 8
-  %11 = alloca ptr, align 8
-  %12 = alloca ptr, align 8
-  %13 = alloca i64, align 8
-  %14 = alloca i64, align 8
+  %11 = alloca i64, align 8
+  %12 = alloca i64, align 8
+  %13 = alloca ptr, align 8
+  %14 = alloca ptr, align 8
   %15 = alloca i64, align 8
   %16 = alloca ptr, align 8
   %17 = alloca i64, align 8
@@ -208,26 +77,26 @@ define dso_local void @fastNTT(ptr noundef %0, i64 noundef %1, i64 noundef %2, p
   %52 = load i64, ptr %17, align 8
   store i64 %52, ptr %15, align 8
   %53 = load i64, ptr %15, align 8
-  store i64 %53, ptr %13, align 8
-  store i64 0, ptr %14, align 8
+  store i64 %53, ptr %7, align 8
+  store i64 0, ptr %8, align 8
   br label %54
 
 54:                                               ; preds = %57, %50
-  %55 = load i64, ptr %13, align 8
+  %55 = load i64, ptr %7, align 8
   %56 = icmp sgt i64 %55, 1
   br i1 %56, label %57, label %62
 
 57:                                               ; preds = %54
-  %58 = load i64, ptr %13, align 8
+  %58 = load i64, ptr %7, align 8
   %59 = ashr i64 %58, 1
-  store i64 %59, ptr %13, align 8
-  %60 = load i64, ptr %14, align 8
+  store i64 %59, ptr %7, align 8
+  %60 = load i64, ptr %8, align 8
   %61 = add nsw i64 %60, 1
-  store i64 %61, ptr %14, align 8
+  store i64 %61, ptr %8, align 8
   br label %54, !llvm.loop !6
 
 62:                                               ; preds = %54
-  %63 = load i64, ptr %14, align 8
+  %63 = load i64, ptr %8, align 8
   %64 = icmp slt i64 %51, %63
   br i1 %64, label %65, label %184
 
@@ -289,35 +158,35 @@ define dso_local void @fastNTT(ptr noundef %0, i64 noundef %1, i64 noundef %2, p
   %107 = load i64, ptr %29, align 8
   %108 = load i64, ptr %30, align 8
   %109 = load i64, ptr %18, align 8
-  store i64 %106, ptr %7, align 8
-  store i64 %107, ptr %8, align 8
-  store i64 %108, ptr %9, align 8
-  store i64 %109, ptr %10, align 8
-  store ptr %31, ptr %11, align 8
-  store ptr %32, ptr %12, align 8
-  %110 = load i64, ptr %7, align 8
-  %111 = load i64, ptr %9, align 8
-  %112 = load i64, ptr %8, align 8
+  store i64 %106, ptr %9, align 8
+  store i64 %107, ptr %10, align 8
+  store i64 %108, ptr %11, align 8
+  store i64 %109, ptr %12, align 8
+  store ptr %31, ptr %13, align 8
+  store ptr %32, ptr %14, align 8
+  %110 = load i64, ptr %9, align 8
+  %111 = load i64, ptr %11, align 8
+  %112 = load i64, ptr %10, align 8
   %113 = mul nsw i64 %111, %112
-  %114 = load i64, ptr %10, align 8
+  %114 = load i64, ptr %12, align 8
   %115 = srem i64 %113, %114
   %116 = add nsw i64 %110, %115
-  %117 = load i64, ptr %10, align 8
+  %117 = load i64, ptr %12, align 8
   %118 = srem i64 %116, %117
-  %119 = load ptr, ptr %11, align 8
+  %119 = load ptr, ptr %13, align 8
   store i64 %118, ptr %119, align 8
-  %120 = load i64, ptr %7, align 8
-  %121 = load i64, ptr %9, align 8
-  %122 = load i64, ptr %8, align 8
+  %120 = load i64, ptr %9, align 8
+  %121 = load i64, ptr %11, align 8
+  %122 = load i64, ptr %10, align 8
   %123 = mul nsw i64 %121, %122
-  %124 = load i64, ptr %10, align 8
+  %124 = load i64, ptr %12, align 8
   %125 = srem i64 %123, %124
   %126 = sub nsw i64 %120, %125
-  %127 = load i64, ptr %10, align 8
+  %127 = load i64, ptr %12, align 8
   %128 = add nsw i64 %126, %127
-  %129 = load i64, ptr %10, align 8
+  %129 = load i64, ptr %12, align 8
   %130 = srem i64 %128, %129
-  %131 = load ptr, ptr %12, align 8
+  %131 = load ptr, ptr %14, align 8
   store i64 %130, ptr %131, align 8
   %132 = load i64, ptr %31, align 8
   %133 = load ptr, ptr %16, align 8
