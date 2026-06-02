@@ -14,7 +14,9 @@
 ## 0. Remediation landed (2026-06-01; F1 close 2026-06-02)
 
 Fixes applied to this repo during the review (verified by a full `lake build`
-under the repo's `v4.30.0-rc2` toolchain + `#print axioms`):
+under the repo's `v4.30.0-rc2` toolchain + `#print axioms`; the F1 close was
+additionally re-verified by fresh adversarial review agents — axiom hygiene,
+guard soundness, and wiring/VC3 all confirmed):
 
 - **VC1 (framing):** `Combine.lean` docstring reframed — "5 of 18 felt ops
   implemented (13 opcode-only stubs)" + an explicit *"what 'verified' means"*

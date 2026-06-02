@@ -72,11 +72,15 @@ parallel sessions.
 
 ---
 
-## F1 — Widen the structural close (13 remaining Felt patterns)
+## F1 — Widen the structural close (13 remaining Felt patterns) — ✅ DONE (2026-06-02)
+
+**STATUS: COMPLETE.** All 15/15 patterns sorry-free + axiom-clean (commit
+`3fb22d4fc`); verified by `lake build` + `#print axioms` + fresh-agent
+adversarial re-review. Section retained below for the recipe/history.
 
 **Goal.** Make the other 13 `Combine.lean` patterns sorry-free + axiom-clean,
 mirroring `right_identity_zero_add` (projection) and `constant_fold_add`
-(synthesis) already done in `RewriteLemmas.lean`. **Status: agreed next step.**
+(synthesis) already done in `RewriteLemmas.lean`.
 
 **Prereq.** None — `RewriteLemmas.lean` library is ready. No blockers.
 
