@@ -8,6 +8,7 @@ public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
 public import Veir.Dialects.Comb.OpInfo
 public import Veir.Dialects.HW.OpInfo
+public import Veir.IR.Basic
 
 namespace Veir
 
@@ -324,3 +325,40 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
   | .hw .output => true
   | _ => false
+
+/--
+  Does this operation have effects that make it ineligible for DCE and
+  other transformations that add / remove / rearrange instructions?
+
+  NOTE: ¬ hasSideEffects does not imply that an operation is safe to
+        speculate. For that we also need it to never trigger immediate
+        UB. We'll have to deal with this later on.
+
+  Also see:
+  https://mlir.llvm.org/docs/Rationale/SideEffectsAndSpeculation/
+-/
+def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : Bool :=
+  let opCode := op.getOpType! ctx
+  if opCode.isTerminator then true else
+  match opCode with
+  -- These dialects are pure
+  | .arith _ | .comb _ | .mod_arith _ | .datapath _ => false
+  | .builtin .unrealized_conversion_cast => false
+  | .hw .constant => false
+  -- RISC-V is pure register arithmetic except the memory ops
+  | .riscv .ld | .riscv .sd => true
+  | .riscv _ => false
+  -- For LLVM we enumerate the pure ops
+  | .llvm .mlir__constant
+  | .llvm .and | .llvm .or | .llvm .xor
+  | .llvm .add | .llvm .sub | .llvm .mul
+  | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
+  | .llvm .shl | .llvm .lshr | .llvm .ashr
+  | .llvm .icmp | .llvm .select
+  | .llvm .trunc | .llvm .sext | .llvm .zext
+  | .llvm .alloca | .llvm .getelementptr
+  | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => false
+  -- Volatile loads are definitionally side-effecting
+  | .llvm .load => (op.getProperties! ctx (.llvm .load)).volatile_
+  -- For everything else: be conservative!
+  | _ => true
