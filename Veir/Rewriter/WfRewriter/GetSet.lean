@@ -486,4 +486,211 @@ theorem OperationPtr.getResultTypes!_wfRewriter_insertOp? :
 
 end WfRewriter.insertOp?
 
+/-! ## `WfRewriter.eraseOp` -/
+
+section WfRewriter.eraseOp
+
+variable {op : OperationPtr}
+
+attribute [local grind] WfRewriter.eraseOp
+
+@[simp, grind =]
+theorem BlockPtr.prev!_wfRewriter_eraseOp :
+    (block.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).prev =
+    (block.get! ctx.raw).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_wfRewriter_eraseOp :
+    (block.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).next =
+    (block.get! ctx.raw).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_wfRewriter_eraseOp :
+    (block.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).parent =
+    (block.get! ctx.raw).parent := by
+  grind
+
+@[grind =]
+theorem BlockPtr.firstOp!_wfRewriter_eraseOp :
+    (block.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).firstOp =
+    if (block.get! ctx.raw).firstOp = some op ∧ block.InBounds ctx.raw then
+      (op.get! ctx.raw).next
+    else
+      (block.get! ctx.raw).firstOp := by
+  simp only [WfRewriter.eraseOp]
+  simp [BlockPtr.firstOp!_eraseOp]
+  split
+  · grind
+  · grind [IRContext.WellFormed.firstOp!_eq_some_iff]
+
+@[grind =]
+theorem BlockPtr.lastOp!_wfRewriter_eraseOp :
+    (block.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).lastOp =
+    if (block.get! ctx.raw).lastOp = some op ∧ block.InBounds ctx.raw then
+      (op.get! ctx.raw).prev
+    else
+      (block.get! ctx.raw).lastOp := by
+  grind
+
+@[grind =]
+theorem OperationPtr.prev!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    (operation.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).prev =
+    if (op.get! ctx.raw).next = operation then
+      (op.get! ctx.raw).prev
+    else if operation = op then
+      none
+    else
+      (operation.get! ctx.raw).prev := by
+  grind
+
+@[grind =]
+theorem OperationPtr.next!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    (operation.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).next =
+    if operation = (op.get! ctx.raw).prev then
+      (op.get! ctx.raw).next
+    else if operation = op then
+      none
+    else
+      (operation.get! ctx.raw).next := by
+  grind
+
+@[grind =]
+theorem OperationPtr.parent!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    (operation.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).parent =
+    if operation = op then none else (operation.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOpType!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getOpType! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    operation.getOpType! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    (operation.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).attrs =
+    (operation.get! ctx.raw).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getProperties! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw opType =
+    operation.getProperties! ctx.raw opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getNumResults! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    operation.getNumResults! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getNumOperands! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    operation.getNumOperands! ctx.raw := by
+  grind
+
+@[grind =]
+theorem OperationPtr.getOperand!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getOperand! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw index =
+    operation.getOperand! ctx.raw index := by
+  grind [=_ getOperands!.getElem!_eq_getOperand!]
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getOperands! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    operation.getOperands! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getNumSuccessors! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    operation.getNumSuccessors! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getSuccessor! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw index =
+    operation.getSuccessor! ctx.raw index := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getSuccessors! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    operation.getSuccessors! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getNumRegions! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    operation.getNumRegions! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getRegion! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw idx =
+    operation.getRegion! ctx.raw idx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_wfRewriter_eraseOp :
+    block.getNumArguments! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    block.getNumArguments! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.firstBlock!_wfRewriter_eraseOp :
+    (region.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).firstBlock =
+    (region.get! ctx.raw).firstBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.lastBlock!_wfRewriter_eraseOp :
+    (region.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).lastBlock =
+    (region.get! ctx.raw).lastBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.parent!_wfRewriter_eraseOp :
+    (region.get! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw).parent =
+    (region.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_wfRewriter_eraseOp :
+    value.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    value.getType! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    value.getType! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getResultTypes!_wfRewriter_eraseOp :
+    operation.InBounds (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw →
+    operation.getResultTypes! (WfRewriter.eraseOp ctx op opRegions opUses hOp).raw =
+    operation.getResultTypes! ctx.raw := by
+  intro h
+  ext i hi hi'
+  · grind
+  · have := @ValuePtr.getType!_wfRewriter_eraseOp _ _ ctx (operation.getResult i)
+    grind
+
+end WfRewriter.eraseOp
+
 end Veir
