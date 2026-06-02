@@ -693,4 +693,188 @@ theorem OperationPtr.getResultTypes!_wfRewriter_eraseOp :
 
 end WfRewriter.eraseOp
 
+/-! ## `WfRewriter.replaceValue` -/
+
+section WfRewriter.replaceValue
+
+variable {oldValue newValue : ValuePtr} {oldIn : oldValue.InBounds ctx.raw} {newIn : newValue.InBounds ctx.raw}
+variable {ne : oldValue ≠ newValue}
+
+attribute [local grind] Id.run
+
+@[simp, grind =]
+theorem BlockPtr.prev!_WfRewriter_replaceValue :
+    (block.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).prev =
+    (block.get! ctx.raw).prev := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_WfRewriter_replaceValue :
+    (block.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).next =
+    (block.get! ctx.raw).next := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_WfRewriter_replaceValue :
+    (block.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).parent =
+    (block.get! ctx.raw).parent := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem BlockPtr.firstOp!_WfRewriter_replaceValue :
+    (block.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).firstOp =
+    (block.get! ctx.raw).firstOp := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem BlockPtr.lastOp!_WfRewriter_replaceValue :
+    (block.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).lastOp =
+    (block.get! ctx.raw).lastOp := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.prev!_WfRewriter_replaceValue :
+    (operation.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).prev =
+    (operation.get! ctx.raw).prev := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_WfRewriter_replaceValue :
+    (operation.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).next =
+    (operation.get! ctx.raw).next := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_WfRewriter_replaceValue :
+    (operation.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).parent =
+    (operation.get! ctx.raw).parent := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getOpType!_WfRewriter_replaceValue :
+    operation.getOpType! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    operation.getOpType! ctx.raw := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_WfRewriter_replaceValue :
+    (operation.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).attrs =
+    (operation.get! ctx.raw).attrs := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_WfRewriter_replaceValue :
+    operation.getProperties! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw opType =
+    operation.getProperties! ctx.raw opType := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_WfRewriter_replaceValue :
+    operation.getNumResults! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    operation.getNumResults! ctx.raw := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_WfRewriter_replaceValue :
+    operation.getNumOperands! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    operation.getNumOperands! ctx.raw := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[grind =]
+theorem OperationPtr.getOperand!_WfRewriter_replaceValue :
+    operation.InBounds ctx.raw →
+    index < operation.getNumOperands! ctx.raw →
+    operation.getOperand! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw index =
+    if operation.getOperand! ctx.raw index = oldValue then
+      newValue
+    else
+      operation.getOperand! ctx.raw index := by
+  intro h₁ h₂
+  fun_induction WfRewriter.replaceValue
+  rename_i ctx neValues oldIn newIn hi
+  split
+  · simp only [Id.run_pure, right_eq_ite_iff]
+    intro holdValue
+    suffices oldValue.hasUses! ctx.raw by grind [ValuePtr.hasUses!_def]
+    grind
+  · grind [OpOperandPtr.inBounds_def]
+
+@[grind =]
+theorem OperationPtr.getOperands!_WfRewriter_replaceValue :
+    operation.InBounds ctx.raw →
+    operation.getOperands! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    (operation.getOperands! ctx.raw).map (fun v => if v = oldValue then newValue else v) := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_WfRewriter_replaceValue :
+    operation.getNumSuccessors! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    operation.getNumSuccessors! ctx.raw := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_WfRewriter_replaceValue :
+    operation.getSuccessor! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw index =
+    operation.getSuccessor! ctx.raw index := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_WfRewriter_replaceValue :
+    operation.getSuccessors! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    operation.getSuccessors! ctx.raw := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_WfRewriter_replaceValue :
+    operation.getNumRegions! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    operation.getNumRegions! ctx.raw := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_WfRewriter_replaceValue :
+    operation.getRegion! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw idx =
+    operation.getRegion! ctx.raw idx := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_WfRewriter_replaceValue :
+    block.getNumArguments! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    block.getNumArguments! ctx.raw := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem RegionPtr.firstBlock!_WfRewriter_replaceValue :
+    (region.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).firstBlock =
+    (region.get! ctx.raw).firstBlock := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem RegionPtr.lastBlock!_WfRewriter_replaceValue :
+    (region.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).lastBlock =
+    (region.get! ctx.raw).lastBlock := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem RegionPtr.parent!_WfRewriter_replaceValue :
+    (region.get! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw).parent =
+    (region.get! ctx.raw).parent := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem ValuePtr.getType!_WfRewriter_replaceValue :
+    value.getType! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    value.getType! ctx.raw := by
+  fun_induction WfRewriter.replaceValue <;> grind
+
+@[simp, grind =]
+theorem OperationPtr.getResultTypes!_WfRewriter_replaceValue :
+    operation.getResultTypes! (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw =
+    operation.getResultTypes! ctx.raw := by
+  ext i hi hi'
+  · grind
+  · have := @ValuePtr.getType!_WfRewriter_replaceValue _ _ ctx (operation.getResult i)
+    grind
+
+end WfRewriter.replaceValue
+
 end Veir

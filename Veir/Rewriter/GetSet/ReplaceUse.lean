@@ -124,6 +124,24 @@ theorem OperationPtr.prev!_replaceUse {op : OperationPtr} :
   grind [Rewriter.replaceUse]
 
 @[simp, grind =]
+theorem OperationPtr.getOpType!_replaceUse {op : OperationPtr} :
+    op.getOpType! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    op.getOpType! ctx := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_replaceUse {op : OperationPtr} :
+    (op.get! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)).attrs =
+    (op.get! ctx).attrs := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_replaceUse {op : OperationPtr} :
+    op.getProperties! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) opType =
+    op.getProperties! ctx opType := by
+  grind [Rewriter.replaceUse]
+
+@[simp, grind =]
 theorem OperationPtr.getNumOperands!_replaceUse :
     OperationPtr.getNumOperands! op (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     OperationPtr.getNumOperands! op ctx := by
@@ -213,6 +231,12 @@ theorem RegionPtr.get!_replaceUse :
     RegionPtr.get! reg (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
     RegionPtr.get! reg ctx := by
   grind (instances := 2000) [Rewriter.replaceUse]  -- TODO: instance threshold reached when adding lemmas for Region.allocEmpty
+
+@[simp, grind =]
+theorem ValuePtr.getType!_replaceUse {v : ValuePtr} :
+    v.getType! (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn) =
+    v.getType! ctx := by
+  grind [Rewriter.replaceUse]
 
 end Rewriter.replaceUse
 /-! ## `Rewriter.replaceValue?` -/
