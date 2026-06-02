@@ -118,7 +118,14 @@ result≠operand, op-has-parent) → handle with a sound guard, document it.
 
 ---
 
-## F2 — Interpreter-semantics keystone (SCOPING SPIKE first)
+## F2 — Interpreter-semantics keystone (SCOPING SPIKE first) — ✅ DONE (2026-06-02)
+
+**STATUS: COMPLETE.** Memo + go/no-go in `FOLLOWUP.md` §F2; a real axiom-clean
+PoC landed (`Veir/Passes/Felt/InterpModel.lean`). **Go on F3 at the value level;
+defer the whole-program keystone** (multi-week framework, rests on `Dom` axiom).
+Q1 field model DECIDED (name→prime registry + `Nat`-canonical felt value,
+Mathlib confined to a bridge file). Section retained below for the original spec.
+
 
 **Goal of the spike (1 session, do NOT commit to full execution yet):** decide
 whether a closed *"this rewrite provably preserves program semantics"* theorem is
@@ -260,6 +267,15 @@ scripted; PRs opened; commit.
 - 2026-06-01 — Review complete (both repos); fixes VC1/VC3/VM1 + H4; **structural
   close: 2/15 patterns sorry-free + axiom-clean** in `RewriteLemmas.lean`; this
   playbook written. Next: **F1**.
+- 2026-06-02 — **F2 DONE (scoping spike + PoC).** Feasibility memo + go/no-go in
+  `FOLLOWUP.md` §F2. Landed a real axiom-clean bridge lemma
+  (`Veir.FeltInterp.interpretAdd_const_zero`, `[propext, Quot.sound]`) +
+  Mathlib-free felt interpreter model `Veir/Passes/Felt/InterpModel.lean`
+  (registry + const/add/sub/mul/neg). **Go on F3 at the value-refinement level;
+  defer whole-program `interpret = interpret`** (needs a new interpreter-
+  simulation framework + missing `eraseOp` lemmas + the `Dom` axiom). Q1 field
+  model decided (name→prime registry; `Nat`-canonical felt value; Mathlib only in
+  a bridge file). F3 now unblocked.
 - 2026-06-02 — **F1 DONE. All 15/15 Felt patterns sorry-free + axiom-clean**
   (`[propext, Classical.choice, Quot.sound]`), verified by `lake build
   Veir.Passes.Felt.Combine` + `#print axioms` on each. All patterns moved into

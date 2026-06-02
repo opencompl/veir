@@ -10,6 +10,9 @@ import Veir.Passes.Felt.Proofs
 -- preconditions discharged, not admitted). The `Combine` pass list below references them
 -- unqualified; this file no longer defines any pattern itself.
 import Veir.Passes.Felt.RewriteLemmas
+-- F2 spike: the felt interpreter-semantics model + op-level bridge lemma.
+-- Imported here so default `lake build` keeps the PoC alive (anti-bitrot).
+import Veir.Passes.Felt.InterpModel
 
 namespace Veir.FeltPass
 

@@ -105,8 +105,120 @@ small script under `scripts/`), since the fork will need it recurringly.
 
 ---
 
+## F2 — Interpreter-semantics keystone: feasibility memo + go/no-go (2026-06-02)
+
+> Deliverable of the F2 scoping spike (`../veir/SESSIONS.md` §F2). Decides
+> whether a closed *"this rewrite provably preserves program semantics"*
+> theorem is reachable for Felt on current VEIR, and at what cost. **This gates
+> F3 and the "verified drop-in" end goal.** A proof-of-concept was landed (see
+> "What was landed" below); this section is its writeup, for non-Lean colleagues.
+
+### TL;DR / go-no-go
+
+- **The value-level bridge is DONE and cheap.** The thing the review flagged as
+  missing — `Veir.Data.Felt` never connected to anything a program *runs* — is
+  now closed for the `add x 0 → x` rewrite by a real, axiom-clean lemma
+  (`Veir.FeltInterp.interpretAdd_const_zero`, `[propext, Quot.sound]`). This is
+  **the same assurance tier as VEIR's best existing correctness proofs** (the
+  instruction-selection `*_refinement` lemmas) — actually a notch beyond, since
+  it runs through a real interpreter function, not only an abstract data op.
+- **The whole-program theorem (`interpret(rewrite ctx) = interpret(ctx)`) is
+  NOT a per-pattern follow-up. It is a multi-week framework build, and it rests
+  on the `WfIRContext.Dom` axiom.** No VEIR pass has such a theorem today; the
+  substrate to even state-and-prove it (an interpreter-simulation relation
+  across structural IR edits) does not exist and partly *cannot be stated yet*
+  with the current rewriter lemmas.
+- **Recommendation: GO on F3, scoped to the value level. NO-GO (defer) on the
+  whole-program keystone** until/unless it becomes a deliberate, separately
+  budgeted research effort. F3 should wire the interpreter and prove value-level
+  `*_refinement`-style lemmas for each fold (the tractable, high-value tier),
+  *not* attempt program-equivalence per pattern.
+
+### What was landed (the PoC, real and checked)
+
+`Veir/Passes/Felt/InterpModel.lean` (built on the default path via
+`Combine.lean`; axiom-audited in veir's own toolchain):
+- A felt runtime-value model `FeltVal.felt p val` and minimal `interpretOp'`
+  arms for `const`/`add`/`sub`/`mul`/`neg`, mirroring `Arith.interpretOp'`.
+- A field-name→prime registry `feltPrime`, mirroring LLZK
+  `Util/Field.cpp::initKnownFields`.
+- **The bridge lemma `interpretAdd_const_zero`**: interpreting
+  `felt.add x (felt.const 0)` returns *exactly* `x`'s runtime value. Axiom
+  audit: `[propext, Quot.sound]` — no `sorryAx`, no `Classical.choice`, no
+  `WfIRContext.Dom`.
+
+### Q1 — How to model the field (DECIDED)
+
+`!felt.type` carries an optional field *name* but **no prime**; the prime lives
+in LLZK's registry, keyed by name (bn254, babybear, goldilocks, …); an unnamed
+field is "filled in by the backend" (no runtime meaning). Decision, three parts:
+
+1. **Resolve the prime by a name→prime registry** mirroring `initKnownFields`
+   (`feltPrime`). Unnamed/unknown field ⇒ `none` (uninterpreted). This is the
+   only faithful source of the modulus.
+2. **Represent a felt runtime value as a canonical `Nat` in `[0, p)` carrying
+   its own `p`** (`FeltVal.felt p val`), with `Nat`-modular arithmetic — exactly
+   how LLZK's executable folder works (`Field::reduce`). Rejected: `ZMod p` in
+   the runtime value, because **it forces Mathlib onto the core, Mathlib-free
+   `Interpreter/Basic.lean`** — a heavy architectural cost. (Confirmed: the core
+   interpreter imports no Mathlib today.) The `ZMod p`/`Veir.Data.Felt`
+   correspondence belongs in a *separate* proof file (the only place Mathlib
+   enters), keeping the executable interpreter dependency-light.
+3. **The basic ops (`add`/`sub`/`mul`/`neg`) need no primality** and hold in
+   every modulus — matching the universally-`p`-quantified identities in
+   `Proofs.lean`. Primality enters only for `div`/`inv`/`pow`/bit-width ops
+   (F3's harder half).
+
+### Q2 — Does the whole-program theorem need `WfIRContext.Dom`? (YES)
+
+Proving `interpret(after) = interpret(before)` for a peephole requires use-def
+reasoning: that the replacement value is in scope at every use, that no later op
+redefines it, and that erasing the matched op (now use-less) changes nothing.
+Those facts are exactly what `Veir/Interpreter/Lemmas.lean`'s dominance lemmas
+provide (`getOperandValues_setResultValues_of_dominates`, `setResultValues_comm`,
+…) — and every one of them consumes `ctxDom : ctx.Dom`. `WfIRContext.Dom` is an
+**opaque axiom** (`Veir/Dominance.lean` is by its own header "a placeholder…
+currently only contains axioms"). Unlike the *structural* preconditions (which
+F1 discharged with defensive runtime guards), semantics **cannot** be
+guard-discharged — you genuinely need the dominance facts — so any whole-program
+felt theorem will be **conditional on the `Dom` axiom**. Honest, but it means the
+keystone inherits VEIR's single largest trust-base assumption.
+
+### Q3 — Effort for ONE pattern end-to-end, and does it generalize?
+
+- **Value-level (what was landed): ~hours per pattern, fully axiom-clean.**
+  Mechanical, mirrors `Proofs.lean`. Generalizes trivially across the 15
+  patterns. This is the right F3 target.
+- **Whole-program (`interpret = interpret`): multi-week, research-grade, and
+  blocked on missing substrate.** It decomposes into (i) the value-level lemma
+  [done], (ii) "`replaceValue` preserves interpretation of all other ops, given
+  operand-value agreement" and (iii) "`eraseOp` of a use-less op preserves
+  interpretation". (ii)/(iii) require a **new interpreter-simulation framework**:
+  a relation between the pre/post variable-states preserved across each step, an
+  induction over `interpretOpList`, and handling the `partial_fixpoint` CFG
+  layer. It also needs `eraseOp` postcondition lemmas that **do not exist and are
+  flagged in-source as "quite complex to state"** (`OpResultPtr.get!_eraseOp`,
+  `OpOperandPtr.get!_eraseOp`, `BlockOperandPtr.get!_eraseOp` in
+  `Rewriter/GetSet/DetachOp.lean`). It does NOT generalize per-pattern cheaply —
+  the framework is the cost; once built, patterns become cheaper. **No VEIR pass
+  has attempted this**, so there is no precedent to copy and the ceiling is set
+  by VEIR's maturity, not by the Felt port.
+
+### F3 guidance (unblocked by this memo)
+
+- Adopt the Q1 model: name→prime registry, `Nat`-canonical runtime felt value,
+  Mathlib confined to a `ZMod`/`Data.Felt` bridge file.
+- Wire `RuntimeValue.felt` + `Felt.interpretOp'` into the core interpreter for
+  all 18 ops (Mathlib-free); `div`/`inv`/`pow` need the prime + primality.
+- Prove value-level `*_refinement`-style soundness per fold (cheap, axiom-clean).
+- Treat program-equivalence as out of scope unless separately greenlit.
+
+---
+
 ## 3. Pointers
 - Felt-port findings: `REVIEW.md` (this repo).
+- **F2 interpreter-semantics PoC: `Veir/Passes/Felt/InterpModel.lean`** + the §F2
+  memo above.
 - Bridge / assurance story: `../llzk-lean/docs/REVIEW.md`.
 - Structural-close spike (reusable lemma library + closed patterns):
   `../llzk-lean/Spike3.lean` (to be moved into `Veir/Passes/Felt/` per the
