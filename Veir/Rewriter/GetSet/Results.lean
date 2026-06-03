@@ -433,6 +433,21 @@ theorem OpOperandPtrPtr.get!_initOpResults {opOperandPtr : OpOperandPtrPtr} :
   · grind
   · simp only [get!_valueFirstUse_eq, ValuePtr.getFirstUse!_initOpResults, dite_eq_ite]; grind
 
+@[grind =]
+theorem Rewriter.initOpResults_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (initOpResults ctx op types index hop hidx) ↔
+    match ptr with
+    | .opResult resPtr
+    | .value (.opResult resPtr)
+    | .opOperandPtr (.valueFirstUse (.opResult resPtr)) =>
+      if resPtr.op = op then
+        resPtr.index < op.getNumResults! ctx + (types.size - index)
+      else
+        ptr.InBounds ctx
+    | _ => ptr.InBounds ctx := by
+  fun_induction Rewriter.initOpResults <;>
+    grind [OpResultPtr.inBounds_def]
+
 end Rewriter.initOpResults
 
 end Veir

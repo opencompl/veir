@@ -445,7 +445,7 @@ theorem OperationPtr.next!_createOp {operation : OperationPtr} :
     | none =>
       if operation = newOp then none else (operation.get! ctx).next := by
   simp only [Rewriter.createOp]
-  grind (gen := 20) (splits := 20) [cases InsertPoint]
+  grind (gen := 20) (splits := 20) (instances := 2000) [cases InsertPoint]
 
 @[grind =>]
 theorem OperationPtr.parent!_createOp {operation : OperationPtr} :
