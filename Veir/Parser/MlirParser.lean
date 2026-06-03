@@ -258,7 +258,7 @@ def parseOpResult : MlirParserM (ByteArray × Nat × Location) := do
 
   let count := (← parseInteger false false).toNat
   if count ≤ 1 then
-    throwString "expected named operation to have at least 1 result"
+    throwAt tokenPos "expected named operation to have at least 1 result"
 
   return (name, count, tokenPos)
 
@@ -319,9 +319,10 @@ def parseOperand : MlirParserM UnresolvedOperand := do
     | return UnresolvedOperand.mk name none tokenPos
 
   /- Parse the result count as a Nat. -/
+  let hashPos := resultCount.slice.start
   let resultCount := { resultCount.slice with start := resultCount.slice.start + 1 }.of (← getInput) -- skip # character
   let some resultCount := String.fromUTF8? resultCount >>= String.toNat?
-    | throwString "invalid SSA value result number"
+    | throwAt hashPos "invalid SSA value result number"
   return UnresolvedOperand.mk name resultCount tokenPos
 
 /--
@@ -352,7 +353,7 @@ def parseBlockOperands : MlirParserM (Array BlockPtr) := do
 -/
 def resolveOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) : MlirParserM ValuePtr := do
   let some (values, defPos) := (← getValues? operand.name)
-    | throwString s!"use of undefined value %{operand.nameString}"
+    | throwAt operand.pos s!"use of undefined value %{operand.nameString}"
   let some value := values[operand.indexD]?
     | throw (({ msg := s!"invalid result index {operand.indexD} for %{operand.nameString}",
                 pos := some operand.pos } : ParserError).addNote defPos "value defined here")
@@ -380,7 +381,7 @@ def parseOptionalType : MlirParserM (Option TypeAttr) := do
 def parseType (errorMsg : String := "type expected") : MlirParserM TypeAttr := do
   match ← parseOptionalType with
   | some ty => return ty
-  | none => throwString errorMsg
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse an operation type, consisting of a colon followed by a function type.
@@ -415,10 +416,11 @@ def parseTypedValue : MlirParserM (ByteArray × TypeAttr × Location) := do
   to parse valid MLIR syntax.
 -/
 def parseOpProperties (opCode : OpCode) : MlirParserM (propertiesOf opCode) := do
+  let propertiesStart ← getPos
   if not (← parseOptionalPunctuation "<") then
     match Properties.fromAttrDict opCode {} with
     | .ok properties => return properties
-    | .error err => throwString err
+    | .error err => throwAtCurrentPos err
   let allowUnregisteredDialect := (← get).allowUnregisteredDialect
   match AttrParser.parseAttributeDictionary.run { allowUnregisteredDialect } (← getThe ParserState) with
   | .ok (properties, _, parserState) =>
@@ -426,7 +428,7 @@ def parseOpProperties (opCode : OpCode) : MlirParserM (propertiesOf opCode) := d
     parsePunctuation ">"
     match Properties.fromAttrDict opCode (.ofArray properties) with
     | .ok properties => return properties
-    | .error err => throwString err
+    | .error err => throwAt propertiesStart err
   | .error err => throw err
 
 /--
@@ -524,11 +526,11 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
 
   /- Check that the number of results matches with the operation type. -/
   if outputTypes.size ≠ numResults then
-    throwString s!"operation '{opName}' declares {outputTypes.size} result types, but {numResults} result values were provided"
+    throwAt opNameStart s!"operation '{opName}' declares {outputTypes.size} result types, but {numResults} result values were provided"
 
   /- Check that the number and types of operands matches with the operation type. -/
   if inputTypes.size ≠ operands.size then
-    throwString s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
+    throwAt opNameStart s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
   let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
 
   let op ← modifyContextM' fun ctx => do
@@ -537,7 +539,7 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
     let ⟨hregions⟩ ← checkAllRegionsInBounds regions ctx.raw
     let ⟨hins⟩ ← checkMaybeInsertPointInBounds ip ctx.raw
     match hctx' : Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip hoper hblockOperands hregions hins with
-    | none => throwString "internal error: failed to create operation"
+    | none => throwAt opNameStart "internal error: failed to create operation"
     | some (ctx', op) =>
       have hop : op.InBounds ctx' := Rewriter.createOp_new_inBounds op hctx'
       let ctx'' := op.setAttributes ctx' attrs hop
@@ -576,7 +578,7 @@ partial def parseRegion : MlirParserM RegionPtr := do
   parsePunctuation "{"
   let region := ← modifyContextM' fun ctx => do
     match hctx' : Rewriter.createRegion ctx with
-    | none => throwString "internal error: failed to create region"
+    | none => throwAtCurrentPos "internal error: failed to create region"
     | some (ctx', region) => pure (region, ⟨ctx', by grind [IRContext.wellFormed_Rewriter_createRegion]⟩)
 
   /- Case where there are no blocks inside the region. -/
