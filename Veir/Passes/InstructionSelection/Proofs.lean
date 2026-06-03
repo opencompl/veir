@@ -1,5 +1,7 @@
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.LLVM.Int.Basic
+import Veir.Data.LLVM.Int.Simp
+import Veir.Data.LLVM.Int.Bitblast
 import Veir.Data.Casting
 import Veir.Data.Refinement
 import Std.Tactic.BVDecide
@@ -38,3 +40,14 @@ theorem add_refinement:
       · simp only [Id.run, Data.LLVM.Int.val.injEq] at *
         bv_decide
   · bv_decide
+
+theorem rewrite_paper_example {x y : Data.LLVM.Int 32} :
+  isRefinedBy
+    (let c64 := Data.LLVM.Int.constant 64 64
+    let sextx := Data.LLVM.Int.sext x 64 (by omega)
+    let sexty := Data.LLVM.Int.sext y 64 (by omega)
+    let mul := Data.LLVM.Int.mul sextx sexty
+    let ashr := Data.LLVM.Int.ashr mul c64
+    Data.LLVM.Int.trunc ashr 32 (_h := by omega))
+    (RISCV.Reg.toInt (Data.RISCV.mulh (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 32) := by
+  simp [llvm_toBitVec]
