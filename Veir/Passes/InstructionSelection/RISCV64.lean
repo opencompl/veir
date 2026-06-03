@@ -597,6 +597,26 @@ def lshr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
   rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
 
+set_option warn.sorry false in
+/-- llvm.load -> riscv.ld -/
+def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (ptr, _) := matchLoad op rewriter.ctx | return rewriter
+  /- only support `i64`: the constraint is on the loaded (result) type, not the pointer -/
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
+  let .integerType type' := type.val | return rewriter
+  if type'.bitwidth ≠ 64 then return rewriter
+  /- First, cast the pointer operand to a register -/
+  let (rewriter, pcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[ptr]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Actual `riscv.ld` -/
+  let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
+  let (rewriter, ldOp) ← rewriter.createOp (.riscv .ld) #[RegisterType.mk] #[pcastOp.getResult 0]
+      #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Cast back result for type consistency -/
+  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[ldOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
 
 /-! # Pass implementation -/
 
