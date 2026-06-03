@@ -38,8 +38,7 @@
     
         bflyGS(A, B, root, cmod):
             (A + B % cmod, (A - B) * root % cmod)
-    Reference: 
-    https://github.com/google/heir/blob/1210ad37dc9531d6e60d8ddbce81dbd79f7626a6/lib/Dialect/Polynomial/Conversions/PolynomialToModArith/PolynomialToModArith.cpp#L1060 
+    Reference: https://github.com/google/heir/blob/1210ad37dc9531d6e60d8ddbce81dbd79f7626a6/lib/Dialect/Polynomial/Conversions/PolynomialToModArith/PolynomialToModArith.cpp#L1060 
 */
 #include <stddef.h>
 
