@@ -606,7 +606,7 @@ def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | return rewriter
   if type'.bitwidth ≠ 64 then return rewriter
-  /- Create`riscv.ld` -/
+  /- Create`riscv.ld` with offset zero -/
   let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
   let (rewriter, ldOp) ← rewriter.createOp (.riscv .ld) #[RegisterType.mk] #[ptr]
       #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
