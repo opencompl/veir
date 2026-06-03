@@ -1,9 +1,59 @@
 // RUN: VEIR_UNREGISTERED_ROUNDTRIP
 // RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
-// This test results from the lowering of a C implementation of the FastNTT algorithm, based on the Heir 
-// pseudocode: https://github.com/google/heir/blob/1210ad37dc9531d6e60d8ddbce81dbd79f7626a6/lib/Dialect/Polynomial/Conversions/PolynomialToModArith/PolynomialToModArith.cpp#L1060. 
-// We detail the flags and specifics of the lowering from C to LLVM IR in https://github.com/opencompl/veir/pull/458
+// This file contains a very naive implementation of the FastNTT algorithm, derived from the following C 
+// implementation, which is itself based on the heir pseudocode
+// (https://github.com/google/heir/blob/1210ad37dc9531d6e60d8ddbce81dbd79f7626a6/lib/Dialect/Polynomial/Conversions/PolynomialToModArith/PolynomialToModArith.cpp#L1060)
+
+// #include <stddef.h>
+// __attribute__((always_inline)) static long log2FloorAux(long n) {
+//     long result = 0;
+//     while (n > 1) {
+//         n >>= 1;
+//         result++;
+//     }
+//     return result;
+// }
+// __attribute__((always_inline)) static long log2Floor(long n) {
+//     return log2FloorAux(n);
+// }
+// /* bflyCT */
+// __attribute__((always_inline)) static void bflyCT(long A, long B, long root, long cmod, long *outA, long *outB) {
+//     *outA = (A + root * B % cmod) % cmod;
+//     *outB = (A - root * B % cmod + cmod) % cmod;
+// }
+// /* bflyGS */
+// __attribute__((always_inline)) static void bflyGS(long A, long B, long root, long cmod, long *outA, long *outB) {
+//     *outA = (A + B) % cmod;
+//     *outB = (A - B) * root % cmod;
+// }
+// __attribute__((always_inline)) void fastNTT(long *coeffs, long n, long cmod, const long *roots, long inverse, long degree) {
+//     long m = inverse ? n : 2;
+//     long r = inverse ? 1 : degree / 2;
+//     long rootExp = n / 2;
+//     for (long s = 0; s < log2Floor(n); s++) {
+//         for (long k = 0; k < n / m; k++) {
+//             for (long j = 0; j < m / 2; j++) {
+//                 long A    = coeffs[k * m + j];
+//                 long B    = coeffs[k * m + j + m / 2];
+//                 long root = roots[(2 * j + 1) * rootExp];
+//                 long outA, outB;
+//                 bflyCT(A, B, root, cmod, &outA, &outB);
+//                 coeffs[k * m + j]         = outA;
+//                 coeffs[k * m + j + m / 2] = outB;
+//             }
+//         }
+//         rootExp = rootExp / 2;
+//         m = inverse ? m / 2 : m * 2;
+//         r = inverse ? r * 2 : r / 2;
+//     }
+// }
+
+// We lower the C implementation via the following steps: 
+// * clang -S -emit-llvm fastntt.c -o fastntt.ll
+// * opt -passes='always-inline,mem2reg' fastntt.ll -S -o fastntt_inlined.ll
+// * mlir-translate --import-llvm fastntt_inlined.ll --mlir-print-op-generic --mlir-print-local-scope -o fastntt.mlir
+// and obtain the LLVM IR code below. 
 
 "builtin.module"() ({
   "llvm.module_flags"() <{flags = [#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>, #llvm.mlir.module_flag<min, "PIC Level", 2 : i32>, #llvm.mlir.module_flag<max, "PIE Level", 2 : i32>, #llvm.mlir.module_flag<max, "uwtable", 2 : i32>, #llvm.mlir.module_flag<max, "frame-pointer", 2 : i32>]}> : () -> ()
