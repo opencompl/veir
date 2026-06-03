@@ -606,24 +606,18 @@ def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | return rewriter
   if type'.bitwidth ≠ 64 then return rewriter
-  /- First, cast the pointer operand to a register -/
-  let (rewriter, pcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[ptr]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- Actual `riscv.ld` -/
+  /- Create`riscv.ld` -/
   let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-  let (rewriter, ldOp) ← rewriter.createOp (.riscv .ld) #[RegisterType.mk] #[pcastOp.getResult 0]
+  let (rewriter, ldOp) ← rewriter.createOp (.riscv .ld) #[RegisterType.mk] #[ptr]
       #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
-  /- Cast back result for type consistency -/
-  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[ldOp.getResult 0]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  rewriter.replaceOp op ldOp sorry sorry sorry sorry sorry
 
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul,
-    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub]
+    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
