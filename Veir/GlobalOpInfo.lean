@@ -30,6 +30,7 @@ match opCode with
 | .hw op => HW.propertiesOf op
 | .builtin .unregistered => UnregisteredProperties
 | .func .func => FuncFuncProperties
+| .func .call => CallProperties
 | _ => Unit
 
 instance : HasDialectOpInfo OpCode where
@@ -111,10 +112,12 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case frem => exact (FastMathFlagsProperties.fromAttrDict attrDict)
     case func => exact (LLVMFuncProperties.fromAttrDict attrDict)
     case module_flags => exact (LLVMModuleFlagsProperties.fromAttrDict attrDict)
+    case call => exact (CallProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case func op =>
     cases op
     case func => exact (FuncFuncProperties.fromAttrDict attrDict)
+    case call => exact (CallProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case cf op =>
     cases op
@@ -278,6 +281,11 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .llvm .module_flags => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 3
     dict := dict.insert "flags".toUTF8 (Attribute.arrayAttr props.flags)
+    dict
+  | .func .call | .llvm .call => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    if let some callee := props.callee then
+      dict := dict.insert "callee".toUTF8 (.flatSymbolRefAttr callee)
     dict
   | .func .func => Id.run do
     let mut dict := Std.HashMap.ofList props.extra.entries.toList

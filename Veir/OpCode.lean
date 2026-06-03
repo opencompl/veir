@@ -60,6 +60,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 @[opcodes]
 inductive Func where
 | func
+| call
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -97,6 +98,7 @@ inductive Llvm where
 | load
 | store
 | getelementptr
+| call
 | return
 | func
 | module_flags

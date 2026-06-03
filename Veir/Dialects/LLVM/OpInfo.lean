@@ -30,6 +30,7 @@ match op with
 | .store => StoreProperties
 | .getelementptr => GetelementptrProperties
 | .fadd | .fsub | .fmul | .fdiv | .frem => FastMathFlagsProperties
+| .call => CallProperties
 | .func => LLVMFuncProperties
 | .module_flags => LLVMModuleFlagsProperties
 | _ => Unit

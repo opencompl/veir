@@ -460,6 +460,27 @@ def FuncFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   return { sym_name := symName, extra }
 
 /--
+  Properties shared by the `func.call` and `llvm.call` operations.
+  The `callee` is first-class, other attributes are kept verbatim in
+  `extra`. `callee` is optional because `llvm.call` doubles as an
+  indirect-call operation.
+-/
+structure CallProperties where
+  callee : Option FlatSymbolRefAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def CallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String CallProperties := do
+  let callee ← match attrDict["callee".toUTF8]? with
+    | some (.flatSymbolRefAttr s) => pure (some s)
+    | some attr => throw s!"call: expected 'callee' to be a flat symbol reference, but got {attr}"
+    | none => pure none
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) => k ≠ "callee".toUTF8)
+  return { callee, extra }
+
+/--
   Properties of `llvm.func`. The `sym_name` and `function_type` attributes are
   modelled explicitly; all other attributes (e.g. `CConv`, `linkage`, `visibility_`)
   are preserved verbatim in `extra`.
