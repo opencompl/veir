@@ -263,6 +263,9 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))
 #assert expectErrorType "!cuda_tile.ptr<16>" "integer type expected" (some 15)
+-- A `!cuda_tile.ptr<...>` may appear as a (parenthesized) function-type input. See #675.
+#assert expectSuccessType "(!cuda_tile.ptr<i1>) -> ()"
+  (FunctionType.mk #[(CudaTile.PointerType.mk (IntegerType.mk 1) : Attribute)] #[] (isVarArg := false))
 
 /-! ## Flat symbol reference attribute -/
 #assert expectSuccessAttr "@foo" (FlatSymbolRefAttr.mk "@foo")
