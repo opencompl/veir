@@ -356,7 +356,7 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .llvm .shl | .llvm .lshr | .llvm .ashr
   | .llvm .icmp | .llvm .select
   | .llvm .trunc | .llvm .sext | .llvm .zext
-  | .llvm .alloca | .llvm .getelementptr
+  | .llvm .getelementptr
   | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => false
   -- Volatile loads are definitionally side-effecting
   | .llvm .load => (op.getProperties! ctx (.llvm .load)).volatile_
