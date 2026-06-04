@@ -207,7 +207,7 @@ private def computeUpperNonneg (mag : Nat) (k prec : Int) (e _s : Nat) : EDyadic
 /-! ## Full Lower and Upper
 
 The definitions of `lower` and `upper` on negative numbers
-is obtained by symmetry through `EDyadic.neg`:
+are obtained by symmetry through `EDyadic.neg`:
 `lower(-y) = -(upper(+y))` and `upper(-y) = -(lower(+y))`.
 -/
 
