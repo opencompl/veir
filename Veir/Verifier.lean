@@ -381,8 +381,6 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    -- `func.call` is never indirect; the required `callee` is enforced by
-    -- `FuncCallProperties.fromAttrDict`.
     pure ()
   | .func .return => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -719,7 +717,6 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     pure ()
   | .llvm .call => do
-    -- `llvm.call` returns at most one value and allows indirect calls
     if op.getNumResults ctx.raw opIn > 1 then
       throw "Expected at most 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
