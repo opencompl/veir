@@ -180,7 +180,7 @@ Recall that if a number is exactly representable, then `lower = upper`.
   we return the truncated magnitude,
   which is the magnitude of `lower` (and equals `upper` in this case.).
 - When either guard or sticky is nonzero, we are performing some approximation,
-  and so we round up to the successor of the truncated magnitude.
+  and so `upper` is the successor of the truncated magnitude.
 -/
 private def computeUpperNonnegMag (mag : Nat) (k prec : Int) : Nat :=
   if computeGuardBit mag k prec || computeStickyBit mag k prec then
