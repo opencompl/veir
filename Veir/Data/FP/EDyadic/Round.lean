@@ -147,7 +147,7 @@ We write it in format `(e, s)`, as an `EDyadic`.
 - if `x` overflows (≥ `maxFinite`): `lower = +maxFinite`.
 - if `x` is normal and already at target precision (`k ≤ prec`): `lower = x`
 - if `x` is normal and not at target precision, we truncate: `lower = x.truncate (mag >>> (k - prec))`.
-- if `x` underflows, i.e, the truncation is zero: `lower = +0`, recall that both `-0` and `+0` map to the 
+- if `x` underflows, i.e., the truncation is zero: `lower = +0`, recall that both `-0` and `+0` map to the 
   real`0`, and we pick `+0` as `+0` is the greatest value `≤ 0`.
 -/
 private def computeLowerNonneg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
