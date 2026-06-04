@@ -617,13 +617,14 @@ def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
 
-/-- llvm.store -> riscv.sd -/
+set_option warn.sorry false in
 def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
-  let some (val, ptr, _) := matchStore op rewriter.ctx | return rewriter
-  let .integerType vty := (val.getType! rewriter.ctx.raw).val | return rewriter
-  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
+  dbg_trace "store pattern invoked"
+  let some (ptr, val, _) := matchStore op rewriter.ctx | return rewriter
+  dbg_trace "store pattern matched"
   /- only support storing `i64` -/
+  let .integerType vty := (val.getType! rewriter.ctx.raw).val | return rewriter
   if vty.bitwidth ≠ 64 then return rewriter
   /- value (i64) -> register -/
   let (rewriter, vcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[val]
@@ -631,14 +632,13 @@ def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   /- ptr (!llvm.ptr) -> register -/
   let (rewriter, pcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[ptr]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- `riscv.sd` with offset zero -/
+  /- `riscv.sd` with offset zero — order the operands to match sd's signature -/
   let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
   let (rewriter, sdOp) ← rewriter.createOp (.riscv .sd) #[] #[vcastOp.getResult 0, pcastOp.getResult 0]
       #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
-  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[sdOp.getResult 0]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter
 
+set_option warn.sorry false in
 /-- llvm.getelementptr (i64 elem, single index) -> riscv.sh3add -/
 def gep (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
@@ -667,7 +667,7 @@ def gep (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul,
-    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load]
+    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, store, gep]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx

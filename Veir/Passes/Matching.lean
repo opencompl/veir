@@ -131,10 +131,11 @@ def matchLoad (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
   let (op, properties) ← matchOp op ctx (.llvm .load) 1
   return (op[0]!, properties)
 
-def matchStore (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .store)) := do
-  let (op, properties) ← matchOp op ctx (.llvm .store) 2
-  return (op[0]!, op[1]!, properties)
+def matchStore (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × ValuePtr × propertiesOf (.llvm .store)) := do
+  let (operands, properties) ← matchOp op ctx (.llvm .store) 2
+  return (operands[0]!, operands[1]!, properties)
 
-def matchGep (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (.llvm .getelementptr)) := do
+def matchGep (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .getelementptr)) := do
   let (op, properties) ← matchOp op ctx (.llvm .getelementptr) 1
-  return (op[0]!, properties)
+  return (op[0]!, op[1]!, properties)
