@@ -1,5 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
-// RUN: MLIR_ROUNDTRIP
+// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "callee", function_type = !llvm.func<i32 (i32)>}> ({
