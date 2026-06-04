@@ -140,16 +140,15 @@ exponent, then we have an overflow. -/
 private def isOverflow (mag : Nat) (k : Int) (e : Nat) : Bool :=
   (bias e : Int) + (mag.log2 : Int) - k > maxBiasedExponent e
 
-/-- For `x = mag · 2^(-k) ≥ 0`: the greatest representable value `≤ x`
-in format `(e, s)`, as an `EDyadic`.
+/-- We compute the `lower` of a non-negative number for `x = mag · 2^(-k) ≥ 0` as 
+the *greatest lower bound* of the input, i.e., the greatest representable value `≤ x`.
+We write it in format `(e, s)`, as an `EDyadic`.
 
-- Overflow: Past `maxFinite`: `+maxFinite`.
-- Normal: Already at target precision (`k ≤ prec`): the input value itself.
-- Normal: Otherwise truncate: `mag >>> (k - prec)`.
-- Underflow: If the truncation is zero, saturate to `+0`.
-  Recall that `lower` computes the *greatest lower bound* of the input.
-  Thus, of the two choices between `-0` and `+0` both of which map to `0`,
-  we pick `+0` as `+0` is the greatest value `≤ 0`.
+- if `x` overflows (≥ `maxFinite`): `lower = +maxFinite`.
+- if `x` is normal and already at target precision (`k ≤ prec`): `lower = x`
+- if `x` is normal and not at target precision, we truncate: `lower = x.truncate (mag >>> (k - prec))`.
+- if `x` underflows, i.e, the truncation is zero: `lower = +0`, recall that both `-0` and `+0` map to the 
+  real`0`, and we pick `+0` as `+0` is the greatest value `≤ 0`.
 -/
 private def computeLowerNonneg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
   if isOverflow mag k e then
