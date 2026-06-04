@@ -313,7 +313,7 @@ private def computeRoundRNE
   else if computeIsLowerHalf sign mag k prec e then
     computeLower sign mag k prec e s
   else
-    -- Defensive default; unreachable given the partition of cases.
+    -- Unreachable given the partition of cases, default `computeLower`
     computeLower sign mag k prec e s
 
 /-- Round-to-nearest, tie away from zero. -/
