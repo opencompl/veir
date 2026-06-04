@@ -381,9 +381,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    -- func.call is never indirect
-    if (op.getProperties! ctx.raw (.func .call)).callee.isNone then
-      throw "Expected a 'callee' symbol reference"
+    -- `func.call` is never indirect; the required `callee` is enforced by
+    -- `FuncCallProperties.fromAttrDict`.
     pure ()
   | .func .return => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
