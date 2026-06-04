@@ -77,7 +77,6 @@ m5 m4 . m3 m2 m1 m0
                 |
                 sticky bits indeces = [m1, m0]
 
-  
 -/
 
 /--
@@ -123,7 +122,7 @@ private def computeTruncatedMag (mag : Nat) (k prec : Int) : Nat :=
 /-- The largest finite representable floating point in `(e, s)`,
 encoded as a `Dyadic`.
 
-Recall that `maxBiasedExponent e - bias e` represents the highest exponent we can use to represent a normal number, i.e., a number that is not overflowing/underflowing. 
+Recall that `maxBiasedExponent e - bias e` represents the highest exponent we can use to represent a normal number, i.e., a number that is not overflowing/underflowing.
 
 = 1.111111111111 * 2 ^ (maxBiasedExponent e - bias e)
   +--s bits--+
@@ -135,19 +134,19 @@ private def maxFiniteDyadic (e s : Nat) : Dyadic :=
   Dyadic.ofIntWithPrec ((2 : Int)^(s+1) - 1)
     ((s : Int) - (maxBiasedExponent e - bias e : Int))
 
-/-- If the exponent needed to represent`mag · 2^(-k)` is strictly larger than the largest 
+/-- If the exponent needed to represent`mag · 2^(-k)` is strictly larger than the largest
 exponent, then we have an overflow. -/
 private def isOverflow (mag : Nat) (k : Int) (e : Nat) : Bool :=
   (bias e : Int) + (mag.log2 : Int) - k > maxBiasedExponent e
 
-/-- We compute the `lower` of a non-negative number for `x = mag · 2^(-k) ≥ 0` as 
+/-- We compute the `lower` of a non-negative number for `x = mag · 2^(-k) ≥ 0` as
 the *greatest lower bound* of the input, i.e., the greatest representable value `≤ x`.
 We write it in format `(e, s)`, as an `EDyadic`.
 
 - if `x` overflows (`≥ maxFinite`): `lower = +maxFinite`.
 - if `x` is nonzero finite and already at target precision (`k ≤ prec`): `lower = x`
 - if `x` is nonzero finite and not at target precision, we truncate `mag`: `lower = mag.truncate (k - prec) · 2^(-prec)`.
-- if `x` underflows, i.e., the truncation is zero: `lower = +0`, recall that both `-0` and `+0` map to the 
+- if `x` underflows, i.e., the truncation is zero: `lower = +0`, recall that both `-0` and `+0` map to the
   real`0`, and we pick `+0` as `+0` is the greatest value `≤ 0`.
 -/
 private def computeLowerNonneg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
@@ -204,6 +203,31 @@ private def computeUpperNonneg (mag : Nat) (k prec : Int) (e _s : Nat) : EDyadic
     let roundedAway := computeUpperNonnegMag mag k prec
     if isOverflow roundedAway prec e then .infinity false
     else EDyadic.ofDyadic false (Dyadic.ofIntWithPrec (roundedAway : Int) prec)
+
+/-! ## Full Lower and Upper
+
+The definitions of `lower` and `upper` on negative numbers
+is obtained by symmetry through `EDyadic.neg`:
+`lower(-y) = -(upper(+y))` and `upper(-y) = -(lower(+y))`.
+-/
+
+/- Computer `lower` on negative numbers by using `lower (- y) =  -(upper(+y))`. -/
+private def computeLowerNeg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  -(computeUpperNonneg mag k prec e s)
+
+/-- Computer `upper` on negative numbers by using `upper (- y) =  -(lower(+y))`. -/
+private def computeUpperNeg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  -(computeLowerNonneg mag k prec e s)
+
+/-- `lower` on all numbers, dispatching based on the sign. -/
+private def computeLower (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  if sign then computeLowerNeg mag k prec e s
+  else computeLowerNonneg mag k prec e s
+
+/-- `upper` on all numbers, dispatching based on the sign. -/
+private def computeUpper (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  if sign then computeUpperNeg mag k prec e s
+  else computeUpperNonneg mag k prec e s
 
 end Dyadic
 
