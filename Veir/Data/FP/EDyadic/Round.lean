@@ -270,6 +270,29 @@ def computeIsLowerEven (sign : Bool) (mag : Nat) (k prec : Int) : Bool :=
 def computeIsUpperEven (sign : Bool) (mag : Nat) (k prec : Int) : Bool :=
   ! computeIsLowerEven sign mag k prec
 
+/-! ## Directional rounders: RTN, RTP, RTZ
+
+These three modes deterministically pick `lower` or `upper`; they do not
+consult the guard/sticky bits beyond what `computeLower`/`computeUpper`
+already encode. Their integration-level behaviour is exercised in
+`UnitTest.FP.EDyadic.Round`. -/
+
+/-- Round toward `+∞`: always pick `upper`. -/
+private def computeRoundRTP
+    (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  computeUpper sign mag k prec e s
+
+/-- Round toward `−∞`: always pick `lower`. -/
+private def computeRoundRTN
+    (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  computeLower sign mag k prec e s
+
+/-- Round toward zero: pick the approximant whose magnitude is smaller. -/
+private def computeRoundRTZ
+    (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
+  if sign then computeUpper sign mag k prec e s
+  else computeLower sign mag k prec e s
+
 end Dyadic
 
 end
