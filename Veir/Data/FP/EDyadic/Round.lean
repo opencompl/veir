@@ -229,6 +229,47 @@ private def computeUpper (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : 
   if sign then computeUpperNeg mag k prec e s
   else computeUpperNonneg mag k prec e s
 
+/-! ## Position predicates: lower-half, tie-break, parity
+
+These predicates classify `x`'s position within the interval `[lower, upper]`.
+
+- `computeIsLowerHalf` checks whether `x` is strictly closer to `lower` than `upper`.
+- `computeIsTieBreak` checks whether`x` is exactly at the midpoint.
+- `computeIsLowerEven` / `computeIsUpperEven` checks whether the `lower` / `upper` candidat
+  have even magnitude (i.e. the lsb of the significand is zero).
+  This is used for RNE rounding.
+-/
+
+/-- Nonneg `x`: When `x` is finite, `x` is in the lower half iff the guard bit is zero.
+For overflow inputs, the abstract definition says that `x` is *never* in the lower half.
+-/
+private def computeIsLowerHalfNonneg (mag : Nat) (k prec : Int) (e : Nat) : Bool :=
+  if isOverflow mag k e then false
+  else ! computeGuardBit mag k prec
+
+/-- Neg `x`: `x` is not in the lower half iff `-x` is in the lower half. -/
+private def computeIsLowerHalfNeg (mag : Nat) (k prec : Int) (e : Nat) : Bool :=
+  ! computeIsLowerHalfNonneg mag k prec e
+
+/--  `x` is strictly in the lower half of the interval `[lower, upper]`. -/
+def computeIsLowerHalf (sign : Bool) (mag : Nat) (k prec : Int) (e : Nat) : Bool :=
+  if sign then computeIsLowerHalfNeg mag k prec e
+  else computeIsLowerHalfNonneg mag k prec e
+
+/-- A tie: `x` is exactly at the midpoint of `[lower, upper]`. Overflows are never ties. -/
+def computeIsTieBreak (mag : Nat) (k prec : Int) (e : Nat) : Bool :=
+  if isOverflow mag k e then false
+  else computeGuardBit mag k prec && ! computeStickyBit mag k prec
+
+/-- Whether the significand of `lower x` is even. -/
+def computeIsLowerEven (sign : Bool) (mag : Nat) (k prec : Int) : Bool :=
+  if sign then ! computeIsTruncatedMagEven mag k prec
+  else computeIsTruncatedMagEven mag k prec
+
+/-- Whether the significand of `upper x` is even. -/
+def computeIsUpperEven (sign : Bool) (mag : Nat) (k prec : Int) : Bool :=
+  ! computeIsLowerEven sign mag k prec
+
 end Dyadic
 
 end
