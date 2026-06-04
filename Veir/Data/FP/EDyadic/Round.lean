@@ -2,7 +2,7 @@ module
 
 public import Veir.Data.FP.EDyadic.Basic
 public import Veir.Data.FP.FloatFormat
-public meta import Veir.Data.FP.FloatFormat -- for #guard evaluation.
+public meta import Veir.Data.FP.FloatFormat
 
 namespace Veir.Data.FP
 
