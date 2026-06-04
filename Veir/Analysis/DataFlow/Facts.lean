@@ -98,6 +98,7 @@ current state in some fashion), and the fact specific payload determined by its
 `FactKind`.
 -/
 structure Fact (kind : FactKind) where
+  anchor : LatticeAnchor
   dependents : Array WorkItem := #[]
   payload : FactPayload kind
 

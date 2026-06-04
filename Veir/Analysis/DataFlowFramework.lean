@@ -34,7 +34,7 @@ class FactSpec (kind : FactKind) where
   /--
   Default state a fact starts in. Typically either bottom or top. 
   -/
-  mkDefault : Fact kind
+  mkDefault : LatticeAnchor -> Fact kind
   /--
   Hook that's called when the fact changes state. Typically used to
   enqueue a fact's dependents because it changed.
@@ -46,8 +46,8 @@ namespace Fact
 /--
 Construct the default fact for a given lattice anchor. 
 -/
-def mkDefault (kind : FactKind) [FactSpec kind] : Fact kind :=
-  FactSpec.mkDefault (kind := kind)
+def mkDefault (kind : FactKind) [FactSpec kind] (anchor : LatticeAnchor) : Fact kind :=
+  FactSpec.mkDefault (kind := kind) anchor
 
 /--
 Run the fact kind's propagation hook.
@@ -103,7 +103,7 @@ def getOrMkFact (kind : FactKind) [spec : FactSpec kind]
     (ctx : DataFlowContext) (anchor : LatticeAnchor) : Fact kind :=
   match ctx.getFact? kind anchor with
   | some fact => fact
-  | none => Fact.mkDefault kind
+  | none => Fact.mkDefault kind anchor
 
 /--
 Overwrite the stored fact of kind `kind` for `anchor`. 
