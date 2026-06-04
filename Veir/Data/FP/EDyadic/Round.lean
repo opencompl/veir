@@ -133,10 +133,8 @@ private def maxFiniteDyadic (e s : Nat) : Dyadic :=
   Dyadic.ofIntWithPrec ((2 : Int)^(s+1) - 1)
     ((s : Int) - (maxBiasedExponent e - bias e : Int))
 
-/-- `mag · 2^(-k)` is strictly larger than the largest representable value
-of format `(e, _)`. The largest finite biased exponent is `2^e - 2`;
-anything above overflows. Used by the bracket helpers and position
-predicates to detect far-overflow inputs. -/
+/--  If the exponent needed to represent`mag · 2^(-k)` is strictly larger than the largest 
+exponent, then we have an overflow. -/
 private def isOverflow (mag : Nat) (k : Int) (e : Nat) : Bool :=
   (bias e : Int) + (mag.log2 : Int) - k > maxBiasedExponent e
 
