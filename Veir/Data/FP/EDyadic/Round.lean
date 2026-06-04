@@ -169,7 +169,7 @@ This corresponds to the magnitude of the `upper` candidate.
 -/
 
 /-- One plus the truncated magnitude, which is the significand of the
-number that is adjacent to `lower`. -/
+first representable number that is adjacent to `lower`. -/
 private def computeSuccessorMag (mag : Nat) (k prec : Int) : Nat :=
   computeTruncatedMag mag k prec + 1
 
