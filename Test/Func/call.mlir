@@ -1,11 +1,11 @@
 // RUN: VEIR_ROUNDTRIP
 // RUN: MLIR_ROUNDTRIP
 "builtin.module"() ({
-  "func.func"() <{sym_name = "callee"}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "callee"}> ({
   ^bb0(%arg0: i32):
     "func.return"(%arg0) : (i32) -> ()
   }) : () -> ()
-  "func.func"() <{sym_name = "caller"}> ({
+  "func.func"() <{function_type = (i32) -> i32, sym_name = "caller"}> ({
   ^bb0(%arg0: i32):
     %0 = "func.call"(%arg0) <{callee = @callee}> : (i32) -> i32
     "func.return"(%0) : (i32) -> ()
