@@ -617,51 +617,6 @@ def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
 
-set_option warn.sorry false in
-def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
-    Option (PatternRewriter OpCode) := do
-  dbg_trace "store pattern invoked"
-  let some (ptr, val, _) := matchStore op rewriter.ctx | return rewriter
-  dbg_trace "store pattern matched"
-  /- only support storing `i64` -/
-  let .integerType vty := (val.getType! rewriter.ctx.raw).val | return rewriter
-  if vty.bitwidth ≠ 64 then return rewriter
-  /- value (i64) -> register -/
-  let (rewriter, vcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[val]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- ptr (!llvm.ptr) -> register -/
-  let (rewriter, pcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[ptr]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- `riscv.sd` with offset zero — order the operands to match sd's signature -/
-  let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-  let (rewriter, sdOp) ← rewriter.createOp (.riscv .sd) #[] #[vcastOp.getResult 0, pcastOp.getResult 0]
-      #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
-  return rewriter
-
-set_option warn.sorry false in
-/-- llvm.getelementptr (i64 elem, single index) -> riscv.sh3add -/
-def gep (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
-    Option (PatternRewriter OpCode) := do
-  let some (base, idx, _) := matchGep op rewriter.ctx | return rewriter
-  /- only support element type `i64` (scale 8 = sh3add) with one index -/
-  let .integerType vty := (base.getType! rewriter.ctx.raw).val | return rewriter
-  if vty.bitwidth ≠ 64 then return rewriter
-  /- index (i64) -> register -/
-  let (rewriter, icastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[idx]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- base (!llvm.ptr) -> register -/
-  let (rewriter, bcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[base]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- `riscv.sh3add` -/
-  let (rewriter, addOp) ← rewriter.createOp (.riscv .sh3add) #[RegisterType.mk] #[icastOp.getResult 0, bcastOp.getResult 0]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- register -> !llvm.ptr -/
-  let ptrTy := ((op.getResult 0).get! rewriter.ctx.raw).type
-  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[ptrTy] #[addOp.getResult 0]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
-
-
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
