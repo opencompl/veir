@@ -192,8 +192,7 @@ private def computeUpperNonnegMag (mag : Nat) (k prec : Int) : Nat :=
 - if `x` overflows (`≥ maxFinite`): `upper = +maxFinite`.
 - if `x` is nonzero finite and already at target precision (`k ≤ prec`): `upper = x`
 - if `x` is nonzero finite and not at target precision, we compute the upper `mag`.
-  - If the the upper `mag` is too large, 
-    then we have an overflow, and we return `+infinity`.
+  - If the the upper `mag` is too large, then we have an overflow, and we return `+infinity`.
   - Otherwise, we return the upper candidate `mag` at target precision.
 -/
 private def computeUpperNonneg (mag : Nat) (k prec : Int) (e _s : Nat) : EDyadic :=
