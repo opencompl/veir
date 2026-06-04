@@ -71,23 +71,23 @@ the forwarded branch conditions; the later block arguments are the actual values
 we care about.
 -/
 private def testLoopCarriesConstantThroughUnknownBackedge : String :=
-  let mlir := "\"builtin.module\"() ({\n\
-^bb0:\n\
-  %x0 = \"arith.constant\"() <{ value = 1 : i32 }> : () -> i32\n\
-  \"test.test\"(%x0, %x0)[^bb1] : (i32, i32) -> ()\n\
-^bb1(%dead1 : i32, %x1 : i32):\n\
-  %one = \"arith.constant\"() <{ value = 1 : i32 }> : () -> i32\n\
-  %b = \"arith.subi\"(%x1, %one) : (i32, i32) -> i32\n\
-  \"test.test\"(%b, %x1)[^bb2, ^bb3] : (i32, i32) -> ()\n\
-^bb2(%dead_then : i32, %x1_then : i32):\n\
-  %x2 = \"arith.constant\"() <{ value = 2 : i32 }> : () -> i32\n\
-  \"test.test\"(%x2, %x2)[^bb3] : (i32, i32) -> ()\n\
-^bb3(%dead2 : i32, %x3 : i32):\n\
-  %pred = \"test.test\"() : () -> i32\n\
-  \"test.test\"(%pred, %x3)[^bb1, ^bb4] : (i32, i32) -> ()\n\
-^bb4(%dead3 : i32, %retv : i32):\n\
-}) : () -> ()"
-  run mlir
+  run
+    r#""builtin.module"() ({
+^bb0:
+  %x0 = "arith.constant"() <{ value = 1 : i32 }> : () -> i32
+  "test.test"(%x0, %x0)[^bb1] : (i32, i32) -> ()
+^bb1(%dead1 : i32, %x1 : i32):
+  %one = "arith.constant"() <{ value = 1 : i32 }> : () -> i32
+  %b = "arith.subi"(%x1, %one) : (i32, i32) -> i32
+  "test.test"(%b, %x1)[^bb2, ^bb3] : (i32, i32) -> ()
+^bb2(%dead_then : i32, %x1_then : i32):
+  %x2 = "arith.constant"() <{ value = 2 : i32 }> : () -> i32
+  "test.test"(%x2, %x2)[^bb3] : (i32, i32) -> ()
+^bb3(%dead2 : i32, %x3 : i32):
+  %pred = "test.test"() : () -> i32
+  "test.test"(%pred, %x3)[^bb1, ^bb4] : (i32, i32) -> ()
+^bb4(%dead3 : i32, %retv : i32):
+}) : () -> ()"#
     #[("bb0", true), ("bb1", true), ("bb2", false), ("bb3", true), ("bb4", true)]
     #[ (("bb0", "bb1"), true)
      , (("bb1", "bb2"), false)

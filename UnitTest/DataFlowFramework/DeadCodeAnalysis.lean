@@ -15,37 +15,40 @@ private def run
         checkNamedBlockLiveness dfCtx parserState.ctx recovered.blocks expectedBlockLives)
 
 private def testTopLevelAndFunctionEntryBlocksLive : String :=
-  let mlir := "\"builtin.module\"() ({\n\
-^bb0:\n\
-  \"func.func\"() ({\n\
-  ^entry:\n\
-  }) : () -> ()\n\
-}) : () -> ()"
-  run mlir #[("bb0", true), ("entry", true)]
+  run
+    r#""builtin.module"() ({
+^bb0:
+  "func.func"() ({
+  ^entry:
+  }) : () -> ()
+}) : () -> ()"#
+    #[("bb0", true), ("entry", true)]
 
 private def testLiteralBranchWithoutSCPTakesKnownSuccessor : String :=
-  let mlir := "\"builtin.module\"() ({\n\
-^bb0:\n\
-  %cond = \"arith.constant\"() <{ value = 1 : i32 }> : () -> i32\n\
-  \"test.test\"(%cond)[^bb1, ^bb2] : (i32) -> ()\n\
-^bb1:\n\
-  %x = \"arith.constant\"() <{ value = 10 : i32 }> : () -> i32\n\
-^bb2:\n\
-  %y = \"arith.constant\"() <{ value = 20 : i32 }> : () -> i32\n\
-}) : () -> ()"
-  run mlir #[("bb1", true), ("bb2", false)]
+  run
+    r#""builtin.module"() ({
+^bb0:
+  %cond = "arith.constant"() <{ value = 1 : i32 }> : () -> i32
+  "test.test"(%cond)[^bb1, ^bb2] : (i32) -> ()
+^bb1:
+  %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+^bb2:
+  %y = "arith.constant"() <{ value = 20 : i32 }> : () -> i32
+}) : () -> ()"#
+    #[("bb1", true), ("bb2", false)]
 
 private def testUnknownBranchWithoutSCPMarksAllSuccessorsLive : String :=
-  let mlir := "\"builtin.module\"() ({\n\
-^bb0:\n\
-  %cond = \"test.test\"() : () -> i32\n\
-  \"test.test\"(%cond)[^bb1, ^bb2] : (i32) -> ()\n\
-^bb1:\n\
-  %x = \"arith.constant\"() <{ value = 10 : i32 }> : () -> i32\n\
-^bb2:\n\
-  %y = \"arith.constant\"() <{ value = 20 : i32 }> : () -> i32\n\
-}) : () -> ()"
-  run mlir #[("bb1", true), ("bb2", true)]
+  run
+    r#""builtin.module"() ({
+^bb0:
+  %cond = "test.test"() : () -> i32
+  "test.test"(%cond)[^bb1, ^bb2] : (i32) -> ()
+^bb1:
+  %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+^bb2:
+  %y = "arith.constant"() <{ value = 20 : i32 }> : () -> i32
+}) : () -> ()"#
+    #[("bb1", true), ("bb2", true)]
 
 /--
 info: "ok"
