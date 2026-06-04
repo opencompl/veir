@@ -178,7 +178,7 @@ Magnitude of the `upper` candidate.
 Recall that if a number is exactly representable, then `lower = upper`.
 - When guard and sticky are both zero, (i.e., we have no imprecision),
   we return the truncated magnitude,
-  which is the magnitude of `lower` (which equals `upper` in this case.).
+  which is the magnitude of `lower` (and equals `upper` in this case.).
 - When either guard or sticky is nonzero, we are performing some approximation,
   and so we round up to the successor of the truncated magnitude.
 -/
