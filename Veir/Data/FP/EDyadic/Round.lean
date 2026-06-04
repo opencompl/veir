@@ -165,8 +165,7 @@ private def computeLowerNonneg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic 
 `computeSuccessorMag` computes the successor of the truncated magnitude.
 This corresponds to the magnitude of the `upper` candidate.
 
-`computeUpperNonneg` returns the
-least representable value `≥ x` for `x = mag · 2^(-k) ≥ 0`.
+`computeUpperNonneg` returns the least representable value `≥ x` for `x = mag · 2^(-k) ≥ 0`.
 -/
 
 /-- One plus the truncated magnitude, which is the significand of the
