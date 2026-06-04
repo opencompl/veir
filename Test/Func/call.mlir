@@ -1,5 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
-
+// RUN: MLIR_ROUNDTRIP
 "builtin.module"() ({
   "func.func"() <{sym_name = "callee"}> ({
   ^bb0(%arg0: i32):
