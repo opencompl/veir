@@ -211,7 +211,7 @@ are obtained by symmetry through `EDyadic.neg`:
 `lower(-y) = -(upper(+y))` and `upper(-y) = -(lower(+y))`.
 -/
 
-/- Computer `lower` on negative numbers by using `lower (- y) =  -(upper(+y))`. -/
+/- Compute `lower` on negative numbers by using `lower (-y) =  -(upper(+y))`. -/
 private def computeLowerNeg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
   -(computeUpperNonneg mag k prec e s)
 
