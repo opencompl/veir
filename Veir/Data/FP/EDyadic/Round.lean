@@ -134,7 +134,7 @@ private def maxFiniteDyadic (e s : Nat) : Dyadic :=
   Dyadic.ofIntWithPrec ((2 : Int)^(s+1) - 1)
     ((s : Int) - (maxBiasedExponent e - bias e : Int))
 
-/-- If the exponent needed to represent`mag · 2^(-k)` is strictly larger than the largest
+/-- If the exponent needed to represent `mag · 2^(-k)` is strictly larger than the largest
 exponent, then we have an overflow. -/
 private def isOverflow (mag : Nat) (k : Int) (e : Nat) : Bool :=
   (bias e : Int) + (mag.log2 : Int) - k > maxBiasedExponent e
