@@ -158,7 +158,9 @@ def InterpreterState.empty (ctx : WfIRContext OpInfo) : InterpreterState ctx :=
   { variables := .empty ctx, memory := .empty }
 
 /--
-  Set the value of a variable.
+  Set the runtime value of a variable.
+  This function dynamically checks that the runtime value conforms to the variable type, and
+  return `none` otherwise.
 -/
 def VariableState.setVar? (state : VariableState ctx) (var : ValuePtr)
     (val : RuntimeValue) (inBounds : var.InBounds ctx.raw := by grind) :
@@ -169,6 +171,18 @@ def VariableState.setVar? (state : VariableState ctx) (var : ValuePtr)
       by grind [cases VariableState]⟩
   else
     none
+
+/--
+  Set the runtime value of a variable.
+  This function requires a proof that the runtime value conforms to the variable type.
+-/
+def VariableState.setVar (state : VariableState ctx) (var : ValuePtr)
+    (val : RuntimeValue) (h : val.Conforms (var.getType! ctx.raw) := by grind)
+    (inBounds : var.InBounds ctx.raw := by grind) :
+    VariableState ctx :=
+  ⟨state.variables.insert var val,
+    by grind [VariableState.ValuesConform, cases VariableState],
+    by grind [cases VariableState]⟩
 
 /--
   Get the value of a variable, if the variable exists.

@@ -9,6 +9,11 @@ variable {varState varState' : VariableState ctx}
 variable {state state' : InterpreterState ctx}
 variable {op op' : OperationPtr}
 
+@[grind =]
+theorem Variable.setVar?_eq_some_setVar (h : val.Conforms (var.getType! ctx.raw)) :
+    varState.setVar? var val inBounds = some (varState.setVar var val h inBounds) := by
+  grind [VariableState.setVar?, VariableState.setVar]
+
 theorem VariableState.setVar?_eq_none_iff_of_varState
     (varState₂ : VariableState ctx) :
     varState.setVar? var' val inBounds = none ↔ varState₂.setVar? var' val = none := by
@@ -59,6 +64,12 @@ theorem VariableState.getVar?_of_setVar? :
     varState'.getVar? var =
     if var = var' then some val else varState.getVar? var := by
   grind [VariableState.setVar?, VariableState.getVar?]
+
+@[grind =]
+theorem VariableState.getVar?_of_setVar :
+    VariableState.getVar? (varState.setVar var' val h inBounds) var =
+    if var = var' then some val else varState.getVar? var := by
+  grind [VariableState.setVar, VariableState.getVar?]
 
 theorem VariableState.getVar?_setResultValues?_loop :
     varState.setResultValues?_loop op resultValues idx inBounds hi = some varState' →
