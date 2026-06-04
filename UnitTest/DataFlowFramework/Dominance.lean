@@ -321,18 +321,17 @@ def testDomIfLoopIf : String :=
   do not dominate each other.
 -/
 def testDomNestedRegions : String :=
-  run
-    "\"builtin.module\"() ({\n\
-    ^bb0:\n\
-      \"test.test\"() ({\n\
-      ^bb1:\n\
-        \"test.test\"() : () -> ()\n\
-      }) : () -> ()\n\
-      \"test.test\"() ({\n\
-      ^bb2:\n\
-        \"test.test\"() : () -> ()\n\
-      }) : () -> ()\n\
-    }) : () -> ()"
+  run r#""builtin.module"() ({
+^bb0:
+  "test.test"() ({
+  ^bb1:
+    "test.test"() : () -> ()
+  }) : () -> ()
+  "test.test"() ({
+  ^bb2:
+    "test.test"() : () -> ()
+  }) : () -> ()
+}) : () -> ()"#
     #[ { name := "bb0", dominators := { "bb0" },        iDom := "bb0" }
      , { name := "bb1", dominators := { "bb0", "bb1" }, iDom := "bb1" }
      , { name := "bb2", dominators := { "bb0", "bb2" }, iDom := "bb2" }
@@ -354,20 +353,19 @@ def testDomNestedRegions : String :=
           └───────┘
 -/
 def testDomDiamondNestedJoin : String :=
-  run
-    "\"builtin.module\"() ({\n\
-^bb0:\n\
-  \"test.test\"() [^bb1, ^bb2] : () -> ()\n\
-^bb1:\n\
-  \"test.test\"() [^bb3] : () -> ()\n\
-^bb2:\n\
-  \"test.test\"() [^bb3] : () -> ()\n\
-^bb3:\n\
-  \"test.test\"() ({\n\
-^bb4:\n\
-    \"test.test\"() : () -> ()\n\
-  }) : () -> ()\n\
-}) : () -> ()"
+  run r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1, ^bb2] : () -> ()
+^bb1:
+  "test.test"() [^bb3] : () -> ()
+^bb2:
+  "test.test"() [^bb3] : () -> ()
+^bb3:
+  "test.test"() ({
+^bb4:
+    "test.test"() : () -> ()
+  }) : () -> ()
+}) : () -> ()"#
     #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
      , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb0" }
      , { name := "bb2", dominators := { "bb0", "bb2" },        iDom := "bb0" }
@@ -388,24 +386,55 @@ def testDomDiamondNestedJoin : String :=
         └───────────┘
 -/
 def testDomTwoLevelNested : String :=
-  run
-    "\"builtin.module\"() ({\n\
-^bb0:\n\
-  \"test.test\"() : () -> ()\n\
-  \"test.test\"() ({\n\
-^bb1:\n\
-    \"test.test\"() : () -> ()\n\
-    \"test.test\"() ({\n\
-^bb2:\n\
-      \"test.test\"() : () -> ()\n\
-    }) : () -> ()\n\
-  }) : () -> ()\n\
-}) : () -> ()"
+  run r#""builtin.module"() ({
+^bb0:
+  "test.test"() : () -> ()
+  "test.test"() ({
+^bb1:
+    "test.test"() : () -> ()
+    "test.test"() ({
+^bb2:
+      "test.test"() : () -> ()
+    }) : () -> ()
+  }) : () -> ()
+}) : () -> ()"#
     #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
      , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb1" }
      , { name := "bb2", dominators := { "bb0", "bb1", "bb2" }, iDom := "bb2" }
      ]
-
+/-
+  Test: Diamond with a loop
+  ┌────────┐
+  │      ┌─▼─┐
+  │   ┌──┤ 0 ├──┐
+  │   │  └───┘  │
+  │ ┌─▼─┐     ┌─▼─┐
+  │ │ 1 │     │ 2 ├──┐
+  │ └─┬─┘     └─┬─┘  │
+  │   │  ┌───┐  │  ┌─▼─┐
+  │   └──► 3 ◄──┘  │ 4 │
+  │      └─┬─┘     └───┘
+  └────────┘
+-/
+def testDomDiamonLoop: String :=
+  run r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1, ^bb2] : () -> ()
+^bb1:
+  "test.test"() [^bb3] : () -> ()
+^bb2:
+  "test.test"() [^bb3, ^bb4] : () -> ()
+^bb3:
+  "test.test"() [^bb0] : () -> ()
+^bb4:
+  "test.test"() : () -> ()
+}) : () -> ()"#
+    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
+     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb0" }
+     , { name := "bb2", dominators := { "bb0", "bb2" },        iDom := "bb0" }
+     , { name := "bb3", dominators := { "bb0", "bb3" },        iDom := "bb0" }
+     , { name := "bb4", dominators := { "bb0", "bb2", "bb4" }, iDom := "bb2" }
+     ]
 /--
 info: "ok"
 -/
@@ -447,5 +476,11 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testDomTwoLevelNested
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testDomDiamonLoop
 
 end DominanceAnalysis

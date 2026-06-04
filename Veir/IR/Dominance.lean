@@ -15,7 +15,7 @@ operations until the point lies in a block directly contained in `region`.
 If `point` already lies in `region`, it is returned unchanged. If the walk
 escapes the IR hierarchy before reaching `region`, return `none`.
 -/
-private partial def normalizeInsertPoint?
+private partial def normalizeInsertPoint
     (region : RegionPtr)
     (point : InsertPoint)
     (irCtx : IRContext OpCode) : Option InsertPoint := do
@@ -24,7 +24,7 @@ private partial def normalizeInsertPoint?
     return point
   let parentRegion ← (block.get! irCtx).parent
   let parentOp ← (parentRegion.get! irCtx).parent
-  normalizeInsertPoint? region (.before parentOp) irCtx
+  normalizeInsertPoint region (.before parentOp) irCtx
 
 /--
 Check dominance between two blocks that are already known
@@ -33,16 +33,16 @@ to lie in the same region.
 This follows the immediate dominator chain from `block` 
 upward until it either reaches `dominator` or the chain ends.
 -/
-private partial def dominatesWithinRegion
+private partial def BlockPtr.dominatesWithinRegion
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
-    (irCtx : IRContext OpCode) : Bool :=
+    (irCtx : IRContext OpCode) : Bool := Id.run do
   if dominator = block then
     true
   else
-    match block.getIDom? dfCtx irCtx with
-    | some idom => idom ≠ block && dominatesWithinRegion dominator idom dfCtx irCtx
-    | none => false
+    let some idom := block.getIDom? dfCtx irCtx | return false
+    idom ≠ block && dominatesWithinRegion dominator idom dfCtx irCtx
+
 
 /--
 Check dominance between two operations that are already known 
@@ -51,7 +51,7 @@ to lie in the same block.
 Iterates from `dominator` down the block until it either reaches 
 `op` or reaches the end of the block.
 -/
-private def dominatesWithinBlock
+private def OperationPtr.dominatesWithinBlock
     (dominator op : OperationPtr)
     (irCtx : IRContext OpCode) : Bool := Id.run do
   let mut current := some dominator
@@ -62,6 +62,24 @@ private def dominatesWithinBlock
   false
 
 namespace InsertPoint
+
+/--
+Check dominance between two points that are already known
+to lie in the same block.
+-/
+private def dominatesWithinBlock
+    (dominator point : InsertPoint)
+    (irCtx : IRContext OpCode) : Bool := Id.run do
+  if dominator = point then
+    return true
+  match dominator, point with
+    | .before dominatorOp, .before op =>
+        dominatorOp.dominatesWithinBlock op irCtx
+    | .before _, .atEnd _ =>
+        true
+    | .atEnd _, _ =>
+        false
+
 
 /--
 Proper dominance query between two insertion points.
@@ -84,33 +102,20 @@ private def properlyDominates
     | return false
   let some dominatorRegion := (dominatorBlock.get! irCtx).parent
     | return false
-  let pointInRegion? :=
-    match point.block! irCtx with
-    | none => none
-    | some pointBlock =>
-        if (pointBlock.get! irCtx).parent = dominatorRegion then
-          point
-        else
-          -- Scoot up the point's region tree until we find a location in the
-          -- dominator's region that encloses it.  If this fails, then we know 
-          -- there is no dominance relation.
-          normalizeInsertPoint? dominatorRegion point irCtx
-  let some point := pointInRegion?
-    | return false
+
+  -- If the point does not lie in the same region as `dominator`, scoot up
+  -- the point's region tree until we find a location in the dominator's
+  -- region that encloses it. If this fails, then we know `dominator`
+  -- doesn't properly dominate the point.
+  let some point := normalizeInsertPoint dominatorRegion point irCtx
+    | return false 
   let some pointBlock := point.block! irCtx
     | return false
 
-  if dominator = point then
-    return true
   if dominatorBlock = pointBlock then
-    match dominator, point with
-    | .before dominatorOp, .before op =>
-        return dominatesWithinBlock dominatorOp op irCtx
-    | .before _, .atEnd _ =>
-        return true
-    | .atEnd _, _ =>
-        return false
-  return dominatesWithinRegion dominatorBlock pointBlock dfCtx irCtx
+    dominator.dominatesWithinBlock point irCtx
+  else
+    return dominatorBlock.dominatesWithinRegion pointBlock dfCtx irCtx
 
 /--
 Dominance query between two insertion points.
@@ -141,7 +146,7 @@ def immediateDominator?
   block.getIDom? dfCtx irCtx
 
 /--
-Dominance query between two blocks.
+Dominance query between two blocks, where a block dominates itself.
 -/
 def dominates
     [FactSpec .dominator]
@@ -151,7 +156,7 @@ def dominates
   (InsertPoint.atStart! dominator irCtx).dominates (InsertPoint.atStart! block irCtx) dfCtx irCtx
 
 /--
-Proper version of `BlockPtr.dominates`.
+Dominance query between two blocks, where a block does not dominate itself.
 -/
 def properlyDominates
     [FactSpec .dominator]
