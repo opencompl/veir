@@ -728,6 +728,13 @@ theorem OperationPtr.getProperties!_eraseOp {operation : OperationPtr} :
   grind
 
 @[simp, grind =]
+theorem OperationPtr.getNumResults!_eraseOp {operation : OperationPtr} :
+    operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
+    operation.getNumResults! (Rewriter.eraseOp ctx op hCtx hOp) =
+    operation.getNumResults! ctx := by
+  grind
+
+@[simp, grind =]
 theorem OperationPtr.getNumOperands!_eraseOp {operation : OperationPtr} :
     operation.InBounds (Rewriter.eraseOp ctx op hCtx hOp) →
     operation.getNumOperands! (Rewriter.eraseOp ctx op hCtx hOp) =
