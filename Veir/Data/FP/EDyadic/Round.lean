@@ -123,6 +123,8 @@ private def computeTruncatedMag (mag : Nat) (k prec : Int) : Nat :=
 /-- The largest finite representable floating point in `(e, s)`,
 encoded as a `Dyadic`.
 
+Recall that `maxBiasedExponent e - bias e` represents the highest exponent we can use to represent a normal number, i.e., a number that is not overflowing/underflowing. 
+
 = 1.111111111111 * 2 ^ (maxBiasedExponent e - bias e)
   +--s bits--+
 = (2^(s+1) - 1) / 2^-s * 2^(maxBiasedExponent e - bias e)
