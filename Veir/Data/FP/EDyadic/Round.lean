@@ -224,7 +224,7 @@ private def computeLower (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : 
   if sign then computeLowerNeg mag k prec e s
   else computeLowerNonneg mag k prec e s
 
-/-- `upper` on all numbers, dispatching based on the sign. -/
+/-- Compute `upper` for any number, depending on the sign. -/
 private def computeUpper (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
   if sign then computeUpperNeg mag k prec e s
   else computeUpperNonneg mag k prec e s
