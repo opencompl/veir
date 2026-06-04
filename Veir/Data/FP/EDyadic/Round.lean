@@ -219,7 +219,7 @@ private def computeLowerNeg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
 private def computeUpperNeg (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
   -(computeLowerNonneg mag k prec e s)
 
-/--  Computer `lower` for any number, depending on the sign. -/
+/-- Compute `lower` for any number, depending on the sign. -/
 private def computeLower (sign : Bool) (mag : Nat) (k prec : Int) (e s : Nat) : EDyadic :=
   if sign then computeLowerNeg mag k prec e s
   else computeLowerNonneg mag k prec e s
