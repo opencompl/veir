@@ -206,3 +206,118 @@ theorem VariableState.setResultValues?_setResultValues?_self :
     simp only [hvs₂, Option.some.injEq]
     ext
     grind [VariableState.getVar?_setResultValues?]
+
+section interpretOpList
+
+variable {ctx : WfIRContext OpCode}
+variable {state : InterpreterState ctx}
+
+@[simp, grind =]
+theorem interpretOpList_nil :
+    interpretOpList [] state inBounds = some (.ok (state, none)) := by
+  simp [interpretOpList, pure]
+
+theorem interpretOpList_cons :
+    interpretOpList (op :: l) state inBounds =
+    match interpretOp op state with
+    | none => none
+    | some .ub => some .ub
+    | some (.ok (state', none)) => interpretOpList l state' (by grind)
+    | some (.ok (state', some cf)) => some (.ok (state', some cf)) := by
+  simp [interpretOpList, bind, pure]
+  grind
+
+theorem interpretOpList_append :
+    interpretOpList (l₁ ++ l₂) state inBounds =
+    match interpretOpList l₁ state (by grind) with
+    | some (.ok (state', none)) => interpretOpList l₂ state' (by grind)
+    | some (.ok (state', some cf)) => some (.ok (state', some cf))
+    | some .ub => some .ub
+    | none => none := by
+  induction l₁ generalizing state
+  · simp
+  · grind [interpretOpList_cons]
+
+@[simp, grind =]
+theorem interpretTerminatedOpList_nil :
+    interpretTerminatedOpList [] state inBounds = none := by
+  simp [interpretTerminatedOpList, interpretOpList_nil, bind]
+
+theorem interpretTerminatedOpList_cons {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {l : List OperationPtr}
+    {state : InterpreterState ctx}
+    {inBounds : ∀ op' ∈ op :: l, op'.InBounds ctx.raw} :
+    interpretTerminatedOpList (op :: l) state inBounds =
+    match interpretOp op state with
+    | none => none
+    | some .ub => some .ub
+    | some (.ok (state', none)) => interpretTerminatedOpList l state' (by grind)
+    | some (.ok (state', some cf)) => some (.ok (state', cf)) := by
+  simp [interpretTerminatedOpList, interpretOpList_cons, bind, pure]
+  grind
+
+theorem interpretTerminatedOpList_append :
+    interpretTerminatedOpList (l₁ ++ l₂) state inBounds =
+    match interpretOpList l₁ state (by grind) with
+    | some (.ok (state', none)) => interpretTerminatedOpList l₂ state' (by grind)
+    | some (.ok (state', some cf))=> some (.ok (state', cf))
+    | some .ub => some .ub
+    | none => none := by
+  simp [interpretTerminatedOpList, interpretOpList_append, bind, pure]
+  grind
+
+theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
+    (hnext : (op.get! ctx.raw).next = some op') :
+    interpretOpChain op state' inBounds =
+    match interpretOp op state' (by grind) with
+    | none => none
+    | some .ub => some .ub
+    | some (.ok (state'', none)) => interpretOpChain op' state'' (by grind)
+    | some (.ok (state'', some cf)) => some (.ok (state'', cf)) := by
+  rw [interpretOpChain]
+  simp [bind, pure]
+  grind
+
+theorem interpretOpChain_of_next!_eq_none {state' : InterpreterState ctx}
+    (hnext : (op.get! ctx.raw).next = none) :
+    interpretOpChain op state' inBounds =
+    match interpretOp op state' (by grind) with
+    | none => none
+    | some .ub => some .ub
+    | some (.ok (_, none)) => none
+    | some (.ok (state'', some cf)) => some (.ok (state'', cf)) := by
+  rw [interpretOpChain]
+  simp [bind, pure]
+  grind
+
+@[simp, grind =]
+theorem Laeu {l : Array α} : List.drop l.size l.toList = [] := by
+  induction l <;> simp
+
+theorem interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain
+    (hchain : BlockPtr.OpChain block ctx.raw array) (n : Nat) :
+    ∀ (i : Nat) (state' : InterpreterState ctx)
+      (_hni : i + n = array.size) (hi : i < array.size),
+      interpretOpChain array[i] state' (hchain.arrayInBounds (Array.getElem_mem hi)) =
+      interpretTerminatedOpList (array.toList.drop i) state' (by grind [BlockPtr.OpChain]) := by
+  induction n
+  case zero => grind
+  case succ n ih =>
+    intros i state' hni hi
+    have hnext := hchain.next hi
+    grind [interpretOpChain_of_next!_eq_none, interpretOpChain_of_next!_eq_some,
+      interpretTerminatedOpList_cons, List.drop_eq_getElem_cons]
+
+theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
+    {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw) :
+    (block.get! ctx.raw).firstOp = some op →
+    interpretOpChain op state opInBounds =
+    interpretTerminatedOpList (block.operationList ctx.raw).toList state
+      (by grind [BlockPtr.operationListWF, BlockPtr.OpChain]) := by
+  intro hfirst
+  have hchain := BlockPtr.operationListWF ctx.raw block blockInBounds ctx.wellFormed
+  have := interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain hchain
+    (block.operationList ctx.raw).size 0 state (by omega) (by grind [BlockPtr.OpChain])
+  grind [BlockPtr.OpChain]
+
+end interpretOpList
