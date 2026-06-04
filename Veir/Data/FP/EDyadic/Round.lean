@@ -189,7 +189,7 @@ private def computeUpperNonnegMag (mag : Nat) (k prec : Int) : Nat :=
 
 /-- For `x = mag · 2^(-k) ≥ 0`: the least representable value `≥ x`.
 
-- if `x` overflows (`≥ maxFinite`): `lower = +maxFinite`.
+- if `x` overflows (`≥ maxFinite`): `upper = +maxFinite`.
 - if `x` is nonzero finite and already at target precision (`k ≤ prec`): `upper = x`
 - if `x` is nonzero finite and not at target precision, we compuer the upper `mag`.
   - If the exponent, or the upper `mag` are too large, 
