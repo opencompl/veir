@@ -30,5 +30,6 @@ tags
 *.olean
 lakefile.olean
 .lake/
+Test/**/Output/**
 
 **/.ruff_cache

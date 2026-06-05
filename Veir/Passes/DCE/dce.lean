@@ -6,19 +6,11 @@ namespace Veir
 
 /-! We implement a dead code elimination pass. -/
 
-/--
-  An operation is considered to have side effects if it has zero results.
-
-  TODO: replace this with a side-effect property on `OpCode`.
--/
-def hasSideEffects (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Bool :=
-  0 = op.getNumResults! rewriter.ctx.raw
-
 set_option warn.sorry false in
 def eliminateDeadOp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   /- delete operations that are not used and have no side effects -/
-  if ¬ op.hasUses! rewriter.ctx.raw && ¬ hasSideEffects rewriter op then
+  if ¬ op.hasUses! rewriter.ctx.raw && ¬ op.hasSideEffects rewriter.ctx.raw then
     rewriter.eraseOp op sorry sorry sorry
   else
     return rewriter

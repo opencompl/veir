@@ -1,120 +1,98 @@
-// RUN: VEIR_UNREGISTERED_ROUNDTRIP
-// RUN: MLIR_UNREGISTERED_ROUNDTRIP
+// RUN: ./Tools/vcc --emit-mlir -O %s -o - | filecheck %s
+// RUN: ./Tools/vcc -c %s -o %t.o
+// RUN: test -s %t.o
+// RUN: ./Tools/vcc -S %s -o %t.s
+// RUN: test -s %t.s
 
-// This file contains a very naive implementation of the FastNTT algorithm, based on the heir pseudocode
-// (https://github.com/google/heir/blob/1210ad37dc9531d6e60d8ddbce81dbd79f7626a6/lib/Dialect/Polynomial/Conversions/PolynomialToModArith/PolynomialToModArith.cpp#L1060) and lowered using the `Vcc` tool (see `Test/Vcc/fastntt.c`).
+/* 
+    This file contains a very naive implementation of the FastNTT algorithm. 
+    It is an example of a real application we should aim to lower with out RISC-V instruction 
+    selection. It is also interesting in the vector-extension perspective, 
+    which significantly optimizes it. 
+    Some references: 
+    - https://ieeexplore.ieee.org/document/10177902 
+    - https://eprint.iacr.org/2024/585.pdf
+    - https://link.springer.com/chapter/10.1007/978-3-031-46077-7_22 
+    - https://fprox.substack.com/p/faster-ntt-with-risc-v-vector 
+    
+    Our implementation is based on the description in HEIR : 
+        def fastNTT(coeffs, n, cmod, roots, inverse):
+         m = inverse ? n : 2             # m denotes the batchSize or stride
+         r = inverse ? 1 : degree / 2    # r denotes the exponent of the root
+         for (s = 0; s < log2(n); s++):
+           for (k = 0; k < n / m; k++):
+             for (j = 0; j < m / 2; j++):
+               A = coeffs[k * m + j]
+               B = coeffs[k * m + j + m / 2]
+               root = roots[(2 * j + 1) * rootExp]
+               coeffs[k * m + j], coeffs[k * m + j + m / 2]
+                 = bflyOp(A, B, root, cmod)
+             end
+           end
+           m = inverse ? m / 2 : m * 2
+           r = inverse ? r * 2 : m / 2
+         end
+        where bflyOp is one of:
+        bflyCT(A, B, root, cmod):
+            (A + root * B % cmod, A - root * B % cmod)
+    
+        bflyGS(A, B, root, cmod):
+            (A + B % cmod, (A - B) * root % cmod)
+    Reference: https://github.com/google/heir/blob/1210ad37dc9531d6e60d8ddbce81dbd79f7626a6/lib/Dialect/Polynomial/Conversions/PolynomialToModArith/PolynomialToModArith.cpp#L1060 
+*/
+#include <stddef.h>
 
-"builtin.module"() ({
-  ^4():
-    "llvm.module_flags"() <{"flags" = [#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>, #llvm.mlir.module_flag<min, "PIC Level", 2 : i32>, #llvm.mlir.module_flag<max, "PIE Level", 2 : i32>, #llvm.mlir.module_flag<max, "uwtable", 2 : i32>, #llvm.mlir.module_flag<max, "frame-pointer", 2 : i32>]}> : () -> ()
-    "llvm.func"() <{"CConv" = #llvm.cconv<ccc>, always_inline, "arg_attrs" = [{llvm.noundef}, {llvm.noundef}, {llvm.noundef}, {llvm.noundef}, {llvm.noundef}, {llvm.noundef}], dso_local, "frame_pointer" = #llvm.framePointerKind<all>, "function_type" = !llvm.func<void (!llvm.ptr, i64, i64, !llvm.ptr, i64, i64)>, "linkage" = #llvm.linkage<external>, no_unwind, "passthrough" = [["min-legal-vector-width", "0"], ["no-trapping-math", "true"], ["stack-protector-buffer-size", "8"], ["target-cpu", "x86-64"]], "sym_name" = "fastNTT", "target_cpu" = "x86-64", "target_features" = #llvm.target_features<["+cmov", "+cx8", "+fxsr", "+mmx", "+sse", "+sse2", "+x87"]>, "tune_cpu" = "generic", "unnamed_addr" = 0 : i64, "uwtable_kind" = #llvm.uwtableKind<async>, "visibility_" = 0 : i64}> ({
-      ^7(%arg7_0 : !llvm.ptr, %arg7_1 : i64, %arg7_2 : i64, %arg7_3 : !llvm.ptr, %arg7_4 : i64, %arg7_5 : i64):
-        %8 = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
-        %9 = "llvm.mlir.constant"() <{"value" = 2 : i64}> : () -> i64
-        %10 = "llvm.mlir.constant"() <{"value" = 1 : i64}> : () -> i64
-        %11 = "llvm.icmp"(%arg7_4, %8) <{"predicate" = 1 : i64}> : (i64, i64) -> i1
-        "llvm.cond_br"(%11) [^12, ^13] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-      ^12():
-        "llvm.br"(%arg7_1) [^15] : (i64) -> ()
-      ^13():
-        "llvm.br"(%9) [^15] : (i64) -> ()
-      ^15(%arg15_0 : i64):
-        %18 = "llvm.icmp"(%arg7_4, %8) <{"predicate" = 1 : i64}> : (i64, i64) -> i1
-        "llvm.cond_br"(%18) [^19, ^20] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-      ^19():
-        "llvm.br"(%10) [^22] : (i64) -> ()
-      ^20():
-        %24 = "llvm.sdiv"(%arg7_5, %9) : (i64, i64) -> i64
-        "llvm.br"(%24) [^22] : (i64) -> ()
-      ^22(%arg22_0 : i64):
-        %26 = "llvm.sdiv"(%arg7_1, %9) : (i64, i64) -> i64
-        "llvm.br"(%arg22_0, %26, %8, %arg15_0) [^27] : (i64, i64, i64, i64) -> ()
-      ^27(%arg27_0 : i64, %arg27_1 : i64, %arg27_2 : i64, %arg27_3 : i64):
-        "llvm.br"(%8, %arg7_1) [^29] : (i64, i64) -> ()
-      ^29(%arg29_0 : i64, %arg29_1 : i64):
-        %31 = "llvm.icmp"(%arg29_1, %10) <{"predicate" = 4 : i64}> : (i64, i64) -> i1
-        "llvm.cond_br"(%31) [^32, ^33] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-      ^32():
-        %35 = "llvm.ashr"(%arg29_1, %10) : (i64, i64) -> i64
-        %36 = "llvm.add"(%arg29_0, %10) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        "llvm.br"(%36, %35) [^29] : (i64, i64) -> ()
-      ^33():
-        %38 = "llvm.icmp"(%arg27_2, %arg29_0) <{"predicate" = 2 : i64}> : (i64, i64) -> i1
-        "llvm.cond_br"(%38) [^39, ^40] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-      ^39():
-        "llvm.br"(%8) [^42] : (i64) -> ()
-      ^42(%arg42_0 : i64):
-        %44 = "llvm.sdiv"(%arg7_1, %arg27_3) : (i64, i64) -> i64
-        %45 = "llvm.icmp"(%arg42_0, %44) <{"predicate" = 2 : i64}> : (i64, i64) -> i1
-        "llvm.cond_br"(%45) [^46, ^47] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-      ^46():
-        "llvm.br"(%8) [^49] : (i64) -> ()
-      ^49(%arg49_0 : i64):
-        %51 = "llvm.sdiv"(%arg27_3, %9) : (i64, i64) -> i64
-        %52 = "llvm.icmp"(%arg49_0, %51) <{"predicate" = 2 : i64}> : (i64, i64) -> i1
-        "llvm.cond_br"(%52) [^53, ^54] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-      ^53():
-        %56 = "llvm.mul"(%arg42_0, %arg27_3) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        %57 = "llvm.add"(%56, %arg49_0) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        %58 = "llvm.getelementptr"(%arg7_0, %57) <{"elem_type" = i64, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-        %59 = "llvm.load"(%58) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 8 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i64
-        %62 = "llvm.sdiv"(%arg27_3, %9) : (i64, i64) -> i64
-        %63 = "llvm.add"(%57, %62) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        %64 = "llvm.getelementptr"(%arg7_0, %63) <{"elem_type" = i64, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-        %65 = "llvm.load"(%64) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 8 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i64
-        %66 = "llvm.mul"(%9, %arg49_0) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        %67 = "llvm.add"(%66, %10) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        %68 = "llvm.mul"(%67, %arg27_1) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        %69 = "llvm.getelementptr"(%arg7_3, %68) <{"elem_type" = i64, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-        %70 = "llvm.load"(%69) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 8 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i64
-        %71 = "llvm.mul"(%70, %65) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        %72 = "llvm.srem"(%71, %arg7_2) : (i64, i64) -> i64
-        %73 = "llvm.add"(%59, %72) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        %74 = "llvm.srem"(%73, %arg7_2) : (i64, i64) -> i64
-        %77 = "llvm.sub"(%59, %72) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        %78 = "llvm.add"(%77, %arg7_2) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        %79 = "llvm.srem"(%78, %arg7_2) : (i64, i64) -> i64
-        %82 = "llvm.getelementptr"(%arg7_0, %57) <{"elem_type" = i64, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-        "llvm.store"(%74, %82) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 8 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
-        %88 = "llvm.getelementptr"(%arg7_0, %63) <{"elem_type" = i64, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-        "llvm.store"(%79, %88) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 8 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
-        "llvm.br"() [^90] : () -> ()
-      ^90():
-        %92 = "llvm.add"(%arg49_0, %10) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        "llvm.br"(%92) [^49] : (i64) -> ()
-      ^54():
-        "llvm.br"() [^94] : () -> ()
-      ^94():
-        %96 = "llvm.add"(%arg42_0, %10) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        "llvm.br"(%96) [^42] : (i64) -> ()
-      ^47():
-        %98 = "llvm.sdiv"(%arg27_1, %9) : (i64, i64) -> i64
-        %99 = "llvm.icmp"(%arg7_4, %8) <{"predicate" = 1 : i64}> : (i64, i64) -> i1
-        "llvm.cond_br"(%99) [^100, ^101] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-      ^100():
-        %103 = "llvm.sdiv"(%arg27_3, %9) : (i64, i64) -> i64
-        "llvm.br"(%103) [^104] : (i64) -> ()
-      ^101():
-        %125 = "llvm.add"(%arg27_3, %arg27_3) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        "llvm.br"(%125) [^104] : (i64) -> ()
-      ^104(%arg104_0 : i64):
-        %108 = "llvm.icmp"(%arg7_4, %8) <{"predicate" = 1 : i64}> : (i64, i64) -> i1
-        "llvm.cond_br"(%108) [^109, ^110] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-      ^109():
-        %124 = "llvm.add"(%arg27_0, %arg27_0) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        "llvm.br"(%124) [^113] : (i64) -> ()
-      ^110():
-        %115 = "llvm.sdiv"(%arg27_0, %9) : (i64, i64) -> i64
-        "llvm.br"(%115) [^113] : (i64) -> ()
-      ^113(%arg113_0 : i64):
-        "llvm.br"() [^117] : () -> ()
-      ^117():
-        %119 = "llvm.add"(%arg27_2, %10) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        "llvm.br"(%arg113_0, %98, %119, %arg104_0) [^27] : (i64, i64, i64, i64) -> ()
-      ^40():
-        "llvm.return"() : () -> ()
-    }) : () -> ()
-}) {"dlti.dl_spec" = #dlti.dl_spec<!llvm.ptr<270> = dense<32> : vector<4xi64>, !llvm.ptr<271> = dense<32> : vector<4xi64>, !llvm.ptr<272> = dense<64> : vector<4xi64>, i64 = dense<64> : vector<2xi64>, i128 = dense<128> : vector<2xi64>, f80 = dense<128> : vector<2xi64>, !llvm.ptr = dense<64> : vector<4xi64>, i1 = dense<8> : vector<2xi64>, i8 = dense<8> : vector<2xi64>, i16 = dense<16> : vector<2xi64>, i32 = dense<32> : vector<2xi64>, f16 = dense<16> : vector<2xi64>, f64 = dense<64> : vector<2xi64>, f128 = dense<128> : vector<2xi64>, "dlti.endianness" = "little", "dlti.mangling_mode" = "e", "dlti.legal_int_widths" = array<i32: 8, 16, 32, 64>, "dlti.stack_alignment" = 128 : i64>, "llvm.ident" = "Ubuntu clang version 18.1.3 (1ubuntu1)", "llvm.module_asm" = [], "llvm.target_triple" = "x86_64-pc-linux-gnu"} : () -> ()
+// log2(0) = 0
+// log2(1) = 0
+// log2(2*n) = 1 + log2(n)
+__attribute__((always_inline)) static long log2FloorAux(long n) {
+    long result = 0;
+    while (n > 1) {
+        n >>= 1;
+        result++;
+    }
+    return result;
+}
+
+__attribute__((always_inline)) static long log2Floor(long n) {
+    return log2FloorAux(n);
+}
+
+/* bflyCT */
+__attribute__((always_inline)) static void bflyCT(long A, long B, long root, long cmod, long *outA, long *outB) {
+    *outA = (A + root * B % cmod) % cmod;
+    *outB = (A - root * B % cmod + cmod) % cmod;
+}
+
+/* bflyGS */
+__attribute__((always_inline)) static void bflyGS(long A, long B, long root, long cmod, long *outA, long *outB) {
+    *outA = (A + B) % cmod;
+    *outB = (A - B) * root % cmod;
+}
+
+__attribute__((always_inline)) void fastNTT(long *coeffs, long n, long cmod, const long *roots, long inverse, long degree) {
+    long m = inverse ? n : 2;
+    long r = inverse ? 1 : degree / 2;
+    long rootExp = n / 2;
+
+    for (long s = 0; s < log2Floor(n); s++) {
+        for (long k = 0; k < n / m; k++) {
+            for (long j = 0; j < m / 2; j++) {
+                long A    = coeffs[k * m + j];
+                long B    = coeffs[k * m + j + m / 2];
+                long root = roots[(2 * j + 1) * rootExp];
+                long outA, outB;
+                bflyCT(A, B, root, cmod, &outA, &outB);
+                coeffs[k * m + j]         = outA;
+                coeffs[k * m + j + m / 2] = outB;
+            }
+        }
+        rootExp = rootExp / 2;
+        m = inverse ? m / 2 : m * 2;
+        r = inverse ? r * 2 : r / 2;
+    }
+}
+
 
 // CHECK: "builtin.module"() ({
 // CHECK-NEXT:   ^4():
@@ -190,37 +168,37 @@
 // CHECK-NEXT:         "llvm.store"(%[[VAL_47]], %[[VAL_51]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 8 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
 // CHECK-NEXT:         %[[VAL_52:.*]] = "llvm.getelementptr"(%[[VAL_0]], %[[VAL_36]]) <{"elem_type" = i64, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
 // CHECK-NEXT:         "llvm.store"(%[[VAL_50]], %[[VAL_52]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 8 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
-// CHECK-NEXT:         "llvm.br"() [^80] : () -> ()
-// CHECK-NEXT:       ^80():
+// CHECK-NEXT:         "llvm.br"() [^90] : () -> ()
+// CHECK-NEXT:       ^90():
 // CHECK-NEXT:         %[[VAL_53:.*]] = "llvm.add"(%[[VAL_28]], %[[VAL_8]]) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
 // CHECK-NEXT:         "llvm.br"(%[[VAL_53]]) [^49] : (i64) -> ()
 // CHECK-NEXT:       ^54():
-// CHECK-NEXT:         "llvm.br"() [^84] : () -> ()
-// CHECK-NEXT:       ^84():
+// CHECK-NEXT:         "llvm.br"() [^94] : () -> ()
+// CHECK-NEXT:       ^94():
 // CHECK-NEXT:         %[[VAL_54:.*]] = "llvm.add"(%[[VAL_25]], %[[VAL_8]]) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
 // CHECK-NEXT:         "llvm.br"(%[[VAL_54]]) [^42] : (i64) -> ()
 // CHECK-NEXT:       ^47():
 // CHECK-NEXT:         %[[VAL_55:.*]] = "llvm.sdiv"(%[[VAL_16]], %[[VAL_7]]) : (i64, i64) -> i64
 // CHECK-NEXT:         %[[VAL_56:.*]] = "llvm.icmp"(%[[VAL_4]], %[[VAL_6]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[VAL_56]]) [^90, ^91] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-// CHECK-NEXT:       ^90():
-// CHECK-NEXT:         %[[VAL_57:.*]] = "llvm.sdiv"(%[[VAL_18]], %[[VAL_7]]) : (i64, i64) -> i64
-// CHECK-NEXT:         "llvm.br"(%[[VAL_57]]) [^94] : (i64) -> ()
-// CHECK-NEXT:       ^91():
-// CHECK-NEXT:         %[[VAL_58:.*]] = "llvm.add"(%[[VAL_18]], %[[VAL_18]]) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-// CHECK-NEXT:         "llvm.br"(%[[VAL_58]]) [^94] : (i64) -> ()
-// CHECK-NEXT:       ^94(%[[VAL_59:.*]] : i64):
-// CHECK-NEXT:         %[[VAL_60:.*]] = "llvm.icmp"(%[[VAL_4]], %[[VAL_6]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[VAL_60]]) [^99, ^100] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-// CHECK-NEXT:       ^99():
-// CHECK-NEXT:         %[[VAL_61:.*]] = "llvm.add"(%[[VAL_15]], %[[VAL_15]]) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-// CHECK-NEXT:         "llvm.br"(%[[VAL_61]]) [^103] : (i64) -> ()
+// CHECK-NEXT:         "llvm.cond_br"(%[[VAL_56]]) [^100, ^101] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
 // CHECK-NEXT:       ^100():
+// CHECK-NEXT:         %[[VAL_57:.*]] = "llvm.sdiv"(%[[VAL_18]], %[[VAL_7]]) : (i64, i64) -> i64
+// CHECK-NEXT:         "llvm.br"(%[[VAL_57]]) [^104] : (i64) -> ()
+// CHECK-NEXT:       ^101():
+// CHECK-NEXT:         %[[VAL_58:.*]] = "llvm.add"(%[[VAL_18]], %[[VAL_18]]) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
+// CHECK-NEXT:         "llvm.br"(%[[VAL_58]]) [^104] : (i64) -> ()
+// CHECK-NEXT:       ^104(%[[VAL_59:.*]] : i64):
+// CHECK-NEXT:         %[[VAL_60:.*]] = "llvm.icmp"(%[[VAL_4]], %[[VAL_6]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[VAL_60]]) [^109, ^110] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
+// CHECK-NEXT:       ^109():
+// CHECK-NEXT:         %[[VAL_61:.*]] = "llvm.add"(%[[VAL_15]], %[[VAL_15]]) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
+// CHECK-NEXT:         "llvm.br"(%[[VAL_61]]) [^113] : (i64) -> ()
+// CHECK-NEXT:       ^110():
 // CHECK-NEXT:         %[[VAL_62:.*]] = "llvm.sdiv"(%[[VAL_15]], %[[VAL_7]]) : (i64, i64) -> i64
-// CHECK-NEXT:         "llvm.br"(%[[VAL_62]]) [^103] : (i64) -> ()
-// CHECK-NEXT:       ^103(%[[VAL_63:.*]] : i64):
-// CHECK-NEXT:         "llvm.br"() [^107] : () -> ()
-// CHECK-NEXT:       ^107():
+// CHECK-NEXT:         "llvm.br"(%[[VAL_62]]) [^113] : (i64) -> ()
+// CHECK-NEXT:       ^113(%[[VAL_63:.*]] : i64):
+// CHECK-NEXT:         "llvm.br"() [^117] : () -> ()
+// CHECK-NEXT:       ^117():
 // CHECK-NEXT:         %[[VAL_64:.*]] = "llvm.add"(%[[VAL_17]], %[[VAL_8]]) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
 // CHECK-NEXT:         "llvm.br"(%[[VAL_63]], %[[VAL_55]], %[[VAL_64]], %[[VAL_59]]) [^27] : (i64, i64, i64, i64) -> ()
 // CHECK-NEXT:       ^40():

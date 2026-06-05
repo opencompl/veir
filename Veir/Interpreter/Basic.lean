@@ -158,7 +158,9 @@ def InterpreterState.empty (ctx : WfIRContext OpInfo) : InterpreterState ctx :=
   { variables := .empty ctx, memory := .empty }
 
 /--
-  Set the value of a variable.
+  Set the runtime value of a variable.
+  This function dynamically checks that the runtime value conforms to the variable type, and
+  return `none` otherwise.
 -/
 def VariableState.setVar? (state : VariableState ctx) (var : ValuePtr)
     (val : RuntimeValue) (inBounds : var.InBounds ctx.raw := by grind) :
@@ -169,6 +171,18 @@ def VariableState.setVar? (state : VariableState ctx) (var : ValuePtr)
       by grind [cases VariableState]⟩
   else
     none
+
+/--
+  Set the runtime value of a variable.
+  This function requires a proof that the runtime value conforms to the variable type.
+-/
+def VariableState.setVar (state : VariableState ctx) (var : ValuePtr)
+    (val : RuntimeValue) (h : val.Conforms (var.getType! ctx.raw) := by grind)
+    (inBounds : var.InBounds ctx.raw := by grind) :
+    VariableState ctx :=
+  ⟨state.variables.insert var val,
+    by grind [VariableState.ValuesConform, cases VariableState],
+    by grind [cases VariableState]⟩
 
 /--
   Get the value of a variable, if the variable exists.
@@ -1146,24 +1160,57 @@ def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode} (state : Interpre
   return (newState, action)
 
 /--
-  Interpret a list of operations, starting from the given operation pointer.
+  Interpret a chain of operations, starting from the given operation pointer.
   Continue to interpret operations until a terminator is encountered,
   or the end of the block is reached.
   Return a ControlFlowAction indicating how to continue the interpretation.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretOpList (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+def interpretOpChain (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
     (opInBounds : op.InBounds ctx.raw := by grind)
     : Interp (InterpreterState ctx × ControlFlowAction) := do
   let (state, action) ← interpretOp op state
   match action with
   | none =>
     rlet next ← (op.get ctx.raw).next
-    interpretOpList next state
+    interpretOpChain next state
   | some action =>
     return (state, action)
 termination_by op.idxInParentFromTail ctx.raw
 decreasing_by grind
+
+/--
+  Interpret a list of operations passed as a `List`, stopping at the first terminator.
+  Return the new interpreter state, and an optional control flow action indicating how to
+  continue the interpretation, with an absent control flow action indicating that the end of the
+  list was reached without encountering a terminator.
+  Return `none` if any errors occur during interpretation.
+-/
+def interpretOpList {ctx : WfIRContext OpCode} (ops : List OperationPtr)
+    (state : InterpreterState ctx)
+    (opInBounds : ∀ op ∈ ops, op.InBounds ctx.raw := by grind)
+    : Interp (InterpreterState ctx × Option ControlFlowAction) :=
+  match ops with
+  | [] => return (state, none)
+  | op :: ops => do
+    let (state, action) ← interpretOp op state
+    match action with
+    | none => interpretOpList ops state (by grind)
+    | some cf => return (state, cf)
+
+/--
+  Interpret a list of operations passed as a `List`, stopping at the first terminator.
+  Return the new interpreter state, and a control flow action indicating how to continue the
+  interpretation. If no terminator is encountered, return `none`.
+  Return `none` if any errors occur during interpretation.
+-/
+def interpretTerminatedOpList {ctx : WfIRContext OpCode} (ops : List OperationPtr)
+    (state : InterpreterState ctx)
+    (opInBounds : ∀ op ∈ ops, op.InBounds ctx.raw := by grind)
+    : Interp (InterpreterState ctx × ControlFlowAction) := do
+  match ← interpretOpList ops state opInBounds with
+  | (_, none) => none
+  | (state, some cf) => return (state, cf)
 
 /--
   Interpret a block of operations, starting from the first operation in the block.
@@ -1178,7 +1225,7 @@ def interpretBlock (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx : Wf
   let newVars ← state.variables.setArgumentValues? blockPtr values
   let state := ⟨newVars, state.memory⟩
   rlet firstOp ← (blockPtr.get ctx.raw).firstOp
-  interpretOpList firstOp state
+  interpretOpChain firstOp state
 
 /--
   Interpret a CFG, starting from the given block.
