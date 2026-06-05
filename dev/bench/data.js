@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780662972665,
+  "lastUpdate": 1780689594805,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -41446,6 +41446,184 @@ window.BENCHMARK_DATA = {
             "range": "± 38790",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=30 median=0.000775000s stddev=0.000038790s cv=4.9293%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "regehr@cs.utah.edu",
+            "name": "John Regehr",
+            "username": "regehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "da750c508708dc1cd7b9d68a43bfbf68fb52455a",
+          "message": "test: fix warnings (#760)\n\nbelow is what `lake test` gives me, currently, both on MacOS and Linux.\nthis PR fixes this.\n\nsince we're all running the same Lean version, should we make warnings\nlike this fatal?\n\n```\nregehr@john-home:~/veir$ lake test\n⚠ [115/117] Built Veir.Data.LLVM.Int.Bitblast\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:106:36: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [isPoison, add, Id.run, p̵u̵r̵e̵_̵b̵i̵n̵d̵,̵ ̵getValue, Bool.decide_or, Bool.decide_and,\n  ̵  ̵ ̵ ̵Bool.decide_eq_true]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:124:36: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [isPoison, sub, Id.run, p̵u̵r̵e̵_̵b̵i̵n̵d̵,̵ ̵getValue, Bool.decide_or, Bool.decide_and,\n  ̵  ̵ ̵ ̵Bool.decide_eq_true]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:142:46: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [mul, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:159:47: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [udiv, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:177:47: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [sdiv, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:193:47: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [urem, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:209:47: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [srem, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:227:46: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [shl, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:235:64: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [shl, Id.run, BitVec.shiftLeft_eq', BitVec.sshiftRight_eq', ne_eq,\n      BitVec.ushiftRight_eq', BitVec.natCast_eq_ofNat, ge_iff_le,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:246:47: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [lshr, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:254:33: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [lshr, Id.run, BitVec.natCast_eq_ofNat, ge_iff_le, BitVec.ushiftRight_eq',\n      BitVec.shiftLeft_eq', ne_eq,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:265:47: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [ashr, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:273:57: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [ashr, Id.run, BitVec.natCast_eq_ofNat, ge_iff_le, BitVec.ushiftRight_eq',\n      BitVec.shiftLeft_eq', ne_eq, BitVec.sshiftRight_eq',̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:307:45: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [or, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:336:48: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [trunc, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nwarning: Veir/Data/LLVM/Int/Bitblast.lean:352:47: This simp argument is unused:\n  pure_bind\n\nHint: Omit it from the simp argument list.\n  simp only [zext, isPoison, getValue, Id.run,̵ ̵p̵u̵r̵e̵_̵b̵i̵n̵d̵]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nregehr@john-home:~/veir$ \n```",
+          "timestamp": "2026-06-05T19:54:20Z",
+          "tree_id": "2207bd391e8c0bb324f2401eb1dd3752f9e49ce3",
+          "url": "https://github.com/opencompl/veir/commit/da750c508708dc1cd7b9d68a43bfbf68fb52455a"
+        },
+        "date": 1780689574845,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2155000,
+            "range": "± 55347",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002155s stddev=0.000055347s cv=2.6087%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3632000,
+            "range": "± 42909",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003632s stddev=0.000042909s cv=1.1744%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2173000,
+            "range": "± 52586",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002173s stddev=0.000052586s cv=2.4115%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3028000,
+            "range": "± 39900",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003028s stddev=0.000039900s cv=1.3186%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2196000,
+            "range": "± 109212",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=20 median=0.002196000s stddev=0.000109212s cv=4.9472%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2389000,
+            "range": "± 80518",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=20 median=0.002389000s stddev=0.000080518s cv=3.3454%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1791000,
+            "range": "± 97505",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001791000s stddev=0.000097505s cv=5.4214%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1934000,
+            "range": "± 51677",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001934000s stddev=0.000051677s cv=2.6491%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2193000,
+            "range": "± 68799",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002193s stddev=0.000068799s cv=3.1769%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5136000,
+            "range": "± 37581",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.005136s stddev=0.000037581s cv=0.7289%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2227000,
+            "range": "± 95534",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002227s stddev=0.000095534s cv=4.3107%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2955000,
+            "range": "± 63362",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002955s stddev=0.000063362s cv=2.1292%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2216000,
+            "range": "± 68880",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002216s stddev=0.000068880s cv=3.1309%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1930000,
+            "range": "± 40549",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001930s stddev=0.000040549s cv=2.0814%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1770000,
+            "range": "± 24850",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001770s stddev=0.000024850s cv=1.4040%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1539000,
+            "range": "± 31555",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001539s stddev=0.000031555s cv=2.0413%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2157000,
+            "range": "± 72624",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002157s stddev=0.000072624s cv=3.3735%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3741000,
+            "range": "± 70563",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003741s stddev=0.000070563s cv=1.8904%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1821000,
+            "range": "± 87563",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001821s stddev=0.000087563s cv=4.7938%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "range": "± 0",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.000008s stddev=0.000000000s cv=0.0000%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1833000,
+            "range": "± 98017",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001833000s stddev=0.000098017s cv=5.3650%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 775000,
+            "range": "± 39921",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000775000s stddev=0.000039921s cv=5.0653%"
           }
         ]
       }
