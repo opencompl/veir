@@ -16,8 +16,8 @@
 #                         (use when the input is in LLZK custom assembly; default
 #                         assumes input is already in generic MLIR form)
 #
-# See harness/differential.md for the protocol and harness/coverage.md for the
-# per-dialect divergences that the allowlist entries should track.
+# See docs/harness/GATES.md for the current protocol boundary and
+# docs/harness/SOURCES.md for stale historical differential references.
 
 set -euo pipefail
 
@@ -324,7 +324,7 @@ else
   cat "$DIFF_OUT" >&2
   if [[ -n "$ALLOWLIST" ]]; then
     echo >&2
-    echo "Hint: documented divergences belong in $ALLOWLIST; see harness/differential.md §4." >&2
+    echo "Hint: documented divergences belong in $ALLOWLIST; see docs/harness/GATES.md." >&2
   fi
   exit 1
 fi

@@ -1,0 +1,28 @@
+Script started on 2026-06-05 20:25:55+01:00 [COMMAND="scripts/harness/check-doc-freshness.sh" <not executed on terminal>]
+PASS: found docs/phases/PHASE-00-harness-reset.md
+PASS: found docs/phases/PHASE_TEMPLATE.md
+PASS: found docs/harness/CURRENT.md
+PASS: found docs/harness/SOURCES.md
+PASS: found docs/harness/GATES.md
+PASS: found docs/harness/REVIEWS.md
+PASS: found reviews/PHASE-00/disposition.md
+PASS: found reviews/PHASE-00/findings.md
+PASS: found reviews/PHASE-00/request.md
+PASS: found reviews/PHASE-00/adversarial-review.md
+PASS: phase review date has ISO format
+PASS: docs/harness/CURRENT.md review date agrees with phase
+PASS: docs/harness/SOURCES.md review date agrees with phase
+PASS: docs/harness/GATES.md review date agrees with phase
+PASS: docs/harness/REVIEWS.md review date agrees with phase
+PASS: CURRENT names active phase
+PASS: SOURCES marks stale historical material
+PASS: Phase 0 disposition exists
+PASS: evidence present reviews/PHASE-00/evidence/doctor-local.txt
+PASS: evidence present reviews/PHASE-00/evidence/doctor-companion-strict.txt
+PASS: evidence present reviews/PHASE-00/evidence/doctor-companion-exploratory.txt
+PASS: evidence present reviews/PHASE-00/evidence/validate-skills.txt
+PASS: evidence present reviews/PHASE-00/evidence/adversarial-review.txt
+
+doc freshness summary: 0 fail
+
+Script done on 2026-06-05 20:25:55+01:00 [COMMAND_EXIT_CODE="0"]

@@ -1,0 +1,34 @@
+Script started on 2026-06-05 20:24:54+01:00 [COMMAND="rg -n 'V-P0-004|VEIR_HARNESS_LOCAL_ONLY|not acceptance|strict wrapper|dirty companion|adversarial' docs/harness reviews/PHASE-00/*.md scripts/check-llzk-quality-gates.sh scripts/harness" <not executed on terminal>]
+scripts/check-llzk-quality-gates.sh
+17:if [[ "${VEIR_HARNESS_LOCAL_ONLY:-0}" == "1" ]]; then
+18:  echo "WARN: companion llzk-lean dependency gate explicitly skipped via VEIR_HARNESS_LOCAL_ONLY=1."
+27:  echo "VEIR_HARNESS_LOCAL_ONLY=1 for a non-acceptance local layout check." >&2
+
+reviews/PHASE-00/findings.md
+44:### V-P0-004: Compatibility wrapper skipped companion state by default
+
+reviews/PHASE-00/disposition.md
+14:- V-P0-004: fixed. `scripts/check-llzk-quality-gates.sh` now auto-checks
+17:  `VEIR_HARNESS_LOCAL_ONLY=1` and prints that it is not acceptance evidence.
+
+reviews/PHASE-00/adversarial-review.md
+31:- V-P0-004 was added: the compatibility wrapper previously skipped the
+34:  strict mode on the known dirty companion state.
+35:- `VEIR_HARNESS_LOCAL_ONLY=1` is now required for a non-acceptance local-only
+
+scripts/harness/check-doc-freshness.sh
+35:require_file reviews/PHASE-00/adversarial-review.md
+77:  reviews/PHASE-00/evidence/adversarial-review.txt; do
+
+docs/harness/GATES.md
+15:| Local-only wrapper | `VEIR_HARNESS_LOCAL_ONLY=1 scripts/check-llzk-quality-gates.sh` | Passes local layout checks but prints that it is not acceptance evidence | Local-only use is explicit and cannot be mistaken for full Phase 0 acceptance |
+
+docs/harness/REVIEWS.md
+12:- `adversarial-review.md`
+
+docs/harness/CURRENT.md
+54:  missing harness files. In Phase 0 it is a strict wrapper around the current
+56:  that companion dependency is dirty. `VEIR_HARNESS_LOCAL_ONLY=1` is an
+73:  `VEIR_HARNESS_LOCAL_ONLY=1` is set.
+
+Script done on 2026-06-05 20:24:54+01:00 [COMMAND_EXIT_CODE="0"]

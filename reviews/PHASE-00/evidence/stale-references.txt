@@ -1,0 +1,95 @@
+Script started on 2026-06-05 20:24:42+01:00 [COMMAND="rg -n 'harness/|quality-gates|coverage\.md|plan\.md' scripts REVIEW.md FOLLOWUP.md baseline.txt Veir Test" <not executed on terminal>]
+FOLLOWUP.md
+48:  deleted `harness/*.md`, `FELT_PARITY_ASSESSMENT_*.md`, `plan.md`, etc., but
+
+baseline.txt
+68:LLZK dialects (harness/coverage.md §Dialects):
+78:Infrastructure (harness/coverage.md §Symbols, §Types):
+84:Verification machinery (harness/coverage.md §Verification):
+114:## scripts/check-llzk-quality-gates.sh
+140:  LLZK quality-gates script           ❌ → ✅
+141:  llzk-quality-gates.yml CI           ❌ → ✅
+175:## scripts/check-llzk-quality-gates.sh
+194:  F.1 (design note)         ❌ → ✅ (`harness/regions-design.md`)
+201:  Block args as ValuePtr    coverage.md was ❌; corrected to ⚠️
+
+REVIEW.md
+51:- **VM1 (doc rot):** the two load-bearing dangling `harness/coverage.md`
+235:The "polish fork" commit deleted `harness/coverage.md`, `porting-notes.md`,
+236:`FELT_PARITY_ASSESSMENT_2026-05-28.md`, `quality-gates.md`, etc., but live
+238:which point at the deleted `harness/coverage.md` as the *justification* for
+244:`scripts/check-llzk-quality-gates.sh` (run on every push/PR) has gates that
+245:`grep` deleted files (`harness/coverage.md`, `plan.md`); those gates
+
+scripts/llzk-diff.sh
+19:# See docs/harness/GATES.md for the current protocol boundary and
+20:# docs/harness/SOURCES.md for stale historical differential references.
+327:    echo "Hint: documented divergences belong in $ALLOWLIST; see docs/harness/GATES.md." >&2
+
+scripts/check-llzk-quality-gates.sh
+6:# docs/harness/GATES.md.
+13:scripts/harness/doctor.sh
+14:scripts/harness/check-doc-freshness.sh
+15:scripts/harness/validate-skills.sh
+21:  scripts/harness/doctor.sh --companion-llzk-lean "$LLZK_LEAN_ROOT"
+23:  scripts/harness/doctor.sh --companion-llzk-lean "${ROOT}/../llzk-lean"
+
+scripts/harness/check-doc-freshness.sh
+28:require_file docs/harness/CURRENT.md
+29:require_file docs/harness/SOURCES.md
+30:require_file docs/harness/GATES.md
+31:require_file docs/harness/REVIEWS.md
+44:for doc in docs/harness/CURRENT.md docs/harness/SOURCES.md docs/harness/GATES.md docs/harness/REVIEWS.md; do
+53:if grep -q "Active phase: Phase 0" "${ROOT}/docs/harness/CURRENT.md"; then
+59:if grep -q "Stale Historical Material" "${ROOT}/docs/harness/SOURCES.md"; then
+
+scripts/harness/validate-skills.sh
+39:    if grep -q 'scripts/harness/' "$skill"; then
+
+scripts/harness/doctor.sh
+19:usage: scripts/harness/doctor.sh [--mode strict|exploratory] [--companion-llzk-lean PATH]
+128:require_file docs/harness/CURRENT.md
+129:require_file docs/harness/SOURCES.md
+130:require_file docs/harness/GATES.md
+131:require_file docs/harness/REVIEWS.md
+135:require_executable scripts/harness/check-doc-freshness.sh
+136:require_executable scripts/harness/validate-skills.sh
+
+Test/lit.cfg
+25:# failing. See harness/differential.md §3.
+
+Test/LLZK/Function/differential/function_def.mlir
+5:// Closes the original F.5.2 scope item from `harness/regions-design.md`,
+17:// emission — see harness/porting-notes.md §Gotcha 6).
+
+Veir/IR/Terminators.lean
+10:  check (Phase F.3 of `harness/regions-design.md`).
+
+Veir/IR/SymbolTable.lean
+9:  Phase F.4 of `harness/regions-design.md`. Implements the
+
+Test/LLZK/Felt/inner_annotation.mlir
+21:// (WA.2) concern documented in `harness/differential.md`.
+
+Veir/IR/Attribute.lean
+142:  recommendation in `harness/regions-design.md` §7.
+187:  (see `harness/porting-notes.md` 2026-05-15 entries and
+188:  `harness/coverage.md` §Attributes for the workaround story).
+
+Test/LLZK/String/differential/literals.mlir
+5:// fires, the allowlist gap belongs in harness/coverage.md.
+
+Test/LLZK/Bool/cmp.mlir
+4:// IntegerAttr-as-enum workaround (see harness/porting-notes.md
+5:// 2026-05-15 enum-attr pattern and harness/coverage.md §Attributes).
+
+Veir/Dialects/LLZK/Bool/Properties.lean
+42:  `harness/porting-notes.md` (2026-05-15 enum-attr pattern). The textual
+
+Veir/Dialects/LLZK/Function/Properties.lean
+16:    (Gotcha 5 in `harness/porting-notes.md`). Generic form prints
+
+Veir/Dialects/LLZK/Global/Properties.lean
+24:    `harness/coverage.md` §Op-level features).
+
+Script done on 2026-06-05 20:24:42+01:00 [COMMAND_EXIT_CODE="0"]

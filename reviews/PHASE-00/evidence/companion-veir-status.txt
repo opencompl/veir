@@ -1,0 +1,6 @@
+Script started on 2026-06-05 20:15:46+01:00 [COMMAND="git -C ../llzk-lean/.lake/packages/VeIR status --short" <not executed on terminal>]
+ M Veir/Passes/Felt/Combine.lean
+ M Veir/Passes/Felt/Proofs.lean
+?? Veir/Passes/Felt/RewriteLemmas.lean
+
+Script done on 2026-06-05 20:15:46+01:00 [COMMAND_EXIT_CODE="0"]
