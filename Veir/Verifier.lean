@@ -376,6 +376,12 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+  | .func .call => do
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
   | .func .return => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
       throw "Expected 0 results"
@@ -705,6 +711,14 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw s!"Expected {1 + dynamicCount} operands"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  | .llvm .call => do
+    if op.getNumResults ctx.raw opIn > 1 then
+      throw "Expected at most 1 result"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then

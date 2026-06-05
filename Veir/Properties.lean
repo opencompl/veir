@@ -460,6 +460,46 @@ def FuncFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   return { sym_name := symName, extra }
 
 /--
+  Properties of the `func.call` operation. The `callee` is first-class; all
+  other attributes are kept verbatim in `extra`. `func.call` is never indirect,
+  so `callee` is required.
+-/
+structure FuncCallProperties where
+  callee : FlatSymbolRefAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def FuncCallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String FuncCallProperties := do
+  let callee ← match attrDict["callee".toUTF8]? with
+    | some (.flatSymbolRefAttr s) => pure s
+    | some attr => throw s!"func.call: expected 'callee' to be a flat symbol reference, but got {attr}"
+    | none => throw "func.call: expected a 'callee' symbol reference"
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) => k ≠ "callee".toUTF8)
+  return { callee, extra }
+
+/--
+  Properties of the `llvm.call` operation. The `callee` is first-class; all
+  other attributes are kept verbatim in `extra`. `callee` is optional because
+  `llvm.call` doubles as an indirect-call operation.
+-/
+structure LLVMCallProperties where
+  callee : Option FlatSymbolRefAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMCallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMCallProperties := do
+  let callee ← match attrDict["callee".toUTF8]? with
+    | some (.flatSymbolRefAttr s) => pure (some s)
+    | some attr => throw s!"llvm.call: expected 'callee' to be a flat symbol reference, but got {attr}"
+    | none => pure none
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) => k ≠ "callee".toUTF8)
+  return { callee, extra }
+
+/--
   Properties of `llvm.func`. The `sym_name` and `function_type` attributes are
   modelled explicitly; all other attributes (e.g. `CConv`, `linkage`, `visibility_`)
   are preserved verbatim in `extra`.
