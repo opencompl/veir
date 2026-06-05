@@ -18,9 +18,12 @@ Last reviewed: 2026-06-05
 - llzk-lean Lake `VeIR` dependency checkout observed at:
   `09d5f00f0d2b`.
 
-These refs are Phase 0 acceptance inputs. If any ref changes, update this file,
-`docs/harness/SOURCES.md`, and the review evidence before treating the harness
-as current.
+These refs are Phase 0 bootstrap inputs, not a self-referential pin on the
+commit that contains this file. The doctor reports repository HEAD drift from
+these inputs as a warning. Dependency pin mismatches and hidden dirty dependency
+state remain hard failures. If a later phase relies on a newer ref for a
+semantic claim, update this file, `docs/harness/SOURCES.md`, and review
+evidence before treating that claim as current.
 
 ## Dirty-State Policy
 
@@ -67,7 +70,7 @@ Phase 0 is current only when:
 - `scripts/harness/validate-skills.sh` passes from the VeIR root.
 - A strict companion run,
   `scripts/harness/doctor.sh --companion-llzk-lean ../llzk-lean`, reports the
-  dirty llzk-lean dependency instead of hiding it.
+  dirty llzk-lean dependency as a hard failure instead of hiding it.
 - `scripts/check-llzk-quality-gates.sh` fails in strict mode on the known dirty
   companion state and only exits 0 for local-only mode when
   `VEIR_HARNESS_LOCAL_ONLY=1` is set.

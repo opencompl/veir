@@ -6,9 +6,9 @@ Last reviewed: 2026-06-05
 
 | Gate | Command | Expected Phase 0 behavior | What it proves |
 |---|---|---|---|
-| Local doctor | `scripts/harness/doctor.sh` | Passes from VeIR root | Repo layout, bootstrap HEAD, required tools, canonical docs, scripts, and skills are present |
+| Local doctor | `scripts/harness/doctor.sh` | Passes from VeIR root, warning if current HEAD differs from bootstrap input | Repo layout, required tools, canonical docs, scripts, skills, and current ref visibility are present |
 | Companion doctor | `scripts/harness/doctor.sh --companion-llzk-lean ../llzk-lean` | Fails in strict mode while the llzk-lean Lake `VeIR` checkout is dirty | Dirty dependency state is visible and cannot silently count as acceptance evidence |
-| Exploratory companion doctor | `scripts/harness/doctor.sh --mode exploratory --companion-llzk-lean ../llzk-lean` | Passes with warnings | Local investigation can proceed while still reporting the dirty dependency |
+| Exploratory companion doctor | `scripts/harness/doctor.sh --mode exploratory --companion-llzk-lean ../llzk-lean` | Passes with warnings when only repo HEADs or dirty dependency state differ from bootstrap inputs | Local investigation can proceed while still reporting the dirty dependency |
 | Doc freshness | `scripts/harness/check-doc-freshness.sh` | Passes when canonical docs and review disposition exist | Phase metadata and canonical harness docs are present and reviewed |
 | Skill validation | `scripts/harness/validate-skills.sh` | Passes when every repo-local skill has required sections | Repo-local skills are concise and auditable |
 | Compatibility wrapper | `scripts/check-llzk-quality-gates.sh` | Runs local harness gates and a strict companion check via `LLZK_LEAN_ROOT` or `../llzk-lean`; fails while the companion dependency is dirty | The old gate no longer reports success when companion state is hidden |

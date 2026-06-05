@@ -1,9 +1,8 @@
-Script started on 2026-06-05 20:25:34+01:00 [COMMAND="scripts/harness/doctor.sh --mode exploratory --companion-llzk-lean ../llzk-lean" <not executed on terminal>]
 PASS: tool git is available
 PASS: tool lake is available
 PASS: optional tool uv is available
 PASS: git root is /home/alh/LLZK/veir
-PASS: VeIR HEAD matches 4b0978bddec0
+WARN: VeIR HEAD 66413edb9bfa differs from bootstrap input 4b0978bddec0
 PASS: found AGENTS.md
 PASS: found docs/phases/PHASE-00-harness-reset.md
 PASS: found docs/phases/PHASE_TEMPLATE.md
@@ -19,7 +18,7 @@ PASS: executable scripts/harness/check-doc-freshness.sh
 PASS: executable scripts/harness/validate-skills.sh
 PASS: found reviews/PHASE-00/evidence
 PASS: companion llzk-lean path is /home/alh/LLZK/llzk-lean
-PASS: llzk-lean HEAD matches ea2363f87bcc
+WARN: llzk-lean HEAD 34cbe65907bf differs from bootstrap input ea2363f87bcc
 PASS: llzk-lean Lake files pin VeIR 09d5f00f0d2b
 PASS: llzk-lean dependency checkout is at 09d5f00f0d2b
 WARN: llzk-lean dependency checkout is dirty in exploratory mode:
@@ -27,6 +26,4 @@ WARN: llzk-lean dependency checkout is dirty in exploratory mode:
  M Veir/Passes/Felt/Proofs.lean
 ?? Veir/Passes/Felt/RewriteLemmas.lean
 
-doctor summary: 0 fail, 1 warn, mode=exploratory
-
-Script done on 2026-06-05 20:25:34+01:00 [COMMAND_EXIT_CODE="0"]
+doctor summary: 0 fail, 3 warn, mode=exploratory

@@ -15,3 +15,6 @@ Repository: veir
   `../llzk-lean` or `LLZK_LEAN_ROOT` in strict mode and fails on the known dirty
   companion dependency. Local-only execution requires
   `VEIR_HARNESS_LOCAL_ONLY=1` and prints that it is not acceptance evidence.
+- V-P0-005: fixed. `scripts/harness/doctor.sh` now reports repository HEAD
+  drift from bootstrap inputs as a warning. Dependency pin mismatches and dirty
+  companion dependency state remain hard failures.

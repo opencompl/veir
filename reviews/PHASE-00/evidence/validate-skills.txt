@@ -1,4 +1,3 @@
-Script started on 2026-06-05 20:25:37+01:00 [COMMAND="scripts/harness/validate-skills.sh" <not executed on terminal>]
 PASS: skills/lean-axiom-audit/SKILL.md has title
 PASS: skills/lean-axiom-audit/SKILL.md has usage trigger
 PASS: skills/lean-axiom-audit/SKILL.md has validation path
@@ -17,5 +16,3 @@ PASS: skills/phase-bootstrap/SKILL.md has validation path
 PASS: skills/phase-bootstrap/SKILL.md points at harness scripts
 
 skill validation summary: 0 fail over 4 skills
-
-Script done on 2026-06-05 20:25:37+01:00 [COMMAND_EXIT_CODE="0"]

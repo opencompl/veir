@@ -1,9 +1,8 @@
-Script started on 2026-06-05 20:26:04+01:00 [COMMAND="VEIR_HARNESS_LOCAL_ONLY=1 scripts/check-llzk-quality-gates.sh" <not executed on terminal>]
 PASS: tool git is available
 PASS: tool lake is available
 PASS: optional tool uv is available
 PASS: git root is /home/alh/LLZK/veir
-PASS: VeIR HEAD matches 4b0978bddec0
+WARN: VeIR HEAD 66413edb9bfa differs from bootstrap input 4b0978bddec0
 PASS: found AGENTS.md
 PASS: found docs/phases/PHASE-00-harness-reset.md
 PASS: found docs/phases/PHASE_TEMPLATE.md
@@ -20,7 +19,7 @@ PASS: executable scripts/harness/validate-skills.sh
 PASS: found reviews/PHASE-00/evidence
 WARN: companion llzk-lean dependency was not checked; pass --companion-llzk-lean PATH
 
-doctor summary: 0 fail, 1 warn, mode=strict
+doctor summary: 0 fail, 2 warn, mode=strict
 PASS: found docs/phases/PHASE-00-harness-reset.md
 PASS: found docs/phases/PHASE_TEMPLATE.md
 PASS: found docs/harness/CURRENT.md
@@ -68,5 +67,3 @@ WARN: companion llzk-lean dependency gate explicitly skipped via VEIR_HARNESS_LO
 WARN: this is a local layout check, not Phase 0 acceptance evidence.
 
 Phase 0 harness gates completed.
-
-Script done on 2026-06-05 20:26:04+01:00 [COMMAND_EXIT_CODE="0"]

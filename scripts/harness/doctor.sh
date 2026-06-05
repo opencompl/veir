@@ -117,9 +117,9 @@ fi
 
 head_short="$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || true)"
 if [[ "$head_short" == "$EXPECTED_VEIR_HEAD" ]]; then
-  ok "VeIR HEAD matches ${EXPECTED_VEIR_HEAD}"
+  ok "VeIR HEAD matches bootstrap input ${EXPECTED_VEIR_HEAD}"
 else
-  fail "VeIR HEAD ${head_short:-<none>} does not match bootstrap ${EXPECTED_VEIR_HEAD}"
+  warn "VeIR HEAD ${head_short:-<none>} differs from bootstrap input ${EXPECTED_VEIR_HEAD}"
 fi
 
 require_file AGENTS.md
@@ -150,9 +150,9 @@ if [[ -n "$COMPANION_LLZK_LEAN" ]]; then
     ok "companion llzk-lean path is ${companion}"
     companion_head="$(git -C "$companion" rev-parse --short=12 HEAD 2>/dev/null || true)"
     if [[ "$companion_head" == "$EXPECTED_LLZK_LEAN_HEAD" ]]; then
-      ok "llzk-lean HEAD matches ${EXPECTED_LLZK_LEAN_HEAD}"
+      ok "llzk-lean HEAD matches bootstrap input ${EXPECTED_LLZK_LEAN_HEAD}"
     else
-      fail "llzk-lean HEAD ${companion_head:-<none>} does not match bootstrap ${EXPECTED_LLZK_LEAN_HEAD}"
+      warn "llzk-lean HEAD ${companion_head:-<none>} differs from bootstrap input ${EXPECTED_LLZK_LEAN_HEAD}"
     fi
 
     if grep -q "$EXPECTED_VEIR_DEP" "${companion}/lakefile.toml" &&

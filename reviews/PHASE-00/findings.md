@@ -54,3 +54,19 @@ Evidence:
 
 - `reviews/PHASE-00/evidence/quality-wrapper-strict.txt`
 - `reviews/PHASE-00/evidence/quality-wrapper-local-only.txt`
+
+### V-P0-005: Doctor treated bootstrap commit refs as immutable current HEADs
+
+Severity: High
+
+After Phase 0 was committed, `scripts/harness/doctor.sh` failed before reaching
+the companion dependency check because the current VeIR and llzk-lean HEADs no
+longer matched the pre-Phase-0 bootstrap refs. A committed script cannot
+reliably require its repository HEAD to equal a literal hash stored inside that
+same commit. The harness should report HEAD drift, while keeping dependency pin
+and dirty-state checks as hard failures.
+
+Evidence:
+
+- Direct rerun of `scripts/harness/doctor.sh` on 2026-06-05 after the Phase 0
+  commit.
