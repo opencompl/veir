@@ -4,7 +4,7 @@
 // operation's identity.
 
 "builtin.module"() ({
-  "llvm.func"() ({
+  "llvm.func"()  <{function_type = !llvm.func<void (i32, i32)>}> ({
 
 // `lshr exact` is distinct from plain `lshr`.
 ^lshr_exact(%m : i32, %n : i32):

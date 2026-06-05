@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8, i8, i8)}> ({
     %lhs = "arith.constant"() <{ "value" = 150 : i8 }> : () -> i8
     %rhs = "arith.constant"() <{ "value" = 100 : i8 }> : () -> i8
     %none = "arith.muli"(%lhs, %rhs) : (i8, i8) -> i8

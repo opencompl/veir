@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i66, i66, i66, i66)}> ({
     %c = "arith.constant"() <{ "value" = 18446744073709551616 : i66 }> : () -> i66
     %none = "arith.shli"(%c, %c) : (i66, i66) -> i66
     %nsw = "arith.shli"(%c, %c) <{"overflowFlags" = 1 : i32}> : (i66, i66) -> i66

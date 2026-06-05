@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8, i8)}> ({
     %seven = "llvm.mlir.constant"() <{ "value" = 127 : i8 }> : () -> i8
     %negone = "llvm.mlir.constant"() <{ "value" = -1 : i8 }> : () -> i8
     %four = "llvm.mlir.constant"() <{ "value" = 4 : i8 }> : () -> i8

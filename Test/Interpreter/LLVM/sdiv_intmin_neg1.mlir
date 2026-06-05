@@ -2,7 +2,7 @@
 
 // `sdiv intMin, -1` is immediate UB (signed overflow of the quotient).
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
     %intmin = "llvm.mlir.constant"() <{ "value" = -2147483648 : i32 }> : () -> i32
     %negone = "llvm.mlir.constant"() <{ "value" = -1 : i32 }> : () -> i32
     %y = "llvm.sdiv"(%intmin, %negone) : (i32, i32) -> i32

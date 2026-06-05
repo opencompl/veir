@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8, i8, i8)}> ({
     %c3 = "hw.constant"() <{ "value" = 3 : i8 }> : () -> i8
     %c5 = "hw.constant"() <{ "value" = 5 : i8 }> : () -> i8
     %c10 = "hw.constant"() <{ "value" = 10 : i8 }> : () -> i8

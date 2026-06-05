@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
     ^1():
       %x = "riscv.li"() <{ "value" = 9 : i64 }> : () -> !riscv.reg
       "riscv_cf.branch"(%x) [^2] : (!riscv.reg) -> ()

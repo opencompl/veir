@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"() ({
+    "func.func"()  <{function_type = () -> ()}> ({
         %one = "llvm.mlir.constant"() <{ "value" = 1 : i32 }> : () -> i32
         %two = "llvm.mlir.constant"() <{ "value" = 2 : i32 }> : () -> i32
         // CHECK:      %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32

@@ -1,7 +1,7 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() ({
+  "func.func"() <{function_type = () -> ()}> ({
   ^bb0():
     "func.return"() : () -> ()
     %0 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32

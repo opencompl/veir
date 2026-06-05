@@ -3,7 +3,7 @@
 "builtin.module"() ({
 
   ^1():
-    "func.func"() ({
+    "func.func"()  <{function_type = (i64) -> ()}> ({
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i64
         "test.test"(%1) : (i64) -> ()
@@ -12,7 +12,7 @@
     }) : () -> ()
     
   ^2():
-    "func.func"() ({
+    "func.func"()  <{function_type = (i64) -> ()}> ({
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
         "test.test"(%1) : (!riscv.reg) -> ()
@@ -22,7 +22,7 @@
     }) : () -> ()
     
   ^3():
-    "func.func"() ({
+    "func.func"()  <{function_type = (i64) -> ()}> ({
       ^1(%0 : i64):
         // the remaining cast is unused 
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
@@ -34,7 +34,7 @@
     }) : () -> ()
 
   ^4():
-    "func.func"() ({
+    "func.func"()  <{function_type = (i64) -> ()}> ({
       ^1(%0 : i64):
         // the remaining cast is used
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
@@ -49,7 +49,7 @@
     }) : () -> ()
     
   ^5():
-    "func.func"() ({
+    "func.func"()  <{function_type = (i64) -> ()}> ({
       ^1(%0 : i64):
         // identity cast and pairs of casts
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
@@ -62,7 +62,7 @@
     }) : () -> ()
   
   ^6():
-    "func.func"() ({
+    "func.func"()  <{function_type = (i64) -> ()}> ({
       ^1(%0 : i64):
         // pairs of casts
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg
@@ -76,7 +76,7 @@
     }) : () -> ()
     
   ^7():
-    "func.func"() ({
+    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
       ^1(%0 : !riscv.reg):
         // identity cast on block argument
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> !riscv.reg
@@ -87,7 +87,7 @@
     }) : () -> ()
   
   ^8():
-    "func.func"() ({
+    "func.func"()  <{function_type = (i8) -> ()}> ({
       ^1(%0 : i8):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i8) -> i8
         "test.test"(%1) : (i8) -> ()
@@ -96,7 +96,7 @@
     }) : () -> ()
     
   ^9():
-    "func.func"() ({
+    "func.func"()  <{function_type = (i64) -> ()}> ({
       ^1(%0 : i64):
         // pairs of casts
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i256

@@ -2,7 +2,7 @@
 
 // Unsigned division with a concrete zero divisor is immediate UB.
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
     %lhs = "arith.constant"() <{ "value" = 130 : i32 }> : () -> i32
     %zero = "arith.constant"() <{ "value" = 0 : i32 }> : () -> i32
     %y = "arith.divui"(%lhs, %zero) : (i32, i32) -> i32

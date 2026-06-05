@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"() ({
+    "func.func"()  <{function_type = (i8, i16, i32, i42) -> ()}> ({
     ^bb0(%a: i8, %b: i16, %c: i32, %d: i42):
         %sexta = "llvm.sext"(%a) : (i8) -> i16
         %sextb = "llvm.sext"(%b) : (i16) -> i32
