@@ -103,7 +103,7 @@ theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
       else
         (nsw ∧ BitVec.saddOverflow x.getValue y.getValue) ∨
         (nuw ∧ BitVec.uaddOverflow x.getValue y.getValue) := by
-  simp only [isPoison, add, Id.run, pure_bind, getValue, Bool.decide_or, Bool.decide_and,
+  simp only [isPoison, add, Id.run, getValue, Bool.decide_or, Bool.decide_and,
     Bool.decide_eq_true]
   simp [pure]
   grind
@@ -121,7 +121,7 @@ theorem isPoison_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} :
       else
         (nsw ∧ BitVec.ssubOverflow x.getValue y.getValue) ∨
         (nuw ∧ BitVec.usubOverflow x.getValue y.getValue) := by
-  simp only [isPoison, sub, Id.run, pure_bind, getValue, Bool.decide_or, Bool.decide_and,
+  simp only [isPoison, sub, Id.run, getValue, Bool.decide_or, Bool.decide_and,
     Bool.decide_eq_true]
   simp [pure]
   grind
@@ -139,7 +139,7 @@ theorem isPoison_mul {w : Nat} (x y : Int w) {nsw nuw : Bool} :
       else
         (nsw ∧ BitVec.smulOverflow x.getValue y.getValue) ∨
         (nuw ∧ BitVec.umulOverflow x.getValue y.getValue) := by
-  simp only [mul, isPoison, getValue, Id.run, pure_bind]
+  simp only [mul, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
@@ -156,7 +156,7 @@ theorem isPoison_udiv {w : Nat} (x y : Int w) {exact : Bool} :
       else
         (exact ∧ BitVec.umod x.getValue y.getValue ≠ 0) ∨
         (y.getValue = 0) := by
-  simp only [udiv, isPoison, getValue, Id.run, pure_bind]
+  simp only [udiv, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
@@ -174,7 +174,7 @@ theorem isPoison_sdiv {w : Nat} (x y : Int w) {exact : Bool} :
         (y.getValue = 0 ∨ (x.getValue = (BitVec.intMin w) ∧ y.getValue = -1)) ∨
         (exact ∧ BitVec.smod x.getValue y.getValue ≠ 0) ∨
         (y.getValue = 0) := by
-  simp only [sdiv, isPoison, getValue, Id.run, pure_bind]
+  simp only [sdiv, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
@@ -190,7 +190,7 @@ theorem isPoison_urem {w : Nat} (x y : Int w) :
       if h : x.isPoison = true ∨ y.isPoison = true then true
       else
         y.getValue = 0 := by
-  simp only [urem, isPoison, getValue, Id.run, pure_bind]
+  simp only [urem, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
@@ -206,7 +206,7 @@ theorem isPoison_srem {w : Nat} (x y : Int w) :
       if h : x.isPoison = true ∨ y.isPoison = true then true
       else
         (y.getValue = 0 ∨ (x.getValue = (BitVec.intMin w) ∧ y.getValue = -1)) := by
-  simp only [srem, isPoison, getValue, Id.run, pure_bind]
+  simp only [srem, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
@@ -224,7 +224,7 @@ theorem isPoison_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} :
         (nsw ∧ (x.getValue <<< y.getValue).sshiftRight' y.getValue ≠ x.getValue) ∨
         (nuw ∧ (x.getValue <<< y.getValue) >>> y.getValue ≠ x.getValue) ∨
         (y.getValue ≥ w) := by
-  simp only [shl, isPoison, getValue, Id.run, pure_bind]
+  simp only [shl, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
@@ -232,7 +232,7 @@ theorem isPoison_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} :
 theorem getValue_shl {w : Nat} (x y : Int w) {nsw nuw : Bool} (h : (shl x y nsw nuw).isPoison = false) :
     (shl x y nsw nuw).getValue h = x.getValue <<< y.getValue := by
   simp only [shl, Id.run, BitVec.shiftLeft_eq', BitVec.sshiftRight_eq', ne_eq,
-    BitVec.ushiftRight_eq', BitVec.natCast_eq_ofNat, ge_iff_le, pure_bind]
+    BitVec.ushiftRight_eq', BitVec.natCast_eq_ofNat, ge_iff_le]
   simp [pure]
   grind
 
@@ -243,7 +243,7 @@ theorem isPoison_lshr {w : Nat} (x y : Int w) {exact : Bool} :
       else
         y.getValue ≥ w ∨
         (exact ∧ (x.getValue >>> y.getValue) <<< y.getValue ≠ x.getValue) := by
-  simp only [lshr, isPoison, getValue, Id.run, pure_bind]
+  simp only [lshr, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
@@ -251,7 +251,7 @@ theorem isPoison_lshr {w : Nat} (x y : Int w) {exact : Bool} :
 theorem getValue_lshr {w : Nat} (x y : Int w) {exact : Bool} (h : (lshr x y exact).isPoison = false) :
     (lshr x y exact).getValue h = x.getValue >>> y.getValue := by
   simp only [lshr, Id.run, BitVec.natCast_eq_ofNat, ge_iff_le, BitVec.ushiftRight_eq',
-    BitVec.shiftLeft_eq', ne_eq, pure_bind]
+    BitVec.shiftLeft_eq', ne_eq]
   simp [pure]
   grind
 
@@ -262,7 +262,7 @@ theorem isPoison_ashr {w : Nat} (x y : Int w) {exact : Bool} :
       else
         y.getValue ≥ w ∨
         (exact ∧ (x.getValue >>> y.getValue) <<< y.getValue ≠ x.getValue) := by
-  simp only [ashr, isPoison, getValue, Id.run, pure_bind]
+  simp only [ashr, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
@@ -270,7 +270,7 @@ theorem isPoison_ashr {w : Nat} (x y : Int w) {exact : Bool} :
 theorem getValue_ashr {w : Nat} (x y : Int w) {exact : Bool} (h : (ashr x y exact).isPoison = false) :
     (ashr x y exact).getValue h = x.getValue.sshiftRight' y.getValue := by
   simp only [ashr, Id.run, BitVec.natCast_eq_ofNat, ge_iff_le, BitVec.ushiftRight_eq',
-    BitVec.shiftLeft_eq', ne_eq, BitVec.sshiftRight_eq', pure_bind]
+    BitVec.shiftLeft_eq', ne_eq, BitVec.sshiftRight_eq']
   simp [pure]
   grind
 
@@ -304,7 +304,7 @@ theorem isPoison_or {w : Nat} (x y : Int w) {disjoint : Bool} :
       if h : x.isPoison ∨ y.isPoison then true
       else
         disjoint ∧ ((x.getValue &&& y.getValue) ≠ 0) := by
-  simp only [or, isPoison, getValue, Id.run, pure_bind]
+  simp only [or, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
@@ -333,7 +333,7 @@ theorem isPoison_trunc {w₁ w₂: Nat} (x : Int w₁) {nsw nuw : Bool} (h : w�
       else
         (nsw ∧ (x.getValue.truncate w₂).signExtend w₁ ≠ x.getValue) ∨
         (nuw ∧ (x.getValue.truncate w₂).zeroExtend w₁ ≠ x.getValue) := by
-  simp only [trunc, isPoison, getValue, Id.run, pure_bind]
+  simp only [trunc, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
@@ -349,7 +349,7 @@ theorem isPoison_zext {w₁ w₂: Nat} (x : Int w₁) {nneg : Bool} (h : w₁ < 
       if h : x.isPoison then true
       else
         nneg ∧ x.getValue.msb := by
-  simp only [zext, isPoison, getValue, Id.run, pure_bind]
+  simp only [zext, isPoison, getValue, Id.run]
   simp [pure]
   grind
 
