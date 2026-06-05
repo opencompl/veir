@@ -3,6 +3,7 @@ import Veir.Interpreter
 import Veir.IR.WellFormed
 import Veir.Passes.Matching
 import Veir.Rewriter.WfRewriter
+import Veir.Interpreter.Refinement.Basic
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
@@ -81,16 +82,55 @@ def LocalRewritePattern.ReturnValues (pattern : LocalRewritePattern OpCode) : Pr
   newValues.size = op.getNumResults! ctx.raw
 
 /--
-Asserts that a state refines pointwise another state at every value dominating
-the given insert point.
-Also, the memory states are the same.
+All values returned by the pattern are in bounds of the new context.
 -/
-def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo} (state : InterpreterState ctx)
-    (state' : InterpreterState ctx') (insertPoint : InsertPoint) : Prop :=
-  state.memory = state'.memory ∧
-  ∀ (val : ValuePtr), ValuePtr.dominatesIp val insertPoint ctx →
-  ∀ sourceVar, state.variables.getVar? val = some sourceVar →
-  ∃ targetVar, state'.variables.getVar? val = some targetVar ∧ sourceVar ⊒ targetVar
+def LocalRewritePattern.ReturnValuesInBounds (pattern : LocalRewritePattern OpCode) : Prop :=
+  ∀ ctx op newCtx newOps newValues, pattern ctx op = some (newCtx, some (newOps, newValues)) →
+  ∀ v ∈ newValues, v.InBounds newCtx.raw
+
+/--
+Indexed access on the returned values is in bounds of the new context.
+Discharges the second `sorry` in `LocalRewritePattern.Mapping`.
+-/
+theorem LocalRewritePattern.ReturnValuesInBounds.getElem!_inBounds
+    {pattern : LocalRewritePattern OpCode}
+    (hReturn : pattern.ReturnValuesInBounds)
+    (hpattern : pattern ctx op = some (newCtx, some (newOps, newValues)))
+    {index : Nat} (hindex : index < newValues.size) :
+    newValues[index]!.InBounds newCtx.raw := by
+  rw [getElem!_pos newValues index hindex]
+  exact hReturn ctx op newCtx newOps newValues hpattern newValues[index] (Array.getElem_mem hindex)
+
+/--
+A value that is in bounds of the input context is also in bounds of the new context returned
+by the pattern. Discharges the third `sorry` in `LocalRewritePattern.Mapping`.
+-/
+theorem LocalRewritePattern.ReturnCtxChanges.valuePtr_inBounds
+    {pattern : LocalRewritePattern OpCode}
+    (hReturn : pattern.ReturnCtxChanges)
+    (hpattern : pattern ctx op = some (newCtx, some (newOps, newValues)))
+    {v : ValuePtr} (vInBounds : v.InBounds ctx.raw) :
+    v.InBounds newCtx.raw := by
+  have hCreated := hReturn ctx op newCtx newOps newValues hpattern
+  have := hCreated.inBounds_mono (GenericPtr.value v) (by grind)
+  grind
+
+def LocalRewritePattern.mapping
+    {pattern : LocalRewritePattern OpCode}
+    (hpattern : pattern ctx op = some (newCtx, some (newOps, newValues)))
+    (hreturn : pattern.ReturnValuesInBounds := by grind)
+    (hreturn₂ : pattern.ReturnValues := by grind)
+    (hreturn₃ : pattern.ReturnCtxChanges := by grind) :
+    ValueMapping ctx newCtx :=
+  fun ⟨v, vInBounds⟩ =>
+    if h : v ∈ op.getResults! ctx.raw then
+      let index := (op.getResults! ctx.raw).idxOf v
+      have : v = op.getResult index := by grind
+      ⟨newValues[index]!, by
+        apply LocalRewritePattern.ReturnValuesInBounds.getElem!_inBounds hreturn hpattern
+        grind [LocalRewritePattern.ReturnValues]⟩
+    else
+      ⟨v, by grind⟩
 
 /--
 Preservation of semantics for a local rewrite pattern.
@@ -99,14 +139,15 @@ the matched operation in a state is refined by interpreting the new operations i
 -/
 def LocalRewritePattern.PreservesSemantics
   (pattern : LocalRewritePattern OpCode)
-  (_ : ReturnOps pattern) (_ : ReturnCtxChanges pattern) : Prop :=
+  (_ : pattern.ReturnOps) (_ : pattern.ReturnCtxChanges)
+  (_ : pattern.ReturnValuesInBounds) (_ : pattern.ReturnValues) : Prop :=
   ∀ ctx (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified) (op : OperationPtr) (opInBounds : op.InBounds ctx.raw),
   ∀ newCtx newOps newValues (hpattern : pattern ctx op = some (newCtx, some (newOps, newValues))),
   ∀ (state : InterpreterState ctx), state.EquationLemmaAt (InsertPoint.before op) →
   ∀ newState cf, interpretOp op state = some (newState, cf) →
   ∀ sourceValues, (op.getResults ctx.raw).mapM (newState.variables.getVar? ·) = some sourceValues →
   ∀ (state' : InterpreterState newCtx), state'.EquationLemmaAt (InsertPoint.before op) →
-  state.isRefinedByAt state' (InsertPoint.before op) →
+  state.isRefinedBy state' (LocalRewritePattern.mapping hpattern) →
   ∃ newState',
     interpretOpList newOps.toList state' (by grind [ReturnOps]) = some (newState', cf) ∧
     newState.memory = newState'.memory ∧
