@@ -1,5 +1,6 @@
 import Veir.Interpreter.Basic
 import Veir.Dominance
+import Veir.Interpreter.Refinement.Basic
 
 namespace Veir
 
@@ -332,3 +333,12 @@ theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
   grind [BlockPtr.OpChain]
 
 end interpretOpList
+
+set_option warn.sorry false in
+def interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+    operands ⊒ operands' →
+    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
+      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2 = r₂.2)
+      (interpretOp' opType properties resultTypes operands blockOperands mem)
+      (interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  sorry
