@@ -416,7 +416,7 @@ def testDomTwoLevelNested : String :=
   │      └─┬─┘     └───┘
   └────────┘
 -/
-def testDomDiamonLoop: String :=
+def testDomDiamondLoop: String :=
   run r#""builtin.module"() ({
 ^bb0:
   "test.test"() [^bb1, ^bb2] : () -> ()
@@ -481,6 +481,6 @@ info: "ok"
 info: "ok"
 -/
 #guard_msgs in
-#eval! testDomDiamonLoop
+#eval! testDomDiamondLoop
 
 end DominanceAnalysis

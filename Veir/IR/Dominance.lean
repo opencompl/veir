@@ -80,9 +80,8 @@ private def dominatesWithinBlock
     | .atEnd _, _ =>
         false
 
-
 /--
-Proper dominance query between two insertion points.
+Dominance query between two insertion points.
 
 If `point` lies in a nested region outside the region containing `dominator`, it
 is normalized into the dominator's region by replacing it with the enclosing
@@ -90,14 +89,11 @@ operation position. Once both insertion points lie in the same region,
 dominance is decided by same block insertion point order or by block
 dominance.
 -/
-private def properlyDominates
+private def dominates
     (dominator : InsertPoint)
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool := Id.run do
-  if dominator = point then
-    return false
-
   let some dominatorBlock := dominator.block! irCtx
     | return false
   let some dominatorRegion := (dominatorBlock.get! irCtx).parent
@@ -118,17 +114,17 @@ private def properlyDominates
     return dominatorBlock.dominatesWithinRegion pointBlock dfCtx irCtx
 
 /--
-Dominance query between two insertion points.
+Proper dominance query between two insertion points.
 
-An insertion point dominates itself. Otherwise this is the same query as
-`InsertPoint.properlyDominates`.
+An insertion point does not properly dominate itself. Otherwise this is the same query as `InsertPoint.dominates`.
 -/
-private def dominates
+private def properlyDominates
     (dominator : InsertPoint)
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=
-  dominator = point || dominator.properlyDominates point dfCtx irCtx
+  dominator ≠ point && dominator.dominates point dfCtx irCtx
+
 
 end InsertPoint
 
