@@ -6,7 +6,7 @@ import Veir.Passes.DCE.dce
 namespace Veir
 
 /-!
-  We reconcile casts in `builtin.unrealized_conversion_cast` operations for `!reg` and `i64` types.
+  We reconcile casts in `builtin.unrealized_conversion_cast` operations for `!riscv.reg` and `i64` types.
 -/
 set_option warn.sorry false in
 def reconcileRegistersPairingCast (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
@@ -15,7 +15,7 @@ def reconcileRegistersPairingCast (rewriter : PatternRewriter OpCode) (op : Oper
   let input := op.getOperand! rewriter.ctx.raw 0
   let inputType := input.getType! rewriter.ctx.raw
   let resultType := ((op.getResult 0).get! rewriter.ctx.raw).type
-  /- Only consider casting between `!reg` and `i64` types-/
+  /- Only consider casting between `!riscv.reg` and `i64` types-/
   if ¬ (inputType = RegisterType.mk ∧ resultType = IntegerType.mk 64) ∧
        ¬ (inputType = IntegerType.mk 64 ∧ resultType = RegisterType.mk) then return rewriter
   /- If the operand's parent is a cast operation -/
@@ -54,7 +54,7 @@ def reconcileIntegersPairingCast (rewriter : PatternRewriter OpCode) (op : Opera
   let input := op.getOperand! rewriter.ctx.raw 0
   let inputType := input.getType! rewriter.ctx.raw
   let resultType := ((op.getResult 0).get! rewriter.ctx.raw).type
-  /- Only consider casting between `!reg` and `i64` types-/
+  /- Only consider casting between `!riscv.reg` and `i64` types-/
   let resultType := ((op.getResult 0).get! rewriter.ctx.raw).type
   let IntegerType.mk bwRes := resultType | return rewriter
   let IntegerType.mk bwIn := inputType | return rewriter

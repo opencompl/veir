@@ -2,11 +2,11 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main"}> ({
-    %a = "riscv.li"() <{ value = 0 : i64 }> : () -> !reg
-    %b = "riscv.li"() <{ value = 1 : i64 }> : () -> !reg
-    %c = "riscv.snez"(%a) : (!reg) -> !reg
-    %d = "riscv.snez"(%b) : (!reg) -> !reg
-    "func.return"(%c, %d) : (!reg, !reg) -> ()
+    %a = "riscv.li"() <{ value = 0 : i64 }> : () -> !riscv.reg
+    %b = "riscv.li"() <{ value = 1 : i64 }> : () -> !riscv.reg
+    %c = "riscv.snez"(%a) : (!riscv.reg) -> !riscv.reg
+    %d = "riscv.snez"(%b) : (!riscv.reg) -> !riscv.reg
+    "func.return"(%c, %d) : (!riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
 

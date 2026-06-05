@@ -73,14 +73,14 @@ def parseOptionalFloatType : AttrParserM (Option FloatType) := do
 
 /--
   Parse an optional register type, which is fundamentally a wrapper for `i64`.
-  A register type is represented as `!reg`.
+  A register type is represented as `!riscv.reg`.
 -/
 def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
   let token ← peekToken
   let .exclamationIdent := token.kind | return none
   let input := (← getThe ParserState).input
   let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName ≠ "reg".toByteArray then return none
+  if typeName ≠ "riscv.reg".toByteArray then return none
   let _ ← consumeToken
   return some RegisterType.mk
 
@@ -96,7 +96,7 @@ def parseIntegerType (errorMsg : String := "integer type expected") : AttrParser
 
 /--
   Parse a register type, throwing an error if it is not present.
-  An integer type is represented as `!reg`
+  An integer type is represented as `!riscv.reg`
 -/
 def parseRegisterType (errorMsg : String := "register type expected") : AttrParserM RegisterType := do
   match ← parseOptionalRegisterType with

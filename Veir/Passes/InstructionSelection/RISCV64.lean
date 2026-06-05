@@ -526,7 +526,7 @@ def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /--
-  llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!reg) : iY
+  llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
 -/
 def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
