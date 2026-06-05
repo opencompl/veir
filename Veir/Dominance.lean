@@ -53,6 +53,11 @@ theorem OperationPtr.strictlyDominates_def :
 -/
 axiom OperationPtr.dominatesIp (op : OperationPtr) (ip : InsertPoint) (ctx : WfIRContext OpInfo) : Prop
 
+/--
+  The dominance relation between a value and an insertion point.
+-/
+axiom ValuePtr.dominatesIp (val : ValuePtr) (ip : InsertPoint) (ctx : WfIRContext OpInfo) : Prop
+
 /-!
 ## Lemmas about Dominance
 -/
