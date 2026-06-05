@@ -2,14 +2,14 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main"}> ({
-    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !reg
-    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> !reg
-    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> !reg
-    %d = "riscv.li"() <{ value = 4294967298 : i64 }> : () -> !reg
-    %f = "riscv.sh2add"(%a, %b) : (!reg, !reg) -> !reg
-    %g = "riscv.sh2add"(%a, %c) : (!reg, !reg) -> !reg
-    %h = "riscv.sh2add"(%d, %a) : (!reg, !reg) -> !reg
-    "func.return"(%f, %g, %h) : (!reg, !reg, !reg) -> ()
+    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !riscv.reg
+    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> !riscv.reg
+    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> !riscv.reg
+    %d = "riscv.li"() <{ value = 4294967298 : i64 }> : () -> !riscv.reg
+    %f = "riscv.sh2add"(%a, %b) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %g = "riscv.sh2add"(%a, %c) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %h = "riscv.sh2add"(%d, %a) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    "func.return"(%f, %g, %h) : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
 

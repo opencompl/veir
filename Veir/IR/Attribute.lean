@@ -561,10 +561,10 @@ instance : ToString FloatAttr where
   toString attr := s!"{attr.value} : {attr.type}"
 
 instance : ToString RegisterType where
-  toString _ := s!"!reg"
+  toString _ := s!"!riscv.reg"
 
 instance : ToString RegisterAttr where
-  toString attr := s!"{attr.value} : !reg"
+  toString attr := s!"{attr.value} : !riscv.reg"
 
 def escapeStringLiteral (s : String) : String := Id.run do
   let mut result := ""

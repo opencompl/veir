@@ -2,15 +2,15 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main"}> ({
-    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !reg
-    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> !reg
-    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> !reg
-    %d = "riscv.li"() <{ value = -4294967288 : i64 }> : () -> !reg
-    %e = "riscv.li"() <{ value = 3 : i64 }> : () -> !reg
-    %f = "riscv.mulhu"(%a, %b) : (!reg, !reg) -> !reg
-    %g = "riscv.mulhu"(%a, %c) : (!reg, !reg) -> !reg
-    %h = "riscv.mulhu"(%d, %e) : (!reg, !reg) -> !reg
-    "func.return"(%f, %g, %h) : (!reg, !reg, !reg) -> ()
+    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !riscv.reg
+    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> !riscv.reg
+    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> !riscv.reg
+    %d = "riscv.li"() <{ value = -4294967288 : i64 }> : () -> !riscv.reg
+    %e = "riscv.li"() <{ value = 3 : i64 }> : () -> !riscv.reg
+    %f = "riscv.mulhu"(%a, %b) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %g = "riscv.mulhu"(%a, %c) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %h = "riscv.mulhu"(%d, %e) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    "func.return"(%f, %g, %h) : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
 
