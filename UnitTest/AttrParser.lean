@@ -267,6 +267,9 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "(!cuda_tile.ptr<i1>) -> ()"
   (FunctionType.mk #[(CudaTile.PointerType.mk (IntegerType.mk 1) : Attribute)] #[] (isVarArg := false))
 
+/-! ## RISCV Register type -/
+#assert expectSuccessType "!riscv.reg" (RegisterType.mk)
+
 /-! ## Flat symbol reference attribute -/
 #assert expectSuccessAttr "@foo" (FlatSymbolRefAttr.mk "@foo")
 #assert expectSuccessAttr "@printf" (FlatSymbolRefAttr.mk "@printf")

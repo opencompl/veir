@@ -2,14 +2,14 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main"}> ({
-    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !reg
-    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> !reg
-    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> !reg
-    %d = "riscv.li"() <{ value = 4294967297 : i64 }> : () -> !reg
-    %e = "riscv.pack"(%a, %b) : (!reg, !reg) -> !reg
-    %f = "riscv.pack"(%a, %c) : (!reg, !reg) -> !reg
-    %g = "riscv.pack"(%a, %d) : (!reg, !reg) -> !reg
-    "func.return"(%e, %f, %g) : (!reg, !reg, !reg) -> ()
+    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !riscv.reg
+    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> !riscv.reg
+    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> !riscv.reg
+    %d = "riscv.li"() <{ value = 4294967297 : i64 }> : () -> !riscv.reg
+    %e = "riscv.pack"(%a, %b) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %f = "riscv.pack"(%a, %c) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %g = "riscv.pack"(%a, %d) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    "func.return"(%e, %f, %g) : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
 
