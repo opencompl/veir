@@ -259,6 +259,12 @@ macro "#assert " e:term : command =>
 #assert expectSuccessType "!llvm.func<i32 (...)>"
   ⟨.llvmFunctionType (FunctionType.mk #[] #[(IntegerType.mk 32 : Attribute)] (isVarArg := true)), by rfl⟩
 
+/-! ## LLVM calling convention and linkage attributes -/
+#assert expectSuccessAttr "#llvm.cconv<ccc>" (CConvAttr.mk "ccc")
+#assert expectSuccessAttr "#llvm.cconv<fastcc>" (CConvAttr.mk "fastcc")
+#assert expectSuccessAttr "#llvm.linkage<external>" (LinkageAttr.mk "external")
+#assert expectSuccessAttr "#llvm.linkage<internal>" (LinkageAttr.mk "internal")
+
 /-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
 #assert expectSuccessType "!cuda_tile.ptr<i32>" (CudaTile.PointerType.mk (IntegerType.mk 32))

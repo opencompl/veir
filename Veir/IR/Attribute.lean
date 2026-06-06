@@ -74,6 +74,20 @@ structure FastMathFlagsAttr where
   nsz : Bool
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/--
+  LLVM calling convention attribute, e.g. `#llvm.cconv<ccc>`.
+-/
+structure CConvAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  LLVM linkage attribute, e.g. `#llvm.linkage<external>`.
+-/
+structure LinkageAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 structure RegisterAttr where
   value : Int
   type : RegisterType
@@ -287,6 +301,10 @@ inductive Attribute
 | floatAttr (attr : FloatAttr)
 /-- Float fast math flags attribute -/
 | fastMathFlagsAttr (attr : FastMathFlagsAttr)
+/-- LLVM calling convention attribute -/
+| cconvAttr (attr : CConvAttr)
+/-- LLVM linkage attribute -/
+| linkageAttr (attr : LinkageAttr)
 /-- Register type -/
 | registerType (type : RegisterType)
 /-- Register attribute -/
@@ -445,6 +463,14 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case cconvAttr.cconvAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case linkageAttr.linkageAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case unregisteredAttr.unregisteredAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -553,6 +579,12 @@ instance : ToString FastMathFlagsAttr where
       if type.nsz then array := array ++ ["nsz"]
       if !type.nnan && !type.ninf && !type.nsz then array := array ++ ["none"]
     s!"#llvm.fastmath<{String.intercalate ", " array}>"
+
+instance : ToString CConvAttr where
+  toString attr := s!"#llvm.cconv<{attr.value}>"
+
+instance : ToString LinkageAttr where
+  toString attr := s!"#llvm.linkage<{attr.value}>"
 
 instance : ToString IntegerAttr where
   toString attr := s!"{attr.value} : {attr.type}"
@@ -707,6 +739,8 @@ def Attribute.toString (attr : Attribute) : String :=
   | .integerType type => ToString.toString type
   | .floatType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
+  | .cconvAttr attr => ToString.toString attr
+  | .linkageAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
   | .floatAttr attr => ToString.toString attr
   | .registerType type => ToString.toString type
@@ -759,6 +793,12 @@ instance : Coe FloatType Attribute where
 
 instance : Coe FastMathFlagsAttr Attribute where
   coe flags := .fastMathFlagsAttr flags
+
+instance : Coe CConvAttr Attribute where
+  coe attr := .cconvAttr attr
+
+instance : Coe LinkageAttr Attribute where
+  coe attr := .linkageAttr attr
 
 instance : Coe IntegerAttr Attribute where
   coe attr := .integerAttr attr
@@ -829,6 +869,8 @@ def isType (attr : Attribute) : Bool :=
   | .integerType _ => true
   | .floatType _ => true
   | .fastMathFlagsAttr _ => false
+  | .cconvAttr _ => false
+  | .linkageAttr _ => false
   | .integerAttr _ => false
   | .floatAttr _ => false
   | .stringAttr _ => false
@@ -856,6 +898,10 @@ theorem isType_integerType type : (integerType type).isType = true := by rfl
 theorem isType_floatType type : (floatType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_fastMathFlags flags : (fastMathFlagsAttr flags).isType = false := by rfl
+@[simp, grind =]
+theorem isType_cconv attr : (cconvAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_linkage attr : (linkageAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_unregistered unregistered :
   (unregisteredAttr unregistered).isType = unregistered.isType := by rfl

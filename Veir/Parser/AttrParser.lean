@@ -311,6 +311,18 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   if dialectName = "llvm.fastmath".toByteArray then do
     return ← parseFloatFastMathFlagsAttr
 
+  if dialectName = "llvm.cconv".toByteArray then do
+    parsePunctuation "<"
+    let body ← parseUnregisteredAttrBody
+    parsePunctuation ">"
+    return some (CConvAttr.mk body : Attribute)
+
+  if dialectName = "llvm.linkage".toByteArray then do
+    parsePunctuation "<"
+    let body ← parseUnregisteredAttrBody
+    parsePunctuation ">"
+    return some (LinkageAttr.mk body : Attribute)
+
   if !(← getThe AttrParserState).allowUnregisteredDialect then
     throwAt startPos s!"attribute is not registered. Consider using --allow-unregistered-dialect."
   parsePunctuation "<"
