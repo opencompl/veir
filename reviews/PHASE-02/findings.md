@@ -47,6 +47,7 @@ Both `veir` and `llzk-lean` contain uncommitted Phase 1 implementation changes.
 Phase 2 execution should either commit those changes first or explicitly carry
 the dirty state as non-release local work.
 
-Disposition: accepted-risk for this working session. The Phase 2 edits remain
-uncommitted and llzk-lean still pins the Phase 1 VeIR commit until a deliberate
-commit-and-pin update is requested.
+Disposition: fixed by selecting VeIR commit
+`d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3`, pushing it to
+`project-llzk/veir`, and updating llzk-lean's Lake metadata plus clean
+dependency checkout to that commit.
