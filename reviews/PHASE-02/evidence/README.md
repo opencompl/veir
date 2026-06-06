@@ -8,5 +8,6 @@ Required evidence:
 - `llzk-field-registry.txt`
 - `llzk-felt-ops.txt`
 - `verify-llzk-source-after.txt`
+- `verify-companion-pin-after.txt`
 - `lake-build-veir-after.txt`
 - `adversarial-review.txt`

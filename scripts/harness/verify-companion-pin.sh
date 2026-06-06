@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE="strict"
 COMPANION_LLZK_LEAN=""
 
-ACCEPTED_VEIR_COMMIT="d52917ca4a57c4094b1aa61dd413aca4e1c2a56e"
+ACCEPTED_VEIR_COMMIT="d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3"
 ACCEPTED_VEIR_SHORT="${ACCEPTED_VEIR_COMMIT:0:12}"
 ACCEPTED_VEIR_REMOTE="https://github.com/project-llzk/veir.git"
 ACCEPTED_VEIR_BRANCH="felt-review-structural-close"
@@ -18,9 +18,9 @@ usage() {
   cat <<'USAGE'
 usage: scripts/harness/verify-companion-pin.sh [--mode strict|exploratory] --companion-llzk-lean PATH
 
-Verifies that the companion llzk-lean checkout pins VeIR to the accepted Phase
-1 commit in lakefile.toml, lake-manifest.json, and .lake/packages/VeIR, and
-that the dependency checkout is clean.
+Verifies that the companion llzk-lean checkout pins VeIR to the accepted commit
+in lakefile.toml, lake-manifest.json, and .lake/packages/VeIR, and that the
+dependency checkout is clean.
 USAGE
 }
 

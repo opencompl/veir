@@ -4,19 +4,18 @@ Last reviewed: 2026-06-06
 
 ## Accepted VeIR Pin
 
-- Commit: `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`
-- Short ref: `d52917ca4a57`
+- Commit: `d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3`
+- Short ref: `d4cc1bf2d31b`
 - Remote: `https://github.com/project-llzk/veir.git`
 - Branch at selection time: `felt-review-structural-close`
 - Mode: remote commit consumed by llzk-lean through Lake metadata and a clean
   Lake package checkout
 
-This commit is a descendant of the previous llzk-lean Lake pin
-`09d5f00f0d2b4a8710afbe53dfdd7cf468578a04`.
+This commit is a descendant of the Phase 1 accepted pin
+`d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`, which was itself a descendant of
+the previous llzk-lean Lake pin `09d5f00f0d2b4a8710afbe53dfdd7cf468578a04`.
 
-Phase 2 source-ledger work has not yet selected a new committed VeIR pin in
-Lake metadata. Until a new VeIR commit is deliberately created and propagated,
-the Phase 1 accepted pin remains the dependency pin.
+This pin includes the Phase 2 field-registry update and source-truth gate.
 
 ## Required Companion State
 
@@ -37,7 +36,7 @@ commit:
   `VEIR_HARNESS_LOCAL_ONLY=1 scripts/check-llzk-quality-gates.sh` may skip the
   companion gate and must print that the result is not acceptance evidence.
 - Exploratory companion checks may report state, but dirty or mismatched
-  dependency state must not close Phase 1.
+  dependency state must not close Phase 2.
 
 ## Forbidden Hidden State
 

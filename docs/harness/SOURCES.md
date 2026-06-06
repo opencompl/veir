@@ -7,7 +7,7 @@ Last reviewed: 2026-06-06
 | Source | Ref or retrieval | Use |
 |---|---:|---|
 | `docs/phases/PHASE-01-pins-and-repro.md` | local file, 2026-06-05 | Phase 1 objective, artifacts, gates, done criteria |
-| Accepted VeIR pin | `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e` | Dependency commit llzk-lean must consume |
+| Accepted VeIR pin | `d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3` | Dependency commit llzk-lean must consume |
 | Accepted VeIR branch | `felt-review-structural-close` | Remote branch containing the accepted commit |
 | Accepted VeIR remote | `https://github.com/project-llzk/veir.git` | Canonical source repository for the accepted pin |
 | Companion `llzk-lean/lakefile.toml` | local file, 2026-06-05 | Declared companion `VeIR` dependency pin |

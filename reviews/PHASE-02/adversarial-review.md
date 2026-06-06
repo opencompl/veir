@@ -32,13 +32,13 @@ Reviewed: 2026-06-06
   the accepted prime or that VeIR `feltPrime` mirrored those pairs. This would
   have let a stale `bn128`/`bn254` branch pass if the right numbers appeared
   elsewhere.
-- llzk-lean cannot claim it consumes the Phase 2 registry update until a clean
-  VeIR commit containing the update is selected and propagated through its Lake
-  pin.
+- llzk-lean could not claim it consumed the Phase 2 registry update while its
+  Lake metadata still pinned the Phase 1 VeIR commit.
 
 ### Disposition
 
 - Fixed the source gate by checking exact `insert(NAME, PRIME)` source lines and
   exact `feltPrime` field-to-prime branches for all seven accepted built-ins.
-- Pin propagation remains pending until llzk-lean updates its accepted VeIR pin
-  to the new Phase 2 commit.
+- Fixed pin propagation by selecting
+  `d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3` and updating llzk-lean's Lake
+  metadata plus clean dependency checkout to that commit.

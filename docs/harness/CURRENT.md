@@ -13,7 +13,7 @@ Last reviewed: 2026-06-06
 ## Accepted VeIR Pin
 
 - Accepted VeIR commit:
-  `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
+  `d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3`.
 - Accepted source branch: `felt-review-structural-close`.
 - Accepted source remote: `https://github.com/project-llzk/veir.git`.
 - Pin mode: remote commit consumed by llzk-lean through Lake metadata and a
@@ -34,7 +34,7 @@ Last reviewed: 2026-06-06
 - llzk-lean Phase 1 bootstrap HEAD:
   `336a5a221ae79d00e5d1346e09341232bdc4323d`.
 - VeIR implementation HEAD when Phase 1 started locally:
-  `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
+  `d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3`.
 - llzk-lean implementation HEAD when Phase 1 started locally:
   `6b4a7ec3aa38e2da7e1de23fb347b5c2cbac6386`.
 

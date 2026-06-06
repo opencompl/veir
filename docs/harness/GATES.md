@@ -43,9 +43,9 @@ Last reviewed: 2026-06-06
   other than `https://github.com/project-llzk/veir.git`.
 - Companion `lake-manifest.json` does not record VeIR as a `git` dependency.
 - Either companion Lake file names a commit other than
-  `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
+  `d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3`.
 - Companion `lake-manifest.json` records a VeIR `inputRev` other than
-  `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
+  `d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3`.
 - Companion `.lake/packages/VeIR` HEAD differs from the manifest rev.
 - Companion `.lake/packages/VeIR` has any modified, deleted, staged, or
   untracked file.

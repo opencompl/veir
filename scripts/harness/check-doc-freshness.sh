@@ -4,7 +4,7 @@ set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FAIL=0
-ACCEPTED_VEIR_COMMIT="d52917ca4a57c4094b1aa61dd413aca4e1c2a56e"
+ACCEPTED_VEIR_COMMIT="d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -103,6 +103,7 @@ for evidence in \
   reviews/PHASE-02/evidence/llzk-field-registry.txt \
   reviews/PHASE-02/evidence/llzk-felt-ops.txt \
   reviews/PHASE-02/evidence/verify-llzk-source-after.txt \
+  reviews/PHASE-02/evidence/verify-companion-pin-after.txt \
   reviews/PHASE-02/evidence/lake-build-veir-after.txt \
   reviews/PHASE-02/evidence/adversarial-review.txt; do
   require_nonempty "$evidence"

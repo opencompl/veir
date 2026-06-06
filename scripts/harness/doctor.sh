@@ -179,9 +179,9 @@ if [[ -n "$COMPANION_LLZK_LEAN" ]]; then
       warn "llzk-lean HEAD ${companion_head:-<none>} differs from bootstrap input ${EXPECTED_LLZK_LEAN_HEAD}"
     fi
     if "${ROOT}/scripts/harness/verify-companion-pin.sh" --mode "$MODE" --companion-llzk-lean "$companion"; then
-      ok "Phase 1 companion pin verification passed"
+      ok "companion pin verification passed"
     else
-      fail "Phase 1 companion pin verification failed"
+      fail "companion pin verification failed"
     fi
   fi
 else
