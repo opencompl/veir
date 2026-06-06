@@ -399,101 +399,97 @@ theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) (h : (select c x y).
   simp [select, Id.run]
   grind
 
-theorem isRefineBy_add {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem add_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (nsw nuw : Bool) :
     add x₁ x₂ nsw nuw ⊒ add y₁ y₂ nsw nuw := by
   grind
 
-theorem isRefineBy_sub {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem sub_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (nsw nuw : Bool) :
     sub x₁ x₂ nsw nuw ⊒ sub y₁ y₂ nsw nuw := by
   grind
 
-theorem isRefineBy_mul {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem mul_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (nsw nuw : Bool) :
     mul x₁ x₂ nsw nuw ⊒ mul y₁ y₂ nsw nuw := by
   grind
 
-theorem isRefineBy_udiv {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem udiv_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (exact : Bool) :
     udiv x₁ x₂ exact ⊒ udiv y₁ y₂ exact := by
   grind
 
-theorem isRefineBy_sdiv {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem sdiv_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (exact : Bool) :
     sdiv x₁ x₂ exact ⊒ sdiv y₁ y₂ exact := by
   grind
 
-theorem isRefineBy_urem {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem urem_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
     urem x₁ x₂ ⊒ urem y₁ y₂ := by
   grind
 
-theorem isRefineBy_srem {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem srem_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
     srem x₁ x₂ ⊒ srem y₁ y₂ := by
   grind
 
-theorem isRefineBy_shl {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem shl_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (nsw nuw : Bool) :
     shl x₁ x₂ nsw nuw ⊒ shl y₁ y₂ nsw nuw := by
   grind
 
-theorem isRefineBy_lshr {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem lshr_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (exact : Bool) :
     lshr x₁ x₂ exact ⊒ lshr y₁ y₂ exact := by
   grind
 
-theorem isRefineBy_ashr {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem ashr_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (exact : Bool) :
     ashr x₁ x₂ exact ⊒ ashr y₁ y₂ exact := by
   grind
 
-theorem isRefineBy_cast {w₁ w₂ : Nat} (x₁ x₂ : Int w₁) (h : w₁ = w₂)
+theorem cast_mono {w₁ w₂ : Nat} (x₁ x₂ : Int w₁) (h : w₁ = w₂)
     (h₁ : x₁ ⊒ x₂) :
     cast x₁ h ⊒ cast x₂ h := by
   grind
 
-theorem isRefineBy_and {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem and_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
     and x₁ x₂ ⊒ and y₁ y₂ := by
   grind
 
-theorem isRefineBy_or {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (disjoint : Bool)
+theorem or_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (disjoint : Bool)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
     or x₁ x₂ disjoint ⊒ or y₁ y₂ disjoint := by
   grind
 
-theorem isRefineBy_xor {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+theorem xor_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
     xor x₁ x₂ ⊒ xor y₁ y₂ := by
   grind
 
-theorem isRefineBy_trunc {w₁ w₂ : Nat} (x₁ x₂ : Int w₁) {nsw nuw : Bool} (h : w₁ > w₂)
+theorem trunc_mono {w₁ w₂ : Nat} (x₁ x₂ : Int w₁) {nsw nuw : Bool} (h : w₁ > w₂)
     (h₁ : x₁ ⊒ x₂) :
     trunc x₁ w₂ nsw nuw h ⊒ trunc x₂ w₂ nsw nuw h := by
   grind
 
-theorem isRefineBy_zext {w₁ w₂ : Nat} (x₁ x₂ : Int w₁) {nneg : Bool} (h : w₁ < w₂)
+theorem zext_mono {w₁ w₂ : Nat} (x₁ x₂ : Int w₁) {nneg : Bool} (h : w₁ < w₂)
     (h₁ : x₁ ⊒ x₂) :
     zext x₁ w₂ nneg h ⊒ zext x₂ w₂ nneg h := by
   grind
 
-theorem isRefineBy_sext {w₁ w₂ : Nat} (x₁ x₂ : Int w₁) (h : w₁ < w₂)
+theorem sext_mono {w₁ w₂ : Nat} (x₁ x₂ : Int w₁) (h : w₁ < w₂)
     (h₁ : x₁ ⊒ x₂) :
     sext x₁ w₂ h ⊒ sext x₂ w₂ h := by
   grind
 
-theorem isRefineBy_icmp {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (p : IntPred)
+theorem icmp_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (p : IntPred)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
     icmp x₁ x₂ p ⊒ icmp y₁ y₂ p := by
   grind
 
-theorem isPoison_isRefinedBy {w : Nat} (x y : Int w) (h : x.isPoison = true) :
-    x ⊒ y := by
-  grind
-
-theorem isRefineBy_select {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (c₁ c₂ : Int 1  )
+theorem select_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (c₁ c₂ : Int 1  )
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (h₃ : c₁ ⊒ c₂):
     select c₁ x₁ x₂ ⊒ select c₂ y₁ y₂ := by
   grind
