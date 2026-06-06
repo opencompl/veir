@@ -323,6 +323,12 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
     parsePunctuation ">"
     return some (LinkageAttr.mk body : Attribute)
 
+  if dialectName = "llvm.framePointerKind".toByteArray then do
+    parsePunctuation "<"
+    let body ← parseUnregisteredAttrBody
+    parsePunctuation ">"
+    return some (FramePointerKindAttr.mk body : Attribute)
+
   if !(← getThe AttrParserState).allowUnregisteredDialect then
     throwAt startPos s!"attribute is not registered. Consider using --allow-unregistered-dialect."
   parsePunctuation "<"
