@@ -29,9 +29,9 @@ private def compareExpectedDominator
     | return #[s!"dominators {expected.name}: missing block label {expectedDom}"]
   let shouldProperlyDom := expectedDom ≠ expected.name
   let mut report := #[]
-  if !Veir.DominanceAnalysis.dominates expectedBlock block dfCtx irCtx then
+  if !expectedBlock.dominates block dfCtx irCtx then
     report := report.push s!"dominators {expected.name}: missing expected dominator {expectedDom}"
-  if Veir.DominanceAnalysis.properlyDominates expectedBlock block dfCtx irCtx ≠ shouldProperlyDom then
+  if expectedBlock.properlyDominates block dfCtx irCtx ≠ shouldProperlyDom then
     report := report.push
       s!"dominators {expected.name}: unexpected properlyDominates result for {expectedDom}"
   return report
@@ -49,8 +49,8 @@ private def compareObservedDominator
     (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : MismatchReport := Id.run do
-  let observedByRelation := Veir.DominanceAnalysis.dominates observedBlock block dfCtx irCtx
-  let observedProperly := Veir.DominanceAnalysis.properlyDominates observedBlock block dfCtx irCtx
+  let observedByRelation := observedBlock.dominates block dfCtx irCtx
+  let observedProperly := observedBlock.properlyDominates block dfCtx irCtx
   let mut report := #[]
   if observedProperly ≠ (observedByRelation && observedBlock ≠ block) then
     report := report.push
@@ -308,6 +308,133 @@ def testDomIfLoopIf : String :=
      , { name := "bb7", dominators := { "bb0", "bb7" },        iDom := "bb0" }
      ]
 
+/-
+  Test: nested sibling regions inside the same outer block.
+
+          ┌───────────────┐
+          │ ┌───┐   ┌───┐ │
+          │ │ 1 │ 0 │ 2 │ │
+          │ └───┘   └───┘ │
+          └───────────────┘
+
+  The outer block dominates both nested entry blocks, but sibling nested blocks
+  do not dominate each other.
+-/
+def testDomNestedRegions : String :=
+  run r#""builtin.module"() ({
+^bb0:
+  "test.test"() ({
+  ^bb1:
+    "test.test"() : () -> ()
+  }) : () -> ()
+  "test.test"() ({
+  ^bb2:
+    "test.test"() : () -> ()
+  }) : () -> ()
+}) : () -> ()"#
+    #[ { name := "bb0", dominators := { "bb0" },        iDom := "bb0" }
+     , { name := "bb1", dominators := { "bb0", "bb1" }, iDom := "bb1" }
+     , { name := "bb2", dominators := { "bb0", "bb2" }, iDom := "bb2" }
+     ]
+
+/-
+  Test: diamond, nested region inside the join block.
+            ┌───┐
+        ┌───┤ 0 ├───┐
+        │   └───┘   │
+      ┌─▼─┐       ┌─▼─┐
+      │ 1 │       │ 2 │
+      └─┬─┘       └─┬─┘
+        │ ┌───────┐ │
+        │ │   3   │ │
+        │ │ ┌───┐ │ │
+        └─► │ 4 │ ◄─┘
+          │ └───┘ │
+          └───────┘
+-/
+def testDomDiamondNestedJoin : String :=
+  run r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1, ^bb2] : () -> ()
+^bb1:
+  "test.test"() [^bb3] : () -> ()
+^bb2:
+  "test.test"() [^bb3] : () -> ()
+^bb3:
+  "test.test"() ({
+^bb4:
+    "test.test"() : () -> ()
+  }) : () -> ()
+}) : () -> ()"#
+    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
+     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb0" }
+     , { name := "bb2", dominators := { "bb0", "bb2" },        iDom := "bb0" }
+     , { name := "bb3", dominators := { "bb0", "bb3" },        iDom := "bb0" }
+     , { name := "bb4", dominators := { "bb0", "bb3", "bb4" }, iDom := "bb4" }
+     ]
+
+/-
+  Test: two levels of nesting.
+        ┌───────────┐
+        │     0     │
+        │ ┌───────┐ │
+        │ │   1   │ │
+        │ │ ┌───┐ │ │
+        │ │ │ 2 │ │ │
+        │ │ └───┘ │ │
+        │ └───────┘ │
+        └───────────┘
+-/
+def testDomTwoLevelNested : String :=
+  run r#""builtin.module"() ({
+^bb0:
+  "test.test"() : () -> ()
+  "test.test"() ({
+^bb1:
+    "test.test"() : () -> ()
+    "test.test"() ({
+^bb2:
+      "test.test"() : () -> ()
+    }) : () -> ()
+  }) : () -> ()
+}) : () -> ()"#
+    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
+     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb1" }
+     , { name := "bb2", dominators := { "bb0", "bb1", "bb2" }, iDom := "bb2" }
+     ]
+/-
+  Test: Diamond with a loop
+  ┌────────┐
+  │      ┌─▼─┐
+  │   ┌──┤ 0 ├──┐
+  │   │  └───┘  │
+  │ ┌─▼─┐     ┌─▼─┐
+  │ │ 1 │     │ 2 ├──┐
+  │ └─┬─┘     └─┬─┘  │
+  │   │  ┌───┐  │  ┌─▼─┐
+  │   └──► 3 ◄──┘  │ 4 │
+  │      └─┬─┘     └───┘
+  └────────┘
+-/
+def testDomDiamondLoop: String :=
+  run r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1, ^bb2] : () -> ()
+^bb1:
+  "test.test"() [^bb3] : () -> ()
+^bb2:
+  "test.test"() [^bb3, ^bb4] : () -> ()
+^bb3:
+  "test.test"() [^bb0] : () -> ()
+^bb4:
+  "test.test"() : () -> ()
+}) : () -> ()"#
+    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
+     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb0" }
+     , { name := "bb2", dominators := { "bb0", "bb2" },        iDom := "bb0" }
+     , { name := "bb3", dominators := { "bb0", "bb3" },        iDom := "bb0" }
+     , { name := "bb4", dominators := { "bb0", "bb2", "bb4" }, iDom := "bb2" }
+     ]
 /--
 info: "ok"
 -/
@@ -331,5 +458,29 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testDomIfLoopIf
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testDomNestedRegions
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testDomDiamondNestedJoin
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testDomTwoLevelNested
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testDomDiamondLoop
 
 end DominanceAnalysis
