@@ -1,0 +1,34 @@
+PASS: found docs/phases/PHASE-00-harness-reset.md
+PASS: found docs/phases/PHASE-01-pins-and-repro.md
+PASS: found docs/phases/PHASE_TEMPLATE.md
+PASS: found docs/harness/CURRENT.md
+PASS: found docs/harness/SOURCES.md
+PASS: found docs/harness/GATES.md
+PASS: found docs/harness/PINS.md
+PASS: found docs/harness/REVIEWS.md
+PASS: found reviews/PHASE-01/disposition.md
+PASS: found reviews/PHASE-01/findings.md
+PASS: found reviews/PHASE-01/request.md
+PASS: found reviews/PHASE-01/adversarial-review.md
+PASS: phase review date has ISO format
+PASS: docs/harness/CURRENT.md review date agrees with phase
+PASS: docs/harness/SOURCES.md review date agrees with phase
+PASS: docs/harness/GATES.md review date agrees with phase
+PASS: docs/harness/PINS.md review date agrees with phase
+PASS: docs/harness/REVIEWS.md review date agrees with phase
+PASS: CURRENT names active phase
+PASS: SOURCES records accepted VeIR pin
+PASS: PINS records accepted VeIR commit
+PASS: Phase 1 disposition exists
+PASS: evidence present reviews/PHASE-01/evidence/accepted-remote-branch.txt
+PASS: evidence present reviews/PHASE-01/evidence/lake-build-veir.txt
+PASS: evidence present reviews/PHASE-01/evidence/dependency-status-before.txt
+PASS: evidence present reviews/PHASE-01/evidence/verify-companion-pin-before.txt
+PASS: evidence present reviews/PHASE-01/evidence/verify-companion-pin-after.txt
+PASS: evidence present reviews/PHASE-01/evidence/adversarial-url-spoof-after.txt
+PASS: evidence present reviews/PHASE-01/evidence/adversarial-inputrev-after.txt
+PASS: evidence present reviews/PHASE-01/evidence/doctor-local-after.txt
+PASS: evidence present reviews/PHASE-01/evidence/doctor-companion-after.txt
+PASS: evidence present reviews/PHASE-01/evidence/adversarial-review.txt
+
+doc freshness summary: 0 fail

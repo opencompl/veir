@@ -1,33 +1,44 @@
 # Source Ledger
 
-Last reviewed: 2026-06-05
+Last reviewed: 2026-06-06
 
 ## Trusted Local Sources
 
 | Source | Ref or retrieval | Use |
 |---|---:|---|
-| `docs/phases/PHASE-00-harness-reset.md` | local file, 2026-06-05 | Phase 0 objective, artifacts, gates, done criteria |
-| VeIR repository HEAD | `4b0978bddec0` | Bootstrap VeIR source state |
-| llzk-lean repository HEAD | `ea2363f87bcc` | Companion source state |
-| llzk-lean `lakefile.toml` | local file, 2026-06-05 | Declared `VeIR` dependency pin |
-| llzk-lean `lake-manifest.json` | local file, 2026-06-05 | Resolved `VeIR` dependency pin |
-| llzk-lean `.lake/packages/VeIR` | `09d5f00f0d2b`, dirty | Actual dependency checkout state |
-| `scripts/llzk-diff.sh` | local file, 2026-06-05 | Differential helper contract and exit codes |
-| `scripts/check-llzk-quality-gates.sh` | local file, 2026-06-05 | Strict compatibility wrapper plus explicit local-only opt-out |
+| `docs/phases/PHASE-01-pins-and-repro.md` | local file, 2026-06-05 | Phase 1 objective, artifacts, gates, done criteria |
+| Accepted VeIR pin | `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e` | Dependency commit llzk-lean must consume |
+| Accepted VeIR branch | `felt-review-structural-close` | Remote branch containing the accepted commit |
+| Accepted VeIR remote | `https://github.com/project-llzk/veir.git` | Canonical source repository for the accepted pin |
+| Companion `llzk-lean/lakefile.toml` | local file, 2026-06-05 | Declared companion `VeIR` dependency pin |
+| Companion `llzk-lean/lake-manifest.json` | local file, 2026-06-05 | Resolved companion `VeIR` dependency pin |
+| Companion `.lake/packages/VeIR` | clean checkout at accepted pin | Actual dependency state used by llzk-lean |
+| `scripts/harness/verify-companion-pin.sh` | local file, 2026-06-05 | Phase 1 companion pin agreement and cleanliness gate |
+| `docs/phases/PHASE-02-llzk-source-truth.md` | local file, 2026-06-06 | Phase 2 source-truth objective, artifacts, gates, and done criteria |
+| `docs/harness/LLZK_SOURCE.md` | local file, 2026-06-06 | Accepted LLZK Felt source ledger |
+| Accepted LLZK source commit | `db922857bc5a88a9107627ef6b36a8b5e57bc5c2` | Exact `llzk-lib` source commit for Phase 2 Felt source facts |
+| Accepted LLZK source ref | `../llzk-lib origin/main` | Fetched source ref selected for Phase 2 |
+| Accepted LLZK field registry | `lib/Util/Field.cpp` at `db922857bc5a88a9107627ef6b36a8b5e57bc5c2` | Built-in field registry facts |
+| Accepted LLZK Felt ops | `include/llzk/Dialect/Felt/IR/Ops.td` at `db922857bc5a88a9107627ef6b36a8b5e57bc5c2` | Felt op mnemonic ledger |
+| `scripts/harness/verify-llzk-source.sh` | local file, 2026-06-06 | Phase 2 LLZK source-truth gate |
+| `scripts/check-llzk-quality-gates.sh` | local file, 2026-06-05 | Strict compatibility wrapper |
 
-Evidence for the bootstrap state is captured under
-`reviews/PHASE-00/evidence/`.
+Evidence for the dirty bootstrap state and the refreshed clean state is
+captured under `reviews/PHASE-01/evidence/`.
 
 ## External Sources
 
-No external web source is trusted as canonical for Phase 0. The harness records
-local refs and local command output only. Upstream LLZK, MLIR, and Lean docs may
-be consulted for future phases, but any claim imported from them must be added
-to this ledger with a retrieval date and exact URL or commit.
+The accepted remote branch was checked with `git ls-remote origin
+refs/heads/felt-review-structural-close` and recorded under
+`reviews/PHASE-01/evidence/accepted-remote-branch.txt`.
 
-## Stale Historical Material
+No web page, issue, or mutable branch name is trusted without the exact commit
+hash above. For LLZK source facts, `origin/main` is accepted only through the
+exact commit `db922857bc5a88a9107627ef6b36a8b5e57bc5c2`.
 
-These files and references are useful context but are not canonical Phase 0
+## Contextual Non-Canonical Material
+
+These files and references are useful context but are not canonical Phase 1 pin
 evidence unless a future review revalidates a specific claim:
 
 - `REVIEW.md`
@@ -36,7 +47,7 @@ evidence unless a future review revalidates a specific claim:
 - Source comments pointing at deleted `harness/coverage.md`,
   `harness/differential.md`, `harness/porting-notes.md`,
   `harness/regions-design.md`, or `plan.md`
-- Historical branch/date references to `llzkfelt_test1`
-
-When using any of these, cite the exact local file and explain whether the claim
-was revalidated against current refs.
+- Historical branch/date references to `llzkfelt_test1` in archived evidence or
+  old notes
+- Local `../llzk-lib` worktree files while the worktree remains at
+  `30b0fa1eb77de154ff60c13fa88ef286d8b01c65`

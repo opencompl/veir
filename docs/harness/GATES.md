@@ -1,26 +1,62 @@
 # Harness Gates
 
-Last reviewed: 2026-06-05
+Last reviewed: 2026-06-06
 
 ## Gate Inventory
 
-| Gate | Command | Expected Phase 0 behavior | What it proves |
+| Gate | Command | Expected behavior | What it proves |
 |---|---|---|---|
-| Local doctor | `scripts/harness/doctor.sh` | Passes from VeIR root, warning if current HEAD differs from bootstrap input | Repo layout, required tools, canonical docs, scripts, skills, and current ref visibility are present |
-| Companion doctor | `scripts/harness/doctor.sh --companion-llzk-lean ../llzk-lean` | Fails in strict mode while the llzk-lean Lake `VeIR` checkout is dirty | Dirty dependency state is visible and cannot silently count as acceptance evidence |
-| Exploratory companion doctor | `scripts/harness/doctor.sh --mode exploratory --companion-llzk-lean ../llzk-lean` | Passes with warnings when only repo HEADs or dirty dependency state differ from bootstrap inputs | Local investigation can proceed while still reporting the dirty dependency |
-| Doc freshness | `scripts/harness/check-doc-freshness.sh` | Passes when canonical docs and review disposition exist | Phase metadata and canonical harness docs are present and reviewed |
-| Skill validation | `scripts/harness/validate-skills.sh` | Passes when every repo-local skill has required sections | Repo-local skills are concise and auditable |
-| Compatibility wrapper | `scripts/check-llzk-quality-gates.sh` | Runs local harness gates and a strict companion check via `LLZK_LEAN_ROOT` or `../llzk-lean`; fails while the companion dependency is dirty | The old gate no longer reports success when companion state is hidden |
-| Local-only wrapper | `VEIR_HARNESS_LOCAL_ONLY=1 scripts/check-llzk-quality-gates.sh` | Passes local layout checks but prints that it is not acceptance evidence | Local-only use is explicit and cannot be mistaken for full Phase 0 acceptance |
+| LLZK source truth | `scripts/harness/verify-llzk-source.sh --llzk-lib ../llzk-lib` | Passes only when the accepted LLZK source commit is available, `origin/main` equals the accepted commit, the source ledger records the accepted commit, the accepted Felt op set matches the ledger, and VeIR `feltPrime` matches the accepted field registry | Phase 2 source facts are exact-ref based and VeIR's field registry mirror matches LLZK source |
+| Local doctor | `scripts/harness/doctor.sh` | Passes from VeIR root, warning only if current HEAD differs from bootstrap input or no companion was supplied | Repo layout, tools, canonical docs, scripts, skills, and current ref visibility are present |
+| Companion pin verification | `scripts/harness/verify-companion-pin.sh --companion-llzk-lean ../llzk-lean` | Passes only when llzk-lean Lake file URLs/revs, manifest `type`/`inputRev`, and dependency checkout all match the accepted commit and the checkout is clean | llzk-lean is not consuming hidden dependency edits or a spoofed source |
+| Companion doctor | `scripts/harness/doctor.sh --companion-llzk-lean ../llzk-lean` | Runs local checks and strict companion pin verification | The strict VeIR harness sees the companion pin state |
+| Doc freshness | `scripts/harness/check-doc-freshness.sh` | Passes when Phase 1 docs and review evidence are present | Phase metadata and review state are current |
+| Skill validation | `scripts/harness/validate-skills.sh` | Passes when repo-local skills have required sections | Repo-local skills are concise and auditable |
+| Compatibility wrapper | `scripts/check-llzk-quality-gates.sh` | Runs local harness gates and strict companion pin verification through `LLZK_LEAN_ROOT` or `../llzk-lean` | The legacy entry point cannot report success while the companion pin is dirty or mismatched |
+| Local-only wrapper | `VEIR_HARNESS_LOCAL_ONLY=1 scripts/check-llzk-quality-gates.sh` | Passes local layout checks but prints that it is not acceptance evidence | Local-only use is explicit and cannot be mistaken for full Phase 1 acceptance |
+
+## Reproducible-Pin Failures
+
+## LLZK Source-Truth Failures
+
+`scripts/harness/verify-llzk-source.sh --llzk-lib ../llzk-lib` must fail if:
+
+- `../llzk-lib` is missing or not a git checkout.
+- The accepted source commit
+  `db922857bc5a88a9107627ef6b36a8b5e57bc5c2` is unavailable.
+- `../llzk-lib origin/main` differs from the accepted source commit.
+- `docs/harness/LLZK_SOURCE.md` does not record the accepted source commit or
+  `lib/Util/Field.cpp`.
+- `include/llzk/Dialect/Felt/IR/Ops.td` does not define the accepted 18-op
+  Felt ledger: `const`, `add`, `sub`, `mul`, `pow`, `div`, `uintdiv`,
+  `sintdiv`, `umod`, `smod`, `neg`, `inv`, `bit_and`, `bit_or`, `bit_xor`,
+  `bit_not`, `shl`, `shr`.
+- `lib/Util/Field.cpp::initKnownFields` does not define `bn128`, `bn254`,
+  `grumpkin`, `babybear`, `goldilocks`, `mersenne31`, and `koalabear` as
+  recorded in `docs/harness/LLZK_SOURCE.md`.
+- VeIR `feltPrime` disagrees with the accepted field registry.
+
+`scripts/harness/verify-companion-pin.sh` must fail if:
+
+- Companion `lakefile.toml` and `lake-manifest.json` disagree.
+- Companion `lakefile.toml` or `lake-manifest.json` names a VeIR source URL
+  other than `https://github.com/project-llzk/veir.git`.
+- Companion `lake-manifest.json` does not record VeIR as a `git` dependency.
+- Either companion Lake file names a commit other than
+  `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
+- Companion `lake-manifest.json` records a VeIR `inputRev` other than
+  `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
+- Companion `.lake/packages/VeIR` HEAD differs from the manifest rev.
+- Companion `.lake/packages/VeIR` has any modified, deleted, staged, or
+  untracked file.
 
 ## Non-Claims
 
-Phase 0 does not prove:
+Phase 1 does not prove:
 
 - Felt semantic parity.
 - Strategy A differential coverage.
 - Strategy E certificate coverage.
 - Full lit-suite or `lake test` acceptance.
-
-Those claims require future phase files and fresh evidence.
+- Missing Felt operation semantics beyond the registry source facts. Phase 2
+  does not port additional Felt operations.

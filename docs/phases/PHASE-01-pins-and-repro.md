@@ -1,6 +1,6 @@
 # Phase 1: Reproducible Pins
 
-Status: bootstrap
+Status: active
 Last reviewed: 2026-06-05
 Repository: veir
 Companion phase file: ../../../llzk-lean/docs/phases/PHASE-01-pins-and-repro.md
@@ -46,8 +46,8 @@ commit is being used without inspecting hidden local state.
 - `docs/harness/PINS.md`: document the intended VeIR pin, allowed dependency
   modes, update procedure, and rollback procedure.
 - `scripts/harness/verify-companion-pin.sh`: compare this repo's intended VeIR
-  commit against llzk-lean's `lakefile.toml`, `lake-manifest.json`, and
-  `.lake/packages/VeIR` checkout.
+  commit and remote URL against llzk-lean's `lakefile.toml`,
+  `lake-manifest.json`, and `.lake/packages/VeIR` checkout.
 - `reviews/PHASE-01/{request.md,findings.md,disposition.md,evidence/}`:
   adversarial review workspace for the pin transition.
 
@@ -58,8 +58,12 @@ commit is being used without inspecting hidden local state.
   fails while llzk-lean pins `09d5f00f0d2b` or has a dirty dependency checkout.
 - The same gate passes only when:
   - llzk-lean `lakefile.toml` and `lake-manifest.json` agree on the VeIR rev;
+  - llzk-lean `lakefile.toml` and `lake-manifest.json` use the accepted VeIR
+    remote URL;
+  - `lake-manifest.json` has `type: "git"` and records the accepted commit in
+    both `rev` and `inputRev`;
   - `.lake/packages/VeIR` is clean;
-  - `.lake/packages/VeIR` HEAD equals the manifest rev;
+  - `.lake/packages/VeIR` HEAD equals the manifest rev/inputRev;
   - the rev is the explicitly accepted Phase 1 VeIR commit.
 - `scripts/check-llzk-quality-gates.sh` preserves strict companion checking and
   cannot report acceptance when the dependency is dirty or mismatched.
@@ -67,8 +71,8 @@ commit is being used without inspecting hidden local state.
 ## Review Requirements
 
 - Capture exact command output under `reviews/PHASE-01/evidence/`.
-- Cite the local VeIR commit, the llzk-lean Lake files, and dependency checkout
-  status in every review.
+- Cite the local VeIR commit, the llzk-lean Lake files including source
+  URL/type/inputRev, and dependency checkout status in every review.
 - Include one adversarial check from the veir side and one from the llzk-lean
   side.
 - Disposition every finding before closing the phase.

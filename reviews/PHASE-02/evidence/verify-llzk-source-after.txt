@@ -1,0 +1,50 @@
+PASS: llzk-lib path is /home/alh/LLZK/llzk-lib
+PASS: found docs/harness/LLZK_SOURCE.md
+PASS: LLZK source ledger records db922857bc5a
+PASS: LLZK source ledger records lib/Util/Field.cpp
+accepted LLZK source: db922857bc5a88a9107627ef6b36a8b5e57bc5c2 (origin/main)
+PASS: accepted LLZK commit exists locally
+PASS: origin/main equals accepted LLZK source db922857bc5a
+WARN: llzk-lib worktree HEAD 30b0fa1eb77de154ff60c13fa88ef286d8b01c65 differs; gate reads db922857bc5a88a9107627ef6b36a8b5e57bc5c2 with git show
+PASS: accepted source contains include/llzk/Dialect/Felt/IR/Ops.td
+PASS: accepted source contains include/llzk/Dialect/Felt/IR/Types.td
+PASS: accepted source contains include/llzk/Dialect/Felt/IR/Attrs.td
+PASS: accepted source contains lib/Dialect/Felt/IR/Ops.cpp
+PASS: accepted source contains lib/Util/Field.cpp
+PASS: accepted source contains test/Dialect/Felt/felt_arith_pass.llzk
+PASS: accepted source contains unittests/IR/FeltFoldTests.cpp
+PASS: accepted Felt op mnemonics match Phase 2 ledger
+PASS: registry declares bn128
+PASS: registry declares bn254
+PASS: registry declares grumpkin
+PASS: registry declares babybear
+PASS: registry declares goldilocks
+PASS: registry declares mersenne31
+PASS: registry declares koalabear
+PASS: registry maps bn128 to accepted prime
+PASS: registry maps bn254 to accepted prime
+PASS: registry maps grumpkin to accepted prime
+PASS: registry maps babybear to accepted prime
+PASS: registry maps goldilocks to accepted prime
+PASS: registry maps mersenne31 to accepted prime
+PASS: registry maps koalabear to accepted prime
+PASS: Felt type source defines !felt.type
+PASS: Felt type source carries optional field-name parameter
+PASS: VeIR feltPrime cites current LLZK registry path
+PASS: VeIR feltPrime mentions bn128
+PASS: VeIR feltPrime mentions bn254
+PASS: VeIR feltPrime mentions grumpkin
+PASS: VeIR feltPrime mentions babybear
+PASS: VeIR feltPrime mentions goldilocks
+PASS: VeIR feltPrime mentions mersenne31
+PASS: VeIR feltPrime mentions koalabear
+PASS: VeIR feltPrime maps bn254 to accepted prime
+PASS: VeIR feltPrime maps bn128 to accepted prime
+PASS: VeIR feltPrime maps grumpkin to accepted prime
+PASS: VeIR feltPrime maps babybear to accepted prime
+PASS: VeIR feltPrime maps goldilocks to accepted prime
+PASS: VeIR feltPrime maps mersenne31 to accepted prime
+PASS: VeIR feltPrime maps koalabear to accepted prime
+PASS: VeIR feltPrime file does not mention stale lib/Analysis/Field.cpp
+
+LLZK source verification summary: 0 fail, 1 warn

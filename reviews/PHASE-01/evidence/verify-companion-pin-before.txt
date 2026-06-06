@@ -1,0 +1,15 @@
+accepted VeIR pin: d52917ca4a57c4094b1aa61dd413aca4e1c2a56e
+accepted VeIR source: https://github.com/project-llzk/veir.git felt-review-structural-close
+PASS: local VeIR HEAD equals accepted pin d52917ca4a57
+PASS: companion llzk-lean path is /home/alh/LLZK/llzk-lean
+FAIL: companion lakefile.toml VeIR rev 09d5f00f0d2b4a8710afbe53dfdd7cf468578a04 does not match d52917ca4a57c4094b1aa61dd413aca4e1c2a56e
+FAIL: companion lake-manifest.json VeIR rev 09d5f00f0d2b4a8710afbe53dfdd7cf468578a04 does not match d52917ca4a57c4094b1aa61dd413aca4e1c2a56e
+PASS: companion Lake files agree on VeIR 09d5f00f0d2b
+FAIL: companion dependency checkout HEAD 09d5f00f0d2b4a8710afbe53dfdd7cf468578a04 does not match d52917ca4a57c4094b1aa61dd413aca4e1c2a56e
+PASS: companion dependency checkout HEAD equals manifest rev
+FAIL: companion dependency checkout is dirty:
+ M Veir/Passes/Felt/Combine.lean
+ M Veir/Passes/Felt/Proofs.lean
+?? Veir/Passes/Felt/RewriteLemmas.lean
+
+companion pin verification summary: 4 fail, 0 warn, mode=strict

@@ -25,7 +25,7 @@ public import Veir.IR.Attribute
   The core interpreter module imports no Mathlib, and keeping it that way
   is a goal. So a felt runtime value here is a **canonical `Nat`
   representative** in `[0, p)` with `Nat`-modular arithmetic — exactly how
-  LLZK's executable folder works (`Util/Field.cpp::reduce`) — *not* a
+  LLZK's registry helper reduces values (`lib/Util/Field.cpp::reduce`) — *not* a
   `ZMod p`. The correspondence to the abstract field model
   `Veir.Data.Felt` (`ZMod p`) and to the verified identities in
   `Proofs.lean` is proven separately in `InterpModel/Bridge.lean`, which is
@@ -34,10 +34,11 @@ public import Veir.IR.Attribute
   ## Field model (F2 Q1)
 
   `!felt.type` carries an optional field *name* but no prime; the prime
-  lives in LLZK's field registry (`Util/Field.cpp::initKnownFields`), keyed
-  by name. `feltPrime` mirrors that registry. `FeltVal.felt p v` carries
-  its modulus `p`, as `RuntimeValue.int` carries its bitwidth. An unnamed
-  field is uninterpreted (`none`) — matching LLZK's "filled in by backend".
+  lives in LLZK's field registry (`lib/Util/Field.cpp::initKnownFields`),
+  keyed by name. `feltPrime` mirrors that registry. `FeltVal.felt p v`
+  carries its modulus `p`, as `RuntimeValue.int` carries its bitwidth. An
+  unnamed field is uninterpreted (`none`) — matching LLZK's "filled in by
+  backend".
 -/
 
 public section
@@ -53,7 +54,7 @@ inductive FeltVal where
   | felt (p : Nat) (val : Nat)
 deriving Repr, DecidableEq
 
-/-- Field-name → prime, mirroring LLZK `Util/Field.cpp::initKnownFields`.
+/-- Field-name → prime, mirroring LLZK `lib/Util/Field.cpp::initKnownFields`.
     Keyed on `FeltType.fieldName : Option ByteArray`. Unnamed field
     (`!felt.type`) ⇒ `none` (uninterpreted — "filled in by the backend"). -/
 def feltPrime (name : Option ByteArray) : Option Nat :=
@@ -61,8 +62,10 @@ def feltPrime (name : Option ByteArray) : Option Nat :=
   | none => none
   | some n =>
     if n = "bn254".toUTF8 then
-      some 21888242871839275222246405745257275088696311157297823662689037894645226208583
+      some 21888242871839275222246405745257275088548364400416034343698204186575808495617
     else if n = "bn128".toUTF8 then
+      some 21888242871839275222246405745257275088548364400416034343698204186575808495617
+    else if n = "grumpkin".toUTF8 then
       some 21888242871839275222246405745257275088696311157297823662689037894645226208583
     else if n = "babybear".toUTF8 then some 2013265921
     else if n = "goldilocks".toUTF8 then some 18446744069414584321

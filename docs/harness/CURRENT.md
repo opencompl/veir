@@ -1,76 +1,77 @@
 # Current Harness State
 
-Last reviewed: 2026-06-05
+Last reviewed: 2026-06-06
 
 ## Active Phase
 
-- Active phase: Phase 0, harness reset.
-- Phase bootstrap file: `docs/phases/PHASE-00-harness-reset.md`.
+- Active phase: Phase 2, LLZK source truth and field registry parity.
+- Phase bootstrap file: `docs/phases/PHASE-02-llzk-source-truth.md`.
 - Companion repository: `../llzk-lean`.
 - Companion phase file:
-  `../llzk-lean/docs/phases/PHASE-00-harness-reset.md`.
+  `../llzk-lean/docs/phases/PHASE-02-llzk-source-truth.md`.
+
+## Accepted VeIR Pin
+
+- Accepted VeIR commit:
+  `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
+- Accepted source branch: `felt-review-structural-close`.
+- Accepted source remote: `https://github.com/project-llzk/veir.git`.
+- Pin mode: remote commit consumed by llzk-lean through Lake metadata and a
+  clean `.lake/packages/VeIR` checkout.
+
+## Accepted LLZK Source
+
+- Accepted `llzk-lib` commit:
+  `db922857bc5a88a9107627ef6b36a8b5e57bc5c2`.
+- Accepted source ref: `origin/main`.
+- Accepted source checkout: `../llzk-lib`.
+- Source ledger: `docs/harness/LLZK_SOURCE.md`.
 
 ## Refs
 
-- VeIR bootstrap HEAD: `4b0978bddec0`.
-- llzk-lean bootstrap HEAD: `ea2363f87bcc`.
-- llzk-lean Lake `VeIR` dependency pin: `09d5f00f0d2b4a8710afbe53dfdd7cf468578a04`.
-- llzk-lean Lake `VeIR` dependency checkout observed at:
-  `09d5f00f0d2b`.
+- VeIR Phase 1 bootstrap HEAD:
+  `039068b68552bb37f1a887ec509e9b9111d4d54a`.
+- llzk-lean Phase 1 bootstrap HEAD:
+  `336a5a221ae79d00e5d1346e09341232bdc4323d`.
+- VeIR implementation HEAD when Phase 1 started locally:
+  `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
+- llzk-lean implementation HEAD when Phase 1 started locally:
+  `6b4a7ec3aa38e2da7e1de23fb347b5c2cbac6386`.
 
-These refs are Phase 0 bootstrap inputs, not a self-referential pin on the
-commit that contains this file. The doctor reports repository HEAD drift from
-these inputs as a warning. Dependency pin mismatches and hidden dirty dependency
-state remain hard failures. If a later phase relies on a newer ref for a
-semantic claim, update this file, `docs/harness/SOURCES.md`, and review
-evidence before treating that claim as current.
+The bootstrap refs are historical inputs from the phase file. The accepted
+VeIR pin above is the dependency state llzk-lean is allowed to consume as
+acceptance evidence.
 
 ## Dirty-State Policy
 
-The llzk-lean Lake dependency checkout is expected to be dirty at bootstrap:
+Phase 1 forbids hidden dependency edits. The companion llzk-lean checkout must
+pin the accepted commit in `lakefile.toml` and `lake-manifest.json`; its
+`.lake/packages/VeIR` checkout must be clean and at the same commit.
 
-- `Veir/Passes/Felt/Combine.lean`
-- `Veir/Passes/Felt/Proofs.lean`
-- `Veir/Passes/Felt/RewriteLemmas.lean`
-
-Strict harness runs must fail when this dirty dependency is present. Exploratory
-runs may acknowledge the dirtiness by passing `--mode exploratory`, but those
-runs are not release or acceptance evidence.
-
-## Toolchain Assumptions
-
-- `git` is required for all harness checks.
-- `lake` is required for Lean project checks.
-- `uv` and FileCheck tooling are needed for the full lit suite, but Phase 0 does
-  not claim lit-suite acceptance.
-- `llzk-opt` is not required for the local VeIR harness doctor. It is required
-  for differential checks that exercise LLZK output.
+Local-only VeIR paths are not a source of truth unless the run is explicitly
+documented as exploratory and non-acceptance.
 
 ## Known Hazards
 
-- Historical VeIR comments and review notes still reference deleted files such
-  as `harness/coverage.md`, `harness/differential.md`,
-  `harness/porting-notes.md`, `harness/regions-design.md`, and `plan.md`.
-  Those references are stale unless `docs/harness/SOURCES.md` revalidates a
-  specific claim.
-- `scripts/check-llzk-quality-gates.sh` was stale at bootstrap because it read
-  missing harness files. In Phase 0 it is a strict wrapper around the current
-  harness scripts. It auto-checks `../llzk-lean` when present and fails while
-  that companion dependency is dirty. `VEIR_HARNESS_LOCAL_ONLY=1` is an
-  explicit non-acceptance layout check.
-- `scripts/llzk-diff.sh` is useful for differential investigation, but Phase 0
-  does not claim Strategy A acceptance coverage.
+- The Phase 1 bootstrap state included a dirty llzk-lean dependency checkout.
+  That state is preserved under `reviews/PHASE-01/evidence/` and must not be
+  treated as proof state after the pin transition.
+- `scripts/llzk-diff.sh` remains useful for differential investigation, but
+  Phase 1 does not claim Strategy A acceptance coverage.
+- The local `../llzk-lib` worktree is behind fetched `origin/main`. Current
+  Phase 2 source claims use `git show origin/main:...` at
+  `db922857bc5a88a9107627ef6b36a8b5e57bc5c2`, not stale worktree files.
 
 ## Acceptance Rule
 
-Phase 0 is current only when:
+Phase 2 is current only when:
 
+- `scripts/harness/verify-llzk-source.sh --llzk-lib ../llzk-lib` passes from
+  the VeIR root.
 - `scripts/harness/doctor.sh` passes from the VeIR root.
+- `scripts/harness/verify-companion-pin.sh --companion-llzk-lean ../llzk-lean`
+  passes from the VeIR root.
 - `scripts/harness/check-doc-freshness.sh` passes from the VeIR root.
 - `scripts/harness/validate-skills.sh` passes from the VeIR root.
-- A strict companion run,
-  `scripts/harness/doctor.sh --companion-llzk-lean ../llzk-lean`, reports the
-  dirty llzk-lean dependency as a hard failure instead of hiding it.
-- `scripts/check-llzk-quality-gates.sh` fails in strict mode on the known dirty
-  companion state and only exits 0 for local-only mode when
-  `VEIR_HARNESS_LOCAL_ONLY=1` is set.
+- `scripts/check-llzk-quality-gates.sh` runs the strict companion pin gate and
+  reports success.

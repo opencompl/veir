@@ -1,0 +1,29 @@
+PASS: tool git is available
+PASS: tool lake is available
+PASS: optional tool uv is available
+PASS: git root is /home/alh/LLZK/veir
+WARN: VeIR HEAD d52917ca4a57 differs from bootstrap input 4b0978bddec0
+PASS: found AGENTS.md
+PASS: found docs/phases/PHASE-00-harness-reset.md
+PASS: found docs/phases/PHASE_TEMPLATE.md
+PASS: found docs/harness/CURRENT.md
+PASS: found docs/harness/SOURCES.md
+PASS: found docs/harness/GATES.md
+PASS: found docs/harness/REVIEWS.md
+PASS: found reviews/PHASE-00/request.md
+PASS: found reviews/PHASE-00/findings.md
+PASS: found reviews/PHASE-00/disposition.md
+PASS: found reviews/PHASE-00/adversarial-review.md
+PASS: executable scripts/harness/check-doc-freshness.sh
+PASS: executable scripts/harness/validate-skills.sh
+PASS: found reviews/PHASE-00/evidence
+PASS: companion llzk-lean path is /home/alh/LLZK/llzk-lean
+WARN: llzk-lean HEAD 6b4a7ec3aa38 differs from bootstrap input ea2363f87bcc
+PASS: llzk-lean Lake files pin VeIR 09d5f00f0d2b
+PASS: llzk-lean dependency checkout is at 09d5f00f0d2b
+FAIL: llzk-lean dependency checkout is dirty:
+ M Veir/Passes/Felt/Combine.lean
+ M Veir/Passes/Felt/Proofs.lean
+?? Veir/Passes/Felt/RewriteLemmas.lean
+
+doctor summary: 1 fail, 2 warn, mode=strict

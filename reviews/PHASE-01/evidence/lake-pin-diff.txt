@@ -1,0 +1,30 @@
+diff --git a/lake-manifest.json b/lake-manifest.json
+index c2390f9..a56dcab 100644
+--- a/lake-manifest.json
++++ b/lake-manifest.json
+@@ -5,10 +5,10 @@
+    "type": "git",
+    "subDir": null,
+    "scope": "",
+-   "rev": "09d5f00f0d2b4a8710afbe53dfdd7cf468578a04",
++   "rev": "d52917ca4a57c4094b1aa61dd413aca4e1c2a56e",
+    "name": "VeIR",
+    "manifestFile": "lake-manifest.json",
+-   "inputRev": "09d5f00f0d2b4a8710afbe53dfdd7cf468578a04",
++   "inputRev": "d52917ca4a57c4094b1aa61dd413aca4e1c2a56e",
+    "inherited": false,
+    "configFile": "lakefile.toml"},
+   {"url": "https://github.com/leanprover-community/mathlib4",
+diff --git a/lakefile.toml b/lakefile.toml
+index dcf66cf..84cf955 100644
+--- a/lakefile.toml
++++ b/lakefile.toml
+@@ -26,7 +26,7 @@ moreServerArgs = ["--tstack=400000"]
+ [[require]]
+ name = "VeIR"
+ git = "https://github.com/project-llzk/veir.git"
+-rev = "09d5f00f0d2b4a8710afbe53dfdd7cf468578a04"
++rev = "d52917ca4a57c4094b1aa61dd413aca4e1c2a56e"
+ 
+ [[lean_lib]]
+ name = "LlzkLean"

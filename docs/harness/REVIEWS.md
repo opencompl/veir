@@ -1,6 +1,6 @@
 # Review Protocol
 
-Last reviewed: 2026-06-05
+Last reviewed: 2026-06-06
 
 ## Scope
 

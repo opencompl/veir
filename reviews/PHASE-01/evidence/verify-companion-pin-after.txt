@@ -1,0 +1,16 @@
+accepted VeIR pin: d52917ca4a57c4094b1aa61dd413aca4e1c2a56e
+accepted VeIR source: https://github.com/project-llzk/veir.git felt-review-structural-close
+PASS: local VeIR HEAD equals accepted pin d52917ca4a57
+PASS: companion llzk-lean path is /home/alh/LLZK/llzk-lean
+PASS: companion lakefile.toml uses accepted VeIR remote https://github.com/project-llzk/veir.git
+PASS: companion lakefile.toml pins VeIR d52917ca4a57
+PASS: companion lake-manifest.json pins VeIR d52917ca4a57
+PASS: companion lake-manifest.json inputRev pins VeIR d52917ca4a57
+PASS: companion lake-manifest.json uses accepted VeIR remote https://github.com/project-llzk/veir.git
+PASS: companion lake-manifest.json records VeIR as a git dependency
+PASS: companion Lake files agree on VeIR d52917ca4a57
+PASS: companion dependency checkout HEAD is d52917ca4a57
+PASS: companion dependency checkout HEAD equals manifest rev
+PASS: companion dependency checkout is clean
+
+companion pin verification summary: 0 fail, 0 warn, mode=strict

@@ -8,8 +8,6 @@ COMPANION_LLZK_LEAN=""
 
 EXPECTED_VEIR_HEAD="4b0978bddec0"
 EXPECTED_LLZK_LEAN_HEAD="ea2363f87bcc"
-EXPECTED_VEIR_DEP="09d5f00f0d2b4a8710afbe53dfdd7cf468578a04"
-EXPECTED_VEIR_DEP_SHORT="09d5f00f0d2b"
 
 FAIL=0
 WARN=0
@@ -18,9 +16,9 @@ usage() {
   cat <<'USAGE'
 usage: scripts/harness/doctor.sh [--mode strict|exploratory] [--companion-llzk-lean PATH]
 
-Validates the Phase 0 VeIR harness. Strict companion checks fail on dirty or
-mismatched llzk-lean .lake/packages/VeIR state. Exploratory mode reports the
-same state but allows the command to complete successfully.
+Validates the Phase 1 VeIR harness. Strict companion checks require llzk-lean
+to pin the accepted VeIR commit in Lake metadata and a clean dependency
+checkout.
 USAGE
 }
 
@@ -124,22 +122,48 @@ fi
 
 require_file AGENTS.md
 require_file docs/phases/PHASE-00-harness-reset.md
+require_file docs/phases/PHASE-01-pins-and-repro.md
+require_file docs/phases/PHASE-02-llzk-source-truth.md
 require_file docs/phases/PHASE_TEMPLATE.md
 require_file docs/harness/CURRENT.md
 require_file docs/harness/SOURCES.md
 require_file docs/harness/GATES.md
+require_file docs/harness/LLZK_SOURCE.md
+require_file docs/harness/PINS.md
 require_file docs/harness/REVIEWS.md
 require_file reviews/PHASE-00/request.md
 require_file reviews/PHASE-00/findings.md
 require_file reviews/PHASE-00/disposition.md
 require_file reviews/PHASE-00/adversarial-review.md
+require_file reviews/PHASE-01/request.md
+require_file reviews/PHASE-01/findings.md
+require_file reviews/PHASE-01/disposition.md
+require_file reviews/PHASE-01/adversarial-review.md
+require_file reviews/PHASE-02/request.md
+require_file reviews/PHASE-02/findings.md
+require_file reviews/PHASE-02/disposition.md
+require_file reviews/PHASE-02/adversarial-review.md
 require_executable scripts/harness/check-doc-freshness.sh
+require_executable scripts/harness/verify-companion-pin.sh
+require_executable scripts/harness/verify-llzk-source.sh
 require_executable scripts/harness/validate-skills.sh
 
 if [[ -d "${ROOT}/reviews/PHASE-00/evidence" ]]; then
   ok "found reviews/PHASE-00/evidence"
 else
   fail "missing reviews/PHASE-00/evidence"
+fi
+
+if [[ -d "${ROOT}/reviews/PHASE-01/evidence" ]]; then
+  ok "found reviews/PHASE-01/evidence"
+else
+  fail "missing reviews/PHASE-01/evidence"
+fi
+
+if [[ -d "${ROOT}/reviews/PHASE-02/evidence" ]]; then
+  ok "found reviews/PHASE-02/evidence"
+else
+  fail "missing reviews/PHASE-02/evidence"
 fi
 
 if [[ -n "$COMPANION_LLZK_LEAN" ]]; then
@@ -154,35 +178,10 @@ if [[ -n "$COMPANION_LLZK_LEAN" ]]; then
     else
       warn "llzk-lean HEAD ${companion_head:-<none>} differs from bootstrap input ${EXPECTED_LLZK_LEAN_HEAD}"
     fi
-
-    if grep -q "$EXPECTED_VEIR_DEP" "${companion}/lakefile.toml" &&
-       grep -q "$EXPECTED_VEIR_DEP" "${companion}/lake-manifest.json"; then
-      ok "llzk-lean Lake files pin VeIR ${EXPECTED_VEIR_DEP_SHORT}"
+    if "${ROOT}/scripts/harness/verify-companion-pin.sh" --mode "$MODE" --companion-llzk-lean "$companion"; then
+      ok "Phase 1 companion pin verification passed"
     else
-      fail "llzk-lean Lake files do not both pin VeIR ${EXPECTED_VEIR_DEP}"
-    fi
-
-    dep="${companion}/.lake/packages/VeIR"
-    if [[ -d "$dep/.git" ]]; then
-      dep_head="$(git -C "$dep" rev-parse --short=12 HEAD 2>/dev/null || true)"
-      if [[ "$dep_head" == "$EXPECTED_VEIR_DEP_SHORT" ]]; then
-        ok "llzk-lean dependency checkout is at ${EXPECTED_VEIR_DEP_SHORT}"
-      else
-        fail "llzk-lean dependency checkout ${dep_head:-<none>} does not match ${EXPECTED_VEIR_DEP_SHORT}"
-      fi
-
-      dep_status="$(git -C "$dep" status --short 2>/dev/null || true)"
-      if [[ -z "$dep_status" ]]; then
-        ok "llzk-lean dependency checkout is clean"
-      elif [[ "$MODE" == "exploratory" ]]; then
-        warn "llzk-lean dependency checkout is dirty in exploratory mode:"
-        printf '%s\n' "$dep_status" >&2
-      else
-        fail "llzk-lean dependency checkout is dirty:"
-        printf '%s\n' "$dep_status" >&2
-      fi
-    else
-      fail "llzk-lean dependency checkout missing at ${dep}"
+      fail "Phase 1 companion pin verification failed"
     fi
   fi
 else

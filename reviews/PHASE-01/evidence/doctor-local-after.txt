@@ -1,0 +1,30 @@
+PASS: tool git is available
+PASS: tool lake is available
+PASS: optional tool uv is available
+PASS: git root is /home/alh/LLZK/veir
+WARN: VeIR HEAD d52917ca4a57 differs from bootstrap input 4b0978bddec0
+PASS: found AGENTS.md
+PASS: found docs/phases/PHASE-00-harness-reset.md
+PASS: found docs/phases/PHASE-01-pins-and-repro.md
+PASS: found docs/phases/PHASE_TEMPLATE.md
+PASS: found docs/harness/CURRENT.md
+PASS: found docs/harness/SOURCES.md
+PASS: found docs/harness/GATES.md
+PASS: found docs/harness/PINS.md
+PASS: found docs/harness/REVIEWS.md
+PASS: found reviews/PHASE-00/request.md
+PASS: found reviews/PHASE-00/findings.md
+PASS: found reviews/PHASE-00/disposition.md
+PASS: found reviews/PHASE-00/adversarial-review.md
+PASS: found reviews/PHASE-01/request.md
+PASS: found reviews/PHASE-01/findings.md
+PASS: found reviews/PHASE-01/disposition.md
+PASS: found reviews/PHASE-01/adversarial-review.md
+PASS: executable scripts/harness/check-doc-freshness.sh
+PASS: executable scripts/harness/verify-companion-pin.sh
+PASS: executable scripts/harness/validate-skills.sh
+PASS: found reviews/PHASE-00/evidence
+PASS: found reviews/PHASE-01/evidence
+WARN: companion llzk-lean dependency was not checked; pass --companion-llzk-lean PATH
+
+doctor summary: 0 fail, 2 warn, mode=strict
