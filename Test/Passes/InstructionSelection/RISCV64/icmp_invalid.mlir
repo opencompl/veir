@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() ({
+  "func.func"()  <{function_type = (i32, i32, i64) -> ()}> ({
     ^bb0(%a: i32, %b: i32, %c: i64):
         %r_0 = "llvm.icmp"(%a, %b) <{"predicate" = 0 : i64}> : (i32, i32) -> i1
         // CHECK:           "llvm.icmp"(%{{.*}}, %{{.*}}) <{"predicate" = 0 : i64}> : (i32, i32) -> i1

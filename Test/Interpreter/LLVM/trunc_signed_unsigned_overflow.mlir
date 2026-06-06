@@ -4,7 +4,7 @@
 //   nsw: sext(0x80) = -128 != 384, poison
 //   nuw: zext(0x80) = 128 != 384, poison
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8, i8, i8)}> ({
     %c384 = "llvm.mlir.constant"() <{ "value" = 384 : i32 }> : () -> i32
     %none    = "llvm.trunc"(%c384) : (i32) -> i8
     %nsw     = "llvm.trunc"(%c384) <{"overflowFlags" = 1 : i32}> : (i32) -> i8

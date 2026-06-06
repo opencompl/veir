@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8)}> ({
     // 255 fits in i8 unsigned: zext(trunc(255)) == 255, no poison
     %c255 = "arith.constant"() <{ "value" = 255 : i32 }> : () -> i32
     // 256 does not fit in i8 unsigned: zext(trunc(256)) == 0 != 256, poison

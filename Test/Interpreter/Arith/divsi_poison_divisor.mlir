@@ -2,7 +2,7 @@
 
 // Signed division by a poison divisor is immediate UB.
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
     %lhs  = "arith.constant"() <{ "value" = 7 : i32 }> : () -> i32
     %neg1 = "arith.constant"() <{ "value" = -1 : i32 }> : () -> i32
     %one  = "arith.constant"() <{ "value" = 1 : i32 }> : () -> i32

@@ -3,7 +3,7 @@
 // `llvm.select` semantics: poison on the *non-selected* arm is ignored;
 // poison on the selected arm, or on the condition, propagates.
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i32, i32, i32, i32, i32, i32, i32)}> ({
     %t = "llvm.mlir.constant"() <{ "value" = 1 : i1 }> : () -> i1
     %f = "llvm.mlir.constant"() <{ "value" = 0 : i1 }> : () -> i1
     %a = "llvm.mlir.constant"() <{ "value" = 3 : i32 }> : () -> i32

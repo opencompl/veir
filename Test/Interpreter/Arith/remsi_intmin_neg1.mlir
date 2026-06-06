@@ -2,7 +2,7 @@
 
 // `remsi intMin, -1` is immediate UB (signed overflow in the implicit division).
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
     %intmin = "arith.constant"() <{ "value" = -2147483648 : i32 }> : () -> i32
     %negone = "arith.constant"() <{ "value" = -1 : i32 }> : () -> i32
     %y = "arith.remsi"(%intmin, %negone) : (i32, i32) -> i32

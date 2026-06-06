@@ -2,7 +2,7 @@
 
 // In i1, -1 is also intMin, so `divsi -1, -1` is immediate UB.
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> i1}> ({
     %one = "arith.constant"() <{ "value" = -1 : i1 }> : () -> i1
     %y = "arith.divsi"(%one, %one) : (i1, i1) -> i1
     "func.return"(%y) : (i1) -> ()

@@ -3,7 +3,7 @@
 // `remsi poison, -1` (width > 1) is immediate UB: the poison dividend could
 // refine to intMin, hitting the overflow case.
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
     %neg1 = "arith.constant"() <{ "value" = -1 : i32 }> : () -> i32
     %one  = "arith.constant"() <{ "value" = 1 : i32 }> : () -> i32
     %poison = "arith.addi"(%neg1, %one) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32

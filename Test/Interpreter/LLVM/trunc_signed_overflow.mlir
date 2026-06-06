@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8)}> ({
     // 127 fits in i8 signed: sext(trunc(127)) == 127, no poison
     %c127 = "llvm.mlir.constant"() <{ "value" = 127 : i32 }> : () -> i32
     // 128 does not fit in i8 signed: sext(trunc(128)) == -128 != 128, poison

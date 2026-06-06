@@ -3,7 +3,7 @@
 // Branching on a poison i1 is undefined behaviour. The i1 poison is produced by
 // `llvm.add nuw` on i1 (1 + 1 overflows unsigned).
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
     ^entry():
       %one    = "llvm.mlir.constant"() <{"value" = 1 : i1}> : () -> i1
       %poison = "llvm.add"(%one, %one) <{"overflowFlags" = 2 : i32}> : (i1, i1) -> i1

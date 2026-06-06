@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, !riscv.reg)}> ({
     %x = "riscv.li"() <{ "value" = 3 : i64 }> : () -> !riscv.reg
     %u = "builtin.unrealized_conversion_cast"(%x) : (!riscv.reg) -> i8
     %v = "builtin.unrealized_conversion_cast"(%u) : (i8) -> !riscv.reg

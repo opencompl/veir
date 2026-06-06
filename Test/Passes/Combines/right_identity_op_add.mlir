@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=riscv-combine | filecheck %s
 
 "builtin.module"() ({
-    "func.func"() ({
+    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
     ^bb(%a : !riscv.reg):
         // CHECK:             ^{{.*}}([[arg:%.*]] : !riscv.reg):
         %c0 = "riscv.li"() <{"value" = 0 : i64}>: () -> !riscv.reg
