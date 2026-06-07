@@ -264,6 +264,8 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "#llvm.cconv<fastcc>" (CConvAttr.mk "fastcc")
 #assert expectSuccessAttr "#llvm.linkage<external>" (LinkageAttr.mk "external")
 #assert expectSuccessAttr "#llvm.linkage<internal>" (LinkageAttr.mk "internal")
+#assert expectSuccessAttr "#llvm.tailcallkind<none>" (TailCallKindAttr.mk "none")
+#assert expectSuccessAttr "#llvm.tailcallkind<musttail>" (TailCallKindAttr.mk "musttail")
 
 /-! ## CUDA Pointer type -/
 #assert expectSuccessType "!cuda_tile.ptr<i1>" (CudaTile.PointerType.mk (IntegerType.mk 1))
