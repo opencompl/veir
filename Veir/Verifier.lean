@@ -39,7 +39,7 @@ def OperationPtr.verifyFuncReturnTypes (op : OperationPtr) (ctx : WfIRContext Op
     | some _ => throw "Expected enclosing func.func's function_type to be a function type"
     | none => throw "Expected enclosing func.func to have a function_type attribute"
   if op.getNumOperands ctx.raw opIn ≠ outputs.size then
-    throw s!"Expected {outputs.size} func.return operand(s)"
+    throw s!"Expected func.return to have {outputs.size} operand(s)"
   let opTypes := op.getOperandTypes! ctx.raw
   for i in [0:outputs.size] do
     if (opTypes[i]!).val ≠ outputs[i]! then
@@ -66,7 +66,7 @@ def OperationPtr.verifyLLVMReturnTypes (op : OperationPtr) (ctx : WfIRContext Op
     | #[.llvmVoidType _] => #[]
     | outputs => outputs
   if op.getNumOperands ctx.raw opIn ≠ outputs.size then
-    throw s!"Expected {outputs.size} llvm.return operand(s)"
+    throw s!"Expected llvm.return to have {outputs.size} operand(s)"
   let opTypes := op.getOperandTypes! ctx.raw
   for i in [0:outputs.size] do
     if (opTypes[i]!).val ≠ outputs[i]! then
