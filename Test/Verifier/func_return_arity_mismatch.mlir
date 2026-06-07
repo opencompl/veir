@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Expected 1 return operand(s)
+// CHECK: Expected 1 func.return operand(s)

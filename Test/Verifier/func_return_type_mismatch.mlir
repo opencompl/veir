@@ -7,4 +7,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Return operand 0 type does not match the function's declared result type
+// CHECK: func.return operand 0 type does not match the function's declared result type
