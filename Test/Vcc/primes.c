@@ -24,6 +24,7 @@ int main(void) {
         n++;
     }
 
+    // main's return value is 29, the 10th prime number
     return last_prime;
 }
 
