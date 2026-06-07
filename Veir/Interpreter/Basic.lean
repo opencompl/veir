@@ -1048,6 +1048,46 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInf
       return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
     else
       return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+  | .blt => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if BitVec.slt lhs.val rhs.val then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+  | .bge => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if !BitVec.slt lhs.val rhs.val then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+  | .bltu => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if BitVec.ult lhs.val rhs.val then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+  | .bgeu => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if !BitVec.ult lhs.val rhs.val then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
 
 def Cf.interpretOp' (opType : Veir.Cf) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
