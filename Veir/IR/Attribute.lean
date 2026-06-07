@@ -102,6 +102,27 @@ structure UwtableKindAttr where
   value : String
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/--
+  LLVM module flag attribute, e.g. `#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>`.
+-/
+structure ModuleFlagAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  LLVM target features attribute, e.g. `#llvm.target_features<["+cmov", "+sse"]>`.
+-/
+structure TargetFeaturesAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  DLTI data layout spec attribute, e.g. `#dlti.dl_spec<i64 = dense<64> : vector<2xi64>>`.
+-/
+structure DlSpecAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 structure RegisterAttr where
   value : Int
   type : RegisterType
@@ -323,6 +344,12 @@ inductive Attribute
 | framePointerKindAttr (attr : FramePointerKindAttr)
 /-- LLVM unwind table kind attribute -/
 | uwtableKindAttr (attr : UwtableKindAttr)
+/-- LLVM module flag attribute -/
+| moduleFlagAttr (attr : ModuleFlagAttr)
+/-- LLVM target features attribute -/
+| targetFeaturesAttr (attr : TargetFeaturesAttr)
+/-- DLTI data layout spec attribute -/
+| dlSpecAttr (attr : DlSpecAttr)
 /-- Register type -/
 | registerType (type : RegisterType)
 /-- Register attribute -/
@@ -497,6 +524,18 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case moduleFlagAttr.moduleFlagAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case targetFeaturesAttr.targetFeaturesAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case dlSpecAttr.dlSpecAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case unregisteredAttr.unregisteredAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -617,6 +656,15 @@ instance : ToString FramePointerKindAttr where
 
 instance : ToString UwtableKindAttr where
   toString attr := s!"#llvm.uwtableKind<{attr.value}>"
+
+instance : ToString ModuleFlagAttr where
+  toString attr := s!"#llvm.mlir.module_flag<{attr.value}>"
+
+instance : ToString TargetFeaturesAttr where
+  toString attr := s!"#llvm.target_features<{attr.value}>"
+
+instance : ToString DlSpecAttr where
+  toString attr := s!"#dlti.dl_spec<{attr.value}>"
 
 instance : ToString IntegerAttr where
   toString attr := s!"{attr.value} : {attr.type}"
@@ -775,6 +823,9 @@ def Attribute.toString (attr : Attribute) : String :=
   | .linkageAttr attr => ToString.toString attr
   | .framePointerKindAttr attr => ToString.toString attr
   | .uwtableKindAttr attr => ToString.toString attr
+  | .moduleFlagAttr attr => ToString.toString attr
+  | .targetFeaturesAttr attr => ToString.toString attr
+  | .dlSpecAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
   | .floatAttr attr => ToString.toString attr
   | .registerType type => ToString.toString type
@@ -839,6 +890,15 @@ instance : Coe FramePointerKindAttr Attribute where
 
 instance : Coe UwtableKindAttr Attribute where
   coe attr := .uwtableKindAttr attr
+
+instance : Coe ModuleFlagAttr Attribute where
+  coe attr := .moduleFlagAttr attr
+
+instance : Coe TargetFeaturesAttr Attribute where
+  coe attr := .targetFeaturesAttr attr
+
+instance : Coe DlSpecAttr Attribute where
+  coe attr := .dlSpecAttr attr
 
 instance : Coe IntegerAttr Attribute where
   coe attr := .integerAttr attr
@@ -913,6 +973,9 @@ def isType (attr : Attribute) : Bool :=
   | .linkageAttr _ => false
   | .framePointerKindAttr _ => false
   | .uwtableKindAttr _ => false
+  | .moduleFlagAttr _ => false
+  | .targetFeaturesAttr _ => false
+  | .dlSpecAttr _ => false
   | .integerAttr _ => false
   | .floatAttr _ => false
   | .stringAttr _ => false
@@ -948,6 +1011,12 @@ theorem isType_linkage attr : (linkageAttr attr).isType = false := by rfl
 theorem isType_framePointerKind attr : (framePointerKindAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_uwtableKind attr : (uwtableKindAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_moduleFlag attr : (moduleFlagAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_targetFeatures attr : (targetFeaturesAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_dlSpec attr : (dlSpecAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_unregistered unregistered :
   (unregisteredAttr unregistered).isType = unregistered.isType := by rfl

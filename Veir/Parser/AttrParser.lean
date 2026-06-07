@@ -335,6 +335,24 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
     parsePunctuation ">"
     return some (UwtableKindAttr.mk body : Attribute)
 
+  if dialectName = "llvm.mlir.module_flag".toByteArray then do
+    parsePunctuation "<"
+    let body ← parseUnregisteredAttrBody
+    parsePunctuation ">"
+    return some (ModuleFlagAttr.mk body : Attribute)
+
+  if dialectName = "llvm.target_features".toByteArray then do
+    parsePunctuation "<"
+    let body ← parseUnregisteredAttrBody
+    parsePunctuation ">"
+    return some (TargetFeaturesAttr.mk body : Attribute)
+
+  if dialectName = "dlti.dl_spec".toByteArray then do
+    parsePunctuation "<"
+    let body ← parseUnregisteredAttrBody
+    parsePunctuation ">"
+    return some (DlSpecAttr.mk body : Attribute)
+
   if !(← getThe AttrParserState).allowUnregisteredDialect then
     throwAt startPos s!"attribute is not registered. Consider using --allow-unregistered-dialect."
   parsePunctuation "<"
