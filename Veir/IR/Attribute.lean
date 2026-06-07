@@ -95,6 +95,13 @@ structure FramePointerKindAttr where
   value : String
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/--
+  LLVM unwind table kind attribute, e.g. `#llvm.uwtableKind<async>`.
+-/
+structure UwtableKindAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 structure RegisterAttr where
   value : Int
   type : RegisterType
@@ -314,6 +321,8 @@ inductive Attribute
 | linkageAttr (attr : LinkageAttr)
 /-- LLVM frame pointer kind attribute -/
 | framePointerKindAttr (attr : FramePointerKindAttr)
+/-- LLVM unwind table kind attribute -/
+| uwtableKindAttr (attr : UwtableKindAttr)
 /-- Register type -/
 | registerType (type : RegisterType)
 /-- Register attribute -/
@@ -484,6 +493,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case uwtableKindAttr.uwtableKindAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case unregisteredAttr.unregisteredAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -601,6 +614,9 @@ instance : ToString LinkageAttr where
 
 instance : ToString FramePointerKindAttr where
   toString attr := s!"#llvm.framePointerKind<{attr.value}>"
+
+instance : ToString UwtableKindAttr where
+  toString attr := s!"#llvm.uwtableKind<{attr.value}>"
 
 instance : ToString IntegerAttr where
   toString attr := s!"{attr.value} : {attr.type}"
@@ -758,6 +774,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .cconvAttr attr => ToString.toString attr
   | .linkageAttr attr => ToString.toString attr
   | .framePointerKindAttr attr => ToString.toString attr
+  | .uwtableKindAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
   | .floatAttr attr => ToString.toString attr
   | .registerType type => ToString.toString type
@@ -819,6 +836,9 @@ instance : Coe LinkageAttr Attribute where
 
 instance : Coe FramePointerKindAttr Attribute where
   coe attr := .framePointerKindAttr attr
+
+instance : Coe UwtableKindAttr Attribute where
+  coe attr := .uwtableKindAttr attr
 
 instance : Coe IntegerAttr Attribute where
   coe attr := .integerAttr attr
@@ -892,6 +912,7 @@ def isType (attr : Attribute) : Bool :=
   | .cconvAttr _ => false
   | .linkageAttr _ => false
   | .framePointerKindAttr _ => false
+  | .uwtableKindAttr _ => false
   | .integerAttr _ => false
   | .floatAttr _ => false
   | .stringAttr _ => false
@@ -925,6 +946,8 @@ theorem isType_cconv attr : (cconvAttr attr).isType = false := by rfl
 theorem isType_linkage attr : (linkageAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_framePointerKind attr : (framePointerKindAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_uwtableKind attr : (uwtableKindAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_unregistered unregistered :
   (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
