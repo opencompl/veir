@@ -1,4 +1,4 @@
-// RUN: VEIR_UNREGISTERED_ROUNDTRIP
+// RUN: VEIR_ROUNDTRIP
 //
 // Tests for llvm.getelementptr with 1, 2, 3, and 4 dynamic indices.
 // The operand count must equal 1 (base pointer) + number of kDynamic
