@@ -103,6 +103,13 @@ structure UwtableKindAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  LLVM tail call kind attribute, e.g. `#llvm.tailcallkind<none>`.
+-/
+structure TailCallKindAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   LLVM module flag attribute, e.g. `#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>`.
 -/
 structure ModuleFlagAttr where
@@ -344,6 +351,8 @@ inductive Attribute
 | framePointerKindAttr (attr : FramePointerKindAttr)
 /-- LLVM unwind table kind attribute -/
 | uwtableKindAttr (attr : UwtableKindAttr)
+/-- LLVM tail call kind attribute -/
+| tailCallKindAttr (attr : TailCallKindAttr)
 /-- LLVM module flag attribute -/
 | moduleFlagAttr (attr : ModuleFlagAttr)
 /-- LLVM target features attribute -/
@@ -524,6 +533,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case tailCallKindAttr.tailCallKindAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case moduleFlagAttr.moduleFlagAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -656,6 +669,9 @@ instance : ToString FramePointerKindAttr where
 
 instance : ToString UwtableKindAttr where
   toString attr := s!"#llvm.uwtableKind<{attr.value}>"
+
+instance : ToString TailCallKindAttr where
+  toString attr := s!"#llvm.tailcallkind<{attr.value}>"
 
 instance : ToString ModuleFlagAttr where
   toString attr := s!"#llvm.mlir.module_flag<{attr.value}>"
@@ -823,6 +839,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .linkageAttr attr => ToString.toString attr
   | .framePointerKindAttr attr => ToString.toString attr
   | .uwtableKindAttr attr => ToString.toString attr
+  | .tailCallKindAttr attr => ToString.toString attr
   | .moduleFlagAttr attr => ToString.toString attr
   | .targetFeaturesAttr attr => ToString.toString attr
   | .dlSpecAttr attr => ToString.toString attr
@@ -890,6 +907,9 @@ instance : Coe FramePointerKindAttr Attribute where
 
 instance : Coe UwtableKindAttr Attribute where
   coe attr := .uwtableKindAttr attr
+
+instance : Coe TailCallKindAttr Attribute where
+  coe attr := .tailCallKindAttr attr
 
 instance : Coe ModuleFlagAttr Attribute where
   coe attr := .moduleFlagAttr attr
@@ -973,6 +993,7 @@ def isType (attr : Attribute) : Bool :=
   | .linkageAttr _ => false
   | .framePointerKindAttr _ => false
   | .uwtableKindAttr _ => false
+  | .tailCallKindAttr _ => false
   | .moduleFlagAttr _ => false
   | .targetFeaturesAttr _ => false
   | .dlSpecAttr _ => false
@@ -1011,6 +1032,8 @@ theorem isType_linkage attr : (linkageAttr attr).isType = false := by rfl
 theorem isType_framePointerKind attr : (framePointerKindAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_uwtableKind attr : (uwtableKindAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_tailCallKind attr : (tailCallKindAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_moduleFlag attr : (moduleFlagAttr attr).isType = false := by rfl
 @[simp, grind =]
