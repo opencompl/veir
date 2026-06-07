@@ -683,7 +683,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let val ← mem.loadValue addr type
     return (#[val], mem, none)
   | .store => do
-    let [.addr addr, val] := operands.toList | none
+    let [val, .addr addr] := operands.toList | none
     let mem ← mem.storeValue addr val
     return (#[], mem, none)
   | .getelementptr => do

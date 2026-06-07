@@ -739,6 +739,15 @@ theorem getResults!.getElem_eq_getResult
   simp only [getResults!, getResult]
   grind
 
+theorem getResult_eq_of_idxOf_getResults! {op : OperationPtr} :
+    value ∈ op.getResults! ctx →
+    (op.getResults! ctx).idxOf value = index →
+    op.getResult index = value := by
+  grind [Array.getElem?_idxOf]
+
+grind_pattern getResult_eq_of_idxOf_getResults! =>
+  value ∈ op.getResults! ctx, (op.getResults! ctx).idxOf value, op.getResult index
+
 def getResultTypes (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : Array TypeAttr :=
   (op.get ctx).results.map (·.type)

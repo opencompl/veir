@@ -414,6 +414,16 @@ theorem OpOperandPtrPtr.get!_initOpRegions {opOperandPtr : OpOperandPtrPtr}
     opOperandPtr.get! ctx' = opOperandPtr.get! ctx := by
   fun_induction Rewriter.initOpRegions <;> grind
 
+theorem Rewriter.initOpRegions_inBounds {ptr : GenericPtr} {ctx' : IRContext OpInfo} :
+    initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx' →
+    (ptr.InBounds ctx ↔ ptr.InBounds ctx') := by
+  fun_induction Rewriter.initOpRegions <;> grind
+
+grind_pattern Rewriter.initOpRegions_inBounds =>
+  Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄, some ctx', ptr.InBounds ctx
+grind_pattern Rewriter.initOpRegions_inBounds =>
+  Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄, some ctx', ptr.InBounds ctx'
+
 end Rewriter.initOpRegions
 
 end Veir
