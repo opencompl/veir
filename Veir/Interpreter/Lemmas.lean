@@ -335,10 +335,55 @@ theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
 end interpretOpList
 
 set_option warn.sorry false in
+def Llvm.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+    operands ⊒ operands' →
+    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
+      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2 = r₂.2)
+      (Llvm.interpretOp' opType properties resultTypes operands blockOperands mem)
+      (Llvm.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  sorry
+
+
+set_option warn.sorry false in
+def Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+    operands ⊒ operands' →
+    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
+      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2 = r₂.2)
+      (Riscv.interpretOp' opType properties resultTypes operands blockOperands mem)
+      (Riscv.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  sorry
+
+set_option warn.sorry false in
 def interpretOp'_monotone {operands operands' : Array RuntimeValue} :
     operands ⊒ operands' →
     Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
       (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2 = r₂.2)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem) := by
-  sorry
+  cases opType
+  case comb =>
+    sorry
+  case test =>
+    sorry
+  case hw =>
+    sorry
+  case datapath =>
+    sorry
+  case mod_arith =>
+    sorry
+  case riscv_cf =>
+    sorry
+  case riscv =>
+    simp only [interpretOp']
+    apply Riscv.interpretOp'_monotone
+  case llvm =>
+    simp only [interpretOp']
+    apply Llvm.interpretOp'_monotone
+  case cf =>
+    sorry
+  case func =>
+    sorry
+  case builtin =>
+    sorry
+  case arith =>
+    sorry
