@@ -1784,6 +1784,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 1 then
       throw "Expected 1 successor"
+    if let some block := (op.get ctx.raw opIn).parent then
+      if (block.get! ctx.raw).next ≠ some (op.getSuccessor! ctx.raw 0) then
+        throw "Successor of riscv_cf.branch should be the next block"
     pure ()
   | .riscv_cf .beq => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -1797,6 +1800,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 2 operands plus 2 variadic operands"
     if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
       throw "Expected 2 operands plus 2 variadic operands"
+    if let some block := (op.get ctx.raw opIn).parent then
+      if (block.get! ctx.raw).next ≠ some (op.getSuccessor! ctx.raw 1) then
+        throw "Second successor of riscv_cf.beq should be the next block"
     pure ()
   | .riscv_cf .bne => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -1810,6 +1816,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 2 operands plus 2 variadic operands"
     if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
       throw "Expected 2 operands plus 2 variadic operands"
+    if let some block := (op.get ctx.raw opIn).parent then
+      if (block.get! ctx.raw).next ≠ some (op.getSuccessor! ctx.raw 1) then
+        throw "Second successor of riscv_cf.bne should be the next block"
     pure ()
   | .riscv_cf .blt => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
