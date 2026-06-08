@@ -432,7 +432,7 @@ partial def parseOptionalCudaTilePointerType : AttrParserM (Option TypeAttr) := 
 
 /--
   Parse HEIR's modarith type, if present.
-  Its syntax is `!mod_arith.int<modulus>` or `!mod_arith.int<modulus : iN>`.
+  Its syntax is `!mod_arith.int<{IntegerAttr}>`, e.g., `!mod_arith.int<17 : i32>`.
 -/
 def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
   let token ← peekToken
@@ -443,15 +443,10 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
     return none
   let _ ← consumeToken
   parsePunctuation "<"
-  let some modulus ← parseOptionalInteger false false
+  let some modulus ← parseOptionalIntegerAttr
     | throwAtCurrentPos "modarith type modulus expected"
-  let modulusType ←
-    if ← parseOptionalPunctuation ":" then
-      some <$> parseIntegerType "integer type expected after ':' in modarith type"
-    else
-      pure none
   parsePunctuation ">"
-  return some (ModArithType.mk modulus modulusType)
+  return some (ModArithType.mk modulus)
 
 /--
   Parse CIRCT's HW dialect's `ModulePort::Direction` type.
