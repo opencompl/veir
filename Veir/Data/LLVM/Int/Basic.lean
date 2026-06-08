@@ -513,6 +513,16 @@ def select {w : Nat} (c : Int 1) (x y : Int w) : Int w := Id.run do
   let val c' := c | poison
   if c' == 1#1 then x else y
 
+
+/--
+ The `freeze` instruction converts a poison value to a non-poison value by
+ replacing it with an arbitrary value. We currently always pick zero.
+-/
+def freeze {w : Nat} (x : Int w) : Int w := Id.run do
+  match x with
+  | .val v => .val v
+  | .poison => .val 0
+
 end Int
 end
 end Veir.Data.LLVM
