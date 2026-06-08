@@ -70,6 +70,7 @@
       %57 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
       %58 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
       %59 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz, nnan, ninf>}> : (f64, f64) -> f64
+      %60 = "llvm.freeze"(%5) : (i32) -> i32
       "llvm.return"(%arg7_0) : (i32) -> ()
   }) : () -> ()
 }) : () -> ()
@@ -144,6 +145,7 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<ninf>}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
+// CHECK-NEXT:       %{{.*}} = "llvm.freeze"(%{{.*}}) : (i32) -> i32
 // CHECK-NEXT:       "llvm.return"(%{{.*}}) : (i32) -> ()
 // CHECK-NEXT:   }) : () -> ()
 // CHECK-NEXT: }) : () -> ()
