@@ -36,6 +36,17 @@ theorem InterpreterState.isRefinedBy_refl
     state.isRefinedBy state id := by
   grind [InterpreterState.isRefinedBy, VariableState.isRefinedBy]
 
+@[simp, grind .]
+theorem ControlFlowAction.isRefinedBy_refl (cf : ControlFlowAction) : cf ⊒ cf := by
+  cases cf <;> simp [ControlFlowAction.isRefinedBy]
+
+@[simp, grind .]
+theorem ControlFlowAction.optionIsRefinedBy_refl (cf : Option ControlFlowAction) :
+    ControlFlowAction.optionIsRefinedBy cf cf := by
+  cases cf with
+  | none => trivial
+  | some a => cases a <;> simp [ControlFlowAction.optionIsRefinedBy, ControlFlowAction.isRefinedBy]
+
 /-! ## Transitivity -/
 
 theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}

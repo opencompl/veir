@@ -61,12 +61,33 @@ on the underlying values. This asserts:
   `some (.ok b)` of `target` with `R a b`;
 * when `source` is undefined behaviour (`some .ub`), `target` must succeed (i.e. not be `none`),
   but may be either `some .ub` or `some (.ok _)`;
-* when `source` or `target` failed interpretation (i.e. are `none`), no refinement exists.
+* when `source` is `none`, `target` may be anything
 -/
 def Interp.isRefinedBy (R : α → α → Prop) (source target : Interp α) : Prop :=
   match source, target with
   | some (.ok a), some (.ok b) => R a b
   | some .ub, some _ => True
+  | none, _ => True
+  | _, _ => False
+
+/--
+Refinement between two control flow actions: same constructor, equal successor block `dest`, and
+the carried value payloads refine pointwise.
+-/
+def ControlFlowAction.isRefinedBy : ControlFlowAction → ControlFlowAction → Prop
+  | .return vals, .return vals' => vals ⊒ vals'
+  | .branch vals dest, .branch vals' dest' => dest = dest' ∧ vals ⊒ vals'
+  | _, _ => False
+
+@[inherit_doc] infix:50 " ⊒ " => ControlFlowAction.isRefinedBy
+
+/--
+Refinement between two optional control flow actions. They should either both be `none`, or both be
+`some` and refine.
+-/
+def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option ControlFlowAction → Prop
+  | none, none => True
+  | some a, some b => a.isRefinedBy b
   | _, _ => False
 
 /--
