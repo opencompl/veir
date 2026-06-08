@@ -51,7 +51,7 @@ theorem BitVec.ult_one_iff_of_lt {lhs : BitVec w} (h : 0 < w) :
   simp [← BitVec.toNat_inj]
 
 theorem BitVec.ult_zero_false {lhs : BitVec w} :
-    (0#w).ult lhs = decide (¬lhs = 0#w) := by
+    (0#w).ult lhs = decide (¬ lhs = 0#w) := by
   by_cases hzero : lhs = 0#w
   · simp [hzero, BitVec.ult]
   · by_cases hlt : (0#w).ult lhs
