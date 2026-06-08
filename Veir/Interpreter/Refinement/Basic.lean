@@ -62,6 +62,7 @@ def Interp.isRefinedBy (R : α → α → Prop) (source target : Interp α) : Pr
   match source, target with
   | some (.ok a), some (.ok b) => R a b
   | some .ub, some _ => True
+  | none, _ => True
   | _, _ => False
 
 /--

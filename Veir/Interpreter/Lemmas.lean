@@ -335,10 +335,146 @@ theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
 end interpretOpList
 
 set_option warn.sorry false in
+def Llvm.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+    operands ⊒ operands' →
+    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
+      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2 = r₂.2)
+      (Llvm.interpretOp' opType properties resultTypes operands blockOperands mem)
+      (Llvm.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  sorry
+
+set_option warn.sorry false in
+def Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+    operands ⊒ operands' →
+    Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
+      (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2 = r₂.2)
+      (Riscv.interpretOp' opType properties resultTypes operands blockOperands mem)
+      (Riscv.interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  intro h
+  cases opType
+  case li =>
+    sorry
+  case lui =>
+    sorry
+  case auipc =>
+    sorry
+  case addi =>
+    sorry
+  case slti =>
+    sorry
+  case sltiu =>
+    sorry
+  case xori =>
+    sorry
+  case ori =>
+    sorry
+  case andi =>
+    sorry
+  case slli =>
+    sorry
+  case srli =>
+    sorry
+  case srai =>
+    sorry
+  case add =>
+    simp only [Riscv.interpretOp']
+    split <;> split
+    · rw [← List.toArray_eq_iff, Array.toArray_toList] at *
+      rename_i ops₁ xb xc xd ops₂
+      simp [ops₁, ops₂, RuntimeValue.arrayIsRefinedBy] at h
+      have aaa0 := h 0 (by simp)
+      have aaa1 := h 1 (by simp)
+      simp at aaa0
+      simp at aaa1
+      simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
+      simp [Interp.isRefinedBy, pure, RuntimeValue.arrayIsRefinedBy,
+      RuntimeValue.isRefinedBy]
+      grind
+    ·
+      rename_i ops₁ xb xc xd ops₂
+      simp at ops₂
+      simp only [Interp.isRefinedBy]
+      simp at *
+      have ops₂' := ops₂ ops₁ xb
+      rw [RuntimeValue.arrayIsRefinedBy] at h
+      rw [← List.toArray_eq_iff, Array.toArray_toList] at *
+      by_cases hhh : operands.size = operands'.size ∧ operands.size = 2
+      .
+        simp [hhh] at h
+        have aaa0 := h 0 (by grind)
+        have aaa1 := h 1 (by grind)
+        simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
+        grind
+      . grind
+    · simp [Interp.isRefinedBy]
+    · simp [Interp.isRefinedBy]
+  case sub =>
+    simp only [Riscv.interpretOp']
+    split <;> split
+    · rw [← List.toArray_eq_iff, Array.toArray_toList] at *
+      rename_i ops₁ xb xc xd ops₂
+      simp [ops₁, ops₂, RuntimeValue.arrayIsRefinedBy] at h
+      have aaa0 := h 0 (by simp)
+      have aaa1 := h 1 (by simp)
+      simp at aaa0
+      simp at aaa1
+      simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
+      simp [Interp.isRefinedBy, pure, RuntimeValue.arrayIsRefinedBy,
+      RuntimeValue.isRefinedBy]
+      grind
+    ·
+      rename_i ops₁ xb xc xd ops₂
+      simp at ops₂
+      simp only [Interp.isRefinedBy]
+      simp at *
+      have ops₂' := ops₂ ops₁ xb
+      rw [RuntimeValue.arrayIsRefinedBy] at h
+      rw [← List.toArray_eq_iff, Array.toArray_toList] at *
+      by_cases hhh : operands.size = operands'.size ∧ operands.size = 2
+      .
+        simp [hhh] at h
+        have aaa0 := h 0 (by grind)
+        have aaa1 := h 1 (by grind)
+        simp [RuntimeValue.isRefinedBy] at aaa0 aaa1
+        grind
+      . grind
+    · simp [Interp.isRefinedBy]
+    · simp [Interp.isRefinedBy]
+  case addiw =>
+    sorry
+  all_goals sorry
+
+set_option warn.sorry false in
 def interpretOp'_monotone {operands operands' : Array RuntimeValue} :
     operands ⊒ operands' →
     Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
       (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2 = r₂.2)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem) := by
-  sorry
+  cases opType
+  case comb =>
+    sorry
+  case test =>
+    sorry
+  case hw =>
+    sorry
+  case datapath =>
+    sorry
+  case mod_arith =>
+    sorry
+  case riscv_cf =>
+    sorry
+  case riscv =>
+    simp only [interpretOp']
+    apply Riscv.interpretOp'_monotone
+  case llvm =>
+    simp only [interpretOp']
+    apply Llvm.interpretOp'_monotone
+  case cf =>
+    sorry
+  case func =>
+    sorry
+  case builtin =>
+    sorry
+  case arith =>
+    sorry
