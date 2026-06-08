@@ -361,7 +361,7 @@ Let `E := log2(|n|) - k` be the unbiased exponent of `x`.
 - if `x` is subnormal, the encoding is `x = m · 2^(1 - bias - s)`,
   and matching `mag = m`:
     -prec = 1 - bias - s
-    prec  = bias + s - 1
+     prec = bias + s - 1
 -/
 private def targetPrec (x : Dyadic) (e s : Nat) : Int :=
   match x with
