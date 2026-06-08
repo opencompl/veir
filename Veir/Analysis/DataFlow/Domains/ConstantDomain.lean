@@ -7,12 +7,6 @@ public section
 
 namespace Veir
 
-/-- A known non-poison integer constant. -/
-structure KnownConstant where
-  bitwidth : Nat
-  value : BitVec bitwidth
-deriving BEq, DecidableEq
-
 /-- Concrete integer values tracked by the constant domain. -/
 structure ConcreteConstant where
   bitwidth : Nat
@@ -23,8 +17,7 @@ deriving BEq, DecidableEq
 inductive AbstractConstant where
   | top
   | bottom
-  | poison
-  | constant (value : KnownConstant)
+  | constant (value : ConcreteConstant)
 deriving BEq, DecidableEq, TypeName
 
 namespace AbstractConstant
@@ -33,10 +26,7 @@ def γ (absVal : AbstractConstant) : ConcreteConstant → Prop :=
   match absVal with
   | .top => fun _ => True
   | .bottom => fun _ => False
-  | .poison => fun
-      | ⟨_, .poison⟩ => True
-      | _ => False
-  | .constant a => fun concVal => concVal = ⟨a.bitwidth, .val a.value⟩
+  | .constant a => fun concVal => concVal = a
 
 def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   match lhs, rhs with
@@ -44,10 +34,7 @@ def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   | x, .bottom => x
   | .top, _ => .top
   | _, .top => .top
-  | .poison, .poison => .poison
   | .constant c, .constant d => if c = d then .constant c else .top
-  | .poison, .constant _ => .top
-  | .constant _, .poison => .top
 
 def meet (lhs rhs : AbstractConstant) : AbstractConstant :=
   match lhs, rhs with
@@ -55,17 +42,13 @@ def meet (lhs rhs : AbstractConstant) : AbstractConstant :=
   | x, .top => x
   | .bottom, _ => .bottom
   | _, .bottom => .bottom
-  | .poison, .poison => .poison
   | .constant c, .constant d => if c = d then .constant d else .bottom
-  | .poison, .constant _ => .bottom
-  | .constant _, .poison => .bottom
 
 /-- Defines the ordering of abstract values in the constant domain. -/
 def le (x y : AbstractConstant) : Prop :=
   match x, y with
   | .bottom, _ => True
   | _, .top => True
-  | .poison, .poison => True
   | .constant c, .constant d => c = d
   | _, _ => False
 
@@ -79,8 +62,8 @@ def unknown : AbstractConstant := .top
 def uninitialized : AbstractConstant := .bottom
 
 /-- Build a constant lattice element from an integer at the given bitwidth. -/
-def ofInt (bitwidth : Nat) (value : Int) : AbstractConstant :=
-  .constant { bitwidth := bitwidth, value := BitVec.ofInt bitwidth value }
+/- def ofInt (bitwidth : Nat) (value : Int) : AbstractConstant := -/
+  /- .constant { bitwidth := bitwidth, value := BitVec.ofInt bitwidth value } -/
 
 theorem le_iff_γ (a b : AbstractConstant) :
     a ≤ b ↔ ∀ c, γ a c → γ b c := by sorry
