@@ -346,28 +346,40 @@ private def computeRoundByMode (mode : RoundingMode)
 
 /--
 We compute `prec`, the number of bits to the right of the point used
-when rounding `x = ±|n| · 2^(-k)` into format `(e, s)`. The rounded value
-is of the form `mag · 2^(-prec)` for some integer `mag`, so we want `prec`
-such that this form matches the IEEE-754 encoding of `x`.
+when rounding `x = n · 2^(-k)` into format `(e, s)`. The rounded value
+is of the form `mag · 2^(-prec)` for an *integer* `mag`.
 
-Let `E := log2(|n|) - k` be the unbiased exponent of `x`.
+First we read off the exponent of `x`. We normalize the significand
+into `[1, 2)` by writing `mag = n / 2^(n.natAbs.log2)`, so that `mag ∈ [1, 2)`,
 
-- if `x` is normal, the encoding is `x = (2^s + m) · 2^(E - s)`,
-  and matching `mag = 2^s + m`:
-    -prec = E - s
-     prec = s - E
-          = s - (log2(|n|) - k)
-          = s + k - log2(|n|)
-- if `x` is subnormal, the encoding is `x = m · 2^(1 - bias - s)`,
-  and matching `mag = m`:
-    -prec = 1 - bias - s
-     prec = bias + s - 1
+x = n · 2^(-k) =
+  = (n / 2^(n.natAbs.log2)) · 2^(-(k - n.natAbs.log2)).
+  = mag · 2^(-(k - n.natAbs.log2)).
+  = (mag · 2^s)  · 2^(-(k - n.natAbs.log2 + s)).
+
+- Case 1: `x` is normal. Comparing the representations, we get:
+    prec = (k - n.natAbs.log2) + s
+
+- Case 2: `x` is subnormal.
+  These are the smallest numbers we can represent. The exponent can drop no
+  further, so it is pinned to `1 - bias e - s`.
+    -prec = 1 - bias e - s
+     prec = bias e + s - 1
+
+`prec` grows as `x` gets smaller, but the subnormals are the largest
+precision, so `bias e + s - 1` is a cap on the precision.
+So, we cap the normal precision at `bias e + s - 1` to get the final formula.
 -/
 private def targetPrec (x : Dyadic) (e s : Nat) : Int :=
   match x with
   | .zero => 0  -- unused: callers exclude zero
   | .ofOdd n k _ =>
-    min ((k : Int) + s - n.natAbs.log2) ((bias e : Int) + s - 1)
+    -- Case 1 (normal): precision implied by the exponent of `x`.
+    let normalPrec := (k : Int) - n.natAbs.log2 + s
+    -- Case 2 (subnormal): the finest grid the format offers, capping the precision.
+    let subnormalPrec := (bias e : Int) + (s : Int) - 1
+    -- `x` is subnormal exactly when its normal precision would exceed the cap.
+    if normalPrec > subnormalPrec then subnormalPrec else normalPrec
 
 /--
 Round nonzero `x` per IEEE-754 mode `mode` in target format `(e, s)`.
