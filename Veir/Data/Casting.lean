@@ -35,12 +35,12 @@ theorem toInt_eq_val {r : Veir.Data.RISCV.Reg} :
   simp [RISCV.Reg.toInt, Veir.Data.LLVM.Int.getValue]
 
 @[reg_toBitVec, grind =]
-theorem toInt_isPoison {r : Veir.Data.RISCV.Reg} :
+theorem toInt_isPoison {w : Nat} {r : Veir.Data.RISCV.Reg} :
     (RISCV.Reg.toInt r w).isPoison = false := by
   simp [RISCV.Reg.toInt, Veir.Data.LLVM.Int.isPoison]
 
 @[llvm_toBitVec, grind =]
-theorem val_toReg {i : Veir.Data.LLVM.Int w} :
+theorem val_toReg {w : Nat} {i : Veir.Data.LLVM.Int w} :
     (LLVM.Int.toReg i).val = if h : i.isPoison = true then 0#64 else i.getValue.zeroExtend 64 := by
   simp only [LLVM.Int.toReg, BitVec.truncate_eq_setWidth]
   split
