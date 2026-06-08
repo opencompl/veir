@@ -130,3 +130,11 @@ def matchSub (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × 
 def matchLoad (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (.llvm .load)) := do
   let (op, properties) ← matchOp op ctx (.llvm .load) 1
   return (op[0]!, properties)
+
+/--
+  Match a `llvm.getelementptr` with a single dynamic index.
+-/
+def matchGetelementptr (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × ValuePtr × propertiesOf (.llvm .getelementptr)) := do
+  let (op, properties) ← matchOp op ctx (.llvm .getelementptr) 2
+  return (op[0]!, op[1]!, properties)
