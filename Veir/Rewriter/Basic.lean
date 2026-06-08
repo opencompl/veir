@@ -266,6 +266,23 @@ theorem Rewriter.replaceUse_fieldsInBounds :
      ctx.FieldsInBounds → (replaceUse ctx use newValue useIn newIn ctxIn).FieldsInBounds := by
   grind [replaceUse]
 
+/--
+Set the type of a value (an op result or a block argument).
+-/
+def Rewriter.setType (ctx : IRContext OpInfo) (value : ValuePtr) (newType : TypeAttr)
+    (valueIn : value.InBounds ctx := by grind) : IRContext OpInfo :=
+  value.setType ctx newType
+
+@[grind =]
+theorem Rewriter.setType_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (setType ctx value newType valueIn) ↔ ptr.InBounds ctx := by
+  grind [setType]
+
+@[grind .]
+theorem Rewriter.setType_fieldsInBounds :
+    ctx.FieldsInBounds → (setType ctx value newType valueIn).FieldsInBounds := by
+  grind [setType, ValuePtr.setType_fieldsInBounds]
+
 @[irreducible]
 def Rewriter.replaceValue? (ctx: IRContext OpInfo) (oldValue: ValuePtr) (newValue: ValuePtr)
     (oldIn: oldValue.InBounds ctx := by grind)
