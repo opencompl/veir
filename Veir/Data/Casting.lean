@@ -40,7 +40,7 @@ theorem toInt_isPoison {r : Veir.Data.RISCV.Reg} :
   simp [RISCV.Reg.toInt, Veir.Data.LLVM.Int.isPoison]
 
 @[llvm_toBitVec, grind =]
-theorem val_toReg{i : Veir.Data.LLVM.Int w} :
+theorem val_toReg {i : Veir.Data.LLVM.Int w} :
     (LLVM.Int.toReg i).val = if h : i.isPoison = true then 0#64 else i.getValue.zeroExtend 64 := by
   simp only [LLVM.Int.toReg, BitVec.truncate_eq_setWidth]
   split
