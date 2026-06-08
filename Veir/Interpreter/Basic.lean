@@ -693,6 +693,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     match idx with
     | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
     | .poison => Interp.ub
+  | .freeze => do
+    let [RuntimeValue.int w val] := operands.toList | none
+    return (#[RuntimeValue.int w (LLVM.Int.freeze val)], mem, none)
   | _ => none
 
 def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.propertiesOf opType)
