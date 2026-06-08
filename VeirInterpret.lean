@@ -67,6 +67,8 @@ partial def scanEntryPoints (ctx : IRContext OpCode) (op : Option OperationPtr)
     | .llvm .func | .func .func =>
       let entryPoints := if isZeroArgMainFunc ctx op then op :: entryPoints else entryPoints
       scanEntryPoints ctx (op.get! ctx).next entryPoints
+    | .llvm .module_flags =>
+      scanEntryPoints ctx (op.get! ctx).next entryPoints
     | _ =>
       IO.eprintln "Error: Top-level operations are disallowed; define a zero-argument function named 'main'"
       IO.Process.exit 1

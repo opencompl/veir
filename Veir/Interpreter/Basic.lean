@@ -105,6 +105,28 @@ theorem Conforms.llvmPointerType :
   simp only [Conforms]
   cases runtimeValue <;> grind
 
+def ArrayConforms (source : Array RuntimeValue) (target : Array TypeAttr) : Prop :=
+  source.size = target.size ∧ ∀ (i : Nat) (_ : i < source.size), source[i]!.Conforms target[i]!
+
+theorem ArrayConforms.take_succ_eq {source : Array RuntimeValue} {target : Array TypeAttr} :
+    source.size = target.size →
+    n < source.size →
+    (ArrayConforms (source.take (n + 1)) (target.take (n + 1)) ↔
+    (ArrayConforms (source.take n) (target.take n) ∧ (source[n]!).Conforms target[n]!)) := by
+  simp only [ArrayConforms]
+  intro hsize hn
+  constructor
+  · rintro ⟨_, h⟩
+    constructor
+    · constructor; grind
+      intro i hi
+      grind [h i]
+    · grind [h n]
+  · rintro ⟨⟨_, h⟩, hn⟩
+    constructor; grind
+    intro i hi
+    grind [h i]
+
 end RuntimeValue
 
 /--
@@ -209,13 +231,15 @@ def VariableState.getOperandValues (state : VariableState ctx)
 
 def VariableState.setResultValues?_loop (state : VariableState ctx)
     (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat)
-    (opInBounds : op.InBounds ctx.raw := by grind) (iInBounds : i ≤ op.getNumResults! ctx.raw := by grind)
+    (opInBounds : op.InBounds ctx.raw := by grind)
+    (iInBounds : i ≤ op.getNumResults! ctx.raw := by grind)
+    (hsizes : resultValues.size = op.getNumResults! ctx.raw := by grind)
     : Option (VariableState ctx) :=
   match i with
   | 0 => state
   | i + 1 => do
     let result := op.getResult i
-    let value := resultValues[i]!
+    let value := resultValues[i]
     let newState ← state.setVar? result value
     VariableState.setResultValues?_loop newState op resultValues i
 
@@ -225,7 +249,10 @@ def VariableState.setResultValues?_loop (state : VariableState ctx)
 def VariableState.setResultValues? (state : VariableState ctx)
     (op : OperationPtr) (resultValues : Array RuntimeValue) (opInBounds : op.InBounds ctx.raw := by grind)
     : Option (VariableState ctx) :=
-  VariableState.setResultValues?_loop state op resultValues (op.getNumResults! ctx.raw)
+  if hsize : resultValues.size = op.getNumResults! ctx.raw then
+    VariableState.setResultValues?_loop state op resultValues (op.getNumResults! ctx.raw)
+  else
+    none
 
 /--
   Set the values of block arguments.
@@ -693,6 +720,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     match idx with
     | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
     | .poison => Interp.ub
+  | .freeze => do
+    let [RuntimeValue.int w val] := operands.toList | none
+    return (#[RuntimeValue.int w (LLVM.Int.freeze val)], mem, none)
   | _ => none
 
 def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.propertiesOf opType)

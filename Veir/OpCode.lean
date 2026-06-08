@@ -107,6 +107,7 @@ inductive Llvm where
 | fmul
 | fdiv
 | frem
+| freeze
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]

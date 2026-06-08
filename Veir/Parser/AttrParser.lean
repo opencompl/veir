@@ -335,6 +335,12 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
     parsePunctuation ">"
     return some (UwtableKindAttr.mk body : Attribute)
 
+  if dialectName = "llvm.tailcallkind".toByteArray then do
+    parsePunctuation "<"
+    let body ← parseUnregisteredAttrBody
+    parsePunctuation ">"
+    return some (TailCallKindAttr.mk body : Attribute)
+
   if dialectName = "llvm.mlir.module_flag".toByteArray then do
     parsePunctuation "<"
     let body ← parseUnregisteredAttrBody
