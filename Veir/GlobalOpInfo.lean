@@ -85,6 +85,10 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     cases op
     case beq => exact (RISCVBrProperties.fromAttrDict attrDict)
     case bne => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case blt => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case bge => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case bltu => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case bgeu => exact (RISCVBrProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case llvm op =>
     cases op
@@ -214,7 +218,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
   | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
-  | .riscv_cf .beq | .riscv_cf .bne =>
+  | .riscv_cf .beq | .riscv_cf .bne | .riscv_cf .blt | .riscv_cf .bge
+  | .riscv_cf .bltu | .riscv_cf .bgeu =>
     (Std.HashMap.emptyWithCapacity 1).insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
   | .cf .cond_br =>
     let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (.denseArrayAttr props.branch_weights)
@@ -335,6 +340,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .func .return
   | .llvm .br | .llvm .cond_br | .llvm .return | .llvm .unreachable
   | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
+  | .riscv_cf .blt | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu
   | .hw .output => true
   | _ => false
 

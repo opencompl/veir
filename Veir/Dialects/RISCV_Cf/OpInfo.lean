@@ -13,6 +13,10 @@ def Riscv_Cf.propertiesOf (op : Riscv_Cf) : Type :=
 match op with
 | .beq => RISCVBrProperties
 | .bne => RISCVBrProperties
+| .blt => RISCVBrProperties
+| .bge => RISCVBrProperties
+| .bltu => RISCVBrProperties
+| .bgeu => RISCVBrProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Riscv_Cf where

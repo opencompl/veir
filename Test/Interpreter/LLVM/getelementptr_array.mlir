@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> i8}> ({
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i8 ()>}> ({
     ^bb0():
       %size = "llvm.mlir.constant"() <{ "value" = 4 : i64 }> : () -> i64
       %array = "llvm.alloca"(%size) <{ "elem_type" = i64 }> : (i64) -> !llvm.ptr
