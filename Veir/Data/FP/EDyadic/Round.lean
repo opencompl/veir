@@ -342,6 +342,61 @@ private def computeRoundByMode (mode : RoundingMode)
   | .RTN => computeRoundRTN sign mag k prec e s
   | .RTZ => computeRoundRTZ sign mag k prec e s
 
+/-! ## Public surface: `round` to target format `(e, s)` -/
+
+/--
+We compute `prec`, the number of bits to the right of the point used
+when rounding `x = n · 2^(-k)` into format `(e, s)`. The rounded value
+is of the form `mag · 2^(-prec)` for an *integer* `mag`.
+
+First we read off the exponent of `x`. We normalize the significand
+into `[1, 2)` by writing `mag = n / 2^(n.natAbs.log2)`, so that `mag ∈ [1, 2)`,
+
+x = n · 2^(-k) =
+  = (n / 2^(n.natAbs.log2)) · 2^(-(k - n.natAbs.log2)).
+  = mag · 2^(-(k - n.natAbs.log2)).
+  = (mag · 2^s)  · 2^(-(k - n.natAbs.log2 + s)).
+
+- Case 1: `x` is normal. Comparing the representations, we get:
+    prec = (k - n.natAbs.log2) + s
+
+- Case 2: `x` is subnormal.
+  These are the smallest numbers we can represent. The exponent can drop no
+  further, so it is pinned to `1 - bias e - s`.
+    -prec = 1 - bias e - s
+     prec = bias e + s - 1
+
+`prec` grows as `x` gets smaller, but the subnormals are the largest
+precision, so `bias e + s - 1` is a cap on the precision.
+So, we cap the normal precision at `bias e + s - 1` to get the final formula.
+-/
+private def targetPrec (x : Dyadic) (e s : Nat) : Int :=
+  match x with
+  | .zero => 0  -- unused: callers exclude zero
+  | .ofOdd n k _ =>
+    -- Case 1 (normal): precision implied by the exponent of `x`.
+    let normalPrec := (k : Int) - n.natAbs.log2 + s
+    -- Case 2 (subnormal): the finest grid the format offers, capping the precision.
+    let subnormalPrec := (bias e : Int) + (s : Int) - 1
+    -- `x` is subnormal exactly when its normal precision would exceed the cap.
+    if normalPrec > subnormalPrec then subnormalPrec else normalPrec
+
+/--
+Round nonzero `x` per IEEE-754 mode `mode` in target format `(e, s)`.
+Since zeros have ambiguous signs, we do not allow `x` to be zero,
+and instead require the caller to handle zero as a special case.
+-/
+def round (mode : RoundingMode) (x : Dyadic) (e s : Nat)
+    (hne : x ≠ .zero := by first | decide | native_decide) : EDyadic :=
+  match x, hne with
+  | .zero, hne => absurd rfl hne
+  | .ofOdd n k hn, _ =>
+    let value : Dyadic := .ofOdd n k hn
+    let sign : Bool := decide (n < 0)
+    let prec : Int := targetPrec value e s
+    computeRoundByMode mode sign n.natAbs k prec e s
+
+
 end Dyadic
 
 end
