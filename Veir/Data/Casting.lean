@@ -17,7 +17,6 @@ public section
 /--
   Cast `LLVM.Int` to `RISCV.Reg`.
 -/
-@[grind]
 def LLVM.Int.toReg (i : Veir.Data.LLVM.Int w) : Veir.Data.RISCV.Reg :=
   match i with
   | .poison => .mk 0#64
