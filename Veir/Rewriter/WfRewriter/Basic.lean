@@ -71,6 +71,13 @@ def WfRewriter.replaceOperand (wfCtx : WfIRContext OpInfo) (use : OpOperandPtr) 
   ⟨Rewriter.replaceUse wfCtx use newValue useIn newIn (by grind),
     by grind [Rewriter.replaceUse_WellFormed]⟩
 
+/-- Set the type of a value. -/
+@[inline]
+def WfRewriter.setType (wfCtx : WfIRContext OpInfo) (value : ValuePtr) (newType : TypeAttr)
+    (hvalue : value.InBounds wfCtx.raw := by grind) : WfIRContext OpInfo :=
+  ⟨Rewriter.setType wfCtx.raw value newType hvalue,
+    by grind [IRContext.wellFormed_rewriter_setType]⟩
+
 /-- Replace a value with another value. -/
 def WfRewriter.replaceValue (ctx: WfIRContext OpInfo) (oldValue: ValuePtr) (newValue: ValuePtr)
     (neValues : oldValue ≠ newValue := by grind)
