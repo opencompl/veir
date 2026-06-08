@@ -3,6 +3,8 @@ import Veir.Interpreter.Refinement.Basic
 namespace Veir
 open Veir.Data
 
+variable {OpInfo : Type} [HasOpInfo OpInfo]
+
 /-! ## Reflexivity  -/
 
 @[simp, grind .]
@@ -21,6 +23,18 @@ theorem FunctionResult.isRefinedBy_refl (r : MemoryState × Array RuntimeValue) 
 theorem Interp.isRefinedBy_refl_of_ne_none {α : Type} {R : α → α → Prop}
     (hR : ∀ a, R a a) (x : Interp α) (neNone : x ≠ none) : Interp.isRefinedBy R x x := by
   rcases x with _ | (x | _) <;> grind [Interp.isRefinedBy]
+
+@[simp, grind .]
+theorem VariableState.isRefinedBy_refl
+    {ctx : WfIRContext OpInfo} {state : VariableState ctx} :
+    state.isRefinedBy state id := by
+  grind [VariableState.isRefinedBy]
+
+@[simp, grind .]
+theorem InterpreterState.isRefinedBy_refl
+    {ctx : WfIRContext OpInfo} {state : InterpreterState ctx} :
+    state.isRefinedBy state id := by
+  grind [InterpreterState.isRefinedBy, VariableState.isRefinedBy]
 
 /-! ## Transitivity -/
 
