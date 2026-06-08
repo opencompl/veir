@@ -11,9 +11,24 @@ variable {state state' : InterpreterState ctx}
 variable {op op' : OperationPtr}
 
 @[grind =]
-theorem Variable.setVar?_eq_some_setVar (h : val.Conforms (var.getType! ctx.raw)) :
+theorem VariableState.setVar?_eq_some_setVar (h : val.Conforms (var.getType! ctx.raw)) :
     varState.setVar? var val inBounds = some (varState.setVar var val h inBounds) := by
   grind [VariableState.setVar?, VariableState.setVar]
+
+/-- `setVar?` succeeds iff the value conforms to the variable's type -/
+theorem RuntimeValue.Conforms_iff_setVar?_eq_some :
+    val.Conforms (var.getType! ctx.raw) ↔
+    (∃ varState', varState.setVar? var val inBounds = some varState') := by
+  simp only [VariableState.setVar?]
+  constructor
+  · intro h; simp [h]
+  · grind
+
+@[grind .]
+theorem RuntimeValue.Conforms_of_setVar?_eq_some :
+    varState.setVar? var val inBounds = some varState' →
+    val.Conforms (var.getType! ctx.raw) := by
+  grind [VariableState.setVar?]
 
 theorem VariableState.setVar?_eq_none_iff_of_varState
     (varState₂ : VariableState ctx) :
@@ -22,7 +37,7 @@ theorem VariableState.setVar?_eq_none_iff_of_varState
 
 theorem VariableState.setResultValues?_loop_eq_none_iff_of_varState
     (varState₂ : VariableState ctx) :
-    varState.setResultValues?_loop op resValues idx inBounds hi = none ↔
+    varState.setResultValues?_loop op resValues idx inBounds hi hsize = none ↔
     varState₂.setResultValues?_loop op resValues idx = none := by
   induction idx generalizing varState varState₂ with
   | zero => grind [setResultValues?_loop]
@@ -45,7 +60,7 @@ theorem VariableState.setVar?_eq_some_of_varState
 
 theorem VariableState.setResultValues?_loop_eq_some_of_varState
     (varState₂ : VariableState ctx) :
-    varState.setResultValues?_loop op resValues idx inBounds hi = some varStateA →
+    varState.setResultValues?_loop op resValues idx inBounds hi hsize = some varStateA →
     ∃ varStateB, varState₂.setResultValues?_loop op resValues idx = some varStateB := by
   cases hc : varState₂.setResultValues?_loop op resValues idx
   · grind [VariableState.setResultValues?_loop_eq_none_iff_of_varState]
@@ -73,7 +88,7 @@ theorem VariableState.getVar?_of_setVar :
   grind [VariableState.setVar, VariableState.getVar?]
 
 theorem VariableState.getVar?_setResultValues?_loop :
-    varState.setResultValues?_loop op resultValues idx inBounds hi = some varState' →
+    varState.setResultValues?_loop op resultValues idx inBounds hi hsize = some varState' →
     varState'.getVar? value =
     match value with
     | .opResult {op := op', index := index} =>
@@ -158,6 +173,12 @@ theorem VariableState.getOperandValues_eq_of_getVar?_eq :
   intro l hl
   induction l <;> grind
 
+@[grind →]
+theorem VariableState.setResultValues?.getNumRseults!_eq_size :
+    varState.setResultValues? op resValues inBounds = some varState' →
+    op.getNumResults! ctx.raw = resValues.size := by
+  grind [VariableState.setResultValues?]
+
 theorem VariableState.setResultValues?_comm
     (hOp : op₁ ≠ op₂) :
     varState.setResultValues? op₁ resValues₁ inBounds₁ = some varState' →
@@ -218,6 +239,49 @@ theorem VariableState.setResultValues?_setResultValues?_self :
     simp only [hvs₂, Option.some.injEq]
     ext
     grind [VariableState.getVar?_setResultValues?]
+
+/-! ## Conformance and VariableState -/
+
+/-- `setResultValues?_loop` succeeds iff every result value it binds conforms to its result type. -/
+theorem RuntimeValue.ArrayConforms_iff_setResultValues?_loop_eq_some :
+    RuntimeValue.ArrayConforms (resValues.take idx) ((op.getResultTypes! ctx.raw).take idx) ↔
+    (∃ v, varState.setResultValues?_loop op resValues idx inBounds hi hsize = some v) := by
+  fun_induction VariableState.setResultValues?_loop
+  next => simp [RuntimeValue.ArrayConforms]
+  next varState hsize hOpIn k hkBound result value ih =>
+    rw [RuntimeValue.ArrayConforms.take_succ_eq (by grind) (by grind)]
+    simp only [Option.bind_eq_bind]
+    constructor
+    · rintro ⟨hv, hconform⟩
+      rw [VariableState.setVar?_eq_some_setVar (by grind)]
+      simp only [Option.bind_some]
+      grind [ih (varState.setVar (ValuePtr.opResult result) value)]
+    · rintro ⟨v, hv⟩
+      simp only [Option.bind_eq_some_iff] at hv
+      have ⟨varState', hvarState', hv⟩ := hv
+      grind [ih varState']
+
+/-- `setResultValues?` succeeds iff every result value conforms to its result type. -/
+theorem VariableState.setResultValues?_isSome_iff_conforms :
+    RuntimeValue.ArrayConforms resValues (op.getResultTypes! ctx.raw) ↔
+    (∃ v, varState.setResultValues? op resValues inBounds = some v) := by
+  simp only [setResultValues?]
+  split
+  · rw [←RuntimeValue.ArrayConforms_iff_setResultValues?_loop_eq_some]
+    simp only [Array.take_eq_extract]
+    rw [Array.extract_eq_self_of_le (by grind), Array.extract_eq_self_of_le (by grind)]
+  · grind [RuntimeValue.ArrayConforms]
+
+/--
+  If `setResultValues?` succeeds, then the runtime values conform to the operation result types, if there is
+  as many result values as result types.
+-/
+@[grind .]
+theorem RuntimeValue.ArrayConforms_of_setResultValues?_eq_some
+    (h : varState.setResultValues? op resValues inBounds = some varState') :
+    RuntimeValue.ArrayConforms resValues (op.getResultTypes! ctx.raw) := by
+  rw [VariableState.setResultValues?_isSome_iff_conforms (inBounds := inBounds) (varState := varState)]
+  grind
 
 section interpretOpList
 
