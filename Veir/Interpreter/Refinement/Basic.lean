@@ -13,11 +13,16 @@ relate a program to a rewritten or lowered version of it). Refinement is defined
   with any arguments and memory is refined by interpreting the target.
 * `OperationPtr.isRefinedByAsModule` relates two modules: every top-level `func.func` of the source
   module must be refined, as a function, by a same-named top-level `func.func` of the target module.
+
+Additionally, we define a refinement relation between two interpreter states given a mapping of
+variables in the source to variables in the target.
 -/
 
 open Veir.Data
 
 namespace Veir
+
+variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /-- Refinement relation between two runtime values. -/
 def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
@@ -114,5 +119,32 @@ def OperationPtr.isModuleRefinedBy (mod₁ : OperationPtr) (ctx₁ : WfIRContext
       ∃ (func₂ : OperationPtr) (func₂In : func₂.InBounds ctx₂.raw),
         func₂.IsTopLevelFuncWithName mod₂ ctx₂.raw name ∧
           func₁.isRefinedByAsFunction ctx₁ func₂ ctx₂ func₁In func₂In
+
+abbrev ValueMapping (ctx ctx' : WfIRContext OpInfo) : Type :=
+  {v : ValuePtr // v.InBounds ctx.raw} → {v : ValuePtr // v.InBounds ctx'.raw}
+
+/--
+A variable state `state` is refined by `state'` through the value renaming `mapping`: every
+variable defined in `state` is, after renaming through `mapping`, also defined in `state'` with a
+value that refines the source value.
+-/
+def VariableState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
+    (state : VariableState ctx) (state' : VariableState ctx')
+    (mapping : ValueMapping ctx ctx') : Prop :=
+  ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw),
+  ∀ sourceVar, state.getVar? val = some sourceVar →
+  ∃ targetVar, state'.getVar? (mapping ⟨val, valIn⟩) = some targetVar ∧
+  sourceVar ⊒ targetVar
+
+/--
+An interpreter state `state` is refined by `state'` through the value mapping
+`mapping`: they have the same memory, and the variable state of `state` is refined by the variable
+state of `state'` through `mapping`.
+-/
+def InterpreterState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
+    (state : InterpreterState ctx) (state' : InterpreterState ctx')
+    (mapping : ValueMapping ctx ctx') : Prop :=
+  state.memory = state'.memory ∧
+  state.variables.isRefinedBy state'.variables mapping
 
 end Veir
