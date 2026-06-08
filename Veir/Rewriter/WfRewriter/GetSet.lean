@@ -877,4 +877,182 @@ theorem OperationPtr.getResultTypes!_WfRewriter_replaceValue :
 
 end WfRewriter.replaceValue
 
+/-! ## `WfRewriter.setType` -/
+
+section WfRewriter.setType
+
+variable {setValue : ValuePtr} {newType : TypeAttr} {hValue : setValue.InBounds ctx.raw}
+
+attribute [local grind] WfRewriter.setType
+
+@[simp, grind =]
+theorem BlockPtr.prev!_wfRewriter_setType :
+    (block.get! (WfRewriter.setType ctx setValue newType hValue).raw).prev =
+    (block.get! ctx.raw).prev := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.next!_wfRewriter_setType :
+    (block.get! (WfRewriter.setType ctx setValue newType hValue).raw).next =
+    (block.get! ctx.raw).next := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.parent!_wfRewriter_setType :
+    (block.get! (WfRewriter.setType ctx setValue newType hValue).raw).parent =
+    (block.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.firstOp!_wfRewriter_setType :
+    (block.get! (WfRewriter.setType ctx setValue newType hValue).raw).firstOp =
+    (block.get! ctx.raw).firstOp := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.lastOp!_wfRewriter_setType :
+    (block.get! (WfRewriter.setType ctx setValue newType hValue).raw).lastOp =
+    (block.get! ctx.raw).lastOp := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.prev!_wfRewriter_setType :
+    (operation.get! (WfRewriter.setType ctx setValue newType hValue).raw).prev =
+    (operation.get! ctx.raw).prev := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.next!_wfRewriter_setType :
+    (operation.get! (WfRewriter.setType ctx setValue newType hValue).raw).next =
+    (operation.get! ctx.raw).next := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.parent!_wfRewriter_setType :
+    (operation.get! (WfRewriter.setType ctx setValue newType hValue).raw).parent =
+    (operation.get! ctx.raw).parent := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOpType!_wfRewriter_setType :
+    operation.getOpType! (WfRewriter.setType ctx setValue newType hValue).raw =
+    operation.getOpType! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.attrs!_wfRewriter_setType :
+    (operation.get! (WfRewriter.setType ctx setValue newType hValue).raw).attrs =
+    (operation.get! ctx.raw).attrs := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getProperties!_wfRewriter_setType :
+    operation.getProperties! (WfRewriter.setType ctx setValue newType hValue).raw opType =
+    operation.getProperties! ctx.raw opType := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumResults!_wfRewriter_setType :
+    operation.getNumResults! (WfRewriter.setType ctx setValue newType hValue).raw =
+    operation.getNumResults! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumOperands!_wfRewriter_setType :
+    operation.getNumOperands! (WfRewriter.setType ctx setValue newType hValue).raw =
+    operation.getNumOperands! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getOperand!_wfRewriter_setType :
+    operation.getOperand! (WfRewriter.setType ctx setValue newType hValue).raw index =
+    operation.getOperand! ctx.raw index := by
+  grind (gen := 20) [=_ getOperands!.getElem!_eq_getOperand!]
+
+@[simp, grind =]
+theorem OperationPtr.getOperands!_wfRewriter_setType :
+    operation.getOperands! (WfRewriter.setType ctx setValue newType hValue).raw =
+    operation.getOperands! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumSuccessors!_wfRewriter_setType :
+    operation.getNumSuccessors! (WfRewriter.setType ctx setValue newType hValue).raw =
+    operation.getNumSuccessors! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessor!_wfRewriter_setType :
+    operation.getSuccessor! (WfRewriter.setType ctx setValue newType hValue).raw index =
+    operation.getSuccessor! ctx.raw index := by
+  simp only [OperationPtr.getSuccessor!_def]; grind
+
+@[simp, grind =]
+theorem OperationPtr.getSuccessors!_wfRewriter_setType :
+    operation.getSuccessors! (WfRewriter.setType ctx setValue newType hValue).raw =
+    operation.getSuccessors! ctx.raw := by
+  simp only [getSuccessors!_def]; grind
+
+@[simp, grind =]
+theorem OperationPtr.getNumRegions!_wfRewriter_setType :
+    operation.getNumRegions! (WfRewriter.setType ctx setValue newType hValue).raw =
+    operation.getNumRegions! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem OperationPtr.getRegion!_wfRewriter_setType :
+    operation.getRegion! (WfRewriter.setType ctx setValue newType hValue).raw idx =
+    operation.getRegion! ctx.raw idx := by
+  grind
+
+@[simp, grind =]
+theorem BlockPtr.getNumArguments!_wfRewriter_setType :
+    block.getNumArguments! (WfRewriter.setType ctx setValue newType hValue).raw =
+    block.getNumArguments! ctx.raw := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.firstBlock!_wfRewriter_setType :
+    (region.get! (WfRewriter.setType ctx setValue newType hValue).raw).firstBlock =
+    (region.get! ctx.raw).firstBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.lastBlock!_wfRewriter_setType :
+    (region.get! (WfRewriter.setType ctx setValue newType hValue).raw).lastBlock =
+    (region.get! ctx.raw).lastBlock := by
+  grind
+
+@[simp, grind =]
+theorem RegionPtr.parent!_wfRewriter_setType :
+    (region.get! (WfRewriter.setType ctx setValue newType hValue).raw).parent =
+    (region.get! ctx.raw).parent := by
+  grind
+
+@[grind =]
+theorem ValuePtr.getType!_wfRewriter_setType :
+    value.getType! (WfRewriter.setType ctx setValue newType hValue).raw =
+    if setValue = value then newType else value.getType! ctx.raw := by
+  grind
+
+@[grind =]
+theorem OperationPtr.getResultTypes!_wfRewriter_setType :
+    operation.getResultTypes! (WfRewriter.setType ctx setValue newType hValue).raw =
+    match setValue with
+    | .opResult opRes =>
+      if opRes.op = operation then
+        (operation.getResultTypes! ctx.raw).set! opRes.index newType
+      else operation.getResultTypes! ctx.raw
+    | .blockArgument _ => operation.getResultTypes! ctx.raw := by
+  ext i hi hi'
+  · grind
+  · have := ValuePtr.getType!_wfRewriter_setType
+      (ctx := ctx) (setValue := setValue) (newType := newType) (hValue := hValue)
+      (value := operation.getResult i)
+    have key : ∀ (r : OpResultPtr), r.op = operation → r.index = i → r = operation.getResult i := by
+      rintro ⟨_, _⟩; grind [getResult_def]
+    grind (gen := 20)
+
+end WfRewriter.setType
+
 end Veir
