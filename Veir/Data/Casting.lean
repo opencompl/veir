@@ -30,12 +30,12 @@ def LLVM.Int.toReg (i : Veir.Data.LLVM.Int w) : Veir.Data.RISCV.Reg :=
 def RISCV.Reg.toInt (r : Veir.Data.RISCV.Reg) (w : Nat) : Veir.Data.LLVM.Int w :=
   Veir.Data.LLVM.Int.val (BitVec.zeroExtend w r.val)
 
-@[llvm_toBitVec, grind =]
+@[reg_toBitVec, grind =]
 theorem toInt_eq_val {r : Veir.Data.RISCV.Reg} :
     (RISCV.Reg.toInt r 64).getValue = r.val := by
   simp [RISCV.Reg.toInt, Veir.Data.LLVM.Int.getValue]
 
-@[llvm_toBitVec, grind =]
+@[reg_toBitVec, grind =]
 theorem toInt_isPoison {r : Veir.Data.RISCV.Reg} :
     (RISCV.Reg.toInt r w).isPoison = false := by
   simp [RISCV.Reg.toInt, Veir.Data.LLVM.Int.isPoison]
