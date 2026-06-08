@@ -151,7 +151,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       let c0 := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
       let (rewriter, liOp) ← rewriter.createOp (.riscv .li) #[RegisterType.mk] #[]
         #[] #[] c0 (some $ .before op) sorry (by simp) (by simp) sorry
-      let (rewriter, retOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[liOp.getResult 0, xorOp.getResult 0]
+      let (rewriter, retOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[xorOp.getResult 0, liOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
     | .slt =>
@@ -161,7 +161,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       pure (rewriter, retOp)
     | .sle =>
       /- llvm.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1 -/
-      let (rewriter, sltOp) ← rewriter.createOp (.riscv .slt) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+      let (rewriter, sltOp) ← rewriter.createOp (.riscv .slt) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
       let (rewriter, retOp) ← rewriter.createOp (.riscv .xori) #[RegisterType.mk] #[sltOp.getResult 0]
@@ -169,7 +169,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       pure (rewriter, retOp)
     | .sgt =>
       /- llvm.icmp sgt lhs rhs -> riscv.slt rhs lhs -/
-      let (rewriter, retOp) ← rewriter.createOp (.riscv .slt) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+      let (rewriter, retOp) ← rewriter.createOp (.riscv .slt) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
     | .sge =>
@@ -187,7 +187,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       pure (rewriter, retOp)
     | .ule =>
       /- llvm.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1 -/
-      let (rewriter, sltuOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+      let (rewriter, sltuOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
       let (rewriter, retOp) ← rewriter.createOp (.riscv .xori) #[RegisterType.mk] #[sltuOp.getResult 0]
@@ -195,7 +195,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       pure (rewriter, retOp)
     | .ugt =>
       /- llvm.icmp ugt lhs rhs -> riscv.sltu rhs lhs -/
-      let (rewriter, retOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+      let (rewriter, retOp) ← rewriter.createOp (.riscv .sltu) #[RegisterType.mk] #[lcastOp.getResult 0,rcastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
     | .uge =>
@@ -281,7 +281,7 @@ def mul (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let (rewriter, rcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[rhs]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   /- Actual `riscv.mul` -/
-  let (rewriter, mulOp) ← rewriter.createOp (.riscv .mul) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+  let (rewriter, mulOp) ← rewriter.createOp (.riscv .mul) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   /- Cast back result for type consistency-/
   let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[mulOp.getResult 0]

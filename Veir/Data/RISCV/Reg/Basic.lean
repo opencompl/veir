@@ -306,7 +306,7 @@ def remuw (rs2 : Reg) (rs1 : Reg) : Reg :=
   Performs a 64-bits times 64-bits multiplication of signed rs1 by signed rs2.
 -/
 def mul (rs2 : Reg) (rs1 : Reg) : Reg :=
-  ⟨rs2.val * rs1.val⟩
+  ⟨rs1.val * rs2.val⟩
 
 /--
   Performs a 64-bits times 64-bits multiplication of signed rs1 by signed rs2 and places the highest 64 bits in the destination register.
