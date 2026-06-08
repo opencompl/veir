@@ -220,6 +220,10 @@ inductive Riscv_Cf where
 | branch
 | beq
 | bne
+| blt
+| bge
+| bltu
+| bgeu
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
