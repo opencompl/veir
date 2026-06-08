@@ -4,7 +4,7 @@
 // through `interpretBlockCFG`'s recursive call rather than being lost or
 // reported as a malformed-program error.
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
+  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i32 ()>}> ({
     ^entry():
       "llvm.br"() [^poison_block] : () -> ()
     ^poison_block():

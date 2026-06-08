@@ -10,6 +10,69 @@ import Veir.ForLean
 namespace Veir
 
 /--
+  Walk up from `op` (a return-like terminator named `opName`) to the
+  operation that encloses its parent region, i.e. the enclosing function
+  operation.
+-/
+def OperationPtr.getEnclosingFunctionOp (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opName : String) : Except String OperationPtr := do
+  let some block := (op.get! ctx.raw).parent
+    | throw s!"Expected {opName} to have a parent block"
+  let some region := (block.get! ctx.raw).parent
+    | throw s!"Expected {opName}'s parent block to have a parent region"
+  let some funcOp := (region.get! ctx.raw).parent
+    | throw s!"Expected {opName}'s parent region to have a parent operation"
+  pure funcOp
+
+/--
+  Check that a `func.return` returns the declared result types of its
+  enclosing `func.func`.
+-/
+def OperationPtr.verifyFuncReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let funcOp ← op.getEnclosingFunctionOp ctx "func.return"
+  let .func .func := funcOp.getOpType! ctx.raw
+    | throw "Expected func.return to be enclosed by func.func"
+  let props := funcOp.getProperties! ctx.raw (.func .func)
+  let outputs ← match props.extra.entries.find? (fun entry => entry.1 == "function_type".toUTF8) with
+    | some (_, .functionType ft) => pure ft.outputs
+    | some _ => throw "Expected enclosing func.func's function_type to be a function type"
+    | none => throw "Expected enclosing func.func to have a function_type attribute"
+  if op.getNumOperands ctx.raw opIn ≠ outputs.size then
+    throw s!"Expected func.return to have {outputs.size} operand(s)"
+  let opTypes := op.getOperandTypes! ctx.raw
+  for i in [0:outputs.size] do
+    if (opTypes[i]!).val ≠ outputs[i]! then
+      throw s!"func.return operand {i} type does not match the function's declared result type"
+
+/--
+  Check that an `llvm.return` returns the declared result types of its
+  enclosing `llvm.func`. A single `llvm.void` result is normalized to no
+  results.
+-/
+def OperationPtr.verifyLLVMReturnTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let funcOp ← op.getEnclosingFunctionOp ctx "llvm.return"
+  let .llvm .func := funcOp.getOpType! ctx.raw
+    | throw "Expected llvm.return to be enclosed by llvm.func"
+  let props := funcOp.getProperties! ctx.raw (.llvm .func)
+  let some functionType := props.function_type
+    | throw "Expected enclosing llvm.func to have a function_type attribute"
+  let ft ← match functionType.val with
+    | .functionType ft | .llvmFunctionType ft => pure ft
+    | _ => throw "Expected enclosing llvm.func's function_type to be a function type"
+  -- A single `llvm.void` result corresponds to no return operands.
+  let outputs := match ft.outputs with
+    | #[.llvmVoidType _] => #[]
+    | outputs => outputs
+  if op.getNumOperands ctx.raw opIn ≠ outputs.size then
+    throw s!"Expected llvm.return to have {outputs.size} operand(s)"
+  let opTypes := op.getOperandTypes! ctx.raw
+  for i in [0:outputs.size] do
+    if (opTypes[i]!).val ≠ outputs[i]! then
+      throw s!"llvm.return operand {i} type does not match the function's declared result type"
+
+/--
   Verify local invariants of an operation.
   This typically includes checking that the number of operands, successors, results, and regions
   match the expected values for the given operation type.
@@ -389,7 +452,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    pure ()
+    op.verifyFuncReturnTypes ctx opIn
   /- CF -/
   | .cf .br => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -628,7 +691,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    pure ()
+    op.verifyLLVMReturnTypes ctx opIn
   | .llvm .unreachable => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
