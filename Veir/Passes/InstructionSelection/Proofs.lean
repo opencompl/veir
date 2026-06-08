@@ -15,7 +15,7 @@ import Std.Tactic.BVDecide
 
 namespace Veir.Data.RISCV
 
-macro "riscv_bv_decide" : tactic =>
+macro "refine_bv_decide" : tactic =>
   `(tactic| ((try simp only [llvm_toBitVec, reg_toBitVec]; try simp [LLVM.Int.getValue_eq_getValueD]; try bv_decide)))
 
 
@@ -27,7 +27,7 @@ macro "riscv_bv_decide" : tactic =>
 -/
 theorem constant_refinement {v : Int}:
     (LLVM.Int.constant 64 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 64) := by
-  riscv_bv_decide
+  refine_bv_decide
 
 /--
   Prove the correctness of the `add` lowering pattern.
@@ -35,4 +35,4 @@ theorem constant_refinement {v : Int}:
 theorem add_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.add x y) ⊒
       (RISCV.Reg.toInt (Data.RISCV.add (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
-  riscv_bv_decide
+  refine_bv_decide
