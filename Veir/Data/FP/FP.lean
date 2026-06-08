@@ -7,3 +7,4 @@ public import Veir.Data.FP.ExtRat.Basic
 public import Veir.Data.FP.PackedFloat.ToExtRat
 public import Veir.Data.FP.EDyadic
 public import Veir.Data.FP.FastFloat
+public import Veir.Data.FP.EDyadicFloat
