@@ -1842,6 +1842,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 2 operands plus 2 variadic operands"
     if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
       throw "Expected 2 operands plus 2 variadic operands"
+    if let some block := (op.get ctx.raw opIn).parent then
+      if (block.get! ctx.raw).next ≠ some (op.getSuccessor! ctx.raw 1) then
+        throw "Second successor of riscv_cf.blt should be the next block"
     pure ()
   | .riscv_cf .bge => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -1855,6 +1858,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 2 operands plus 2 variadic operands"
     if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
       throw "Expected 2 operands plus 2 variadic operands"
+    if let some block := (op.get ctx.raw opIn).parent then
+      if (block.get! ctx.raw).next ≠ some (op.getSuccessor! ctx.raw 1) then
+        throw "Second successor of riscv_cf.bge should be the next block"
     pure ()
   | .riscv_cf .bltu => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -1868,6 +1874,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 2 operands plus 2 variadic operands"
     if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
       throw "Expected 2 operands plus 2 variadic operands"
+    if let some block := (op.get ctx.raw opIn).parent then
+      if (block.get! ctx.raw).next ≠ some (op.getSuccessor! ctx.raw 1) then
+        throw "Second successor of riscv_cf.bltu should be the next block"
     pure ()
   | .riscv_cf .bgeu => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -1881,6 +1890,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 2 operands plus 2 variadic operands"
     if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
       throw "Expected 2 operands plus 2 variadic operands"
+    if let some block := (op.get ctx.raw opIn).parent then
+      if (block.get! ctx.raw).next ≠ some (op.getSuccessor! ctx.raw 1) then
+        throw "Second successor of riscv_cf.bgeu should be the next block"
     pure ()
   | .comb .add | .comb .and | .comb .mul | .comb .or | .comb .xor => do
     if op.getNumOperands ctx.raw opIn < 1 then
