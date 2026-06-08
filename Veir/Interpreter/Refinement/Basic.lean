@@ -70,6 +70,26 @@ def Interp.isRefinedBy (R : α → α → Prop) (source target : Interp α) : Pr
   | _, _ => False
 
 /--
+Refinement between two control flow actions: same constructor, equal successor block `dest`, and
+the carried value payloads refine pointwise.
+-/
+def ControlFlowAction.isRefinedBy : ControlFlowAction → ControlFlowAction → Prop
+  | .return vals, .return vals' => vals ⊒ vals'
+  | .branch vals dest, .branch vals' dest' => dest = dest' ∧ vals ⊒ vals'
+  | _, _ => False
+
+@[inherit_doc] infix:50 " ⊒ " => ControlFlowAction.isRefinedBy
+
+/--
+Refinement between two optional control flow actions. They should either both be `none`, or both be
+`some` and refine.
+-/
+def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option ControlFlowAction → Prop
+  | none, none => True
+  | some a, some b => a.isRefinedBy b
+  | _, _ => False
+
+/--
 The function described by source `op₁` (in `ctx₁`) is *refined by* target `op₂` (in `ctx₂`) when,
 for every argument `values` and initial memory `mem`, interpreting `op₁` is refined by interpreting
 `op₂`.
