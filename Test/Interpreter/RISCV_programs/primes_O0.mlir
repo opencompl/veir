@@ -7,17 +7,14 @@
 //
 // RUN: VEIR_UNREGISTERED_ROUNDTRIP
 
-// CHECK: "func.func"() <{"function_type" = (!riscv.reg, !riscv.reg, !riscv.reg) -> !riscv.reg, "sym_name" = "main"}>
+// CHECK: "func.func"() <{"function_type" = (!riscv.reg) -> !riscv.reg, "sym_name" = "main"}>
 
 "builtin.module"() ({
-  // main(sp, ra, s0_caller) -- the architectural registers read on entry.
-  "func.func"() <{sym_name = "main", function_type = (!riscv.reg, !riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  // main(s0) -- frame base pointer for the stack spill slots (the prologue/epilogue
+  // that would set this up and save/restore sp/ra are elided at this abstraction level).
+  "func.func"() <{sym_name = "main", function_type = (!riscv.reg) -> !riscv.reg}> ({
     // %bb.0: entry
-    ^entry(%sp_in : !riscv.reg, %ra_in : !riscv.reg, %s0_caller : !riscv.reg):
-      %fp_sp = "riscv.addi"(%sp_in) <{"value" = -48 : i12}> : (!riscv.reg) -> !riscv.reg   // addi sp, sp, -48
-      "riscv.sd"(%fp_sp, %ra_in) <{"value" = 40 : i12}> : (!riscv.reg, !riscv.reg) -> ()    // sd ra, 40(sp)
-      "riscv.sd"(%fp_sp, %s0_caller) <{"value" = 32 : i12}> : (!riscv.reg, !riscv.reg) -> () // sd s0, 32(sp)
-      %s0 = "riscv.addi"(%fp_sp) <{"value" = 48 : i12}> : (!riscv.reg) -> !riscv.reg        // addi s0, sp, 48
+    ^entry(%s0 : !riscv.reg):
       %e_a0 = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg                          // li a0, 0
       "riscv.sw"(%s0, %e_a0) <{"value" = -20 : i12}> : (!riscv.reg, !riscv.reg) -> ()        // sw a0, -20(s0)
       "riscv.sw"(%s0, %e_a0) <{"value" = -24 : i12}> : (!riscv.reg, !riscv.reg) -> ()        // sw a0, -24(s0)
@@ -109,10 +106,6 @@
     // .LBB0_11: while.end
     ^bb11(%b11_s0 : !riscv.reg):
       %b11_a0 = "riscv.lw"(%b11_s0) <{"value" = -32 : i12}> : (!riscv.reg) -> !riscv.reg      // lw a0, -32(s0)
-      %ex_sp = "riscv.addi"(%b11_s0) <{"value" = -48 : i12}> : (!riscv.reg) -> !riscv.reg     // addi sp, s0, -48
-      %ex_ra = "riscv.ld"(%ex_sp) <{"value" = 40 : i12}> : (!riscv.reg) -> !riscv.reg         // ld ra, 40(sp)
-      %ex_s0 = "riscv.ld"(%ex_sp) <{"value" = 32 : i12}> : (!riscv.reg) -> !riscv.reg         // ld s0, 32(sp)
-      %ex_spf = "riscv.addi"(%ex_sp) <{"value" = 48 : i12}> : (!riscv.reg) -> !riscv.reg      // addi sp, sp, 48
       "func.return"(%b11_a0) : (!riscv.reg) -> ()                                             // ret (value in a0)
   }) : () -> ()
 }) : () -> ()
