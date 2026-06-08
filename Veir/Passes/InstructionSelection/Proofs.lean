@@ -21,11 +21,6 @@ theorem helper1 {r : RISCV.Reg} :
     RISCV.Reg.toInt r 64 = (.val r.val) := by
   simp [RISCV.Reg.toInt]
 
-@[llvm_toBitVec, grind =]
-theorem helper2 {x : LLVM.Int w} :
-    (LLVM.Int.toReg x).val = if h : x.isPoison then 0#64 else x.getValue.zeroExtend 64 := by
-  cases x <;> simp [LLVM.Int.toReg, llvm_toBitVec, LLVM.Int.getValue]
-
 @[reg_toBitVec, grind =]
 theorem helper3 {r : RISCV.Reg} :
     (RISCV.Reg.toInt r w).isPoison = false := by
@@ -35,6 +30,11 @@ theorem helper3 {r : RISCV.Reg} :
 theorem helper4 {r : RISCV.Reg} :
     (RISCV.Reg.toInt r w).getValue = r.val.zeroExtend w := by
   simp [llvm_toBitVec, reg_toBitVec, RISCV.Reg.toInt]
+
+@[reg_toBitVec, grind =]
+theorem helper2 {i : LLVM.Int w} :
+    (LLVM.Int.toReg i).val = i.getValueD.zeroExtend 64 := by
+  cases i <;> simp [llvm_toBitVec, reg_toBitVec, LLVM.Int.toReg, LLVM.Int.getValueD]
 
 /--
   Prove the correctness of the `constant` lowering pattern.
@@ -53,6 +53,8 @@ theorem add_refinement:
     (Data.LLVM.Int.add x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.add (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
   simp [llvm_toBitVec, reg_toBitVec]
   simp only [LLVM.Int.getValue_eq_getValueD]
+  intros
+
   bv_decide
 
 /--
