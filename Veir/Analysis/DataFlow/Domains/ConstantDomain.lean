@@ -71,6 +71,11 @@ def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   | _, .top => ⊤
   | .constant c, .constant d => if c = d then .constant c else ⊤
 
+instance : Join AbstractConstant where
+  join := join
+
+@[simp] theorem join_eq (a b : AbstractConstant) : (a ⊔ b) = join a b := rfl
+
 theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b := by
   intro hab
   intro x hx
@@ -97,20 +102,20 @@ theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := 
   intro h1 h2
   cases a <;> cases b <;> simp_all [le]
 
-theorem le_join_left (a b : AbstractConstant) : a ≤ join a b := by
+theorem le_join_left (a b : AbstractConstant) : a ≤ a ⊔ b := by
   cases a <;> cases b <;> try simp [le, join]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
-theorem le_join_right (a b : AbstractConstant) : b ≤ join a b := by
+theorem le_join_right (a b : AbstractConstant) : b ≤ a ⊔ b := by
   cases a <;> cases b <;> try simp [le, join]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
-theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → join a b ≤ c := by
+theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → a ⊔ b ≤ c := by
   intro ha hb
   cases a <;> cases b <;> cases c <;>
-    simp only [join] <;> (try split) <;> simp_all [le]
+    simp [join] <;> (try split) <;> simp_all [le]
 
 instance : AbstractDomain AbstractConstant ConcreteConstant where
   le := le

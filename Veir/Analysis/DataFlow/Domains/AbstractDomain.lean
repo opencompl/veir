@@ -55,6 +55,14 @@ theorem le_top [LE α] [OrderTop α] (a : α) : a ≤ (⊤ : α) :=
 theorem bot_le [LE α] [OrderBot α] (a : α) : (⊥ : α) ≤ a :=
   OrderBot.bot_le a
 
+/-- Typeclass for the `⊔` notation. -/
+class Join (α : Type) where
+  /-- The join (least upper bound / supremum). -/
+  join : α → α → α
+
+/-- The join (least upper bound / supremum). -/
+notation:68 lhs:68 " ⊔ " rhs:69 => Join.join lhs rhs
+
 /--
 An algebraic definition of a partial order.
 -/
@@ -69,18 +77,15 @@ class PartialOrder (Domain : Type) extends BEq Domain, LE Domain where
 /--
 An algebraic definition of a join semilattice.
 -/
-class JoinSemilattice (Domain : Type) extends PartialOrder Domain where
-  /-- Also called a least upper bound or supremum. -/
-  join : Domain → Domain → Domain
-
+class JoinSemilattice (Domain : Type) extends PartialOrder Domain, Join Domain where
   /-- The join is an upper bound on the first argument. -/
-  le_join_left (a b : Domain) : a ≤ join a b
+  le_join_left (a b : Domain) : a ≤ a ⊔ b
 
   /-- The join is an upper bound on the second argument. -/
-  le_join_right (a b : Domain) : b ≤ join a b
+  le_join_right (a b : Domain) : b ≤ a ⊔ b
 
   /-- The join is the least upper bound. -/
-  join_le (a b c : Domain) : a ≤ c → b ≤ c → join a b ≤ c
+  join_le (a b c : Domain) : a ≤ c → b ≤ c → a ⊔ b ≤ c
 
 /--
 An abstract domain is a join semilattice equipped with a concretization map.
