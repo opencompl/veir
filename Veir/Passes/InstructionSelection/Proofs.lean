@@ -15,23 +15,6 @@ import Std.Tactic.BVDecide
 
 namespace Veir.Data.RISCV
 
-@[simp]
-theorem BitVec.ult_one_iff_of_lt {lhs : BitVec w} (h : 0 < w) :
-    (lhs.ult 1#w) = decide (lhs = 0#w) := by
-  simp only [BitVec.ult_eq_decide, BitVec.toNat_ofNat, decide_eq_decide]
-  rw [Nat.mod_eq_of_lt (by grind)]
-  simp [← BitVec.toNat_inj]
-
-@[simp]
-theorem BitVec.ult_zero_false {lhs : BitVec w} :
-    (0#w).ult lhs = decide (¬ lhs = 0#w) := by
-  by_cases hzero : lhs = 0#w
-  · simp [hzero, BitVec.ult]
-  · by_cases hlt : (0#w).ult lhs
-    · simp [hlt, hzero]
-    · simp [BitVec.ult_eq_decide] at hlt
-      simp [BitVec.ult_eq_decide, hlt, ← BitVec.toNat_inj]
-
 /--
   A tactic to unfold the semantics of operations on `LLVM.Int` and on `RISCV.Reg` to
   bitvectors, such that `bv_decide` can prove the correctness of the refinement relation
