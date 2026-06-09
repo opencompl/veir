@@ -71,14 +71,6 @@ def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   | _, .top => ⊤
   | .constant c, .constant d => if c = d then .constant c else ⊤
 
-def meet (lhs rhs : AbstractConstant) : AbstractConstant :=
-  match lhs, rhs with
-  | .top, y => y
-  | x, .top => x
-  | .bottom, _ => ⊥
-  | _, .bottom => ⊥
-  | .constant c, .constant d => if c = d then .constant d else ⊥
-
 theorem le_iff_γ (a b : AbstractConstant) :
     a ≤ b ↔ γ a ⊆ γ b := by
   cases a <;> cases b
@@ -175,20 +167,6 @@ theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → join a b �
   intro ha hb
   cases a <;> cases b <;> cases c <;>
     simp only [join] <;> (try split) <;> simp_all [le]
-
-theorem meet_le_left (a b : AbstractConstant) : meet a b ≤ a := by
-  cases a <;> cases b <;> try simp [le, meet]
-  case constant.constant c d =>
-    by_cases h : c = d <;> simp [h]
-
-theorem meet_le_right (a b : AbstractConstant) : meet a b ≤ b := by
-  cases a <;> cases b <;> try simp [le, meet]
-  case constant.constant c d =>
-    by_cases h : c = d <;> simp [h]
-
-theorem le_meet (a b c : AbstractConstant) : a ≤ b → a ≤ c → a ≤ meet b c := by
-  intro hab hac
-  cases a <;> cases b <;> cases c <;> simp_all [le, meet]
 
 instance : AbstractDomain AbstractConstant ConcreteConstant where
   le := le
