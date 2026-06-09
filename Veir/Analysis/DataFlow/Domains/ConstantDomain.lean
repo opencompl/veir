@@ -47,7 +47,7 @@ instance : BoundedOrder AbstractConstant where
   le_top := le_top
   bot_le := bot_le
 
-def γ (absVal : AbstractConstant) : Set ConcreteConstant :=
+@[expose] def γ (absVal : AbstractConstant) : Set ConcreteConstant :=
   match absVal with
   | .top => fun _ => True
   | .bottom => fun _ => False
@@ -113,13 +113,15 @@ instance : AbstractDomain AbstractConstant ConcreteConstant where
   top := ⊤
   bot := ⊥
   γ := γ
+  γ_top := rfl
+  γ_bot := rfl
   γ_monotone := γ_monotone
   le_refl := le_refl
   le_trans := le_trans
   le_antisymm := le_antisymm
   le_top := le_top
   bot_le := bot_le
-  join := .join
+  join := join
   le_join_left := le_join_left
   le_join_right := le_join_right
   join_le := join_le
