@@ -133,4 +133,46 @@ theorem IRContext.wellFormed_replaceOp? (ctxWf : ctx.WellFormed)
   · grind
   · grind [OperationPtr.hasUses_replaceOpResults]
 
+theorem BlockPtr.opChain_rewriter_replaceOpResults
+    (h : Rewriter.replaceOpResults ctx fromOp toOp idx fromOpIB toOpIB hNumFrom hNumTo
+      ctxInBounds = some newCtx)
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block' newCtx array := by
+  induction idx generalizing ctx
+  case zero => grind [Rewriter.replaceOpResults]
+  case succ idx ih =>
+    simp only [Rewriter.replaceOpResults] at h
+    grind [Option.maybe₁_def, BlockPtr.opChain_Rewriter_replaceValue?]
+
+theorem BlockPtr.operationList_rewriter_replaceOpResults
+    (h : Rewriter.replaceOpResults ctx fromOp toOp idx fromOpIB toOpIB hNumFrom hNumTo
+      ctxInBounds = some newCtx)
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  have := BlockPtr.opChain_rewriter_replaceOpResults (block' := block')
+    (array := block'.operationList ctx ctxWf (by grind))
+    h (by grind [BlockPtr.operationListWF])
+  grind
+
+grind_pattern BlockPtr.operationList_rewriter_replaceOpResults =>
+  Rewriter.replaceOpResults ctx fromOp toOp idx fromOpIB toOpIB hNumFrom hNumTo ctxInBounds,
+  some newCtx,
+  block'.operationList newCtx newCtxWf blockInBounds'
+
+theorem BlockPtr.operationList_rewriter_replaceOp?
+    (hNewCtx : Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn hpar = some newCtx)
+    (ctxWf : ctx.WellFormed)
+    (neOps : oldOp ≠ newOp) :
+    BlockPtr.operationList block newCtx newCtxWf blockIn =
+    if h : (oldOp.get! ctx).parent = block then
+      (BlockPtr.operationList block ctx ctxWf).erase oldOp
+    else
+      BlockPtr.operationList block ctx (by grind) (by grind) := by
+  simp only [Rewriter.replaceOp?] at hNewCtx
+  split at hNewCtx; grind
+  split at hNewCtx; grind
+  grind [IRContext.wellFormed_replaceOpResults, BlockPtr.operationList_rewriter_eraseOp]
+
+
 end Veir

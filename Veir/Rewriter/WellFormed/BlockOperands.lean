@@ -133,6 +133,25 @@ info: 'Veir.Rewriter.pushBlockOperand_WellFormed' depends on axioms: [propext, C
 #guard_msgs in
 #print axioms Rewriter.pushBlockOperand_WellFormed
 
+theorem BlockPtr.opChain_rewriter_pushBlockOperand
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds)
+      array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_pushBlockOperand
+    (h : Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds =
+      newCtx) (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_pushBlockOperand]
+
+grind_pattern BlockPtr.operationList_rewriter_pushBlockOperand =>
+  Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds,
+  newCtx.WellFormed, block'.operationList newCtx newCtxWf blockInBounds'
+
 theorem Rewriter.initBlockOperands_WellFormed (hOpWf : ctx.WellFormed) :
     (Rewriter.initBlockOperands ctx opPtr operands n h₁ h₂ h₃ h₄).WellFormed := by
   induction n generalizing ctx
@@ -141,3 +160,21 @@ theorem Rewriter.initBlockOperands_WellFormed (hOpWf : ctx.WellFormed) :
   case succ n ih =>
     simp only [initBlockOperands]
     grind [Rewriter.pushBlockOperand_WellFormed]
+
+theorem BlockPtr.opChain_rewriter_initBlockOperands
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.initBlockOperands ctx opPtr operands n h₁ h₂ h₃ h₄) array := by
+  fun_induction Rewriter.initBlockOperands <;>
+    grind [BlockPtr.opChain_rewriter_pushBlockOperand]
+
+theorem BlockPtr.operationList_rewriter_initBlockOperands (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' (Rewriter.initBlockOperands ctx opPtr operands n h₁ h₂ h₃ h₄)
+      newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_initBlockOperands]
+
+grind_pattern BlockPtr.operationList_rewriter_initBlockOperands =>
+  (Rewriter.initBlockOperands ctx opPtr operands n h₁ h₂ h₃ h₄).WellFormed,
+  block'.operationList (Rewriter.initBlockOperands ctx opPtr operands n h₁ h₂ h₃ h₄) newCtxWf blockInBounds'
