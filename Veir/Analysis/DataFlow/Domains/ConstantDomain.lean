@@ -65,66 +65,51 @@ instance : Join AbstractConstant where
   join := join
 
 theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b := by
-  intro hab
-  intro x hx
-  cases a <;> cases b
-  · trivial
-  · cases hab
-  · cases hab
-  · trivial
-  · cases hx
-  · cases hx
-  · trivial
-  · cases hab
-  · change x = _
-    exact hx.trans hab
+  intro hab x hx
+  cases a <;> cases b <;> simp [γ, le] at hab hx ⊢
+  all_goals first | trivial | exact hx.trans hab
 
 theorem le_refl (a : AbstractConstant) : a ≤ a := by
   cases a <;> simp [le]
 
 theorem le_trans (a b c : AbstractConstant) : a ≤ b → b ≤ c → a ≤ c := by
-  intro hab hbc
   cases a <;> cases b <;> cases c <;> simp_all [le]
 
 theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := by
-  intro h1 h2
   cases a <;> cases b <;> simp_all [le]
 
 theorem le_join_left (a b : AbstractConstant) : a ≤ a ⊔ b := by
-  change a ≤ join a b
   cases a <;> cases b <;> try simp [le, join]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
 theorem le_join_right (a b : AbstractConstant) : b ≤ a ⊔ b := by
-  change b ≤ join a b
   cases a <;> cases b <;> try simp [le, join]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
 theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → a ⊔ b ≤ c := by
-  intro ha hb
-  change join a b ≤ c
+  intros
   cases a <;> cases b <;> cases c <;>
     simp [join] <;> (try split) <;> simp_all [le]
 
-instance : AbstractDomain AbstractConstant ConcreteConstant where
+instance : JoinSemilattice AbstractConstant where
   le := le
-  top := ⊤
-  bot := ⊥
-  γ := γ
-  γ_top := rfl
-  γ_bot := rfl
-  γ_monotone := γ_monotone
   le_refl := le_refl
   le_trans := le_trans
   le_antisymm := le_antisymm
-  le_top := le_top
-  bot_le := bot_le
   join := join
   le_join_left := le_join_left
   le_join_right := le_join_right
   join_le := join_le
+
+instance : AbstractDomain AbstractConstant ConcreteConstant where
+  toJoinSemilattice := inferInstance
+  toBoundedOrder := inferInstance
+  γ := γ
+  γ_top := rfl
+  γ_bot := rfl
+  γ_monotone := γ_monotone
 
 end AbstractConstant
 
