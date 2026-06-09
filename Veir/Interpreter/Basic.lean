@@ -961,6 +961,12 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
   | .cpopw => do
     let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.cpopw op)], mem, none)
+  | .orcb => do
+    let [.reg op] := operands.toList | none
+    return (#[.reg (RISCV.orcb op)], mem, none)
+  | .rev8 => do
+    let [.reg op] := operands.toList | none
+    return (#[.reg (RISCV.rev8 op)], mem, none)
   | .roriw => do
     let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 5 properties.value.value
