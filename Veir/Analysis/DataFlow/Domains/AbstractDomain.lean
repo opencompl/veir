@@ -4,6 +4,20 @@ public section
 
 namespace Veir
 
+@[expose]
+def Set (α : Type) := α → Prop
+
+namespace Set
+
+def Mem (s : Set α) (a : α) : Prop := s a
+instance : Membership α (Set α) := ⟨Set.Mem⟩
+
+def Subset (s₁ s₂ : Set α) := ∀ ⦃a⦄, a ∈ s₁ → a ∈ s₂
+instance : LE (Set α) := ⟨Set.Subset⟩
+instance : HasSubset (Set α) := ⟨(· ≤ ·)⟩
+
+end Set
+
 /--
 An algebraic definition of a partial order.
 -/
@@ -34,22 +48,22 @@ class JoinSemilattice (Domain : Type) extends PartialOrder Domain where
 /--
 An abstract domain is a join semilattice equipped with a concretization map.
 
-Each abstract value denotes a set of concrete values, represented as a predicate 
-`ConcreteValue → Prop`.
+Each abstract value denotes a set of concrete values, represented as a
+`Set ConcreteValue`.
 -/
 class AbstractDomain (AbstractValue : Type) (ConcreteValue : Type)
     extends JoinSemilattice AbstractValue where
   /--
-  Concretization. Given an abstract value, returns the predicate describing the
-  set of concrete values it denotes.
+  Concretization. Given an abstract value, returns the set of concrete values it
+  denotes.
   -/
-  γ : AbstractValue → ConcreteValue → Prop
+  γ : AbstractValue → Set ConcreteValue
 
   /--
   The order coincides with concretization inclusion.
   Monotonicity (soundness of the order): a ≤ b → γ a ⊆ γ b
   Reflection (completeness of the order): γ a ⊆ γ b → a ≤ b
   -/
-  le_iff_γ (a b : AbstractValue) : a ≤ b ↔ ∀ c, γ a c → γ b c
+  le_iff_γ (a b : AbstractValue) : a ≤ b ↔ γ a ⊆ γ b
 
 end Veir

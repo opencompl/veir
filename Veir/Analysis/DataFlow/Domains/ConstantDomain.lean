@@ -22,7 +22,7 @@ deriving BEq, DecidableEq, TypeName
 
 namespace AbstractConstant
 
-def γ (absVal : AbstractConstant) : ConcreteConstant → Prop :=
+def γ (absVal : AbstractConstant) : Set ConcreteConstant :=
   match absVal with
   | .top => fun _ => True
   | .bottom => fun _ => False
@@ -66,40 +66,80 @@ def uninitialized : AbstractConstant := .bottom
   /- .constant { bitwidth := bitwidth, value := BitVec.ofInt bitwidth value } -/
 
 theorem le_iff_γ (a b : AbstractConstant) :
-    a ≤ b ↔ ∀ c, γ a c → γ b c := by
-  change AbstractConstant.le a b ↔ ∀ c, γ a c → γ b c
+    a ≤ b ↔ γ a ⊆ γ b := by
+  change AbstractConstant.le a b ↔ γ a ⊆ γ b
   cases a <;> cases b
   case top.top =>
-    simp [AbstractConstant.le, γ]
+    constructor
+    · intro _
+      exact fun {_} h => h
+    · intro _
+      trivial
   case top.bottom =>
-    simp [AbstractConstant.le, γ]
-    exact ⟨.mk 0 (.poison : Data.LLVM.Int 0), trivial⟩
+    constructor
+    · intro h
+      cases h
+    · intro h
+      have hFalse := h (a := .mk 0 (.poison : Data.LLVM.Int 0)) trivial
+      exact False.elim hFalse
   case top.constant value =>
-    simp [AbstractConstant.le, γ]
     rcases value with ⟨w, v⟩
-    refine ⟨.mk (w + 1) (.poison : Data.LLVM.Int (w + 1)), ?_⟩
-    intro h
-    cases h
+    constructor
+    · intro h
+      cases h
+    · intro h
+      have hEq := h (a := .mk (w + 1) (.poison : Data.LLVM.Int (w + 1))) trivial
+      cases hEq
   case bottom.top =>
-    simp [AbstractConstant.le, γ]
+    constructor
+    · intro _
+      exact fun {_} h => False.elim h
+    · intro _
+      trivial
   case bottom.bottom =>
-    simp [AbstractConstant.le, γ]
-  case bottom.constant =>
-    simp [AbstractConstant.le, γ]
-  case constant.top =>
-    simp [AbstractConstant.le, γ]
-  case constant.bottom =>
-    simp [AbstractConstant.le, γ]
-  case constant.constant =>
-    simp [AbstractConstant.le, γ]
+    constructor
+    · intro _
+      exact fun {_} h => False.elim h
+    · intro _
+      trivial
+  case bottom.constant value =>
+    constructor
+    · intro _
+      exact fun {_} h => False.elim h
+    · intro _
+      trivial
+  case constant.top value =>
+    constructor
+    · intro _
+      exact fun {_} _ => trivial
+    · intro _
+      trivial
+  case constant.bottom value =>
+    constructor
+    · intro h
+      cases h
+    · intro h
+      have hFalse := h (a := value) rfl
+      exact False.elim hFalse
+  case constant.constant c d =>
+    constructor
+    · intro h
+      intro a ha
+      change a = c at ha
+      exact ha.trans h
+    · intro h
+      exact h (a := c) rfl
 
 theorem le_refl (a : AbstractConstant) : a ≤ a :=
-  (le_iff_γ a a).2 (fun _ h => h)
+  (le_iff_γ a a).2 (by
+    show γ a ⊆ γ a
+    exact fun {_} h => h)
 
 theorem le_trans (a b c : AbstractConstant) : a ≤ b → b ≤ c → a ≤ c := by
   intro h1 h2
   rw [le_iff_γ] at h1 h2 ⊢
-  exact fun x hx => h2 x (h1 x hx)
+  show γ a ⊆ γ c
+  exact fun {_} hx => h2 (h1 hx)
 
 theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := by
   intro h1 h2
