@@ -35,20 +35,10 @@ instance : LE AbstractConstant where
 
 @[simp] theorem le_def (a b : AbstractConstant) : (a ≤ b) ↔ le a b := Iff.rfl
 
-instance : Top AbstractConstant where
-  top := .top
-
-@[simp] theorem top_eq : (⊤ : AbstractConstant) = .top := rfl
-
-instance : Bot AbstractConstant where
-  bot := .bottom
-
-@[simp] theorem bot_eq : (⊥ : AbstractConstant) = .bottom := rfl
-
-theorem le_top (a : AbstractConstant) : a ≤ ⊤ := by
+theorem le_top (a : AbstractConstant) : a ≤ .top := by
   cases a <;> trivial
 
-theorem bot_le (a : AbstractConstant) : ⊥ ≤ a := by
+theorem bot_le (a : AbstractConstant) : .bottom ≤ a := by
   cases a <;> trivial
 
 instance : BoundedOrder AbstractConstant where
@@ -73,8 +63,6 @@ def join (lhs rhs : AbstractConstant) : AbstractConstant :=
 
 instance : Join AbstractConstant where
   join := join
-
-@[simp] theorem join_eq (a b : AbstractConstant) : (a ⊔ b) = join a b := rfl
 
 theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b := by
   intro hab
@@ -103,24 +91,27 @@ theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := 
   cases a <;> cases b <;> simp_all [le]
 
 theorem le_join_left (a b : AbstractConstant) : a ≤ a ⊔ b := by
+  change a ≤ join a b
   cases a <;> cases b <;> try simp [le, join]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
 theorem le_join_right (a b : AbstractConstant) : b ≤ a ⊔ b := by
+  change b ≤ join a b
   cases a <;> cases b <;> try simp [le, join]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
 theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → a ⊔ b ≤ c := by
   intro ha hb
+  change join a b ≤ c
   cases a <;> cases b <;> cases c <;>
     simp [join] <;> (try split) <;> simp_all [le]
 
 instance : AbstractDomain AbstractConstant ConcreteConstant where
   le := le
-  top := .top
-  bot := .bottom
+  top := ⊤
+  bot := ⊥
   γ := γ
   γ_monotone := γ_monotone
   le_refl := le_refl
