@@ -66,7 +66,32 @@ def uninitialized : AbstractConstant := .bottom
   /- .constant { bitwidth := bitwidth, value := BitVec.ofInt bitwidth value } -/
 
 theorem le_iff_γ (a b : AbstractConstant) :
-    a ≤ b ↔ ∀ c, γ a c → γ b c := by sorry
+    a ≤ b ↔ ∀ c, γ a c → γ b c := by
+  change AbstractConstant.le a b ↔ ∀ c, γ a c → γ b c
+  cases a <;> cases b
+  case top.top =>
+    simp [AbstractConstant.le, γ]
+  case top.bottom =>
+    simp [AbstractConstant.le, γ]
+    exact ⟨.mk 0 (.poison : Data.LLVM.Int 0), trivial⟩
+  case top.constant value =>
+    simp [AbstractConstant.le, γ]
+    rcases value with ⟨w, v⟩
+    refine ⟨.mk (w + 1) (.poison : Data.LLVM.Int (w + 1)), ?_⟩
+    intro h
+    cases h
+  case bottom.top =>
+    simp [AbstractConstant.le, γ]
+  case bottom.bottom =>
+    simp [AbstractConstant.le, γ]
+  case bottom.constant =>
+    simp [AbstractConstant.le, γ]
+  case constant.top =>
+    simp [AbstractConstant.le, γ]
+  case constant.bottom =>
+    simp [AbstractConstant.le, γ]
+  case constant.constant =>
+    simp [AbstractConstant.le, γ]
 
 theorem le_refl (a : AbstractConstant) : a ≤ a :=
   (le_iff_γ a a).2 (fun _ h => h)
@@ -129,7 +154,7 @@ theorem le_meet (a b c : AbstractConstant) : a ≤ b → a ≤ c → a ≤ meet 
   show AbstractConstant.le a (meet b c)
   cases a <;> cases b <;> cases c <;> simp_all [AbstractConstant.le, meet]
 
-@[reducible] def ConstantDomain : AbstractDomain AbstractConstant ConcreteConstant where
+instance : AbstractDomain AbstractConstant ConcreteConstant where
   le := le
   γ := γ
   le_iff_γ := le_iff_γ
@@ -140,8 +165,6 @@ theorem le_meet (a b c : AbstractConstant) : a ≤ b → a ≤ c → a ≤ meet 
   le_join_left := le_join_left
   le_join_right := le_join_right
   join_le := join_le
-
-instance : AbstractDomain AbstractConstant ConcreteConstant := ConstantDomain
 
 end AbstractConstant
 
