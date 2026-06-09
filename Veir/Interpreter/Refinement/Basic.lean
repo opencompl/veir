@@ -63,7 +63,7 @@ on the underlying values. This asserts:
   but may be either `some .ub` or `some (.ok _)`;
 * when `source` is `none`, `target` may be anything
 -/
-def Interp.isRefinedBy (R : α → α → Prop) (source target : Interp α) : Prop :=
+def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
   match source, target with
   | some (.ok a), some (.ok b) => R a b
   | some .ub, some _ => True
