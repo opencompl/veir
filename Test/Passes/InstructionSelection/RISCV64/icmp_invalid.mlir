@@ -10,4 +10,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Error verifying input program: Expected operands to have the same type
+// CHECK: Error verifying input program: llvm.icmp: Expected operands to have the same type
