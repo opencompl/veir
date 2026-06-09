@@ -4,6 +4,15 @@ public section
 
 namespace Veir
 
+/-!
+# Abstract Domain
+
+A collection of order theoretic typeclasses used to define the `AbstractDomain` interface.
+The dataflow analysis framework uses this interface to describe abstract values, their
+lattice structure, and the concretization map that explains which concrete values an
+abstract value denotes.
+-/
+
 abbrev Set (α : Type) := α → Prop
 
 namespace Set

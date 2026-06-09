@@ -7,6 +7,13 @@ public section
 
 namespace Veir
 
+/-!
+# Constant domain
+
+Instantiation of `AbstractDomain` with a constant propagation lattice whose
+elements are `bottom`, a constant, or `top`.
+-/
+
 /-- Concrete integer values tracked by the constant domain. -/
 structure ConcreteConstant where
   bitwidth : Nat
