@@ -306,7 +306,7 @@ def remuw (rs2 : Reg) (rs1 : Reg) : Reg :=
   Performs a 64-bits times 64-bits multiplication of signed rs1 by signed rs2.
 -/
 def mul (rs2 : Reg) (rs1 : Reg) : Reg :=
-  ⟨rs2.val * rs1.val⟩
+  ⟨rs1.val * rs2.val⟩
 
 /--
   Performs a 64-bits times 64-bits multiplication of signed rs1 by signed rs2 and places the highest 64 bits in the destination register.
@@ -589,6 +589,32 @@ def roriw (shamt : BitVec 5) (rs1 : Reg) : Reg :=
 -/
 def rori (shamt : BitVec 6) (rs1 : Reg) : Reg :=
   ⟨(rs1.val >>> shamt) ||| (rs1.val <<< (64 - shamt))⟩
+
+/--
+  OR-combine a single byte: the result is `0xFF` if any bit of the byte is set, and `0x00` otherwise.
+-/
+def orcByte (b : BitVec 8) : BitVec 8 :=
+  if b = 0#8 then 0#8 else 255#8
+
+/--
+  This instruction combines the bits within each byte using a bitwise OR: every byte of the result
+  is set to `0xFF` if the corresponding byte of the source is nonzero, and to `0x00` otherwise.
+-/
+def orcb (rs1 : Reg) : Reg :=
+  ⟨orcByte (BitVec.extractLsb 63 56 rs1.val) ++ orcByte (BitVec.extractLsb 55 48 rs1.val) ++
+   orcByte (BitVec.extractLsb 47 40 rs1.val) ++ orcByte (BitVec.extractLsb 39 32 rs1.val) ++
+   orcByte (BitVec.extractLsb 31 24 rs1.val) ++ orcByte (BitVec.extractLsb 23 16 rs1.val) ++
+   orcByte (BitVec.extractLsb 15 8 rs1.val) ++ orcByte (BitVec.extractLsb 7 0 rs1.val)⟩
+
+/--
+  This instruction reverses the order of the eight bytes of the source register, i.e. it performs a
+  byte-granular endianness swap.
+-/
+def rev8 (rs1 : Reg) : Reg :=
+  ⟨BitVec.extractLsb 7 0 rs1.val ++ BitVec.extractLsb 15 8 rs1.val ++
+   BitVec.extractLsb 23 16 rs1.val ++ BitVec.extractLsb 31 24 rs1.val ++
+   BitVec.extractLsb 39 32 rs1.val ++ BitVec.extractLsb 47 40 rs1.val ++
+   BitVec.extractLsb 55 48 rs1.val ++ BitVec.extractLsb 63 56 rs1.val⟩
 
 /-! ## Zbc: Carry-less multiplication -/
 

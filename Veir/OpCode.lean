@@ -184,6 +184,8 @@ inductive Riscv where
 | ctzw
 | cpop
 | cpopw
+| orcb
+| rev8
 | roriw
 | rori
 | bclr

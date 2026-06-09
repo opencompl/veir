@@ -592,6 +592,22 @@ partial def parseOptionalLLVMFunctionType : AttrParserM (Option TypeAttr) := do
   return some ⟨.llvmFunctionType ft, by rfl⟩
 
 /--
+  Parse a RISCV stack slot type, if present.
+  Its syntax is `!riscv_stack.ptr<size>`.
+-/
+partial def parseOptionalRiscvStackSlotType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "riscv_stack.ptr".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let ty ← parseType
+  parsePunctuation ">"
+  return some ⟨.riscvStackSlotType ⟨ty.val⟩, by rfl⟩
+
+/--
   Parse a type, if present.
 -/
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
@@ -611,6 +627,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some llvmArrayType
   if let some llvmFunctionType ← parseOptionalLLVMFunctionType then
     return some llvmFunctionType
+  if let some riscvStackSlotType := ← parseOptionalRiscvStackSlotType then
+    return some riscvStackSlotType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
   if let some hwModuleType ← parseOptionalHWModuleType then

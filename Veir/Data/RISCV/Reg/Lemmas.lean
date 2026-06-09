@@ -155,7 +155,7 @@ theorem val_remuw :
     ((r1.val.extractLsb 31 0).umod (r2.val.extractLsb 31 0)).signExtend 64 := (rfl)
 
 @[reg_toBitVec]
-theorem val_mul : (mul r2 r1).val = r2.val * r1.val := (rfl)
+theorem val_mul : (mul r2 r1).val = r1.val * r2.val := (rfl)
 
 @[reg_toBitVec]
 theorem val_mulh :
@@ -314,6 +314,22 @@ theorem val_roriw :
 @[reg_toBitVec]
 theorem val_rori :
   (rori shamt r1).val = (r1.val >>> shamt) ||| (r1.val <<< (64 - shamt)) := (rfl)
+
+@[reg_toBitVec]
+theorem val_orcb :
+  (orcb r1).val =
+    orcByte (r1.val.extractLsb 63 56) ++ orcByte (r1.val.extractLsb 55 48) ++
+    orcByte (r1.val.extractLsb 47 40) ++ orcByte (r1.val.extractLsb 39 32) ++
+    orcByte (r1.val.extractLsb 31 24) ++ orcByte (r1.val.extractLsb 23 16) ++
+    orcByte (r1.val.extractLsb 15 8) ++ orcByte (r1.val.extractLsb 7 0) := (rfl)
+
+@[reg_toBitVec]
+theorem val_rev8 :
+  (rev8 r1).val =
+    r1.val.extractLsb 7 0 ++ r1.val.extractLsb 15 8 ++
+    r1.val.extractLsb 23 16 ++ r1.val.extractLsb 31 24 ++
+    r1.val.extractLsb 39 32 ++ r1.val.extractLsb 47 40 ++
+    r1.val.extractLsb 55 48 ++ r1.val.extractLsb 63 56 := (rfl)
 
 @[reg_toBitVec]
 theorem val_bclr :
