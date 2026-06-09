@@ -41,3 +41,196 @@ theorem add_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.add x y) ⊒
       (RISCV.Reg.toInt (Data.RISCV.add (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
   refine_bv_decide
+
+/--
+  Prove the correctness of the `and` lowering pattern.
+-/
+theorem and_refinement{lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.and lhs rhs) ⊒ (RISCV.Reg.toInt (Data.RISCV.and (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 64) := by
+  refine_bv_decide
+
+/--
+  Prove the correctness of the `ashr` lowering pattern.
+-/
+theorem ashr_refinement {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.ashr lhs rhs) ⊒ (RISCV.Reg.toInt (Data.RISCV.sra (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 64) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  simp
+  intros
+  rw [Nat.mod_eq_of_lt (by simp [BitVec.lt_def] at *; grind)]
+
+/--
+  Prove the correctness of the `icmp` lowering pattern with `eq`.
+-/
+theorem icmp_refinement_eq {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp lhs rhs LLVM.IntPred.eq) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu 1#12 (Data.RISCV.xor (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs))) 1) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `icmp` lowering pattern with `ne`.
+-/
+theorem icmp_refinement_ne {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp lhs rhs LLVM.IntPred.ne) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltu (Data.RISCV.xor (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) (Data.RISCV.li 0#64)) 1) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  simp [BitVec.ult_zero_false]
+  bv_decide
+
+/--
+  Prove the correctness of the `icmp` lowering pattern with `slt`.
+-/
+theorem icmp_refinement_slt {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp lhs rhs LLVM.IntPred.slt) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slt (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 1) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `icmp` lowering pattern with `sle`.
+-/
+theorem icmp_refinement_sle {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp lhs rhs LLVM.IntPred.sle) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.slt (LLVM.Int.toReg lhs) (LLVM.Int.toReg rhs))) 1) := by
+  simp [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `icmp` lowering pattern with `sgt`.
+-/
+theorem icmp_refinement_sgt {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp lhs rhs LLVM.IntPred.sgt) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slt (LLVM.Int.toReg lhs) (LLVM.Int.toReg rhs)) 1) := by
+  simp [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `icmp` lowering pattern with `sge`.
+-/
+theorem icmp_refinement_sge {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp lhs rhs LLVM.IntPred.sge) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.slt (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs))) 1) := by
+  simp [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `icmp` lowering pattern with `ult`.
+-/
+theorem icmp_refinement_ult {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp lhs rhs LLVM.IntPred.ult) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltu (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 1) := by
+  simp [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `icmp` lowering pattern with `ule`.
+-/
+theorem icmp_refinement_ule {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp lhs rhs LLVM.IntPred.ule) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltu (LLVM.Int.toReg lhs) (LLVM.Int.toReg rhs))) 1) := by
+  simp [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `icmp` lowering pattern with `ugt`.
+-/
+theorem icmp_refinement_ugt {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp lhs rhs LLVM.IntPred.ugt) ⊒
+      (RISCV.Reg.toInt ((Data.RISCV.sltu (LLVM.Int.toReg lhs) (LLVM.Int.toReg rhs))) 1) := by
+  simp [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `icmp` lowering pattern with `uge`.
+-/
+theorem icmp_refinement_uge {lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp lhs rhs LLVM.IntPred.uge) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltu (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs))) 1) := by
+  simp [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `or` lowering pattern.
+-/
+theorem or_refinement{lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.or lhs rhs) ⊒ (RISCV.Reg.toInt (Data.RISCV.or (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 64) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `xor` lowering pattern.
+-/
+theorem xor_refinement{lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.xor lhs rhs) ⊒ (RISCV.Reg.toInt (Data.RISCV.xor (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 64) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `mul` lowering pattern.
+-/
+theorem mul_refinement{lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.mul lhs rhs) ⊒ (RISCV.Reg.toInt (Data.RISCV.mul (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 64) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `sdiv` lowering pattern.
+-/
+theorem sdiv_refinement{lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.sdiv lhs rhs) ⊒ (RISCV.Reg.toInt (Data.RISCV.div (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 64) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  simp
+  bv_decide
+
+/--
+  Prove the correctness of the `udiv` lowering pattern.
+-/
+theorem udiv_refinement{lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.udiv lhs rhs) ⊒ (RISCV.Reg.toInt (Data.RISCV.divu (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 64) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  simp
+  bv_decide
+
+/--
+  Prove the correctness of the `udiv` lowering pattern.
+-/
+theorem srem_refinement{lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.srem lhs rhs) ⊒ (RISCV.Reg.toInt (Data.RISCV.rem (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 64) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `udiv` lowering pattern.
+-/
+theorem urem_refinement{lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.urem lhs rhs) ⊒ (RISCV.Reg.toInt (Data.RISCV.remu (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 64) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
+
+/--
+  Prove the correctness of the `udiv` lowering pattern.
+-/
+theorem sub_refinement{lhs rhs : LLVM.Int 64} :
+    (Data.LLVM.Int.sub lhs rhs) ⊒ (RISCV.Reg.toInt (Data.RISCV.sub (LLVM.Int.toReg rhs) (LLVM.Int.toReg lhs)) 64) := by
+  simp only [llvm_toBitVec, reg_toBitVec]
+  simp only [LLVM.Int.getValue_eq_getValueD]
+  bv_decide
