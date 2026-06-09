@@ -327,6 +327,9 @@ structure LLVM.ArrayType where
   type : Attribute
 deriving Repr, Hashable
 
+structure Riscv_Stack.StackSlotType where
+  type : Attribute
+
 /--
   A data structure that represents compile-time information in the IR.
   Attributes are used either as type annotations for SSA values, or
@@ -391,6 +394,8 @@ inductive Attribute
 | llvmArrayType (type : LLVM.ArrayType)
 /-- LLVM function type -/
 | llvmFunctionType (type : FunctionType)
+/-- RISCV Stack slot type -/
+| riscvStackSlotType (type : Riscv_Stack.StackSlotType)
 /-- Cuda Tile pointer type -/
 | cudaTilePointerType (type : CudaTile.PointerType)
 /-- CIRCT hw module type -/
@@ -432,6 +437,10 @@ theorem DictionaryAttr.sizeOf_elems_entries {da : DictionaryAttr} (hx : x ∈ da
 theorem LLVM.ArrayType.sizeOf_elems_type {t : ArrayType} :
     sizeOf t.type < sizeOf t := by
   grind [cases ArrayType]
+
+theorem Riscv_Stack.StackSlotType.sizeOf_elems_type {t : StackSlotType} :
+    sizeOf t.type < sizeOf t := by
+  grind [cases StackSlotType]
 
 /-!
   ## DecidableEq instances
@@ -485,6 +494,17 @@ def LLVM.ArrayType.decEq (arr1 arr2 : LLVM.ArrayType) : Decidable (arr1 = arr2) 
 termination_by sizeOf arr1
 decreasing_by
   have := @LLVM.ArrayType.sizeOf_elems_type
+  grind
+
+def Riscv_Stack.StackSlotType.decEq (t1 t2 : Riscv_Stack.StackSlotType) : Decidable (t1 = t2) :=
+  let type1 := t1.type
+  let type2 := t2.type
+  match Attribute.decEq type1 type2 with
+  | isTrue _ => isTrue (by grind [cases Riscv_Stack.StackSlotType])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf t1
+decreasing_by
+  have := @Riscv_Stack.StackSlotType.sizeOf_elems_type
   grind
 
 def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
@@ -607,6 +627,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isFalse hEq => isFalse (by grind))
   case llvmFunctionType.llvmFunctionType type1 type2 =>
     exact (match FunctionType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case riscvStackSlotType.riscvStackSlotType type1 type2 =>
+    exact (match Riscv_Stack.StackSlotType.decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case cudaTilePointerType.cudaTilePointerType type1 type2 =>
@@ -827,6 +851,12 @@ termination_by sizeOf type
 decreasing_by
   apply LLVM.ArrayType.sizeOf_elems_type
 
+def Riscv_Stack.StackSlotType.toString (type : Riscv_Stack.StackSlotType) : String :=
+  s!"!riscv_stack.ptr<{Attribute.toString type.type}>"
+termination_by sizeOf type
+decreasing_by
+  apply Riscv_Stack.StackSlotType.sizeOf_elems_type
+
 /--
   Convert an attribute to a string representation.
 -/
@@ -861,6 +891,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .llvmPointerType type => ToString.toString type
   | .llvmArrayType type => type.toString
   | .llvmFunctionType type => type.toLLVMString
+  | .riscvStackSlotType type => type.toString
   | .cudaTilePointerType type => ToString.toString type
   | .hwModuleType type => ToString.toString type
 termination_by sizeOf attr
@@ -881,6 +912,9 @@ instance : ToString DictionaryAttr where
 
 instance : ToString LLVM.ArrayType where
   toString := LLVM.ArrayType.toString
+
+instance : ToString Riscv_Stack.StackSlotType where
+  toString := Riscv_Stack.StackSlotType.toString
 
 /-!
   ## Coercion instances to Attribute
@@ -965,6 +999,9 @@ instance : Coe LLVM.PointerType Attribute where
 instance : Coe LLVM.ArrayType Attribute where
   coe type := .llvmArrayType type
 
+instance : Coe Riscv_Stack.StackSlotType Attribute where
+  coe type := .riscvStackSlotType type
+
 instance : Coe CudaTile.PointerType Attribute where
   coe type := .cudaTilePointerType type
 
@@ -1015,6 +1052,7 @@ def isType (attr : Attribute) : Bool :=
   | .llvmPointerType _ => true
   | .llvmArrayType _ => true
   | .llvmFunctionType _ => true
+  | .riscvStackSlotType _ => true
   | .cudaTilePointerType _ => true
   | .hwModuleType _ => true
 
@@ -1057,6 +1095,8 @@ theorem isType_llvmPointerType type : (llvmPointerType type).isType = true := by
 theorem isType_llvmArrayType type : (llvmArrayType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_llvmFunctionType type : (llvmFunctionType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_riscvStackSlotType type : (riscvStackSlotType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
 @[simp, grind =]
@@ -1121,6 +1161,9 @@ instance : Coe LLVM.PointerType TypeAttr where
 
 instance : Coe LLVM.ArrayType TypeAttr where
   coe type := ⟨.llvmArrayType type, by rfl⟩
+
+instance : Coe Riscv_Stack.StackSlotType TypeAttr where
+  coe type := ⟨.riscvStackSlotType type, by rfl⟩
 
 instance : Coe CudaTile.PointerType TypeAttr where
   coe type := ⟨.cudaTilePointerType type, by rfl⟩
