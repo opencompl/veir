@@ -88,48 +88,46 @@ class JoinSemilattice (Domain : Type)
   /-- The join is the least upper bound. -/
   join_le (a b c : Domain) : a ≤ c → b ≤ c → a ⊔ b ≤ c
 
+namespace JoinSemilattice
+
 instance [JoinSemilattice α] : Std.LawfulOrderSup α where
   max_le_iff a b c := by
     constructor
     · intro h
       exact ⟨
-        Std.IsPreorder.le_trans _ _ _ (JoinSemilattice.le_join_left a b) h,
-        Std.IsPreorder.le_trans _ _ _ (JoinSemilattice.le_join_right a b) h
+        Std.IsPreorder.le_trans _ _ _ (le_join_left a b) h,
+        Std.IsPreorder.le_trans _ _ _ (le_join_right a b) h
       ⟩
     · intro h
-      exact JoinSemilattice.join_le a b c h.1 h.2
+      exact join_le a b c h.1 h.2
 
 instance [JoinSemilattice α] : Std.IdempotentOp (max : α → α → α) where
   idempotent a := by
     apply Std.IsPartialOrder.le_antisymm
-    · exact JoinSemilattice.join_le a a a (Std.IsPreorder.le_refl a) (Std.IsPreorder.le_refl a)
-    · exact JoinSemilattice.le_join_left a a
+    · exact join_le a a a (Std.IsPreorder.le_refl a) (Std.IsPreorder.le_refl a)
+    · exact le_join_left a a
 
 instance [JoinSemilattice α] : Std.Commutative (max : α → α → α) where
   comm a b := by
     apply Std.IsPartialOrder.le_antisymm
-    · exact JoinSemilattice.join_le a b (b ⊔ a)
-        (JoinSemilattice.le_join_right b a) (JoinSemilattice.le_join_left b a)
-    · exact JoinSemilattice.join_le b a (a ⊔ b)
-        (JoinSemilattice.le_join_right a b) (JoinSemilattice.le_join_left a b)
+    · exact join_le a b (b ⊔ a) (le_join_right b a) (le_join_left b a)
+    · exact join_le b a (a ⊔ b) (le_join_right a b) (le_join_left a b)
 
 instance [JoinSemilattice α] : Std.Associative (max : α → α → α) where
   assoc a b c := by
     apply Std.IsPartialOrder.le_antisymm
-    · apply JoinSemilattice.join_le
-      · exact JoinSemilattice.join_le a b (a ⊔ (b ⊔ c))
-          (JoinSemilattice.le_join_left a (b ⊔ c))
-          (Std.IsPreorder.le_trans _ _ _ (JoinSemilattice.le_join_left b c)
-            (JoinSemilattice.le_join_right a (b ⊔ c)))
-      · exact Std.IsPreorder.le_trans _ _ _ (JoinSemilattice.le_join_right b c)
-          (JoinSemilattice.le_join_right a (b ⊔ c))
-    · apply JoinSemilattice.join_le
-      · exact Std.IsPreorder.le_trans _ _ _ (JoinSemilattice.le_join_left a b)
-          (JoinSemilattice.le_join_left (a ⊔ b) c)
-      · exact JoinSemilattice.join_le b c ((a ⊔ b) ⊔ c)
-          (Std.IsPreorder.le_trans _ _ _ (JoinSemilattice.le_join_right a b)
-            (JoinSemilattice.le_join_left (a ⊔ b) c))
-          (JoinSemilattice.le_join_right (a ⊔ b) c)
+    · apply join_le
+      · exact join_le a b (a ⊔ (b ⊔ c))
+          (le_join_left a (b ⊔ c))
+          (Std.IsPreorder.le_trans _ _ _ (le_join_left b c) (le_join_right a (b ⊔ c)))
+      · exact Std.IsPreorder.le_trans _ _ _ (le_join_right b c) (le_join_right a (b ⊔ c))
+    · apply join_le
+      · exact Std.IsPreorder.le_trans _ _ _ (le_join_left a b) (le_join_left (a ⊔ b) c)
+      · exact join_le b c ((a ⊔ b) ⊔ c)
+          (Std.IsPreorder.le_trans _ _ _ (le_join_right a b) (le_join_left (a ⊔ b) c))
+          (le_join_right (a ⊔ b) c)
+
+end JoinSemilattice
 
 /--
 An abstract domain is a join semilattice equipped with a concretization map.
