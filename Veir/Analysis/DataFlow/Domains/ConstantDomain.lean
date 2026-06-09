@@ -33,10 +33,22 @@ def le (x y : AbstractConstant) : Prop :=
 instance : LE AbstractConstant where
   le := le
 
-theorem le_top (a : AbstractConstant) : AbstractConstant.le a .top := by
+@[simp] theorem le_def (a b : AbstractConstant) : (a ≤ b) ↔ le a b := Iff.rfl
+
+instance : Top AbstractConstant where
+  top := .top
+
+@[simp] theorem top_eq : (⊤ : AbstractConstant) = .top := rfl
+
+instance : Bot AbstractConstant where
+  bot := .bottom
+
+@[simp] theorem bot_eq : (⊥ : AbstractConstant) = .bottom := rfl
+
+theorem le_top (a : AbstractConstant) : a ≤ ⊤ := by
   cases a <;> trivial
 
-theorem bot_le (a : AbstractConstant) : AbstractConstant.le .bottom a := by
+theorem bot_le (a : AbstractConstant) : ⊥ ≤ a := by
   cases a <;> trivial
 
 instance : BoundedOrder AbstractConstant where
@@ -55,25 +67,20 @@ def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   match lhs, rhs with
   | .bottom, y => y
   | x, .bottom => x
-  | .top, _ => .top
-  | _, .top => .top
-  | .constant c, .constant d => if c = d then .constant c else .top
+  | .top, _ => ⊤
+  | _, .top => ⊤
+  | .constant c, .constant d => if c = d then .constant c else ⊤
 
 def meet (lhs rhs : AbstractConstant) : AbstractConstant :=
   match lhs, rhs with
   | .top, y => y
   | x, .top => x
-  | .bottom, _ => .bottom
-  | _, .bottom => .bottom
-  | .constant c, .constant d => if c = d then .constant d else .bottom
-
-/-- Build a constant lattice element from an integer at the given bitwidth. -/
-/- def ofInt (bitwidth : Nat) (value : Int) : AbstractConstant := -/
-  /- .constant { bitwidth := bitwidth, value := BitVec.ofInt bitwidth value } -/
+  | .bottom, _ => ⊥
+  | _, .bottom => ⊥
+  | .constant c, .constant d => if c = d then .constant d else ⊥
 
 theorem le_iff_γ (a b : AbstractConstant) :
     a ≤ b ↔ γ a ⊆ γ b := by
-  change AbstractConstant.le a b ↔ γ a ⊆ γ b
   cases a <;> cases b
   case top.top =>
     constructor
@@ -152,48 +159,36 @@ theorem le_trans (a b c : AbstractConstant) : a ≤ b → b ≤ c → a ≤ c :=
 
 theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := by
   intro h1 h2
-  change AbstractConstant.le a b at h1
-  change AbstractConstant.le b a at h2
-  cases a <;> cases b <;> simp_all [AbstractConstant.le]
+  cases a <;> cases b <;> simp_all [le]
 
 theorem le_join_left (a b : AbstractConstant) : a ≤ join a b := by
-  show AbstractConstant.le a (join a b)
-  cases a <;> cases b <;> try simp [AbstractConstant.le, join]
+  cases a <;> cases b <;> try simp [le, join]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
 theorem le_join_right (a b : AbstractConstant) : b ≤ join a b := by
-  show AbstractConstant.le b (join a b)
-  cases a <;> cases b <;> try simp [AbstractConstant.le, join]
+  cases a <;> cases b <;> try simp [le, join]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
 theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → join a b ≤ c := by
   intro ha hb
-  change AbstractConstant.le a c at ha
-  change AbstractConstant.le b c at hb
-  show AbstractConstant.le (join a b) c
   cases a <;> cases b <;> cases c <;>
-    simp only [join] <;> (try split) <;> simp_all [AbstractConstant.le]
+    simp only [join] <;> (try split) <;> simp_all [le]
 
 theorem meet_le_left (a b : AbstractConstant) : meet a b ≤ a := by
-  show AbstractConstant.le (meet a b) a
-  cases a <;> cases b <;> try simp [AbstractConstant.le, meet]
+  cases a <;> cases b <;> try simp [le, meet]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
 theorem meet_le_right (a b : AbstractConstant) : meet a b ≤ b := by
-  show AbstractConstant.le (meet a b) b
-  cases a <;> cases b <;> try simp [AbstractConstant.le, meet]
+  cases a <;> cases b <;> try simp [le, meet]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
 theorem le_meet (a b c : AbstractConstant) : a ≤ b → a ≤ c → a ≤ meet b c := by
   intro hab hac
-  change AbstractConstant.le a b at hab
-  change AbstractConstant.le a c at hac
-  show AbstractConstant.le a (meet b c)
-  cases a <;> cases b <;> cases c <;> simp_all [AbstractConstant.le, meet]
+  cases a <;> cases b <;> cases c <;> simp_all [le, meet]
 
 instance : AbstractDomain AbstractConstant ConcreteConstant where
   le := le
