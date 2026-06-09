@@ -155,7 +155,7 @@ theorem val_remuw :
     ((r1.val.extractLsb 31 0).umod (r2.val.extractLsb 31 0)).signExtend 64 := (rfl)
 
 @[reg_toBitVec]
-theorem val_mul : (mul r2 r1).val = r2.val * r1.val := (rfl)
+theorem val_mul : (mul r2 r1).val = r1.val * r2.val := (rfl)
 
 @[reg_toBitVec]
 theorem val_mulh :

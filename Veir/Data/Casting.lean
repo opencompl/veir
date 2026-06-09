@@ -39,6 +39,11 @@ theorem toInt_isPoison {w : Nat} {r : Veir.Data.RISCV.Reg} :
     (RISCV.Reg.toInt r w).isPoison = false := by
   simp [RISCV.Reg.toInt, Veir.Data.LLVM.Int.isPoison]
 
+@[reg_toBitVec, grind =]
+theorem toInt_getValue {w : Nat} {r : Veir.Data.RISCV.Reg} :
+    (RISCV.Reg.toInt r w).getValue = (r.val).zeroExtend w := by
+  simp [RISCV.Reg.toInt, Veir.Data.LLVM.Int.getValue]
+
 @[llvm_toBitVec, grind =]
 theorem val_toReg {w : Nat} {i : Veir.Data.LLVM.Int w} :
     (LLVM.Int.toReg i).val = if h : i.isPoison = true then 0#64 else i.getValue.zeroExtend 64 := by
