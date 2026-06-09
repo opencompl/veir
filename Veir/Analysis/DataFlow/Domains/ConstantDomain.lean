@@ -130,6 +130,9 @@ theorem le_iff_γ (a b : AbstractConstant) :
     · intro h
       exact h (a := c) rfl
 
+theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b :=
+  (le_iff_γ a b).1
+
 theorem le_refl (a : AbstractConstant) : a ≤ a :=
   (le_iff_γ a a).2 (by
     show γ a ⊆ γ a
@@ -197,7 +200,7 @@ theorem le_meet (a b c : AbstractConstant) : a ≤ b → a ≤ c → a ≤ meet 
 instance : AbstractDomain AbstractConstant ConcreteConstant where
   le := le
   γ := γ
-  le_iff_γ := le_iff_γ
+  γ_monotone := γ_monotone
   le_refl := le_refl
   le_trans := le_trans
   le_antisymm := le_antisymm

@@ -9,9 +9,11 @@ def Set (α : Type) := α → Prop
 
 namespace Set
 
+@[expose]
 def Mem (s : Set α) (a : α) : Prop := s a
 instance : Membership α (Set α) := ⟨Set.Mem⟩
 
+@[expose]
 def Subset (s₁ s₂ : Set α) := ∀ ⦃a⦄, a ∈ s₁ → a ∈ s₂
 instance : LE (Set α) := ⟨Set.Subset⟩
 instance : HasSubset (Set α) := ⟨(· ≤ ·)⟩
@@ -60,10 +62,8 @@ class AbstractDomain (AbstractValue : Type) (ConcreteValue : Type)
   γ : AbstractValue → Set ConcreteValue
 
   /--
-  The order coincides with concretization inclusion.
-  Monotonicity (soundness of the order): a ≤ b → γ a ⊆ γ b
-  Reflection (completeness of the order): γ a ⊆ γ b → a ≤ b
+  The order is monotone (it is sound).
   -/
-  le_iff_γ (a b : AbstractValue) : a ≤ b ↔ γ a ⊆ γ b
+  γ_monotone (a b : AbstractValue) : a ≤ b → γ a ⊆ γ b
 
 end Veir
