@@ -115,29 +115,19 @@ theorem Array.reverse_singleton (a : α) :
 
 theorem List.length_of_mapM_option_eq_some {f : α → Option β} {l : List α} {r : List β}
     (h : l.mapM f = some r) : l.length = r.length := by
-  rw [← List.mapM'_eq_mapM] at h
-  induction l generalizing r with
-  | nil => grind [List.mapM']
-  | cons a t ih => grind [List.mapM', bind, Option.bind_eq_some_iff]
+  induction l generalizing r <;> grind [Option.bind_eq_some_iff]
 
 theorem List.getElem?_of_mapM_option_eq_some {f : α → Option β} {l : List α} {r : List β}
     (h : l.mapM f = some r) (i : Nat) : l[i]?.bind f = r[i]? := by
-  rw [← List.mapM'_eq_mapM] at h
-  induction l generalizing r i with
-  | nil => grind [List.mapM']
-  | cons a t ih =>
-    simp only [List.mapM', bind, Option.bind_eq_some_iff] at h
-    cases i <;> grind
+  induction l generalizing r i <;> grind [Option.bind_eq_some_iff] 
 
 theorem List.mapM_option_isSome {f : α → Option β} {l : List α}
     (h : ∀ a ∈ l, (f a).isSome) : ∃ r, l.mapM f = some r := by
-  rw [← List.mapM'_eq_mapM]
   induction l with
   | nil => exact ⟨[], rfl⟩
   | cons a t ih =>
     obtain ⟨b, hb⟩ := Option.isSome_iff_exists.mp (h a (by simp))
-    obtain ⟨r, hr⟩ := ih (fun x hx => h x (by simp [hx]))
-    exact ⟨b :: r, by simp [List.mapM', hb, hr]⟩
+    grind [ih (fun x hx => h x (by grind))]
 
 @[grind →]
 theorem Array.size_eq_of_mapM_eq_some (h : Array.mapM f l = some res) :
@@ -145,10 +135,7 @@ theorem Array.size_eq_of_mapM_eq_some (h : Array.mapM f l = some res) :
   rw [Array.mapM_eq_mapM_toList] at h
   cases hm : List.mapM f l.toList with
   | none => simp [hm] at h
-  | some r =>
-    simp [hm] at h
-    subst h
-    simpa using List.length_of_mapM_option_eq_some hm
+  | some r => grind [List.length_of_mapM_option_eq_some hm]
 
 theorem Array.mapM_option_eq_some_implies {l : Array α} {res : Array β} (h : Array.mapM f l = some res) :
     ∀ i (h : i < res.size), f (l[i]'(by grind)) = some res[i] := by
@@ -156,11 +143,8 @@ theorem Array.mapM_option_eq_some_implies {l : Array α} {res : Array β} (h : A
   cases hm : List.mapM f l.toList with
   | none => simp [hm] at h
   | some r =>
-    simp [hm] at h
-    subst h
     intro i hi
-    have := List.getElem?_of_mapM_option_eq_some hm i
-    grind
+    grind [List.getElem?_of_mapM_option_eq_some hm i]
 
 theorem Array.mapM_option_isSome {α β : Type} {f : α → Option β}
     {l : Array α} (h : ∀ i (hi : i < l.size), (f l[i]).isSome) :
@@ -219,17 +203,11 @@ theorem Array.erase_head_concat {α : Type} [BEq α] [LawfulBEq α] {arrayHead :
   have ⟨list⟩ := arrayTail
   induction list <;> grind
 
-theorem Nat.eq_iff_forall_lessthan :
-    (∀ (i : Nat), i < n ↔ i < m) → n = m := by
+theorem Nat.eq_iff_forall_lessthan : (∀ (i : Nat), i < n ↔ i < m) → n = m := by
   intros hi
   cases n
-  case zero =>
-    have := hi 0
-    grind
-  case succ i =>
-    have := hi i
-    have := hi (i + 1)
-    grind
+  case zero => grind [hi 0]
+  case succ i => grind [hi i, hi (i + 1)]
 
 deriving instance DecidableEq for Except
 
