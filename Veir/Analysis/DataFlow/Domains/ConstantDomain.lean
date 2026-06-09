@@ -22,6 +22,29 @@ deriving BEq, DecidableEq, TypeName
 
 namespace AbstractConstant
 
+/-- Defines the ordering of abstract values in the constant domain. -/
+def le (x y : AbstractConstant) : Prop :=
+  match x, y with
+  | .bottom, _ => True
+  | _, .top => True
+  | .constant c, .constant d => c = d
+  | _, _ => False
+
+instance : LE AbstractConstant where
+  le := le
+
+theorem le_top (a : AbstractConstant) : AbstractConstant.le a .top := by
+  cases a <;> trivial
+
+theorem bot_le (a : AbstractConstant) : AbstractConstant.le .bottom a := by
+  cases a <;> trivial
+
+instance : BoundedOrder AbstractConstant where
+  top := .top
+  bot := .bottom
+  le_top := le_top
+  bot_le := bot_le
+
 def γ (absVal : AbstractConstant) : Set ConcreteConstant :=
   match absVal with
   | .top => fun _ => True
@@ -43,23 +66,6 @@ def meet (lhs rhs : AbstractConstant) : AbstractConstant :=
   | .bottom, _ => .bottom
   | _, .bottom => .bottom
   | .constant c, .constant d => if c = d then .constant d else .bottom
-
-/-- Defines the ordering of abstract values in the constant domain. -/
-def le (x y : AbstractConstant) : Prop :=
-  match x, y with
-  | .bottom, _ => True
-  | _, .top => True
-  | .constant c, .constant d => c = d
-  | _, _ => False
-
-instance : LE AbstractConstant where
-  le := le
-
-/-- Alias for the top element: value is unknown or conflicting. -/
-def unknown : AbstractConstant := .top
-
-/-- Alias for the bottom element: no information has been learned yet. -/
-def uninitialized : AbstractConstant := .bottom
 
 /-- Build a constant lattice element from an integer at the given bitwidth. -/
 /- def ofInt (bitwidth : Nat) (value : Int) : AbstractConstant := -/
@@ -150,14 +156,6 @@ theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := 
   change AbstractConstant.le b a at h2
   cases a <;> cases b <;> simp_all [AbstractConstant.le]
 
-theorem le_top (a : AbstractConstant) : a ≤ .top := by
-  show AbstractConstant.le a .top
-  cases a <;> trivial
-
-theorem bottom_le (a : AbstractConstant) : .bottom ≤ a := by
-  show AbstractConstant.le .bottom a
-  cases a <;> trivial
-
 theorem le_join_left (a b : AbstractConstant) : a ≤ join a b := by
   show AbstractConstant.le a (join a b)
   cases a <;> cases b <;> try simp [AbstractConstant.le, join]
@@ -199,11 +197,15 @@ theorem le_meet (a b c : AbstractConstant) : a ≤ b → a ≤ c → a ≤ meet 
 
 instance : AbstractDomain AbstractConstant ConcreteConstant where
   le := le
+  top := .top
+  bot := .bottom
   γ := γ
   γ_monotone := γ_monotone
   le_refl := le_refl
   le_trans := le_trans
   le_antisymm := le_antisymm
+  le_top := le_top
+  bot_le := bot_le
   join := .join
   le_join_left := le_join_left
   le_join_right := le_join_right

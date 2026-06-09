@@ -20,6 +20,41 @@ instance : HasSubset (Set α) := ⟨(· ≤ ·)⟩
 
 end Set
 
+/-- Typeclass for the `⊤` notation. -/
+class Top (α : Type) where
+  /-- The top element. -/
+  top : α
+
+/-- Typeclass for the `⊥` notation. -/
+class Bot (α : Type) where
+  /-- The bottom element. -/
+  bot : α
+
+/-- The top element. -/
+notation "⊤" => Top.top
+
+/-- The bottom element. -/
+notation "⊥" => Bot.bot
+
+/-- An order with a greatest element. -/
+class OrderTop (α : Type) [LE α] extends Top α where
+  /-- `⊤` is the greatest element. -/
+  le_top (a : α) : a ≤ ⊤
+
+/-- An order with a least element. -/
+class OrderBot (α : Type) [LE α] extends Bot α where
+  /-- `⊥` is the least element. -/
+  bot_le (a : α) : ⊥ ≤ a
+
+/-- An order with both a greatest and least element. -/
+class BoundedOrder (α : Type) [LE α] extends OrderTop α, OrderBot α
+
+theorem le_top [LE α] [OrderTop α] (a : α) : a ≤ (⊤ : α) :=
+  OrderTop.le_top a
+
+theorem bot_le [LE α] [OrderBot α] (a : α) : (⊥ : α) ≤ a :=
+  OrderBot.bot_le a
+
 /--
 An algebraic definition of a partial order.
 -/
@@ -54,7 +89,7 @@ Each abstract value denotes a set of concrete values, represented as a
 `Set ConcreteValue`.
 -/
 class AbstractDomain (AbstractValue : Type) (ConcreteValue : Type)
-    extends JoinSemilattice AbstractValue where
+    extends JoinSemilattice AbstractValue, BoundedOrder AbstractValue where
   /--
   Concretization. Given an abstract value, returns the set of concrete values it
   denotes.
