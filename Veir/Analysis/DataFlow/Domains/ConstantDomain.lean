@@ -71,83 +71,27 @@ def join (lhs rhs : AbstractConstant) : AbstractConstant :=
   | _, .top => ⊤
   | .constant c, .constant d => if c = d then .constant c else ⊤
 
-theorem le_iff_γ (a b : AbstractConstant) :
-    a ≤ b ↔ γ a ⊆ γ b := by
+theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b := by
+  intro hab
+  intro x hx
   cases a <;> cases b
-  case top.top =>
-    constructor
-    · intro _
-      exact fun {_} h => h
-    · intro _
-      trivial
-  case top.bottom =>
-    constructor
-    · intro h
-      cases h
-    · intro h
-      have hFalse := h (a := .mk 0 (.poison : Data.LLVM.Int 0)) trivial
-      exact False.elim hFalse
-  case top.constant value =>
-    rcases value with ⟨w, v⟩
-    constructor
-    · intro h
-      cases h
-    · intro h
-      have hEq := h (a := .mk (w + 1) (.poison : Data.LLVM.Int (w + 1))) trivial
-      cases hEq
-  case bottom.top =>
-    constructor
-    · intro _
-      exact fun {_} h => False.elim h
-    · intro _
-      trivial
-  case bottom.bottom =>
-    constructor
-    · intro _
-      exact fun {_} h => False.elim h
-    · intro _
-      trivial
-  case bottom.constant value =>
-    constructor
-    · intro _
-      exact fun {_} h => False.elim h
-    · intro _
-      trivial
-  case constant.top value =>
-    constructor
-    · intro _
-      exact fun {_} _ => trivial
-    · intro _
-      trivial
-  case constant.bottom value =>
-    constructor
-    · intro h
-      cases h
-    · intro h
-      have hFalse := h (a := value) rfl
-      exact False.elim hFalse
-  case constant.constant c d =>
-    constructor
-    · intro h
-      intro a ha
-      change a = c at ha
-      exact ha.trans h
-    · intro h
-      exact h (a := c) rfl
+  · trivial
+  · cases hab
+  · cases hab
+  · trivial
+  · cases hx
+  · cases hx
+  · trivial
+  · cases hab
+  · change x = _
+    exact hx.trans hab
 
-theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b :=
-  (le_iff_γ a b).1
-
-theorem le_refl (a : AbstractConstant) : a ≤ a :=
-  (le_iff_γ a a).2 (by
-    show γ a ⊆ γ a
-    exact fun {_} h => h)
+theorem le_refl (a : AbstractConstant) : a ≤ a := by
+  cases a <;> simp [le]
 
 theorem le_trans (a b c : AbstractConstant) : a ≤ b → b ≤ c → a ≤ c := by
-  intro h1 h2
-  rw [le_iff_γ] at h1 h2 ⊢
-  show γ a ⊆ γ c
-  exact fun {_} hx => h2 (h1 hx)
+  intro hab hbc
+  cases a <;> cases b <;> cases c <;> simp_all [le]
 
 theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := by
   intro h1 h2
