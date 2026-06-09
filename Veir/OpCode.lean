@@ -229,6 +229,11 @@ inductive Riscv_Cf where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
+inductive Riscv_Stack where
+| alloca
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
 inductive Mod_Arith where
 | add
 | constant
