@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: project-llzk/llzk-lib
-          ref: main
+          ref: db922857bc5a88a9107627ef6b36a8b5e57bc5c2
           fetch-depth: 0
           path: llzk-lib
 
@@ -51,6 +51,7 @@ jobs:
         run: |
           ln -sfn "$GITHUB_WORKSPACE/llzk-lean" "$GITHUB_WORKSPACE/../llzk-lean"
           ln -sfn "$GITHUB_WORKSPACE/llzk-lib" "$GITHUB_WORKSPACE/../llzk-lib"
+          git -C "$GITHUB_WORKSPACE/llzk-lib" update-ref refs/remotes/origin/main db922857bc5a88a9107627ef6b36a8b5e57bc5c2
           git -C "$GITHUB_WORKSPACE/llzk-lib" remote set-url origin git@github.com:project-llzk/llzk-lib.git
           lake --version
           (cd "$GITHUB_WORKSPACE/llzk-lean" && MATHLIB_NO_CACHE_ON_UPDATE=1 lake update --no-cache)
