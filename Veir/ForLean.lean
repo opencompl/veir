@@ -42,6 +42,9 @@ namespace ByteArray
 def extend (ba : ByteArray) (n : Nat) (val : UInt8) : ByteArray :=
   n.fold (init := ba) fun _ _ ba => ba.push val
 
+def replicate (n : Nat) (v : UInt8) : ByteArray :=
+  (ByteArray.emptyWithCapacity n).extend n v
+
 @[inline]
 def getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
   if h : i < ba.size then ba[i] else default
