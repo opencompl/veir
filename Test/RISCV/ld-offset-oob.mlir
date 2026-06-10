@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// MLIR_INVALID
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
