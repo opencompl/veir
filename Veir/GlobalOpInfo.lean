@@ -100,6 +100,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case bge => exact (RISCVBrProperties.fromAttrDict attrDict)
     case bltu => exact (RISCVBrProperties.fromAttrDict attrDict)
     case bgeu => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case cbr => exact (RISCVBrProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case riscv_stack op =>
     cases op
@@ -244,7 +245,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict := dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
     dict.insert "value_type".toUTF8 props.value_type
   | .riscv_cf .beq | .riscv_cf .bne | .riscv_cf .blt | .riscv_cf .bge
-  | .riscv_cf .bltu | .riscv_cf .bgeu =>
+  | .riscv_cf .bltu | .riscv_cf .bgeu | .riscv_cf .cbr =>
     (Std.HashMap.emptyWithCapacity 1).insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
   | .cf .cond_br =>
     let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (.denseArrayAttr props.branch_weights)
@@ -364,7 +365,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .cf .br | .cf .cond_br
   | .func .return
   | .llvm .br | .llvm .cond_br | .llvm .return | .llvm .unreachable
-  | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
+  | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne | .riscv_cf .cbr
   | .riscv_cf .blt | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu
   | .hw .output => true
   | _ => false

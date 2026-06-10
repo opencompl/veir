@@ -229,6 +229,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 @[opcodes]
 inductive Riscv_Cf where
 | branch
+| cbr
 | beq
 | bne
 | blt
