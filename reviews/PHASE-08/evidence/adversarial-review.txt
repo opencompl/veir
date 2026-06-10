@@ -1,0 +1,15 @@
+PASS: Phase 7 is marked completed before Phase 8 starts.
+PASS: CURRENT names Phase 8 as active.
+PASS: SOURCES records the Phase 8 phase file and review workspace.
+PASS: GATES documents the Phase 8 field-precondition target.
+PASS: Phase 7 clean-pin canonical baseline remains preserved.
+PASS: companion expected-divergence polarity remains exact and marker-driven.
+PASS: only Phase 8 phase file remains marked active.
+PASS: Phase 8 target is limited to bare/unknown-field fold-precondition parity.
+PASS: Phase 8 consumes VeIR pin d899d95004d4bd988c8456d686c33b11a7a5eb4a.
+PASS: Phase 8 reclassifies unspecified_add_fold.llzk as a positive no-fold case.
+PASS: Phase 8 clean-pin canonical baseline remains 21 pass (incl. expected-diverge), 0 fail.
+PASS: Phase 8 records 10 PASS cases, 10 EXPECTED-DIVERGE canonical cases, and 1 EXPECTED-LLZK-FAIL.
+PASS: nonconstant algebraic rewrite divergences remain out of scope.
+PASS: Phase 8 docs do not claim full Strategy A acceptance.
+PASS: no Phase 8 findings remain open.

@@ -7,7 +7,7 @@ Last reviewed: 2026-06-10
 | Source | Ref or retrieval | Use |
 |---|---:|---|
 | `docs/phases/PHASE-01-pins-and-repro.md` | local file, 2026-06-05 | Phase 1 objective, artifacts, gates, done criteria |
-| Accepted VeIR pin | `a0bb2fc8e6d38ab068247dfc6506ba63f5feb953` | Dependency commit llzk-lean must consume |
+| Accepted VeIR pin | `d899d95004d4bd988c8456d686c33b11a7a5eb4a` | Dependency commit llzk-lean must consume |
 | Accepted VeIR branch | `felt-review-structural-close` | Remote branch containing the accepted commit |
 | Accepted VeIR remote | `https://github.com/project-llzk/veir.git` | Canonical source repository for the accepted pin |
 | Companion `llzk-lean/lakefile.toml` | local file, 2026-06-05 | Declared companion `VeIR` dependency pin |
@@ -27,7 +27,9 @@ Last reviewed: 2026-06-10
 | `docs/harness/FELT_OP_GAPS.md` | local file, 2026-06-06 | Phase 3 accepted Felt operation coverage and gap ledger |
 | `docs/phases/PHASE-04-strategy-a-differential.md` | local file, 2026-06-09 | Phase 4 Strategy A differential objective, artifacts, gates, and done criteria |
 | `docs/phases/PHASE-05-strategy-a-pin-and-corpus.md` | local file, 2026-06-10 | Completed Phase 5 clean-pin consumption and corpus-expansion objective, artifacts, gates, and done criteria |
-| `docs/phases/PHASE-06-strategy-a-divergence-burndown.md` | local file, 2026-06-10 | Phase 6 divergence burn-down objective, artifacts, gates, and done criteria |
+| `docs/phases/PHASE-06-strategy-a-divergence-burndown.md` | local file, 2026-06-10 | Completed Phase 6 divergence burn-down objective, artifacts, gates, and done criteria |
+| `docs/phases/PHASE-07-strategy-a-modular-reduction.md` | local file, 2026-06-10 | Completed Phase 7 registered-field modular-reduction objective, artifacts, gates, and done criteria |
+| `docs/phases/PHASE-08-strategy-a-field-preconditions.md` | local file, 2026-06-10 | Active Phase 8 field-precondition objective, artifacts, gates, and done criteria |
 | `scripts/llzk-diff.sh` | local file, 2026-06-10 | VeIR side LLZK/VeIR differential driver; supports parse/print mode and Phase 6 `felt-combine,dce` canonicalization mode |
 | Companion `llzk-lean/differential/run-differential.sh` | local file, 2026-06-09 | Corpus wrapper around the consumed VeIR diff script |
 | Companion `llzk-lean/differential/corpus/` | local files, 2026-06-09 | Current Strategy A corpus and expected-divergence classification |
@@ -35,7 +37,9 @@ Last reviewed: 2026-06-10
 | Phase 4 fresh adversarial review evidence | `reviews/PHASE-04/evidence/adversarial-review-fresh.txt` | Confirms Phase 4 wrapper findings were resolved before Phase 5 |
 | Phase 5 clean-pin canonical differential evidence | `reviews/PHASE-05/evidence/differential-clean-pin-canonicalize.txt` | Companion llzk-lean expanded corpus canonical run through the default clean dependency driver |
 | Phase 5 exact-polarity guard evidence | `reviews/PHASE-05/evidence/polarity-guard.txt` | Proves a companion canonical `EXPECTED-DIVERGE` input fails on the wrong LLZK failure mode |
-| Phase 6 review workspace | `reviews/PHASE-06/` | Active Phase 6 request, findings, disposition, adversarial review, implementation evidence, and burn-down disposition |
+| Phase 6 review workspace | `reviews/PHASE-06/` | Completed Phase 6 request, findings, disposition, adversarial review, implementation evidence, and burn-down disposition |
+| Phase 7 review workspace | `reviews/PHASE-07/` | Completed Phase 7 request, findings, disposition, adversarial review, implementation evidence, and companion modular-reduction target |
+| Phase 8 review workspace | `reviews/PHASE-08/` | Active Phase 8 request, findings, disposition, adversarial review, implementation evidence, and companion field-precondition closeout |
 | Accepted local `llzk-opt` binary | `/nix/store/awcw2wiypa02sl5vx4xm06qwji68xz3h-llzk-debug-2.0.0/bin/llzk-opt` | LLZK executable for Strategy A differential testing |
 | Local LLVM/MLIR checkout | `/home/alh/llvm-project` at `49f12af164138123589263fe75ea5f1d356e8780` | Source and build tree for local MLIR/LLVM testing support |
 | Local `mlir-opt` | `/home/alh/llvm-project/build/bin/mlir-opt`, version `23.0.0git` | Local MLIR tool available for Strategy A testing |

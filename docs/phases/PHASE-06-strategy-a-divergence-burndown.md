@@ -1,6 +1,6 @@
 # Phase 6: Strategy A Divergence Burn-Down
 
-Status: active
+Status: completed; superseded by Phase 7
 Last reviewed: 2026-06-10
 Repository: veir
 Companion phase file: ../../../llzk-lean/docs/phases/PHASE-06-strategy-a-divergence-burndown.md

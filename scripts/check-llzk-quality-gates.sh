@@ -31,8 +31,8 @@ scripts/harness/validate-skills.sh
 
 if [[ "${VEIR_HARNESS_LOCAL_ONLY:-0}" == "1" ]]; then
   echo "WARN: companion llzk-lean dependency gate explicitly skipped via VEIR_HARNESS_LOCAL_ONLY=1."
-  echo "WARN: this is a local layout check, not Phase 6 acceptance evidence."
+  echo "WARN: this is a local layout check, not Phase 8 acceptance evidence."
 fi
 
 echo
-echo "Phase 6 harness gates completed."
+echo "Phase 8 harness gates completed."

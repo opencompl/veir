@@ -6,9 +6,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE="strict"
 COMPANION_LLZK_LEAN=""
 
-EXPECTED_VEIR_HEAD="a0bb2fc8e6d38ab068247dfc6506ba63f5feb953"
+EXPECTED_VEIR_HEAD="d899d95004d4bd988c8456d686c33b11a7a5eb4a"
 EXPECTED_VEIR_SHORT="${EXPECTED_VEIR_HEAD:0:12}"
-EXPECTED_LLZK_LEAN_HEAD="617702beadfbad6be784945e2bd98e8a788d357c"
+EXPECTED_LLZK_LEAN_HEAD="69c685bde3067026225747c6a1d399004b1c18a0"
 EXPECTED_LLZK_LEAN_SHORT="${EXPECTED_LLZK_LEAN_HEAD:0:12}"
 
 FAIL=0
@@ -132,6 +132,8 @@ require_file docs/phases/PHASE-03-felt-op-gap-ledger.md
 require_file docs/phases/PHASE-04-strategy-a-differential.md
 require_file docs/phases/PHASE-05-strategy-a-pin-and-corpus.md
 require_file docs/phases/PHASE-06-strategy-a-divergence-burndown.md
+require_file docs/phases/PHASE-07-strategy-a-modular-reduction.md
+require_file docs/phases/PHASE-08-strategy-a-field-preconditions.md
 require_file docs/phases/PHASE_TEMPLATE.md
 require_file docs/harness/CURRENT.md
 require_file docs/harness/SOURCES.md
@@ -168,6 +170,14 @@ require_file reviews/PHASE-06/request.md
 require_file reviews/PHASE-06/findings.md
 require_file reviews/PHASE-06/disposition.md
 require_file reviews/PHASE-06/adversarial-review.md
+require_file reviews/PHASE-07/request.md
+require_file reviews/PHASE-07/findings.md
+require_file reviews/PHASE-07/disposition.md
+require_file reviews/PHASE-07/adversarial-review.md
+require_file reviews/PHASE-08/request.md
+require_file reviews/PHASE-08/findings.md
+require_file reviews/PHASE-08/disposition.md
+require_file reviews/PHASE-08/adversarial-review.md
 require_executable scripts/harness/check-doc-freshness.sh
 require_executable scripts/harness/verify-companion-pin.sh
 require_executable scripts/harness/verify-llzk-source.sh
@@ -213,6 +223,18 @@ if [[ -d "${ROOT}/reviews/PHASE-06/evidence" ]]; then
   ok "found reviews/PHASE-06/evidence"
 else
   fail "missing reviews/PHASE-06/evidence"
+fi
+
+if [[ -d "${ROOT}/reviews/PHASE-07/evidence" ]]; then
+  ok "found reviews/PHASE-07/evidence"
+else
+  fail "missing reviews/PHASE-07/evidence"
+fi
+
+if [[ -d "${ROOT}/reviews/PHASE-08/evidence" ]]; then
+  ok "found reviews/PHASE-08/evidence"
+else
+  fail "missing reviews/PHASE-08/evidence"
 fi
 
 if [[ -n "$COMPANION_LLZK_LEAN" ]]; then

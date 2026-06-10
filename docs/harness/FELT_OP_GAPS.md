@@ -32,10 +32,10 @@ and an adversarial review disposition.
 | LLZK mnemonic | Accepted LLZK source | VeIR semantic model | VeIR rewrite/proof status | Phase 3 status |
 |---|---|---|---|---|
 | `const` | `Ops.td`, `Attrs.td`, `Ops.cpp`, fold tests | `Data.Felt.const`, `InterpModel.interpretConst` | Used by rewrite patterns and proofs as constant input/result | Covered baseline |
-| `add` | `Ops.td`, `Ops.cpp`, fold tests | `Data.Felt.add`, `InterpModel.interpretAdd` | Multiple verified patterns over add, including `right_identity_zero_add` and `constant_fold_add` | Covered with known LLZK modular-reduction caveat |
-| `sub` | `Ops.td`, `Ops.cpp`, fold tests | `Data.Felt.sub`, `InterpModel.interpretSub` | Verified patterns include `self_subtraction_to_zero`, `constant_fold_sub`, and telescoping rewrites | Covered with known LLZK modular-reduction caveat |
-| `mul` | `Ops.td`, `Ops.cpp`, fold tests | `Data.Felt.mul`, `InterpModel.interpretMul` | Verified patterns include `right_identity_one_mul`, `right_zero_mul`, `constant_fold_mul`, and `assoc_const_fold_mul` | Covered with known LLZK modular-reduction caveat |
-| `neg` | `Ops.td`, `Ops.cpp`, fold tests | `Data.Felt.neg`, `InterpModel.interpretNeg` | Verified patterns include `constant_fold_neg`, `add_neg_to_zero`, and `neg_neg_to_self` | Covered with known LLZK modular-reduction caveat |
+| `add` | `Ops.td`, `Ops.cpp`, fold tests | `Data.Felt.add`, `InterpModel.interpretAdd` | Multiple verified patterns over add, including `right_identity_zero_add` and `constant_fold_add` | Registered-field fold reduction aligned in Phase 7; bare/unknown-field fold precondition aligned in Phase 8 |
+| `sub` | `Ops.td`, `Ops.cpp`, fold tests | `Data.Felt.sub`, `InterpModel.interpretSub` | Verified patterns include `self_subtraction_to_zero`, `constant_fold_sub`, and telescoping rewrites | Registered-field fold reduction aligned in Phase 7; bare/unknown-field preconditions remain scoped gaps |
+| `mul` | `Ops.td`, `Ops.cpp`, fold tests | `Data.Felt.mul`, `InterpModel.interpretMul` | Verified patterns include `right_identity_one_mul`, `right_zero_mul`, `constant_fold_mul`, and `assoc_const_fold_mul` | Registered-field fold reduction aligned in Phase 7; bare/unknown-field preconditions remain scoped gaps |
+| `neg` | `Ops.td`, `Ops.cpp`, fold tests | `Data.Felt.neg`, `InterpModel.interpretNeg` | Verified patterns include `constant_fold_neg`, `add_neg_to_zero`, and `neg_neg_to_self` | Registered-field fold reduction aligned in Phase 7; bare/unknown-field preconditions remain scoped gaps |
 | `pow` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
 | `div` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
 | `uintdiv` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |

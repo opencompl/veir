@@ -1,6 +1,6 @@
 # Phase 2: LLZK Source Truth And Field Registry Parity
 
-Status: active
+Status: completed; superseded by Phase 3
 Last reviewed: 2026-06-06
 Repository: veir
 Companion phase file: ../../../llzk-lean/docs/phases/PHASE-02-llzk-source-truth.md

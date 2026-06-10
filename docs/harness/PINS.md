@@ -4,8 +4,8 @@ Last reviewed: 2026-06-10
 
 ## Accepted VeIR Pin
 
-- Commit: `a0bb2fc8e6d38ab068247dfc6506ba63f5feb953`
-- Short ref: `a0bb2fc8e6d3`
+- Commit: `d899d95004d4bd988c8456d686c33b11a7a5eb4a`
+- Short ref: `d899d95004d4`
 - Remote: `https://github.com/project-llzk/veir.git`
 - Branch at selection time: `felt-review-structural-close`
 - Mode: remote commit consumed by llzk-lean through Lake metadata and a clean
@@ -17,9 +17,11 @@ the Phase 1 accepted pin `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
 
 This pin preserves the Phase 2 field-registry update and source-truth gate,
 preserves the Phase 5 canonicalization-aware `scripts/llzk-diff.sh` driver
-consumed by the default llzk-lean dependency checkout, and adds the Phase 6
-DCE-enabled canonical differential path. The driver uses a built
-`.lake/build/bin/veir-opt` when present and falls back to `lake exec`.
+consumed by the default llzk-lean dependency checkout, adds the Phase 6
+DCE-enabled canonical differential path, adds Phase 7 registered-field
+fold-result reduction, and adds Phase 8 bare/unknown-field fold-precondition
+parity. The driver uses a built `.lake/build/bin/veir-opt` when present and
+falls back to `lake exec`.
 
 ## Required Companion State
 
@@ -40,7 +42,7 @@ commit:
   `VEIR_HARNESS_LOCAL_ONLY=1 scripts/check-llzk-quality-gates.sh` may skip the
   companion gate and must print that the result is not acceptance evidence.
 - Exploratory companion checks may report state, but dirty or mismatched
-  dependency state must not close Phase 5.
+  dependency state must not close a phase.
 
 ## Forbidden Hidden State
 
