@@ -1,0 +1,11 @@
+$ env LLZK_OPT=/nix/store/awcw2wiypa02sl5vx4xm06qwji68xz3h-llzk-debug-2.0.0/bin/llzk-opt VEIR_DIFF=/home/alh/LLZK/veir/scripts/llzk-diff.sh ./differential/run-differential.sh differential/corpus
+
+MODE-SKIP: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/registered_add_fold.llzk (canonicalization-only input)
+MODE-SKIP: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/registered_add_wrap.llzk (canonicalization-only input)
+MODE-SKIP: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/unspecified_add_fold.llzk (canonicalization-only input)
+EXPECTED-LLZK-FAIL: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/named_field_const.mlir
+PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/arithmetic_no_fold.llzk
+PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/const_identities.mlir
+PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/types_smoke.llzk
+
+Summary: 4 pass (incl. expected-diverge), 0 fail, 0 skip, 3 mode-skip (over 7 inputs)

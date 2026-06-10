@@ -51,3 +51,30 @@ Disposition: fixed by selecting VeIR commit
 `d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3`, pushing it to
 `project-llzk/veir`, and updating llzk-lean's Lake metadata plus clean
 dependency checkout to that commit.
+
+## P2-V5 - Accepted LLZK source remote is stale and ungated
+
+Severity: High
+
+`docs/harness/LLZK_SOURCE.md` recorded
+`git@github.com:Veridise/llzk-lib.git`, but the checked and fetched source
+repository uses `git@github.com:project-llzk/llzk-lib.git`. The source gate
+checked only the commit and `origin/main`, so it could not catch a remote
+provenance mismatch.
+
+Disposition: fixed by recording
+`git@github.com:project-llzk/llzk-lib.git` in the source ledger and requiring
+that exact `origin` URL in `scripts/harness/verify-llzk-source.sh` and doc
+freshness evidence.
+
+## P2-V6 - Source ledger files were listed but not all gated
+
+Severity: Medium
+
+The source ledger listed `OpInterfaces.td`, Felt lit tests, and unit tests, but
+the source gate only checked a subset of paths and parsed only ops/types/field
+registry facts deeply. That made the ledger broader than the mechanical gate.
+
+Disposition: fixed by checking every ledgered source path at the accepted
+commit and adding representative checks for Felt attrs, op interfaces, folder
+source, lit tests, and unit tests.

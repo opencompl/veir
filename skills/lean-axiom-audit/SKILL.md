@@ -9,8 +9,8 @@ Use this skill when reviewing Lean proof files, theorem claims, `axiom`, or
 
 - Check current source state before trusting historical proof summaries.
 - Prefer exact file paths and command evidence over broad claims.
-- Treat dirty dependency proof files as exploratory unless the dirty state is
-  explicitly reviewed.
+- Treat dirty dependency proof files as exploratory, not release or phase
+  acceptance evidence.
 
 ## Validation
 

@@ -1,0 +1,21 @@
+$ current phase
+7:- Active phase: Phase 4, Strategy A differential harness bootstrap.
+
+$ phase acceptance wording
+94:  corpus. Bootstrap does not satisfy this gate.
+
+$ accepted llzk-opt binary
+PASS: llzk-opt binary is executable
+
+$ llvm-project checkout
+49f12af164138123589263fe75ea5f1d356e8780
+PASS: llvm-project status command completed; empty status means clean
+23.0.0git
+LLVM (http://llvm.org/):
+  LLVM version 23.0.0git
+  Optimized build with assertions.
+
+$ Phase 4 implementation state
+ M scripts/llzk-diff.sh
+PASS: canonicalization-aware diff-script implementation is dispositioned under reviews/PHASE-04
+NOTE: no VeIR semantic definitions were changed for this initial Strategy A differential implementation.

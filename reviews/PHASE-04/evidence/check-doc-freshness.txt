@@ -1,0 +1,144 @@
+PASS: found docs/phases/PHASE-00-harness-reset.md
+PASS: found docs/phases/PHASE-01-pins-and-repro.md
+PASS: found docs/phases/PHASE-02-llzk-source-truth.md
+PASS: found docs/phases/PHASE-03-felt-op-gap-ledger.md
+PASS: found docs/phases/PHASE-04-strategy-a-differential.md
+PASS: found docs/phases/PHASE_TEMPLATE.md
+PASS: found docs/harness/CURRENT.md
+PASS: found docs/harness/SOURCES.md
+PASS: found docs/harness/GATES.md
+PASS: found docs/harness/FELT_OP_GAPS.md
+PASS: found docs/harness/LLZK_SOURCE.md
+PASS: found docs/harness/PINS.md
+PASS: found docs/harness/REVIEWS.md
+PASS: found reviews/PHASE-01/disposition.md
+PASS: found reviews/PHASE-01/findings.md
+PASS: found reviews/PHASE-01/request.md
+PASS: found reviews/PHASE-01/adversarial-review.md
+PASS: found reviews/PHASE-02/disposition.md
+PASS: found reviews/PHASE-02/findings.md
+PASS: found reviews/PHASE-02/request.md
+PASS: found reviews/PHASE-02/adversarial-review.md
+PASS: found reviews/PHASE-03/disposition.md
+PASS: found reviews/PHASE-03/findings.md
+PASS: found reviews/PHASE-03/request.md
+PASS: found reviews/PHASE-03/adversarial-review.md
+PASS: found reviews/PHASE-03/evidence/README.md
+PASS: found reviews/PHASE-04/disposition.md
+PASS: found reviews/PHASE-04/findings.md
+PASS: found reviews/PHASE-04/request.md
+PASS: found reviews/PHASE-04/adversarial-review.md
+PASS: found reviews/PHASE-04/evidence/README.md
+PASS: phase review date has ISO format
+PASS: docs/harness/CURRENT.md review date agrees with phase
+PASS: docs/harness/SOURCES.md review date agrees with phase
+PASS: docs/harness/GATES.md review date agrees with phase
+PASS: docs/harness/FELT_OP_GAPS.md review date agrees with phase
+PASS: docs/harness/LLZK_SOURCE.md review date agrees with phase
+PASS: docs/harness/PINS.md review date agrees with phase
+PASS: docs/harness/REVIEWS.md review date agrees with phase
+PASS: CURRENT names active phase
+PASS: SOURCES records accepted VeIR pin
+PASS: SOURCES records accepted LLZK source commit
+PASS: SOURCES records Felt operation gap ledger
+PASS: SOURCES records Phase 4 phase file
+PASS: SOURCES records VeIR differential script
+PASS: SOURCES records accepted local llzk-opt binary
+PASS: SOURCES records local llvm-project test infrastructure
+PASS: SOURCES and LLZK_SOURCE record accepted LLZK remote
+PASS: PINS records accepted VeIR commit
+PASS: FELT_OP_GAPS has exactly 18 operation rows
+PASS: FELT_OP_GAPS records const exactly once
+PASS: FELT_OP_GAPS records add exactly once
+PASS: FELT_OP_GAPS records sub exactly once
+PASS: FELT_OP_GAPS records mul exactly once
+PASS: FELT_OP_GAPS records pow exactly once
+PASS: FELT_OP_GAPS records div exactly once
+PASS: FELT_OP_GAPS records uintdiv exactly once
+PASS: FELT_OP_GAPS records sintdiv exactly once
+PASS: FELT_OP_GAPS records umod exactly once
+PASS: FELT_OP_GAPS records smod exactly once
+PASS: FELT_OP_GAPS records neg exactly once
+PASS: FELT_OP_GAPS records inv exactly once
+PASS: FELT_OP_GAPS records bit_and exactly once
+PASS: FELT_OP_GAPS records bit_or exactly once
+PASS: FELT_OP_GAPS records bit_xor exactly once
+PASS: FELT_OP_GAPS records bit_not exactly once
+PASS: FELT_OP_GAPS records shl exactly once
+PASS: FELT_OP_GAPS records shr exactly once
+PASS: FELT_OP_GAPS marks pow semantic model missing
+PASS: FELT_OP_GAPS marks pow as a gap
+PASS: FELT_OP_GAPS marks div semantic model missing
+PASS: FELT_OP_GAPS marks div as a gap
+PASS: FELT_OP_GAPS marks uintdiv semantic model missing
+PASS: FELT_OP_GAPS marks uintdiv as a gap
+PASS: FELT_OP_GAPS marks sintdiv semantic model missing
+PASS: FELT_OP_GAPS marks sintdiv as a gap
+PASS: FELT_OP_GAPS marks umod semantic model missing
+PASS: FELT_OP_GAPS marks umod as a gap
+PASS: FELT_OP_GAPS marks smod semantic model missing
+PASS: FELT_OP_GAPS marks smod as a gap
+PASS: FELT_OP_GAPS marks inv semantic model missing
+PASS: FELT_OP_GAPS marks inv as a gap
+PASS: FELT_OP_GAPS marks bit_and semantic model missing
+PASS: FELT_OP_GAPS marks bit_and as a gap
+PASS: FELT_OP_GAPS marks bit_or semantic model missing
+PASS: FELT_OP_GAPS marks bit_or as a gap
+PASS: FELT_OP_GAPS marks bit_xor semantic model missing
+PASS: FELT_OP_GAPS marks bit_xor as a gap
+PASS: FELT_OP_GAPS marks bit_not semantic model missing
+PASS: FELT_OP_GAPS marks bit_not as a gap
+PASS: FELT_OP_GAPS marks shl semantic model missing
+PASS: FELT_OP_GAPS marks shl as a gap
+PASS: FELT_OP_GAPS marks shr semantic model missing
+PASS: FELT_OP_GAPS marks shr as a gap
+PASS: Phase 2 disposition exists
+PASS: Phase 3 disposition exists
+PASS: Phase 4 disposition exists
+PASS: evidence present reviews/PHASE-02/evidence/llzk-lib-refs.txt
+PASS: evidence present reviews/PHASE-02/evidence/llzk-field-registry.txt
+PASS: evidence present reviews/PHASE-02/evidence/llzk-felt-ops.txt
+PASS: evidence present reviews/PHASE-02/evidence/verify-llzk-source-after.txt
+PASS: evidence present reviews/PHASE-02/evidence/verify-companion-pin-after.txt
+PASS: evidence present reviews/PHASE-02/evidence/lake-build-veir-after.txt
+PASS: evidence present reviews/PHASE-02/evidence/adversarial-review.txt
+PASS: evidence present reviews/PHASE-03/evidence/README.md
+PASS: evidence present reviews/PHASE-03/evidence/check-doc-freshness.txt
+PASS: evidence present reviews/PHASE-03/evidence/verify-llzk-source.txt
+PASS: evidence present reviews/PHASE-03/evidence/verify-companion-pin.txt
+PASS: evidence present reviews/PHASE-03/evidence/doctor-companion.txt
+PASS: evidence present reviews/PHASE-03/evidence/quality-gates.txt
+PASS: evidence present reviews/PHASE-03/evidence/validate-skills.txt
+PASS: evidence present reviews/PHASE-03/evidence/lake-build.txt
+PASS: evidence present reviews/PHASE-03/evidence/adversarial-review.txt
+PASS: evidence present reviews/PHASE-04/evidence/README.md
+PASS: evidence present reviews/PHASE-04/evidence/check-doc-freshness.txt
+PASS: evidence present reviews/PHASE-04/evidence/verify-llzk-source.txt
+PASS: evidence present reviews/PHASE-04/evidence/verify-companion-pin.txt
+PASS: evidence present reviews/PHASE-04/evidence/doctor-companion.txt
+PASS: evidence present reviews/PHASE-04/evidence/quality-gates.txt
+PASS: evidence present reviews/PHASE-04/evidence/validate-skills.txt
+PASS: evidence present reviews/PHASE-04/evidence/lake-build.txt
+PASS: evidence present reviews/PHASE-04/evidence/adversarial-review.txt
+PASS: verify-llzk-source evidence reports no failures
+PASS: companion pin evidence reports no failures
+PASS: companion doctor evidence reports no failures
+PASS: quality-gates evidence records wrapper completion
+PASS: quality-gates evidence includes strict companion doctor success
+PASS: skill evidence reports no failures
+PASS: lake build evidence reports success
+PASS: adversarial evidence confirms missing-op semantics were not added
+PASS: adversarial evidence confirms no VeIR source changes
+PASS: Phase 4 source evidence reports no failures
+PASS: Phase 4 companion pin evidence reports no failures
+PASS: Phase 4 companion doctor evidence reports no failures
+PASS: Phase 4 quality-gates evidence records wrapper completion
+PASS: Phase 4 quality-gates evidence includes strict companion doctor success
+PASS: Phase 4 skill evidence reports no failures
+PASS: Phase 4 lake build evidence reports success
+PASS: Phase 4 adversarial evidence confirms llzk-opt is executable
+PASS: Phase 4 adversarial evidence confirms no semantic or diff-script implementation edits
+PASS: Phase 4 docs distinguish bootstrap from Strategy A acceptance
+PASS: Phase 2 llzk-lib ref evidence records accepted remote
+
+doc freshness summary: 0 fail

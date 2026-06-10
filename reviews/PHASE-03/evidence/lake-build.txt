@@ -1,0 +1,32 @@
+⚠ [82/461] Replayed Veir.Verifier
+warning: Veir/Verifier.lean:2107:23: This simp argument is unused:
+  throw
+
+Hint: Omit it from the simp argument list.
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+  ̵  ̵ ̵ ̵bind,
+  ̲  ̲ ̲ ̲Except.bind, throw,̵ ̵t̵h̵r̵o̵w̵The, MonadExceptOf.throw, pure, Except.pure, dite_not,
+  ̵  ̵ ̵ ̵ite_not] at opVerify
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Veir/Verifier.lean:2107:30: This simp argument is unused:
+  throwThe
+
+Hint: Omit it from the simp argument list.
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+  ̵  ̵ ̵ ̵bind,
+  ̲  ̲ ̲ ̲Except.bind, throw, t̵h̵r̵o̵w̵T̵h̵e̵,̵ ̵MonadExceptOf.throw, pure, Except.pure, dite_not,
+  ̵  ̵ ̵ ̵ite_not] at opVerify
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Veir/Verifier.lean:2107:40: This simp argument is unused:
+  MonadExceptOf.throw
+
+Hint: Omit it from the simp argument list.
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+  ̵  ̵ ̵ ̵bind,
+  ̲  ̲ ̲ ̲Except.bind, throw, throwThe, M̵o̵n̵a̵d̵E̵x̵c̵e̵pt̵O̵f̵.̵t̵h̵r̵o̵w̵,̵ ̵p̵ure, Except.pure, dite_not,
+  ̵  ̵ ̵ ̵ite_not] at opVerify
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+Build completed successfully (2567 jobs).

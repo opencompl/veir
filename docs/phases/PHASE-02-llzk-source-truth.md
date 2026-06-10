@@ -22,6 +22,7 @@ for later verifier, differential, missing-op, and certificate work.
 - Accepted VeIR pin consumed by llzk-lean:
   `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
 - Local `llzk-lib` checkout after fetch:
+  - origin remote: `git@github.com:project-llzk/llzk-lib.git`
   - local `main`: `30b0fa1eb77de154ff60c13fa88ef286d8b01c65`
   - fetched `origin/main`: `db922857bc5a88a9107627ef6b36a8b5e57bc5c2`
   - local checkout is behind `origin/main` and must not be treated as current
@@ -86,8 +87,8 @@ The initial accepted LLZK source ref defines these built-in fields:
 ## Gates To Implement
 
 - `scripts/harness/verify-llzk-source.sh --llzk-lib ../llzk-lib` fails if
-  `../llzk-lib origin/main` is unavailable or if the accepted source ref is not
-  recorded.
+  `../llzk-lib origin` is not `git@github.com:project-llzk/llzk-lib.git`, if
+  `origin/main` is unavailable, or if the accepted source ref is not recorded.
 - The source gate extracts or checks the 18 Felt op mnemonics:
   `const`, `add`, `sub`, `mul`, `pow`, `div`, `uintdiv`, `sintdiv`, `umod`,
   `smod`, `neg`, `inv`, `bit_and`, `bit_or`, `bit_xor`, `bit_not`, `shl`,
@@ -101,8 +102,9 @@ The initial accepted LLZK source ref defines these built-in fields:
 ## Review Requirements
 
 - Every source-truth claim must cite an exact `llzk-lib` commit and file path.
-- Review evidence must include `git -C ../llzk-lib rev-parse HEAD origin/main`
-  and a diff or extraction showing relevant Felt source facts.
+- Review evidence must include `git -C ../llzk-lib remote get-url origin`,
+  `git -C ../llzk-lib rev-parse HEAD origin/main`, and a diff or extraction
+  showing relevant Felt source facts.
 - The reviewer must explicitly check for stale local `llzk-lib` use.
 - The reviewer must verify that `bn128`/`bn254` no longer use the grumpkin
   scalar in VeIR and that `grumpkin`/`koalabear` are present.
@@ -111,7 +113,7 @@ The initial accepted LLZK source ref defines these built-in fields:
 ## Done Criteria
 
 - `docs/harness/LLZK_SOURCE.md` records the accepted LLZK Felt source ref and
-  files.
+  files, including the accepted `llzk-lib` remote URL.
 - VeIR `feltPrime` matches the accepted LLZK built-in field registry.
 - A source-truth gate catches the old `bn128`/`bn254` value and missing
   `grumpkin` or `koalabear` entries.

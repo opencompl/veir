@@ -1,0 +1,12 @@
+$ fresh adversarial review probes, 2026-06-09
+
+PASS: direct VeIR canonical diff accepts flags before the input.
+PASS: direct VeIR canonical diff accepts flags after the input.
+PASS: direct VeIR canonical diff reports registered_add_wrap as a real divergence.
+PASS: companion llzk-lean canonical run over canonical-only expected-divergence corpus reports 3 expected divergences.
+PASS: companion llzk-lean parse/print run over only canonical-only inputs now exits non-zero with "no inputs executed".
+PASS: companion llzk-lean canonical run without VEIR_DIFF now exits early with an actionable clean-pin/override message.
+PASS: full companion llzk-lean parse/print corpus remains 4 pass, 0 fail, 3 mode-skip.
+PASS: full companion llzk-lean canonical corpus remains 7 pass, 0 fail.
+PASS: llzk-lean and VeIR check-doc-freshness.sh both report 0 fail after fixes.
+PASS: llzk-lean and VeIR strict doctors both report 0 fail, 0 warn after fixes.

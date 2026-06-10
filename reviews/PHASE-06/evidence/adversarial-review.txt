@@ -1,0 +1,9 @@
+$ Phase 6 bootstrap adversarial checks
+
+PASS: Phase 5 is marked completed before Phase 6 starts.
+PASS: docs/harness/CURRENT.md names Phase 6 as active.
+PASS: docs/harness/SOURCES.md records the Phase 6 phase file.
+PASS: Phase 5 exact-polarity guard evidence is present.
+PASS: companion expected-divergence polarity remains exact and marker-driven.
+PASS: Phase 6 docs preserve the clean-pin canonical baseline without claiming full Strategy A acceptance.
+PASS: no Phase 6 bootstrap findings remain open.

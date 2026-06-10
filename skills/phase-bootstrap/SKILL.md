@@ -8,7 +8,8 @@ Use this skill when creating or closing a phase bootstrap file.
 
 - Start from `docs/phases/PHASE_TEMPLATE.md`.
 - Update `docs/harness/CURRENT.md`, `docs/harness/SOURCES.md`, and
-  `docs/harness/GATES.md` with exact refs.
+  `docs/harness/GATES.md` with exact refs; update `docs/harness/PINS.md` when
+  the phase changes companion dependency state.
 - Create `reviews/<PHASE>/request.md`, `findings.md`, `disposition.md`, and
   `evidence/`.
 

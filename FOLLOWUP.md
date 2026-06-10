@@ -1,8 +1,10 @@
 # VEIR — Follow-up / Backlog (beyond the Felt-dialect review)
 
-> Created 2026-06-01. Companion to `REVIEW.md` (which is Felt-port-specific).
-> These are deliberately-deferred items surfaced during the Felt review that
-> deserve their own dedicated effort. Nothing here is done yet.
+> Created 2026-06-01. Last refreshed 2026-06-05. Companion to `REVIEW.md`
+> (which is Felt-port-specific). These are deliberately-deferred items surfaced
+> during the Felt review that deserve their own dedicated effort. Some later
+> sections now record completed scoping work; open items remain explicitly
+> called out.
 
 ---
 
@@ -86,7 +88,8 @@ port and the LLZK-dialect work are local divergences.
   from the structural-close spike depends on those signatures).
 - The `llzk-lean` Lake pin (`lakefile.toml` → `project-llzk/veir @ <rev>`)
   must be bumped deliberately after any sync, and the proof basis re-checked
-  (axiom audit on `Veir.Passes.Felt.Proofs`).
+  through the Phase 1 pin gates (`docs/harness/PINS.md` in both repos) plus an
+  axiom audit on the Felt proof surface.
 
 **Suggested procedure (document + script it):**
 1. `git remote add upstream https://github.com/opencompl/veir.git`
@@ -97,8 +100,17 @@ port and the LLZK-dialect work are local divergences.
    (must be green) + re-run the Felt FileCheck tests + a `#print axioms` check
    on the Felt proofs.
 5. Bump the `llzk-lean` `lakefile.toml` pin to the new `project-llzk/veir`
-   rev, then `lake update` (regenerates `lake-manifest.json`) and rebuild.
-6. Re-run the differential harness once it is meaningful (see `REVIEW.md` VH2).
+   rev, regenerate `lake-manifest.json`, and refresh `.lake/packages/VeIR` to a
+   clean checkout at that rev.
+6. Run the strict pin gates:
+   `llzk-lean/scripts/harness/verify-pins.sh --workspace-veir ../veir` from the
+   llzk-lean root and
+   `veir/scripts/harness/verify-companion-pin.sh --companion-llzk-lean ../llzk-lean`
+   from the veir root. These gates check the remote URL, manifest `type`, `rev`,
+   `inputRev`, dependency HEAD, and dependency cleanliness.
+7. Rebuild both sides and re-run the differential harness once it is meaningful
+   (see `REVIEW.md` VH2). Record evidence under the active phase review
+   directory.
 
 This should become a documented, repeatable "upstream sync" runbook (ideally a
 small script under `scripts/`), since the fork will need it recurringly.
@@ -217,9 +229,10 @@ keystone inherits VEIR's single largest trust-base assumption.
 
 ## 3. Pointers
 - Felt-port findings: `REVIEW.md` (this repo).
+- Current companion pin and update rules: `docs/harness/PINS.md` in this repo
+  and `../llzk-lean/docs/harness/PINS.md`.
 - **F2 interpreter-semantics PoC: `Veir/Passes/Felt/InterpModel.lean`** + the §F2
   memo above.
 - Bridge / assurance story: `../llzk-lean/docs/REVIEW.md`.
 - Structural-close spike (reusable lemma library + closed patterns):
-  `../llzk-lean/Spike3.lean` (to be moved into `Veir/Passes/Felt/` per the
-  step-4 plan).
+  `Veir/Passes/Felt/RewriteLemmas.lean`.

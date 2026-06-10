@@ -10,8 +10,10 @@ LLZK/VeIR parity.
 - Start from `docs/harness/SOURCES.md`; do not rely on historical review notes
   unless the claim is revalidated.
 - Record exact local files, refs, and command outputs under
-  `reviews/PHASE-00/evidence/` when the claim affects Phase 0.
-- Keep semantic Felt changes out of Phase 0.
+  the active phase review directory, e.g. `reviews/PHASE-01/evidence/` for the
+  current pin phase.
+- Keep semantic Felt changes out of reproducible-pin phases unless the phase
+  explicitly scopes them in.
 
 ## Validation
 

@@ -1,13 +1,13 @@
 # LLZK Felt Source Ledger
 
-Last reviewed: 2026-06-06
+Last reviewed: 2026-06-10
 
 ## Accepted Source
 
 | Item | Value |
 |---|---|
 | Repository | `../llzk-lib` |
-| Remote | `git@github.com:Veridise/llzk-lib.git` |
+| Remote | `git@github.com:project-llzk/llzk-lib.git` |
 | Accepted ref | `origin/main` |
 | Accepted commit | `db922857bc5a88a9107627ef6b36a8b5e57bc5c2` |
 | Retrieval form | `git -C ../llzk-lib show db922857bc5a88a9107627ef6b36a8b5e57bc5c2:<path>` |
@@ -86,6 +86,8 @@ Run:
 scripts/harness/verify-llzk-source.sh --llzk-lib ../llzk-lib
 ```
 
-The gate reads source through `git show` at the accepted commit, checks
-`origin/main`, verifies the Felt op mnemonic list above, verifies the field
-registry, and checks VeIR's local `feltPrime` mirror.
+The gate reads source through `git show` at the accepted commit, checks the
+`origin` remote URL and `origin/main`, verifies every ledgered source file is
+present, checks representative syntax and fold facts from the ledgered files,
+verifies the Felt op mnemonic list above, verifies the field registry, and
+checks VeIR's local `feltPrime` mirror.

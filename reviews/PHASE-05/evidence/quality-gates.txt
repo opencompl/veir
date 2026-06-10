@@ -1,0 +1,383 @@
+PASS: tool git is available
+PASS: tool lake is available
+PASS: optional tool uv is available
+PASS: git root is /home/alh/LLZK/veir
+PASS: VeIR HEAD matches bootstrap input 220cd215579b
+PASS: found AGENTS.md
+PASS: found docs/phases/PHASE-00-harness-reset.md
+PASS: found docs/phases/PHASE-01-pins-and-repro.md
+PASS: found docs/phases/PHASE-02-llzk-source-truth.md
+PASS: found docs/phases/PHASE-03-felt-op-gap-ledger.md
+PASS: found docs/phases/PHASE-04-strategy-a-differential.md
+PASS: found docs/phases/PHASE-05-strategy-a-pin-and-corpus.md
+PASS: found docs/phases/PHASE_TEMPLATE.md
+PASS: found docs/harness/CURRENT.md
+PASS: found docs/harness/SOURCES.md
+PASS: found docs/harness/GATES.md
+PASS: found docs/harness/FELT_OP_GAPS.md
+PASS: found docs/harness/LLZK_SOURCE.md
+PASS: found docs/harness/PINS.md
+PASS: found docs/harness/REVIEWS.md
+PASS: found reviews/PHASE-00/request.md
+PASS: found reviews/PHASE-00/findings.md
+PASS: found reviews/PHASE-00/disposition.md
+PASS: found reviews/PHASE-00/adversarial-review.md
+PASS: found reviews/PHASE-01/request.md
+PASS: found reviews/PHASE-01/findings.md
+PASS: found reviews/PHASE-01/disposition.md
+PASS: found reviews/PHASE-01/adversarial-review.md
+PASS: found reviews/PHASE-02/request.md
+PASS: found reviews/PHASE-02/findings.md
+PASS: found reviews/PHASE-02/disposition.md
+PASS: found reviews/PHASE-02/adversarial-review.md
+PASS: found reviews/PHASE-03/request.md
+PASS: found reviews/PHASE-03/findings.md
+PASS: found reviews/PHASE-03/disposition.md
+PASS: found reviews/PHASE-03/adversarial-review.md
+PASS: found reviews/PHASE-04/request.md
+PASS: found reviews/PHASE-04/findings.md
+PASS: found reviews/PHASE-04/disposition.md
+PASS: found reviews/PHASE-04/adversarial-review.md
+PASS: found reviews/PHASE-05/request.md
+PASS: found reviews/PHASE-05/findings.md
+PASS: found reviews/PHASE-05/disposition.md
+PASS: found reviews/PHASE-05/adversarial-review.md
+PASS: executable scripts/harness/check-doc-freshness.sh
+PASS: executable scripts/harness/verify-companion-pin.sh
+PASS: executable scripts/harness/verify-llzk-source.sh
+PASS: executable scripts/harness/validate-skills.sh
+PASS: found reviews/PHASE-00/evidence
+PASS: found reviews/PHASE-01/evidence
+PASS: found reviews/PHASE-02/evidence
+PASS: found reviews/PHASE-03/evidence
+PASS: found reviews/PHASE-04/evidence
+PASS: found reviews/PHASE-05/evidence
+PASS: companion llzk-lean path is /home/alh/LLZK/llzk-lean
+PASS: llzk-lean HEAD matches bootstrap input 617702beadfb
+accepted VeIR pin: 220cd215579b435c3c22ce86b34a3f4ce2ca276e
+accepted VeIR source: https://github.com/project-llzk/veir.git felt-review-structural-close
+PASS: local VeIR HEAD equals accepted pin 220cd215579b
+PASS: companion llzk-lean path is /home/alh/LLZK/llzk-lean
+PASS: companion lakefile.toml uses accepted VeIR remote https://github.com/project-llzk/veir.git
+PASS: companion lakefile.toml pins VeIR 220cd215579b
+PASS: companion lake-manifest.json pins VeIR 220cd215579b
+PASS: companion lake-manifest.json inputRev pins VeIR 220cd215579b
+PASS: companion lake-manifest.json uses accepted VeIR remote https://github.com/project-llzk/veir.git
+PASS: companion lake-manifest.json records VeIR as a git dependency
+PASS: companion Lake files agree on VeIR 220cd215579b
+PASS: companion dependency checkout HEAD is 220cd215579b
+PASS: companion dependency checkout HEAD equals manifest rev
+PASS: companion dependency checkout is clean
+
+companion pin verification summary: 0 fail, 0 warn, mode=strict
+PASS: companion pin verification passed
+
+doctor summary: 0 fail, 0 warn, mode=strict
+PASS: llzk-lib path is /home/alh/LLZK/llzk-lib
+PASS: found docs/harness/LLZK_SOURCE.md
+PASS: LLZK source ledger records db922857bc5a
+PASS: LLZK source ledger records accepted remote git@github.com:project-llzk/llzk-lib.git
+PASS: LLZK source ledger records lib/Util/Field.cpp
+PASS: LLZK source ledger records include/llzk/Dialect/Felt/IR/Ops.td
+PASS: LLZK source ledger records include/llzk/Dialect/Felt/IR/Types.td
+PASS: LLZK source ledger records include/llzk/Dialect/Felt/IR/Attrs.td
+PASS: LLZK source ledger records include/llzk/Dialect/Felt/IR/OpInterfaces.td
+PASS: LLZK source ledger records lib/Dialect/Felt/IR/Ops.cpp
+PASS: LLZK source ledger records lib/Util/Field.cpp
+PASS: LLZK source ledger records test/Dialect/Felt/felt_arith_pass.llzk
+PASS: LLZK source ledger records test/Dialect/Felt/felt_arith_fail.llzk
+PASS: LLZK source ledger records test/Dialect/Felt/felt_const_fold.llzk
+PASS: LLZK source ledger records test/Dialect/Felt/felt_spec_pass.llzk
+PASS: LLZK source ledger records test/Dialect/Felt/types_pass.llzk
+PASS: LLZK source ledger records unittests/IR/FeltFoldTests.cpp
+accepted LLZK source: db922857bc5a88a9107627ef6b36a8b5e57bc5c2 (origin/main, git@github.com:project-llzk/llzk-lib.git)
+PASS: llzk-lib origin remote matches git@github.com:project-llzk/llzk-lib.git
+PASS: accepted LLZK commit exists locally
+PASS: origin/main equals accepted LLZK source db922857bc5a
+WARN: llzk-lib worktree HEAD 30b0fa1eb77de154ff60c13fa88ef286d8b01c65 differs; gate reads db922857bc5a88a9107627ef6b36a8b5e57bc5c2 with git show
+PASS: accepted source contains include/llzk/Dialect/Felt/IR/Ops.td
+PASS: accepted source contains include/llzk/Dialect/Felt/IR/Types.td
+PASS: accepted source contains include/llzk/Dialect/Felt/IR/Attrs.td
+PASS: accepted source contains include/llzk/Dialect/Felt/IR/OpInterfaces.td
+PASS: accepted source contains lib/Dialect/Felt/IR/Ops.cpp
+PASS: accepted source contains lib/Util/Field.cpp
+PASS: accepted source contains test/Dialect/Felt/felt_arith_pass.llzk
+PASS: accepted source contains test/Dialect/Felt/felt_arith_fail.llzk
+PASS: accepted source contains test/Dialect/Felt/felt_const_fold.llzk
+PASS: accepted source contains test/Dialect/Felt/felt_spec_pass.llzk
+PASS: accepted source contains test/Dialect/Felt/types_pass.llzk
+PASS: accepted source contains unittests/IR/FeltFoldTests.cpp
+PASS: accepted Felt op mnemonics match Phase 2 ledger
+PASS: registry declares bn128
+PASS: registry declares bn254
+PASS: registry declares grumpkin
+PASS: registry declares babybear
+PASS: registry declares goldilocks
+PASS: registry declares mersenne31
+PASS: registry declares koalabear
+PASS: registry maps bn128 to accepted prime
+PASS: registry maps bn254 to accepted prime
+PASS: registry maps grumpkin to accepted prime
+PASS: registry maps babybear to accepted prime
+PASS: registry maps goldilocks to accepted prime
+PASS: registry maps mersenne31 to accepted prime
+PASS: registry maps koalabear to accepted prime
+PASS: Felt type source defines !felt.type
+PASS: Felt type source carries optional field-name parameter
+PASS: Felt attrs source defines FeltConstAttr
+PASS: Felt attrs source defines const mnemonic
+PASS: Felt attrs source defines FieldSpecAttr
+PASS: Felt attrs source defines field mnemonic
+PASS: Felt attrs source exposes getFieldName
+PASS: Felt attrs source lists grumpkin as built-in
+PASS: Felt attrs source lists koalabear as built-in
+PASS: Felt op interface source defines binary interface
+PASS: Felt op interface source exposes getLhs
+PASS: Felt op interface source exposes getRhs
+PASS: Felt folder source has binary fold data helper
+PASS: Felt folder source resolves registered fields
+PASS: Felt folder source reduces add folds
+PASS: Felt verifier-failure test rejects unknown fields
+PASS: Felt fold test covers add wrap-around
+PASS: Felt fold test covers signed division
+PASS: Felt field-spec test covers custom field syntax
+PASS: Felt type test covers bare felt type syntax
+PASS: Felt unit tests cover unspecified-field no-fold
+PASS: VeIR feltPrime cites current LLZK registry path
+PASS: VeIR feltPrime mentions bn128
+PASS: VeIR feltPrime mentions bn254
+PASS: VeIR feltPrime mentions grumpkin
+PASS: VeIR feltPrime mentions babybear
+PASS: VeIR feltPrime mentions goldilocks
+PASS: VeIR feltPrime mentions mersenne31
+PASS: VeIR feltPrime mentions koalabear
+PASS: VeIR feltPrime maps bn254 to accepted prime
+PASS: VeIR feltPrime maps bn128 to accepted prime
+PASS: VeIR feltPrime maps grumpkin to accepted prime
+PASS: VeIR feltPrime maps babybear to accepted prime
+PASS: VeIR feltPrime maps goldilocks to accepted prime
+PASS: VeIR feltPrime maps mersenne31 to accepted prime
+PASS: VeIR feltPrime maps koalabear to accepted prime
+PASS: VeIR feltPrime file does not mention stale lib/Analysis/Field.cpp
+
+LLZK source verification summary: 0 fail, 1 warn
+PASS: found docs/phases/PHASE-00-harness-reset.md
+PASS: found docs/phases/PHASE-01-pins-and-repro.md
+PASS: found docs/phases/PHASE-02-llzk-source-truth.md
+PASS: found docs/phases/PHASE-03-felt-op-gap-ledger.md
+PASS: found docs/phases/PHASE-04-strategy-a-differential.md
+PASS: found docs/phases/PHASE-05-strategy-a-pin-and-corpus.md
+PASS: found docs/phases/PHASE_TEMPLATE.md
+PASS: found docs/harness/CURRENT.md
+PASS: found docs/harness/SOURCES.md
+PASS: found docs/harness/GATES.md
+PASS: found docs/harness/FELT_OP_GAPS.md
+PASS: found docs/harness/LLZK_SOURCE.md
+PASS: found docs/harness/PINS.md
+PASS: found docs/harness/REVIEWS.md
+PASS: found reviews/PHASE-01/disposition.md
+PASS: found reviews/PHASE-01/findings.md
+PASS: found reviews/PHASE-01/request.md
+PASS: found reviews/PHASE-01/adversarial-review.md
+PASS: found reviews/PHASE-02/disposition.md
+PASS: found reviews/PHASE-02/findings.md
+PASS: found reviews/PHASE-02/request.md
+PASS: found reviews/PHASE-02/adversarial-review.md
+PASS: found reviews/PHASE-03/disposition.md
+PASS: found reviews/PHASE-03/findings.md
+PASS: found reviews/PHASE-03/request.md
+PASS: found reviews/PHASE-03/adversarial-review.md
+PASS: found reviews/PHASE-03/evidence/README.md
+PASS: found reviews/PHASE-04/disposition.md
+PASS: found reviews/PHASE-04/findings.md
+PASS: found reviews/PHASE-04/request.md
+PASS: found reviews/PHASE-04/adversarial-review.md
+PASS: found reviews/PHASE-04/evidence/README.md
+PASS: found reviews/PHASE-05/disposition.md
+PASS: found reviews/PHASE-05/findings.md
+PASS: found reviews/PHASE-05/request.md
+PASS: found reviews/PHASE-05/adversarial-review.md
+PASS: found reviews/PHASE-05/evidence/README.md
+PASS: phase review date has ISO format
+PASS: docs/harness/CURRENT.md review date agrees with phase
+PASS: docs/harness/SOURCES.md review date agrees with phase
+PASS: docs/harness/GATES.md review date agrees with phase
+PASS: docs/harness/FELT_OP_GAPS.md review date agrees with phase
+PASS: docs/harness/LLZK_SOURCE.md review date agrees with phase
+PASS: docs/harness/PINS.md review date agrees with phase
+PASS: docs/harness/REVIEWS.md review date agrees with phase
+PASS: CURRENT names active phase
+PASS: CURRENT no longer says corpus expansion is future work
+PASS: CURRENT no longer says clean-pin corpus migration is only starting
+PASS: CURRENT no longer describes the canonical corpus as seed-only
+PASS: SOURCES records accepted VeIR pin
+PASS: SOURCES records accepted LLZK source commit
+PASS: SOURCES records Felt operation gap ledger
+PASS: SOURCES records Phase 4 phase file
+PASS: SOURCES records Phase 5 phase file
+PASS: SOURCES records Phase 4 implementation and fresh review evidence
+PASS: SOURCES records VeIR differential script
+PASS: SOURCES records accepted local llzk-opt binary
+PASS: SOURCES records local llvm-project test infrastructure
+PASS: SOURCES and LLZK_SOURCE record accepted LLZK remote
+PASS: PINS records accepted VeIR commit
+PASS: FELT_OP_GAPS has exactly 18 operation rows
+PASS: FELT_OP_GAPS records const exactly once
+PASS: FELT_OP_GAPS records add exactly once
+PASS: FELT_OP_GAPS records sub exactly once
+PASS: FELT_OP_GAPS records mul exactly once
+PASS: FELT_OP_GAPS records pow exactly once
+PASS: FELT_OP_GAPS records div exactly once
+PASS: FELT_OP_GAPS records uintdiv exactly once
+PASS: FELT_OP_GAPS records sintdiv exactly once
+PASS: FELT_OP_GAPS records umod exactly once
+PASS: FELT_OP_GAPS records smod exactly once
+PASS: FELT_OP_GAPS records neg exactly once
+PASS: FELT_OP_GAPS records inv exactly once
+PASS: FELT_OP_GAPS records bit_and exactly once
+PASS: FELT_OP_GAPS records bit_or exactly once
+PASS: FELT_OP_GAPS records bit_xor exactly once
+PASS: FELT_OP_GAPS records bit_not exactly once
+PASS: FELT_OP_GAPS records shl exactly once
+PASS: FELT_OP_GAPS records shr exactly once
+PASS: FELT_OP_GAPS marks pow semantic model missing
+PASS: FELT_OP_GAPS marks pow as a gap
+PASS: FELT_OP_GAPS marks div semantic model missing
+PASS: FELT_OP_GAPS marks div as a gap
+PASS: FELT_OP_GAPS marks uintdiv semantic model missing
+PASS: FELT_OP_GAPS marks uintdiv as a gap
+PASS: FELT_OP_GAPS marks sintdiv semantic model missing
+PASS: FELT_OP_GAPS marks sintdiv as a gap
+PASS: FELT_OP_GAPS marks umod semantic model missing
+PASS: FELT_OP_GAPS marks umod as a gap
+PASS: FELT_OP_GAPS marks smod semantic model missing
+PASS: FELT_OP_GAPS marks smod as a gap
+PASS: FELT_OP_GAPS marks inv semantic model missing
+PASS: FELT_OP_GAPS marks inv as a gap
+PASS: FELT_OP_GAPS marks bit_and semantic model missing
+PASS: FELT_OP_GAPS marks bit_and as a gap
+PASS: FELT_OP_GAPS marks bit_or semantic model missing
+PASS: FELT_OP_GAPS marks bit_or as a gap
+PASS: FELT_OP_GAPS marks bit_xor semantic model missing
+PASS: FELT_OP_GAPS marks bit_xor as a gap
+PASS: FELT_OP_GAPS marks bit_not semantic model missing
+PASS: FELT_OP_GAPS marks bit_not as a gap
+PASS: FELT_OP_GAPS marks shl semantic model missing
+PASS: FELT_OP_GAPS marks shl as a gap
+PASS: FELT_OP_GAPS marks shr semantic model missing
+PASS: FELT_OP_GAPS marks shr as a gap
+PASS: Phase 2 disposition exists
+PASS: Phase 3 disposition exists
+PASS: Phase 4 disposition exists
+PASS: Phase 5 disposition exists
+PASS: evidence present reviews/PHASE-02/evidence/llzk-lib-refs.txt
+PASS: evidence present reviews/PHASE-02/evidence/llzk-field-registry.txt
+PASS: evidence present reviews/PHASE-02/evidence/llzk-felt-ops.txt
+PASS: evidence present reviews/PHASE-02/evidence/verify-llzk-source-after.txt
+PASS: evidence present reviews/PHASE-02/evidence/verify-companion-pin-after.txt
+PASS: evidence present reviews/PHASE-02/evidence/lake-build-veir-after.txt
+PASS: evidence present reviews/PHASE-02/evidence/adversarial-review.txt
+PASS: evidence present reviews/PHASE-03/evidence/README.md
+PASS: evidence present reviews/PHASE-03/evidence/check-doc-freshness.txt
+PASS: evidence present reviews/PHASE-03/evidence/verify-llzk-source.txt
+PASS: evidence present reviews/PHASE-03/evidence/verify-companion-pin.txt
+PASS: evidence present reviews/PHASE-03/evidence/doctor-companion.txt
+PASS: evidence present reviews/PHASE-03/evidence/quality-gates.txt
+PASS: evidence present reviews/PHASE-03/evidence/validate-skills.txt
+PASS: evidence present reviews/PHASE-03/evidence/lake-build.txt
+PASS: evidence present reviews/PHASE-03/evidence/adversarial-review.txt
+PASS: evidence present reviews/PHASE-04/evidence/README.md
+PASS: evidence present reviews/PHASE-04/evidence/check-doc-freshness.txt
+PASS: evidence present reviews/PHASE-04/evidence/verify-llzk-source.txt
+PASS: evidence present reviews/PHASE-04/evidence/verify-companion-pin.txt
+PASS: evidence present reviews/PHASE-04/evidence/doctor-companion.txt
+PASS: evidence present reviews/PHASE-04/evidence/quality-gates.txt
+PASS: evidence present reviews/PHASE-04/evidence/validate-skills.txt
+PASS: evidence present reviews/PHASE-04/evidence/lake-build.txt
+PASS: evidence present reviews/PHASE-04/evidence/adversarial-review.txt
+PASS: evidence present reviews/PHASE-04/evidence/adversarial-review-fresh.txt
+PASS: evidence present reviews/PHASE-04/evidence/differential-bootstrap.txt
+PASS: evidence present reviews/PHASE-04/evidence/differential-canonicalize.txt
+PASS: evidence present reviews/PHASE-04/evidence/corpus-classification.txt
+PASS: evidence present reviews/PHASE-05/evidence/README.md
+PASS: evidence present reviews/PHASE-05/evidence/check-doc-freshness.txt
+PASS: evidence present reviews/PHASE-05/evidence/verify-llzk-source.txt
+PASS: evidence present reviews/PHASE-05/evidence/verify-companion-pin.txt
+PASS: evidence present reviews/PHASE-05/evidence/doctor-companion.txt
+PASS: evidence present reviews/PHASE-05/evidence/quality-gates.txt
+PASS: evidence present reviews/PHASE-05/evidence/validate-skills.txt
+PASS: evidence present reviews/PHASE-05/evidence/lake-build.txt
+PASS: evidence present reviews/PHASE-05/evidence/polarity-guard.txt
+PASS: evidence present reviews/PHASE-05/evidence/differential-clean-pin-canonicalize.txt
+PASS: evidence present reviews/PHASE-05/evidence/adversarial-review.txt
+PASS: verify-llzk-source evidence reports no failures
+PASS: companion pin evidence reports no failures
+PASS: companion doctor evidence reports no failures
+PASS: quality-gates evidence marker validation deferred while wrapper is running
+PASS: skill evidence reports no failures
+PASS: lake build evidence reports success
+PASS: adversarial evidence confirms missing-op semantics were not added
+PASS: adversarial evidence confirms no VeIR source changes
+PASS: Phase 4 source evidence reports no failures
+PASS: Phase 4 companion pin evidence reports no failures
+PASS: Phase 4 companion doctor evidence reports no failures
+PASS: Phase 4 quality-gates evidence marker validation deferred while wrapper is running
+PASS: Phase 4 skill evidence reports no failures
+PASS: Phase 4 lake build evidence reports success
+PASS: Phase 4 adversarial evidence confirms llzk-opt is executable
+PASS: Phase 4 adversarial evidence dispositions the diff-script implementation
+PASS: Phase 4 parse/print differential evidence records workspace VeIR script
+PASS: Phase 4 parse/print differential evidence reports no failures
+PASS: Phase 4 canonical differential evidence records accepted llzk-opt
+PASS: Phase 4 canonical differential evidence records canonicalization command
+PASS: Phase 4 canonical differential evidence reports no failures
+PASS: Phase 4 corpus evidence records canonical expected-divergence cases
+PASS: Phase 4 fresh adversarial evidence records clean-pin guard
+PASS: Phase 5 source evidence reports no failures
+PASS: Phase 5 source evidence captures known stale llzk-lib warning detail
+PASS: Phase 5 companion pin evidence reports no failures
+PASS: Phase 5 companion doctor evidence reports no failures
+PASS: Phase 5 quality-gates evidence marker validation deferred while wrapper is running
+PASS: Phase 5 skill evidence reports no failures
+PASS: Phase 5 lake build evidence reports success
+PASS: Phase 5 polarity guard rejects wrong expected-divergence failure mode
+PASS: Phase 5 polarity guard records nonzero exit
+PASS: Phase 5 clean-pin canonical evidence records default dependency command
+PASS: Phase 5 clean-pin canonical evidence records expanded positive corpus
+PASS: Phase 5 clean-pin canonical evidence records expanded expected-divergence corpus
+PASS: Phase 5 clean-pin canonical evidence reports no failures
+PASS: Phase 5 adversarial evidence records exact polarity guard
+PASS: Phase 5 adversarial evidence records companion skip guard
+PASS: Phase 5 adversarial evidence reports no open findings
+PASS: companion differential README records clean-pin expanded corpus status
+PASS: companion differential README documents exact expected-divergence markers
+PASS: companion differential README no longer calls the Phase 5 corpus intentionally small
+PASS: companion differential README no longer calls the Phase 5 corpus a seed
+PASS: companion differential README no longer carries the stale seed bar
+PASS: companion corpus README documents expected LLZK failure polarity
+PASS: companion corpus README documents expected VEIR failure polarity
+PASS: companion corpus README documents exact output-divergence polarity
+PASS: Phase 5 docs record clean-pin Strategy A corpus expansion
+PASS: Phase 2 llzk-lib ref evidence records accepted remote
+
+doc freshness summary: 0 fail
+PASS: skills/lean-axiom-audit/SKILL.md has title
+PASS: skills/lean-axiom-audit/SKILL.md has usage trigger
+PASS: skills/lean-axiom-audit/SKILL.md has validation path
+PASS: skills/lean-axiom-audit/SKILL.md points at harness scripts
+PASS: skills/llzk-felt-source-audit/SKILL.md has title
+PASS: skills/llzk-felt-source-audit/SKILL.md has usage trigger
+PASS: skills/llzk-felt-source-audit/SKILL.md has validation path
+PASS: skills/llzk-felt-source-audit/SKILL.md points at harness scripts
+PASS: skills/mlir-differential/SKILL.md has title
+PASS: skills/mlir-differential/SKILL.md has usage trigger
+PASS: skills/mlir-differential/SKILL.md has validation path
+PASS: skills/mlir-differential/SKILL.md points at harness scripts
+PASS: skills/phase-bootstrap/SKILL.md has title
+PASS: skills/phase-bootstrap/SKILL.md has usage trigger
+PASS: skills/phase-bootstrap/SKILL.md has validation path
+PASS: skills/phase-bootstrap/SKILL.md points at harness scripts
+
+skill validation summary: 0 fail over 4 skills
+
+Phase 5 harness gates completed.

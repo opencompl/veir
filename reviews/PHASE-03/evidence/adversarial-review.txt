@@ -1,0 +1,80 @@
+$ operation-row count in docs/harness/FELT_OP_GAPS.md
+18
+
+$ exact-once operation rows
+const 1
+add 1
+sub 1
+mul 1
+pow 1
+div 1
+uintdiv 1
+sintdiv 1
+umod 1
+smod 1
+neg 1
+inv 1
+bit_and 1
+bit_or 1
+bit_xor 1
+bit_not 1
+shl 1
+shr 1
+
+$ required gap rows
+| `pow` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `div` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `uintdiv` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `sintdiv` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `umod` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `smod` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `inv` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `bit_and` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `bit_or` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `bit_xor` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `bit_not` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `shl` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+| `shr` | `Ops.td`, `Ops.cpp`, fold tests | Missing from `Data.Felt` and `InterpModel` | No verified VeIR rewrite/proof coverage | Gap |
+
+$ freshness and wrapper hardening hooks
+scripts/check-llzk-quality-gates.sh:15:VEIR_QUALITY_GATES_RUNNING=1 scripts/harness/check-doc-freshness.sh
+scripts/harness/check-doc-freshness.sh:48:require_op_once() {
+scripts/harness/check-doc-freshness.sh:59:require_op_row_contains() {
+scripts/harness/check-doc-freshness.sh:151:op_rows="$(grep -Ec '^\| `[^`]+` \|' "${ROOT}/docs/harness/FELT_OP_GAPS.md")"
+scripts/harness/check-doc-freshness.sh:152:if [[ "$op_rows" == "18" ]]; then
+scripts/harness/check-doc-freshness.sh:155:  fail "FELT_OP_GAPS has ${op_rows} operation rows, expected 18"
+scripts/harness/check-doc-freshness.sh:161:  require_op_once "$mnemonic"
+scripts/harness/check-doc-freshness.sh:165:  require_op_row_contains "$mnemonic" 'Missing from `Data.Felt` and `InterpModel`' "FELT_OP_GAPS marks ${mnemonic} semantic model missing"
+scripts/harness/check-doc-freshness.sh:166:  require_op_row_contains "$mnemonic" "| Gap |" "FELT_OP_GAPS marks ${mnemonic} as a gap"
+scripts/harness/check-doc-freshness.sh:205:require_contains reviews/PHASE-03/evidence/verify-llzk-source.txt "LLZK source verification summary: 0 fail" "verify-llzk-source evidence reports no failures"
+scripts/harness/check-doc-freshness.sh:206:require_contains reviews/PHASE-03/evidence/verify-companion-pin.txt "companion pin verification summary: 0 fail" "companion pin evidence reports no failures"
+scripts/harness/check-doc-freshness.sh:207:require_contains reviews/PHASE-03/evidence/doctor-companion.txt "doctor summary: 0 fail" "companion doctor evidence reports no failures"
+scripts/harness/check-doc-freshness.sh:208:if [[ "${VEIR_QUALITY_GATES_RUNNING:-0}" == "1" ]]; then
+scripts/harness/check-doc-freshness.sh:211:  require_contains reviews/PHASE-03/evidence/quality-gates.txt "Phase 3 harness gates completed." "quality-gates evidence records wrapper completion"
+scripts/harness/check-doc-freshness.sh:212:  require_contains reviews/PHASE-03/evidence/quality-gates.txt "doctor summary: 0 fail, 0 warn, mode=strict" "quality-gates evidence includes strict companion doctor success"
+scripts/harness/check-doc-freshness.sh:214:require_contains reviews/PHASE-03/evidence/validate-skills.txt "skill validation summary: 0 fail" "skill evidence reports no failures"
+scripts/harness/check-doc-freshness.sh:215:require_contains reviews/PHASE-03/evidence/lake-build.txt "Build completed successfully" "lake build evidence reports success"
+scripts/harness/check-doc-freshness.sh:216:require_contains reviews/PHASE-03/evidence/adversarial-review.txt "PASS: no missing-op semantic definitions found in VeIR Felt semantics" "adversarial evidence confirms missing-op semantics were not added"
+scripts/harness/check-doc-freshness.sh:217:require_contains reviews/PHASE-03/evidence/adversarial-review.txt "PASS: no modified, staged, or untracked files under Veir/" "adversarial evidence confirms no VeIR source changes"
+
+$ current VeIR Felt semantic definitions
+Veir/Passes/Felt/InterpModel.lean:85:def interpretConst (a : FeltConstAttr) : Option FeltVal :=
+Veir/Passes/Felt/InterpModel.lean:91:def interpretAdd : FeltVal → FeltVal → Option FeltVal
+Veir/Passes/Felt/InterpModel.lean:95:def interpretSub : FeltVal → FeltVal → Option FeltVal
+Veir/Passes/Felt/InterpModel.lean:99:def interpretMul : FeltVal → FeltVal → Option FeltVal
+Veir/Passes/Felt/InterpModel.lean:103:def interpretNeg : FeltVal → Option FeltVal
+Veir/Passes/Felt/InterpModel.lean:118:theorem interpretAdd_const_zero
+Veir/Passes/Felt/InterpModel.lean:122:    (interpretConst cst).bind (interpretAdd (.felt p a)) = some (.felt p a) := by
+Veir/Passes/Felt/InterpModel.lean:123:  simp only [interpretConst, hp, hval, reduce, Int.zero_emod, Int.toNat_zero,
+Veir/Passes/Felt/InterpModel.lean:124:    Option.bind_some, interpretAdd, ↓reduceIte, Nat.add_zero, Nat.mod_eq_of_lt ha]
+Veir/Data/Felt/Basic.lean:42:def const (p : Nat) (n : Int) : Felt p := (n : ZMod p)
+Veir/Data/Felt/Basic.lean:45:def add {p : Nat} (a b : Felt p) : Felt p := a + b
+Veir/Data/Felt/Basic.lean:48:def sub {p : Nat} (a b : Felt p) : Felt p := a - b
+Veir/Data/Felt/Basic.lean:51:def mul {p : Nat} (a b : Felt p) : Felt p := a * b
+Veir/Data/Felt/Basic.lean:54:def neg {p : Nat} (a : Felt p) : Felt p := -a
+
+$ no missing-op semantic definitions are present
+PASS: no missing-op semantic definitions found in VeIR Felt semantics
+
+$ no Phase 3 semantic source diff under Veir/
+PASS: no modified, staged, or untracked files under Veir/

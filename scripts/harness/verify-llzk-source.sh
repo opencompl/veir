@@ -8,7 +8,23 @@ LLZK_LIB="${ROOT}/../llzk-lib"
 ACCEPTED_LLZK_COMMIT="db922857bc5a88a9107627ef6b36a8b5e57bc5c2"
 ACCEPTED_LLZK_SHORT="${ACCEPTED_LLZK_COMMIT:0:12}"
 ACCEPTED_LLZK_REF="origin/main"
+ACCEPTED_LLZK_REMOTE="git@github.com:project-llzk/llzk-lib.git"
 FIELD_REGISTRY_PATH="lib/Util/Field.cpp"
+
+LEDGER_PATHS=(
+  include/llzk/Dialect/Felt/IR/Ops.td
+  include/llzk/Dialect/Felt/IR/Types.td
+  include/llzk/Dialect/Felt/IR/Attrs.td
+  include/llzk/Dialect/Felt/IR/OpInterfaces.td
+  lib/Dialect/Felt/IR/Ops.cpp
+  "$FIELD_REGISTRY_PATH"
+  test/Dialect/Felt/felt_arith_pass.llzk
+  test/Dialect/Felt/felt_arith_fail.llzk
+  test/Dialect/Felt/felt_const_fold.llzk
+  test/Dialect/Felt/felt_spec_pass.llzk
+  test/Dialect/Felt/types_pass.llzk
+  unittests/IR/FeltFoldTests.cpp
+)
 
 EXPECTED_OPS=(
   const
@@ -90,17 +106,36 @@ if [[ -f "$ledger" ]]; then
   else
     fail "LLZK source ledger does not record ${ACCEPTED_LLZK_COMMIT}"
   fi
+  if grep -Fq "$ACCEPTED_LLZK_REMOTE" "$ledger"; then
+    ok "LLZK source ledger records accepted remote ${ACCEPTED_LLZK_REMOTE}"
+  else
+    fail "LLZK source ledger does not record accepted remote ${ACCEPTED_LLZK_REMOTE}"
+  fi
   if grep -Fq "$FIELD_REGISTRY_PATH" "$ledger"; then
     ok "LLZK source ledger records ${FIELD_REGISTRY_PATH}"
   else
     fail "LLZK source ledger does not record ${FIELD_REGISTRY_PATH}"
   fi
+  for path in "${LEDGER_PATHS[@]}"; do
+    if grep -Fq "$path" "$ledger"; then
+      ok "LLZK source ledger records ${path}"
+    else
+      fail "LLZK source ledger does not record ${path}"
+    fi
+  done
 else
   fail "missing docs/harness/LLZK_SOURCE.md"
 fi
 
 if [[ -n "$llzk" && -d "$llzk/.git" ]]; then
-  echo "accepted LLZK source: ${ACCEPTED_LLZK_COMMIT} (${ACCEPTED_LLZK_REF})"
+  echo "accepted LLZK source: ${ACCEPTED_LLZK_COMMIT} (${ACCEPTED_LLZK_REF}, ${ACCEPTED_LLZK_REMOTE})"
+
+  origin_url="$(git -C "$llzk" remote get-url origin 2>/dev/null || true)"
+  if [[ "$origin_url" == "$ACCEPTED_LLZK_REMOTE" ]]; then
+    ok "llzk-lib origin remote matches ${ACCEPTED_LLZK_REMOTE}"
+  else
+    fail "llzk-lib origin remote ${origin_url:-<missing>} does not match ${ACCEPTED_LLZK_REMOTE}"
+  fi
 
   if git -C "$llzk" cat-file -e "${ACCEPTED_LLZK_COMMIT}^{commit}" 2>/dev/null; then
     ok "accepted LLZK commit exists locally"
@@ -144,13 +179,20 @@ if [[ -n "$llzk" && -d "$llzk/.git" ]]; then
     git -C "$llzk" show "${ACCEPTED_LLZK_COMMIT}:$1" 2>/dev/null
   }
 
-  expect_path include/llzk/Dialect/Felt/IR/Ops.td
-  expect_path include/llzk/Dialect/Felt/IR/Types.td
-  expect_path include/llzk/Dialect/Felt/IR/Attrs.td
-  expect_path lib/Dialect/Felt/IR/Ops.cpp
-  expect_path "$FIELD_REGISTRY_PATH"
-  expect_path test/Dialect/Felt/felt_arith_pass.llzk
-  expect_path unittests/IR/FeltFoldTests.cpp
+  check_source_text() {
+    local path="$1"
+    local needle="$2"
+    local desc="$3"
+    if get_source "$path" | grep -Fq -- "$needle"; then
+      ok "$desc"
+    else
+      fail "$desc missing"
+    fi
+  }
+
+  for path in "${LEDGER_PATHS[@]}"; do
+    expect_path "$path"
+  done
 
   actual_ops="$(
     get_source include/llzk/Dialect/Felt/IR/Ops.td |
@@ -213,6 +255,26 @@ if [[ -n "$llzk" && -d "$llzk/.git" ]]; then
   else
     fail "Felt type source missing optional field-name parameter"
   fi
+
+  check_source_text include/llzk/Dialect/Felt/IR/Attrs.td 'def LLZK_FeltConstAttr' "Felt attrs source defines FeltConstAttr"
+  check_source_text include/llzk/Dialect/Felt/IR/Attrs.td 'let mnemonic = "const";' "Felt attrs source defines const mnemonic"
+  check_source_text include/llzk/Dialect/Felt/IR/Attrs.td 'def LLZK_FieldSpecAttr' "Felt attrs source defines FieldSpecAttr"
+  check_source_text include/llzk/Dialect/Felt/IR/Attrs.td 'let mnemonic = "field";' "Felt attrs source defines field mnemonic"
+  check_source_text include/llzk/Dialect/Felt/IR/Attrs.td '::mlir::StringAttr getFieldName() const;' "Felt attrs source exposes getFieldName"
+  check_source_text include/llzk/Dialect/Felt/IR/Attrs.td '- grumpkin' "Felt attrs source lists grumpkin as built-in"
+  check_source_text include/llzk/Dialect/Felt/IR/Attrs.td '- koalabear' "Felt attrs source lists koalabear as built-in"
+  check_source_text include/llzk/Dialect/Felt/IR/OpInterfaces.td 'def FeltBinaryOpInterface' "Felt op interface source defines binary interface"
+  check_source_text include/llzk/Dialect/Felt/IR/OpInterfaces.td '"getLhs"' "Felt op interface source exposes getLhs"
+  check_source_text include/llzk/Dialect/Felt/IR/OpInterfaces.td '"getRhs"' "Felt op interface source exposes getRhs"
+  check_source_text lib/Dialect/Felt/IR/Ops.cpp 'tryGetBinaryFoldData' "Felt folder source has binary fold data helper"
+  check_source_text lib/Dialect/Felt/IR/Ops.cpp 'Field::tryGetField' "Felt folder source resolves registered fields"
+  check_source_text lib/Dialect/Felt/IR/Ops.cpp 'data->field->reduce(data->lhsVal + data->rhsVal)' "Felt folder source reduces add folds"
+  check_source_text test/Dialect/Felt/felt_arith_fail.llzk "field 'moo' is not defined" "Felt verifier-failure test rejects unknown fields"
+  check_source_text test/Dialect/Felt/felt_const_fold.llzk 'fold_add_wrap' "Felt fold test covers add wrap-around"
+  check_source_text test/Dialect/Felt/felt_const_fold.llzk 'felt.sintdiv' "Felt fold test covers signed division"
+  check_source_text test/Dialect/Felt/felt_spec_pass.llzk '#felt.field<"moo", 7>' "Felt field-spec test covers custom field syntax"
+  check_source_text test/Dialect/Felt/types_pass.llzk '!felt.type' "Felt type test covers bare felt type syntax"
+  check_source_text unittests/IR/FeltFoldTests.cpp 'AddNoFoldUnspecified' "Felt unit tests cover unspecified-field no-fold"
 fi
 
 veir_model="${ROOT}/Veir/Passes/Felt/InterpModel.lean"

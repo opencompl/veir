@@ -16,6 +16,9 @@
 - `~/LLZK/llzk-lib` — C++ ground truth. **Read-only.** `main`.
 - `~/LLZK/veir` — Lean MLIR + Felt port. Branch **`felt-review-structural-close`**.
 - `~/LLZK/llzk-lean` — the bridge (Strategy A/E). Branch **`felt-review`**.
+- Current accepted llzk-lean VEIR dependency pin:
+  `project-llzk/veir@d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`; see
+  `docs/harness/PINS.md` and `../llzk-lean/docs/harness/PINS.md`.
 
 **Toolchains / builds (persist on disk — reuse, do not rebuild from scratch)**
 - veir pins Lean **v4.30.0-rc2**; llzk-lean pins **v4.30.0**. Both `.lake` build
@@ -32,13 +35,16 @@
   `lean_verify`, `lean_local_search`, etc.
 
 **The fast dev loop (important).** `lean-lsp` operates on **llzk-lean**'s build
-(`.lake/packages/VeIR` — the pinned copy, whose Felt source is byte-identical to
-veir HEAD). So: **develop/iterate proofs in a scratch `.lean` file in
-`~/LLZK/llzk-lean` using `lean_multi_attempt`/`lean_diagnostic_messages`, then
-transplant the finished proof into the veir repo and confirm with
-`cd ~/LLZK/veir && lake build <module>`** (incremental, seconds). Caveat: the
-veir build uses rc2; lean-lsp uses final — they have agreed so far, but the veir
-build is the source of truth.
+(`.lake/packages/VeIR` — the pinned clean dependency copy). That checkout must
+stay clean for acceptance work. For exploratory proof iteration, develop in a
+scratch `.lean` file in `~/LLZK/llzk-lean` using
+`lean_multi_attempt`/`lean_diagnostic_messages`, then transplant the finished
+proof into the veir repo and confirm with
+`cd ~/LLZK/veir && lake build <module>` (incremental, seconds). Before claiming
+review or phase acceptance, run
+`cd ~/LLZK/llzk-lean && scripts/harness/verify-pins.sh --workspace-veir ../veir`.
+Caveat: the veir build uses rc2; lean-lsp uses final — they have agreed so far,
+but the veir build and the strict pin gates are the source of truth.
 
 **Verify Lean (axiom audit).** Build the module, then:
 ```
@@ -63,8 +69,8 @@ yourself (`#print axioms`) before landing.
 2. *Work:* one front only. Delegate heavy proofs to agents; coordinate + verify.
 3. *Close — Definition of Done:* target builds green; `#print axioms` clean for
    anything claimed verified; update `REVIEW.md`/`FOLLOWUP.md` + the memory file;
-   `git commit` on the feature branch (no push unless asked). Optionally invoke
-   the `lean4:checkpoint` skill.
+   run the relevant strict harness/pin gates; `git commit` on the feature branch
+   (no push unless asked). Optionally invoke the `lean4:checkpoint` skill.
 
 **Dependency note:** only one hard edge — **F3 waits on F2's field-model
 decision.** F1, F4, F5, F6, F7 are independent and may run in any order / as
@@ -255,8 +261,12 @@ sorry census + findings catalog; memory updated; commit.
 Merge on a branch, resolving conflicts in `Veir/Dialects/LLZK/*`, `Felt/*`,
 `Attribute.lean`, `AttrParser.lean`. (3) Toolchain bump if upstream moved;
 `lake exe cache get`; `lake build` green; re-axiom-audit the Felt proofs. (4) Bump
-the `llzk-lean` `lakefile.toml` pin → `lake update` → rebuild. (5) PRs via `gh`
-(target `project-llzk`). Harden steps 1–4 into `scripts/upstream-sync.sh`.
+the `llzk-lean` Lake pin deliberately, regenerate the manifest, refresh the
+dependency checkout, then run both Phase 1 pin gates:
+`llzk-lean/scripts/harness/verify-pins.sh --workspace-veir ../veir` and
+`veir/scripts/harness/verify-companion-pin.sh --companion-llzk-lean ../llzk-lean`.
+(5) PRs via `gh` (target `project-llzk`). Harden steps 1–4 into
+`scripts/upstream-sync.sh`.
 
 **Verify / DoD.** Green build post-merge; Felt proofs still axiom-clean; runbook
 scripted; PRs opened; commit.
@@ -265,8 +275,8 @@ scripted; PRs opened; commit.
 
 ## Progress ledger (update at the end of each session)
 - 2026-06-01 — Review complete (both repos); fixes VC1/VC3/VM1 + H4; **structural
-  close: 2/15 patterns sorry-free + axiom-clean** in `RewriteLemmas.lean`; this
-  playbook written. Next: **F1**.
+  close spike: 2/15 patterns sorry-free + axiom-clean** in `RewriteLemmas.lean`;
+  this playbook written. Next: **F1**.
 - 2026-06-02 — **F2 DONE (scoping spike + PoC).** Feasibility memo + go/no-go in
   `FOLLOWUP.md` §F2. Landed a real axiom-clean bridge lemma
   (`Veir.FeltInterp.interpretAdd_const_zero`, `[propext, Quot.sound]`) +
@@ -282,5 +292,10 @@ scripted; PRs opened; commit.
   `RewriteLemmas.lean` on three reusable tails (`projectToOperand`,
   `replaceWithNewOp`, `replaceWithBinOpOfConst`) + a per-matcher in-bounds lemma
   library; `Combine.lean` defines no pattern itself. VC3 cross-field guard
-  preserved. REVIEW.md §0 updated. Next candidates: **F2** (interpreter-semantics
-  scoping spike — gates F3/the verified-drop-in end goal), or any of F4/F5/F6/F7.
+  preserved. REVIEW.md §0 updated.
+- 2026-06-05 — **Phase 1 reproducible pins active.** llzk-lean consumes
+  `project-llzk/veir@d52917ca4a57c4094b1aa61dd413aca4e1c2a56e` through Lake
+  metadata and a clean dependency checkout; both repos now document strict
+  remote URL/type/rev/inputRev/cleanliness gates. Next candidates: F3 value-level
+  Felt interpreter refinements, F4 Strategy E matcher, F5 Strategy A differential,
+  F6 broader VEIR audit, or F7 upstream sync.

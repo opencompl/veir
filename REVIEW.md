@@ -1,6 +1,7 @@
 # VEIR Felt-Dialect Port — Adversarial Review: Findings
 
-> **Status:** in progress. Last updated 2026-06-01.
+> **Status:** in progress. Last updated 2026-06-05 (Phase 1 reproducible pins
+> active; VC2/VC3 remain resolved).
 > **Reviewer note:** Independent, adversarial review at the maintainer's
 > request. Stance: assume each component is wrong/incomplete/unfaithful to
 > LLZK until proven otherwise. Companion to `llzk-lean/docs/REVIEW.md`.
@@ -17,6 +18,12 @@ Fixes applied to this repo during the review (verified by a full `lake build`
 under the repo's `v4.30.0-rc2` toolchain + `#print axioms`; the F1 close was
 additionally re-verified by fresh adversarial review agents — axiom hygiene,
 guard soundness, and wiring/VC3 all confirmed):
+
+- **Phase 1 pin basis (2026-06-05):** llzk-lean now consumes
+  `project-llzk/veir@d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3` through Lake
+  metadata and a clean `.lake/packages/VeIR` checkout. The companion gate checks
+  the accepted remote URL, manifest `type`, `rev`, `inputRev`, dependency HEAD,
+  and dependency cleanliness.
 
 - **VC1 (framing):** `Combine.lean` docstring reframed — "5 of 18 felt ops
   implemented (13 opcode-only stubs)" + an explicit *"what 'verified' means"*
@@ -78,9 +85,10 @@ normalizer (`scripts/llzk-diff.sh`).
 
 Method: six parallel adversarial read sweeps, each tasked to *break* the
 code; the reviewer then re-verified each sharp finding directly against
-source (and against LLZK's C++). The Felt source is byte-identical between
-the built dependency pin (`09d5f00f0`) and local `HEAD` (`7040fadcd`), so
-no separate VEIR build was needed. The design docs deleted in the
+source (and against LLZK's C++). The current Phase 1 companion proof basis is
+the clean accepted commit
+`d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3`; older review notes that reference
+`09d5f00f0` are historical. The design docs deleted in the
 "polish fork" commit (`5ed914831`) were recovered from git history and used
 as the authors' own claims to test.
 
@@ -110,8 +118,8 @@ exactly the unported ones.
 | Aspect | LLZK | VEIR | Divergence |
 |---|---|---|---|
 | Constant value rep | `APInt`, raw (round-trips `-1` as `-1`; **not** reduced on parse/print — verified via `llzk-opt`) | `Int`, raw | both keep raw values; VEIR's internal `DecidableEq`/`Hashable` still distinguish `0`/`p` (VH3) |
-| Binary fold guard | both consts must share a **registered** field name | **no field-name guard**; folds unconditionally | VEIR folds where LLZK no-ops (VC3) |
-| Cross-field operands | rejected (types must unify) | **accepted**; one operand's field silently chosen | ill-typed-vs-LLZK result (VC3) |
+| Binary fold guard | both consts must share a **registered** field name | field-type equality guard added to all fold patterns; registry membership still not modeled | cross-field unsoundness fixed; unregistered-field behavior remains a faithfulness gap |
+| Cross-field operands | rejected (types must unify) | fold patterns now refuse mismatched field types | VC3 fold unsoundness fixed; verifier type-unification policy remains separate plumbing |
 | Modular reduction | applied in **folds** (`field->reduce`), not on raw consts | **not** applied in folds | fold-result divergence (VH3) — *unreached today; see VH2* |
 | `NotFieldNative` gating | enforced (`allow_non_native_field_ops`) | **not modeled at all** | — (only affects the unported ops) |
 
@@ -129,31 +137,24 @@ properties. No matcher, pattern, proof, or interpreter case exists for the
 dialect port" that omits all field-specific operations should say so
 plainly; today the 18-constructor enum reads as full coverage.
 
-**VC2 — the 15 rewrite preconditions are all `sorry`'d, with
-`warn.sorry false` suppressing the signal.** ✅ (axiom-audited)
-Every pattern in `Combine.lean` passes `sorry` for the rewriter
-well-formedness obligations; `Veir.FeltPass.Combine` (the executable pass)
-transitively depends on `sorryAx`, while the paired theorems in
-`Proofs.lean` are axiom-clean. The theorems prove ring identities in
-isolation; they are **not mechanically linked** to the IR mutation. This is
-the *origin* of the assurance gap documented downstream in
-`llzk-lean/docs/REVIEW.md` §3. (The structural half is dischargeable — see
-that doc's spike — but is not done here.)
+**VC2 — rewrite preconditions were admitted; RESOLVED by F1.** ✅
+Historical critical finding retained for traceability. At review time, every
+pattern in `Combine.lean` passed `sorry` for the rewriter well-formedness
+obligations. F1 moved the executable patterns into
+`Veir/Passes/Felt/RewriteLemmas.lean` and discharged all structural
+preconditions; all 15 patterns and the `felt-combine` pass are now
+sorry-free and axiom-clean (`[propext, Classical.choice, Quot.sound]`, no
+`WfIRContext.Dom`). The remaining assurance issue is theorem↔pattern linkage
+and whole-program semantics, not structural preconditions.
 
-**VC3 — cross-field constant folds are unsound vs LLZK and unmodelled by
-the proofs.** ✅ (`Combine.lean:57-72,167-178,182-193,104-125,288-306`)
-`constant_fold_{add,sub,mul}` and `assoc_const_fold_{add,mul}` build the
-result const's `fieldType` from **one** operand (`cstL.value.fieldType`, or
-the *inner* const for the assoc variants) and never check both consts share
-a field. VEIR's verifier (`Verifier.lean`) checks only operand/result
-*counts*, not type unification, so VEIR accepts `felt.add (const c1 :
-fieldA) (const c2 : fieldB)` and folds it — silently discarding one field.
-LLZK folds only when both consts share a registered field name. The
-soundness theorems quantify over a **single** `p`, so they do not witness
-the mismatched-field case at all. The correct idiom already exists in the
-same file (`self_subtraction_to_zero` derives the field from the result
-*type*); the const-fold patterns should additionally require
-`cstL.fieldType == cstR.fieldType`.
+**VC3 — cross-field constant folds were unsound vs LLZK; RESOLVED for the
+fold patterns.** ✅
+Historical critical finding retained for traceability. The fold patterns now
+guard that matched constants have the same field type before folding, including
+`constant_fold_{add,sub,mul}` and `assoc_const_fold_{add,mul}`. LLZK's stronger
+registered-field requirement and modular-reduction behavior are still
+faithfulness gaps (see VH3), but the original "silently choose one operand's
+field" unsoundness is closed.
 
 ### High
 
@@ -182,11 +183,11 @@ the differential uses. Residual issues, all minor:
   syntax — so this is off the differential path. *(Low.)*
 
 **Consequence for the docs:** the "parser incompatibility" caveat in
-`llzk-lean/docs/strategy-a-oracle.md` §"Known alignment caveats" #3 and the
-`expected-divergence/named_field_const.mlir` corpus entry are now **stale/
-overstated** — named-field consts are *not* mutually unparseable. Recommend
-re-testing that corpus entry; it likely now agrees (modulo the cosmetic
-inner-annotation normalization).
+`llzk-lean/docs/strategy-a-oracle.md` §"Known alignment caveats" #3 has been
+refreshed for Phase 1. The `expected-divergence/named_field_const.mlir` corpus
+entry is still marked **stale / re-test** — named-field consts are *not*
+mutually unparseable, and that input likely now agrees modulo cosmetic
+inner-annotation normalization.
 
 **VH2 — the differential oracle is shallow for Felt: it never runs
 `felt-combine` or any felt arithmetic.** 🟡 (script-read)
@@ -313,8 +314,8 @@ the LLZK-faithfulness are overstated. Priorities:
 
 1. **Re-frame coverage honestly** (VC1): state that 5 of 18 ops are
    implemented and the field-specific ops are out of scope.
-2. **Fix the cross-field fold unsoundness** (VC3) — add the
-   `fieldType` equality guard; adopt the result-type-derived idiom.
+2. **Keep the cross-field fold fix covered** (VC3) — the `fieldType` equality
+   guard is landed; future fold work must preserve it.
 3. **Make the differential mean something** (VH2) — run `-p felt-combine`,
    add felt-arithmetic inputs; this is what would actually catch VC3/VH3.
    (Parser parity VH1 is already empirically resolved; just (a) optionally
@@ -322,19 +323,22 @@ the LLZK-faithfulness are overstated. Priorities:
    normalizer, and (b) correct the now-stale parser-incompatibility caveat in
    `llzk-lean/docs/strategy-a-oracle.md` and re-test the `named_field_const`
    corpus entry.)
-4. **Discharge the preconditions** (VC2) via `WfRewriter` (tractable — see
-   the llzk-lean spike) and link theorem ↔ transformation.
-5. **Repair comprehension rot** (VM1/VM2): restore or re-point the deleted
-   design docs the live source and CI depend on.
+4. **Link theorem ↔ transformation.** The structural preconditions are now
+   discharged, but the cert/catalog layer still trusts names and hand-authored
+   shapes.
+5. **Repair remaining comprehension rot** (VM1/VM2): Felt-critical citations
+   were re-pointed, but broader deleted-doc references still need a pass.
 
-Items 1, 2, 5 are cheap and high-value; 3–4 are the substantive faithfulness
-work. None require restarting the port.
+Items 1, 2, and the structural half of 4 have landed. The substantive remaining
+faithfulness work is 3 plus theorem↔pattern/catalog derivation and broader doc
+cleanup. None require restarting the port.
 
 > **Methodology note.** Findings were produced by adversarial fan-out then
 > re-verified by the reviewer. Two High claims (VH1 "parser rejects LLZK
 > output"; the VH2 "normalizer masks field divergence" sub-claim) were
 > **over-claims corrected on empirical test** against the prebuilt `llzk-opt`
 > (nix store) and a freshly-built `veir-opt`. Net: the parser fix works; the
-> live High/Critical findings are VC1 (op coverage), VC2 (sorry'd
-> preconditions), VC3 (cross-field fold unsoundness), VH2 (shallow
-> differential), VH3 (unreduced folds).
+> live High/Critical findings are VC1 (op coverage), VH2 (shallow
+> differential), VH3 (unreduced folds), and the remaining theorem↔pattern /
+> whole-program-semantics joints. VC2 and VC3 are resolved and retained above as
+> audit history.

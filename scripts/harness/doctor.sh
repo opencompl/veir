@@ -6,8 +6,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE="strict"
 COMPANION_LLZK_LEAN=""
 
-EXPECTED_VEIR_HEAD="4b0978bddec0"
-EXPECTED_LLZK_LEAN_HEAD="ea2363f87bcc"
+EXPECTED_VEIR_HEAD="220cd215579b"
+EXPECTED_LLZK_LEAN_HEAD="617702beadfb"
 
 FAIL=0
 WARN=0
@@ -16,7 +16,7 @@ usage() {
   cat <<'USAGE'
 usage: scripts/harness/doctor.sh [--mode strict|exploratory] [--companion-llzk-lean PATH]
 
-Validates the Phase 1 VeIR harness. Strict companion checks require llzk-lean
+Validates the current VeIR harness. Strict companion checks require llzk-lean
 to pin the accepted VeIR commit in Lake metadata and a clean dependency
 checkout.
 USAGE
@@ -124,10 +124,15 @@ require_file AGENTS.md
 require_file docs/phases/PHASE-00-harness-reset.md
 require_file docs/phases/PHASE-01-pins-and-repro.md
 require_file docs/phases/PHASE-02-llzk-source-truth.md
+require_file docs/phases/PHASE-03-felt-op-gap-ledger.md
+require_file docs/phases/PHASE-04-strategy-a-differential.md
+require_file docs/phases/PHASE-05-strategy-a-pin-and-corpus.md
+require_file docs/phases/PHASE-06-strategy-a-divergence-burndown.md
 require_file docs/phases/PHASE_TEMPLATE.md
 require_file docs/harness/CURRENT.md
 require_file docs/harness/SOURCES.md
 require_file docs/harness/GATES.md
+require_file docs/harness/FELT_OP_GAPS.md
 require_file docs/harness/LLZK_SOURCE.md
 require_file docs/harness/PINS.md
 require_file docs/harness/REVIEWS.md
@@ -143,6 +148,22 @@ require_file reviews/PHASE-02/request.md
 require_file reviews/PHASE-02/findings.md
 require_file reviews/PHASE-02/disposition.md
 require_file reviews/PHASE-02/adversarial-review.md
+require_file reviews/PHASE-03/request.md
+require_file reviews/PHASE-03/findings.md
+require_file reviews/PHASE-03/disposition.md
+require_file reviews/PHASE-03/adversarial-review.md
+require_file reviews/PHASE-04/request.md
+require_file reviews/PHASE-04/findings.md
+require_file reviews/PHASE-04/disposition.md
+require_file reviews/PHASE-04/adversarial-review.md
+require_file reviews/PHASE-05/request.md
+require_file reviews/PHASE-05/findings.md
+require_file reviews/PHASE-05/disposition.md
+require_file reviews/PHASE-05/adversarial-review.md
+require_file reviews/PHASE-06/request.md
+require_file reviews/PHASE-06/findings.md
+require_file reviews/PHASE-06/disposition.md
+require_file reviews/PHASE-06/adversarial-review.md
 require_executable scripts/harness/check-doc-freshness.sh
 require_executable scripts/harness/verify-companion-pin.sh
 require_executable scripts/harness/verify-llzk-source.sh
@@ -164,6 +185,30 @@ if [[ -d "${ROOT}/reviews/PHASE-02/evidence" ]]; then
   ok "found reviews/PHASE-02/evidence"
 else
   fail "missing reviews/PHASE-02/evidence"
+fi
+
+if [[ -d "${ROOT}/reviews/PHASE-03/evidence" ]]; then
+  ok "found reviews/PHASE-03/evidence"
+else
+  fail "missing reviews/PHASE-03/evidence"
+fi
+
+if [[ -d "${ROOT}/reviews/PHASE-04/evidence" ]]; then
+  ok "found reviews/PHASE-04/evidence"
+else
+  fail "missing reviews/PHASE-04/evidence"
+fi
+
+if [[ -d "${ROOT}/reviews/PHASE-05/evidence" ]]; then
+  ok "found reviews/PHASE-05/evidence"
+else
+  fail "missing reviews/PHASE-05/evidence"
+fi
+
+if [[ -d "${ROOT}/reviews/PHASE-06/evidence" ]]; then
+  ok "found reviews/PHASE-06/evidence"
+else
+  fail "missing reviews/PHASE-06/evidence"
 fi
 
 if [[ -n "$COMPANION_LLZK_LEAN" ]]; then

@@ -1,0 +1,12 @@
+$ LLZK_OPT=/bin/false ./differential/run-differential.sh --canonicalize differential/corpus/expected-divergence/canonical/registered_add_fold.llzk
+LLZK-FAIL: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/registered_add_fold.llzk
+  [llzk-diff] stage 1: lowering input via llzk-opt --mlir-print-op-generic
+  FAIL: llzk-opt could not lower input
+
+Summary: 0 pass (incl. expected-diverge), 1 fail (over 1 inputs)
+
+Failed inputs (re-run with the specific path for the full diff;
+set VEIR_DIFF_KEEP=1 to retain tmp files for debugging):
+  - /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/registered_add_fold.llzk
+
+exit code: 1

@@ -1,0 +1,24 @@
+$ cd ../llzk-lean && LLZK_OPT=/nix/store/awcw2wiypa02sl5vx4xm06qwji68xz3h-llzk-debug-2.0.0/bin/llzk-opt ./differential/run-differential.sh --canonicalize differential/corpus
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/add_neg_to_zero.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/add_sub_const_cancel.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/assoc_const_fold_add.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/assoc_const_fold_mul.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/constant_fold_mul.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/constant_fold_neg.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/constant_fold_sub.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/neg_neg_to_self.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/registered_add_fold.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/registered_add_wrap.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/right_identity_one_mul.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/right_identity_zero_add.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/right_zero_mul.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/self_subtraction_to_zero.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/sub_add_const_cancel.llzk
+EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/unspecified_add_fold.llzk
+EXPECTED-LLZK-FAIL: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/named_field_const.mlir
+PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/add_const_swap.llzk
+PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/arithmetic_no_fold.llzk
+PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/const_identities.mlir
+PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/types_smoke.llzk
+
+Summary: 21 pass (incl. expected-diverge), 0 fail (over 21 inputs)

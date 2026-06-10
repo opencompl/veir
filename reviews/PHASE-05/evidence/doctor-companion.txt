@@ -1,0 +1,75 @@
+PASS: tool git is available
+PASS: tool lake is available
+PASS: optional tool uv is available
+PASS: git root is /home/alh/LLZK/veir
+PASS: VeIR HEAD matches bootstrap input 220cd215579b
+PASS: found AGENTS.md
+PASS: found docs/phases/PHASE-00-harness-reset.md
+PASS: found docs/phases/PHASE-01-pins-and-repro.md
+PASS: found docs/phases/PHASE-02-llzk-source-truth.md
+PASS: found docs/phases/PHASE-03-felt-op-gap-ledger.md
+PASS: found docs/phases/PHASE-04-strategy-a-differential.md
+PASS: found docs/phases/PHASE-05-strategy-a-pin-and-corpus.md
+PASS: found docs/phases/PHASE_TEMPLATE.md
+PASS: found docs/harness/CURRENT.md
+PASS: found docs/harness/SOURCES.md
+PASS: found docs/harness/GATES.md
+PASS: found docs/harness/FELT_OP_GAPS.md
+PASS: found docs/harness/LLZK_SOURCE.md
+PASS: found docs/harness/PINS.md
+PASS: found docs/harness/REVIEWS.md
+PASS: found reviews/PHASE-00/request.md
+PASS: found reviews/PHASE-00/findings.md
+PASS: found reviews/PHASE-00/disposition.md
+PASS: found reviews/PHASE-00/adversarial-review.md
+PASS: found reviews/PHASE-01/request.md
+PASS: found reviews/PHASE-01/findings.md
+PASS: found reviews/PHASE-01/disposition.md
+PASS: found reviews/PHASE-01/adversarial-review.md
+PASS: found reviews/PHASE-02/request.md
+PASS: found reviews/PHASE-02/findings.md
+PASS: found reviews/PHASE-02/disposition.md
+PASS: found reviews/PHASE-02/adversarial-review.md
+PASS: found reviews/PHASE-03/request.md
+PASS: found reviews/PHASE-03/findings.md
+PASS: found reviews/PHASE-03/disposition.md
+PASS: found reviews/PHASE-03/adversarial-review.md
+PASS: found reviews/PHASE-04/request.md
+PASS: found reviews/PHASE-04/findings.md
+PASS: found reviews/PHASE-04/disposition.md
+PASS: found reviews/PHASE-04/adversarial-review.md
+PASS: found reviews/PHASE-05/request.md
+PASS: found reviews/PHASE-05/findings.md
+PASS: found reviews/PHASE-05/disposition.md
+PASS: found reviews/PHASE-05/adversarial-review.md
+PASS: executable scripts/harness/check-doc-freshness.sh
+PASS: executable scripts/harness/verify-companion-pin.sh
+PASS: executable scripts/harness/verify-llzk-source.sh
+PASS: executable scripts/harness/validate-skills.sh
+PASS: found reviews/PHASE-00/evidence
+PASS: found reviews/PHASE-01/evidence
+PASS: found reviews/PHASE-02/evidence
+PASS: found reviews/PHASE-03/evidence
+PASS: found reviews/PHASE-04/evidence
+PASS: found reviews/PHASE-05/evidence
+PASS: companion llzk-lean path is /home/alh/LLZK/llzk-lean
+PASS: llzk-lean HEAD matches bootstrap input 617702beadfb
+accepted VeIR pin: 220cd215579b435c3c22ce86b34a3f4ce2ca276e
+accepted VeIR source: https://github.com/project-llzk/veir.git felt-review-structural-close
+PASS: local VeIR HEAD equals accepted pin 220cd215579b
+PASS: companion llzk-lean path is /home/alh/LLZK/llzk-lean
+PASS: companion lakefile.toml uses accepted VeIR remote https://github.com/project-llzk/veir.git
+PASS: companion lakefile.toml pins VeIR 220cd215579b
+PASS: companion lake-manifest.json pins VeIR 220cd215579b
+PASS: companion lake-manifest.json inputRev pins VeIR 220cd215579b
+PASS: companion lake-manifest.json uses accepted VeIR remote https://github.com/project-llzk/veir.git
+PASS: companion lake-manifest.json records VeIR as a git dependency
+PASS: companion Lake files agree on VeIR 220cd215579b
+PASS: companion dependency checkout HEAD is 220cd215579b
+PASS: companion dependency checkout HEAD equals manifest rev
+PASS: companion dependency checkout is clean
+
+companion pin verification summary: 0 fail, 0 warn, mode=strict
+PASS: companion pin verification passed
+
+doctor summary: 0 fail, 0 warn, mode=strict

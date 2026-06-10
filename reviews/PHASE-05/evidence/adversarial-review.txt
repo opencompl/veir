@@ -1,0 +1,18 @@
+$ Phase 5 bootstrap adversarial checks
+
+PASS: docs/harness/CURRENT.md names Phase 5 as active.
+PASS: docs/phases/PHASE-05-strategy-a-pin-and-corpus.md records the clean-pin implementation gate.
+PASS: Phase 5 docs record clean-pin expanded corpus evidence and leave expected divergences classified.
+PASS: docs/harness/SOURCES.md records Phase 4 canonical differential evidence and fresh adversarial review evidence.
+PASS: Phase 4 fresh adversarial evidence records the companion clean pinned VeIR script guard.
+PASS: Phase 5 accepted VeIR dependency pin is 220cd215579b435c3c22ce86b34a3f4ce2ca276e.
+PASS: Phase 5 companion clean-pin canonical evidence uses the default dependency driver without VEIR_DIFF.
+PASS: Phase 5 companion corpus matrix covers all 15 VeIR Felt rewrite-pattern definitions.
+PASS: companion differential wrapper rejects missing-tool SKIP runs as non-acceptance evidence.
+PASS: clean-pinned VeIR diff script prefers the built veir-opt binary when present.
+PASS: Phase 5 status docs no longer describe corpus expansion as future seed work.
+PASS: companion differential README records the clean-pin expanded corpus status.
+PASS: companion corpus README documents EXPECTED-LLZK-FAIL and EXPECTED-VEIR-FAIL polarity.
+PASS: companion expected-divergence polarity is marker-specific; a canonical EXPECTED-DIVERGE file with forced LLZK failure exits nonzero.
+PASS: Phase 5 source evidence captures the known stderr warning detail.
+PASS: no Phase 5 findings remain open.

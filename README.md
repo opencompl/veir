@@ -18,6 +18,20 @@ VeIR is a compiler infrastructure written in Lean that offers both an
 VeIR connects with MLIR via the MLIR textual format, making it
 easy to combine MLIR and VeIR tooling.
 
+## LLZK Companion Pin
+
+The current llzk-lean proof-basis pin is documented in
+[`docs/harness/PINS.md`](docs/harness/PINS.md). For companion checks against a
+neighboring llzk-lean checkout, run:
+
+```bash
+scripts/harness/verify-companion-pin.sh --companion-llzk-lean ../llzk-lean
+```
+
+This verifies that llzk-lean's Lake metadata uses the accepted
+`project-llzk/veir` remote, that `rev` and `inputRev` identify the accepted
+commit, and that `.lake/packages/VeIR` is clean at that commit.
+
 | VeIR Features                                         | Complete   | Verified |
 |-------------------------------------------------------|------------| ---------|
 | MLIR core data structures (block, operation, region)  | ✅         | 🔒        |
