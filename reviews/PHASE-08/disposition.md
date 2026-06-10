@@ -14,3 +14,8 @@ F8-VEIR-01 is resolved by VeIR commit
 `differential/corpus/felt/unspecified_add_fold.llzk` as a positive no-fold
 case, and the companion clean-pin canonical baseline remains
 `21 pass (incl. expected-diverge), 0 fail`.
+
+F8-VEIR-02 is resolved by refreshing
+`Test/LLZK/Felt/pipelines/combine_then_dce.mlir` to exercise registered-field
+folding before DCE. The bare-field no-fold behavior remains covered by the
+companion Phase 8 target instead of by this fold-positive pipeline test.

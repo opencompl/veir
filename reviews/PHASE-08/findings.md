@@ -23,3 +23,21 @@ through the accepted registry. The companion case moved to
 `differential/corpus/felt/unspecified_add_fold.llzk` as a positive no-fold
 case, and the clean-pin canonical corpus remains
 `21 pass (incl. expected-diverge), 0 fail`.
+
+## F8-VEIR-02: Pipeline FileCheck Fixture Expected Bare-Field Folding
+
+- Severity: low
+- Status: resolved
+- Area: VeIR CI, Felt pipeline tests
+
+The open PR's Lean Action CI ran the full lit suite and failed
+`Test/LLZK/Felt/pipelines/combine_then_dce.mlir`: the fixture still expected
+`felt-combine,dce` to fold bare `!felt.type` constants `1 + 2` into `3`.
+That expectation contradicted the Phase 8 field-precondition fix, where
+bare/unknown-field constant folds intentionally do not fire.
+
+Resolution: the pipeline fixture now uses registered `!felt.type<"babybear">`
+values for the fold-then-DCE path and explicitly leaves the bare-field no-fold
+case to the companion Phase 8 `unspecified_add_fold.llzk` target. The targeted
+lit reproduction passes locally, and the full VeIR lit suite reports
+`350 passed, 10 unsupported, 0 failed`.

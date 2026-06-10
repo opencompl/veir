@@ -12,4 +12,7 @@ PASS: Phase 8 clean-pin canonical baseline remains 21 pass (incl. expected-diver
 PASS: Phase 8 records 10 PASS cases, 10 EXPECTED-DIVERGE canonical cases, and 1 EXPECTED-LLZK-FAIL.
 PASS: nonconstant algebraic rewrite divergences remain out of scope.
 PASS: Phase 8 docs do not claim full Strategy A acceptance.
+PASS: combine_then_dce lit fixture now uses registered-field folding before DCE.
+PASS: targeted lit reproduction for combine_then_dce passes after fixture refresh.
+PASS: full VeIR lit suite reports 350 passed, 10 unsupported, 0 failed.
 PASS: no Phase 8 findings remain open.
