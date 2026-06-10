@@ -4,6 +4,7 @@ import Veir.Passes.Matching
 import Veir.Rewriter.WfRewriter
 import Veir.Rewriter.WfRewriter
 import Veir.Printer
+import Veir.Properties
 import Std
 
 
@@ -79,10 +80,18 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String 
       casts := casts.push cast
 
     let some (xc, newop ) :=
-    if op.getOpType! ctx.raw = .llvm .br then do
+    if h : op.getOpType! ctx.raw = .llvm .br then do
       Rewriter.createOp c (.riscv_cf .branch) #[] (casts.map (fun cast => cast.getResult 0)) #[op.getSuccessor c 0 sorry sorry] #[] default ip sorry sorry sorry sorry sorry
+    else if h : op.getOpType! ctx.raw = .llvm .cond_br then do
+      let pp : CondBrProperties := op.getProperties! c (.llvm .cond_br)
+
+      let x := pp.operandSegmentSizes
+
+      let pp : RISCVBrProperties := ⟨x⟩
+
+      Rewriter.createOp c (.riscv_cf .cbr) #[] (casts.map (fun cast => cast.getResult 0)) (op.getSuccessors c sorry) #[] (pp) ip sorry sorry sorry sorry sorry
     else
-      Rewriter.createOp c (.riscv_cf .bne) #[] (casts.map (fun cast => cast.getResult 0)) (op.getSuccessors c sorry) #[] default ip sorry sorry sorry sorry sorry | return ⟨c, by sorry⟩
+      none | return ⟨c, by sorry⟩
     c := Rewriter.detachOp xc op sorry sorry sorry
 
   for i in List.range (block.getNumArguments! c) do

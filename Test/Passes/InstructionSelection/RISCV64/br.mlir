@@ -50,7 +50,7 @@
 // CHECK-NEXT:     [[CA:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[AA]]) : (i64) -> !riscv.reg
 // CHECK-NEXT:     [[CB:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[AA]]) : (i64) -> !riscv.reg
 // CHECK-NEXT:     [[CC:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[AB]]) : (i1) -> !riscv.reg
-// CHECK-NEXT:     "riscv_cf.bne"([[CA]], [[CB]], [[CC]]) [^13, ^14] <{"operandSegmentSizes" = array<i0>}> : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:     "riscv_cf.cbr"([[CA]], [[CB]], [[CC]]) [^13, ^14] <{"operandSegmentSizes" = array<i32: 1, 1, 1>}> : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:   ^13(%arg13_0 : !riscv.reg):
 // CHECK-NEXT:     [[CD:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg13_0) : (!riscv.reg) -> i64
 // CHECK-NEXT:     "func.return"([[CD]]) : (i64) -> ()
@@ -64,7 +64,7 @@
 // CHECK-NEXT:     [[CA:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg20_0) : (i64) -> !riscv.reg
 // CHECK-NEXT:     [[CB:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg20_0) : (i64) -> !riscv.reg
 // CHECK-NEXT:     [[CC:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg20_1) : (i1) -> !riscv.reg
-// CHECK-NEXT:     "riscv_cf.bne"([[CA]], [[CB]], [[CC]]) [^21, ^22] <{"operandSegmentSizes" = array<i0>}> : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:     "riscv_cf.cbr"([[CA]], [[CB]], [[CC]]) [^21, ^22] <{"operandSegmentSizes" = array<i32: 1, 1, 1>}> : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:   ^21(%arg21_0 : !riscv.reg):
 // CHECK-NEXT:     [[CD:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg21_0) : (!riscv.reg) -> i64
 // CHECK-NEXT:     [[CE:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[CD]]) : (i64) -> !riscv.reg
