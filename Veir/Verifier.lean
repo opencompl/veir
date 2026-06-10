@@ -2220,9 +2220,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
       throw "Expected 2 successors"
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .cbr)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 4 then
+    if _ : sizes.values.size ≠ 3 then
       throw "Expected 1 operand plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
+    if sizes.values[0]! ≠ 1 then
       throw "Expected 1 operand plus 2 variadic operands"
     pure ()
   /- RISCV Stack -/
