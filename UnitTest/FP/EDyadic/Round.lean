@@ -105,10 +105,14 @@ A value smaller than half-min-subnormal rounds to `+0`. -/
 #guard Dyadic.round .RNE (Dyadic.ofIntWithPrec 3 11) 4 3 =
   EDyadic.ofDyadic false (Dyadic.ofIntWithPrec 1 9)
 
-/-! ## Round-trip via `pack ∘ round` against IEEE-754 doubles
+/-! ## Round-trip via `pack ∘ round` against IEEE-754 doubles.
 
 For doubles already representable in the format, `round` is the identity
-on the dyadic value, and `pack` recovers the original bit pattern. -/
+on the dyadic value, and `pack` recovers the original bit pattern.
+
+Recall that the double format has
+`e = 11` exponent bits and `s = 52` significand bits.
+-/
 
 def asDyadic (pf : PackedFloat 11 52) : Dyadic :=
   match toEDyadic pf with
