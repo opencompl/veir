@@ -1033,6 +1033,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVneg ctx opIn (op.getProperties! ctx.raw (.riscv .lui)).value.value
     pure ()
   | .riscv .auipc => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1043,6 +1044,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVneg ctx opIn (op.getProperties! ctx.raw (.riscv .auipc)).value.value
     pure ()
   | .riscv .addi => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
