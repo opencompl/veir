@@ -10,3 +10,13 @@ PASS: companion DCE-only registered add/sub/mul folds moved to the positive corp
 PASS: remaining companion expected-divergence cases still use exact EXPECTED-* markers.
 PASS: Phase 6 docs preserve the clean-pin canonical baseline without claiming full Strategy A acceptance.
 PASS: no Phase 6 findings remain open.
+
+$ Fresh post-implementation adversarial checks
+
+PASS: companion clean dependency checkout HEAD is a0bb2fc8e6d38ab068247dfc6506ba63f5feb953.
+PASS: companion clean dependency llzk-diff.sh contains veir-opt -p=felt-combine,dce in canonical mode.
+PASS: targeted companion canonical run passes registered_add_fold.llzk, constant_fold_sub.llzk, and constant_fold_mul.llzk individually.
+PASS: companion positive corpus contains no EXPECTED-* markers.
+PASS: reclassified companion files no longer appear under differential/corpus/expected-divergence.
+PASS: Phase 6 VeIR changes touch no VeIR Lean implementation files.
+PASS: fresh post-implementation adversarial pass found no new findings.
