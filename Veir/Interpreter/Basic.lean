@@ -1047,14 +1047,16 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
     return (#[.reg (RISCV.sgtz op)], mem, none)
   | .ld => do
     let [.reg addr] := operands.toList | none
+    let eaddr := addr.val + (BitVec.ofInt 12 properties.value.value).signExtend 64
     -- extend the memory so that the access is in bounds and cannot raise UB
-    let mem := mem.ensureSize (addr.val.toNat + 8)
-    let val ← mem.load addr.val.toNat.toUInt64 8
+    let mem := mem.ensureSize (eaddr.toNat + 8)
+    let val ← mem.load eaddr.toNat.toUInt64 8
     return (#[.reg $ .mk (BitVec.ofNat 64 val.toUInt64LE!.toNat)], mem, none)
   | .sd => do
     let [.reg addr, .reg { val }] := operands.toList | none
-    let mem := mem.ensureSize (addr.val.toNat + 8)
-    let mem ← mem.store addr.val.toNat.toUInt64 (UInt64.ofBitVec val).toByteArrayLE
+    let eaddr := addr.val + (BitVec.ofInt 12 properties.value.value).signExtend 64
+    let mem := mem.ensureSize (eaddr.toNat + 8)
+    let mem ← mem.store eaddr.toNat.toUInt64 (UInt64.ofBitVec val).toByteArrayLE
     return (#[], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInfo.propertiesOf opType)
