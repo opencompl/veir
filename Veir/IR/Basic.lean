@@ -369,7 +369,7 @@ namespace OperationPtr
 def InBounds (op : OperationPtr) (ctx : IRContext OpInfo) : Prop :=
   op ∈ ctx.operations
 
-def inBounds_def : InBounds op ctx ↔ op ∈ ctx.operations := by rfl
+theorem inBounds_def : InBounds op ctx ↔ op ∈ ctx.operations := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds op ctx) := by
@@ -1474,7 +1474,7 @@ namespace BlockPtr
 def InBounds (block : BlockPtr) (ctx : IRContext OpInfo) : Prop :=
   block ∈ ctx.blocks
 
-def inBounds_def : InBounds block ctx ↔ block ∈ ctx.blocks := by rfl
+theorem inBounds_def : InBounds block ctx ↔ block ∈ ctx.blocks := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds block ctx) := by
@@ -2273,7 +2273,7 @@ namespace RegionPtr
 def InBounds (region : RegionPtr) (ctx : IRContext OpInfo) : Prop :=
   region ∈ ctx.regions
 
-def inBounds_def : region.InBounds ctx ↔ region ∈ ctx.regions := by rfl
+theorem inBounds_def : region.InBounds ctx ↔ region ∈ ctx.regions := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds region ctx) := by
