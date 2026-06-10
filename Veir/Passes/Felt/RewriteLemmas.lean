@@ -1,5 +1,6 @@
 import Veir.Passes.Matching
 import Veir.Passes.Felt.Matching
+import Veir.Passes.Felt.InterpModel
 
 namespace Veir
 
@@ -73,6 +74,16 @@ theorem getOperand_inBounds {op : OperationPtr} {ctx : IRContext OpCode}
   exact OperationPtr.getOperands!_inBounds hFib hIn hmem
 
 namespace FeltPass
+
+/-- Build a folded felt constant, reducing through LLZK's accepted field
+    registry when the type names a registered field. Bare or unknown fields stay
+    raw because their modulus is intentionally unresolved. -/
+def foldedConstProperties (fieldType : FeltType) (raw : Int) : FeltConstProperties :=
+  let value :=
+    match FeltInterp.feltPrime fieldType.fieldName with
+    | none => raw
+    | some p => Int.ofNat (FeltInterp.reduce p raw)
+  { value := { value, fieldType } }
 
 theorem matchAdd_inBounds {op : OperationPtr} {ctx : IRContext OpCode}
     {r : ValuePtr × ValuePtr × propertiesOf (OpCode.felt Felt.add)}
@@ -429,9 +440,7 @@ def constant_fold_add (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
     let some cstL := matchConstFromValue lhs rewriter.ctx | return rewriter
     let some cstR := matchConstFromValue rhs rewriter.ctx | return rewriter
     if cstL.value.fieldType ≠ cstR.value.fieldType then return rewriter
-    let sumVal := cstL.value.value + cstR.value.value
-    let cstProp : FeltConstProperties :=
-      { value := { value := sumVal, fieldType := cstL.value.fieldType } }
+    let cstProp := foldedConstProperties cstL.value.fieldType (cstL.value.value + cstR.value.value)
     let resultType := lhs.getType! rewriter.ctx.raw
     -- Defensive guards for the two facts `WfIRContext` does not carry about `op`.
     if hRegNe : op.getNumRegions! rewriter.ctx.raw ≠ 0 then return rewriter else
@@ -676,8 +685,7 @@ def constant_fold_sub (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
     let some cstL := matchConstFromValue lhs rewriter.ctx | return rewriter
     let some cstR := matchConstFromValue rhs rewriter.ctx | return rewriter
     if cstL.value.fieldType ≠ cstR.value.fieldType then return rewriter
-    let cstProp : FeltConstProperties :=
-      { value := { value := cstL.value.value - cstR.value.value, fieldType := cstL.value.fieldType } }
+    let cstProp := foldedConstProperties cstL.value.fieldType (cstL.value.value - cstR.value.value)
     let resultType := lhs.getType! rewriter.ctx.raw
     if hRegNe : op.getNumRegions! rewriter.ctx.raw ≠ 0 then return rewriter else
     if hPar : ¬ (op.get! rewriter.ctx.raw).parent.isSome then return rewriter else
@@ -696,8 +704,7 @@ def constant_fold_mul (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
     let some cstL := matchConstFromValue lhs rewriter.ctx | return rewriter
     let some cstR := matchConstFromValue rhs rewriter.ctx | return rewriter
     if cstL.value.fieldType ≠ cstR.value.fieldType then return rewriter
-    let cstProp : FeltConstProperties :=
-      { value := { value := cstL.value.value * cstR.value.value, fieldType := cstL.value.fieldType } }
+    let cstProp := foldedConstProperties cstL.value.fieldType (cstL.value.value * cstR.value.value)
     let resultType := lhs.getType! rewriter.ctx.raw
     if hRegNe : op.getNumRegions! rewriter.ctx.raw ≠ 0 then return rewriter else
     if hPar : ¬ (op.get! rewriter.ctx.raw).parent.isSome then return rewriter else
@@ -714,8 +721,7 @@ def constant_fold_neg (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
   | none => return rewriter
   | some (operand, _) =>
     let some cst := matchConstFromValue operand rewriter.ctx | return rewriter
-    let cstProp : FeltConstProperties :=
-      { value := { value := -cst.value.value, fieldType := cst.value.fieldType } }
+    let cstProp := foldedConstProperties cst.value.fieldType (-cst.value.value)
     let resultType := operand.getType! rewriter.ctx.raw
     if hRegNe : op.getNumRegions! rewriter.ctx.raw ≠ 0 then return rewriter else
     if hPar : ¬ (op.get! rewriter.ctx.raw).parent.isSome then return rewriter else
@@ -977,8 +983,7 @@ def assoc_const_fold_add (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     | some (x, c1Val, _) =>
       let some c1 := matchConstFromValue c1Val rewriter.ctx | return rewriter
       if c1.value.fieldType ≠ c2.value.fieldType then return rewriter
-      let combinedCst : FeltConstProperties :=
-        { value := { value := c1.value.value + c2.value.value, fieldType := c1.value.fieldType } }
+      let combinedCst := foldedConstProperties c1.value.fieldType (c1.value.value + c2.value.value)
       let resultType := x.getType! rewriter.ctx.raw
       if hRegNe : op.getNumRegions! rewriter.ctx.raw ≠ 0 then return rewriter else
       if hPar : ¬ (op.get! rewriter.ctx.raw).parent.isSome then return rewriter else
@@ -1002,8 +1007,7 @@ def assoc_const_fold_mul (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     | some (x, c1Val, _) =>
       let some c1 := matchConstFromValue c1Val rewriter.ctx | return rewriter
       if c1.value.fieldType ≠ c2.value.fieldType then return rewriter
-      let combinedCst : FeltConstProperties :=
-        { value := { value := c1.value.value * c2.value.value, fieldType := c1.value.fieldType } }
+      let combinedCst := foldedConstProperties c1.value.fieldType (c1.value.value * c2.value.value)
       let resultType := x.getType! rewriter.ctx.raw
       if hRegNe : op.getNumRegions! rewriter.ctx.raw ≠ 0 then return rewriter else
       if hPar : ¬ (op.get! rewriter.ctx.raw).parent.isSome then return rewriter else

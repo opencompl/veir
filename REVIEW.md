@@ -120,7 +120,7 @@ exactly the unported ones.
 | Constant value rep | `APInt`, raw (round-trips `-1` as `-1`; **not** reduced on parse/print — verified via `llzk-opt`) | `Int`, raw | both keep raw values; VEIR's internal `DecidableEq`/`Hashable` still distinguish `0`/`p` (VH3) |
 | Binary fold guard | both consts must share a **registered** field name | field-type equality guard added to all fold patterns; registry membership still not modeled | cross-field unsoundness fixed; unregistered-field behavior remains a faithfulness gap |
 | Cross-field operands | rejected (types must unify) | fold patterns now refuse mismatched field types | VC3 fold unsoundness fixed; verifier type-unification policy remains separate plumbing |
-| Modular reduction | applied in **folds** (`field->reduce`), not on raw consts | **not** applied in folds | fold-result divergence (VH3) — *unreached today; see VH2* |
+| Modular reduction | applied in **folds** (`field->reduce`), not on raw consts | applied to registered-field fold results; bare/unknown fields stay raw | registered fold-result divergence closed in Phase 7; unresolved-field preconditions remain |
 | `NotFieldNative` gating | enforced (`allow_non_native_field_ops`) | **not modeled at all** | — (only affects the unported ops) |
 
 ---
@@ -151,10 +151,11 @@ and whole-program semantics, not structural preconditions.
 fold patterns.** ✅
 Historical critical finding retained for traceability. The fold patterns now
 guard that matched constants have the same field type before folding, including
-`constant_fold_{add,sub,mul}` and `assoc_const_fold_{add,mul}`. LLZK's stronger
-registered-field requirement and modular-reduction behavior are still
-faithfulness gaps (see VH3), but the original "silently choose one operand's
-field" unsoundness is closed.
+`constant_fold_{add,sub,mul}` and `assoc_const_fold_{add,mul}`. Phase 7 also
+reduces registered-field fold results through the accepted field registry.
+LLZK's stronger registered-field requirement remains a faithfulness gap for
+bare or unknown fields, but the original "silently choose one operand's field"
+unsoundness is closed.
 
 ### High
 
@@ -210,21 +211,19 @@ unreduced-fold divergence (VH3) are never differentially exercised.
 > normalizer-masking concern is **retracted.** (The only thing normalized
 > away is a cosmetic VEIR↔LLZK printer-style difference — see VH1.)
 
-**VH3 — VEIR's folds don't reduce mod p; internal `DecidableEq` distinguishes
-equal field elements.** ✅ (refined after `llzk-opt` test)
+**VH3 — registered folds now reduce mod p; internal `DecidableEq` still
+distinguishes equal field elements.** ✅ (refined after `llzk-opt` test and
+Phase 7)
 `FeltConstAttr.value : Int` (`Attribute.lean:194`), never reduced. Two
 distinct effects, separated after empirical check:
 - **Raw const round-trip does NOT diverge:** `llzk-opt` itself round-trips an
   unreduced/negative const verbatim (verified: `-1` prints as `-1`, not
   `p-1`). So for *non-folded* constants VEIR and LLZK agree — no print
   divergence here.
-- **Fold results DO diverge:** LLZK's `fold()` applies `field->reduce`;
-  VEIR's constant-fold patterns compute on raw `Int` with no reduction. So a
-  fold that overflows the field (e.g. `babybear` `const (p-1) + const 1`)
-  yields `#felt<const p>` in VEIR vs `#felt<const 0>` in LLZK. Sound under
-  eventual mod-p interpretation (the `Int→ZMod p` coercion is a ring hom),
-  but a textual divergence — and one the differential never reaches today
-  (VH2).
+- **Registered fold-result divergence is closed:** LLZK's `fold()` applies
+  `field->reduce`; Phase 7 routes VEIR's constant-producing fold patterns
+  through the accepted field registry when `fieldName` resolves. Bare or
+  unknown fields still stay raw because the modulus is unresolved.
 - **Internal representation:** derived `DecidableEq`/`Hashable` distinguish
   `0`/`p` and `-1`/`p-1`, so attributes denoting the same field element are
   unequal — would defeat CSE/dedup keyed on the attribute. (Independent of
