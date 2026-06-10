@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# llzk-diff.sh — compare veir-opt and llzk-opt round-trips for an .mlir input.
+# llzk-diff.sh — compare veir-opt and llzk-opt output for an .mlir input.
 #
 # Exit codes:
 #   0   identical (modulo normalization + allowlist)
-#   1   differs
+#   1   differs after both tools succeeded
 #   2   bad invocation / unreadable input
+#   3   veir-opt failed
+#   4   llzk-opt failed
 #   77  skip (llzk-opt or lake missing — lit treats as UNRESOLVED/SKIP)
 #
 # Env / flags:
@@ -12,6 +14,8 @@
 #   $VEIR_DIFF_VERBOSE=1  print intermediate stages to stderr
 #   $VEIR_DIFF_KEEP=1     don't delete intermediate temp files (debug aid)
 #   --allowlist <file>    apply per-test fixed-string substitutions before diffing
+#   --canonicalize        compare `veir-opt -p=felt-combine` with
+#                         `llzk-opt --canonicalize --mlir-print-op-generic`
 #   --lower-first         first pass input through `llzk-opt --mlir-print-op-generic`
 #                         (use when the input is in LLZK custom assembly; default
 #                         assumes input is already in generic MLIR form)
@@ -24,9 +28,11 @@ set -euo pipefail
 # --- args ---------------------------------------------------------------------
 usage() {
   cat >&2 <<'USAGE'
-usage: llzk-diff.sh <input.mlir> [--allowlist <file>] [--lower-first]
-  Diffs the generic-MLIR round-trip output of veir-opt against
-  `llzk-opt --mlir-print-op-generic` for the same input.
+usage: llzk-diff.sh <input.mlir> [--allowlist <file>] [--canonicalize] [--lower-first]
+  Diffs normalized generic-MLIR output from veir-opt and llzk-opt.
+  Default mode compares parse/print round-trips.
+  --canonicalize compares `veir-opt -p=felt-combine` against
+  `llzk-opt --canonicalize --mlir-print-op-generic`.
 
   $LLZK_OPT or llzk-opt on $PATH selects the LLZK binary.
   $VEIR_DIFF_VERBOSE=1 streams intermediate stages to stderr.
@@ -36,22 +42,42 @@ USAGE
 }
 
 [[ $# -ge 1 ]] || usage
-INPUT="${1:-}"
-shift || true
-
+INPUT=""
 ALLOWLIST=""
+CANONICALIZE=0
 LOWER_FIRST=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --allowlist) ALLOWLIST="${2:-}"; shift 2 ;;
+    --canonicalize) CANONICALIZE=1; shift ;;
     --lower-first) LOWER_FIRST=1; shift ;;
     -h|--help) usage ;;
-    *) echo "unknown flag: $1" >&2; usage ;;
+    *)
+      if [[ -z "$INPUT" ]]; then
+        INPUT="$1"
+        shift
+      else
+        echo "unexpected extra argument: $1" >&2
+        usage
+      fi
+      ;;
   esac
 done
 
 [[ -n "$INPUT" ]] || usage
 [[ -r "$INPUT" ]] || { echo "input not readable: $INPUT" >&2; exit 2; }
+INPUT_DIR="$(cd "$(dirname "$INPUT")" && pwd)" || {
+  echo "input directory not readable: $(dirname "$INPUT")" >&2
+  exit 2
+}
+INPUT="${INPUT_DIR}/$(basename "$INPUT")"
+
+if [[ -n "$ALLOWLIST" ]]; then
+  ALLOWLIST_DIR="$(cd "$(dirname "$ALLOWLIST")" 2>/dev/null && pwd || true)"
+  if [[ -n "$ALLOWLIST_DIR" ]]; then
+    ALLOWLIST="${ALLOWLIST_DIR}/$(basename "$ALLOWLIST")"
+  fi
+fi
 
 # --- tool discovery -----------------------------------------------------------
 LLZK_OPT="${LLZK_OPT:-$(command -v llzk-opt 2>/dev/null || true)}"
@@ -103,7 +129,7 @@ if [[ "$LOWER_FIRST" -eq 1 ]]; then
   if ! "$LLZK_OPT" --mlir-print-op-generic "$INPUT" > "$GENERIC" 2>"$TMPDIR_LOCAL/llzk-lower.err"; then
     echo "FAIL: llzk-opt could not lower input" >&2
     cat "$TMPDIR_LOCAL/llzk-lower.err" >&2
-    exit 1
+    exit 4
   fi
 else
   log "stage 1: skipped (--lower-first not set; assuming input is generic)"
@@ -111,16 +137,25 @@ else
 fi
 
 # --- stage 2: round-trip through both -----------------------------------------
-log "stage 2: round-trip through veir-opt and llzk-opt"
-if ! lake exec veir-opt "$GENERIC" > "$VEIR_OUT" 2>"$TMPDIR_LOCAL/veir.err"; then
+if [[ "$CANONICALIZE" -eq 1 ]]; then
+  log "stage 2: canonicalize through veir-opt -p=felt-combine and llzk-opt --canonicalize"
+  VEIR_CMD=(lake exec veir-opt -p=felt-combine "$GENERIC")
+  LLZK_CMD=("$LLZK_OPT" --canonicalize --mlir-print-op-generic "$GENERIC")
+else
+  log "stage 2: round-trip through veir-opt and llzk-opt"
+  VEIR_CMD=(lake exec veir-opt "$GENERIC")
+  LLZK_CMD=("$LLZK_OPT" --mlir-print-op-generic "$GENERIC")
+fi
+
+if ! "${VEIR_CMD[@]}" > "$VEIR_OUT" 2>"$TMPDIR_LOCAL/veir.err"; then
   echo "FAIL: veir-opt failed on input" >&2
   cat "$TMPDIR_LOCAL/veir.err" >&2
-  exit 1
+  exit 3
 fi
-if ! "$LLZK_OPT" --mlir-print-op-generic "$GENERIC" > "$LLZK_OUT" 2>"$TMPDIR_LOCAL/llzk.err"; then
+if ! "${LLZK_CMD[@]}" > "$LLZK_OUT" 2>"$TMPDIR_LOCAL/llzk.err"; then
   echo "FAIL: llzk-opt failed on input" >&2
   cat "$TMPDIR_LOCAL/llzk.err" >&2
-  exit 1
+  exit 4
 fi
 
 # --- stage 3: normalize -------------------------------------------------------
