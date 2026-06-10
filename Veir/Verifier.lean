@@ -2104,8 +2104,7 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
     ((op.getResult 0).get! ctx.raw).type.val =
       (op.getProperties! ctx.raw (.arith .constant)).value.type := by
   simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
-    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure, dite_not,
-    ite_not] at opVerify
+    bind, Except.bind, pure, Except.pure, dite_not, ite_not] at opVerify
   grind
 
 theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}

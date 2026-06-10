@@ -7,7 +7,8 @@ name: LLZK quality gates
 #   - coverage.md path/count consistency
 #   - tags pushed
 #
-# Fast: no Lean build required (script is pure-text).
+# Fast relative to the full build: hydrates companion checkouts for strict
+# pin/source gates, but does not build VeIR.
 
 on:
   push:
@@ -23,6 +24,35 @@ jobs:
         with:
           fetch-depth: 0   # need full tag history for §7
           fetch-tags: true
+
+      - name: Install elan
+        run: |
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Checkout companion llzk-lean
+        uses: actions/checkout@v4
+        with:
+          repository: project-llzk/llzk-lean
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref == 'felt-review-structural-close' && 'felt-review' || 'main' }}
+          path: llzk-lean
+
+      - name: Checkout accepted llzk-lib source
+        uses: actions/checkout@v4
+        with:
+          repository: project-llzk/llzk-lib
+          ref: main
+          fetch-depth: 0
+          path: llzk-lib
+
+      - name: Prepare companion workspaces
+        run: |
+          ln -sfn "$GITHUB_WORKSPACE/llzk-lean" "$GITHUB_WORKSPACE/../llzk-lean"
+          ln -sfn "$GITHUB_WORKSPACE/llzk-lib" "$GITHUB_WORKSPACE/../llzk-lib"
+          git -C "$GITHUB_WORKSPACE/llzk-lib" remote set-url origin git@github.com:project-llzk/llzk-lib.git
+          lake --version
+          (cd "$GITHUB_WORKSPACE/llzk-lean" && lake update --no-cache)
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v6
