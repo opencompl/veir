@@ -29,10 +29,7 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String 
     if op.getOpType! ctx.raw != .llvm .br && op.getOpType! ctx.raw != .llvm .cond_br then
       continue
 
-    -- TODO: it seems we have some dangling operations which we need to ignore to
-    -- make things work. Eventually, these should be removed such that they are not
-    -- even dangling.
-    let some block := (op.get! c).parent | continue
+    let some block := (op.get! c).parent | return ⟨c, sorry⟩
 
     let mut ip := InsertPoint.after op ctx.raw block sorry sorry
     let mut casts : Array (OperationPtr) := #[]
@@ -53,7 +50,7 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String 
     else
       none | return ⟨c, by sorry⟩
 
-    c := Rewriter.detachOp xc op sorry sorry sorry
+    c := Rewriter.eraseOp xc op sorry sorry
 
   for i in List.range (block.getNumArguments! c) do
     let bap : BlockArgumentPtr := { block := block, index := i }
