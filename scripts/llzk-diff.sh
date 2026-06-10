@@ -11,6 +11,9 @@
 #
 # Env / flags:
 #   $LLZK_OPT             explicit path to llzk-opt (otherwise discovered on $PATH)
+#   $VEIR_OPT             explicit path to veir-opt (otherwise use
+#                         .lake/build/bin/veir-opt when present, then
+#                         fall back to `lake exec veir-opt`)
 #   $VEIR_DIFF_VERBOSE=1  print intermediate stages to stderr
 #   $VEIR_DIFF_KEEP=1     don't delete intermediate temp files (debug aid)
 #   --allowlist <file>    apply per-test fixed-string substitutions before diffing
@@ -35,6 +38,8 @@ usage: llzk-diff.sh <input.mlir> [--allowlist <file>] [--canonicalize] [--lower-
   `llzk-opt --canonicalize --mlir-print-op-generic`.
 
   $LLZK_OPT or llzk-opt on $PATH selects the LLZK binary.
+  $VEIR_OPT selects the VEIR binary; otherwise .lake/build/bin/veir-opt is
+  used when present, with `lake exec veir-opt` as the fallback.
   $VEIR_DIFF_VERBOSE=1 streams intermediate stages to stderr.
   $VEIR_DIFF_KEEP=1 keeps intermediate temp files after exit.
 USAGE
@@ -79,14 +84,25 @@ if [[ -n "$ALLOWLIST" ]]; then
   fi
 fi
 
+# --- repo root ----------------------------------------------------------------
+# llzk-diff.sh lives in <repo>/scripts/. veir-opt is invoked from <repo> so
+# Lake finds the manifest when the fallback path is needed.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 # --- tool discovery -----------------------------------------------------------
 LLZK_OPT="${LLZK_OPT:-$(command -v llzk-opt 2>/dev/null || true)}"
 if [[ -z "${LLZK_OPT:-}" ]]; then
   echo "SKIP: llzk-opt not found (set \$LLZK_OPT or add to \$PATH)" >&2
   exit 77
 fi
-if ! command -v lake >/dev/null 2>&1; then
-  echo "SKIP: lake not on \$PATH (cannot run veir-opt)" >&2
+VEIR_OPT="${VEIR_OPT:-}"
+if [[ -z "$VEIR_OPT" && -x "${REPO_ROOT}/.lake/build/bin/veir-opt" ]]; then
+  VEIR_OPT="${REPO_ROOT}/.lake/build/bin/veir-opt"
+fi
+if [[ -z "$VEIR_OPT" ]] && ! command -v lake >/dev/null 2>&1; then
+  echo "SKIP: neither \$VEIR_OPT nor lake is available (cannot run veir-opt)" >&2
   exit 77
 fi
 
@@ -107,13 +123,6 @@ LLZK_OUT="$TMPDIR_LOCAL/llzk.out.mlir"
 VEIR_NORM="$TMPDIR_LOCAL/veir.norm.mlir"
 LLZK_NORM="$TMPDIR_LOCAL/llzk.norm.mlir"
 DIFF_OUT="$TMPDIR_LOCAL/diff.txt"
-
-# --- repo root ----------------------------------------------------------------
-# llzk-diff.sh lives in <repo>/scripts/. veir-opt is invoked from <repo> so
-# lake finds the manifest.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-cd "$REPO_ROOT"
 
 log() {
   # Don't use `[[ ... ]] && echo` here — that yields non-zero when verbose
@@ -139,11 +148,19 @@ fi
 # --- stage 2: round-trip through both -----------------------------------------
 if [[ "$CANONICALIZE" -eq 1 ]]; then
   log "stage 2: canonicalize through veir-opt -p=felt-combine and llzk-opt --canonicalize"
-  VEIR_CMD=(lake exec veir-opt -p=felt-combine "$GENERIC")
+  if [[ -n "$VEIR_OPT" ]]; then
+    VEIR_CMD=("$VEIR_OPT" -p=felt-combine "$GENERIC")
+  else
+    VEIR_CMD=(lake exec veir-opt -p=felt-combine "$GENERIC")
+  fi
   LLZK_CMD=("$LLZK_OPT" --canonicalize --mlir-print-op-generic "$GENERIC")
 else
   log "stage 2: round-trip through veir-opt and llzk-opt"
-  VEIR_CMD=(lake exec veir-opt "$GENERIC")
+  if [[ -n "$VEIR_OPT" ]]; then
+    VEIR_CMD=("$VEIR_OPT" "$GENERIC")
+  else
+    VEIR_CMD=(lake exec veir-opt "$GENERIC")
+  fi
   LLZK_CMD=("$LLZK_OPT" --mlir-print-op-generic "$GENERIC")
 fi
 
