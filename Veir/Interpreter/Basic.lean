@@ -714,6 +714,11 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     return (#[RuntimeValue.int w (LLVM.Int.freeze val)], mem, none)
   | _ => none
 
+/-- Effective address of a RISC-V load/store: the base register value plus the
+    sign-extended 12-bit immediate offset. -/
+def riscvEffectiveAddr (base : BitVec 64) (offset : Int) : BitVec 64 :=
+  base + (BitVec.ofInt 12 offset).signExtend 64
+
 def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     (mem : MemoryState)
@@ -1036,16 +1041,37 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
     return (#[.reg (RISCV.sgtz op)], mem, none)
   | .ld => do
     let [.reg addr] := operands.toList | none
-    let eaddr := addr.val + (BitVec.ofInt 12 properties.value.value).signExtend 64
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
     -- extend the memory so that the access is in bounds and cannot raise UB
     let mem := mem.ensureSize (eaddr.toNat + 8)
     let val ← mem.load eaddr.toNat.toUInt64 8
     return (#[.reg $ .mk (BitVec.ofNat 64 val.toUInt64LE!.toNat)], mem, none)
   | .sd => do
     let [.reg addr, .reg { val }] := operands.toList | none
-    let eaddr := addr.val + (BitVec.ofInt 12 properties.value.value).signExtend 64
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
     let mem := mem.ensureSize (eaddr.toNat + 8)
     let mem ← mem.store eaddr.toNat.toUInt64 (UInt64.ofBitVec val).toByteArrayLE
+    return (#[], mem, none)
+  | .sw => do
+    let [.reg addr, .reg { val }] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let mem := mem.ensureSize (eaddr.toNat + 4)
+    -- store only the low 4 bytes of the register
+    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
+    return (#[], mem, none)
+  | .sh => do
+    let [.reg addr, .reg { val }] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let mem := mem.ensureSize (eaddr.toNat + 2)
+    -- store only the low 2 bytes of the register
+    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
+    return (#[], mem, none)
+  | .sb => do
+    let [.reg addr, .reg { val }] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let mem := mem.ensureSize (eaddr.toNat + 1)
+    -- store only the low byte of the register
+    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
 
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInfo.propertiesOf opType)

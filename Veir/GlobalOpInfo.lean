@@ -80,6 +80,9 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case ld => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case sd => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case sw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case sh => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case sb => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case riscv_cf op =>
     cases op
@@ -216,7 +219,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .li  | .riscv .lui | .riscv .auipc | .riscv .andi | .riscv .ori | .riscv .xori
   | .riscv .addi | .riscv .slti | .riscv .sltiu | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
-  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd | .mod_arith .constant =>
+  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd
+  | .riscv .sw | .riscv .sh | .riscv .sb | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .riscv_cf .beq | .riscv_cf .bne | .riscv_cf .blt | .riscv_cf .bge
   | .riscv_cf .bltu | .riscv_cf .bgeu =>
@@ -364,7 +368,7 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .builtin .unrealized_conversion_cast => false
   | .hw .constant => false
   -- RISC-V is pure register arithmetic except the memory ops
-  | .riscv .ld | .riscv .sd => true
+  | .riscv .ld | .riscv .sd | .riscv .sw | .riscv .sh | .riscv .sb => true
   | .riscv _ => false
   -- For LLVM we enumerate the pure ops
   | .llvm .mlir__constant

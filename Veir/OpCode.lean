@@ -202,6 +202,9 @@ inductive Riscv where
 /- memory -/
 | ld
 | sd
+| sw
+| sh
+| sb
 
 /- pseudooperations -/
 | mv
