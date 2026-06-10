@@ -8,33 +8,11 @@ namespace Veir
 /-!
   We reconcile casts in `builtin.unrealized_conversion_cast` operations for `!riscv.reg` and `i64` types.
 -/
-set_option warn.sorry false in
-def reconcileRegistersPairingCast (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
-    Option (PatternRewriter OpCode) := do
-  let some cast := matchCastOp op rewriter.ctx | return rewriter
-  let input := op.getOperand! rewriter.ctx.raw 0
-  let inputType := input.getType! rewriter.ctx.raw
-  let resultType := ((op.getResult 0).get! rewriter.ctx.raw).type
-  /- Only consider casting between `!riscv.reg` and `i64` types-/
-  if ¬ (inputType = RegisterType.mk ∧ resultType = IntegerType.mk 64) ∧
-       ¬ (inputType = IntegerType.mk 64 ∧ resultType = RegisterType.mk) then return rewriter
-  /- If the operand's parent is a cast operation -/
-  let .opResult op' := input | return rewriter
-  let some cast := matchCastOp op'.op rewriter.ctx | return rewriter
-  let parentInput := (op'.op.getOperand! rewriter.ctx.raw 0)
-  /- And the result's type coincides with the parent operation operand's type -/
-  let parentInputType := parentInput.getType! rewriter.ctx.raw
-  if resultType ≠ parentInputType then return rewriter
-  /- Replace the initial operation's output with the parent operations input -/
-  let rewriter := rewriter.replaceValue (op.getResult 0) parentInput sorry sorry sorry
-  /- Erase the redundant cast operation -/
-  let rewriter ← rewriter.eraseOp op sorry sorry sorry
-  /- If unused and side-effect-free, erase the parent cast operation as well.
-    These need to be erased in this order, otherwise the parent operation will always be used. -/
-  if ¬ op'.op.hasUses! rewriter.ctx.raw && ¬ op'.op.hasSideEffects rewriter.ctx.raw then
-    rewriter.eraseOp op'.op sorry sorry sorry
-  else
-    return rewriter
+def isRiscvRegToI64Cast (inputType interType : TypeAttr): Bool :=
+ match inputType.val, interType.val with
+  | .registerType _, .integerType x => x.bitwidth = 64
+  | .integerType x, .registerType _ => x.bitwidth = 64
+  | _, _ => false
 
 /-!
   We reconcile casts in `builtin.unrealized_conversion_cast` operations for `iX` and `iY` types,
@@ -44,28 +22,30 @@ def reconcileRegistersPairingCast (rewriter : PatternRewriter OpCode) (op : Oper
   %y = "builtin.unrealized_conversion_cast"(%x) : (iY) -> iX
   ```
   where `X ≤ Y`, to ensure no information is loss and correctness is preserved.
-  Note that reconciliation matches the second casting operation, therefore
-  we need to check that the width of the result type is less than - or equal to the input's width.
 -/
+def isPreservingIntegerTypeRoundTrip (inputType interType : TypeAttr) : Bool :=
+  match inputType.val, interType.val with
+  | .integerType x, .integerType y => x.bitwidth ≤ y.bitwidth
+  | _, _ => false
+
+/- Reconciles round-trip casts of the form X->Y->X if allowed for these types by `legal X Y` -/
 set_option warn.sorry false in
-def reconcileIntegersPairingCast (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
+def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some cast := matchCastOp op rewriter.ctx.raw | return rewriter
   let input := op.getOperand! rewriter.ctx.raw 0
-  let inputType := input.getType! rewriter.ctx.raw
+  /- Note that reconciliation matches on the second casting operation, so the input type of this op would be the intermediate type -/
+  let interType := input.getType! rewriter.ctx.raw
   let resultType := ((op.getResult 0).get! rewriter.ctx.raw).type
-  /- Only consider casting between `!riscv.reg` and `i64` types-/
-  let resultType := ((op.getResult 0).get! rewriter.ctx.raw).type
-  let IntegerType.mk bwRes := resultType | return rewriter
-  let IntegerType.mk bwIn := inputType | return rewriter
-  if bwIn ≤ bwRes then return rewriter
   /- If the operand's parent is a cast operation -/
   let .opResult op' := input | return rewriter
   let some cast := matchCastOp op'.op rewriter.ctx.raw | return rewriter
   let parentInput := (op'.op.getOperand! rewriter.ctx.raw 0)
   /- And the result's type coincides with the parent operation operand's type -/
-  let parentInputType := parentInput.getType! rewriter.ctx.raw
-  if resultType ≠ parentInputType then return rewriter
+  let inputType := parentInput.getType! rewriter.ctx.raw
+  if resultType ≠ inputType then return rewriter
+  /- And the reconciliation is legal -/
+  if ¬ legal inputType interType then return rewriter
   /- Replace the initial operation's output with the parent operations input -/
   let rewriter := rewriter.replaceValue (op.getResult 0) parentInput sorry sorry sorry
   /- Erase the redundant cast operation -/
@@ -91,7 +71,7 @@ def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr
 
 def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern #[reconcileIntegersPairingCast, reconcileRegistersPairingCast, reconcileIdentityCast]
+  let pattern := RewritePattern.GreedyRewritePattern #[reconcilePairingCast isRiscvRegToI64Cast, reconcilePairingCast isPreservingIntegerTypeRoundTrip, reconcileIdentityCast]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying cast reconciliation"
   | some ctx => pure ctx

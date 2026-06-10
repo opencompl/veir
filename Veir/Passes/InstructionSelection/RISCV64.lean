@@ -439,7 +439,6 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  dbg_trace "width = {opType.bitwidth}"
   let (rewriter, retOp) ← match opType.bitwidth with
     | 8 =>
       let (rewriter, retOp) ← rewriter.createOp (.riscv .sextb) #[RegisterType.mk] #[opCastOp.getResult 0]
@@ -452,7 +451,6 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     | 32 =>
       let (rewriter, retOp) ← rewriter.createOp (.riscv .sextw) #[RegisterType.mk] #[opCastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-      dbg_trace "matched with width 32"
       pure (rewriter, retOp)
     | _ =>
       let c := RISCVImmediateProperties.mk (IntegerAttr.mk (64 - opType.bitwidth) (IntegerType.mk 64))
@@ -622,7 +620,6 @@ set_option warn.sorry false in
 def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
   let some (arg, ptr, _) := matchStore op rewriter.ctx | return rewriter
-  dbg_trace "store matched"
   /- only support `i64` (the stored value type) -/
   let type := arg.getType! rewriter.ctx.raw
   let .integerType type' := type.val | return rewriter

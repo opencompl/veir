@@ -1,12 +1,18 @@
 module
 
 import Veir.Data.FP.EDyadic.Round
+import Veir.Data.FP.EDyadic.Pack
+import Veir.Data.FP.PackedFloat.ToEDyadic
 
 meta import Veir.Data.FP.EDyadic.Round
+meta import Veir.Data.FP.EDyadic.Pack
+meta import Veir.Data.FP.PackedFloat.OfFloat
+meta import Veir.Data.FP.PackedFloat.ToEDyadic
 
 namespace UnitTest.Fp.EDyadic.Round
 
 open Veir.Data.FP
+open Veir.Data.FP.PackedFloat
 
 /-! ## Identity on representable values
 
@@ -98,5 +104,30 @@ A value smaller than half-min-subnormal rounds to `+0`. -/
 -- 3 · 2^(-11) = 2^(-9) · 3/4: closer to 2^(-9) than to 0, rounds up.
 #guard Dyadic.round .RNE (Dyadic.ofIntWithPrec 3 11) 4 3 =
   EDyadic.ofDyadic false (Dyadic.ofIntWithPrec 1 9)
+
+/-! ## Round-trip via `pack ∘ round` against IEEE-754 doubles.
+
+For doubles already representable in the format, `round` is the identity
+on the dyadic value, and `pack` recovers the original bit pattern.
+
+Recall that the double format has
+`e = 11` exponent bits and `s = 52` significand bits.
+-/
+
+def asDyadic (pf : PackedFloat 11 52) : Dyadic :=
+  match toEDyadic pf with
+  | .nonzeroFinite d _ => d
+  | _ => 0
+
+#guard EDyadic.pack 11 52 (Dyadic.round .RNE (asDyadic (ofFloat 1.0)) 11 52) =
+  ofFloat 1.0
+#guard EDyadic.pack 11 52 (Dyadic.round .RNE (asDyadic (ofFloat 1.5)) 11 52) =
+  ofFloat 1.5
+#guard EDyadic.pack 11 52 (Dyadic.round .RNE (asDyadic (ofFloat (-1.5))) 11 52) =
+  ofFloat (-1.5)
+#guard EDyadic.pack 11 52 (Dyadic.round .RNE (asDyadic (ofFloat 0.5)) 11 52) =
+  ofFloat 0.5
+#guard EDyadic.pack 11 52 (Dyadic.round .RNE (asDyadic (ofFloat 1024.0)) 11 52) =
+  ofFloat 1024.0
 
 end UnitTest.Fp.EDyadic.Round

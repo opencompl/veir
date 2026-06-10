@@ -645,4 +645,41 @@ theorem OperationPtr.getNumOperands_iff_replaceValue?
     OperationPtr.getNumOperands op ctx (by grind) := by
   grind [OpOperandPtr.inBounds_if_operand_size_eq]
 
+/--
+`createOp` allocates a new operation with its results, operands, and block operands. Thus, the
+only new pointers that are in bounds in the new context and not in the old one are the operation
+itself, its results, its operands, its block operands, and the links to them.
+-/
+@[grind =>]
+theorem Rewriter.createOp_inBounds (ptr : GenericPtr)
+    (h : createOp ctx opType resultTypes operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
+    ptr.InBounds newCtx ↔
+    match ptr with
+    | .opResult resPtr
+    | .value (.opResult resPtr)
+    | .opOperandPtr (.valueFirstUse (.opResult resPtr)) =>
+      if resPtr.op = newOp then resPtr.index < resultTypes.size else resPtr.InBounds ctx
+    | .opOperand operandPtr
+    | .opOperandPtr (.operandNextUse operandPtr) =>
+      if operandPtr.op = newOp then operandPtr.index < operands.size else operandPtr.InBounds ctx
+    | .blockOperand blockOperandPtr
+    | .blockOperandPtr (.blockOperandNextUse blockOperandPtr) =>
+      if blockOperandPtr.op = newOp then
+        blockOperandPtr.index < blockOperands.size
+      else
+        blockOperandPtr.InBounds ctx
+    | _ => ptr.InBounds ctx ∨ ptr = .operation newOp := by
+  simp only [createOp] at h
+  split at h
+  · simp at h
+  · rename_i ctx₁ newOpPtr hnew
+    split at h
+    · simp at h
+    · rename_i ctx₂ hreg
+      split at h
+      · split at h
+        · simp at h
+        · cases ptr <;> grind [createEmptyOp]
+      · cases ptr <;> grind [createEmptyOp]
+
 end Veir
