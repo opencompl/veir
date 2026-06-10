@@ -4,8 +4,8 @@ Last reviewed: 2026-06-10
 
 ## Accepted VeIR Pin
 
-- Commit: `220cd215579b435c3c22ce86b34a3f4ce2ca276e`
-- Short ref: `220cd215579b`
+- Commit: `a0bb2fc8e6d38ab068247dfc6506ba63f5feb953`
+- Short ref: `a0bb2fc8e6d3`
 - Remote: `https://github.com/project-llzk/veir.git`
 - Branch at selection time: `felt-review-structural-close`
 - Mode: remote commit consumed by llzk-lean through Lake metadata and a clean
@@ -15,9 +15,10 @@ This commit is a descendant of the Phase 2 accepted pin
 `d4cc1bf2d31beeca17eb2e8c9c7181d04af013a3`, which was itself a descendant of
 the Phase 1 accepted pin `d52917ca4a57c4094b1aa61dd413aca4e1c2a56e`.
 
-This pin preserves the Phase 2 field-registry update and source-truth gate, and
-adds the Phase 5 canonicalization-aware `scripts/llzk-diff.sh` driver consumed
-by the default llzk-lean dependency checkout. The driver uses a built
+This pin preserves the Phase 2 field-registry update and source-truth gate,
+preserves the Phase 5 canonicalization-aware `scripts/llzk-diff.sh` driver
+consumed by the default llzk-lean dependency checkout, and adds the Phase 6
+DCE-enabled canonical differential path. The driver uses a built
 `.lake/build/bin/veir-opt` when present and falls back to `lake exec`.
 
 ## Required Companion State

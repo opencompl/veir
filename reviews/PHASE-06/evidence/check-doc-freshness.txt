@@ -1,3 +1,4 @@
+$ scripts/harness/check-doc-freshness.sh
 PASS: found docs/phases/PHASE-00-harness-reset.md
 PASS: found docs/phases/PHASE-01-pins-and-repro.md
 PASS: found docs/phases/PHASE-02-llzk-source-truth.md

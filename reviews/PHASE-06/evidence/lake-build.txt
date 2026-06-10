@@ -1,4 +1,5 @@
-⚠ [82/100] Replayed Veir.Verifier
+$ lake build
+⚠ [82/663] Replayed Veir.Verifier
 warning: Veir/Verifier.lean:2107:23: This simp argument is unused:
   throw
 

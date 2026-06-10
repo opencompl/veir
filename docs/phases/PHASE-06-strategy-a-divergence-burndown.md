@@ -18,12 +18,28 @@ baseline while the next implementation target is selected.
   `220cd215579b435c3c22ce86b34a3f4ce2ca276e`.
 - llzk-lean HEAD at Phase 6 bootstrap:
   `617702beadfbad6be784945e2bd98e8a788d357c`.
-- Accepted VeIR pin consumed by llzk-lean remains:
+- Accepted VeIR pin consumed by llzk-lean at bootstrap:
   `220cd215579b435c3c22ce86b34a3f4ce2ca276e`.
 - Accepted LLZK source commit remains:
   `db922857bc5a88a9107627ef6b36a8b5e57bc5c2`.
 - Phase 5 companion corpus evidence records 21 clean-pin inputs with exact
   `EXPECTED-*` polarity and `0 fail`.
+
+## Phase 6 Implementation Update
+
+- First burn-down VeIR commit:
+  `a0bb2fc8e6d38ab068247dfc6506ba63f5feb953`.
+- Companion llzk-lean now consumes that clean VeIR pin through Lake metadata and
+  a clean `.lake/packages/VeIR` checkout.
+- VeIR canonical differential mode now compares `llzk-opt --canonicalize`
+  against `veir-opt -p=felt-combine,dce`, aligning the diff path with LLZK's
+  dead-input cleanup after constant folds.
+- Companion llzk-lean's clean-pin corpus still has 21 inputs and `0 fail`, but
+  the classification is now 7 PASS cases, 13 `EXPECTED-DIVERGE` canonical
+  cases, and 1 `EXPECTED-LLZK-FAIL` named-field parser/verifier gap.
+- Companion reclassified positives:
+  `felt/registered_add_fold.llzk`, `felt/constant_fold_sub.llzk`, and
+  `felt/constant_fold_mul.llzk`.
 
 ## Non-Goals
 
@@ -42,6 +58,8 @@ baseline while the next implementation target is selected.
   evidence.
 - `docs/harness/GATES.md`: document Phase 6 bootstrap and companion divergence
   burn-down gates.
+- `scripts/llzk-diff.sh`: run `felt-combine,dce` in canonical differential
+  mode.
 - `scripts/harness/check-doc-freshness.sh`: require Phase 6 to be active while
   preserving Phase 2 through Phase 5 evidence checks.
 - `scripts/harness/doctor.sh`: require Phase 6 docs and review workspace.
@@ -68,8 +86,8 @@ baseline while the next implementation target is selected.
   `lake build` succeeds.
 - Companion Strategy A baseline:
   companion llzk-lean's clean-pin canonical differential remains
-  `21 pass (incl. expected-diverge), 0 fail` until Phase 6 deliberately reduces
-  or reclassifies a divergence.
+  `21 pass (incl. expected-diverge), 0 fail` with the Phase 6
+  reclassification above.
 
 ## Review Requirements
 

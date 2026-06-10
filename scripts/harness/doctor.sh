@@ -6,8 +6,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE="strict"
 COMPANION_LLZK_LEAN=""
 
-EXPECTED_VEIR_HEAD="220cd215579b"
-EXPECTED_LLZK_LEAN_HEAD="617702beadfb"
+EXPECTED_VEIR_HEAD="a0bb2fc8e6d38ab068247dfc6506ba63f5feb953"
+EXPECTED_VEIR_SHORT="${EXPECTED_VEIR_HEAD:0:12}"
+EXPECTED_LLZK_LEAN_HEAD="617702beadfbad6be784945e2bd98e8a788d357c"
+EXPECTED_LLZK_LEAN_SHORT="${EXPECTED_LLZK_LEAN_HEAD:0:12}"
 
 FAIL=0
 WARN=0
@@ -114,10 +116,12 @@ else
 fi
 
 head_short="$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || true)"
-if [[ "$head_short" == "$EXPECTED_VEIR_HEAD" ]]; then
-  ok "VeIR HEAD matches bootstrap input ${EXPECTED_VEIR_HEAD}"
+if [[ "$head_short" == "$EXPECTED_VEIR_SHORT" ]]; then
+  ok "VeIR HEAD matches bootstrap input ${EXPECTED_VEIR_SHORT}"
+elif git -C "$ROOT" merge-base --is-ancestor "$EXPECTED_VEIR_HEAD" HEAD 2>/dev/null; then
+  ok "VeIR HEAD ${head_short:-<none>} descends from bootstrap input ${EXPECTED_VEIR_SHORT}"
 else
-  warn "VeIR HEAD ${head_short:-<none>} differs from bootstrap input ${EXPECTED_VEIR_HEAD}"
+  warn "VeIR HEAD ${head_short:-<none>} differs from bootstrap input ${EXPECTED_VEIR_SHORT}"
 fi
 
 require_file AGENTS.md
@@ -218,10 +222,12 @@ if [[ -n "$COMPANION_LLZK_LEAN" ]]; then
   else
     ok "companion llzk-lean path is ${companion}"
     companion_head="$(git -C "$companion" rev-parse --short=12 HEAD 2>/dev/null || true)"
-    if [[ "$companion_head" == "$EXPECTED_LLZK_LEAN_HEAD" ]]; then
-      ok "llzk-lean HEAD matches bootstrap input ${EXPECTED_LLZK_LEAN_HEAD}"
+    if [[ "$companion_head" == "$EXPECTED_LLZK_LEAN_SHORT" ]]; then
+      ok "llzk-lean HEAD matches bootstrap input ${EXPECTED_LLZK_LEAN_SHORT}"
+    elif git -C "$companion" merge-base --is-ancestor "$EXPECTED_LLZK_LEAN_HEAD" HEAD 2>/dev/null; then
+      ok "llzk-lean HEAD ${companion_head:-<none>} descends from bootstrap input ${EXPECTED_LLZK_LEAN_SHORT}"
     else
-      warn "llzk-lean HEAD ${companion_head:-<none>} differs from bootstrap input ${EXPECTED_LLZK_LEAN_HEAD}"
+      warn "llzk-lean HEAD ${companion_head:-<none>} differs from bootstrap input ${EXPECTED_LLZK_LEAN_SHORT}"
     fi
     if "${ROOT}/scripts/harness/verify-companion-pin.sh" --mode "$MODE" --companion-llzk-lean "$companion"; then
       ok "companion pin verification passed"

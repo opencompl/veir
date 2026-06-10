@@ -2,7 +2,7 @@
 
 Populate this directory with exact command output during Phase 6.
 
-Bootstrap evidence expected:
+Bootstrap and first burn-down evidence expected:
 
 - `check-doc-freshness.txt`
 - `verify-llzk-source.txt`

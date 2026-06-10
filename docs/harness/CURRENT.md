@@ -4,7 +4,7 @@ Last reviewed: 2026-06-10
 
 ## Active Phase
 
-- Active phase: Phase 6, Strategy A divergence burn-down bootstrap.
+- Active phase: Phase 6, Strategy A divergence burn-down.
 - Phase bootstrap file: `docs/phases/PHASE-06-strategy-a-divergence-burndown.md`.
 - Companion repository: `../llzk-lean`.
 - Companion phase file:
@@ -13,7 +13,7 @@ Last reviewed: 2026-06-10
 ## Accepted VeIR Pin
 
 - Accepted VeIR commit:
-  `220cd215579b435c3c22ce86b34a3f4ce2ca276e`.
+  `a0bb2fc8e6d38ab068247dfc6506ba63f5feb953`.
 - Accepted source branch: `felt-review-structural-close`.
 - Accepted source remote: `https://github.com/project-llzk/veir.git`.
 - Pin mode: remote commit consumed by llzk-lean through Lake metadata and a
@@ -71,7 +71,8 @@ documented as exploratory and non-acceptance.
   treated as proof state after the pin transition.
 - `scripts/llzk-diff.sh` supports canonicalization mode. Phase 5 made
   llzk-lean consume that support through the clean dependency pin for
-  pin-backed evidence. Phase 6 starts from that exact-polarity corpus baseline.
+  pin-backed evidence. Phase 6 starts from that exact-polarity corpus baseline
+  and now runs `felt-combine,dce` in canonical differential mode.
 - The local `../llzk-lib` worktree is behind fetched `origin/main`. Current
   source claims use `git show origin/main:...` at
   `db922857bc5a88a9107627ef6b36a8b5e57bc5c2`, not stale worktree files.
@@ -79,10 +80,12 @@ documented as exploratory and non-acceptance.
   differential coverage through a workspace `VEIR_DIFF` override. Phase 5 pinned
   the canonicalization-aware VeIR driver, recorded companion llzk-lean's
   expanded 21-input canonical corpus on the clean dependency path, and fixed
-  expected-divergence polarity to exact file-header markers. The corpus covers
-  all 15 current VeIR Felt rewrite-pattern definitions as PASS or
-  EXPECTED-DIVERGE, plus one EXPECTED-LLZK-FAIL parser/verifier gap, but this is
-  not full Strategy A acceptance.
+  expected-divergence polarity to exact file-header markers. Phase 6 has
+  reclassified the DCE-only registered add/sub/mul fold cases after the clean
+  VeIR driver began running `felt-combine,dce`. The corpus covers all 15
+  current VeIR Felt rewrite-pattern definitions as PASS or EXPECTED-DIVERGE,
+  plus one EXPECTED-LLZK-FAIL parser/verifier gap, but this is not full Strategy
+  A acceptance.
 
 ## Acceptance Rule
 
@@ -106,6 +109,7 @@ Phase 6 bootstrap is current only when:
   reports success.
 
 Phase 6 implementation evidence additionally requires reducing or reclassifying
-expected divergences without weakening the clean-pin canonical baseline. Until a
-Phase 6 implementation deliberately changes that matrix, the companion clean-pin
-canonical run remains `21 pass (incl. expected-diverge), 0 fail`.
+expected divergences without weakening the clean-pin canonical baseline. The
+companion clean-pin canonical run remains `21 pass (incl. expected-diverge), 0
+fail` and records 7 PASS cases, 13 `EXPECTED-DIVERGE` canonical cases, and 1
+`EXPECTED-LLZK-FAIL` parser/verifier gap.

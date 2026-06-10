@@ -1,9 +1,12 @@
-$ Phase 6 bootstrap adversarial checks
+$ Phase 6 implementation adversarial checks
 
 PASS: Phase 5 is marked completed before Phase 6 starts.
 PASS: docs/harness/CURRENT.md names Phase 6 as active.
 PASS: docs/harness/SOURCES.md records the Phase 6 phase file.
-PASS: Phase 5 exact-polarity guard evidence is present.
+PASS: accepted VeIR pin is a0bb2fc8e6d38ab068247dfc6506ba63f5feb953.
+PASS: scripts/llzk-diff.sh canonical mode runs felt-combine,dce.
 PASS: companion expected-divergence polarity remains exact and marker-driven.
+PASS: companion DCE-only registered add/sub/mul folds moved to the positive corpus.
+PASS: remaining companion expected-divergence cases still use exact EXPECTED-* markers.
 PASS: Phase 6 docs preserve the clean-pin canonical baseline without claiming full Strategy A acceptance.
-PASS: no Phase 6 bootstrap findings remain open.
+PASS: no Phase 6 findings remain open.

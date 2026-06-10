@@ -1,3 +1,4 @@
+$ scripts/harness/verify-llzk-source.sh --llzk-lib ../llzk-lib
 PASS: llzk-lib path is /home/alh/LLZK/llzk-lib
 PASS: found docs/harness/LLZK_SOURCE.md
 PASS: LLZK source ledger records db922857bc5a

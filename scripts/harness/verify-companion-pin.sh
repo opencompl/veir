@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE="strict"
 COMPANION_LLZK_LEAN=""
 
-ACCEPTED_VEIR_COMMIT="220cd215579b435c3c22ce86b34a3f4ce2ca276e"
+ACCEPTED_VEIR_COMMIT="a0bb2fc8e6d38ab068247dfc6506ba63f5feb953"
 ACCEPTED_VEIR_SHORT="${ACCEPTED_VEIR_COMMIT:0:12}"
 ACCEPTED_VEIR_REMOTE="https://github.com/project-llzk/veir.git"
 ACCEPTED_VEIR_BRANCH="felt-review-structural-close"

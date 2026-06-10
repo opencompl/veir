@@ -3,11 +3,8 @@ EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergen
 EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/add_sub_const_cancel.llzk
 EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/assoc_const_fold_add.llzk
 EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/assoc_const_fold_mul.llzk
-EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/constant_fold_mul.llzk
 EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/constant_fold_neg.llzk
-EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/constant_fold_sub.llzk
 EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/neg_neg_to_self.llzk
-EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/registered_add_fold.llzk
 EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/registered_add_wrap.llzk
 EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/right_identity_one_mul.llzk
 EXPECTED-DIVERGE: /home/alh/LLZK/llzk-lean/differential/corpus/expected-divergence/canonical/right_identity_zero_add.llzk
@@ -19,6 +16,9 @@ EXPECTED-LLZK-FAIL: /home/alh/LLZK/llzk-lean/differential/corpus/expected-diverg
 PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/add_const_swap.llzk
 PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/arithmetic_no_fold.llzk
 PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/const_identities.mlir
+PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/constant_fold_mul.llzk
+PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/constant_fold_sub.llzk
+PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/registered_add_fold.llzk
 PASS: /home/alh/LLZK/llzk-lean/differential/corpus/felt/types_smoke.llzk
 
 Summary: 21 pass (incl. expected-diverge), 0 fail (over 21 inputs)

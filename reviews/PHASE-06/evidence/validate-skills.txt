@@ -1,3 +1,4 @@
+$ scripts/harness/validate-skills.sh
 PASS: skills/lean-axiom-audit/SKILL.md has title
 PASS: skills/lean-axiom-audit/SKILL.md has usage trigger
 PASS: skills/lean-axiom-audit/SKILL.md has validation path
