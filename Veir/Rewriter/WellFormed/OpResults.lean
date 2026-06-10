@@ -89,9 +89,39 @@ theorem IRContext.wellFormed_Rewriter_pushResult :
   case regions =>
     grind [RegionPtr.WellFormed_unchanged]
 
+theorem BlockPtr.operationList_rewriter_pushResult
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' (Rewriter.pushResult ctx op type hop) newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_Rewriter_pushResult]
+
+grind_pattern BlockPtr.operationList_rewriter_pushResult =>
+  Rewriter.pushResult ctx op type hop,
+  (Rewriter.pushResult ctx op type hop).WellFormed,
+  block'.operationList (Rewriter.pushResult ctx op type hop) (by grind) (by grind)
+
 /-! ## Rewriter.initOpResults -/
 
-theorem IRContext.wellFormed_Rewriter_initOpResults :
+theorem IRContext.wellFormed_rewriter_initOpResults :
     ctx.WellFormed →
     (Rewriter.initOpResults ctx opPtr resultTypes index hop hindex).WellFormed := by
   fun_induction Rewriter.initOpResults <;> grind [IRContext.wellFormed_Rewriter_pushResult]
+
+theorem BlockPtr.opChain_rewriter_initOpResults
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.initOpResults ctx op resultTypes index hop hidx) array := by
+  fun_induction Rewriter.initOpResults <;>
+    grind [BlockPtr.opChain_Rewriter_pushResult]
+
+theorem BlockPtr.operationList_rewriter_initOpResults (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block'
+      (Rewriter.initOpResults ctx op resultTypes index hop hidx) newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_initOpResults]
+
+grind_pattern BlockPtr.operationList_rewriter_initOpResults =>
+  (Rewriter.initOpResults ctx op resultTypes index hop hidx).WellFormed,
+  block'.operationList (Rewriter.initOpResults ctx op resultTypes index hop hidx) newCtxWf blockInBounds'

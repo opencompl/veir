@@ -354,16 +354,46 @@ theorem OperationPtr.getOperand_replaceOp?
     | _ => operand := by
   sorry
 
-set_option warn.sorry false in
-theorem BlockPtr.operationList_replaceOp?
-    (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array)
-    (hnewCtx : Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn depth = some newCtx) :
-      BlockPtr.operationList blockPtr newCtx ctxWellFormed' blockInBounds' =
-      if blockPtr = blockPtr' then
-        array.erase oldOp
-      else
-        array := by
-  sorry
+theorem BlockPtr.opChain_rewriter_replaceUse
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_replaceUse
+    (ctxWf : ctx.WellFormed)
+    (h : Rewriter.replaceUse ctx use newValue useIn newIn ctxIn = newCtx) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_replaceUse]
+
+grind_pattern BlockPtr.operationList_rewriter_replaceUse =>
+  Rewriter.replaceUse ctx use newValue useIn newIn ctxIn,
+  newCtx.WellFormed,
+  block'.operationList newCtx newCtxWf blockInBounds'
+
+theorem BlockPtr.opChain_Rewriter_replaceValue?
+    (h : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx)
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block' newCtx array := by
+  induction depth generalizing ctx
+  case zero => simp [Rewriter.replaceValue?] at h
+  case succ depth ih =>
+    simp only [Rewriter.replaceValue?] at h
+    grind [BlockPtr.opChain_rewriter_replaceUse]
+
+theorem BlockPtr.operationList_rewriter_replaceValue?
+    (ctxWf : ctx.WellFormed)
+    (h : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf := by
+  grind [BlockPtr.opChain_Rewriter_replaceValue? h
+    (BlockPtr.operationListWF ctx block' (by grind) (by grind))]
+
+grind_pattern BlockPtr.operationList_rewriter_replaceValue? =>
+  Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth, some newCtx,
+  block'.operationList newCtx newCtxWf blockInBounds'
 
 /--
 info: 'Veir.Rewriter.replaceValue?_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
