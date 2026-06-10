@@ -4,6 +4,7 @@ public import Veir.Dialects.Arith.OpInfo
 public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.RISCV_Cf.OpInfo
+public import Veir.Dialects.RISCV_Stack.OpInfo
 public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
 public import Veir.Dialects.Comb.OpInfo
@@ -25,6 +26,7 @@ match opCode with
 | .llvm op => Llvm.propertiesOf op
 | .riscv op => Riscv.propertiesOf op
 | .riscv_cf op => Riscv_Cf.propertiesOf op
+| .riscv_stack op => Riscv_Stack.propertiesOf op
 | .mod_arith op => Mod_Arith.propertiesOf op
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
@@ -89,6 +91,10 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case bge => exact (RISCVBrProperties.fromAttrDict attrDict)
     case bltu => exact (RISCVBrProperties.fromAttrDict attrDict)
     case bgeu => exact (RISCVBrProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
+  case riscv_stack op =>
+    cases op
+    case alloca => exact (RISCVStackAllocaProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case llvm op =>
     cases op
@@ -218,6 +224,10 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
   | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  | .riscv_stack .alloca => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    dict := dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
+    dict.insert "value_type".toUTF8 props.value_type
   | .riscv_cf .beq | .riscv_cf .bne | .riscv_cf .blt | .riscv_cf .bge
   | .riscv_cf .bltu | .riscv_cf .bgeu =>
     (Std.HashMap.emptyWithCapacity 1).insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)

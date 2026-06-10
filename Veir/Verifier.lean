@@ -2093,6 +2093,18 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
       throw "Expected 2 operands plus 2 variadic operands"
     pure ()
+  /- RISCV Stack -/
+  | .riscv_stack .alloca => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  /- Comb -/
   | .comb .add | .comb .and | .comb .mul | .comb .or | .comb .xor => do
     if op.getNumOperands ctx.raw opIn < 1 then
       throw "Expected 1 or more operands"
