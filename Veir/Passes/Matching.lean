@@ -148,6 +148,5 @@ def matchOp' (op : OperationPtr) (ctx : IRContext OpCode) (opType : OpCode) (num
 
 def matchStore (op : OperationPtr) (ctx : IRContext OpCode) :
     Option (ValuePtr × ValuePtr × propertiesOf (.llvm .store)) := do
-  let ops := op.getOperands! ctx
-  let properties := op.getProperties! ctx (.llvm .store)
-  return (ops[0]!, ops[1]!, properties)
+  let (op, properties) ← matchOp' op ctx (.llvm .store) 2
+  return (op[0]!, op[1]!, properties)

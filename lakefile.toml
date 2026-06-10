@@ -4,7 +4,6 @@ defaultTargets = ["veir-opt", "veir-interpret", "run-benchmarks", "Veir"]
 testRunner = "UnitTest"
 moreLeanArgs = ["--tstack=400000"] 
 moreServerArgs = ["--tstack=400000"]
-buildType = "debug"
 
 [[require]]
 name = "ExArray"

@@ -637,7 +637,7 @@ def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
   let (rewriter, sdOp) ← rewriter.createOp (.riscv .sd) #[] #[pcastOp.getResult 0, valcastOp.getResult 0]
       #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
-  rewriter.replaceOp op valcastOp sorry sorry sorry sorry sorry
+  rewriter.replaceOp op sdOp sorry sorry sorry sorry sorry
 
 set_option warn.sorry false in
 /--
