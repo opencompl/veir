@@ -1074,6 +1074,19 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
     let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
     return (#[], mem, none)
 
+def Riscv_Stack.interpretOp' (opType : Veir.Riscv_Stack) (properties : HasDialectOpInfo.propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (_operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    (mem : MemoryState)
+    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
+  match opType with
+  | .alloca => do
+    let size ← match properties.value_type.val with
+    | Attribute.integerType ⟨bw⟩ => some (.ok (bw / 8))
+    | Attribute.llvmPointerType _ => some (.ok 8)
+    | _ => none
+    let (mem, addr) := mem.alloc size.toUInt64
+    return (#[.reg ⟨.ofNat 64 addr.toNat⟩], mem, none)
+
 def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     : Interp (Array RuntimeValue × Option ControlFlowAction) :=
@@ -1212,6 +1225,8 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .riscv_cf riscvCfOp => do
     let (vals, act) ← Riscv_Cf.interpretOp' riscvCfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
+  | .riscv_stack riscvStackOp =>
+    Riscv_Stack.interpretOp' riscvStackOp properties resultTypes operands blockOperands mem
   | .cf cfOp => do
     let (vals, act) ← Cf.interpretOp' cfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
