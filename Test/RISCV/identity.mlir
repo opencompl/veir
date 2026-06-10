@@ -108,6 +108,9 @@
       // Memory operations
       %95 = "riscv.ld"(%0) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
       "riscv.sd"(%0, %1) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
+      "riscv.sw"(%0, %1) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
+      "riscv.sh"(%0, %1) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
+      "riscv.sb"(%0, %1) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
       "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
@@ -215,6 +218,9 @@
 // CHECK-NEXT:         %{{.*}} = "riscv.sgtz"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.ld"(%{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sd"(%{{.*}}, %{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:         "riscv.sw"(%{{.*}}, %{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:         "riscv.sh"(%{{.*}}, %{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
+// CHECK-NEXT:         "riscv.sb"(%{{.*}}, %{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         "func.return"() : () -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT: }) : () -> ()

@@ -3,7 +3,6 @@
 //
 // Unregistered instructions used in this file (not in the riscv dialect):
 //   riscv.lw   -- 32-bit sign-extending load word
-//   riscv.sw   -- 32-bit store word
 //
 // RUN: VEIR_UNREGISTERED_ROUNDTRIP
 
