@@ -135,13 +135,16 @@ end RuntimeValue
 @[ext]
 structure MemoryState where
   contents : ByteArray
+  poisonMask : ByteArray
 
-def MemoryState.empty : MemoryState :=
-  { contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff }
+def MemoryState.empty : MemoryState := {
+  contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
+  poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff
+}
 
 def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
   if mem.contents.size < size then
-    { contents := mem.contents.extend (size - mem.contents.size) 0 }
+    ⟨mem.contents.extend (size - mem.contents.size) 0, mem.poisonMask.extend (size - mem.poisonMask.size) 0xff⟩
   else
     mem
 
@@ -330,16 +333,32 @@ instance : Inhabited (Interp α) := ⟨(none : Option (UBOr α))⟩
 -/
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
-  ({ contents := state.contents.extend size.toNat 0 }, state.contents.size.toUInt64)
+  (⟨state.contents.extend size.toNat 0, state.poisonMask.extend size.toNat 0xff⟩, state.contents.size.toUInt64)
 
 /--
-  Store raw bytes to the given address in memory.
+  Store raw bytes to the given address in memory,
+  and unset the corresponding poison bits.
   Yields UB if the access is out of bounds.
 -/
 def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
     : Interp MemoryState :=
   if addr.toNat + val.size ≤ state.contents.size then
-    return { state with contents := val.copySlice 0 state.contents addr.toNat val.size false }
+    let poison := ByteArray.replicate val.size 0
+    return ⟨val.copySlice 0 state.contents addr.toNat val.size false,
+      poison.copySlice 0 state.poisonMask addr.toNat val.size false⟩
+  else
+    Interp.ub
+
+/--
+  Poison the given number of bytes, starting from the given address in memory.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
+    : Interp MemoryState :=
+  if addr.toNat + n ≤ state.contents.size then
+    let mask := ByteArray.replicate n 0xff
+    return ⟨state.contents,
+      mask.copySlice 0 state.poisonMask addr.toNat n false⟩
   else
     Interp.ub
 
@@ -353,7 +372,7 @@ def MemoryState.storeValue (state : MemoryState) (addr : UInt64) (val : RuntimeV
   match val with
   | .int 8 (.val v) => state.store addr (ByteArray.empty.push (UInt8.ofBitVec v))
   | .int 64 (.val v) => state.store addr (UInt64.ofBitVec v).toByteArrayLE
-  | .int _ .poison => return state
+  | .int n .poison => state.empoison addr (n / 8)
   | .addr v => state.store addr v.toByteArrayLE
   | _ => none
 
@@ -369,6 +388,22 @@ def MemoryState.load (state : MemoryState) (addr size : UInt64)
     Interp.ub
 
 /--
+  Check if any bit at the given memory address is poison.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
+    : Interp Bool :=
+  if addr.toNat + size.toNat <= state.contents.size then do
+    let mut poison := false
+    for b in state.poisonMask.extract addr.toNat (addr + size).toNat do
+      if b ≠ 0 then
+        poison := true
+        break
+    return poison
+  else
+    Interp.ub
+
+/--
   Load an LLVM value from the given memory address.
   Yields UB if access is out of bounds or the address is 0.
 -/
@@ -378,12 +413,16 @@ def MemoryState.loadValue (state : MemoryState) (addr : UInt64) (type : TypeAttr
   match type.val with
   | Attribute.integerType { bitwidth := 8 } =>
       let ba ← state.load addr 1
+      if ← state.hasPoison addr 1 then return .int 8 .poison
       return .int 8 (.val ba[0]!.toNat)
   | Attribute.integerType { bitwidth := 64 } =>
       let ba ← state.load addr 8
+      if ← state.hasPoison addr 8 then return .int 64 .poison
       return .int 64 (.val (BitVec.ofNat 64 ba.toUInt64LE!.toNat))
   | Attribute.llvmPointerType _ =>
       let ba ← state.load addr 8
+      -- FIXME poison address
+      if ← state.hasPoison addr 8 then return .addr 0
       return .addr ba.toUInt64LE!
   | _ => none
 
