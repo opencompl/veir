@@ -618,6 +618,28 @@ def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
 
 set_option warn.sorry false in
+/-- llvm.store -> riscv.sd -/
+def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (arg, ptr, _) := matchStore op rewriter.ctx | return rewriter
+  dbg_trace "store matched"
+  /- only support `i64` (the stored value type) -/
+  let type := arg.getType! rewriter.ctx.raw
+  let .integerType type' := type.val | return rewriter
+  if type'.bitwidth ≠ 64 then return rewriter
+  /- cast ptr (!llvm.ptr) -> register -/
+  let (rewriter, pcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[ptr]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- cast value (i64) -> register -/
+  let (rewriter, valcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[arg]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- `riscv.sd` with offset zero: operands are (addr, val), no results -/
+  let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
+  -- let (rewriter, sdOp) ← rewriter.createOp (.riscv .sd) #[] #[pcastOp.getResult 0, valcastOp.getResult 0]
+  --     #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
+  rewriter.replaceOp op valcastOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
 /--
   Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
   where `scale` is the byte size of the element type.
@@ -682,7 +704,7 @@ def getelementptr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul,
-    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr]
+    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
