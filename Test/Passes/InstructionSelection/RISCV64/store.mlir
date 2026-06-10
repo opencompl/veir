@@ -9,5 +9,4 @@
         // CHECK-NEXT: "riscv.sd"({{.*}}, {{.*}}) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
-    
 }) : () -> ()
