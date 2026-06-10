@@ -32,6 +32,6 @@ def round {e s : Nat} (mode : RoundingMode) (etarget starget : Nat)
     | special => special
   EDyadic.pack etarget starget edRounded
 
-end -- public section
+end
 
 end Veir.Data.FP.PackedFloat
