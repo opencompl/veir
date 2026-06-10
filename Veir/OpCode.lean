@@ -201,6 +201,12 @@ inductive Riscv where
 | packw
 /- memory -/
 | ld
+| lw
+| lwu
+| lh
+| lhu
+| lb
+| lbu
 | sd
 | sw
 | sh

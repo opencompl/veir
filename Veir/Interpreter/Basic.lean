@@ -719,6 +719,25 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
 def riscvEffectiveAddr (base : BitVec 64) (offset : Int) : BitVec 64 :=
   base + (BitVec.ofInt 12 offset).signExtend 64
 
+/-- For RISC-V sub-register loads. -/
+inductive LoadExtension
+  | signExt
+  | zeroExt
+
+/-- Read `bytes` of little-endian data from memory starting at
+    `eaddr` and extend it to 64 bits according to `ext`. Memory is
+    grown so that the access is in bounds and cannot raise UB. -/
+def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadExtension)
+    : Interp (BitVec 64 × MemoryState) := do
+  let mem := mem.ensureSize (eaddr.toNat + bytes)
+  let ba ← mem.load eaddr.toNat.toUInt64 bytes.toUInt64
+  let val : BitVec (8 * bytes) :=
+    ba.toList.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth (8 * bytes)) 0
+  let extended := match ext with
+    | .signExt => val.signExtend 64
+    | .zeroExt => val.setWidth 64
+  return (extended, mem)
+
 def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     (mem : MemoryState)
@@ -1042,10 +1061,38 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
   | .ld => do
     let [.reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
-    -- extend the memory so that the access is in bounds and cannot raise UB
-    let mem := mem.ensureSize (eaddr.toNat + 8)
-    let val ← mem.load eaddr.toNat.toUInt64 8
-    return (#[.reg $ .mk (BitVec.ofNat 64 val.toUInt64LE!.toNat)], mem, none)
+    let (val, mem) ← riscvLoad mem eaddr 8 .zeroExt
+    return (#[.reg $ .mk val], mem, none)
+  | .lw => do
+    let [.reg addr] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let (val, mem) ← riscvLoad mem eaddr 4 .signExt
+    return (#[.reg $ .mk val], mem, none)
+  | .lwu => do
+    let [.reg addr] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let (val, mem) ← riscvLoad mem eaddr 4 .zeroExt
+    return (#[.reg $ .mk val], mem, none)
+  | .lh => do
+    let [.reg addr] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let (val, mem) ← riscvLoad mem eaddr 2 .signExt
+    return (#[.reg $ .mk val], mem, none)
+  | .lhu => do
+    let [.reg addr] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let (val, mem) ← riscvLoad mem eaddr 2 .zeroExt
+    return (#[.reg $ .mk val], mem, none)
+  | .lb => do
+    let [.reg addr] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let (val, mem) ← riscvLoad mem eaddr 1 .signExt
+    return (#[.reg $ .mk val], mem, none)
+  | .lbu => do
+    let [.reg addr] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let (val, mem) ← riscvLoad mem eaddr 1 .zeroExt
+    return (#[.reg $ .mk val], mem, none)
   | .sd => do
     let [.reg addr, .reg { val }] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
