@@ -138,3 +138,11 @@ def matchGetelementptr (op : OperationPtr) (ctx : IRContext OpCode) :
     Option (ValuePtr × ValuePtr × propertiesOf (.llvm .getelementptr)) := do
   let (op, properties) ← matchOp op ctx (.llvm .getelementptr) 2
   return (op[0]!, op[1]!, properties)
+
+def matchStore (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × ValuePtr × propertiesOf (.llvm .store)) := do
+  guard (op.getOpType! ctx = .llvm .store)
+  guard (op.getNumOperands! ctx = 2)
+  let operands := op.getOperands! ctx
+  let properties := op.getProperties! ctx (.llvm .store)
+  return (operands[0]!, operands[1]!, properties)
