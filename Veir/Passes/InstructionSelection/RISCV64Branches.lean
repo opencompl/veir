@@ -17,33 +17,33 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String 
 
   -- If the block has no uses (e.g., the entry block) we can skip it.
   if (block.get! c).firstUse == none then
-    return ⟨c, by sorry⟩
+    return ctx
 
   let mut currentPredUse := (block.get! c).firstUse
   while let some block := currentPredUse do
-    have op := (block.get! ctx.raw).owner
-    currentPredUse := (block.get! ctx.raw).nextUse
+    have op := (block.get! c).owner
+    currentPredUse := (block.get! c).nextUse
 
     -- Check if the terminator operations can be converted to RISCV branches. If
     -- not, we exit early and do not convert this predecessor block.
-    if op.getOpType! ctx.raw != .llvm .br && op.getOpType! ctx.raw != .llvm .cond_br then
+    if op.getOpType! c != .llvm .br && op.getOpType! c != .llvm .cond_br then
       continue
 
-    let some block := (op.get! c).parent | return ⟨c, sorry⟩
+    let some block := (op.get! c).parent | return ctx
 
-    let mut ip := InsertPoint.after op ctx.raw block sorry sorry
+    let mut ip := InsertPoint.after op c block sorry sorry
     let mut casts : Array (OperationPtr) := #[]
 
-    for i in List.reverse (List.range (op.getNumOperands! ctx.raw)) do
-      let operand := op.getOperand! ctx.raw i
+    for i in List.reverse (List.range (op.getNumOperands! c)) do
+      let operand := op.getOperand! c i
       let some (xc, cast) := Rewriter.createOp c (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand] #[] #[] default ip sorry sorry sorry sorry sorry | return ⟨c, by sorry⟩
       c := xc
       casts := casts.push cast
 
     let some (xc, newop ) :=
-    if h : op.getOpType! ctx.raw = .llvm .br then do
+    if h : op.getOpType! c = .llvm .br then do
       Rewriter.createOp c (.riscv_cf .branch) #[] (casts.map (fun cast => cast.getResult 0)) #[op.getSuccessor c 0 sorry sorry] #[] default ip sorry sorry sorry sorry sorry
-    else if h : op.getOpType! ctx.raw = .llvm .cond_br then do
+    else if h : op.getOpType! c = .llvm .cond_br then do
       let condProps : CondBrProperties := op.getProperties! c (.llvm .cond_br)
       let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
       Rewriter.createOp c (.riscv_cf .cbr) #[] (casts.map (fun cast => cast.getResult 0)) (op.getSuccessors c sorry) #[] props ip sorry sorry sorry sorry sorry
