@@ -399,7 +399,7 @@ theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
 end interpretOpList
 
 set_option warn.sorry false in
-def interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+theorem interpretOp'_monotone {operands operands' : Array RuntimeValue} :
     operands ⊒ operands' →
     Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
       (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
