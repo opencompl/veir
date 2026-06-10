@@ -617,12 +617,72 @@ def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
 
+set_option warn.sorry false in
+/--
+  Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
+  where `scale` is the byte size of the element type.
+-/
+def getelementptr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (ptr, idx, properties) := matchGetelementptr op rewriter.ctx | return rewriter
+  /- Bail unless it's a single dynamic index with no trailing constant indices. -/
+  if properties.rawConstantIndices.values ≠ #[(-2147483648 : Int)] then return rewriter
+  /- The index must be `i64`. -/
+  let .integerType itype := (idx.getType! rewriter.ctx.raw).val | return rewriter
+  if itype.bitwidth ≠ 64 then return rewriter
+  let some scale := Attribute.sizeOfType properties.elem_type.val | return rewriter
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
+  let (rewriter, pcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[ptr]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, icastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[idx]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let pReg := pcastOp.getResult 0
+  let iReg := icastOp.getResult 0
+  let (rewriter, retOp) ← match scale with
+    | 1 =>
+      /- ptr + idx -/
+      rewriter.createOp (.riscv .add) #[RegisterType.mk] #[pReg, iReg]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    | 2 =>
+      /- (idx << 1) + ptr -/
+      rewriter.createOp (.riscv .sh1add) #[RegisterType.mk] #[iReg, pReg]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    | 4 =>
+      /- (idx << 2) + ptr -/
+      rewriter.createOp (.riscv .sh2add) #[RegisterType.mk] #[iReg, pReg]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    | 8 =>
+      /- (idx << 3) + ptr -/
+      rewriter.createOp (.riscv .sh3add) #[RegisterType.mk] #[iReg, pReg]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    | _ =>
+      if scale &&& (scale - 1) == 0 then
+        /- scale is a power of two: ptr + (idx << log2 scale) -/
+        let k := RISCVImmediateProperties.mk (IntegerAttr.mk (Nat.log2 scale) (IntegerType.mk 64))
+        let (rewriter, slliOp) ← rewriter.createOp (.riscv .slli) #[RegisterType.mk] #[iReg]
+          #[] #[] k (some $ .before op) sorry (by simp) (by simp) sorry
+        rewriter.createOp (.riscv .add) #[RegisterType.mk] #[pReg, slliOp.getResult 0]
+          #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+      else
+        /- arbitrary scale: ptr + idx * scale -/
+        let s := RISCVImmediateProperties.mk (IntegerAttr.mk scale (IntegerType.mk 64))
+        let (rewriter, liOp) ← rewriter.createOp (.riscv .li) #[RegisterType.mk] #[]
+          #[] #[] s (some $ .before op) sorry (by simp) (by simp) sorry
+        let (rewriter, mulOp) ← rewriter.createOp (.riscv .mul) #[RegisterType.mk] #[iReg, liOp.getResult 0]
+          #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+        rewriter.createOp (.riscv .add) #[RegisterType.mk] #[pReg, mulOp.getResult 0]
+          #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Cast the resulting register back to `!llvm.ptr`. -/
+  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul,
-    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load]
+    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
