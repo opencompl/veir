@@ -92,6 +92,12 @@ def TypeAttr.verifyI1 (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
       pure ()
   | _ => throw errMsg
 
+def verifyRISCVimm12 (imm : Int) (instrName : String) : Except String PUnit :=
+  if imm < -2048 ∨ imm > 2047 then
+    throw s!"{instrName} immediate out of bounds: must fit in a signed 12-bit field [-2048, 2047]"
+  else
+    pure ()
+
 def OperationPtr.verifyOperandTypesMatch (op : OperationPtr) (ctx : WfIRContext OpCode)
     (firstIdx secondIdx : Nat) (errMsg : String) : Except String TypeAttr := do
   let firstType := (op.getOperand! ctx.raw firstIdx).getType! ctx.raw
@@ -1045,6 +1051,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    verifyRISCVimm12 (op.getProperties! ctx.raw (.riscv .addi)).value.value "riscv.addi"
     pure ()
   | .riscv .slti => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1055,6 +1062,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    verifyRISCVimm12 (op.getProperties! ctx.raw (.riscv .slti)).value.value "riscv.slti"
     pure ()
   | .riscv .sltiu => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1065,6 +1073,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    verifyRISCVimm12 (op.getProperties! ctx.raw (.riscv .sltiu)).value.value "riscv.sltiu"
     pure ()
   | .riscv .andi => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1075,6 +1084,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    verifyRISCVimm12 (op.getProperties! ctx.raw (.riscv .andi)).value.value "riscv.andi"
     pure ()
   | .riscv .ori => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1085,6 +1095,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    verifyRISCVimm12 (op.getProperties! ctx.raw (.riscv .ori)).value.value "riscv.ori"
     pure ()
   | .riscv .xori => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1095,6 +1106,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    verifyRISCVimm12 (op.getProperties! ctx.raw (.riscv .xori)).value.value "riscv.xori"
     pure ()
   | .riscv .addiw => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1105,6 +1117,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    verifyRISCVimm12 (op.getProperties! ctx.raw (.riscv .addiw)).value.value "riscv.addiw"
     pure ()
   | .riscv .slli => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1885,6 +1898,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    verifyRISCVimm12 (op.getProperties! ctx.raw (.riscv .ld)).value.value "riscv.ld"
     pure ()
   | .riscv .sd => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -1895,6 +1909,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    verifyRISCVimm12 (op.getProperties! ctx.raw (.riscv .sd)).value.value "riscv.sd"
     pure ()
   | .riscv .mv => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
