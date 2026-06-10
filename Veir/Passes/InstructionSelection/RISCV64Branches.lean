@@ -10,53 +10,19 @@ import Std
 
 namespace Veir
 
-open Std.Iterators
-
-structure PredBlockIterator where
-  ctx : WfIRContext OpCode
-  currentUse : Option BlockOperandPtr
-
-instance : Std.Iterator PredBlockIterator Id BlockOperandPtr where
-  IsPlausibleStep it
-    | .yield it' out => --it.internalState.ctx = it'.internalState.ctx ∧
-                       -- it.internalState.currentUse = some out ∧
-                        it'.internalState.currentUse = (if let some x := it.internalState.currentUse then (x.get! it.internalState.ctx.raw).nextUse else none)
-    | .skip _ => False
-    | .done => it.internalState.currentUse = none
-  step it := pure (match it.internalState.currentUse with
-        | none => .deflate ⟨.done, rfl⟩
-        | some use => .deflate ⟨.yield ⟨it.internalState.ctx, (use.get! it.internalState.ctx.raw).nextUse⟩ use,
-        rfl⟩)
-
-private def PredBlockIterator.instFinitenessRelation [Pure m] :
-    Std.Iterators.FinitenessRelation PredBlockIterator Id where
-  Rel := sorry
-  wf := sorry --InvImage.wf _ WellFoundedRelation.wf
-  subrelation {it it'} h := by
-    sorry
-
-instance PredBlockIterator.instFinite: Std.Iterators.Finite PredBlockIterator Id := sorry
-
-def PredBlockIterator.iterM (l : BlockPtr)  (ctx : WfIRContext OpCode)  (m : Type → Type) :
-    Std.IterM (α := PredBlockIterator) m BlockOperandPtr :=
-  ⟨ctx, (l.get! ctx.raw).firstUse⟩
-
-def PredBlockIterator.iter (l : BlockPtr) (ctx : WfIRContext OpCode) :
-     Std.Iter (α := PredBlockIterator) BlockOperandPtr :=
-  PredBlockIterator.iterM l ctx Id |>.toIter
 
 def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String IO (WfIRContext OpCode) := do
   let argCount := block.getNumArguments! ctx.raw
   let mut c := ctx.raw
-  if (block.get! ctx.raw).firstUse == none then
+  if (block.get! c).firstUse == none then
     -- If the block has no uses (e.g., the entry block) we can skip it.
     return ⟨c, by sorry⟩
 
-  if (PredBlockIterator.iter block ctx).toList.length = 0 then
-    return ⟨c, by sorry⟩
+  let mut currentPredUse := (block.get! c).firstUse
 
-  for block in (PredBlockIterator.iter block ctx).toList do
+  while let some block := currentPredUse do
     have op := (block.get! ctx.raw).owner
+    currentPredUse := (block.get! ctx.raw).nextUse
 
     -- Check if the terminator operations can be converted to RISCV branches. If not,
     -- we skip converting this predecessor block.
