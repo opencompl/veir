@@ -217,6 +217,23 @@ def RISCVBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) 
   let .denseArrayAttr sizesAttr := sizesAttr
     | throw s!"riscv_cf: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
   return { operandSegmentSizes := sizesAttr }
+
+structure RISCVStackAllocaProperties where
+  alignment : IntegerAttr
+  value_type : TypeAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def RISCVStackAllocaProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String RISCVStackAllocaProperties := do
+  let alignAttr ← match attrDict["alignment".toUTF8]? with
+    | some (.integerAttr alignAttr) => .ok alignAttr
+    | some attr => .error s!"expected 'alignment' to be an optional integer attribute, but got {attr}"
+    | none => .ok { value := 0, type := { bitwidth := 64 } }
+  let some typeAttr := attrDict["value_type".toUTF8]?
+    | throw "alloca: missing 'value_type' property"
+  if _ : typeAttr.isType = false then throw "alloca: expected 'value_type' to be a type attribute" else
+  return { alignment := alignAttr, value_type := typeAttr.asType }
+
 /--
   Properties of the `mod_arith.constant` operation.
 -/

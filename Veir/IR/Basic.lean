@@ -369,7 +369,7 @@ namespace OperationPtr
 def InBounds (op : OperationPtr) (ctx : IRContext OpInfo) : Prop :=
   op ∈ ctx.operations
 
-def inBounds_def : InBounds op ctx ↔ op ∈ ctx.operations := by rfl
+theorem inBounds_def : InBounds op ctx ↔ op ∈ ctx.operations := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds op ctx) := by
@@ -1474,7 +1474,7 @@ namespace BlockPtr
 def InBounds (block : BlockPtr) (ctx : IRContext OpInfo) : Prop :=
   block ∈ ctx.blocks
 
-def inBounds_def : InBounds block ctx ↔ block ∈ ctx.blocks := by rfl
+theorem inBounds_def : InBounds block ctx ↔ block ∈ ctx.blocks := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds block ctx) := by
@@ -2103,6 +2103,26 @@ end ValuePtr
 
 namespace OperationPtr
 
+/--
+Every operation result is in bounds.
+It is not necessary to provide the proof that the operation is in bounds, as out-of-bounds
+operations have no results.
+-/
+@[grind .]
+theorem getResults!_mem_inBounds {op : OperationPtr} :
+    ∀ v, v ∈ op.getResults! ctx →
+    v.InBounds ctx := by
+  grind [OperationPtr.getNumResults!, Operation.default_results_eq,
+    OperationPtr.get!_of_not_inBounds, OperationPtr.getResults!.mem_iff_exists_index]
+
+/--
+A value is either not the result of an operation, or is equal to one of the operation's results.
+-/
+theorem getResults!_not_mem_or_eq_getResult
+    (ctx : IRContext OpInfo) (value : ValuePtr) (op : OperationPtr) :
+    value ∉ op.getResults! ctx ∨ (∃ i, i < op.getNumResults! ctx ∧ value = op.getResult i) := by
+  grind [OperationPtr.getResults!.mem_iff_exists_index]
+
 theorem getResultTypes!_def {op : OperationPtr} :
     op.getResultTypes! ctx =
     Array.map (fun v => v.getType! ctx) (op.getResults! ctx) := by
@@ -2253,7 +2273,7 @@ namespace RegionPtr
 def InBounds (region : RegionPtr) (ctx : IRContext OpInfo) : Prop :=
   region ∈ ctx.regions
 
-def inBounds_def : region.InBounds ctx ↔ region ∈ ctx.regions := by rfl
+theorem inBounds_def : region.InBounds ctx ↔ region ∈ ctx.regions := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds region ctx) := by
