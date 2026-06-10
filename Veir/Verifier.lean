@@ -223,6 +223,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "arith.ceildivsi"
     pure ()
   | .arith .ceildivui => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -233,6 +234,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "arith.ceildivui"
     pure ()
   | .arith .cmpi => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -311,6 +313,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "arith.floordivsi"
     pure ()
   | .arith .maxsi => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -321,6 +324,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "arith.maxsi"
     pure ()
   | .arith .maxui => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -331,6 +335,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "arith.maxui"
     pure ()
   | .arith .minsi => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -341,6 +346,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "arith.minsi"
     pure ()
   | .arith .minui => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -351,6 +357,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "arith.minui"
     pure ()
   | .arith .muli => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -592,6 +599,27 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    -- Unlike `arith.constant`, `llvm.mlir.constant` does not require the value
+    -- attribute's type to match the result type exactly. An integer attribute
+    -- only requires an integer result type of any width (e.g. a boolean constant
+    -- may be written with a wider integer attribute). A float attribute requires
+    -- a same-width float result, or a same-width integer result (the workaround
+    -- for builtin MLIR float types without an LLVM equivalent).
+    let resultType := ((op.getResult 0).get! ctx.raw).type.val
+    match (op.getProperties! ctx.raw (.llvm .mlir__constant)).value with
+    | .integer _ =>
+      match resultType with
+      | .integerType _ => pure ()
+      | _ => throw "llvm.mlir.constant: Expected integer result type for an integer constant"
+    | .float floatAttr =>
+      match resultType with
+      | .floatType floatType =>
+        if floatType.bitwidth ≠ floatAttr.type.bitwidth then
+          throw s!"llvm.mlir.constant: Expected float result type with bitwidth {floatAttr.type.bitwidth}"
+      | .integerType intType =>
+        if intType.bitwidth ≠ floatAttr.type.bitwidth then
+          throw s!"llvm.mlir.constant: Expected integer result type with bitwidth {floatAttr.type.bitwidth}"
+      | _ => throw "llvm.mlir.constant: Expected float or integer result type for a float constant"
     pure ()
   | .llvm .and => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -767,10 +795,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    if let .integerType opType := ((op.getOperands! ctx.raw)[0]!.getType! ctx.raw).val then
-      if let .integerType retType := ((op.getResult 0).get! ctx.raw).type.val then
-        if opType.bitwidth ≤ retType.bitwidth then
-          throw "Result's width must be smaller than operand's width"
+    op.verifyIntegerTruncTypes ctx "llvm.trunc"
     pure ()
   | .llvm .sext => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -781,10 +806,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    if let .integerType opType := ((op.getOperands! ctx.raw)[0]!.getType! ctx.raw).val then
-      if let .integerType retType := ((op.getResult 0).get! ctx.raw).type.val then
-        if retType.bitwidth ≤ opType.bitwidth then
-          throw "Operand's width must be smaller than result's width"
+    op.verifyIntegerExtTypes ctx "llvm.sext"
     pure ()
   | .llvm .zext => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -795,10 +817,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    if let .integerType opType := ((op.getOperands! ctx.raw)[0]!.getType! ctx.raw).val then
-      if let .integerType retType := ((op.getResult 0).get! ctx.raw).type.val then
-        if retType.bitwidth ≤ opType.bitwidth then
-          throw "Operand's width must be smaller than result's width"
+    op.verifyIntegerExtTypes ctx "llvm.zext"
     pure ()
   | .llvm .return => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -942,6 +961,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyResultTypeMatches ctx ((op.getOperand! ctx.raw 0).getType! ctx.raw)
+      "llvm.freeze: Expected result type to match operand type"
     pure ()
   /- MOD_ARITH -/
   | .mod_arith .add => do

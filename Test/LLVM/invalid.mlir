@@ -4,7 +4,7 @@
   "func.func"() <{function_type = () -> (), sym_name = "main"}> ({
     ^bb0(%a: i32, %b : i16):
         %sexta = "llvm.sext"(%a) : (i32) -> i16
-        // CHECK: Error verifying input program: Operand's width must be smaller than result's width
+        // CHECK: Error verifying input program: llvm.sext: Operand's width must be smaller than result's width
       "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
