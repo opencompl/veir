@@ -17,7 +17,7 @@
 #   $VEIR_DIFF_VERBOSE=1  print intermediate stages to stderr
 #   $VEIR_DIFF_KEEP=1     don't delete intermediate temp files (debug aid)
 #   --allowlist <file>    apply per-test fixed-string substitutions before diffing
-#   --canonicalize        compare `veir-opt -p=felt-combine` with
+#   --canonicalize        compare `veir-opt -p=felt-combine,dce` with
 #                         `llzk-opt --canonicalize --mlir-print-op-generic`
 #   --lower-first         first pass input through `llzk-opt --mlir-print-op-generic`
 #                         (use when the input is in LLZK custom assembly; default
@@ -34,7 +34,7 @@ usage() {
 usage: llzk-diff.sh <input.mlir> [--allowlist <file>] [--canonicalize] [--lower-first]
   Diffs normalized generic-MLIR output from veir-opt and llzk-opt.
   Default mode compares parse/print round-trips.
-  --canonicalize compares `veir-opt -p=felt-combine` against
+  --canonicalize compares `veir-opt -p=felt-combine,dce` against
   `llzk-opt --canonicalize --mlir-print-op-generic`.
 
   $LLZK_OPT or llzk-opt on $PATH selects the LLZK binary.
@@ -147,11 +147,11 @@ fi
 
 # --- stage 2: round-trip through both -----------------------------------------
 if [[ "$CANONICALIZE" -eq 1 ]]; then
-  log "stage 2: canonicalize through veir-opt -p=felt-combine and llzk-opt --canonicalize"
+  log "stage 2: canonicalize through veir-opt -p=felt-combine,dce and llzk-opt --canonicalize"
   if [[ -n "$VEIR_OPT" ]]; then
-    VEIR_CMD=("$VEIR_OPT" -p=felt-combine "$GENERIC")
+    VEIR_CMD=("$VEIR_OPT" -p=felt-combine,dce "$GENERIC")
   else
-    VEIR_CMD=(lake exec veir-opt -p=felt-combine "$GENERIC")
+    VEIR_CMD=(lake exec veir-opt -p=felt-combine,dce "$GENERIC")
   fi
   LLZK_CMD=("$LLZK_OPT" --canonicalize --mlir-print-op-generic "$GENERIC")
 else
