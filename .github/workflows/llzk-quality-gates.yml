@@ -52,7 +52,7 @@ jobs:
           ln -sfn "$GITHUB_WORKSPACE/llzk-lib" "$GITHUB_WORKSPACE/../llzk-lib"
           git -C "$GITHUB_WORKSPACE/llzk-lib" remote set-url origin git@github.com:project-llzk/llzk-lib.git
           lake --version
-          (cd "$GITHUB_WORKSPACE/llzk-lean" && lake update --no-cache)
+          (cd "$GITHUB_WORKSPACE/llzk-lean" && MATHLIB_NO_CACHE_ON_UPDATE=1 lake update --no-cache)
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v6
