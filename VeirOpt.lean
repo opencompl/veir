@@ -29,7 +29,6 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert IselRISCV64.name IselRISCV64
     |>.insert DCEPass.name DCEPass
     |>.insert CastReconcilePass.name CastReconcilePass
-    |>.insert CastReconcilePass.name CastReconcilePass
     |>.insert RISCV.Combine.name RISCV.Combine
 
 /--
