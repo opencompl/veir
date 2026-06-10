@@ -203,11 +203,12 @@ macro "#assert " e:term : command =>
 
 /-! ## Modarith type -/
 
-#assert expectSuccessType "!mod_arith.int<17>" (ModArithType.mk 17 none)
-#assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk 257 (some (IntegerType.mk 32)))
-#assert expectSuccessAttr "!mod_arith.int<17>" (ModArithType.mk 17 none)
+#assert expectSuccessType "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 64)))
+#assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk (IntegerAttr.mk 257 (IntegerType.mk 32)))
+#assert expectSuccessAttr "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.mk 64)))
 #assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected" (some 15)
-#assert expectErrorType "!mod_arith.int<17 : x>" "integer type expected after ':' in modarith type" (some 20)
+#assert expectErrorType "!mod_arith.int<17>" "Expected punctuation ':'" (some 17)
+#assert expectErrorType "!mod_arith.int<17 : x>" "integer type expected after ':' in integer attribute" (some 20)
 
 /-! ## LLVM Pointer type -/
 #assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)

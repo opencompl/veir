@@ -219,11 +219,9 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
   The `!mod_arith.int` type from HEIR's modarith dialect.
-  The modulus type annotation is optional in syntax.
 -/
 structure ModArithType where
-  modulus : Int
-  modulusType : Option IntegerType
+  modulus : IntegerAttr
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 namespace LLVM
@@ -750,10 +748,7 @@ instance : ToString FlatSymbolRefAttr where
   toString attr := attr.value
 
 instance : ToString ModArithType where
-  toString type := s!"!mod_arith.int<{type.modulus}" ++
-    (match type.modulusType with
-    | some modulusType => s!" : {modulusType}"
-    | none => "") ++ ">"
+  toString type := s!"!mod_arith.int<{type.modulus}>"
 
 instance : ToString LLVM.VoidType where
   toString _ := "!llvm.void"
