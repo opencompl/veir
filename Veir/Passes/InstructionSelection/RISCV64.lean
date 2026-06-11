@@ -698,16 +698,18 @@ def getelementptr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /--
-  Fuse `sub (shl M 8) M` into `riscv.orcb M`, where `M = and Z 0x0101_0101_0101_0101`.
+  Fuse `sub (shl M (8 - Y)) (lshr M Y)` into `riscv.orcb M`, for `0 ≤ Y < 8`,
+  where `M = and Z (0x0101_0101_0101_0101 <<< Y)`. The `Y = 0` case degenerates
+  to `sub (shl M 8) M` (the right operand is `M` itself, with no shift).
 
-  This is the `Y = 0` case of LLVM's `combineSubShiftToOrcB`. Since we have no
-  known-bits analysis, the `and` with the per-byte bit-0 mask is what makes the
-  rewrite sound: it guarantees each byte of `M` has only bit 0 possibly set, so
-  `(M << 8) - M` produces `0xFF` in every byte that was nonzero and `0x00`
-  elsewhere — exactly `orc.b M`.
+  This is LLVM's `combineSubShiftToOrcB`. Since we have no known-bits analysis,
+  the `and` with the per-byte bit-`Y` mask is what makes the rewrite sound: it
+  guarantees each byte of `M` has only bit `Y` possibly set, so
+  `(M << (8 - Y)) - (M >> Y)` produces `0xFF` in every byte that was nonzero and
+  `0x00` elsewhere — exactly `orc.b M`.
 
   This is a multi-operation fusion, so it must run in the early isel loop, before
-  the per-op lowerings rewrite the `sub`/`shl` roots on their own.
+  the per-op lowerings rewrite the `sub`/`shl`/`lshr` roots on their own.
 -/
 def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
     Option (PatternRewriter OpCode) := do
@@ -720,20 +722,34 @@ def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
-  /- left operand must be `shl M 8` -/
+  /- left operand must be `shl M (8 - Y)` for some `0 ≤ Y < 8` -/
   let some aOp := getDefiningOp a rewriter.ctx | return rewriter
   let some (m, shamt, _) := matchShl aOp rewriter.ctx | return rewriter
   let some shc := matchConstantIntVal shamt rewriter.ctx | return rewriter
-  if shc.value ≠ 8 then return rewriter
-  /- right operand must be the same value `M` -/
-  if b ≠ m then return rewriter
-  /- soundness gate: `M = and Z 0x0101_0101_0101_0101` -/
+  if shc.value < 1 || 8 < shc.value then return rewriter
+  let y : Nat := (8 - shc.value).toNat
+  /- right operand must be `M` itself (when `Y = 0`) or `lshr M Y` -/
+  let rightMatches : Bool :=
+    if y == 0 then
+      decide (b = m)
+    else
+      match getDefiningOp b rewriter.ctx with
+      | none => false
+      | some bOp =>
+        match matchLshr bOp rewriter.ctx with
+        | none => false
+        | some (m', yShamt, _) =>
+          match matchConstantIntVal yShamt rewriter.ctx with
+          | none => false
+          | some yc => yc.value == (y : Int) && decide (m' = m)
+  if !rightMatches then return rewriter
+  /- soundness gate: `M = and Z (0x0101_0101_0101_0101 <<< Y)` -/
   let some mOp := getDefiningOp m rewriter.ctx | return rewriter
   let some (mo0, mo1) := matchAnd mOp rewriter.ctx | return rewriter
-  let mask0 : Int := 0x0101010101010101
+  let maskBV : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
   let isMask : ValuePtr → Bool := fun v =>
     match matchConstantIntVal v rewriter.ctx with
-    | some attr => attr.value == mask0
+    | some attr => BitVec.ofInt 64 attr.value == maskBV
     | none => false
   if !(isMask mo0 || isMask mo1) then return rewriter
   /- cast `M` to a register -/
