@@ -85,8 +85,8 @@ notation:68 lhs:68 " ⊔ " rhs:69 => Join.join lhs rhs
 /--
 An algebraic definition of a join semilattice.
 -/
-class JoinSemilattice (Domain : Type) 
-  extends LE Domain, Std.IsPartialOrder Domain, Join Domain where
+class JoinSemilattice (Domain : Type) [LE Domain]
+  extends Std.IsPartialOrder Domain, Join Domain where
   /-- The join is an upper bound on the first argument. -/
   le_join_left (a b : Domain) : a ≤ a ⊔ b
 
@@ -103,7 +103,7 @@ with a concretization map.
 Each abstract value denotes a set of concrete values via
 concretization.
 -/
-class AbstractDomain (AbstractValue : Type) (ConcreteValue : Type)
+class AbstractDomain (AbstractValue : Type) (ConcreteValue : Type) [LE AbstractValue]
     extends JoinSemilattice AbstractValue, BoundedOrder AbstractValue where
   /--
   Concretization. Given an abstract value, returns the set of concrete values it
