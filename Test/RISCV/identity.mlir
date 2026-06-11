@@ -107,6 +107,12 @@
       %94 = "riscv.sgtz"(%83) : (!riscv.reg) -> !riscv.reg
       // Memory operations
       %95 = "riscv.ld"(%0) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+      %lw = "riscv.lw"(%0) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+      %lwu = "riscv.lwu"(%0) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+      %lh = "riscv.lh"(%0) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+      %lhu = "riscv.lhu"(%0) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+      %lb = "riscv.lb"(%0) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+      %lbu = "riscv.lbu"(%0) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
       "riscv.sd"(%0, %1) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
       "riscv.sw"(%0, %1) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
       "riscv.sh"(%0, %1) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
@@ -217,6 +223,12 @@
 // CHECK-NEXT:         %{{.*}} = "riscv.sltz"(%{{.*}}) : (!riscv.reg) -> !riscv.reg 
 // CHECK-NEXT:         %{{.*}} = "riscv.sgtz"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.ld"(%{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.lw"(%{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.lwu"(%{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.lh"(%{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.lhu"(%{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.lb"(%{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.lbu"(%{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sd"(%{{.*}}, %{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         "riscv.sw"(%{{.*}}, %{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         "riscv.sh"(%{{.*}}, %{{.*}}) <{"value" = 5 : i12}> : (!riscv.reg, !riscv.reg) -> ()

@@ -1,10 +1,7 @@
 // Compute the 10th prime in pre-regalloc RISC-V, translated from clang output
 // (clang --target=riscv64 -march=rva23u64 -O0).
 //
-// Unregistered instructions used in this file (not in the riscv dialect):
-//   riscv.lw   -- 32-bit sign-extending load word
-//
-// RUN: VEIR_UNREGISTERED_ROUNDTRIP
+// RUN: VEIR_ROUNDTRIP
 
 // CHECK: "func.func"() <{"function_type" = (!riscv.reg) -> !riscv.reg, "sym_name" = "main"}>
 

@@ -81,6 +81,12 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case binvi => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case ld => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case lw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case lwu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case lh => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case lhu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case lb => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case lbu => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case sd => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case sw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case sh => exact (RISCVImmediateProperties.fromAttrDict attrDict)
@@ -226,6 +232,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .addi | .riscv .slti | .riscv .sltiu | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
   | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd
+  | .riscv .lw | .riscv .lwu | .riscv .lh | .riscv .lhu | .riscv .lb | .riscv .lbu
   | .riscv .sw | .riscv .sh | .riscv .sb | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .riscv_stack .alloca => Id.run do

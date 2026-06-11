@@ -35,6 +35,12 @@ match op with
 | .binvi => RISCVImmediateProperties
 | .bseti => RISCVImmediateProperties
 | .ld => RISCVImmediateProperties
+| .lw => RISCVImmediateProperties
+| .lwu => RISCVImmediateProperties
+| .lh => RISCVImmediateProperties
+| .lhu => RISCVImmediateProperties
+| .lb => RISCVImmediateProperties
+| .lbu => RISCVImmediateProperties
 | .sd => RISCVImmediateProperties
 | .sw => RISCVImmediateProperties
 | .sh => RISCVImmediateProperties
