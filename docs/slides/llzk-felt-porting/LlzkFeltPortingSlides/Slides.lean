@@ -165,6 +165,114 @@ Costs:
 * No whole-program semantic theorem.
 * No direct `llzk-opt` integration point yet.
 
+# Example Felt Input
+
+LLZK custom assembly from the differential corpus:
+
+```code text
+function.def @fold_add() -> !felt.type<"babybear"> {
+  %a = felt.const 5 : !felt.type<"babybear">
+  %b = felt.const 7 : !felt.type<"babybear">
+  %c = felt.add %a, %b :
+    !felt.type<"babybear">, !felt.type<"babybear">
+  function.return %c : !felt.type<"babybear">
+}
+```
+
+Expected canonical result: `felt.const 12`.
+
+# C++ Folder Shape
+
+In `llzk-lib`, the folder is direct C++ over MLIR fold adaptors:
+
+```code "c++"
+OpFoldResult AddFeltOp::fold(FoldAdaptor adaptor) {
+  auto data = tryGetBinaryFoldData(
+    adaptor.getLhs(), adaptor.getRhs());
+  if (!data) return {};
+  return buildFoldResult(
+    getContext(),
+    data->field->reduce(data->lhsVal + data->rhsVal),
+    *data->field, data->fieldName);
+}
+```
+
+The important behavior is in the side conditions hidden behind
+`tryGetBinaryFoldData`.
+
+# VEIR Rewrite Shape
+
+In VEIR, the executable pattern exposes matcher and side-condition structure;
+slide-sized excerpt:
+
+```code lean
+def constant_fold_add (rewriter) (op) := do
+  match matchAdd op rewriter.ctx with
+  | none => return rewriter
+  | some (lhs, rhs, _) =>
+    let some cstL := matchConstFromValue lhs rewriter.ctx
+      | return rewriter
+    let some cstR := matchConstFromValue rhs rewriter.ctx
+      | return rewriter
+    if cstL.value.fieldType ≠ cstR.value.fieldType then
+      return rewriter
+    let some cstProp := foldedConstProperties?
+      cstL.value.fieldType (cstL.value.value + cstR.value.value)
+      | return rewriter
+    -- create felt.const; replace original op
+```
+
+# Semantics Example
+
+The current value-level Felt interpreter model is standalone, not yet wired
+into VEIR's core interpreter.
+
+```code lean
+inductive FeltVal where
+  | felt (p : Nat) (val : Nat)
+
+def interpretAdd : FeltVal -> FeltVal -> Option FeltVal
+  | .felt p a, .felt p' b =>
+      if p' = p then some (.felt p ((a + b) % p))
+      else none
+```
+
+What this establishes: runtime values carry a concrete modulus and operations
+fail closed on field mismatch.
+
+# Example Arithmetic Proof
+
+The simple proof layer for `constant_fold_add`:
+
+```code lean
+theorem constant_fold_add (p : Nat) (c1 c2 : Int) :
+    add (const p c1) (const p c2) = const p (c1 + c2) := by
+  show ((c1 : ZMod p) + (c2 : ZMod p))
+    = ((c1 + c2 : Int) : ZMod p)
+  push_cast
+  ring
+```
+
+This proves the arithmetic identity, not the whole compiler pass.
+
+# Runtime Proof POC
+
+A value-level runtime lemma exists for one rewrite shape:
+
+```code lean
+theorem interpretAdd_const_zero
+    (p a : Nat) (ha : a < p) (cst : FeltConstAttr)
+    (hval : cst.value = 0)
+    (hp : feltPrime cst.fieldType.fieldName = some p) :
+    (interpretConst cst).bind (interpretAdd (.felt p a))
+      = some (.felt p a) := by
+  simp only [interpretConst, hp, hval, reduce,
+    Option.bind_some, interpretAdd, Nat.add_zero,
+    Nat.mod_eq_of_lt ha]
+```
+
+This is closer to the statement we want for drop-in claims.
+
 # What Worked
 
 * Typed Felt constants replaced earlier integer-attribute workarounds.
@@ -307,13 +415,18 @@ Decision point:
 
 # Upstream VEIR Asks
 
-Highest-value improvements:
+Highest-value improvements, part 1:
 
 * dialect-porting guide;
 * ODS/TableGen scaffolding;
 * total op metadata gates;
 * side-effect/speculatability declarations;
 * pass profiles: parity vs enhanced vs experimental;
+
+# Upstream VEIR Asks, Continued
+
+Highest-value improvements, part 2:
+
 * reusable MLIR differential harness;
 * custom type/attribute templates;
 * proof-layer templates;
@@ -321,13 +434,18 @@ Highest-value improvements:
 
 # Porting Checklist
 
-Before a future dialect port claims drop-in status:
+Before a future dialect port claims drop-in status, source and IR surface:
 
 * exact source commit selected;
 * ODS, C++ files, tests, semantic tables listed;
 * every op mapped and metadata declared;
 * custom attrs/types round-trip;
 * custom assembly path identified;
+
+# Porting Checklist, Continued
+
+Before a future dialect port claims drop-in status, evidence and claims:
+
 * folder positive and no-fire cases covered;
 * parity and enhanced profiles separated;
 * proof layer and assumptions named;
@@ -340,6 +458,9 @@ Before a future dialect port claims drop-in status:
 * Should VEIR grow ODS/TableGen import scaffolding?
 * Where should traits, side effects, memory effects, and speculatability live?
 * What is the right pass-profile API?
+
+# Discussion Questions, Continued
+
 * Which differential harness pieces belong upstream?
 * What theorem layer should VEIR recommend first for rewrites?
 * Should executable rewrite metadata drive certificates and dashboards?
@@ -356,6 +477,11 @@ The repeatable workflow needs:
 * operation metadata;
 * custom attributes;
 * folder side conditions;
+
+# Bottom Line, Continued
+
+The repeatable workflow also needs:
+
 * pass profiles;
 * differential evidence;
 * proof boundaries;

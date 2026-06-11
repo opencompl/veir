@@ -1,0 +1,48 @@
+.reveal {
+  font-size: 26px;
+}
+
+.reveal .slides {
+  text-align: left;
+}
+
+.reveal h1 {
+  font-size: 1.65em;
+  line-height: 1.05;
+  margin-bottom: 0.35em;
+  text-transform: none;
+}
+
+.reveal p,
+.reveal li {
+  line-height: 1.16;
+}
+
+.reveal p {
+  margin: 0.35em 0;
+}
+
+.reveal ul {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.reveal li {
+  margin: 0.15em 0;
+}
+
+.reveal pre {
+  width: 100%;
+  font-size: 0.62em;
+  margin: 0.45em 0;
+}
+
+.reveal pre code {
+  white-space: pre-wrap;
+  max-height: none;
+}
+
+.reveal section {
+  box-sizing: border-box;
+  padding-top: 0.15em;
+}
