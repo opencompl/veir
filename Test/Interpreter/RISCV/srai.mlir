@@ -5,7 +5,7 @@
     %a = "riscv.li"() <{ value = 23 : i64 }> : () -> !riscv.reg
     %b = "riscv.srai"(%a) <{ value = 1 : i6 }> : (!riscv.reg) -> !riscv.reg
     %c = "riscv.li"() <{ value = 23 : i64 }> : () -> !riscv.reg
-    %d = "riscv.srai"(%c) <{ value = -1 : i6 }> : (!riscv.reg) -> !riscv.reg
+    %d = "riscv.srai"(%c) <{ value = 63 : i6 }> : (!riscv.reg) -> !riscv.reg
     "func.return"(%b, %d) : (!riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()

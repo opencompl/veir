@@ -6,8 +6,8 @@
     %b = "riscv.li"() <{ value = 29 : i64 }> : () -> !riscv.reg
     %c = "riscv.li"() <{ value = 4294967298 : i64 }> : () -> !riscv.reg
     %d = "riscv.rori"(%a) <{ value = 3 : i6 }> : (!riscv.reg) -> !riscv.reg
-    %e = "riscv.rori"(%b) <{ value = -3 : i6 }> : (!riscv.reg) -> !riscv.reg
-    %f = "riscv.rori"(%c) <{ value = -3 : i6 }> : (!riscv.reg) -> !riscv.reg
+    %e = "riscv.rori"(%b) <{ value = 61 : i6 }> : (!riscv.reg) -> !riscv.reg
+    %f = "riscv.rori"(%c) <{ value = 61 : i6 }> : (!riscv.reg) -> !riscv.reg
     "func.return"(%d, %e, %f) : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
