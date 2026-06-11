@@ -1902,7 +1902,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .ld)).value.value
     pure ()
-  | .riscv .sd | .riscv .sw | .riscv .sh | .riscv .sb => do
+  | .riscv .sd => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -1912,6 +1912,39 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .sd)).value.value
+    pure ()
+  | .riscv .sw => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .sw)).value.value
+    pure ()
+  | .riscv .sh => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .sh)).value.value
+    pure ()
+  | .riscv .sb => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .sb)).value.value
     pure ()
   | .riscv .mv => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
