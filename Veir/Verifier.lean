@@ -164,7 +164,7 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr) (ctx : WfIRContext Op
 
 def OperationPtr.verifyRISCVneg (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) (imm : Int) : Except String PUnit :=
-  if 1048575 < imm then
+  if 0 ≤ imm ∧ 1048575 < imm then
     let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
     throw s!"{instrName} immediate out of bounds: must fit in a signed 20-bit field."
   else
