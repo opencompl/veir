@@ -11,7 +11,7 @@ namespace Veir
   translating `!mod_arith.int<q : iN>` values to their canonical representation in `[0, q)`.
   The current lowering is trivial, eagerly reducing at all times.
 
-  Since VEIR has no Dialect Conversion framework, this pass eagerly inserts unrealized_conversion_casts
+  Since Veir has no Dialect Conversion framework, this pass eagerly inserts `unrealized_conversion_casts`
   to handle the type conversions between `!mod_arith.int<q : iN>` and `iN` that are needed.
 -/
 
@@ -75,7 +75,7 @@ def packValue (rewriter : PatternRewriter OpCode) (v : ValuePtr) (ty : ModArithT
 /-! ## Arith Helpers -/
 
 set_option warn.sorry false in
-/-- Emit `arith.constant c : i<width>`. Requires c to fit into width (unsigned) -/
+/-- Emit `arith.constant c : i<width>`. Requires `c` to fit into width (unsigned) -/
 def emitArithConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let ty : TypeAttr := IntegerType.mk width
