@@ -1234,6 +1234,13 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     | _ , _ => none
   | _ => none
 
+/-- Wrapper around `interpretOp'` that retrieves the operation type, properties,
+result types, and successor blocks from the operation pointer. -/
+abbrev OperationPtr.interpret (op : OperationPtr) (ctx : IRContext OpCode)
+    (operandValues : Array RuntimeValue) (memory : MemoryState) :=
+    interpretOp' (op.getOpType! ctx) (op.getProperties! ctx (op.getOpType! ctx))
+    (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) memory
+
 /--
   Interpret a single operation given the current interpreter state.
   Return an updated interpreter state and a control flow action indicating how
@@ -1245,9 +1252,7 @@ def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode} (state : Interpre
     (inBounds : op.InBounds ctx.raw := by grind)
     : Interp (InterpreterState ctx × Option ControlFlowAction) := do
   let some operands := state.variables.getOperandValues op | none
-  let opType := op.getOpType! ctx
-  let (resultValues, mem, action) ← interpretOp' opType (op.getProperties! ctx opType)
-    (op.getResultTypes! ctx.raw) operands (op.getSuccessors! ctx.raw) state.memory
+  let (resultValues, mem, action) ← op.interpret ctx operands state.memory
   let newVars ← state.variables.setResultValues? op resultValues
   let newState := ⟨newVars, mem⟩
   return (newState, action)

@@ -155,9 +155,7 @@ theorem interpretOp_some_iff {ctx : WfIRContext OpCode} {state state' : Interpre
   interpretOp op state inBounds = some (.ok (state', cf)) ↔
   ∃ operandValues resValues mem' varState',
     (state.variables.getOperandValues op) = some operandValues ∧
-    interpretOp' (op.getOpType! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
-      (op.getResultTypes! ctx.raw) operandValues (op.getSuccessors! ctx.raw) state.memory =
-      some (.ok (resValues, mem', cf)) ∧
+    op.interpret ctx operandValues state.memory = some (.ok (resValues, mem', cf)) ∧
     state.variables.setResultValues? op resValues = some varState' ∧
     state' = ⟨varState', mem'⟩ := by
   simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]

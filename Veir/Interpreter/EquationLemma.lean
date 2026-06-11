@@ -97,7 +97,7 @@ theorem interpretOp_equationHolds_other
   subst state state'; simp_all only
   simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
   simp only [VariableState.getOperandValues_setResultValues?_of_dominates ctxDom hDom hResValues₁]
-  simp only [hOperandValues₂]
+  simp only [hOperandValues₂, OperationPtr.interpret]
   rw [OperationPtr.Pure.interpretOp'_eq_interpretOp'_other_memory op₂Pure memory₂]
   simp only [hInterp₂', Interp.map, Option.map, UBOr.map]
   by_cases hOp : op₂ = op₁
