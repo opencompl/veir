@@ -83,3 +83,28 @@ theorem OperationPtr.isModuleRefinedBy_trans
     (h23 : isModuleRefinedBy mod₂ ctx₂ mod₃ ctx₃) :
     isModuleRefinedBy mod₁ ctx₁ mod₃ ctx₃ := by
   grind [isModuleRefinedBy, isRefinedByAsFunction_trans]
+
+/-! ## Interp refinements -/
+
+/-- `none` is refined by any value. -/
+@[simp, grind .]
+theorem Interp.isRefinedBy_none_target :
+    Interp.isRefinedBy R none target := by
+  simp [Interp.isRefinedBy]
+
+/-- `ub` is refined as long as interpretation succeeds. -/
+@[simp, grind =]
+theorem Interp.isRefinedBy_ub_target_iff :
+    Interp.isRefinedBy R (some .ub) target ↔
+    ∃ targetRes, target = some targetRes := by
+  simp only [Interp.isRefinedBy]
+  cases target <;> grind
+
+/-- `ok` is only refined by `ok` values that satisfy the given refinement relation. -/
+@[simp, grind =]
+theorem Interp.isRefinedBy_ok_target_iff :
+    Interp.isRefinedBy R (some (.ok sourceRes)) target ↔
+    ∃ targetRes, target = some (.ok targetRes) ∧ R sourceRes targetRes := by
+  simp only [Interp.isRefinedBy]
+  rcases target with _ | (_ | _) <;> grind
+
