@@ -40,6 +40,8 @@ Phase 9 and Phase 10 planning files live under [`docs/phases/`](docs/phases/).
 For a maintainer-facing case study on porting the LLZK Felt dialect from C++
 MLIR to VEIR, see
 [`docs/llzk-felt-porting-brief.md`](docs/llzk-felt-porting-brief.md).
+A basic VersoSlides deck for that discussion lives under
+[`docs/slides/llzk-felt-porting/`](docs/slides/llzk-felt-porting/).
 
 | VeIR Features                                         | Complete   | Verified |
 |-------------------------------------------------------|------------| ---------|

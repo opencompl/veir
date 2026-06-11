@@ -8,6 +8,9 @@ Status: meeting brief. This document summarizes the experience of porting a
 production-like C++ MLIR dialect into VEIR, using the LLZK Felt dialect as the
 concrete case study. It is not acceptance evidence by itself.
 
+Companion slides live under
+`docs/slides/llzk-felt-porting/LlzkFeltPortingSlides/Slides.lean`.
+
 ## Purpose
 
 The LLZK Felt port is a useful stress test for VEIR because it is not a toy
