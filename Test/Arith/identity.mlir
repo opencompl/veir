@@ -1,4 +1,5 @@
 // RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_ROUNDTRIP
 
 "builtin.module"() ({
   "func.func"() <{function_type = () -> (), sym_name = "main"}> ({
