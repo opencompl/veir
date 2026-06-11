@@ -724,6 +724,12 @@ inductive LoadExtension
   | signExt
   | zeroExt
 
+/-- Interpret the first `bytes` bytes of a little-endian `ByteArray`
+    as a `BitVec (8 * bytes)` (byte 0 is the least significant). -/
+def _root_.ByteArray.toBitVecLE (ba : ByteArray) (bytes : Nat) : BitVec (8 * bytes) :=
+  -- NB ByteArray does not define its own foldr
+  ba.toList.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth (8 * bytes)) 0
+
 /-- Read `bytes` of little-endian data from memory starting at
     `eaddr` and extend it to 64 bits according to `ext`. Memory is
     grown so that the access is in bounds and cannot raise UB. -/
@@ -731,8 +737,7 @@ def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadE
     Interp (BitVec 64 × MemoryState) := do
   let mem := mem.ensureSize (eaddr.toNat + bytes)
   let ba ← mem.load eaddr.toNat.toUInt64 bytes.toUInt64
-  let val : BitVec (8 * bytes) :=
-    ba.toList.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth (8 * bytes)) 0
+  let val := ba.toBitVecLE bytes
   let extended := match ext with
     | .signExt => val.signExtend 64
     | .zeroExt => val.setWidth 64
