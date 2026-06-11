@@ -49,3 +49,23 @@ theorem IRContext.wellFormed_Rewriter_createRegion (hctx : ctx.WellFormed) :
     · constructor <;> grind
     · have := hctx.regions region' (by grind)
       apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.opChain_rewriter_createRegion
+    (hWf : BlockPtr.OpChain block' ctx array)
+    (h : Rewriter.createRegion ctx = some (newCtx, region)) :
+    BlockPtr.OpChain block' newCtx array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_createRegion
+    (h : Rewriter.createRegion ctx = some (newCtx, region))
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  have := BlockPtr.opChain_rewriter_createRegion (block' := block')
+    (array := block'.operationList ctx ctxWf (by grind))
+    (by grind [BlockPtr.operationListWF]) h
+  grind
+
+grind_pattern BlockPtr.operationList_rewriter_createRegion =>
+  Rewriter.createRegion ctx, some (newCtx, region), newCtx.WellFormed,
+  block'.operationList newCtx newCtxWf blockInBounds'

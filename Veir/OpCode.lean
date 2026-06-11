@@ -60,6 +60,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 @[opcodes]
 inductive Func where
 | func
+| call
 | return
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -92,10 +93,12 @@ inductive Llvm where
 | zext
 | br
 | cond_br
+| unreachable
 | alloca
 | load
 | store
 | getelementptr
+| call
 | return
 | func
 | module_flags
@@ -104,6 +107,7 @@ inductive Llvm where
 | fmul
 | fdiv
 | frem
+| freeze
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
@@ -180,6 +184,8 @@ inductive Riscv where
 | ctzw
 | cpop
 | cpopw
+| orcb
+| rev8
 | roriw
 | rori
 | bclr
@@ -196,6 +202,9 @@ inductive Riscv where
 /- memory -/
 | ld
 | sd
+| sw
+| sh
+| sb
 
 /- pseudooperations -/
 | mv
@@ -216,6 +225,15 @@ inductive Riscv_Cf where
 | branch
 | beq
 | bne
+| blt
+| bge
+| bltu
+| bgeu
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
+inductive Riscv_Stack where
+| alloca
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]

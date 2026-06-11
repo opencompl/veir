@@ -8,7 +8,11 @@ moreServerArgs = ["--tstack=400000"]
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-version = "git#master"
+version = "git#8205572479d035c46e07ed4c9888745ca603e82c"
+
+[[require]]
+name = "ExArray"
+path = "ExArray"
 
 [[lean_lib]]
 name = "Veir"

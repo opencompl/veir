@@ -487,6 +487,20 @@ theorem OpOperandPtrPtr.get!_initBlockOperands {opOperandPtr : OpOperandPtrPtr} 
     opOperandPtr.get! ctx := by
   fun_induction Rewriter.initBlockOperands <;> grind
 
+@[grind =]
+theorem Rewriter.initBlockOperands_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (initBlockOperands ctx op operands n h₁ h₂ h₃ hn) ↔
+    match ptr with
+    | .blockOperand operandPtr
+    | .blockOperandPtr (.blockOperandNextUse operandPtr) =>
+      if operandPtr.op = op then
+        operandPtr.index < op.getNumSuccessors! ctx + n
+      else
+        ptr.InBounds ctx
+    | _ => ptr.InBounds ctx := by
+  fun_induction Rewriter.initBlockOperands <;>
+    grind [BlockOperandPtr.inBounds_def]
+
 end Rewriter.initBlockOperands
 
 end Veir

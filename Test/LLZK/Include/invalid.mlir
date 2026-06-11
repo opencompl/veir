@@ -1,4 +1,4 @@
-// RUN: veir-opt %s 2>&1 | filecheck %s
+// RUN: not veir-opt %s 2>&1 | filecheck %s
 
 // Negative test: include.from with a result. The LLZK schema forbids
 // any results (it's a side-effecting declaration), and the typed

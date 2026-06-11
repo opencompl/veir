@@ -1,0 +1,736 @@
+#!/usr/bin/env python3
+"""Translate a small VEIR LLVM-dialect MLIR module to LLVM IR.
+
+This is intentionally not a general MLIR parser.  It accepts one
+``builtin.module`` containing exactly one ``llvm.func`` and supports the small
+integer LLVM subset used by ``Tools/vsmith_generate.py``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+IDENT = r"[%@^]?[A-Za-z0-9_.$-]+"
+
+
+class Error(Exception):
+    pass
+
+
+def die(msg: str) -> None:
+    print(f"veir2llvm: error: {msg}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def strip_comments(text: str) -> str:
+    out: list[str] = []
+    for line in text.splitlines():
+        in_string = False
+        i = 0
+        while i < len(line):
+            ch = line[i]
+            if ch == '"':
+                in_string = not in_string
+            if not in_string and line.startswith("//", i):
+                break
+            i += 1
+        out.append(line[:i].rstrip())
+    return "\n".join(out)
+
+
+def split_top_level(s: str, sep: str = ",") -> list[str]:
+    parts: list[str] = []
+    start = 0
+    angle = paren = bracket = brace = 0
+    in_string = False
+    i = 0
+    while i < len(s):
+        ch = s[i]
+        if ch == '"':
+            in_string = not in_string
+        elif not in_string:
+            if ch == "<":
+                angle += 1
+            elif ch == ">":
+                angle -= 1
+            elif ch == "(":
+                paren += 1
+            elif ch == ")":
+                paren -= 1
+            elif ch == "[":
+                bracket += 1
+            elif ch == "]":
+                bracket -= 1
+            elif ch == "{":
+                brace += 1
+            elif ch == "}":
+                brace -= 1
+            elif ch == sep and angle == paren == bracket == brace == 0:
+                parts.append(s[start:i].strip())
+                start = i + 1
+        i += 1
+    tail = s[start:].strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def find_matching_region_end(text: str, open_pos: int) -> int:
+    if text[open_pos : open_pos + 2] != "({":
+        raise Error("internal error: region does not start with ({")
+    depth = 1
+    attr_depth = 0
+    in_string = False
+    i = open_pos + 2
+    while i < len(text):
+        if text[i] == '"':
+            in_string = not in_string
+            i += 1
+            continue
+        if in_string:
+            i += 1
+            continue
+        if text.startswith("<{", i):
+            attr_depth += 1
+            i += 2
+            continue
+        if text.startswith("}>", i) and attr_depth:
+            attr_depth -= 1
+            i += 2
+            continue
+        if attr_depth == 0:
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    if i + 1 >= len(text) or text[i + 1] != ")":
+                        raise Error("region closing brace is not followed by ')'")
+                    return i
+        i += 1
+    raise Error("unterminated region")
+
+
+def find_matching_angle(s: str, open_pos: int) -> int:
+    depth = 0
+    in_string = False
+    for i in range(open_pos, len(s)):
+        ch = s[i]
+        if ch == '"':
+            in_string = not in_string
+        elif not in_string:
+            if ch == "<":
+                depth += 1
+            elif ch == ">":
+                depth -= 1
+                if depth == 0:
+                    return i
+    raise Error("unterminated angle bracket")
+
+
+def value_name(name: str) -> str:
+    if not name.startswith("%"):
+        raise Error(f"expected SSA value, got {name}")
+    return name
+
+
+def label_name(label: str) -> str:
+    return label[1:] if label.startswith("^") else label
+
+
+def llvm_block_name(label: str) -> str:
+    return "mlir_" + label_name(label)
+
+
+def llvm_label(label: str) -> str:
+    return "%" + llvm_block_name(label)
+
+
+def llvm_ssa_name(name: str) -> str:
+    if not name.startswith("%"):
+        raise Error(f"expected SSA value, got {name}")
+    return "%mlir_" + name[1:]
+
+
+def llvm_value(name: str, aliases: dict[str, str]) -> str:
+    return aliases.get(name, llvm_ssa_name(name))
+
+
+def parse_value_list(s: str) -> list[str]:
+    if not s.strip():
+        return []
+    vals = split_top_level(s)
+    for val in vals:
+        if not val.startswith("%"):
+            raise Error(f"expected SSA operand, got {val}")
+    return vals
+
+
+def parse_type_list(s: str) -> list[str]:
+    if not s.strip():
+        return []
+    return split_top_level(s)
+
+
+def parse_block_args(s: str | None) -> list[tuple[str, str]]:
+    if not s or not s.strip():
+        return []
+    args: list[tuple[str, str]] = []
+    for part in split_top_level(s):
+        m = re.fullmatch(rf"\s*({IDENT})\s*:\s*(.+?)\s*", part)
+        if not m:
+            raise Error(f"could not parse block argument: {part}")
+        name = value_name(m.group(1))
+        args.append((name, m.group(2).strip()))
+    return args
+
+
+def parse_attr_items(attr: str) -> set[str]:
+    if not attr:
+        return set()
+    items = set()
+    for item in split_top_level(attr):
+        item = item.strip()
+        if not item:
+            continue
+        if "=" in item:
+            key = item.split("=", 1)[0].strip().strip('"')
+            items.add(key)
+        else:
+            items.add(item.strip('"'))
+    return items
+
+
+def parse_int_attr(attr: str, name: str) -> int:
+    pat = rf'"?{re.escape(name)}"?\s*=\s*(-?\d+)\s*:\s*i\d+'
+    m = re.search(pat, attr)
+    if not m:
+        raise Error(f"missing integer attribute {name}")
+    return int(m.group(1))
+
+
+def parse_segment_sizes(attr: str) -> tuple[int, int, int]:
+    m = re.search(
+        r'"?operandSegmentSizes"?\s*=\s*array<i32:\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*>',
+        attr,
+    )
+    if not m:
+        raise Error("llvm.cond_br is missing operandSegmentSizes")
+    sizes = tuple(int(x) for x in m.groups())
+    if sizes[0] != 1:
+        raise Error("llvm.cond_br condition segment must have size 1")
+    return sizes
+
+
+def parse_constant_attr(attr: str) -> tuple[str, str]:
+    m = re.search(r'"?value"?\s*=\s*(-?\d+)\s*:\s*([^,\s>}]+)', attr)
+    if not m:
+        raise Error("llvm.mlir.constant is missing integer value")
+    return m.group(1), m.group(2)
+
+
+def convert_type(typ: str) -> str:
+    typ = typ.strip()
+    if re.fullmatch(r"i\d+", typ):
+        return typ
+    if typ in ("void", "!llvm.void"):
+        return "void"
+    if typ in ("ptr", "!llvm.ptr"):
+        return "ptr"
+    if typ == "f16":
+        return "half"
+    if typ == "f32":
+        return "float"
+    if typ == "f64":
+        return "double"
+    if typ == "f128":
+        return "fp128"
+    raise Error(f"unsupported type: {typ}")
+
+
+def parse_function_type(attr_text: str) -> tuple[str, list[str]]:
+    key = "function_type"
+    idx = attr_text.find(key)
+    if idx < 0:
+        raise Error("llvm.func is missing function_type")
+    func_idx = attr_text.find("!llvm.func<", idx)
+    if func_idx < 0:
+        raise Error("llvm.func function_type is not !llvm.func<...>")
+    open_pos = attr_text.find("<", func_idx)
+    close_pos = find_matching_angle(attr_text, open_pos)
+    inner = attr_text[open_pos + 1 : close_pos].strip()
+    m = re.fullmatch(r"(.+?)\s*\((.*)\)\s*", inner)
+    if not m:
+        raise Error(f"could not parse function type: {inner}")
+    return m.group(1).strip(), parse_type_list(m.group(2))
+
+
+def parse_sym_name(attr_text: str) -> str:
+    m = re.search(r'"?sym_name"?\s*=\s*"([^"]+)"', attr_text)
+    if not m:
+        raise Error("llvm.func is missing sym_name")
+    name = m.group(1)
+    if not re.fullmatch(r"[A-Za-z_.$][A-Za-z0-9_.$-]*", name):
+        raise Error(f"unsupported function symbol name: {name}")
+    return name
+
+
+@dataclass
+class Operation:
+    result: str | None
+    name: str
+    operands: list[str]
+    successors: list[str]
+    attr: str
+    operand_types: list[str]
+    result_types: list[str]
+    line: str
+
+
+@dataclass
+class Block:
+    label: str
+    args: list[tuple[str, str]]
+    ops: list[Operation] = field(default_factory=list)
+
+
+@dataclass
+class Edge:
+    pred: str
+    target: str
+    values: list[str]
+
+
+@dataclass
+class EdgeBlock:
+    label: str
+    target: str
+
+
+def parse_operation(line: str) -> Operation:
+    m = re.fullmatch(
+        rf'\s*(?:({IDENT})\s*=\s*)?"([^"]+)"\((.*?)\)\s*'
+        rf'(?:\[(.*?)\]\s*)?(?:<\{{(.*?)\}}>\s*)?:\s*'
+        rf'\((.*?)\)\s*->\s*(.+?)\s*',
+        line,
+    )
+    if not m:
+        raise Error(f"could not parse operation: {line}")
+    result = m.group(1)
+    if result is not None:
+        result = value_name(result)
+    successors = []
+    if m.group(4) is not None and m.group(4).strip():
+        successors = [label_name(x.strip()) for x in split_top_level(m.group(4))]
+    return Operation(
+        result=result,
+        name=m.group(2),
+        operands=parse_value_list(m.group(3)),
+        successors=successors,
+        attr=m.group(5) or "",
+        operand_types=parse_type_list(m.group(6)),
+        result_types=parse_type_list(m.group(7)) if m.group(7).strip() != "()" else [],
+        line=line,
+    )
+
+
+def parse_blocks(body: str) -> list[Block]:
+    blocks: list[Block] = []
+    current: Block | None = None
+    implicit_index = 0
+    for raw_line in body.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        header = re.fullmatch(rf"\^([A-Za-z0-9_.$-]+)\s*(?:\((.*?)\))?\s*:", line)
+        if header:
+            current = Block(header.group(1), parse_block_args(header.group(2)))
+            blocks.append(current)
+            continue
+        if '"' not in line:
+            raise Error(f"unexpected line in function body: {line}")
+        if current is None:
+            current = Block("entry", [])
+            blocks.append(current)
+            implicit_index += 1
+        current.ops.append(parse_operation(line))
+    if implicit_index > 1:
+        raise Error("internal error: multiple implicit entry blocks")
+    if not blocks:
+        raise Error("llvm.func has an empty body")
+    seen: set[str] = set()
+    for block in blocks:
+        if block.label in seen:
+            raise Error(f"duplicate block label: {block.label}")
+        seen.add(block.label)
+    return blocks
+
+
+def extract_function(text: str) -> tuple[str, list[Block], str, list[str]]:
+    op_names = re.findall(r'"([^"]+)"\s*\(', text)
+    for op in op_names:
+        if op != "builtin.module" and not op.startswith("llvm."):
+            raise Error(f"unsupported non-LLVM operation: {op}")
+    if op_names.count("llvm.func") != 1:
+        raise Error(f"expected exactly one llvm.func, found {op_names.count('llvm.func')}")
+    func_pos = text.find('"llvm.func"')
+    head_end = text.find("({", func_pos)
+    if head_end < 0:
+        raise Error("llvm.func has no region body")
+    body_close = find_matching_region_end(text, head_end)
+    outside_func = text[:func_pos] + text[body_close + 2 :]
+    outside_ops = re.findall(r'"([^"]+)"\s*\(', outside_func)
+    extra_ops = [op for op in outside_ops if op != "builtin.module"]
+    if extra_ops:
+        raise Error(
+            "expected the module to contain only one llvm.func; "
+            f"found extra top-level op {extra_ops[0]}"
+        )
+    head = text[func_pos:head_end]
+    attr_match = re.search(r"<\{(.*)\}>\s*$", head.strip())
+    if not attr_match:
+        raise Error("llvm.func must have an attribute dictionary")
+    attrs = attr_match.group(1)
+    name = parse_sym_name(attrs)
+    ret_type, arg_types = parse_function_type(attrs)
+    body = text[head_end + 2 : body_close]
+    blocks = parse_blocks(body)
+    return name, blocks, ret_type, arg_types
+
+
+def validate_function_args(blocks: list[Block], arg_types: list[str]) -> None:
+    entry = blocks[0]
+    if len(entry.args) != len(arg_types):
+        raise Error(
+            f"entry block has {len(entry.args)} args but function type has {len(arg_types)} args"
+        )
+    for idx, ((arg_name, block_type), func_type) in enumerate(zip(entry.args, arg_types)):
+        if block_type != func_type:
+            raise Error(
+                f"entry block arg {idx} ({arg_name}) has type {block_type}, "
+                f"but function type has {func_type}"
+            )
+
+
+def flags_from_attrs(op: str, attr: str) -> list[str]:
+    items = parse_attr_items(attr)
+    flags: list[str] = []
+    if op in {"llvm.add", "llvm.sub", "llvm.mul", "llvm.shl", "llvm.trunc"}:
+        if "overflowFlags" in items:
+            overflow = parse_int_attr(attr, "overflowFlags")
+            if overflow & ~3:
+                raise Error(f"unsupported overflowFlags value on {op}: {overflow}")
+            if overflow & 2:
+                flags.append("nuw")
+            if overflow & 1:
+                flags.append("nsw")
+        for flag in ("nuw", "nsw"):
+            if flag in items and flag not in flags:
+                flags.append(flag)
+    if op in {"llvm.udiv", "llvm.sdiv", "llvm.lshr", "llvm.ashr"} and "exact" in items:
+        flags.append("exact")
+    if op == "llvm.or" and "disjoint" in items:
+        flags.append("disjoint")
+    if op == "llvm.zext" and "nneg" in items:
+        flags.append("nneg")
+    unsupported = items - {
+        "nuw",
+        "nsw",
+        "exact",
+        "disjoint",
+        "nneg",
+        "predicate",
+        "operandSegmentSizes",
+        "overflowFlags",
+    }
+    if unsupported:
+        raise Error(f"unsupported attributes on {op}: {', '.join(sorted(unsupported))}")
+    return flags
+
+
+ICMP_PREDICATES = {
+    0: "eq",
+    1: "ne",
+    2: "slt",
+    3: "sle",
+    4: "sgt",
+    5: "sge",
+    6: "ult",
+    7: "ule",
+    8: "ugt",
+    9: "uge",
+}
+
+
+def require_result(op: Operation) -> str:
+    if op.result is None:
+        raise Error(f"{op.name} must have one result")
+    if len(op.result_types) != 1:
+        raise Error(f"{op.name} must have exactly one result type")
+    return op.result
+
+
+def require_operands(op: Operation, count: int) -> None:
+    if len(op.operands) != count or len(op.operand_types) != count:
+        raise Error(f"{op.name} expects {count} operands")
+
+
+def translate_nonterminator(
+    op: Operation, aliases: dict[str, str], value_types: dict[str, str]
+) -> list[str]:
+    name = op.name
+    if name == "llvm.mlir.constant":
+        result = require_result(op)
+        if op.operands or op.operand_types:
+            raise Error("llvm.mlir.constant cannot have operands")
+        value, typ = parse_constant_attr(op.attr)
+        if len(op.result_types) != 1 or op.result_types[0] != typ:
+            raise Error("llvm.mlir.constant result type does not match value type")
+        aliases[result] = value
+        value_types[result] = typ
+        return []
+
+    result = require_result(op)
+    out_result = llvm_ssa_name(result)
+    dst_type = op.result_types[0]
+    value_types[result] = dst_type
+    flags = flags_from_attrs(name, op.attr)
+    flag_text = (" " + " ".join(flags)) if flags else ""
+
+    binary_ops = {
+        "llvm.add": "add",
+        "llvm.sub": "sub",
+        "llvm.mul": "mul",
+        "llvm.and": "and",
+        "llvm.or": "or",
+        "llvm.xor": "xor",
+        "llvm.shl": "shl",
+        "llvm.lshr": "lshr",
+        "llvm.ashr": "ashr",
+        "llvm.sdiv": "sdiv",
+        "llvm.udiv": "udiv",
+        "llvm.srem": "srem",
+        "llvm.urem": "urem",
+    }
+    if name in binary_ops:
+        require_operands(op, 2)
+        if op.operand_types[0] != op.operand_types[1] or op.operand_types[0] != dst_type:
+            raise Error(f"{name} operand/result types must match")
+        lhs = llvm_value(op.operands[0], aliases)
+        rhs = llvm_value(op.operands[1], aliases)
+        typ = convert_type(dst_type)
+        return [f"  {out_result} = {binary_ops[name]}{flag_text} {typ} {lhs}, {rhs}"]
+
+    if name == "llvm.icmp":
+        require_operands(op, 2)
+        if op.operand_types[0] != op.operand_types[1] or dst_type != "i1":
+            raise Error("llvm.icmp expects equal operand types and i1 result")
+        pred_num = parse_int_attr(op.attr, "predicate")
+        pred = ICMP_PREDICATES.get(pred_num)
+        if pred is None:
+            raise Error(f"unsupported llvm.icmp predicate: {pred_num}")
+        lhs = llvm_value(op.operands[0], aliases)
+        rhs = llvm_value(op.operands[1], aliases)
+        typ = convert_type(op.operand_types[0])
+        return [f"  {out_result} = icmp {pred} {typ} {lhs}, {rhs}"]
+
+    if name == "llvm.select":
+        require_operands(op, 3)
+        if op.operand_types[0] != "i1":
+            raise Error("llvm.select condition must have type i1")
+        if op.operand_types[1] != op.operand_types[2] or op.operand_types[1] != dst_type:
+            raise Error("llvm.select value operand/result types must match")
+        cond = llvm_value(op.operands[0], aliases)
+        tv = llvm_value(op.operands[1], aliases)
+        fv = llvm_value(op.operands[2], aliases)
+        typ = convert_type(dst_type)
+        return [f"  {out_result} = select i1 {cond}, {typ} {tv}, {typ} {fv}"]
+
+    casts = {"llvm.trunc": "trunc", "llvm.sext": "sext", "llvm.zext": "zext"}
+    if name in casts:
+        require_operands(op, 1)
+        src = llvm_value(op.operands[0], aliases)
+        src_type = convert_type(op.operand_types[0])
+        out_type = convert_type(dst_type)
+        return [f"  {out_result} = {casts[name]}{flag_text} {src_type} {src} to {out_type}"]
+
+    raise Error(f"unsupported LLVM operation: {name}")
+
+
+def translate_terminator(
+    block: Block,
+    op: Operation,
+    aliases: dict[str, str],
+    blocks_by_label: dict[str, Block],
+    edge_blocks: list[EdgeBlock],
+) -> tuple[list[str], list[Edge]]:
+    if op.result is not None or op.result_types:
+        raise Error(f"{op.name} terminator cannot have results")
+
+    if op.name == "llvm.return":
+        if op.successors:
+            raise Error("llvm.return cannot have successors")
+        if len(op.operands) == 0 and len(op.operand_types) == 0:
+            return ["  ret void"], []
+        if len(op.operands) != 1 or len(op.operand_types) != 1:
+            raise Error("llvm.return with multiple values is not supported")
+        value = llvm_value(op.operands[0], aliases)
+        return [f"  ret {convert_type(op.operand_types[0])} {value}"], []
+
+    if op.name == "llvm.br":
+        if len(op.successors) != 1:
+            raise Error("llvm.br must have exactly one successor")
+        target = op.successors[0]
+        if target not in blocks_by_label:
+            raise Error(f"llvm.br targets unknown block ^{target}")
+        target_args = blocks_by_label[target].args
+        if len(op.operands) != len(target_args):
+            raise Error(
+                f"llvm.br to ^{target} passes {len(op.operands)} values, "
+                f"but target has {len(target_args)} block args"
+            )
+        values = [llvm_value(v, aliases) for v in op.operands]
+        return [f"  br label {llvm_label(target)}"], [Edge(block.label, target, values)]
+
+    if op.name == "llvm.cond_br":
+        if len(op.successors) != 2:
+            raise Error("llvm.cond_br must have exactly two successors")
+        for target in op.successors:
+            if target not in blocks_by_label:
+                raise Error(f"llvm.cond_br targets unknown block ^{target}")
+        true_target, false_target = op.successors
+        cond_n, true_n, false_n = parse_segment_sizes(op.attr)
+        if cond_n + true_n + false_n != len(op.operands):
+            raise Error("llvm.cond_br operandSegmentSizes do not match operand count")
+        cond = llvm_value(op.operands[0], aliases)
+        true_values = [llvm_value(v, aliases) for v in op.operands[1 : 1 + true_n]]
+        false_values = [llvm_value(v, aliases) for v in op.operands[1 + true_n :]]
+        if true_n != len(blocks_by_label[true_target].args):
+            raise Error(
+                f"true edge to ^{true_target} passes {true_n} values, "
+                f"but target has {len(blocks_by_label[true_target].args)} block args"
+            )
+        if false_n != len(blocks_by_label[false_target].args):
+            raise Error(
+                f"false edge to ^{false_target} passes {false_n} values, "
+                f"but target has {len(blocks_by_label[false_target].args)} block args"
+            )
+        if op.operand_types[:1] != ["i1"]:
+            raise Error("llvm.cond_br condition must have type i1")
+
+        edges: list[Edge] = []
+        if true_target == false_target and (true_n or false_n):
+            true_edge_label = f"{block.label}_to_{true_target}_true"
+            false_edge_label = f"{block.label}_to_{false_target}_false"
+            edge_blocks.append(EdgeBlock(true_edge_label, true_target))
+            edge_blocks.append(EdgeBlock(false_edge_label, false_target))
+            edges.append(Edge(true_edge_label, true_target, true_values))
+            edges.append(Edge(false_edge_label, false_target, false_values))
+            return (
+                [
+                    f"  br i1 {cond}, label {llvm_label(true_edge_label)}, label {llvm_label(false_edge_label)}",
+                ],
+                edges,
+            )
+
+        edges.append(Edge(block.label, true_target, true_values))
+        edges.append(Edge(block.label, false_target, false_values))
+        return (
+            [f"  br i1 {cond}, label {llvm_label(true_target)}, label {llvm_label(false_target)}"],
+            edges,
+        )
+
+    raise Error(f"unsupported LLVM terminator: {op.name}")
+
+
+def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types: list[str]) -> str:
+    validate_function_args(blocks, arg_types)
+    blocks_by_label = {block.label: block for block in blocks}
+    aliases: dict[str, str] = {}
+    value_types: dict[str, str] = {}
+    body_lines: dict[str, list[str]] = {}
+    edges: list[Edge] = []
+    edge_blocks: list[EdgeBlock] = []
+
+    for idx, block in enumerate(blocks):
+        for arg_name, arg_type in block.args:
+            value_types[arg_name] = arg_type
+        lines: list[str] = []
+        if not block.ops:
+            raise Error(f"block ^{block.label} is empty")
+        for op_index, op in enumerate(block.ops):
+            is_last = op_index == len(block.ops) - 1
+            if op.name in {"llvm.return", "llvm.br", "llvm.cond_br"}:
+                if not is_last:
+                    raise Error(f"terminator {op.name} is not last in ^{block.label}")
+                term_lines, term_edges = translate_terminator(
+                    block, op, aliases, blocks_by_label, edge_blocks
+                )
+                lines.extend(term_lines)
+                edges.extend(term_edges)
+            else:
+                if is_last:
+                    raise Error(f"block ^{block.label} has no terminator")
+                lines.extend(translate_nonterminator(op, aliases, value_types))
+        body_lines[block.label] = lines
+
+    incoming: dict[str, list[list[tuple[str, str]]]] = {
+        block.label: [[] for _ in block.args] for block in blocks
+    }
+    for edge in edges:
+        target_args = blocks_by_label[edge.target].args
+        if len(edge.values) != len(target_args):
+            raise Error(f"edge to ^{edge.target} has wrong value count")
+        for idx, value in enumerate(edge.values):
+            incoming[edge.target][idx].append((value, edge.pred))
+
+    params: list[str] = []
+    for (arg_name, arg_type), func_type in zip(blocks[0].args, arg_types):
+        params.append(f"{convert_type(func_type)} {llvm_ssa_name(arg_name)}")
+
+    out: list[str] = [f"define {convert_type(ret_type)} @{name}({', '.join(params)}) {{"]
+    for idx, block in enumerate(blocks):
+        out.append(f"{llvm_block_name(block.label)}:")
+        if idx != 0:
+            for arg_index, (arg_name, arg_type) in enumerate(block.args):
+                typ = convert_type(arg_type)
+                incs = incoming[block.label][arg_index]
+                if incs:
+                    incoming_text = ", ".join(f"[ {val}, %{llvm_block_name(pred)} ]" for val, pred in incs)
+                    out.append(f"  {llvm_ssa_name(arg_name)} = phi {typ} {incoming_text}")
+                else:
+                    out.append(f"  {llvm_ssa_name(arg_name)} = freeze {typ} poison")
+        out.extend(body_lines[block.label])
+
+    for edge_block in edge_blocks:
+        out.append(f"{llvm_block_name(edge_block.label)}:")
+        out.append(f"  br label {llvm_label(edge_block.target)}")
+
+    out.append("}")
+    return "\n".join(out) + "\n"
+
+
+def translate(text: str) -> str:
+    text = strip_comments(text)
+    name, blocks, ret_type, arg_types = extract_function(text)
+    return translate_function(name, blocks, ret_type, arg_types)
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input", type=Path, help="input MLIR file")
+    args = parser.parse_args(argv)
+    try:
+        sys.stdout.write(translate(args.input.read_text()))
+    except (OSError, Error) as e:
+        die(str(e))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

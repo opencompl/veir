@@ -16,7 +16,6 @@ CompCertSSA semantics are based on small-step operational semantics.
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
-variable {state : InterpreterState}
 
 /-!
 ## Equation Lemma
@@ -68,41 +67,43 @@ This is encoded by stating that interpreting `op` in `state` produces `state` it
 equivalent to saying that the results of interpreting `op` on the given `state` are present in
 `state` itself.
 -/
-def InterpreterState.EquationHolds (state : InterpreterState) (ctx : WfIRContext OpCode)
-    (op : OperationPtr) : Prop :=
-  ∃ controlFlow, interpretOp ctx op state = some (.ok (state, controlFlow))
+def InterpreterState.EquationHolds {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (op : OperationPtr) (inBounds : op.InBounds ctx.raw := by grind) : Prop :=
+  ∃ controlFlow, interpretOp op state = some (.ok (state, controlFlow))
 
 theorem interpretOp_equationHolds_self
-    {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) :
+    {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} (ctxDom : ctx.Dom)
+    (inBounds : op.InBounds ctx.raw) :
     op.Pure ctx →
-    interpretOp ctx op state = some (.ok (state', controlFlow)) →
-    state'.EquationHolds ctx op := by
+    interpretOp op state = some (.ok (state', controlFlow)) →
+    state'.EquationHolds op := by
   simp only [InterpreterState.EquationHolds]
-  grind [interpretOp_some_iff, OperationPtr.Pure.interpretOp'_eq_ok_implies_memory_eq]
+  grind [OperationPtr.Pure.interpretOp'_eq_ok_implies_memory_eq, interpretOp_some_iff]
 
 theorem interpretOp_equationHolds_other
-    {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) :
+    {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} (ctxDom : ctx.Dom)
+    {inBounds₁ : op₁.InBounds ctx.raw} {inBounds₂ : op₂.InBounds ctx.raw} :
     op₂.Pure ctx →
-    interpretOp ctx op₁ state = some (.ok (state', cf₁)) →
+    interpretOp op₁ state inBounds₁ = some (.ok (state', cf₁)) →
     op₂.dominates op₁ ctx →
-    state.EquationHolds ctx op₂ →
-    state'.EquationHolds ctx op₂ := by
+    state.EquationHolds op₂ →
+    state'.EquationHolds op₂ := by
   intro op₂Pure hInterp₁ hDom
   simp only [InterpreterState.EquationHolds]
   rintro ⟨cf₂, hInterp₂⟩
   exists cf₂
-  have ⟨operandValues₁, resValues₁, memory₁, hOperandValues₁, hInterp₁', hResValues₁⟩ := interpretOp_some_iff.mp hInterp₁
-  have ⟨operandValues₂, resValues₂, memory₂, hOperandValues₂, hInterp₂', hResValues₂⟩ := interpretOp_some_iff.mp hInterp₂
-  subst state'
-  simp only [interpretOp, bind, pure]
-  simp only [VariableState.getOperandValues_setResultValues_of_dominates ctxDom hDom]
+  have ⟨operandValues₁, resValues₁, memory₁, resState₂, hOperandValues₁, hInterp₁', hResValues₁, hState'⟩ := interpretOp_some_iff.mp hInterp₁
+  have ⟨operandValues₂, resValues₂, memory₂, resState₁, hOperandValues₂, hInterp₂', hResValues₂, hState⟩ := interpretOp_some_iff.mp hInterp₂
+  subst state state'; simp_all only
+  simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
+  simp only [VariableState.getOperandValues_setResultValues?_of_dominates ctxDom hDom hResValues₁]
   simp only [hOperandValues₂]
-  rw [OperationPtr.Pure.interpretOp'_eq_interpretOp'_other_memory op₂Pure state.memory]
-  simp only [Interp.map, Option.map, hInterp₂', UBOr.map]
-  by_cases hOp : op₁ = op₂
+  rw [OperationPtr.Pure.interpretOp'_eq_interpretOp'_other_memory op₂Pure memory₂]
+  simp only [hInterp₂', Interp.map, Option.map, UBOr.map]
+  by_cases hOp : op₂ = op₁
   · grind
-  · simp only [VariableState.setResultValues_comm hOp]
-    cases state; grind
+  · have := VariableState.setResultValues?_comm hOp hResValues₂ hResValues₁
+    grind
 
 /-!
 ## SSA Invariant at a Program Point
@@ -114,18 +115,19 @@ lemma for all operations that dominate that program point.
 In other words, all operations that dominate the given location have already been interpreted and
 their results are present in the state.
 -/
-def InterpreterState.EquationLemmaAt (state : InterpreterState) (ctx : WfIRContext OpCode)
+def InterpreterState.EquationLemmaAt {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
     (location : InsertPoint) (_locInBounds : location.InBounds ctx.raw := by grind) : Prop :=
   ∀ (op : OperationPtr) (_opInBounds : op.InBounds ctx.raw),
   op.Pure ctx →
   op.dominatesIp location ctx →
-  state.EquationHolds ctx op
+  state.EquationHolds op
 
-theorem interpretOp_equationLemmaAt (ctxDom : ctx.Dom)
-    (stateWf : state.EquationLemmaAt ctx (InsertPoint.before op) opInBounds)
+theorem interpretOp_equationLemmaAt {ctx : WfIRContext OpCode} {opInBounds} {state state' : InterpreterState ctx}
+    (ctxDom : ctx.Dom)
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) opInBounds)
     (opHasParent : (op.get! ctx.raw).parent = some block) :
-    interpretOp ctx op state = some (.ok (state', controlFlow)) →
-    state'.EquationLemmaAt ctx (InsertPoint.after op ctx.raw block) := by
+    interpretOp op state = some (.ok (state', controlFlow)) →
+    state'.EquationLemmaAt (InsertPoint.after op ctx.raw block) := by
   intro hInterp
   simp only [InterpreterState.EquationLemmaAt] at stateWf ⊢
   intro op' op'InBounds hPure hDom
@@ -135,4 +137,5 @@ theorem interpretOp_equationLemmaAt (ctxDom : ctx.Dom)
   · apply interpretOp_equationHolds_other ctxDom (by grind) hInterp
     · grind [OperationPtr.dominates_of_strictlyDominates]
     · grind [interpretOp_equationHolds_other]
+    · grind
   · grind [interpretOp_equationHolds_self]

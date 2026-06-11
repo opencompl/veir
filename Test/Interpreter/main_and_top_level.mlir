@@ -1,4 +1,4 @@
-// RUN: veir-interpret %s 2>&1 | filecheck %s
+// RUN: not veir-interpret %s 2>&1 | filecheck %s
 
 "builtin.module"() ({
   %0 = "arith.constant"() <{ "value" = 7 : i32 }> : () -> i32
@@ -6,7 +6,6 @@
     %1 = "llvm.mlir.constant"() <{value = 13 : i16}> : () -> i16
     "llvm.return"(%1) : (i16) -> ()
   }) : () -> ()
-  "func.return"(%0) : (i32) -> ()
 }) : () -> ()
 
-// CHECK: Error: Multiple entry points: define exactly one zero-argument function named 'main' or use only top-level executable ops
+// CHECK: Error: Top-level operations are disallowed; define a zero-argument function named 'main'

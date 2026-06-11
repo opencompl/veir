@@ -369,7 +369,7 @@ namespace OperationPtr
 def InBounds (op : OperationPtr) (ctx : IRContext OpInfo) : Prop :=
   op ∈ ctx.operations
 
-def inBounds_def : InBounds op ctx ↔ op ∈ ctx.operations := by rfl
+theorem inBounds_def : InBounds op ctx ↔ op ∈ ctx.operations := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds op ctx) := by
@@ -738,6 +738,15 @@ theorem getResults!.getElem_eq_getResult
     (op.getResults! ctx)[index]'h = op.getResult index := by
   simp only [getResults!, getResult]
   grind
+
+theorem getResult_eq_of_idxOf_getResults! {op : OperationPtr} :
+    value ∈ op.getResults! ctx →
+    (op.getResults! ctx).idxOf value = index →
+    op.getResult index = value := by
+  grind [Array.getElem?_idxOf]
+
+grind_pattern getResult_eq_of_idxOf_getResults! =>
+  value ∈ op.getResults! ctx, (op.getResults! ctx).idxOf value, op.getResult index
 
 def getResultTypes (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : Array TypeAttr :=
@@ -1465,7 +1474,7 @@ namespace BlockPtr
 def InBounds (block : BlockPtr) (ctx : IRContext OpInfo) : Prop :=
   block ∈ ctx.blocks
 
-def inBounds_def : InBounds block ctx ↔ block ∈ ctx.blocks := by rfl
+theorem inBounds_def : InBounds block ctx ↔ block ∈ ctx.blocks := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds block ctx) := by
@@ -2094,6 +2103,26 @@ end ValuePtr
 
 namespace OperationPtr
 
+/--
+Every operation result is in bounds.
+It is not necessary to provide the proof that the operation is in bounds, as out-of-bounds
+operations have no results.
+-/
+@[grind .]
+theorem getResults!_mem_inBounds {op : OperationPtr} :
+    ∀ v, v ∈ op.getResults! ctx →
+    v.InBounds ctx := by
+  grind [OperationPtr.getNumResults!, Operation.default_results_eq,
+    OperationPtr.get!_of_not_inBounds, OperationPtr.getResults!.mem_iff_exists_index]
+
+/--
+A value is either not the result of an operation, or is equal to one of the operation's results.
+-/
+theorem getResults!_not_mem_or_eq_getResult
+    (ctx : IRContext OpInfo) (value : ValuePtr) (op : OperationPtr) :
+    value ∉ op.getResults! ctx ∨ (∃ i, i < op.getNumResults! ctx ∧ value = op.getResult i) := by
+  grind [OperationPtr.getResults!.mem_iff_exists_index]
+
 theorem getResultTypes!_def {op : OperationPtr} :
     op.getResultTypes! ctx =
     Array.map (fun v => v.getType! ctx) (op.getResults! ctx) := by
@@ -2244,7 +2273,7 @@ namespace RegionPtr
 def InBounds (region : RegionPtr) (ctx : IRContext OpInfo) : Prop :=
   region ∈ ctx.regions
 
-def inBounds_def : region.InBounds ctx ↔ region ∈ ctx.regions := by rfl
+theorem inBounds_def : region.InBounds ctx ↔ region ∈ ctx.regions := by rfl
 
 @[no_expose]
 instance : Decidable (InBounds region ctx) := by
@@ -2408,6 +2437,11 @@ end BlockOperandPtrPtr
 
 namespace OperationPtr
 
+def getParentOp! (op : OperationPtr) (ctx : IRContext OpInfo) : Option OperationPtr := do
+  rlet block ← (op.get! ctx).parent
+  rlet region ← (block.get! ctx).parent
+  (region.get! ctx).parent
+
 def hasUses.loop (op : OperationPtr) (ctx : IRContext OpInfo) (index : Nat)
     (opIn : op.InBounds ctx := by grind)
     (hresult : index < op.getNumResults ctx := by grind) : Bool :=
@@ -2492,6 +2526,14 @@ def IRContext.empty (OpInfo : Type) [HasOpInfo OpInfo] : IRContext OpInfo := {
 def IRContext.forOpsDepM (ctx : IRContext OpInfo) {m : Type w → Type w'} [Monad m]
     (p : ∀ (op : OperationPtr), op.InBounds ctx → m PUnit) : m PUnit :=
   ctx.operations.forKeysDepM (fun opPtr h => p opPtr (by grind [OperationPtr.InBounds]))
+
+/--
+  Run a function on all blocks in the context, providing each callback with a
+  proof that the block pointer is in bounds.
+-/
+def IRContext.forBlocksDepM (ctx : IRContext OpInfo) {m : Type w → Type w'} [Monad m]
+    (p : ∀ (block : BlockPtr), block.InBounds ctx → m PUnit) : m PUnit :=
+  ctx.blocks.forKeysDepM (fun blockPtr h => p blockPtr (by grind [BlockPtr.InBounds]))
 
 /-! Generic pointers -/
 

@@ -11,7 +11,7 @@ on the domain.
 class LatticeElement (Domain : Type) extends BEq Domain where
   bottom : Domain
   top : Domain
-  join : Domain -> Domain -> Domain
-  meet : Domain -> Domain -> Domain
+  join : Domain → Domain → Domain
+  meet : Domain → Domain → Domain
 
 end Veir

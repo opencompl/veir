@@ -1,4 +1,4 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
 //
 // Lossless round-trip of an `llvm.func` carrying both modelled properties
 // (`sym_name`, `function_type`) and unmodelled ones (`CConv`, `linkage`,

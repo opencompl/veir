@@ -1,4 +1,4 @@
-// RUN: veir-opt %s 2>&1 | filecheck %s
+// RUN: not veir-opt %s 2>&1 | filecheck %s
 
 // Negative test: ram.store with a result. The typed verifier arm
 // expects 0 results; the unregistered fallthrough would not error.

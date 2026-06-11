@@ -168,7 +168,7 @@ decreasing_by
   · have : (firstOpPtr.get! ctx).parent = block := by grind [IRContext.WellFormed]
     grind
 
-def Rewriter.inlineBlock_wellFormed :
+theorem Rewriter.inlineBlock_wellFormed :
     Rewriter.inlineBlock ctx block ip ipIn ipBlock blockNe blockIn ctxWf = some newCtx →
     newCtx.WellFormed := by
   rename_i block'

@@ -1,4 +1,4 @@
-// RUN: veir-opt %s 2>&1 | filecheck %s
+// RUN: not veir-opt %s 2>&1 | filecheck %s
 
 // Negative test: function.def with 2 regions instead of 1 triggers
 // the typed verifier arm. Confirms the .function .«def» path is

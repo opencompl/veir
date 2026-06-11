@@ -4,6 +4,7 @@ public import Veir.Dialects.Arith.OpInfo
 public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.RISCV_Cf.OpInfo
+public import Veir.Dialects.RISCV_Stack.OpInfo
 public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
 public import Veir.Dialects.Comb.OpInfo
@@ -14,6 +15,7 @@ public import Veir.Dialects.LLZK.Bool.OpInfo
 public import Veir.Dialects.LLZK.Global.OpInfo
 public import Veir.Dialects.LLZK.Function.OpInfo
 public import Veir.Dialects.HW.OpInfo
+public import Veir.IR.Basic
 
 namespace Veir
 
@@ -24,12 +26,13 @@ public section
   For operations that do not have any properties, the type is `Unit`.
 -/
 @[expose, properties_of]
-def propertiesOf (opCode : OpCode) : Type :=
+def _propertiesOf (opCode : OpCode) : Type :=
 match opCode with
 | .arith op => Arith.propertiesOf op
 | .llvm op => Llvm.propertiesOf op
 | .riscv op => Riscv.propertiesOf op
 | .riscv_cf op => Riscv_Cf.propertiesOf op
+| .riscv_stack op => Riscv_Stack.propertiesOf op
 | .mod_arith op => Mod_Arith.propertiesOf op
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
@@ -41,25 +44,17 @@ match opCode with
 | .function op => Function_.propertiesOf op
 | .hw op => HW.propertiesOf op
 | .builtin .unregistered => UnregisteredProperties
+| .func .func => FuncFuncProperties
+| .func .call => FuncCallProperties
 | _ => Unit
 
 instance : HasDialectOpInfo OpCode where
-  propertiesOf := propertiesOf
+  propertiesOf := _propertiesOf
 
 instance : HasOpInfo OpCode where
   moduleOpCode := .builtin .module
 
-instance (opCode : OpCode) : Inhabited (propertiesOf opCode) := by
-  simp only [properties_of]
-  cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
-
-instance (opCode : OpCode) : Repr (propertiesOf opCode) := by
-  simp only [properties_of]
-  cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
-
-instance (opCode : OpCode) : Hashable (propertiesOf opCode) := by
-  simp only [properties_of]
-  cases opCode <;> (try simp) <;> (rename_i op; cases op <;> infer_instance)
+abbrev propertiesOf := HasOpInfo.propertiesOf (self := instHasOpInfoOpCode)
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (propertiesOf opCode) := by
@@ -129,11 +124,22 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case bseti => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case ld => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     case sd => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case sw => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case sh => exact (RISCVImmediateProperties.fromAttrDict attrDict)
+    case sb => exact (RISCVImmediateProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case riscv_cf op =>
     cases op
     case beq => exact (RISCVBrProperties.fromAttrDict attrDict)
     case bne => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case blt => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case bge => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case bltu => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case bgeu => exact (RISCVBrProperties.fromAttrDict attrDict)
+    all_goals exact (Except.ok ())
+  case riscv_stack op =>
+    cases op
+    case alloca => exact (RISCVStackAllocaProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case llvm op =>
     cases op
@@ -161,8 +167,13 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case fdiv => exact (FastMathFlagsProperties.fromAttrDict attrDict)
     case frem => exact (FastMathFlagsProperties.fromAttrDict attrDict)
     case func => exact (LLVMFuncProperties.fromAttrDict attrDict)
+    case module_flags => exact (LLVMModuleFlagsProperties.fromAttrDict attrDict)
+    case call => exact (LLVMCallProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
-  case func =>
+  case func op =>
+    cases op
+    case func => exact (FuncFuncProperties.fromAttrDict attrDict)
+    case call => exact (FuncCallProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case cf op =>
     cases op
@@ -180,6 +191,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case muli => exact (NswNuwProperties.fromAttrDict attrDict)
     case divsi => exact (ExactProperties.fromAttrDict attrDict)
     case divui => exact (ExactProperties.fromAttrDict attrDict)
+    case cmpi => exact (IcmpProperties.fromAttrDictFor "arith.cmpi" attrDict)
     case shli => exact (NswNuwProperties.fromAttrDict attrDict)
     case shrsi => exact (ExactProperties.fromAttrDict attrDict)
     case shrui => exact (ExactProperties.fromAttrDict attrDict)
@@ -207,7 +219,11 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .llvm .mlir__constant =>
-    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+    match props.value with
+    | .integer intAttr =>
+      (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr intAttr)
+    | .float floatAttr =>
+      (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.floatAttr floatAttr)
   | .felt .const =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.feltConstAttr props.value)
   | .string .new =>
@@ -237,25 +253,25 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict.insert "function_type".toUTF8 (Attribute.functionType props.function_type)
   | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci
   | .llvm .add | .llvm .sub | .llvm .mul | .llvm .shl | .llvm .trunc => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 2
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+
+    let mut val := 0
     if props.nsw then
-      dict := dict.insert "nsw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+      val := val + 1
+
     if props.nuw then
-      dict := dict.insert "nuw".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+      val := val + 2
+
+    if val > 0 then
+      let attr := IntegerAttr.mk (Int.ofNat val) (IntegerType.mk 32)
+      dict := dict.insert "overflowFlags".toUTF8 (Attribute.integerAttr attr)
+
     dict
   | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 2
-    if props.fast then
-      dict := dict.insert "fast".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    if props.nnan then
-      dict := dict.insert "nnan".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    if props.ninf then
-      dict := dict.insert "ninf".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    if props.nsz then
-      dict := dict.insert "nsz".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
-  | .llvm .icmp => Id.run do
-    (Std.HashMap.emptyWithCapacity 2).insert "predicate".toUTF8 (Attribute.integerAttr props.value)
+    (Std.HashMap.emptyWithCapacity 1).insert "fastmathFlags".toUTF8 (Attribute.fastMathFlagsAttr props.attr)
+  | .arith .cmpi | .llvm .icmp => Id.run do
+    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.mk 64)
+    (Std.HashMap.emptyWithCapacity 1).insert "predicate".toUTF8 (Attribute.integerAttr value)
   | .llvm .cond_br =>
     let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (Attribute.denseArrayAttr props.branch_weights)
     dict.insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
@@ -278,9 +294,15 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
   | .riscv .li  | .riscv .lui | .riscv .auipc | .riscv .andi | .riscv .ori | .riscv .xori
   | .riscv .addi | .riscv .slti | .riscv .sltiu | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
-  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd | .mod_arith .constant =>
+  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti | .riscv .ld | .riscv .sd
+  | .riscv .sw | .riscv .sh | .riscv .sb | .mod_arith .constant =>
     (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
-  | .riscv_cf .beq | .riscv_cf .bne =>
+  | .riscv_stack .alloca => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    dict := dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
+    dict.insert "value_type".toUTF8 props.value_type
+  | .riscv_cf .beq | .riscv_cf .bne | .riscv_cf .blt | .riscv_cf .bge
+  | .riscv_cf .bltu | .riscv_cf .bgeu =>
     (Std.HashMap.emptyWithCapacity 1).insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
   | .cf .cond_br =>
     let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (.denseArrayAttr props.branch_weights)
@@ -345,6 +367,24 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     if let some function_type := props.function_type then
       dict := dict.insert "function_type".toUTF8 function_type
     dict
+  | .llvm .module_flags => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 3
+    dict := dict.insert "flags".toUTF8 (Attribute.arrayAttr props.flags)
+    dict
+  | .func .call => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    dict := dict.insert "callee".toUTF8 (.flatSymbolRefAttr props.callee)
+    dict
+  | .llvm .call => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    if let some callee := props.callee then
+      dict := dict.insert "callee".toUTF8 (.flatSymbolRefAttr callee)
+    dict
+  | .func .func => Id.run do
+    let mut dict := Std.HashMap.ofList props.extra.entries.toList
+    if let some sym_name := props.sym_name then
+      dict := dict.insert "sym_name".toUTF8 (.stringAttr sym_name)
+    dict
   | .builtin .unregistered =>
     Std.HashMap.ofList props.properties.entries.toList
   | .hw .module => Id.run do
@@ -356,3 +396,71 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict
   | _ =>
     Std.HashMap.emptyWithCapacity 0
+
+inductive RegionKind where
+| SSACFG
+| Graph
+deriving Inhabited, Repr, DecidableEq
+
+/--
+  Return the kind of the region with the given index inside this operation.
+  This mirrors MLIR's RegionKindInterface default: regions are SSACFG unless
+  the operation is known to define graph regions.
+-/
+def OpCode.getRegionKind (opCode : OpCode) (_index : Nat) : RegionKind :=
+  match opCode with
+  | .builtin .module
+  | .builtin .unregistered
+  | .test .test => .Graph
+  | _ => .SSACFG
+
+/--
+  Does this OpCode count as an MLIR basic block terminator?
+-/
+def OpCode.isTerminator (opCode : OpCode) : Bool :=
+  match opCode with
+  | .cf .br | .cf .cond_br
+  | .func .return
+  | .function .return
+  | .llvm .br | .llvm .cond_br | .llvm .return | .llvm .unreachable
+  | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
+  | .riscv_cf .blt | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu
+  | .hw .output => true
+  | _ => false
+
+/--
+  Does this operation have effects that make it ineligible for DCE and
+  other transformations that add / remove / rearrange instructions?
+
+  NOTE: ¬ hasSideEffects does not imply that an operation is safe to
+        speculate. For that we also need it to never trigger immediate
+        UB. We'll have to deal with this later on.
+
+  Also see:
+  https://mlir.llvm.org/docs/Rationale/SideEffectsAndSpeculation/
+-/
+def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : Bool :=
+  let opCode := op.getOpType! ctx
+  if opCode.isTerminator then true else
+  match opCode with
+  -- These dialects are pure
+  | .arith _ | .comb _ | .mod_arith _ | .datapath _ => false
+  | .builtin .unrealized_conversion_cast => false
+  | .hw .constant => false
+  -- RISC-V is pure register arithmetic except the memory ops
+  | .riscv .ld | .riscv .sd | .riscv .sw | .riscv .sh | .riscv .sb => true
+  | .riscv _ => false
+  -- For LLVM we enumerate the pure ops
+  | .llvm .mlir__constant
+  | .llvm .and | .llvm .or | .llvm .xor
+  | .llvm .add | .llvm .sub | .llvm .mul
+  | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
+  | .llvm .shl | .llvm .lshr | .llvm .ashr
+  | .llvm .icmp | .llvm .select
+  | .llvm .trunc | .llvm .sext | .llvm .zext
+  | .llvm .getelementptr
+  | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => false
+  -- Volatile loads are definitionally side-effecting
+  | .llvm .load => (op.getProperties! ctx (.llvm .load)).volatile_
+  -- For everything else: be conservative!
+  | _ => true

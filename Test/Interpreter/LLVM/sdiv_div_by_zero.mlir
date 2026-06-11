@@ -2,10 +2,12 @@
 
 // Signed division with a concrete zero divisor is immediate UB.
 "builtin.module"() ({
-  %lhs = "llvm.mlir.constant"() <{ "value" = 7 : i32 }> : () -> i32
-  %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
-  %y = "llvm.sdiv"(%lhs, %zero) : (i32, i32) -> i32
-  "func.return"(%y) : (i32) -> ()
+  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
+    %lhs = "llvm.mlir.constant"() <{ "value" = 7 : i32 }> : () -> i32
+    %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
+    %y = "llvm.sdiv"(%lhs, %zero) : (i32, i32) -> i32
+    "func.return"(%y) : (i32) -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // CHECK: Undefined behavior

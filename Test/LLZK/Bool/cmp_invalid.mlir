@@ -1,4 +1,4 @@
-// RUN: veir-opt %s 2>&1 | filecheck %s
+// RUN: not veir-opt %s 2>&1 | filecheck %s
 
 // Negative test: bool.cmp with predicate out of the 0..5 range.
 // The typed properties dispatch rejects this; without the typed path

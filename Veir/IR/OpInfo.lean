@@ -6,7 +6,7 @@ public section
 
 class HasDialectOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode where
-  propertiesOf : opCode → Type := λ _ => Unit
+  propertiesOf : opCode → Type
   propertiesHash {op : opCode} : Hashable (propertiesOf op) := by
     simp only [properties_of]
     intros opCode; cases opCode <;>
@@ -35,7 +35,10 @@ instance [HasDialectOpInfo opCode] {op : opCode} : Inhabited (HasDialectOpInfo.p
 instance [HasDialectOpInfo opCode] {op : opCode} : Repr (HasDialectOpInfo.propertiesOf op) where
   reprPrec := HasDialectOpInfo.propertiesRepr.reprPrec
 
-instance [HasDialectOpInfo opCode] : DecidableEq (opCode) :=
+instance [HasDialectOpInfo opCode] {op : opCode} : DecidableEq (HasDialectOpInfo.propertiesOf op) :=
+  HasDialectOpInfo.propertiesDecideEq
+
+instance [HasDialectOpInfo opCode] : DecidableEq opCode :=
   HasDialectOpInfo.decideEq
 
 /--
@@ -57,7 +60,10 @@ instance [HasOpInfo opCode] {op : opCode} : Inhabited (HasOpInfo.propertiesOf op
 instance [HasOpInfo opCode] {op : opCode} : Repr (HasOpInfo.propertiesOf op) where
   reprPrec := HasOpInfo.propertiesRepr.reprPrec
 
-instance [HasOpInfo opCode] : DecidableEq (opCode) :=
+instance [HasOpInfo opCode] {op : opCode} : DecidableEq (HasOpInfo.propertiesOf op) :=
+  HasOpInfo.propertiesDecideEq
+
+instance [HasOpInfo opCode] : DecidableEq opCode :=
   HasOpInfo.decideEq
 
 end -- public section

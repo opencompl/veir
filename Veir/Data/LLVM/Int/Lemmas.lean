@@ -1,9 +1,12 @@
 module
 
+public import Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Basic
 import Veir.ForLean
 
 open Veir.Data.LLVM
+
+public section
 
 namespace Veir.Data.LLVM.Int
 

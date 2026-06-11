@@ -249,6 +249,10 @@ theorem OpOperandPtr.dealloc.inBounds_dealloc_genericPtr {ptr : GenericPtr} :
     ptr.InBounds (OperationPtr.dealloc op' ctx inBounds) := by
   grind
 
+theorem OperationPtr.InBounds.ne_of_inBounds_OperationPtr_dealloc {op : OperationPtr} :
+    op.InBounds (OperationPtr.dealloc op' ctx inBounds) → op ≠ op' := by
+  grind
+
 theorem OpResultPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc {opResult : OpResultPtr} :
     opResult.InBounds (OperationPtr.dealloc op' ctx inBounds) → opResult.op ≠ op' := by
   grind

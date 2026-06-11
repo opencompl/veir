@@ -151,3 +151,43 @@ theorem Rewriter.initOpOperands_WellFormed (ctx: IRContext OpInfo) (opPtr: Opera
   case succ n ih =>
     simp only [initOpOperands]
     grind [Rewriter.pushOperand_WellFormed]
+
+theorem BlockPtr.opChain_rewriter_pushOperand
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)
+      array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_pushOperand
+    (h : Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds =
+      newCtx)
+    (ctxWf : ctx.WellFormed):
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_pushOperand]
+
+grind_pattern BlockPtr.operationList_rewriter_pushOperand =>
+  Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds,
+  newCtx.WellFormed,
+  block'.operationList newCtx newCtxWf blockInBounds'
+
+theorem BlockPtr.opChain_rewriter_initOpOperands
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.initOpOperands ctx opPtr opPtrInBounds operands hoperands hctx n hn) array := by
+  fun_induction Rewriter.initOpOperands <;>
+    grind [BlockPtr.opChain_rewriter_pushOperand]
+
+theorem BlockPtr.operationList_rewriter_initOpOperands (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block'
+      (Rewriter.initOpOperands ctx opPtr opPtrInBounds operands hoperands hctx n hn)
+      newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_initOpOperands]
+
+grind_pattern BlockPtr.operationList_rewriter_initOpOperands =>
+  (Rewriter.initOpOperands ctx opPtr opPtrInBounds operands hoperands hctx n hn).WellFormed,
+  block'.operationList (Rewriter.initOpOperands ctx opPtr opPtrInBounds operands hoperands hctx n hn) newCtxWf blockInBounds'

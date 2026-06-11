@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+P=$(lean --print-prefix)
+CC=clang++
+GMP_INCLUDE=$(pkg-config --cflags-only-I gmp)
+OPT=-Wno-unused-command-line-argument
+
+CXX_INCLUDE_ARGS=()
+if command -v c++ >/dev/null 2>&1; then
+  CXX_MAJOR=$(c++ -dumpversion 2>/dev/null | cut -d. -f1)
+  CXX_TRIPLE=$(c++ -dumpmachine 2>/dev/null)
+  for dir in "/usr/include/c++/$CXX_MAJOR" "/usr/include/$CXX_TRIPLE/c++/$CXX_MAJOR"; do
+    if [ -d "$dir" ]; then
+      CXX_INCLUDE_ARGS+=("-isystem" "$dir")
+    fi
+  done
+fi
+
+# /opt/homebrew/opt/llvm/bin/clang -fsanitize=address -I $P/include -I /opt/homebrew/opt/gmp/include -DLEAN_USE_GMP -fstack-clash-protection -fwrapv -fvisibility=hidden -L $P/lib -L $P/lib/lean -O0 -g ${@:1}
+$CC -I $P/include "${CXX_INCLUDE_ARGS[@]}" $GMP_INCLUDE -DLEAN_USE_GMP -fstack-clash-protection -fwrapv -fvisibility=hidden -L $P/lib -L $P/lib/lean -O3 $OPT ${@:1}

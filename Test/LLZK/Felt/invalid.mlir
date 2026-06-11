@@ -1,4 +1,4 @@
-// RUN: veir-opt %s 2>&1 | filecheck %s
+// RUN: not veir-opt %s 2>&1 | filecheck %s
 
 // Negative test: felt.add with 1 operand instead of 2 triggers the typed
 // "Expected 2 operands" arm. Confirms the .felt .add typed verifier

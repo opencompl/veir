@@ -121,74 +121,60 @@ theorem matchConst_inBounds {op : OperationPtr} {ctx : IRContext OpCode}
   simp only [bind, Option.bind] at h
   split at h <;> first | exact matchOp_inBounds_const (by assumption) | simp_all
 
-/-- The `PatternRewriter.replaceValue` postcondition, exposed as a relation between the
-    raw contexts via `Rewriter.replaceValue?`. -/
-theorem replaceValue_post
-    (rewriter rewriter' : PatternRewriter OpCode) (oldVal newVal : ValuePtr)
-    (oldIn : oldVal.InBounds rewriter.ctx.raw) (newIn : newVal.InBounds rewriter.ctx.raw)
-    (h : rewriter.replaceValue oldVal newVal oldIn newIn = some rewriter') :
-    ∃ o n c d,
-      Rewriter.replaceValue? rewriter.ctx.raw oldVal newVal o n c d = some rewriter'.ctx.raw := by
-  -- `(addUsersInWorklist …)` only touches the worklist, leaving `.ctx = rewriter.ctx`; after
-  -- unfolding, `simp_all` closes the goal using that equation together with the inner
-  -- `replaceValue?` result equation.
-  unfold PatternRewriter.replaceValue WfRewriter.replaceValue at h
-  simp only [pure] at h
-  split at h
-  · simp at h
-  · rename_i rawCtx hreplace
-    split at hreplace
-    · simp at hreplace
-    · rename_i c hc
-      have hctx := PatternRewriter.addUsersInWorklist_same_ctx (rewriter := rewriter)
-        (value := oldVal) (hv := oldIn)
-      refine ⟨oldIn, newIn, ?_, 1_000_000_000, ?_⟩
-      · grind
-      · -- `hc` gives the raw result `c`; tie it back to `rewriter'.ctx.raw`.
-        simp only [Option.some.injEq] at h hreplace
-        subst h
-        simp only [← hreplace, ← hctx]
-        exact hc
-
 /-- `replaceValue` preserves an operation's region count. -/
 theorem getNumRegions!_replaceValue
-    (rewriter rewriter' : PatternRewriter OpCode) (oldVal newVal : ValuePtr) (op : OperationPtr)
+    (rewriter : PatternRewriter OpCode) (oldVal newVal : ValuePtr) (op : OperationPtr)
+    (hNe : oldVal ≠ newVal)
     (oldIn : oldVal.InBounds rewriter.ctx.raw) (newIn : newVal.InBounds rewriter.ctx.raw)
-    (h : rewriter.replaceValue oldVal newVal oldIn newIn = some rewriter') :
-    op.getNumRegions! rewriter'.ctx.raw = op.getNumRegions! rewriter.ctx.raw := by
-  obtain ⟨o, n, c, d, hrv⟩ := replaceValue_post rewriter rewriter' oldVal newVal oldIn newIn h
-  exact OperationPtr.getNumRegions!_replaceValue? hrv
+    : op.getNumRegions! (rewriter.replaceValue oldVal newVal hNe oldIn newIn).ctx.raw =
+      op.getNumRegions! rewriter.ctx.raw := by
+  unfold PatternRewriter.replaceValue
+  simp [PatternRewriter.addUsersInWorklist_same_ctx]
 
 /-- `replaceValue` preserves `InBounds` of an operation. -/
 theorem inBounds_replaceValue
-    (rewriter rewriter' : PatternRewriter OpCode) (oldVal newVal : ValuePtr) (op : OperationPtr)
+    (rewriter : PatternRewriter OpCode) (oldVal newVal : ValuePtr) (op : OperationPtr)
+    (hNe : oldVal ≠ newVal)
     (oldIn : oldVal.InBounds rewriter.ctx.raw) (newIn : newVal.InBounds rewriter.ctx.raw)
-    (hOp : op.InBounds rewriter.ctx.raw)
-    (h : rewriter.replaceValue oldVal newVal oldIn newIn = some rewriter') :
-    op.InBounds rewriter'.ctx.raw := by
-  obtain ⟨o, n, c, d, hrv⟩ := replaceValue_post rewriter rewriter' oldVal newVal oldIn newIn h
-  have := Rewriter.replaceValue?_inBounds (GenericPtr.operation op) hrv
-  grind
+    (hOp : op.InBounds rewriter.ctx.raw) :
+    op.InBounds (rewriter.replaceValue oldVal newVal hNe oldIn newIn).ctx.raw := by
+  unfold PatternRewriter.replaceValue
+  simp only [PatternRewriter.addUsersInWorklist_same_ctx]
+  have hGeneric :
+      (GenericPtr.operation op).InBounds
+        (WfRewriter.replaceValue rewriter.ctx oldVal newVal hNe oldIn newIn).raw := by
+    rw [WfRewriter.replaceValue_inBounds]
+    exact hOp
+  exact hGeneric
 
 /-- `replaceValue` preserves an operation's result count. -/
 theorem getNumResults!_replaceValue
-    (rewriter rewriter' : PatternRewriter OpCode) (oldVal newVal : ValuePtr) (op : OperationPtr)
+    (rewriter : PatternRewriter OpCode) (oldVal newVal : ValuePtr) (op : OperationPtr)
+    (hNe : oldVal ≠ newVal)
     (oldIn : oldVal.InBounds rewriter.ctx.raw) (newIn : newVal.InBounds rewriter.ctx.raw)
-    (hOp : op.InBounds rewriter.ctx.raw)
-    (h : rewriter.replaceValue oldVal newVal oldIn newIn = some rewriter') :
-    op.getNumResults! rewriter'.ctx.raw = op.getNumResults! rewriter.ctx.raw := by
-  obtain ⟨o, n, c, d, hrv⟩ := replaceValue_post rewriter rewriter' oldVal newVal oldIn newIn h
-  exact Rewriter.replaceValue?_preserves_results_size op hOp hrv
+    : op.getNumResults! (rewriter.replaceValue oldVal newVal hNe oldIn newIn).ctx.raw =
+      op.getNumResults! rewriter.ctx.raw := by
+  unfold PatternRewriter.replaceValue
+  simp [PatternRewriter.addUsersInWorklist_same_ctx]
+
+/-- Replacing all uses of `oldVal` by a distinct `newVal` leaves `oldVal` use-free. -/
+theorem hasUses!_oldVal_WfRewriter_replaceValue
+    (ctx : WfIRContext OpCode) (oldVal newVal : ValuePtr)
+    (hNe : oldVal ≠ newVal)
+    (oldIn : oldVal.InBounds ctx.raw) (newIn : newVal.InBounds ctx.raw) :
+    oldVal.hasUses! (WfRewriter.replaceValue ctx oldVal newVal hNe oldIn newIn).raw = false := by
+  fun_induction WfRewriter.replaceValue <;>
+    grind [Id.run, pure, ValuePtr.hasUses!_def, ValuePtr.getFirstUse!_eq_getFirstUse]
 
 /-- After `replaceValue oldVal newVal` (with `oldVal ≠ newVal`), `oldVal` has no uses. -/
 theorem hasUses!_oldVal_replaceValue
-    (rewriter rewriter' : PatternRewriter OpCode) (oldVal newVal : ValuePtr)
+    (rewriter : PatternRewriter OpCode) (oldVal newVal : ValuePtr)
     (oldIn : oldVal.InBounds rewriter.ctx.raw) (newIn : newVal.InBounds rewriter.ctx.raw)
-    (hNe : oldVal ≠ newVal)
-    (h : rewriter.replaceValue oldVal newVal oldIn newIn = some rewriter') :
-    oldVal.hasUses! rewriter'.ctx.raw = false := by
-  obtain ⟨o, n, c, d, hrv⟩ := replaceValue_post rewriter rewriter' oldVal newVal oldIn newIn h
-  exact ValuePtr.hasUses!_replaceValue_oldValue rewriter.ctx.wellFormed hNe hrv
+    (hNe : oldVal ≠ newVal) :
+    oldVal.hasUses! (rewriter.replaceValue oldVal newVal hNe oldIn newIn).ctx.raw = false := by
+  unfold PatternRewriter.replaceValue
+  simp [PatternRewriter.addUsersInWorklist_same_ctx,
+    hasUses!_oldVal_WfRewriter_replaceValue]
 
 /-- `felt.add x (felt.const 0) → x`, fully sorry-free. The two defensive guards
     (`hRegNe`, `hEq`) supply the only two facts `WfIRContext` does not carry —
@@ -247,30 +233,28 @@ def right_identity_zero_add (rewriter : PatternRewriter OpCode) (op : OperationP
       exact Array.getElem_mem (by omega)
     have hLhsIn : lhs.InBounds rewriter.ctx.raw :=
       OperationPtr.getOperands!_inBounds hFib hIn hLhsMem
-    match hrep : rewriter.replaceValue (op.getResult 0) lhs hResIn hLhsIn with
-    | none => none
-    | some rewriter' =>
-      -- Obligation #3: `replaceValue` preserves region count, reducing to the pre-state count
-      -- (which the matcher does not constrain — see report).
-      have hRegions : op.getNumRegions! rewriter'.ctx.raw = op.getNumRegions! rewriter.ctx.raw :=
-        getNumRegions!_replaceValue rewriter rewriter' _ _ op hResIn hLhsIn hrep
-      -- Obligation #5: `replaceValue` preserves `InBounds`.
-      have hOpIn' : op.InBounds rewriter'.ctx.raw :=
-        inBounds_replaceValue rewriter rewriter' _ _ op hResIn hLhsIn hIn hrep
-      -- Obligation #4: after replacing all uses of `op.getResult 0` by `lhs`, the (sole)
-      -- result has no uses, hence neither does `op`.
-      have hNumRes' : op.getNumResults! rewriter'.ctx.raw = 1 := by
-        rw [getNumResults!_replaceValue rewriter rewriter' _ _ op hResIn hLhsIn hIn hrep]
-        exact hNumRes
-      have hNoUses : op.hasUses! rewriter'.ctx.raw = false := by
-        rw [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false]
-        intro i hi
-        rw [hNumRes'] at hi
-        obtain rfl : i = 0 := by omega
-        exact hasUses!_oldVal_replaceValue rewriter rewriter' _ _ hResIn hLhsIn hNe hrep
-      -- eraseOp opRegions: via `hRegions` (replaceValue preserves region count) this
-      -- reduces to the guarded `hReg0`.
-      rewriter'.eraseOp op (hRegions.trans hReg0) (by simp [hNoUses]) hOpIn'
+    let rewriter' := rewriter.replaceValue (op.getResult 0) lhs hNe hResIn hLhsIn
+    -- Obligation #3: `replaceValue` preserves region count, reducing to the pre-state count
+    -- (which the matcher does not constrain — see report).
+    have hRegions : op.getNumRegions! rewriter'.ctx.raw = op.getNumRegions! rewriter.ctx.raw :=
+      getNumRegions!_replaceValue rewriter _ _ op hNe hResIn hLhsIn
+    -- Obligation #5: `replaceValue` preserves `InBounds`.
+    have hOpIn' : op.InBounds rewriter'.ctx.raw :=
+      inBounds_replaceValue rewriter _ _ op hNe hResIn hLhsIn hIn
+    -- Obligation #4: after replacing all uses of `op.getResult 0` by `lhs`, the (sole)
+    -- result has no uses, hence neither does `op`.
+    have hNumRes' : op.getNumResults! rewriter'.ctx.raw = 1 := by
+      rw [getNumResults!_replaceValue rewriter _ _ op hNe hResIn hLhsIn]
+      exact hNumRes
+    have hNoUses : op.hasUses! rewriter'.ctx.raw = false := by
+      rw [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false]
+      intro i hi
+      rw [hNumRes'] at hi
+      obtain rfl : i = 0 := by omega
+      exact hasUses!_oldVal_replaceValue rewriter _ _ hResIn hLhsIn hNe
+    -- eraseOp opRegions: via `hRegions` (replaceValue preserves region count) this
+    -- reduces to the guarded `hReg0`.
+    rewriter'.eraseOp op (hRegions.trans hReg0) (by simp [hNoUses]) hOpIn'
 
 /-- The `PatternRewriter.createOp` postcondition, exposed as a relation between the raw
     contexts via `Rewriter.createOp`. -/
@@ -563,23 +547,21 @@ def projectToOperand (rewriter : PatternRewriter OpCode) (op : OperationPtr) (ta
     (hResIn : (op.getResult 0 : ValuePtr).InBounds rewriter.ctx.raw)
     (hTgtIn : target.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) :=
-  match hrep : rewriter.replaceValue (op.getResult 0) target hResIn hTgtIn with
-  | none => none
-  | some rewriter' =>
-    have hRegions : op.getNumRegions! rewriter'.ctx.raw = op.getNumRegions! rewriter.ctx.raw :=
-      getNumRegions!_replaceValue rewriter rewriter' _ _ op hResIn hTgtIn hrep
-    have hOpIn' : op.InBounds rewriter'.ctx.raw :=
-      inBounds_replaceValue rewriter rewriter' _ _ op hResIn hTgtIn hIn hrep
-    have hNumRes' : op.getNumResults! rewriter'.ctx.raw = 1 := by
-      rw [getNumResults!_replaceValue rewriter rewriter' _ _ op hResIn hTgtIn hIn hrep]
-      exact hNumRes
-    have hNoUses : op.hasUses! rewriter'.ctx.raw = false := by
-      rw [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false]
-      intro i hi
-      rw [hNumRes'] at hi
-      obtain rfl : i = 0 := by omega
-      exact hasUses!_oldVal_replaceValue rewriter rewriter' _ _ hResIn hTgtIn hNe hrep
-    rewriter'.eraseOp op (hRegions.trans hReg0) (by simp [hNoUses]) hOpIn'
+  let rewriter' := rewriter.replaceValue (op.getResult 0) target hNe hResIn hTgtIn
+  have hRegions : op.getNumRegions! rewriter'.ctx.raw = op.getNumRegions! rewriter.ctx.raw :=
+    getNumRegions!_replaceValue rewriter _ _ op hNe hResIn hTgtIn
+  have hOpIn' : op.InBounds rewriter'.ctx.raw :=
+    inBounds_replaceValue rewriter _ _ op hNe hResIn hTgtIn hIn
+  have hNumRes' : op.getNumResults! rewriter'.ctx.raw = 1 := by
+    rw [getNumResults!_replaceValue rewriter _ _ op hNe hResIn hTgtIn]
+    exact hNumRes
+  have hNoUses : op.hasUses! rewriter'.ctx.raw = false := by
+    rw [OperationPtr.hasUses!_eq_false_iff_hasUses!_getResult_eq_false]
+    intro i hi
+    rw [hNumRes'] at hi
+    obtain rfl : i = 0 := by omega
+    exact hasUses!_oldVal_replaceValue rewriter _ _ hResIn hTgtIn hNe
+  rewriter'.eraseOp op (hRegions.trans hReg0) (by simp [hNoUses]) hOpIn'
 
 /-- The neg-operand reached through `matchNegFromValue` is in bounds. -/
 theorem matchNegFromValue_operand0_inBounds {val : ValuePtr} {ctx : IRContext OpCode}

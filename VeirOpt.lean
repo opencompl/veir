@@ -8,6 +8,7 @@ import Veir.Pass
 
 import Veir.Passes.PrintIR
 import Veir.Passes.InstCombine
+import Veir.Passes.CSE
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.DCE.dce
 import Veir.Passes.CastsReconciliation.Reconciliation
@@ -25,9 +26,9 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
   (Std.HashMap.emptyWithCapacity 1)
     |>.insert PrintIRPass.name PrintIRPass
     |>.insert InstCombinePass.name InstCombinePass
+    |>.insert CSEPass.name CSEPass
     |>.insert IselRISCV64.name IselRISCV64
     |>.insert DCEPass.name DCEPass
-    |>.insert CastReconcilePass.name CastReconcilePass
     |>.insert CastReconcilePass.name CastReconcilePass
     |>.insert RISCV.Combine.name RISCV.Combine
     |>.insert FeltPass.Combine.name FeltPass.Combine
@@ -40,6 +41,8 @@ structure VeirOptArgs where
   filename : Option String
   /-- List of passes to run. -/
   passes : PassPipeline OpCode
+  /-- Whether to accept ops/types/attrs from unregistered dialects. -/
+  allowUnregisteredDialect : Bool
 
 /--
   Parse the `-p` flag to construct a pass pipeline.
@@ -63,17 +66,18 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   let (flags, positional) := args.partition (·.startsWith "-")
   -- Parses the `-p` flag if present.
   let pipeline ← parsePipelineOption flags
+  let allowUnregisteredDialect := flags.contains "--allow-unregistered-dialect"
 
   if positional.length == 0 then -- read from stdin
-    return VeirOptArgs.mk none pipeline
+    return { filename := none, passes := pipeline, allowUnregisteredDialect }
 
   let [filename] := positional
     | .error "Expected exactly one positional argument for the input filename."
 
   if filename == "-" then
-    return VeirOptArgs.mk none pipeline
+    return { filename := none, passes := pipeline, allowUnregisteredDialect }
 
-  return VeirOptArgs.mk (some filename) pipeline
+  return { filename := some filename, passes := pipeline, allowUnregisteredDialect }
 
 def getFileContent (filename : Option String) : ExceptT String IO ByteArray := do
   if let some f := filename then
@@ -84,7 +88,8 @@ def getFileContent (filename : Option String) : ExceptT String IO ByteArray := d
 
   return ← IO.FS.Stream.readBinToEnd (←IO.getStdin)
 
-def parseOperation (filename : Option String) : ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
+def parseOperation (filename : Option String) (allowUnregisteredDialect : Bool := false) :
+    ExceptT String IO (WfIRContext OpCode × OperationPtr) := do
   let fileContent ← getFileContent filename
   let some (ctx, _) := WfIRContext.create OpCode
     | throw "Failed to create IR context"
@@ -93,7 +98,8 @@ def parseOperation (filename : Option String) : ExceptT String IO (WfIRContext O
 
   match ParserState.fromInput fileContent with
   | .ok parser =>
-    match (parseOp none).run (MlirParserState.fromContext ctx) parser with
+    let state := MlirParserState.fromContext ctx allowUnregisteredDialect
+    match (parseOp none).run state parser with
     | .ok (op, state, _) =>
       return (state.ctx, op)
     | .error err =>
@@ -106,17 +112,22 @@ def main (args : List String) : IO Unit := do
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
-    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]"
-  | .ok { filename, passes } =>
-    match ← parseOperation filename with
-    | .error errMsg => IO.eprintln errMsg
+    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"] [--allow-unregistered-dialect]"
+    IO.Process.exit 1
+  | .ok { filename, passes, allowUnregisteredDialect } =>
+    match ← parseOperation filename allowUnregisteredDialect with
+    | .error errMsg =>
+      IO.eprintln errMsg
+      IO.Process.exit 1
     | .ok (ctx, op) =>
       match ctx.verify with
       | .error errMsg =>
         IO.eprintln s!"Error verifying input program: {errMsg}"
+        IO.Process.exit 1
       | .ok _ =>
         match ← passes.run ⟨ctx, by sorry⟩ op with
         | .error errMsg =>
           IO.eprintln s!"Error: {errMsg}"
+          IO.Process.exit 1
         | .ok finalCtx =>
           Veir.Printer.printOperation finalCtx op

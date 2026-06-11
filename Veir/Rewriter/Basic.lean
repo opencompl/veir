@@ -217,6 +217,26 @@ example.
 -/
 
 /--
+`eraseOp` only deallocates `op` and the pointers belonging to it (its results,
+operands and block operands).  Hence, for any pointer that does not reference
+`op`, being in bounds is unaffected by `eraseOp`.
+-/
+@[grind .]
+theorem Rewriter.eraseOp_inBounds (ptr : GenericPtr)
+    (hPtr : match ptr with
+      | .operation op' => op' ≠ op
+      | .opResult or => or.op ≠ op
+      | .opOperand oo => oo.op ≠ op
+      | .blockOperand bo => bo.op ≠ op
+      | .value (.opResult or) => or.op ≠ op
+      | .opOperandPtr (.operandNextUse oo) => oo.op ≠ op
+      | .opOperandPtr (.valueFirstUse (.opResult or)) => or.op ≠ op
+      | .blockOperandPtr (.blockOperandNextUse oo) => oo.op ≠ op
+      | _ => True) :
+    ptr.InBounds (eraseOp ctx op hCtx hOp) ↔ ptr.InBounds ctx := by
+  grind [eraseOp]
+
+/--
 - Insert a block at a given location.
 -/
 @[irreducible]
@@ -265,6 +285,23 @@ theorem Rewriter.replaceUse_inBounds (ptr : GenericPtr) :
 theorem Rewriter.replaceUse_fieldsInBounds :
      ctx.FieldsInBounds → (replaceUse ctx use newValue useIn newIn ctxIn).FieldsInBounds := by
   grind [replaceUse]
+
+/--
+Set the type of a value (an op result or a block argument).
+-/
+def Rewriter.setType (ctx : IRContext OpInfo) (value : ValuePtr) (newType : TypeAttr)
+    (valueIn : value.InBounds ctx := by grind) : IRContext OpInfo :=
+  value.setType ctx newType
+
+@[grind =]
+theorem Rewriter.setType_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (setType ctx value newType valueIn) ↔ ptr.InBounds ctx := by
+  grind [setType]
+
+@[grind .]
+theorem Rewriter.setType_fieldsInBounds :
+    ctx.FieldsInBounds → (setType ctx value newType valueIn).FieldsInBounds := by
+  grind [setType, ValuePtr.setType_fieldsInBounds]
 
 @[irreducible]
 def Rewriter.replaceValue? (ctx: IRContext OpInfo) (oldValue: ValuePtr) (newValue: ValuePtr)
@@ -381,6 +418,31 @@ def Rewriter.replaceOp? (ctx: IRContext OpInfo) (oldOp newOp: OperationPtr)
     rlet newCtx ← replaceOpResults ctx oldOp newOp numOldResults
     eraseOp newCtx oldOp
 
+/--
+`replaceOp?` do not allocate anything and only deallocates `op` and the pointers belonging to it
+(its results, operands and block operands).  Hence, for any pointer that does not reference
+`op`, being in bounds is unaffected by `eraseOp`.
+-/
+theorem Rewriter.replaceOp?_inBounds (ptr : GenericPtr)
+    (h : Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn hpar = some newCtx)
+    (hPtr : match ptr with
+      | .operation op' => op' ≠ oldOp
+      | .opResult or => or.op ≠ oldOp
+      | .opOperand oo => oo.op ≠ oldOp
+      | .blockOperand bo => bo.op ≠ oldOp
+      | .value (.opResult or) => or.op ≠ oldOp
+      | .opOperandPtr (.operandNextUse oo) => oo.op ≠ oldOp
+      | .opOperandPtr (.valueFirstUse (.opResult or)) => or.op ≠ oldOp
+      | .blockOperandPtr (.blockOperandNextUse oo) => oo.op ≠ oldOp
+      | _ => True) :
+    ptr.InBounds newCtx ↔ ptr.InBounds ctx := by
+  simp only [Rewriter.replaceOp?] at h
+  grind
+
+grind_pattern Rewriter.replaceOp?_inBounds =>
+  Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn hpar,
+  some newCtx, ptr.InBounds newCtx
+
 @[irreducible]
 protected def Rewriter.pushBlockArgument (ctx : IRContext OpInfo) (blockPtr : BlockPtr) (type : TypeAttr)
     (blockPtrInBounds : blockPtr.InBounds ctx := by grind) : IRContext OpInfo :=
@@ -488,6 +550,30 @@ theorem Rewriter.createBlock_inBounds_mono (ptr : GenericPtr) (heq : createBlock
     · simp [Option.bind] at heq
       split at heq <;> grind
     · grind
+
+/--
+`createBlock` allocate a new block with its arguments. Thus, the only new pointers that are in
+bounds in the new context and not in the old one are the block itself, its arguments, and links to
+the block arguments.
+-/
+@[grind =>]
+theorem Rewriter.createBlock_inBounds (ptr : GenericPtr)
+    (h : Rewriter.createBlock ctx types ip hctx hip = some (newCtx, newBlock)) :
+    ptr.InBounds newCtx ↔
+    match ptr with
+    | .blockArgument argPtr
+    | .value (.blockArgument argPtr)
+    | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
+      if argPtr.block = newBlock then argPtr.index < types.size else argPtr.InBounds ctx
+    | _ =>
+      ptr.InBounds ctx ∨ ptr = .block newBlock ∨
+        ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse newBlock) := by
+  simp only [Rewriter.createBlock] at h
+  simp only [Option.bind_eq_bind, Option.bind] at h
+  split at h; grind
+  split at h
+  · split at h <;> grind
+  · grind
 
 @[grind .]
 theorem Rewriter.createBlock_fieldsInBounds_mono
@@ -881,3 +967,15 @@ def IRContext.create OpInfo [HasOpInfo OpInfo] : Option (IRContext OpInfo × Ope
   rlet (ctx, operation) ← Rewriter.createOp ctx HasOpInfo.moduleOpCode #[] #[] #[] #[region] default none
   rlet (ctx, block) ← Rewriter.createBlock ctx #[] (some (.atEnd region)) (by grind) (by grind)
   return (ctx, operation)
+
+@[grind →]
+theorem IRContext.create_fieldsInBounds {op: OperationPtr} (h : IRContext.create OpInfo = some (ctx, op)) :
+    ctx.FieldsInBounds := by
+  simp only [IRContext.create] at h
+  grind
+
+@[grind →]
+theorem IRContext.create_inBounds {op: OperationPtr} (h : IRContext.create OpInfo = some (ctx, op)) :
+    op.InBounds ctx := by
+  simp only [IRContext.create] at h
+  grind (gen := 10)

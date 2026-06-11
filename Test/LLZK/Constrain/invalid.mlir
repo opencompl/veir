@@ -1,4 +1,4 @@
-// RUN: veir-opt %s 2>&1 | filecheck %s
+// RUN: not veir-opt %s 2>&1 | filecheck %s
 
 // Negative test: constrain.eq with a result triggers the typed
 // "Expected 0 results" arm. (The op is a constraint emission with no

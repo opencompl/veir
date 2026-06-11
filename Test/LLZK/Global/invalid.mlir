@@ -1,4 +1,4 @@
-// RUN: veir-opt %s 2>&1 | filecheck %s
+// RUN: not veir-opt %s 2>&1 | filecheck %s
 
 // Negative test: global.read with no name_ref should fail in the typed
 // IncludeFromProperties-style dispatch — Properties.fromAttrDict for

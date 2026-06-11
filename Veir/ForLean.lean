@@ -113,23 +113,73 @@ theorem Array.reverse_singleton (a : α) :
     #[a].reverse = #[a] := by
   simp
 
-theorem List.idxOf_getElem [DecidableEq α] {l : List α} (H : Nodup l) (i : Nat) (h : i < l.length) :
-    idxOf l[i] l = i := by
+theorem List.length_of_mapM_option_eq_some {f : α → Option β} {l : List α} {r : List β}
+    (h : l.mapM f = some r) : l.length = r.length := by
+  induction l generalizing r <;> grind [Option.bind_eq_some_iff]
+
+theorem List.getElem?_of_mapM_option_eq_some {f : α → Option β} {l : List α} {r : List β}
+    (h : l.mapM f = some r) (i : Nat) : l[i]?.bind f = r[i]? := by
+  induction l generalizing r i <;> grind [Option.bind_eq_some_iff]
+
+theorem List.mapM_option_isSome {f : α → Option β} {l : List α}
+    (h : ∀ a ∈ l, (f a).isSome) : ∃ r, l.mapM f = some r := by
+  induction l with
+  | nil => exact ⟨[], rfl⟩
+  | cons a t ih =>
+    obtain ⟨b, hb⟩ := Option.isSome_iff_exists.mp (h a (by simp))
+    grind [ih (fun x hx => h x (by grind))]
+
+@[grind →]
+theorem Array.size_eq_of_mapM_eq_some (h : Array.mapM f l = some res) :
+  l.size = res.size := by
+  rw [Array.mapM_eq_mapM_toList] at h
+  cases hm : List.mapM f l.toList with
+  | none => simp [hm] at h
+  | some r => grind [List.length_of_mapM_option_eq_some hm]
+
+theorem Array.mapM_option_eq_some_implies {l : Array α} {res : Array β} (h : Array.mapM f l = some res) :
+    ∀ i (h : i < res.size), f (l[i]'(by grind)) = some res[i] := by
+  rw [Array.mapM_eq_mapM_toList] at h
+  cases hm : List.mapM f l.toList with
+  | none => simp [hm] at h
+  | some r =>
+    intro i hi
+    grind [List.getElem?_of_mapM_option_eq_some hm i]
+
+theorem Array.mapM_option_isSome {α β : Type} {f : α → Option β}
+    {l : Array α} (h : ∀ i (hi : i < l.size), (f l[i]).isSome) :
+    ∃ r, l.mapM f = some r := by
+  rw [Array.mapM_eq_mapM_toList]
+  obtain ⟨r, hr⟩ := List.mapM_option_isSome (f := f) (l := l.toList)
+    (fun a ha => by obtain ⟨i, hi, rfl⟩ := List.mem_iff_getElem.mp ha; simpa using h i (by simpa using hi))
+  exact ⟨r.toArray, by simp [hr]⟩
+
+namespace ForLean.List
+
+theorem idxOf_getElem [DecidableEq α] {l : List α} (H : l.Nodup) (i : Nat) (h : i < l.length) :
+    List.idxOf l[i] l = i := by
   induction l generalizing i <;> grind
 
-theorem List.Veir.getElem?_idxOf [DecidableEq α] {l : List α} (h : l.idxOf x < l.length) :
+theorem getElem_idxOf [DecidableEq α] {l : List α} (h : l.idxOf x < l.length) :
     l[l.idxOf x] = x := by
   induction l <;> grind
+
+end ForLean.List
+
+section
+open ForLean
 
 @[simp, grind =]
 theorem Array.getElem?_idxOf [DecidableEq α] {l : Array α} (h : l.idxOf x < l.size) :
     l[l.idxOf x]? = some x := by
-  rcases l; grind [List.Veir.getElem?_idxOf]
+  rcases l; grind [List.getElem_idxOf]
 
 @[simp, grind =]
 theorem Array.getElem_idxOf [DecidableEq α] {l : Array α} (h : l.idxOf x < l.size) :
     l[l.idxOf x] = x := by
-  rcases l; grind [List.Veir.getElem?_idxOf]
+  rcases l; grind [List.getElem_idxOf]
+
+end
 
 @[simp, grind =]
 theorem Array.toList_erase [BEq α] (l : Array α) (a : α) :
@@ -317,4 +367,3 @@ namespace Rat
 def twoPow (k : Int) : Rat := 2 ^ k
 
 end Rat
-

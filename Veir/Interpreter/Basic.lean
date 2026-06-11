@@ -29,12 +29,14 @@ open Veir.Data
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {ctx : WfIRContext OpInfo}
 
 /--
-  The representation of a value in the interpreter.
+  The type-erased representation of a value in the interpreter.
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
+| float (bitwidth : Nat) (value : Float)
 | addr (value : UInt64)
 | reg (value : RISCV.Reg)
 deriving Inhabited
@@ -42,8 +44,90 @@ deriving Inhabited
 instance : ToString (RuntimeValue) where
   toString
     | .int _ val => ToString.toString val
+    | .float _ val => ToString.toString val
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
+
+namespace RuntimeValue
+
+/--
+  A predicate indicating whether a `RuntimeValue` is a value that is a runtime value
+  of a given `TypeAttr`.
+-/
+@[grind]
+def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
+  match val, ty with
+  | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
+  | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
+  | .reg _, ⟨.registerType _, _⟩ => True
+  | .addr _, ⟨.llvmPointerType _, _⟩ => True
+  | _, _ => False
+
+instance : Decidable (Conforms val ty) := by
+  unfold Conforms
+  split <;> infer_instance
+
+@[grind <=]
+theorem Conforms.integerType :
+    Conforms runtimeValue ⟨.integerType intType, h⟩ →
+    ∃ val, runtimeValue = .int intType.bitwidth val := by
+  simp only [Conforms]
+  cases runtimeValue
+  case int bw val =>
+    simp only [int.injEq, exists_and_left]
+    intro _; subst bw
+    grind
+  all_goals grind
+
+@[grind <=]
+theorem Conforms.floatType :
+    Conforms runtimeValue ⟨.floatType fltType, h⟩ →
+    ∃ val, runtimeValue = .float fltType.bitwidth val := by
+  simp only [Conforms]
+  cases runtimeValue
+  case float bw val =>
+    simp only [float.injEq, exists_and_left]
+    intro _; subst bw
+    grind
+  all_goals grind
+
+@[grind <=]
+theorem Conforms.registerType :
+    Conforms runtimeValue ⟨.registerType regType, h⟩ →
+    ∃ val, runtimeValue = .reg val := by
+  simp only [Conforms]
+  cases runtimeValue <;> grind
+
+@[grind <=]
+theorem Conforms.llvmPointerType :
+    Conforms runtimeValue ⟨.llvmPointerType _, h⟩ →
+    ∃ val, runtimeValue = .addr val := by
+  simp only [Conforms]
+  cases runtimeValue <;> grind
+
+def ArrayConforms (source : Array RuntimeValue) (target : Array TypeAttr) : Prop :=
+  source.size = target.size ∧ ∀ (i : Nat) (_ : i < source.size), source[i]!.Conforms target[i]!
+
+theorem ArrayConforms.take_succ_eq {source : Array RuntimeValue} {target : Array TypeAttr} :
+    source.size = target.size →
+    n < source.size →
+    (ArrayConforms (source.take (n + 1)) (target.take (n + 1)) ↔
+    (ArrayConforms (source.take n) (target.take n) ∧ (source[n]!).Conforms target[n]!)) := by
+  simp only [ArrayConforms]
+  intro hsize hn
+  constructor
+  · rintro ⟨_, h⟩
+    constructor
+    · constructor; grind
+      intro i hi
+      grind [h i]
+    · grind [h n]
+  · rintro ⟨⟨_, h⟩, hn⟩
+    constructor; grind
+    intro i hi
+    grind [h i]
+
+end RuntimeValue
 
 /--
   Memory state during interpretation
@@ -55,34 +139,82 @@ structure MemoryState where
 def MemoryState.empty : MemoryState :=
   { contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff }
 
-structure VariableState where
+def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
+  if mem.contents.size < size then
+    { contents := mem.contents.extend (size - mem.contents.size) 0 }
+  else
+    mem
+
+/--
+  Property that a hash map from `ValuePtr` to `RuntimeValue` conforms to the value types in the
+  IR context. This is an invariant that must be maintained by the variable state of the interpreter.
+-/
+def VariableState.ValuesConform (state : Std.ExtHashMap ValuePtr RuntimeValue)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  ∀ val var, (h : val ∈ state) → state[val] = var → var.Conforms (val.getType! ctx.raw)
+
+structure VariableState (ctx : WfIRContext OpInfo) where
   variables : Std.ExtHashMap ValuePtr RuntimeValue
+  conforms : VariableState.ValuesConform variables ctx
+  variablesIn : ∀ val, val ∈ variables → val.InBounds ctx.raw
+
+/--
+  Create a variable state with no variables defined.
+-/
+def VariableState.empty (ctx : WfIRContext OpInfo) : VariableState ctx :=
+  ⟨Std.ExtHashMap.emptyWithCapacity 8, by simp [VariableState.ValuesConform], by simp⟩
 
 /--
   The state of the interpreter at a given point in time.
   It includes a mapping from IR values to their runtime values.
 -/
 @[ext]
-structure InterpreterState where
-  variables : VariableState
+structure InterpreterState (ctx : WfIRContext OpInfo) where
+  variables : VariableState ctx
   memory : MemoryState
 
 /--
-  Set the value of a variable.
+  Create an interpreter state with no variables defined.
 -/
-def VariableState.setVar (state : VariableState) (var : ValuePtr) (val : RuntimeValue) :
-    VariableState :=
-  ⟨state.variables.insert var val⟩
+def InterpreterState.empty (ctx : WfIRContext OpInfo) : InterpreterState ctx :=
+  { variables := .empty ctx, memory := .empty }
+
+/--
+  Set the runtime value of a variable.
+  This function dynamically checks that the runtime value conforms to the variable type, and
+  return `none` otherwise.
+-/
+def VariableState.setVar? (state : VariableState ctx) (var : ValuePtr)
+    (val : RuntimeValue) (inBounds : var.InBounds ctx.raw := by grind) :
+    Option (VariableState ctx) :=
+  if h : val.Conforms (var.getType! ctx.raw) then
+    some ⟨state.variables.insert var val,
+      by grind [VariableState.ValuesConform, cases VariableState],
+      by grind [cases VariableState]⟩
+  else
+    none
+
+/--
+  Set the runtime value of a variable.
+  This function requires a proof that the runtime value conforms to the variable type.
+-/
+def VariableState.setVar (state : VariableState ctx) (var : ValuePtr)
+    (val : RuntimeValue) (h : val.Conforms (var.getType! ctx.raw) := by grind)
+    (inBounds : var.InBounds ctx.raw := by grind) :
+    VariableState ctx :=
+  ⟨state.variables.insert var val,
+    by grind [VariableState.ValuesConform, cases VariableState],
+    by grind [cases VariableState]⟩
 
 /--
   Get the value of a variable, if the variable exists.
 -/
-def VariableState.getVar? (state : VariableState) (var : ValuePtr)
+def VariableState.getVar? (state : VariableState ctx) (var : ValuePtr)
     : Option RuntimeValue :=
   state.variables[var]?
 
 @[ext]
-theorem VariableState.ext {s₁ s₂ : VariableState} :
+theorem VariableState.ext {s₁ s₂ : VariableState ctx} :
     (∀ var, s₁.getVar? var = s₂.getVar? var) →
     s₁ = s₂ := by
   rcases s₁; rcases s₂
@@ -93,47 +225,52 @@ theorem VariableState.ext {s₁ s₂ : VariableState} :
   Get the value of the operands of an operation.
   If any operand is not in the state, return `none`.
 -/
-def VariableState.getOperandValues (state : VariableState)
-    (ctx : IRContext OpInfo) (op : OperationPtr) : Option (Array RuntimeValue) := do
-  (op.getOperands! ctx).mapM state.getVar?
+def VariableState.getOperandValues (state : VariableState ctx)
+    (op : OperationPtr) : Option (Array RuntimeValue) := do
+  (op.getOperands! ctx.raw).mapM state.getVar?
 
-def VariableState.setResultValues_loop (state : VariableState)
-    (ctx : IRContext OpInfo) (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat) : VariableState :=
+def VariableState.setResultValues?_loop (state : VariableState ctx)
+    (op : OperationPtr) (resultValues : Array RuntimeValue) (i : Nat)
+    (opInBounds : op.InBounds ctx.raw := by grind)
+    (iInBounds : i ≤ op.getNumResults! ctx.raw := by grind)
+    (hsizes : resultValues.size = op.getNumResults! ctx.raw := by grind)
+    : Option (VariableState ctx) :=
   match i with
   | 0 => state
-  | i + 1 =>
+  | i + 1 => do
     let result := op.getResult i
-    let value := resultValues[i]!
-    let newState := state.setVar result value
-    VariableState.setResultValues_loop newState ctx op resultValues i
+    let value := resultValues[i]
+    let newState ← state.setVar? result value
+    VariableState.setResultValues?_loop newState op resultValues i
 
 /--
   Set the values of the results of an operation.
 -/
-def VariableState.setResultValues (state : VariableState) (ctx : IRContext OpInfo)
-    (op : OperationPtr) (resultValues : Array RuntimeValue) : VariableState :=
-  VariableState.setResultValues_loop state ctx op resultValues (op.getNumResults! ctx)
+def VariableState.setResultValues? (state : VariableState ctx)
+    (op : OperationPtr) (resultValues : Array RuntimeValue) (opInBounds : op.InBounds ctx.raw := by grind)
+    : Option (VariableState ctx) :=
+  if hsize : resultValues.size = op.getNumResults! ctx.raw then
+    VariableState.setResultValues?_loop state op resultValues (op.getNumResults! ctx.raw)
+  else
+    none
 
 /--
   Set the values of block arguments.
 -/
-def VariableState.setArgumentValues (state : VariableState) (ctx : IRContext OpInfo)
-    (block : BlockPtr) (values : Array RuntimeValue) : VariableState :=
-  let rec loop (state : VariableState) (i : Nat) :=
+def VariableState.setArgumentValues? (state : VariableState ctx)
+    (block : BlockPtr) (values : Array RuntimeValue)
+    (blockInBounds : block.InBounds ctx.raw := by grind)
+    : Option (VariableState ctx) :=
+  let rec loop (state : VariableState ctx) (i : Nat)
+      (iInBounds : i ≤ block.getNumArguments! ctx.raw := by grind) :=
     match i with
     | 0 => state
-    | i + 1 =>
+    | i + 1 => do
       let arg := block.getArgument i
       let value := values[i]!
-      let newState := state.setVar arg value
+      let newState ← state.setVar? arg value
       loop newState i
-  loop state (block.getNumArguments! ctx)
-
-/--
-  Create an interpreter state with no variables defined.
--/
-def InterpreterState.empty : InterpreterState :=
-  { variables := ⟨Std.ExtHashMap.emptyWithCapacity 8⟩, memory := .empty }
+  loop state (block.getNumArguments! ctx.raw)
 
 /--
   How the control flow should proceed after interpreting a terminator.
@@ -201,20 +338,21 @@ def MemoryState.alloc (state : MemoryState) (size : UInt64)
 -/
 def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
     : Interp MemoryState :=
-  if addr.toNat != 0 && addr.toNat + val.size <= state.contents.size then
+  if addr.toNat + val.size ≤ state.contents.size then
     return { state with contents := val.copySlice 0 state.contents addr.toNat val.size false }
   else
     Interp.ub
 
 /--
-  Store a value to memory.
-  Yields UB if the access is out of bounds.
+  Store an LLVM value to memory.
+  Yields UB if the access is out of bounds or the address is 0.
 -/
 def MemoryState.storeValue (state : MemoryState) (addr : UInt64) (val : RuntimeValue)
     : Interp MemoryState :=
+  if addr.toNat == 0 then Interp.ub else
   match val with
   | .int 8 (.val v) => state.store addr (ByteArray.empty.push (UInt8.ofBitVec v))
-  | .int 64 (.val v) | .reg {val := v} => state.store addr (UInt64.ofBitVec v).toByteArrayLE
+  | .int 64 (.val v) => state.store addr (UInt64.ofBitVec v).toByteArrayLE
   | .int _ .poison => return state
   | .addr v => state.store addr v.toByteArrayLE
   | _ => none
@@ -225,17 +363,18 @@ def MemoryState.storeValue (state : MemoryState) (addr : UInt64) (val : RuntimeV
 -/
 def MemoryState.load (state : MemoryState) (addr size : UInt64)
     : Interp ByteArray :=
-  if addr.toNat != 0 && addr.toNat + size.toNat <= state.contents.size then
+  if addr.toNat + size.toNat <= state.contents.size then
     return state.contents.extract addr.toNat (addr + size).toNat
   else
     Interp.ub
 
 /--
-  Load a value from the given memory address.
-  Yields UB if access is out of bounds.
+  Load an LLVM value from the given memory address.
+  Yields UB if access is out of bounds or the address is 0.
 -/
 def MemoryState.loadValue (state : MemoryState) (addr : UInt64) (type : TypeAttr)
     : Interp RuntimeValue := do
+  if addr == 0 then Interp.ub else
   match type.val with
   | Attribute.integerType { bitwidth := 8 } =>
       let ba ← state.load addr 1
@@ -247,6 +386,7 @@ def MemoryState.loadValue (state : MemoryState) (addr : UInt64) (type : TypeAttr
       let ba ← state.load addr 8
       return .addr ba.toUInt64LE!
   | _ => none
+
 
 
 def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.propertiesOf opType)
@@ -293,7 +433,7 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     | .poison => Interp.ub
     | .val v' =>
       if v' = 0 then Interp.ub
-      else if bw ≠ 1 ∧ v' = -1 then
+      else if v' = -1 then
         -- Divisor is concretely -1; if the dividend could be intMin, the
         -- overflow case applies and is UB.
         match lhs with
@@ -320,7 +460,7 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : HasDialectOpInfo.prop
     | .poison => Interp.ub
     | .val v' =>
       if v' = 0 then Interp.ub
-      else if bw ≠ 1 ∧ v' = -1 then
+      else if v' = -1 then
         match lhs with
         | .poison => Interp.ub
         | .val v =>
@@ -390,9 +530,17 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
   match opType with
   | .mlir__constant => do
     let some resType := resultTypes[0]? | none
-    let .integerType bw := resType.val
-      | none
-    return (#[.int bw.bitwidth (LLVM.Int.constant bw.bitwidth properties.value.value)], mem, none)
+    match properties.value with
+    | .integer intAttr =>
+      let .integerType bw := resType.val
+        | none
+      return (#[.int bw.bitwidth (LLVM.Int.constant bw.bitwidth intAttr.value)], mem, none)
+    | .float floatAttr =>
+      let .floatType bw := resType.val
+        | none
+      if bw.bitwidth ≠ 64 then
+        none
+      return (#[.float 64 floatAttr.value], mem, none)
   | .add => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
@@ -416,7 +564,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     | .poison => Interp.ub
     | .val v' =>
       if v' = 0 then Interp.ub
-      else if bw ≠ 1 ∧ v' = -1 then
+      else if v' = -1 then
         match lhs with
         | .poison => Interp.ub
         | .val v =>
@@ -441,7 +589,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     | .poison => Interp.ub
     | .val v' =>
       if v' = 0 then Interp.ub
-      else if bw ≠ 1 ∧ v' = -1 then
+      else if v' = -1 then
         match lhs with
         | .poison => Interp.ub
         | .val v =>
@@ -510,8 +658,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simpa using h)
-    let some p := LLVM.IntPred.fromNat properties.value.value.toNat | none
-    return (#[.int 1 (LLVM.Int.icmp lhs rhs p)], mem, none)
+    return (#[.int 1 (LLVM.Int.icmp lhs rhs properties.predicate)], mem, none)
   | .select => do
     let [.int 1 cond, .int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
@@ -519,6 +666,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     return (#[.int bw (LLVM.Int.select cond lhs rhs)], mem, none)
   | .return => do
     return (#[], mem, some (.return operands))
+  | .unreachable =>
+    Interp.ub
   | .br => do
     let [dest] := blockOperands.toList | none
     return (#[], mem, some (.branch operands dest))
@@ -550,325 +699,448 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let val ← mem.loadValue addr type
     return (#[val], mem, none)
   | .store => do
-    let [.addr addr, val] := operands.toList | none
+    let [val, .addr addr] := operands.toList | none
     let mem ← mem.storeValue addr val
     return (#[], mem, none)
+  | .getelementptr => do
+    /- only supports exactly one dynamic index for now -/
+    let [.addr ptr, .int _ idx] := operands.toList | none
+    let size ← Attribute.sizeOfType properties.elem_type.val
+    match idx with
+    | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
+    | .poison => Interp.ub
+  | .freeze => do
+    let [RuntimeValue.int w val] := operands.toList | none
+    return (#[RuntimeValue.int w (LLVM.Int.freeze val)], mem, none)
   | _ => none
+
+/-- Effective address of a RISC-V load/store: the base register value plus the
+    sign-extended 12-bit immediate offset. -/
+def riscvEffectiveAddr (base : BitVec 64) (offset : Int) : BitVec 64 :=
+  base + (BitVec.ofInt 12 offset).signExtend 64
 
 def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
-    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
+    (mem : MemoryState)
+    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
   | .li => do
     let imm := BitVec.ofInt 64 properties.value.value
-    return (#[.reg (RISCV.li imm)], none)
+    return (#[.reg (RISCV.li imm)], mem, none)
   | .lui => do
     let imm := BitVec.ofInt 20 properties.value.value
-    return (#[.reg (RISCV.lui imm)], none)
+    return (#[.reg (RISCV.lui imm)], mem, none)
   | .auipc => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 20 properties.value.value
-    return (#[.reg (RISCV.auipc imm op)], none)
+    return (#[.reg (RISCV.auipc imm op)], mem, none)
   | .addi => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
-    return (#[.reg (RISCV.addi imm op)], none)
+    return (#[.reg (RISCV.addi imm op)], mem, none)
   | .slti => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
-    return (#[.reg (RISCV.slti imm op)], none)
+    return (#[.reg (RISCV.slti imm op)], mem, none)
   | .sltiu => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
-    return (#[.reg (RISCV.sltiu imm op)], none)
+    return (#[.reg (RISCV.sltiu imm op)], mem, none)
   | .andi => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
-    return (#[.reg (RISCV.andi imm op)], none)
+    return (#[.reg (RISCV.andi imm op)], mem, none)
   | .ori => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
-    return (#[.reg (RISCV.ori imm op)], none)
+    return (#[.reg (RISCV.ori imm op)], mem, none)
   | .xori => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
-    return (#[.reg (RISCV.xori imm op)], none)
+    return (#[.reg (RISCV.xori imm op)], mem, none)
   | .addiw => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 12 properties.value.value
-    return (#[.reg (RISCV.addiw imm op)], none)
+    return (#[.reg (RISCV.addiw imm op)], mem, none)
   | .slli => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
-    return (#[.reg (RISCV.slli imm op)], none)
+    return (#[.reg (RISCV.slli imm op)], mem, none)
   | .srli => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
-    return (#[.reg (RISCV.srli imm op)], none)
+    return (#[.reg (RISCV.srli imm op)], mem, none)
   | .srai => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
-    return (#[.reg (RISCV.srai imm op)], none)
+    return (#[.reg (RISCV.srai imm op)], mem, none)
   | .add => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.add op2 op1)], none)
+    return (#[.reg (RISCV.add op2 op1)], mem, none)
   | .sub => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sub op2 op1)], none)
+    return (#[.reg (RISCV.sub op2 op1)], mem, none)
   | .sll => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sll op2 op1)], none)
+    return (#[.reg (RISCV.sll op2 op1)], mem, none)
   | .slt => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.slt op2 op1)], none)
+    return (#[.reg (RISCV.slt op2 op1)], mem, none)
   | .sltu => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sltu op2 op1)], none)
+    return (#[.reg (RISCV.sltu op2 op1)], mem, none)
   | .xor => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.xor op2 op1)], none)
+    return (#[.reg (RISCV.xor op2 op1)], mem, none)
   | .srl => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.srl op2 op1)], none)
+    return (#[.reg (RISCV.srl op2 op1)], mem, none)
   | .sra => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sra op2 op1)], none)
+    return (#[.reg (RISCV.sra op2 op1)], mem, none)
   | .or => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.or op2 op1)], none)
+    return (#[.reg (RISCV.or op2 op1)], mem, none)
   | .and => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.and op2 op1)], none)
+    return (#[.reg (RISCV.and op2 op1)], mem, none)
   | .slliw => do
     let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 5 properties.value.value
-    return (#[.reg (RISCV.slliw imm op1)], none)
+    return (#[.reg (RISCV.slliw imm op1)], mem, none)
   | .srliw => do
     let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 5 properties.value.value
-    return (#[.reg (RISCV.srliw imm op1)], none)
+    return (#[.reg (RISCV.srliw imm op1)], mem, none)
   | .sraiw => do
     let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 5 properties.value.value
-    return (#[.reg (RISCV.sraiw imm op1)], none)
+    return (#[.reg (RISCV.sraiw imm op1)], mem, none)
   | .addw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.addw op2 op1)], none)
+    return (#[.reg (RISCV.addw op2 op1)], mem, none)
   | .subw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.subw op2 op1)], none)
+    return (#[.reg (RISCV.subw op2 op1)], mem, none)
   | .sllw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sllw op2 op1)], none)
+    return (#[.reg (RISCV.sllw op2 op1)], mem, none)
   | .srlw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.srlw op2 op1)], none)
+    return (#[.reg (RISCV.srlw op2 op1)], mem, none)
   | .sraw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sraw op2 op1)], none)
+    return (#[.reg (RISCV.sraw op2 op1)], mem, none)
   | .rem => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.rem op2 op1)], none)
+    return (#[.reg (RISCV.rem op2 op1)], mem, none)
   | .remu => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.remu op2 op1)], none)
+    return (#[.reg (RISCV.remu op2 op1)], mem, none)
   | .remw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.remw op2 op1)], none)
+    return (#[.reg (RISCV.remw op2 op1)], mem, none)
   | .remuw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.remuw op2 op1)], none)
+    return (#[.reg (RISCV.remuw op2 op1)], mem, none)
   | .mul => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.mul op2 op1)], none)
+    return (#[.reg (RISCV.mul op2 op1)], mem, none)
   | .mulh => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.mulh op2 op1)], none)
+    return (#[.reg (RISCV.mulh op2 op1)], mem, none)
   | .mulhu => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.mulhu op2 op1)], none)
+    return (#[.reg (RISCV.mulhu op2 op1)], mem, none)
   | .mulhsu => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.mulhsu op2 op1)], none)
+    return (#[.reg (RISCV.mulhsu op2 op1)], mem, none)
   | .mulw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.mulw op2 op1)], none)
+    return (#[.reg (RISCV.mulw op2 op1)], mem, none)
   | .div => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.div op2 op1)], none)
+    return (#[.reg (RISCV.div op2 op1)], mem, none)
   | .divw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.divw op2 op1)], none)
+    return (#[.reg (RISCV.divw op2 op1)], mem, none)
   | .divu => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.divu op2 op1)], none)
+    return (#[.reg (RISCV.divu op2 op1)], mem, none)
   | .divuw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.divuw op2 op1)], none)
+    return (#[.reg (RISCV.divuw op2 op1)], mem, none)
   | .adduw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.adduw op2 op1)], none)
+    return (#[.reg (RISCV.adduw op2 op1)], mem, none)
   | .sh1adduw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sh1adduw op2 op1)], none)
+    return (#[.reg (RISCV.sh1adduw op2 op1)], mem, none)
   | .sh2adduw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sh2adduw op2 op1)], none)
+    return (#[.reg (RISCV.sh2adduw op2 op1)], mem, none)
   | .sh3adduw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sh3adduw op2 op1)], none)
+    return (#[.reg (RISCV.sh3adduw op2 op1)], mem, none)
   | .sh1add => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sh1add op2 op1)], none)
+    return (#[.reg (RISCV.sh1add op2 op1)], mem, none)
   | .sh2add => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sh2add op2 op1)], none)
+    return (#[.reg (RISCV.sh2add op2 op1)], mem, none)
   | .sh3add => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.sh3add op2 op1)], none)
+    return (#[.reg (RISCV.sh3add op2 op1)], mem, none)
   | .slliuw => do
     let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
-    return (#[.reg (RISCV.slliuw imm op1)], none)
+    return (#[.reg (RISCV.slliuw imm op1)], mem, none)
   | .andn => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.andn op2 op1)], none)
+    return (#[.reg (RISCV.andn op2 op1)], mem, none)
   | .orn => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.orn op2 op1)], none)
+    return (#[.reg (RISCV.orn op2 op1)], mem, none)
   | .xnor => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.xnor op2 op1)], none)
+    return (#[.reg (RISCV.xnor op2 op1)], mem, none)
   | .max => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.max op2 op1)], none)
+    return (#[.reg (RISCV.max op2 op1)], mem, none)
   | .maxu => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.maxu op2 op1)], none)
+    return (#[.reg (RISCV.maxu op2 op1)], mem, none)
   | .min => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.min op2 op1)], none)
+    return (#[.reg (RISCV.min op2 op1)], mem, none)
   | .minu => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.minu op2 op1)], none)
+    return (#[.reg (RISCV.minu op2 op1)], mem, none)
   | .rol => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.rol op2 op1)], none)
+    return (#[.reg (RISCV.rol op2 op1)], mem, none)
   | .ror => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.ror op2 op1)], none)
+    return (#[.reg (RISCV.ror op2 op1)], mem, none)
   | .rolw => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.rolw op2 op1)], none)
+    return (#[.reg (RISCV.rolw op2 op1)], mem, none)
   | .rorw => do
     let [.reg op1, .reg op2,] := operands.toList | none
-    return (#[.reg (RISCV.rorw op2 op1)], none)
+    return (#[.reg (RISCV.rorw op2 op1)], mem, none)
   | .sextb => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.sextb op)], none)
+    return (#[.reg (RISCV.sextb op)], mem, none)
   | .sexth => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.sexth op)], none)
+    return (#[.reg (RISCV.sexth op)], mem, none)
   | .zexth => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.zexth op)], none)
+    return (#[.reg (RISCV.zexth op)], mem, none)
   | .clz => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.clz op)], none)
+    return (#[.reg (RISCV.clz op)], mem, none)
   | .clzw => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.clzw op)], none)
+    return (#[.reg (RISCV.clzw op)], mem, none)
   | .ctz => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.ctz op)], none)
+    return (#[.reg (RISCV.ctz op)], mem, none)
   | .ctzw => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.ctzw op)], none)
+    return (#[.reg (RISCV.ctzw op)], mem, none)
   | .cpop => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.cpop op)], none)
+    return (#[.reg (RISCV.cpop op)], mem, none)
   | .cpopw => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.cpopw op)], none)
+    return (#[.reg (RISCV.cpopw op)], mem, none)
+  | .orcb => do
+    let [.reg op] := operands.toList | none
+    return (#[.reg (RISCV.orcb op)], mem, none)
+  | .rev8 => do
+    let [.reg op] := operands.toList | none
+    return (#[.reg (RISCV.rev8 op)], mem, none)
   | .roriw => do
     let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 5 properties.value.value
-    return (#[.reg (RISCV.roriw imm op1)], none)
+    return (#[.reg (RISCV.roriw imm op1)], mem, none)
   | .rori => do
     let [.reg op1] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
-    return (#[.reg (RISCV.rori imm op1)], none)
+    return (#[.reg (RISCV.rori imm op1)], mem, none)
   | .bclr => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.bclr op2 op1)], none)
+    return (#[.reg (RISCV.bclr op2 op1)], mem, none)
   | .bext => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.bext op2 op1)], none)
+    return (#[.reg (RISCV.bext op2 op1)], mem, none)
   | .binv => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.binv op2 op1)], none)
+    return (#[.reg (RISCV.binv op2 op1)], mem, none)
   | .bset => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.bset op2 op1)], none)
+    return (#[.reg (RISCV.bset op2 op1)], mem, none)
   | .bclri => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
-    return (#[.reg (RISCV.bclri imm op)], none)
+    return (#[.reg (RISCV.bclri imm op)], mem, none)
   | .bexti => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
-    return (#[.reg (RISCV.bexti imm op)], none)
+    return (#[.reg (RISCV.bexti imm op)], mem, none)
   | .binvi => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
-    return (#[.reg (RISCV.binvi imm op)], none)
+    return (#[.reg (RISCV.binvi imm op)], mem, none)
   | .bseti => do
     let [.reg op] := operands.toList | none
     let imm := BitVec.ofInt 6 properties.value.value
-    return (#[.reg (RISCV.bseti imm op)], none)
+    return (#[.reg (RISCV.bseti imm op)], mem, none)
   | .pack => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.pack op2 op1)], none)
+    return (#[.reg (RISCV.pack op2 op1)], mem, none)
   | .packh => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.packh op2 op1)], none)
+    return (#[.reg (RISCV.packh op2 op1)], mem, none)
   | .packw => do
     let [.reg op1, .reg op2] := operands.toList | none
-    return (#[.reg (RISCV.packw op2 op1)], none)
+    return (#[.reg (RISCV.packw op2 op1)], mem, none)
   | .mv => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.mv op)], none)
+    return (#[.reg (RISCV.mv op)], mem, none)
   | .not => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.not op)], none)
+    return (#[.reg (RISCV.not op)], mem, none)
   | .neg => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.neg op)], none)
+    return (#[.reg (RISCV.neg op)], mem, none)
   | .negw => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.negw op)], none)
+    return (#[.reg (RISCV.negw op)], mem, none)
   | .sextw => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.sextw op)], none)
+    return (#[.reg (RISCV.sextw op)], mem, none)
   | .zextb => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.zextb op)], none)
+    return (#[.reg (RISCV.zextb op)], mem, none)
   | .zextw => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.zextw op)], none)
+    return (#[.reg (RISCV.zextw op)], mem, none)
   | .seqz => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.seqz op)], none)
+    return (#[.reg (RISCV.seqz op)], mem, none)
   | .snez => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.snez op)], none)
+    return (#[.reg (RISCV.snez op)], mem, none)
   | .sltz=> do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.sltz op)], none)
+    return (#[.reg (RISCV.sltz op)], mem, none)
   | .sgtz => do
     let [.reg op] := operands.toList | none
-    return (#[.reg (RISCV.sgtz op)], none)
-  | _ => none
+    return (#[.reg (RISCV.sgtz op)], mem, none)
+  | .ld => do
+    let [.reg addr] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    -- extend the memory so that the access is in bounds and cannot raise UB
+    let mem := mem.ensureSize (eaddr.toNat + 8)
+    let val ← mem.load eaddr.toNat.toUInt64 8
+    return (#[.reg $ .mk (BitVec.ofNat 64 val.toUInt64LE!.toNat)], mem, none)
+  | .sd => do
+    let [.reg addr, .reg { val }] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let mem := mem.ensureSize (eaddr.toNat + 8)
+    let mem ← mem.store eaddr.toNat.toUInt64 (UInt64.ofBitVec val).toByteArrayLE
+    return (#[], mem, none)
+  | .sw => do
+    let [.reg addr, .reg { val }] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let mem := mem.ensureSize (eaddr.toNat + 4)
+    -- store only the low 4 bytes of the register
+    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
+    return (#[], mem, none)
+  | .sh => do
+    let [.reg addr, .reg { val }] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let mem := mem.ensureSize (eaddr.toNat + 2)
+    -- store only the low 2 bytes of the register
+    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
+    return (#[], mem, none)
+  | .sb => do
+    let [.reg addr, .reg { val }] := operands.toList | none
+    let eaddr := riscvEffectiveAddr addr.val properties.value.value
+    let mem := mem.ensureSize (eaddr.toNat + 1)
+    -- store only the low byte of the register
+    let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 1)
+    return (#[], mem, none)
+
+def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInfo.propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    : Interp (Array RuntimeValue × Option ControlFlowAction) :=
+  match opType with
+  | .branch => do
+    let [dest] := blockOperands.toList | none
+    return (#[], some (.branch operands dest))
+  | .beq => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if lhs == rhs then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+  | .bne => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if lhs != rhs then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+  | .blt => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if BitVec.slt lhs.val rhs.val then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+  | .bge => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if !BitVec.slt lhs.val rhs.val then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+  | .bltu => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if BitVec.ult lhs.val rhs.val then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
+  | .bgeu => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg lhs) := operands[0]? | none
+    let some (RuntimeValue.reg rhs) := operands[1]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if !BitVec.ult lhs.val rhs.val then
+      return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
 
 def Cf.interpretOp' (opType : Veir.Cf) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -936,7 +1208,9 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   | .llvm llvmOp => do
     Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem
   | .riscv riscvOp => do
-    let (vals, act) ← Riscv.interpretOp' riscvOp properties resultTypes operands blockOperands
+    Riscv.interpretOp' riscvOp properties resultTypes operands blockOperands mem
+  | .riscv_cf riscvCfOp => do
+    let (vals, act) ← Riscv_Cf.interpretOp' riscvCfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
   | .cf cfOp => do
     let (vals, act) ← Cf.interpretOp' cfOp properties resultTypes operands blockOperands
@@ -967,81 +1241,147 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
   return `none`.
 -/
-def interpretOp (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
-    : Interp (InterpreterState × Option ControlFlowAction) := do
-  let some operands := state.variables.getOperandValues ctx op | none
+def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (inBounds : op.InBounds ctx.raw := by grind)
+    : Interp (InterpreterState ctx × Option ControlFlowAction) := do
+  let some operands := state.variables.getOperandValues op | none
   let opType := op.getOpType! ctx
-  let (resultValues, mem, action) ← interpretOp' opType (op.getProperties! ctx opType) (op.getResultTypes! ctx) operands (op.getSuccessors! ctx) state.memory
-  let newState := ⟨state.variables.setResultValues ctx op resultValues, mem⟩
+  let (resultValues, mem, action) ← interpretOp' opType (op.getProperties! ctx opType)
+    (op.getResultTypes! ctx.raw) operands (op.getSuccessors! ctx.raw) state.memory
+  let newVars ← state.variables.setResultValues? op resultValues
+  let newState := ⟨newVars, mem⟩
   return (newState, action)
 
 /--
-  Interpret a list of operations, starting from the given operation pointer.
+  Interpret a chain of operations, starting from the given operation pointer.
   Continue to interpret operations until a terminator is encountered,
   or the end of the block is reached.
   Return a ControlFlowAction indicating how to continue the interpretation.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretOpList (ctx : IRContext OpCode) (op : OperationPtr) (state : InterpreterState)
-    (opInBounds : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
-    : Interp (InterpreterState × ControlFlowAction) := do
-  let (state, action) ← interpretOp ctx op state
+def interpretOpChain (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (opInBounds : op.InBounds ctx.raw := by grind)
+    : Interp (InterpreterState ctx × ControlFlowAction) := do
+  let (state, action) ← interpretOp op state
   match action with
   | none =>
-    rlet next ← (op.get ctx).next
-    interpretOpList ctx next state
+    rlet next ← (op.get ctx.raw).next
+    interpretOpChain next state
   | some action =>
     return (state, action)
-termination_by op.idxInParentFromTail ctx
+termination_by op.idxInParentFromTail ctx.raw
 decreasing_by grind
 
 /--
+  Interpret a list of operations passed as a `List`, stopping at the first terminator.
+  Return the new interpreter state, and an optional control flow action indicating how to
+  continue the interpretation, with an absent control flow action indicating that the end of the
+  list was reached without encountering a terminator.
+  Return `none` if any errors occur during interpretation.
+-/
+def interpretOpList {ctx : WfIRContext OpCode} (ops : List OperationPtr)
+    (state : InterpreterState ctx)
+    (opInBounds : ∀ op ∈ ops, op.InBounds ctx.raw := by grind)
+    : Interp (InterpreterState ctx × Option ControlFlowAction) :=
+  match ops with
+  | [] => return (state, none)
+  | op :: ops => do
+    let (state, action) ← interpretOp op state
+    match action with
+    | none => interpretOpList ops state (by grind)
+    | some cf => return (state, cf)
+
+/--
+  Interpret a list of operations passed as a `List`, stopping at the first terminator.
+  Return the new interpreter state, and a control flow action indicating how to continue the
+  interpretation. If no terminator is encountered, return `none`.
+  Return `none` if any errors occur during interpretation.
+-/
+def interpretTerminatedOpList {ctx : WfIRContext OpCode} (ops : List OperationPtr)
+    (state : InterpreterState ctx)
+    (opInBounds : ∀ op ∈ ops, op.InBounds ctx.raw := by grind)
+    : Interp (InterpreterState ctx × ControlFlowAction) := do
+  match ← interpretOpList ops state opInBounds with
+  | (_, none) => none
+  | (state, some cf) => return (state, cf)
+
+/--
   Interpret a block of operations, starting from the first operation in the block.
+  The block arguments are set from `values` before interpreting the operations.
   Return the resulting interpreter state and a ControlFlowAction indicating how
   to continue the interpretation.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlock (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Interp (InterpreterState × ControlFlowAction) := do
-  rlet firstOp ← (blockPtr.get ctx).firstOp
-  interpretOpList ctx firstOp state
+def interpretBlock (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
+    (state : InterpreterState ctx) (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
+    Interp (InterpreterState ctx × ControlFlowAction) := do
+  let newVars ← state.variables.setArgumentValues? blockPtr values
+  let state := ⟨newVars, state.memory⟩
+  rlet firstOp ← (blockPtr.get ctx.raw).firstOp
+  interpretOpChain firstOp state
 
 /--
   Interpret a CFG, starting from the given block.
+  The arguments of the starting block are set from `values`.
   Return the resulting interpreter state and values eventually returned, if any.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlockCFG (ctx : IRContext OpCode) (blockPtr : BlockPtr) (state : InterpreterState) (blockInBounds : blockPtr.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Interp (InterpreterState × Array RuntimeValue) := do
-  match interpretBlock ctx blockPtr state blockInBounds wf with
+def interpretBlockCFG (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
+    (state : InterpreterState ctx) (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
+    Interp (InterpreterState ctx × Array RuntimeValue) := do
+  match interpretBlock blockPtr values state blockInBounds with
   | some (.ok (state, .return res)) => some (.ok (state, res))
   | some (.ok (state, .branch res succ)) =>
-    if h : succ.InBounds ctx then
-      let state := ⟨state.variables.setArgumentValues ctx succ res, state.memory⟩
-      interpretBlockCFG ctx succ state h wf else none
+    if h : succ.InBounds ctx.raw then
+      interpretBlockCFG succ res state h
+    else
+      none
   | some .ub => Interp.ub
   | none => none
 partial_fixpoint
 
 /--
   Interpret a region, starting from its first block.
+  The arguments of the first block are set from `values`.
   Return the resulting interpreter state and values eventually returned, or `none`
   if any errors occur during interpretation.
 -/
-def interpretRegion (ctx : IRContext OpCode) (region : RegionPtr) (state : InterpreterState) (regionIn : region.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind) : Interp (InterpreterState × Array RuntimeValue) := do
-  rlet block ← (region.get ctx).firstBlock
-  interpretBlockCFG ctx block state
+def interpretRegion (region : RegionPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
+    (state : InterpreterState ctx) (regionIn : region.InBounds ctx.raw := by grind) :
+    Interp (InterpreterState ctx × Array RuntimeValue) := do
+  rlet block ← (region.get ctx.raw).firstBlock
+  interpretBlockCFG block values state
+
+/--
+  Interpret an operation representing a function, given the runtime values of its arguments
+  and the current memory state. Return the resulting memory state and the values eventually
+  returned.
+
+  Unlike the other interpreter functions, this does not take an `InterpreterState`:
+  a function call starts with a fresh, empty variable state, since the caller's SSA
+  values are not visible inside the callee.
+-/
+def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
+    (mem : MemoryState) (opIn : op.InBounds ctx.raw := by grind) :
+    Interp (MemoryState × Array RuntimeValue) := do
+  if h : op.getNumRegions ctx.raw ≠ 1 then
+    none
+  else
+    let state : InterpreterState ctx := ⟨.empty ctx, mem⟩
+    let (state, results) ← interpretRegion (op.getRegion ctx.raw 0) values state
+    return (state.memory, results)
 
 /--
   Interpret a builtin.module operation.
   This is done by interpreting the unique region of the operation.
   Return the values eventually returned, or `none` if any errors occur during interpretation.
 -/
-def interpretModule (ctx : IRContext OpCode) (op : OperationPtr)
-    (opIn : op.InBounds ctx := by grind) (wf : ctx.WellFormed := by grind)
-    : Interp (Array RuntimeValue) := do
-  if h: op.getNumRegions ctx ≠ 1 then
+def interpretModule (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (opIn : op.InBounds ctx.raw := by grind) : Interp (Array RuntimeValue) := do
+  if h: op.getNumRegions ctx.raw ≠ 1 then
     none
   else
-    let (_state, results) ← interpretRegion ctx (op.getRegion ctx 0) InterpreterState.empty
+    let (_state, results) ← interpretRegion (op.getRegion ctx.raw 0) #[] (InterpreterState.empty ctx)
     return results
 
 end Veir

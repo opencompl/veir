@@ -513,6 +513,20 @@ OpOperandPtrPtr.get!_initOpOperands is too complex to be expressed, and should n
 in practice, as we should reason at a higher-level abstraction at this point.
 -/
 
+@[grind =]
+theorem Rewriter.initOpOperands_inBounds (ptr : GenericPtr) :
+    ptr.InBounds (initOpOperands ctx op h₁ operands h₂ h₃ n hn) ↔
+    match ptr with
+    | .opOperand operandPtr
+    | .opOperandPtr (.operandNextUse operandPtr) =>
+      if operandPtr.op = op then
+        operandPtr.index < op.getNumOperands! ctx + n
+      else
+        ptr.InBounds ctx
+    | _ => ptr.InBounds ctx := by
+  fun_induction Rewriter.initOpOperands <;>
+    grind [OpOperandPtr.inBounds_def]
+
 end Rewriter.initOpOperands
 
 end Veir

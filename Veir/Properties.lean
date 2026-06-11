@@ -5,6 +5,7 @@ public import Veir.IR.Attribute
 public import Veir.IR.Simp
 public import Veir.ForLean
 public import Veir.IR.OpInfo
+public import Veir.Data.LLVM.Int.Basic
 
 /- This is needed as some properties have ByteArray and require Repr instances -/
 deriving instance Repr for ByteArray
@@ -62,8 +63,17 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 def NswNuwProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String NswNuwProperties := do
-  let nsw ← getUnitAttr "nsw" attrDict
-  let nuw ← getUnitAttr "nuw" attrDict
+  let value ← match attrDict["overflowFlags".toUTF8]? with
+    | some (.integerAttr flags) =>
+      if flags.type.bitwidth ≠ 32 then
+        .error s!"expected 'overflowFlags' to be an integer attribute of bitwidth 32, but got i{flags.type.bitwidth}"
+      else
+        .ok flags.value
+    | some attr => .error s!"expected 'overflowFlags' to be an optional integer attribute, but got {attr}"
+    | none => .ok 0
+
+  let nsw := (value.toNat &&& 1) ≠ 0
+  let nuw := (value.toNat &&& 2) ≠ 0
   return { nsw := nsw, nuw := nuw }
 
 /--
@@ -105,25 +115,34 @@ def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   return { nneg := nneg }
 
 structure FastMathFlagsProperties where
-  fast : Bool
-  nnan : Bool
-  ninf : Bool
-  nsz : Bool
+  attr : FastMathFlagsAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String FastMathFlagsProperties := do
-  let fast ← getUnitAttr "fast" attrDict
-  let nnan ← getUnitAttr "nnan" attrDict
-  let ninf ← getUnitAttr "ninf" attrDict
-  let nsz ← getUnitAttr "nsz" attrDict
-  return { fast, nnan, ninf, nsz }
+
+  let value ← match attrDict["fastmathFlags".toUTF8]? with
+    | none => .ok { nnan := false, ninf := false, nsz := false }
+    | some (.fastMathFlagsAttr flags) => .ok flags
+    | some (.unregisteredAttr attr) =>
+        .error s!"expected 'fastmathFlags' to be a fast math flags attribute, but got unregistered {attr}"
+    | some attr => .error s!"expected 'fastmathFlags' to be a float fast math flags attribute, but got {attr}"
+
+  return ⟨value⟩
+
+/--
+The two types of constants an LLVM constant can store.
+-/
+inductive LLVMConstantValue where
+| integer (value : IntegerAttr)
+| float (value : FloatAttr)
+deriving Inhabited, Repr, Hashable, DecidableEq
 
 /--
   Properties of the `llvm.constant` operation.
 -/
 structure LLVMConstantProperties where
-  value : IntegerAttr
+  value : LLVMConstantValue
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
@@ -132,26 +151,36 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     throw s!"llvm.constant: expected only 'value' property, but got {attrDict.size} properties"
   let some attr := attrDict["value".toUTF8]?
     | throw "llvm.constant: missing 'value' property"
-  let .integerAttr intAttr := attr
-    | throw s!"llvm.constant: expected 'value' to be an integer attribute, but got {attr}"
-  return { value := intAttr }
+  match attr with
+  | .integerAttr intAttr =>
+    return { value := .integer intAttr }
+  | .floatAttr floatAttr =>
+    return { value := .float floatAttr }
+  | _ =>
+    throw s!"llvm.constant: expected 'value' to be an integer or float attribute, but got {attr}"
 
-/--
-  Properties of `llvm.icmp` operation, describing predicates for integer comparison.
--/
+/-- Properties of integer comparison operations in the LLVM and arith dialects. -/
 structure IcmpProperties where
-  value : IntegerAttr
+  predicate : Data.LLVM.IntPred
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+def IcmpProperties.fromAttrDictFor (opName : String) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String IcmpProperties := do
   if attrDict.size > 1 then
-    throw s!"llvm.icmp: expected only one property, but got {attrDict.size} properties"
+    throw s!"{opName}: expected only one property, but got {attrDict.size} properties"
   let some attr := attrDict["predicate".toUTF8]?
-    | throw "llvm.icmp: missing predicate"
+    | throw s!"{opName}: missing predicate"
   let .integerAttr intAttr := attr
-    | throw s!"llvm.icmp: expected predicate to be a string attribute, but got {attr}"
-  return { value := intAttr }
+    | throw s!"{opName}: expected predicate to be an integer attribute, but got {attr}"
+  if intAttr.value < 0 then
+    throw s!"{opName}: invalid predicate {intAttr.value}"
+  let some predicate := Data.LLVM.IntPred.fromNat intAttr.value.toNat
+    | throw s!"{opName}: invalid predicate {intAttr.value}"
+  return { predicate }
+
+def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String IcmpProperties :=
+  IcmpProperties.fromAttrDictFor "llvm.icmp" attrDict
 
 /--
   Properties of the RISC-V immediate operations.
@@ -188,6 +217,23 @@ def RISCVBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) 
   let .denseArrayAttr sizesAttr := sizesAttr
     | throw s!"riscv_cf: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
   return { operandSegmentSizes := sizesAttr }
+
+structure RISCVStackAllocaProperties where
+  alignment : IntegerAttr
+  value_type : TypeAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def RISCVStackAllocaProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String RISCVStackAllocaProperties := do
+  let alignAttr ← match attrDict["alignment".toUTF8]? with
+    | some (.integerAttr alignAttr) => .ok alignAttr
+    | some attr => .error s!"expected 'alignment' to be an optional integer attribute, but got {attr}"
+    | none => .ok { value := 0, type := { bitwidth := 64 } }
+  let some typeAttr := attrDict["value_type".toUTF8]?
+    | throw "alloca: missing 'value_type' property"
+  if _ : typeAttr.isType = false then throw "alloca: expected 'value_type' to be a type attribute" else
+  return { alignment := alignAttr, value_type := typeAttr.asType }
+
 /--
   Properties of the `mod_arith.constant` operation.
 -/
@@ -225,7 +271,7 @@ def CondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String CondBrProperties := do
   if attrDict.size > 2 then
     throw s!"cf.cond_br: expected only 'branch_weights' and 'operandSegmentSizes' properties, but got {attrDict.size} properties"
-  let weightsAttr ← match attrDict["weightsAttr".toUTF8]? with
+  let weightsAttr ← match attrDict["branch_weights".toUTF8]? with
     | some (.denseArrayAttr weightsAttr) => .ok weightsAttr
     | some attr => .error s!"expected 'branch_weights' to be an optional dense array attribute, but got {attr}"
     | none => .ok { elementType := { bitwidth := 32 }, values := #[] }
@@ -418,6 +464,65 @@ def HWConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
   return { value := intAttr }
 
 /--
+  Properties of `func.func`. The `sym_name` attribute is modelled explicitly;
+  all other attributes are preserved verbatim in `extra`.
+-/
+structure FuncFuncProperties where
+  sym_name : Option StringAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def FuncFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String FuncFuncProperties := do
+  let symName ← match attrDict["sym_name".toUTF8]? with
+    | some (.stringAttr s) => pure (some s)
+    | some attr => throw s!"func.func: expected 'sym_name' to be a string attribute, but got {attr}"
+    | none => pure none
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8)
+  return { sym_name := symName, extra }
+
+/--
+  Properties of the `func.call` operation. The `callee` is first-class; all
+  other attributes are kept verbatim in `extra`. `func.call` is never indirect,
+  so `callee` is required.
+-/
+structure FuncCallProperties where
+  callee : FlatSymbolRefAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def FuncCallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String FuncCallProperties := do
+  let callee ← match attrDict["callee".toUTF8]? with
+    | some (.flatSymbolRefAttr s) => pure s
+    | some attr => throw s!"func.call: expected 'callee' to be a flat symbol reference, but got {attr}"
+    | none => throw "func.call: expected a 'callee' symbol reference"
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) => k ≠ "callee".toUTF8)
+  return { callee, extra }
+
+/--
+  Properties of the `llvm.call` operation. The `callee` is first-class; all
+  other attributes are kept verbatim in `extra`. `callee` is optional because
+  `llvm.call` doubles as an indirect-call operation.
+-/
+structure LLVMCallProperties where
+  callee : Option FlatSymbolRefAttr
+  extra : DictionaryAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMCallProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMCallProperties := do
+  let callee ← match attrDict["callee".toUTF8]? with
+    | some (.flatSymbolRefAttr s) => pure (some s)
+    | some attr => throw s!"llvm.call: expected 'callee' to be a flat symbol reference, but got {attr}"
+    | none => pure none
+  let extra := DictionaryAttr.fromArray
+    (attrDict.toArray.filter fun (k, _) => k ≠ "callee".toUTF8)
+  return { callee, extra }
+
+/--
   Properties of `llvm.func`. The `sym_name` and `function_type` attributes are
   modelled explicitly; all other attributes (e.g. `CConv`, `linkage`, `visibility_`)
   are preserved verbatim in `extra`.
@@ -443,6 +548,18 @@ def LLVMFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   let extra := DictionaryAttr.fromArray
     (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8 && k ≠ "function_type".toUTF8)
   return { sym_name := symName, function_type := funcType, extra }
+
+structure LLVMModuleFlagsProperties where
+  flags : ArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def LLVMModuleFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String LLVMModuleFlagsProperties := do
+  let flagsAttr ← match attrDict["flags".toUTF8]? with
+    | some (.arrayAttr flagsAttr) => .ok flagsAttr
+    | some attr => .error s!"expected 'flags' to be an array attribute, but got {attr}"
+    | none => .error "llvm.module_flags: missing 'flags' property"
+  return { flags := flagsAttr }
 
 /--
   Properties of `hw.module`.

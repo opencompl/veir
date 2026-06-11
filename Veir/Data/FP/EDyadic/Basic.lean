@@ -43,9 +43,18 @@ def ofDyadic (sign : Bool) : Dyadic → EDyadic
   | .zero => .zero sign
   | .ofOdd n k hn => .nonzeroFinite (.ofOdd n k hn) Dyadic.of_ne_zero
 
+/-- Negate an `EDyadic`. Sign of zero, finite, and infinity flipped,
+NaN remains unchanged. -/
+def neg : EDyadic → EDyadic
+  | .zero sign => .zero (!sign)
+  | .nonzeroFinite d _ => ofDyadic false (-d)
+  | .infinity sign => .infinity (!sign)
+  | .nan => .nan
+
+instance : Neg EDyadic := ⟨EDyadic.neg⟩
+
 end EDyadic
 
 end -- public section
 
 end Veir.Data.FP
-
