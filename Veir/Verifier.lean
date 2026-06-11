@@ -196,6 +196,14 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr) (ctx : WfIRContext Op
   else
     pure ()
 
+def OperationPtr.verifyRISCVneg (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) (imm : Int) : Except String PUnit :=
+  if imm < 0 ∨ 1048575 < imm then -- 1048575 = 2 ^ 20 - 1
+    let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+    throw s!"{instrName} immediate out of bounds: must fit in a unsigned 20-bit field."
+  else
+    pure ()
+
 /--
   Ensure that every operand and result of a RISC-V register instruction has
   type `!riscv.reg`. The caller is responsible for only invoking this on
@@ -1078,6 +1086,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVneg ctx opIn (op.getProperties! ctx.raw (.riscv .lui)).value.value
     pure ()
   | .riscv .auipc => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1088,6 +1097,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVneg ctx opIn (op.getProperties! ctx.raw (.riscv .auipc)).value.value
     pure ()
   | .riscv .addi => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
