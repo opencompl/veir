@@ -550,6 +550,27 @@ def testOpDomTwoLevelNested : String :=
      , { dominator := "middle", dominated := "leaf",   dominates := true, properlyDominates := true  }
      , { dominator := "leaf",   dominated := "leaf",   dominates := true, properlyDominates := false }
      ]
+
+/-
+  Test: operation dominance across two blocks in the same nested region.
+-/
+def testOpDomSameRegionTwoBlocks : String :=
+  runOperationDominance r#""builtin.module"() ({
+^bb0:
+  %outer = "test.test"() ({
+  ^bb1:
+    %entry = "test.test"() : () -> i32
+    "test.test"() [^bb2] : () -> ()
+  ^bb2:
+    %exit = "test.test"() : () -> i32
+  }) : () -> i32
+}) : () -> ()"#
+    #[ { dominator := "entry", dominated := "entry", dominates := true,  properlyDominates := false }
+     , { dominator := "entry", dominated := "exit",  dominates := true,  properlyDominates := true  }
+     , { dominator := "exit",  dominated := "entry", dominates := false, properlyDominates := false }
+     , { dominator := "outer", dominated := "entry", dominates := true,  properlyDominates := true  }
+     , { dominator := "outer", dominated := "exit",  dominates := true,  properlyDominates := true  }
+     ]
 /--
 info: "ok"
 -/
@@ -609,5 +630,11 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testOpDomTwoLevelNested
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testOpDomSameRegionTwoBlocks
 
 end DominanceAnalysis
