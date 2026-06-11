@@ -2,7 +2,6 @@ module
 
 public import Std.Data.HashMap
 public import Init.Data.Queue
-public import Veir.Analysis.DataFlow.Domains
 public import Veir.IR.Basic
 public import Veir.GlobalOpInfo
 public import Veir.Rewriter.InsertPoint
