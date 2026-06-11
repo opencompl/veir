@@ -444,7 +444,7 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   if opCode.isTerminator then true else
   match opCode with
   -- These dialects are pure
-  | .arith _ | .comb _ | .mod_arith _ | .datapath _ => false
+  | .arith _ | .comb _ | .mod_arith _ | .datapath _ | .felt _ => false
   | .builtin .unrealized_conversion_cast => false
   | .hw .constant => false
   -- RISC-V is pure register arithmetic except the memory ops

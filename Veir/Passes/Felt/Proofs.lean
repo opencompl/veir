@@ -5,11 +5,10 @@ import Veir.Data.Felt.Basic
 
   Each pattern in `Combine.lean` is paired with an algebraic identity
   here, proven over `Felt p := ZMod p`. This file proves the *arithmetic
-  identity only*; it does NOT prove that the IR rewrite preserves program
-  semantics or well-formedness. The pass-side rewriter preconditions are
-  discharged with `sorry` in `Combine.lean`, so the bar this file clears
-  is the algebraic theorem, not the transformation. See `REVIEW.md`
-  (finding VC2) for the full trust-boundary writeup.
+  identity only*. The executable rewrite preconditions are discharged in
+  `Veir/Passes/Felt/RewriteLemmas.lean`, but that still establishes IR
+  well-formedness of the rewrite, not whole-program semantic preservation.
+  See `REVIEW.md` and `FOLLOWUP.md` for the current trust-boundary writeup.
 
   Phase E.5 (2026-05-19) upgraded the proof model from `abbrev Felt
   := Int` to `abbrev Felt p := ZMod p`. Each theorem now universally

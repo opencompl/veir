@@ -30,6 +30,10 @@ Last reviewed: 2026-06-10
 | `docs/phases/PHASE-06-strategy-a-divergence-burndown.md` | local file, 2026-06-10 | Completed Phase 6 divergence burn-down objective, artifacts, gates, and done criteria |
 | `docs/phases/PHASE-07-strategy-a-modular-reduction.md` | local file, 2026-06-10 | Completed Phase 7 registered-field modular-reduction objective, artifacts, gates, and done criteria |
 | `docs/phases/PHASE-08-strategy-a-field-preconditions.md` | local file, 2026-06-10 | Active Phase 8 field-precondition objective, artifacts, gates, and done criteria |
+| `docs/drop-in-roadmap.md` | local file, 2026-06-11 | VeIR-side planning baseline for the Felt drop-in replacement objective; not phase acceptance evidence |
+| `docs/phases/PHASE-09-drop-in-roadmap.md` | local file, 2026-06-11 | Completed roadmap and claim-reset planning phase; not implementation acceptance evidence |
+| `docs/phases/PHASE-10-toolchain-replacement-spike.md` | local file, 2026-06-11 | Phase 10 bootstrap plan for profile separation and the external-driver toolchain spike; not Phase 8 acceptance evidence |
+| `Veir/GlobalOpInfo.lean` | local file, 2026-06-11 | Phase 10 side-effect metadata fix: Felt operations are pure for DCE so `felt-combine,dce` can erase unused Felt constants/arithmetic |
 | `scripts/llzk-diff.sh` | local file, 2026-06-10 | VeIR side LLZK/VeIR differential driver; supports parse/print mode and Phase 6 `felt-combine,dce` canonicalization mode |
 | Companion `llzk-lean/differential/run-differential.sh` | local file, 2026-06-09 | Corpus wrapper around the consumed VeIR diff script |
 | Companion `llzk-lean/differential/corpus/` | local files, 2026-06-09 | Current Strategy A corpus and expected-divergence classification |

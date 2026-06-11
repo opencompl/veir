@@ -32,6 +32,12 @@ This verifies that llzk-lean's Lake metadata uses the accepted
 `project-llzk/veir` remote, that `rev` and `inputRev` identify the accepted
 commit, and that `.lake/packages/VeIR` is clean at that commit.
 
+The Felt drop-in replacement plan is tracked in
+[`docs/drop-in-roadmap.md`](docs/drop-in-roadmap.md), with the project-wide
+roadmap in the companion llzk-lean checkout at
+`../llzk-lean/docs/drop-in-roadmap.md`.
+Phase 9 and Phase 10 planning files live under [`docs/phases/`](docs/phases/).
+
 | VeIR Features                                         | Complete   | Verified |
 |-------------------------------------------------------|------------| ---------|
 | MLIR core data structures (block, operation, region)  | ✅         | 🔒        |
