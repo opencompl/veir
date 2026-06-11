@@ -112,6 +112,27 @@ def testParseOp (s : String) : IO Unit :=
 
 /--
   info: "builtin.module"() ({
+  ^4(%arg4_0 : i32, %arg4_1 : i32):
+    %5 = "arith.addi"(%arg4_0, %arg4_1) <{"overflowFlags" = #arith.overflow<nsw, nuw>}> : (i32, i32) -> i32
+}) : () -> ()-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+^bb0(%x : i32, %y : i32):
+  %a = \"arith.addi\"(%x, %y) <{ overflowFlags = #arith.overflow<nsw, nuw> }> : (i32, i32) -> i32
+}) : () -> ()"
+
+/--
+  error: expected 'overflowFlags' to be an arith integer overflow flags attribute, but got 1 : i32
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({
+^bb0(%x : i32, %y : i32):
+  %a = \"arith.addi\"(%x, %y) <{ overflowFlags = 1 : i32 }> : (i32, i32) -> i32
+}) : () -> ()"
+
+
+/--
+  info: "builtin.module"() ({
   ^4():
     "builtin.module"() ({
       ^6():

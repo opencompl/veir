@@ -6,7 +6,7 @@
     %lhs  = "arith.constant"() <{ "value" = 7 : i32 }> : () -> i32
     %neg1 = "arith.constant"() <{ "value" = -1 : i32 }> : () -> i32
     %one  = "arith.constant"() <{ "value" = 1 : i32 }> : () -> i32
-    %poison = "arith.addi"(%neg1, %one) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
+    %poison = "arith.addi"(%neg1, %one) <{"overflowFlags" = #arith.overflow<nuw>}> : (i32, i32) -> i32
     %y = "arith.remsi"(%lhs, %poison) : (i32, i32) -> i32
     "func.return"(%y) : (i32) -> ()
   }) : () -> ()

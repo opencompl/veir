@@ -150,17 +150,17 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case arith op =>
     cases op
     case constant => exact (ArithConstantProperties.fromAttrDict attrDict)
-    case addi => exact (NswNuwProperties.fromAttrDict attrDict)
-    case subi => exact (NswNuwProperties.fromAttrDict attrDict)
-    case muli => exact (NswNuwProperties.fromAttrDict attrDict)
+    case addi => exact (ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict)
+    case subi => exact (ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict)
+    case muli => exact (ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict)
     case divsi => exact (ExactProperties.fromAttrDict attrDict)
     case divui => exact (ExactProperties.fromAttrDict attrDict)
     case cmpi => exact (IcmpProperties.fromAttrDictFor "arith.cmpi" attrDict)
-    case shli => exact (NswNuwProperties.fromAttrDict attrDict)
+    case shli => exact (ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict)
     case shrsi => exact (ExactProperties.fromAttrDict attrDict)
     case shrui => exact (ExactProperties.fromAttrDict attrDict)
     case ori => exact (DisjointProperties.fromAttrDict attrDict)
-    case trunci => exact (NswNuwProperties.fromAttrDict attrDict)
+    case trunci => exact (ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict)
     case extui => exact (NnegProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case comb op =>
@@ -188,7 +188,11 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr intAttr)
     | .float floatAttr =>
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.floatAttr floatAttr)
-  | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci
+  | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    if props.attr.nsw || props.attr.nuw then
+      dict := dict.insert "overflowFlags".toUTF8 (Attribute.arithIntegerOverflowFlagsAttr props.attr)
+    dict
   | .llvm .add | .llvm .sub | .llvm .mul | .llvm .shl | .llvm .trunc => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
 
