@@ -130,6 +130,15 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "false" (IntegerAttr.mk 0 (IntegerType.mk 1))
 #assert expectSuccessAttr "true" (IntegerAttr.mk 1 (IntegerType.mk 1))
 
+/-! ## Integer overflow flags attributes -/
+
+#assert expectSuccessAttr "#arith.overflow<none>" (ArithIntegerOverflowFlagsAttr.mk false false)
+#assert expectSuccessAttr "#arith.overflow<nsw>" (ArithIntegerOverflowFlagsAttr.mk true false)
+#assert expectSuccessAttr "#arith.overflow<nuw>" (ArithIntegerOverflowFlagsAttr.mk false true)
+#assert expectSuccessAttr "#arith.overflow<nsw, nuw>" (ArithIntegerOverflowFlagsAttr.mk true true)
+#assert expectErrorAttr "#arith.overflow<>"
+  "expected integer overflow flag to be one of: none, nsw, nuw" (some 16)
+
 /-! ## String attributes -/
 
 #assert expectSuccessAttr "\"hello\"" (StringAttr.mk "hello".toByteArray)

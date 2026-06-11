@@ -75,6 +75,15 @@ structure FastMathFlagsAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  Arith integer overflow flags attribute.
+-/
+structure ArithIntegerOverflowFlagsAttr where
+  nsw : Bool
+  nuw : Bool
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+
+/--
   LLVM calling convention attribute, e.g. `#llvm.cconv<ccc>`.
 -/
 structure CConvAttr where
@@ -341,6 +350,8 @@ inductive Attribute
 | floatAttr (attr : FloatAttr)
 /-- Float fast math flags attribute -/
 | fastMathFlagsAttr (attr : FastMathFlagsAttr)
+/-- Arith integer overflow flags attribute -/
+| arithIntegerOverflowFlagsAttr (attr : ArithIntegerOverflowFlagsAttr)
 /-- LLVM calling convention attribute -/
 | cconvAttr (attr : CConvAttr)
 /-- LLVM linkage attribute -/
@@ -567,6 +578,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case arithIntegerOverflowFlagsAttr.arithIntegerOverflowFlagsAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case stringAttr.stringAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -655,6 +670,17 @@ instance : ToString FastMathFlagsAttr where
       if type.nsz then array := array ++ ["nsz"]
       if !type.nnan && !type.ninf && !type.nsz then array := array ++ ["none"]
     s!"#llvm.fastmath<{String.intercalate ", " array}>"
+
+def integerOverflowFlagsString (dialect : String) (nsw nuw : Bool) : String :=
+  let flags :=
+    if nsw && nuw then ["nsw", "nuw"]
+    else if nsw then ["nsw"]
+    else if nuw then ["nuw"]
+    else ["none"]
+  s!"#{dialect}.overflow<{String.intercalate ", " flags}>"
+
+instance : ToString ArithIntegerOverflowFlagsAttr where
+  toString attr := integerOverflowFlagsString "arith" attr.nsw attr.nuw
 
 instance : ToString CConvAttr where
   toString attr := s!"#llvm.cconv<{attr.value}>"
@@ -830,6 +856,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .integerType type => ToString.toString type
   | .floatType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
+  | .arithIntegerOverflowFlagsAttr attr => ToString.toString attr
   | .cconvAttr attr => ToString.toString attr
   | .linkageAttr attr => ToString.toString attr
   | .framePointerKindAttr attr => ToString.toString attr
@@ -939,6 +966,9 @@ instance : Coe ArrayAttr Attribute where
 instance : Coe FloatAttr Attribute where
   coe attr := .floatAttr attr
 
+instance : Coe ArithIntegerOverflowFlagsAttr Attribute where
+  coe attr := .arithIntegerOverflowFlagsAttr attr
+
 instance : Coe DenseArrayAttr Attribute where
   coe attr := .denseArrayAttr attr
 
@@ -984,6 +1014,7 @@ def isType (attr : Attribute) : Bool :=
   | .integerType _ => true
   | .floatType _ => true
   | .fastMathFlagsAttr _ => false
+  | .arithIntegerOverflowFlagsAttr _ => false
   | .cconvAttr _ => false
   | .linkageAttr _ => false
   | .framePointerKindAttr _ => false

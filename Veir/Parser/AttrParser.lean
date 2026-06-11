@@ -208,6 +208,26 @@ def parseFloatFastMathFlagsAttr : AttrParserM (Option FastMathFlagsAttr) := do
       nsz := floatFastMathFlags.nsz || flag.nsz }
   return some floatFastMathFlags
 
+def parseIntegerOverflowFlag : AttrParserM (Bool × Bool) := do
+  if ← parseOptionalKeyword "none".toByteArray then
+    return (false, false)
+  if ← parseOptionalKeyword "nsw".toByteArray then
+    return (true, false)
+  if ← parseOptionalKeyword "nuw".toByteArray then
+    return (false, true)
+  throwAtCurrentPos "expected integer overflow flag to be one of: none, nsw, nuw"
+
+def parseIntegerOverflowFlags : AttrParserM (Bool × Bool) := do
+  parsePunctuation "<"
+  let values ← parseList parseIntegerOverflowFlag
+  parsePunctuation ">"
+  let mut nsw := false
+  let mut nuw := false
+  for (flagNsw, flagNuw) in values do
+    nsw := nsw || flagNsw
+    nuw := nuw || flagNuw
+  return (nsw, nuw)
+
 def isClosingBracket (kind : TokenKind) : Bool :=
   kind = .greater || kind = .rParen || kind = .rSquare || kind = .rBrace
 
@@ -310,6 +330,10 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
 
   if dialectName = "llvm.fastmath".toByteArray then do
     return ← parseFloatFastMathFlagsAttr
+
+  if dialectName = "arith.overflow".toByteArray then do
+    let (nsw, nuw) ← parseIntegerOverflowFlags
+    return some (ArithIntegerOverflowFlagsAttr.mk nsw nuw : Attribute)
 
   if dialectName = "llvm.cconv".toByteArray then do
     parsePunctuation "<"

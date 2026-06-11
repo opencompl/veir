@@ -126,7 +126,7 @@ def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Option
   -- Get the lhs value
   let lhsValuePtr := op.getOperand rewriter.ctx.raw 0 (by sorry) (by sorry)
 
-  let (rewriter, newOp) ← rewriter.createOp (.arith .addi) #[IntegerType.mk 32] #[lhsValuePtr, lhsValuePtr] #[] #[] (NswNuwProperties.mk false false) (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.arith .addi) #[IntegerType.mk 32] #[lhsValuePtr, lhsValuePtr] #[] #[] (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) (some $ .before op) sorry sorry sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
@@ -221,7 +221,7 @@ def mulITwoReduce (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRCon
   -- Get the lhs value
   let lhsValuePtr := op.getOperand ctx.raw 0 (by sorry) (by sorry)
 
-  let (ctx, newOp) ← WfRewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[lhsValuePtr, lhsValuePtr] #[] #[] (NswNuwProperties.mk false false) (some $ .before op) sorry sorry sorry sorry
+  let (ctx, newOp) ← WfRewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[lhsValuePtr, lhsValuePtr] #[] #[] (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) (some $ .before op) sorry sorry sorry sorry
   let mut ctx ← WfRewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
 
   if (rhsValuePtr.getFirstUse ctx.raw (by sorry)).isNone then
@@ -299,13 +299,13 @@ def constFoldTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (
   (ctx, topOp)
 
 def addZeroTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
-  constFoldTree (.arith .addi) (NswNuwProperties.mk false false) size pc 42 0
+  constFoldTree (.arith .addi) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 0
 
 def addOneTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
-  constFoldTree (.arith .addi) (NswNuwProperties.mk false false) size pc 42 1
+  constFoldTree (.arith .addi) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 1
 
 def mulTwoTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
-  constFoldTree (.arith .muli) (NswNuwProperties.mk false false) size pc 42 2
+  constFoldTree (.arith .muli) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 2
 
 
 -- Create a program that looks like:
@@ -338,7 +338,7 @@ def constReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) 
   (ctx, topOp)
 
 def addZeroReuseTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
-  constReuseTree (.arith .addi) (NswNuwProperties.mk false false) size pc 42 0
+  constReuseTree (.arith .addi) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 0
 
 -- Create a program that looks like:
 -- func @main() -> u64 {
@@ -375,7 +375,7 @@ def constLotsOfReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc:
   (ctx, topOp)
 
 def addZeroLotsOfReuseTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
-  constLotsOfReuseTree (.arith .addi) (NswNuwProperties.mk false false) size pc 42 0
+  constLotsOfReuseTree (.arith .addi) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 0
 
 end Program
 
