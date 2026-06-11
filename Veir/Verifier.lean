@@ -171,6 +171,25 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
 
 /--
+  Ensure that every operand and result of a RISC-V register instruction has
+  type `!riscv.reg`. The caller is responsible for only invoking this on
+  `.riscv` operations.
+-/
+
+def OperationPtr.verifyRISCVRegisterTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+  let opTypes := op.getOperandTypes! ctx.raw
+  for i in [0:opTypes.size] do
+    match (opTypes[i]!).val with
+    | .registerType _ => pure ()
+    | _ => throw s!"{instrName}: Expected operand {i} to have !riscv.reg type"
+  for i in [0:op.getNumResults ctx.raw opIn] do
+    match ((op.getResult i).get! ctx.raw).type.val with
+    | .registerType _ => pure ()
+    | _ => throw s!"{instrName}: Expected result {i} to have !riscv.reg type"
+
+/--
   Verify local invariants of an operation.
   This typically includes checking that the number of operands, successors, results, and regions
   match the expected values for the given operation type.
@@ -2243,6 +2262,8 @@ public section
 def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
   ctx.raw.forOpsDepM (fun op opIn => do
     op.verifyLocalInvariants ctx opIn
+    if let .riscv _ := op.getOpType ctx.raw opIn then
+      op.verifyRISCVRegisterTypes ctx opIn
     match (op.get ctx.raw opIn).parent with
     | some _ => op.verifyTerminatorPosition ctx opIn
     | none => pure ())
