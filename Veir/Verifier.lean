@@ -100,6 +100,32 @@ def OperationPtr.verifyRISCVimm12 (op : OperationPtr) (ctx : WfIRContext OpCode)
   else
     pure ()
 
+/--
+  Check that a shift-amount/bit-index immediate fits in an unsigned 5-bit field
+  `[0, 31]`. Used by the word-width (`*w`) shift and rotate instructions, whose
+  shift amount operates on a 32-bit value.
+-/
+def OperationPtr.verifyRISCVuimm5 (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) (imm : Int) : Except String PUnit :=
+  if imm < 0 ∨ imm > 31 then
+    let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+    throw s!"{instrName} immediate out of bounds: must fit in an unsigned 5-bit field [0, 31]"
+  else
+    pure ()
+
+/--
+  Check that a shift-amount/bit-index immediate fits in an unsigned 6-bit field
+  `[0, 63]`. Used by the full-width (64-bit) shift, rotate, and single-bit
+  instructions, whose immediate indexes a 64-bit register.
+-/
+def OperationPtr.verifyRISCVuimm6 (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) (imm : Int) : Except String PUnit :=
+  if imm < 0 ∨ imm > 63 then
+    let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+    throw s!"{instrName} immediate out of bounds: must fit in an unsigned 6-bit field [0, 63]"
+  else
+    pure ()
+
 def OperationPtr.verifyOperandTypesMatch (op : OperationPtr) (ctx : WfIRContext OpCode)
     (firstIdx secondIdx : Nat) (errMsg : String) : Except String TypeAttr := do
   let firstType := (op.getOperand! ctx.raw firstIdx).getType! ctx.raw
@@ -1149,6 +1175,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .slli)).value.value
     pure ()
   | .riscv .srli => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1159,6 +1186,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .srli)).value.value
     pure ()
   | .riscv .srai => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1169,6 +1197,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .srai)).value.value
     pure ()
   | .riscv .add => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -1279,6 +1308,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw (.riscv .slliw)).value.value
     pure ()
   | .riscv .srliw => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1289,6 +1319,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw (.riscv .srliw)).value.value
     pure ()
   | .riscv .sraiw => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1299,6 +1330,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw (.riscv .sraiw)).value.value
     pure ()
   | .riscv .addw => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -1559,6 +1591,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .slliuw)).value.value
     pure ()
   | .riscv .andn => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -1789,6 +1822,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw (.riscv .roriw)).value.value
     pure ()
   | .riscv .rori => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1799,6 +1833,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .rori)).value.value
     pure ()
   | .riscv .bclr => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -1849,6 +1884,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .bclri)).value.value
     pure ()
   | .riscv .bexti => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1859,6 +1895,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .bexti)).value.value
     pure ()
   | .riscv .binvi => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1869,6 +1906,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .binvi)).value.value
     pure ()
   | .riscv .bseti => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -1879,6 +1917,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .bseti)).value.value
     pure ()
   | .riscv .pack => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
