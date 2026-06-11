@@ -21,6 +21,6 @@
 // CHECK-NEXT:   [[AQ:%.*]] = "arith.addi"([[E0]], [[Q]]) : (i33, i33) -> i33
 // CHECK-NEXT:   [[DIFF:%.*]] = "arith.subi"([[AQ]], [[E1]]) : (i33, i33) -> i33
 // CHECK-NEXT:   [[DIFFR:%.*]] = "arith.remui"([[DIFF]], [[Q]]) : (i33, i33) -> i33
-// CHECK-NEXT:   [[T:%.*]] = "arith.trunci"([[DIFFR]]) <{"overflowFlags" = 2 : i32}> : (i33) -> i32
+// CHECK-NEXT:   [[T:%.*]] = "arith.trunci"([[DIFFR]]) <{"overflowFlags" = #arith.overflow<nuw>}> : (i33) -> i32
 // CHECK-NEXT:   [[RES:%.*]] = "builtin.unrealized_conversion_cast"([[T]]) : (i32) -> !mod_arith.int<7 : i32>
 // CHECK-NEXT:   "func.return"([[RES]]) : (!mod_arith.int<7 : i32>) -> ()

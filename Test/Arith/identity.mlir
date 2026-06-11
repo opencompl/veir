@@ -5,9 +5,9 @@
     ^4():
       %5 = "arith.constant"() <{ "value" = 13 : i32 }> : () -> i32
       %addi = "arith.addi"(%5, %5) : (i32, i32) -> i32
-      %addi_nsw = "arith.addi"(%5, %5) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-      %addi_nuw = "arith.addi"(%5, %5) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
-      %addi_nsw_nuw = "arith.addi"(%5, %5) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
+      %addi_nsw = "arith.addi"(%5, %5) <{"overflowFlags" = #arith.overflow<nsw>}> : (i32, i32) -> i32
+      %addi_nuw = "arith.addi"(%5, %5) <{"overflowFlags" = #arith.overflow<nuw>}> : (i32, i32) -> i32
+      %addi_nsw_nuw = "arith.addi"(%5, %5) <{"overflowFlags" = #arith.overflow<nsw, nuw>}> : (i32, i32) -> i32
       %70, %71 = "arith.addui_extended"(%5, %5) : (i32, i32) -> (i32, i1)
       %8 = "arith.andi"(%5, %5) : (i32, i32) -> i32
       %9 = "arith.ceildivsi"(%5, %5) : (i32, i32) -> i32
@@ -22,9 +22,9 @@
       %18 = "arith.minsi"(%5, %5) : (i32, i32) -> i32
       %19 = "arith.minui"(%5, %5) : (i32, i32) -> i32
       %muli = "arith.muli"(%5, %5) : (i32, i32) -> i32
-      %muli_nsw = "arith.muli"(%5, %5) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-      %muli_nuw = "arith.muli"(%5, %5) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
-      %muli_nsw_nuw = "arith.muli"(%5, %5) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
+      %muli_nsw = "arith.muli"(%5, %5) <{"overflowFlags" = #arith.overflow<nsw>}> : (i32, i32) -> i32
+      %muli_nuw = "arith.muli"(%5, %5) <{"overflowFlags" = #arith.overflow<nuw>}> : (i32, i32) -> i32
+      %muli_nsw_nuw = "arith.muli"(%5, %5) <{"overflowFlags" = #arith.overflow<nsw, nuw>}> : (i32, i32) -> i32
       %210, %211 = "arith.mulsi_extended"(%5, %5) : (i32, i32) -> (i32, i32)
       %220, %221 = "arith.mului_extended"(%5, %5) : (i32, i32) -> (i32, i32)
       %23 = "arith.ori"(%5, %5) : (i32, i32) -> i32
@@ -47,9 +47,9 @@
 // CHECK-NEXT:       ^{{.*}}():
 // CHECK-NEXT:         %{{.*}} = "arith.constant"() <{"value" = 13 : i32}> : () -> i32
 // CHECK-NEXT:         %{{.*}} = "arith.addi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
-// CHECK-NEXT:         %{{.*}} = "arith.addi"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %{{.*}} = "arith.addi"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %{{.*}} = "arith.addi"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %{{.*}} = "arith.addi"(%{{.*}}, %{{.*}}) <{"overflowFlags" = #arith.overflow<nsw>}> : (i32, i32) -> i32
+// CHECK-NEXT:         %{{.*}} = "arith.addi"(%{{.*}}, %{{.*}}) <{"overflowFlags" = #arith.overflow<nuw>}> : (i32, i32) -> i32
+// CHECK-NEXT:         %{{.*}} = "arith.addi"(%{{.*}}, %{{.*}}) <{"overflowFlags" = #arith.overflow<nsw, nuw>}> : (i32, i32) -> i32
 // CHECK-NEXT:         %{{.*}}:2 = "arith.addui_extended"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
 // CHECK-NEXT:         %{{.*}} = "arith.andi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:         %{{.*}} = "arith.ceildivsi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
@@ -64,9 +64,9 @@
 // CHECK-NEXT:         %{{.*}} = "arith.minsi"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:         %{{.*}} = "arith.minui"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:         %{{.*}} = "arith.muli"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
-// CHECK-NEXT:         %{{.*}} = "arith.muli"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %{{.*}} = "arith.muli"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %{{.*}} = "arith.muli"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %{{.*}} = "arith.muli"(%{{.*}}, %{{.*}}) <{"overflowFlags" = #arith.overflow<nsw>}> : (i32, i32) -> i32
+// CHECK-NEXT:         %{{.*}} = "arith.muli"(%{{.*}}, %{{.*}}) <{"overflowFlags" = #arith.overflow<nuw>}> : (i32, i32) -> i32
+// CHECK-NEXT:         %{{.*}} = "arith.muli"(%{{.*}}, %{{.*}}) <{"overflowFlags" = #arith.overflow<nsw, nuw>}> : (i32, i32) -> i32
 // CHECK-NEXT:         %{{.*}}:2 = "arith.mulsi_extended"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i32)
 // CHECK-NEXT:         %{{.*}}:2 = "arith.mului_extended"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i32)
 // CHECK-NEXT:         %{{.*}} = "arith.ori"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
