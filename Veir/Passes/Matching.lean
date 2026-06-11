@@ -61,6 +61,14 @@ def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) : Option Integ
   let op := opResultPtr.op
   matchConstantIntOp op ctx
 
+/--
+  Return the operation that defines `val`, if `val` is the result of an operation
+  (rather than a block argument). Used for matching multi-operation patterns.
+-/
+def getDefiningOp (val : ValuePtr) (_ctx : IRContext OpCode) : Option OperationPtr := do
+  let .opResult opResultPtr := val | none
+  some opResultPtr.op
+
 def matchCastOp (op : OperationPtr) (ctx : IRContext OpCode) : Option IntegerAttr := do
   let .builtin .unrealized_conversion_cast := op.getOpType! ctx | none
   let properties := op.getProperties! ctx (.llvm .mlir__constant)

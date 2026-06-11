@@ -696,10 +696,67 @@ def getelementptr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
 
+set_option warn.sorry false in
+/--
+  Fuse `sub (shl M 8) M` into `riscv.orcb M`, where `M = and Z 0x0101_0101_0101_0101`.
+
+  This is the `Y = 0` case of LLVM's `combineSubShiftToOrcB`. Since we have no
+  known-bits analysis, the `and` with the per-byte bit-0 mask is what makes the
+  rewrite sound: it guarantees each byte of `M` has only bit 0 possibly set, so
+  `(M << 8) - M` produces `0xFF` in every byte that was nonzero and `0x00`
+  elsewhere — exactly `orc.b M`.
+
+  This is a multi-operation fusion, so it must run in the early isel loop, before
+  the per-op lowerings rewrite the `sub`/`shl` roots on their own.
+-/
+def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+    Option (PatternRewriter OpCode) := do
+  let some (a, b, _) := matchSub op rewriter.ctx | return rewriter
+  /- only support `i64` -/
+  let .integerType atype := (a.getType! rewriter.ctx.raw).val | return rewriter
+  if atype.bitwidth ≠ 64 then return rewriter
+  let .integerType btype := (b.getType! rewriter.ctx.raw).val | return rewriter
+  if btype.bitwidth ≠ 64 then return rewriter
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
+  let .integerType type' := type.val | rewriter
+  if type'.bitwidth ≠ 64 then return rewriter
+  /- left operand must be `shl M 8` -/
+  let some aOp := getDefiningOp a rewriter.ctx | return rewriter
+  let some (m, shamt, _) := matchShl aOp rewriter.ctx | return rewriter
+  let some shc := matchConstantIntVal shamt rewriter.ctx | return rewriter
+  if shc.value ≠ 8 then return rewriter
+  /- right operand must be the same value `M` -/
+  if b ≠ m then return rewriter
+  /- soundness gate: `M = and Z 0x0101_0101_0101_0101` -/
+  let some mOp := getDefiningOp m rewriter.ctx | return rewriter
+  let some (mo0, mo1) := matchAnd mOp rewriter.ctx | return rewriter
+  let mask0 : Int := 0x0101010101010101
+  let isMask : ValuePtr → Bool := fun v =>
+    match matchConstantIntVal v rewriter.ctx with
+    | some attr => attr.value == mask0
+    | none => false
+  if !(isMask mo0 || isMask mo1) then return rewriter
+  /- cast `M` to a register -/
+  let (rewriter, mCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[m]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- actual `riscv.orcb` -/
+  let (rewriter, orcbOp) ← rewriter.createOp (.riscv .orcb) #[RegisterType.mk] #[mCastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- cast back result for type consistency -/
+  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[orcbOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
+  /- Early loop: multi-instruction fusion patterns that must run before the
+     per-op lowerings consume their operands. -/
+  let earlyPattern := RewritePattern.GreedyRewritePattern #[orcb]
+  let some ctx := RewritePattern.applyInContext earlyPattern ctx
+    | throw "Error while applying early instruction-selection patterns"
+  /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store]
   match RewritePattern.applyInContext pattern ctx with

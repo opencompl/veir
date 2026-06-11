@@ -191,3 +191,23 @@ theorem urem_refinement {x y : LLVM.Int 64} :
 theorem sub_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.sub x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.sub (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
   refine_bv_decide
+
+/--
+  Prove the correctness of the `orcb` lowering pattern (the `Y = 0` case).
+
+  The `and` with the per-byte bit-0 mask `0x0101_0101_0101_0101` is what makes the
+  rewrite sound: it ensures each byte of the masked value `M` has only bit 0
+  possibly set, so `(M << 8) - M` equals `orc.b M`.
+-/
+theorem orcb_refinement_y0 {z : LLVM.Int 64} :
+    (Data.LLVM.Int.sub
+        (Data.LLVM.Int.shl
+          (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x0101010101010101))
+          (LLVM.Int.constant 64 8))
+        (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x0101010101010101)))
+      ⊒ RISCV.Reg.toInt
+          (Data.RISCV.orcb (LLVM.Int.toReg
+            (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x0101010101010101)))) 64 := by
+  simp only [llvm_toBitVec, reg_toBitVec, Data.RISCV.orcByte]
+  simp [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]
+  bv_decide
