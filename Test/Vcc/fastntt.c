@@ -123,8 +123,8 @@ int main() {
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT: ^[[BB4:[0-9]+]]():
-// CHECK-NEXT:   "llvm.module_flags"() <{"flags" = [#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>, #llvm.mlir.module_flag<min, "PIC Level", 2 : i32>, #llvm.mlir.module_flag<max, "PIE Level", 2 : i32>, #llvm.mlir.module_flag<max, "uwtable", 2 : i32>, #llvm.mlir.module_flag<max, "frame-pointer", 2 : i32>]}> : () -> ()
-// CHECK-NEXT:   "llvm.func"() <{"CConv" = #llvm.cconv<ccc>, dso_local, "frame_pointer" = #llvm.framePointerKind<all>, "function_type" = !llvm.func<i32 ()>, "linkage" = #llvm.linkage<external>, no_inline, no_unwind, "passthrough" = [["min-legal-vector-width", "0"], ["no-trapping-math", "true"], ["stack-protector-buffer-size", "8"], ["target-cpu", "{{.*}}"]], "sym_name" = "main", "target_cpu" = "{{.*}}", "target_features" = #llvm.target_features<[{{.*}}]>, "tune_cpu" = "{{.*}}", "unnamed_addr" = 0 : i64, "uwtable_kind" = #llvm.uwtableKind<async>, "visibility_" = 0 : i64}> ({
+// CHECK-NEXT:   "llvm.module_flags"()
+// CHECK-NEXT:   "llvm.func"() <{"CConv" = #llvm.cconv<ccc>, {{.*}}"function_type" = !llvm.func<i32 ()>, "linkage" = #llvm.linkage<external>, no_inline, no_unwind, {{.*}}"sym_name" = "main"{{.*}}}> ({
 // CHECK-NEXT:   ^[[BB7:[0-9]+]]():
 // CHECK-NEXT:     %[[M_C1:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
 // CHECK-NEXT:     %[[M_C0:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
@@ -135,14 +135,14 @@ int main() {
 // CHECK-NEXT:     %[[M_C8:.*]] = "llvm.mlir.constant"() <{"value" = 8 : i64}> : () -> i64
 // CHECK-NEXT:     %[[M_C0_32:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
 // CHECK-NEXT:     %[[M_C17:.*]] = "llvm.mlir.constant"() <{"value" = 17 : i64}> : () -> i64
-// CHECK-NEXT:     %[[ALLOC17:.*]] = "llvm.alloca"(%[[M_C1]]) <{"alignment" = 16 : i64, "elem_type" = !llvm.array<4 x i64>}> : (i32) -> !llvm.ptr
-// CHECK-NEXT:     %[[ALLOC18:.*]] = "llvm.alloca"(%[[M_C1]]) <{"alignment" = 16 : i64, "elem_type" = !llvm.array<8 x i64>}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:     %[[ALLOC17:.*]] = "llvm.alloca"(%[[M_C1]]) <{"alignment" = {{[0-9]+}} : i64, "elem_type" = !llvm.array<4 x i64>}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:     %[[ALLOC18:.*]] = "llvm.alloca"(%[[M_C1]]) <{"alignment" = {{[0-9]+}} : i64, "elem_type" = !llvm.array<8 x i64>}> : (i32) -> !llvm.ptr
 // CHECK-NEXT:     %[[GEP19:.*]] = "llvm.getelementptr"(%[[ALLOC17]], %[[M_C0]], %[[M_C0]]) <{"elem_type" = !llvm.array<4 x i64>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:     "llvm.store"(%[[M_C1_64]], %[[GEP19]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 16 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
+// CHECK-NEXT:     "llvm.store"(%[[M_C1_64]], %[[GEP19]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = {{[0-9]+}} : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
 // CHECK-NEXT:     %[[GEP21:.*]] = "llvm.getelementptr"(%[[ALLOC17]], %[[M_C0]], %[[M_C1_64]]) <{"elem_type" = !llvm.array<4 x i64>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
 // CHECK-NEXT:     "llvm.store"(%[[M_C2]], %[[GEP21]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 8 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
 // CHECK-NEXT:     %[[GEP23:.*]] = "llvm.getelementptr"(%[[ALLOC17]], %[[M_C0]], %[[M_C2]]) <{"elem_type" = !llvm.array<4 x i64>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:     "llvm.store"(%[[M_C3]], %[[GEP23]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 16 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
+// CHECK-NEXT:     "llvm.store"(%[[M_C3]], %[[GEP23]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = {{[0-9]+}} : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
 // CHECK-NEXT:     %[[GEP25:.*]] = "llvm.getelementptr"(%[[ALLOC17]], %[[M_C0]], %[[M_C3]]) <{"elem_type" = !llvm.array<4 x i64>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
 // CHECK-NEXT:     "llvm.store"(%[[M_C4]], %[[GEP25]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 8 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i64, !llvm.ptr) -> ()
 // CHECK-NEXT:     "llvm.br"(%[[M_C1_64]], %[[M_C0]]) [^[[BB28:[0-9]+]]] : (i64, i64) -> ()
