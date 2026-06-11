@@ -33,9 +33,11 @@ instance : LE Liveness where
 
 @[simp] theorem le_def (a b : Liveness) : (a ≤ b) ↔ le a b := Iff.rfl
 
+@[simp, grind .]
 theorem le_top (a : Liveness) : a ≤ .live := by
   cases a <;> trivial
 
+@[simp, grind .]
 theorem bot_le (a : Liveness) : .dead ≤ a := by
   cases a <;> trivial
 
@@ -66,18 +68,23 @@ theorem γ_monotone (a b : Liveness) : a ≤ b → γ a ⊆ γ b := by
   case dead.live => cases hx
   case live.live => exact hx
 
+@[simp, grind .]
 theorem le_refl (a : Liveness) : a ≤ a := by
   cases a <;> simp [le]
 
+@[grind →]
 theorem le_trans (a b c : Liveness) : a ≤ b → b ≤ c → a ≤ c := by
   cases a <;> cases b <;> cases c <;> simp_all [le]
 
+@[grind →]
 theorem le_antisymm (a b : Liveness) : a ≤ b → b ≤ a → a = b := by
   cases a <;> cases b <;> simp_all [le]
 
+@[simp, grind .]
 theorem le_join_left (a b : Liveness) : a ≤ a ⊔ b := by
   cases a <;> cases b <;> simp [le, join]
 
+@[simp, grind .]
 theorem le_join_right (a b : Liveness) : b ≤ a ⊔ b := by
   cases a <;> cases b <;> simp [le, join]
 
