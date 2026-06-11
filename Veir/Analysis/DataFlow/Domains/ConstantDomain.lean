@@ -82,10 +82,11 @@ theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b := by
 theorem le_refl (a : AbstractConstant) : a ≤ a := by
   cases a <;> simp [le]
 
+@[grind →]
 theorem le_trans (a b c : AbstractConstant) : a ≤ b → b ≤ c → a ≤ c := by
   cases a <;> cases b <;> cases c <;> simp_all [le]
 
-@[grind .]
+@[grind →]
 theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := by
   cases a <;> cases b <;> simp_all [le]
 
