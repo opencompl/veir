@@ -10,7 +10,7 @@ namespace Veir
 # Liveness domain
 
 Instantiation of `AbstractDomain` with a two point lattice used by dead code analysis.
-`dead` denotes an unreachable program point or edge, while `live` denotes an executable one.
+`dead` denotes an unreachable program point or edge, while `live` denotes a reachable one.
 -/
 
 /-- Abstract values used to track executability. -/
@@ -31,7 +31,7 @@ def le (x y : Liveness) : Prop :=
 instance : LE Liveness where
   le := le
 
-@[simp] theorem le_def (a b : Liveness) : (a ≤ b) ↔ le a b := Iff.rfl
+theorem le_def (a b : Liveness) : (a ≤ b) ↔ le a b := Iff.rfl
 
 @[simp, grind .]
 theorem le_top (a : Liveness) : a ≤ .live := by
@@ -63,34 +63,34 @@ instance : Join Liveness where
 
 theorem γ_monotone (a b : Liveness) : a ≤ b → γ a ⊆ γ b := by
   intro hab x hx
-  cases a <;> cases b <;> simp [γ, le] at hab hx ⊢
+  cases a <;> cases b <;> simp [γ, le_def, le] at hab hx ⊢
   case dead.dead => cases hx
   case dead.live => cases hx
   case live.live => exact hx
 
 @[simp, grind .]
 theorem le_refl (a : Liveness) : a ≤ a := by
-  cases a <;> simp [le]
+  cases a <;> simp
 
 @[grind →]
 theorem le_trans (a b c : Liveness) : a ≤ b → b ≤ c → a ≤ c := by
-  cases a <;> cases b <;> cases c <;> simp_all [le]
+  cases a <;> cases b <;> cases c <;> simp_all
 
 @[grind →]
 theorem le_antisymm (a b : Liveness) : a ≤ b → b ≤ a → a = b := by
-  cases a <;> cases b <;> simp_all [le]
+  cases a <;> cases b <;> simp_all [le_def, le]
 
 @[simp, grind .]
 theorem le_join_left (a b : Liveness) : a ≤ a ⊔ b := by
-  cases a <;> cases b <;> simp [le, join]
+  cases a <;> cases b <;> simp [join]
 
 @[simp, grind .]
 theorem le_join_right (a b : Liveness) : b ≤ a ⊔ b := by
-  cases a <;> cases b <;> simp [le, join]
+  cases a <;> cases b <;> simp [join]
 
 theorem join_le (a b c : Liveness) : a ≤ c → b ≤ c → a ⊔ b ≤ c := by
   intros
-  cases a <;> cases b <;> cases c <;> simp_all [le, join]
+  cases a <;> cases b <;> cases c <;> simp_all [join]
 
 instance : JoinSemilattice Liveness where
   le_refl := le_refl
