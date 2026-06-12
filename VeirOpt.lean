@@ -48,14 +48,15 @@ structure VeirOptArgs where
   Parse the `-p` flag to construct a pass pipeline.
   Returns an error if the flag is malformed or if any pass name is unknown.
 -/
-def parsePipelineOption (args : List String) : Except String (PassPipeline OpCode) := do
-  let passesFlags := args.filter (·.startsWith "-p=")
+def parsePipelineOption (args : List String) :
+    Except String (PassPipeline OpCode × List String) := do
+  let (passesFlags, rest) := args.partition (·.startsWith "-p=")
   match passesFlags with
-  | [] => return { passes := #[] }
+  | [] => return ({ passes := #[] }, rest)
   | [flag] =>
     let arg := (flag.drop 3).toString
     match PassPipeline.ofString? availablePasses arg with
-    | .ok pipeline => return pipeline
+    | .ok pipeline => return (pipeline, rest)
     | .error errMsg => .error s!"Error parsing -p flag: {errMsg}"
   | _ => .error "Expected at most one -p flag."
 
@@ -64,9 +65,14 @@ def parsePipelineOption (args : List String) : Except String (PassPipeline OpCod
 -/
 def parseArgs (args : List String) : Except String VeirOptArgs := do
   let (flags, positional) := args.partition (·.startsWith "-")
-  -- Parses the `-p` flag if present.
-  let pipeline ← parsePipelineOption flags
+  -- Consume the `-p` flag if present.
+  let (pipeline, flags) ← parsePipelineOption flags
+  -- Consume `--allow-unregistered-dialect` if present.
   let allowUnregisteredDialect := flags.contains "--allow-unregistered-dialect"
+  let flags := flags.filter (· != "--allow-unregistered-dialect")
+  -- If anything survived, it was unrecognized and we error out.
+  if let some flag := flags.head? then
+    .error s!"Unrecognized flag '{flag}'."
 
   if positional.length == 0 then -- read from stdin
     return { filename := none, passes := pipeline, allowUnregisteredDialect }
