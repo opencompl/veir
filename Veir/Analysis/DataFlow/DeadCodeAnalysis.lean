@@ -11,8 +11,7 @@ namespace Veir
 namespace ExecutableFact
 
 def mkDefault : ExecutableFact :=
-  { dependents := #[]
-    payload := { latticeElement := .dead, subscribers := #[] } }
+  { payload := { latticeElement := .dead } }
 
 def propagate (state : ExecutableFact) (anchor : LatticeAnchor) 
   (dfCtx : DataFlowContext) (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
@@ -324,7 +323,7 @@ partial def initializeRecursively
       let parentBlock := (op.get! irCtx).parent.get h
       let blockPoint := InsertPoint.atStart! parentBlock irCtx
       dfCtx := dfCtx.modifyFact .executable (.InsertPoint blockPoint) (fun fact =>
-        fact.blockContentSubscribe kind)
+        fact.subscribe kind)
 
     -- Visit the op.
     dfCtx := visitOp op dfCtx irCtx

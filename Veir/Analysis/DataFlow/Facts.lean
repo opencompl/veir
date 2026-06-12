@@ -90,7 +90,6 @@ Tracks whether a control flow point or edge is executable.
 -/
 structure ExecutablePayload where
   latticeElement : Liveness := .dead
-  subscribers : Array AnalysisKind := #[]
 
 /--
 The fact specific data stored for each fact kind.
@@ -168,23 +167,11 @@ def live (fact : Fact .executable) : Bool :=
 def latticeElement (fact : Fact .executable) : Liveness :=
   fact.payload.latticeElement
 
-def subscribers (fact : Fact .executable) : Array AnalysisKind :=
-  fact.payload.subscribers
-
 def setLatticeElement (fact : Fact .executable) (latticeElement : Liveness) : Fact .executable :=
   { fact with payload := { fact.payload with latticeElement := latticeElement } }
 
-def setSubscribers (fact : Fact .executable) (subscribers : Array AnalysisKind) : Fact .executable :=
-  { fact with payload := { fact.payload with subscribers := subscribers } }
-
 def setToLive (fact : Fact .executable) : Fact .executable :=
   fact.setLatticeElement .live
-
-def blockContentSubscribe (fact : Fact .executable) (analysisKind : AnalysisKind) : Fact .executable :=
-  if fact.subscribers.contains analysisKind then
-    fact
-  else
-    fact.setSubscribers (fact.subscribers.push analysisKind)
 
 end Fact
 
