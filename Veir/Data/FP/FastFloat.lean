@@ -93,6 +93,6 @@ instance {e s : Nat} {mode : RoundingMode} : Div (FastFloat e s mode) := ‚ü®div‚
 
 end FastFloat
 
-end -- public section
+end
 
 end Veir.Data.FP
