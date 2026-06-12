@@ -92,10 +92,9 @@ The fact specific data stored for each fact kind.
 /--
 A dataflow fact stored by the framework.
 
-Each fact carries a lattice anchor (some location in the program this fact
-associates with), an array of dependents (other facts that "depend" on this fact's
-current state in some fashion), and the fact specific payload determined by its
-`FactKind`.
+Each fact associates with a lattice anchor (some location in the program), has 
+an array of dependents (other facts that "depend" on this fact's current state in
+some fashion), and has the fact specific payload determined by its `FactKind`.
 -/
 structure Fact (kind : FactKind) where
   dependents : Array WorkItem := #[]

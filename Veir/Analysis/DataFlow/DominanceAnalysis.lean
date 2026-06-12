@@ -85,8 +85,8 @@ def mkDefault : DominatorFact :=
   { dependents := #[]
     payload := { iDom := none } }
 
-def propagate (fact : DominatorFact) (dfCtx : DataFlowContext)
-    (_irCtx : IRContext OpCode) : DataFlowContext :=
+def propagate (fact : DominatorFact) (_anchor : LatticeAnchor) 
+    (dfCtx : DataFlowContext) (_irCtx : IRContext OpCode) : DataFlowContext :=
   { dfCtx with workList := fact.enqueueDependents dfCtx.workList }
 
 instance : FactSpec .dominator where
@@ -101,8 +101,8 @@ def mkDefault : RegionMetadataFact :=
   { dependents := #[]
     payload := { postOrderIndex := {} } }
 
-def propagate (_fact : RegionMetadataFact) (dfCtx : DataFlowContext)
-    (_irCtx : IRContext OpCode) : DataFlowContext :=
+def propagate (_fact : RegionMetadataFact) (_anchor : LatticeAnchor) 
+    (dfCtx : DataFlowContext) (_irCtx : IRContext OpCode) : DataFlowContext :=
   dfCtx
 
 instance : FactSpec .regionMetadata where
