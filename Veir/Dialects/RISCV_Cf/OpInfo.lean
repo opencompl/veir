@@ -17,7 +17,8 @@ match op with
 | .bge => RISCVBrProperties
 | .bltu => RISCVBrProperties
 | .bgeu => RISCVBrProperties
-| .cbr => RISCVBrProperties
+| .beqz => RISCVBrProperties
+| .bnez => RISCVBrProperties
 | _ => Unit
 
 instance : HasDialectOpInfo Riscv_Cf where

@@ -1193,7 +1193,16 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInf
       return (#[], some (.branch (operands.extract 2 (trueSize + 2)) destTrue))
     else
       return (#[], some (.branch (operands.extract (trueSize + 2) operands.size) destFalse))
-  | .cbr => do
+  | .beqz => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (RuntimeValue.reg cond) := operands[0]? | none
+    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let trueSize := trueSize.toNat
+    if cond.val = 0#64 then
+      return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
+    else
+      return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+  | .bnez => do
     let [destTrue, destFalse] := blockOperands.toList | none
     let some (RuntimeValue.reg cond) := operands[0]? | none
     let some trueSize := properties.operandSegmentSizes.values[2]? | none
