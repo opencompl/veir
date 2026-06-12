@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=isel-sdag-riscv64,isel-riscv64 | filecheck %s
 
 // `sub (shl M (8 - Y)) (lshr M Y)`, where `M = and %z (0x0101_0101_0101_0101 <<< Y)`,
 // fuses into `riscv.orcb M` (LLVM's combineSubShiftToOrcB). The `and` with the
