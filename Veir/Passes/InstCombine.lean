@@ -15,7 +15,7 @@ namespace Veir
 
 set_option warn.sorry false in
 /-- Rewrites `x * 2` to `x + x`. -/
-def mulITwoToAddi (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def mulITwoToAddi (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, properties) := matchMuli op rewriter.ctx
     | return rewriter
@@ -29,7 +29,7 @@ def mulITwoToAddi (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x * 0` to `0`. -/
-def mulIZeroToCst (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def mulIZeroToCst (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, properties) := matchMuli op rewriter.ctx
     | return rewriter
@@ -46,7 +46,7 @@ def mulIZeroToCst (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x + 0` to `x`. -/
-def addiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def addiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchAddi op rewriter.ctx
     | return rewriter
@@ -59,7 +59,7 @@ def addiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x * 1` to `x`. -/
-def mulIOneToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def mulIOneToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchMuli op rewriter.ctx
     | return rewriter
@@ -72,7 +72,7 @@ def mulIOneToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x - 0` to `x`. -/
-def subiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def subiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchSubi op rewriter.ctx
     | return rewriter
@@ -85,7 +85,7 @@ def subiZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x - x` to `0`. -/
-def subiSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def subiSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchSubi op rewriter.ctx
     | return rewriter
@@ -100,7 +100,7 @@ def subiSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x & x` to `x`. -/
-def andiSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def andiSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchAndi op rewriter.ctx
     | return rewriter
@@ -111,7 +111,7 @@ def andiSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x & 0` to `0`. -/
-def andiZeroToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def andiZeroToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchAndi op rewriter.ctx
     | return rewriter
@@ -128,7 +128,7 @@ def andiZeroToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x | 0` to `x`. -/
-def oriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def oriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchOri op rewriter.ctx
     | return rewriter
@@ -141,7 +141,7 @@ def oriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x | x` to `x`. -/
-def oriSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def oriSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchOri op rewriter.ctx
     | return rewriter
@@ -152,7 +152,7 @@ def oriSelfToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x ^ 0` to `x`. -/
-def xoriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def xoriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchXori op rewriter.ctx
     | return rewriter
@@ -165,7 +165,7 @@ def xoriZeroToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- Rewrites `x ^ x` to `0`. -/
-def xoriSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def xoriSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchXori op rewriter.ctx
     | return rewriter
@@ -189,7 +189,7 @@ def matchNot (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
 
 set_option warn.sorry false in
 /-- Rewrites `~~x` to `x`. -/
-def notNotToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def notNotToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some outerNotted := matchNot (op.getResult 0) rewriter.ctx
     | return rewriter
@@ -201,7 +201,7 @@ def notNotToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 set_option warn.sorry false in
 /-- Rewrites `~(~a & ~b)` to `a | b` (DeMorgan). -/
 /- TODO: the precondition should be strengthened by some hasOneUse() checks -/
-def deMorganAndToOr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def deMorganAndToOr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some andVal := matchNot (op.getResult 0) rewriter.ctx
     | return rewriter
@@ -222,7 +222,7 @@ def deMorganAndToOr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 set_option warn.sorry false in
 /-- Rewrites `~(~a | ~b)` to `a & b` (DeMorgan). -/
 /- TODO: the precondition should be strengthened by some hasOneUse() checks -/
-def deMorganOrToAnd (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def deMorganOrToAnd (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some orVal := matchNot (op.getResult 0) rewriter.ctx
     | return rewriter

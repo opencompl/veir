@@ -30,7 +30,8 @@ def isPreservingIntegerTypeRoundTrip (inputType interType : TypeAttr) : Bool :=
 
 /- Reconciles round-trip casts of the form X->Y->X if allowed for these types by `legal X Y` -/
 set_option warn.sorry false in
-def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
+def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some cast := matchCastOp op rewriter.ctx.raw | return rewriter
   let input := op.getOperand! rewriter.ctx.raw 0
@@ -58,8 +59,8 @@ def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) (rewriter : Pa
     return rewriter
 
 set_option warn.sorry false in
-def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
-    Option (PatternRewriter OpCode) := do
+def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+  (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some cast := matchCastOp op rewriter.ctx.raw | return rewriter
   /- get the input and output types -/
   let input := op.getOperand! rewriter.ctx.raw 0
