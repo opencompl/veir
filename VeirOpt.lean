@@ -72,7 +72,7 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   let flags := flags.filter (· != "--allow-unregistered-dialect")
   -- If anything survived, it was unrecognized and we error out.
   if let some flag := flags.head? then
-    .error s!"Unrecognized flag '{flag}'. Expected '-p=\"pass1,pass2,...\"' and/or '--allow-unregistered-dialect'."
+    .error s!"Unrecognized flag '{flag}'."
 
   if positional.length == 0 then -- read from stdin
     return { filename := none, passes := pipeline, allowUnregisteredDialect }
