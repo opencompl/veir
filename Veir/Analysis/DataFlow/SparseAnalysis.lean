@@ -214,7 +214,7 @@ partial def subscribeToOperand
     (operand : ValuePtr)
     (dfCtx : DataFlowContext) : DataFlowContext :=
   dfCtx.modifyFact kind (.ValuePtr operand) (fun state =>
-    SparseFact.useDefSubscribe (kind := kind) state analysisKind)
+    state.subscribe analysisKind)
 
 /--
 Visit one operation in the sparse analysis.
