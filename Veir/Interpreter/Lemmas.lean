@@ -10,6 +10,22 @@ variable {varState varState' : VariableState ctx}
 variable {state state' : InterpreterState ctx}
 variable {op op' : OperationPtr}
 
+/-- The value stored for `var` conforms to `var`'s type. -/
+theorem VariableState.getVar?_conforms {ctx : WfIRContext OpInfo} {state : VariableState ctx}
+    {var : ValuePtr} {val : RuntimeValue} (h : state.getVar? var = some val) :
+    val.Conforms (var.getType! ctx.raw) := by
+  grind [VariableState.getVar?, state.conforms var val]
+
+/-- The operand values gathered by `getOperandValues` conform to `op`'s declared operand types. -/
+theorem VariableState.getOperandValues_conforms
+    (h : varState.getOperandValues op = some values) :
+    RuntimeValue.ArrayConforms values (op.getOperandTypes! ctx.raw) := by
+  simp only [VariableState.getOperandValues] at h
+  simp only [RuntimeValue.ArrayConforms]
+  constructor; grind
+  intro i hi
+  grind [VariableState.getVar?_conforms, Array.mapM_option_eq_some_implies h i (by grind)]
+
 @[grind =]
 theorem VariableState.setVar?_eq_some_setVar (h : val.Conforms (var.getType! ctx.raw)) :
     varState.setVar? var val inBounds = some (varState.setVar var val h inBounds) := by
