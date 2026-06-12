@@ -100,6 +100,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case bge => exact (RISCVBrProperties.fromAttrDict attrDict)
     case bltu => exact (RISCVBrProperties.fromAttrDict attrDict)
     case bgeu => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case beqz => exact (RISCVBrProperties.fromAttrDict attrDict)
+    case bnez => exact (RISCVBrProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case riscv_stack op =>
     cases op
@@ -150,17 +152,17 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   case arith op =>
     cases op
     case constant => exact (ArithConstantProperties.fromAttrDict attrDict)
-    case addi => exact (NswNuwProperties.fromAttrDict attrDict)
-    case subi => exact (NswNuwProperties.fromAttrDict attrDict)
-    case muli => exact (NswNuwProperties.fromAttrDict attrDict)
+    case addi => exact (ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict)
+    case subi => exact (ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict)
+    case muli => exact (ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict)
     case divsi => exact (ExactProperties.fromAttrDict attrDict)
     case divui => exact (ExactProperties.fromAttrDict attrDict)
     case cmpi => exact (IcmpProperties.fromAttrDictFor "arith.cmpi" attrDict)
-    case shli => exact (NswNuwProperties.fromAttrDict attrDict)
+    case shli => exact (ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict)
     case shrsi => exact (ExactProperties.fromAttrDict attrDict)
     case shrui => exact (ExactProperties.fromAttrDict attrDict)
     case ori => exact (DisjointProperties.fromAttrDict attrDict)
-    case trunci => exact (NswNuwProperties.fromAttrDict attrDict)
+    case trunci => exact (ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict)
     case extui => exact (NnegProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
   case comb op =>
@@ -188,7 +190,11 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr intAttr)
     | .float floatAttr =>
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.floatAttr floatAttr)
-  | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci
+  | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    if props.attr.nsw || props.attr.nuw then
+      dict := dict.insert "overflowFlags".toUTF8 (Attribute.arithIntegerOverflowFlagsAttr props.attr)
+    dict
   | .llvm .add | .llvm .sub | .llvm .mul | .llvm .shl | .llvm .trunc => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
 
@@ -240,7 +246,7 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     dict := dict.insert "alignment".toUTF8 (Attribute.integerAttr props.alignment)
     dict.insert "value_type".toUTF8 props.value_type
   | .riscv_cf .beq | .riscv_cf .bne | .riscv_cf .blt | .riscv_cf .bge
-  | .riscv_cf .bltu | .riscv_cf .bgeu =>
+  | .riscv_cf .bltu | .riscv_cf .bgeu | .riscv_cf .beqz | .riscv_cf .bnez =>
     (Std.HashMap.emptyWithCapacity 1).insert "operandSegmentSizes".toUTF8 (Attribute.denseArrayAttr props.operandSegmentSizes)
   | .cf .cond_br =>
     let dict := (Std.HashMap.emptyWithCapacity 2).insert "branch_weights".toUTF8 (.denseArrayAttr props.branch_weights)
@@ -361,6 +367,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .func .return
   | .llvm .br | .llvm .cond_br | .llvm .return | .llvm .unreachable
   | .riscv_cf .branch | .riscv_cf .beq | .riscv_cf .bne
+  | .riscv_cf .beqz | .riscv_cf .bnez
   | .riscv_cf .blt | .riscv_cf .bge | .riscv_cf .bltu | .riscv_cf .bgeu
   | .hw .output => true
   | _ => false

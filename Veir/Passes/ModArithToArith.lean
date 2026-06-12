@@ -65,7 +65,7 @@ def packValue (rewriter : PatternRewriter OpCode) (v : ValuePtr) (ty : ModArithT
   let storageType := ty.modulus.type
   if intermediateType.bitwidth > storageType.bitwidth then
     let (rewriter, narrowed) ← rewriter.createOp (.arith .trunci)
-      #[storageType] #[v] #[] #[] { nsw := false, nuw := true }
+      #[storageType] #[v] #[] #[] { attr := { nsw := false, nuw := true } }
       (some ip) sorry (by simp) (by simp) sorry
     castToModArith rewriter (narrowed.getResult 0 : ValuePtr) ty ip
   else
@@ -134,21 +134,22 @@ def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (build : Builde
 
 def buildAdd : Builder :=
   fun rewriter a b _ ip =>
-  emitArithBinOp rewriter .addi { nsw := false, nuw := false } a b ip
+  emitArithBinOp rewriter .addi { attr := { nsw := false, nuw := false } } a b ip
 
 def lowerModArithAddOp := lowerModArithBinOp .add (· + 1) buildAdd
 
 def buildMul : Builder :=
   fun rewriter a b _ ip =>
-  emitArithBinOp rewriter .muli { nsw := false, nuw := false } a b ip
+  emitArithBinOp rewriter .muli { attr := { nsw := false, nuw := false } } a b ip
 
 def lowerModArithMulOp := lowerModArithBinOp .mul (2 * ·) buildMul
 
 def buildSub : Builder :=
   fun (rewriter : PatternRewriter OpCode) (a b q : ValuePtr) (ip : InsertPoint) => do
     -- we compute a - b (mod q) as ((a+q) - b) % q to avoid unsigned underflow when a < b.
-    let (rewriter, aq) ← emitArithBinOp rewriter .addi { nsw := false, nuw := false } a q ip
-    emitArithBinOp rewriter .subi { nsw := false, nuw := false } aq b ip
+    let (rewriter, aq) ← emitArithBinOp rewriter .addi
+      { attr := { nsw := false, nuw := false } } a q ip
+    emitArithBinOp rewriter .subi { attr := { nsw := false, nuw := false } } aq b ip
 
 def lowerModArithSubOp := lowerModArithBinOp .sub (· + 1) buildSub
 

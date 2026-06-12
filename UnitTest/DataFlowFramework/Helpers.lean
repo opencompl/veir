@@ -1,5 +1,4 @@
 import Veir.Analysis.DataFlowFramework
-import Veir.Analysis.DataFlow.Domains
 import Veir.Parser.MlirParser
 
 open Std (HashMap)

@@ -10,6 +10,22 @@ variable {varState varState' : VariableState ctx}
 variable {state state' : InterpreterState ctx}
 variable {op op' : OperationPtr}
 
+/-- The value stored for `var` conforms to `var`'s type. -/
+theorem VariableState.getVar?_conforms {ctx : WfIRContext OpInfo} {state : VariableState ctx}
+    {var : ValuePtr} {val : RuntimeValue} (h : state.getVar? var = some val) :
+    val.Conforms (var.getType! ctx.raw) := by
+  grind [VariableState.getVar?, state.conforms var val]
+
+/-- The operand values gathered by `getOperandValues` conform to `op`'s declared operand types. -/
+theorem VariableState.getOperandValues_conforms
+    (h : varState.getOperandValues op = some values) :
+    RuntimeValue.ArrayConforms values (op.getOperandTypes! ctx.raw) := by
+  simp only [VariableState.getOperandValues] at h
+  simp only [RuntimeValue.ArrayConforms]
+  constructor; grind
+  intro i hi
+  grind [VariableState.getVar?_conforms, Array.mapM_option_eq_some_implies h i (by grind)]
+
 @[grind =]
 theorem VariableState.setVar?_eq_some_setVar (h : val.Conforms (var.getType! ctx.raw)) :
     varState.setVar? var val inBounds = some (varState.setVar var val h inBounds) := by
@@ -150,6 +166,18 @@ theorem VariableState.getVar?_setResultValues?_of_value_inBounds
   simp only [getVar?_setResultValues? h]
   cases value <;> grind
 
+/--
+Assert equality between two `interpretOp'` calls that have the same operation type and properties.
+This lemma is useful to avoid introducing extra casts on the `interpretOp'` arguments.
+-/
+theorem interpretOp'_opType_cast
+    (hOpType : opType = opType')
+    (hProps : props = hOpType ▸ props') :
+    interpretOp' opType props resultTypes operands successors mem =
+    interpretOp' opType' props' resultTypes operands successors mem := by
+  subst opType
+  grind
+
 theorem interpretOp_some_iff {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx}
   {inBounds : op.InBounds ctx.raw} :
   interpretOp op state inBounds = some (.ok (state', cf)) ↔
@@ -158,6 +186,44 @@ theorem interpretOp_some_iff {ctx : WfIRContext OpCode} {state state' : Interpre
     op.interpret ctx operandValues state.memory = some (.ok (resValues, mem', cf)) ∧
     state.variables.setResultValues? op resValues = some varState' ∧
     state' = ⟨varState', mem'⟩ := by
+  simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
+  grind
+
+/--
+Given that getting the operands from the interpreter state succeeds, interpreting an operation
+with `interpretOp` returns `ok` iff interpreting the operation with `interpretOp'` returns `ok` and
+setting the result values in the state succeeds.
+-/
+theorem interpretOp_ok_iff_of_getOperandValues_eq_some
+  {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} {inBounds : op.InBounds ctx.raw}
+  (hoperandValues : state.variables.getOperandValues op = some operandValues) :
+  interpretOp op state inBounds = some (.ok (state', cf)) ↔
+  ∃ resValues,
+    op.interpret ctx operandValues state.memory = some (.ok (resValues, state'.memory, cf)) ∧
+    state.variables.setResultValues? op resValues = some state'.variables := by
+  simp only [interpretOp, hoperandValues, bind, pure, liftM, monadLift, MonadLift.monadLift]
+  grind [cases InterpreterState]
+
+/--
+If interpreting an operation triggers `ub`, then we know that the operands were correctly fetched,
+and that the underlying `interpretOp'` call triggered `ub`.
+-/
+theorem interpretOp_ub_iff {ctx : WfIRContext OpCode} {state : InterpreterState ctx}
+  {inBounds : op.InBounds ctx.raw} :
+  interpretOp op state inBounds = some .ub ↔
+  ∃ operandValues,
+    (state.variables.getOperandValues op) = some operandValues ∧
+    op.interpret ctx operandValues state.memory = some .ub := by
+  simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
+  grind
+
+/-- `interpretOp` is `ub` iff `interpretOp'` is `ub` if the operands are correctly fetched from
+the variable state. -/
+theorem interpretOp_ub_iff_op_interpret_of_getOperandValues_eq_some
+  {ctx : WfIRContext OpCode} {state : InterpreterState ctx} {inBounds : op.InBounds ctx.raw}
+  (hoperandValues : state.variables.getOperandValues op = some operandValues) :
+  interpretOp op state inBounds = some .ub ↔
+  op.interpret ctx.raw operandValues state.memory = some .ub := by
   simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
   grind
 

@@ -164,4 +164,26 @@ def properlyDominates
 
 end BlockPtr
 
+namespace OperationPtr
+
+/--
+Dominance query between two operations, where an operation dominates itself.
+-/
+def dominates
+    (dominator op : OperationPtr)
+    (dfCtx : DataFlowContext)
+    (irCtx : IRContext OpCode) : Bool :=
+  (InsertPoint.before dominator).dominates (InsertPoint.before op) dfCtx irCtx
+
+/--
+Dominance query between two operations, where an operation does not dominate itself.
+-/
+def properlyDominates
+    (dominator op : OperationPtr)
+    (dfCtx : DataFlowContext)
+    (irCtx : IRContext OpCode) : Bool :=
+  (InsertPoint.before dominator).properlyDominates (InsertPoint.before op) dfCtx irCtx
+
+end OperationPtr
+
 end Veir

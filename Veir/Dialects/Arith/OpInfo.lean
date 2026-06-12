@@ -12,17 +12,17 @@ public section
 def Arith.propertiesOf (op : Arith) : Type :=
 match op with
 | .constant => ArithConstantProperties
-| .addi => NswNuwProperties
-| .subi => NswNuwProperties
-| .muli => NswNuwProperties
+| .addi => ArithIntegerOverflowFlagsProperties
+| .subi => ArithIntegerOverflowFlagsProperties
+| .muli => ArithIntegerOverflowFlagsProperties
 | .divsi => ExactProperties
 | .divui => ExactProperties
 | .cmpi => IcmpProperties
-| .shli => NswNuwProperties
+| .shli => ArithIntegerOverflowFlagsProperties
 | .shrsi => ExactProperties
 | .shrui => ExactProperties
 | .ori => DisjointProperties
-| .trunci => NswNuwProperties
+| .trunci => ArithIntegerOverflowFlagsProperties
 | .extui => NnegProperties
 | _ => Unit
 

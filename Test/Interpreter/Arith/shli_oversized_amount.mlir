@@ -4,9 +4,9 @@
   "func.func"() <{sym_name = "main", function_type = () -> (i66, i66, i66, i66)}> ({
     %c = "arith.constant"() <{ "value" = 18446744073709551616 : i66 }> : () -> i66
     %none = "arith.shli"(%c, %c) : (i66, i66) -> i66
-    %nsw = "arith.shli"(%c, %c) <{"overflowFlags" = 1 : i32}> : (i66, i66) -> i66
-    %nuw = "arith.shli"(%c, %c) <{"overflowFlags" = 2 : i32}> : (i66, i66) -> i66
-    %nsw_nuw = "arith.shli"(%c, %c) <{"overflowFlags" = 3 : i32}> : (i66, i66) -> i66
+    %nsw = "arith.shli"(%c, %c) <{"overflowFlags" = #arith.overflow<nsw>}> : (i66, i66) -> i66
+    %nuw = "arith.shli"(%c, %c) <{"overflowFlags" = #arith.overflow<nuw>}> : (i66, i66) -> i66
+    %nsw_nuw = "arith.shli"(%c, %c) <{"overflowFlags" = #arith.overflow<nsw, nuw>}> : (i66, i66) -> i66
     "func.return"(%none, %nsw, %nuw, %nsw_nuw) : (i66, i66, i66, i66) -> ()
   }) : () -> ()
 }) : () -> ()
