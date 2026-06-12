@@ -40,7 +40,7 @@ def le (x y : AbstractConstant) : Prop :=
 instance : LE AbstractConstant where
   le := le
 
-@[simp] theorem le_def (a b : AbstractConstant) : (a ≤ b) ↔ le a b := Iff.rfl
+theorem le_def (a b : AbstractConstant) : (a ≤ b) ↔ le a b := Iff.rfl
 
 @[simp, grind .]
 theorem le_top (a : AbstractConstant) : a ≤ .top := by
@@ -75,37 +75,37 @@ instance : Join AbstractConstant where
 
 theorem γ_monotone (a b : AbstractConstant) : a ≤ b → γ a ⊆ γ b := by
   intro hab x hx
-  cases a <;> cases b <;> simp [γ, le] at hab hx ⊢
+  cases a <;> cases b <;> simp [γ] at hab hx ⊢
   all_goals first | trivial | exact hx.trans hab
 
 @[simp, grind .]
 theorem le_refl (a : AbstractConstant) : a ≤ a := by
-  cases a <;> simp [le]
+  cases a <;> simp [le, le_def]
 
 @[grind →]
 theorem le_trans (a b c : AbstractConstant) : a ≤ b → b ≤ c → a ≤ c := by
-  cases a <;> cases b <;> cases c <;> simp_all [le]
+  cases a <;> cases b <;> cases c <;> simp_all [le, le_def]
 
 @[grind →]
 theorem le_antisymm (a b : AbstractConstant) : a ≤ b → b ≤ a → a = b := by
-  cases a <;> cases b <;> simp_all [le]
+  cases a <;> cases b <;> simp_all [le, le_def]
 
 @[simp, grind .]
 theorem le_join_left (a b : AbstractConstant) : a ≤ a ⊔ b := by
-  cases a <;> cases b <;> try simp [le, join]
+  cases a <;> cases b <;> try simp [le, le_def, join]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
 @[simp, grind .]
 theorem le_join_right (a b : AbstractConstant) : b ≤ a ⊔ b := by
-  cases a <;> cases b <;> try simp [le, join]
+  cases a <;> cases b <;> try simp [le, le_def, join]
   case constant.constant c d =>
     by_cases h : c = d <;> simp [h]
 
 theorem join_le (a b c : AbstractConstant) : a ≤ c → b ≤ c → a ⊔ b ≤ c := by
   intros
   cases a <;> cases b <;> cases c <;>
-    simp [join] <;> (try split) <;> simp_all [le]
+    simp [join] <;> (try split) <;> simp_all [le, le_def]
 
 instance : JoinSemilattice AbstractConstant where
   le_refl := le_refl
