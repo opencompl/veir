@@ -167,6 +167,15 @@ theorem Array.mapM_eq_some_iff_of_size_eq [Inhabited α] [Inhabited β] {a₁ : 
     suffices r = a₂ by grind
     grind [Array.mapM_option_eq_some_implies]
 
+theorem Array.exists_mapM_option_eq_some_iff {f : α → Option β} {l : Array α} :
+    (∃ r, l.mapM f = some r) ↔ (∀ i (hi : i < l.size), ∃ v, f l[i] = some v) := by
+  constructor
+  · rintro ⟨r, hr⟩ i hi
+    grind [Array.mapM_option_eq_some_implies hr i (by grind)]
+  · intro h
+    apply Array.mapM_option_isSome
+    grind
+
 namespace ForLean.List
 
 theorem idxOf_getElem [DecidableEq α] {l : List α} (H : l.Nodup) (i : Nat) (h : i < l.length) :
