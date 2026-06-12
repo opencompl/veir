@@ -24,9 +24,6 @@ def getPayload (fact : Fact kind) : SparsePayload Domain :=
 def setPayload (fact : Fact kind) (payload : SparsePayload Domain) : Fact kind :=
   { fact with payload := cast (Eq.symm payloadEq) payload }
 
-def useDefSubscribers (fact : Fact kind) : Array AnalysisKind :=
-  (getPayload fact).useDefSubscribers
-
 def latticeElement (fact : Fact kind) : Domain :=
   (getPayload fact).latticeElement
 
@@ -46,7 +43,7 @@ def propagate (state : Fact kind) (anchor : LatticeAnchor)
     let mut maybeUse := ssaValue.getFirstUse! irCtx
     while let some use := maybeUse do
       let user := (use.get! irCtx).owner
-      for analysisKind in useDefSubscribers state do
+      for analysisKind in state.subscribers do
         match InsertPoint.after? user irCtx with
         | some point =>
           dfCtx := dfCtx.enqueue (point, analysisKind)
@@ -57,24 +54,13 @@ def propagate (state : Fact kind) (anchor : LatticeAnchor)
     pure ()
   dfCtx
 
-def useDefSubscribe (state : Fact kind)
-    (analysisKind : AnalysisKind) : Fact kind :=
-  let payload := getPayload state
-  if payload.useDefSubscribers.contains analysisKind then
-    state
-  else
-    setPayload state { payload with useDefSubscribers := payload.useDefSubscribers.push analysisKind }
-
 section
 
 variable [Bot Domain]
 
 /-- Default sparse lattice fact for the given anchor. -/
 def mkDefault : Fact kind :=
-  { dependents := #[]
-    payload := cast (Eq.symm payloadEq)
-      { useDefSubscribers := #[]
-        latticeElement := ⊥ } }
+  { payload := cast (Eq.symm payloadEq) { latticeElement := ⊥ } }
 
 instance : FactSpec kind where
   mkDefault := SparseFact.mkDefault (kind := kind)
