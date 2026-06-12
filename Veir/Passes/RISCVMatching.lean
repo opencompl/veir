@@ -10,7 +10,7 @@ def matchAdd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × 
   let (op, _) ← matchOp op ctx (.riscv .add) 2
   return (op[0]!, op[1]!)
 
-
-def matchLi (op : OperationPtr) (ctx : IRContext OpCode) : Option ( propertiesOf (.riscv .li)) := do
+def matchLi (val : ValuePtr) (ctx : IRContext OpCode) : Option (propertiesOf (.riscv .li)) := do
+  let op ← val.getDefiningOp! ctx
   let (_, properties) ← matchOp op ctx (.riscv .li) 0
-  return (properties)
+  return properties
