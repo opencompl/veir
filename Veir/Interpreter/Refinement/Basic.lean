@@ -159,6 +159,23 @@ def ValueMapping.ReflectsResults {ctx ctx' : WfIRContext OpInfo} (mapping : Valu
   ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw) (i : Nat),
     (mapping ⟨val, valIn⟩).val = op'.getResult i → val = op.getResult i
 
+/-- An operation `op` in `ctx` is *preserved* and renamed to an operation `op'` in `ctx'` by the
+mapping `mapping` if `op` and `op'` have the same type, properties, result types, successors, and
+their operands and results are related by `mapping`. Additionally, `mapping` must reflect `op'`'s
+results back to `op`'s, so no other value is sent onto `op'`'s results. -/
+structure ValueMapping.PreservesOperation {ctx ctx' : WfIRContext OpInfo}
+    (mapping : ValueMapping ctx ctx') (op op' : OperationPtr)
+    (opIn : op.InBounds ctx.raw := by grind)
+    (opIn' : op'.InBounds ctx'.raw := by grind) : Prop where
+  opType : op'.getOpType! ctx'.raw = op.getOpType! ctx.raw
+  props : op'.getProperties! ctx'.raw (op'.getOpType! ctx'.raw) =
+            opType ▸ op.getProperties! ctx.raw (op.getOpType! ctx.raw)
+  resultTypes : op'.getResultTypes! ctx'.raw = op.getResultTypes! ctx.raw
+  successors : op'.getSuccessors! ctx'.raw = op.getSuccessors! ctx.raw
+  operands : op'.getOperands! ctx'.raw = mapping.applyToArray (op.getOperands! ctx.raw)
+  results : op'.getResults! ctx'.raw = mapping.applyToArray (op.getResults! ctx.raw) (by grind)
+  reflect : mapping.ReflectsResults op op'
+
 /--
 A variable state `state` is refined by `state'` through the value renaming `mapping`: every
 variable defined in `state` is, after renaming through `mapping`, also defined in `state'` with a
