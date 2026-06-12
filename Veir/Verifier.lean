@@ -2212,6 +2212,32 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
       throw "Expected 2 operands plus 2 variadic operands"
     pure ()
+  | .riscv_cf .beqz => do
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
+      throw "Expected 2 successors"
+    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .beqz)).operandSegmentSizes
+    if _ : sizes.values.size ≠ 3 then
+      throw "Expected 1 operand plus 2 variadic operands"
+    if sizes.values[0]! ≠ 1 then
+      throw "Expected one conditional operand (to be compared against zero)"
+    pure ()
+  | .riscv_cf .bnez => do
+    if op.getNumResults ctx.raw opIn ≠ 0 then
+      throw "Expected 0 results"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
+      throw "Expected 2 successors"
+    let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bnez)).operandSegmentSizes
+    if _ : sizes.values.size ≠ 3 then
+      throw "Expected 1 operand plus 2 variadic operands"
+    if sizes.values[0]! ≠ 1 then
+      throw "Expected one conditional operand (to be compared against zero)"
+    pure ()
   /- RISCV Stack -/
   | .riscv_stack .alloca => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
