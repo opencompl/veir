@@ -2557,6 +2557,14 @@ theorem cons_iff {ctx : IRContext OpInfo} {parent : BlockPtr} {head : OperationP
 
 end BlockPtr.OpChainSlice
 
+/-- Get the successors of a block. This is defined as the successors of the terminator operation.
+In case the block has no terminator, this function returns an empty array. -/
+def BlockPtr.getSuccessors! (block : BlockPtr) (ctx : IRContext OpInfo) : Array BlockPtr :=
+  let term := (block.get! ctx).lastOp
+  match term with
+  | none => #[]
+  | some term => term.getSuccessors! ctx
+
 def IRContext.empty (OpInfo : Type) [HasOpInfo OpInfo] : IRContext OpInfo := {
     nextID := 0,
     operations := Std.HashMap.emptyWithCapacity,
