@@ -86,7 +86,6 @@ structure RegionMetadataPayload where
 A sparse dataflow fact payload for one abstract domain.
 -/
 structure SparsePayload (Domain : Type) where
-  useDefSubscribers : Array AnalysisKind := #[]
   latticeElement : Domain
 
 /--
