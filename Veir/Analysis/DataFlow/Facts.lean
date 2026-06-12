@@ -92,13 +92,15 @@ The fact specific data stored for each fact kind.
 /--
 A dataflow fact stored by the framework.
 
-Each fact carries a lattice anchor (some location in the program this fact
-associates with), an array of dependents (other facts that "depend" on this fact's
-current state in some fashion), and the fact specific payload determined by its
-`FactKind`.
+Each fact carries a lattice anchor (which is some location in the program), 
+an array of dependents (other facts that "depend" on this fact's current 
+state in some fashion), an array of analysis subscribers (similar to dependents
+execpt it's entire analyses that depend on this fact's current state), and the 
+fact specific payload determined by its `FactKind`.
 -/
 structure Fact (kind : FactKind) where
   dependents : Array WorkItem := #[]
+  subscribers : Array AnalysisKind := #[]
   payload : FactPayload kind
 
 namespace Fact
@@ -114,6 +116,15 @@ Add one dependent work item to the fact.
 -/
 def addDependent (fact : Fact kind) (workItem : WorkItem) : Fact kind :=
   fact.setDependents (fact.dependents.push workItem)
+
+/--
+Subscribe one analysis to changes of this fact.
+-/
+def subscribe (fact : Fact kind) (analysisKind : AnalysisKind) : Fact kind :=
+  if fact.subscribers.contains analysisKind then
+    fact
+  else
+    { fact with subscribers := (fact.subscribers.push analysisKind) }
 
 /--
 Enqueue all dependents of this fact.
