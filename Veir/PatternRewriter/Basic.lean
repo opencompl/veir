@@ -234,7 +234,9 @@ def insertBlock (rewriter: PatternRewriter OpInfo) (block: BlockPtr) (ip : Block
 
 end PatternRewriter
 
-abbrev RewritePattern (OpInfo : Type) [HasOpInfo OpInfo] := (PatternRewriter OpInfo) → OperationPtr → Option (PatternRewriter OpInfo)
+abbrev RewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
+  (rewriter : PatternRewriter OpInfo) → (op : OperationPtr) →
+  (opInBounds : op.InBounds rewriter.ctx.raw) → Option (PatternRewriter OpInfo)
 
 /--
   A local rewrite that can only replace a matched operation with a list of new operations.
@@ -246,7 +248,7 @@ abbrev LocalRewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
 
 set_option warn.sorry false in
 def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : RewritePattern OpInfo :=
-  fun rewriter op => do
+  fun rewriter op opInBounds => do
     match pattern rewriter.ctx op with
     -- error while applying pattern
     | none => none
@@ -265,21 +267,25 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
       rewriter ← rewriter.eraseOp op (by sorry) (by sorry) (by sorry)
       return rewriter
 
+set_option warn.sorry false in
 /--
   Greedy pattern application: transforms a list of patterns into a single pattern that applies
   them repeatedly in order.
 -/
 def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo)) : RewritePattern OpInfo :=
-  fun rewriter op => do
+  fun rewriter op _ => do
     let hasDoneAction := rewriter.hasDoneAction
     let mut rewriter := { rewriter with hasDoneAction := false }
     for pattern in patterns do
-      match pattern rewriter op with
-      | some newRewriter =>
-        rewriter := newRewriter
-        if rewriter.hasDoneAction then
-          return rewriter
-      | none => failure
+      if opInBounds : op.InBounds rewriter.ctx.raw then
+        match pattern rewriter op opInBounds with
+        | some newRewriter =>
+          rewriter := newRewriter
+          if rewriter.hasDoneAction then
+            return rewriter
+        | none => failure
+      else
+        failure
     return { rewriter with hasDoneAction := hasDoneAction }
 
 /--
@@ -296,7 +302,10 @@ private partial def RewritePattern.applyOnceInContext
     let (opOpt, newWorklist) := rewriter.worklist.pop
     let op := opOpt.get!
     rewriter := { rewriter with worklist := newWorklist }
-    rewriter ← pattern rewriter op
+    if _ : op.InBounds rewriter.ctx.raw then
+      rewriter ← pattern rewriter op (by grind)
+    else
+      failure
   pure (rewriter.hasDoneAction, rewriter.ctx)
 
 def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)

@@ -12,8 +12,8 @@ namespace Veir.RISCV
 
 set_option warn.sorry false in
 /-- riscv.add x 0 -> x -/
-def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
-    Option (PatternRewriter OpCode) := do
+def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchAdd op rewriter.ctx | return rewriter
   let some cst := matchLi rhs rewriter.ctx | return rewriter
   if cst.value.value ≠ 0 then return rewriter
@@ -26,8 +26,8 @@ set_option warn.sorry false in
   riscv.add (riscv.li imm) x -> riscv.addi x imm
   But only when `imm` fits into a signed 12-bit immediate field.
 -/
-def fold_add_li_to_addi (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
-    Option (PatternRewriter OpCode) := do
+def fold_add_li_to_addi (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchAdd op rewriter.ctx | return rewriter
   let some (reg, imm) :=
       (Prod.mk lhs <$> matchLi rhs rewriter.ctx) <|>
