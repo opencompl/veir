@@ -25,7 +25,7 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr) (block : BlockP
       c := c'
       casts := casts.push cast
 
-    let some (c', newop ) :=
+    let some (c', _) :=
     if h : op.getOpType! c = OpCode.llvm .br then do
       WfRewriter.createOp c (.riscv_cf .branch) #[] (casts.map (fun cast => cast.getResult 0)) #[op.getSuccessor c.raw 0 sorry sorry] #[] default ip sorry sorry sorry sorry
     else if h : op.getOpType! c = OpCode.llvm .cond_br then do
@@ -37,8 +37,9 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr) (block : BlockP
 
     c := c'
 
-    if h : op.getNumRegions! c.raw = 0 ∧ (!op.hasUses! c.raw) = true then
+    if h : op.getNumRegions! c.raw = 0 && !op.hasUses! c.raw then
       c := WfRewriter.eraseOp c op (by grind) (by grind) (sorry)
+
     return c
 
 set_option warn.sorry false in
