@@ -16,8 +16,8 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : ExceptT Strin
     if op.getOpType! c.raw != .llvm .br && op.getOpType! c.raw != .llvm .cond_br then
       return c
 
-    let mut casts : Array (OperationPtr) := #[]
     let mut some ip := InsertPoint.after? op c.raw | return c
+    let mut casts : Array (OperationPtr) := #[]
 
     for i in List.reverse (List.range (op.getNumOperands! c.raw)) do
       let operand := op.getOperand! c.raw i
@@ -39,7 +39,6 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : ExceptT Strin
 
     if h : op.getNumRegions! c.raw = 0 ∧ (!op.hasUses! c.raw) = true then
       c := WfRewriter.eraseOp c op (by grind) (by grind) (sorry)
-
     return c
 
 set_option warn.sorry false in
