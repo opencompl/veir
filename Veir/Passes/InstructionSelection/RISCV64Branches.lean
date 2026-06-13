@@ -32,11 +32,11 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String 
 
     for i in List.reverse (List.range (op.getNumOperands! c.raw)) do
       let operand := op.getOperand! c.raw i
-      let some (xc, cast) := WfRewriter.createOp c (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand] #[] #[] default ip sorry sorry sorry sorry | return c
-      c := xc
+      let some (c', cast) := WfRewriter.createOp c (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand] #[] #[] default ip sorry sorry sorry sorry | return c
+      c := c'
       casts := casts.push cast
 
-    let some (xc, newop ) :=
+    let some (c', newop ) :=
     if h : op.getOpType! c = OpCode.llvm .br then do
       WfRewriter.createOp c (.riscv_cf .branch) #[] (casts.map (fun cast => cast.getResult 0)) #[op.getSuccessor c.raw 0 sorry sorry] #[] default ip sorry sorry sorry sorry
     else if h : op.getOpType! c = OpCode.llvm .cond_br then do
@@ -46,7 +46,7 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String 
     else
       none | return ⟨c, by sorry⟩
 
-    c := xc
+    c := c'
 
     if h : op.getNumRegions! c.raw = 0 ∧ (!op.hasUses! c.raw) = true then
       c := WfRewriter.eraseOp c op (by grind) (by grind) (sorry)
