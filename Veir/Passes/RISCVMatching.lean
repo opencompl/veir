@@ -40,16 +40,8 @@ theorem matchRiscvBinop_reg_inBounds {oc : Riscv} {op : OperationPtr} {ctx : WfI
     reg.InBounds ctx.raw := by
   unfold matchRiscvBinop at h
   obtain ⟨⟨ops, props⟩, hmatch, hres⟩ := Option.bind_eq_some_iff.mp h
-  have hin : op.InBounds ctx.raw := matchOp_inBounds (by omega) hmatch
-  have hnum : op.getNumOperands! ctx.raw = 2 := matchOp_getNumOperands hmatch
-  have hops : ops = op.getOperands! ctx.raw := matchOp_operands hmatch
-  have hreg : reg = op.getOperand! ctx.raw 0 := by
-    have h2 := Option.some.inj hres
-    have hr : reg = ops[0]! := (congrArg Prod.fst h2).symm
-    rw [hr, hops, OperationPtr.getOperands!.getElem!_eq_getOperand!]
-  rw [hreg]
-  exact OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds hin
-    (OperationPtr.getOperands!.mem_getOperand (by omega))
+  rw [show reg = ops[0]! from (congrArg Prod.fst (Option.some.inj hres)).symm]
+  exact matchOp_getElem!_inBounds hmatch (by omega)
 
 /-- The operand returned by a successful `matchZextw` is in bounds. This discharges the
     `createOp` operand obligation in `fold_zextw_slli_to_slliuw`. -/
@@ -58,13 +50,5 @@ theorem matchZextw_inBounds {val : ValuePtr} {ctx : WfIRContext OpCode} {x : Val
   unfold matchZextw at h
   obtain ⟨defOp, _hdef, h⟩ := Option.bind_eq_some_iff.mp h
   obtain ⟨⟨ops, props⟩, hmatch, hres⟩ := Option.bind_eq_some_iff.mp h
-  have hin : defOp.InBounds ctx.raw := matchOp_inBounds (by omega) hmatch
-  have hnum : defOp.getNumOperands! ctx.raw = 1 := matchOp_getNumOperands hmatch
-  have hops : ops = defOp.getOperands! ctx.raw := matchOp_operands hmatch
-  have hx : x = defOp.getOperand! ctx.raw 0 := by
-    have h2 := Option.some.inj hres
-    have hr : x = ops[0]! := h2.symm
-    rw [hr, hops, OperationPtr.getOperands!.getElem!_eq_getOperand!]
-  rw [hx]
-  exact OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds hin
-    (OperationPtr.getOperands!.mem_getOperand (by omega))
+  rw [show x = ops[0]! from (Option.some.inj hres).symm]
+  exact matchOp_getElem!_inBounds hmatch (by omega)

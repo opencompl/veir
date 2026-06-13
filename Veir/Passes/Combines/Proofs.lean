@@ -39,51 +39,69 @@ theorem fold_binop_li_spec
   obtain ⟨rfl, hops, hvals⟩ := hval
   exact ⟨reg, rhs, imm, _, newOp, hbinop, hmatchli, hcreate, hops.symm, hvals.symm⟩
 
-/-- `fold_binop_li` only ever modifies the context by creating new operations. -/
-theorem fold_binop_li_ReturnCtxChanges :
-    (fold_binop_li src dst hd lo hi).ReturnCtxChanges := by
+/--
+  `CreatesOneOp pattern` says: whenever `pattern` fires, the matched op has a single
+  result, and the rewrite replaces it with exactly one freshly-created op (one result
+  register, no blocks or regions, not yet inserted) — returning that op and its result.
+  Every combine in this file has this shape; it is all the structural reasoning needs.
+-/
+def CreatesOneOp (pattern : LocalRewritePattern OpCode) : Prop :=
+  ∀ (ctx : WfIRContext OpCode) (op : OperationPtr) (newCtx : WfIRContext OpCode)
+    (newOps : Array OperationPtr) (newValues : Array ValuePtr),
+    pattern ctx op = some (newCtx, some (newOps, newValues)) →
+    op.getNumResults! ctx.raw = 1 ∧
+    ∃ (opType : OpCode) (operands : Array ValuePtr) (props : propertiesOf opType)
+      (hoper : ∀ oper ∈ operands, oper.InBounds ctx.raw) (newOp : OperationPtr),
+      WfRewriter.createOp ctx opType #[RegisterType.mk] operands #[] #[] props none hoper
+        = some (newCtx, newOp) ∧
+      newOps = #[newOp] ∧ newValues = #[(newOp.getResult 0 : ValuePtr)]
+
+/--
+  The four structural `PreservesSemantics` prerequisites hold for any `CreatesOneOp`
+  pattern. This is where the structural reasoning lives — once, rather than per combine.
+-/
+theorem CreatesOneOp.returnPredicates {pattern : LocalRewritePattern OpCode}
+    (h : CreatesOneOp pattern) :
+    pattern.ReturnCtxChanges ∧ pattern.ReturnValues ∧
+      pattern.ReturnValuesInBounds ∧ pattern.ReturnOps := by
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro ctx op newCtx newOps newValues hpat
+    obtain ⟨_, _, _, _, _, _, hcreate, _, _⟩ := h ctx op newCtx newOps newValues hpat
+    exact WfIRContext.WithCreatedOps.CreatedOp ctx ctx newCtx (.Nil ctx)
+      ⟨_, _, _, _, _, _, _, _, _, _, hcreate⟩
+  · intro ctx op _hin newCtx newOps newValues hpat
+    obtain ⟨hnum, _, _, _, _, _, _, _, hvals⟩ := h ctx op newCtx newOps newValues hpat
+    subst hvals; simp [hnum]
+  · intro ctx op newCtx newOps newValues hpat v hv
+    obtain ⟨_, _, _, _, _, newOp, hcreate, _, hvals⟩ := h ctx op newCtx newOps newValues hpat
+    subst hvals; simp only [Array.mem_singleton] at hv; subst hv
+    grind [WfRewriter.createOp, Rewriter.createOp_inBounds,
+      OperationPtr.getResult_op, OperationPtr.getResult_index]
+  · intro ctx op newCtx newOps newValues hpat newOp'
+    obtain ⟨_, _, _, _, _, newOp, hcreate, hops, _⟩ := h ctx op newCtx newOps newValues hpat
+    subst hops; simp only [Array.mem_singleton]
+    constructor
+    · rintro rfl
+      exact ⟨WfRewriter.createOp_new_inBounds _ hcreate,
+             WfRewriter.createOp_new_not_inBounds _ hcreate⟩
+    · rintro ⟨_, _⟩
+      grind [WfRewriter.createOp, Rewriter.createOp_inBounds]
+
+/-- `fold_binop_li` creates a single `dst` op, replacing the matched (one-result) `src` op. -/
+theorem fold_binop_li_createsOneOp : CreatesOneOp (fold_binop_li src dst hd lo hi) := by
   intro ctx op newCtx newOps newValues hpat
   obtain ⟨reg, rhs, imm, hoper, newOp, hbinop, hmatchli, hcreate, hops, hvals⟩ :=
     fold_binop_li_spec src dst hd lo hi hpat
-  exact WfIRContext.WithCreatedOps.CreatedOp ctx ctx newCtx (.Nil ctx)
-    ⟨_, _, _, _, _, _, _, _, _, _, hcreate⟩
+  exact ⟨matchRiscvBinop_getNumResults hbinop, _, _, _, _, newOp, hcreate, hops, hvals⟩
 
-/-- `fold_binop_li` returns exactly as many values as the matched op has results. -/
-theorem fold_binop_li_ReturnValues :
-    (fold_binop_li src dst hd lo hi).ReturnValues := by
-  intro ctx op _hin newCtx newOps newValues hpat
-  obtain ⟨reg, rhs, imm, hoper, newOp, hbinop, hmatchli, hcreate, hops, hvals⟩ :=
-    fold_binop_li_spec src dst hd lo hi hpat
-  subst hvals
-  rw [matchRiscvBinop_getNumResults hbinop]
-  rfl
-
-/-- Every value `fold_binop_li` returns is in bounds of the new context. -/
-theorem fold_binop_li_ReturnValuesInBounds :
-    (fold_binop_li src dst hd lo hi).ReturnValuesInBounds := by
-  intro ctx op newCtx newOps newValues hpat v hv
-  obtain ⟨reg, rhs, imm, hoper, newOp, hbinop, hmatchli, hcreate, hops, hvals⟩ :=
-    fold_binop_li_spec src dst hd lo hi hpat
-  subst hvals
-  simp only [Array.mem_singleton] at hv
-  subst hv
-  grind [WfRewriter.createOp, Rewriter.createOp_inBounds,
-    OperationPtr.getResult_op, OperationPtr.getResult_index]
-
-/-- The operations `fold_binop_li` returns are exactly the newly-created ones. -/
-theorem fold_binop_li_ReturnOps :
-    (fold_binop_li src dst hd lo hi).ReturnOps := by
-  intro ctx op newCtx newOps newValues hpat newOp'
-  obtain ⟨reg, rhs, imm, hoper, newOp, hbinop, hmatchli, hcreate, hops, hvals⟩ :=
-    fold_binop_li_spec src dst hd lo hi hpat
-  subst hops
-  simp only [Array.mem_singleton]
-  constructor
-  · rintro rfl
-    exact ⟨WfRewriter.createOp_new_inBounds _ hcreate,
-           WfRewriter.createOp_new_not_inBounds _ hcreate⟩
-  · rintro ⟨hin, hnin⟩
-    grind [WfRewriter.createOp, Rewriter.createOp_inBounds]
+theorem fold_binop_li_ReturnCtxChanges : (fold_binop_li src dst hd lo hi).ReturnCtxChanges :=
+  (fold_binop_li_createsOneOp src dst hd lo hi).returnPredicates.1
+theorem fold_binop_li_ReturnValues : (fold_binop_li src dst hd lo hi).ReturnValues :=
+  (fold_binop_li_createsOneOp src dst hd lo hi).returnPredicates.2.1
+theorem fold_binop_li_ReturnValuesInBounds : (fold_binop_li src dst hd lo hi).ReturnValuesInBounds :=
+  (fold_binop_li_createsOneOp src dst hd lo hi).returnPredicates.2.2.1
+theorem fold_binop_li_ReturnOps : (fold_binop_li src dst hd lo hi).ReturnOps :=
+  (fold_binop_li_createsOneOp src dst hd lo hi).returnPredicates.2.2.2
 
 /-! ### imm5 / imm6 specializations — the same proofs at different bounds. -/
 
@@ -128,47 +146,21 @@ theorem fold_zextw_slli_to_slliuw_spec
   obtain ⟨rfl, hops, hvals⟩ := hval
   exact ⟨operands, shamt, xz, _, newOp, hslli, hzext, hcreate, hops.symm, hvals.symm⟩
 
-theorem fold_zextw_slli_to_slliuw_ReturnCtxChanges :
-    fold_zextw_slli_to_slliuw.ReturnCtxChanges := by
+theorem fold_zextw_slli_to_slliuw_createsOneOp : CreatesOneOp fold_zextw_slli_to_slliuw := by
   intro ctx op newCtx newOps newValues hpat
   obtain ⟨operands, shamt, x, hoper, newOp, hslli, hzext, hcreate, hops, hvals⟩ :=
     fold_zextw_slli_to_slliuw_spec hpat
-  exact WfIRContext.WithCreatedOps.CreatedOp ctx ctx newCtx (.Nil ctx)
-    ⟨_, _, _, _, _, _, _, _, _, _, hcreate⟩
+  exact ⟨matchOp_getNumResults hslli, _, _, _, _, newOp, hcreate, hops, hvals⟩
 
-theorem fold_zextw_slli_to_slliuw_ReturnValues :
-    fold_zextw_slli_to_slliuw.ReturnValues := by
-  intro ctx op _hin newCtx newOps newValues hpat
-  obtain ⟨operands, shamt, x, hoper, newOp, hslli, hzext, hcreate, hops, hvals⟩ :=
-    fold_zextw_slli_to_slliuw_spec hpat
-  subst hvals
-  rw [matchOp_getNumResults hslli]
-  rfl
-
+theorem fold_zextw_slli_to_slliuw_ReturnCtxChanges : fold_zextw_slli_to_slliuw.ReturnCtxChanges :=
+  fold_zextw_slli_to_slliuw_createsOneOp.returnPredicates.1
+theorem fold_zextw_slli_to_slliuw_ReturnValues : fold_zextw_slli_to_slliuw.ReturnValues :=
+  fold_zextw_slli_to_slliuw_createsOneOp.returnPredicates.2.1
 theorem fold_zextw_slli_to_slliuw_ReturnValuesInBounds :
-    fold_zextw_slli_to_slliuw.ReturnValuesInBounds := by
-  intro ctx op newCtx newOps newValues hpat v hv
-  obtain ⟨operands, shamt, x, hoper, newOp, hslli, hzext, hcreate, hops, hvals⟩ :=
-    fold_zextw_slli_to_slliuw_spec hpat
-  subst hvals
-  simp only [Array.mem_singleton] at hv
-  subst hv
-  grind [WfRewriter.createOp, Rewriter.createOp_inBounds,
-    OperationPtr.getResult_op, OperationPtr.getResult_index]
-
-theorem fold_zextw_slli_to_slliuw_ReturnOps :
-    fold_zextw_slli_to_slliuw.ReturnOps := by
-  intro ctx op newCtx newOps newValues hpat newOp'
-  obtain ⟨operands, shamt, x, hoper, newOp, hslli, hzext, hcreate, hops, hvals⟩ :=
-    fold_zextw_slli_to_slliuw_spec hpat
-  subst hops
-  simp only [Array.mem_singleton]
-  constructor
-  · rintro rfl
-    exact ⟨WfRewriter.createOp_new_inBounds _ hcreate,
-           WfRewriter.createOp_new_not_inBounds _ hcreate⟩
-  · rintro ⟨hin, hnin⟩
-    grind [WfRewriter.createOp, Rewriter.createOp_inBounds]
+    fold_zextw_slli_to_slliuw.ReturnValuesInBounds :=
+  fold_zextw_slli_to_slliuw_createsOneOp.returnPredicates.2.2.1
+theorem fold_zextw_slli_to_slliuw_ReturnOps : fold_zextw_slli_to_slliuw.ReturnOps :=
+  fold_zextw_slli_to_slliuw_createsOneOp.returnPredicates.2.2.2
 
 end RISCV
 

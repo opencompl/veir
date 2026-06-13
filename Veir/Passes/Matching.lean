@@ -149,29 +149,30 @@ def matchStore (op : OperationPtr) (ctx : IRContext OpCode) :
 
 /-! ## Facts derived from a successful `matchOp` -/
 
-/-- A successful `matchOp` implies the matched operation has exactly one result. -/
+/-- The complete characterization of a successful `matchOp`: the operation has the
+    requested opcode, operand count, and a single result, and the returned arrays are
+    its operands and properties. -/
+theorem matchOp_eq {op : OperationPtr} {ctx : IRContext OpCode} {opType : OpCode}
+    {n : Nat} {res : Array ValuePtr × propertiesOf opType}
+    (h : matchOp op ctx opType n = some res) :
+    op.getOpType! ctx = opType ∧ op.getNumOperands! ctx = n ∧ op.getNumResults! ctx = 1 ∧
+      res.1 = op.getOperands! ctx ∧ res.2 = op.getProperties! ctx opType := by
+  unfold matchOp guard at h
+  simp only [bind, Option.bind, pure, failure] at h
+  grind
+
 theorem matchOp_getNumResults {op : OperationPtr} {ctx : IRContext OpCode} {opType : OpCode}
     {n : Nat} {res : Array ValuePtr × propertiesOf opType}
-    (h : matchOp op ctx opType n = some res) : op.getNumResults! ctx = 1 := by
-  unfold matchOp guard at h
-  simp only [bind, Option.bind, pure, failure] at h
-  grind
+    (h : matchOp op ctx opType n = some res) : op.getNumResults! ctx = 1 := (matchOp_eq h).2.2.1
 
-/-- A successful `matchOp` implies the matched operation has `n` operands. -/
 theorem matchOp_getNumOperands {op : OperationPtr} {ctx : IRContext OpCode} {opType : OpCode}
     {n : Nat} {res : Array ValuePtr × propertiesOf opType}
-    (h : matchOp op ctx opType n = some res) : op.getNumOperands! ctx = n := by
-  unfold matchOp guard at h
-  simp only [bind, Option.bind, pure, failure] at h
-  grind
+    (h : matchOp op ctx opType n = some res) : op.getNumOperands! ctx = n := (matchOp_eq h).2.1
 
-/-- The operand array returned by `matchOp` is the operation's operand list. -/
 theorem matchOp_operands {op : OperationPtr} {ctx : IRContext OpCode} {opType : OpCode}
     {n : Nat} {ops : Array ValuePtr} {props : propertiesOf opType}
-    (h : matchOp op ctx opType n = some (ops, props)) : ops = op.getOperands! ctx := by
-  unfold matchOp guard at h
-  simp only [bind, Option.bind, pure, failure] at h
-  grind
+    (h : matchOp op ctx opType n = some (ops, props)) : ops = op.getOperands! ctx :=
+  (matchOp_eq h).2.2.2.1
 
 /-- A successful `matchOp` with a positive operand count implies the op is in bounds:
     an out-of-bounds operation reads as the default, which has no operands. -/
@@ -184,3 +185,16 @@ theorem matchOp_inBounds {op : OperationPtr} {ctx : IRContext OpCode} {opType : 
   · exfalso
     grind [OperationPtr.getNumOperands!, OperationPtr.get!_of_not_inBounds,
       Operation.default_operands_eq]
+
+/-- Operand `i` (for `i < n`) of an operation matched by `matchOp` in a well-formed
+    context is itself in bounds. The combine matchers below all reduce their
+    operand-in-bounds obligation to this. -/
+theorem matchOp_getElem!_inBounds {op : OperationPtr} {ctx : WfIRContext OpCode}
+    {opType : OpCode} {n i : Nat} {ops : Array ValuePtr} {props : propertiesOf opType}
+    (h : matchOp op ctx.raw opType n = some (ops, props)) (hi : i < n) :
+    ops[i]!.InBounds ctx.raw := by
+  have hnum := matchOp_getNumOperands h
+  rw [matchOp_operands h, OperationPtr.getOperands!.getElem!_eq_getOperand!]
+  exact OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds
+    (matchOp_inBounds (by omega) h)
+    (OperationPtr.getOperands!.mem_getOperand (by omega))
