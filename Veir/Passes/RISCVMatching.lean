@@ -50,3 +50,21 @@ theorem matchRiscvBinop_reg_inBounds {oc : Riscv} {op : OperationPtr} {ctx : WfI
   rw [hreg]
   exact OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds hin
     (OperationPtr.getOperands!.mem_getOperand (by omega))
+
+/-- The operand returned by a successful `matchZextw` is in bounds. This discharges the
+    `createOp` operand obligation in `fold_zextw_slli_to_slliuw`. -/
+theorem matchZextw_inBounds {val : ValuePtr} {ctx : WfIRContext OpCode} {x : ValuePtr}
+    (h : matchZextw val ctx = some x) : x.InBounds ctx.raw := by
+  unfold matchZextw at h
+  obtain ⟨defOp, _hdef, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨⟨ops, props⟩, hmatch, hres⟩ := Option.bind_eq_some_iff.mp h
+  have hin : defOp.InBounds ctx.raw := matchOp_inBounds (by omega) hmatch
+  have hnum : defOp.getNumOperands! ctx.raw = 1 := matchOp_getNumOperands hmatch
+  have hops : ops = defOp.getOperands! ctx.raw := matchOp_operands hmatch
+  have hx : x = defOp.getOperand! ctx.raw 0 := by
+    have h2 := Option.some.inj hres
+    have hr : x = ops[0]! := h2.symm
+    rw [hr, hops, OperationPtr.getOperands!.getElem!_eq_getOperand!]
+  rw [hx]
+  exact OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds hin
+    (OperationPtr.getOperands!.mem_getOperand (by omega))

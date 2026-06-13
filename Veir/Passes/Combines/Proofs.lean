@@ -105,6 +105,71 @@ theorem fold_shift6_li_ReturnValuesInBounds : (fold_shift6_li src dst hd).Return
 theorem fold_shift6_li_ReturnOps : (fold_shift6_li src dst hd).ReturnOps :=
   fold_binop_li_ReturnOps src dst hd 0 63
 
+/-! ### Structural predicates for `fold_zextw_slli_to_slliuw` -/
+
+/-- Characterizes a successful firing of `fold_zextw_slli_to_slliuw`: it matched a
+    `slli` whose operand is a `zextw`, and created a single `slliuw`. -/
+theorem fold_zextw_slli_to_slliuw_spec
+    {ctx newCtx : WfIRContext OpCode} {op : OperationPtr}
+    {newOps : Array OperationPtr} {newValues : Array ValuePtr}
+    (h : fold_zextw_slli_to_slliuw ctx op = some (newCtx, some (newOps, newValues))) :
+    ∃ operands shamt x hoper newOp,
+      matchOp op ctx (.riscv .slli) 1 = some (operands, shamt) ∧
+      matchZextw operands[0]! ctx = some x ∧
+      WfRewriter.createOp ctx (.riscv .slliuw) #[RegisterType.mk] #[x] #[] #[] shamt none hoper
+        = some (newCtx, newOp) ∧
+      newOps = #[newOp] ∧ newValues = #[(newOp.getResult 0 : ValuePtr)] := by
+  unfold fold_zextw_slli_to_slliuw at h
+  repeat' split at h
+  all_goals try (exfalso; simp_all; done)
+  rename_i _s operands shamt hslli xz hzext
+  obtain ⟨⟨c, newOp⟩, hcreate, hval⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at hval
+  obtain ⟨rfl, hops, hvals⟩ := hval
+  exact ⟨operands, shamt, xz, _, newOp, hslli, hzext, hcreate, hops.symm, hvals.symm⟩
+
+theorem fold_zextw_slli_to_slliuw_ReturnCtxChanges :
+    fold_zextw_slli_to_slliuw.ReturnCtxChanges := by
+  intro ctx op newCtx newOps newValues hpat
+  obtain ⟨operands, shamt, x, hoper, newOp, hslli, hzext, hcreate, hops, hvals⟩ :=
+    fold_zextw_slli_to_slliuw_spec hpat
+  exact WfIRContext.WithCreatedOps.CreatedOp ctx ctx newCtx (.Nil ctx)
+    ⟨_, _, _, _, _, _, _, _, _, _, hcreate⟩
+
+theorem fold_zextw_slli_to_slliuw_ReturnValues :
+    fold_zextw_slli_to_slliuw.ReturnValues := by
+  intro ctx op _hin newCtx newOps newValues hpat
+  obtain ⟨operands, shamt, x, hoper, newOp, hslli, hzext, hcreate, hops, hvals⟩ :=
+    fold_zextw_slli_to_slliuw_spec hpat
+  subst hvals
+  rw [matchOp_getNumResults hslli]
+  rfl
+
+theorem fold_zextw_slli_to_slliuw_ReturnValuesInBounds :
+    fold_zextw_slli_to_slliuw.ReturnValuesInBounds := by
+  intro ctx op newCtx newOps newValues hpat v hv
+  obtain ⟨operands, shamt, x, hoper, newOp, hslli, hzext, hcreate, hops, hvals⟩ :=
+    fold_zextw_slli_to_slliuw_spec hpat
+  subst hvals
+  simp only [Array.mem_singleton] at hv
+  subst hv
+  grind [WfRewriter.createOp, Rewriter.createOp_inBounds,
+    OperationPtr.getResult_op, OperationPtr.getResult_index]
+
+theorem fold_zextw_slli_to_slliuw_ReturnOps :
+    fold_zextw_slli_to_slliuw.ReturnOps := by
+  intro ctx op newCtx newOps newValues hpat newOp'
+  obtain ⟨operands, shamt, x, hoper, newOp, hslli, hzext, hcreate, hops, hvals⟩ :=
+    fold_zextw_slli_to_slliuw_spec hpat
+  subst hops
+  simp only [Array.mem_singleton]
+  constructor
+  · rintro rfl
+    exact ⟨WfRewriter.createOp_new_inBounds _ hcreate,
+           WfRewriter.createOp_new_not_inBounds _ hcreate⟩
+  · rintro ⟨hin, hnin⟩
+    grind [WfRewriter.createOp, Rewriter.createOp_inBounds]
+
 end RISCV
 
 end Veir
@@ -148,5 +213,20 @@ theorem fold_sllw_li_to_slliw (rs1 : Reg) (i : Int) :
     RISCV.sllw (RISCV.li (BitVec.ofInt 64 i)) rs1
       = RISCV.slliw (BitVec.ofInt 5 i) rs1 := by
   rw [ofInt5_eq_setWidth_ofInt64]
+  simp only [reg_toBitVec]
+  bv_decide
+
+/--
+  Correctness of the `fold_zextw_slli_to_slliuw` combine.
+
+  The Veir interpreter evaluates the source `riscv.slli (riscv.zextw x) i` as
+  `RISCV.slli (BitVec.ofInt 6 i) (RISCV.zextw x)` and the rewritten
+  `riscv.slliuw x i` as `RISCV.slliuw (BitVec.ofInt 6 i) x` (both immediates come
+  from the same shared property, materialized via `BitVec.ofInt 6`). We prove
+  these denote the same register value for every register `x` and shift amount
+  `shamt` — both compute `zeroExtend64(low32(x)) <<< shamt`.
+-/
+theorem fold_zextw_slli_to_slliuw (x : Reg) (shamt : BitVec 6) :
+    RISCV.slli shamt (RISCV.zextw x) = RISCV.slliuw shamt x := by
   simp only [reg_toBitVec]
   bv_decide
