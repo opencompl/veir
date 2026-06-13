@@ -44,7 +44,7 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String 
       let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
       WfRewriter.createOp c (.riscv_cf .bnez) #[] (casts.map (fun cast => cast.getResult 0)) (op.getSuccessors c.raw sorry) #[] props ip sorry sorry sorry sorry
     else
-      none | return ⟨c, by sorry⟩
+      none | return c
 
     c := c'
 
