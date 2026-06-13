@@ -17,7 +17,7 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
    -- Check if the terminator operations can be converted to RISCV branches. If
    -- not, we exit early and do not convert this predecessor block.
    if op.getOpType! c.raw != .llvm .br &&
-      op.getOpType! c.raw != .llvm .cond_br then
+      op.getOpType! c.raw != .llvm .cond_br then do
      return c
 
    let mut some ip := InsertPoint.after? op c.raw | return c
@@ -32,12 +32,12 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
      casts := casts.push cast
 
    let some (c', _) :=
-   if h : op.getOpType! c = OpCode.llvm .br then do
+   if op.getOpType! c = OpCode.llvm .br then do
      WfRewriter.createOp c (.riscv_cf .branch) #[]
        (casts.map (fun cast => cast.getResult 0))
        #[op.getSuccessor! c.raw 0] #[] default ip sorry sorry sorry
        sorry
-   else if h : op.getOpType! c = OpCode.llvm .cond_br then do
+   else if op.getOpType! c = OpCode.llvm .cond_br then do
      let condProps : CondBrProperties := op.getProperties! c
        (OpCode.llvm .cond_br)
      let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
