@@ -9,6 +9,7 @@ import Std
 
 namespace Veir
 
+set_option warn.sorry false in
 def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
     (block : BlockPtr) : ExceptT String IO (WfIRContext OpCode) := do
   let mut c := ctx
