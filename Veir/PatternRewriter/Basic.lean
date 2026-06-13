@@ -169,7 +169,7 @@ def createOp (rewriter: PatternRewriter OpInfo) (opType: OpInfo)
 def insertOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertPoint)
     (newOpIn: op.InBounds rewriter.ctx.raw := by grind) (insIn : ip.InBounds rewriter.ctx.raw)
     : Option (PatternRewriter OpInfo) := do
-  rlet newCtx ← WfRewriter.insertOp? rewriter.ctx op ip (by grind) (by grind)
+  rlet newCtx ← WfRewriter.insertOp rewriter.ctx op ip (by grind) (by grind)
   some { rewriter with
     ctx := newCtx,
     hasDoneAction := true,
@@ -226,7 +226,7 @@ def createBlock (rewriter: PatternRewriter OpInfo)
 def insertBlock (rewriter: PatternRewriter OpInfo) (block: BlockPtr) (ip : BlockInsertPoint)
     (newBlockIn: block.InBounds rewriter.ctx.raw := by grind)
     (ipIn : ip.InBounds rewriter.ctx.raw := by grind) : Option (PatternRewriter OpInfo) := do
-  rlet newCtx ← WfRewriter.insertBlock? rewriter.ctx block ip
+  rlet newCtx ← WfRewriter.insertBlock rewriter.ctx block ip
   some { rewriter with
     ctx := newCtx,
     hasDoneAction := true

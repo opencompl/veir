@@ -200,9 +200,9 @@ def defineBlock (name : ByteArray) (ip : BlockInsertPoint) (loc : Location) : Ml
     modifyContextM fun ctx => do
       let ⟨hip⟩ ← checkBlockInsertPointInBounds ip ctx.raw
       let ⟨hblock⟩ ← checkBlockInBounds block ctx.raw
-      match hctx' : Rewriter.insertBlock? ctx block ip hblock hip with
+      match hctx' : Rewriter.insertBlock ctx block ip hblock hip with
       | none => throwAt loc "internal error: failed to insert block"
-      | some ctx' => pure ⟨ctx', by grind [Rewriter.insertBlock?_WellFormed]⟩
+      | some ctx' => pure ⟨ctx', by grind [Rewriter.insertBlock_WellFormed]⟩
     /- Notify the parsing context that the block is defined. -/
     modifyThe MlirParserState (fun state =>
     {state with
