@@ -16,8 +16,8 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
 
    -- Check if the terminator operations can be converted to RISCV branches. If
    -- not, we exit early and do not convert this predecessor block.
-   if op.getOpType! c.raw != .llvm .br &&
-      op.getOpType! c.raw != .llvm .cond_br then do
+   if op.getOpType! c != OpCode.llvm .br &&
+      op.getOpType! c != OpCode.llvm .cond_br then do
      return c
 
    let mut some ip := InsertPoint.after? op c.raw | return c
