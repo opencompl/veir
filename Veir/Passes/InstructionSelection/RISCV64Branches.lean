@@ -35,15 +35,16 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
    if h : op.getOpType! c = OpCode.llvm .br then do
      WfRewriter.createOp c (.riscv_cf .branch) #[]
        (casts.map (fun cast => cast.getResult 0))
-       #[op.getSuccessor c.raw 0 sorry sorry] #[] default ip sorry sorry sorry
+       #[op.getSuccessor! c.raw 0] #[] default ip sorry sorry sorry
        sorry
    else if h : op.getOpType! c = OpCode.llvm .cond_br then do
      let condProps : CondBrProperties := op.getProperties! c
        (OpCode.llvm .cond_br)
      let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
+
      WfRewriter.createOp c (.riscv_cf .bnez) #[]
        (casts.map (fun cast => cast.getResult 0))
-       (op.getSuccessors c.raw sorry) #[] props ip sorry sorry sorry sorry
+       (op.getSuccessors! c.raw) #[] props ip sorry sorry sorry sorry
    else
      none | return c
 
