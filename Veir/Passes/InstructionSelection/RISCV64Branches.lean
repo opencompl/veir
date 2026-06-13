@@ -9,7 +9,7 @@ import Std
 
 namespace Veir
 
-def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : ExceptT String IO (WfIRContext OpCode) := do
+def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr) (block : BlockPtr) : ExceptT String IO (WfIRContext OpCode) := do
    let mut c := ctx
     -- Check if the terminator operations can be converted to RISCV branches. If
     -- not, we exit early and do not convert this predecessor block.
@@ -50,10 +50,10 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String 
     return c
 
   let mut currentPredUse := (block.get! c.raw).firstUse
-  while let some block := currentPredUse do
-    have op := (block.get! c.raw).owner
-    currentPredUse := (block.get! c.raw).nextUse
-    c := ← convertBranch c op
+  while let some blockop := currentPredUse do
+    have op := (blockop.get! c.raw).owner
+    currentPredUse := (blockop.get! c.raw).nextUse
+    c := ← convertBranch c op block
 
   for i in List.range (block.getNumArguments! c.raw) do
     let bap : BlockArgumentPtr := { block := block, index := i }
