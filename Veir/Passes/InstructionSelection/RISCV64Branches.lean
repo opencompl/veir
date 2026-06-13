@@ -11,8 +11,6 @@ namespace Veir
 
 set_option warn.sorry false in
 def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String IO (WfIRContext OpCode) := do
-  let argCount := block.getNumArguments! ctx.raw
-
   let mut c := ctx
 
   -- If the block has no uses (e.g., the entry block) we can skip it.
