@@ -6,7 +6,6 @@ import Veir.Printer
 import Veir.Properties
 import Std
 
-
 namespace Veir
 
 set_option warn.sorry false in
@@ -14,46 +13,44 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
     (block : BlockPtr) : ExceptT String IO (WfIRContext OpCode) := do
   let mut c := ctx
 
-   -- Check if the terminator operations can be converted to RISCV branches. If
-   -- not, we exit early and do not convert this predecessor block.
-   if op.getOpType! c != OpCode.llvm .br &&
-      op.getOpType! c != OpCode.llvm .cond_br then do
-     return c
+  -- Check if the terminator operations can be converted to RISCV branches. If
+  -- not, we exit early and do not convert this predecessor block.
+  if op.getOpType! c != OpCode.llvm .br &&
+     op.getOpType! c != OpCode.llvm .cond_br then do
+    return c
 
-   let mut some ip := InsertPoint.after? op c.raw | return c
-   let mut casts : Array (OperationPtr) := #[]
+  let mut ip := InsertPoint.before op
+  let mut casts : Array (OperationPtr) := #[]
 
-   for i in List.reverse (List.range (op.getNumOperands! c.raw)) do
-     let operand := op.getOperand! c.raw i
-     let some (c', cast) := WfRewriter.createOp c
-       (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand] #[]
-       #[] default ip sorry sorry sorry sorry | return c
-     c := c'
-     casts := casts.push cast
+  for i in List.reverse (List.range (op.getNumOperands! c.raw)) do
+    let operand := op.getOperand! c.raw i
+    let some (c', cast) := WfRewriter.createOp c
+      (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand] #[]
+      #[] default ip sorry sorry sorry sorry | return c
+    c := c'
+    casts := casts.push cast
 
-   let some (c', _) :=
-   if op.getOpType! c = OpCode.llvm .br then do
-     WfRewriter.createOp c (.riscv_cf .branch) #[]
-       (casts.map (fun cast => cast.getResult 0))
-       #[op.getSuccessor! c.raw 0] #[] default ip sorry sorry sorry
-       sorry
-   else if op.getOpType! c = OpCode.llvm .cond_br then do
-     let condProps : CondBrProperties := op.getProperties! c
-       (OpCode.llvm .cond_br)
-     let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
+  if op.getOpType! c = OpCode.llvm .br then do
+    let some (c', _) := WfRewriter.createOp c (.riscv_cf .branch) #[]
+      (casts.map (fun cast => cast.getResult 0))
+      #[op.getSuccessor! c.raw 0] #[] default ip sorry sorry sorry
+      sorry | return c
+    c := c'
 
-     WfRewriter.createOp c (.riscv_cf .bnez) #[]
-       (casts.map (fun cast => cast.getResult 0))
-       (op.getSuccessors! c.raw) #[] props ip sorry sorry sorry sorry
-   else
-     none | return c
+  if op.getOpType! c = OpCode.llvm .cond_br then do
+    let condProps : CondBrProperties := op.getProperties! c
+      (OpCode.llvm .cond_br)
+    let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
 
-   c := c'
+    let some (c', _) :=WfRewriter.createOp c (.riscv_cf .bnez) #[]
+      (casts.map (fun cast => cast.getResult 0))
+      (op.getSuccessors! c.raw) #[] props ip sorry sorry sorry sorry | return c
+    c := c'
 
-   if h : op.getNumRegions! c.raw = 0 && !op.hasUses! c.raw then
-     c := WfRewriter.eraseOp c op (by grind) (by grind) (sorry)
+  if h : op.getNumRegions! c.raw = 0 && !op.hasUses! c.raw then
+    c := WfRewriter.eraseOp c op (by grind) (by grind) (sorry)
 
-   return c
+  return c
 
 set_option warn.sorry false in
 def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
