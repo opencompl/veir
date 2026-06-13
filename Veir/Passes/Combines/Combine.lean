@@ -22,12 +22,13 @@ def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr
 
 set_option warn.sorry false in
 /--
+  Introduce commutative imm12 instructions:
   riscv.OP x (riscv.li imm) -> riscv.OPi x imm
   riscv.OP (riscv.li imm) x -> riscv.OPi x imm
   Only when `imm` fits into a signed 12-bit immediate field.
   Covers: add→addi, or→ori, and→andi, xor→xori, addw→addiw.
 -/
-def fold_binop_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
+def fold_c_binop_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
     (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -41,11 +42,11 @@ def fold_binop_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediate
       #[] #[] (cast h.symm imm) (some $ .before op) sorry (by simp) (by simp) sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
-def fold_add_li_to_addi   := fold_binop_li .add  .addi  rfl
-def fold_or_li_to_ori     := fold_binop_li .or   .ori   rfl
-def fold_and_li_to_andi   := fold_binop_li .and  .andi  rfl
-def fold_xor_li_to_xori   := fold_binop_li .xor  .xori  rfl
-def fold_addw_li_to_addiw := fold_binop_li .addw .addiw rfl
+def fold_add_li_to_addi   := fold_c_binop_li .add  .addi  rfl
+def fold_or_li_to_ori     := fold_c_binop_li .or   .ori   rfl
+def fold_and_li_to_andi   := fold_c_binop_li .and  .andi  rfl
+def fold_xor_li_to_xori   := fold_c_binop_li .xor  .xori  rfl
+def fold_addw_li_to_addiw := fold_c_binop_li .addw .addiw rfl
 
 /-! # Pass implementation -/
 
