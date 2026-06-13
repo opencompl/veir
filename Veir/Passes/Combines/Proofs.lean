@@ -11,22 +11,26 @@ namespace Veir
 
 namespace RISCV
 
+variable (src dst : Riscv) (hd : Riscv.propertiesOf dst = RISCVImmediateProperties) (lo hi : Int)
+
 /--
-  Characterizes a successful firing of the `fold_sllw_li_to_slliw` local pattern:
-  it must have matched `sllw`/`li`, passed the range check, and created a single
-  `slliw` op, returning that op and its result.
+  Characterizes a successful firing of `fold_binop_li`: it must have matched
+  `src`/`li`, passed the range check, and created a single `dst` op, returning
+  that op and its result. The bound `[lo, hi]` plays no role in the structural
+  facts, so all of the predicate proofs below hold uniformly — which is exactly
+  what lets the imm5 and imm6 families share this work.
 -/
-theorem fold_sllw_li_to_slliw_spec
+theorem fold_binop_li_spec
     {ctx newCtx : WfIRContext OpCode} {op : OperationPtr}
     {newOps : Array OperationPtr} {newValues : Array ValuePtr}
-    (h : fold_sllw_li_to_slliw ctx op = some (newCtx, some (newOps, newValues))) :
+    (h : fold_binop_li src dst hd lo hi ctx op = some (newCtx, some (newOps, newValues))) :
     ∃ reg rhs imm hoper newOp,
-      matchRiscvBinop .sllw op ctx = some (reg, rhs) ∧
+      matchRiscvBinop src op ctx = some (reg, rhs) ∧
       matchLi rhs ctx = some imm ∧
-      WfRewriter.createOp ctx (.riscv .slliw) #[RegisterType.mk] #[reg] #[] #[] imm none hoper
-        = some (newCtx, newOp) ∧
+      WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[reg] #[] #[]
+          (cast hd.symm imm) none hoper = some (newCtx, newOp) ∧
       newOps = #[newOp] ∧ newValues = #[(newOp.getResult 0 : ValuePtr)] := by
-  unfold fold_sllw_li_to_slliw at h
+  unfold fold_binop_li at h
   repeat' split at h
   all_goals try (exfalso; simp_all; done)
   rename_i reg rhs hbinop _x imm hmatchli _hbound
@@ -35,43 +39,43 @@ theorem fold_sllw_li_to_slliw_spec
   obtain ⟨rfl, hops, hvals⟩ := hval
   exact ⟨reg, rhs, imm, _, newOp, hbinop, hmatchli, hcreate, hops.symm, hvals.symm⟩
 
-/-- `fold_sllw_li_to_slliw` only ever modifies the context by creating new operations. -/
-theorem fold_sllw_li_to_slliw_ReturnCtxChanges :
-    fold_sllw_li_to_slliw.ReturnCtxChanges := by
+/-- `fold_binop_li` only ever modifies the context by creating new operations. -/
+theorem fold_binop_li_ReturnCtxChanges :
+    (fold_binop_li src dst hd lo hi).ReturnCtxChanges := by
   intro ctx op newCtx newOps newValues hpat
   obtain ⟨reg, rhs, imm, hoper, newOp, hbinop, hmatchli, hcreate, hops, hvals⟩ :=
-    fold_sllw_li_to_slliw_spec hpat
+    fold_binop_li_spec src dst hd lo hi hpat
   exact WfIRContext.WithCreatedOps.CreatedOp ctx ctx newCtx (.Nil ctx)
     ⟨_, _, _, _, _, _, _, _, _, _, hcreate⟩
 
-/-- `fold_sllw_li_to_slliw` returns exactly as many values as the matched op has results. -/
-theorem fold_sllw_li_to_slliw_ReturnValues :
-    fold_sllw_li_to_slliw.ReturnValues := by
+/-- `fold_binop_li` returns exactly as many values as the matched op has results. -/
+theorem fold_binop_li_ReturnValues :
+    (fold_binop_li src dst hd lo hi).ReturnValues := by
   intro ctx op _hin newCtx newOps newValues hpat
   obtain ⟨reg, rhs, imm, hoper, newOp, hbinop, hmatchli, hcreate, hops, hvals⟩ :=
-    fold_sllw_li_to_slliw_spec hpat
+    fold_binop_li_spec src dst hd lo hi hpat
   subst hvals
   rw [matchRiscvBinop_getNumResults hbinop]
   rfl
 
-/-- Every value `fold_sllw_li_to_slliw` returns is in bounds of the new context. -/
-theorem fold_sllw_li_to_slliw_ReturnValuesInBounds :
-    fold_sllw_li_to_slliw.ReturnValuesInBounds := by
+/-- Every value `fold_binop_li` returns is in bounds of the new context. -/
+theorem fold_binop_li_ReturnValuesInBounds :
+    (fold_binop_li src dst hd lo hi).ReturnValuesInBounds := by
   intro ctx op newCtx newOps newValues hpat v hv
   obtain ⟨reg, rhs, imm, hoper, newOp, hbinop, hmatchli, hcreate, hops, hvals⟩ :=
-    fold_sllw_li_to_slliw_spec hpat
+    fold_binop_li_spec src dst hd lo hi hpat
   subst hvals
   simp only [Array.mem_singleton] at hv
   subst hv
   grind [WfRewriter.createOp, Rewriter.createOp_inBounds,
     OperationPtr.getResult_op, OperationPtr.getResult_index]
 
-/-- The operations `fold_sllw_li_to_slliw` returns are exactly the newly-created ones. -/
-theorem fold_sllw_li_to_slliw_ReturnOps :
-    fold_sllw_li_to_slliw.ReturnOps := by
+/-- The operations `fold_binop_li` returns are exactly the newly-created ones. -/
+theorem fold_binop_li_ReturnOps :
+    (fold_binop_li src dst hd lo hi).ReturnOps := by
   intro ctx op newCtx newOps newValues hpat newOp'
   obtain ⟨reg, rhs, imm, hoper, newOp, hbinop, hmatchli, hcreate, hops, hvals⟩ :=
-    fold_sllw_li_to_slliw_spec hpat
+    fold_binop_li_spec src dst hd lo hi hpat
   subst hops
   simp only [Array.mem_singleton]
   constructor
@@ -80,6 +84,26 @@ theorem fold_sllw_li_to_slliw_ReturnOps :
            WfRewriter.createOp_new_not_inBounds _ hcreate⟩
   · rintro ⟨hin, hnin⟩
     grind [WfRewriter.createOp, Rewriter.createOp_inBounds]
+
+/-! ### imm5 / imm6 specializations — the same proofs at different bounds. -/
+
+theorem fold_shift5_li_ReturnCtxChanges : (fold_shift5_li src dst hd).ReturnCtxChanges :=
+  fold_binop_li_ReturnCtxChanges src dst hd 0 31
+theorem fold_shift5_li_ReturnValues : (fold_shift5_li src dst hd).ReturnValues :=
+  fold_binop_li_ReturnValues src dst hd 0 31
+theorem fold_shift5_li_ReturnValuesInBounds : (fold_shift5_li src dst hd).ReturnValuesInBounds :=
+  fold_binop_li_ReturnValuesInBounds src dst hd 0 31
+theorem fold_shift5_li_ReturnOps : (fold_shift5_li src dst hd).ReturnOps :=
+  fold_binop_li_ReturnOps src dst hd 0 31
+
+theorem fold_shift6_li_ReturnCtxChanges : (fold_shift6_li src dst hd).ReturnCtxChanges :=
+  fold_binop_li_ReturnCtxChanges src dst hd 0 63
+theorem fold_shift6_li_ReturnValues : (fold_shift6_li src dst hd).ReturnValues :=
+  fold_binop_li_ReturnValues src dst hd 0 63
+theorem fold_shift6_li_ReturnValuesInBounds : (fold_shift6_li src dst hd).ReturnValuesInBounds :=
+  fold_binop_li_ReturnValuesInBounds src dst hd 0 63
+theorem fold_shift6_li_ReturnOps : (fold_shift6_li src dst hd).ReturnOps :=
+  fold_binop_li_ReturnOps src dst hd 0 63
 
 end RISCV
 

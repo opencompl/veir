@@ -38,80 +38,58 @@ def fold_add_li_to_addi (rewriter: PatternRewriter OpCode) (op: OperationPtr)
       #[] #[] imm (some $ .before op) sorry (by simp) (by simp) sorry
   rewriter.replaceOp op addiOp sorry sorry sorry sorry sorry
 
-set_option warn.sorry false in
 /--
-  Introduce shift-by-immediate instructions with a 5-bit shift amount:
-  riscv.OP x (riscv.li imm) -> riscv.OPi x imm
-  Only when `imm` fits into an unsigned 5-bit shift-amount field (0..31).
-  Unlike the commutative integer ops, shifts/rotates are not commutative,
-  so the immediate is only matched on the second operand (the shift amount).
-  Covers: sllw→slliw, srlw→srliw, sraw→sraiw, rorw→roriw.
--/
-def fold_shift5_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
-    (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) :
-    Option (PatternRewriter OpCode) := do
-  let some (reg, rhs) := matchRiscvBinop src op rewriter.ctx | return rewriter
-  let some imm := matchLi rhs rewriter.ctx | return rewriter
-  if imm.value.value < 0 || imm.value.value > 31 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.riscv dst) #[RegisterType.mk] #[reg]
-      #[] #[] (cast h.symm imm) (some $ .before op) sorry (by simp) (by simp) sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+  Introduce a non-commutative immediate instruction, written as a parameterized
+  `LocalRewritePattern` so it can be connected to the
+  `LocalRewritePattern.PreservesSemantics` framework.
 
-def fold_srlw_li_to_srliw := fold_shift5_li .srlw .srliw rfl
-def fold_sraw_li_to_sraiw := fold_shift5_li .sraw .sraiw rfl
-def fold_rorw_li_to_roriw := fold_shift5_li .rorw .roriw rfl
-
-/--
-  `fold_sllw_li_to_slliw`, written as a `LocalRewritePattern` so it can be
-  connected to the `LocalRewritePattern.PreservesSemantics` framework.
-
-  Matches `riscv.sllw rs1 (riscv.li imm)` with `0 ≤ imm ≤ 31` and returns the new
-  `riscv.slliw rs1 imm` together with its result value; the generic
-  `RewritePattern.fromLocalRewrite` driver performs the insertion, result
-  replacement, and erasure. Returns `(ctx, none)` on no match.
+  `riscv.src rs1 (riscv.li imm) -> riscv.dst rs1 imm`, only when the immediate
+  lies in `[lo, hi]`. Shifts/rotates/single-bit ops are not commutative, so the
+  immediate is only matched on the second operand. `dst`'s properties must be
+  `RISCVImmediateProperties` (proof `h`), used to carry the matched immediate over.
 
   The `match hbinop : … with` binds the match equation so that
-  `matchRiscvBinop_reg_inBounds` can discharge `createOp`'s operand-in-bounds
-  obligation — no `sorry`.
+  `matchRiscvBinop_reg_inBounds` discharges `createOp`'s operand-in-bounds
+  obligation — no `sorry`. The generic `RewritePattern.fromLocalRewrite` driver
+  performs the insertion, result replacement, and erasure.
+
+  The shift-amount/bit-index width is just the `[lo, hi]` range, so the imm5 and
+  imm6 families are the same rewrite at different bounds (`fold_shift5_li`,
+  `fold_shift6_li` below).
 -/
-def fold_sllw_li_to_slliw : LocalRewritePattern OpCode := fun ctx op =>
-  match hbinop : matchRiscvBinop .sllw op ctx with
+def fold_binop_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
+    (lo hi : Int) : LocalRewritePattern OpCode := fun ctx op =>
+  match hbinop : matchRiscvBinop src op ctx with
   | none => some (ctx, none)
   | some (reg, rhs) =>
     match matchLi rhs ctx with
     | none => some (ctx, none)
     | some imm =>
-      if imm.value.value < 0 || imm.value.value > 31 then some (ctx, none)
+      if imm.value.value < lo || imm.value.value > hi then some (ctx, none)
       else do
-        let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv .slliw) #[RegisterType.mk] #[reg]
-            #[] #[] imm none
+        let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[reg]
+            #[] #[] (cast h.symm imm) none
             (by intro oper hmem
                 simp only [Array.mem_singleton] at hmem
                 subst hmem
                 exact matchRiscvBinop_reg_inBounds hbinop)
         return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-set_option warn.sorry false in
-/--
-  Introduce immediate instructions with a 6-bit shift-amount / bit-index field:
-  riscv.OP x (riscv.li imm) -> riscv.OPi x imm
-  Only when `imm` fits into an unsigned 6-bit field (0..63).
-  These ops are not commutative, so the immediate is only matched on the second
-  operand (the shift amount / bit index).
-  Covers shifts/rotates: sll→slli, srl→srli, sra→srai, ror→rori; and the
-  single-bit ops: bclr→bclri, bext→bexti, binv→binvi, bset→bseti.
--/
-def fold_shift6_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
-    (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) :
-    Option (PatternRewriter OpCode) := do
-  let some (reg, rhs) := matchRiscvBinop src op rewriter.ctx | return rewriter
-  let some imm := matchLi rhs rewriter.ctx | return rewriter
-  if imm.value.value < 0 || imm.value.value > 63 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.riscv dst) #[RegisterType.mk] #[reg]
-      #[] #[] (cast h.symm imm) (some $ .before op) sorry (by simp) (by simp) sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+/-- imm5 (word shifts/rotates): `src rs1 (li imm) -> dst rs1 imm` for `imm ∈ [0,31]`.
+    Covers: sllw→slliw, srlw→srliw, sraw→sraiw, rorw→roriw. -/
+def fold_shift5_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
+    LocalRewritePattern OpCode := fold_binop_li src dst h 0 31
+
+/-- imm6 (full-width shifts/rotates and single-bit ops): `imm ∈ [0,63]`.
+    Covers: sll→slli, srl→srli, sra→srai, ror→rori, bclr→bclri, bext→bexti,
+    binv→binvi, bset→bseti. -/
+def fold_shift6_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
+    LocalRewritePattern OpCode := fold_binop_li src dst h 0 63
+
+def fold_sllw_li_to_slliw := fold_shift5_li .sllw .slliw rfl
+def fold_srlw_li_to_srliw := fold_shift5_li .srlw .srliw rfl
+def fold_sraw_li_to_sraiw := fold_shift5_li .sraw .sraiw rfl
+def fold_rorw_li_to_roriw := fold_shift5_li .rorw .roriw rfl
 
 def fold_sll_li_to_slli   := fold_shift6_li .sll  .slli  rfl
 def fold_srl_li_to_srli   := fold_shift6_li .srl  .srli  rfl
@@ -143,12 +121,20 @@ def fold_zextw_slli_to_slliuw (rewriter : PatternRewriter OpCode) (op : Operatio
 def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[right_identity_zero_add,
-      fold_add_li_to_addi, RewritePattern.fromLocalRewrite fold_sllw_li_to_slliw,
-      fold_srlw_li_to_srliw,
-      fold_sraw_li_to_sraiw, fold_rorw_li_to_roriw,
-      fold_sll_li_to_slli, fold_srl_li_to_srli, fold_sra_li_to_srai,
-      fold_ror_li_to_rori, fold_bclr_li_to_bclri, fold_bext_li_to_bexti,
-      fold_binv_li_to_binvi, fold_bset_li_to_bseti, fold_zextw_slli_to_slliuw]
+      fold_add_li_to_addi,
+      RewritePattern.fromLocalRewrite fold_sllw_li_to_slliw,
+      RewritePattern.fromLocalRewrite fold_srlw_li_to_srliw,
+      RewritePattern.fromLocalRewrite fold_sraw_li_to_sraiw,
+      RewritePattern.fromLocalRewrite fold_rorw_li_to_roriw,
+      RewritePattern.fromLocalRewrite fold_sll_li_to_slli,
+      RewritePattern.fromLocalRewrite fold_srl_li_to_srli,
+      RewritePattern.fromLocalRewrite fold_sra_li_to_srai,
+      RewritePattern.fromLocalRewrite fold_ror_li_to_rori,
+      RewritePattern.fromLocalRewrite fold_bclr_li_to_bclri,
+      RewritePattern.fromLocalRewrite fold_bext_li_to_bexti,
+      RewritePattern.fromLocalRewrite fold_binv_li_to_binvi,
+      RewritePattern.fromLocalRewrite fold_bset_li_to_bseti,
+      fold_zextw_slli_to_slliuw]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
