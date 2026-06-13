@@ -12,8 +12,8 @@ namespace Veir.RISCV
 
 set_option warn.sorry false in
 /-- riscv.add x 0 -> x -/
-def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
-    Option (PatternRewriter OpCode) := do
+def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchAdd op rewriter.ctx | return rewriter
   let some cst := matchLi rhs rewriter.ctx | return rewriter
   if cst.value.value ≠ 0 then return rewriter
@@ -28,7 +28,8 @@ set_option warn.sorry false in
   Covers: add→addi, or→ori, and→andi, xor→xori, addw→addiw.
 -/
 def fold_binop_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
-    (rewriter : PatternRewriter OpCode) (op : OperationPtr) :
+    (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchRiscvBinop src op rewriter.ctx | return rewriter
   let some (reg, imm) :=

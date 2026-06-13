@@ -16,7 +16,7 @@ namespace Veir.Benchmarks
 
 namespace Pattern
 
-def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Option (PatternRewriter OpCode) := do
+def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   -- Check that the operation is an arith.addi operation
   if op.getOpType rewriter.ctx.raw sorry ≠ .arith .addi then
     return rewriter
@@ -82,7 +82,7 @@ def addIConstantFoldingLocal (ctx: WfIRContext OpCode) (op: OperationPtr) :
   let (ctx, newOp) ← WfRewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] newVal none sorry sorry sorry sorry
   return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-def addIZeroFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Option (PatternRewriter OpCode)   := do
+def addIZeroFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType rewriter.ctx.raw sorry ≠ .arith .addi then
     return rewriter
 
@@ -108,7 +108,7 @@ def addIZeroFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Opti
     rewriter ← rewriter.eraseOp rhsOp sorry sorry sorry
   return rewriter
 
-def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) : Option (PatternRewriter OpCode) := do
+def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   if op.getOpType rewriter.ctx.raw sorry ≠ .arith .muli then
     return rewriter
 

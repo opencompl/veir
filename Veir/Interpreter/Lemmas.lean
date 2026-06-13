@@ -1,6 +1,7 @@
 import Veir.Interpreter.Basic
 import Veir.Dominance
 import Veir.Interpreter.Refinement.Basic
+import Veir.Verifier
 
 namespace Veir
 
@@ -463,6 +464,15 @@ theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
 end interpretOpList
 
 set_option warn.sorry false in
+/-- An operation that verifies does not fail interpretation as long as the operands conform to
+the declared operand types. -/
+theorem exists_interpretOp'_eq_some {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (opVerify : OperationPtr.Verified ctx op opInBounds)
+    (operandConforms : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
+    (mem : MemoryState) :
+  ∃ res, op.interpret ctx.raw operands mem = some res := by sorry
+
+set_option warn.sorry false in
 theorem interpretOp'_monotone {operands operands' : Array RuntimeValue} :
     operands ⊒ operands' →
     Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
@@ -470,4 +480,16 @@ theorem interpretOp'_monotone {operands operands' : Array RuntimeValue} :
         ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem) := by
+  sorry
+
+set_option warn.sorry false in
+/--
+A successful operation interpretation returns result values that conform to the declared
+`resultTypes` when the operation verifies.
+-/
+theorem interpretOp'_results_conform {ctx : WfIRContext OpCode}
+    {opInBounds : op.InBounds ctx.raw} (opVerif : op.Verified ctx opInBounds)
+    (conforms : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
+    (h : op.interpret ctx.raw operands mem = some (.ok (vals, mem', act))) :
+    RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) := by
   sorry
