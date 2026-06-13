@@ -58,10 +58,39 @@ def fold_shift5_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediat
       #[] #[] (cast h.symm imm) (some $ .before op) sorry (by simp) (by simp) sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
-def fold_sllw_li_to_slliw := fold_shift5_li .sllw .slliw rfl
 def fold_srlw_li_to_srliw := fold_shift5_li .srlw .srliw rfl
 def fold_sraw_li_to_sraiw := fold_shift5_li .sraw .sraiw rfl
 def fold_rorw_li_to_roriw := fold_shift5_li .rorw .roriw rfl
+
+/--
+  `fold_sllw_li_to_slliw`, written as a `LocalRewritePattern` so it can be
+  connected to the `LocalRewritePattern.PreservesSemantics` framework.
+
+  Matches `riscv.sllw rs1 (riscv.li imm)` with `0 ≤ imm ≤ 31` and returns the new
+  `riscv.slliw rs1 imm` together with its result value; the generic
+  `RewritePattern.fromLocalRewrite` driver performs the insertion, result
+  replacement, and erasure. Returns `(ctx, none)` on no match.
+
+  The `match hbinop : … with` binds the match equation so that
+  `matchRiscvBinop_reg_inBounds` can discharge `createOp`'s operand-in-bounds
+  obligation — no `sorry`.
+-/
+def fold_sllw_li_to_slliw : LocalRewritePattern OpCode := fun ctx op =>
+  match hbinop : matchRiscvBinop .sllw op ctx with
+  | none => some (ctx, none)
+  | some (reg, rhs) =>
+    match matchLi rhs ctx with
+    | none => some (ctx, none)
+    | some imm =>
+      if imm.value.value < 0 || imm.value.value > 31 then some (ctx, none)
+      else do
+        let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv .slliw) #[RegisterType.mk] #[reg]
+            #[] #[] imm none
+            (by intro oper hmem
+                simp only [Array.mem_singleton] at hmem
+                subst hmem
+                exact matchRiscvBinop_reg_inBounds hbinop)
+        return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 set_option warn.sorry false in
 /--
@@ -114,7 +143,8 @@ def fold_zextw_slli_to_slliuw (rewriter : PatternRewriter OpCode) (op : Operatio
 def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[right_identity_zero_add,
-      fold_add_li_to_addi, fold_sllw_li_to_slliw, fold_srlw_li_to_srliw,
+      fold_add_li_to_addi, RewritePattern.fromLocalRewrite fold_sllw_li_to_slliw,
+      fold_srlw_li_to_srliw,
       fold_sraw_li_to_sraiw, fold_rorw_li_to_roriw,
       fold_sll_li_to_slli, fold_srl_li_to_srli, fold_sra_li_to_srai,
       fold_ror_li_to_rori, fold_bclr_li_to_bclri, fold_bext_li_to_bexti,

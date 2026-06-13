@@ -146,3 +146,41 @@ def matchStore (op : OperationPtr) (ctx : IRContext OpCode) :
   let operands := op.getOperands! ctx
   let properties := op.getProperties! ctx (.llvm .store)
   return (operands[0]!, operands[1]!, properties)
+
+/-! ## Facts derived from a successful `matchOp` -/
+
+/-- A successful `matchOp` implies the matched operation has exactly one result. -/
+theorem matchOp_getNumResults {op : OperationPtr} {ctx : IRContext OpCode} {opType : OpCode}
+    {n : Nat} {res : Array ValuePtr × propertiesOf opType}
+    (h : matchOp op ctx opType n = some res) : op.getNumResults! ctx = 1 := by
+  unfold matchOp guard at h
+  simp only [bind, Option.bind, pure, failure] at h
+  grind
+
+/-- A successful `matchOp` implies the matched operation has `n` operands. -/
+theorem matchOp_getNumOperands {op : OperationPtr} {ctx : IRContext OpCode} {opType : OpCode}
+    {n : Nat} {res : Array ValuePtr × propertiesOf opType}
+    (h : matchOp op ctx opType n = some res) : op.getNumOperands! ctx = n := by
+  unfold matchOp guard at h
+  simp only [bind, Option.bind, pure, failure] at h
+  grind
+
+/-- The operand array returned by `matchOp` is the operation's operand list. -/
+theorem matchOp_operands {op : OperationPtr} {ctx : IRContext OpCode} {opType : OpCode}
+    {n : Nat} {ops : Array ValuePtr} {props : propertiesOf opType}
+    (h : matchOp op ctx opType n = some (ops, props)) : ops = op.getOperands! ctx := by
+  unfold matchOp guard at h
+  simp only [bind, Option.bind, pure, failure] at h
+  grind
+
+/-- A successful `matchOp` with a positive operand count implies the op is in bounds:
+    an out-of-bounds operation reads as the default, which has no operands. -/
+theorem matchOp_inBounds {op : OperationPtr} {ctx : IRContext OpCode} {opType : OpCode}
+    {n : Nat} {res : Array ValuePtr × propertiesOf opType}
+    (hpos : 0 < n) (h : matchOp op ctx opType n = some res) : op.InBounds ctx := by
+  have hn := matchOp_getNumOperands h
+  by_cases hin : op.InBounds ctx
+  · exact hin
+  · exfalso
+    grind [OperationPtr.getNumOperands!, OperationPtr.get!_of_not_inBounds,
+      Operation.default_operands_eq]
