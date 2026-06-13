@@ -15,7 +15,8 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
 
    -- Check if the terminator operations can be converted to RISCV branches. If
    -- not, we exit early and do not convert this predecessor block.
-   if op.getOpType! c.raw != .llvm .br && op.getOpType! c.raw != .llvm .cond_br then
+   if op.getOpType! c.raw != .llvm .br &&
+      op.getOpType! c.raw != .llvm .cond_br then
      return c
 
    let mut some ip := InsertPoint.after? op c.raw | return c
@@ -91,8 +92,8 @@ def convertModule (ctx : WfIRContext OpCode) :
 
 /-! # Pass implementation -/
 
-def ISelBrPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
-    ExceptT String IO (WfIRContext OpCode) := do
+def ISelBrPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   return (← convertModule ctx)
 
 public def IselBrRISCV64 : Pass OpCode :=
