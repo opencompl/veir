@@ -9,26 +9,15 @@ import Std
 
 namespace Veir
 
-set_option warn.sorry false in
-def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String IO (WfIRContext OpCode) := do
-  let mut c := ctx
-
-  -- If the block has no uses (e.g., the entry block) we can skip it.
-  if (block.get! c.raw).firstUse == none then
-    return c
-
-  let mut currentPredUse := (block.get! c.raw).firstUse
-  while let some block := currentPredUse do
-    have op := (block.get! c.raw).owner
-    currentPredUse := (block.get! c.raw).nextUse
-
+def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : ExceptT String IO (WfIRContext OpCode) := do
+   let mut c := ctx
     -- Check if the terminator operations can be converted to RISCV branches. If
     -- not, we exit early and do not convert this predecessor block.
     if op.getOpType! c.raw != .llvm .br && op.getOpType! c.raw != .llvm .cond_br then
-      continue
+      return c
 
-    let mut some ip := InsertPoint.after? op c.raw | return c
     let mut casts : Array (OperationPtr) := #[]
+    let mut some ip := InsertPoint.after? op c.raw | return c
 
     for i in List.reverse (List.range (op.getNumOperands! c.raw)) do
       let operand := op.getOperand! c.raw i
@@ -50,8 +39,22 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String 
 
     if h : op.getNumRegions! c.raw = 0 ∧ (!op.hasUses! c.raw) = true then
       c := WfRewriter.eraseOp c op (by grind) (by grind) (sorry)
-    else
-      return c
+
+    return c
+
+set_option warn.sorry false in
+def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String IO (WfIRContext OpCode) := do
+  let mut c := ctx
+
+  -- If the block has no uses (e.g., the entry block) we can skip it.
+  if (block.get! c.raw).firstUse == none then
+    return c
+
+  let mut currentPredUse := (block.get! c.raw).firstUse
+  while let some block := currentPredUse do
+    have op := (block.get! c.raw).owner
+    currentPredUse := (block.get! c.raw).nextUse
+    c := ← convertBranch c op
 
   for i in List.range (block.getNumArguments! c.raw) do
     let bap : BlockArgumentPtr := { block := block, index := i }
