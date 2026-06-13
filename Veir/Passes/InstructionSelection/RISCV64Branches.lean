@@ -23,19 +23,24 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
 
    for i in List.reverse (List.range (op.getNumOperands! c.raw)) do
      let operand := op.getOperand! c.raw i
-     let some (c', cast) := WfRewriter.createOp c (.builtin .unrealized_conversion_cast)
-       #[RegisterType.mk] #[operand] #[] #[] default ip sorry sorry sorry sorry | return c
+     let some (c', cast) := WfRewriter.createOp c
+       (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand] #[]
+       #[] default ip sorry sorry sorry sorry | return c
      c := c'
      casts := casts.push cast
 
    let some (c', _) :=
    if h : op.getOpType! c = OpCode.llvm .br then do
-     WfRewriter.createOp c (.riscv_cf .branch) #[] (casts.map (fun cast => cast.getResult 0))
-       #[op.getSuccessor c.raw 0 sorry sorry] #[] default ip sorry sorry sorry sorry
+     WfRewriter.createOp c (.riscv_cf .branch) #[]
+       (casts.map (fun cast => cast.getResult 0))
+       #[op.getSuccessor c.raw 0 sorry sorry] #[] default ip sorry sorry sorry
+       sorry
    else if h : op.getOpType! c = OpCode.llvm .cond_br then do
-     let condProps : CondBrProperties := op.getProperties! c (OpCode.llvm .cond_br)
+     let condProps : CondBrProperties := op.getProperties! c
+       (OpCode.llvm .cond_br)
      let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
-     WfRewriter.createOp c (.riscv_cf .bnez) #[] (casts.map (fun cast => cast.getResult 0))
+     WfRewriter.createOp c (.riscv_cf .bnez) #[]
+       (casts.map (fun cast => cast.getResult 0))
        (op.getSuccessors c.raw sorry) #[] props ip sorry sorry sorry sorry
    else
      none | return c
@@ -48,7 +53,8 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
    return c
 
 set_option warn.sorry false in
-def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String IO (WfIRContext OpCode) := do
+def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
+    : ExceptT String IO (WfIRContext OpCode) := do
   let mut c := ctx
 
   -- If the block has no uses (e.g., the entry block) we can skip it.
@@ -66,10 +72,13 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : ExceptT String 
 
     c := WfRewriter.setType c bap (RegisterType.mk) sorry
     let ip := InsertPoint.atStart block c.raw sorry
-    let some (xc, cast) := WfRewriter.createOp c (OpCode.builtin .unrealized_conversion_cast)
-      #[IntegerType.mk 64] #[] #[] #[] default ip sorry sorry sorry sorry | return c
-    let xc := WfRewriter.replaceValue xc bap (cast.getResult 0) sorry sorry sorry
-    c := WfRewriter.pushOperand xc cast bap sorry sorry
+    let some (c', cast) := WfRewriter.createOp c
+      (OpCode.builtin .unrealized_conversion_cast)
+      #[IntegerType.mk 64] #[] #[] #[] default ip sorry sorry sorry
+      sorry | return c
+    let c' := WfRewriter.replaceValue c' bap (cast.getResult 0) sorry sorry
+      sorry
+    c := WfRewriter.pushOperand c' cast bap sorry sorry
 
   return c
 
