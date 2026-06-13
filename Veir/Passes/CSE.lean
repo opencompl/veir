@@ -136,15 +136,14 @@ def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     | panic! "Dominance analysis not expected to fail"
   -- `domCtx` keeps a stable handle on the original context after
   -- `ctx` is shadowed by the mutable copy.
-  let domCtx := ctx.raw
-  let ops := top.opsInDominanceOrder dfCtx domCtx
+  let ops := top.opsInDominanceOrder dfCtx ctx.raw
   let mut ctx := ctx
   let mut available : Std.HashMap Key (Array OperationPtr) := Std.HashMap.emptyWithCapacity
   for op in ops do
     if h : op.InBounds ctx.raw then
       if let some key := key? ctx.raw op then
         let candidates := available.getD key #[]
-        match candidates.find? (·.properlyDominates op dfCtx domCtx) with
+        match candidates.find? (·.properlyDominates op dfCtx ctx.raw) with
         | some earlier =>
             ctx := WfRewriter.replaceValue ctx (op.getResult 0) (earlier.getResult 0) sorry sorry sorry
             ctx := WfRewriter.eraseOp ctx op sorry sorry sorry
