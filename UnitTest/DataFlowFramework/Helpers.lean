@@ -1,4 +1,7 @@
 import Veir.Analysis.DataFlowFramework
+import Veir.Analysis.DataFlow.DeadCodeAnalysis
+import Veir.Analysis.DataFlow.SparseFact
+import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
 import Veir.Parser.MlirParser
 
 open Std (HashMap)
@@ -165,3 +168,70 @@ def runWithAnalyses
       let some dfCtx := fixpointSolve top analyses parserState.ctx
         | return "analysis did not converge"
       return renderReport (check top dfCtx parserState)
+
+/-- Dead code helpers. -/
+def isBlockLive (dfCtx : DataFlowContext) (block : BlockPtr) (irCtx : IRContext OpCode) : Bool :=
+  match dfCtx.getFact? .executable (.InsertPoint (InsertPoint.atStart! block irCtx)) with
+  | some fact => fact.live
+  | none => false
+
+def isEdgeLive (dfCtx : DataFlowContext) (src dst : BlockPtr) : Bool :=
+  match dfCtx.getFact? .executable (.CFGEdge { source := src, target := dst }) with
+  | some fact => fact.live
+  | none => false
+
+def checkNamedBlockLiveness
+    (dfCtx : DataFlowContext)
+    (irCtx : IRContext OpCode)
+    (blockMap : HashMap String BlockPtr)
+    (expected : Array (String × Bool)) : MismatchReport := Id.run do
+  let mut report := #[]
+  for (name, live) in expected do
+    match blockMap[name]? with
+    | some block =>
+      let observed := isBlockLive dfCtx block irCtx
+      if observed != live then
+        report := report.push s!"block {name}: expected live={live}, observed live={observed}"
+    | none =>
+      report := report.push s!"block {name}: missing block label"
+  report
+
+def checkNamedEdgeLiveness
+    (dfCtx : DataFlowContext)
+    (blockMap : HashMap String BlockPtr)
+    (expected : Array ((String × String) × Bool)) : MismatchReport := Id.run do
+  let mut report := #[]
+  for ((srcName, dstName), live) in expected do
+    match blockMap[srcName]?, blockMap[dstName]? with
+    | some src, some dst =>
+      let observed := isEdgeLive dfCtx src dst
+      if observed != live then
+        report := report.push s!"edge {srcName} -> {dstName}: expected live={live}, observed live={observed}"
+    | _, _ =>
+      report := report.push s!"edge {srcName} -> {dstName}: missing block label(s)"
+  report
+
+/-- Sparse constant propagation helpers. -/
+def showConstantDomain : AbstractConstant -> String
+  | .top =>
+    "top"
+  | .bottom =>
+    "bottom"
+  | .constant c =>
+    s!"const({c.value} : i{c.bitwidth})"
+
+def checkNamedConstants
+    (dfCtx : DataFlowContext)
+    (valueDefs : HashMap String ValuePtr)
+    (expected : Array (String × AbstractConstant)) : MismatchReport := Id.run do
+  let mut report := #[]
+  for (name, expectedValue) in expected do
+    let some value := valueDefs[name]? |
+      report := report.push s!"constant {name}: missing value definition"
+      continue
+    let observedValue :=
+      SparseFact.getElementD .sparseConstant value ⊥ dfCtx
+    if observedValue != expectedValue then
+      report := report.push
+        s!"constant {name}: expected {showConstantDomain expectedValue}, observed {showConstantDomain observedValue}"
+  report

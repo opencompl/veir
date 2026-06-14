@@ -9,6 +9,7 @@ import Veir.Rewriter.InlineBlock
 import Veir.Rewriter.WfRewriter
 import Veir.Printer
 import Veir.PatternRewriter.Basic
+import Veir.Transforms.SCCP
 import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter

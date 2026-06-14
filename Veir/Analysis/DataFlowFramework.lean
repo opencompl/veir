@@ -2,9 +2,10 @@ module
 
 public import Std.Data.DHashMap
 public import Std.Data.HashMap
+public import Std.Data.HashSet
 public import Veir.Analysis.DataFlow.Facts
 
-open Std (DHashMap HashMap)
+open Std (DHashMap HashMap HashSet)
 
 public section
 
@@ -20,10 +21,12 @@ to call transfer functions on.
 -/
 structure DataFlowContext where
   lattice : HashMap LatticeAnchor (DHashMap FactKind Fact)
+  registeredAnalyses : HashSet AnalysisKind
   workList : WorkList
 
 def DataFlowContext.empty : DataFlowContext :=
   { lattice := ∅
+    registeredAnalyses := ∅
     workList := .empty }
 
 /--
@@ -88,6 +91,10 @@ Enqueue one transfer problem onto the worklist.
 def enqueue (ctx : DataFlowContext) (workItem : WorkItem) : DataFlowContext :=
   { ctx with workList := ctx.workList.enqueue workItem }
 
+/-- Return whether the given analysis is registered in the current fixpoint loop. -/
+def hasAnalysis (ctx : DataFlowContext) (analysisKind : AnalysisKind) : Bool :=
+  ctx.registeredAnalyses.contains analysisKind
+
 /--
 Read the fact of kind `kind` stored at `anchor`, if any.
 -/
@@ -142,9 +149,12 @@ def modifyFactAndPropagate (kind : FactKind) [spec : FactSpec kind]
 end DataFlowContext
 
 /--
-Analyses involved in the fixpoint loop.
+Map for analyses involved in the fixpoint loop. When the fixpoint
+loop pops a workitem off the worklist, it receives an `AnalysisKind`.
+This object serves to map that kind back to the `DataFlowAnalysis` it
+belongs to.
 -/
-abbrev RegisteredAnalyses := HashMap AnalysisKind DataFlowAnalysis
+abbrev AnalysesMap := HashMap AnalysisKind DataFlowAnalysis
 
 /--
 Run the worklist solver to completion.
@@ -152,16 +162,16 @@ Run the worklist solver to completion.
 Returns `Option` since `run` may run forever.
 TODO: Eventually prove via monotonicity that this is in fact impossible.
 -/
-partial def run (analyses : RegisteredAnalyses) (ctx : DataFlowContext)
+partial def run (analysesMap : AnalysesMap) (ctx : DataFlowContext)
     (irCtx : IRContext OpCode) : Option DataFlowContext :=
   match ctx.workList.dequeue? with
   | none => some ctx
   | some ((point, analysisKind), workList) =>
     let ctx := { ctx with workList := workList }
-    match analyses.get? analysisKind with
+    match analysesMap.get? analysisKind with
     | some analysis =>
       let ctx := analysis.visit point ctx irCtx
-      run analyses ctx irCtx
+      run analysesMap ctx irCtx
     | none =>
       panic! s!"analysis {reprStr analysisKind} is not registered"
 
@@ -173,11 +183,12 @@ Returns `some` whenever it terminates.
 def fixpointSolve (top : OperationPtr) (analyses : Array DataFlowAnalysis)
     (irCtx : IRContext OpCode) : Option DataFlowContext := Id.run do
   let mut ctx := DataFlowContext.empty
-  let mut registeredAnalyses : RegisteredAnalyses := ∅
+  let mut registeredAnalysesMap : AnalysesMap := ∅
   for analysis in analyses do
-    registeredAnalyses := registeredAnalyses.insert analysis.kind analysis
+    registeredAnalysesMap := registeredAnalysesMap.insert analysis.kind analysis
+    ctx := { ctx with registeredAnalyses := ctx.registeredAnalyses.insert analysis.kind }
   for analysis in analyses do
     ctx := analysis.init top ctx irCtx
-  run registeredAnalyses ctx irCtx
+  run registeredAnalysesMap ctx irCtx
 
 end Veir
