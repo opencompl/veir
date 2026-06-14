@@ -486,6 +486,111 @@ theorem mapping_operand {ctx newCtx : WfIRContext OpCode} (ctxDom : ctx.Dom)
       OperationPtr.dominates_refl v hmem
   simp [hnotres]
 
+
+/-! ## Helpers for `fold_zextw_slli_to_slliuw` (its source operand is itself a `zextw`). -/
+
+theorem slli_interpret_inv {op : OperationPtr} {ctx : IRContext OpCode} {ov : Array RuntimeValue} {mem res}
+    (hty : op.getOpType! ctx = OpCode.riscv .slli) (h : op.interpret ctx ov mem = some res) :
+    ∃ o1 : Data.RISCV.Reg, ov = #[.reg o1] ∧
+      res = .ok (#[.reg (Data.RISCV.slli (BitVec.ofInt 6
+        (op.getProperties! ctx (OpCode.riscv .slli)).value.value) o1)], mem, none) := by
+  unfold OperationPtr.interpret at h
+  generalize hot : op.getOpType! ctx = ot at hty h
+  subst hty; simp only [interpretOp', Riscv.interpretOp', pure] at h
+  split at h
+  · rename_i o1 hlist; exact ⟨o1, by grind [Array.toList_inj], by grind⟩
+  · simp at h
+
+theorem slliuw_interpret_eq {op : OperationPtr} {ctx : IRContext OpCode} {o1 : Data.RISCV.Reg} {mem}
+    {imm : HasOpInfo.propertiesOf (OpCode.riscv .slliuw)}
+    (hty : op.getOpType! ctx = OpCode.riscv .slliuw)
+    (hprops : op.getProperties! ctx (OpCode.riscv .slliuw) = imm) :
+    op.interpret ctx #[.reg o1] mem
+      = some (.ok (#[.reg (Data.RISCV.slliuw (BitVec.ofInt 6 imm.value.value) o1)], mem, none)) := by
+  unfold OperationPtr.interpret
+  generalize hot : op.getOpType! ctx = ot at hty ⊢
+  subst hty; subst hprops; simp only [interpretOp', Riscv.interpretOp', pure]
+
+theorem zextw_interpret_inv {op : OperationPtr} {ctx : IRContext OpCode} {ov : Array RuntimeValue} {mem res}
+    (hty : op.getOpType! ctx = OpCode.riscv .zextw) (h : op.interpret ctx ov mem = some res) :
+    ∃ o1 : Data.RISCV.Reg, ov = #[.reg o1] ∧ res = .ok (#[.reg (Data.RISCV.zextw o1)], mem, none) := by
+  unfold OperationPtr.interpret at h
+  generalize hot : op.getOpType! ctx = ot at hty h
+  subst hty; simp only [interpretOp', Riscv.interpretOp', pure] at h
+  split at h
+  · rename_i o1 hlist; exact ⟨o1, by grind [Array.toList_inj], by grind⟩
+  · simp at h
+
+theorem getOperandValues_single_inv {ctx : WfIRContext OpCode} {state : VariableState ctx}
+    {op : OperationPtr} {a : ValuePtr} {ov : Array RuntimeValue}
+    (hops : op.getOperands! ctx.raw = #[a]) (h : state.getOperandValues op = some ov) :
+    ∃ va, state.getVar? a = some va ∧ ov = #[va] := by
+  have hane : state.getVar? a ≠ none := by
+    intro hn; simp [VariableState.getOperandValues, hops, Array.mapM_eq_mapM_toList, hn] at h
+  obtain ⟨va, ha⟩ := Option.ne_none_iff_exists'.mp hane
+  rw [getOperandValues_single hops ha] at h
+  exact ⟨va, ha, (Option.some.inj h).symm⟩
+
+/-- Reach-through extraction: an operand `z` that `matchZextw` recognizes holds `zextw` of
+    `x`'s value, `x` holds a register, and `x` is not one of `op`'s results (so the value
+    mapping is identity on it). Proven via the equation lemma for the (pure, dominating)
+    `zextw` op that defines `z`. -/
+theorem getVar_zextw_of_equationLemma {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom)
+    {state : InterpreterState ctx} {op : OperationPtr} {z x : ValuePtr}
+    (hopIn : op.InBounds ctx.raw) (hEq : state.EquationLemmaAt (.before op))
+    (hmem : z ∈ op.getOperands! ctx.raw) (hzext : RISCV.matchZextw z ctx = some x) :
+    ∃ xval : Data.RISCV.Reg, state.variables.getVar? x = some (.reg xval) ∧
+      state.variables.getVar? z = some (.reg (Data.RISCV.zextw xval)) ∧
+      x ∉ op.getResults! ctx.raw := by
+  unfold RISCV.matchZextw at hzext
+  obtain ⟨zOp, hdef, hzext⟩ := Option.bind_eq_some_iff.mp hzext
+  obtain ⟨⟨ops, props⟩, hmatchOp, hres⟩ := Option.bind_eq_some_iff.mp hzext
+  have hxeq : x = ops[0]! := (Option.some.inj hres).symm
+  have hzTy := (matchOp_eq hmatchOp).1
+  have hzNum := matchOp_getNumOperands hmatchOp
+  have hzOps := matchOp_operands hmatchOp
+  have hsz : ops.size = 1 := by rw [hzOps, OperationPtr.getOperands!.size_eq_getNumOperands!]; exact hzNum
+  have hzmemIn : z.InBounds ctx.raw := OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds hopIn hmem
+  have hzOpIn : zOp.InBounds ctx.raw := by
+    have h := ValuePtr.getDefiningOp!_inBounds ctx.wellFormed.inBounds hzmemIn
+    rw [hdef] at h; simpa [Option.maybe] using h
+  have hsdom : zOp.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hdef hmem
+  obtain ⟨cf, hinterp⟩ := hEq zOp hzOpIn (Pure_of_getOpType_zextw hzTy)
+    (OperationPtr.dominatesIp_before.mpr hsdom)
+  obtain ⟨ov, resV, mem', vs', hov, hint', hset, hstate⟩ := interpretOp_some_iff.mp hinterp
+  obtain ⟨o1, hovEq, hresEq⟩ := zextw_interpret_inv hzTy hint'
+  have hzOps1 : zOp.getOperands! ctx.raw = #[x] := by
+    rw [← hzOps, hxeq]; apply Array.ext
+    · simp [hsz]
+    · intro i hi _
+      match i, hi with
+      | 0, _ => grind
+      | n+1, h => rw [hsz] at h; omega
+  have hxnotres : x ∉ op.getResults! ctx.raw := by
+    apply IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hsdom)
+    rw [hzOps1]; simp
+  obtain ⟨xv, hgetx, hovEq2⟩ := getOperandValues_single_inv hzOps1 hov
+  have hxv : xv = RuntimeValue.reg o1 := by
+    rw [hovEq] at hovEq2; have := congrArg (·[0]!) hovEq2; simpa using this.symm
+  have hresVals : resV = #[RuntimeValue.reg (Data.RISCV.zextw o1)] := by
+    have := hresEq; simp only [UBOr.ok.injEq, Prod.mk.injEq] at this; grind
+  obtain ⟨opRes, hzeq, howner⟩ := ValuePtr.getDefiningOp!_eq_some_iff.mp hdef
+  have hzopResIn : (ValuePtr.opResult opRes).InBounds ctx.raw := hzeq ▸ hzmemIn
+  have hriIn : opRes.InBounds ctx.raw := (ValuePtr.inBounds_opResult opRes ctx.raw).mp hzopResIn
+  obtain ⟨hh, hidx⟩ := OpResultPtr.inBounds_def.mp hriIn
+  have hopeq : opRes.op = zOp := by
+    have hro := (ctx.wellFormed.operations opRes.op hh).result_owner opRes.index (by grind)
+    have heq := OperationPtr.eq_getResult_of_OpResultPtr_op_eq (op := opRes.op) (res := opRes) rfl
+    grind
+  have hgetz : state.variables.getVar? z = some (.reg (Data.RISCV.zextw o1)) := by
+    have hsetVs : state.variables.setResultValues? zOp resV = some state.variables := by
+      rw [hstate] at hset ⊢; exact hset
+    rw [VariableState.getVar?_setResultValues?_of_value_inBounds hzmemIn hsetVs (value := z)]
+    grind
+  exact ⟨o1, by rw [hgetx, hxv], hgetz, hxnotres⟩
+
 namespace RISCV
 
 variable (src dst : Riscv) (hd : Riscv.propertiesOf dst = RISCVImmediateProperties) (lo hi : Int)
