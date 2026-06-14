@@ -24,7 +24,7 @@ def propagate (state : ExecutableFact) (anchor : LatticeAnchor)
         dfCtx := dfCtx.enqueue (point, analysisKind)
 
       let some block := point.block! irCtx
-        | panic! "SparseForwardDataFlowAnalysis.visit: block-start point without block"
+        | panic! "Dead Code propagate: block start insertion point without block"
 
       -- Reinvoke analyses on all operations in the block
       for analysisKind in state.subscribers do
@@ -32,7 +32,7 @@ def propagate (state : ExecutableFact) (anchor : LatticeAnchor)
         while h : maybeOp.isSome do
           let op := maybeOp.get h
           let some point := InsertPoint.after? op irCtx
-            | panic! "SparseForwardDataFlowAnalysis.visit: block operation without insertion point"
+            | panic! "Dead Code propagate: block operation without insertion point"
           dfCtx := dfCtx.enqueue (point, analysisKind)
           maybeOp := (op.get! irCtx).next
   | .CFGEdge edge =>
@@ -105,7 +105,7 @@ private def getLiteralConstant?
     (irCtx : IRContext OpCode) : Option AbstractConstant :=
   match value with
   | .opResult result =>
-    if result.index != 0 then
+    if result.index ≠ 0 then
       none
     else
       match (result.op.get! irCtx).opType with
@@ -147,14 +147,14 @@ private def getSuccessorForOperands?
     (op : OperationPtr)
     (operands : Array AbstractConstant)
     (irCtx : IRContext OpCode) : Option BlockPtr :=
-  if op.getNumSuccessors! irCtx == 1 then
+  if op.getNumSuccessors! irCtx = 1 then
     some (op.getSuccessor! irCtx 0)
-  else if op.getNumSuccessors! irCtx == 2 then
+  else if op.getNumSuccessors! irCtx = 2 then
     match operands[0]? with
     | some (AbstractConstant.constant constant) =>
       match constant.value with
       | Data.LLVM.Int.val value =>
-        if value == 0 then
+        if value = 0 then
           some (op.getSuccessor! irCtx 1)
         else
           some (op.getSuccessor! irCtx 0)
@@ -208,7 +208,7 @@ private def visitOp
 
   -- TODO: If we have a live call op, add this as a live predecessor of the callee.
 
-  if op.getNumRegions! irCtx != 0 then
+  if op.getNumRegions! irCtx ≠ 0 then
     -- TODO: Check if we can reason about region control-flow.
 
     -- TODO: Check if this is a callable operation and use callsite information
@@ -220,7 +220,7 @@ private def visitOp
   -- TODO: If `op` is a region or callable return, visit the corresponding
   -- terminator semantics once VeIR has the necessary interfaces.
 
-  if op.getNumSuccessors! irCtx != 0 then
+  if op.getNumSuccessors! irCtx ≠ 0 then
     if hParent : (op.get! irCtx).parent.isSome then
       let parentBlock := (op.get! irCtx).parent.get hParent
 
@@ -259,7 +259,7 @@ partial def initializeRecursively
   let mut dfCtx := dfCtx
 
   -- Initialize the analysis by visiting every op with control-flow semantics.
-  if op.getNumRegions! irCtx != 0 || op.getNumSuccessors! irCtx != 0 then
+  if op.getNumRegions! irCtx ≠ 0 || op.getNumSuccessors! irCtx ≠ 0 then
     -- TODO: || isRegionOrCallableReturn op || isACallOpInterface op
 
     -- When the liveness of the parent block changes, make sure to re-invoke
