@@ -60,6 +60,87 @@ theorem Pure_of_getOpType_zextw {op : OperationPtr} {ctx : IRContext OpCode}
     (h : op.getOpType! ctx = OpCode.riscv .zextw) : op.Pure ctx :=
   Pure_of_getOpType_riscv h zextw_interpretOp'_mem_pure
 
+/-! ## Reading a matched `li`'s value from the SSA equation lemma (toward PreservesSemantics)
+
+  These are the next bricks: a successful `matchLi` is a `getDefiningOp!` + `matchOp`, and a
+  `riscv.li` op evaluates to its loaded constant under any operands/memory. Together with the
+  purity above and the SSA dominance axioms, they let us read the value an `li`-defined operand
+  holds in a state satisfying `EquationLemmaAt`. -/
+
+/-- Decompose a successful `matchLi`: it found a defining op that `matchOp` accepts as `riscv.li`. -/
+theorem matchLi_some {rhs : ValuePtr} {ctx : IRContext OpCode}
+    {imm : HasOpInfo.propertiesOf (OpCode.riscv .li)}
+    (h : RISCV.matchLi rhs ctx = some imm) :
+    ∃ liOp ops, rhs.getDefiningOp! ctx = some liOp ∧
+      matchOp liOp ctx (OpCode.riscv .li) 0 = some (ops, imm) := by
+  unfold RISCV.matchLi at h
+  obtain ⟨liOp, hdef, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨⟨ops, props⟩, hmatch, hres⟩ := Option.bind_eq_some_iff.mp h
+  have : props = imm := Option.some.inj hres
+  subst this
+  exact ⟨liOp, ops, hdef, hmatch⟩
+
+/-- A `riscv.li` op evaluates to its loaded 64-bit constant, regardless of operands and memory. -/
+theorem li_interpret_eq {liOp : OperationPtr} {ctx : IRContext OpCode}
+    {operands : Array RuntimeValue} {mem : MemoryState}
+    {imm : HasOpInfo.propertiesOf (OpCode.riscv .li)}
+    (hty : liOp.getOpType! ctx = OpCode.riscv .li)
+    (hprops : liOp.getProperties! ctx (OpCode.riscv .li) = imm) :
+    liOp.interpret ctx operands mem
+      = some (.ok (#[.reg (Data.RISCV.li (BitVec.ofInt 64 imm.value.value))], mem, none)) := by
+  unfold OperationPtr.interpret
+  generalize hot : liOp.getOpType! ctx = ot at hty ⊢
+  subst hty
+  subst hprops
+  simp only [interpretOp', Riscv.interpretOp', pure]
+
+/--
+  The payoff: in a state satisfying the SSA equation lemma before `op`, an operand of `op`
+  that `matchLi` recognizes as a `riscv.li` holds exactly the loaded constant. This is the
+  fact `PreservesSemantics` needs to pin down the source `sllw`'s immediate operand.
+
+  Proof outline: the `li` op defines `rhs`, so (SSA dominance axiom) it strictly dominates
+  `op`; it is pure; hence `EquationLemmaAt` says its result is already recorded in the state.
+  Decomposing that recorded interpretation (`interpretOp_some_iff` + `li_interpret_eq`) and
+  reading back the result (`getVar?_setResultValues?`) yields the constant.
+-/
+theorem getVar_li_of_equationLemma
+    {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom)
+    {state : InterpreterState ctx} {op : OperationPtr} {rhs : ValuePtr}
+    {imm : HasOpInfo.propertiesOf (OpCode.riscv .li)}
+    (hopIn : op.InBounds ctx.raw)
+    (hEq : state.EquationLemmaAt (.before op))
+    (hmem : rhs ∈ op.getOperands! ctx.raw)
+    (hmatch : RISCV.matchLi rhs ctx = some imm) :
+    state.variables.getVar? rhs
+      = some (.reg (Data.RISCV.li (BitVec.ofInt 64 imm.value.value))) := by
+  obtain ⟨liOp, ops, hdef, hmatchOp⟩ := matchLi_some hmatch
+  have hty : liOp.getOpType! ctx.raw = OpCode.riscv .li := (matchOp_eq hmatchOp).1
+  have hprops : liOp.getProperties! ctx.raw (OpCode.riscv .li) = imm :=
+    (matchOp_eq hmatchOp).2.2.2.2.symm
+  have hrhsIn : rhs.InBounds ctx.raw :=
+    OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds hopIn hmem
+  have hliopIn : liOp.InBounds ctx.raw := by
+    have h := ValuePtr.getDefiningOp!_inBounds ctx.wellFormed.inBounds hrhsIn
+    rw [hdef] at h; simpa [Option.maybe] using h
+  have hdomIp : liOp.dominatesIp (.before op) ctx :=
+    OperationPtr.dominatesIp_before.mpr
+      (OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hdef hmem)
+  obtain ⟨cf, hinterp⟩ := hEq liOp hliopIn (Pure_of_getOpType_li hty) hdomIp
+  obtain ⟨operandValues, resValues, mem', varState', hov, hinterp', hset, hstate⟩ :=
+    interpretOp_some_iff.mp hinterp
+  rw [li_interpret_eq hty hprops] at hinterp'
+  obtain ⟨opRes, hrhseq, howner⟩ := ValuePtr.getDefiningOp!_eq_some_iff.mp hdef
+  have hopResIn : (ValuePtr.opResult opRes).InBounds ctx.raw := hrhseq ▸ hrhsIn
+  have hriIn : opRes.InBounds ctx.raw := (ValuePtr.inBounds_opResult opRes ctx.raw).mp hopResIn
+  obtain ⟨hh, hidx⟩ := OpResultPtr.inBounds_def.mp hriIn
+  have hopeq : opRes.op = liOp := by
+    have hro := (ctx.wellFormed.operations opRes.op hh).result_owner opRes.index (by grind)
+    have heq := OperationPtr.eq_getResult_of_OpResultPtr_op_eq (op := opRes.op) (res := opRes) rfl
+    grind
+  have hgv := VariableState.getVar?_setResultValues?_of_value_inBounds hrhsIn hset (value := rhs)
+  grind
+
 namespace RISCV
 
 variable (src dst : Riscv) (hd : Riscv.propertiesOf dst = RISCVImmediateProperties) (lo hi : Int)
