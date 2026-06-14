@@ -18,35 +18,38 @@ def propagate (state : ExecutableFact) (anchor : LatticeAnchor)
   let mut dfCtx := { dfCtx with workList := state.enqueueDependents dfCtx.workList }
   match anchor with
   | .InsertPoint point =>
-    if point.prev! irCtx = none then
-      -- Reinvoke the analyses on the block itself
-      for analysisKind in state.subscribers do
+    -- Only deal with block start insertion points!
+    if point.prev! irCtx ≠ none then
+      panic! "Dead code propagate called on non block start insertion point"
+
+    -- Reinvoke the analyses on the block itself
+    for analysisKind in state.subscribers do
+      dfCtx := dfCtx.enqueue (point, analysisKind)
+
+    let some block := point.block! irCtx
+      | panic! "Dead Code propagate: block start insertion point without block"
+
+    -- Reinvoke analyses on all operations in the block
+    for analysisKind in state.subscribers do
+      let mut maybeOp := (block.get! irCtx).firstOp
+      while h : maybeOp.isSome do
+        let op := maybeOp.get h
+        let some point := InsertPoint.after? op irCtx
+          | panic! "Dead Code propagate: block operation without insertion point"
         dfCtx := dfCtx.enqueue (point, analysisKind)
-
-      let some block := point.block! irCtx
-        | panic! "Dead Code propagate: block start insertion point without block"
-
-      -- Reinvoke analyses on all operations in the block
-      for analysisKind in state.subscribers do
-        let mut maybeOp := (block.get! irCtx).firstOp
-        while h : maybeOp.isSome do
-          let op := maybeOp.get h
-          let some point := InsertPoint.after? op irCtx
-            | panic! "Dead Code propagate: block operation without insertion point"
-          dfCtx := dfCtx.enqueue (point, analysisKind)
-          maybeOp := (op.get! irCtx).next
+        maybeOp := (op.get! irCtx).next
   | .CFGEdge edge =>
     for analysisKind in state.subscribers do
       dfCtx := dfCtx.enqueue (InsertPoint.atStart! edge.target irCtx, analysisKind)
-  | _ =>
+  | _ => 
     pure ()
   dfCtx
-
-end ExecutableFact
 
 instance : FactSpec .executable where
   mkDefault := ExecutableFact.mkDefault
   propagate := ExecutableFact.propagate
+
+end ExecutableFact
 
 namespace DeadCodeAnalysis
 
@@ -86,16 +89,18 @@ def markEntryBlocksLive
         (fact.setToLive, !fact.live)) irCtx
   dfCtx
 
-/-- Return whether the given operation is a branch op. -/
+/-- 
+Return whether the given operation is a branch op.
+TODO: This function likely needs to be replaced with
+an interface much like what MLIR has.
+-/
 private def isBranchOp
     (op : OperationPtr)
     (irCtx : IRContext OpCode) : Bool :=
   -- TODO: Replace this `.test .test` check once VeIR has proper branch ops.
   match (op.get! irCtx).opType with
-  | .test .test =>
-    true
-  | _ =>
-    false
+  | .test .test => true
+  | _ => false
 
 /--
 Read a literal constant directly from the defining operation when possible.
@@ -181,8 +186,7 @@ def visitBranchOperation
     markEdgeLive parentBlock successor dfCtx irCtx
   | none =>
     let mut dfCtx := dfCtx
-    for i in [0:branch.getNumSuccessors! irCtx] do
-      let successor := branch.getSuccessor! irCtx i
+    for successor in branch.getSuccessors! irCtx do
       dfCtx := markEdgeLive parentBlock successor dfCtx irCtx
     dfCtx
 
@@ -229,8 +233,7 @@ private def visitOp
         dfCtx := visitBranchOperation op dfCtx irCtx
       else
         -- Conservatively mark all successors as executable.
-        for i in [0:op.getNumSuccessors! irCtx] do
-          let successor := op.getSuccessor! irCtx i
+        for successor in op.getSuccessors! irCtx do
           dfCtx := markEdgeLive parentBlock successor dfCtx irCtx
     else
       -- TODO: Handle standalone operations with successors if VeIR ever models them.
@@ -292,7 +295,7 @@ def init
     (top : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext := Id.run do
-  -- Mark the top-level blocks as executable.
+  -- Mark the top level blocks as executable.
   let dfCtx := markEntryBlocksLive top dfCtx irCtx
 
   -- TODO: Mark as overdefined the predecessors of symbol callables with
