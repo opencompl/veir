@@ -9,6 +9,57 @@ import Veir.PatternRewriter.Semantics
 
 namespace Veir
 
+/-! ## Purity of the relevant RISC-V opcodes
+
+  `EquationLemmaAt` (the SSA invariant) is stated over `OperationPtr.Pure`, so to read the
+  value an operand was defined with we must know its defining op is pure. These opcodes all
+  thread the memory through unchanged, hence are pure. -/
+
+/--
+  Reduce `op.Pure ctx` to a memory-purity fact about the single opcode `op` carries.
+  The `generalize`/`subst` discharges the dependent rewrite of `op.getOpType! ctx` inside
+  `op.getProperties! ctx (op.getOpType! ctx)`.
+-/
+theorem Pure_of_getOpType_riscv {op : OperationPtr} {ctx : IRContext OpCode} {rop : Riscv}
+    (h : op.getOpType! ctx = OpCode.riscv rop)
+    (hpure : ∀ (props : HasOpInfo.propertiesOf (OpCode.riscv rop)) (rt : Array TypeAttr)
+        (operands : Array RuntimeValue) (succ : Array BlockPtr) (m₁ m₂ : MemoryState),
+      interpretOp' (OpCode.riscv rop) props rt operands succ m₁
+        = (interpretOp' (OpCode.riscv rop) props rt operands succ m₂).map
+            (fun (r, _, cf) => (r, m₁, cf))) :
+    op.Pure ctx := by
+  intro operands m₁ m₂
+  generalize hot : op.getOpType! ctx = ot at h ⊢
+  subst h
+  exact hpure _ _ _ _ _ _
+
+theorem li_interpretOp'_mem_pure
+    (props : HasOpInfo.propertiesOf (OpCode.riscv .li)) (rt : Array TypeAttr)
+    (operands : Array RuntimeValue) (succ : Array BlockPtr) (m₁ m₂ : MemoryState) :
+    interpretOp' (OpCode.riscv .li) props rt operands succ m₁
+      = (interpretOp' (OpCode.riscv .li) props rt operands succ m₂).map
+          (fun (r, _, cf) => (r, m₁, cf)) := by
+  simp only [interpretOp', Riscv.interpretOp', Interp.map, Option.map, UBOr.map, pure]
+
+theorem zextw_interpretOp'_mem_pure
+    (props : HasOpInfo.propertiesOf (OpCode.riscv .zextw)) (rt : Array TypeAttr)
+    (operands : Array RuntimeValue) (succ : Array BlockPtr) (m₁ m₂ : MemoryState) :
+    interpretOp' (OpCode.riscv .zextw) props rt operands succ m₁
+      = (interpretOp' (OpCode.riscv .zextw) props rt operands succ m₂).map
+          (fun (r, _, cf) => (r, m₁, cf)) := by
+  simp only [interpretOp', Riscv.interpretOp', Interp.map, Option.map, UBOr.map, pure]
+  split <;> rfl
+
+/-- A `riscv.li` operation is pure. -/
+theorem Pure_of_getOpType_li {op : OperationPtr} {ctx : IRContext OpCode}
+    (h : op.getOpType! ctx = OpCode.riscv .li) : op.Pure ctx :=
+  Pure_of_getOpType_riscv h li_interpretOp'_mem_pure
+
+/-- A `riscv.zextw` operation is pure. -/
+theorem Pure_of_getOpType_zextw {op : OperationPtr} {ctx : IRContext OpCode}
+    (h : op.getOpType! ctx = OpCode.riscv .zextw) : op.Pure ctx :=
+  Pure_of_getOpType_riscv h zextw_interpretOp'_mem_pure
+
 namespace RISCV
 
 variable (src dst : Riscv) (hd : Riscv.propertiesOf dst = RISCVImmediateProperties) (lo hi : Int)
