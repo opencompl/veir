@@ -166,6 +166,99 @@ theorem slliw_interpret_eq {op : OperationPtr} {ctx : IRContext OpCode}
   subst hprops
   simp only [interpretOp', Riscv.interpretOp', pure]
 
+/-- Inverting a successful `sllw` interpretation: its operands were two registers and its
+    result is `RISCV.sllw` of them (with memory unchanged). -/
+theorem sllw_interpret_inv {op : OperationPtr} {ctx : IRContext OpCode}
+    {ov : Array RuntimeValue} {mem : MemoryState} {res}
+    (hty : op.getOpType! ctx = OpCode.riscv .sllw)
+    (h : op.interpret ctx ov mem = some res) :
+    ∃ o1 o2 : Data.RISCV.Reg, ov = #[.reg o1, .reg o2] ∧
+      res = .ok (#[.reg (Data.RISCV.sllw o2 o1)], mem, none) := by
+  unfold OperationPtr.interpret at h
+  generalize hot : op.getOpType! ctx = ot at hty h
+  subst hty
+  simp only [interpretOp', Riscv.interpretOp', pure] at h
+  split at h
+  · rename_i o1 o2 hlist
+    exact ⟨o1, o2, by grind [Array.toList_inj], by grind⟩
+  · simp at h
+
+/-! ## Reading operand values out of `getOperandValues` -/
+
+theorem getOperandValues_pair {ctx : WfIRContext OpCode} {state : VariableState ctx}
+    {op : OperationPtr} {a b : ValuePtr} {va vb : RuntimeValue}
+    (hops : op.getOperands! ctx.raw = #[a, b])
+    (ha : state.getVar? a = some va) (hb : state.getVar? b = some vb) :
+    state.getOperandValues op = some #[va, vb] := by
+  simp [VariableState.getOperandValues, hops, Array.mapM_eq_mapM_toList, ha, hb]
+
+theorem getOperandValues_single {ctx : WfIRContext OpCode} {state : VariableState ctx}
+    {op : OperationPtr} {a : ValuePtr} {va : RuntimeValue}
+    (hops : op.getOperands! ctx.raw = #[a]) (ha : state.getVar? a = some va) :
+    state.getOperandValues op = some #[va] := by
+  simp [VariableState.getOperandValues, hops, Array.mapM_eq_mapM_toList, ha]
+
+theorem getOperandValues_pair_inv {ctx : WfIRContext OpCode} {state : VariableState ctx}
+    {op : OperationPtr} {a b : ValuePtr} {ov : Array RuntimeValue}
+    (hops : op.getOperands! ctx.raw = #[a, b])
+    (h : state.getOperandValues op = some ov) :
+    ∃ va vb, state.getVar? a = some va ∧ state.getVar? b = some vb ∧ ov = #[va, vb] := by
+  have hane : state.getVar? a ≠ none := by
+    intro hn; simp [VariableState.getOperandValues, hops, Array.mapM_eq_mapM_toList, hn] at h
+  have hbne : state.getVar? b ≠ none := by
+    intro hn; simp [VariableState.getOperandValues, hops, Array.mapM_eq_mapM_toList, hn] at h
+  obtain ⟨va, ha⟩ := Option.ne_none_iff_exists'.mp hane
+  obtain ⟨vb, hb⟩ := Option.ne_none_iff_exists'.mp hbne
+  have hfwd := getOperandValues_pair hops ha hb
+  rw [hfwd] at h
+  exact ⟨va, vb, ha, hb, (Option.some.inj h).symm⟩
+
+/-- The operands of an op matched by `matchRiscvBinop` are exactly `#[reg, rhs]`. -/
+theorem matchRiscvBinop_getOperands {oc : Riscv} {op : OperationPtr} {ctx : IRContext OpCode}
+    {reg rhs : ValuePtr} (h : RISCV.matchRiscvBinop oc op ctx = some (reg, rhs)) :
+    op.getOpType! ctx = OpCode.riscv oc ∧ op.getOperands! ctx = #[reg, rhs] := by
+  unfold RISCV.matchRiscvBinop at h
+  obtain ⟨⟨ops, props⟩, hmatchOp, hres⟩ := Option.bind_eq_some_iff.mp h
+  have hty := (matchOp_eq hmatchOp).1
+  have hnum := matchOp_getNumOperands hmatchOp
+  have hops := matchOp_operands hmatchOp
+  have hreg : reg = ops[0]! := (congrArg Prod.fst (Option.some.inj hres)).symm
+  have hrhs : rhs = ops[1]! := (congrArg Prod.snd (Option.some.inj hres)).symm
+  have hsize : ops.size = 2 := by
+    rw [hops, OperationPtr.getOperands!.size_eq_getNumOperands!]; exact hnum
+  refine ⟨hty, ?_⟩
+  rw [← hops, hreg, hrhs]
+  apply Array.ext
+  · simp [hsize]
+  · intro i hi _
+    match i, hi with
+    | 0, _ => grind
+    | 1, _ => grind
+    | n+2, h => rw [hsize] at h; omega
+
+/-- A one-result op's result list is the singleton `#[op.getResult 0]`. -/
+theorem getResults!_single {op : OperationPtr} {ctx : IRContext OpCode}
+    (h : op.getNumResults! ctx = 1) : op.getResults! ctx = #[(op.getResult 0 : ValuePtr)] := by
+  unfold OperationPtr.getResults!
+  rw [h, show Array.range 1 = #[0] by decide]
+  simp
+
+/-- The rewrite's value `mapping` is the identity on the matched op's operands (they are not
+    among its results, by SSA dominance). -/
+theorem mapping_operand {ctx newCtx : WfIRContext OpCode} (ctxDom : ctx.Dom)
+    {pattern : LocalRewritePattern OpCode} {op : OperationPtr}
+    {newOps : Array OperationPtr} {newValues : Array ValuePtr}
+    (hpattern : pattern ctx op = some (newCtx, some (newOps, newValues)))
+    {hr1 : pattern.ReturnValuesInBounds} {hr2 : pattern.ReturnValues}
+    {hr3 : pattern.ReturnCtxChanges}
+    {v : ValuePtr} (vIn : v.InBounds ctx.raw) (hmem : v ∈ op.getOperands! ctx.raw) :
+    (LocalRewritePattern.mapping hpattern hr1 hr2 hr3 ⟨v, vIn⟩).val = v := by
+  unfold LocalRewritePattern.mapping
+  have hnotres : v ∉ op.getResults! ctx.raw :=
+    IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      OperationPtr.dominates_refl v hmem
+  simp [hnotres]
+
 namespace RISCV
 
 variable (src dst : Riscv) (hd : Riscv.propertiesOf dst = RISCVImmediateProperties) (lo hi : Int)
