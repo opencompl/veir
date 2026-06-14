@@ -48,61 +48,6 @@ instance : FactSpec .executable where
   mkDefault := ExecutableFact.mkDefault
   propagate := ExecutableFact.propagate
 
-/--
-Known control flow predecessors of an insertion point, optionally with propagated inputs.
--/
-structure PredecessorFact where
-  dependents : Array WorkItem := #[]
-  allKnown : Bool := true
-  knownPredecessors : Std.HashSet OperationPtr := ∅
-  successorInputs : Std.HashMap OperationPtr (Array ValuePtr) := ∅
-
-namespace PredecessorFact
-
-def mkDefault : PredecessorFact :=
-  { dependents := #[]
-    allKnown := true
-    knownPredecessors := ∅
-    successorInputs := ∅ }
-
-def enqueueDependents (state : PredecessorFact) (workList : WorkList) : WorkList := Id.run do
-  let mut workList := workList
-  for workItem in state.dependents do
-    workList := workList.enqueue workItem
-  workList
-
-def propagate (state : PredecessorFact) (dfCtx : DataFlowContext)
-    (_irCtx : IRContext OpCode) : DataFlowContext :=
-  { dfCtx with workList := state.enqueueDependents dfCtx.workList }
-
-def getSuccessorInputs (state : PredecessorFact) (predecessor : OperationPtr) : Array ValuePtr :=
-  state.successorInputs.getD predecessor #[]
-
-def addKnownPredecessor (state : PredecessorFact) (predecessor : OperationPtr) : PredecessorFact :=
-  { state with knownPredecessors := state.knownPredecessors.insert predecessor }
-
-def setSuccessorInputs (state : PredecessorFact)
-    (predecessor : OperationPtr)
-    (inputs : Array ValuePtr) : PredecessorFact :=
-  { state with successorInputs := state.successorInputs.insert predecessor inputs }
-
-def join (state : PredecessorFact) (predecessor : OperationPtr)
-    (inputs : Array ValuePtr := #[]) : PredecessorFact :=
-  let state := state.addKnownPredecessor predecessor
-  if inputs.isEmpty then
-    state
-  else
-    match state.successorInputs.get? predecessor with
-    | some currentInputs =>
-      if currentInputs == inputs then
-        state
-      else
-        state.setSuccessorInputs predecessor inputs
-    | none =>
-      state.setSuccessorInputs predecessor inputs
-
-end PredecessorFact
-
 namespace DeadCodeAnalysis
 
 variable [FactSpec .executable]
