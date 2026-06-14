@@ -1108,4 +1108,108 @@ theorem fold_bset_li_to_bseti_PreservesSemantics :
     (fun _ hty hp => bseti_interpret_eq hty hp)
     (fun o1 imm => Data.RISCV.fold_bset_li_to_bseti o1 imm.value.value)
 
+
+/-! ## `fold_zextw_slli_to_slliuw` preserves semantics (bespoke: source operand is a `zextw`). -/
+
+set_option maxHeartbeats 1000000 in
+theorem fold_zextw_slli_to_slliuw_PreservesSemantics :
+    LocalRewritePattern.PreservesSemantics fold_zextw_slli_to_slliuw
+      fold_zextw_slli_to_slliuw_ReturnOps fold_zextw_slli_to_slliuw_ReturnCtxChanges
+      fold_zextw_slli_to_slliuw_ReturnValuesInBounds fold_zextw_slli_to_slliuw_ReturnValues := by
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern
+        state hstateEq newState cf hinterpop sourceValues hsource state' hstate'Eq href
+  obtain ⟨operands, shamt, x, hoper, newOp, hslli, hzext, hcreate, hopsEq, hvalsEq⟩ :=
+    fold_zextw_slli_to_slliuw_spec hpattern
+  have hopTy : op.getOpType! ctx.raw = OpCode.riscv .slli := (matchOp_eq hslli).1
+  have hopNum : op.getNumOperands! ctx.raw = 1 := matchOp_getNumOperands hslli
+  have hopNumRes : op.getNumResults! ctx.raw = 1 := matchOp_getNumResults hslli
+  have hopProps : op.getProperties! ctx.raw (OpCode.riscv .slli) = shamt := (matchOp_eq hslli).2.2.2.2.symm
+  have hopOps := matchOp_operands hslli
+  have hsz : operands.size = 1 := by rw [hopOps, OperationPtr.getOperands!.size_eq_getNumOperands!]; exact hopNum
+  have hopOperands : op.getOperands! ctx.raw = #[operands[0]!] := by
+    rw [← hopOps]; apply Array.ext
+    · simp [hsz]
+    · intro i hi _
+      match i, hi with | 0, _ => grind | n+1, h => rw [hsz] at h; omega
+  have hzmem : operands[0]! ∈ op.getOperands! ctx.raw := by rw [hopOperands]; simp
+  obtain ⟨xval, hgetx, hgetz, hxnotres⟩ :=
+    getVar_zextw_of_equationLemma ctxDom opInBounds hstateEq hzmem hzext
+  obtain ⟨operandValues, resValues, mem', newVars, hov, hinterp', hset, hnewstate⟩ :=
+    interpretOp_some_iff.mp hinterpop
+  obtain ⟨o1, hovEq, hresEq⟩ := slli_interpret_inv hopTy hinterp'
+  obtain ⟨vz, hgetz', hov2⟩ := getOperandValues_single_inv hopOperands hov
+  have ho1 : o1 = Data.RISCV.zextw xval := by
+    have hvz : vz = RuntimeValue.reg (Data.RISCV.zextw xval) := Option.some.inj (hgetz'.symm.trans hgetz)
+    rw [hovEq] at hov2
+    have h0 : RuntimeValue.reg o1 = vz := by have := congrArg (·[0]!) hov2; simpa using this
+    rw [hvz] at h0; exact RuntimeValue.reg.inj h0
+  have hresVals : resValues = #[RuntimeValue.reg (Data.RISCV.slli (BitVec.ofInt 6 shamt.value.value) (Data.RISCV.zextw xval))] := by
+    have := hresEq; rw [hopProps, ho1] at this; simp only [UBOr.ok.injEq, Prod.mk.injEq] at this; grind
+  have hresIn : (ValuePtr.opResult (op.getResult 0)).InBounds ctx.raw := by
+    rw [ValuePtr.inBounds_opResult]
+    grind [OpResultPtr.inBounds_def, OperationPtr.getResult_op, OperationPtr.getResult_index, OperationPtr.getNumResults!_eq_getNumResults]
+  have hgetResOp : newState.variables.getVar? (ValuePtr.opResult (op.getResult 0))
+      = some (.reg (Data.RISCV.slli (BitVec.ofInt 6 shamt.value.value) (Data.RISCV.zextw xval))) := by
+    rw [hnewstate, VariableState.getVar?_setResultValues?_of_value_inBounds (value := ValuePtr.opResult (op.getResult 0)) hresIn hset]
+    simp [OperationPtr.getResult_op, OperationPtr.getResult_index, hresVals]
+  have hsrcEq : sourceValues = #[RuntimeValue.reg (Data.RISCV.slli (BitVec.ofInt 6 shamt.value.value) (Data.RISCV.zextw xval))] := by
+    rw [show op.getResults ctx.raw = #[(op.getResult 0 : ValuePtr)] from by
+      rw [← OperationPtr.getResults!_eq_getResults opInBounds, getResults!_single hopNumRes]] at hsource
+    simp [Array.mapM_eq_mapM_toList, hgetResOp] at hsource
+    exact hsource.symm
+  have hxIn : x.InBounds ctx.raw := matchZextw_inBounds hzext
+  obtain ⟨tval, htval, hreftval⟩ := href.2 x hxIn _ hgetx
+  simp only [LocalRewritePattern.mapping, dif_neg hxnotres] at htval
+  have htvalEq : tval = RuntimeValue.reg xval := by
+    cases tval <;> simp only [RuntimeValue.isRefinedBy] at hreftval
+    rw [hreftval]
+  rw [htvalEq] at htval
+  have hnewOpIn : newOp.InBounds newCtx.raw := WfRewriter.createOp_new_inBounds _ hcreate
+  have hnewTy : newOp.getOpType! newCtx.raw = OpCode.riscv .slliuw := by
+    have := OperationPtr.getOpType!_WfRewriter_createOp (operation := newOp) hcreate; simpa using this
+  have hnewProps : newOp.getProperties! newCtx.raw (OpCode.riscv .slliuw) = shamt := by
+    have h := OperationPtr.getProperties!_WfRewriter_createOp (operation := newOp) hcreate
+    simp only [↓reduceIte] at h; exact h
+  have hnewOperands : newOp.getOperands! newCtx.raw = #[x] := by
+    have := OperationPtr.getOperands!_WfRewriter_createOp (operation := newOp) hcreate; simpa using this
+  have hovTgt : state'.variables.getOperandValues newOp = some #[RuntimeValue.reg xval] :=
+    getOperandValues_single hnewOperands htval
+  have hinterpTgt : newOp.interpret newCtx.raw #[.reg xval] state'.memory
+      = some (.ok (#[.reg (Data.RISCV.slliuw (BitVec.ofInt 6 shamt.value.value) xval)], state'.memory, none)) :=
+    slliuw_interpret_eq hnewTy hnewProps
+  have hconf : RuntimeValue.ArrayConforms #[RuntimeValue.reg (Data.RISCV.slliuw (BitVec.ofInt 6 shamt.value.value) xval)]
+      (newOp.getResultTypes! newCtx.raw) := by
+    have hrt := OperationPtr.getResultTypes!_WfRewriter_createOp (operation := newOp) hcreate
+    simp only [↓reduceIte] at hrt
+    rw [hrt]; refine ⟨by simp, fun i hi => ?_⟩
+    simp only [Array.size_singleton] at hi
+    match i, hi with | 0, _ => simp [RuntimeValue.Conforms]
+  obtain ⟨newVars', hsetTgt⟩ := (VariableState.setResultValues?_isSome_iff_conforms (inBounds := hnewOpIn)).mp hconf
+  have hinterpOpTgt : interpretOp newOp state' = some (.ok (⟨newVars', state'.memory⟩, none)) := by
+    rw [interpretOp_some_iff]; exact ⟨_, _, _, _, hovTgt, hinterpTgt, hsetTgt, rfl⟩
+  obtain ⟨hr2, hmem'eq, hcfeq⟩ :
+      resValues = #[RuntimeValue.reg (Data.RISCV.slli (BitVec.ofInt 6 shamt.value.value) (Data.RISCV.zextw xval))]
+        ∧ mem' = state.memory ∧ cf = none := by
+    have := hresEq; rw [hopProps, ho1] at this; simp only [UBOr.ok.injEq, Prod.mk.injEq] at this; grind
+  subst hopsEq hvalsEq
+  refine ⟨⟨newVars', state'.memory⟩, ?_, ?_,
+    #[RuntimeValue.reg (Data.RISCV.slliuw (BitVec.ofInt 6 shamt.value.value) xval)], ?_, ?_⟩
+  · subst hcfeq; simp [interpretOpList_cons, hinterpOpTgt]; rfl
+  · rw [hnewstate]; simp [hmem'eq]; exact href.1
+  · simp only [Array.mapM_eq_mapM_toList]
+    have hresInTgt : (ValuePtr.opResult (newOp.getResult 0)).InBounds newCtx.raw := by
+      rw [ValuePtr.inBounds_opResult]
+      grind [OpResultPtr.inBounds_def, OperationPtr.getResult_op, OperationPtr.getResult_index,
+        OperationPtr.getNumResults!_eq_getNumResults, OperationPtr.getNumResults!_WfRewriter_createOp]
+    have hgetTgt : newVars'.getVar? (ValuePtr.opResult (newOp.getResult 0))
+        = some (.reg (Data.RISCV.slliuw (BitVec.ofInt 6 shamt.value.value) xval)) := by
+      rw [VariableState.getVar?_setResultValues?_of_value_inBounds (value := ValuePtr.opResult (newOp.getResult 0)) hresInTgt hsetTgt]
+      simp [OperationPtr.getResult_op, OperationPtr.getResult_index]
+    simp [hgetTgt]
+  · rw [hsrcEq]
+    refine ⟨by simp, fun i hi => ?_⟩
+    simp only [Array.size_singleton] at hi
+    match i, hi with
+    | 0, _ => simp [RuntimeValue.isRefinedBy, Data.RISCV.fold_zextw_slli_to_slliuw xval (BitVec.ofInt 6 shamt.value.value)]
+
 end Veir.RISCV
