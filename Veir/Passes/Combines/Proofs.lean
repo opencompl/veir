@@ -141,6 +141,31 @@ theorem getVar_li_of_equationLemma
   have hgv := VariableState.getVar?_setResultValues?_of_value_inBounds hrhsIn hset (value := rhs)
   grind
 
+/-- A `riscv.sllw rs2 rs1` evaluates to `RISCV.sllw rs2 rs1` (memory unchanged). -/
+theorem sllw_interpret_eq {op : OperationPtr} {ctx : IRContext OpCode}
+    {o1 o2 : Data.RISCV.Reg} {mem : MemoryState}
+    (hty : op.getOpType! ctx = OpCode.riscv .sllw) :
+    op.interpret ctx #[.reg o1, .reg o2] mem
+      = some (.ok (#[.reg (Data.RISCV.sllw o2 o1)], mem, none)) := by
+  unfold OperationPtr.interpret
+  generalize hot : op.getOpType! ctx = ot at hty ⊢
+  subst hty
+  simp only [interpretOp', Riscv.interpretOp', pure]
+
+/-- A `riscv.slliw rs1` evaluates to `RISCV.slliw (ofInt 5 imm) rs1` (memory unchanged). -/
+theorem slliw_interpret_eq {op : OperationPtr} {ctx : IRContext OpCode}
+    {o1 : Data.RISCV.Reg} {mem : MemoryState}
+    {imm : HasOpInfo.propertiesOf (OpCode.riscv .slliw)}
+    (hty : op.getOpType! ctx = OpCode.riscv .slliw)
+    (hprops : op.getProperties! ctx (OpCode.riscv .slliw) = imm) :
+    op.interpret ctx #[.reg o1] mem
+      = some (.ok (#[.reg (Data.RISCV.slliw (BitVec.ofInt 5 imm.value.value) o1)], mem, none)) := by
+  unfold OperationPtr.interpret
+  generalize hot : op.getOpType! ctx = ot at hty ⊢
+  subst hty
+  subst hprops
+  simp only [interpretOp', Riscv.interpretOp', pure]
+
 namespace RISCV
 
 variable (src dst : Riscv) (hd : Riscv.propertiesOf dst = RISCVImmediateProperties) (lo hi : Int)
