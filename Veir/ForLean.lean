@@ -146,13 +146,26 @@ theorem Array.mapM_option_eq_some_implies {l : Array α} {res : Array β} (h : A
     intro i hi
     grind [List.getElem?_of_mapM_option_eq_some hm i]
 
-theorem Array.mapM_option_isSome {α β : Type} {f : α → Option β}
+theorem Array.mapM_option_isSome {α : Type u} {β : Type v} {f : α → Option β}
     {l : Array α} (h : ∀ i (hi : i < l.size), (f l[i]).isSome) :
     ∃ r, l.mapM f = some r := by
   rw [Array.mapM_eq_mapM_toList]
   obtain ⟨r, hr⟩ := List.mapM_option_isSome (f := f) (l := l.toList)
     (fun a ha => by obtain ⟨i, hi, rfl⟩ := List.mem_iff_getElem.mp ha; simpa using h i (by simpa using hi))
   exact ⟨r.toArray, by simp [hr]⟩
+
+theorem Array.mapM_eq_some_iff_of_size_eq [Inhabited α] [Inhabited β] {a₁ : Array α} {a₂ : Array β} :
+    a₁.size = a₂.size →
+    (Array.mapM f a₁ = some a₂ ↔
+    (∀ i, (hi : i < a₁.size) → f a₁[i]! = some a₂[i]!)) := by
+  intro hsize
+  constructor
+  · grind [Array.mapM_option_eq_some_implies]
+  · intro h
+    have ⟨r, hr⟩ := Array.mapM_option_isSome (f := f) (l := a₁) (by grind)
+    have hrsize := Array.size_eq_of_mapM_eq_some hr
+    suffices r = a₂ by grind
+    grind [Array.mapM_option_eq_some_implies]
 
 namespace ForLean.List
 
