@@ -108,3 +108,39 @@ theorem Interp.isRefinedBy_ok_target_iff :
   simp only [Interp.isRefinedBy]
   rcases target with _ | (_ | _) <;> grind
 
+/-! ## ValueMapping -/
+
+/-- Applying a value mapping to an array preserves its size. -/
+@[simp, grind =]
+theorem ValueMapping.applyToArray_size {ctx ctx' : WfIRContext OpInfo} (mapping : ValueMapping ctx ctx')
+    (vals : Array ValuePtr) (valsIn : ∀ v ∈ vals, v.InBounds ctx.raw) :
+    (mapping.applyToArray vals valsIn).size = vals.size := by
+  simp [ValueMapping.applyToArray]
+
+/-- Extensibility theorem for value mappings mapping `op` results to `op'` results. -/
+theorem ValueMapping.applyToArray_getResults!_ext
+    {ctx ctx' : WfIRContext OpInfo} {op op' : OperationPtr}
+    {mapping : ValueMapping ctx ctx'}
+    (opIn : op.InBounds ctx.raw)
+    (hResults : mapping.applyToArray (op.getResults! ctx.raw) = op'.getResults! ctx'.raw) :
+    ∀ (i : Nat) (hi : i < op.getNumResults! ctx.raw),
+      (mapping ⟨op.getResult i, (by grind)⟩).val = op'.getResult i := by
+  intro i hi
+  simp only [applyToArray, Array.ext_iff, Array.size_map, Array.size_attach,
+    OperationPtr.getResults!.size_eq_getNumResults!, Array.getElem_map,
+    Array.getElem_attach] at hResults
+  grind
+
+/-- If a value mapping reflects results from `op` to `op'`, then values that are not in
+`op` results are not mapped to values in `op'` results. -/
+@[grind .]
+theorem ValueMapping.ReflectsResults.not_mem_getResults
+    {ctx ctx' : WfIRContext OpInfo} {mapping : ValueMapping ctx ctx'} {op op' : OperationPtr}
+    {val : ValuePtr} (valIn : val.InBounds ctx.raw)
+    (hReflect : mapping.ReflectsResults op op')
+    (hNotMem : val ∉ op.getResults! ctx.raw) :
+    (mapping ⟨val, valIn⟩).val ∉ op'.getResults! ctx'.raw := by
+  intro hmem
+  simp only [OperationPtr.getResults!.mem_iff_exists_index] at hmem
+  have ⟨index, hindex, heq⟩ := hmem
+  grind [OperationPtr.getResults!.mem_iff_exists_index, hReflect val valIn index heq.symm]

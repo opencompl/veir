@@ -144,6 +144,21 @@ def OperationPtr.isModuleRefinedBy (mod₁ : OperationPtr) (ctx₁ : WfIRContext
 abbrev ValueMapping (ctx ctx' : WfIRContext OpInfo) : Type :=
   {v : ValuePtr // v.InBounds ctx.raw} → {v : ValuePtr // v.InBounds ctx'.raw}
 
+/-- Apply the value mapping to an array of values with separately their bounds information. -/
+def ValueMapping.applyToArray {ctx ctx' : WfIRContext OpInfo} (mapping : ValueMapping ctx ctx')
+    (vals : Array ValuePtr) (valsIn : ∀ v ∈ vals, v.InBounds ctx.raw := by grind) : Array ValuePtr :=
+  vals.attach.map (fun ⟨v, hv⟩ => (mapping ⟨v, valsIn v hv⟩).val)
+
+/--
+`mapping` *reflects* `op'`'s result pointers back to `op`'s if the only value it sends onto `op'`'s
+`i`-th result pointer is `op`'s `i`-th result pointer. Paired with the "fixes" equation
+`mapping.applyToArray (op.getResults! ..) = op'.getResults! ..`, this says `mapping` matches the two
+operations' results index-by-index without mapping any other value onto them. -/
+def ValueMapping.ReflectsResults {ctx ctx' : WfIRContext OpInfo} (mapping : ValueMapping ctx ctx')
+    (op op' : OperationPtr) : Prop :=
+  ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw) (i : Nat),
+    (mapping ⟨val, valIn⟩).val = op'.getResult i → val = op.getResult i
+
 /--
 A variable state `state` is refined by `state'` through the value renaming `mapping`: every
 variable defined in `state` is, after renaming through `mapping`, also defined in `state'` with a
