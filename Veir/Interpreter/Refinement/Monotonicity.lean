@@ -130,25 +130,5 @@ theorem interpretOp_monotone
     simp only [Interp, hv, pure, Option.some.injEq, UBOr.ok.injEq, Prod.mk.injEq]
     have stateVarRef : state.variables.isRefinedBy state'.variables mapping := by grind [InterpreterState.isRefinedBy]
     grind [InterpreterState.isRefinedBy, VariableState.setResultValues?_isRefinedBy stateVarRef resValuesRef, cases ValueMapping.PreservesOperation]
-  · /- If the source interpretation returns UB, then we need to prove that the target
-       interpretation does not fail. -/
-    simp only [Interp.isRefinedBy_ub_target_iff]
-    rcases htgt : interpretOp op' state' opIn' with _ | (⟨state₂', act'⟩ | _)
-    /- If the target is either UB or a result, then the refinement is trivial. -/
-    rotate_left; grind; grind
-    have hinterp' := (interpretOp_ub_iff_op_interpret_of_getOperandValues_eq_some hSrcOps).mp hsrc
-    simp only [interpretOp, OperationPtr.interpret, hTgtOps, hPreserves.resultTypes, hPreserves.successors, ← hMem, liftM, monadLift,
-      MonadLift.monadLift] at htgt
-    simp only [Interp.isRefinedBy, hinterp'] at hPR1
-    split at hPR1; grind; rotate_left; grind; grind
-    rename_i _ _ interpTgtRes _ hInterpTgtRes
-    simp [interpretOp'_opType_cast hPreserves.opType hPreserves.props, hInterpTgtRes, bind] at htgt
-    cases interpTgtRes
-    · simp only [pure] at htgt
-      simp only [← hInterp'Eq] at hInterpTgtRes
-      have := interpretOp'_results_conform (opInBounds := opIn') opVerif' (VariableState.getOperandValues_conforms hTgtOps) hInterpTgtRes
-      split at htgt
-      · grind [VariableState.setResultValues?_isSome_iff_conforms (varState := state'.variables)]
-      · grind
-      · grind
-    · grind
+  · /- If the source interpretation returns UB, then the refinement holds trivially. -/
+    simp

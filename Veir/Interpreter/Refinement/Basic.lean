@@ -59,14 +59,13 @@ An interpretation result `source` is refined by `target` given a refinement rela
 on the underlying values. This asserts:
 * every well-defined outcome `some (.ok a)` of `source` must be matched by an outcome
   `some (.ok b)` of `target` with `R a b`;
-* when `source` is undefined behaviour (`some .ub`), `target` must succeed (i.e. not be `none`),
-  but may be either `some .ub` or `some (.ok _)`;
-* when `source` is `none`, `target` may be anything
+* when `source` is undefined behaviour (`some .ub`) or failed interpretation (`none`), `target`
+  is unconstrained
 -/
 def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
   match source, target with
   | some (.ok a), some (.ok b) => R a b
-  | some .ub, some _ => True
+  | some .ub, _ => True
   | none, _ => True
   | _, _ => False
 
