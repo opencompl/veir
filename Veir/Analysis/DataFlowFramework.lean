@@ -39,7 +39,7 @@ class FactSpec (kind : FactKind) where
   Hook that's called when the fact changes state. Typically used to
   enqueue a fact's dependents because it changed.
   -/
-  propagate : Fact kind → DataFlowContext → IRContext OpCode → DataFlowContext
+  propagate : Fact kind → LatticeAnchor → DataFlowContext → IRContext OpCode → DataFlowContext
 
 namespace Fact
 
@@ -54,9 +54,10 @@ Run the fact kind's propagation hook.
 -/
 def propagate [FactSpec kind]
     (fact : Fact kind)
+    (anchor : LatticeAnchor)
     (ctx : DataFlowContext)
     (irCtx : IRContext OpCode) : DataFlowContext :=
-  FactSpec.propagate (kind := kind) fact ctx irCtx
+  FactSpec.propagate (kind := kind) fact anchor ctx irCtx
 
 end Fact
 
@@ -134,7 +135,7 @@ def modifyFactAndPropagate (kind : FactKind) [spec : FactSpec kind]
   let (fact, changed) := f current
   let ctx := ctx.setFact kind anchor fact
   if changed then
-    fact.propagate ctx irCtx
+    fact.propagate anchor ctx irCtx
   else
     ctx
 

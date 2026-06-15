@@ -4,7 +4,7 @@ VeIR is a compiler infrastructure written in Lean that offers both an
 [MLIR](https://mlir.llvm.org/)-style imperative design and
 (optional) ITP-level verification.
 VeIR connects with MLIR via the MLIR textual format, making it
-easy to combine MLIR and VeIR tooling.
+easy to combine MLIR and VeIR tools.
 
 | VeIR Features                                         | Complete   | Verified |
 |-------------------------------------------------------|------------| ---------|

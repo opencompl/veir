@@ -9,15 +9,15 @@ open Veir
 /-- Expected dominance information for one named block in the test harness. -/
 private structure ExpectedBlockDominators where
   name : String
-  dominators : HashSet String
-  iDom : String
+  doms : HashSet String
+  immediateDom : String
 
 /-- Expected dominance result for one pair of named operations. -/
 private structure ExpectedOperationDominance where
   dominator : String
   dominated : String
   dominates : Bool
-  properlyDominates : Bool
+  properDom : Bool
 
 /--
 Compare one expected dominator label against the observed dominance information.
@@ -62,9 +62,9 @@ private def compareObservedDominator
   if observedProperly ≠ (observedByRelation && observedBlock ≠ block) then
     report := report.push
       s!"dominators {expected.name}: dominates/properlyDominates disagree on {observedName}"
-  if observedByRelation && !expected.dominators.contains observedName then
+  if observedByRelation && !expected.doms.contains observedName then
     report := report.push s!"dominators {expected.name}: unexpected dominator {observedName}"
-  if observedProperly && (!expected.dominators.contains observedName || observedName = expected.name) then
+  if observedProperly && (!expected.doms.contains observedName || observedName = expected.name) then
     report := report.push s!"dominators {expected.name}: unexpected proper dominator {observedName}"
   report
 
@@ -80,15 +80,15 @@ private def compareImmediateDominator
   let some block := recovered.blocks[expected.name]?
     | return #[s!"idom {expected.name}: missing block label"]
   let some observedIDom := block.immediateDominator? dfCtx irCtx
-    | return #[s!"idom {expected.name}: expected immediate dominator {expected.iDom}, observed none"]
-  let some expectedIDom := recovered.blocks[expected.iDom]?
-    | return #[s!"idom {expected.name}: missing block label {expected.iDom}"]
+    | return #[s!"idom {expected.name}: expected immediate dominator {expected.immediateDom}, observed none"]
+  let some expectedIDom := recovered.blocks[expected.immediateDom]?
+    | return #[s!"idom {expected.name}: missing block label {expected.immediateDom}"]
   if observedIDom = expectedIDom then
     return #[]
   let observedName :=
     (recovered.blocks.toList.findSome? fun (name, block) =>
       if block = observedIDom then some name else none).getD "none"
-  return #[s!"idom {expected.name}: expected {expected.iDom}, observed {observedName}"]
+  return #[s!"idom {expected.name}: expected {expected.immediateDom}, observed {observedName}"]
 
 /--
 Compare the observed dominator information against the
@@ -104,7 +104,7 @@ private def compareReachableDominators
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : MismatchReport := Id.run do
   let mut report := #[]
-  for expectedDom in expected.dominators.toArray do
+  for expectedDom in expected.doms.toArray do
     report := report ++ compareExpectedDominator
       block expectedDom recovered expected dfCtx irCtx
   for (observedName, observedBlock) in recovered.blocks.toList do
@@ -127,7 +127,7 @@ private def compareDominators
   let some block := recovered.blocks[expected.name]?
     | return #[s!"dominators {expected.name}: missing block label"]
   let observedFact? := block.getDominatorFact? dfCtx irCtx
-  match expected.dominators.isEmpty, observedFact? with
+  match expected.doms.isEmpty, observedFact? with
   | true, none =>
       return #[]
   | true, some _ =>
@@ -179,9 +179,9 @@ private def compareOperationDominance
   if observedDominates ≠ expected.dominates then
     report := report.push
       s!"op dominance {expected.dominator}->{expected.dominated}: expected dominates={expected.dominates}, observed {observedDominates}"
-  if observedProperly ≠ expected.properlyDominates then
+  if observedProperly ≠ expected.properDom then
     report := report.push
-      s!"op dominance {expected.dominator}->{expected.dominated}: expected properlyDominates={expected.properlyDominates}, observed {observedProperly}"
+      s!"op dominance {expected.dominator}->{expected.dominated}: expected properlyDominates={expected.properDom}, observed {observedProperly}"
   if observedProperly && !observedDominates then
     report := report.push
       s!"op dominance {expected.dominator}->{expected.dominated}: properlyDominates without dominates"
@@ -260,9 +260,9 @@ def testDomLoop : String :=
 ^bb2:\n\
   \"test.test\"() [^bb1] : () -> ()\n\
 }) : () -> ()"
-    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
-     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb0" }
-     , { name := "bb2", dominators := { "bb0", "bb1", "bb2" }, iDom := "bb1" }
+    #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
+     , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
+     , { name := "bb2", doms := { "bb0", "bb1", "bb2" }, immediateDom := "bb1" }
      ]
 
 /-
@@ -289,10 +289,10 @@ def testDomDiamond : String :=
 ^bb3:\n\
   \"test.test\"() : () -> ()\n\
 }) : () -> ()"
-    #[ { name := "bb0", dominators := { "bb0" },        iDom := "bb0" }
-     , { name := "bb1", dominators := { "bb0", "bb1" }, iDom := "bb0" }
-     , { name := "bb2", dominators := { "bb0", "bb2" }, iDom := "bb0" }
-     , { name := "bb3", dominators := { "bb0", "bb3" }, iDom := "bb0" }
+    #[ { name := "bb0", doms := { "bb0" },        immediateDom := "bb0" }
+     , { name := "bb1", doms := { "bb0", "bb1" }, immediateDom := "bb0" }
+     , { name := "bb2", doms := { "bb0", "bb2" }, immediateDom := "bb0" }
+     , { name := "bb3", doms := { "bb0", "bb3" }, immediateDom := "bb0" }
      ]
 
 /-
@@ -325,10 +325,10 @@ def testDomLine : String :=
 ^bb3:\n\
   \"test.test\"() : () -> ()\n\
 }) : () -> ()"
-    #[ { name := "bb0", dominators := { "bb0" },                      iDom := "bb0" }
-     , { name := "bb1", dominators := { "bb0", "bb1" },               iDom := "bb0" }
-     , { name := "bb2", dominators := { "bb0", "bb1", "bb2" },        iDom := "bb1" }
-     , { name := "bb3", dominators := { "bb0", "bb1", "bb2", "bb3" }, iDom := "bb2" }
+    #[ { name := "bb0", doms := { "bb0" },                      immediateDom := "bb0" }
+     , { name := "bb1", doms := { "bb0", "bb1" },               immediateDom := "bb0" }
+     , { name := "bb2", doms := { "bb0", "bb1", "bb2" },        immediateDom := "bb1" }
+     , { name := "bb3", doms := { "bb0", "bb1", "bb2", "bb3" }, immediateDom := "bb2" }
      ]
 
 /-
@@ -369,14 +369,14 @@ def testDomIfLoopIf : String :=
 ^bb7:\n\
   \"test.test\"() : () -> ()\n\
 }) : () -> ()"
-    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
-     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb0" }
-     , { name := "bb2", dominators := { "bb0", "bb2" },        iDom := "bb0" }
-     , { name := "bb3", dominators := { "bb0", "bb2", "bb3" }, iDom := "bb2" }
-     , { name := "bb4", dominators := { "bb0", "bb2", "bb4" }, iDom := "bb2" }
-     , { name := "bb5", dominators := { "bb0", "bb1", "bb5" }, iDom := "bb1" }
-     , { name := "bb6", dominators := { "bb0", "bb2", "bb6" }, iDom := "bb2" }
-     , { name := "bb7", dominators := { "bb0", "bb7" },        iDom := "bb0" }
+    #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
+     , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
+     , { name := "bb2", doms := { "bb0", "bb2" },        immediateDom := "bb0" }
+     , { name := "bb3", doms := { "bb0", "bb2", "bb3" }, immediateDom := "bb2" }
+     , { name := "bb4", doms := { "bb0", "bb2", "bb4" }, immediateDom := "bb2" }
+     , { name := "bb5", doms := { "bb0", "bb1", "bb5" }, immediateDom := "bb1" }
+     , { name := "bb6", doms := { "bb0", "bb2", "bb6" }, immediateDom := "bb2" }
+     , { name := "bb7", doms := { "bb0", "bb7" },        immediateDom := "bb0" }
      ]
 
 /-
@@ -403,9 +403,9 @@ def testDomNestedRegions : String :=
     "test.test"() : () -> ()
   }) : () -> ()
 }) : () -> ()"#
-    #[ { name := "bb0", dominators := { "bb0" },        iDom := "bb0" }
-     , { name := "bb1", dominators := { "bb0", "bb1" }, iDom := "bb1" }
-     , { name := "bb2", dominators := { "bb0", "bb2" }, iDom := "bb2" }
+    #[ { name := "bb0", doms := { "bb0" },        immediateDom := "bb0" }
+     , { name := "bb1", doms := { "bb0", "bb1" }, immediateDom := "bb1" }
+     , { name := "bb2", doms := { "bb0", "bb2" }, immediateDom := "bb2" }
      ]
 
 /-
@@ -437,11 +437,11 @@ def testDomDiamondNestedJoin : String :=
     "test.test"() : () -> ()
   }) : () -> ()
 }) : () -> ()"#
-    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
-     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb0" }
-     , { name := "bb2", dominators := { "bb0", "bb2" },        iDom := "bb0" }
-     , { name := "bb3", dominators := { "bb0", "bb3" },        iDom := "bb0" }
-     , { name := "bb4", dominators := { "bb0", "bb3", "bb4" }, iDom := "bb4" }
+    #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
+     , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
+     , { name := "bb2", doms := { "bb0", "bb2" },        immediateDom := "bb0" }
+     , { name := "bb3", doms := { "bb0", "bb3" },        immediateDom := "bb0" }
+     , { name := "bb4", doms := { "bb0", "bb3", "bb4" }, immediateDom := "bb4" }
      ]
 
 /-
@@ -469,9 +469,9 @@ def testDomTwoLevelNested : String :=
     }) : () -> ()
   }) : () -> ()
 }) : () -> ()"#
-    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
-     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb1" }
-     , { name := "bb2", dominators := { "bb0", "bb1", "bb2" }, iDom := "bb2" }
+    #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
+     , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb1" }
+     , { name := "bb2", doms := { "bb0", "bb1", "bb2" }, immediateDom := "bb2" }
      ]
 /-
   Test: Diamond with a loop
@@ -500,11 +500,11 @@ def testDomDiamondLoop: String :=
 ^bb4:
   "test.test"() : () -> ()
 }) : () -> ()"#
-    #[ { name := "bb0", dominators := { "bb0" },               iDom := "bb0" }
-     , { name := "bb1", dominators := { "bb0", "bb1" },        iDom := "bb0" }
-     , { name := "bb2", dominators := { "bb0", "bb2" },        iDom := "bb0" }
-     , { name := "bb3", dominators := { "bb0", "bb3" },        iDom := "bb0" }
-     , { name := "bb4", dominators := { "bb0", "bb2", "bb4" }, iDom := "bb2" }
+    #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
+     , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
+     , { name := "bb2", doms := { "bb0", "bb2" },        immediateDom := "bb0" }
+     , { name := "bb3", doms := { "bb0", "bb3" },        immediateDom := "bb0" }
+     , { name := "bb4", doms := { "bb0", "bb2", "bb4" }, immediateDom := "bb2" }
      ]
 
 /-
@@ -522,13 +522,13 @@ def testOpDomNestedRegions : String :=
     %siblingInner = "test.test"() : () -> i32
   }) : () -> i32
 }) : () -> ()"#
-    #[ { dominator := "outer",      dominated := "outer",        dominates := true,  properlyDominates := false }
-     , { dominator := "outer",      dominated := "inner",        dominates := true,  properlyDominates := true  }
-     , { dominator := "outer",      dominated := "otherOuter",   dominates := true,  properlyDominates := true  }
-     , { dominator := "outer",      dominated := "siblingInner", dominates := true,  properlyDominates := true  }
-     , { dominator := "inner",      dominated := "siblingInner", dominates := false, properlyDominates := false }
-     , { dominator := "otherOuter", dominated := "inner",        dominates := false, properlyDominates := false }
-     , { dominator := "otherOuter", dominated := "siblingInner", dominates := true,  properlyDominates := true  }
+    #[ { dominator := "outer",      dominated := "outer",        dominates := true,  properDom := false }
+     , { dominator := "outer",      dominated := "inner",        dominates := true,  properDom := true  }
+     , { dominator := "outer",      dominated := "otherOuter",   dominates := true,  properDom := true  }
+     , { dominator := "outer",      dominated := "siblingInner", dominates := true,  properDom := true  }
+     , { dominator := "inner",      dominated := "siblingInner", dominates := false, properDom := false }
+     , { dominator := "otherOuter", dominated := "inner",        dominates := false, properDom := false }
+     , { dominator := "otherOuter", dominated := "siblingInner", dominates := true,  properDom := true  }
      ]
 
 /-
@@ -545,10 +545,10 @@ def testOpDomTwoLevelNested : String :=
     }) : () -> i32
   }) : () -> i32
 }) : () -> ()"#
-    #[ { dominator := "top",    dominated := "middle", dominates := true, properlyDominates := true  }
-     , { dominator := "top",    dominated := "leaf",   dominates := true, properlyDominates := true  }
-     , { dominator := "middle", dominated := "leaf",   dominates := true, properlyDominates := true  }
-     , { dominator := "leaf",   dominated := "leaf",   dominates := true, properlyDominates := false }
+    #[ { dominator := "top",    dominated := "middle", dominates := true, properDom := true  }
+     , { dominator := "top",    dominated := "leaf",   dominates := true, properDom := true  }
+     , { dominator := "middle", dominated := "leaf",   dominates := true, properDom := true  }
+     , { dominator := "leaf",   dominated := "leaf",   dominates := true, properDom := false }
      ]
 
 /-
@@ -565,11 +565,11 @@ def testOpDomSameRegionTwoBlocks : String :=
     %exit = "test.test"() : () -> i32
   }) : () -> i32
 }) : () -> ()"#
-    #[ { dominator := "entry", dominated := "entry", dominates := true,  properlyDominates := false }
-     , { dominator := "entry", dominated := "exit",  dominates := true,  properlyDominates := true  }
-     , { dominator := "exit",  dominated := "entry", dominates := false, properlyDominates := false }
-     , { dominator := "outer", dominated := "entry", dominates := true,  properlyDominates := true  }
-     , { dominator := "outer", dominated := "exit",  dominates := true,  properlyDominates := true  }
+    #[ { dominator := "entry", dominated := "entry", dominates := true,  properDom := false }
+     , { dominator := "entry", dominated := "exit",  dominates := true,  properDom := true  }
+     , { dominator := "exit",  dominated := "entry", dominates := false, properDom := false }
+     , { dominator := "outer", dominated := "entry", dominates := true,  properDom := true  }
+     , { dominator := "outer", dominated := "exit",  dominates := true,  properDom := true  }
      ]
 /--
 info: "ok"

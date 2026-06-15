@@ -10,8 +10,9 @@
         // CHECK-NEXT:       [[zero:%.*]] = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
         %c1 = "riscv.li"() <{"value" = 1 : i64}>: () -> !riscv.reg
         %add1 = "riscv.add"(%a, %c1) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK-NEXT:       [[one:%.*]] = "riscv.li"() <{"value" = 1 : i64}> : () -> !riscv.reg
-        // CHECK-NEXT:       %{{.*}} =  "riscv.add"([[arg]], [[one]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // A non-zero `riscv.li` operand is folded into a `riscv.addi`.
+        // CHECK-NEXT:       %{{.*}} = "riscv.li"() <{"value" = 1 : i64}> : () -> !riscv.reg
+        // CHECK-NEXT:       %{{.*}} = "riscv.addi"([[arg]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()
