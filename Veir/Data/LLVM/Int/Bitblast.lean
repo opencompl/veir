@@ -34,6 +34,7 @@ def getValueD {w : Nat} (x : Int w) : BitVec w :=
   This lemma should be applied when no more simplifications are available, such that `bv_decide` can
   reason about different instantiations of `getValue` without abstracting them separately.
 -/
+@[llvm_toBitVec_post]
 theorem getValue_eq_getValueD {w : Nat} (x : Int w) (h : x.isPoison = false) :
     x.getValue h = x.getValueD := by
   simp [getValue, getValueD]

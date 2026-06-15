@@ -13,10 +13,6 @@ open Veir.Data.LLVM.Int
   We exclude the tests comprising unsupported operations, such as `neg` and `not`.
 -/
 
-/-- We introduce a tactic to automatically prove all the lemmas. -/
-macro "llvm_bv_decide" : tactic =>
-  `(tactic| ((try simp only [llvm_toBitVec]; try simp [getValue_eq_getValueD]; try bv_decide)))
-
 /-
   `LLVM.not` is not supported in
   example (e e_1 e_2 : Veir.Data.LLVM.Int 64) :
