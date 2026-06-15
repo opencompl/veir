@@ -62,19 +62,27 @@ theorem eq_ext {w : Nat} {a b : Int w} (hp : a.isPoison = b.isPoison) (hv : (a.g
   · simp
 
 /-- The value `getValue` of a `val v` is `v`. -/
-@[llvm_toBitVec, grind =]
+@[simp, llvm_toBitVec, grind =]
 theorem getValue_of_val {w : Nat} {v : BitVec w} :
     (val v).getValue (by grind [isPoison]) = v := by rfl
 
 /-- An element `val v` is not poison. -/
-@[llvm_toBitVec, grind =]
+@[simp, llvm_toBitVec, grind =]
 theorem isPoison_of_val {w : Nat} {v : BitVec w} :
     (val v).isPoison = false := by rfl
 
 /-- A `poison` element is poison. -/
-@[llvm_toBitVec, grind =]
+@[simp, llvm_toBitVec, grind =]
 theorem isPoison_of_poison {w : Nat} :
     poison.isPoison (w := w) = true := by rfl
+
+@[simp, grind =]
+theorem getValueD_val {w : Nat} {v : BitVec w} :
+    (val v).getValueD = v := by rfl
+
+@[simp, grind =]
+theorem getValueD_poison {w : Nat} :
+    poison.getValueD (w := w) = 0 := by rfl
 
 /-- An element `b : LLVM.Int` refines an element `a : LLVM.Int` if either `a` is a poison value
   (in which case, any concrete or poison value refines it) or if `a` is not a poison value,
