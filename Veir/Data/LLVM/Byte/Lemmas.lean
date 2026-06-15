@@ -5,23 +5,16 @@ import all Veir.Data.LLVM.Byte.Basic
 namespace Veir.Data.LLVM.Byte
 
 open Veir.Data.LLVM.Int
+attribute [local grind cases] Int
 
 theorem toInt_fromInt {w : Nat} (x : Int w) (h : 0 < w) : (Byte.fromInt x).toInt = x := by
-  simp only [Byte.toInt, fromInt]
-  cases x
-  · simp
-  · have := Nat.two_pow_pred_lt_two_pow h
-    have := Nat.two_pow_pos (w-1)
-    rw [ite_eq_right_iff, BitVec.toNat_eq]
-    simp
-    omega
+  simp only [Byte.toInt, fromInt, BitVec.toNat_eq];
+  grind
 
 @[bv_normalize]
 theorem ext_iff {w : Nat} (x y : Byte w) :
     x = y ↔ (x.val = y.val ∧ x.poison = y.poison) := by
-  constructor
-  <;> rw [Byte.mk.injEq]
-  <;> simp
+  rw [Byte.mk.injEq]
 
 /- # and -/
 
