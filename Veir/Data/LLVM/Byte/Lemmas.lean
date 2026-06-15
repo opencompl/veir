@@ -11,14 +11,14 @@ theorem toInt_fromInt {w : Nat} (x : Int w) (h : 0 < w) : (Byte.fromInt x).toInt
   simp only [Byte.toInt, fromInt, BitVec.toNat_eq];
   grind
 
-@[bv_normalize]
+@[llvm_toBitVec]
 theorem ext_iff {w : Nat} (x y : Byte w) :
     x = y ↔ (x.val = y.val ∧ x.poison = y.poison) := by
   rw [Byte.mk.injEq]
 
 /- # and -/
 
-@[bv_normalize]
+@[llvm_toBitVec]
 theorem and_eq {w : Nat} (x y : Byte w) :
     (x &&& y) =
     let poison := x.poison ||| y.poison
@@ -35,7 +35,7 @@ theorem val_and {w : Nat} (x y : Byte w) :
 
 /- # or -/
 
-@[bv_normalize]
+@[llvm_toBitVec]
 theorem or_eq {w : Nat} (x y : Byte w) :
     (x ||| y) =
     let poison := x.poison ||| y.poison
@@ -52,7 +52,7 @@ theorem val_or {w : Nat} (x y : Byte w) :
 
 /- # xor -/
 
-@[bv_normalize]
+@[llvm_toBitVec]
 theorem xor_eq {w : Nat} (x y : Byte w) :
     (x ^^^ y) =
     let poison := x.poison ||| y.poison

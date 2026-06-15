@@ -13,6 +13,6 @@ example (w : Nat) (x y : Byte w) : x ||| y = y ||| x := by
   simp [BitVec.or_comm (x.poison) (y.poison), BitVec.or_comm (x.val) (y.val)]
 
 example (x y : Byte 8) : x ||| y = y ||| x := by
-  bv_decide
+  llvm_bv_decide
 
 end Veir.Data.LLVM.Byte
