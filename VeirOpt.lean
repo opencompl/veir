@@ -13,7 +13,7 @@ import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RISCV64Branches
 import Veir.Passes.DCE.dce
 import Veir.Passes.CastsReconciliation.Reconciliation
-import Veir.Passes.Combines.Combine
+import Veir.Passes.RISCVCombines.Combine
 import Veir.Passes.ModArithToArith
 
 open Veir.Parser
