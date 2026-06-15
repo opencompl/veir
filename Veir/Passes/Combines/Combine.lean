@@ -28,33 +28,37 @@ set_option warn.sorry false in
   Only when `imm` fits into a signed 12-bit immediate field.
   Covers: add→addi, or→ori, and→andi, xor→xori, addw→addiw.
 -/
-def fold_c_binop_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
-    (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) :
-    Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs) := matchRiscvBinop src op rewriter.ctx | return rewriter
-  let some (reg, imm) :=
-      (Prod.mk lhs <$> matchLi rhs rewriter.ctx) <|>
-      (Prod.mk rhs <$> matchLi lhs rewriter.ctx)
-    | return rewriter
-  if imm.value.value < -2048 || imm.value.value > 2047 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.riscv dst) #[RegisterType.mk] #[reg]
-      #[] #[] (cast h.symm imm) (some $ .before op) sorry (by simp) (by simp) sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+def fold_commutative_binop_li (src dst : Riscv)
+    (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
+    LocalRewritePattern OpCode := fun ctx op =>
+  match matchRiscvBinop src op ctx with
+  | none => some (ctx, none)
+  | some (lhs, rhs) =>
+    match (Prod.mk lhs <$> matchLi rhs ctx) <|> (Prod.mk rhs <$> matchLi lhs ctx) with
+    | none => some (ctx, none)
+    | some (reg, imm) =>
+      if imm.value.value < -2048 || imm.value.value > 2047 then some (ctx, none)
+      else do
+        let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[reg]
+            #[] #[] (cast h.symm imm) none sorry
+        return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-def fold_add_li_to_addi   := fold_c_binop_li .add  .addi  rfl
-def fold_or_li_to_ori     := fold_c_binop_li .or   .ori   rfl
-def fold_and_li_to_andi   := fold_c_binop_li .and  .andi  rfl
-def fold_xor_li_to_xori   := fold_c_binop_li .xor  .xori  rfl
-def fold_addw_li_to_addiw := fold_c_binop_li .addw .addiw rfl
+def fold_add_li_to_addi   := fold_commutative_binop_li .add  .addi  rfl
+def fold_or_li_to_ori     := fold_commutative_binop_li .or   .ori   rfl
+def fold_and_li_to_andi   := fold_commutative_binop_li .and  .andi  rfl
+def fold_xor_li_to_xori   := fold_commutative_binop_li .xor  .xori  rfl
+def fold_addw_li_to_addiw := fold_commutative_binop_li .addw .addiw rfl
 
 /-! # Pass implementation -/
 
 def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[right_identity_zero_add,
-      fold_add_li_to_addi, fold_or_li_to_ori, fold_and_li_to_andi,
-      fold_xor_li_to_xori, fold_addw_li_to_addiw]
+      RewritePattern.fromLocalRewrite fold_add_li_to_addi,
+      RewritePattern.fromLocalRewrite fold_or_li_to_ori,
+      RewritePattern.fromLocalRewrite fold_and_li_to_andi,
+      RewritePattern.fromLocalRewrite fold_xor_li_to_xori,
+      RewritePattern.fromLocalRewrite fold_addw_li_to_addiw]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
