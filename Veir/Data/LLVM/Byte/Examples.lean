@@ -15,4 +15,13 @@ example (w : Nat) (x y : Byte w) : x ||| y = y ||| x := by
 example (x y : Byte 8) : x ||| y = y ||| x := by
   llvm_bv_decide
 
+example (x : Int 8) :
+    (Byte.fromInt x).toInt = x := by
+  llvm_bv_decide
+
+example (x : Byte 8) :
+    (x.poison = 0 ∨ x.poison = .allOnes _) →
+    (Byte.fromInt x.toInt) = x := by
+  llvm_bv_decide
+
 end Veir.Data.LLVM.Byte

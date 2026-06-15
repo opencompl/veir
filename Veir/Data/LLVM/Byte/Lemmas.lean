@@ -16,6 +16,25 @@ theorem ext_iff {w : Nat} (x y : Byte w) :
     x = y ↔ (x.val = y.val ∧ x.poison = y.poison) := by
   rw [Byte.mk.injEq]
 
+/- # {to,from}Int -/
+section ToFromInt
+attribute [local grind] Byte.toInt Byte.fromInt
+
+@[llvm_toBitVec] theorem val_fromInt (x : Int w) : (fromInt x).val = x.getValueD := by grind
+@[llvm_toBitVec] theorem poison_fromInt (x : Int w) :
+    (fromInt x).poison = if x.isPoison then .allOnes _ else 0 := by
+  grind
+
+@[llvm_toBitVec] theorem getValue_toInt (x : Byte w) (h : x.toInt.isPoison = false) :
+    x.toInt.getValue h = x.val := by
+  grind
+
+@[llvm_toBitVec] theorem isPoison_toInt (x : Byte w) :
+    x.toInt.isPoison = (x.poison != 0) := by
+  grind
+
+end ToFromInt
+
 /- # and -/
 
 @[llvm_toBitVec]

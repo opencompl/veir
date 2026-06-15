@@ -40,6 +40,11 @@ theorem getValue_eq_getValueD {w : Nat} (x : Int w) (h : x.isPoison = false) :
   simp [getValue, getValueD]
   cases x <;> grind
 
+@[llvm_toBitVec]
+theorem getValueD_eq (x : Int w) :
+    x.getValueD = if h : x.isPoison = false then x.getValue h else 0 := by
+  cases x <;> rfl
+
 /-- Two elements `a b : LLVM.Int` are equal if and only if they return the same `isPoison` and,
   the same `getValue` in case they are *not* poison. -/
 @[llvm_toBitVec]
