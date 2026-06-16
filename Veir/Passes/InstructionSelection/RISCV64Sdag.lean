@@ -16,7 +16,7 @@ set_option warn.sorry false in
   `sub (shl M (8 - Y)) (lshr M Y)` -> `riscv.orcb M`,
   where `M = and Z (0x0101_0101_0101_0101 <<< Y)`
 -/
-def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (a, b, _) := matchSub op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -27,52 +27,46 @@ def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
   if type'.bitwidth ≠ 64 then return rewriter
-  /- match `shl M (8 - Y)` -/
+  /- left operand must be `shl M (8 - Y)` for some `0 ≤ Y < 8` -/
   let some aOp := getDefiningOp a rewriter.ctx | return rewriter
   let some (m, shamt, _) := matchShl aOp rewriter.ctx | return rewriter
   let some shc := matchConstantIntVal shamt rewriter.ctx | return rewriter
-  /- we do not match a subtraction `8 - Y`, but match the result directly
-    for some `0 ≤ Y < 8` -/
   if shc.value < 1 || 8 < shc.value then return rewriter
   let y : Nat := (8 - shc.value).toNat
-  /- check `M = and Z (0x0101_0101_0101_0101 <<< Y)` -/
-  let some mOp := getDefiningOp m rewriter.ctx | return rewriter
-  let some (z, mask) := matchAnd mOp rewriter.ctx | return rewriter
-  let some maskBv := matchConstantIntVal mask rewriter.ctx | return rewriter
-  let maskBV : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
-  if BitVec.ofInt 64 maskBv.value ≠ maskBV then return rewriter
   /- right operand must be `M` itself (when `Y = 0`) or `lshr M Y` -/
-  if y = 0 then
-    /- b must be `M` -/
-    if b = m then
-      /- apply rewrite -/
-      let (rewriter, mCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[m]
-          #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-      /- actual `riscv.orcb` -/
-      let (rewriter, orcbOp) ← rewriter.createOp (.riscv .orcb) #[RegisterType.mk] #[mCastOp.getResult 0]
-          #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-      /- cast back result for type consistency -/
-      let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[orcbOp.getResult 0]
-          #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
-      rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
-    else return rewriter
-  else
-    /- match `lshr M Y` -/
-    let some bOp := getDefiningOp b rewriter.ctx | return rewriter
-    let some (m', y', _) := matchLshr bOp rewriter.ctx | return rewriter
-    let some yVal := matchConstantIntVal y' rewriter.ctx | return rewriter
-    if yVal.value = y ∧ m = m' then
-      /- apply rewrite -/
-      let (rewriter, mCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[m]
-          #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-      /- actual `riscv.orcb` -/
-      let (rewriter, orcbOp) ← rewriter.createOp (.riscv .orcb) #[RegisterType.mk] #[mCastOp.getResult 0]
-          #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-      /- cast back result for type consistency -/
-      let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[orcbOp.getResult 0]
-          #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
-      rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
-    else return rewriter
+  let rightMatches : Bool :=
+    if y == 0 then
+      decide (b = m)
+    else
+      match getDefiningOp b rewriter.ctx with
+      | none => false
+      | some bOp =>
+        match matchLshr bOp rewriter.ctx with
+        | none => false
+        | some (m', yShamt, _) =>
+          match matchConstantIntVal yShamt rewriter.ctx with
+          | none => false
+          | some yc => yc.value == (y : Int) && decide (m' = m)
+  if !rightMatches then return rewriter
+  /- soundness gate: `M = and Z (0x0101_0101_0101_0101 <<< Y)` -/
+  let some mOp := getDefiningOp m rewriter.ctx | return rewriter
+  let some (mo0, mo1) := matchAnd mOp rewriter.ctx | return rewriter
+  let maskBV : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
+  let isMask : ValuePtr → Bool := fun v =>
+    match matchConstantIntVal v rewriter.ctx with
+    | some attr => BitVec.ofInt 64 attr.value == maskBV
+    | none => false
+  if !(isMask mo0 || isMask mo1) then return rewriter
+  /- cast `M` to a register -/
+  let (rewriter, mCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[m]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- actual `riscv.orcb` -/
+  let (rewriter, orcbOp) ← rewriter.createOp (.riscv .orcb) #[RegisterType.mk] #[mCastOp.getResult 0]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- cast back result for type consistency -/
+  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[orcbOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
 
 
 
