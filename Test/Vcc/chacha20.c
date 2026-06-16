@@ -12,10 +12,10 @@
     The structure (state matrix, quarter-round, double-round etc.) follows the public RFC, analog to
     the reference Python implementation at https://github.com/ph4r05/py-chacha20poly1305 (chacha.py).
 
-    The cipher is built up in three layers, each calling the previous one:
+    We have three layers, each calling the previous one:
       - quarter_round: the basic mixing step on four state words
       - chacha20_block: 20 rounds over the 16-word state, producing 64 keystream bytes
-      - chacha20_xor:   encryption of (an arbitrary-length) message.
+      - chacha20_xor:  encryption of (an arbitrary-length) message.
 
     The main function runs the full encryption on the RFC 8439 section 2.4.2 inputs
     and returns (currently only) the first four ciphertext bytes. 
@@ -103,905 +103,936 @@ int main() {
     for (int i = 0; i < 32; i++)
         key[i] = (uint8_t)i;
 
-    uint8_t nonce[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                         0x00, 0x4a, 0x00, 0x00, 0x00, 0x00};
-    
-                         const char *msg = "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.";
-    
+    // Built with stores (prev had array/string but currently try to avoid llvm.mlir.global since not yet supported )
+    // Via stores we can currently run it and test + interpret it.
+    uint8_t nonce[12];
+    for (int i = 0; i < 12; i++)
+        nonce[i] = 0;
+    nonce[7] = 0x4a;
+
+    // We test only the first four plaintext bytes ("Ladi") from the RFC input
     uint8_t plaintext[114];
     for (int i = 0; i < 114; i++)
-        plaintext[i] = (uint8_t)msg[i];
+        plaintext[i] = 0;
+    plaintext[0] = 0x4c; // L
+    plaintext[1] = 0x61; // a
+    plaintext[2] = 0x64; // d
+    plaintext[3] = 0x69; // i
 
     uint8_t ciphertext[114];
     chacha20_xor(key, nonce, 1, plaintext, ciphertext, 114);
 
-    // Return the first four ciphertext bytes (so basically the start of the first block) which we will check against the RFC 8439 expected value (0x6e2e359a).
-    // Currently "restricted" to return only the first four bytes to obtain a 32bit value.
+    // First four ciphertext bytes, equals the RFC 8439 section 2.4.2 value 0x6e2e359a.
     return ((int)ciphertext[0] << 24) | ((int)ciphertext[1] << 16) | ((int)ciphertext[2] << 8) | (int)ciphertext[3];
 }
 
 // CHECK:      "builtin.module"() ({
 // CHECK:        "llvm.func"() <{{{.*}}"sym_name" = "main"{{.*}}}> ({
-// CHECK-NEXT:       ^[[bb11:.*]]():
-// CHECK-NEXT:         %[[v12:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v13:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v14:.*]] = "llvm.mlir.constant"() <{"value" = 32 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v15:.*]] = "llvm.mlir.addressof"() <{"global_name" = @__const.main.nonce}> : () -> !llvm.ptr
-// CHECK-NEXT:         %[[v16:.*]] = "llvm.mlir.constant"() <{"value" = 12 : i64}> : () -> i64
-// CHECK-NEXT:         %[[v17:.*]] = "llvm.mlir.constant"() <{"value" = 114 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v18:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
-// CHECK-NEXT:         %[[v19:.*]] = "llvm.mlir.constant"() <{"value" = 114 : i64}> : () -> i64
-// CHECK-NEXT:         %[[v20:.*]] = "llvm.mlir.constant"() <{"value" = 24 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v21:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i64}> : () -> i64
-// CHECK-NEXT:         %[[v22:.*]] = "llvm.mlir.constant"() <{"value" = 16 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v23:.*]] = "llvm.mlir.constant"() <{"value" = 2 : i64}> : () -> i64
-// CHECK-NEXT:         %[[v24:.*]] = "llvm.mlir.constant"() <{"value" = 8 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v25:.*]] = "llvm.mlir.constant"() <{"value" = 3 : i64}> : () -> i64
-// CHECK-NEXT:         %[[v26:.*]] = "llvm.mlir.constant"() <{"value" = 1634760805 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v27:.*]] = "llvm.mlir.constant"() <{"value" = 857760878 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v28:.*]] = "llvm.mlir.constant"() <{"value" = 2036477234 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v29:.*]] = "llvm.mlir.constant"() <{"value" = 1797285236 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v30:.*]] = "llvm.mlir.constant"() <{"value" = 3 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v31:.*]] = "llvm.mlir.constant"() <{"value" = 10 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v32:.*]] = "llvm.mlir.constant"() <{"value" = 64 : i64}> : () -> i64
-// CHECK-NEXT:         %[[v33:.*]] = "llvm.mlir.constant"() <{"value" = 4 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v34:.*]] = "llvm.mlir.constant"() <{"value" = 12 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v35:.*]] = "llvm.mlir.constant"() <{"value" = 7 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v36:.*]] = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v37:.*]] = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v38:.*]] = "llvm.mlir.constant"() <{"value" = 9 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v39:.*]] = "llvm.mlir.constant"() <{"value" = 6 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v40:.*]] = "llvm.mlir.constant"() <{"value" = 2 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v41:.*]] = "llvm.mlir.constant"() <{"value" = 14 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v42:.*]] = "llvm.mlir.constant"() <{"value" = 15 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v43:.*]] = "llvm.mlir.constant"() <{"value" = 11 : i32}> : () -> i32
-// CHECK-NEXT:         %[[v44:.*]] = "llvm.mlir.addressof"() <{"global_name" = @".str"}> : () -> !llvm.ptr
-// CHECK-NEXT:         %[[v45:.*]] = "llvm.alloca"(%[[v12]]) <{"alignment" = 4 : i64, "elem_type" = !llvm.array<16 x i32>}> : (i32) -> !llvm.ptr
-// CHECK-NEXT:         %[[v46:.*]] = "llvm.alloca"(%[[v12]]) <{"alignment" = 4 : i64, "elem_type" = !llvm.array<16 x i32>}> : (i32) -> !llvm.ptr
-// CHECK-NEXT:         %[[v47:.*]] = "llvm.alloca"(%[[v12]]) <{"alignment" = 1 : i64, "elem_type" = !llvm.array<64 x i8>}> : (i32) -> !llvm.ptr
-// CHECK-NEXT:         %[[v48:.*]] = "llvm.alloca"(%[[v12]]) <{"alignment" = 1 : i64, "elem_type" = !llvm.array<32 x i8>}> : (i32) -> !llvm.ptr
-// CHECK-NEXT:         %[[v49:.*]] = "llvm.alloca"(%[[v12]]) <{"alignment" = 1 : i64, "elem_type" = !llvm.array<12 x i8>}> : (i32) -> !llvm.ptr
-// CHECK-NEXT:         %[[v50:.*]] = "llvm.alloca"(%[[v12]]) <{"alignment" = 1 : i64, "elem_type" = !llvm.array<114 x i8>}> : (i32) -> !llvm.ptr
-// CHECK-NEXT:         %[[v51:.*]] = "llvm.alloca"(%[[v12]]) <{"alignment" = 1 : i64, "elem_type" = !llvm.array<114 x i8>}> : (i32) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.br"(%[[v13]]) [^[[bb52:.*]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb52]](%[[varg52_0:.*]] : i32):
-// CHECK-NEXT:         %[[v54:.*]] = "llvm.icmp"(%[[varg52_0]], %[[v14]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[v54]]) [^[[bb55:.*]], ^[[bb56:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-// CHECK-NEXT:       ^[[bb55]]():
-// CHECK-NEXT:         %[[v58:.*]] = "llvm.trunc"(%[[varg52_0]]) : (i32) -> i8
-// CHECK-NEXT:         %[[v59:.*]] = "llvm.sext"(%[[varg52_0]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v60:.*]] = "llvm.getelementptr"(%[[v48]], %[[v18]], %[[v59]]) <{"elem_type" = !llvm.array<32 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v58]], %[[v60]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
-// CHECK-NEXT:         "llvm.br"() [^[[bb62:.*]]] : () -> ()
-// CHECK-NEXT:       ^[[bb62]]():
-// CHECK-NEXT:         %[[v64:.*]] = "llvm.add"(%[[varg52_0]], %[[v12]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.br"(%[[v64]]) [^[[bb52]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb7:.*]]():
+// CHECK-NEXT:         %[[v8:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v9:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v10:.*]] = "llvm.mlir.constant"() <{"value" = 32 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v11:.*]] = "llvm.mlir.constant"() <{"value" = 12 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v12:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
+// CHECK-NEXT:         %[[v13:.*]] = "llvm.mlir.constant"() <{"value" = 7 : i64}> : () -> i64
+// CHECK-NEXT:         %[[v14:.*]] = "llvm.mlir.constant"() <{"value" = 74 : i8}> : () -> i8
+// CHECK-NEXT:         %[[v15:.*]] = "llvm.mlir.constant"() <{"value" = 114 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v16:.*]] = "llvm.mlir.constant"() <{"value" = 76 : i8}> : () -> i8
+// CHECK-NEXT:         %[[v17:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i64}> : () -> i64
+// CHECK-NEXT:         %[[v18:.*]] = "llvm.mlir.constant"() <{"value" = 97 : i8}> : () -> i8
+// CHECK-NEXT:         %[[v19:.*]] = "llvm.mlir.constant"() <{"value" = 2 : i64}> : () -> i64
+// CHECK-NEXT:         %[[v20:.*]] = "llvm.mlir.constant"() <{"value" = 100 : i8}> : () -> i8
+// CHECK-NEXT:         %[[v21:.*]] = "llvm.mlir.constant"() <{"value" = 3 : i64}> : () -> i64
+// CHECK-NEXT:         %[[v22:.*]] = "llvm.mlir.constant"() <{"value" = 105 : i8}> : () -> i8
+// CHECK-NEXT:         %[[v23:.*]] = "llvm.mlir.constant"() <{"value" = 114 : i64}> : () -> i64
+// CHECK-NEXT:         %[[v24:.*]] = "llvm.mlir.constant"() <{"value" = 24 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v25:.*]] = "llvm.mlir.constant"() <{"value" = 16 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v26:.*]] = "llvm.mlir.constant"() <{"value" = 8 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v27:.*]] = "llvm.mlir.constant"() <{"value" = 1634760805 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v28:.*]] = "llvm.mlir.constant"() <{"value" = 857760878 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v29:.*]] = "llvm.mlir.constant"() <{"value" = 2036477234 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v30:.*]] = "llvm.mlir.constant"() <{"value" = 1797285236 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v31:.*]] = "llvm.mlir.constant"() <{"value" = 12 : i64}> : () -> i64
+// CHECK-NEXT:         %[[v32:.*]] = "llvm.mlir.constant"() <{"value" = 3 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v33:.*]] = "llvm.mlir.constant"() <{"value" = 10 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v34:.*]] = "llvm.mlir.constant"() <{"value" = 64 : i64}> : () -> i64
+// CHECK-NEXT:         %[[v35:.*]] = "llvm.mlir.constant"() <{"value" = 4 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v36:.*]] = "llvm.mlir.constant"() <{"value" = 7 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v37:.*]] = "llvm.mlir.constant"() <{"value" = 5 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v38:.*]] = "llvm.mlir.constant"() <{"value" = 13 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v39:.*]] = "llvm.mlir.constant"() <{"value" = 9 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v40:.*]] = "llvm.mlir.constant"() <{"value" = 6 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v41:.*]] = "llvm.mlir.constant"() <{"value" = 2 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v42:.*]] = "llvm.mlir.constant"() <{"value" = 14 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v43:.*]] = "llvm.mlir.constant"() <{"value" = 15 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v44:.*]] = "llvm.mlir.constant"() <{"value" = 11 : i32}> : () -> i32
+// CHECK-NEXT:         %[[v45:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i8}> : () -> i8
+// CHECK-NEXT:         %[[v46:.*]] = "llvm.alloca"(%[[v8]]) <{"alignment" = 4 : i64, "elem_type" = !llvm.array<16 x i32>}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:         %[[v47:.*]] = "llvm.alloca"(%[[v8]]) <{"alignment" = 4 : i64, "elem_type" = !llvm.array<16 x i32>}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:         %[[v48:.*]] = "llvm.alloca"(%[[v8]]) <{"alignment" = 1 : i64, "elem_type" = !llvm.array<64 x i8>}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:         %[[v49:.*]] = "llvm.alloca"(%[[v8]]) <{"alignment" = 1 : i64, "elem_type" = !llvm.array<32 x i8>}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:         %[[v50:.*]] = "llvm.alloca"(%[[v8]]) <{"alignment" = 1 : i64, "elem_type" = !llvm.array<12 x i8>}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:         %[[v51:.*]] = "llvm.alloca"(%[[v8]]) <{"alignment" = 1 : i64, "elem_type" = !llvm.array<114 x i8>}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:         %[[v52:.*]] = "llvm.alloca"(%[[v8]]) <{"alignment" = 1 : i64, "elem_type" = !llvm.array<114 x i8>}> : (i32) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.br"(%[[v9]]) [^[[bb53:.*]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb53]](%[[varg53_0:.*]] : i32):
+// CHECK-NEXT:         %[[v55:.*]] = "llvm.icmp"(%[[varg53_0]], %[[v10]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[v55]]) [^[[bb56:.*]], ^[[bb57:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
 // CHECK-NEXT:       ^[[bb56]]():
-// CHECK-NEXT:         "llvm.intr.memcpy"(%[[v49]], %[[v15]], %[[v16]]) <{"arg_attrs" = [{"llvm.align" = 1 : i64}, {"llvm.align" = 1 : i64}, {}], "isVolatile" = 0 : i1}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK-NEXT:         "llvm.br"(%[[v13]]) [^[[bb67:.*]]] : (i32) -> ()
+// CHECK-NEXT:         %[[v59:.*]] = "llvm.trunc"(%[[varg53_0]]) : (i32) -> i8
+// CHECK-NEXT:         %[[v60:.*]] = "llvm.sext"(%[[varg53_0]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v61:.*]] = "llvm.getelementptr"(%[[v49]], %[[v12]], %[[v60]]) <{"elem_type" = !llvm.array<32 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v59]], %[[v61]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         "llvm.br"() [^[[bb63:.*]]] : () -> ()
+// CHECK-NEXT:       ^[[bb63]]():
+// CHECK-NEXT:         %[[v65:.*]] = "llvm.add"(%[[varg53_0]], %[[v8]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.br"(%[[v65]]) [^[[bb53]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb57]]():
+// CHECK-NEXT:         "llvm.br"(%[[v9]]) [^[[bb67:.*]]] : (i32) -> ()
 // CHECK-NEXT:       ^[[bb67]](%[[varg67_0:.*]] : i32):
-// CHECK-NEXT:         %[[v69:.*]] = "llvm.icmp"(%[[varg67_0]], %[[v17]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
+// CHECK-NEXT:         %[[v69:.*]] = "llvm.icmp"(%[[varg67_0]], %[[v11]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
 // CHECK-NEXT:         "llvm.cond_br"(%[[v69]]) [^[[bb70:.*]], ^[[bb71:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
 // CHECK-NEXT:       ^[[bb70]]():
 // CHECK-NEXT:         %[[v73:.*]] = "llvm.sext"(%[[varg67_0]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v74:.*]] = "llvm.getelementptr"(%[[v44]], %[[v73]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v75:.*]] = "llvm.load"(%[[v74]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v77:.*]] = "llvm.getelementptr"(%[[v50]], %[[v18]], %[[v73]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v75]], %[[v77]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
-// CHECK-NEXT:         "llvm.br"() [^[[bb79:.*]]] : () -> ()
-// CHECK-NEXT:       ^[[bb79]]():
-// CHECK-NEXT:         %[[v81:.*]] = "llvm.add"(%[[varg67_0]], %[[v12]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.br"(%[[v81]]) [^[[bb67]]] : (i32) -> ()
+// CHECK-NEXT:         %[[v74:.*]] = "llvm.getelementptr"(%[[v50]], %[[v12]], %[[v73]]) <{"elem_type" = !llvm.array<12 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v45]], %[[v74]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         "llvm.br"() [^[[bb76:.*]]] : () -> ()
+// CHECK-NEXT:       ^[[bb76]]():
+// CHECK-NEXT:         %[[v78:.*]] = "llvm.add"(%[[varg67_0]], %[[v8]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.br"(%[[v78]]) [^[[bb67]]] : (i32) -> ()
 // CHECK-NEXT:       ^[[bb71]]():
-// CHECK-NEXT:         %[[v83:.*]] = "llvm.getelementptr"(%[[v48]], %[[v18]], %[[v18]]) <{"elem_type" = !llvm.array<32 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v84:.*]] = "llvm.getelementptr"(%[[v49]], %[[v18]], %[[v18]]) <{"elem_type" = !llvm.array<12 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v85:.*]] = "llvm.getelementptr"(%[[v50]], %[[v18]], %[[v18]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v86:.*]] = "llvm.getelementptr"(%[[v51]], %[[v18]], %[[v18]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.br"(%[[v12]], %[[v18]]) [^[[bb87:.*]]] : (i32, i64) -> ()
-// CHECK-NEXT:       ^[[bb87]](%[[varg87_0:.*]] : i32, %[[varg87_1:.*]] : i64):
-// CHECK-NEXT:         %[[v89:.*]] = "llvm.icmp"(%[[varg87_1]], %[[v19]]) <{"predicate" = 6 : i64}> : (i64, i64) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[v89]]) [^[[bb90:.*]], ^[[bb91:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-// CHECK-NEXT:       ^[[bb90]]():
-// CHECK-NEXT:         "llvm.store"(%[[v26]], %[[v45]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v94:.*]] = "llvm.getelementptr"(%[[v45]], %[[v18]], %[[v21]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v27]], %[[v94]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v96:.*]] = "llvm.getelementptr"(%[[v45]], %[[v18]], %[[v23]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v28]], %[[v96]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v98:.*]] = "llvm.getelementptr"(%[[v45]], %[[v18]], %[[v25]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v29]], %[[v98]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         "llvm.br"(%[[v13]]) [^[[bb100:.*]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb100]](%[[varg100_0:.*]] : i32):
-// CHECK-NEXT:         %[[v102:.*]] = "llvm.icmp"(%[[varg100_0]], %[[v24]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[v102]]) [^[[bb103:.*]], ^[[bb104:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-// CHECK-NEXT:       ^[[bb103]]():
-// CHECK-NEXT:         %[[v106:.*]] = "llvm.mul"(%[[v33]], %[[varg100_0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v107:.*]] = "llvm.sext"(%[[v106]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v108:.*]] = "llvm.getelementptr"(%[[v83]], %[[v107]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v109:.*]] = "llvm.load"(%[[v108]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v110:.*]] = "llvm.zext"(%[[v109]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v111:.*]] = "llvm.getelementptr"(%[[v108]], %[[v21]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v112:.*]] = "llvm.load"(%[[v111]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v113:.*]] = "llvm.zext"(%[[v112]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v114:.*]] = "llvm.shl"(%[[v113]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v115:.*]] = "llvm.or"(%[[v110]], %[[v114]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v116:.*]] = "llvm.getelementptr"(%[[v108]], %[[v23]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v117:.*]] = "llvm.load"(%[[v116]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v118:.*]] = "llvm.zext"(%[[v117]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v119:.*]] = "llvm.shl"(%[[v118]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v120:.*]] = "llvm.or"(%[[v115]], %[[v119]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v121:.*]] = "llvm.getelementptr"(%[[v108]], %[[v25]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v122:.*]] = "llvm.load"(%[[v121]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v123:.*]] = "llvm.zext"(%[[v122]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v124:.*]] = "llvm.shl"(%[[v123]], %[[v20]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v125:.*]] = "llvm.or"(%[[v120]], %[[v124]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v126:.*]] = "llvm.add"(%[[v33]], %[[varg100_0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v127:.*]] = "llvm.sext"(%[[v126]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v128:.*]] = "llvm.getelementptr"(%[[v45]], %[[v18]], %[[v127]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v125]], %[[v128]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v130:.*]] = "llvm.add"(%[[varg100_0]], %[[v12]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.br"(%[[v130]]) [^[[bb100]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb104]]():
-// CHECK-NEXT:         %[[v132:.*]] = "llvm.getelementptr"(%[[v45]], %[[v18]], %[[v16]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[varg87_0]], %[[v132]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         "llvm.br"(%[[v13]]) [^[[bb134:.*]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb134]](%[[varg134_0:.*]] : i32):
-// CHECK-NEXT:         %[[v136:.*]] = "llvm.icmp"(%[[varg134_0]], %[[v30]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[v136]]) [^[[bb137:.*]], ^[[bb138:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-// CHECK-NEXT:       ^[[bb137]]():
-// CHECK-NEXT:         %[[v140:.*]] = "llvm.mul"(%[[v33]], %[[varg134_0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v141:.*]] = "llvm.sext"(%[[v140]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v142:.*]] = "llvm.getelementptr"(%[[v84]], %[[v141]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v143:.*]] = "llvm.load"(%[[v142]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v144:.*]] = "llvm.zext"(%[[v143]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v145:.*]] = "llvm.getelementptr"(%[[v142]], %[[v21]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v146:.*]] = "llvm.load"(%[[v145]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v147:.*]] = "llvm.zext"(%[[v146]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v148:.*]] = "llvm.shl"(%[[v147]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v149:.*]] = "llvm.or"(%[[v144]], %[[v148]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v150:.*]] = "llvm.getelementptr"(%[[v142]], %[[v23]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v151:.*]] = "llvm.load"(%[[v150]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v152:.*]] = "llvm.zext"(%[[v151]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v153:.*]] = "llvm.shl"(%[[v152]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v154:.*]] = "llvm.or"(%[[v149]], %[[v153]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v155:.*]] = "llvm.getelementptr"(%[[v142]], %[[v25]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v156:.*]] = "llvm.load"(%[[v155]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v157:.*]] = "llvm.zext"(%[[v156]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v158:.*]] = "llvm.shl"(%[[v157]], %[[v20]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v159:.*]] = "llvm.or"(%[[v154]], %[[v158]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v160:.*]] = "llvm.add"(%[[v37]], %[[varg134_0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v161:.*]] = "llvm.sext"(%[[v160]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v162:.*]] = "llvm.getelementptr"(%[[v45]], %[[v18]], %[[v161]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v159]], %[[v162]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v164:.*]] = "llvm.add"(%[[varg134_0]], %[[v12]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.br"(%[[v164]]) [^[[bb134]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb138]]():
-// CHECK-NEXT:         "llvm.br"(%[[v13]]) [^[[bb166:.*]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb166]](%[[varg166_0:.*]] : i32):
-// CHECK-NEXT:         %[[v168:.*]] = "llvm.icmp"(%[[varg166_0]], %[[v22]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[v168]]) [^[[bb169:.*]], ^[[bb170:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-// CHECK-NEXT:       ^[[bb169]]():
-// CHECK-NEXT:         %[[v172:.*]] = "llvm.sext"(%[[varg166_0]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v173:.*]] = "llvm.getelementptr"(%[[v45]], %[[v18]], %[[v172]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v174:.*]] = "llvm.load"(%[[v173]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v176:.*]] = "llvm.getelementptr"(%[[v46]], %[[v18]], %[[v172]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v174]], %[[v176]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v178:.*]] = "llvm.add"(%[[varg166_0]], %[[v12]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.br"(%[[v178]]) [^[[bb166]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb170]]():
-// CHECK-NEXT:         "llvm.br"(%[[v13]]) [^[[bb180:.*]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb180]](%[[varg180_0:.*]] : i32):
-// CHECK-NEXT:         %[[v182:.*]] = "llvm.icmp"(%[[varg180_0]], %[[v31]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[v182]]) [^[[bb183:.*]], ^[[bb184:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-// CHECK-NEXT:       ^[[bb183]]():
-// CHECK-NEXT:         %[[v186:.*]] = "llvm.sext"(%[[v33]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v187:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v188:.*]] = "llvm.load"(%[[v187]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v189:.*]] = "llvm.sext"(%[[v13]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v190:.*]] = "llvm.getelementptr"(%[[v46]], %[[v189]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v191:.*]] = "llvm.load"(%[[v190]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v192:.*]] = "llvm.add"(%[[v191]], %[[v188]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v192]], %[[v190]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v195:.*]] = "llvm.getelementptr"(%[[v46]], %[[v189]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v196:.*]] = "llvm.load"(%[[v195]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v197:.*]] = "llvm.sext"(%[[v34]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v198:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v199:.*]] = "llvm.load"(%[[v198]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v200:.*]] = "llvm.xor"(%[[v199]], %[[v196]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v200]], %[[v198]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v203:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v204:.*]] = "llvm.load"(%[[v203]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v205:.*]] = "llvm.shl"(%[[v204]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v206:.*]] = "llvm.sub"(%[[v14]], %[[v22]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v207:.*]] = "llvm.lshr"(%[[v204]], %[[v206]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v208:.*]] = "llvm.or"(%[[v205]], %[[v207]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v210:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v208]], %[[v210]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v213:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v214:.*]] = "llvm.load"(%[[v213]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v215:.*]] = "llvm.sext"(%[[v24]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v216:.*]] = "llvm.getelementptr"(%[[v46]], %[[v215]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v217:.*]] = "llvm.load"(%[[v216]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v218:.*]] = "llvm.add"(%[[v217]], %[[v214]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v218]], %[[v216]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v221:.*]] = "llvm.getelementptr"(%[[v46]], %[[v215]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v222:.*]] = "llvm.load"(%[[v221]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v224:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v225:.*]] = "llvm.load"(%[[v224]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v226:.*]] = "llvm.xor"(%[[v225]], %[[v222]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v226]], %[[v224]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v229:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v230:.*]] = "llvm.load"(%[[v229]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v231:.*]] = "llvm.shl"(%[[v230]], %[[v34]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v232:.*]] = "llvm.sub"(%[[v14]], %[[v34]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v233:.*]] = "llvm.lshr"(%[[v230]], %[[v232]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v234:.*]] = "llvm.or"(%[[v231]], %[[v233]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v236:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v234]], %[[v236]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v239:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v240:.*]] = "llvm.load"(%[[v239]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v242:.*]] = "llvm.getelementptr"(%[[v46]], %[[v189]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v243:.*]] = "llvm.load"(%[[v242]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v244:.*]] = "llvm.add"(%[[v243]], %[[v240]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v244]], %[[v242]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v247:.*]] = "llvm.getelementptr"(%[[v46]], %[[v189]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v248:.*]] = "llvm.load"(%[[v247]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v250:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v251:.*]] = "llvm.load"(%[[v250]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v252:.*]] = "llvm.xor"(%[[v251]], %[[v248]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v252]], %[[v250]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v255:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v256:.*]] = "llvm.load"(%[[v255]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v257:.*]] = "llvm.shl"(%[[v256]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v258:.*]] = "llvm.sub"(%[[v14]], %[[v24]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v259:.*]] = "llvm.lshr"(%[[v256]], %[[v258]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v260:.*]] = "llvm.or"(%[[v257]], %[[v259]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v262:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v260]], %[[v262]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v265:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v266:.*]] = "llvm.load"(%[[v265]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v268:.*]] = "llvm.getelementptr"(%[[v46]], %[[v215]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v269:.*]] = "llvm.load"(%[[v268]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v270:.*]] = "llvm.add"(%[[v269]], %[[v266]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v270]], %[[v268]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v273:.*]] = "llvm.getelementptr"(%[[v46]], %[[v215]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v274:.*]] = "llvm.load"(%[[v273]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v276:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v277:.*]] = "llvm.load"(%[[v276]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v278:.*]] = "llvm.xor"(%[[v277]], %[[v274]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v278]], %[[v276]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v281:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v282:.*]] = "llvm.load"(%[[v281]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v283:.*]] = "llvm.shl"(%[[v282]], %[[v35]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v284:.*]] = "llvm.sub"(%[[v14]], %[[v35]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v285:.*]] = "llvm.lshr"(%[[v282]], %[[v284]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v286:.*]] = "llvm.or"(%[[v283]], %[[v285]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v288:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v286]], %[[v288]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v290:.*]] = "llvm.sext"(%[[v36]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v291:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v292:.*]] = "llvm.load"(%[[v291]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v293:.*]] = "llvm.sext"(%[[v12]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v294:.*]] = "llvm.getelementptr"(%[[v46]], %[[v293]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v295:.*]] = "llvm.load"(%[[v294]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v296:.*]] = "llvm.add"(%[[v295]], %[[v292]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v296]], %[[v294]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v299:.*]] = "llvm.getelementptr"(%[[v46]], %[[v293]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v300:.*]] = "llvm.load"(%[[v299]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v301:.*]] = "llvm.sext"(%[[v37]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v302:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v303:.*]] = "llvm.load"(%[[v302]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v304:.*]] = "llvm.xor"(%[[v303]], %[[v300]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v304]], %[[v302]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v307:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v308:.*]] = "llvm.load"(%[[v307]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v309:.*]] = "llvm.shl"(%[[v308]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v311:.*]] = "llvm.lshr"(%[[v308]], %[[v206]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v312:.*]] = "llvm.or"(%[[v309]], %[[v311]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v314:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v312]], %[[v314]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v317:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v318:.*]] = "llvm.load"(%[[v317]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v319:.*]] = "llvm.sext"(%[[v38]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v320:.*]] = "llvm.getelementptr"(%[[v46]], %[[v319]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v321:.*]] = "llvm.load"(%[[v320]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v322:.*]] = "llvm.add"(%[[v321]], %[[v318]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v322]], %[[v320]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v325:.*]] = "llvm.getelementptr"(%[[v46]], %[[v319]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v326:.*]] = "llvm.load"(%[[v325]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v328:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v329:.*]] = "llvm.load"(%[[v328]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v330:.*]] = "llvm.xor"(%[[v329]], %[[v326]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v330]], %[[v328]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v333:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v334:.*]] = "llvm.load"(%[[v333]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v335:.*]] = "llvm.shl"(%[[v334]], %[[v34]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v337:.*]] = "llvm.lshr"(%[[v334]], %[[v232]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v338:.*]] = "llvm.or"(%[[v335]], %[[v337]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v340:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v338]], %[[v340]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v343:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v344:.*]] = "llvm.load"(%[[v343]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v346:.*]] = "llvm.getelementptr"(%[[v46]], %[[v293]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v347:.*]] = "llvm.load"(%[[v346]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v348:.*]] = "llvm.add"(%[[v347]], %[[v344]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v348]], %[[v346]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v351:.*]] = "llvm.getelementptr"(%[[v46]], %[[v293]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v352:.*]] = "llvm.load"(%[[v351]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v354:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v355:.*]] = "llvm.load"(%[[v354]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v356:.*]] = "llvm.xor"(%[[v355]], %[[v352]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v356]], %[[v354]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v359:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v360:.*]] = "llvm.load"(%[[v359]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v361:.*]] = "llvm.shl"(%[[v360]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v363:.*]] = "llvm.lshr"(%[[v360]], %[[v258]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v364:.*]] = "llvm.or"(%[[v361]], %[[v363]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v366:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v364]], %[[v366]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v369:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v370:.*]] = "llvm.load"(%[[v369]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v372:.*]] = "llvm.getelementptr"(%[[v46]], %[[v319]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v373:.*]] = "llvm.load"(%[[v372]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v374:.*]] = "llvm.add"(%[[v373]], %[[v370]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v374]], %[[v372]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v377:.*]] = "llvm.getelementptr"(%[[v46]], %[[v319]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v378:.*]] = "llvm.load"(%[[v377]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v380:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v381:.*]] = "llvm.load"(%[[v380]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v382:.*]] = "llvm.xor"(%[[v381]], %[[v378]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v382]], %[[v380]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v385:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v386:.*]] = "llvm.load"(%[[v385]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v387:.*]] = "llvm.shl"(%[[v386]], %[[v35]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v389:.*]] = "llvm.lshr"(%[[v386]], %[[v284]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v390:.*]] = "llvm.or"(%[[v387]], %[[v389]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v392:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v390]], %[[v392]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v394:.*]] = "llvm.sext"(%[[v39]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v395:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v396:.*]] = "llvm.load"(%[[v395]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v397:.*]] = "llvm.sext"(%[[v40]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v398:.*]] = "llvm.getelementptr"(%[[v46]], %[[v397]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v399:.*]] = "llvm.load"(%[[v398]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v400:.*]] = "llvm.add"(%[[v399]], %[[v396]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v400]], %[[v398]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v403:.*]] = "llvm.getelementptr"(%[[v46]], %[[v397]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v404:.*]] = "llvm.load"(%[[v403]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v405:.*]] = "llvm.sext"(%[[v41]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v406:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v407:.*]] = "llvm.load"(%[[v406]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v408:.*]] = "llvm.xor"(%[[v407]], %[[v404]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v408]], %[[v406]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v411:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v412:.*]] = "llvm.load"(%[[v411]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v413:.*]] = "llvm.shl"(%[[v412]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v415:.*]] = "llvm.lshr"(%[[v412]], %[[v206]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v416:.*]] = "llvm.or"(%[[v413]], %[[v415]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v418:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v416]], %[[v418]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v421:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v422:.*]] = "llvm.load"(%[[v421]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v423:.*]] = "llvm.sext"(%[[v31]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v424:.*]] = "llvm.getelementptr"(%[[v46]], %[[v423]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v425:.*]] = "llvm.load"(%[[v424]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v426:.*]] = "llvm.add"(%[[v425]], %[[v422]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v426]], %[[v424]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v429:.*]] = "llvm.getelementptr"(%[[v46]], %[[v423]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v430:.*]] = "llvm.load"(%[[v429]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v432:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v433:.*]] = "llvm.load"(%[[v432]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v434:.*]] = "llvm.xor"(%[[v433]], %[[v430]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v434]], %[[v432]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v437:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v438:.*]] = "llvm.load"(%[[v437]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v439:.*]] = "llvm.shl"(%[[v438]], %[[v34]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v441:.*]] = "llvm.lshr"(%[[v438]], %[[v232]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v442:.*]] = "llvm.or"(%[[v439]], %[[v441]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v444:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v442]], %[[v444]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v447:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v448:.*]] = "llvm.load"(%[[v447]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v450:.*]] = "llvm.getelementptr"(%[[v46]], %[[v397]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v451:.*]] = "llvm.load"(%[[v450]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v452:.*]] = "llvm.add"(%[[v451]], %[[v448]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v452]], %[[v450]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v455:.*]] = "llvm.getelementptr"(%[[v46]], %[[v397]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v456:.*]] = "llvm.load"(%[[v455]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v458:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v459:.*]] = "llvm.load"(%[[v458]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v460:.*]] = "llvm.xor"(%[[v459]], %[[v456]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v460]], %[[v458]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v463:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v464:.*]] = "llvm.load"(%[[v463]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v465:.*]] = "llvm.shl"(%[[v464]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v467:.*]] = "llvm.lshr"(%[[v464]], %[[v258]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v468:.*]] = "llvm.or"(%[[v465]], %[[v467]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v470:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v468]], %[[v470]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v473:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v474:.*]] = "llvm.load"(%[[v473]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v476:.*]] = "llvm.getelementptr"(%[[v46]], %[[v423]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v477:.*]] = "llvm.load"(%[[v476]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v478:.*]] = "llvm.add"(%[[v477]], %[[v474]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v478]], %[[v476]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v481:.*]] = "llvm.getelementptr"(%[[v46]], %[[v423]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v482:.*]] = "llvm.load"(%[[v481]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v484:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v485:.*]] = "llvm.load"(%[[v484]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v486:.*]] = "llvm.xor"(%[[v485]], %[[v482]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v486]], %[[v484]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v489:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v490:.*]] = "llvm.load"(%[[v489]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v491:.*]] = "llvm.shl"(%[[v490]], %[[v35]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v493:.*]] = "llvm.lshr"(%[[v490]], %[[v284]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v494:.*]] = "llvm.or"(%[[v491]], %[[v493]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v496:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v494]], %[[v496]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v498:.*]] = "llvm.sext"(%[[v35]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v499:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v500:.*]] = "llvm.load"(%[[v499]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v501:.*]] = "llvm.sext"(%[[v30]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v502:.*]] = "llvm.getelementptr"(%[[v46]], %[[v501]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v503:.*]] = "llvm.load"(%[[v502]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v504:.*]] = "llvm.add"(%[[v503]], %[[v500]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v504]], %[[v502]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v507:.*]] = "llvm.getelementptr"(%[[v46]], %[[v501]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v508:.*]] = "llvm.load"(%[[v507]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v509:.*]] = "llvm.sext"(%[[v42]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v510:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v511:.*]] = "llvm.load"(%[[v510]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v512:.*]] = "llvm.xor"(%[[v511]], %[[v508]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v512]], %[[v510]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v515:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v516:.*]] = "llvm.load"(%[[v515]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v517:.*]] = "llvm.shl"(%[[v516]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v519:.*]] = "llvm.lshr"(%[[v516]], %[[v206]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v520:.*]] = "llvm.or"(%[[v517]], %[[v519]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v522:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v520]], %[[v522]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v525:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v526:.*]] = "llvm.load"(%[[v525]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v527:.*]] = "llvm.sext"(%[[v43]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v528:.*]] = "llvm.getelementptr"(%[[v46]], %[[v527]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v529:.*]] = "llvm.load"(%[[v528]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v530:.*]] = "llvm.add"(%[[v529]], %[[v526]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v530]], %[[v528]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v533:.*]] = "llvm.getelementptr"(%[[v46]], %[[v527]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v534:.*]] = "llvm.load"(%[[v533]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v536:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v537:.*]] = "llvm.load"(%[[v536]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v538:.*]] = "llvm.xor"(%[[v537]], %[[v534]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v538]], %[[v536]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v541:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v542:.*]] = "llvm.load"(%[[v541]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v543:.*]] = "llvm.shl"(%[[v542]], %[[v34]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v545:.*]] = "llvm.lshr"(%[[v542]], %[[v232]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v546:.*]] = "llvm.or"(%[[v543]], %[[v545]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v548:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v546]], %[[v548]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v551:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v552:.*]] = "llvm.load"(%[[v551]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v554:.*]] = "llvm.getelementptr"(%[[v46]], %[[v501]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v555:.*]] = "llvm.load"(%[[v554]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v556:.*]] = "llvm.add"(%[[v555]], %[[v552]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v556]], %[[v554]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v559:.*]] = "llvm.getelementptr"(%[[v46]], %[[v501]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v560:.*]] = "llvm.load"(%[[v559]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v562:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v563:.*]] = "llvm.load"(%[[v562]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v564:.*]] = "llvm.xor"(%[[v563]], %[[v560]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v564]], %[[v562]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v567:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v568:.*]] = "llvm.load"(%[[v567]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v569:.*]] = "llvm.shl"(%[[v568]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v571:.*]] = "llvm.lshr"(%[[v568]], %[[v258]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v572:.*]] = "llvm.or"(%[[v569]], %[[v571]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v574:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v572]], %[[v574]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v577:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v578:.*]] = "llvm.load"(%[[v577]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v580:.*]] = "llvm.getelementptr"(%[[v46]], %[[v527]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v581:.*]] = "llvm.load"(%[[v580]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v582:.*]] = "llvm.add"(%[[v581]], %[[v578]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v582]], %[[v580]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v585:.*]] = "llvm.getelementptr"(%[[v46]], %[[v527]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v586:.*]] = "llvm.load"(%[[v585]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v588:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v589:.*]] = "llvm.load"(%[[v588]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v590:.*]] = "llvm.xor"(%[[v589]], %[[v586]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v590]], %[[v588]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v593:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v594:.*]] = "llvm.load"(%[[v593]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v595:.*]] = "llvm.shl"(%[[v594]], %[[v35]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v597:.*]] = "llvm.lshr"(%[[v594]], %[[v284]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v598:.*]] = "llvm.or"(%[[v595]], %[[v597]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v600:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v598]], %[[v600]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v603:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v604:.*]] = "llvm.load"(%[[v603]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v606:.*]] = "llvm.getelementptr"(%[[v46]], %[[v189]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v607:.*]] = "llvm.load"(%[[v606]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v608:.*]] = "llvm.add"(%[[v607]], %[[v604]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v608]], %[[v606]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v611:.*]] = "llvm.getelementptr"(%[[v46]], %[[v189]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v612:.*]] = "llvm.load"(%[[v611]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v614:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v615:.*]] = "llvm.load"(%[[v614]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v616:.*]] = "llvm.xor"(%[[v615]], %[[v612]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v616]], %[[v614]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v619:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v620:.*]] = "llvm.load"(%[[v619]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v621:.*]] = "llvm.shl"(%[[v620]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v623:.*]] = "llvm.lshr"(%[[v620]], %[[v206]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v624:.*]] = "llvm.or"(%[[v621]], %[[v623]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v626:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v624]], %[[v626]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v629:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v630:.*]] = "llvm.load"(%[[v629]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v632:.*]] = "llvm.getelementptr"(%[[v46]], %[[v423]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v633:.*]] = "llvm.load"(%[[v632]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v634:.*]] = "llvm.add"(%[[v633]], %[[v630]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v634]], %[[v632]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v637:.*]] = "llvm.getelementptr"(%[[v46]], %[[v423]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v638:.*]] = "llvm.load"(%[[v637]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v640:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v641:.*]] = "llvm.load"(%[[v640]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v642:.*]] = "llvm.xor"(%[[v641]], %[[v638]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v642]], %[[v640]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v645:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v646:.*]] = "llvm.load"(%[[v645]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v647:.*]] = "llvm.shl"(%[[v646]], %[[v34]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v649:.*]] = "llvm.lshr"(%[[v646]], %[[v232]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v650:.*]] = "llvm.or"(%[[v647]], %[[v649]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v652:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v650]], %[[v652]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v655:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v656:.*]] = "llvm.load"(%[[v655]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v658:.*]] = "llvm.getelementptr"(%[[v46]], %[[v189]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v659:.*]] = "llvm.load"(%[[v658]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v660:.*]] = "llvm.add"(%[[v659]], %[[v656]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v660]], %[[v658]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v663:.*]] = "llvm.getelementptr"(%[[v46]], %[[v189]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v664:.*]] = "llvm.load"(%[[v663]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v666:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v667:.*]] = "llvm.load"(%[[v666]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v668:.*]] = "llvm.xor"(%[[v667]], %[[v664]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v668]], %[[v666]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v671:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v672:.*]] = "llvm.load"(%[[v671]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v673:.*]] = "llvm.shl"(%[[v672]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v675:.*]] = "llvm.lshr"(%[[v672]], %[[v258]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v676:.*]] = "llvm.or"(%[[v673]], %[[v675]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v678:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v676]], %[[v678]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v681:.*]] = "llvm.getelementptr"(%[[v46]], %[[v509]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v682:.*]] = "llvm.load"(%[[v681]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v684:.*]] = "llvm.getelementptr"(%[[v46]], %[[v423]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v685:.*]] = "llvm.load"(%[[v684]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v686:.*]] = "llvm.add"(%[[v685]], %[[v682]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v686]], %[[v684]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v689:.*]] = "llvm.getelementptr"(%[[v46]], %[[v423]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v690:.*]] = "llvm.load"(%[[v689]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v692:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v693:.*]] = "llvm.load"(%[[v692]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v694:.*]] = "llvm.xor"(%[[v693]], %[[v690]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v694]], %[[v692]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v697:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v698:.*]] = "llvm.load"(%[[v697]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v699:.*]] = "llvm.shl"(%[[v698]], %[[v35]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v701:.*]] = "llvm.lshr"(%[[v698]], %[[v284]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v702:.*]] = "llvm.or"(%[[v699]], %[[v701]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v704:.*]] = "llvm.getelementptr"(%[[v46]], %[[v290]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v702]], %[[v704]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v707:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v708:.*]] = "llvm.load"(%[[v707]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v710:.*]] = "llvm.getelementptr"(%[[v46]], %[[v293]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v711:.*]] = "llvm.load"(%[[v710]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v712:.*]] = "llvm.add"(%[[v711]], %[[v708]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v712]], %[[v710]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v715:.*]] = "llvm.getelementptr"(%[[v46]], %[[v293]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v716:.*]] = "llvm.load"(%[[v715]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v718:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v719:.*]] = "llvm.load"(%[[v718]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v720:.*]] = "llvm.xor"(%[[v719]], %[[v716]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v720]], %[[v718]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v723:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v724:.*]] = "llvm.load"(%[[v723]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v725:.*]] = "llvm.shl"(%[[v724]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v727:.*]] = "llvm.lshr"(%[[v724]], %[[v206]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v728:.*]] = "llvm.or"(%[[v725]], %[[v727]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v730:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v728]], %[[v730]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v733:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v734:.*]] = "llvm.load"(%[[v733]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v736:.*]] = "llvm.getelementptr"(%[[v46]], %[[v527]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v737:.*]] = "llvm.load"(%[[v736]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v738:.*]] = "llvm.add"(%[[v737]], %[[v734]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v738]], %[[v736]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v741:.*]] = "llvm.getelementptr"(%[[v46]], %[[v527]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v742:.*]] = "llvm.load"(%[[v741]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v744:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v745:.*]] = "llvm.load"(%[[v744]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v746:.*]] = "llvm.xor"(%[[v745]], %[[v742]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v746]], %[[v744]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v749:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v750:.*]] = "llvm.load"(%[[v749]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v751:.*]] = "llvm.shl"(%[[v750]], %[[v34]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v753:.*]] = "llvm.lshr"(%[[v750]], %[[v232]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v754:.*]] = "llvm.or"(%[[v751]], %[[v753]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v756:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v754]], %[[v756]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v759:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v760:.*]] = "llvm.load"(%[[v759]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v762:.*]] = "llvm.getelementptr"(%[[v46]], %[[v293]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v763:.*]] = "llvm.load"(%[[v762]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v764:.*]] = "llvm.add"(%[[v763]], %[[v760]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v764]], %[[v762]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v767:.*]] = "llvm.getelementptr"(%[[v46]], %[[v293]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v768:.*]] = "llvm.load"(%[[v767]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v770:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v771:.*]] = "llvm.load"(%[[v770]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v772:.*]] = "llvm.xor"(%[[v771]], %[[v768]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v772]], %[[v770]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v775:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v776:.*]] = "llvm.load"(%[[v775]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v777:.*]] = "llvm.shl"(%[[v776]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v779:.*]] = "llvm.lshr"(%[[v776]], %[[v258]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v780:.*]] = "llvm.or"(%[[v777]], %[[v779]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v782:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v780]], %[[v782]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v785:.*]] = "llvm.getelementptr"(%[[v46]], %[[v197]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v786:.*]] = "llvm.load"(%[[v785]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v788:.*]] = "llvm.getelementptr"(%[[v46]], %[[v527]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v789:.*]] = "llvm.load"(%[[v788]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v790:.*]] = "llvm.add"(%[[v789]], %[[v786]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v790]], %[[v788]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v793:.*]] = "llvm.getelementptr"(%[[v46]], %[[v527]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v794:.*]] = "llvm.load"(%[[v793]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v796:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v797:.*]] = "llvm.load"(%[[v796]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v798:.*]] = "llvm.xor"(%[[v797]], %[[v794]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v798]], %[[v796]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v801:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v802:.*]] = "llvm.load"(%[[v801]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v803:.*]] = "llvm.shl"(%[[v802]], %[[v35]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v805:.*]] = "llvm.lshr"(%[[v802]], %[[v284]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v806:.*]] = "llvm.or"(%[[v803]], %[[v805]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v808:.*]] = "llvm.getelementptr"(%[[v46]], %[[v394]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v806]], %[[v808]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v811:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v812:.*]] = "llvm.load"(%[[v811]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v814:.*]] = "llvm.getelementptr"(%[[v46]], %[[v397]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v815:.*]] = "llvm.load"(%[[v814]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v816:.*]] = "llvm.add"(%[[v815]], %[[v812]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v816]], %[[v814]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v819:.*]] = "llvm.getelementptr"(%[[v46]], %[[v397]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v820:.*]] = "llvm.load"(%[[v819]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v822:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v823:.*]] = "llvm.load"(%[[v822]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v824:.*]] = "llvm.xor"(%[[v823]], %[[v820]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v824]], %[[v822]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v827:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v828:.*]] = "llvm.load"(%[[v827]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v829:.*]] = "llvm.shl"(%[[v828]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v831:.*]] = "llvm.lshr"(%[[v828]], %[[v206]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v832:.*]] = "llvm.or"(%[[v829]], %[[v831]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v834:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v832]], %[[v834]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v837:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v838:.*]] = "llvm.load"(%[[v837]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v840:.*]] = "llvm.getelementptr"(%[[v46]], %[[v215]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v841:.*]] = "llvm.load"(%[[v840]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v842:.*]] = "llvm.add"(%[[v841]], %[[v838]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v842]], %[[v840]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v845:.*]] = "llvm.getelementptr"(%[[v46]], %[[v215]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v846:.*]] = "llvm.load"(%[[v845]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v848:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v849:.*]] = "llvm.load"(%[[v848]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v850:.*]] = "llvm.xor"(%[[v849]], %[[v846]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v850]], %[[v848]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v853:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v854:.*]] = "llvm.load"(%[[v853]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v855:.*]] = "llvm.shl"(%[[v854]], %[[v34]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v857:.*]] = "llvm.lshr"(%[[v854]], %[[v232]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v858:.*]] = "llvm.or"(%[[v855]], %[[v857]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v860:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v858]], %[[v860]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v863:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v864:.*]] = "llvm.load"(%[[v863]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v866:.*]] = "llvm.getelementptr"(%[[v46]], %[[v397]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v867:.*]] = "llvm.load"(%[[v866]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v868:.*]] = "llvm.add"(%[[v867]], %[[v864]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v868]], %[[v866]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v871:.*]] = "llvm.getelementptr"(%[[v46]], %[[v397]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v872:.*]] = "llvm.load"(%[[v871]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v874:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v875:.*]] = "llvm.load"(%[[v874]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v876:.*]] = "llvm.xor"(%[[v875]], %[[v872]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v876]], %[[v874]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v879:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v880:.*]] = "llvm.load"(%[[v879]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v881:.*]] = "llvm.shl"(%[[v880]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v883:.*]] = "llvm.lshr"(%[[v880]], %[[v258]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v884:.*]] = "llvm.or"(%[[v881]], %[[v883]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v886:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v884]], %[[v886]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v889:.*]] = "llvm.getelementptr"(%[[v46]], %[[v301]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v890:.*]] = "llvm.load"(%[[v889]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v892:.*]] = "llvm.getelementptr"(%[[v46]], %[[v215]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v893:.*]] = "llvm.load"(%[[v892]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v894:.*]] = "llvm.add"(%[[v893]], %[[v890]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v894]], %[[v892]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v897:.*]] = "llvm.getelementptr"(%[[v46]], %[[v215]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v898:.*]] = "llvm.load"(%[[v897]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v900:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v901:.*]] = "llvm.load"(%[[v900]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v902:.*]] = "llvm.xor"(%[[v901]], %[[v898]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v902]], %[[v900]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v905:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v906:.*]] = "llvm.load"(%[[v905]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v907:.*]] = "llvm.shl"(%[[v906]], %[[v35]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v909:.*]] = "llvm.lshr"(%[[v906]], %[[v284]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v910:.*]] = "llvm.or"(%[[v907]], %[[v909]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v912:.*]] = "llvm.getelementptr"(%[[v46]], %[[v498]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v910]], %[[v912]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v915:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v916:.*]] = "llvm.load"(%[[v915]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v918:.*]] = "llvm.getelementptr"(%[[v46]], %[[v501]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v919:.*]] = "llvm.load"(%[[v918]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v920:.*]] = "llvm.add"(%[[v919]], %[[v916]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v920]], %[[v918]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v923:.*]] = "llvm.getelementptr"(%[[v46]], %[[v501]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v924:.*]] = "llvm.load"(%[[v923]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v926:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v927:.*]] = "llvm.load"(%[[v926]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v928:.*]] = "llvm.xor"(%[[v927]], %[[v924]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v928]], %[[v926]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v931:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v932:.*]] = "llvm.load"(%[[v931]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v933:.*]] = "llvm.shl"(%[[v932]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v935:.*]] = "llvm.lshr"(%[[v932]], %[[v206]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v936:.*]] = "llvm.or"(%[[v933]], %[[v935]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v938:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v936]], %[[v938]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v941:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v942:.*]] = "llvm.load"(%[[v941]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v944:.*]] = "llvm.getelementptr"(%[[v46]], %[[v319]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v945:.*]] = "llvm.load"(%[[v944]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v946:.*]] = "llvm.add"(%[[v945]], %[[v942]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v946]], %[[v944]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v949:.*]] = "llvm.getelementptr"(%[[v46]], %[[v319]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v950:.*]] = "llvm.load"(%[[v949]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v952:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v953:.*]] = "llvm.load"(%[[v952]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v954:.*]] = "llvm.xor"(%[[v953]], %[[v950]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v954]], %[[v952]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v957:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v958:.*]] = "llvm.load"(%[[v957]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v959:.*]] = "llvm.shl"(%[[v958]], %[[v34]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v961:.*]] = "llvm.lshr"(%[[v958]], %[[v232]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v962:.*]] = "llvm.or"(%[[v959]], %[[v961]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v964:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v962]], %[[v964]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v967:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v968:.*]] = "llvm.load"(%[[v967]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v970:.*]] = "llvm.getelementptr"(%[[v46]], %[[v501]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v971:.*]] = "llvm.load"(%[[v970]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v972:.*]] = "llvm.add"(%[[v971]], %[[v968]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v972]], %[[v970]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v975:.*]] = "llvm.getelementptr"(%[[v46]], %[[v501]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v976:.*]] = "llvm.load"(%[[v975]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v978:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v979:.*]] = "llvm.load"(%[[v978]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v980:.*]] = "llvm.xor"(%[[v979]], %[[v976]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v980]], %[[v978]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v983:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v984:.*]] = "llvm.load"(%[[v983]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v985:.*]] = "llvm.shl"(%[[v984]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v987:.*]] = "llvm.lshr"(%[[v984]], %[[v258]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v988:.*]] = "llvm.or"(%[[v985]], %[[v987]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v990:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v988]], %[[v990]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v993:.*]] = "llvm.getelementptr"(%[[v46]], %[[v405]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v994:.*]] = "llvm.load"(%[[v993]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v996:.*]] = "llvm.getelementptr"(%[[v46]], %[[v319]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v997:.*]] = "llvm.load"(%[[v996]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v998:.*]] = "llvm.add"(%[[v997]], %[[v994]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v998]], %[[v996]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v1001:.*]] = "llvm.getelementptr"(%[[v46]], %[[v319]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1002:.*]] = "llvm.load"(%[[v1001]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v1004:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1005:.*]] = "llvm.load"(%[[v1004]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v1006:.*]] = "llvm.xor"(%[[v1005]], %[[v1002]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.store"(%[[v1006]], %[[v1004]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v1009:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1010:.*]] = "llvm.load"(%[[v1009]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v1011:.*]] = "llvm.shl"(%[[v1010]], %[[v35]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1013:.*]] = "llvm.lshr"(%[[v1010]], %[[v284]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1014:.*]] = "llvm.or"(%[[v1011]], %[[v1013]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1016:.*]] = "llvm.getelementptr"(%[[v46]], %[[v186]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v1014]], %[[v1016]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v1018:.*]] = "llvm.add"(%[[varg180_0]], %[[v12]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.br"(%[[v1018]]) [^[[bb180]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb184]]():
-// CHECK-NEXT:         "llvm.br"(%[[v13]]) [^[[bb1020:.*]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb1020]](%[[varg1020_0:.*]] : i32):
-// CHECK-NEXT:         %[[v1022:.*]] = "llvm.icmp"(%[[varg1020_0]], %[[v22]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[v1022]]) [^[[bb1023:.*]], ^[[bb1024:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-// CHECK-NEXT:       ^[[bb1023]]():
-// CHECK-NEXT:         %[[v1026:.*]] = "llvm.mul"(%[[v33]], %[[varg1020_0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1027:.*]] = "llvm.sext"(%[[v1026]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v1028:.*]] = "llvm.getelementptr"(%[[v47]], %[[v1027]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1029:.*]] = "llvm.sext"(%[[varg1020_0]]) : (i32) -> i64
-// CHECK-NEXT:         %[[v1030:.*]] = "llvm.getelementptr"(%[[v46]], %[[v18]], %[[v1029]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1031:.*]] = "llvm.load"(%[[v1030]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v1033:.*]] = "llvm.getelementptr"(%[[v45]], %[[v18]], %[[v1029]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1034:.*]] = "llvm.load"(%[[v1033]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
-// CHECK-NEXT:         %[[v1035:.*]] = "llvm.add"(%[[v1031]], %[[v1034]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1036:.*]] = "llvm.trunc"(%[[v1035]]) : (i32) -> i8
-// CHECK-NEXT:         "llvm.store"(%[[v1036]], %[[v1028]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v1038:.*]] = "llvm.lshr"(%[[v1035]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1039:.*]] = "llvm.trunc"(%[[v1038]]) : (i32) -> i8
-// CHECK-NEXT:         %[[v1040:.*]] = "llvm.getelementptr"(%[[v1028]], %[[v21]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v1039]], %[[v1040]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v1042:.*]] = "llvm.lshr"(%[[v1035]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1043:.*]] = "llvm.trunc"(%[[v1042]]) : (i32) -> i8
-// CHECK-NEXT:         %[[v1044:.*]] = "llvm.getelementptr"(%[[v1028]], %[[v23]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v1043]], %[[v1044]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v1046:.*]] = "llvm.lshr"(%[[v1035]], %[[v20]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1047:.*]] = "llvm.trunc"(%[[v1046]]) : (i32) -> i8
-// CHECK-NEXT:         %[[v1048:.*]] = "llvm.getelementptr"(%[[v1028]], %[[v25]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v1047]], %[[v1048]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v1050:.*]] = "llvm.add"(%[[varg1020_0]], %[[v12]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.br"(%[[v1050]]) [^[[bb1020]]] : (i32) -> ()
-// CHECK-NEXT:       ^[[bb1024]]():
-// CHECK-NEXT:         %[[v1052:.*]] = "llvm.add"(%[[varg87_0]], %[[v12]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1053:.*]] = "llvm.sub"(%[[v19]], %[[varg87_1]]) : (i64, i64) -> i64
-// CHECK-NEXT:         %[[v1054:.*]] = "llvm.icmp"(%[[v1053]], %[[v32]]) <{"predicate" = 8 : i64}> : (i64, i64) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[v1054]], %[[v1053]]) [^[[bb1055:.*]], ^[[bb1056:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 1>}> : (i1, i64) -> ()
-// CHECK-NEXT:       ^[[bb1055]]():
-// CHECK-NEXT:         "llvm.br"(%[[v32]]) [^[[bb1056]]] : (i64) -> ()
-// CHECK-NEXT:       ^[[bb1056]](%[[varg1056_0:.*]] : i64):
-// CHECK-NEXT:         "llvm.br"(%[[v18]]) [^[[bb1059:.*]]] : (i64) -> ()
-// CHECK-NEXT:       ^[[bb1059]](%[[varg1059_0:.*]] : i64):
-// CHECK-NEXT:         %[[v1061:.*]] = "llvm.icmp"(%[[varg1059_0]], %[[varg1056_0]]) <{"predicate" = 6 : i64}> : (i64, i64) -> i1
-// CHECK-NEXT:         "llvm.cond_br"(%[[v1061]]) [^[[bb1062:.*]], ^[[bb1063:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-// CHECK-NEXT:       ^[[bb1062]]():
-// CHECK-NEXT:         %[[v1065:.*]] = "llvm.add"(%[[varg87_1]], %[[varg1059_0]]) : (i64, i64) -> i64
-// CHECK-NEXT:         %[[v1066:.*]] = "llvm.getelementptr"(%[[v85]], %[[v1065]]) <{"elem_type" = i8, "noWrapFlags" = 7 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1067:.*]] = "llvm.load"(%[[v1066]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v1068:.*]] = "llvm.zext"(%[[v1067]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v1069:.*]] = "llvm.getelementptr"(%[[v47]], %[[v18]], %[[varg1059_0]]) <{"elem_type" = !llvm.array<64 x i8>, "noWrapFlags" = 7 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1070:.*]] = "llvm.load"(%[[v1069]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v1071:.*]] = "llvm.zext"(%[[v1070]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v1072:.*]] = "llvm.xor"(%[[v1068]], %[[v1071]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1073:.*]] = "llvm.trunc"(%[[v1072]]) : (i32) -> i8
-// CHECK-NEXT:         %[[v1075:.*]] = "llvm.getelementptr"(%[[v86]], %[[v1065]]) <{"elem_type" = i8, "noWrapFlags" = 7 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
-// CHECK-NEXT:         "llvm.store"(%[[v1073]], %[[v1075]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
-// CHECK-NEXT:         %[[v1077:.*]] = "llvm.add"(%[[varg1059_0]], %[[v21]]) : (i64, i64) -> i64
-// CHECK-NEXT:         "llvm.br"(%[[v1077]]) [^[[bb1059]]] : (i64) -> ()
-// CHECK-NEXT:       ^[[bb1063]]():
-// CHECK-NEXT:         %[[v1079:.*]] = "llvm.add"(%[[varg87_1]], %[[varg1056_0]]) : (i64, i64) -> i64
-// CHECK-NEXT:         "llvm.br"(%[[v1052]], %[[v1079]]) [^[[bb87]]] : (i32, i64) -> ()
+// CHECK-NEXT:         %[[v80:.*]] = "llvm.getelementptr"(%[[v50]], %[[v12]], %[[v13]]) <{"elem_type" = !llvm.array<12 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v14]], %[[v80]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         "llvm.br"(%[[v9]]) [^[[bb82:.*]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb82]](%[[varg82_0:.*]] : i32):
+// CHECK-NEXT:         %[[v84:.*]] = "llvm.icmp"(%[[varg82_0]], %[[v15]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[v84]]) [^[[bb85:.*]], ^[[bb86:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
+// CHECK-NEXT:       ^[[bb85]]():
+// CHECK-NEXT:         %[[v88:.*]] = "llvm.sext"(%[[varg82_0]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v89:.*]] = "llvm.getelementptr"(%[[v51]], %[[v12]], %[[v88]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v45]], %[[v89]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         "llvm.br"() [^[[bb91:.*]]] : () -> ()
 // CHECK-NEXT:       ^[[bb91]]():
-// CHECK-NEXT:         %[[v1081:.*]] = "llvm.getelementptr"(%[[v51]], %[[v18]], %[[v18]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1082:.*]] = "llvm.load"(%[[v1081]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v1083:.*]] = "llvm.zext"(%[[v1082]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v1084:.*]] = "llvm.shl"(%[[v1083]], %[[v20]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1085:.*]] = "llvm.getelementptr"(%[[v51]], %[[v18]], %[[v21]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1086:.*]] = "llvm.load"(%[[v1085]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v1087:.*]] = "llvm.zext"(%[[v1086]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v1088:.*]] = "llvm.shl"(%[[v1087]], %[[v22]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1089:.*]] = "llvm.or"(%[[v1084]], %[[v1088]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1090:.*]] = "llvm.getelementptr"(%[[v51]], %[[v18]], %[[v23]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1091:.*]] = "llvm.load"(%[[v1090]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v1092:.*]] = "llvm.zext"(%[[v1091]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v1093:.*]] = "llvm.shl"(%[[v1092]], %[[v24]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1094:.*]] = "llvm.or"(%[[v1089]], %[[v1093]]) : (i32, i32) -> i32
-// CHECK-NEXT:         %[[v1095:.*]] = "llvm.getelementptr"(%[[v51]], %[[v18]], %[[v25]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
-// CHECK-NEXT:         %[[v1096:.*]] = "llvm.load"(%[[v1095]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
-// CHECK-NEXT:         %[[v1097:.*]] = "llvm.zext"(%[[v1096]]) : (i8) -> i32
-// CHECK-NEXT:         %[[v1098:.*]] = "llvm.or"(%[[v1094]], %[[v1097]]) : (i32, i32) -> i32
-// CHECK-NEXT:         "llvm.return"(%[[v1098]]) : (i32) -> ()
+// CHECK-NEXT:         %[[v93:.*]] = "llvm.add"(%[[varg82_0]], %[[v8]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.br"(%[[v93]]) [^[[bb82]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb86]]():
+// CHECK-NEXT:         %[[v95:.*]] = "llvm.getelementptr"(%[[v51]], %[[v12]], %[[v12]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v16]], %[[v95]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v97:.*]] = "llvm.getelementptr"(%[[v51]], %[[v12]], %[[v17]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v18]], %[[v97]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v99:.*]] = "llvm.getelementptr"(%[[v51]], %[[v12]], %[[v19]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v20]], %[[v99]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v101:.*]] = "llvm.getelementptr"(%[[v51]], %[[v12]], %[[v21]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v22]], %[[v101]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v103:.*]] = "llvm.getelementptr"(%[[v49]], %[[v12]], %[[v12]]) <{"elem_type" = !llvm.array<32 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v104:.*]] = "llvm.getelementptr"(%[[v50]], %[[v12]], %[[v12]]) <{"elem_type" = !llvm.array<12 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v105:.*]] = "llvm.getelementptr"(%[[v51]], %[[v12]], %[[v12]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v106:.*]] = "llvm.getelementptr"(%[[v52]], %[[v12]], %[[v12]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.br"(%[[v8]], %[[v12]]) [^[[bb107:.*]]] : (i32, i64) -> ()
+// CHECK-NEXT:       ^[[bb107]](%[[varg107_0:.*]] : i32, %[[varg107_1:.*]] : i64):
+// CHECK-NEXT:         %[[v109:.*]] = "llvm.icmp"(%[[varg107_1]], %[[v23]]) <{"predicate" = 6 : i64}> : (i64, i64) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[v109]]) [^[[bb110:.*]], ^[[bb111:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
+// CHECK-NEXT:       ^[[bb110]]():
+// CHECK-NEXT:         "llvm.store"(%[[v27]], %[[v46]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v114:.*]] = "llvm.getelementptr"(%[[v46]], %[[v12]], %[[v17]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v28]], %[[v114]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v116:.*]] = "llvm.getelementptr"(%[[v46]], %[[v12]], %[[v19]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v29]], %[[v116]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v118:.*]] = "llvm.getelementptr"(%[[v46]], %[[v12]], %[[v21]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v30]], %[[v118]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         "llvm.br"(%[[v9]]) [^[[bb120:.*]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb120]](%[[varg120_0:.*]] : i32):
+// CHECK-NEXT:         %[[v122:.*]] = "llvm.icmp"(%[[varg120_0]], %[[v26]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[v122]]) [^[[bb123:.*]], ^[[bb124:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
+// CHECK-NEXT:       ^[[bb123]]():
+// CHECK-NEXT:         %[[v126:.*]] = "llvm.mul"(%[[v35]], %[[varg120_0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v127:.*]] = "llvm.sext"(%[[v126]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v128:.*]] = "llvm.getelementptr"(%[[v103]], %[[v127]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v129:.*]] = "llvm.load"(%[[v128]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v130:.*]] = "llvm.zext"(%[[v129]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v131:.*]] = "llvm.getelementptr"(%[[v128]], %[[v17]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v132:.*]] = "llvm.load"(%[[v131]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v133:.*]] = "llvm.zext"(%[[v132]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v134:.*]] = "llvm.shl"(%[[v133]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v135:.*]] = "llvm.or"(%[[v130]], %[[v134]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v136:.*]] = "llvm.getelementptr"(%[[v128]], %[[v19]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v137:.*]] = "llvm.load"(%[[v136]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v138:.*]] = "llvm.zext"(%[[v137]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v139:.*]] = "llvm.shl"(%[[v138]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v140:.*]] = "llvm.or"(%[[v135]], %[[v139]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v141:.*]] = "llvm.getelementptr"(%[[v128]], %[[v21]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v142:.*]] = "llvm.load"(%[[v141]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v143:.*]] = "llvm.zext"(%[[v142]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v144:.*]] = "llvm.shl"(%[[v143]], %[[v24]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v145:.*]] = "llvm.or"(%[[v140]], %[[v144]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v146:.*]] = "llvm.add"(%[[v35]], %[[varg120_0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v147:.*]] = "llvm.sext"(%[[v146]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v148:.*]] = "llvm.getelementptr"(%[[v46]], %[[v12]], %[[v147]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v145]], %[[v148]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v150:.*]] = "llvm.add"(%[[varg120_0]], %[[v8]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.br"(%[[v150]]) [^[[bb120]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb124]]():
+// CHECK-NEXT:         %[[v152:.*]] = "llvm.getelementptr"(%[[v46]], %[[v12]], %[[v31]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[varg107_0]], %[[v152]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         "llvm.br"(%[[v9]]) [^[[bb154:.*]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb154]](%[[varg154_0:.*]] : i32):
+// CHECK-NEXT:         %[[v156:.*]] = "llvm.icmp"(%[[varg154_0]], %[[v32]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[v156]]) [^[[bb157:.*]], ^[[bb158:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
+// CHECK-NEXT:       ^[[bb157]]():
+// CHECK-NEXT:         %[[v160:.*]] = "llvm.mul"(%[[v35]], %[[varg154_0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v161:.*]] = "llvm.sext"(%[[v160]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v162:.*]] = "llvm.getelementptr"(%[[v104]], %[[v161]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v163:.*]] = "llvm.load"(%[[v162]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v164:.*]] = "llvm.zext"(%[[v163]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v165:.*]] = "llvm.getelementptr"(%[[v162]], %[[v17]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v166:.*]] = "llvm.load"(%[[v165]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v167:.*]] = "llvm.zext"(%[[v166]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v168:.*]] = "llvm.shl"(%[[v167]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v169:.*]] = "llvm.or"(%[[v164]], %[[v168]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v170:.*]] = "llvm.getelementptr"(%[[v162]], %[[v19]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v171:.*]] = "llvm.load"(%[[v170]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v172:.*]] = "llvm.zext"(%[[v171]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v173:.*]] = "llvm.shl"(%[[v172]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v174:.*]] = "llvm.or"(%[[v169]], %[[v173]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v175:.*]] = "llvm.getelementptr"(%[[v162]], %[[v21]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v176:.*]] = "llvm.load"(%[[v175]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v177:.*]] = "llvm.zext"(%[[v176]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v178:.*]] = "llvm.shl"(%[[v177]], %[[v24]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v179:.*]] = "llvm.or"(%[[v174]], %[[v178]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v180:.*]] = "llvm.add"(%[[v38]], %[[varg154_0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v181:.*]] = "llvm.sext"(%[[v180]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v182:.*]] = "llvm.getelementptr"(%[[v46]], %[[v12]], %[[v181]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v179]], %[[v182]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v184:.*]] = "llvm.add"(%[[varg154_0]], %[[v8]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.br"(%[[v184]]) [^[[bb154]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb158]]():
+// CHECK-NEXT:         "llvm.br"(%[[v9]]) [^[[bb186:.*]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb186]](%[[varg186_0:.*]] : i32):
+// CHECK-NEXT:         %[[v188:.*]] = "llvm.icmp"(%[[varg186_0]], %[[v25]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[v188]]) [^[[bb189:.*]], ^[[bb190:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
+// CHECK-NEXT:       ^[[bb189]]():
+// CHECK-NEXT:         %[[v192:.*]] = "llvm.sext"(%[[varg186_0]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v193:.*]] = "llvm.getelementptr"(%[[v46]], %[[v12]], %[[v192]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v194:.*]] = "llvm.load"(%[[v193]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v196:.*]] = "llvm.getelementptr"(%[[v47]], %[[v12]], %[[v192]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v194]], %[[v196]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v198:.*]] = "llvm.add"(%[[varg186_0]], %[[v8]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.br"(%[[v198]]) [^[[bb186]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb190]]():
+// CHECK-NEXT:         "llvm.br"(%[[v9]]) [^[[bb200:.*]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb200]](%[[varg200_0:.*]] : i32):
+// CHECK-NEXT:         %[[v202:.*]] = "llvm.icmp"(%[[varg200_0]], %[[v33]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[v202]]) [^[[bb203:.*]], ^[[bb204:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
+// CHECK-NEXT:       ^[[bb203]]():
+// CHECK-NEXT:         %[[v206:.*]] = "llvm.sext"(%[[v35]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v207:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v208:.*]] = "llvm.load"(%[[v207]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v209:.*]] = "llvm.sext"(%[[v9]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v210:.*]] = "llvm.getelementptr"(%[[v47]], %[[v209]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v211:.*]] = "llvm.load"(%[[v210]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v212:.*]] = "llvm.add"(%[[v211]], %[[v208]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v212]], %[[v210]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v215:.*]] = "llvm.getelementptr"(%[[v47]], %[[v209]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v216:.*]] = "llvm.load"(%[[v215]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v217:.*]] = "llvm.sext"(%[[v11]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v218:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v219:.*]] = "llvm.load"(%[[v218]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v220:.*]] = "llvm.xor"(%[[v219]], %[[v216]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v220]], %[[v218]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v223:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v224:.*]] = "llvm.load"(%[[v223]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v225:.*]] = "llvm.shl"(%[[v224]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v226:.*]] = "llvm.sub"(%[[v10]], %[[v25]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v227:.*]] = "llvm.lshr"(%[[v224]], %[[v226]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v228:.*]] = "llvm.or"(%[[v225]], %[[v227]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v230:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v228]], %[[v230]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v233:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v234:.*]] = "llvm.load"(%[[v233]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v235:.*]] = "llvm.sext"(%[[v26]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v236:.*]] = "llvm.getelementptr"(%[[v47]], %[[v235]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v237:.*]] = "llvm.load"(%[[v236]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v238:.*]] = "llvm.add"(%[[v237]], %[[v234]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v238]], %[[v236]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v241:.*]] = "llvm.getelementptr"(%[[v47]], %[[v235]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v242:.*]] = "llvm.load"(%[[v241]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v244:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v245:.*]] = "llvm.load"(%[[v244]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v246:.*]] = "llvm.xor"(%[[v245]], %[[v242]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v246]], %[[v244]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v249:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v250:.*]] = "llvm.load"(%[[v249]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v251:.*]] = "llvm.shl"(%[[v250]], %[[v11]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v252:.*]] = "llvm.sub"(%[[v10]], %[[v11]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v253:.*]] = "llvm.lshr"(%[[v250]], %[[v252]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v254:.*]] = "llvm.or"(%[[v251]], %[[v253]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v256:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v254]], %[[v256]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v259:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v260:.*]] = "llvm.load"(%[[v259]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v262:.*]] = "llvm.getelementptr"(%[[v47]], %[[v209]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v263:.*]] = "llvm.load"(%[[v262]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v264:.*]] = "llvm.add"(%[[v263]], %[[v260]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v264]], %[[v262]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v267:.*]] = "llvm.getelementptr"(%[[v47]], %[[v209]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v268:.*]] = "llvm.load"(%[[v267]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v270:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v271:.*]] = "llvm.load"(%[[v270]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v272:.*]] = "llvm.xor"(%[[v271]], %[[v268]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v272]], %[[v270]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v275:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v276:.*]] = "llvm.load"(%[[v275]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v277:.*]] = "llvm.shl"(%[[v276]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v278:.*]] = "llvm.sub"(%[[v10]], %[[v26]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v279:.*]] = "llvm.lshr"(%[[v276]], %[[v278]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v280:.*]] = "llvm.or"(%[[v277]], %[[v279]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v282:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v280]], %[[v282]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v285:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v286:.*]] = "llvm.load"(%[[v285]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v288:.*]] = "llvm.getelementptr"(%[[v47]], %[[v235]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v289:.*]] = "llvm.load"(%[[v288]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v290:.*]] = "llvm.add"(%[[v289]], %[[v286]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v290]], %[[v288]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v293:.*]] = "llvm.getelementptr"(%[[v47]], %[[v235]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v294:.*]] = "llvm.load"(%[[v293]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v296:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v297:.*]] = "llvm.load"(%[[v296]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v298:.*]] = "llvm.xor"(%[[v297]], %[[v294]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v298]], %[[v296]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v301:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v302:.*]] = "llvm.load"(%[[v301]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v303:.*]] = "llvm.shl"(%[[v302]], %[[v36]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v304:.*]] = "llvm.sub"(%[[v10]], %[[v36]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v305:.*]] = "llvm.lshr"(%[[v302]], %[[v304]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v306:.*]] = "llvm.or"(%[[v303]], %[[v305]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v308:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v306]], %[[v308]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v310:.*]] = "llvm.sext"(%[[v37]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v311:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v312:.*]] = "llvm.load"(%[[v311]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v313:.*]] = "llvm.sext"(%[[v8]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v314:.*]] = "llvm.getelementptr"(%[[v47]], %[[v313]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v315:.*]] = "llvm.load"(%[[v314]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v316:.*]] = "llvm.add"(%[[v315]], %[[v312]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v316]], %[[v314]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v319:.*]] = "llvm.getelementptr"(%[[v47]], %[[v313]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v320:.*]] = "llvm.load"(%[[v319]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v321:.*]] = "llvm.sext"(%[[v38]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v322:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v323:.*]] = "llvm.load"(%[[v322]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v324:.*]] = "llvm.xor"(%[[v323]], %[[v320]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v324]], %[[v322]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v327:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v328:.*]] = "llvm.load"(%[[v327]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v329:.*]] = "llvm.shl"(%[[v328]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v331:.*]] = "llvm.lshr"(%[[v328]], %[[v226]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v332:.*]] = "llvm.or"(%[[v329]], %[[v331]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v334:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v332]], %[[v334]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v337:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v338:.*]] = "llvm.load"(%[[v337]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v339:.*]] = "llvm.sext"(%[[v39]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v340:.*]] = "llvm.getelementptr"(%[[v47]], %[[v339]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v341:.*]] = "llvm.load"(%[[v340]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v342:.*]] = "llvm.add"(%[[v341]], %[[v338]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v342]], %[[v340]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v345:.*]] = "llvm.getelementptr"(%[[v47]], %[[v339]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v346:.*]] = "llvm.load"(%[[v345]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v348:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v349:.*]] = "llvm.load"(%[[v348]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v350:.*]] = "llvm.xor"(%[[v349]], %[[v346]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v350]], %[[v348]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v353:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v354:.*]] = "llvm.load"(%[[v353]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v355:.*]] = "llvm.shl"(%[[v354]], %[[v11]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v357:.*]] = "llvm.lshr"(%[[v354]], %[[v252]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v358:.*]] = "llvm.or"(%[[v355]], %[[v357]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v360:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v358]], %[[v360]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v363:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v364:.*]] = "llvm.load"(%[[v363]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v366:.*]] = "llvm.getelementptr"(%[[v47]], %[[v313]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v367:.*]] = "llvm.load"(%[[v366]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v368:.*]] = "llvm.add"(%[[v367]], %[[v364]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v368]], %[[v366]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v371:.*]] = "llvm.getelementptr"(%[[v47]], %[[v313]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v372:.*]] = "llvm.load"(%[[v371]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v374:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v375:.*]] = "llvm.load"(%[[v374]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v376:.*]] = "llvm.xor"(%[[v375]], %[[v372]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v376]], %[[v374]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v379:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v380:.*]] = "llvm.load"(%[[v379]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v381:.*]] = "llvm.shl"(%[[v380]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v383:.*]] = "llvm.lshr"(%[[v380]], %[[v278]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v384:.*]] = "llvm.or"(%[[v381]], %[[v383]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v386:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v384]], %[[v386]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v389:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v390:.*]] = "llvm.load"(%[[v389]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v392:.*]] = "llvm.getelementptr"(%[[v47]], %[[v339]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v393:.*]] = "llvm.load"(%[[v392]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v394:.*]] = "llvm.add"(%[[v393]], %[[v390]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v394]], %[[v392]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v397:.*]] = "llvm.getelementptr"(%[[v47]], %[[v339]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v398:.*]] = "llvm.load"(%[[v397]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v400:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v401:.*]] = "llvm.load"(%[[v400]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v402:.*]] = "llvm.xor"(%[[v401]], %[[v398]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v402]], %[[v400]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v405:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v406:.*]] = "llvm.load"(%[[v405]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v407:.*]] = "llvm.shl"(%[[v406]], %[[v36]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v409:.*]] = "llvm.lshr"(%[[v406]], %[[v304]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v410:.*]] = "llvm.or"(%[[v407]], %[[v409]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v412:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v410]], %[[v412]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v414:.*]] = "llvm.sext"(%[[v40]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v415:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v416:.*]] = "llvm.load"(%[[v415]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v417:.*]] = "llvm.sext"(%[[v41]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v418:.*]] = "llvm.getelementptr"(%[[v47]], %[[v417]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v419:.*]] = "llvm.load"(%[[v418]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v420:.*]] = "llvm.add"(%[[v419]], %[[v416]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v420]], %[[v418]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v423:.*]] = "llvm.getelementptr"(%[[v47]], %[[v417]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v424:.*]] = "llvm.load"(%[[v423]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v425:.*]] = "llvm.sext"(%[[v42]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v426:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v427:.*]] = "llvm.load"(%[[v426]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v428:.*]] = "llvm.xor"(%[[v427]], %[[v424]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v428]], %[[v426]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v431:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v432:.*]] = "llvm.load"(%[[v431]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v433:.*]] = "llvm.shl"(%[[v432]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v435:.*]] = "llvm.lshr"(%[[v432]], %[[v226]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v436:.*]] = "llvm.or"(%[[v433]], %[[v435]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v438:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v436]], %[[v438]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v441:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v442:.*]] = "llvm.load"(%[[v441]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v443:.*]] = "llvm.sext"(%[[v33]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v444:.*]] = "llvm.getelementptr"(%[[v47]], %[[v443]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v445:.*]] = "llvm.load"(%[[v444]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v446:.*]] = "llvm.add"(%[[v445]], %[[v442]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v446]], %[[v444]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v449:.*]] = "llvm.getelementptr"(%[[v47]], %[[v443]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v450:.*]] = "llvm.load"(%[[v449]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v452:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v453:.*]] = "llvm.load"(%[[v452]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v454:.*]] = "llvm.xor"(%[[v453]], %[[v450]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v454]], %[[v452]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v457:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v458:.*]] = "llvm.load"(%[[v457]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v459:.*]] = "llvm.shl"(%[[v458]], %[[v11]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v461:.*]] = "llvm.lshr"(%[[v458]], %[[v252]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v462:.*]] = "llvm.or"(%[[v459]], %[[v461]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v464:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v462]], %[[v464]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v467:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v468:.*]] = "llvm.load"(%[[v467]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v470:.*]] = "llvm.getelementptr"(%[[v47]], %[[v417]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v471:.*]] = "llvm.load"(%[[v470]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v472:.*]] = "llvm.add"(%[[v471]], %[[v468]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v472]], %[[v470]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v475:.*]] = "llvm.getelementptr"(%[[v47]], %[[v417]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v476:.*]] = "llvm.load"(%[[v475]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v478:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v479:.*]] = "llvm.load"(%[[v478]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v480:.*]] = "llvm.xor"(%[[v479]], %[[v476]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v480]], %[[v478]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v483:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v484:.*]] = "llvm.load"(%[[v483]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v485:.*]] = "llvm.shl"(%[[v484]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v487:.*]] = "llvm.lshr"(%[[v484]], %[[v278]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v488:.*]] = "llvm.or"(%[[v485]], %[[v487]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v490:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v488]], %[[v490]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v493:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v494:.*]] = "llvm.load"(%[[v493]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v496:.*]] = "llvm.getelementptr"(%[[v47]], %[[v443]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v497:.*]] = "llvm.load"(%[[v496]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v498:.*]] = "llvm.add"(%[[v497]], %[[v494]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v498]], %[[v496]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v501:.*]] = "llvm.getelementptr"(%[[v47]], %[[v443]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v502:.*]] = "llvm.load"(%[[v501]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v504:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v505:.*]] = "llvm.load"(%[[v504]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v506:.*]] = "llvm.xor"(%[[v505]], %[[v502]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v506]], %[[v504]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v509:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v510:.*]] = "llvm.load"(%[[v509]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v511:.*]] = "llvm.shl"(%[[v510]], %[[v36]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v513:.*]] = "llvm.lshr"(%[[v510]], %[[v304]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v514:.*]] = "llvm.or"(%[[v511]], %[[v513]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v516:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v514]], %[[v516]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v518:.*]] = "llvm.sext"(%[[v36]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v519:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v520:.*]] = "llvm.load"(%[[v519]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v521:.*]] = "llvm.sext"(%[[v32]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v522:.*]] = "llvm.getelementptr"(%[[v47]], %[[v521]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v523:.*]] = "llvm.load"(%[[v522]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v524:.*]] = "llvm.add"(%[[v523]], %[[v520]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v524]], %[[v522]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v527:.*]] = "llvm.getelementptr"(%[[v47]], %[[v521]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v528:.*]] = "llvm.load"(%[[v527]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v529:.*]] = "llvm.sext"(%[[v43]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v530:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v531:.*]] = "llvm.load"(%[[v530]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v532:.*]] = "llvm.xor"(%[[v531]], %[[v528]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v532]], %[[v530]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v535:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v536:.*]] = "llvm.load"(%[[v535]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v537:.*]] = "llvm.shl"(%[[v536]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v539:.*]] = "llvm.lshr"(%[[v536]], %[[v226]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v540:.*]] = "llvm.or"(%[[v537]], %[[v539]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v542:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v540]], %[[v542]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v545:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v546:.*]] = "llvm.load"(%[[v545]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v547:.*]] = "llvm.sext"(%[[v44]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v548:.*]] = "llvm.getelementptr"(%[[v47]], %[[v547]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v549:.*]] = "llvm.load"(%[[v548]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v550:.*]] = "llvm.add"(%[[v549]], %[[v546]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v550]], %[[v548]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v553:.*]] = "llvm.getelementptr"(%[[v47]], %[[v547]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v554:.*]] = "llvm.load"(%[[v553]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v556:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v557:.*]] = "llvm.load"(%[[v556]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v558:.*]] = "llvm.xor"(%[[v557]], %[[v554]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v558]], %[[v556]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v561:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v562:.*]] = "llvm.load"(%[[v561]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v563:.*]] = "llvm.shl"(%[[v562]], %[[v11]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v565:.*]] = "llvm.lshr"(%[[v562]], %[[v252]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v566:.*]] = "llvm.or"(%[[v563]], %[[v565]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v568:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v566]], %[[v568]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v571:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v572:.*]] = "llvm.load"(%[[v571]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v574:.*]] = "llvm.getelementptr"(%[[v47]], %[[v521]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v575:.*]] = "llvm.load"(%[[v574]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v576:.*]] = "llvm.add"(%[[v575]], %[[v572]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v576]], %[[v574]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v579:.*]] = "llvm.getelementptr"(%[[v47]], %[[v521]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v580:.*]] = "llvm.load"(%[[v579]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v582:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v583:.*]] = "llvm.load"(%[[v582]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v584:.*]] = "llvm.xor"(%[[v583]], %[[v580]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v584]], %[[v582]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v587:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v588:.*]] = "llvm.load"(%[[v587]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v589:.*]] = "llvm.shl"(%[[v588]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v591:.*]] = "llvm.lshr"(%[[v588]], %[[v278]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v592:.*]] = "llvm.or"(%[[v589]], %[[v591]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v594:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v592]], %[[v594]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v597:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v598:.*]] = "llvm.load"(%[[v597]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v600:.*]] = "llvm.getelementptr"(%[[v47]], %[[v547]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v601:.*]] = "llvm.load"(%[[v600]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v602:.*]] = "llvm.add"(%[[v601]], %[[v598]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v602]], %[[v600]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v605:.*]] = "llvm.getelementptr"(%[[v47]], %[[v547]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v606:.*]] = "llvm.load"(%[[v605]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v608:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v609:.*]] = "llvm.load"(%[[v608]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v610:.*]] = "llvm.xor"(%[[v609]], %[[v606]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v610]], %[[v608]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v613:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v614:.*]] = "llvm.load"(%[[v613]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v615:.*]] = "llvm.shl"(%[[v614]], %[[v36]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v617:.*]] = "llvm.lshr"(%[[v614]], %[[v304]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v618:.*]] = "llvm.or"(%[[v615]], %[[v617]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v620:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v618]], %[[v620]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v623:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v624:.*]] = "llvm.load"(%[[v623]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v626:.*]] = "llvm.getelementptr"(%[[v47]], %[[v209]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v627:.*]] = "llvm.load"(%[[v626]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v628:.*]] = "llvm.add"(%[[v627]], %[[v624]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v628]], %[[v626]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v631:.*]] = "llvm.getelementptr"(%[[v47]], %[[v209]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v632:.*]] = "llvm.load"(%[[v631]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v634:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v635:.*]] = "llvm.load"(%[[v634]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v636:.*]] = "llvm.xor"(%[[v635]], %[[v632]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v636]], %[[v634]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v639:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v640:.*]] = "llvm.load"(%[[v639]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v641:.*]] = "llvm.shl"(%[[v640]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v643:.*]] = "llvm.lshr"(%[[v640]], %[[v226]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v644:.*]] = "llvm.or"(%[[v641]], %[[v643]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v646:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v644]], %[[v646]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v649:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v650:.*]] = "llvm.load"(%[[v649]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v652:.*]] = "llvm.getelementptr"(%[[v47]], %[[v443]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v653:.*]] = "llvm.load"(%[[v652]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v654:.*]] = "llvm.add"(%[[v653]], %[[v650]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v654]], %[[v652]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v657:.*]] = "llvm.getelementptr"(%[[v47]], %[[v443]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v658:.*]] = "llvm.load"(%[[v657]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v660:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v661:.*]] = "llvm.load"(%[[v660]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v662:.*]] = "llvm.xor"(%[[v661]], %[[v658]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v662]], %[[v660]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v665:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v666:.*]] = "llvm.load"(%[[v665]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v667:.*]] = "llvm.shl"(%[[v666]], %[[v11]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v669:.*]] = "llvm.lshr"(%[[v666]], %[[v252]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v670:.*]] = "llvm.or"(%[[v667]], %[[v669]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v672:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v670]], %[[v672]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v675:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v676:.*]] = "llvm.load"(%[[v675]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v678:.*]] = "llvm.getelementptr"(%[[v47]], %[[v209]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v679:.*]] = "llvm.load"(%[[v678]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v680:.*]] = "llvm.add"(%[[v679]], %[[v676]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v680]], %[[v678]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v683:.*]] = "llvm.getelementptr"(%[[v47]], %[[v209]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v684:.*]] = "llvm.load"(%[[v683]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v686:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v687:.*]] = "llvm.load"(%[[v686]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v688:.*]] = "llvm.xor"(%[[v687]], %[[v684]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v688]], %[[v686]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v691:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v692:.*]] = "llvm.load"(%[[v691]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v693:.*]] = "llvm.shl"(%[[v692]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v695:.*]] = "llvm.lshr"(%[[v692]], %[[v278]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v696:.*]] = "llvm.or"(%[[v693]], %[[v695]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v698:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v696]], %[[v698]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v701:.*]] = "llvm.getelementptr"(%[[v47]], %[[v529]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v702:.*]] = "llvm.load"(%[[v701]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v704:.*]] = "llvm.getelementptr"(%[[v47]], %[[v443]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v705:.*]] = "llvm.load"(%[[v704]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v706:.*]] = "llvm.add"(%[[v705]], %[[v702]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v706]], %[[v704]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v709:.*]] = "llvm.getelementptr"(%[[v47]], %[[v443]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v710:.*]] = "llvm.load"(%[[v709]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v712:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v713:.*]] = "llvm.load"(%[[v712]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v714:.*]] = "llvm.xor"(%[[v713]], %[[v710]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v714]], %[[v712]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v717:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v718:.*]] = "llvm.load"(%[[v717]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v719:.*]] = "llvm.shl"(%[[v718]], %[[v36]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v721:.*]] = "llvm.lshr"(%[[v718]], %[[v304]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v722:.*]] = "llvm.or"(%[[v719]], %[[v721]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v724:.*]] = "llvm.getelementptr"(%[[v47]], %[[v310]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v722]], %[[v724]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v727:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v728:.*]] = "llvm.load"(%[[v727]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v730:.*]] = "llvm.getelementptr"(%[[v47]], %[[v313]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v731:.*]] = "llvm.load"(%[[v730]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v732:.*]] = "llvm.add"(%[[v731]], %[[v728]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v732]], %[[v730]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v735:.*]] = "llvm.getelementptr"(%[[v47]], %[[v313]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v736:.*]] = "llvm.load"(%[[v735]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v738:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v739:.*]] = "llvm.load"(%[[v738]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v740:.*]] = "llvm.xor"(%[[v739]], %[[v736]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v740]], %[[v738]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v743:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v744:.*]] = "llvm.load"(%[[v743]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v745:.*]] = "llvm.shl"(%[[v744]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v747:.*]] = "llvm.lshr"(%[[v744]], %[[v226]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v748:.*]] = "llvm.or"(%[[v745]], %[[v747]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v750:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v748]], %[[v750]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v753:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v754:.*]] = "llvm.load"(%[[v753]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v756:.*]] = "llvm.getelementptr"(%[[v47]], %[[v547]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v757:.*]] = "llvm.load"(%[[v756]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v758:.*]] = "llvm.add"(%[[v757]], %[[v754]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v758]], %[[v756]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v761:.*]] = "llvm.getelementptr"(%[[v47]], %[[v547]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v762:.*]] = "llvm.load"(%[[v761]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v764:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v765:.*]] = "llvm.load"(%[[v764]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v766:.*]] = "llvm.xor"(%[[v765]], %[[v762]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v766]], %[[v764]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v769:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v770:.*]] = "llvm.load"(%[[v769]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v771:.*]] = "llvm.shl"(%[[v770]], %[[v11]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v773:.*]] = "llvm.lshr"(%[[v770]], %[[v252]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v774:.*]] = "llvm.or"(%[[v771]], %[[v773]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v776:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v774]], %[[v776]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v779:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v780:.*]] = "llvm.load"(%[[v779]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v782:.*]] = "llvm.getelementptr"(%[[v47]], %[[v313]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v783:.*]] = "llvm.load"(%[[v782]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v784:.*]] = "llvm.add"(%[[v783]], %[[v780]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v784]], %[[v782]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v787:.*]] = "llvm.getelementptr"(%[[v47]], %[[v313]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v788:.*]] = "llvm.load"(%[[v787]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v790:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v791:.*]] = "llvm.load"(%[[v790]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v792:.*]] = "llvm.xor"(%[[v791]], %[[v788]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v792]], %[[v790]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v795:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v796:.*]] = "llvm.load"(%[[v795]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v797:.*]] = "llvm.shl"(%[[v796]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v799:.*]] = "llvm.lshr"(%[[v796]], %[[v278]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v800:.*]] = "llvm.or"(%[[v797]], %[[v799]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v802:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v800]], %[[v802]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v805:.*]] = "llvm.getelementptr"(%[[v47]], %[[v217]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v806:.*]] = "llvm.load"(%[[v805]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v808:.*]] = "llvm.getelementptr"(%[[v47]], %[[v547]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v809:.*]] = "llvm.load"(%[[v808]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v810:.*]] = "llvm.add"(%[[v809]], %[[v806]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v810]], %[[v808]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v813:.*]] = "llvm.getelementptr"(%[[v47]], %[[v547]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v814:.*]] = "llvm.load"(%[[v813]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v816:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v817:.*]] = "llvm.load"(%[[v816]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v818:.*]] = "llvm.xor"(%[[v817]], %[[v814]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v818]], %[[v816]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v821:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v822:.*]] = "llvm.load"(%[[v821]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v823:.*]] = "llvm.shl"(%[[v822]], %[[v36]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v825:.*]] = "llvm.lshr"(%[[v822]], %[[v304]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v826:.*]] = "llvm.or"(%[[v823]], %[[v825]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v828:.*]] = "llvm.getelementptr"(%[[v47]], %[[v414]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v826]], %[[v828]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v831:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v832:.*]] = "llvm.load"(%[[v831]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v834:.*]] = "llvm.getelementptr"(%[[v47]], %[[v417]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v835:.*]] = "llvm.load"(%[[v834]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v836:.*]] = "llvm.add"(%[[v835]], %[[v832]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v836]], %[[v834]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v839:.*]] = "llvm.getelementptr"(%[[v47]], %[[v417]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v840:.*]] = "llvm.load"(%[[v839]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v842:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v843:.*]] = "llvm.load"(%[[v842]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v844:.*]] = "llvm.xor"(%[[v843]], %[[v840]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v844]], %[[v842]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v847:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v848:.*]] = "llvm.load"(%[[v847]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v849:.*]] = "llvm.shl"(%[[v848]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v851:.*]] = "llvm.lshr"(%[[v848]], %[[v226]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v852:.*]] = "llvm.or"(%[[v849]], %[[v851]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v854:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v852]], %[[v854]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v857:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v858:.*]] = "llvm.load"(%[[v857]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v860:.*]] = "llvm.getelementptr"(%[[v47]], %[[v235]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v861:.*]] = "llvm.load"(%[[v860]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v862:.*]] = "llvm.add"(%[[v861]], %[[v858]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v862]], %[[v860]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v865:.*]] = "llvm.getelementptr"(%[[v47]], %[[v235]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v866:.*]] = "llvm.load"(%[[v865]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v868:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v869:.*]] = "llvm.load"(%[[v868]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v870:.*]] = "llvm.xor"(%[[v869]], %[[v866]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v870]], %[[v868]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v873:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v874:.*]] = "llvm.load"(%[[v873]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v875:.*]] = "llvm.shl"(%[[v874]], %[[v11]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v877:.*]] = "llvm.lshr"(%[[v874]], %[[v252]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v878:.*]] = "llvm.or"(%[[v875]], %[[v877]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v880:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v878]], %[[v880]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v883:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v884:.*]] = "llvm.load"(%[[v883]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v886:.*]] = "llvm.getelementptr"(%[[v47]], %[[v417]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v887:.*]] = "llvm.load"(%[[v886]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v888:.*]] = "llvm.add"(%[[v887]], %[[v884]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v888]], %[[v886]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v891:.*]] = "llvm.getelementptr"(%[[v47]], %[[v417]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v892:.*]] = "llvm.load"(%[[v891]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v894:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v895:.*]] = "llvm.load"(%[[v894]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v896:.*]] = "llvm.xor"(%[[v895]], %[[v892]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v896]], %[[v894]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v899:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v900:.*]] = "llvm.load"(%[[v899]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v901:.*]] = "llvm.shl"(%[[v900]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v903:.*]] = "llvm.lshr"(%[[v900]], %[[v278]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v904:.*]] = "llvm.or"(%[[v901]], %[[v903]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v906:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v904]], %[[v906]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v909:.*]] = "llvm.getelementptr"(%[[v47]], %[[v321]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v910:.*]] = "llvm.load"(%[[v909]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v912:.*]] = "llvm.getelementptr"(%[[v47]], %[[v235]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v913:.*]] = "llvm.load"(%[[v912]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v914:.*]] = "llvm.add"(%[[v913]], %[[v910]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v914]], %[[v912]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v917:.*]] = "llvm.getelementptr"(%[[v47]], %[[v235]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v918:.*]] = "llvm.load"(%[[v917]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v920:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v921:.*]] = "llvm.load"(%[[v920]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v922:.*]] = "llvm.xor"(%[[v921]], %[[v918]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v922]], %[[v920]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v925:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v926:.*]] = "llvm.load"(%[[v925]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v927:.*]] = "llvm.shl"(%[[v926]], %[[v36]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v929:.*]] = "llvm.lshr"(%[[v926]], %[[v304]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v930:.*]] = "llvm.or"(%[[v927]], %[[v929]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v932:.*]] = "llvm.getelementptr"(%[[v47]], %[[v518]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v930]], %[[v932]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v935:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v936:.*]] = "llvm.load"(%[[v935]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v938:.*]] = "llvm.getelementptr"(%[[v47]], %[[v521]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v939:.*]] = "llvm.load"(%[[v938]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v940:.*]] = "llvm.add"(%[[v939]], %[[v936]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v940]], %[[v938]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v943:.*]] = "llvm.getelementptr"(%[[v47]], %[[v521]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v944:.*]] = "llvm.load"(%[[v943]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v946:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v947:.*]] = "llvm.load"(%[[v946]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v948:.*]] = "llvm.xor"(%[[v947]], %[[v944]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v948]], %[[v946]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v951:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v952:.*]] = "llvm.load"(%[[v951]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v953:.*]] = "llvm.shl"(%[[v952]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v955:.*]] = "llvm.lshr"(%[[v952]], %[[v226]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v956:.*]] = "llvm.or"(%[[v953]], %[[v955]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v958:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v956]], %[[v958]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v961:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v962:.*]] = "llvm.load"(%[[v961]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v964:.*]] = "llvm.getelementptr"(%[[v47]], %[[v339]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v965:.*]] = "llvm.load"(%[[v964]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v966:.*]] = "llvm.add"(%[[v965]], %[[v962]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v966]], %[[v964]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v969:.*]] = "llvm.getelementptr"(%[[v47]], %[[v339]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v970:.*]] = "llvm.load"(%[[v969]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v972:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v973:.*]] = "llvm.load"(%[[v972]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v974:.*]] = "llvm.xor"(%[[v973]], %[[v970]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v974]], %[[v972]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v977:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v978:.*]] = "llvm.load"(%[[v977]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v979:.*]] = "llvm.shl"(%[[v978]], %[[v11]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v981:.*]] = "llvm.lshr"(%[[v978]], %[[v252]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v982:.*]] = "llvm.or"(%[[v979]], %[[v981]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v984:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v982]], %[[v984]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v987:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v988:.*]] = "llvm.load"(%[[v987]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v990:.*]] = "llvm.getelementptr"(%[[v47]], %[[v521]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v991:.*]] = "llvm.load"(%[[v990]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v992:.*]] = "llvm.add"(%[[v991]], %[[v988]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v992]], %[[v990]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v995:.*]] = "llvm.getelementptr"(%[[v47]], %[[v521]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v996:.*]] = "llvm.load"(%[[v995]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v998:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v999:.*]] = "llvm.load"(%[[v998]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v1000:.*]] = "llvm.xor"(%[[v999]], %[[v996]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v1000]], %[[v998]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v1003:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1004:.*]] = "llvm.load"(%[[v1003]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v1005:.*]] = "llvm.shl"(%[[v1004]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1007:.*]] = "llvm.lshr"(%[[v1004]], %[[v278]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1008:.*]] = "llvm.or"(%[[v1005]], %[[v1007]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1010:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v1008]], %[[v1010]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v1013:.*]] = "llvm.getelementptr"(%[[v47]], %[[v425]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1014:.*]] = "llvm.load"(%[[v1013]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v1016:.*]] = "llvm.getelementptr"(%[[v47]], %[[v339]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1017:.*]] = "llvm.load"(%[[v1016]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v1018:.*]] = "llvm.add"(%[[v1017]], %[[v1014]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v1018]], %[[v1016]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v1021:.*]] = "llvm.getelementptr"(%[[v47]], %[[v339]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1022:.*]] = "llvm.load"(%[[v1021]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v1024:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1025:.*]] = "llvm.load"(%[[v1024]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v1026:.*]] = "llvm.xor"(%[[v1025]], %[[v1022]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.store"(%[[v1026]], %[[v1024]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v1029:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1030:.*]] = "llvm.load"(%[[v1029]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v1031:.*]] = "llvm.shl"(%[[v1030]], %[[v36]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1033:.*]] = "llvm.lshr"(%[[v1030]], %[[v304]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1034:.*]] = "llvm.or"(%[[v1031]], %[[v1033]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1036:.*]] = "llvm.getelementptr"(%[[v47]], %[[v206]]) <{"elem_type" = i32, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v1034]], %[[v1036]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i32, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v1038:.*]] = "llvm.add"(%[[varg200_0]], %[[v8]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.br"(%[[v1038]]) [^[[bb200]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb204]]():
+// CHECK-NEXT:         "llvm.br"(%[[v9]]) [^[[bb1040:.*]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb1040]](%[[varg1040_0:.*]] : i32):
+// CHECK-NEXT:         %[[v1042:.*]] = "llvm.icmp"(%[[varg1040_0]], %[[v25]]) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[v1042]]) [^[[bb1043:.*]], ^[[bb1044:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
+// CHECK-NEXT:       ^[[bb1043]]():
+// CHECK-NEXT:         %[[v1046:.*]] = "llvm.mul"(%[[v35]], %[[varg1040_0]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1047:.*]] = "llvm.sext"(%[[v1046]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v1048:.*]] = "llvm.getelementptr"(%[[v48]], %[[v1047]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1049:.*]] = "llvm.sext"(%[[varg1040_0]]) : (i32) -> i64
+// CHECK-NEXT:         %[[v1050:.*]] = "llvm.getelementptr"(%[[v47]], %[[v12]], %[[v1049]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1051:.*]] = "llvm.load"(%[[v1050]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v1053:.*]] = "llvm.getelementptr"(%[[v46]], %[[v12]], %[[v1049]]) <{"elem_type" = !llvm.array<16 x i32>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1054:.*]] = "llvm.load"(%[[v1053]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 4 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i32
+// CHECK-NEXT:         %[[v1055:.*]] = "llvm.add"(%[[v1051]], %[[v1054]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1056:.*]] = "llvm.trunc"(%[[v1055]]) : (i32) -> i8
+// CHECK-NEXT:         "llvm.store"(%[[v1056]], %[[v1048]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v1058:.*]] = "llvm.lshr"(%[[v1055]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1059:.*]] = "llvm.trunc"(%[[v1058]]) : (i32) -> i8
+// CHECK-NEXT:         %[[v1060:.*]] = "llvm.getelementptr"(%[[v1048]], %[[v17]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v1059]], %[[v1060]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v1062:.*]] = "llvm.lshr"(%[[v1055]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1063:.*]] = "llvm.trunc"(%[[v1062]]) : (i32) -> i8
+// CHECK-NEXT:         %[[v1064:.*]] = "llvm.getelementptr"(%[[v1048]], %[[v19]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v1063]], %[[v1064]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v1066:.*]] = "llvm.lshr"(%[[v1055]], %[[v24]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1067:.*]] = "llvm.trunc"(%[[v1066]]) : (i32) -> i8
+// CHECK-NEXT:         %[[v1068:.*]] = "llvm.getelementptr"(%[[v1048]], %[[v21]]) <{"elem_type" = i8, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v1067]], %[[v1068]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v1070:.*]] = "llvm.add"(%[[varg1040_0]], %[[v8]]) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.br"(%[[v1070]]) [^[[bb1040]]] : (i32) -> ()
+// CHECK-NEXT:       ^[[bb1044]]():
+// CHECK-NEXT:         %[[v1072:.*]] = "llvm.add"(%[[varg107_0]], %[[v8]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1073:.*]] = "llvm.sub"(%[[v23]], %[[varg107_1]]) : (i64, i64) -> i64
+// CHECK-NEXT:         %[[v1074:.*]] = "llvm.icmp"(%[[v1073]], %[[v34]]) <{"predicate" = 8 : i64}> : (i64, i64) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[v1074]], %[[v1073]]) [^[[bb1075:.*]], ^[[bb1076:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 1>}> : (i1, i64) -> ()
+// CHECK-NEXT:       ^[[bb1075]]():
+// CHECK-NEXT:         "llvm.br"(%[[v34]]) [^[[bb1076]]] : (i64) -> ()
+// CHECK-NEXT:       ^[[bb1076]](%[[varg1076_0:.*]] : i64):
+// CHECK-NEXT:         "llvm.br"(%[[v12]]) [^[[bb1079:.*]]] : (i64) -> ()
+// CHECK-NEXT:       ^[[bb1079]](%[[varg1079_0:.*]] : i64):
+// CHECK-NEXT:         %[[v1081:.*]] = "llvm.icmp"(%[[varg1079_0]], %[[varg1076_0]]) <{"predicate" = 6 : i64}> : (i64, i64) -> i1
+// CHECK-NEXT:         "llvm.cond_br"(%[[v1081]]) [^[[bb1082:.*]], ^[[bb1083:.*]]] <{"branch_weights" = array<i32>, "operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
+// CHECK-NEXT:       ^[[bb1082]]():
+// CHECK-NEXT:         %[[v1085:.*]] = "llvm.add"(%[[varg107_1]], %[[varg1079_0]]) : (i64, i64) -> i64
+// CHECK-NEXT:         %[[v1086:.*]] = "llvm.getelementptr"(%[[v105]], %[[v1085]]) <{"elem_type" = i8, "noWrapFlags" = 7 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1087:.*]] = "llvm.load"(%[[v1086]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v1088:.*]] = "llvm.zext"(%[[v1087]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v1089:.*]] = "llvm.getelementptr"(%[[v48]], %[[v12]], %[[varg1079_0]]) <{"elem_type" = !llvm.array<64 x i8>, "noWrapFlags" = 7 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1090:.*]] = "llvm.load"(%[[v1089]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v1091:.*]] = "llvm.zext"(%[[v1090]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v1092:.*]] = "llvm.xor"(%[[v1088]], %[[v1091]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1093:.*]] = "llvm.trunc"(%[[v1092]]) : (i32) -> i8
+// CHECK-NEXT:         %[[v1095:.*]] = "llvm.getelementptr"(%[[v106]], %[[v1085]]) <{"elem_type" = i8, "noWrapFlags" = 7 : i32, "rawConstantIndices" = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-NEXT:         "llvm.store"(%[[v1093]], %[[v1095]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (i8, !llvm.ptr) -> ()
+// CHECK-NEXT:         %[[v1097:.*]] = "llvm.add"(%[[varg1079_0]], %[[v17]]) : (i64, i64) -> i64
+// CHECK-NEXT:         "llvm.br"(%[[v1097]]) [^[[bb1079]]] : (i64) -> ()
+// CHECK-NEXT:       ^[[bb1083]]():
+// CHECK-NEXT:         %[[v1099:.*]] = "llvm.add"(%[[varg107_1]], %[[varg1076_0]]) : (i64, i64) -> i64
+// CHECK-NEXT:         "llvm.br"(%[[v1072]], %[[v1099]]) [^[[bb107]]] : (i32, i64) -> ()
+// CHECK-NEXT:       ^[[bb111]]():
+// CHECK-NEXT:         %[[v1101:.*]] = "llvm.getelementptr"(%[[v52]], %[[v12]], %[[v12]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1102:.*]] = "llvm.load"(%[[v1101]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v1103:.*]] = "llvm.zext"(%[[v1102]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v1104:.*]] = "llvm.shl"(%[[v1103]], %[[v24]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1105:.*]] = "llvm.getelementptr"(%[[v52]], %[[v12]], %[[v17]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1106:.*]] = "llvm.load"(%[[v1105]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v1107:.*]] = "llvm.zext"(%[[v1106]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v1108:.*]] = "llvm.shl"(%[[v1107]], %[[v25]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1109:.*]] = "llvm.or"(%[[v1104]], %[[v1108]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1110:.*]] = "llvm.getelementptr"(%[[v52]], %[[v12]], %[[v19]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1111:.*]] = "llvm.load"(%[[v1110]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v1112:.*]] = "llvm.zext"(%[[v1111]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v1113:.*]] = "llvm.shl"(%[[v1112]], %[[v26]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1114:.*]] = "llvm.or"(%[[v1109]], %[[v1113]]) : (i32, i32) -> i32
+// CHECK-NEXT:         %[[v1115:.*]] = "llvm.getelementptr"(%[[v52]], %[[v12]], %[[v21]]) <{"elem_type" = !llvm.array<114 x i8>, "noWrapFlags" = 3 : i32, "rawConstantIndices" = array<i32: -2147483648, -2147483648>}> : (!llvm.ptr, i64, i64) -> !llvm.ptr
+// CHECK-NEXT:         %[[v1116:.*]] = "llvm.load"(%[[v1115]]) <{"access_groups" = [], "alias_scopes" = [], "alignment" = 1 : i64, "noalias_scopes" = [], "tbaa" = []}> : (!llvm.ptr) -> i8
+// CHECK-NEXT:         %[[v1117:.*]] = "llvm.zext"(%[[v1116]]) : (i8) -> i32
+// CHECK-NEXT:         %[[v1118:.*]] = "llvm.or"(%[[v1114]], %[[v1117]]) : (i32, i32) -> i32
+// CHECK-NEXT:         "llvm.return"(%[[v1118]]) : (i32) -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT: }) {"dlti.dl_spec" = #dlti.dl_spec<!llvm.ptr<270> = dense<32> : vector<4xi64>, !llvm.ptr<271> = dense<32> : vector<4xi64>, !llvm.ptr<272> = dense<64> : vector<4xi64>, i64 = dense<64> : vector<2xi64>, i128 = dense<128> : vector<2xi64>, !llvm.ptr = dense<64> : vector<4xi64>, i1 = dense<8> : vector<2xi64>, i8 = dense<8> : vector<2xi64>, i16 = dense<16> : vector<2xi64>, i32 = dense<32> : vector<2xi64>, f16 = dense<16> : vector<2xi64>, f64 = dense<64> : vector<2xi64>, f128 = dense<128> : vector<2xi64>, "dlti.endianness" = "little", "dlti.mangling_mode" = "o", "dlti.legal_int_widths" = array<i32: 32, 64>, "dlti.stack_alignment" = 128 : i64, "dlti.function_pointer_alignment" = #dlti.function_pointer_alignment<32, function_dependent = true>>, "llvm.ident" = "Homebrew clang version 22.1.7", "llvm.module_asm" = [], "llvm.target_triple" = "arm64-apple-macosx26.0.0"} : () -> ()
