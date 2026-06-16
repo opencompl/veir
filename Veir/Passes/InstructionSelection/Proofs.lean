@@ -21,7 +21,7 @@ namespace Veir.Data.RISCV
   over instruction selection patterns.
 -/
 macro "refine_bv_decide" : tactic =>
-  `(tactic| ((try simp only [llvm_toBitVec, reg_toBitVec]; try simp [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]; try bv_decide)))
+  `(tactic| ((try simp only [llvm_toBitVec, reg_toBitVec]; try simp +contextual [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]; try bv_decide)))
 
 
 /--
