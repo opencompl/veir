@@ -22,35 +22,6 @@ def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr
 
 set_option warn.sorry false in
 /--
-  Introduce commutative imm12 instructions:
-  riscv.OP x (riscv.li imm) -> riscv.OPi x imm
-  riscv.OP (riscv.li imm) x -> riscv.OPi x imm
-  Only when `imm` fits into a signed 12-bit immediate field.
-  Covers: add→addi, or→ori, and→andi, xor→xori, addw→addiw.
--/
-def fold_commutative_binop_li (src dst : Riscv)
-    (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
-    LocalRewritePattern OpCode := fun ctx op =>
-  match matchRiscvBinop src op ctx with
-  | none => some (ctx, none)
-  | some (lhs, rhs) =>
-    match (Prod.mk lhs <$> matchLi rhs ctx) <|> (Prod.mk rhs <$> matchLi lhs ctx) with
-    | none => some (ctx, none)
-    | some (reg, imm) =>
-      if imm.value.value < -2048 || imm.value.value > 2047 then some (ctx, none)
-      else do
-        let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[reg]
-            #[] #[] (cast h.symm imm) none sorry
-        return (ctx, some (#[newOp], #[newOp.getResult 0]))
-
-def fold_add_li_to_addi   := fold_commutative_binop_li .add  .addi  rfl
-def fold_or_li_to_ori     := fold_commutative_binop_li .or   .ori   rfl
-def fold_and_li_to_andi   := fold_commutative_binop_li .and  .andi  rfl
-def fold_xor_li_to_xori   := fold_commutative_binop_li .xor  .xori  rfl
-def fold_addw_li_to_addiw := fold_commutative_binop_li .addw .addiw rfl
-
-set_option warn.sorry false in
-/--
   riscv.src rs1 (riscv.li imm) -> riscv.dst rs1 imm, only when the immediate lies
   in `[lo, hi]`. Shifts, rotates, and single-bit operations are not commutative,
   so the immediate is only matched on the second operand.
@@ -68,6 +39,20 @@ def fold_binop_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediate
         let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[reg]
             #[] #[] (cast h.symm imm) none sorry
         return (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+/--
+  imm12 binops: `src rs1 (li imm) -> dst rs1 imm` for signed 12-bit `imm ∈ [-2048, 2047]`.
+  Only match when the constant is on the right, since we assume that the canonicalizer
+  has made the code that way.
+-/
+def fold_imm12_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
+    LocalRewritePattern OpCode := fold_binop_li src dst h (-2048) 2047
+
+def fold_add_li_to_addi   := fold_imm12_li .add  .addi  rfl
+def fold_or_li_to_ori     := fold_imm12_li .or   .ori   rfl
+def fold_and_li_to_andi   := fold_imm12_li .and  .andi  rfl
+def fold_xor_li_to_xori   := fold_imm12_li .xor  .xori  rfl
+def fold_addw_li_to_addiw := fold_imm12_li .addw .addiw rfl
 
 /-- imm5 word shifts/rotates: `src rs1 (li imm) -> dst rs1 imm` for `imm ∈ [0,31]`. -/
 def fold_shift5_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :

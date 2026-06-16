@@ -12,12 +12,12 @@
         // CHECK:             "func.return"([[r]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
-    // riscv.add (riscv.li imm) x -> riscv.addi x imm  (li on the left)
+    // riscv.add x (riscv.li imm) -> riscv.addi x imm  (lower bound of the field)
     "func.func"()  <{function_type = (!riscv.reg) -> !riscv.reg}> ({
     ^bb(%a : !riscv.reg):
         // CHECK:             ^{{.*}}([[arg2:%.*]] : !riscv.reg):
         %c = "riscv.li"() <{"value" = -2048 : i64}>: () -> !riscv.reg
-        %add = "riscv.add"(%c, %a) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        %add = "riscv.add"(%a, %c) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK:             [[r2:%.*]] = "riscv.addi"([[arg2]]) <{"value" = -2048 : i64}> : (!riscv.reg) -> !riscv.reg
         "func.return"(%add) : (!riscv.reg) -> ()
         // CHECK:             "func.return"([[r2]]) : (!riscv.reg) -> ()
