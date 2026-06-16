@@ -5,6 +5,7 @@ public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.RISCV_Cf.OpInfo
 public import Veir.Dialects.RISCV_Stack.OpInfo
+public import Veir.Dialects.RV64.OpInfo
 public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
 public import Veir.Dialects.Comb.OpInfo
@@ -27,6 +28,7 @@ match opCode with
 | .riscv op => Riscv.propertiesOf op
 | .riscv_cf op => Riscv_Cf.propertiesOf op
 | .riscv_stack op => Riscv_Stack.propertiesOf op
+| .rv64 op => Rv64.propertiesOf op
 | .mod_arith op => Mod_Arith.propertiesOf op
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
@@ -107,6 +109,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     cases op
     case alloca => exact (RISCVStackAllocaProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
+  case rv64 =>
+    exact Except.ok ()
   case llvm op =>
     cases op
     case mlir__constant => exact (LLVMConstantProperties.fromAttrDict attrDict)

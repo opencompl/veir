@@ -245,6 +245,11 @@ inductive Riscv_Stack where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
+inductive Rv64 where
+| get_register
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[opcodes]
 inductive Mod_Arith where
 | add
 | constant

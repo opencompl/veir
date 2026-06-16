@@ -1281,6 +1281,17 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInf
     else
       return (#[], some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
 
+def Rv64.interpretOp' (opType : Veir.Rv64) (properties : HasDialectOpInfo.propertiesOf opType)
+    (resultTypes : Array TypeAttr) (_operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .get_register => do
+    let [⟨.registerType reg, _⟩] := resultTypes.toList | none
+    if reg.index = some 0 then
+      return (#[.reg ⟨0⟩], none)
+    else
+      none
+
 def Cf.interpretOp' (opType : Veir.Cf) (properties : HasDialectOpInfo.propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
@@ -1353,6 +1364,9 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     return (vals, mem, act)
   | .riscv_stack riscvStackOp =>
     Riscv_Stack.interpretOp' riscvStackOp properties resultTypes operands blockOperands mem
+  | .rv64 rv64Op => do
+    let (vals, act) ← Rv64.interpretOp' rv64Op properties resultTypes operands blockOperands
+    return (vals, mem, act)
   | .cf cfOp => do
     let (vals, act) ← Cf.interpretOp' cfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
