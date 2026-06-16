@@ -6,10 +6,14 @@ import Veir.Passes.Matching
 
 namespace Veir.RISCV
 
-def matchAdd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
-  let (op, _) ← matchOp op ctx (.riscv .add) 2
+def matchRiscvBinop (oc : Riscv) (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.riscv oc) 2
   return (op[0]!, op[1]!)
 
-def matchLi (op : OperationPtr) (ctx : IRContext OpCode) : Option (propertiesOf (.riscv .li)) := do
+def matchAdd := matchRiscvBinop .add
+
+def matchLi (val : ValuePtr) (ctx : IRContext OpCode) : Option (propertiesOf (.riscv .li)) := do
+  let op ← val.getDefiningOp! ctx
   let (_, properties) ← matchOp op ctx (.riscv .li) 0
   return properties
