@@ -100,12 +100,21 @@ int main() {
     long cmod = 17;
     long degree = 4; 
     long inverse = 0; // 0 for forward NTT, 1 for inverse NTT
-    static long coeffs[4] = {1, 2, 3, 4};
+    long coeffs[4];
+    coeffs[0] = 1;
+    coeffs[1] = 2;
+    coeffs[2] = 3;
+    coeffs[3] = 4;
 
-    long roots_size = n * 2;
-
-    // Hand-computed: roots[i] = 3^i mod 17, starting from 1.
-    static long roots[8] = {1, 3, 9, 10, 13, 5, 15, 11};
+    long roots_size = n * 2; 
+    
+    long roots[8]; 
+    
+    long current_root = 1;
+    for (long i = 0; i < 8; i++) {
+        roots[i] = current_root;
+        current_root = (current_root * 3) % cmod;
+    }
 
     fastNTT(coeffs, n, cmod, roots, inverse, degree);
     
