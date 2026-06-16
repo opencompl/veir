@@ -73,7 +73,8 @@ def parseOptionalFloatType : AttrParserM (Option FloatType) := do
 
 /--
   Parse an optional register type, which is fundamentally a wrapper for `i64`.
-  A register type is represented as `!riscv.reg`.
+  An unallocated register type is represented as `!riscv.reg`.
+  Allocated register types range from `!riscv.reg<x0>` to `!riscv.reg<x31>`.
 -/
 def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
   let token ← peekToken
@@ -82,7 +83,23 @@ def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
   let typeName := { token.slice with start := token.slice.start + 1 }.of input
   if typeName ≠ "riscv.reg".toByteArray then return none
   let _ ← consumeToken
-  return some RegisterType.mk
+  if ← parseOptionalPunctuation "<" then
+    match ← peekToken with
+    | { kind := .bareIdent, slice := slice } =>
+      if slice.size < 2 then
+        throwAtCurrentPos "expected RV64 register of the form xID"
+      if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'x'.toUInt8 then
+        let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
+        let identifier := bitwidthSlice.of (← (getThe ParserState)).input
+        let some reg := (String.fromUTF8? identifier).bind String.toNat? | return none
+        if reg > 31 then throwAtCurrentPos "RV64 registers range from x0 to x31"
+        let _ ← consumeToken
+        parsePunctuation ">"
+        return some (RegisterType.mk (some reg))
+      throwAtCurrentPos "expected RV64 register of the form xID"
+    | _ => throwAtCurrentPos "expected RV64 register of the form xID"
+  else
+    return some $ RegisterType.mk none
 
 /--
   Parse an integer type, throwing an error if it is not present.

@@ -55,6 +55,7 @@ deriving Inhabited, Repr, DecidableEq, Hashable
   A register type is an integer type with width 64.
 -/
 structure RegisterType where
+  index: Option Nat := none
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
@@ -713,7 +714,10 @@ instance : ToString FloatAttr where
   toString attr := s!"{attr.value} : {attr.type}"
 
 instance : ToString RegisterType where
-  toString _ := s!"!riscv.reg"
+  toString type :=
+    match type.index with
+    | none => s!"!riscv.reg"
+    | some i => s!"!riscv.reg<x{i}>"
 
 instance : ToString RegisterAttr where
   toString attr := s!"{attr.value} : !riscv.reg"
@@ -1147,6 +1151,9 @@ instance : Coe FunctionType TypeAttr where
 
 instance : Coe ModArithType TypeAttr where
   coe type := ⟨.modArithType type, by rfl⟩
+
+instance : CoeDep (Option Nat → RegisterType) RegisterType.mk TypeAttr where
+  coe := ⟨.registerType (.mk none), by rfl⟩
 
 instance : Coe RegisterType TypeAttr where
   coe type := ⟨.registerType type, by rfl⟩
