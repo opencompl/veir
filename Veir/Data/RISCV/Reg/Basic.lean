@@ -1,7 +1,5 @@
 module
 
-import all Veir.Data.RISCV.Reg.Simp
-
 namespace Veir.Data.RISCV
 
 public section
