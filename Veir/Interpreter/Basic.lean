@@ -2,7 +2,6 @@ import Veir.IR.Basic
 import Veir.Rewriter.Basic
 import Veir.ForLean
 import Veir.IR.WellFormed
-import Veir.PatternRewriter.Basic
 import Veir.Data.Comb.Basic
 import Veir.Data.LLVM.Int.Basic
 import Veir.Data.RISCV.Reg.Basic
@@ -130,21 +129,26 @@ theorem ArrayConforms.take_succ_eq {source : Array RuntimeValue} {target : Array
 end RuntimeValue
 
 /--
-  Memory state during interpretation
+  Memory state during interpretation.
+  Set bits in the poison mask represent poison bits.
 -/
 @[ext]
 structure MemoryState where
   contents : ByteArray
   poisonMask : ByteArray
+  consistentSize : contents.size = poisonMask.size
 
 def MemoryState.empty : MemoryState := {
   contents := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
-  poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff
+  poisonMask := (ByteArray.emptyWithCapacity 1024).extend 8 0xff,
+  consistentSize := (by grind)
 }
 
 def MemoryState.ensureSize (mem : MemoryState) (size : Nat) : MemoryState :=
   if mem.contents.size < size then
-    ⟨mem.contents.extend (size - mem.contents.size) 0, mem.poisonMask.extend (size - mem.poisonMask.size) 0xff⟩
+    ⟨mem.contents.extend (size - mem.contents.size) 0,
+      mem.poisonMask.extend (size - mem.contents.size) 0xff,
+      (by simp [mem.consistentSize])⟩
   else
     mem
 
@@ -333,7 +337,9 @@ instance : Inhabited (Interp α) := ⟨(none : Option (UBOr α))⟩
 -/
 def MemoryState.alloc (state : MemoryState) (size : UInt64)
     : MemoryState × UInt64 :=
-  (⟨state.contents.extend size.toNat 0, state.poisonMask.extend size.toNat 0xff⟩, state.contents.size.toUInt64)
+  (⟨state.contents.extend size.toNat 0,
+    state.poisonMask.extend size.toNat 0xff,
+    by simp [state.consistentSize]⟩, state.contents.size.toUInt64)
 
 /--
   Store raw bytes to the given address in memory,
@@ -345,20 +351,31 @@ def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
   if addr.toNat + val.size ≤ state.contents.size then
     let poison := ByteArray.replicate val.size 0
     return ⟨val.copySlice 0 state.contents addr.toNat val.size false,
-      poison.copySlice 0 state.poisonMask addr.toNat val.size false⟩
+      poison.copySlice 0 state.poisonMask addr.toNat val.size false,
+      by
+        have h : poison.size = val.size := by grind
+        simp [ByteArray.copySlice_eq_append, state.consistentSize, h]
+      ⟩
   else
     Interp.ub
 
 /--
-  Poison the given number of bytes, starting from the given address in memory.
+  Poison the given number n of bytes, starting from the given address in memory.
   Yields UB if the access is out of bounds.
 -/
 def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
     : Interp MemoryState :=
-  if addr.toNat + n ≤ state.contents.size then
+  if h : addr.toNat + n ≤ state.poisonMask.size then
     let mask := ByteArray.replicate n 0xff
     return ⟨state.contents,
-      mask.copySlice 0 state.poisonMask addr.toNat n false⟩
+      mask.copySlice 0 state.poisonMask addr.toNat n false,
+      by
+        have h' : min n mask.size = n := by grind
+        have h'' : min addr.toNat state.poisonMask.size = addr.toNat := by grind
+        simp [ByteArray.copySlice_eq_append, state.consistentSize, h', h'']
+        grind
+
+      ⟩
   else
     Interp.ub
 
@@ -388,7 +405,7 @@ def MemoryState.load (state : MemoryState) (addr size : UInt64)
     Interp.ub
 
 /--
-  Check if any bit at the given memory address is poison.
+  Check if any of the `size` bytes at the given memory address `addr` is poison.
   Yields UB if the access is out of bounds.
 -/
 def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
