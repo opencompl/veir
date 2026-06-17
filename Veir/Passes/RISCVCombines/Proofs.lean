@@ -1,6 +1,8 @@
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.RISCV.Reg.Lemmas
 
+import Veir.Meta.BVDecide
+
 /-!
   In this file we prove the correctness of the RISCV combines.
 -/
@@ -13,4 +15,4 @@ namespace Veir.Data.RISCV
 -/
 theorem right_identity_zero_add:
     (RISCV.add lhs (Data.RISCV.li (BitVec.ofInt 64 0))) = lhs := by
-  simp [reg_toBitVec]
+  veir_bv_decide
