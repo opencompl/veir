@@ -87,14 +87,7 @@ theorem interpretOp_monotone
     {mapping : ValueMapping ctx ctx'}
     (opIn : op.InBounds ctx.raw) (opIn' : op'.InBounds ctx'.raw)
     (hState : state.isRefinedBy state' mapping)
-    (hOpType : op'.getOpType! ctx'.raw = op.getOpType! ctx.raw)
-    (hProps : op'.getProperties! ctx'.raw (op'.getOpType! ctx'.raw) =
-      hOpType ▸ op.getProperties! ctx.raw (op.getOpType! ctx.raw))
-    (hResultTypes : op'.getResultTypes! ctx'.raw = op.getResultTypes! ctx.raw)
-    (hSuccessors : op'.getSuccessors! ctx'.raw = op.getSuccessors! ctx.raw)
-    (hOperands : op'.getOperands! ctx'.raw = mapping.applyToArray (op.getOperands! ctx.raw))
-    (hResults : op'.getResults! ctx'.raw = mapping.applyToArray (op.getResults! ctx.raw) (by grind))
-    (hReflect : mapping.ReflectsResults op op')
+    (hPreserves : mapping.PreservesOperation op op')
     (opVerif' : op'.Verified ctx' opIn') :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
@@ -108,7 +101,7 @@ theorem interpretOp_monotone
   have ⟨operands, hSrcOps⟩ : ∃ operands, state.variables.getOperandValues op = some operands := by
     grind [interpretOp]
   obtain ⟨operands', hTgtOps, hOpsRef⟩ :=
-    VariableState.getOperandValues_isRefinedBy hState.2 opIn hOperands hSrcOps
+    VariableState.getOperandValues_isRefinedBy hState.2 opIn hPreserves.operands hSrcOps
   have hMem : state.memory = state'.memory := hState.1
   -- Add the refinement of `interpretOp'` on `op` with `operands` and `operands'`
   have hPR1 := interpretOp'_monotone (op.getOpType! ctx.raw)
@@ -117,7 +110,7 @@ theorem interpretOp_monotone
   -- Add the equality between `interpretOp'` on `operands'`
   have hInterp'Eq : op'.interpret ctx'.raw operands' state'.memory =
                     op.interpret ctx.raw operands' state.memory := by
-     grind [interpretOp'_opType_cast]
+     grind [interpretOp'_opType_cast, cases ValueMapping.PreservesOperation]
   /- Do a case analysis on the source interpretation -/
   rcases hsrc : interpretOp op state opIn with _ | (⟨state₂, act⟩ | _)
   · -- If the source interpretation fails, then the refinement is trivial
@@ -136,7 +129,7 @@ theorem interpretOp_monotone
     have ⟨v, hv⟩ := (VariableState.setResultValues?_isSome_iff_conforms state'.variables opIn').mp this
     simp only [Interp, hv, pure, Option.some.injEq, UBOr.ok.injEq, Prod.mk.injEq]
     have stateVarRef : state.variables.isRefinedBy state'.variables mapping := by grind [InterpreterState.isRefinedBy]
-    grind [InterpreterState.isRefinedBy, VariableState.setResultValues?_isRefinedBy stateVarRef resValuesRef]
+    grind [InterpreterState.isRefinedBy, VariableState.setResultValues?_isRefinedBy stateVarRef resValuesRef, cases ValueMapping.PreservesOperation]
   · /- If the source interpretation returns UB, then we need to prove that the target
        interpretation does not fail. -/
     simp only [Interp.isRefinedBy_ub_target_iff]
@@ -144,12 +137,12 @@ theorem interpretOp_monotone
     /- If the target is either UB or a result, then the refinement is trivial. -/
     rotate_left; grind; grind
     have hinterp' := (interpretOp_ub_iff_op_interpret_of_getOperandValues_eq_some hSrcOps).mp hsrc
-    simp only [interpretOp, OperationPtr.interpret, hTgtOps, hResultTypes, hSuccessors, ← hMem, liftM, monadLift,
+    simp only [interpretOp, OperationPtr.interpret, hTgtOps, hPreserves.resultTypes, hPreserves.successors, ← hMem, liftM, monadLift,
       MonadLift.monadLift] at htgt
     simp only [Interp.isRefinedBy, hinterp'] at hPR1
     split at hPR1; grind; rotate_left; grind; grind
     rename_i _ _ interpTgtRes _ hInterpTgtRes
-    simp [interpretOp'_opType_cast hOpType hProps, hInterpTgtRes, bind] at htgt
+    simp [interpretOp'_opType_cast hPreserves.opType hPreserves.props, hInterpTgtRes, bind] at htgt
     cases interpTgtRes
     · simp only [pure] at htgt
       simp only [← hInterp'Eq] at hInterpTgtRes
