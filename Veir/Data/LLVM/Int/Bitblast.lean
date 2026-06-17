@@ -1,6 +1,6 @@
 module
 
-public import Veir.Meta.BVDecide
+public meta import Veir.Meta.BVDecide
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Refinement
 import all Veir.Data.LLVM.Int.Basic

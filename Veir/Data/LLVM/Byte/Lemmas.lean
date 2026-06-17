@@ -1,6 +1,7 @@
 module
 
 import all Veir.Data.LLVM.Byte.Basic
+meta import Veir.Meta.BVDecide
 
 namespace Veir.Data.LLVM.Byte
 
