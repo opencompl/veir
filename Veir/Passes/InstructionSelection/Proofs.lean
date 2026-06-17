@@ -15,15 +15,6 @@ import Std.Tactic.BVDecide
 namespace Veir.Data.RISCV
 
 /--
-  A tactic to unfold the semantics of operations on `LLVM.Int` and on `RISCV.Reg` to
-  bitvectors, such that `bv_decide` can prove the correctness of the refinement relation
-  over instruction selection patterns.
--/
-macro "refine_bv_decide" : tactic =>
-  `(tactic| ((try simp only [llvm_toBitVec, reg_toBitVec]; try simp +contextual [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]; try bv_decide)))
-
-
-/--
   Prove the correctness of the `constant` lowering pattern.
 
   We do not need to consider the poison case, as the semantics of `llvm_constant`
