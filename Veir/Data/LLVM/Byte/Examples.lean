@@ -10,8 +10,7 @@ import all Veir.Data.LLVM.Byte.Lemmas
 namespace Veir.Data.LLVM.Byte
 
 example (w : Nat) (x y : Byte w) : x ||| y = y ||| x := by
-  simp only [or_eq]
-  simp [BitVec.or_comm (x.poison) (y.poison), BitVec.or_comm (x.val) (y.val)]
+  veir_bv_normalize; grind
 
 example (x y : Byte 8) : x ||| y = y ||| x := by
   veir_bv_decide
