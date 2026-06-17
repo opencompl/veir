@@ -9,7 +9,7 @@
 
 "builtin.module"() ({
     // Y = 0: right operand is `M` itself, left is `shl M 8`, mask 0x0101_0101_0101_0101.
-    "func.func"()  <{function_type = (i64) -> (i64)}> ({
+    "func.func"()  <{function_type = (i64) -> ()}> ({
     ^bb0(%z: i64):
         %mask = "llvm.mlir.constant"() <{ "value" = 72340172838076673 : i64 }> : () -> i64
         %m = "llvm.and"(%z, %mask) : (i64, i64) -> i64
@@ -18,7 +18,7 @@
         %sub = "llvm.sub"(%shl, %m) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.and"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.orcb"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
-        "func.return"(%sub) : (i64) -> ()
+        "func.return"() : () -> ()
     }) : () -> ()
     // Y = 3: left is `shl M 5`, right is `lshr M 3`, mask 0x0808_0808_0808_0808.
     "func.func"()  <{function_type = (i64) -> ()}> ({
