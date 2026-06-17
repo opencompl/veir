@@ -422,7 +422,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | _ => false
 
 /--
-  Is this OpCode commutative in its operands, i.e. `op x y` always
+  Is this `OpCode` commutative in its operands, i.e. `op x y` always
   computes the same value as `op y x`?
 -/
 def OpCode.isCommutative (opCode : OpCode) : Bool :=
