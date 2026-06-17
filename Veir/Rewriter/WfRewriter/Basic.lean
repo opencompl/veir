@@ -14,13 +14,13 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 /-- Insert an operation at a given location. -/
 @[inline]
-def WfRewriter.insertOp? (wfCtx : WfIRContext OpInfo) (newOp : OperationPtr)
+def WfRewriter.insertOp (wfCtx : WfIRContext OpInfo) (newOp : OperationPtr)
     (insertionPoint : InsertPoint)
     (newOpIn : newOp.InBounds wfCtx.raw := by grind)
     (insIn : insertionPoint.InBounds wfCtx.raw := by grind)
     : Option (WfIRContext OpInfo) := do
-  rlet ctx ← Rewriter.insertOp? wfCtx newOp insertionPoint newOpIn insIn (by grind)
-  return ⟨ctx, by grind [Rewriter.insertOp?_WellFormed]⟩
+  rlet ctx ← Rewriter.insertOp wfCtx newOp insertionPoint newOpIn insIn (by grind)
+  return ⟨ctx, by grind [Rewriter.insertOp_WellFormed]⟩
 
 /-- Detach an operation from its parent. -/
 @[inline]
@@ -54,13 +54,13 @@ def WfRewriter.eraseOp (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
 
 /-- Insert a block at a given location. -/
 @[inline]
-def WfRewriter.insertBlock? (wfCtx : WfIRContext OpInfo) (newBlock : BlockPtr)
+def WfRewriter.insertBlock (wfCtx : WfIRContext OpInfo) (newBlock : BlockPtr)
     (insertionPoint : BlockInsertPoint)
     (newBlockIn : newBlock.InBounds wfCtx.raw := by grind)
     (insIn : insertionPoint.InBounds wfCtx.raw := by grind)
     : Option (WfIRContext OpInfo) := do
-  rlet h: ctx ← Rewriter.insertBlock? wfCtx newBlock insertionPoint newBlockIn insIn (by grind)
-  return ⟨ctx, by grind [Rewriter.insertBlock?_WellFormed]⟩
+  rlet h: ctx ← Rewriter.insertBlock wfCtx newBlock insertionPoint newBlockIn insIn (by grind)
+  return ⟨ctx, by grind [Rewriter.insertBlock_WellFormed]⟩
 
 /-- Replace the operand of an operation with a new value. -/
 @[inline]

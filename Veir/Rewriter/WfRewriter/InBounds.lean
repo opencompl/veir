@@ -21,13 +21,13 @@ variable {newOp operation : OperationPtr} {region : RegionPtr} {block blockPtr :
 variable {oldValue newValue : ValuePtr}
 variable {ptr : GenericPtr}
 
-/-! ## `WfRewriter.insertOp?` -/
+/-! ## `WfRewriter.insertOp` -/
 
 @[grind =>]
-theorem WfRewriter.insertOp?_inBounds_iff
-    (heq : WfRewriter.insertOp? ctx newOp ip h₁ h₂ = some ctx') :
+theorem WfRewriter.insertOp_inBounds_iff
+    (heq : WfRewriter.insertOp ctx newOp ip h₁ h₂ = some ctx') :
     ptr.InBounds ctx'.raw ↔ ptr.InBounds ctx.raw := by
-  grind [insertOp?]
+  grind [insertOp]
 
 /-! ## `WfRewriter.detachOp` -/
 
@@ -43,13 +43,13 @@ theorem WfRewriter.detachOpIfAttached_inBounds_iff :
     ptr.InBounds (WfRewriter.detachOpIfAttached ctx op h).raw ↔ ptr.InBounds ctx.raw := by
   grind [detachOpIfAttached]
 
-/-! ## `WfRewriter.insertBlock?` -/
+/-! ## `WfRewriter.insertBlock` -/
 
 @[grind =>]
-theorem WfRewriter.insertBlock?_inBounds_iff
-    (heq : WfRewriter.insertBlock? ctx newBlock ip h₁ h₂ = some ctx') :
+theorem WfRewriter.insertBlock_inBounds_iff
+    (heq : WfRewriter.insertBlock ctx newBlock ip h₁ h₂ = some ctx') :
     ptr.InBounds ctx.raw ↔ ptr.InBounds ctx'.raw := by
-  grind [insertBlock?]
+  grind [insertBlock]
 
 /-! ## `WfRewriter.replaceOperand` -/
 
