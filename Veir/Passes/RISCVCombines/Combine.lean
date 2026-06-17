@@ -77,6 +77,10 @@ def fold_shift5_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediat
 def fold_shift6_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
     LocalRewritePattern OpCode := fold_binop_li src dst h 0 63
 
+/-- Non-commutative signed imm12 operations: `imm ∈ [-2048, 2047]`. -/
+def fold_imm12_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
+    LocalRewritePattern OpCode := fold_binop_li src dst h (-2048) 2047
+
 def fold_sllw_li_to_slliw := fold_shift5_li .sllw .slliw rfl
 def fold_srlw_li_to_srliw := fold_shift5_li .srlw .srliw rfl
 def fold_sraw_li_to_sraiw := fold_shift5_li .sraw .sraiw rfl
@@ -90,6 +94,9 @@ def fold_bclr_li_to_bclri := fold_shift6_li .bclr .bclri rfl
 def fold_bext_li_to_bexti := fold_shift6_li .bext .bexti rfl
 def fold_binv_li_to_binvi := fold_shift6_li .binv .binvi rfl
 def fold_bset_li_to_bseti := fold_shift6_li .bset .bseti rfl
+
+def fold_slt_li_to_slti   := fold_imm12_li .slt  .slti  rfl
+def fold_sltu_li_to_sltiu := fold_imm12_li .sltu .sltiu rfl
 
 set_option warn.sorry false in
 /-- riscv.slli (riscv.zextw x) shamt -> riscv.slliuw x shamt -/
@@ -126,6 +133,8 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
       RewritePattern.fromLocalRewrite fold_bext_li_to_bexti,
       RewritePattern.fromLocalRewrite fold_binv_li_to_binvi,
       RewritePattern.fromLocalRewrite fold_bset_li_to_bseti,
+      RewritePattern.fromLocalRewrite fold_slt_li_to_slti,
+      RewritePattern.fromLocalRewrite fold_sltu_li_to_sltiu,
       RewritePattern.fromLocalRewrite fold_zextw_slli_to_slliuw]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
