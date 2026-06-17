@@ -2,7 +2,7 @@ module
 
 public import  Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.RISCV.Reg.Basic
-import Veir.Meta.BVDecide
+meta import Veir.Meta.BVDecide
 
 public section
 

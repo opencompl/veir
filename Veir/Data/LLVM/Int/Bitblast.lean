@@ -1,6 +1,6 @@
 module
 
-public import Veir.Meta.BVDecide
+public meta import Veir.Meta.BVDecide
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Refinement
 import all Veir.Data.LLVM.Int.Basic
@@ -40,6 +40,11 @@ theorem getValue_eq_getValueD {w : Nat} (x : Int w) (h : x.isPoison = false) :
   simp [getValue, getValueD]
   cases x <;> grind
 
+@[veir_bv_normalize]
+theorem getValueD_eq (x : Int w) :
+    x.getValueD = if h : x.isPoison = false then x.getValue h else 0 := by
+  cases x <;> rfl
+
 /-- Two elements `a b : LLVM.Int` are equal if and only if they return the same `isPoison` and,
   the same `getValue` in case they are *not* poison. -/
 @[veir_bv_normalize]
@@ -62,19 +67,27 @@ theorem eq_ext {w : Nat} {a b : Int w} (hp : a.isPoison = b.isPoison) (hv : (a.g
   · simp
 
 /-- The value `getValue` of a `val v` is `v`. -/
-@[veir_bv_normalize, grind =]
+@[simp, veir_bv_normalize, grind =]
 theorem getValue_of_val {w : Nat} {v : BitVec w} :
     (val v).getValue (by grind [isPoison]) = v := by rfl
 
 /-- An element `val v` is not poison. -/
-@[veir_bv_normalize, grind =]
+@[simp, veir_bv_normalize, grind =]
 theorem isPoison_of_val {w : Nat} {v : BitVec w} :
     (val v).isPoison = false := by rfl
 
 /-- A `poison` element is poison. -/
-@[veir_bv_normalize, grind =]
+@[simp, veir_bv_normalize, grind =]
 theorem isPoison_of_poison {w : Nat} :
     poison.isPoison (w := w) = true := by rfl
+
+@[simp, grind =]
+theorem getValueD_val {w : Nat} {v : BitVec w} :
+    (val v).getValueD = v := by rfl
+
+@[simp, grind =]
+theorem getValueD_poison {w : Nat} :
+    poison.getValueD (w := w) = 0 := by rfl
 
 /-- An element `b : LLVM.Int` refines an element `a : LLVM.Int` if either `a` is a poison value
   (in which case, any concrete or poison value refines it) or if `a` is not a poison value,

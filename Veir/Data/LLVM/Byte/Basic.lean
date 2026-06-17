@@ -1,6 +1,7 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.LLVM.Int.Bitblast
 
 namespace Veir.Data.LLVM
 
@@ -53,10 +54,10 @@ def Byte.toInt {w : Nat} (x : Byte w) : Int w :=
     .poison
 
 def fromInt {w : Nat} (x : Int w) : Byte w :=
-  if let .val x := x then
-    ⟨x, 0, by simp⟩
-  else
+  if h : x.isPoison then
     ⟨0, BitVec.allOnes w, by simp⟩
+  else
+    ⟨x.getValue, 0, by simp⟩
 end
 
 end Byte
