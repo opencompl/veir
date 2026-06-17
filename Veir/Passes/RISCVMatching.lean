@@ -17,3 +17,8 @@ def matchLi (val : ValuePtr) (ctx : IRContext OpCode) : Option (propertiesOf (.r
   let op ← val.getDefiningOp! ctx
   let (_, properties) ← matchOp op ctx (.riscv .li) 0
   return properties
+
+def matchZextw (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
+  let op ← val.getDefiningOp! ctx
+  let (operands, _) ← matchOp op ctx (.riscv .zextw) 1
+  return operands[0]!

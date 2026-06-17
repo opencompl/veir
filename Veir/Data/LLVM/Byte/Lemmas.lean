@@ -11,7 +11,7 @@ theorem toInt_fromInt {w : Nat} (x : Int w) (h : 0 < w) : (Byte.fromInt x).toInt
   simp only [Byte.toInt, fromInt, BitVec.toNat_eq];
   grind
 
-@[llvm_toBitVec]
+@[veir_bv_normalize]
 theorem ext_iff {w : Nat} (x y : Byte w) :
     x = y ↔ (x.val = y.val ∧ x.poison = y.poison) := by
   rw [Byte.mk.injEq]
@@ -20,16 +20,16 @@ theorem ext_iff {w : Nat} (x y : Byte w) :
 section ToFromInt
 attribute [local grind] Byte.toInt Byte.fromInt
 
-@[llvm_toBitVec] theorem val_fromInt (x : Int w) : (fromInt x).val = x.getValueD := by grind
-@[llvm_toBitVec] theorem poison_fromInt (x : Int w) :
+@[veir_bv_normalize] theorem val_fromInt (x : Int w) : (fromInt x).val = x.getValueD := by grind
+@[veir_bv_normalize] theorem poison_fromInt (x : Int w) :
     (fromInt x).poison = if x.isPoison then .allOnes _ else 0 := by
   grind
 
-@[llvm_toBitVec] theorem getValue_toInt (x : Byte w) (h : x.toInt.isPoison = false) :
+@[veir_bv_normalize] theorem getValue_toInt (x : Byte w) (h : x.toInt.isPoison = false) :
     x.toInt.getValue h = x.val := by
   grind
 
-@[llvm_toBitVec] theorem isPoison_toInt (x : Byte w) :
+@[veir_bv_normalize] theorem isPoison_toInt (x : Byte w) :
     x.toInt.isPoison = (x.poison != 0) := by
   grind
 
@@ -37,7 +37,7 @@ end ToFromInt
 
 /- # and -/
 
-@[llvm_toBitVec]
+@[veir_bv_normalize]
 theorem and_eq {w : Nat} (x y : Byte w) :
     (x &&& y) =
     let poison := x.poison ||| y.poison
@@ -54,7 +54,7 @@ theorem val_and {w : Nat} (x y : Byte w) :
 
 /- # or -/
 
-@[llvm_toBitVec]
+@[veir_bv_normalize]
 theorem or_eq {w : Nat} (x y : Byte w) :
     (x ||| y) =
     let poison := x.poison ||| y.poison
@@ -71,7 +71,7 @@ theorem val_or {w : Nat} (x y : Byte w) :
 
 /- # xor -/
 
-@[llvm_toBitVec]
+@[veir_bv_normalize]
 theorem xor_eq {w : Nat} (x y : Byte w) :
     (x ^^^ y) =
     let poison := x.poison ||| y.poison
