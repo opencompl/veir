@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781618223879,
+  "lastUpdate": 1781656020136,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -57822,6 +57822,184 @@ window.BENCHMARK_DATA = {
             "range": "± 30418",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=30 median=0.000776000s stddev=0.000030418s cv=3.8802%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@keizer.dev",
+            "name": "Alex Keizer",
+            "username": "alexkeizer"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "67f5410f9a357a773b4c2ee118637b04e05a2ab0",
+          "message": "refactor: promote `llvm_bv_decide` to a non-test module. (#878)\n\nThis PR moves `llvm_bv_decide` from a test file into `LLVM.Int.Simp`,\nwhich seemed appropriate given the relevant simpset was defined there.\n\nUnfortunately, the `getValue_eq_getValueD` lemma isn't yet available in\nthis file, so I introduce a new `llvm_toBitVec_post` lemma for the\nsecond `simp`. This extra simpset will be useful when we wish to tighten\nthe simp-step. It currently includes the default global simpset, and\nindeed some of the tests break if we tighten the simp call to *just* the\n`getValueD` lemma. In a future PR, we should figure out which\nsimp-lemmas are actually needed for these tests, add them to\n`llvm_toBitVec_post` and then tighten the `simp` (having a dependency on\nthe default simpset seems undesirable).\n\nFuthermore, I split the tactic into a `llvm_bv_normalize` tactic which\ndoes just the simping, and a `llvm_bv_decide` tactic which normalizes\n(using `llvm_bv_normalize`) and then calls `bv_decide`, for easier\ndebugging.\n\nFinally, I removed usages of `try` from the tactic. `try` silently\nswallows errors, making debugging harder. Instead, I use `simp\n-failIfUnchanged` to not throw an error when simp didn't change the\ngoal, and `<;>` to not throw an error if a goal was solved by an earlier\ntactic in the sequence.",
+          "timestamp": "2026-06-17T00:20:33Z",
+          "tree_id": "69c292a6498ed97fb9921585ba685a3e375a1120",
+          "url": "https://github.com/opencompl/veir/commit/67f5410f9a357a773b4c2ee118637b04e05a2ab0"
+        },
+        "date": 1781656003842,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2273000,
+            "range": "± 75593",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002273s stddev=0.000075593s cv=3.3786%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3966000,
+            "range": "± 77523",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003966s stddev=0.000077523s cv=1.9422%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2203000,
+            "range": "± 80098",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002203s stddev=0.000080098s cv=3.6428%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3340000,
+            "range": "± 30442",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003340s stddev=0.000030442s cv=0.9170%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2306000,
+            "range": "± 96474",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002306s stddev=0.000096474s cv=4.2586%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2587000,
+            "range": "± 75412",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002587s stddev=0.000075412s cv=2.9320%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 2006000,
+            "range": "± 93540",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002006s stddev=0.000093540s cv=4.7439%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 2137000,
+            "range": "± 68362",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002137s stddev=0.000068362s cv=3.2252%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2310000,
+            "range": "± 109152",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=6 median=0.002310000s stddev=0.000109152s cv=4.7399%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5670500,
+            "range": "± 230354",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=6 median=0.005670500s stddev=0.000230354s cv=4.0019%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2189500,
+            "range": "± 103225",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=6 median=0.002189500s stddev=0.000103225s cv=4.7149%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3045000,
+            "range": "± 65796",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=6 median=0.003045000s stddev=0.000065796s cv=2.1677%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2337000,
+            "range": "± 115236",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=11 median=0.002337s stddev=0.000115236s cv=4.9661%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1941000,
+            "range": "± 49279",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=11 median=0.001941s stddev=0.000049279s cv=2.5163%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1975000,
+            "range": "± 92113",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001975s stddev=0.000092113s cv=4.6654%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1573000,
+            "range": "± 76261",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001573s stddev=0.000076261s cv=4.8748%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2258000,
+            "range": "± 64534",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002258s stddev=0.000064534s cv=2.8146%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3692000,
+            "range": "± 115813",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003692s stddev=0.000115813s cv=3.1076%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1830500,
+            "range": "± 100492",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001830500s stddev=0.000100492s cv=5.4455%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "range": "± 1450",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000008000s stddev=0.000001450s cv=16.0523%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1906000,
+            "range": "± 42599",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001906s stddev=0.000042599s cv=2.2589%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 768000,
+            "range": "± 35430",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.000768s stddev=0.000035430s cv=4.5272%"
           }
         ]
       }
