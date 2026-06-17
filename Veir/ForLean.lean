@@ -39,8 +39,34 @@ def UInt64.toByteArrayLE (u : UInt64) : ByteArray :=
 
 namespace ByteArray
 
+@[simp, grind =]
+theorem size_emptyWithCapacity (n : Nat) :
+    (ByteArray.emptyWithCapacity n).size = 0 := by constructor
+
 def extend (ba : ByteArray) (n : Nat) (val : UInt8) : ByteArray :=
   n.fold (init := ba) fun _ _ ba => ba.push val
+
+@[simp, grind =]
+theorem extend_zero (ba : ByteArray) (val : UInt8) :
+    ba.extend 0 val = ba := by
+  simp [extend]
+
+@[simp, grind =]
+theorem extend_size (ba : ByteArray) (n : Nat) (val : UInt8) :
+    (ba.extend n val).size = ba.size + n := by
+  induction n
+  case zero => simp
+  case succ n h =>
+    grind [Nat.fold_succ, size_push, extend]
+
+@[simp]
+def replicate (n : Nat) (v : UInt8) : ByteArray :=
+  (ByteArray.emptyWithCapacity n).extend n v
+
+@[simp, grind =]
+theorem replicate_size (n : Nat) (v : UInt8) :
+    (ByteArray.replicate n v).size = n := by
+  simp
 
 @[inline]
 def getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
