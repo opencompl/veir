@@ -14,3 +14,5 @@ import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter
 import Veir.Dominance
+import Veir.Passes.InstructionSelection.Proofs
+import Veir.Passes.CastsReconciliation.Reconciliation

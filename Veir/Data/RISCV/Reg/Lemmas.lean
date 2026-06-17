@@ -325,6 +325,10 @@ theorem val_orcb :
     orcByte (r1.val.extractLsb 15 8) ++ orcByte (r1.val.extractLsb 7 0) := (rfl)
 
 @[veir_bv_normalize]
+theorem orcByte_eq :
+  orcByte bv = if bv = 0#8 then 0#8 else 255#8 := (rfl)
+
+@[veir_bv_normalize]
 theorem val_rev8 :
   (rev8 r1).val =
     r1.val.extractLsb 7 0 ++ r1.val.extractLsb 15 8 ++
