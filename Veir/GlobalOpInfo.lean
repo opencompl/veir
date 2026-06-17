@@ -410,7 +410,7 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | _ => true
 
 /--
-  Does this OpCode materialize a literal constant value (i.e. an op
+  Does this `OpCode` materialize a literal constant value (i.e. an op
   whose result is a compile-time constant taken from its attributes,
   with no SSA operands)?
 -/
