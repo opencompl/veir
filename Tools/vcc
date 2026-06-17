@@ -42,8 +42,10 @@ def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool) -> bytes:
         run(["clang", "-O0", "-Xclang", "-disable-O0-optnone", "-c", "-emit-llvm",
              str(src), "-o", str(bc)])
         if llvm_o2:
-            # Run the full LLVM middle-end optimization pipeline.
-            run(["opt", "-O2", str(bc), "-o", str(bc_opt)])
+            # Run the full LLVM middle-end optimization pipeline, minus
+            # autovectorization.
+            run(["opt", "-O2", "-vectorize-loops=false", "-vectorize-slp=false",
+                 str(bc), "-o", str(bc_opt)])
         else:
             # TODO -- as soon as we have our own mem2reg, stop running LLVM's
             run(["opt", "-passes=sroa", str(bc), "-o", str(bc_opt)])
