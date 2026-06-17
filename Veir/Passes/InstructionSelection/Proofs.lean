@@ -198,9 +198,7 @@ theorem orcb_refinement_y0 {z : LLVM.Int 64} :
       ⊒ RISCV.Reg.toInt
           (Data.RISCV.orcb (LLVM.Int.toReg
             (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x0101010101010101)))) 64 := by
-  simp only [llvm_toBitVec, reg_toBitVec, Data.RISCV.orcByte]
-  simp [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]
-  bv_decide
+  veir_bv_decide
 
 /--
   Prove the correctness of the `orcb` lowering pattern for `1 ≤ Y < 8`.
@@ -218,9 +216,7 @@ theorem orcb_refinement_y1 {z : LLVM.Int 64} :
       ⊒ RISCV.Reg.toInt
           (Data.RISCV.orcb (LLVM.Int.toReg
             (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x0202020202020202)))) 64 := by
-  simp only [llvm_toBitVec, reg_toBitVec, Data.RISCV.orcByte]
-  simp [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]
-  bv_decide
+  veir_bv_decide
 
 theorem orcb_refinement_y2 {z : LLVM.Int 64} :
     (Data.LLVM.Int.sub
@@ -231,9 +227,7 @@ theorem orcb_refinement_y2 {z : LLVM.Int 64} :
       ⊒ RISCV.Reg.toInt
           (Data.RISCV.orcb (LLVM.Int.toReg
             (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x0404040404040404)))) 64 := by
-  simp only [llvm_toBitVec, reg_toBitVec, Data.RISCV.orcByte]
-  simp [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]
-  bv_decide
+  veir_bv_decide
 
 theorem orcb_refinement_y3 {z : LLVM.Int 64} :
     (Data.LLVM.Int.sub
@@ -244,9 +238,7 @@ theorem orcb_refinement_y3 {z : LLVM.Int 64} :
       ⊒ RISCV.Reg.toInt
           (Data.RISCV.orcb (LLVM.Int.toReg
             (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x0808080808080808)))) 64 := by
-  simp only [llvm_toBitVec, reg_toBitVec, Data.RISCV.orcByte]
-  simp [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]
-  bv_decide
+  veir_bv_decide
 
 theorem orcb_refinement_y4 {z : LLVM.Int 64} :
     (Data.LLVM.Int.sub
@@ -257,9 +249,7 @@ theorem orcb_refinement_y4 {z : LLVM.Int 64} :
       ⊒ RISCV.Reg.toInt
           (Data.RISCV.orcb (LLVM.Int.toReg
             (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x1010101010101010)))) 64 := by
-  simp only [llvm_toBitVec, reg_toBitVec, Data.RISCV.orcByte]
-  simp [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]
-  bv_decide
+  veir_bv_decide
 
 theorem orcb_refinement_y5 {z : LLVM.Int 64} :
     (Data.LLVM.Int.sub
@@ -270,9 +260,7 @@ theorem orcb_refinement_y5 {z : LLVM.Int 64} :
       ⊒ RISCV.Reg.toInt
           (Data.RISCV.orcb (LLVM.Int.toReg
             (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x2020202020202020)))) 64 := by
-  simp only [llvm_toBitVec, reg_toBitVec, Data.RISCV.orcByte]
-  simp [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]
-  bv_decide
+  veir_bv_decide
 
 theorem orcb_refinement_y6 {z : LLVM.Int 64} :
     (Data.LLVM.Int.sub
@@ -283,9 +271,7 @@ theorem orcb_refinement_y6 {z : LLVM.Int 64} :
       ⊒ RISCV.Reg.toInt
           (Data.RISCV.orcb (LLVM.Int.toReg
             (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x4040404040404040)))) 64 := by
-  simp only [llvm_toBitVec, reg_toBitVec, Data.RISCV.orcByte]
-  simp [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]
-  bv_decide
+  veir_bv_decide
 
 theorem orcb_refinement_y7 {z : LLVM.Int 64} :
     (Data.LLVM.Int.sub
@@ -296,6 +282,4 @@ theorem orcb_refinement_y7 {z : LLVM.Int 64} :
       ⊒ RISCV.Reg.toInt
           (Data.RISCV.orcb (LLVM.Int.toReg
             (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x8080808080808080)))) 64 := by
-  simp only [llvm_toBitVec, reg_toBitVec, Data.RISCV.orcByte]
-  simp [LLVM.Int.getValue_eq_getValueD, -BitVec.extractLsb_toNat]
-  bv_decide
+  veir_bv_decide
