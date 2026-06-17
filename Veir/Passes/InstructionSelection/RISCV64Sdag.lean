@@ -25,7 +25,7 @@ def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   let .integerType btype := (b.getType! rewriter.ctx.raw).val | return rewriter
   if btype.bitwidth ≠ 64 then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
-  let .integerType type' := type.val | rewriter
+  let .integerType type' := type.val | return rewriter
   if type'.bitwidth ≠ 64 then return rewriter
   /- left operand must be `shl M (8 - Y)` for some `0 ≤ Y < 8` -/
   let some aOp := getDefiningOp a rewriter.ctx | return rewriter
