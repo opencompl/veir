@@ -139,3 +139,89 @@ theorem interpretOp_equationLemmaAt {ctx : WfIRContext OpCode} {opInBounds} {sta
     · grind [interpretOp_equationHolds_other]
     · grind
   · grind [interpretOp_equationHolds_self]
+
+/-- An interpreter state satisfies the `DefinesDominating` invariant at a program point if it
+defines all values that dominate that program point. This should be satisfied by any state in the
+interpreter. -/
+def InterpreterState.DefinesDominating {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (location : InsertPoint) (_locInBounds : location.InBounds ctx.raw := by grind) : Prop :=
+  ∀ (value : ValuePtr) (_valueInBounds : value.InBounds ctx.raw),
+  value.dominatesIp location ctx →
+  (state.variables.getVar? value).isSome
+
+/-- Getting a dominating value from a state satisfying `DefinesDominating` at a program point is
+always successful. -/
+theorem InterpreterState.DefinesDominating.isSome_getVar_of_dominatesIp
+    {state : InterpreterState ctx}
+    (eqLemma : state.DefinesDominating location locInBounds)
+    {value : ValuePtr} (valueInBounds : value.InBounds ctx.raw)
+    (valueDom : value.dominatesIp location ctx) :
+    (state.variables.getVar? value).isSome := by
+  grind [InterpreterState.DefinesDominating]
+
+/-- Getting a dominating value from a state satisfying `DefinesDominating` at a program point is
+always successful. -/
+theorem InterpreterState.DefinesDominating.exists_getVar_of_dominatesIp
+    {state : InterpreterState ctx}
+    (eqLemma : state.DefinesDominating location locInBounds)
+    {value : ValuePtr} (valueInBounds : value.InBounds ctx.raw)
+    (valueDom : value.dominatesIp location ctx) :
+    ∃ val, state.variables.getVar? value = some val := by
+  simp only [← Option.isSome_iff_exists]
+  grind [InterpreterState.DefinesDominating.isSome_getVar_of_dominatesIp]
+
+/-- All operands operation in a well-dominated program exist in a state that is `DefinesDominating`
+right before the operation. -/
+theorem InterpreterState.DefinesDominating.exists_getOperandValues_eq_some
+    {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) {state : InterpreterState ctx}
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    (stateDom : state.DefinesDominating (InsertPoint.before op) opInBounds) :
+    ∃ val, state.variables.getOperandValues op = some val := by
+  simp only [VariableState.getOperandValues, Array.exists_mapM_option_eq_some_iff]
+  intro i hi
+  apply InterpreterState.DefinesDominating.exists_getVar_of_dominatesIp stateDom (by grind)
+  grind [WfIRContext.Dom.operand_dominates_op]
+
+/-- `InterpreterState.DefinesDominating` is preserved when interpreting an operation: if every value
+dominating the program point *before* `op` is available in `state`, then after running `op` every
+value dominating the point *after* `op` is available in the resulting state. -/
+theorem interpretOp_DefinesDominating {ctx : WfIRContext OpCode} {opInBounds}
+    (ctxDom : ctx.Dom) {state state' : InterpreterState ctx}
+    (stateDom : state.DefinesDominating (InsertPoint.before op) opInBounds)
+    (opHasParent : (op.get! ctx.raw).parent = some block) :
+    interpretOp op state = some (.ok (state', controlFlow)) →
+    state'.DefinesDominating (InsertPoint.after op ctx.raw block) := by
+  intro hinterp
+  simp only [InterpreterState.DefinesDominating] at stateDom ⊢
+  simp only [interpretOp_some_iff] at hinterp
+  have ⟨operandValues, resValues, mem', varState', hoperand, hinterp, hresValues, hstate⟩ := hinterp
+  subst state'
+  intro value valueInBounds valueDom
+  cases (WfIRContext.Dom.value_dominatesIp_after_iff ctxDom).mp valueDom
+  case inl =>
+    have := stateDom value (by grind) (by grind)
+    grind
+  case inr =>
+    grind [OperationPtr.getResults!.mem_iff_exists_index]
+
+/-- Interpreting a verified operation never fails on a state satisfying `DefinesDominating` at the
+operation's location. -/
+theorem InterpreterState.DefinesDominating.interpretOp_ne_none
+    (ctxDom : ctx.Dom) (opInBounds : op.InBounds ctx.raw) {state : InterpreterState ctx}
+    (stateDom : state.DefinesDominating (InsertPoint.before op) opInBounds)
+    (opVerif : op.Verified ctx opInBounds) :
+    ∃ state', interpretOp op state opInBounds = some state' := by
+  simp only [interpretOp]
+  have ⟨operandValues, hOperandValues⟩ := stateDom.exists_getOperandValues_eq_some ctxDom opInBounds
+  simp only [hOperandValues]
+  have hconforms : RuntimeValue.ArrayConforms operandValues (op.getOperandTypes! ctx.raw) := by
+    grind [VariableState.getOperandValues_conforms]
+  have ⟨resValues, hresValues⟩ := exists_interpretOp'_eq_some opVerif hconforms state.memory
+  simp only [hresValues, bind]
+  rcases resValues with ⟨resValues, mem', act⟩ | _
+  · simp only [liftM, monadLift, MonadLift.monadLift, pure, Interp]
+    have := interpretOp'_results_conform opVerif hconforms hresValues
+    have ⟨v, hv⟩ :=
+      (VariableState.setResultValues?_isSome_iff_conforms state.variables opInBounds).mp this
+    simp [hv]
+  · simp [Interp]

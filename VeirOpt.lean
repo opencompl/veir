@@ -10,6 +10,7 @@ import Veir.Passes.PrintIR
 import Veir.Passes.InstCombine
 import Veir.Passes.CSE
 import Veir.Passes.InstructionSelection.RISCV64
+import Veir.Passes.InstructionSelection.RISCV64Sdag
 import Veir.Passes.InstructionSelection.RISCV64Branches
 import Veir.Passes.DCE.dce
 import Veir.Passes.CastsReconciliation.Reconciliation
@@ -29,6 +30,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert InstCombinePass.name InstCombinePass
     |>.insert CSEPass.name CSEPass
     |>.insert IselRISCV64.name IselRISCV64
+    |>.insert IselSDAG.name IselSDAG
     |>.insert IselBrRISCV64.name IselBrRISCV64
     |>.insert DCEPass.name DCEPass
     |>.insert CastReconcilePass.name CastReconcilePass

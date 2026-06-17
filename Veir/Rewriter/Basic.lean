@@ -14,7 +14,7 @@ variable {ctx : IRContext OpInfo}
 - Insert an operation at a given location.
 -/
 @[irreducible]
-def Rewriter.insertOp? (ctx: IRContext OpInfo) (newOp: OperationPtr) (insertionPoint: InsertPoint)
+def Rewriter.insertOp (ctx: IRContext OpInfo) (newOp: OperationPtr) (insertionPoint: InsertPoint)
     (newOpIn: newOp.InBounds ctx := by grind)
     (insIn : insertionPoint.InBounds ctx)
     (ctxInBounds: ctx.FieldsInBounds) : Option (IRContext OpInfo) :=
@@ -23,20 +23,20 @@ def Rewriter.insertOp? (ctx: IRContext OpInfo) (newOp: OperationPtr) (insertionP
     let next := insertionPoint.next
     newOp.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
 
-theorem Rewriter.insertOp?_inBounds_mono (ptr : GenericPtr)
-    (heq : insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
+theorem Rewriter.insertOp_inBounds_mono (ptr : GenericPtr)
+    (heq : insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx) :
     ptr.InBounds newCtx ↔ ptr.InBounds ctx := by
-  simp only [insertOp?] at heq
+  simp only [insertOp] at heq
   grind
 
-grind_pattern Rewriter.insertOp?_inBounds_mono =>
-  Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, ptr.InBounds newCtx
+grind_pattern Rewriter.insertOp_inBounds_mono =>
+  Rewriter.insertOp ctx newOp ip h₁ h₂ h₃, some newCtx, ptr.InBounds newCtx
 
 @[grind .]
-theorem Rewriter.insertOp?_fieldsInBounds_mono
-    (heq : insertOp? ctx newOp ip h₁ h₂ h₃ = some newCtx) :
+theorem Rewriter.insertOp_fieldsInBounds_mono
+    (heq : insertOp ctx newOp ip h₁ h₂ h₃ = some newCtx) :
     ctx.FieldsInBounds → newCtx.FieldsInBounds := by
-  simp only [insertOp?] at heq
+  simp only [insertOp] at heq
   grind
 
 /--
@@ -240,7 +240,7 @@ theorem Rewriter.eraseOp_inBounds (ptr : GenericPtr)
 - Insert a block at a given location.
 -/
 @[irreducible]
-def Rewriter.insertBlock? (ctx: IRContext OpInfo) (newBlock: BlockPtr)
+def Rewriter.insertBlock (ctx: IRContext OpInfo) (newBlock: BlockPtr)
     (insertionPoint: BlockInsertPoint)
     (newBlockIn: newBlock.InBounds ctx := by grind)
     (insIn : insertionPoint.InBounds ctx := by grind)
@@ -251,17 +251,17 @@ def Rewriter.insertBlock? (ctx: IRContext OpInfo) (newBlock: BlockPtr)
     newBlock.linkBetweenWithParent ctx prev next parent (by grind) (by grind) (by grind) (by grind)
 
 @[grind .]
-theorem Rewriter.insertBlock?_inBounds (ptr : GenericPtr)
-    (heq : insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx) :
+theorem Rewriter.insertBlock_inBounds (ptr : GenericPtr)
+    (heq : insertBlock ctx newBlock ip h₁ h₂ h₃ = some newCtx) :
     ptr.InBounds ctx ↔ ptr.InBounds newCtx := by
-  simp only [insertBlock?] at heq
+  simp only [insertBlock] at heq
   grind
 
 @[grind .]
-theorem Rewriter.insertBlock?_fieldsInBounds_mono
-    (heq : insertBlock? ctx newBlock ip h₁ h₂ h₃ = some newCtx) :
+theorem Rewriter.insertBlock_fieldsInBounds_mono
+    (heq : insertBlock ctx newBlock ip h₁ h₂ h₃ = some newCtx) :
     ctx.FieldsInBounds → newCtx.FieldsInBounds := by
-  simp only [insertBlock?] at heq
+  simp only [insertBlock] at heq
   grind
 
 def Rewriter.replaceUse (ctx: IRContext OpInfo) (use : OpOperandPtr) (newValue: ValuePtr)
@@ -534,7 +534,7 @@ def Rewriter.createBlock (ctx: IRContext OpInfo) (argTypes : Array TypeAttr)
   let ctx := Rewriter.initBlockArguments ctx newBlockPtr argTypes
   match h : insertionPoint with
   | some insertionPoint => do
-    let ctx ← Rewriter.insertBlock? ctx newBlockPtr insertionPoint
+    let ctx ← Rewriter.insertBlock ctx newBlockPtr insertionPoint
       (by grind) (by grind [cases BlockInsertPoint]) (by grind)
     (ctx, newBlockPtr)
   | none =>
@@ -927,7 +927,7 @@ def Rewriter.createOp (ctx: IRContext OpInfo) (opType: OpInfo)
   let ctx := Rewriter.initBlockOperands ctx newOpPtr blockOperands (hoperands := by grind (ematch := 10))
   match _ : insertionPoint with
   | some insertionPoint =>
-    rlet ctx ← Rewriter.insertOp? ctx newOpPtr insertionPoint (by grind)
+    rlet ctx ← Rewriter.insertOp ctx newOpPtr insertionPoint (by grind)
       (by cases insertionPoint <;> grind) (by grind) in
     some (ctx, newOpPtr)
   | none =>
