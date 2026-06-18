@@ -30,18 +30,13 @@ set_option warn.sorry false in
 -/
 def fold_commutative_binop_li (src dst : Riscv)
     (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
-    LocalRewritePattern OpCode := fun ctx op =>
-  match matchRiscvBinop src op ctx with
-  | none => some (ctx, none)
-  | some (lhs, rhs) =>
-    match (Prod.mk lhs <$> matchLi rhs ctx) <|> (Prod.mk rhs <$> matchLi lhs ctx) with
-    | none => some (ctx, none)
-    | some (reg, imm) =>
-      if imm.value.value < -2048 || imm.value.value > 2047 then some (ctx, none)
-      else do
-        let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[reg]
-            #[] #[] (cast h.symm imm) none sorry
-        return (ctx, some (#[newOp], #[newOp.getResult 0]))
+    LocalRewritePattern OpCode := fun ctx op => do
+  let some (lhs, rhs) := matchRiscvBinop src op ctx | return (ctx, none)
+  let some imm :=  matchLi rhs ctx | return (ctx, none)
+  if imm.value.value < -2048 || imm.value.value > 2047 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[lhs]
+          #[] #[] (cast h.symm imm) none sorry
+  return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 def fold_add_li_to_addi   := fold_commutative_binop_li .add  .addi  rfl
 def fold_or_li_to_ori     := fold_commutative_binop_li .or   .ori   rfl

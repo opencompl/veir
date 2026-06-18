@@ -12,13 +12,14 @@
         // CHECK:             "func.return"([[r]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
-    // riscv.or (riscv.li imm) x -> riscv.ori x imm  (li on the left)
+    // riscv.or (riscv.li imm) x -> riscv.ori x imm  (li on the left is not folded)
     "func.func"()  <{function_type = (!riscv.reg) -> !riscv.reg}> ({
     ^bb(%a : !riscv.reg):
         // CHECK:             ^{{.*}}([[a2:%.*]] : !riscv.reg):
         %c = "riscv.li"() <{"value" = -1 : i64}>: () -> !riscv.reg
+        // CHECK:             [[r1:%.*]] = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
         %r = "riscv.or"(%c, %a) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK:             [[r2:%.*]] = "riscv.ori"([[a2]]) <{"value" = -1 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK:             [[r2:%.*]] = "riscv.or"([[r1]], [[a2]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         "func.return"(%r) : (!riscv.reg) -> ()
         // CHECK:             "func.return"([[r2]]) : (!riscv.reg) -> ()
     }) : () -> ()
@@ -56,13 +57,14 @@
         // CHECK:             "func.return"([[r5]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
-    // riscv.addw (riscv.li imm) x -> riscv.addiw x imm  (li on the left)
+    // riscv.addw (riscv.li imm) x -> riscv.addiw x imm  (li on the left is not folded)
     "func.func"()  <{function_type = (!riscv.reg) -> !riscv.reg}> ({
     ^bb(%a : !riscv.reg):
         // CHECK:             ^{{.*}}([[a6:%.*]] : !riscv.reg):
         %c = "riscv.li"() <{"value" = -1 : i64}>: () -> !riscv.reg
+        // CHECK:             [[r7:%.*]] = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
         %r = "riscv.addw"(%c, %a) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK:             [[r6:%.*]] = "riscv.addiw"([[a6]]) <{"value" = -1 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK:             [[r6:%.*]] = "riscv.addw"([[r7]], [[a6]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         "func.return"(%r) : (!riscv.reg) -> ()
         // CHECK:             "func.return"([[r6]]) : (!riscv.reg) -> ()
     }) : () -> ()
