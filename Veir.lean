@@ -9,7 +9,10 @@ import Veir.Rewriter.InlineBlock
 import Veir.Rewriter.WfRewriter
 import Veir.Printer
 import Veir.PatternRewriter.Basic
+import Veir.Passes.RISCVCombines.Proofs
 import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter
 import Veir.Dominance
+import Veir.Passes.InstructionSelection.Proofs
+import Veir.Passes.CastsReconciliation.Reconciliation

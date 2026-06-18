@@ -1,7 +1,7 @@
 module
 
 import Std.Data.HashMap
-import Veir.Prelude
+public import Veir.Prelude
 public import Veir.IR.OpInfo
 public import Veir.ForLean
 public import Veir.IR.Attribute

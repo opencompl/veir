@@ -33,7 +33,7 @@ def run(cmd: list[str], *, stdin: bytes | None = None, cwd: Path | None = None) 
     return result.stdout
 
 
-def compile_to_mlir(src: Path, veir_optimize: bool) -> bytes:
+def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool) -> bytes:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         bc = tmp / (src.stem + ".bc")
@@ -41,8 +41,14 @@ def compile_to_mlir(src: Path, veir_optimize: bool) -> bytes:
 
         run(["clang", "-O0", "-Xclang", "-disable-O0-optnone", "-c", "-emit-llvm",
              str(src), "-o", str(bc)])
-        # TODO -- as soon as we have our own mem2reg, stop running LLVM's
-        run(["opt", "-passes=sroa", str(bc), "-o", str(bc_opt)])
+        if llvm_o2:
+            # Run the full LLVM middle-end optimization pipeline, minus
+            # autovectorization.
+            run(["opt", "-O2", "-vectorize-loops=false", "-vectorize-slp=false",
+                 str(bc), "-o", str(bc_opt)])
+        else:
+            # TODO -- as soon as we have our own mem2reg, stop running LLVM's
+            run(["opt", "-passes=sroa", str(bc), "-o", str(bc_opt)])
         translated = run(["mlir-translate", "--import-llvm", str(bc_opt)])
         mlir = run(
             ["mlir-opt", "--mlir-print-op-generic", "--mlir-print-local-scope"],
@@ -143,6 +149,10 @@ def main() -> None:
         help="emit LLVM IR instead of an executable",
     )
     parser.add_argument(
+        "--llvm-O2", dest="llvm_o2", action="store_true",
+        help="run the full LLVM middle-end (opt -O2) pipeline before mlir-translate",
+    )
+    parser.add_argument(
         "--opt-level", dest="opt_levels", action="append",
         type=parse_opt_level, metavar="N",
         help=argparse.SUPPRESS,
@@ -173,7 +183,7 @@ def main() -> None:
     else:
         dst = Path("a.out")
 
-    mlir = compile_to_mlir(args.source, optimize_from_levels(args.opt_levels))
+    mlir = compile_to_mlir(args.source, optimize_from_levels(args.opt_levels), args.llvm_o2)
     if args.emit == "mlir":
         write_output(mlir, dst)
         return

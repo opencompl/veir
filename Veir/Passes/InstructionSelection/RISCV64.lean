@@ -700,6 +700,9 @@ def getelementptr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
+  /- Early loop: multi-instruction fusion patterns that must run before the
+     per-op lowerings consume their operands. -/
+  /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store]
   match RewritePattern.applyInContext pattern ctx with

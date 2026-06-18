@@ -11,7 +11,7 @@ These are the only ranges we will use in this file
 abbrev CORange := Rco Nat
 
 @[grind=]
-theorem mem_range_nat (i: Nat) (r: CORange) : (i ∈ r) ↔ r.lower ≤ i ∧ i < r.upper := by
+theorem CORange.mem_range_nat (i: Nat) (r: CORange) : (i ∈ r) ↔ r.lower ≤ i ∧ i < r.upper := by
   simp only [Membership.mem]
 
 /--
@@ -31,7 +31,7 @@ instance : Decidable (IsIncluded r₁ r₂) := by
 theorem isIncluded_mem (range1 range2 : CORange) :
     IsIncluded range1 range2 →
     ∀ (i: Nat), (i ∈ range1) → (i ∈ range2) := by
-  simp only [IsIncluded, mem_range_nat]
+  simp only [IsIncluded, CORange.mem_range_nat]
   grind only
 
 @[expose]
@@ -55,12 +55,12 @@ theorem isDisjoint_comm (range1 range2 : CORange) :
 theorem isDisjoint_mem_left (range1 range2 : CORange) :
     IsDisjoint range1 range2 →
     ∀ (i: Nat), (i ∈ range1) → (i ∉ range2) := by
-  simp only [IsDisjoint, mem_range_nat]
+  simp only [IsDisjoint, CORange.mem_range_nat]
   grind only
 
 @[grind→]
 theorem isDisjoint_mem_right (range1 range2 : CORange) :
     IsDisjoint range1 range2 →
     ∀ (i: Nat), (i ∈ range2) → (i ∉ range1) := by
-  simp only [IsDisjoint, mem_range_nat]
+  simp only [IsDisjoint, CORange.mem_range_nat]
   grind only
