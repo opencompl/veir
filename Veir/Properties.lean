@@ -57,6 +57,12 @@ structure ArithIntegerOverflowFlagsProperties where
   attr : ArithIntegerOverflowFlagsAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+abbrev ArithIntegerOverflowFlagsProperties.nsw (self : ArithIntegerOverflowFlagsProperties) : Bool :=
+  self.attr.nsw
+
+abbrev ArithIntegerOverflowFlagsProperties.nuw (self : ArithIntegerOverflowFlagsProperties) : Bool :=
+  self.attr.nuw
+
 def ArithIntegerOverflowFlagsProperties.fromAttrDict
     (attrDict : Std.HashMap ByteArray Attribute) :
     Except String ArithIntegerOverflowFlagsProperties := do
