@@ -287,6 +287,7 @@ macro "#assert " e:term : command =>
 
 /-! ## RISCV Register type -/
 #assert expectSuccessType "!riscv.reg" (RegisterType.mk)
+#assert expectSuccessType "!riscv.reg<x13>" (RegisterType.mk (some 13))
 
 /-! ## Flat symbol reference attribute -/
 #assert expectSuccessAttr "@foo" (FlatSymbolRefAttr.mk "@foo")
