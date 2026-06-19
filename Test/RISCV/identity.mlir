@@ -93,6 +93,9 @@
       %81 = "riscv.pack"(%0, %1) : (!riscv.reg, !riscv.reg) -> !riscv.reg
       %82 = "riscv.packh"(%0, %1) : (!riscv.reg, !riscv.reg) -> !riscv.reg
       %83 = "riscv.packw"(%0, %1) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+      // Zicond
+      %czeqz = "riscv.czeroeqz"(%0, %1) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+      %cznez = "riscv.czeronez"(%0, %1) : (!riscv.reg, !riscv.reg) -> !riscv.reg
       // pseudo instructions
       %84 = "riscv.mv"(%83) : (!riscv.reg) -> !riscv.reg
       %85 = "riscv.not"(%83) : (!riscv.reg) -> !riscv.reg
@@ -211,6 +214,8 @@
 // CHECK-NEXT:         %{{.*}} = "riscv.pack"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.packh"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.packw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %{{.*}} = "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.mv"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.not"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %{{.*}} = "riscv.neg"(%{{.*}}) : (!riscv.reg) -> !riscv.reg

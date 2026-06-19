@@ -199,6 +199,8 @@ inductive Riscv where
 | pack
 | packh
 | packw
+| czeroeqz
+| czeronez
 /- memory -/
 | ld
 | lw

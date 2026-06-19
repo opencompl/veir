@@ -390,6 +390,14 @@ theorem val_packw :
     ((r2.val.extractLsb 15 0) ++ (r1.val.extractLsb 15 0)).signExtend 64 := (rfl)
 
 @[veir_bv_normalize]
+theorem val_czeroeqz :
+  (czeroeqz r2 r1).val = (if r2.val == 0 then 0 else r1.val) := (rfl)
+
+@[veir_bv_normalize]
+theorem val_czeronez :
+  (czeronez r2 r1).val = (if r2.val != 0 then 0 else r1.val) := (rfl)
+
+@[veir_bv_normalize]
 theorem val_mv : (mv r1).val = (addi 0 r1).val := (rfl)
 
 @[veir_bv_normalize]
