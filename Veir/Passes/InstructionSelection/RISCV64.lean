@@ -440,6 +440,7 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
   if ¬ isLegalWidth (retType.bitwidth) ∨ 64 < retType.bitwidth then return rewriter
+  if retType.bitwidth ≤ opType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -483,6 +484,7 @@ def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
   if ¬ isLegalWidth (retType.bitwidth) ∨ 64 < retType.bitwidth then return rewriter
+  if retType.bitwidth ≤ opType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -522,6 +524,7 @@ def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
   if ¬ isLegalWidth (retType.bitwidth) then return rewriter
+  if opType.bitwidth ≤ retType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
