@@ -3,14 +3,14 @@
 "builtin.module"() ({
     "func.func"()  <{function_type = (i8, i16, i32) -> ()}> ({
     ^bb0(%a: i8, %b: i16, %c: i32, %d: i42):
-        %sexta = "llvm.sext"(%a) : (i8) -> i16
+        %sexta = "llvm.sext"(%b) : (i16) -> i64
         %sextb = "llvm.sext"(%b) : (i16) -> i32
         %sextc = "llvm.sext"(%c) : (i32) -> i64
         
         // CHECK:           ^{{.*}}([[A:.*]] : i8, [[B:.*]] : i16, [[C:.*]] : i32, [[D:.*]] : i42):
-        // CHECK-NEXT:      %[[E:.*]] = "builtin.unrealized_conversion_cast"([[A]]) : (i8) -> !riscv.reg
-        // CHECK-NEXT:      %[[F:.*]] = "riscv.sextb"(%[[E]]) : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT:      %[[G:.*]] = "builtin.unrealized_conversion_cast"(%[[F]]) : (!riscv.reg) -> i16
+        // CHECK-NEXT:      %[[E:.*]] = "builtin.unrealized_conversion_cast"([[B]]) : (i16) -> !riscv.reg
+        // CHECK-NEXT:      %[[F:.*]] = "riscv.sexth"(%[[E]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:      %[[G:.*]] = "builtin.unrealized_conversion_cast"(%[[F]]) : (!riscv.reg) -> i64
         // CHECK-NEXT:      %[[H:.*]] = "builtin.unrealized_conversion_cast"([[B]]) : (i16) -> !riscv.reg
         // CHECK-NEXT:      %[[I:.*]] = "riscv.sexth"(%[[H]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:      %[[J:.*]] = "builtin.unrealized_conversion_cast"(%[[I]]) : (!riscv.reg) -> i32

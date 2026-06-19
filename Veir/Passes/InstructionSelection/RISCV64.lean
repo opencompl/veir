@@ -11,8 +11,12 @@ namespace Veir
 
 /-! # Lowering Patterns -/
 
-def isLegalWidth (w : Nat) : Bool :=
-  w = 8 ∨ w = 16 ∨ w = 32 ∨ w = 64
+/-- Extension operations (`sext`/`zext`) in RISC-V 64 are only legal
+  from `i16` to `i64`, from `i16` to `i32`, and from `i32` to `i64`.
+  See: https://github.com/llvm/llvm-project/blob/16a0a1042f7e4e5a0c667096fcdeb5803e06d120/llvm/lib/Target/RISCV/GISel/RISCVLegalizerInfo.cpp#L171-L179
+-/
+def isLegalExtOpWidth (w : Nat) : Bool :=
+  w = 16 ∨ w = 32
 
 set_option warn.sorry false in
 /-- llvm.constant -> riscv.li -/
@@ -423,32 +427,22 @@ def sub (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
 
 set_option warn.sorry false in
 /--
-  llvm.sext %x `i8`  to `iY` -> riscv.sextb %x
-  llvm.sext %x `i16` to `iY` -> riscv.sexth %x
-  llvm.sext %x `i32` to `iY` -> riscv.sextw %x
-
-  where `iY` is also a legal type, with width greater than `iX`.
-  We do not support `i64`, as the return type is at most `i64` itself.
+  llvm.sext %x `i16` to `i64` -> riscv.sexth %x
+  llvm.sext %x `i16` to `i32` -> riscv.sexth %x
+  llvm.sext %x `i32` to `i64` -> riscv.sextw %x
 -/
 def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchSext op rewriter.ctx | return rewriter
-  /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`,
-    and where `X` and `Y` are legal types (`i8`, `i16`, `i32`, `i64`). -/
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
-  if ¬ isLegalWidth (opType.bitwidth) ∨ opType.bitwidth = 64 then return rewriter
+  if ¬ isLegalExtOpWidth (opType.bitwidth) then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
-  if ¬ isLegalWidth (retType.bitwidth) ∨ 64 < retType.bitwidth then return rewriter
   if retType.bitwidth ≤ opType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   let (rewriter, retOp) ← match opType.bitwidth with
-    | 8 =>
-      let (rewriter, retOp) ← rewriter.createOp (.riscv .sextb) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-      pure (rewriter, retOp)
     | 16 =>
       let (rewriter, retOp) ← rewriter.createOp (.riscv .sexth) #[RegisterType.mk] #[opCastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -467,32 +461,22 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
 
 set_option warn.sorry false in
 /--
-  llvm.zext %x `i8`  to `iY` -> riscv.sextb %x
-  llvm.zext %x `i16` to `iY` -> riscv.zexth %x
-  llvm.zext %x `i32` to `iY` -> riscv.zextw %x
-
-  where `iY` is also a legal type, with width greater than `iX`.
-  We do not support `i64`, as the return type is at most `i64` itself.
+  llvm.zext %x `i16` to `i64` -> riscv.zexth %x
+  llvm.zext %x `i16` to `i32` -> riscv.zexth %x
+  llvm.zext %x `i32` to `i64` -> riscv.zextw %x
 -/
 def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchZext op rewriter.ctx | return rewriter
-  /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`,
-    and where `X` and `Y` are legal types (`i8`, `i16`, `i32`, `i64`). -/
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
-  if ¬ isLegalWidth (opType.bitwidth) ∨ opType.bitwidth = 64 then return rewriter
+  if ¬ isLegalExtOpWidth (opType.bitwidth) then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
-  if ¬ isLegalWidth (retType.bitwidth) ∨ 64 < retType.bitwidth then return rewriter
   if retType.bitwidth ≤ opType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   let (rewriter, retOp) ← match opType.bitwidth with
-    | 8 =>
-      let (rewriter, retOp) ← rewriter.createOp (.riscv .zextb) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-      pure (rewriter, retOp)
     | 16 =>
       let (rewriter, retOp) ← rewriter.createOp (.riscv .zexth) #[RegisterType.mk] #[opCastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -512,18 +496,14 @@ def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
 set_option warn.sorry false in
 /--
   llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
-  where both `iX` and `iY` are legal types, and `iY`'s width is smaller than `iX`'s.
+  where `iY`'s width is smaller than `iX`'s.
 -/
 def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchTrunc op rewriter.ctx | return rewriter
-  /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`,
-    and where `X` and `Y` are legal types (`i8`, `i16`, `i32`, `i64`). -/
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
-  if ¬ isLegalWidth (opType.bitwidth) ∨ opType.bitwidth = 8 then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
-  if ¬ isLegalWidth (retType.bitwidth) then return rewriter
   if opType.bitwidth ≤ retType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
