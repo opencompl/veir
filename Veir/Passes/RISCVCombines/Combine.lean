@@ -67,12 +67,6 @@ def fold_binop_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediate
 def fold_imm12_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
     LocalRewritePattern OpCode := fold_binop_li src dst h (-2048) 2047
 
-def fold_add_li_to_addi   := fold_imm12_li .add  .addi  rfl
-def fold_or_li_to_ori     := fold_imm12_li .or   .ori   rfl
-def fold_and_li_to_andi   := fold_imm12_li .and  .andi  rfl
-def fold_xor_li_to_xori   := fold_imm12_li .xor  .xori  rfl
-def fold_addw_li_to_addiw := fold_imm12_li .addw .addiw rfl
-
 /-- imm5 word shifts/rotates: `src rs1 (li imm) -> dst rs1 imm` for `imm ∈ [0,31]`. -/
 def fold_shift5_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
     LocalRewritePattern OpCode := fold_binop_li src dst h 0 31
@@ -80,10 +74,6 @@ def fold_shift5_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediat
 /-- imm6 shifts/rotates and single-bit operations: `imm ∈ [0,63]`. -/
 def fold_shift6_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
     LocalRewritePattern OpCode := fold_binop_li src dst h 0 63
-
-/-- Non-commutative signed imm12 operations: `imm ∈ [-2048, 2047]`. -/
-def fold_imm12_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
-    LocalRewritePattern OpCode := fold_binop_li src dst h (-2048) 2047
 
 def fold_sllw_li_to_slliw := fold_shift5_li .sllw .slliw rfl
 def fold_srlw_li_to_srliw := fold_shift5_li .srlw .srliw rfl
