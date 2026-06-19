@@ -2,12 +2,16 @@ import Veir.Interpreter.EquationLemma
 import Veir.Interpreter.Refinement.Basic
 import Veir.Interpreter.Refinement.Lemmas
 
-/-! # Monotonicity of the interpreter
+/-!
+# Monotonicity of the interpreter
 
-This file proves the monotonicity of `interpretOp` under a cross-context interpreter state
+This file proves the monotonicity of `interpretOp`, `interpretOpList`, and
+`interpretTerminatedOpList` under a cross-context interpreter state
 refinement. This result is the key to prove the correctness of many transformations, as the
 interpreter state refinement relation can be used to then prove the refinement of functions and
 modules.
+
+## Monotonicity of `interpretOp`
 -/
 
 namespace Veir
@@ -132,3 +136,102 @@ theorem interpretOp_monotone
     grind [InterpreterState.isRefinedBy, VariableState.setResultValues?_isRefinedBy stateVarRef resValuesRef, cases ValueMapping.PreservesOperation]
   · /- If the source interpretation returns UB, then the refinement holds trivially. -/
     simp
+
+
+/-!
+## Monotonicity of `interpretOpList` and `interpretTerminatedOpList`
+
+Lifts the per-operation monotonicity lemma `interpretOp_monotone` to lists of operations
+(`interpretOpList` / `interpretTerminatedOpList`), under a *cross-context* interpreter-state
+refinement over an *identical* list of operations modulus α-renaming
+(`ValueMapping.PreservesOperation`) of operands and results. -/
+
+/-- `interpretOpList` is monotone under a *cross-context* interpreter-state refinement, over an
+*identical* slice of a block operation chain (the same `OperationPtr`s, whose intrinsic data agrees
+modulo renaming `mapping`). -/
+theorem interpretOpList_mono
+    {ctx ctx' : WfIRContext OpCode} (hVerif : ctx'.Verified)
+    {ops : List OperationPtr}
+    (opsInBounds : ∀ op, op ∈ ops → op.InBounds ctx.raw)
+    (opsInBounds' : ∀ op, op ∈ ops → op.InBounds ctx'.raw)
+    {mapping : ValueMapping ctx ctx'}
+    {state : InterpreterState ctx} {state' : InterpreterState ctx'}
+    (hState : state.isRefinedBy state' mapping)
+    (hPreserves : ∀ op, (h : op ∈ ops) → mapping.PreservesOperation op op) :
+    Interp.isRefinedBy
+      (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
+           (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
+        r₁.1.isRefinedBy r₂.1 mapping ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+      (interpretOpList ops state) (interpretOpList ops state') := by
+  induction ops generalizing state state' with
+  | nil => simpa [Interp]
+  | cons a l ih =>
+    /- Refinement of the state after interpreting the head operation `a`. -/
+    have refinesHead := interpretOp_monotone (opsInBounds a (by grind)) (opsInBounds' a (by grind))
+      hState (hPreserves a (by grind)) (by grind)
+    simp only [interpretOpList_cons]
+    /- Case analysis on the interpretation of the head operation `a` in the source. -/
+    rcases hsrc : interpretOp a state (opsInBounds a (by grind)) with _ | (⟨s, act⟩ | _)
+    · /- Source operation fails: interpreting the list returns `none`, refinement is trivial. -/
+      simp [Interp.isRefinedBy]
+    · /- Source operation succeeds with new state `s` and action `act`. This means that the target
+      operation also succeeds with a refined state `s'` and action `act'`. -/
+      simp only [hsrc, Interp.isRefinedBy_ok_target_iff] at refinesHead
+      obtain ⟨⟨s', act'⟩, htgt, hsRef, hactRef⟩ := refinesHead
+      simp only [htgt]
+      /- Case analysis on the action. -/
+      cases act
+      case none =>
+        /- No control-flow action: recurse on the tail, advancing the target invariant past `a`.
+        We use the induction to handle the tail. -/
+        have hact' : act' = none := by grind [ControlFlowAction.optionIsRefinedBy]
+        subst hact'
+        simp only
+        apply ih (by grind) (by grind) hsRef (by grind)
+      case some cf =>
+        simp [ControlFlowAction.optionIsRefinedBy] at hactRef
+        /- A control-flow action: the list stops here for both the source and the target. -/
+        have ⟨cf', hact', hcfRef⟩ : ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' := by grind
+        subst hact'
+        simp [Interp, hsRef, ControlFlowAction.optionIsRefinedBy, hcfRef]
+    · /- Source operation is UB, which is refined by anything. -/
+      simp
+
+/-- `interpretTerminatedOpList` is monotone under a *cross-context* interpreter-state refinement,
+over an *identical* list of operations. The proof is derived from `interpretOpList_monotone`, as
+`interpretTerminatedOpList` is a wrapper around `interpretOpList` that checks that the list of
+operation has reached a terminator. -/
+theorem interpretTerminatedOpList_mono
+    {ctx ctx' : WfIRContext OpCode} (ctx'Verif : ctx'.Verified)
+    {state : InterpreterState ctx} {state' : InterpreterState ctx'}
+    {mapping : ValueMapping ctx ctx'}
+    (opsInBounds : ∀ op, op ∈ ops → op.InBounds ctx.raw)
+    (opsInBounds' : ∀ op, op ∈ ops → op.InBounds ctx'.raw)
+    (hState : state.isRefinedBy state' mapping)
+    (hFrame : ∀ op, (h : op ∈ ops) → mapping.PreservesOperation op op) :
+    Interp.isRefinedBy
+      (fun (r₁ : InterpreterState ctx × ControlFlowAction)
+           (r₂ : InterpreterState ctx' × ControlFlowAction) =>
+        r₁.1.isRefinedBy r₂.1 mapping ∧ r₁.2.isRefinedBy r₂.2)
+      (interpretTerminatedOpList ops state) (interpretTerminatedOpList ops state') := by
+  have hList := interpretOpList_mono ctx'Verif opsInBounds opsInBounds' hState hFrame
+  simp only [interpretTerminatedOpList, bind]
+  rcases hsrc : interpretOpList ops state (by grind) with _ | (⟨s, act⟩ | _)
+  · simp [Interp.isRefinedBy]
+  · simp only [hsrc, Interp.isRefinedBy_ok_target_iff] at hList
+    obtain ⟨⟨s', act'⟩, htgt, hsRef, hactRef⟩ := hList
+    simp only [htgt]
+    /- Case analysis on the action returned by `interpretOpList`. If no action is returned at the
+    source, then the refinement is trivial (as interpretation failed in the input). If an action
+    is returned, then we derive refinement from the refinement of the action (given by
+    `interpretOpList_mono`). -/
+    cases act with
+    | none =>  simp [Interp.isRefinedBy]
+    | some cf =>
+      have ⟨cf', hact', hcfRef⟩ : ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' := by
+        cases act' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
+      subst hact'
+      exact ⟨hsRef, hcfRef⟩
+  · exact Interp.isRefinedBy_ub_target
+
+end Veir
