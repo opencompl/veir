@@ -665,3 +665,23 @@ theorem interpretOp'_results_conform {ctx : WfIRContext OpCode}
     (h : op.interpret ctx.raw operands mem = some (.ok (vals, mem', act))) :
     RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) := by
   sorry
+
+set_option warn.sorry false in
+/-- A branch control-flow action returned by interpreting an operation always targets one of the
+provided successor blocks. -/
+theorem interpretOp'_branch_dest_mem
+    (h : interpretOp' opType properties resultTypes operands blockOperands mem
+      = some (.ok (vals, mem', some (.branch res dest)))) :
+    dest ∈ blockOperands := by
+  sorry
+
+/-- A branch control-flow action returned by interpreting an operation always targets one of the
+operation successors. -/
+theorem interpretOp_branch_dest_mem_getSuccessors!
+    {ctx : WfIRContext OpCode} {op : OperationPtr} {state state' : InterpreterState ctx}
+    {inBounds : op.InBounds ctx.raw} {res : Array RuntimeValue} {dest : BlockPtr}
+    (h : interpretOp op state inBounds = some (.ok (state', some (.branch res dest)))) :
+    dest ∈ op.getSuccessors! ctx.raw := by
+  obtain ⟨operandValues, resValues, mem', varState', hOperand, hInterp', hSetRes, hStateEq⟩ :=
+    interpretOp_some_iff.mp h
+  exact interpretOp'_branch_dest_mem hInterp'
