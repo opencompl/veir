@@ -59,6 +59,14 @@ def fold_binop_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediate
       #[] #[] (cast h.symm imm) none sorry
   return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
+/--
+  imm12 binops: `src rs1 (li imm) -> dst rs1 imm` for signed 12-bit `imm ∈ [-2048, 2047]`.
+  Only match when the constant is on the right, since we assume that the canonicalizer
+  has made the code that way.
+-/
+def fold_imm12_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
+    LocalRewritePattern OpCode := fold_binop_li src dst h (-2048) 2047
+
 /-- imm5 word shifts/rotates: `src rs1 (li imm) -> dst rs1 imm` for `imm ∈ [0,31]`. -/
 def fold_shift5_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
     LocalRewritePattern OpCode := fold_binop_li src dst h 0 31
@@ -66,10 +74,6 @@ def fold_shift5_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediat
 /-- imm6 shifts/rotates and single-bit operations: `imm ∈ [0,63]`. -/
 def fold_shift6_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
     LocalRewritePattern OpCode := fold_binop_li src dst h 0 63
-
-/-- Non-commutative signed imm12 operations: `imm ∈ [-2048, 2047]`. -/
-def fold_imm12_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
-    LocalRewritePattern OpCode := fold_binop_li src dst h (-2048) 2047
 
 def fold_sllw_li_to_slliw := fold_shift5_li .sllw .slliw rfl
 def fold_srlw_li_to_srliw := fold_shift5_li .srlw .srliw rfl
