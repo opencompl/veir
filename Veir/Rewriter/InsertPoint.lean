@@ -88,6 +88,14 @@ theorem InsertPoint.after_inBounds (ctxWf : ctx.WellFormed) :
     (InsertPoint.after op ctx blockPtr opHasParent opInBounds).InBounds ctx := by
   grind [InsertPoint.after]
 
+theorem InsertPoint.after_eq_of_some_next :
+    (op.get! ctx).next = some nextOp →
+    InsertPoint.after op ctx blockPtr opHasParent opInBounds = .before nextOp := by
+  grind [InsertPoint.after]
+
+grind_pattern InsertPoint.after_eq_of_some_next =>
+  (op.get! ctx).next, some nextOp, InsertPoint.after op ctx blockPtr opHasParent opInBounds
+
 @[grind]
 def InsertPoint.block! (insertionPoint : InsertPoint) (ctx : IRContext OpInfo) : Option BlockPtr :=
   match insertionPoint with
