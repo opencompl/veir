@@ -283,3 +283,147 @@ theorem orcb_refinement_y7 {z : LLVM.Int 64} :
           (Data.RISCV.orcb (LLVM.Int.toReg
             (Data.LLVM.Int.and z (LLVM.Int.constant 64 0x8080808080808080)))) 64 := by
   veir_bv_decide
+
+/--
+  Prove the correctness of the `zext` lowering pattern `i8` -> `i16`
+-/
+theorem zext_refinement_8_16 {x : LLVM.Int 8} :
+    (Data.LLVM.Int.zext x 16 b h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zextb (LLVM.Int.toReg x)) 16) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `zext` lowering pattern `i8` -> `i32`
+-/
+theorem zext_refinement_8_32 {x : LLVM.Int 8} :
+    (Data.LLVM.Int.zext x 32 b h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zextb (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `zext` lowering pattern `i8` -> `i64`
+-/
+theorem zext_refinement_8_64 {x : LLVM.Int 8} :
+    (Data.LLVM.Int.zext x 64 b h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zextb (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `zext` lowering pattern `i16` -> `i32`
+-/
+theorem zext_refinement_16_32 {x : LLVM.Int 16} :
+    (Data.LLVM.Int.zext x 32 b h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zexth (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `zext` lowering pattern `i16` -> `i64`
+-/
+theorem zext_refinement_16_64 {x : LLVM.Int 16} :
+    (Data.LLVM.Int.zext x 64 b h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zexth (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `zext` lowering pattern `i32` -> `i64`
+-/
+theorem zext_refinement_32_64 {x : LLVM.Int 32} :
+    (Data.LLVM.Int.zext x 64 b h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zextw (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `sext` lowering pattern `i8` -> `i16`
+-/
+theorem sext_refinement_8_16 {x : LLVM.Int 8} :
+    (Data.LLVM.Int.sext x 16 h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sextb (LLVM.Int.toReg x)) 16) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `sext` lowering pattern `i8` -> `i32`
+-/
+theorem sext_refinement_8_32 {x : LLVM.Int 8} :
+    (Data.LLVM.Int.sext x 32 h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sextb (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `sext` lowering pattern `i8` -> `i64`
+-/
+theorem sext_refinement_8_64 {x : LLVM.Int 8} :
+    (Data.LLVM.Int.sext x 64 h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sextb (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `sext` lowering pattern `i16` -> `i32`
+-/
+theorem sext_refinement_16_32 {x : LLVM.Int 16} :
+    (Data.LLVM.Int.sext x 32 h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sexth (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `sext` lowering pattern `i16` -> `i64`
+-/
+theorem sext_refinement_16_64 {x : LLVM.Int 16} :
+    (Data.LLVM.Int.sext x 64 h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sexth (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `sext` lowering pattern `i32` -> `i64`
+-/
+theorem sext_refinement_32_64 {x : LLVM.Int 32} :
+    (Data.LLVM.Int.sext x 64 h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sextw (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `trunc` lowering pattern `i64` -> `i32`
+-/
+theorem trunc_refinement_64_32 {x : LLVM.Int 64} :
+    (Data.LLVM.Int.trunc x 32 nsw nuw h) ⊒
+      (RISCV.Reg.toInt (LLVM.Int.toReg x) 32) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `trunc` lowering pattern `i64` -> `i16`
+-/
+theorem trunc_refinement_64_16 {x : LLVM.Int 64} :
+    (Data.LLVM.Int.trunc x 16 nsw nuw h) ⊒
+      (RISCV.Reg.toInt (LLVM.Int.toReg x) 16) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `trunc` lowering pattern `i64` -> `i8`
+-/
+theorem trunc_refinement_64_8 {x : LLVM.Int 64} :
+    (Data.LLVM.Int.trunc x 8 nsw nuw h) ⊒
+      (RISCV.Reg.toInt (LLVM.Int.toReg x) 8) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `trunc` lowering pattern `i32` -> `i16`
+-/
+theorem trunc_refinement_32_16 {x : LLVM.Int 32} :
+    (Data.LLVM.Int.trunc x 16 nsw nuw h) ⊒
+      (RISCV.Reg.toInt (LLVM.Int.toReg x) 16) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `trunc` lowering pattern `i32` -> `i8`
+-/
+theorem trunc_refinement_32_8 {x : LLVM.Int 32} :
+    (Data.LLVM.Int.trunc x 8 nsw nuw h) ⊒
+      (RISCV.Reg.toInt (LLVM.Int.toReg x) 8) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `trunc` lowering pattern `i16` -> `i8`
+-/
+theorem trunc_refinement_16_8 {x : LLVM.Int 16} :
+    (Data.LLVM.Int.trunc x 8 nsw nuw h) ⊒
+      (RISCV.Reg.toInt (LLVM.Int.toReg x) 8) := by
+  veir_bv_decide

@@ -423,22 +423,23 @@ def sub (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
 
 set_option warn.sorry false in
 /--
-  llvm.sext %x i8  to iY -> riscv.sextb %x
-  llvm.sext %x i16 to iY -> riscv.sexth %x
-  llvm.sext %x i32 to iY -> riscv.sextw %x
+  llvm.sext %x `i8`  to `iY` -> riscv.sextb %x
+  llvm.sext %x `i16` to `iY` -> riscv.sexth %x
+  llvm.sext %x `i32` to `iY` -> riscv.sextw %x
 
-  For every other width:
-  llvm.sext %x iX to iY-> riscv.srai (riscv.slli %x (64 - X)) (64 - X)
+  where `iY` is also a legal type, with width greater than `iX`.
+  We do not support `i64`, as the return type is at most `i64` itself.
 -/
 def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchSext op rewriter.ctx | return rewriter
-  /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
+  /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`,
+    and where `X` and `Y` are legal types (`i8`, `i16`, `i32`, `i64`). -/
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if ¬ isLegalWidth (opType.bitwidth) ∨ opType.bitwidth = 64 then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
-  if 64 < retType.bitwidth then return rewriter
+  if ¬ isLegalWidth (retType.bitwidth) ∨ 64 < retType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -465,25 +466,23 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
 
 set_option warn.sorry false in
 /--
-  llvm.zext %x iX  to iY where X ≤ 12 and X ≠ 8 -> riscv.andi %x (2 ^ X - 1)
-  e.g. llvm.zext %x i2  to iY -> riscv.andi %x 3
-       llvm.zext %x i3  to iY -> riscv.andi %x 7
-       ...
-       llvm.zext %x i11 to iY -> riscv.andi %x 2047
+  llvm.zext %x `i8`  to `iY` -> riscv.sextb %x
+  llvm.zext %x `i16` to `iY` -> riscv.zexth %x
+  llvm.zext %x `i32` to `iY` -> riscv.zextw %x
 
-  llvm.zext %x i8  to iY -> riscv.sextb %x
-  llvm.zext %x i16 to iY -> riscv.zexth %x
-  llvm.zext %x i32 to iY -> riscv.zextw %x
+  where `iY` is also a legal type, with width greater than `iX`.
+  We do not support `i64`, as the return type is at most `i64` itself.
 -/
 def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchZext op rewriter.ctx | return rewriter
-  /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
+  /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`,
+    and where `X` and `Y` are legal types (`i8`, `i16`, `i32`, `i64`). -/
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if ¬ isLegalWidth (opType.bitwidth) ∨ opType.bitwidth = 64 then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
-  if 64 < retType.bitwidth then return rewriter
+  if ¬ isLegalWidth (retType.bitwidth) ∨ 64 < retType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -511,6 +510,7 @@ def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
 set_option warn.sorry false in
 /--
   llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
+  where both `iX` and `iY` are legal types, and `iY`'s width is smaller than `iX`'s.
 -/
 def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -518,10 +518,10 @@ def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds
   /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`,
     and where `X` and `Y` are legal types (`i8`, `i16`, `i32`, `i64`). -/
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
-  if ¬ isLegalWidth (opType.bitwidth) then return rewriter
+  if ¬ isLegalWidth (opType.bitwidth) ∨ opType.bitwidth = 8 then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
-  if 64 < retType.bitwidth then return rewriter
+  if ¬ isLegalWidth (retType.bitwidth) then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
