@@ -5,18 +5,7 @@ namespace Veir
 
 /-!
   Shared helpers for the RISC-V instruction-selection lowering patterns.
-
-  Every per-op lowering is bracketed by the same boilerplate: a width check on
-  the operands/result, and the `unrealized_conversion_cast` plumbing that moves
-  values in and out of `!riscv.reg`. These helpers factor that out.
 -/
-
-/-- Every value in `vals` must have type `i64`. -/
-def allI64 (vals : Array ValuePtr) (ctx : IRContext OpCode) : Bool :=
-  vals.all fun v =>
-    match (v.getType! ctx).val with
-    | .integerType t => t.bitwidth == 64
-    | _ => false
 
 set_option warn.sorry false in
 /--

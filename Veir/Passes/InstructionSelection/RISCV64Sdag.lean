@@ -19,8 +19,8 @@ set_option warn.sorry false in
 def andn (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchAnd op rewriter.ctx | return rewriter
-  if !allI64 #[lhs, rhs, op.getResult 0] rewriter.ctx.raw then return rewriter
-  /- one operand must be `not y`; `x` is the other -/
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
   let some (x, y) :=
     (match matchNot rhs rewriter.ctx with
      | some y => some (lhs, y)
@@ -29,7 +29,6 @@ def andn (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
                | none => none) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let (rewriter, yReg) ← castToReg rewriter op y
-  /- result = x & ~y -/
   let (rewriter, andnOp) ← rewriter.createOp (.riscv .andn) #[RegisterType.mk] #[xReg, yReg]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   replaceWithReg rewriter op (andnOp.getResult 0)
@@ -41,8 +40,8 @@ set_option warn.sorry false in
 def orn (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchOr op rewriter.ctx | return rewriter
-  if !allI64 #[lhs, rhs, op.getResult 0] rewriter.ctx.raw then return rewriter
-  /- one operand must be `not y`; `x` is the other -/
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
   let some (x, y) :=
     (match matchNot rhs rewriter.ctx with
      | some y => some (lhs, y)
@@ -51,7 +50,6 @@ def orn (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
                | none => none) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let (rewriter, yReg) ← castToReg rewriter op y
-  /- result = x | ~y -/
   let (rewriter, ornOp) ← rewriter.createOp (.riscv .orn) #[RegisterType.mk] #[xReg, yReg]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   replaceWithReg rewriter op (ornOp.getResult 0)
@@ -63,8 +61,8 @@ set_option warn.sorry false in
 def xnor (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchXor op rewriter.ctx | return rewriter
-  if !allI64 #[lhs, rhs, op.getResult 0] rewriter.ctx.raw then return rewriter
-  /- one operand must be `not y`; `x` is the other -/
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
   let some (x, y) :=
     (match matchNot rhs rewriter.ctx with
      | some y => some (lhs, y)
@@ -73,7 +71,6 @@ def xnor (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
                | none => none) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let (rewriter, yReg) ← castToReg rewriter op y
-  /- result = ~(x ^ y) -/
   let (rewriter, xnorOp) ← rewriter.createOp (.riscv .xnor) #[RegisterType.mk] #[xReg, yReg]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   replaceWithReg rewriter op (xnorOp.getResult 0)
@@ -86,7 +83,8 @@ set_option warn.sorry false in
 def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (a, b, _) := matchSub op rewriter.ctx | return rewriter
-  if !allI64 #[a, b, op.getResult 0] rewriter.ctx.raw then return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
   /- left operand must be `shl M (8 - Y)` for some `0 ≤ Y < 8` -/
   let some aOp := getDefiningOp a rewriter.ctx | return rewriter
   let some (m, shamt, _) := matchShl aOp rewriter.ctx | return rewriter
