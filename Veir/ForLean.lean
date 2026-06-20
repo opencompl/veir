@@ -39,8 +39,34 @@ def UInt64.toByteArrayLE (u : UInt64) : ByteArray :=
 
 namespace ByteArray
 
+@[simp, grind =]
+theorem size_emptyWithCapacity (n : Nat) :
+    (ByteArray.emptyWithCapacity n).size = 0 := by constructor
+
 def extend (ba : ByteArray) (n : Nat) (val : UInt8) : ByteArray :=
   n.fold (init := ba) fun _ _ ba => ba.push val
+
+@[simp, grind =]
+theorem extend_zero (ba : ByteArray) (val : UInt8) :
+    ba.extend 0 val = ba := by
+  simp [extend]
+
+@[simp, grind =]
+theorem extend_size (ba : ByteArray) (n : Nat) (val : UInt8) :
+    (ba.extend n val).size = ba.size + n := by
+  induction n
+  case zero => simp
+  case succ n h =>
+    grind [Nat.fold_succ, size_push, extend]
+
+@[simp]
+def replicate (n : Nat) (v : UInt8) : ByteArray :=
+  (ByteArray.emptyWithCapacity n).extend n v
+
+@[simp, grind =]
+theorem replicate_size (n : Nat) (v : UInt8) :
+    (ByteArray.replicate n v).size = n := by
+  simp
 
 @[inline]
 def getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
@@ -146,13 +172,35 @@ theorem Array.mapM_option_eq_some_implies {l : Array α} {res : Array β} (h : A
     intro i hi
     grind [List.getElem?_of_mapM_option_eq_some hm i]
 
-theorem Array.mapM_option_isSome {α β : Type} {f : α → Option β}
+theorem Array.mapM_option_isSome {α : Type u} {β : Type v} {f : α → Option β}
     {l : Array α} (h : ∀ i (hi : i < l.size), (f l[i]).isSome) :
     ∃ r, l.mapM f = some r := by
   rw [Array.mapM_eq_mapM_toList]
   obtain ⟨r, hr⟩ := List.mapM_option_isSome (f := f) (l := l.toList)
     (fun a ha => by obtain ⟨i, hi, rfl⟩ := List.mem_iff_getElem.mp ha; simpa using h i (by simpa using hi))
   exact ⟨r.toArray, by simp [hr]⟩
+
+theorem Array.mapM_eq_some_iff_of_size_eq [Inhabited α] [Inhabited β] {a₁ : Array α} {a₂ : Array β} :
+    a₁.size = a₂.size →
+    (Array.mapM f a₁ = some a₂ ↔
+    (∀ i, (hi : i < a₁.size) → f a₁[i]! = some a₂[i]!)) := by
+  intro hsize
+  constructor
+  · grind [Array.mapM_option_eq_some_implies]
+  · intro h
+    have ⟨r, hr⟩ := Array.mapM_option_isSome (f := f) (l := a₁) (by grind)
+    have hrsize := Array.size_eq_of_mapM_eq_some hr
+    suffices r = a₂ by grind
+    grind [Array.mapM_option_eq_some_implies]
+
+theorem Array.exists_mapM_option_eq_some_iff {f : α → Option β} {l : Array α} :
+    (∃ r, l.mapM f = some r) ↔ (∀ i (hi : i < l.size), ∃ v, f l[i] = some v) := by
+  constructor
+  · rintro ⟨r, hr⟩ i hi
+    grind [Array.mapM_option_eq_some_implies hr i (by grind)]
+  · intro h
+    apply Array.mapM_option_isSome
+    grind
 
 namespace ForLean.List
 

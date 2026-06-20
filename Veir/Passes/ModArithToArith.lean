@@ -108,7 +108,8 @@ set_option warn.sorry false in
     using intermediate Type iM given storage type iM, with M = `widen` N,
     and using Builder `build` to determine the exact `arith` operations to emit -/
 def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (build : Builder)
-    (rewriter : PatternRewriter OpCode) (op : OperationPtr) : Option (PatternRewriter OpCode) := do
+    (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   -- match op and extract operands:
   let some (operands, _) := matchOp op rewriter.ctx (.mod_arith modOp) 2
     | return rewriter
@@ -157,7 +158,8 @@ def lowerModArithSubOp := lowerModArithBinOp .sub (· + 1) buildSub
 
 set_option warn.sorry false in
 /-- Lower `mod_arith.constant` to an `arith.constant` (assumes value is in `[0, q)` already). -/
-def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr) : Option (PatternRewriter OpCode) := do
+def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   -- match op and extract attribute:
   let some (_, props) := matchOp op rewriter.ctx (.mod_arith .constant) 0
     | return rewriter

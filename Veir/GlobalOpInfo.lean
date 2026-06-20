@@ -5,6 +5,7 @@ public import Veir.Dialects.LLVM.OpInfo
 public import Veir.Dialects.RISCV.OpInfo
 public import Veir.Dialects.RISCV_Cf.OpInfo
 public import Veir.Dialects.RISCV_Stack.OpInfo
+public import Veir.Dialects.RV64.OpInfo
 public import Veir.Dialects.ModArith.OpInfo
 public import Veir.Dialects.Cf.OpInfo
 public import Veir.Dialects.Comb.OpInfo
@@ -27,6 +28,7 @@ match opCode with
 | .riscv op => Riscv.propertiesOf op
 | .riscv_cf op => Riscv_Cf.propertiesOf op
 | .riscv_stack op => Riscv_Stack.propertiesOf op
+| .rv64 op => Rv64.propertiesOf op
 | .mod_arith op => Mod_Arith.propertiesOf op
 | .cf op => Cf.propertiesOf op
 | .comb op => Comb.propertiesOf op
@@ -107,6 +109,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     cases op
     case alloca => exact (RISCVStackAllocaProperties.fromAttrDict attrDict)
     all_goals exact (Except.ok ())
+  case rv64 =>
+    exact Except.ok ()
   case llvm op =>
     cases op
     case mlir__constant => exact (LLVMConstantProperties.fromAttrDict attrDict)
@@ -408,3 +412,35 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .llvm .load => (op.getProperties! ctx (.llvm .load)).volatile_
   -- For everything else: be conservative!
   | _ => true
+
+/--
+  Does this `OpCode` materialize a literal constant value (i.e. an op
+  whose result is a compile-time constant taken from its attributes,
+  with no SSA operands)?
+-/
+def OpCode.isConstantLike (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith .constant
+  | .llvm .mlir__constant
+  | .riscv .li => true
+  | _ => false
+
+/--
+  Is this `OpCode` commutative in its operands, i.e. `op x y` always
+  computes the same value as `op y x`?
+-/
+def OpCode.isCommutative (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith .addi | .arith .muli
+  | .arith .andi | .arith .ori | .arith .xori
+  | .arith .maxsi | .arith .maxui | .arith .minsi | .arith .minui
+  | .arith .addui_extended
+  | .arith .mulsi_extended | .arith .mului_extended
+  | .llvm .add | .llvm .mul
+  | .llvm .and | .llvm .or | .llvm .xor
+  | .llvm .fadd | .llvm .fmul
+  | .riscv .add | .riscv .and | .riscv .or | .riscv .xor | .riscv .xnor
+  | .riscv .mul | .riscv .mulh | .riscv .mulhu
+  | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
+  | .riscv .addw | .riscv .mulw => true
+  | _ => false

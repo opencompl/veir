@@ -6,7 +6,7 @@ import Veir.Verifier
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
-variable {ctx : WfIRContext OpInfo}
+variable {ctx ctx' : WfIRContext OpInfo}
 variable {varState varState' : VariableState ctx}
 variable {state state' : InterpreterState ctx}
 variable {op op' : OperationPtr}
@@ -150,6 +150,19 @@ theorem VariableState.getVar?_setResultValues?_of_notMem_getResults! {value resu
 grind_pattern VariableState.getVar?_setResultValues?_of_notMem_getResults! =>
   op.getResults! ctx, varState.setResultValues? op resultValues, varState'.getVar? value
 
+/-- `op` operation results are exactly the values set by `setResultValues? op` in the new state. -/
+theorem VariableState.getVar?_getResult_of_setResultValues? :
+    i < op.getNumResults! ctx.raw →
+    varState.setResultValues? op resultValues inBounds = some varState' →
+    varState'.getVar? (op.getResult i) = resultValues[i]! := by
+  intro hNotMemResults hSetResults
+  simp only [VariableState.getVar?_setResultValues? hSetResults]
+  grind
+
+grind_pattern VariableState.getVar?_getResult_of_setResultValues? =>
+  i < op.getNumResults! ctx.raw, varState.setResultValues? op resultValues,
+  varState'.getVar? (op.getResult i)
+
 @[grind =>]
 theorem VariableState.getVar?_setResultValues?_of_value_inBounds
     (valueInBounds : value.InBounds ctx.raw) :
@@ -237,6 +250,16 @@ theorem VariableState.getOperandValues_eq_of_getVar?_eq :
                l.mapM varState.getVar? = l.mapM varState'.getVar? by grind
   intro l hl
   induction l <;> grind
+
+/-- Getting `op` operands from the variable state returns an `array` of values iff `array` has
+the same size as the number of operands, and each operand value maps to the `array` elements. -/
+theorem VariableState.getOperandValues_eq_some_iff :
+    (varState.getOperandValues op = some array ↔
+    op.getNumOperands! ctx.raw = array.size ∧
+    (∀ i, i < op.getNumOperands! ctx.raw →
+      varState.getVar? (op.getOperand! ctx.raw i) = some array[i]!)) := by
+  simp only [VariableState.getOperandValues]
+  grind [Array.mapM_eq_some_iff_of_size_eq]
 
 @[grind →]
 theorem VariableState.setResultValues?.getNumRseults!_eq_size :
@@ -327,7 +350,7 @@ theorem RuntimeValue.ArrayConforms_iff_setResultValues?_loop_eq_some :
       grind [ih varState']
 
 /-- `setResultValues?` succeeds iff every result value conforms to its result type. -/
-theorem VariableState.setResultValues?_isSome_iff_conforms :
+theorem VariableState.setResultValues?_isSome_iff_conforms (varState : VariableState ctx) inBounds :
     RuntimeValue.ArrayConforms resValues (op.getResultTypes! ctx.raw) ↔
     (∃ v, varState.setResultValues? op resValues inBounds = some v) := by
   simp only [setResultValues?]
@@ -473,7 +496,9 @@ theorem exists_interpretOp'_eq_some {ctx : WfIRContext OpCode} {op : OperationPt
   ∃ res, op.interpret ctx.raw operands mem = some res := by sorry
 
 set_option warn.sorry false in
-theorem interpretOp'_monotone {operands operands' : Array RuntimeValue} :
+theorem interpretOp'_monotone
+    (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
     operands ⊒ operands' →
     Interp.isRefinedBy (α := Array RuntimeValue × MemoryState × Option ControlFlowAction)
       (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧

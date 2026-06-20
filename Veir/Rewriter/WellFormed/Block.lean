@@ -18,30 +18,30 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 
-/-- # Rewriter.insertBlock? -/
+/-- # Rewriter.insertBlock -/
 
-theorem Rewriter.insertBlock?_WellFormed (hctx : ctx.WellFormed) :
-    Rewriter.insertBlock? ctx newOp ip newOpIn insIn ctxInBounds = some newCtx →
+theorem Rewriter.insertBlock_WellFormed (hctx : ctx.WellFormed) :
+    Rewriter.insertBlock ctx newOp ip newOpIn insIn ctxInBounds = some newCtx →
     newCtx.WellFormed := by
-  simp only [Rewriter.insertBlock?]
+  simp only [Rewriter.insertBlock]
   split; grind; rename_i parent hparent
   intro h
   apply IRContext.wellFormed_BlockPtr_linkBetweenWithParent hctx h (ip := ip) <;>
     grind [Option.maybe₁_def]
 
-theorem BlockPtr.operationList_rewriter_insertBlock?
+theorem BlockPtr.operationList_rewriter_insertBlock
     {block : BlockPtr} {blockInBounds : block.InBounds newCtx}
-    (h : Rewriter.insertBlock? ctx newOp ip newOpIn insIn ctxInBounds = some newCtx)
+    (h : Rewriter.insertBlock ctx newOp ip newOpIn insIn ctxInBounds = some newCtx)
     (ctxWf : ctx.WellFormed) :
     block.operationList newCtx newCtxWf blockInBounds = block.operationList ctx ctxWf (by grind) := by
   simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
-  grind [BlockPtr.opChain_BlockPtr_linkBetweenWithParent, Rewriter.insertBlock?]
+  grind [BlockPtr.opChain_BlockPtr_linkBetweenWithParent, Rewriter.insertBlock]
 
-grind_pattern BlockPtr.operationList_rewriter_insertBlock? =>
-  Rewriter.insertBlock? ctx newOp ip newOpIn insIn ctxInBounds, newCtx.WellFormed, some newCtx,
+grind_pattern BlockPtr.operationList_rewriter_insertBlock =>
+  Rewriter.insertBlock ctx newOp ip newOpIn insIn ctxInBounds, newCtx.WellFormed, some newCtx,
   block.operationList newCtx newCtxWf blockInBounds
 
-/-- # Rewriter.insertBlock? -/
+/-- # Rewriter.insertBlock -/
 
 theorem BlockPtr.allocEmpty_wellFormed (hctx : ctx.WellFormed)
     (heq : BlockPtr.allocEmpty ctx = some (newCtx, bl)) :
@@ -114,7 +114,7 @@ theorem Rewriter.createBlock_WellFormed
   have : ctx₁.WellFormed := by grind [BlockPtr.allocEmpty_wellFormed]
   split at h
   · simp only [Option.bind_eq_bind, Option.bind] at h
-    grind [IRContext.wellFormed_Rewriter_initBlockArguments, Rewriter.insertBlock?_WellFormed]
+    grind [IRContext.wellFormed_Rewriter_initBlockArguments, Rewriter.insertBlock_WellFormed]
   · grind [IRContext.wellFormed_Rewriter_initBlockArguments]
 
 /-- Any block that already existed before `Rewriter.createBlock` keeps its operation chain. -/
@@ -131,7 +131,7 @@ theorem BlockPtr.opChain_rewriter_createBlock {block : BlockPtr} {array : Array 
     BlockPtr.opChain_Rewriter_initBlockArguments hc1
   split at h
   · simp only [Option.bind_eq_bind, Option.bind] at h
-    grind [Rewriter.insertBlock?, BlockPtr.opChain_BlockPtr_linkBetweenWithParent]
+    grind [Rewriter.insertBlock, BlockPtr.opChain_BlockPtr_linkBetweenWithParent]
   · grind
 
 /-- The block freshly created by `Rewriter.createBlock` has an empty operation chain. -/
@@ -146,7 +146,7 @@ theorem BlockPtr.opChain_rewriter_createBlock_new
     BlockPtr.opChain_Rewriter_initBlockArguments hc0
   split at h
   · simp only [Option.bind_eq_bind, Option.bind] at h
-    grind [BlockPtr.opChain_BlockPtr_linkBetweenWithParent, Rewriter.insertBlock?]
+    grind [BlockPtr.opChain_BlockPtr_linkBetweenWithParent, Rewriter.insertBlock]
   · grind
 
 theorem BlockPtr.operationList_rewriter_createBlock (ctxWf : ctx.WellFormed)

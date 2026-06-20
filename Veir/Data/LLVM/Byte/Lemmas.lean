@@ -1,31 +1,44 @@
 module
 
 import all Veir.Data.LLVM.Byte.Basic
+meta import Veir.Meta.BVDecide
 
 namespace Veir.Data.LLVM.Byte
 
 open Veir.Data.LLVM.Int
+attribute [local grind cases] Int
 
 theorem toInt_fromInt {w : Nat} (x : Int w) (h : 0 < w) : (Byte.fromInt x).toInt = x := by
-  simp only [Byte.toInt, fromInt]
-  cases x
-  · simp
-  · have := Nat.two_pow_pred_lt_two_pow h
-    have := Nat.two_pow_pos (w-1)
-    rw [ite_eq_right_iff, BitVec.toNat_eq]
-    simp
-    omega
+  simp only [Byte.toInt, fromInt, BitVec.toNat_eq];
+  grind
 
-@[bv_normalize]
+@[veir_bv_normalize]
 theorem ext_iff {w : Nat} (x y : Byte w) :
     x = y ↔ (x.val = y.val ∧ x.poison = y.poison) := by
-  constructor
-  <;> rw [Byte.mk.injEq]
-  <;> simp
+  rw [Byte.mk.injEq]
+
+/- # {to,from}Int -/
+section ToFromInt
+attribute [local grind] Byte.toInt Byte.fromInt
+
+@[veir_bv_normalize] theorem val_fromInt (x : Int w) : (fromInt x).val = x.getValueD := by grind
+@[veir_bv_normalize] theorem poison_fromInt (x : Int w) :
+    (fromInt x).poison = if x.isPoison then .allOnes _ else 0 := by
+  grind
+
+@[veir_bv_normalize] theorem getValue_toInt (x : Byte w) (h : x.toInt.isPoison = false) :
+    x.toInt.getValue h = x.val := by
+  grind
+
+@[veir_bv_normalize] theorem isPoison_toInt (x : Byte w) :
+    x.toInt.isPoison = (x.poison != 0) := by
+  grind
+
+end ToFromInt
 
 /- # and -/
 
-@[bv_normalize]
+@[veir_bv_normalize]
 theorem and_eq {w : Nat} (x y : Byte w) :
     (x &&& y) =
     let poison := x.poison ||| y.poison
@@ -42,7 +55,7 @@ theorem val_and {w : Nat} (x y : Byte w) :
 
 /- # or -/
 
-@[bv_normalize]
+@[veir_bv_normalize]
 theorem or_eq {w : Nat} (x y : Byte w) :
     (x ||| y) =
     let poison := x.poison ||| y.poison
@@ -59,7 +72,7 @@ theorem val_or {w : Nat} (x y : Byte w) :
 
 /- # xor -/
 
-@[bv_normalize]
+@[veir_bv_normalize]
 theorem xor_eq {w : Nat} (x y : Byte w) :
     (x ^^^ y) =
     let poison := x.poison ||| y.poison

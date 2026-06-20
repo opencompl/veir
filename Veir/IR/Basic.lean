@@ -1,7 +1,7 @@
 module
 
 import Std.Data.HashMap
-import Veir.Prelude
+public import Veir.Prelude
 public import Veir.IR.OpInfo
 public import Veir.ForLean
 public import Veir.IR.Attribute
@@ -2511,6 +2511,51 @@ theorem hasUses!_eq_false_iff_hasUses!_opResult_eq_false {op : OperationPtr}
   grind [OpResultPtr.inBounds_def, getResult, cases OpResultPtr]
 
 end OperationPtr
+
+/-- `ops` is a contiguous chain of operations in a block `parent` in context `ctx`: each operation's
+`.next` field points to the following operation in the list, and each operation's `.parent` field
+points to `parent`. -/
+def BlockPtr.OpChainSlice (ctx : IRContext OpInfo) (parent : BlockPtr) : List OperationPtr → Prop
+  | [] => True
+  | a :: l =>
+    a.InBounds ctx ∧
+    (a.get! ctx).parent = some parent ∧
+    (∀ b, l.head? = some b → (a.get! ctx).next = some b) ∧
+    BlockPtr.OpChainSlice ctx parent l
+
+namespace BlockPtr.OpChainSlice
+
+/-- All operations in an operation chain slice are in bounds. -/
+@[grind →]
+theorem inBounds_of_mem {ctx : IRContext OpInfo} {parent : BlockPtr} {ops : List OperationPtr}
+    (h : BlockPtr.OpChainSlice ctx parent ops) :
+    ∀ op, op ∈ ops → op.InBounds ctx := by
+  induction ops <;> simp [BlockPtr.OpChainSlice] at h <;> grind
+
+/-- All operations in an operation chain slice have the expected parent. -/
+@[grind →]
+theorem parent_of_mem {ctx : IRContext OpInfo} {parent : BlockPtr} {ops : List OperationPtr}
+    (h : BlockPtr.OpChainSlice ctx parent ops) :
+    ∀ op, op ∈ ops → (op.get! ctx).parent = some parent := by
+  induction ops <;> simp [BlockPtr.OpChainSlice] at h <;> grind
+
+/-- The empty list is always an operation chain slice. -/
+@[simp, grind .]
+theorem nil {ctx : IRContext OpInfo} {parent : BlockPtr} :
+    BlockPtr.OpChainSlice ctx parent [] := by
+  simp [BlockPtr.OpChainSlice]
+
+/-- An `head :: tail` list is an operation chain slice iff the tail is an operation chain slice,
+and the head is in bounds, has the same parent, and points to the tail. -/
+theorem cons_iff {ctx : IRContext OpInfo} {parent : BlockPtr} {head : OperationPtr} {tail : List OperationPtr} :
+    BlockPtr.OpChainSlice ctx parent (head :: tail) ↔
+    head.InBounds ctx ∧
+    (head.get! ctx).parent = some parent ∧
+    (∀ b, tail.head? = some b → (head.get! ctx).next = some b) ∧
+    BlockPtr.OpChainSlice ctx parent tail := by
+  simp [BlockPtr.OpChainSlice]
+
+end BlockPtr.OpChainSlice
 
 def IRContext.empty (OpInfo : Type) [HasOpInfo OpInfo] : IRContext OpInfo := {
     nextID := 0,

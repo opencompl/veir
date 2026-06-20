@@ -13,7 +13,7 @@ namespace Veir
 
 set_option warn.sorry false in
 /-- llvm.constant -> riscv.li -/
-def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some const := matchConstantIntOp op rewriter.ctx
       | return rewriter
@@ -29,7 +29,7 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.add -> riscv.add -/
-def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, properties) := matchAdd op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -55,7 +55,7 @@ def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.and -> riscv.and -/
-def and (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def and (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs) := matchAnd op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -81,7 +81,7 @@ def and (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.ashr -> riscv.sra -/
-def ashr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def ashr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, properties) := matchAshr op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -118,7 +118,7 @@ set_option warn.sorry false in
     llvm.icmp ugt lhs rhs -> riscv.sltu rhs lhs
     llvm.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
 -/
-def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, property) := matchIcmp op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -212,7 +212,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.or -> riscv.or -/
-def or (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def or (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchOr op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -238,7 +238,7 @@ def or (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.xor -> riscv.xor -/
-def xor (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def xor (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchXor op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -264,7 +264,7 @@ def xor (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.mul -> riscv.mul -/
-def mul (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def mul (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchMul op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -290,7 +290,7 @@ def mul (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.sdiv -> riscv.div -/
-def sdiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def sdiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchSdiv op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -316,7 +316,7 @@ def sdiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.udiv -> riscv.divu -/
-def udiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def udiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchUdiv op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -342,7 +342,7 @@ def udiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.srem -> riscv.rem -/
-def srem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def srem (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchSrem op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -368,7 +368,7 @@ def srem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.urem -> riscv.remu -/
-def urem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def urem (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchUrem op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -394,7 +394,7 @@ def urem (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.sub -> riscv.sub -/
-def sub (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def sub (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchSub op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -427,7 +427,7 @@ set_option warn.sorry false in
   For every other width:
   llvm.sext %x iX to iY-> riscv.srai (riscv.slli %x (64 - X)) (64 - X)
 -/
-def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchSext op rewriter.ctx | return rewriter
   /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
@@ -479,7 +479,7 @@ set_option warn.sorry false in
   For every other width:
   llvm.zext %x iX to iY-> riscv.srli (riscv.slli %x (64 - X)) (64 - X)
 -/
-def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchZext op rewriter.ctx | return rewriter
   /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
@@ -526,7 +526,7 @@ set_option warn.sorry false in
 /--
   llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
 -/
-def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchTrunc op rewriter.ctx | return rewriter
   /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
@@ -545,7 +545,7 @@ def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.shl -> riscv.sll -/
-def shl (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def shl (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchShl op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -571,7 +571,7 @@ def shl (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.shl -> riscv.srl -/
-def lshr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def lshr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _) := matchLshr op rewriter.ctx | return rewriter
   /- only support `i64` -/
@@ -597,7 +597,7 @@ def lshr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.load -> riscv.ld -/
-def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (ptr, _) := matchLoad op rewriter.ctx | return rewriter
   /- only support `i64` (the loaded value type) -/
@@ -617,7 +617,7 @@ def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 set_option warn.sorry false in
 /-- llvm.store -> riscv.sd -/
-def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (arg, ptr, _) := matchStore op rewriter.ctx | return rewriter
   /- only support `i64` (the stored value type) -/
@@ -641,7 +641,7 @@ set_option warn.sorry false in
   Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
   where `scale` is the byte size of the element type.
 -/
-def getelementptr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
+def getelementptr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (ptr, idx, properties) := matchGetelementptr op rewriter.ctx | return rewriter
   /- Bail unless it's a single dynamic index with no trailing constant indices. -/
@@ -700,6 +700,9 @@ def getelementptr (rewriter: PatternRewriter OpCode) (op: OperationPtr) :
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
+  /- Early loop: multi-instruction fusion patterns that must run before the
+     per-op lowerings consume their operands. -/
+  /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store]
   match RewritePattern.applyInContext pattern ctx with
