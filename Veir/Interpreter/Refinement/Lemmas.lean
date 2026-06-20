@@ -156,3 +156,14 @@ theorem ValueMapping.ReflectsResults.not_mem_getResults
   simp only [OperationPtr.getResults!.mem_iff_exists_index] at hmem
   have ⟨index, hindex, heq⟩ := hmem
   grind [OperationPtr.getResults!.mem_iff_exists_index, hReflect val valIn index heq.symm]
+
+/-! ## Conformance under refinement -/
+
+/-- Refinement preserves conformance to a type: if `sv ⊒ tv` and `sv` conforms to `ty`, then `tv`
+conforms to `ty`. -/
+@[grind →]
+theorem RuntimeValue.Conforms_of_isRefinedBy {sv tv : RuntimeValue} {ty : TypeAttr}
+    (href : sv ⊒ tv) (hconf : sv.Conforms ty) : tv.Conforms ty := by
+  obtain ⟨attr, hattr⟩ := ty
+  cases sv <;> cases attr <;> simp_all [RuntimeValue.isRefinedBy, RuntimeValue.Conforms]
+  all_goals cases tv <;> grind
