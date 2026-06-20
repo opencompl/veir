@@ -72,6 +72,80 @@ theorem VariableState.setResultValues?_isRefinedBy
     have hfix := ValueMapping.applyToArray_getResults!_ext opIn hResults.symm
     grind [RuntimeValue.arrayIsRefinedBy]
 
+/-- `setArgumentValues?` preserves the state refinement. If the source/target variable states are
+related by `mapping`, the block argument values refine pointwise (`values ⊒ values'`), the
+renaming `mapping` doesn't change the block arguments (`hArgs` and `hReflectArgs`), and the target
+values conform to the target argument types (`tgtConforms`), then the target `setArgumentValues?`
+also succeeds and the states after binding the block arguments are again related by `mapping`. -/
+theorem VariableState.setArgumentValues?_isRefinedBy {ctx ctx' : WfIRContext OpCode}
+    {srcVars : VariableState ctx} {tgtVars : VariableState ctx'} {mapping : ValueMapping ctx ctx'}
+    {block : BlockPtr} {values values' : Array RuntimeValue} {newSrcVars : VariableState ctx}
+    (hRef : srcVars.isRefinedBy tgtVars mapping)
+    (hVals : values ⊒ values')
+    (blockIn : block.InBounds ctx.raw) (blockIn' : block.InBounds ctx'.raw)
+    (hArgs : block.getArguments! ctx'.raw = mapping.applyToArray (block.getArguments! ctx.raw))
+    (hReflectArgs : ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw) (arg : ValuePtr),
+        arg ∈ block.getArguments! ctx'.raw →
+        (mapping ⟨val, valIn⟩).val = arg → val = arg)
+    (tgtConforms : ∀ j, j < block.getNumArguments! ctx'.raw →
+        (values'[j]!).Conforms ((block.getArguments! ctx'.raw)[j]!.getType! ctx'.raw))
+    (hSrc : srcVars.setArgumentValues? block values blockIn = some newSrcVars) :
+    ∃ newTgtVars, tgtVars.setArgumentValues? block values' blockIn' = some newTgtVars ∧
+                  newSrcVars.isRefinedBy newTgtVars mapping := by
+  -- `applyToArray` preserves size, so the two blocks have the same number of arguments; the renaming
+  -- fixes every block argument (`hArgs` is the pointwise "fixes" equation in array form).
+  have hNumArgs : block.getNumArguments! ctx'.raw = block.getNumArguments! ctx.raw := by
+    have := congrArg Array.size hArgs
+    simpa using this
+  have hFix : ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw),
+      val ∈ block.getArguments! ctx.raw → (mapping ⟨val, valIn⟩).val = val := by
+    intro val valIn hMem
+    obtain ⟨i, hi, rfl⟩ := BlockPtr.getArguments!.mem_iff_exists_index.mp hMem
+    exact ValueMapping.applyToArray_getArguments!_ext blockIn hArgs.symm i hi
+  -- Target success follows from conformance of the (refined) target values.
+  have tgtConforms' : ∀ j, j < block.getNumArguments! ctx'.raw →
+      (values'[j]!).Conforms ((block.getArgument j : ValuePtr).getType! ctx'.raw) := by
+    intro j hj
+    rw [← BlockPtr.getArguments!.getElem!_eq_getArgument hj]
+    exact tgtConforms j hj
+  have ⟨newTgtVars, hTgt⟩ :=
+    (VariableState.setArgumentValues?_isSome_iff_conforms tgtVars
+      (block := block) (blockInBounds := blockIn')).mp tgtConforms'
+  refine ⟨newTgtVars, hTgt, ?_⟩
+  -- Pointwise refinement of the value arrays at every argument index. Out-of-range indices read the
+  -- same `default` on both sides (the arrays have equal size by `hVals`), so refinement holds there too.
+  have hPt : ∀ i, i < block.getNumArguments! ctx.raw → values[i]! ⊒ values'[i]! := by
+    intro i _hi
+    obtain ⟨hsize, hpt⟩ := hVals
+    by_cases h : i < values.size
+    · exact hpt i h
+    · rw [getElem!_neg values i h, getElem!_neg values' i (hsize ▸ h)]
+      exact RuntimeValue.isRefinedBy_refl _
+  intro val valIn sv hsv
+  by_cases hMem : val ∈ block.getArguments! ctx.raw
+  · -- `val` is a block argument `block.getArgument i`, set to `values[i]!`/`values'[i]!`.
+    obtain ⟨i, hi, rfl⟩ := BlockPtr.getArguments!.mem_iff_exists_index.mp hMem
+    have hsrcval := VariableState.getVar?_getArgument_of_setArgumentValues? hi hSrc
+    rw [hsv] at hsrcval
+    obtain rfl : sv = values[i]! := (Option.some.injEq ..).mp hsrcval
+    refine ⟨values'[i]!, ?_, hPt i hi⟩
+    rw [hFix (block.getArgument i) valIn hMem]
+    exact VariableState.getVar?_getArgument_of_setArgumentValues? (hNumArgs ▸ hi) hTgt
+  · -- `val` is not a block argument: its value is unchanged on both sides; use `hRef`.
+    rw [VariableState.getVar?_setArgumentValues?_of_notMem_getArguments! hMem hSrc] at hsv
+    obtain ⟨tv, htv, href⟩ := hRef val valIn sv hsv
+    refine ⟨tv, ?_, href⟩
+    -- `mapping val` is not a block argument either (else `hReflectArgs` forces `val` to be one).
+    have hσnotMem : (mapping ⟨val, valIn⟩).val ∉ block.getArguments! ctx'.raw := by
+      intro hm
+      obtain ⟨i, hi, heq⟩ := BlockPtr.getArguments!.mem_iff_exists_index.mp hm
+      have harg : (block.getArgument i : ValuePtr) ∈ block.getArguments! ctx'.raw :=
+        BlockPtr.getArguments!.mem_iff_exists_index.mpr ⟨i, hi, rfl⟩
+      exact hMem (BlockPtr.getArguments!.mem_iff_exists_index.mpr
+        ⟨i, hNumArgs ▸ hi, (hReflectArgs val valIn _ harg heq.symm).symm⟩)
+    rw [VariableState.getVar?_setArgumentValues?_of_notMem_getArguments! hσnotMem hTgt]
+    exact htv
+
 /--
 `interpretOp` is monotone under a *cross-context* interpreter-state refinement.
 
