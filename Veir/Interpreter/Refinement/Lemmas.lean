@@ -208,6 +208,20 @@ theorem ValueMapping.applyToArray_getResults!_ext
     Array.getElem_attach] at hResults
   grind
 
+/-- Extensibility theorem for value mappings fixing a block's argument pointers across contexts. -/
+theorem ValueMapping.applyToArray_getArguments!_ext
+    {ctx ctx' : WfIRContext OpInfo} {block : BlockPtr}
+    {mapping : ValueMapping ctx ctx'}
+    (blockIn : block.InBounds ctx.raw)
+    (hArgs : mapping.applyToArray (block.getArguments! ctx.raw) = block.getArguments! ctx'.raw) :
+    ∀ (i : Nat) (hi : i < block.getNumArguments! ctx.raw),
+      (mapping ⟨block.getArgument i, (by grind)⟩).val = block.getArgument i := by
+  intro i hi
+  simp only [applyToArray, Array.ext_iff, Array.size_map, Array.size_attach,
+    BlockPtr.getArguments!.size_eq_getNumArguments!, Array.getElem_map,
+    Array.getElem_attach] at hArgs
+  grind
+
 /-- If a value mapping reflects results from `op` to `op'`, then values that are not in
 `op` results are not mapped to values in `op'` results. -/
 @[grind .]
