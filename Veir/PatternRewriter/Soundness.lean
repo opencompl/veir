@@ -1879,8 +1879,10 @@ theorem RewrittenAt.of_fromLocalRewrite
     otherBlocks := by sorry
     -- Number of produced values: directly from the pattern's `ReturnValues` obligation.
     newValuesSize := hReturnValues rewriter.ctx op opInBounds newCtxPat newOps newValues hpat
-    -- TODO(PR 9, keystone): `ReturnValuesInBounds` gives in-bounds of `newCtxPat`; transport
-    -- through insert/replace/erase (bounds monotonic, none of the `newValues` is `op`'s results).
+    -- TODO(PR 9): `ReturnValuesInBounds` gives in-bounds of `newCtxPat`; transport via `hbnd`, then
+    -- `eraseOp`. NEEDS EXTRA HYPOTHESIS: a `newValue` that is one of `op`'s own results would be erased,
+    -- so this requires the pattern to guarantee `newValues` do not reference `op`'s results (cf.
+    -- `hSurviveVal`, which is then directly applicable).
     newValuesInBounds := by sorry
     -- `ReturnOps` characterizes `newOps` as fresh to `newCtxPat`; a `newOp ≠ op` has the same bounds
     -- in `newCtxPat` and `rewriter'.ctx` (`hOpBnd`), so the freshness transports.
@@ -1895,7 +1897,8 @@ theorem RewrittenAt.of_fromLocalRewrite
       · rintro ⟨h1, h2⟩
         have hne : newOp ≠ op := by rintro rfl; exact h2 opInBounds
         exact hfresh.mpr ⟨(hOpBnd newOp hne).mp h1, h2⟩
-    -- TODO(PR 9, keystone): from `ReturnValuesInBounds` + bounds transport.
+    -- TODO(PR 9): as `newValuesInBounds` (indexed form via `ReturnValues` size). NEEDS EXTRA
+    -- HYPOTHESIS: `newValues` must not reference `op`'s results (so they survive `eraseOp`).
     mapResultsInBounds := by sorry
     -- A value that is not a result of `op` survives: its owner (if any) is `≠ op`, so it is not one
     -- of the pointers `eraseOp` removes.
@@ -1925,14 +1928,18 @@ theorem RewrittenAt.of_fromLocalRewrite
       hSurviveBlock b (hCreated.inBounds_mono (GenericPtr.block b) (by grind))
     -- TODO(PR 9, keystone): parent ops of survivors preserved (op-list edits don't move other ops).
     parentOps := by sorry
-    -- TODO(PR 9, keystone): `WfRewriter` ops preserve dominance well-formedness.
+    -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS. Dominance/verification are not preserved by arbitrary
+    -- `insertOp`s, so this requires source `rewriter.ctx.Dom` plus a pattern obligation that the rewrite
+    -- produces a dominance-well-formed result (mirroring `PreservesSemantics`'s `ctxDom`).
     newCtxDom := by sorry
-    -- TODO(PR 9, keystone): `WfRewriter` ops preserve `Verified`.
+    -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS, as `newCtxDom` (source `rewriter.ctx.Verified` + pattern
+    -- obligation that the result is verified).
     newCtxVerif := by sorry
     -- `σ` (`rewriteMapping`) is the identity off `op`'s results: it takes the `else` branch.
     mappingFixesNonResults := fun v vIn hv => by
       simp only [rewriteMapping, dif_neg hv]
-    -- TODO(PR 9, keystone): each produced value is a result of some `newOp` (from the driver).
+    -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS. The four `Return*` props do not force `newValues` to be
+    -- operation results (a pattern could return a block argument), so this needs a pattern obligation.
     newValuesAreResults := by sorry
     -- TODO(PR 9, keystone): operation-list edits leave block-argument lists untouched.
     blockArgsPreserved := by sorry
