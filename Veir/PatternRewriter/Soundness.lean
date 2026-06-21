@@ -1859,6 +1859,15 @@ theorem RewrittenAt.of_fromLocalRewrite
     have hb := hbnd (GenericPtr.operation o)
     rw [PatternRewriter.eraseOp_ctx_eq herase]
     grind [WfRewriter.eraseOp]
+  -- Survival of a value that is not one of `op`'s results: the folds preserve bounds and `eraseOp`
+  -- removes only `op` and the pointers it owns (so a value whose owner is `≠ op` survives).
+  have hSurviveVal : ∀ v : ValuePtr, v.InBounds newCtxPat.raw →
+      (∀ orp : OpResultPtr, v = ValuePtr.opResult orp → orp.op ≠ op) →
+      v.InBounds rewriter'.ctx.raw := by
+    intro v hv hcond
+    have hb := (hbnd (GenericPtr.value v)).mpr hv
+    rw [PatternRewriter.eraseOp_ctx_eq herase]
+    grind [WfRewriter.eraseOp]
   refine ⟨pre, post, blockIn, blockIn', ?_⟩
   exact {
     -- Block-list shape: discharged for the source by the split lemma.
@@ -1888,8 +1897,18 @@ theorem RewrittenAt.of_fromLocalRewrite
         exact hfresh.mpr ⟨(hOpBnd newOp hne).mp h1, h2⟩
     -- TODO(PR 9, keystone): from `ReturnValuesInBounds` + bounds transport.
     mapResultsInBounds := by sorry
-    -- TODO(PR 9, keystone): non-results survive (bounds transport minus erase-of-op).
-    mapNonResultsInBounds := by sorry
+    -- A value that is not a result of `op` survives: its owner (if any) is `≠ op`, so it is not one
+    -- of the pointers `eraseOp` removes.
+    mapNonResultsInBounds := by
+      intro v vIn hv
+      apply hSurviveVal v (hCreated.inBounds_mono (GenericPtr.value v) (by grind))
+      rintro orp rfl horp
+      apply hv
+      rw [OperationPtr.getResults!.mem_iff_exists_index]
+      refine ⟨orp.index, by grind, ?_⟩
+      rw [OperationPtr.getResult_def]
+      obtain ⟨o, i⟩ := orp
+      simp_all
     -- `eraseOp op` deallocates `op`, so it is no longer in bounds of `rewriter'.ctx`.
     opErased := by
       rw [PatternRewriter.eraseOp_ctx_eq herase]
