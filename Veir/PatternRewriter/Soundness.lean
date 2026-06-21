@@ -1830,6 +1830,27 @@ theorem RewrittenAt.of_fromLocalRewrite
     have hb := (hbnd (GenericPtr.block block)).mpr hblockNewCtxPat
     rw [PatternRewriter.eraseOp_ctx_eq herase]
     grind [WfRewriter.eraseOp]
+  -- The pattern only creates operations, so every source pointer survives into `newCtxPat`.
+  have hCreated : WfIRContext.WithCreatedOps rewriter.ctx newCtxPat :=
+    hReturnCtxChanges rewriter.ctx op newCtxPat newOps newValues hpat
+  -- Survival of non-`op` pointers into the final context: through the insert/replace folds (`hbnd`),
+  -- then the final `eraseOp` (which only removes `op` and pointers it owns).
+  have hSurviveOp : ∀ o : OperationPtr, o ≠ op → o.InBounds newCtxPat.raw →
+      o.InBounds rewriter'.ctx.raw := by
+    intro o hne ho
+    have hb := (hbnd (GenericPtr.operation o)).mpr ho
+    rw [PatternRewriter.eraseOp_ctx_eq herase]
+    grind [WfRewriter.eraseOp]
+  have hSurviveBlock : ∀ b : BlockPtr, b.InBounds newCtxPat.raw → b.InBounds rewriter'.ctx.raw := by
+    intro b hb'
+    have hb := (hbnd (GenericPtr.block b)).mpr hb'
+    rw [PatternRewriter.eraseOp_ctx_eq herase]
+    grind [WfRewriter.eraseOp]
+  have hSurviveRegion : ∀ r : RegionPtr, r.InBounds newCtxPat.raw → r.InBounds rewriter'.ctx.raw := by
+    intro r hr'
+    have hb := (hbnd (GenericPtr.region r)).mpr hr'
+    rw [PatternRewriter.eraseOp_ctx_eq herase]
+    grind [WfRewriter.eraseOp]
   refine ⟨pre, post, blockIn, blockIn', ?_⟩
   exact {
     -- Block-list shape: discharged for the source by the split lemma.
@@ -1851,15 +1872,20 @@ theorem RewrittenAt.of_fromLocalRewrite
     mapResultsInBounds := by sorry
     -- TODO(PR 9, keystone): non-results survive (bounds transport minus erase-of-op).
     mapNonResultsInBounds := by sorry
-    -- TODO(PR 9, keystone): `eraseOp op` removes `op` from bounds of `rewriter'.ctx`.
-    opErased := by sorry
-    -- TODO(PR 9, keystone): every operation `≠ op` survives insert/replace/erase.
-    survives := by sorry
+    -- `eraseOp op` deallocates `op`, so it is no longer in bounds of `rewriter'.ctx`.
+    opErased := by
+      rw [PatternRewriter.eraseOp_ctx_eq herase]
+      grind [WfRewriter.eraseOp, Rewriter.eraseOp,
+        OperationPtr.InBounds.ne_of_inBounds_OperationPtr_dealloc]
+    -- Every operation `≠ op` survives: into `newCtxPat` (pattern only creates), then the folds/erase.
+    survives := fun o hoIn hne =>
+      hSurviveOp o hne (hCreated.inBounds_mono (GenericPtr.operation o) (by grind))
     -- TODO(PR 9, keystone): `CrossContextFrame` under `σ`; `*_insertOp`/`*_detachOp` GetSet lemmas
     -- give unchanged type/props/results/successors, `replaceValue` redirects operands = `σ.applyToArray`.
     frame := by sorry
-    -- TODO(PR 9, keystone): blocks stay in bounds across the fold.
-    blocksInBounds := by sorry
+    -- Blocks stay in bounds: into `newCtxPat`, then the folds/erase (erase removes only `op`).
+    blocksInBounds := fun b hb =>
+      hSurviveBlock b (hCreated.inBounds_mono (GenericPtr.block b) (by grind))
     -- TODO(PR 9, keystone): parent ops of survivors preserved (op-list edits don't move other ops).
     parentOps := by sorry
     -- TODO(PR 9, keystone): `WfRewriter` ops preserve dominance well-formedness.
@@ -1872,8 +1898,9 @@ theorem RewrittenAt.of_fromLocalRewrite
     newValuesAreResults := by sorry
     -- TODO(PR 9, keystone): operation-list edits leave block-argument lists untouched.
     blockArgsPreserved := by sorry
-    -- TODO(PR 9, keystone): regions stay in bounds across the fold.
-    regionsInBounds := by sorry
+    -- Regions stay in bounds: into `newCtxPat`, then the folds/erase (erase removes only `op`).
+    regionsInBounds := fun r hr =>
+      hSurviveRegion r (hCreated.inBounds_mono (GenericPtr.region r) (by grind))
     -- TODO(PR 9, keystone): op-list edits leave survivors' region lists untouched.
     opRegionsPreserved := by sorry
     -- TODO(PR 9, keystone): op-list edits leave region entry blocks untouched.
