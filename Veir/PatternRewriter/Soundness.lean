@@ -1851,6 +1851,14 @@ theorem RewrittenAt.of_fromLocalRewrite
     have hb := (hbnd (GenericPtr.region r)).mpr hr'
     rw [PatternRewriter.eraseOp_ctx_eq herase]
     grind [WfRewriter.eraseOp]
+  -- Bidirectional bounds for a non-`op` operation: the folds preserve all bounds and the final
+  -- `eraseOp` removes only `op`, so an operation `≠ op` is in `rewriter'.ctx` iff it is in `newCtxPat`.
+  have hOpBnd : ∀ o : OperationPtr, o ≠ op →
+      (o.InBounds rewriter'.ctx.raw ↔ o.InBounds newCtxPat.raw) := by
+    intro o hne
+    have hb := hbnd (GenericPtr.operation o)
+    rw [PatternRewriter.eraseOp_ctx_eq herase]
+    grind [WfRewriter.eraseOp]
   refine ⟨pre, post, blockIn, blockIn', ?_⟩
   exact {
     -- Block-list shape: discharged for the source by the split lemma.
@@ -1865,9 +1873,19 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- TODO(PR 9, keystone): `ReturnValuesInBounds` gives in-bounds of `newCtxPat`; transport
     -- through insert/replace/erase (bounds monotonic, none of the `newValues` is `op`'s results).
     newValuesInBounds := by sorry
-    -- TODO(PR 9, keystone): `ReturnOps` characterizes `newOps` as fresh to `newCtxPat`; transport
-    -- the freshness across the insert/erase fold to `rewriter'.ctx`.
-    newOpsFresh := by sorry
+    -- `ReturnOps` characterizes `newOps` as fresh to `newCtxPat`; a `newOp ≠ op` has the same bounds
+    -- in `newCtxPat` and `rewriter'.ctx` (`hOpBnd`), so the freshness transports.
+    newOpsFresh := by
+      intro newOp
+      have hfresh := hReturnOps rewriter.ctx op newCtxPat newOps newValues hpat newOp
+      constructor
+      · intro hmem
+        obtain ⟨h1, h2⟩ := hfresh.mp hmem
+        have hne : newOp ≠ op := by rintro rfl; exact h2 opInBounds
+        exact ⟨(hOpBnd newOp hne).mpr h1, h2⟩
+      · rintro ⟨h1, h2⟩
+        have hne : newOp ≠ op := by rintro rfl; exact h2 opInBounds
+        exact hfresh.mpr ⟨(hOpBnd newOp hne).mp h1, h2⟩
     -- TODO(PR 9, keystone): from `ReturnValuesInBounds` + bounds transport.
     mapResultsInBounds := by sorry
     -- TODO(PR 9, keystone): non-results survive (bounds transport minus erase-of-op).
@@ -1892,8 +1910,9 @@ theorem RewrittenAt.of_fromLocalRewrite
     newCtxDom := by sorry
     -- TODO(PR 9, keystone): `WfRewriter` ops preserve `Verified`.
     newCtxVerif := by sorry
-    -- TODO(PR 9, keystone): `σ` (`rewriteMapping`) is the identity off `op`'s results.
-    mappingFixesNonResults := by sorry
+    -- `σ` (`rewriteMapping`) is the identity off `op`'s results: it takes the `else` branch.
+    mappingFixesNonResults := fun v vIn hv => by
+      simp only [rewriteMapping, dif_neg hv]
     -- TODO(PR 9, keystone): each produced value is a result of some `newOp` (from the driver).
     newValuesAreResults := by sorry
     -- TODO(PR 9, keystone): operation-list edits leave block-argument lists untouched.
