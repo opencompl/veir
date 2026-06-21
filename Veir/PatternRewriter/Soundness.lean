@@ -1666,4 +1666,220 @@ theorem RewrittenAt.interpretModule_refinement
     rw [dif_pos (by simpa using hNum)]
     exact Interp.isRefinedBy_none_target
 
+/-! ## PR 9: connecting the concrete driver `fromLocalRewrite` to `RewrittenAt`
+
+The whole soundness lift above is developed against the abstract `RewrittenAt` relation. This section
+bridges it to the concrete driver `RewritePattern.fromLocalRewrite`: when the driver runs the rewrite
+branch (the pattern matched `op`, producing `newOps`/`newValues`) and succeeds with output rewriter
+`rewriter'`, the net edit `rewriter.ctx ↦ rewriter'.ctx` is exactly a `RewrittenAt` instance.
+
+### Keystone: the driver's net context is a pure `WfRewriter` fold
+
+`fromLocalRewrite` threads a `PatternRewriter` (carrying a worklist) through three IR edits:
+*insert each `newOp` before `op`*, *redirect each result `op.getResult i` to `newValues[i]`*, and
+*erase `op`*. Each `PatternRewriter` primitive (`insertOp`/`replaceValue`/`eraseOp`) only touches the
+`.ctx` field through the corresponding `WfRewriter` call; the worklist bookkeeping is inert for the
+IR. So `rewriter'.ctx` is the pure fold of the underlying `WfRewriter` operations over the pattern's
+output context `newCtxPat`, *independent of the worklist*. This decomposition is the keystone: every
+`RewrittenAt` field is a statement about `rewriter'.ctx`, so it is only approachable once `rewriter'.ctx`
+is characterized this way (via the existing `operationList_rewriter_insertOp`/`_eraseOp` and the
+`*_insertOp`/`*_detachOp` GetSet libraries). -/
+
+/-- An in-bounds operation that lives in `block` splits `block`'s operation list as
+`pre ++ [op] ++ post` (its predecessors and successors in the block's op chain). -/
+theorem BlockPtr.operationList_split_at_op {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {block : BlockPtr}
+    (opIn : op.InBounds ctx.raw) (hParent : (op.get! ctx.raw).parent = some block)
+    (blockIn : block.InBounds ctx.raw) :
+    ∃ pre post, block.operationList ctx.raw ctx.wellFormed blockIn = pre ++ #[op] ++ post := by
+  have hmem : op ∈ block.operationList ctx.raw ctx.wellFormed blockIn :=
+    (BlockPtr.operationList.mem opIn).mp hParent
+  obtain ⟨s, t, hst⟩ :=
+    List.append_of_mem (a := op)
+      (l := (block.operationList ctx.raw ctx.wellFormed blockIn).toList) (by simpa using hmem)
+  exact ⟨s.toArray, t.toArray, by apply Array.toList_inj.mp; simp [hst]⟩
+
+/-- Generic invariant transport across a monadic left fold in the `Option` monad: if a predicate `P`
+is preserved by every successful step `f b a = some b'`, then it is preserved across the whole fold
+(when it succeeds). The keystone fields below instantiate `P` with `InBounds`, `operationList`, … to
+transport facts through the driver's `insertOp`/`replaceValue` folds. -/
+theorem List.foldlM_option_invariant {α β : Type} {f : β → α → Option β} {P : β → Prop}
+    (hstep : ∀ b a b', f b a = some b' → (P b' ↔ P b)) :
+    ∀ {init s : β} {l : List α}, l.foldlM f init = some s → (P s ↔ P init) := by
+  intro init s l
+  induction l generalizing init with
+  | nil =>
+    intro h
+    rw [List.foldlM_nil] at h
+    obtain rfl : init = s := by simpa using h
+    rfl
+  | cons a t ih =>
+    intro h
+    rw [List.foldlM_cons] at h
+    obtain ⟨b, hf, hb⟩ := Option.bind_eq_some_iff.mp h
+    rw [ih hb, hstep init a b hf]
+
+/-- `Array` version of `List.foldlM_option_invariant`. -/
+theorem Array.foldlM_option_invariant {α β : Type} {f : β → α → Option β} {P : β → Prop}
+    {init s : β} {xs : Array α}
+    (hstep : ∀ b a b', f b a = some b' → (P b' ↔ P b))
+    (h : Array.foldlM f init xs = some s) : P s ↔ P init := by
+  rw [← Array.foldlM_toList] at h
+  exact List.foldlM_option_invariant hstep h
+
+/-- `PatternRewriter.insertOp` only edits the IR through its `WfRewriter.insertOp` call, which leaves
+all `InBounds` facts unchanged. -/
+theorem PatternRewriter.insertOp_ctx_inBounds {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {ptr : GenericPtr}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    ptr.InBounds b'.ctx.raw ↔ ptr.InBounds b.ctx.raw := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · simp at h
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h
+    subst h
+    exact WfRewriter.insertOp_inBounds_iff hwf
+
+/-- `PatternRewriter.replaceValue` only edits the IR through its `WfRewriter.replaceValue` call (the
+worklist update leaves `.ctx` untouched), which leaves all `InBounds` facts unchanged. -/
+theorem PatternRewriter.replaceValue_ctx_inBounds {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {ptr : GenericPtr} :
+    ptr.InBounds (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw ↔ ptr.InBounds b.ctx.raw := by
+  unfold PatternRewriter.replaceValue
+  simp only [addUsersInWorklist_same_ctx]
+  exact WfRewriter.replaceValue_inBounds
+
+/-- `PatternRewriter.eraseOp` sets `.ctx` to the total `WfRewriter.eraseOp` of the input context. -/
+theorem PatternRewriter.eraseOp_ctx_eq {b b' : PatternRewriter OpCode} {op : OperationPtr}
+    {r u hop} (h : PatternRewriter.eraseOp b op r u hop = some b') :
+    b'.ctx = WfRewriter.eraseOp b.ctx op r u hop := by
+  unfold PatternRewriter.eraseOp at h
+  simp only [bind, Option.bind, Option.some.injEq] at h
+  subst h
+  rfl
+
+set_option warn.sorry false in
+/--
+**PR 9 — bridge from the concrete driver.** When `fromLocalRewrite` runs the rewrite branch for a
+matched, in-bounds, region-free `op` that lives inside a block, and the pattern satisfies the four
+`Return*` correctness obligations, the driver's output context `rewriter'.ctx` is related to the input
+`rewriter.ctx` by a `RewrittenAt` instance (the existential supplies the block and the surrounding
+`pre`/`post` operation lists). This is the concrete instance the abstract soundness lift consumes.
+
+`opNotFunction` (clause 9) follows from `hOpRegions` (`op` has no regions, so in particular not one).
+The remaining structural fields are discharged from the keystone fold decomposition plus the
+`Return*` obligations; this is the deferred proof effort.
+-/
+theorem RewrittenAt.of_fromLocalRewrite
+    {pattern : LocalRewritePattern OpCode}
+    (hReturnOps : pattern.ReturnOps)
+    (hReturnCtxChanges : pattern.ReturnCtxChanges)
+    (hReturnValuesInBounds : pattern.ReturnValuesInBounds)
+    (hReturnValues : pattern.ReturnValues)
+    {rewriter rewriter' : PatternRewriter OpCode}
+    {op : OperationPtr} (opInBounds : op.InBounds rewriter.ctx.raw)
+    {block : BlockPtr} (hOpParent : (op.get! rewriter.ctx.raw).parent = some block)
+    (hOpRegions : op.getNumRegions! rewriter.ctx.raw = 0)
+    {newCtxPat : WfIRContext OpCode} {newOps : Array OperationPtr} {newValues : Array ValuePtr}
+    (hpat : pattern rewriter.ctx op = some (newCtxPat, some (newOps, newValues)))
+    (hdriver : RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter') :
+    ∃ (pre post : Array OperationPtr)
+      (blockIn : block.InBounds rewriter.ctx.raw) (blockIn' : block.InBounds rewriter'.ctx.raw),
+      RewrittenAt rewriter.ctx op newOps newValues rewriter'.ctx opInBounds
+        block pre post blockIn blockIn' := by
+  -- `block` is in bounds of the source context: it is the parent of the in-bounds `op`.
+  have blockIn : block.InBounds rewriter.ctx.raw := by
+    have := rewriter.ctx.wellFormed.inBounds; grind
+  -- Split `block`'s source operation list at `op` into the surrounding `pre`/`post`.
+  obtain ⟨pre, post, hsrcList⟩ :=
+    BlockPtr.operationList_split_at_op opInBounds hOpParent blockIn
+  -- Keystone reduction: the driver's worklist bookkeeping is inert for the IR, so `hdriver` reduces
+  -- to a pure `WfRewriter` fold (`bind_pure_comp` turns each loop body `· >>= pure ∘ .yield` into a
+  -- functor map; `Array.forIn_yield_eq_foldlM` turns the `forIn` loops into `foldlM`s). After this,
+  -- `hdriver` reads: insert every `newOp` before `op`, redirect each result to `newValues`, erase
+  -- `op` — the middle operands-collection loop is dead (its result is discarded). Every `RewrittenAt`
+  -- field below is a fact about the resulting `rewriter'.ctx` read off this fold.
+  unfold RewritePattern.fromLocalRewrite at hdriver
+  rw [hpat] at hdriver
+  simp only [bind_pure_comp, Array.forIn_yield_eq_foldlM, id_map'] at hdriver
+  -- Decompose the reduced driver into its three stages: insert-fold (→ `s₁`), replace-fold (→ `s₂`),
+  -- then the final `eraseOp` of `op`. The middle operands-collection loop is discarded.
+  obtain ⟨s₁, hfold1, hdriver⟩ := Option.bind_eq_some_iff.mp hdriver
+  obtain ⟨s₂, hfold2, hdriver⟩ := Option.bind_eq_some_iff.mp hdriver
+  obtain ⟨_arr, _hloop, herase⟩ := Option.bind_eq_some_iff.mp hdriver
+  -- Bounds transport across the insert/replace folds: both preserve every `InBounds` fact, so `s₂.ctx`
+  -- agrees with the pattern's output `newCtxPat` on bounds.
+  have hbnd : ∀ ptr : GenericPtr, ptr.InBounds s₂.ctx.raw ↔ ptr.InBounds newCtxPat.raw := by
+    intro ptr
+    have h1 := Array.foldlM_option_invariant
+      (P := fun b : PatternRewriter OpCode => ptr.InBounds b.ctx.raw)
+      (fun b a b' h => PatternRewriter.insertOp_ctx_inBounds h) hfold1
+    have h2 := Array.foldlM_option_invariant
+      (P := fun b : PatternRewriter OpCode => ptr.InBounds b.ctx.raw)
+      (fun b a b' h => by
+        rw [Option.some.injEq] at h; subst h; exact PatternRewriter.replaceValue_ctx_inBounds) hfold2
+    exact h2.trans h1
+  -- `block` survives into the pattern's output context (the pattern only creates ops).
+  have hblockNewCtxPat : block.InBounds newCtxPat.raw :=
+    (hReturnCtxChanges rewriter.ctx op newCtxPat newOps newValues hpat).inBounds_mono
+      (GenericPtr.block block) (by grind)
+  -- `block` survives the rewrite: bounds are preserved through the folds (`hbnd`) and the final
+  -- `eraseOp` only removes `op` (an operation), never a block.
+  have blockIn' : block.InBounds rewriter'.ctx.raw := by
+    have hb := (hbnd (GenericPtr.block block)).mpr hblockNewCtxPat
+    rw [PatternRewriter.eraseOp_ctx_eq herase]
+    grind [WfRewriter.eraseOp]
+  refine ⟨pre, post, blockIn, blockIn', ?_⟩
+  exact {
+    -- Block-list shape: discharged for the source by the split lemma.
+    srcList := hsrcList
+    -- TODO(PR 9, keystone): `operationList_rewriter_insertOp` (newOps before op) +
+    -- `operationList_rewriter_eraseOp` (op removed) on the fold decomposition.
+    tgtList := by sorry
+    -- TODO(PR 9, keystone): insert/erase only touch `block`'s list (other blocks unchanged).
+    otherBlocks := by sorry
+    -- Number of produced values: directly from the pattern's `ReturnValues` obligation.
+    newValuesSize := hReturnValues rewriter.ctx op opInBounds newCtxPat newOps newValues hpat
+    -- TODO(PR 9, keystone): `ReturnValuesInBounds` gives in-bounds of `newCtxPat`; transport
+    -- through insert/replace/erase (bounds monotonic, none of the `newValues` is `op`'s results).
+    newValuesInBounds := by sorry
+    -- TODO(PR 9, keystone): `ReturnOps` characterizes `newOps` as fresh to `newCtxPat`; transport
+    -- the freshness across the insert/erase fold to `rewriter'.ctx`.
+    newOpsFresh := by sorry
+    -- TODO(PR 9, keystone): from `ReturnValuesInBounds` + bounds transport.
+    mapResultsInBounds := by sorry
+    -- TODO(PR 9, keystone): non-results survive (bounds transport minus erase-of-op).
+    mapNonResultsInBounds := by sorry
+    -- TODO(PR 9, keystone): `eraseOp op` removes `op` from bounds of `rewriter'.ctx`.
+    opErased := by sorry
+    -- TODO(PR 9, keystone): every operation `≠ op` survives insert/replace/erase.
+    survives := by sorry
+    -- TODO(PR 9, keystone): `CrossContextFrame` under `σ`; `*_insertOp`/`*_detachOp` GetSet lemmas
+    -- give unchanged type/props/results/successors, `replaceValue` redirects operands = `σ.applyToArray`.
+    frame := by sorry
+    -- TODO(PR 9, keystone): blocks stay in bounds across the fold.
+    blocksInBounds := by sorry
+    -- TODO(PR 9, keystone): parent ops of survivors preserved (op-list edits don't move other ops).
+    parentOps := by sorry
+    -- TODO(PR 9, keystone): `WfRewriter` ops preserve dominance well-formedness.
+    newCtxDom := by sorry
+    -- TODO(PR 9, keystone): `WfRewriter` ops preserve `Verified`.
+    newCtxVerif := by sorry
+    -- TODO(PR 9, keystone): `σ` (`rewriteMapping`) is the identity off `op`'s results.
+    mappingFixesNonResults := by sorry
+    -- TODO(PR 9, keystone): each produced value is a result of some `newOp` (from the driver).
+    newValuesAreResults := by sorry
+    -- TODO(PR 9, keystone): operation-list edits leave block-argument lists untouched.
+    blockArgsPreserved := by sorry
+    -- TODO(PR 9, keystone): regions stay in bounds across the fold.
+    regionsInBounds := by sorry
+    -- TODO(PR 9, keystone): op-list edits leave survivors' region lists untouched.
+    opRegionsPreserved := by sorry
+    -- TODO(PR 9, keystone): op-list edits leave region entry blocks untouched.
+    regionFirstBlockPreserved := by sorry
+    -- `op` is not a function: it has no regions, so in particular not exactly one.
+    opNotFunction := by simp [hOpRegions]
+  }
+
 end Veir
