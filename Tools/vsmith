@@ -31,6 +31,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 from vsmith_generate import generate
 
 
+DEFAULT_PASSES = "instcombine,dce,cse,dce"
+RISCV_PASSES = (
+    "canonicalize,instcombine,canonicalize,cse,dce,"
+    "isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,"
+    "canonicalize,riscv-combine,reconcile-cast,dce"
+)
+
+
 @dataclass(frozen=True)
 class ToolResult:
     returncode: int
@@ -595,8 +603,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help="number of random programs to test, or -1 to run forever (default: 100)")
     parser.add_argument("--seed", type=int, default=None,
                         help="random seed (default: fresh system entropy)")
-    parser.add_argument("--passes", default="instcombine,dce,cse,dce",
-                        help="veir-opt pass pipeline (default: instcombine,dce,cse,dce)")
+    parser.add_argument("--passes", default=DEFAULT_PASSES,
+                        help=f"veir-opt pass pipeline (default: {DEFAULT_PASSES})")
+    parser.add_argument("--riscv", action="store_true",
+                        help="use the RISC-V backend pass pipeline")
     parser.add_argument("--keep", action="store_true",
                         help="keep workdir on success (always kept on failure)")
     parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
@@ -621,6 +631,8 @@ def resolve_llvm_interp(
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
+    if args.riscv:
+        args.passes = RISCV_PASSES
     repo = Path(__file__).resolve().parents[1]
     llvm_interps: list[LlvmInterpreter] = []
     if args.llubi:
