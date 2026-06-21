@@ -111,16 +111,22 @@ class Generator:
             return self.add_const(typ, rand_const_val(self.rng, width))
         return self.rng.choice(pool)
 
+    def nsw_nuw_props(self) -> str:
+        flags = self.rng.choice((0, 1, 2, 3))
+        if flags == 0:
+            return ""
+        return f' <{{"overflowFlags" = {flags} : i32}}>'
+
     def binary_props(self, op: str) -> str:
         if op in ("llvm.add", "llvm.sub", "llvm.mul"):
-            return self.rng.choice(("", " <{nsw}>", " <{nuw}>", " <{nsw, nuw}>"))
+            return self.nsw_nuw_props()
         if op == "llvm.or":
             return self.rng.choice(("", " <{disjoint}>"))
         return ""
 
     def shift_props(self, op: str) -> str:
         if op == "llvm.shl":
-            return self.rng.choice(("", " <{nsw}>", " <{nuw}>", " <{nsw, nuw}>"))
+            return self.nsw_nuw_props()
         return self.rng.choice(("", " <{exact}>"))
 
     def shift_amount(self, width: int) -> str:
@@ -272,7 +278,7 @@ class Generator:
                 if src_w <= 1:
                     continue
                 dst = f"i{self.rng.randint(1, src_w - 1)}"
-                props = self.rng.choice(("", " <{nsw}>", " <{nuw}>", " <{nsw, nuw}>"))
+                props = self.nsw_nuw_props()
                 operand = self.random_dominating_value(src_w)
                 self.add_operation("llvm.trunc", [operand], [src], dst, props)
             elif choice < 0.90:
