@@ -183,6 +183,30 @@ theorem sub_refinement {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `andn` lowering pattern.
+-/
+theorem andn_refinement {x y : LLVM.Int 64} :
+    (Data.LLVM.Int.and x (Data.LLVM.Int.xor y (LLVM.Int.constant 64 (-1)))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.andn (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `orn` lowering pattern.
+-/
+theorem orn_refinement {x y : LLVM.Int 64} :
+    (Data.LLVM.Int.or x (Data.LLVM.Int.xor y (LLVM.Int.constant 64 (-1)))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.orn (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `xnor` lowering pattern.
+-/
+theorem xnor_refinement {x y : LLVM.Int 64} :
+    (Data.LLVM.Int.xor x (Data.LLVM.Int.xor y (LLVM.Int.constant 64 (-1)))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xnor (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `orcb` lowering pattern (the `Y = 0` case).
 
   The `and` with the per-byte bit-0 mask `0x0101_0101_0101_0101` is what makes the

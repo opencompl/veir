@@ -91,6 +91,15 @@ def matchXor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × 
   let (op, properties) ← matchOp op ctx (.llvm .xor) 2
   return (op[0]!, op[1]!, properties)
 
+/-- Match `xor X, -1` (the canonical "not X"), returning `X`. -/
+def matchNot (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
+  let .opResult opResultPtr := val | none
+  let op := opResultPtr.op
+  let (lhs, rhs) ← matchXori op ctx
+  let cst ← matchConstantIntVal rhs ctx
+  guard (cst.value = -1)
+  return lhs
+
 def matchMul (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .mul)) := do
   let (op, properties) ← matchOp op ctx (.llvm .mul) 2
   return (op[0]!, op[1]!, properties)
