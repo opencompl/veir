@@ -702,6 +702,20 @@ def packw (rs2 : Reg) (rs1 : Reg) : Reg :=
   ⟨BitVec.signExtend 64
     ((BitVec.extractLsb 15 0 rs2.val) ++ (BitVec.extractLsb 15 0 rs1.val))⟩
 
+/-! ## Zicond: Integer conditional operations -/
+
+/--
+  If the condition rs2 is equal to zero, writes zero to rd; otherwise copies rs1 to rd.
+-/
+def czeroeqz (rs2 : Reg) (rs1 : Reg) : Reg :=
+  ⟨if rs2.val == 0 then 0 else rs1.val⟩
+
+/--
+  If the condition rs2 is nonzero, writes zero to rd; otherwise copies rs1 to rd.
+-/
+def czeronez (rs2 : Reg) (rs1 : Reg) : Reg :=
+  ⟨if rs2.val != 0 then 0 else rs1.val⟩
+
 /-! ## Zbkc: Carry-less multiplication for Cryptography -/
 
 /-! ## Zbkx: Carry-less multiplication for Cryptography -/
