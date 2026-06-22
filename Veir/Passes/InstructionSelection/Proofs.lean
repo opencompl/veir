@@ -207,6 +207,37 @@ theorem xnor_refinement {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `select c t 0` -> `czero.eqz t c` lowering pattern.
+-/
+theorem select_czeroeqz_refinement {c : LLVM.Int 1} {t : LLVM.Int 64} :
+    (Data.LLVM.Int.select c t (LLVM.Int.constant 64 0)) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `select c 0 f` -> `czero.nez f c` lowering pattern.
+-/
+theorem select_czeronez_refinement {c : LLVM.Int 1} {f : LLVM.Int 64} :
+    (Data.LLVM.Int.select c (LLVM.Int.constant 64 0) f) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the general `select c t f` ->
+  `or (czero.eqz t c) (czero.nez f c)` lowering pattern.
+-/
+theorem select_refinement {c : LLVM.Int 1} {t f : LLVM.Int 64} :
+    (Data.LLVM.Int.select c t f) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.or
+          (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f))
+          (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t))) 64) := by
+  rcases c with cv | _ <;> rcases t with tv | _ <;> rcases f with fv | _ <;>
+    veir_bv_decide
+
+/--
   Prove the correctness of the `orcb` lowering pattern (the `Y = 0` case).
 
   The `and` with the per-byte bit-0 mask `0x0101_0101_0101_0101` is what makes the
