@@ -369,7 +369,10 @@ def fshl {w : Nat} (a b c : Int w) : Int w := Id.run do
   let val c' := c | poison
 
   let s := c'.toNat % w
-  val ((a' <<< s) ||| (b' >>> (w - s)))
+  -- Concatenate into a `2 * w`-bit value with `a` as the high half and `b` as
+  -- the low half, shift left, and keep the high `w` bits (positions `w …< 2*w`).
+  let wide : BitVec (w + w) := a' ++ b'
+  val ((wide <<< s).extractLsb' w w)
 
 /--
 The ‘fshr’ (funnel shift right) operation concatenates `a` (high part) and `b`
@@ -386,7 +389,10 @@ def fshr {w : Nat} (a b c : Int w) : Int w := Id.run do
   let val c' := c | poison
 
   let s := c'.toNat % w
-  val ((a' <<< (w - s)) ||| (b' >>> s))
+  -- Concatenate into a `2 * w`-bit value with `a` as the high half and `b` as
+  -- the low half, shift right, and keep the low `w` bits (positions `0 …< w`).
+  let wide : BitVec (w + w) := a' ++ b'
+  val ((wide >>> s).truncate w)
 
 def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   match x with
