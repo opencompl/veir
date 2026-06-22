@@ -92,6 +92,24 @@ def TypeAttr.verifyI1 (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
       pure ()
   | _ => throw errMsg
 
+/--
+  Check that the operands forwarded to a successor block match the types of that
+  block's arguments. `operandBase` is the index of the first forwarded operand;
+  the forwarded operands are `operandBase .. operandBase + dest.numArguments`,
+  mapped positionally onto `dest`'s arguments. Callers must have already verified
+  that this operand range is in bounds (i.e. the relevant segment size equals the
+  successor's argument count).
+-/
+def OperationPtr.verifyBranchSuccessorArgTypes
+    (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (operandBase : Nat) (dest : BlockPtr) (errPrefix : String) :
+    Except String PUnit := do
+  for j in [0:dest.getNumArguments! ctx.raw] do
+    let opTy := (op.getOperand! ctx.raw (operandBase + j)).getType! ctx.raw
+    let argTy := ((dest.getArgument j).get! ctx.raw).type
+    if opTy.val ≠ argTy.val then
+      throw s!"{errPrefix} argument {j} type mismatch: operand has type {opTy}, block argument has type {argTy}"
+
 def OperationPtr.verifyRISCVBranchOperandSegmentSizes
     (op : OperationPtr) (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw)
     (sizes : DenseArrayAttr) (fixedOperands : Nat) :
@@ -118,6 +136,8 @@ def OperationPtr.verifyRISCVBranchOperandSegmentSizes
     throw s!"{instrName}: true operand segment expected operand count {trueDest.getNumArguments! ctx.raw}, got {trueArgCount}"
   if falseArgCount ≠ falseDest.getNumArguments! ctx.raw then
     throw s!"{instrName}: false operand segment expected operand count {falseDest.getNumArguments! ctx.raw}, got {falseArgCount}"
+  op.verifyBranchSuccessorArgTypes ctx fixedOperands trueDest s!"{instrName}: true successor"
+  op.verifyBranchSuccessorArgTypes ctx (fixedOperands + trueArgCount) falseDest s!"{instrName}: false successor"
 
 def OperationPtr.verifyRISCVimm12 (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) (imm : Int) : Except String PUnit :=
@@ -2163,6 +2183,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     let dest := op.getSuccessor! ctx.raw 0
     if op.getNumOperands ctx.raw opIn ≠ dest.getNumArguments! ctx.raw then
       throw s!"RISCV branch expected operand count {dest.getNumArguments! ctx.raw}, got {op.getNumOperands ctx.raw opIn}"
+    let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+    op.verifyBranchSuccessorArgTypes ctx 0 dest s!"{instrName}: successor"
     pure ()
   | .riscv_cf .beq => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
