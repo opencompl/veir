@@ -762,6 +762,50 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     op.verifyIntegerBinopTypes ctx "llvm.xor"
     pure ()
+  | .llvm .intr__smax => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "llvm.intr.smax"
+    pure ()
+  | .llvm .intr__smin => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "llvm.intr.smin"
+    pure ()
+  | .llvm .intr__umax => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "llvm.intr.umax"
+    pure ()
+  | .llvm .intr__umin => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "llvm.intr.umin"
+    pure ()
   | .llvm .add => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"

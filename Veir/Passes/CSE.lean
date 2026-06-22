@@ -111,7 +111,8 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   let properties := op.getProperties! ctx opType
   let kind : Kind := ⟨opType, properties⟩
   match opType with
-  | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor =>
+  | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor
+  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin =>
       return commutativeBinopKey ctx op kind
   | .llvm .icmp =>
       return icmpKey ctx op (op.getProperties! ctx (.llvm .icmp))

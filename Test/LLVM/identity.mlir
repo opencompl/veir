@@ -10,6 +10,10 @@
       %7 = "llvm.and"(%5, %5) : (i32, i32) -> i32
       %8 = "llvm.or"(%5, %5) : (i32, i32) -> i32
       %9 = "llvm.xor"(%5, %5) : (i32, i32) -> i32
+      %smax = "llvm.intr.smax"(%5, %5) : (i32, i32) -> i32
+      %smin = "llvm.intr.smin"(%5, %5) : (i32, i32) -> i32
+      %umax = "llvm.intr.umax"(%5, %5) : (i32, i32) -> i32
+      %umin = "llvm.intr.umin"(%5, %5) : (i32, i32) -> i32
       %add = "llvm.add"(%5, %5) : (i32, i32) -> i32
       %add_nsw = "llvm.add"(%5, %5) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
       %add_nuw = "llvm.add"(%5, %5) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
@@ -85,6 +89,10 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.and"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.or"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.xor"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.intr.smax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.intr.smin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.intr.umax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.intr.umin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32

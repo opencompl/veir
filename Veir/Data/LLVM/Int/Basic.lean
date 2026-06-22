@@ -427,6 +427,42 @@ def xor {w : Nat} (x y : Int w) : Int w := Id.run do
   val (x' ^^^ y')
 
 /--
+The `smax` intrinsic returns the larger of its two operands, treating them as
+signed integers. If either operand is poison, the result is poison.
+-/
+def smax {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.sle y' then y' else x')
+
+/--
+The `smin` intrinsic returns the smaller of its two operands, treating them as
+signed integers. If either operand is poison, the result is poison.
+-/
+def smin {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.sle y' then x' else y')
+
+/--
+The `umax` intrinsic returns the larger of its two operands, treating them as
+unsigned integers. If either operand is poison, the result is poison.
+-/
+def umax {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.ule y' then y' else x')
+
+/--
+The `umin` intrinsic returns the smaller of its two operands, treating them as
+unsigned integers. If either operand is poison, the result is poison.
+-/
+def umin {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.ule y' then x' else y')
+
+/--
 The `trunc` instruction truncates the high order bits in value and converts the
 remaining bits to `w₂`. Since the source size must be larger than the
 destination size, trunc cannot be a no-op cast. It will always truncate bits.
