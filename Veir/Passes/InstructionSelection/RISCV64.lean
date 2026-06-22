@@ -11,6 +11,13 @@ namespace Veir
 
 /-! # Lowering Patterns -/
 
+/-- Extension operations (`sext`/`zext`) in RISC-V 64 are only legal
+  from `i16` to `i64`, from `i16` to `i32`, and from `i32` to `i64`.
+  See: https://github.com/llvm/llvm-project/blob/16a0a1042f7e4e5a0c667096fcdeb5803e06d120/llvm/lib/Target/RISCV/GISel/RISCVLegalizerInfo.cpp#L171-L179
+-/
+def isLegalExtOpWidth (w : Nat) : Bool :=
+  w = 16 ∨ w = 32
+
 set_option warn.sorry false in
 /-- llvm.constant -> riscv.li -/
 def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
@@ -420,30 +427,22 @@ def sub (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
 
 set_option warn.sorry false in
 /--
-  llvm.sext %x i8  to iY -> riscv.sextb %x
-  llvm.sext %x i16 to iY -> riscv.sexth %x
-  llvm.sext %x i32 to iY -> riscv.sextw %x
-
-  For every other width:
-  llvm.sext %x iX to iY-> riscv.srai (riscv.slli %x (64 - X)) (64 - X)
+  llvm.sext %x `i16` to `i64` -> riscv.sexth %x
+  llvm.sext %x `i16` to `i32` -> riscv.sexth %x
+  llvm.sext %x `i32` to `i64` -> riscv.sextw %x
 -/
 def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchSext op rewriter.ctx | return rewriter
-  /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
-  if 64 < opType.bitwidth then return rewriter
+  if ¬ isLegalExtOpWidth (opType.bitwidth) then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
-  if 64 < retType.bitwidth then return rewriter
+  if retType.bitwidth ≤ opType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   let (rewriter, retOp) ← match opType.bitwidth with
-    | 8 =>
-      let (rewriter, retOp) ← rewriter.createOp (.riscv .sextb) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-      pure (rewriter, retOp)
     | 16 =>
       let (rewriter, retOp) ← rewriter.createOp (.riscv .sexth) #[RegisterType.mk] #[opCastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -453,12 +452,8 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
     | _ =>
-      let c := RISCVImmediateProperties.mk (IntegerAttr.mk (64 - opType.bitwidth) (IntegerType.mk 64))
-      let (rewriter, slliOp) ← rewriter.createOp (.riscv .slli) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] c (some $ .before op) sorry (by simp) (by simp) sorry
-      let (rewriter, retOp) ← rewriter.createOp (.riscv .srai) #[RegisterType.mk] #[slliOp.getResult 0]
-        #[] #[] c (some $ .before op) sorry (by simp) (by simp) sorry
-      pure (rewriter, retOp)
+      /- unreachable case -/
+      return rewriter
   /- Cast back result for type consistency-/
   let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
@@ -466,36 +461,22 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
 
 set_option warn.sorry false in
 /--
-  llvm.zext %x iX  to iY where X ≤ 12 and X ≠ 8 -> riscv.andi %x (2 ^ X - 1)
-  e.g. llvm.zext %x i2  to iY -> riscv.andi %x 3
-       llvm.zext %x i3  to iY -> riscv.andi %x 7
-       ...
-       llvm.zext %x i11 to iY -> riscv.andi %x 2047
-
-  llvm.zext %x i8  to iY -> riscv.sextb %x
-  llvm.zext %x i16 to iY -> riscv.zexth %x
-  llvm.zext %x i32 to iY -> riscv.zextw %x
-
-  For every other width:
-  llvm.zext %x iX to iY-> riscv.srli (riscv.slli %x (64 - X)) (64 - X)
+  llvm.zext %x `i16` to `i64` -> riscv.zexth %x
+  llvm.zext %x `i16` to `i32` -> riscv.zexth %x
+  llvm.zext %x `i32` to `i64` -> riscv.zextw %x
 -/
 def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchZext op rewriter.ctx | return rewriter
-  /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
-  if 64 < opType.bitwidth then return rewriter
+  if ¬ isLegalExtOpWidth (opType.bitwidth) then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
-  if 64 < retType.bitwidth then return rewriter
+  if retType.bitwidth ≤ opType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   let (rewriter, retOp) ← match opType.bitwidth with
-    | 8 =>
-      let (rewriter, retOp) ← rewriter.createOp (.riscv .zextb) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-      pure (rewriter, retOp)
     | 16 =>
       let (rewriter, retOp) ← rewriter.createOp (.riscv .zexth) #[RegisterType.mk] #[opCastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -505,18 +486,8 @@ def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
       pure (rewriter, retOp)
     | _ =>
-      if opType.bitwidth < 12 then
-        let c := RISCVImmediateProperties.mk (IntegerAttr.mk (2 ^ opType.bitwidth - 1) (IntegerType.mk 64))
-        let (rewriter, retOp) ← rewriter.createOp (.riscv .andi) #[RegisterType.mk] #[opCastOp.getResult 0]
-          #[] #[] c (some $ .before op) sorry (by simp) (by simp) sorry
-        pure (rewriter, retOp)
-      else
-        let c := RISCVImmediateProperties.mk (IntegerAttr.mk (64 - opType.bitwidth) (IntegerType.mk 64))
-        let (rewriter, slliOp) ← rewriter.createOp (.riscv .slli) #[RegisterType.mk] #[opCastOp.getResult 0]
-          #[] #[] c (some $ .before op) sorry (by simp) (by simp) sorry
-        let (rewriter, retOp) ← rewriter.createOp (.riscv .srli) #[RegisterType.mk] #[slliOp.getResult 0]
-          #[] #[] c (some $ .before op) sorry (by simp) (by simp) sorry
-        pure (rewriter, retOp)
+      /- unreachable case -/
+      return rewriter
   /- Cast back result for type consistency-/
   let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
@@ -525,16 +496,15 @@ def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
 set_option warn.sorry false in
 /--
   llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
+  where `iY`'s width is smaller than `iX`'s.
 -/
 def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchTrunc op rewriter.ctx | return rewriter
-  /- Only support extensions fron `iX` to `iY` where both `X < 64` and `Y < 64`. -/
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
-  if 64 < opType.bitwidth then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
-  if 64 < retType.bitwidth then return rewriter
+  if opType.bitwidth ≤ retType.bitwidth then return rewriter
   /- First, cast the operand to registers -/
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
