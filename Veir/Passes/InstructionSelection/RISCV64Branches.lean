@@ -61,6 +61,8 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
   if (block.get! c.raw).firstUse == none then
     return c
 
+  -- convertBranch mutates the IR, so we build predOps first, to avoid
+  -- data structure invalidation issues
   let mut predOps : Array OperationPtr := #[]
   let mut currentPredUse := (block.get! c.raw).firstUse
   while let some blockop := currentPredUse do
