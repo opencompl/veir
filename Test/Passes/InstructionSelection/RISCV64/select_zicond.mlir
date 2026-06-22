@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64,isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
 

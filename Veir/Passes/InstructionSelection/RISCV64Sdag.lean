@@ -121,81 +121,13 @@ def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   replaceWithReg rewriter op (orcbOp.getResult 0)
 
-/-! ## Zicond branchless `select` lowering
-
-  The Zicond extension lowers `llvm.select` branchlessly (mirroring LLVM's
-  SelectionDAG lowering of `ISD::SELECT` when `Zicond` is available):
-  ```
-    (select c, t, 0) -> (czero.eqz t, c)
-    (select c, 0, f) -> (czero.nez f, c)
-    (select c, t, f) -> (or (czero.eqz t, c), (czero.nez f, c))
-  ```
-  The single-instruction zero-arm cases take priority over the general form;
-  the greedy driver tries patterns in array order, so `selectCzeroeqz` and
-  `selectCzeronez` are registered before `selectGeneral`.
--/
-
-set_option warn.sorry false in
-/--
-  `select c t 0` -> `riscv.czeroeqz t c`.
--/
-def selectCzeroeqz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tval, fval) := matchSelect op rewriter.ctx | return rewriter
-  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
-  if t.bitwidth ≠ 64 then return rewriter
-  let some _ := matchConstantZero fval rewriter.ctx | return rewriter
-  let (rewriter, tReg) ← castToReg rewriter op tval
-  let (rewriter, condReg) ← castToReg rewriter op cond
-  let (rewriter, czOp) ← rewriter.createOp (.riscv .czeroeqz) #[RegisterType.mk] #[tReg, condReg]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  replaceWithReg rewriter op (czOp.getResult 0)
-
-set_option warn.sorry false in
-/--
-  `select c 0 f` -> `riscv.czeronez f c`.
--/
-def selectCzeronez (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tval, fval) := matchSelect op rewriter.ctx | return rewriter
-  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
-  if t.bitwidth ≠ 64 then return rewriter
-  let some _ := matchConstantZero tval rewriter.ctx | return rewriter
-  let (rewriter, fReg) ← castToReg rewriter op fval
-  let (rewriter, condReg) ← castToReg rewriter op cond
-  let (rewriter, czOp) ← rewriter.createOp (.riscv .czeronez) #[RegisterType.mk] #[fReg, condReg]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  replaceWithReg rewriter op (czOp.getResult 0)
-
-set_option warn.sorry false in
-/--
-  General branchless select:
-  `select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
--/
-def selectGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tval, fval) := matchSelect op rewriter.ctx | return rewriter
-  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
-  if t.bitwidth ≠ 64 then return rewriter
-  let (rewriter, tReg) ← castToReg rewriter op tval
-  let (rewriter, fReg) ← castToReg rewriter op fval
-  let (rewriter, condReg) ← castToReg rewriter op cond
-  let (rewriter, eqzOp) ← rewriter.createOp (.riscv .czeroeqz) #[RegisterType.mk] #[tReg, condReg]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  let (rewriter, nezOp) ← rewriter.createOp (.riscv .czeronez) #[RegisterType.mk] #[fReg, condReg]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  let (rewriter, orOp) ← rewriter.createOp (.riscv .or) #[RegisterType.mk]
-      #[eqzOp.getResult 0, nezOp.getResult 0]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  replaceWithReg rewriter op (orOp.getResult 0)
 
 
 /-! # Pass implementation -/
 
 def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern
-    #[andn, orn, xnor, orcb, selectCzeroeqz, selectCzeronez, selectGeneral]
+  let pattern := RewritePattern.GreedyRewritePattern #[andn, orn, xnor, orcb]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying SDAG patterns"
   | some ctx => pure ctx
