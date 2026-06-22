@@ -22,7 +22,7 @@ ICMP_PREDS = tuple(range(10))
 # Widths the RISC-V backend can compute on. i1 is permitted only as an icmp
 # operand (so comparison results can feed into further comparisons); it is
 # never produced or consumed by arithmetic/bitwise/shift/cast operations.
-RISCV_WIDTHS = (8, 16, 32, 64)
+RISCV_WIDTHS = (64,)
 
 
 def bitwidth(typ: str) -> int:

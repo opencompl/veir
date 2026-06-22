@@ -178,15 +178,6 @@ def xoriSelfToZero (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op
     #[] #[] cstProp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
-/-- Match `xor X, -1` (the canonical "not X"), returning `X`. -/
-def matchNot (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
-  let .opResult opResultPtr := val | none
-  let op := opResultPtr.op
-  let (lhs, rhs) ← matchXori op ctx
-  let cst ← matchConstantIntVal rhs ctx
-  guard (cst.value = -1)
-  return lhs
-
 set_option warn.sorry false in
 /-- Rewrites `~~x` to `x`. -/
 def notNotToX (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :

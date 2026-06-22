@@ -1086,6 +1086,12 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
   | .packw => do
     let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.packw op2 op1)], mem, none)
+  | .czeroeqz => do
+    let [.reg op1, .reg op2] := operands.toList | none
+    return (#[.reg (RISCV.czeroeqz op2 op1)], mem, none)
+  | .czeronez => do
+    let [.reg op1, .reg op2] := operands.toList | none
+    return (#[.reg (RISCV.czeronez op2 op1)], mem, none)
   | .mv => do
     let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.mv op)], mem, none)
