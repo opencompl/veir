@@ -193,6 +193,15 @@ def OperationPtr.verifyIntegerBinopTypes (op : OperationPtr) (ctx : WfIRContext 
   let operandType ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
   op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
 
+def OperationPtr.verifyIntegerTernopTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (instrName : String) : Except String PUnit := do
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 1 to have integer type"
+  ((op.getOperand! ctx.raw 2).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 2 to have integer type"
+  let _ ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 2 s!"{instrName}: Expected operands to have the same type"
+  op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
+
 def OperationPtr.verifyICmpTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
     (instrName : String) : Except String PUnit := do
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
@@ -816,6 +825,28 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     op.verifyIntegerBinopTypes ctx "llvm.ashr"
+    pure ()
+  | .llvm .intr__fshl => do
+    if op.getNumOperands ctx.raw opIn ≠ 3 then
+      throw "Expected 3 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerTernopTypes ctx "llvm.intr.fshl"
+    pure ()
+  | .llvm .intr__fshr => do
+    if op.getNumOperands ctx.raw opIn ≠ 3 then
+      throw "Expected 3 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerTernopTypes ctx "llvm.intr.fshr"
     pure ()
   | .llvm .mul => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then

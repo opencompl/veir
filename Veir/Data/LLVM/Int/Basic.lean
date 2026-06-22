@@ -354,6 +354,40 @@ def ashr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
 
   val (x'.sshiftRight' y')
 
+/--
+The ‘fshl’ (funnel shift left) operation concatenates `a` (high part) and `b`
+(low part) into a value twice the bit width, shifts it left by `c` (taken modulo
+the bit width), and returns the most significant half of the result.
+
+When `a = b` this is a left rotate. The shift amount is always interpreted modulo
+the bit width, so it never causes poison on its own; poison only results from a
+poison operand.
+-/
+def fshl {w : Nat} (a b c : Int w) : Int w := Id.run do
+  let val a' := a | poison
+  let val b' := b | poison
+  let val c' := c | poison
+
+  let s := c'.toNat % w
+  val ((a' <<< s) ||| (b' >>> (w - s)))
+
+/--
+The ‘fshr’ (funnel shift right) operation concatenates `a` (high part) and `b`
+(low part) into a value twice the bit width, shifts it right by `c` (taken modulo
+the bit width), and returns the least significant half of the result.
+
+When `a = b` this is a right rotate. The shift amount is always interpreted modulo
+the bit width, so it never causes poison on its own; poison only results from a
+poison operand.
+-/
+def fshr {w : Nat} (a b c : Int w) : Int w := Id.run do
+  let val a' := a | poison
+  let val b' := b | poison
+  let val c' := c | poison
+
+  let s := c'.toNat % w
+  val ((a' <<< (w - s)) ||| (b' >>> s))
+
 def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   match x with
   | .val v => .val (v.cast h)

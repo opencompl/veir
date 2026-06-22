@@ -117,6 +117,7 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
       return icmpKey ctx op (op.getProperties! ctx (.llvm .icmp))
   | .llvm .sub | .llvm .mlir__constant
   | .llvm .shl | .llvm .lshr | .llvm .ashr
+  | .llvm .intr__fshl | .llvm .intr__fshr
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .zext | .llvm .sext | .llvm .trunc
   | .llvm .select =>

@@ -404,6 +404,7 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .llvm .add | .llvm .sub | .llvm .mul
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .shl | .llvm .lshr | .llvm .ashr
+  | .llvm .intr__fshl | .llvm .intr__fshr
   | .llvm .icmp | .llvm .select
   | .llvm .trunc | .llvm .sext | .llvm .zext
   | .llvm .getelementptr
