@@ -27,34 +27,34 @@ example
         (shl e (constant 64 1)) := by
   veir_bv_decide
 
-example
-    (e e_1 : Veir.Data.LLVM.Int 64) : add (sub (constant 64 0) e) e_1 ⊒ sub e_1 e := by
-  veir_bv_decide
+example {w : Nat} (hw : w < 64)
+    (e e_1 : Veir.Data.LLVM.Int w) : add (sub (constant w 0) e) e_1 ⊒ sub e_1 e := by
+  veir_bv_decide_upto hw
 
-example
-    (e e_1 : Veir.Data.LLVM.Int 64) :
-      add (sub (constant 64 0) e) (sub (constant 64 0) e_1) ⊒ sub (constant 64 0) (add e e_1) := by
-  veir_bv_decide
+example {w : Nat} (hw : w < 64)
+    (e e_1 : Veir.Data.LLVM.Int w) :
+      add (sub (constant w 0) e) (sub (constant w 0) e_1) ⊒ sub (constant w 0) (add e e_1) := by
+  veir_bv_decide_upto hw
 
-example
-    (e e_1 : Veir.Data.LLVM.Int 64) : add e (sub (constant 64 0) e_1) ⊒ sub e e_1 := by
-  veir_bv_decide
+example {w : Nat} (hw : w < 64)
+    (e e_1 : Veir.Data.LLVM.Int w) : add e (sub (constant w 0) e_1) ⊒ sub e e_1 := by
+  veir_bv_decide_upto hw
 
-example
-    (e e_1 : Veir.Data.LLVM.Int 64) : add (xor e (constant 64 (-1))) e_1 ⊒ sub (sub e_1 (constant 64 1)) e := by
-  veir_bv_decide
+example {w : Nat} (hw : w < 64)
+    (e e_1 : Veir.Data.LLVM.Int w) : add (xor e (constant w (-1))) e_1 ⊒ sub (sub e_1 (constant w 1)) e := by
+  veir_bv_decide_upto hw
 
-example
-    (e e_1 : Veir.Data.LLVM.Int 64) : add (and e e_1) (xor e e_1) ⊒ or e e_1 := by
-  veir_bv_decide
+example {w : Nat} (hw : w < 64)
+    (e e_1 : Veir.Data.LLVM.Int w) : add (and e e_1) (xor e e_1) ⊒ or e e_1 := by
+  veir_bv_decide_upto hw
 
-example
-    (e e_1 : Veir.Data.LLVM.Int 64) : add (and e e_1) (or e e_1) ⊒ add e e_1 := by
-  veir_bv_decide
+example {w : Nat} (hw : w < 64)
+    (e e_1 : Veir.Data.LLVM.Int w) : add (and e e_1) (or e e_1) ⊒ add e e_1 := by
+  veir_bv_decide_upto hw
 
-example
-    (e e_1 : Veir.Data.LLVM.Int 64) : sub e_1 (sub (constant 64 0) e) ⊒ add e_1 e := by
-  veir_bv_decide
+example {w : Nat} (hw : w < 64)
+    (e e_1 : Veir.Data.LLVM.Int w) : sub e_1 (sub (constant w 0) e) ⊒ add e_1 e := by
+  veir_bv_decide_upto hw
 
 /-
   `LLVM.neg` is not supported in
@@ -67,13 +67,13 @@ example (e e_1 : Veir.Data.LLVM.Int 1) :
     sub e_1 e ⊒ xor e_1 e := by
   veir_bv_decide
 
-example (e : Veir.Data.LLVM.Int 64) :
-    sub (constant 64 (-1)) e ⊒ xor e (constant 64 (-1)) := by
-  veir_bv_decide
+example {w : Nat} (hw : w < 64) (e : Veir.Data.LLVM.Int w) :
+    sub (constant w (-1)) e ⊒ xor e (constant w (-1)) := by
+  veir_bv_decide_upto hw
 
-example (e e_1 : Veir.Data.LLVM.Int 64) :
-    sub e_1 (xor e (constant 64 (-1))) ⊒ add e (add e_1 (constant 64 1)) := by
-  veir_bv_decide
+example {w : Nat} (hw : w < 64) (e e_1 : Veir.Data.LLVM.Int w) :
+    sub e_1 (xor e (constant w (-1))) ⊒ add e (add e_1 (constant w 1)) := by
+  veir_bv_decide_upto hw
 
 example (e e_1 e_2 : Veir.Data.LLVM.Int 64) :
     sub e_1 (add e e_2) ⊒ sub (sub e_1 e_2) e := by
