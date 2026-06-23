@@ -47,9 +47,9 @@
  
 // CHECK:      "func.func"() <{"function_type" = (i64, i1) -> i64, "sym_name" = "b"}> ({
 // CHECK-NEXT:   ^12([[AA:%[a-z0-9_]+]] : i64, [[AB:%[a-z0-9_]+]] : i1):
-// CHECK-NEXT:     [[CA:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[AA]]) : (i64) -> !riscv.reg
+// CHECK-NEXT:     [[CA:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[AB]]) : (i1) -> !riscv.reg
 // CHECK-NEXT:     [[CB:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[AA]]) : (i64) -> !riscv.reg
-// CHECK-NEXT:     [[CC:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[AB]]) : (i1) -> !riscv.reg
+// CHECK-NEXT:     [[CC:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"([[AA]]) : (i64) -> !riscv.reg
 // CHECK-NEXT:     "riscv_cf.bnez"([[CA]], [[CB]], [[CC]]) [^13, ^14] <{"operandSegmentSizes" = array<i32: 1, 1, 1>}> : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:   ^13(%arg13_0 : !riscv.reg):
 // CHECK-NEXT:     [[CD:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg13_0) : (!riscv.reg) -> i64
@@ -61,9 +61,9 @@
 
 // CHECK:      "func.func"() <{"function_type" = (i64, i1) -> i64, "sym_name" = "c"}> ({
 // CHECK-NEXT:   ^20(%arg20_0 : i64, %arg20_1 : i1):
-// CHECK-NEXT:     [[CA:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg20_0) : (i64) -> !riscv.reg
+// CHECK-NEXT:     [[CA:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg20_1) : (i1) -> !riscv.reg
 // CHECK-NEXT:     [[CB:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg20_0) : (i64) -> !riscv.reg
-// CHECK-NEXT:     [[CC:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg20_1) : (i1) -> !riscv.reg
+// CHECK-NEXT:     [[CC:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg20_0) : (i64) -> !riscv.reg
 // CHECK-NEXT:     "riscv_cf.bnez"([[CA]], [[CB]], [[CC]]) [^21, ^22] <{"operandSegmentSizes" = array<i32: 1, 1, 1>}> : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:   ^21(%arg21_0 : !riscv.reg):
 // CHECK-NEXT:     [[CD:%[a-z0-9_]+]] = "builtin.unrealized_conversion_cast"(%arg21_0) : (!riscv.reg) -> i64
