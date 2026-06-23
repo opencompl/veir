@@ -20,6 +20,7 @@ match op with
 | .shl => NswNuwProperties
 | .lshr => ExactProperties
 | .ashr => ExactProperties
+| .intr__ctlz | .intr__cttz => ZeroPoisonProperties
 | .or => DisjointProperties
 | .trunc => NswNuwProperties
 | .zext => NnegProperties

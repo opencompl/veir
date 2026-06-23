@@ -202,6 +202,13 @@ def OperationPtr.verifyIntegerTernopTypes (op : OperationPtr) (ctx : WfIRContext
   let operandType ← op.verifyOperandTypesMatch ctx 0 2 s!"{instrName}: Expected operands to have the same type"
   op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
 
+def OperationPtr.verifyIntegerUnopTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (instrName : String) : Except String TypeAttr := do
+  let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
+  operandType.verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
+  op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
+  pure operandType
+
 def OperationPtr.verifyICmpTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
     (instrName : String) : Except String PUnit := do
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
@@ -891,6 +898,65 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     op.verifyIntegerTernopTypes ctx "llvm.intr.fshr"
+    pure ()
+  | .llvm .intr__ctlz => do
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    let _ ← op.verifyIntegerUnopTypes ctx "llvm.intr.ctlz"
+    pure ()
+  | .llvm .intr__cttz => do
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    let _ ← op.verifyIntegerUnopTypes ctx "llvm.intr.cttz"
+    pure ()
+  | .llvm .intr__ctpop => do
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    let _ ← op.verifyIntegerUnopTypes ctx "llvm.intr.ctpop"
+    pure ()
+  | .llvm .intr__bswap => do
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    let operandType ← op.verifyIntegerUnopTypes ctx "llvm.intr.bswap"
+    let .integerType intType := operandType.val
+      | throw "llvm.intr.bswap: Expected operand 0 to have integer type"
+    if intType.bitwidth % 16 ≠ 0 then
+      throw "llvm.intr.bswap: bitwidth must be an even number of bytes"
+    pure ()
+  | .llvm .intr__bitreverse => do
+    if op.getNumOperands ctx.raw opIn ≠ 1 then
+      throw "Expected 1 operand"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    let _ ← op.verifyIntegerUnopTypes ctx "llvm.intr.bitreverse"
     pure ()
   | .llvm .mul => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
