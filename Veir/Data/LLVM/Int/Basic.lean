@@ -354,6 +354,46 @@ def ashr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
 
   val (x'.sshiftRight' y')
 
+/--
+The ‘fshl’ (funnel shift left) operation concatenates `a` (high part) and `b`
+(low part) into a value twice the bit width, shifts it left by `c` (taken modulo
+the bit width), and returns the most significant half of the result.
+
+When `a = b` this is a left rotate. The shift amount is always interpreted modulo
+the bit width, so it never causes poison on its own; poison only results from a
+poison operand.
+-/
+def fshl {w : Nat} (a b c : Int w) : Int w := Id.run do
+  let val a' := a | poison
+  let val b' := b | poison
+  let val c' := c | poison
+
+  let s := c'.toNat % w
+  -- Concatenate into a `2 * w`-bit value with `a` as the high half and `b` as
+  -- the low half, shift left, and keep the high `w` bits (positions `w …< 2*w`).
+  let wide : BitVec (w + w) := a' ++ b'
+  val ((wide <<< s).extractLsb' w w)
+
+/--
+The ‘fshr’ (funnel shift right) operation concatenates `a` (high part) and `b`
+(low part) into a value twice the bit width, shifts it right by `c` (taken modulo
+the bit width), and returns the least significant half of the result.
+
+When `a = b` this is a right rotate. The shift amount is always interpreted modulo
+the bit width, so it never causes poison on its own; poison only results from a
+poison operand.
+-/
+def fshr {w : Nat} (a b c : Int w) : Int w := Id.run do
+  let val a' := a | poison
+  let val b' := b | poison
+  let val c' := c | poison
+
+  let s := c'.toNat % w
+  -- Concatenate into a `2 * w`-bit value with `a` as the high half and `b` as
+  -- the low half, shift right, and keep the low `w` bits (positions `0 …< w`).
+  let wide : BitVec (w + w) := a' ++ b'
+  val ((wide >>> s).truncate w)
+
 def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
   match x with
   | .val v => .val (v.cast h)
@@ -425,6 +465,42 @@ def xor {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
   val (x' ^^^ y')
+
+/--
+The `smax` intrinsic returns the larger of its two operands, treating them as
+signed integers. If either operand is poison, the result is poison.
+-/
+def smax {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.sle y' then y' else x')
+
+/--
+The `smin` intrinsic returns the smaller of its two operands, treating them as
+signed integers. If either operand is poison, the result is poison.
+-/
+def smin {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.sle y' then x' else y')
+
+/--
+The `umax` intrinsic returns the larger of its two operands, treating them as
+unsigned integers. If either operand is poison, the result is poison.
+-/
+def umax {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.ule y' then y' else x')
+
+/--
+The `umin` intrinsic returns the smaller of its two operands, treating them as
+unsigned integers. If either operand is poison, the result is poison.
+-/
+def umin {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (if x'.ule y' then x' else y')
 
 /--
 The `trunc` instruction truncates the high order bits in value and converts the

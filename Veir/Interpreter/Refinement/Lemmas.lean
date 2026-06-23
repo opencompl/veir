@@ -92,13 +92,11 @@ theorem Interp.isRefinedBy_none_target :
     Interp.isRefinedBy R none target := by
   simp [Interp.isRefinedBy]
 
-/-- `ub` is refined as long as interpretation succeeds. -/
-@[simp, grind =]
-theorem Interp.isRefinedBy_ub_target_iff :
-    Interp.isRefinedBy R (some .ub) target ↔
-    ∃ targetRes, target = some targetRes := by
+/-- `ub` is refined by any value. -/
+@[simp, grind .]
+theorem Interp.isRefinedBy_ub_target :
+    Interp.isRefinedBy R (some .ub) target := by
   simp only [Interp.isRefinedBy]
-  cases target <;> grind
 
 /-- `ok` is only refined by `ok` values that satisfy the given refinement relation. -/
 @[simp, grind =]

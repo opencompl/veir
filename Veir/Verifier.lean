@@ -92,6 +92,53 @@ def TypeAttr.verifyI1 (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
       pure ()
   | _ => throw errMsg
 
+/--
+  Check that the operands forwarded to a successor block match the types of that
+  block's arguments. `operandBase` is the index of the first forwarded operand;
+  the forwarded operands are `operandBase .. operandBase + dest.numArguments`,
+  mapped positionally onto `dest`'s arguments. Callers must have already verified
+  that this operand range is in bounds (i.e. the relevant segment size equals the
+  successor's argument count).
+-/
+def OperationPtr.verifyBranchSuccessorArgTypes
+    (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (operandBase : Nat) (dest : BlockPtr) (errPrefix : String) :
+    Except String PUnit := do
+  for j in [0:dest.getNumArguments! ctx.raw] do
+    let opTy := (op.getOperand! ctx.raw (operandBase + j)).getType! ctx.raw
+    let argTy := ((dest.getArgument j).get! ctx.raw).type
+    if opTy.val ≠ argTy.val then
+      throw s!"{errPrefix} argument {j} type mismatch: operand has type {opTy}, block argument has type {argTy}"
+
+def OperationPtr.verifyRISCVBranchOperandSegmentSizes
+    (op : OperationPtr) (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw)
+    (sizes : DenseArrayAttr) (fixedOperands : Nat) :
+    Except String PUnit := do
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+  if _ : sizes.values.size ≠ fixedOperands + 2 then
+    throw s!"{instrName}: operandSegmentSizes expected {fixedOperands + 2} entries, got {sizes.values.size}"
+  let mut operandSegmentSizes : Array Nat := #[]
+  for size in sizes.values do
+    if size < 0 then
+      throw s!"{instrName}: operandSegmentSizes contains negative size {size}"
+    operandSegmentSizes := operandSegmentSizes.push size.toNat
+  for i in [0:fixedOperands] do
+    if operandSegmentSizes[i]! ≠ 1 then
+      throw s!"{instrName}: fixed operand segment {i} expected size 1, got {operandSegmentSizes[i]!}"
+  let operandSegmentSum := operandSegmentSizes.foldl (init := 0) fun acc size => acc + size
+  if operandSegmentSum ≠ op.getNumOperands ctx.raw opIn then
+    throw s!"{instrName}: operandSegmentSizes describes {operandSegmentSum} operands, got {op.getNumOperands ctx.raw opIn}"
+  let trueArgCount := operandSegmentSizes[fixedOperands]!
+  let falseArgCount := operandSegmentSizes[fixedOperands + 1]!
+  let trueDest := op.getSuccessor! ctx.raw 0
+  let falseDest := op.getSuccessor! ctx.raw 1
+  if trueArgCount ≠ trueDest.getNumArguments! ctx.raw then
+    throw s!"{instrName}: true operand segment expected operand count {trueDest.getNumArguments! ctx.raw}, got {trueArgCount}"
+  if falseArgCount ≠ falseDest.getNumArguments! ctx.raw then
+    throw s!"{instrName}: false operand segment expected operand count {falseDest.getNumArguments! ctx.raw}, got {falseArgCount}"
+  op.verifyBranchSuccessorArgTypes ctx fixedOperands trueDest s!"{instrName}: true successor"
+  op.verifyBranchSuccessorArgTypes ctx (fixedOperands + trueArgCount) falseDest s!"{instrName}: false successor"
+
 def OperationPtr.verifyRISCVimm12 (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) (imm : Int) : Except String PUnit :=
   if imm < -2048 ∨ imm > 2047 then
@@ -144,6 +191,15 @@ def OperationPtr.verifyIntegerBinopTypes (op : OperationPtr) (ctx : WfIRContext 
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
   ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 1 to have integer type"
   let operandType ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
+  op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
+
+def OperationPtr.verifyIntegerTernopTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (instrName : String) : Except String PUnit := do
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 0 to have integer type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 1 to have integer type"
+  ((op.getOperand! ctx.raw 2).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 2 to have integer type"
+  let _ ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 2 s!"{instrName}: Expected operands to have the same type"
   op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
 
 def OperationPtr.verifyICmpTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
@@ -715,6 +771,50 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     op.verifyIntegerBinopTypes ctx "llvm.xor"
     pure ()
+  | .llvm .intr__smax => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "llvm.intr.smax"
+    pure ()
+  | .llvm .intr__smin => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "llvm.intr.smin"
+    pure ()
+  | .llvm .intr__umax => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "llvm.intr.umax"
+    pure ()
+  | .llvm .intr__umin => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerBinopTypes ctx "llvm.intr.umin"
+    pure ()
   | .llvm .add => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
       throw "Expected 2 operands"
@@ -769,6 +869,28 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     op.verifyIntegerBinopTypes ctx "llvm.ashr"
+    pure ()
+  | .llvm .intr__fshl => do
+    if op.getNumOperands ctx.raw opIn ≠ 3 then
+      throw "Expected 3 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerTernopTypes ctx "llvm.intr.fshl"
+    pure ()
+  | .llvm .intr__fshr => do
+    if op.getNumOperands ctx.raw opIn ≠ 3 then
+      throw "Expected 3 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    op.verifyIntegerTernopTypes ctx "llvm.intr.fshr"
     pure ()
   | .llvm .mul => do
     if op.getNumOperands ctx.raw opIn ≠ 2 then
@@ -1959,6 +2081,16 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
     pure ()
+  | .riscv .czeroeqz | .riscv .czeronez => do
+    if op.getNumOperands ctx.raw opIn ≠ 2 then
+      throw "Expected 2 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
   | .riscv .ld | .riscv .lw | .riscv .lwu
   | .riscv .lh | .riscv .lhu | .riscv .lb | .riscv .lbu => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then
@@ -2133,6 +2265,11 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 1 then
       throw "Expected 1 successor"
+    let dest := op.getSuccessor! ctx.raw 0
+    if op.getNumOperands ctx.raw opIn ≠ dest.getNumArguments! ctx.raw then
+      throw s!"RISCV branch expected operand count {dest.getNumArguments! ctx.raw}, got {op.getNumOperands ctx.raw opIn}"
+    let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+    op.verifyBranchSuccessorArgTypes ctx 0 dest s!"{instrName}: successor"
     pure ()
   | .riscv_cf .beq => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -2142,10 +2279,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
       throw "Expected 2 successors"
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .beq)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 4 then
-      throw "Expected 2 operands plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
-      throw "Expected 2 operands plus 2 variadic operands"
+    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bne => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -2155,10 +2289,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
       throw "Expected 2 successors"
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bne)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 4 then
-      throw "Expected 2 operands plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
-      throw "Expected 2 operands plus 2 variadic operands"
+    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .blt => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -2168,10 +2299,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
       throw "Expected 2 successors"
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .blt)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 4 then
-      throw "Expected 2 operands plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
-      throw "Expected 2 operands plus 2 variadic operands"
+    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bge => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -2181,10 +2309,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
       throw "Expected 2 successors"
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bge)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 4 then
-      throw "Expected 2 operands plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
-      throw "Expected 2 operands plus 2 variadic operands"
+    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bltu => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -2194,10 +2319,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
       throw "Expected 2 successors"
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bltu)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 4 then
-      throw "Expected 2 operands plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
-      throw "Expected 2 operands plus 2 variadic operands"
+    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bgeu => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -2207,10 +2329,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
       throw "Expected 2 successors"
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bgeu)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 4 then
-      throw "Expected 2 operands plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 || sizes.values[1]! ≠ 1 then
-      throw "Expected 2 operands plus 2 variadic operands"
+    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .beqz => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -2220,10 +2339,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
       throw "Expected 2 successors"
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .beqz)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 3 then
-      throw "Expected 1 operand plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 then
-      throw "Expected one conditional operand (to be compared against zero)"
+    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 1
     pure ()
   | .riscv_cf .bnez => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -2233,13 +2349,21 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     if op.getNumSuccessors ctx.raw opIn ≠ 2 then
       throw "Expected 2 successors"
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bnez)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 3 then
-      throw "Expected 1 operand plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 then
-      throw "Expected one conditional operand (to be compared against zero)"
+    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 1
     pure ()
   /- RISCV Stack -/
   | .riscv_stack .alloca => do
+    if op.getNumOperands ctx.raw opIn ≠ 0 then
+      throw "Expected 0 operands"
+    if op.getNumResults ctx.raw opIn ≠ 1 then
+      throw "Expected 1 result"
+    if op.getNumRegions ctx.raw opIn ≠ 0 then
+      throw "Expected 0 regions"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "Expected 0 successors"
+    pure ()
+  /- RISCV 64-bit -/
+  | .rv64 .get_register => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
     if op.getNumResults ctx.raw opIn ≠ 1 then

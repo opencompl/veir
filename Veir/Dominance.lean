@@ -120,8 +120,10 @@ SSA dominance.
   A predicate that states that the values in the IR context are used in operations that
   are dominated by the operation or block that defines them.
 -/
-axiom WfIRContext.Dom (ctx : WfIRContext OpInfo) : Prop
-
+def WfIRContext.Dom (ctx : WfIRContext OpInfo) : Prop :=
+  ∀ {op : OperationPtr} (_opInBounds : op.InBounds ctx.raw) {value : ValuePtr},
+  value ∈ op.getOperands! ctx.raw →
+  value.dominatesIp (InsertPoint.before op) ctx
 
 /--
 Operands of an operation are not results of dominated operations.
@@ -142,3 +144,18 @@ axiom OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! (ctxD
 
 grind_pattern OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! =>
   ctx.Dom, value.getDefiningOp! ctx.raw, some op₂, op₁.getOperands! ctx.raw
+
+/-- In a well-dominated IR context, any value that is an operand of an operation `op` is
+dominating the program point before `op`. -/
+@[grind →]
+theorem WfIRContext.Dom.operand_dominates_op (ctxDom : ctx.Dom)
+    (opInBounds : op.InBounds ctx.raw) :
+    value ∈ op.getOperands! ctx.raw →
+    value.dominatesIp (InsertPoint.before op) ctx := by
+  grind [WfIRContext.Dom]
+
+/-- In a well-dominated IR context, a value dominates the program point after an operation iff
+it dominates the program point before the operation, or it is a result of the operation. -/
+axiom WfIRContext.Dom.value_dominatesIp_after_iff (ctxDom : ctx.Dom) :
+  value.dominatesIp (InsertPoint.after op ctx.raw block blockIsParent opInBounds) ctx ↔
+  value.dominatesIp (InsertPoint.before op) ctx ∨ value ∈ op.getResults! ctx.raw

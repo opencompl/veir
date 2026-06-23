@@ -22,27 +22,27 @@ variable {ctx : IRContext OpInfo}
 
 section insertOp
 
-theorem Rewriter.insertOp?_WellFormed (hctx : ctx.WellFormed) :
-    Rewriter.insertOp? ctx newOp ip newOpIn insIn ctxInBounds = some newCtx →
+theorem Rewriter.insertOp_WellFormed (hctx : ctx.WellFormed) :
+    Rewriter.insertOp ctx newOp ip newOpIn insIn ctxInBounds = some newCtx →
     newCtx.WellFormed := by
-  simp only [Rewriter.insertOp?]
+  simp only [Rewriter.insertOp]
   split; grind; rename_i parent hparent
   intro h
   apply IRContext.wellFormed_OperationPtr_linkBetweenWithParent hctx h (ip := ip) <;>
     grind [Option.maybe₁_def]
 
-theorem BlockPtr.operationList_rewriter_insertOp?
-  (h : Rewriter.insertOp? ctx op ip opIn ipIn ctxIn = some ctx') (ctxWf : ctx.WellFormed) :
+theorem BlockPtr.operationList_rewriter_insertOp
+  (h : Rewriter.insertOp ctx op ip opIn ipIn ctxIn = some ctx') (ctxWf : ctx.WellFormed) :
   BlockPtr.operationList block ctx' ctx'Wf blockIn =
   if h: ip.block! ctx = some block then
     (BlockPtr.operationList block ctx ctxWf).insertIdx (ip.idxIn ctx block) op
       (by apply InsertPoint.idxIn.le_size_operationList)
   else
     BlockPtr.operationList block ctx ctxWf := by
-  have ⟨block', hBlock'⟩ : ∃ block', ip.block! ctx = some block' := by grind [Rewriter.insertOp?]
+  have ⟨block', hBlock'⟩ : ∃ block', ip.block! ctx = some block' := by grind [Rewriter.insertOp]
   have ⟨array, hArray⟩ := ctxWf.opChain block (by grind)
   have ⟨array', hArray'⟩ := ctxWf.opChain block' (by grind)
-  simp only [Rewriter.insertOp?] at h
+  simp only [Rewriter.insertOp] at h
   split at h; grind; rename_i parent hparent
   have : block' = parent := by grind
   subst parent
@@ -660,7 +660,7 @@ theorem Rewriter.createOp_WellFormed
   rename_i ctx₂ hctx₂
   have : ctx₂.WellFormed :=
     by grind [Rewriter.initOpRegions_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
-  grind [insertOp?_WellFormed, Rewriter.initOpOperands_WellFormed,
+  grind [insertOp_WellFormed, Rewriter.initOpOperands_WellFormed,
     Rewriter.initBlockOperands_WellFormed]
 
 theorem BlockPtr.operationList_rewriter_createOp
@@ -689,10 +689,10 @@ theorem BlockPtr.operationList_rewriter_createOp
     simp at h
     split at h; grind; rename_i ctx₄ hctx₄
     have ctx₄Wf : ctx₄.WellFormed := by
-      grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed, Rewriter.insertOp?_WellFormed]
+      grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed, Rewriter.insertOp_WellFormed]
     simp at h; have ⟨_, _⟩ := h; subst newCtx newOp'
     simp
-    rw [BlockPtr.operationList_rewriter_insertOp? hctx₄ (by grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed])]
+    rw [BlockPtr.operationList_rewriter_insertOp hctx₄ (by grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed])]
     cases ip
     case before op =>
       simp only [InsertPoint.block!_before_eq, OperationPtr.parent!_initBlockOperands,
@@ -701,11 +701,11 @@ theorem BlockPtr.operationList_rewriter_createOp
         OperationPtr.parent!_createEmptyOp hctx₂, show op ≠ newOp by grind, ↓reduceIte]
       split <;>
         grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed,
-          Rewriter.insertOp?_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
+          Rewriter.insertOp_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
     case atEnd b =>
       simp only [InsertPoint.block!_atEnd_eq, Option.some.injEq]
       split <;>
         grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed,
-          Rewriter.insertOp?_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
+          Rewriter.insertOp_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
 
 end Veir

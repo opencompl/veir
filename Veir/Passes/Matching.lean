@@ -61,6 +61,20 @@ def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) : Option Integ
   let op := opResultPtr.op
   matchConstantIntOp op ctx
 
+/-- Match a constant integer with value zero, returning `val` itself. -/
+def matchConstantZero (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
+  let attr ← matchConstantIntVal val ctx
+  guard (attr.value = 0)
+  return val
+
+/--
+  Return the operation that defines `val`, if `val` is the result of an operation
+  (rather than a block argument). Used for matching multi-operation patterns.
+-/
+def getDefiningOp (val : ValuePtr) (_ctx : IRContext OpCode) : Option OperationPtr := do
+  let .opResult opResultPtr := val | none
+  some opResultPtr.op
+
 def matchCastOp (op : OperationPtr) (ctx : IRContext OpCode) : Option IntegerAttr := do
   let .builtin .unrealized_conversion_cast := op.getOpType! ctx | none
   let properties := op.getProperties! ctx (.llvm .mlir__constant)
@@ -79,9 +93,24 @@ def matchOr (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × V
   let (op, properties) ← matchOp op ctx (.llvm .or) 2
   return (op[0]!, op[1]!, properties)
 
+/-- Match `llvm.select cond, tval, fval`, returning `(cond, tval, fval)`. -/
+def matchSelect (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .select) 3
+  return (op[0]!, op[1]!, op[2]!)
+
 def matchXor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .xor)) := do
   let (op, properties) ← matchOp op ctx (.llvm .xor) 2
   return (op[0]!, op[1]!, properties)
+
+/-- Match `xor X, -1` (the canonical "not X"), returning `X`. -/
+def matchNot (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
+  let .opResult opResultPtr := val | none
+  let op := opResultPtr.op
+  let (lhs, rhs) ← matchXori op ctx
+  let cst ← matchConstantIntVal rhs ctx
+  guard (cst.value = -1)
+  return lhs
 
 def matchMul (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .mul)) := do
   let (op, properties) ← matchOp op ctx (.llvm .mul) 2

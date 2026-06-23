@@ -30,18 +30,13 @@ set_option warn.sorry false in
 -/
 def fold_commutative_binop_li (src dst : Riscv)
     (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
-    LocalRewritePattern OpCode := fun ctx op =>
-  match matchRiscvBinop src op ctx with
-  | none => some (ctx, none)
-  | some (lhs, rhs) =>
-    match (Prod.mk lhs <$> matchLi rhs ctx) <|> (Prod.mk rhs <$> matchLi lhs ctx) with
-    | none => some (ctx, none)
-    | some (reg, imm) =>
-      if imm.value.value < -2048 || imm.value.value > 2047 then some (ctx, none)
-      else do
-        let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[reg]
-            #[] #[] (cast h.symm imm) none sorry
-        return (ctx, some (#[newOp], #[newOp.getResult 0]))
+    LocalRewritePattern OpCode := fun ctx op => do
+  let some (lhs, rhs) := matchRiscvBinop src op ctx | return (ctx, none)
+  let some imm :=  matchLi rhs ctx | return (ctx, none)
+  if imm.value.value < -2048 || imm.value.value > 2047 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[lhs]
+          #[] #[] (cast h.symm imm) none sorry
+  return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 def fold_add_li_to_addi   := fold_commutative_binop_li .add  .addi  rfl
 def fold_or_li_to_ori     := fold_commutative_binop_li .or   .ori   rfl
@@ -56,18 +51,21 @@ set_option warn.sorry false in
   so the immediate is only matched on the second operand.
 -/
 def fold_binop_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
-    (lo hi : Int) : LocalRewritePattern OpCode := fun ctx op =>
-  match matchRiscvBinop src op ctx with
-  | none => some (ctx, none)
-  | some (reg, rhs) =>
-    match matchLi rhs ctx with
-    | none => some (ctx, none)
-    | some imm =>
-      if imm.value.value < lo || imm.value.value > hi then some (ctx, none)
-      else do
-        let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[reg]
-            #[] #[] (cast h.symm imm) none sorry
-        return (ctx, some (#[newOp], #[newOp.getResult 0]))
+    (lo hi : Int) : LocalRewritePattern OpCode := fun ctx op => do
+  let some (lhs, rhs) := matchRiscvBinop src op ctx | return (ctx, none)
+  let some imm :=  matchLi rhs ctx | return (ctx, none)
+  if imm.value.value < lo || imm.value.value > hi then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv dst) #[RegisterType.mk] #[lhs]
+      #[] #[] (cast h.symm imm) none sorry
+  return (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+/--
+  imm12 binops: `src rs1 (li imm) -> dst rs1 imm` for signed 12-bit `imm ∈ [-2048, 2047]`.
+  Only match when the constant is on the right, since we assume that the canonicalizer
+  has made the code that way.
+-/
+def fold_imm12_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
+    LocalRewritePattern OpCode := fold_binop_li src dst h (-2048) 2047
 
 /-- imm5 word shifts/rotates: `src rs1 (li imm) -> dst rs1 imm` for `imm ∈ [0,31]`. -/
 def fold_shift5_li (src dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) :
@@ -91,18 +89,17 @@ def fold_bext_li_to_bexti := fold_shift6_li .bext .bexti rfl
 def fold_binv_li_to_binvi := fold_shift6_li .binv .binvi rfl
 def fold_bset_li_to_bseti := fold_shift6_li .bset .bseti rfl
 
+def fold_slt_li_to_slti   := fold_imm12_li .slt  .slti  rfl
+def fold_sltu_li_to_sltiu := fold_imm12_li .sltu .sltiu rfl
+
 set_option warn.sorry false in
 /-- riscv.slli (riscv.zextw x) shamt -> riscv.slliuw x shamt -/
-def fold_zextw_slli_to_slliuw : LocalRewritePattern OpCode := fun ctx op =>
-  match matchOp op ctx (.riscv .slli) 1 with
-  | none => some (ctx, none)
-  | some (operands, shamt) =>
-    match matchZextw operands[0]! ctx with
-    | none => some (ctx, none)
-    | some x => do
-        let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv .slliuw) #[RegisterType.mk] #[x]
-            #[] #[] shamt none sorry
-        return (ctx, some (#[newOp], #[newOp.getResult 0]))
+def fold_zextw_slli_to_slliuw : LocalRewritePattern OpCode := fun ctx op => do
+  let some (ops, shamt) := matchOp op ctx (.riscv .slli) 1 | return (ctx, none)
+  let some x :=  matchZextw ops[0]! ctx | return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp ctx (.riscv .slliuw) #[RegisterType.mk] #[x]
+          #[] #[] shamt none sorry
+  return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 /-! # Pass implementation -/
 
@@ -126,6 +123,8 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
       RewritePattern.fromLocalRewrite fold_bext_li_to_bexti,
       RewritePattern.fromLocalRewrite fold_binv_li_to_binvi,
       RewritePattern.fromLocalRewrite fold_bset_li_to_bseti,
+      RewritePattern.fromLocalRewrite fold_slt_li_to_slti,
+      RewritePattern.fromLocalRewrite fold_sltu_li_to_sltiu,
       RewritePattern.fromLocalRewrite fold_zextw_slli_to_slliuw]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
