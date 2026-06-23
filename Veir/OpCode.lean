@@ -81,6 +81,8 @@ inductive Llvm where
 | shl
 | lshr
 | ashr
+| intr__fshl
+| intr__fshr
 | mul
 | sdiv
 | udiv
@@ -108,6 +110,10 @@ inductive Llvm where
 | fdiv
 | frem
 | freeze
+| intr__smax
+| intr__smin
+| intr__umax
+| intr__umin
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]

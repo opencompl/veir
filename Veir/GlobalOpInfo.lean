@@ -404,9 +404,11 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .llvm .add | .llvm .sub | .llvm .mul
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .shl | .llvm .lshr | .llvm .ashr
+  | .llvm .intr__fshl | .llvm .intr__fshr
   | .llvm .icmp | .llvm .select
   | .llvm .trunc | .llvm .sext | .llvm .zext
   | .llvm .getelementptr
+  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
   | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => false
   -- Volatile loads are definitionally side-effecting
   | .llvm .load => (op.getProperties! ctx (.llvm .load)).volatile_
@@ -438,6 +440,7 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | .arith .mulsi_extended | .arith .mului_extended
   | .llvm .add | .llvm .mul
   | .llvm .and | .llvm .or | .llvm .xor
+  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
   | .llvm .fadd | .llvm .fmul
   | .riscv .add | .riscv .and | .riscv .or | .riscv .xor | .riscv .xnor
   | .riscv .mul | .riscv .mulh | .riscv .mulhu

@@ -145,11 +145,11 @@
 // CHECK-NEXT:          "riscv_cf.branch"(%[[REG_C1]]) [^[[BB_22:[0-9]+]]] : (!riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_20]]():
 // CHECK-NEXT:          %[[REG_CAST7:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-// CHECK-NEXT:          %[[REG_DIV0:[0-9]+]] = "riscv.div"(%[[REG_C2]], %[[REG_CAST7]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_DIV0:[0-9]+]] = "riscv.div"(%[[REG_CAST7]], %[[REG_C2]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          "riscv_cf.branch"(%[[REG_DIV0]]) [^[[BB_22]]] : (!riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_22]](%{{.*}}: !riscv.reg):
 // CHECK-NEXT:          %[[REG_CAST8:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-// CHECK-NEXT:          %[[REG_DIV1:[0-9]+]] = "riscv.div"(%[[REG_C2]], %[[REG_CAST8]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_DIV1:[0-9]+]] = "riscv.div"(%[[REG_CAST8]], %[[REG_C2]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          "riscv_cf.branch"({{.*}}, %[[REG_C0]], %[[REG_DIV1]], {{.*}}) [^[[BB_27:[0-9]+]]] : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_27]]({{.*}}):
 // CHECK-NEXT:          %[[REG_CAST9:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
@@ -160,7 +160,7 @@
 // CHECK-NEXT:          %[[REG_CAST11:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[REG_CAST10]]) : (i1) -> !riscv.reg
 // CHECK-NEXT:          "riscv_cf.bnez"(%[[REG_CAST11]]) [^[[BB_32:[0-9]+]], ^[[BB_33:[0-9]+]]] <{"operandSegmentSizes" = array<i32: 1, 0, 0>}> : (!riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_32]]():
-// CHECK-NEXT:          %[[REG_SRA0:[0-9]+]] = "riscv.sra"(%[[REG_C1]], {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_SRA0:[0-9]+]] = "riscv.sra"({{.*}}, %[[REG_C1]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_ADD0:[0-9]+]] = "riscv.add"(%[[REG_C1]], {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          "riscv_cf.branch"(%[[REG_SRA0]], %[[REG_ADD0]]) [^[[BB_29]]] : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_33]]():
@@ -172,7 +172,7 @@
 // CHECK-NEXT:          "riscv_cf.branch"(%[[REG_C0]]) [^[[BB_42:[0-9]+]]] : (!riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_42]](%[[ARG_42_0:[a-zA-Z0-9_]+]] : !riscv.reg):
 // CHECK-NEXT:          %[[REG_CAST14:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-// CHECK-NEXT:          %[[REG_DIV2:[0-9]+]] = "riscv.div"({{.*}}, %[[REG_CAST14]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_DIV2:[0-9]+]] = "riscv.div"(%[[REG_CAST14]], {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_SLT2:[0-9]+]] = "riscv.slt"(%[[REG_DIV2]], %[[ARG_42_0]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_CAST15:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[REG_SLT2]]) : (!riscv.reg) -> i1
 // CHECK-NEXT:          %[[REG_CAST16:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[REG_CAST15]]) : (i1) -> !riscv.reg
@@ -180,7 +180,7 @@
 // CHECK-NEXT:      ^[[BB_46]]():
 // CHECK-NEXT:          "riscv_cf.branch"(%[[REG_C0]]) [^[[BB_49:[0-9]+]]] : (!riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_49]](%[[ARG_49_0:[a-zA-Z0-9_]+]] : !riscv.reg):
-// CHECK-NEXT:          %[[REG_DIV3:[0-9]+]] = "riscv.div"(%[[REG_C2]], {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_DIV3:[0-9]+]] = "riscv.div"({{.*}}, %[[REG_C2]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_SLT3:[0-9]+]] = "riscv.slt"(%[[REG_DIV3]], %[[ARG_49_0]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_CAST17:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[REG_SLT3]]) : (!riscv.reg) -> i1
 // CHECK-NEXT:          %[[REG_CAST18:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[REG_CAST17]]) : (i1) -> !riscv.reg
@@ -193,7 +193,7 @@
 // CHECK-NEXT:          %[[REG_CAST20:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[REG_SH3ADD0]]) : (!riscv.reg) -> !llvm.ptr
 // CHECK-NEXT:          %[[REG_CAST21:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[REG_CAST20]]) : (!llvm.ptr) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_LD0:[0-9]+]] = "riscv.ld"(%[[REG_CAST21]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:          %[[REG_DIV4:[0-9]+]] = "riscv.div"(%[[REG_C2]], {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_DIV4:[0-9]+]] = "riscv.div"({{.*}}, %[[REG_C2]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_ADD2:[0-9]+]] = "riscv.add"(%[[REG_DIV4]], %[[REG_ADD1]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_CAST22:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.ptr) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_SH3ADD1:[0-9]+]] = "riscv.sh3add"(%[[REG_ADD2]], %[[REG_CAST22]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -210,15 +210,15 @@
 // CHECK-NEXT:          %[[REG_LD2:[0-9]+]] = "riscv.ld"(%[[REG_CAST27]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_MUL3:[0-9]+]] = "riscv.mul"(%[[REG_LD1]], %[[REG_LD2]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_CAST28:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-// CHECK-NEXT:          %[[REG_REM0:[0-9]+]] = "riscv.rem"(%[[REG_CAST28]], %[[REG_MUL3]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_REM0:[0-9]+]] = "riscv.rem"(%[[REG_MUL3]], %[[REG_CAST28]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_ADD4:[0-9]+]] = "riscv.add"(%[[REG_REM0]], %[[REG_LD0]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_CAST29:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-// CHECK-NEXT:          %[[REG_REM1:[0-9]+]] = "riscv.rem"(%[[REG_CAST29]], %[[REG_ADD4]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:          %[[REG_SUB0:[0-9]+]] = "riscv.sub"(%[[REG_REM0]], %[[REG_LD0]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_REM1:[0-9]+]] = "riscv.rem"(%[[REG_ADD4]], %[[REG_CAST29]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_SUB0:[0-9]+]] = "riscv.sub"(%[[REG_LD0]], %[[REG_REM0]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_CAST30:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_ADD5:[0-9]+]] = "riscv.add"(%[[REG_CAST30]], %[[REG_SUB0]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_CAST31:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-// CHECK-NEXT:          %[[REG_REM2:[0-9]+]] = "riscv.rem"(%[[REG_CAST31]], %[[REG_ADD5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_REM2:[0-9]+]] = "riscv.rem"(%[[REG_ADD5]], %[[REG_CAST31]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_CAST32:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.ptr) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_SH3ADD3:[0-9]+]] = "riscv.sh3add"(%[[REG_ADD1]], %[[REG_CAST32]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_CAST33:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[REG_SH3ADD3]]) : (!riscv.reg) -> !llvm.ptr
@@ -239,7 +239,7 @@
 // CHECK-NEXT:          %[[REG_ADD7:[0-9]+]] = "riscv.add"(%[[REG_C1]], %[[ARG_42_0]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          "riscv_cf.branch"(%[[REG_ADD7]]) [^[[BB_42]]] : (!riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_47]]():
-// CHECK-NEXT:          %[[REG_DIV5:[0-9]+]] = "riscv.div"(%[[REG_C2]], {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_DIV5:[0-9]+]] = "riscv.div"({{.*}}, %[[REG_C2]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_CAST38:[0-9]+]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_XOR2:[0-9]+]] = "riscv.xor"(%[[REG_C0]], %[[REG_CAST38]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          %[[REG_C0_4:[0-9]+]] = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
@@ -248,7 +248,7 @@
 // CHECK-NEXT:          %[[REG_CAST40:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[REG_CAST39]]) : (i1) -> !riscv.reg
 // CHECK-NEXT:          "riscv_cf.bnez"(%[[REG_CAST40]]) [^[[BB_90:[0-9]+]], ^[[BB_91:[0-9]+]]] <{"operandSegmentSizes" = array<i32: 1, 0, 0>}> : (!riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_90]]():
-// CHECK-NEXT:          %[[REG_DIV6:[0-9]+]] = "riscv.div"(%[[REG_C2]], {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_DIV6:[0-9]+]] = "riscv.div"({{.*}}, %[[REG_C2]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          "riscv_cf.branch"(%[[REG_DIV6]]) [^[[BB_94:[0-9]+]]] : (!riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_91]]():
 // CHECK-NEXT:          %[[REG_ADD8:[0-9]+]] = "riscv.add"({{.*}}, {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -265,7 +265,7 @@
 // CHECK-NEXT:          %[[REG_ADD9:[0-9]+]] = "riscv.add"({{.*}}, {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          "riscv_cf.branch"(%[[REG_ADD9]]) [^[[BB_103:[0-9]+]]] : (!riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_100]]():
-// CHECK-NEXT:          %[[REG_DIV7:[0-9]+]] = "riscv.div"(%[[REG_C2]], {{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:          %[[REG_DIV7:[0-9]+]] = "riscv.div"({{.*}}, %[[REG_C2]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:          "riscv_cf.branch"(%[[REG_DIV7]]) [^[[BB_103]]] : (!riscv.reg) -> ()
 // CHECK-NEXT:      ^[[BB_103]](%[[ARG_103_0:[a-zA-Z0-9_]+]] : !riscv.reg):
 // CHECK-NEXT:          "riscv_cf.branch"() [^[[BB_107:[0-9]+]]] : () -> ()
