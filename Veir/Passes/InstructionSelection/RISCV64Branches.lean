@@ -22,7 +22,7 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
   let mut ip := InsertPoint.before op
   let mut casts : Array (OperationPtr) := #[]
 
-  for i in List.reverse (List.range (op.getNumOperands! c.raw)) do
+  for i in List.range (op.getNumOperands! c.raw) do
     let operand := op.getOperand! c.raw i
     let some (c', cast) := WfRewriter.createOp c
       (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand] #[]
@@ -61,10 +61,18 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
   if (block.get! c.raw).firstUse == none then
     return c
 
+  -- convertBranch mutates the IR, so we build predOps first, to avoid
+  -- data structure invalidation issues
+  let mut predOps : Array OperationPtr := #[]
   let mut currentPredUse := (block.get! c.raw).firstUse
   while let some blockop := currentPredUse do
-    have op := (blockop.get! c.raw).owner
-    currentPredUse := (blockop.get! c.raw).nextUse
+    let blockOperand := blockop.get! c.raw
+    let op := blockOperand.owner
+    currentPredUse := blockOperand.nextUse
+    if !predOps.contains op then
+      predOps := predOps.push op
+
+  for op in predOps do
     c := ← convertBranch c op block
 
   for i in List.range (block.getNumArguments! c.raw) do
