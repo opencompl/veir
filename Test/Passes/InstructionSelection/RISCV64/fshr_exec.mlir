@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
 // RUN: veir-opt %s -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
+// RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
 // fshr(0x123456789ABCDEF0, .., 8) = rotate-right by 8 = 0xF0123456789ABCDE
 // (the bottom byte 0xF0 wraps around to the top); constant amount -> riscv.rori
@@ -14,3 +15,5 @@
 
 // SRC:   Program output: #[0xf0123456789abcde#64]
 // CHECK: Program output: #[0xf0123456789abcde#64]
+
+// ISEL: "riscv.rori"

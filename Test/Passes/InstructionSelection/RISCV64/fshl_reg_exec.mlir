@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
 // RUN: veir-opt %s -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
+// RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
 // Register-form rotate: the shift amount is computed (5 + 3 = 8) rather than a
 // literal, so the constant recognizer does not fire and isel selects the
@@ -18,3 +19,6 @@
 
 // SRC:   Program output: #[0x3456789abcdef012#64]
 // CHECK: Program output: #[0x3456789abcdef012#64]
+
+// ISEL: "riscv.rol"
+// ISEL-NOT: "riscv.rori"

@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
 // RUN: veir-opt %s -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
+// RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
 // smax(-1, 1) = 1 (signed); distinct from umax. -> riscv.max
 "builtin.module"() ({
@@ -13,3 +14,5 @@
 
 // SRC:   Program output: #[0x0000000000000001#64]
 // CHECK: Program output: #[0x0000000000000001#64]
+
+// ISEL: "riscv.max"

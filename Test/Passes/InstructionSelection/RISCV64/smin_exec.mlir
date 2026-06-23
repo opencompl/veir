@@ -1,5 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
 // RUN: veir-opt %s -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
+// RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
 // smin(-1, 1) = -1 (signed); distinct from umin. -> riscv.min
 "builtin.module"() ({
@@ -13,3 +14,5 @@
 
 // SRC:   Program output: #[0xffffffffffffffff#64]
 // CHECK: Program output: #[0xffffffffffffffff#64]
+
+// ISEL: "riscv.min"
