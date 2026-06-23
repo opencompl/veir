@@ -22,7 +22,7 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
   let mut ip := InsertPoint.before op
   let mut casts : Array (OperationPtr) := #[]
 
-  for i in List.reverse (List.range (op.getNumOperands! c.raw)) do
+  for i in List.range (op.getNumOperands! c.raw) do
     let operand := op.getOperand! c.raw i
     let some (c', cast) := WfRewriter.createOp c
       (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand] #[]
