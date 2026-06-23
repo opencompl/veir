@@ -482,3 +482,145 @@ theorem trunc_refinement_16_8 {x : LLVM.Int 16} :
     (Data.LLVM.Int.trunc x 8 nsw nuw h) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg x) 8) := by
   veir_bv_decide
+
+/--
+  Prove the correctness of the `smax` lowering pattern (`llvm.intr.smax` -> `max`).
+-/
+theorem smax_refinement {x y : LLVM.Int 64} :
+    (Data.LLVM.Int.smax x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.max (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `smin` lowering pattern (`llvm.intr.smin` -> `min`).
+-/
+theorem smin_refinement {x y : LLVM.Int 64} :
+    (Data.LLVM.Int.smin x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.min (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `umax` lowering pattern (`llvm.intr.umax` -> `maxu`).
+-/
+theorem umax_refinement {x y : LLVM.Int 64} :
+    (Data.LLVM.Int.umax x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.maxu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `umin` lowering pattern (`llvm.intr.umin` -> `minu`).
+-/
+theorem umin_refinement {x y : LLVM.Int 64} :
+    (Data.LLVM.Int.umin x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.minu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/-!
+  The funnel-shift rotate lowerings cannot use `veir_bv_decide` directly: its
+  simp normalization rewrites the BitVec shift in the funnel-shift semantics into
+  a *symbolic* `Nat` shift (`c.toNat % w`) on the `2*w`-bit concatenation, which
+  `bv_decide` cannot bit-blast. Instead we reduce the refinement to a pure-BitVec
+  goal by hand (discharging the poison cases from the non-poison hypothesis on the
+  result, and keeping the shift amounts as `BitVec`s) and finish with bare
+  `bv_decide`.
+-/
+
+/--
+  Prove the correctness of the `fshl` rotate lowering: a funnel shift with
+  identical data operands is a rotate-left, lowered to `rol`.
+-/
+theorem fshl_rol_refinement {a c : LLVM.Int 64} :
+    (Data.LLVM.Int.fshl a a c) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.rol (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 64) := by
+  rw [Data.LLVM.Int.isRefinedBy_iff]
+  refine ⟨fun _ => toInt_isPoison, fun h1 _ => ?_⟩
+  have hp := Data.LLVM.Int.isPoison_fshl a a c
+  rw [h1] at hp
+  have ha : a.isPoison = false := by grind
+  have hc : c.isPoison = false := by grind
+  rw [Data.LLVM.Int.getValue_fshl a a c h1, toInt_getValue]
+  cases a with
+  | poison => simp [Data.LLVM.Int.isPoison] at ha
+  | val av =>
+  cases c with
+  | poison => simp [Data.LLVM.Int.isPoison] at hc
+  | val cv =>
+    simp only [Data.LLVM.Int.getValue, Data.RISCV.rol, LLVM.Int.toReg,
+      BitVec.truncate_eq_setWidth]
+    bv_decide
+
+/--
+  Prove the correctness of the `fshr` rotate lowering: a funnel shift with
+  identical data operands is a rotate-right, lowered to `ror`.
+-/
+theorem fshr_ror_refinement {a c : LLVM.Int 64} :
+    (Data.LLVM.Int.fshr a a c) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.ror (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 64) := by
+  rw [Data.LLVM.Int.isRefinedBy_iff]
+  refine ⟨fun _ => toInt_isPoison, fun h1 _ => ?_⟩
+  have hp := Data.LLVM.Int.isPoison_fshr a a c
+  rw [h1] at hp
+  have ha : a.isPoison = false := by grind
+  have hc : c.isPoison = false := by grind
+  rw [Data.LLVM.Int.getValue_fshr a a c h1, toInt_getValue]
+  cases a with
+  | poison => simp [Data.LLVM.Int.isPoison] at ha
+  | val av =>
+  cases c with
+  | poison => simp [Data.LLVM.Int.isPoison] at hc
+  | val cv =>
+    simp only [Data.LLVM.Int.getValue, Data.RISCV.ror, LLVM.Int.toReg,
+      BitVec.truncate_eq_setWidth]
+    bv_decide
+
+/--
+  Prove the correctness of the constant-amount `fshr` lowering: a rotate-right is
+  lowered to `rori a, (c mod 64)`. The immediate `c mod 64` is the low six bits of
+  the (constant) shift amount.
+-/
+theorem fshr_rori_refinement {a c : LLVM.Int 64} :
+    (Data.LLVM.Int.fshr a a c) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.rori (BitVec.extractLsb 5 0 (LLVM.Int.toReg c).val) (LLVM.Int.toReg a)) 64) := by
+  rw [Data.LLVM.Int.isRefinedBy_iff]
+  refine ⟨fun _ => toInt_isPoison, fun h1 _ => ?_⟩
+  have hp := Data.LLVM.Int.isPoison_fshr a a c
+  rw [h1] at hp
+  have ha : a.isPoison = false := by grind
+  have hc : c.isPoison = false := by grind
+  rw [Data.LLVM.Int.getValue_fshr a a c h1, toInt_getValue]
+  cases a with
+  | poison => simp [Data.LLVM.Int.isPoison] at ha
+  | val av =>
+  cases c with
+  | poison => simp [Data.LLVM.Int.isPoison] at hc
+  | val cv =>
+    simp only [Data.LLVM.Int.getValue, Data.RISCV.rori, LLVM.Int.toReg,
+      BitVec.truncate_eq_setWidth]
+    bv_decide
+
+/--
+  Prove the correctness of the constant-amount `fshl` lowering: a rotate-left by
+  `c` is a rotate-right by `64 - c`, lowered to `rori a, (-(c mod 64))` (there is no
+  `roli`, so the immediate is negated mod 64).
+-/
+theorem fshl_rori_refinement {a c : LLVM.Int 64} :
+    (Data.LLVM.Int.fshl a a c) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.rori (-(BitVec.extractLsb 5 0 (LLVM.Int.toReg c).val)) (LLVM.Int.toReg a)) 64) := by
+  rw [Data.LLVM.Int.isRefinedBy_iff]
+  refine ⟨fun _ => toInt_isPoison, fun h1 _ => ?_⟩
+  have hp := Data.LLVM.Int.isPoison_fshl a a c
+  rw [h1] at hp
+  have ha : a.isPoison = false := by grind
+  have hc : c.isPoison = false := by grind
+  rw [Data.LLVM.Int.getValue_fshl a a c h1, toInt_getValue]
+  cases a with
+  | poison => simp [Data.LLVM.Int.isPoison] at ha
+  | val av =>
+  cases c with
+  | poison => simp [Data.LLVM.Int.isPoison] at hc
+  | val cv =>
+    simp only [Data.LLVM.Int.getValue, Data.RISCV.rori, LLVM.Int.toReg,
+      BitVec.truncate_eq_setWidth]
+    bv_decide
