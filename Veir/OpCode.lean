@@ -81,6 +81,8 @@ inductive Llvm where
 | shl
 | lshr
 | ashr
+| intr__fshl
+| intr__fshr
 | mul
 | sdiv
 | udiv

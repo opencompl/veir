@@ -677,6 +677,20 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.ashr lhs rhs properties.exact)], mem, none)
+  | .intr__fshl => do
+    let [.int bw a, .int bw' b, .int bw'' c] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    if h'': bw'' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    let c := c.cast (by simp at h''; exact h'')
+    return (#[.int bw (LLVM.Int.fshl a b c)], mem, none)
+  | .intr__fshr => do
+    let [.int bw a, .int bw' b, .int bw'' c] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    if h'': bw'' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    let c := c.cast (by simp at h''; exact h'')
+    return (#[.int bw (LLVM.Int.fshr a b c)], mem, none)
   | .and => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
