@@ -30,9 +30,11 @@ INTRINSIC_COUNT = ("llvm.intr.ctpop", "llvm.intr.bitreverse")
 INTRINSIC_ZERO_POISON = ("llvm.intr.ctlz", "llvm.intr.cttz")
 BSWAP_WIDTHS = (16, 32, 64)
 
-# Widths the RISC-V backend can compute on. i1 is permitted only as an icmp
-# operand (so comparison results can feed into further comparisons); it is
-# never produced or consumed by arithmetic/bitwise/shift/cast operations.
+# Widths the RISC-V backend can compute on. In RISC-V mode, i1 appears only as
+# the result of an icmp, and that result may feed only a conditional branch or
+# the condition of an llvm.select: icmps always take i64 operands (never i1), and
+# i1 values are never consumed by arithmetic/bitwise/shift/cast operations or
+# further comparisons.
 RISCV_WIDTHS = (64,)
 
 
@@ -120,13 +122,6 @@ class Generator:
 
     def rand_type(self) -> str:
         return rand_int_type(self.rng, self.riscv)
-
-    def rand_icmp_type(self) -> str:
-        """Operand type for an icmp. In RISC-V mode, i1 is allowed here so that
-        comparison results can be fed back into further comparisons."""
-        if self.riscv:
-            return f"i{self.rng.choice((1,) + RISCV_WIDTHS)}"
-        return self.rand_type()
 
     def random_dominating_value(self, width: int) -> str:
         typ = f"i{width}"
@@ -387,7 +382,10 @@ class Generator:
                 operand = self.random_dominating_value(src_w)
                 self.add_operation("llvm.trunc", [operand], [src], dst, props)
             elif choice < 0.90:
-                typ = self.rand_icmp_type()
+                # icmp operands are ordinary integer values; in RISC-V mode that
+                # means i64 (rand_type never yields i1 there), so an icmp result
+                # is never fed back into another comparison.
+                typ = self.rand_type()
                 width = bitwidth(typ)
                 lhs = self.random_dominating_value(width)
                 rhs = self.random_dominating_value(width)
