@@ -335,6 +335,19 @@ def check_llvm_interps(
     return True, "", tuple(collected)
 
 
+LLVM_DIALECT_OP_RE = re.compile(r'"(llvm\.[A-Za-z0-9_.]+)"')
+
+# These LLVM dialect ops are expected to remain after the RISC-V pipeline:
+# the function wrapper and its terminator are not lowered away.
+LLVM_DIALECT_OP_WHITELIST = frozenset({"llvm.func", "llvm.return"})
+
+
+def find_llvm_dialect_ops(text: str) -> list[str]:
+    """Return the sorted, unique LLVM dialect op names in generic-form MLIR."""
+    ops = set(LLVM_DIALECT_OP_RE.findall(text))
+    return sorted(ops - LLVM_DIALECT_OP_WHITELIST)
+
+
 def optimize(repo: Path, opt_bin: Path, src: Path, dst: Path, passes: str) -> tuple[bool, str]:
     """Run veir-opt and write the result to dst. Returns (success, log)."""
     result = run_tool(repo, [str(opt_bin), str(src), f"-p={passes}"])
@@ -389,6 +402,7 @@ def check(
     src: Path,
     opt: Path,
     passes: str,
+    riscv: bool,
 ) -> CheckResult:
     """Interpret, optimize, re-interpret, and compare."""
     before, _ = interpret(repo, interp_bin, src)
@@ -413,6 +427,21 @@ def check(
             message=f"optimizer failed on {src}\n{opt_log}",
             before_llvm=before_llvm,
         )
+
+    if riscv:
+        leftover = find_llvm_dialect_ops(opt_log)
+        if leftover:
+            return CheckResult(
+                ok=False,
+                before=before,
+                after=None,
+                message=(
+                    f"LLVM dialect ops survived the RISC-V pipeline\n"
+                    f"source: {src}\noptimized: {opt}\n"
+                    f"ops: {', '.join(leftover)}"
+                ),
+                before_llvm=before_llvm,
+            )
 
     after, _ = interpret(repo, interp_bin, opt)
     after_llvm: tuple[tuple[str, str], ...] = ()
@@ -475,7 +504,7 @@ def _worker(
             src = workdir / f"case_{idx}.mlir"
             opt = workdir / f"case_{idx}.opt.mlir"
             generate(src, rng, riscv)
-            result = check(repo, interp_bin, opt_bin, llvm_interps, src, opt, passes)
+            result = check(repo, interp_bin, opt_bin, llvm_interps, src, opt, passes, riscv)
             if not result.ok:
                 queue.put(("fail", result.message))
                 return
