@@ -419,9 +419,28 @@ def ctpop {w : Nat} (x : Int w) : Int w := Id.run do
   let val x' := x | poison
   val (BitVec.cpop x')
 
+def bswap16BV (x : BitVec 16) : BitVec 16 :=
+  x.extractLsb 7 0 ++ x.extractLsb 15 8
+
+def bswap32BV (x : BitVec 32) : BitVec 32 :=
+  x.extractLsb 7 0 ++ x.extractLsb 15 8 ++
+  x.extractLsb 23 16 ++ x.extractLsb 31 24
+
+def bswap64BV (x : BitVec 64) : BitVec 64 :=
+  x.extractLsb 7 0 ++ x.extractLsb 15 8 ++
+  x.extractLsb 23 16 ++ x.extractLsb 31 24 ++
+  x.extractLsb 39 32 ++ x.extractLsb 47 40 ++
+  x.extractLsb 55 48 ++ x.extractLsb 63 56
+
 /-- The `bswap` intrinsic reverses byte order. -/
 def bswap {w : Nat} (x : Int w) : Int w := Id.run do
   let val x' := x | poison
+  if h : w = 16 then
+    return val ((bswap16BV (x'.cast h)).cast h.symm)
+  if h : w = 32 then
+    return val ((bswap32BV (x'.cast h)).cast h.symm)
+  if h : w = 64 then
+    return val ((bswap64BV (x'.cast h)).cast h.symm)
   let bytes := w / 8
   let byteAt (i : Nat) := (x'.toNat / 2 ^ (8 * i)) % 256
   let place (i : Nat) := 8 * (bytes - 1 - i)
