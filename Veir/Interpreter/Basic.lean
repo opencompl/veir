@@ -691,6 +691,21 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     let b := b.cast (by simp at h; exact h)
     let c := c.cast (by simp at h''; exact h'')
     return (#[.int bw (LLVM.Int.fshr a b c)], mem, none)
+  | .intr__ctlz => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.ctlz x properties.is_zero_poison)], mem, none)
+  | .intr__cttz => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.cttz x properties.is_zero_poison)], mem, none)
+  | .intr__ctpop => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.ctpop x)], mem, none)
+  | .intr__bswap => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.bswap x)], mem, none)
+  | .intr__bitreverse => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.bitreverse x)], mem, none)
   | .and => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else

@@ -160,6 +160,28 @@ def matchLoad (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
   let (op, properties) ← matchOp op ctx (.llvm .load) 1
   return (op[0]!, properties)
 
+def matchCtlz (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × propertiesOf (.llvm .intr__ctlz)) := do
+  let (op, properties) ← matchOp op ctx (.llvm .intr__ctlz) 1
+  return (op[0]!, properties)
+
+def matchCttz (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × propertiesOf (.llvm .intr__cttz)) := do
+  let (op, properties) ← matchOp op ctx (.llvm .intr__cttz) 1
+  return (op[0]!, properties)
+
+def matchCtpop (op : OperationPtr) (ctx : IRContext OpCode) : Option ValuePtr := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__ctpop) 1
+  return op[0]!
+
+def matchBswap (op : OperationPtr) (ctx : IRContext OpCode) : Option ValuePtr := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__bswap) 1
+  return op[0]!
+
+def matchBitreverse (op : OperationPtr) (ctx : IRContext OpCode) : Option ValuePtr := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__bitreverse) 1
+  return op[0]!
+
 /--
   Match a `llvm.getelementptr` with a single dynamic index.
 -/

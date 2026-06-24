@@ -122,6 +122,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case shl => exact (NswNuwProperties.fromAttrDict attrDict)
     case lshr => exact (ExactProperties.fromAttrDict attrDict)
     case ashr => exact (ExactProperties.fromAttrDict attrDict)
+    case intr__ctlz => exact (ZeroPoisonProperties.fromAttrDictFor "llvm.intr.ctlz" attrDict)
+    case intr__cttz => exact (ZeroPoisonProperties.fromAttrDictFor "llvm.intr.cttz" attrDict)
     case or => exact (DisjointProperties.fromAttrDict attrDict)
     case trunc => exact (NswNuwProperties.fromAttrDict attrDict)
     case zext => exact (NnegProperties.fromAttrDict attrDict)
@@ -238,6 +240,10 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     if props.nneg then
       dict := dict.insert "nneg".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
+  | .llvm .intr__ctlz | .llvm .intr__cttz =>
+    let value := if props.is_zero_poison then 1 else 0
+    let attr := IntegerAttr.mk value (IntegerType.mk 1)
+    (Std.HashMap.emptyWithCapacity 1).insert "is_zero_poison".toUTF8 (Attribute.integerAttr attr)
   | .riscv .li  | .riscv .lui | .riscv .auipc | .riscv .andi | .riscv .ori | .riscv .xori
   | .riscv .addi | .riscv .slti | .riscv .sltiu | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
@@ -404,6 +410,8 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .llvm .add | .llvm .sub | .llvm .mul
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .shl | .llvm .lshr | .llvm .ashr
+  | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
+  | .llvm .intr__bswap | .llvm .intr__bitreverse
   | .llvm .intr__fshl | .llvm .intr__fshr
   | .llvm .icmp | .llvm .select
   | .llvm .trunc | .llvm .sext | .llvm .zext
