@@ -944,8 +944,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     let operandType ← op.verifyIntegerUnopTypes ctx "llvm.intr.bswap"
     let .integerType intType := operandType.val
       | throw "llvm.intr.bswap: Expected operand 0 to have integer type"
-    if intType.bitwidth % 16 ≠ 0 then
-      throw "llvm.intr.bswap: bitwidth must be an even number of bytes"
+    if intType.bitwidth ∉ [16, 32, 64] then
+      throw "llvm.intr.bswap: bitwidth must be 16, 32, or 64"
     pure ()
   | .llvm .intr__bitreverse => do
     if op.getNumOperands ctx.raw opIn ≠ 1 then

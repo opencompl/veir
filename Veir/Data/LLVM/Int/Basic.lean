@@ -432,7 +432,11 @@ def bswap64BV (x : BitVec 64) : BitVec 64 :=
   x.extractLsb 39 32 ++ x.extractLsb 47 40 ++
   x.extractLsb 55 48 ++ x.extractLsb 63 56
 
-/-- The `bswap` intrinsic reverses byte order. -/
+/--
+The `bswap` intrinsic reverses byte order. Only 16, 32, and 64-bit operands
+are supported; the verifier rejects every other width, so the final branch is
+unreachable for valid IR.
+-/
 def bswap {w : Nat} (x : Int w) : Int w := Id.run do
   let val x' := x | poison
   if h : w = 16 then
@@ -441,12 +445,7 @@ def bswap {w : Nat} (x : Int w) : Int w := Id.run do
     return val ((bswap32BV (x'.cast h)).cast h.symm)
   if h : w = 64 then
     return val ((bswap64BV (x'.cast h)).cast h.symm)
-  let bytes := w / 8
-  let byteAt (i : Nat) := (x'.toNat / 2 ^ (8 * i)) % 256
-  let place (i : Nat) := 8 * (bytes - 1 - i)
-  let acc := (List.range bytes).foldl
-    (fun acc i => acc + byteAt i * 2 ^ place i) 0
-  val (BitVec.ofNat w acc)
+  val x'
 
 /-- The `bitreverse` intrinsic reverses bit order. -/
 def bitreverse {w : Nat} (x : Int w) : Int w := Id.run do

@@ -842,6 +842,135 @@ def selectGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   replaceWithReg rewriter op (orOp.getResult 0)
 
+/-! ## Zbb min/max and rotate intrinsics
+
+  These mirror the simple one-to-one patterns in LLVM's RISC-V backend
+  (`RISCVInstrInfoZb.td`): `smin/smax/umin/umax` select to `MIN/MAX/MINU/MAXU`,
+  and a funnel shift whose two data operands are identical is a rotate, which
+  selects to `ROL`/`ROR`. The general (distinct-operand) funnel shift needs a
+  multi-instruction expansion and is intentionally left unselected.
+-/
+
+set_option warn.sorry false in
+/-- llvm.intr.smax -> riscv.max -/
+def smax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs) := matchSmax op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, lReg) ← castToReg rewriter op lhs
+  let (rewriter, rReg) ← castToReg rewriter op rhs
+  let (rewriter, maxOp) ← rewriter.createOp (.riscv .max) #[RegisterType.mk] #[lReg, rReg]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  replaceWithReg rewriter op (maxOp.getResult 0)
+
+set_option warn.sorry false in
+/-- llvm.intr.smin -> riscv.min -/
+def smin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs) := matchSmin op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, lReg) ← castToReg rewriter op lhs
+  let (rewriter, rReg) ← castToReg rewriter op rhs
+  let (rewriter, minOp) ← rewriter.createOp (.riscv .min) #[RegisterType.mk] #[lReg, rReg]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  replaceWithReg rewriter op (minOp.getResult 0)
+
+set_option warn.sorry false in
+/-- llvm.intr.umax -> riscv.maxu -/
+def umax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs) := matchUmax op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, lReg) ← castToReg rewriter op lhs
+  let (rewriter, rReg) ← castToReg rewriter op rhs
+  let (rewriter, maxuOp) ← rewriter.createOp (.riscv .maxu) #[RegisterType.mk] #[lReg, rReg]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  replaceWithReg rewriter op (maxuOp.getResult 0)
+
+set_option warn.sorry false in
+/-- llvm.intr.umin -> riscv.minu -/
+def umin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs) := matchUmin op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, lReg) ← castToReg rewriter op lhs
+  let (rewriter, rReg) ← castToReg rewriter op rhs
+  let (rewriter, minuOp) ← rewriter.createOp (.riscv .minu) #[RegisterType.mk] #[lReg, rReg]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  replaceWithReg rewriter op (minuOp.getResult 0)
+
+set_option warn.sorry false in
+/-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol.
+    The general (distinct-operand) funnel shift is left unselected. -/
+def fshl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (a, b, amt) := matchFshl op rewriter.ctx | return rewriter
+  if a ≠ b then return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, valReg) ← castToReg rewriter op a
+  let (rewriter, amtReg) ← castToReg rewriter op amt
+  let (rewriter, rolOp) ← rewriter.createOp (.riscv .rol) #[RegisterType.mk] #[valReg, amtReg]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  replaceWithReg rewriter op (rolOp.getResult 0)
+
+set_option warn.sorry false in
+/-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror.
+    The general (distinct-operand) funnel shift is left unselected. -/
+def fshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (a, b, amt) := matchFshr op rewriter.ctx | return rewriter
+  if a ≠ b then return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, valReg) ← castToReg rewriter op a
+  let (rewriter, amtReg) ← castToReg rewriter op amt
+  let (rewriter, rorOp) ← rewriter.createOp (.riscv .ror) #[RegisterType.mk] #[valReg, amtReg]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  replaceWithReg rewriter op (rorOp.getResult 0)
+
+set_option warn.sorry false in
+/-- llvm.intr.fshr with identical data operands and a constant shift amount is a
+    constant rotate-right: -> riscv.rori (mirrors `PatGprImm<rotr, RORI>`). -/
+def fshrConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (a, b, amt) := matchFshr op rewriter.ctx | return rewriter
+  if a ≠ b then return rewriter
+  let some amtAttr := matchConstantIntVal amt rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  /- The funnel-shift amount is taken modulo the bit width. -/
+  let sh : Int := ((amtAttr.value % 64) + 64) % 64
+  let (rewriter, valReg) ← castToReg rewriter op a
+  let imm := RISCVImmediateProperties.mk (IntegerAttr.mk sh (IntegerType.mk 64))
+  let (rewriter, roriOp) ← rewriter.createOp (.riscv .rori) #[RegisterType.mk] #[valReg]
+      #[] #[] imm (some $ .before op) sorry (by simp) (by simp) sorry
+  replaceWithReg rewriter op (roriOp.getResult 0)
+
+set_option warn.sorry false in
+/-- llvm.intr.fshl with identical data operands and a constant shift amount is a
+    constant rotate-left. There is no `roli`, so (like LLVM) it lowers to
+    `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
+def fshlConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (a, b, amt) := matchFshl op rewriter.ctx | return rewriter
+  if a ≠ b then return rewriter
+  let some amtAttr := matchConstantIntVal amt rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  /- rotate-left by `sh` == rotate-right by `64 - sh` (mod 64). -/
+  let sh : Int := ((amtAttr.value % 64) + 64) % 64
+  let imm : Int := (64 - sh) % 64
+  let (rewriter, valReg) ← castToReg rewriter op a
+  let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm (IntegerType.mk 64))
+  let (rewriter, roriOp) ← rewriter.createOp (.riscv .rori) #[RegisterType.mk] #[valReg]
+      #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
+  replaceWithReg rewriter op (roriOp.getResult 0)
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
@@ -850,7 +979,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
      per-op lowerings consume their operands. -/
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral, ctlz, cttz, ctpop, bswap, bitreverse, constant, add, and, ashr, icmp, or, xor, mul,
-    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store]
+    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store,
+    smax, smin, umax, umin, fshlConst, fshrConst, fshl, fshr]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
