@@ -103,6 +103,34 @@ def matchXor (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × 
   let (op, properties) ← matchOp op ctx (.llvm .xor) 2
   return (op[0]!, op[1]!, properties)
 
+def matchSmax (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__smax) 2
+  return (op[0]!, op[1]!)
+
+def matchSmin (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__smin) 2
+  return (op[0]!, op[1]!)
+
+def matchUmax (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__umax) 2
+  return (op[0]!, op[1]!)
+
+def matchUmin (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__umin) 2
+  return (op[0]!, op[1]!)
+
+/-- Match `llvm.intr.fshl`, returning the two data operands and the shift amount. -/
+def matchFshl (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__fshl) 3
+  return (op[0]!, op[1]!, op[2]!)
+
+/-- Match `llvm.intr.fshr`, returning the two data operands and the shift amount. -/
+def matchFshr (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__fshr) 3
+  return (op[0]!, op[1]!, op[2]!)
+
 /-- Match `xor X, -1` (the canonical "not X"), returning `X`. -/
 def matchNot (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
   let .opResult opResultPtr := val | none
