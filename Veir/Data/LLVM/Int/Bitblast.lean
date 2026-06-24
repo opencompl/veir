@@ -413,6 +413,84 @@ theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) (h : (select c x y).
   simp [select, Id.run]
   grind
 
+@[veir_bv_normalize, grind =]
+theorem isPoison_smax {w : Nat} (x y : Int w) :
+    (smax x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
+  simp [smax, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_smax {w : Nat} (x y : Int w) (h : (smax x y).isPoison = false) :
+    (smax x y).getValue h = if x.getValue.sle y.getValue then y.getValue else x.getValue := by
+  simp [smax, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_smin {w : Nat} (x y : Int w) :
+    (smin x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
+  simp [smin, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_smin {w : Nat} (x y : Int w) (h : (smin x y).isPoison = false) :
+    (smin x y).getValue h = if x.getValue.sle y.getValue then x.getValue else y.getValue := by
+  simp [smin, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_umax {w : Nat} (x y : Int w) :
+    (umax x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
+  simp [umax, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_umax {w : Nat} (x y : Int w) (h : (umax x y).isPoison = false) :
+    (umax x y).getValue h = if x.getValue.ule y.getValue then y.getValue else x.getValue := by
+  simp [umax, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_umin {w : Nat} (x y : Int w) :
+    (umin x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
+  simp [umin, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_umin {w : Nat} (x y : Int w) (h : (umin x y).isPoison = false) :
+    (umin x y).getValue h = if x.getValue.ule y.getValue then x.getValue else y.getValue := by
+  simp [umin, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_fshl {w : Nat} (a b c : Int w) :
+    (fshl a b c).isPoison = decide (a.isPoison ∨ b.isPoison ∨ c.isPoison) := by
+  simp [fshl, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_fshl {w : Nat} (a b c : Int w) (h : (fshl a b c).isPoison = false) :
+    (fshl a b c).getValue h =
+      ((a.getValue ++ b.getValue) <<< (c.getValue % BitVec.ofNat w w)).extractLsb' w w := by
+  simp only [fshl, Id.run]
+  rw [BitVec.shiftLeft_eq']
+  simp [BitVec.toNat_umod]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_fshr {w : Nat} (a b c : Int w) :
+    (fshr a b c).isPoison = decide (a.isPoison ∨ b.isPoison ∨ c.isPoison) := by
+  simp [fshr, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_fshr {w : Nat} (a b c : Int w) (h : (fshr a b c).isPoison = false) :
+    (fshr a b c).getValue h =
+      ((a.getValue ++ b.getValue) >>> (c.getValue % BitVec.ofNat w w)).truncate w := by
+  simp only [fshr, Id.run]
+  rw [BitVec.ushiftRight_eq']
+  simp [BitVec.toNat_umod]
+  grind
+
 theorem add_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (nsw nuw : Bool) :
     add x₁ x₂ nsw nuw ⊒ add y₁ y₂ nsw nuw := by
