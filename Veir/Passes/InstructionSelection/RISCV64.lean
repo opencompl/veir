@@ -137,22 +137,27 @@ set_option warn.sorry false in
 def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, properties) := matchAdd op rewriter.ctx | return rewriter
-  /- only support `i64` -/
+  /- support `i64` and `i32` (experiment) -/
   let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
-  if ltype.bitwidth ≠ 64 then return rewriter
+  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return rewriter
   let .integerType rtype := (rhs.getType! rewriter.ctx.raw).val | return rewriter
-  if rtype.bitwidth ≠ 64 then return rewriter
+  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
-  if type'.bitwidth ≠ 64 then return rewriter
+  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 then return rewriter
   /- First, cast the operands to registers -/
   let (rewriter, lcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[lhs]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   let (rewriter, rcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[rhs]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- Actual `riscv.add` -/
-  let (rewriter, addOp) ← rewriter.createOp (.riscv .add) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- 64-bit add, or its 32-bit `W` variant for i32 (keeps the result sign-extended) -/
+  let (rewriter, addOp) ←
+    if type'.bitwidth = 32 then
+      rewriter.createOp (.riscv .addw) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    else
+      rewriter.createOp (.riscv .add) #[RegisterType.mk] #[rcastOp.getResult 0, lcastOp.getResult 0]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   /- Cast back result for type consistency-/
   let (rewriter, castAddOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[addOp.getResult 0]
       #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry

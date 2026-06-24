@@ -40,6 +40,15 @@ theorem add_refinement {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `add` lowering pattern at i32, which selects the
+  32-bit `addw`.
+-/
+theorem addw_refinement {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.add x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.addw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `and` lowering pattern.
 -/
 theorem and_refinement{x y : LLVM.Int 64} :
