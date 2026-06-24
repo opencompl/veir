@@ -98,7 +98,7 @@ __attribute__((always_inline)) static inline void chacha20_xor(const uint8_t key
     }
 }
 
-int main() {
+__attribute__((always_inline)) int chacha20() {
     uint8_t key[32];
     for (int i = 0; i < 32; i++)
         key[i] = (uint8_t)i;
@@ -127,7 +127,7 @@ int main() {
 }
 
 // CHECK:      "builtin.module"() ({
-// CHECK:        "llvm.func"() <{{{.*}}"sym_name" = "main"{{.*}}}> ({
+// CHECK:        "llvm.func"() <{{{.*}}"sym_name" = "chacha20"{{.*}}}> ({
 // CHECK-NEXT:       ^[[bb7:.*]]():
 // CHECK-NEXT:         %[[v8:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
 // CHECK-NEXT:         %[[v9:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
