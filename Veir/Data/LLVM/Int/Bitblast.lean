@@ -12,6 +12,19 @@ namespace Veir.Data.LLVM.Int
 
 public section
 
+attribute [veir_bv_normalize] Bool.false_eq_true false_and or_self decide_false dite_eq_ite Bool.if_false_right
+  Bool.decide_or Bool.decide_eq_true Bool.and_true Bool.or_eq_false_iff implies_true
+  BitVec.truncate_eq_setWidth BitVec.setWidth_eq forall_const and_imp true_and
+  BitVec.natCast_eq_ofNat ge_iff_le Bool.or_false dite_eq_ite Bool.if_true_left
+  Bool.decide_or Bool.decide_eq_true Bool.or_eq_false_iff decide_eq_false_iff_not
+  BitVec.not_le Nat.sub_zero and_imp dite_eq_ite Bool.if_true_left
+  Bool.decide_or Bool.decide_eq_true Bool.or_eq_false_iff
+  decide_eq_false_iff_not BitVec.not_le and_imp
+
+attribute [veir_bv_normalize_post] dite_eq_ite Bool.if_true_left Bool.decide_or
+  Bool.decide_eq_true Bool.or_eq_false_iff decide_eq_false_iff_not
+  BitVec.not_le and_imp
+
 /-- Return true if the LLVM.Int `x` is poison. -/
 def isPoison {w : Nat} : (x : Int w) → Bool
   | .poison => true

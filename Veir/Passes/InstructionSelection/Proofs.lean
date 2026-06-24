@@ -288,8 +288,7 @@ theorem select_refinement {c : LLVM.Int 1} {t f : LLVM.Int 64} :
         (Data.RISCV.or
           (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f))
           (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t))) 64) := by
-  rcases c with cv | _ <;> rcases t with tv | _ <;> rcases f with fv | _ <;>
-    veir_bv_decide
+  veir_bv_decide
 
 /--
   Prove the correctness of the `orcb` lowering pattern (the `Y = 0` case).
@@ -586,22 +585,7 @@ theorem umin_refinement {x y : LLVM.Int 64} :
 theorem fshl_rol_refinement {a c : LLVM.Int 64} :
     (Data.LLVM.Int.fshl a a c) ⊒
       (RISCV.Reg.toInt (Data.RISCV.rol (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 64) := by
-  rw [Data.LLVM.Int.isRefinedBy_iff]
-  refine ⟨fun _ => toInt_isPoison, fun h1 _ => ?_⟩
-  have hp := Data.LLVM.Int.isPoison_fshl a a c
-  rw [h1] at hp
-  have ha : a.isPoison = false := by grind
-  have hc : c.isPoison = false := by grind
-  rw [Data.LLVM.Int.getValue_fshl a a c h1, toInt_getValue]
-  cases a with
-  | poison => simp [Data.LLVM.Int.isPoison] at ha
-  | val av =>
-  cases c with
-  | poison => simp [Data.LLVM.Int.isPoison] at hc
-  | val cv =>
-    simp only [Data.LLVM.Int.getValue, Data.RISCV.rol, LLVM.Int.toReg,
-      BitVec.truncate_eq_setWidth]
-    bv_decide
+  veir_bv_decide
 
 /--
   Prove the correctness of the `fshr` rotate lowering: a funnel shift with
@@ -610,22 +594,7 @@ theorem fshl_rol_refinement {a c : LLVM.Int 64} :
 theorem fshr_ror_refinement {a c : LLVM.Int 64} :
     (Data.LLVM.Int.fshr a a c) ⊒
       (RISCV.Reg.toInt (Data.RISCV.ror (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 64) := by
-  rw [Data.LLVM.Int.isRefinedBy_iff]
-  refine ⟨fun _ => toInt_isPoison, fun h1 _ => ?_⟩
-  have hp := Data.LLVM.Int.isPoison_fshr a a c
-  rw [h1] at hp
-  have ha : a.isPoison = false := by grind
-  have hc : c.isPoison = false := by grind
-  rw [Data.LLVM.Int.getValue_fshr a a c h1, toInt_getValue]
-  cases a with
-  | poison => simp [Data.LLVM.Int.isPoison] at ha
-  | val av =>
-  cases c with
-  | poison => simp [Data.LLVM.Int.isPoison] at hc
-  | val cv =>
-    simp only [Data.LLVM.Int.getValue, Data.RISCV.ror, LLVM.Int.toReg,
-      BitVec.truncate_eq_setWidth]
-    bv_decide
+  veir_bv_decide
 
 /--
   Prove the correctness of the constant-amount `fshr` lowering: a rotate-right is
@@ -636,22 +605,7 @@ theorem fshr_rori_refinement {a c : LLVM.Int 64} :
     (Data.LLVM.Int.fshr a a c) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.rori (BitVec.extractLsb 5 0 (LLVM.Int.toReg c).val) (LLVM.Int.toReg a)) 64) := by
-  rw [Data.LLVM.Int.isRefinedBy_iff]
-  refine ⟨fun _ => toInt_isPoison, fun h1 _ => ?_⟩
-  have hp := Data.LLVM.Int.isPoison_fshr a a c
-  rw [h1] at hp
-  have ha : a.isPoison = false := by grind
-  have hc : c.isPoison = false := by grind
-  rw [Data.LLVM.Int.getValue_fshr a a c h1, toInt_getValue]
-  cases a with
-  | poison => simp [Data.LLVM.Int.isPoison] at ha
-  | val av =>
-  cases c with
-  | poison => simp [Data.LLVM.Int.isPoison] at hc
-  | val cv =>
-    simp only [Data.LLVM.Int.getValue, Data.RISCV.rori, LLVM.Int.toReg,
-      BitVec.truncate_eq_setWidth]
-    bv_decide
+  veir_bv_decide
 
 /--
   Prove the correctness of the constant-amount `fshl` lowering: a rotate-left by
@@ -662,19 +616,4 @@ theorem fshl_rori_refinement {a c : LLVM.Int 64} :
     (Data.LLVM.Int.fshl a a c) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.rori (-(BitVec.extractLsb 5 0 (LLVM.Int.toReg c).val)) (LLVM.Int.toReg a)) 64) := by
-  rw [Data.LLVM.Int.isRefinedBy_iff]
-  refine ⟨fun _ => toInt_isPoison, fun h1 _ => ?_⟩
-  have hp := Data.LLVM.Int.isPoison_fshl a a c
-  rw [h1] at hp
-  have ha : a.isPoison = false := by grind
-  have hc : c.isPoison = false := by grind
-  rw [Data.LLVM.Int.getValue_fshl a a c h1, toInt_getValue]
-  cases a with
-  | poison => simp [Data.LLVM.Int.isPoison] at ha
-  | val av =>
-  cases c with
-  | poison => simp [Data.LLVM.Int.isPoison] at hc
-  | val cv =>
-    simp only [Data.LLVM.Int.getValue, Data.RISCV.rori, LLVM.Int.toReg,
-      BitVec.truncate_eq_setWidth]
-    bv_decide
+  veir_bv_decide
