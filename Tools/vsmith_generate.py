@@ -23,6 +23,8 @@ ICMP_PREDS = tuple(range(10))
 # type. `ctlz`/`cttz` additionally carry an `is_zero_poison` flag, and `bswap`
 # is only defined for the byte-swappable widths below.
 INTRINSIC_BINARY = ("llvm.intr.smax", "llvm.intr.smin", "llvm.intr.umax", "llvm.intr.umin")
+# Funnel shifts are only ever emitted in their rotate form (the first two
+# operands equal), since veir can't yet select the general funnel shift.
 INTRINSIC_TERNARY = ("llvm.intr.fshl", "llvm.intr.fshr")
 INTRINSIC_COUNT = ("llvm.intr.ctpop", "llvm.intr.bitreverse")
 INTRINSIC_ZERO_POISON = ("llvm.intr.ctlz", "llvm.intr.cttz")
@@ -294,8 +296,11 @@ class Generator:
             op = self.rng.choice(INTRINSIC_TERNARY)
             typ = self.rand_type()
             width = bitwidth(typ)
-            operands = [self.random_dominating_value(width) for _ in range(3)]
-            self.add_operation(op, operands, [typ, typ, typ], typ)
+            # veir can't yet select the general funnel shift, only the rotate
+            # special case where the two shifted operands are equal.
+            value = self.random_dominating_value(width)
+            amount = self.random_dominating_value(width)
+            self.add_operation(op, [value, value, amount], [typ, typ, typ], typ)
         elif r < 0.78:
             op = self.rng.choice(INTRINSIC_ZERO_POISON)
             typ = self.rand_type()
