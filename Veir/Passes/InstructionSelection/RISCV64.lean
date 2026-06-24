@@ -28,8 +28,6 @@ def ctlz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some (operand, _) := matchCtlz op rewriter.ctx | return rewriter
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if opType.bitwidth ≠ 64 then return rewriter
-  let .integerType retType := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
-  if retType.bitwidth ≠ 64 then return rewriter
   let (rewriter, opReg) ← castToReg rewriter op operand
   let (rewriter, retOp) ← rewriter.createOp (.riscv .clz) #[RegisterType.mk] #[opReg]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -44,8 +42,6 @@ def cttz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some (operand, _) := matchCttz op rewriter.ctx | return rewriter
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if opType.bitwidth ≠ 64 then return rewriter
-  let .integerType retType := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
-  if retType.bitwidth ≠ 64 then return rewriter
   let (rewriter, opReg) ← castToReg rewriter op operand
   let (rewriter, retOp) ← rewriter.createOp (.riscv .ctz) #[RegisterType.mk] #[opReg]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -60,8 +56,6 @@ def ctpop (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some operand := matchCtpop op rewriter.ctx | return rewriter
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if opType.bitwidth ≠ 64 then return rewriter
-  let .integerType retType := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
-  if retType.bitwidth ≠ 64 then return rewriter
   let (rewriter, opReg) ← castToReg rewriter op operand
   let (rewriter, retOp) ← rewriter.createOp (.riscv .cpop) #[RegisterType.mk] #[opReg]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -76,8 +70,6 @@ def bswap (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some operand := matchBswap op rewriter.ctx | return rewriter
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if opType.bitwidth ≠ 64 then return rewriter
-  let .integerType retType := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
-  if retType.bitwidth ≠ 64 then return rewriter
   let (rewriter, opReg) ← castToReg rewriter op operand
   let (rewriter, retOp) ← rewriter.createOp (.riscv .rev8) #[RegisterType.mk] #[opReg]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
@@ -116,8 +108,6 @@ def bitreverse (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some operand := matchBitreverse op rewriter.ctx | return rewriter
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if opType.bitwidth ≠ 64 then return rewriter
-  let .integerType retType := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
-  if retType.bitwidth ≠ 64 then return rewriter
   let (rewriter, opReg) ← castToReg rewriter op operand
   let (rewriter, x1) ← bitreverseStage 0x5555555555555555 1 rewriter op opReg
   let (rewriter, x2) ← bitreverseStage 0x3333333333333333 2 rewriter op x1
