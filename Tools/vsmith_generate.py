@@ -19,6 +19,15 @@ SHIFT_OPS = ("llvm.shl", "llvm.lshr", "llvm.ashr")
 DIV_OPS = ("llvm.sdiv", "llvm.udiv", "llvm.srem", "llvm.urem")
 ICMP_PREDS = tuple(range(10))
 
+# Integer intrinsics, grouped by arity. All operands and the result share one
+# type. `ctlz`/`cttz` additionally carry an `is_zero_poison` flag, and `bswap`
+# is only defined for the byte-swappable widths below.
+INTRINSIC_BINARY = ("llvm.intr.smax", "llvm.intr.smin", "llvm.intr.umax", "llvm.intr.umin")
+INTRINSIC_TERNARY = ("llvm.intr.fshl", "llvm.intr.fshr")
+INTRINSIC_COUNT = ("llvm.intr.ctpop", "llvm.intr.bitreverse")
+INTRINSIC_ZERO_POISON = ("llvm.intr.ctlz", "llvm.intr.cttz")
+BSWAP_WIDTHS = (16, 32, 64)
+
 # Widths the RISC-V backend can compute on. i1 is permitted only as an icmp
 # operand (so comparison results can feed into further comparisons); it is
 # never produced or consumed by arithmetic/bitwise/shift/cast operations.
@@ -251,6 +260,47 @@ class Generator:
             result = self.add_operation("llvm.xor", [result, other], [target, target], target)
         return result, target
 
+    def emit_intrinsic(self) -> None:
+        """Emit a random integer intrinsic. All operands share the result type.
+
+        `bswap` is restricted to widths it is defined on; in RISC-V mode every
+        intrinsic uses i64 (the only width `rand_type` yields there).
+        """
+        r = self.rng.random()
+        if r < 0.30:
+            op = self.rng.choice(INTRINSIC_BINARY)
+            typ = self.rand_type()
+            width = bitwidth(typ)
+            lhs = self.random_dominating_value(width)
+            rhs = self.random_dominating_value(width)
+            self.add_operation(op, [lhs, rhs], [typ, typ], typ)
+        elif r < 0.55:
+            op = self.rng.choice(INTRINSIC_TERNARY)
+            typ = self.rand_type()
+            width = bitwidth(typ)
+            operands = [self.random_dominating_value(width) for _ in range(3)]
+            self.add_operation(op, operands, [typ, typ, typ], typ)
+        elif r < 0.78:
+            op = self.rng.choice(INTRINSIC_ZERO_POISON)
+            typ = self.rand_type()
+            operand = self.random_dominating_value(bitwidth(typ))
+            poison = "true" if self.rng.random() < 0.5 else "false"
+            self.add_operation(op, [operand], [typ], typ, f" <{{is_zero_poison = {poison}}}>")
+        elif r < 0.92:
+            op = self.rng.choice(INTRINSIC_COUNT)
+            typ = self.rand_type()
+            operand = self.random_dominating_value(bitwidth(typ))
+            self.add_operation(op, [operand], [typ], typ)
+        else:
+            typ = "i64" if self.riscv else f"i{self.rng.choice(BSWAP_WIDTHS)}"
+            operand = self.random_dominating_value(bitwidth(typ))
+            self.add_operation("llvm.intr.bswap", [operand], [typ], typ)
+
+    def emit_freeze(self) -> None:
+        typ = self.rand_type()
+        operand = self.random_dominating_value(bitwidth(typ))
+        self.add_operation("llvm.freeze", [operand], [typ], typ)
+
     def add_block_body(self, count: int) -> None:
         exprs: list[tuple[str, str, str, str, str]] = []
         for _ in range(count):
@@ -323,13 +373,17 @@ class Generator:
                 pred = self.rng.choice(ICMP_PREDS)
                 props = f' <{{"predicate" = {pred} : i64}}>'
                 self.add_operation("llvm.icmp", [lhs, rhs], [typ, typ], "i1", props)
-            elif choice < 0.96:
+            elif choice < 0.92:
                 typ = self.rand_type()
                 width = bitwidth(typ)
                 cond = self.random_dominating_value(1)
                 tval = self.random_dominating_value(width)
                 fval = self.random_dominating_value(width)
                 self.add_operation("llvm.select", [cond, tval, fval], ["i1", typ, typ], typ)
+            elif choice < 0.975:
+                self.emit_intrinsic()
+            # elif choice < 0.995:
+            #     self.emit_freeze()
             else:
                 typ = self.rand_type()
                 self.add_const(typ, rand_const_val(self.rng, bitwidth(typ)))

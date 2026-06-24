@@ -1,11 +1,6 @@
 module
 
-public import Lean
-
-/-! ## Simpsets -/
-
-register_simp_attr veir_bv_normalize
-register_simp_attr veir_bv_normalize_post
+public import Veir.Meta.BVNormalizeSimp
 
 /-! ## Veir Bitblasting Tactic -/
 
@@ -23,8 +18,8 @@ contains `Int.getValue_eq_getValueD`, which rewrites the former into the latter.
 @[expose] macro "veir_bv_normalize" : tactic =>
   `(tactic| ((
       simp -failIfUnchanged only [veir_bv_normalize] <;>
-      simp +contextual -failIfUnchanged [veir_bv_normalize_post, -BitVec.extractLsb_toNat])))
-/- TODO: Tighten the last `simp` into a `simp only`.
+      simp +contextual -failIfUnchanged only [veir_bv_normalize_post])))
+/-
 The lack of `only` is copied from the previous version of this tactic, and indeed
 some of the tests seem to rely on certain simp-lemmas from the default simp-set.
 We should figure out which ones, and add just those to `veir_bv_normalize_post`.
@@ -37,3 +32,14 @@ then calls `bv_decide` to automatically close the goal.
 -/
 @[expose] macro "veir_bv_decide" : tactic =>
   `(tactic| ((veir_bv_normalize <;> bv_decide)))
+
+attribute [veir_bv_normalize] Bool.false_eq_true false_and or_self decide_false
+  dite_eq_ite Bool.if_false_right Bool.and_true implies_true
+  BitVec.truncate_eq_setWidth BitVec.setWidth_eq forall_const true_and
+  BitVec.natCast_eq_ofNat ge_iff_le Bool.or_false Bool.if_true_left
+  BitVec.not_le Nat.sub_zero Bool.decide_or Bool.decide_eq_true
+  Bool.or_eq_false_iff decide_eq_false_iff_not and_imp
+
+attribute [veir_bv_normalize_post] dite_eq_ite Bool.if_true_left Bool.decide_or
+  Bool.decide_eq_true Bool.or_eq_false_iff decide_eq_false_iff_not
+  BitVec.not_le and_imp
