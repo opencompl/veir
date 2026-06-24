@@ -135,8 +135,24 @@ class Generator:
         else:
             pool = local or imported
         if not pool:
+            if width == 1:
+                # Never inject a fresh i1 literal: i1 constants have no RISC-V
+                # lowering. Every boolean must originate from a comparison.
+                return self.make_bool()
             return self.add_const(typ, rand_const_val(self.rng, width))
         return self.rng.choice(pool)
+
+    def make_bool(self) -> str:
+        """Materialize an i1 value via an icmp rather than a fresh literal."""
+        typ = self.rand_type()
+        while bitwidth(typ) == 1:
+            typ = self.rand_type()
+        width = bitwidth(typ)
+        lhs = self.random_dominating_value(width)
+        rhs = self.random_dominating_value(width)
+        pred = self.rng.choice(ICMP_PREDS)
+        props = f' <{{"predicate" = {pred} : i64}}>'
+        return self.add_operation("llvm.icmp", [lhs, rhs], [typ, typ], "i1", props)
 
     def nsw_nuw_props(self) -> str:
         flags = self.rng.choice((0, 1, 2, 3))
