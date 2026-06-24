@@ -81,6 +81,11 @@ inductive Llvm where
 | shl
 | lshr
 | ashr
+| intr__ctlz
+| intr__cttz
+| intr__ctpop
+| intr__bswap
+| intr__bitreverse
 | intr__fshl
 | intr__fshr
 | mul

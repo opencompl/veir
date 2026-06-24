@@ -289,6 +289,82 @@ theorem getValue_ashr {w : Nat} (x y : Int w) {exact : Bool} (h : (ashr x y exac
   grind
 
 @[veir_bv_normalize, grind =]
+theorem isPoison_ctlz {w : Nat} (x : Int w) {is_zero_poison : Bool} :
+    (ctlz x is_zero_poison).isPoison =
+      if _ : x.isPoison = true then true else is_zero_poison && (x.getValue == 0#w) := by
+  simp only [ctlz, isPoison, getValue, Id.run]
+  simp [pure]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_ctlz {w : Nat} (x : Int w) {is_zero_poison : Bool}
+    (h : (ctlz x is_zero_poison).isPoison = false) :
+    (ctlz x is_zero_poison).getValue h = x.getValue.clz := by
+  simp only [ctlz, isPoison, getValue, Id.run]
+  simp [pure] at h ⊢
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_cttz {w : Nat} (x : Int w) {is_zero_poison : Bool} :
+    (cttz x is_zero_poison).isPoison =
+      if _ : x.isPoison = true then true else is_zero_poison && (x.getValue == 0#w) := by
+  simp only [cttz, isPoison, getValue, Id.run]
+  simp [pure]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_cttz {w : Nat} (x : Int w) {is_zero_poison : Bool}
+    (h : (cttz x is_zero_poison).isPoison = false) :
+    (cttz x is_zero_poison).getValue h = x.getValue.ctz := by
+  simp only [cttz, isPoison, getValue, Id.run]
+  simp [pure] at h ⊢
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_ctpop {w : Nat} (x : Int w) :
+    (ctpop x).isPoison = x.isPoison := by
+  simp [ctpop, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_ctpop {w : Nat} (x : Int w) (h : (ctpop x).isPoison = false) :
+    (ctpop x).getValue h = x.getValue.cpop := by
+  cases x <;> simp [ctpop, getValue, Id.run] at h ⊢
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_bswap {w : Nat} (x : Int w) :
+    (bswap x).isPoison = x.isPoison := by
+  cases x with
+  | poison => simp [bswap, isPoison, Id.run]
+  | val x' =>
+      by_cases h16 : w = 16
+      · simp [bswap, isPoison, Id.run, pure, h16]
+      · by_cases h32 : w = 32
+        · simp [bswap, isPoison, Id.run, pure, h32]
+        · by_cases h64 : w = 64
+          · simp [bswap, isPoison, Id.run, pure, h64]
+          · simp [bswap, isPoison, Id.run, h16, h32, h64]
+
+@[veir_bv_normalize, grind =]
+theorem getValue_bswap_64 (x : Int 64) (h : (bswap x).isPoison = false) :
+    (bswap x).getValue h =
+      x.getValue.extractLsb 7 0 ++ x.getValue.extractLsb 15 8 ++
+      x.getValue.extractLsb 23 16 ++ x.getValue.extractLsb 31 24 ++
+      x.getValue.extractLsb 39 32 ++ x.getValue.extractLsb 47 40 ++
+      x.getValue.extractLsb 55 48 ++ x.getValue.extractLsb 63 56 := by
+  cases x <;> simp [bswap, bswap64BV, getValue, Id.run, pure] at h ⊢
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_bitreverse {w : Nat} (x : Int w) :
+    (bitreverse x).isPoison = x.isPoison := by
+  cases x <;> simp [bitreverse, isPoison, Id.run]
+
+@[veir_bv_normalize, grind =]
+theorem getValue_bitreverse {w : Nat} (x : Int w) (h : (bitreverse x).isPoison = false) :
+    (bitreverse x).getValue h = x.getValue.reverse := by
+  cases x <;> simp [bitreverse, getValue, Id.run] at h ⊢
+
+@[veir_bv_normalize, grind =]
 theorem isPoison_cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) :
     (cast x h).isPoison = x.isPoison := by
   simp [cast, isPoison]
