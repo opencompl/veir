@@ -147,7 +147,7 @@ def LocalRewritePattern.PreservesSemantics
   ∀ newState cf, interpretOp op state = some (newState, cf) →
   ∀ sourceValues, (op.getResults ctx.raw).mapM (newState.variables.getVar? ·) = some sourceValues →
   ∀ (state' : InterpreterState newCtx), state'.EquationLemmaAt (InsertPoint.before op) →
-  state.isRefinedBy state' (LocalRewritePattern.mapping hpattern) →
+  state.isRefinedByAt state' (LocalRewritePattern.mapping hpattern) (.before op) (.before op) →
   ∃ newState',
     interpretOpList newOps.toList state' (by grind [ReturnOps]) = some (newState', cf) ∧
     newState.memory = newState'.memory ∧
