@@ -134,6 +134,36 @@ def unaryMnem : Riscv → Option String
   | .sextb => "SEXT_B" | .sexth => "SEXT_H" | .zexth => "ZEXT_H_RV64"
   | _ => none
 
+/-- The block-argument values passed to each successor of a terminator. -/
+def succArgs (ctx : IRContext OpCode) (term : OperationPtr) : Array (Array ValuePtr) := Id.run do
+  let nsucc := term.getNumSuccessors! ctx
+  let ops := getOperands ctx term
+  let segs := segments? ctx term
+  -- first segment (if any) is the comparison operands, not block args
+  let mut off := match segs with | some s => (s[0]!).toNat | none => 0
+  let mut res := #[]
+  for k in 0...nsucc do
+    let nk := match segs with | some s => (s[k+1]!).toNat | none => ops.size
+    res := res.push (ops.extract off (off + nk))
+    off := off + nk
+  return res
+
+/-- A degenerate conditional branch (both successors the same block) that passes
+    *different* arguments on its two edges is a value selection we can't lower by
+    collapsing to one edge; it needs edge-splitting, which we don't do yet. -/
+def hasUnsupportedDegenerate (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Bool := Id.run do
+  for bi in 0...blocks.size do
+    match (blocks[bi]!).get! ctx |>.firstOp with
+    | none => pure ()
+    | some f =>
+      let term := lastOp ctx f
+      if term.getNumSuccessors! ctx == 2 &&
+         (term.getSuccessor! ctx 0).id == (term.getSuccessor! ctx 1).id then
+        let a := succArgs ctx term
+        if (a[0]!).map (vreg ctx) != (a[1]!).map (vreg ctx) then
+          return true
+  return false
+
 /-- For each block (by index), its predecessors as (predBlockIndex, argValues). -/
 def computePreds (ctx : IRContext OpCode) (blocks : Array BlockPtr) :
     Array (Array (Nat × Array ValuePtr)) := Id.run do
@@ -145,24 +175,18 @@ def computePreds (ctx : IRContext OpCode) (blocks : Array BlockPtr) :
     | none => pure ()
     | some f =>
       let term := lastOp ctx f
-      let nsucc := term.getNumSuccessors! ctx
-      if nsucc != 0 then
-        let ops := getOperands ctx term
-        let segs := segments? ctx term
-        -- first segment (if any) is the comparison operands, not block args
-        let mut off := match segs with | some s => (s[0]!).toNat | none => 0
-        -- A conditional branch whose successors are the same block becomes a
-        -- single edge: record each target block at most once per terminator.
-        let mut seenTargets : List Nat := []
-        for k in 0...nsucc do
-          let nk := match segs with | some s => (s[k+1]!).toNat | none => ops.size
-          let args := ops.extract off (off + nk)
-          off := off + nk
-          let tid := (term.getSuccessor! ctx k).id
-          if !seenTargets.contains tid then
-            seenTargets := tid :: seenTargets
-            let ti := bbOf blocks tid
-            preds := preds.set! ti (preds[ti]!.push (bi, args))
+      let args := succArgs ctx term
+      -- A conditional branch whose successors are the same block becomes a
+      -- single edge: record each target block at most once per terminator.
+      -- (Only reached when those edges carry identical args; see
+      -- hasUnsupportedDegenerate.)
+      let mut seenTargets : List Nat := []
+      for k in 0...term.getNumSuccessors! ctx do
+        let tid := (term.getSuccessor! ctx k).id
+        if !seenTargets.contains tid then
+          seenTargets := tid :: seenTargets
+          let ti := bbOf blocks tid
+          preds := preds.set! ti (preds[ti]!.push (bi, args[k]!))
   return preds
 
 /-- Emit a single non-terminator operation. -/
@@ -306,6 +330,9 @@ def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
     if allBlocks.isEmpty then []
     else reachable ctx allBlocks [(allBlocks[0]!).id]
   let blocks := allBlocks.filter (fun b => reach.contains b.id)
+  if hasUnsupportedDegenerate ctx blocks then
+    IO.println "; UNHANDLED: degenerate same-target conditional branch with differing block arguments (needs edge split)"
+    return
   let preds := computePreds ctx blocks
   IO.println "--- |"
   IO.println "  define i64 @main() #0 {"
