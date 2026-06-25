@@ -526,9 +526,13 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
         return True, ""  # lowering not supported for this case; skip
     mir.write_text(out)
 
-    # 2. llc: MIR -> RISC-V assembly
+    # 2. llc: MIR -> RISC-V assembly. -O0 runs the minimal machine pipeline (no
+    # MachineCSE/peephole/sched/combiner), so VeIR's instruction selection passes
+    # through unmodified; -start-after=finalize-isel resumes from exactly the
+    # post-isel state our MIR represents, keeping the essential pre-RA passes
+    # (UnreachableMachineBlockElim, ProcessImplicitDefs, RISCVPreRAExpandPseudo).
     rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64",
-                        "-start-before=phi-node-elimination", "-o", str(asm)])
+                        "-O0", "-start-after=finalize-isel", "-o", str(asm)])
     if rc != 0:
         return False, (f"llc failed to lower MIR\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
