@@ -149,26 +149,25 @@ theorem VariableState.setArgumentValues?_isRefinedBy {ctx ctx' : WfIRContext OpC
 
 /-- `setArgumentValues?` preserves the *scoped* state refinement `isRefinedByAt`.
 
+The input relation `hRef` holds at the block entry `(atStart! block, atStart! block)`. On the
+pre-argument input state the block's own arguments are not yet defined, so `isRefinedByAt` at the
+entry constrains them only vacuously; it does constrain the non-argument values already in scope at
+the entry, which is exactly what the proof reuses for the surviving (non-argument) values.
+
 Hypotheses compared to `setArgumentValues?_isRefinedBy`:
-- `hRef` uses `isRefinedByAt` at `(p, p')` instead of unscoped `isRefinedBy`
+- `hRef` uses `isRefinedByAt` at the block entry instead of unscoped `isRefinedBy`.
 - `hImageNotArg`: the mapping does not send a non-argument value that is *in scope at the block
   entry* onto a block-argument slot. (Justified by dominance: a forwarded block argument dominates
   the value it replaces, so it cannot also be dominated by it — hence no value dominating the block
-  entry maps onto one of the block's own arguments.)
-- `ctxDom`/`ctxDom'`: the source/target contexts satisfy SSA dominance, which lets us conclude that
-  a non-argument value dominating the block entry already dominates the predecessor's end (via
-  `WfIRContext.Dom.value_dominatesIp_successor_entry`). -/
+  entry maps onto one of the block's own arguments.) -/
 theorem VariableState.setArgumentValues?_isRefinedByAt {ctx ctx' : WfIRContext OpCode}
     {srcVars : VariableState ctx} {tgtVars : VariableState ctx'}
     {mapping : ValueMapping ctx ctx'}
     {values values' : Array RuntimeValue} {newSrcVars : VariableState ctx}
-    (predInBounds : pred.InBounds ctx.raw) (predInBounds' : pred.InBounds ctx'.raw)
-    (ctxDom : ctx.Dom) (ctxDom' : ctx'.Dom)
-    (hRef : srcVars.isRefinedByAt tgtVars mapping (InsertPoint.atEnd pred) (InsertPoint.atEnd pred))
-    (hVals : values ⊒ values')
     (blockIn : block.InBounds ctx.raw) (blockIn' : block.InBounds ctx'.raw)
-    (blockIsSucc : block ∈ pred.getSuccessors! ctx.raw)
-    (blockIsSucc' : block ∈ pred.getSuccessors! ctx'.raw)
+    (hRef : srcVars.isRefinedByAt tgtVars mapping
+      (InsertPoint.atStart! block ctx.raw) (InsertPoint.atStart! block ctx'.raw))
+    (hVals : values ⊒ values')
     (hArgs : block.getArguments! ctx'.raw = mapping.applyToArray (block.getArguments! ctx.raw))
     /- A non-argument value that is in scope at the block entry is never mapped onto a block-argument
        slot. Dischargeable from dominance: a forwarded block argument dominates the value it replaces,
@@ -221,16 +220,9 @@ theorem VariableState.setArgumentValues?_isRefinedByAt {ctx ctx' : WfIRContext O
     have hσnotMem : (mapping ⟨val, valIn⟩).val ∉ block.getArguments! ctx'.raw :=
       hImageNotArg val valIn hMem hValDom
     rw [VariableState.getVar?_setArgumentValues?_of_notMem_getArguments! hσnotMem hTgt] at htv
-    -- A non-argument value dominating the block entry already dominates the predecessor's end,
-    -- by `value_dominatesIp_successor_entry` (the value is not a block argument, so the
-    -- "is an argument" disjunct is excluded).
-    have hValDomPred : val.dominatesIp (InsertPoint.atEnd pred) ctx :=
-      (WfIRContext.Dom.value_dominatesIp_successor_entry ctxDom predInBounds blockIsSucc
-        hValDom).resolve_right hMem
-    have hσValDomPred : (mapping ⟨val, valIn⟩).val.dominatesIp (InsertPoint.atEnd pred) ctx' :=
-      (WfIRContext.Dom.value_dominatesIp_successor_entry ctxDom' predInBounds' blockIsSucc'
-        hσValDom).resolve_right hσnotMem
-    exact hRef val valIn hValDomPred hσValDomPred sv tv hsv htv
+    -- The surviving value `val` is in scope at the block entry on both sides, so the entry-point
+    -- input relation `hRef` constrains it directly.
+    exact hRef val valIn hValDom hσValDom sv tv hsv htv
 
 /-! ## Scoped (`isRefinedByAt`) variants of the monotonicity lemmas -/
 
