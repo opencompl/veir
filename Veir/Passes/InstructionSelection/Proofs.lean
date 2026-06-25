@@ -617,3 +617,129 @@ theorem fshl_rori_refinement {a c : LLVM.Int 64} :
       (RISCV.Reg.toInt
         (Data.RISCV.rori (-(BitVec.extractLsb 5 0 (LLVM.Int.toReg c).val)) (LLVM.Int.toReg a)) 64) := by
   veir_bv_decide
+
+/--
+  Prove the correctness of the constant-amount i32 `fshr` lowering (`roriw` selection):
+  a 32-bit rotate-right is lowered to `roriw a, (c mod 32)`. The immediate is the low
+  five bits of the (constant) shift amount.
+-/
+theorem fshr_roriw_refinement {a c : LLVM.Int 32} :
+    (Data.LLVM.Int.fshr a a c) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.roriw (BitVec.extractLsb 4 0 (LLVM.Int.toReg c).val) (LLVM.Int.toReg a)) 32) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the constant-amount i32 `fshl` lowering (`roliw` selection):
+  a 32-bit rotate-left by `c` is a rotate-right by `32 - c`, lowered to
+  `roriw a, (-(c mod 32))` (there is no `roliw`, so the immediate is negated mod 32).
+-/
+theorem fshl_roriw_refinement {a c : LLVM.Int 32} :
+    (Data.LLVM.Int.fshl a a c) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.roriw (-(BitVec.extractLsb 4 0 (LLVM.Int.toReg c).val)) (LLVM.Int.toReg a)) 32) := by
+  veir_bv_decide
+
+/--
+  Soundness of the `slti` selection (`PatGprSimm12<setlt, SLTI>`):
+  `riscv.slt rs1 (riscv.li imm)` -> `riscv.slti rs1 imm`, valid when the `li` value is
+  the 64-bit sign extension of the 12-bit immediate used by `slti`.
+-/
+theorem fold_slt_li_to_slti_sound (rs1 : Reg) (imm : BitVec 12) :
+    slt (li (imm.signExtend 64)) rs1 = slti imm rs1 := by
+  rw [val_inj]
+  simp only [val_slt, val_slti, val_li]
+
+/--
+  Soundness of the `sltiu` selection (`PatGprSimm12<setult, SLTIU>`):
+  `riscv.sltu rs1 (riscv.li imm)` -> `riscv.sltiu rs1 imm`. As in the ISA semantics for
+  `sltiu`, the immediate is sign-extended before the unsigned comparison.
+-/
+theorem fold_sltu_li_to_sltiu_sound (rs1 : Reg) (imm : BitVec 12) :
+    sltu (li (imm.signExtend 64)) rs1 = sltiu imm rs1 := by
+  rw [val_inj]
+  simp only [val_sltu, val_sltiu, val_li]
+
+/-! ### Immediate-selection folds
+
+  Each lemma below states that the immediate-form RISC-V instruction selected by
+  `isel-sdag-riscv64` computes the same value as materializing the constant with
+  `li` and using the reg-reg form. Composed with the reg-reg lowering refinements
+  above (and `constant_refinement`), this is the soundness obligation for selecting
+  the immediate form directly from the LLVM op, mirroring LLVM's `PatGprImm` family.
+-/
+
+/-- imm12 binops: `OP (li imm.sext) rs1 = OPi imm rs1` (sign-extended immediate). -/
+theorem fold_add_li_to_addi_sound (rs1 : Reg) (imm : BitVec 12) :
+    add (li (imm.signExtend 64)) rs1 = addi imm rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_or_li_to_ori_sound (rs1 : Reg) (imm : BitVec 12) :
+    or (li (imm.signExtend 64)) rs1 = ori imm rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_and_li_to_andi_sound (rs1 : Reg) (imm : BitVec 12) :
+    and (li (imm.signExtend 64)) rs1 = andi imm rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_xor_li_to_xori_sound (rs1 : Reg) (imm : BitVec 12) :
+    xor (li (imm.signExtend 64)) rs1 = xori imm rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+/-- uimm6 shifts: `SH (li shamt) rs1 = SHi shamt rs1` (reg-reg form uses the low 6 bits). -/
+theorem fold_sll_li_to_slli_sound (rs1 : Reg) (shamt : BitVec 6) :
+    sll (li (shamt.setWidth 64)) rs1 = slli shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_srl_li_to_srli_sound (rs1 : Reg) (shamt : BitVec 6) :
+    srl (li (shamt.setWidth 64)) rs1 = srli shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_sra_li_to_srai_sound (rs1 : Reg) (shamt : BitVec 6) :
+    sra (li (shamt.setWidth 64)) rs1 = srai shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+/-- Word `*w` forms: `OPw (li imm) rs1 = OPiw imm rs1`. -/
+theorem fold_addw_li_to_addiw_sound (rs1 : Reg) (imm : BitVec 12) :
+    addw (li (imm.signExtend 64)) rs1 = addiw imm rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_sllw_li_to_slliw_sound (rs1 : Reg) (shamt : BitVec 5) :
+    sllw (li (shamt.setWidth 64)) rs1 = slliw shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_srlw_li_to_srliw_sound (rs1 : Reg) (shamt : BitVec 5) :
+    srlw (li (shamt.setWidth 64)) rs1 = srliw shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_sraw_li_to_sraiw_sound (rs1 : Reg) (shamt : BitVec 5) :
+    sraw (li (shamt.setWidth 64)) rs1 = sraiw shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_rorw_li_to_roriw_sound (rs1 : Reg) (shamt : BitVec 5) :
+    rorw (li (shamt.setWidth 64)) rs1 = roriw shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+/-- Zbs single-bit forms. The bit `shamt` is set/cleared/inverted/extracted; the
+    materialized constant is the single-bit mask `1 <<< shamt` (or its complement). -/
+theorem fold_or_singlebit_to_bseti_sound (rs1 : Reg) (shamt : BitVec 6) :
+    or (li (((1#1).zeroExtend 64) <<< shamt)) rs1 = bseti shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_xor_singlebit_to_binvi_sound (rs1 : Reg) (shamt : BitVec 6) :
+    xor (li (((1#1).zeroExtend 64) <<< shamt)) rs1 = binvi shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+theorem fold_and_clearbit_to_bclri_sound (rs1 : Reg) (shamt : BitVec 6) :
+    and (li (~~~(((1#1).setWidth 64) <<< shamt))) rs1 = bclri shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+/-- `andi 1 (srli shamt rs1) = bexti shamt rs1`: `(x >> shamt) & 1` extracts bit `shamt`. -/
+theorem fold_bexti_sound (rs1 : Reg) (shamt : BitVec 6) :
+    andi 1 (srli shamt rs1) = bexti shamt rs1 := by
+  rw [val_inj]; veir_bv_decide
+
+/-- Zba: `sll (li shamt) (zextw rs1) = slliuw shamt rs1` (shift of a 32-bit zero-extend). -/
+theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
+    sll (li (shamt.setWidth 64)) (zextw rs1) = slliuw shamt rs1 := by
+  rw [val_inj]; veir_bv_decide

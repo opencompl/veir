@@ -95,7 +95,7 @@ def right_identity_one_int (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 set_option warn.sorry false in
 def binop_same_val_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (src, src1) := matchAnd op rewriter.ctx | return rewriter
+  let some (src, src1, _) := matchAnd op rewriter.ctx | return rewriter
   if src != src1 then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
@@ -158,7 +158,7 @@ def or_and_xor_to_or (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (and, y, _props) := matchOr op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp and rewriter.ctx | return rewriter
-  let some (x, not) := matchAnd defOp rewriter.ctx | return rewriter
+  let some (x, not, _) := matchAnd defOp rewriter.ctx | return rewriter
   let some defOp1 := getDefiningOp not rewriter.ctx | return rewriter
   let some (y1, rhs, _props1) := matchXor defOp1 rewriter.ctx | return rewriter
   if y != y1 then return rewriter
@@ -171,7 +171,7 @@ def or_and_xor_to_or (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 set_option warn.sorry false in
 def and_xor_or_to_and (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (or, y) := matchAnd op rewriter.ctx | return rewriter
+  let some (or, y, _) := matchAnd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp or rewriter.ctx | return rewriter
   let some (x, not, _props) := matchOr defOp rewriter.ctx | return rewriter
   let some defOp1 := getDefiningOp not rewriter.ctx | return rewriter
