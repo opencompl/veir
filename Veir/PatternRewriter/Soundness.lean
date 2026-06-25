@@ -525,13 +525,19 @@ def OpStepSimulation
     {ctx newCtx : WfIRContext OpCode} (op : OperationPtr) (newOps : Array OperationPtr)
     (μ : ValueMapping ctx newCtx) (opIn : op.InBounds ctx.raw)
     (newOpsIn' : ∀ o ∈ newOps.toList, o.InBounds newCtx.raw) : Prop :=
-  ∀ (s : InterpreterState ctx) (s' : InterpreterState newCtx),
-    s.isRefinedBy s' μ →
+  ∀ (s : InterpreterState ctx) (s' : InterpreterState newCtx)
+    (p' : InsertPoint) (p'In : p'.InBounds newCtx.raw)
+    (qIn : (InsertPoint.after! op ctx.raw).InBounds ctx.raw)
+    (q'In : (InsertPoint.afterLast newOps.toList newCtx.raw p').InBounds newCtx.raw),
+    s.isRefinedByAt s' μ (InsertPoint.before op) p' →
     s.EquationLemmaAt (InsertPoint.before op) →
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState newCtx × Option ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 μ ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+        r₁.1.isRefinedByAt r₂.1 μ
+          (InsertPoint.after! op ctx.raw) (InsertPoint.afterLast newOps.toList newCtx.raw p')
+          qIn q'In ∧
+        ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
       (interpretOp op s)
       (interpretOpList newOps.toList s' newOpsIn')
 
@@ -754,39 +760,71 @@ theorem interpretOpList_singleton {ctx : WfIRContext OpCode} {op : OperationPtr}
   · cases a <;> simp [interpretOpList_nil]
   · rfl
 
+/-- The end point of `l₁ ++ l₂` is the end point of `l₂` started from the end point of `l₁`. -/
+theorem InsertPoint.afterLast_append (l₁ l₂ : List OperationPtr) (ctx : IRContext OpInfo)
+    (fb : InsertPoint) :
+    InsertPoint.afterLast (l₁ ++ l₂) ctx fb
+      = InsertPoint.afterLast l₂ ctx (InsertPoint.afterLast l₁ ctx fb) := by
+  induction l₁ generalizing fb with
+  | nil => simp
+  | cons a xs ih =>
+    simp only [List.cons_append, InsertPoint.afterLast_cons]
+    exact ih _
+
 /--
-Sequential composition of cross-context refinement over `interpretOpList`. If interpreting the
-prefix `l₁`/`m₁` refines (`hPrefix`), and — whenever the prefixes both run to completion without a
-terminator into `σ`-refined states — interpreting the suffixes `l₂`/`m₂` refines (`hCont`), then
-interpreting `l₁ ++ l₂` refines `m₁ ++ m₂`. The target must make progress under a UB source
-(`hTgtProgress`), which the caller discharges from the verified, SSA-well-formed target chain.
+Sequential composition of *scoped* cross-context refinement over `interpretOpList`. If interpreting
+the prefix `l₁`/`m₁` refines at the points `(afterLast l₁ p, afterLast m₁ p')` (`hPrefix`), and —
+whenever the prefixes both run to completion without a terminator into scoped-refined states —
+interpreting the suffixes `l₂`/`m₂` refines at the final points (`hCont`), then interpreting
+`l₁ ++ l₂` refines `m₁ ++ m₂` at the final points.
+
+The prefix may terminate (produce a control-flow action) only when the source suffix `l₂` is empty
+(`hPreNoTerm`), in which case the target suffix `m₂` is also empty (`hM2Nil`); this keeps the result
+scope point pinned to the prefix end, which is then the final point.
 -/
 theorem isRefinedBy_interpretOpList_seqCompose
     {ctx ctx' : WfIRContext OpCode} {μ : ValueMapping ctx ctx'}
     {l₁ l₂ m₁ m₂ : List OperationPtr}
     {s : InterpreterState ctx} {s' : InterpreterState ctx'}
+    {p p' : InsertPoint}
+    (qIn : (InsertPoint.afterLast l₁ ctx.raw p).InBounds ctx.raw)
+    (q'In : (InsertPoint.afterLast m₁ ctx'.raw p').InBounds ctx'.raw)
+    (rIn : (InsertPoint.afterLast (l₁ ++ l₂) ctx.raw p).InBounds ctx.raw)
+    (r'In : (InsertPoint.afterLast (m₁ ++ m₂) ctx'.raw p').InBounds ctx'.raw)
     (hl : ∀ o ∈ l₁ ++ l₂, o.InBounds ctx.raw)
     (hm : ∀ o ∈ m₁ ++ m₂, o.InBounds ctx'.raw)
+    (hM2Nil : l₂ = [] → m₂ = [])
+    (hPreNoTerm : l₂ ≠ [] → ∀ s2 cf,
+      interpretOpList l₁ s (fun o ho => hl o (List.mem_append_left _ ho)) ≠ some (.ok (s2, some cf)))
     (hPrefix : Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 μ ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+        r₁.1.isRefinedByAt r₂.1 μ
+          (InsertPoint.afterLast l₁ ctx.raw p) (InsertPoint.afterLast m₁ ctx'.raw p') qIn q'In ∧
+        ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
       (interpretOpList l₁ s (fun o ho => hl o (List.mem_append_left _ ho)))
       (interpretOpList m₁ s' (fun o ho => hm o (List.mem_append_left _ ho))))
     (hCont : ∀ (s2 : InterpreterState ctx) (s2' : InterpreterState ctx'),
-        s2.isRefinedBy s2' μ →
+        s2.isRefinedByAt s2' μ
+          (InsertPoint.afterLast l₁ ctx.raw p) (InsertPoint.afterLast m₁ ctx'.raw p') qIn q'In →
         interpretOpList l₁ s (fun o ho => hl o (List.mem_append_left _ ho)) = some (.ok (s2, none)) →
         interpretOpList m₁ s' (fun o ho => hm o (List.mem_append_left _ ho)) = some (.ok (s2', none)) →
         Interp.isRefinedBy
           (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
                (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
-            r₁.1.isRefinedBy r₂.1 μ ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+            r₁.1.isRefinedByAt r₂.1 μ
+              (InsertPoint.afterLast (l₁ ++ l₂) ctx.raw p)
+              (InsertPoint.afterLast (m₁ ++ m₂) ctx'.raw p') rIn r'In ∧
+            ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
           (interpretOpList l₂ s2 (fun o ho => hl o (List.mem_append_right _ ho)))
           (interpretOpList m₂ s2' (fun o ho => hm o (List.mem_append_right _ ho)))) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 μ ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
+        r₁.1.isRefinedByAt r₂.1 μ
+          (InsertPoint.afterLast (l₁ ++ l₂) ctx.raw p)
+          (InsertPoint.afterLast (m₁ ++ m₂) ctx'.raw p') rIn r'In ∧
+        ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
       (interpretOpList (l₁ ++ l₂) s hl)
       (interpretOpList (m₁ ++ m₂) s' hm) := by
   rw [interpretOpList_append, interpretOpList_append]
@@ -803,10 +841,18 @@ theorem isRefinedBy_interpretOpList_seqCompose
       subst ha'
       exact hCont s2 s2' hsRef hsrc htgt
     | some cf =>
-      obtain ⟨cf', ha', hcf⟩ : ∃ cf', a' = some cf' ∧ cf.isRefinedBy cf' := by
-        cases a' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
-      subst ha'
-      exact ⟨hsRef, hcf⟩
+      -- The prefix terminated: only possible when `l₂ = []` (else `hPreNoTerm`), and then `m₂ = []`.
+      by_cases hl2 : l₂ = []
+      · obtain rfl := hl2
+        obtain rfl := hM2Nil rfl
+        obtain ⟨cf', ha', hcf⟩ : ∃ cf', a' = some cf' ∧ cf.isRefinedBy cf' := by
+          cases a' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
+        subst ha'
+        simp only [interpretOpList_nil, Interp.isRefinedBy_ok_target_iff]
+        refine ⟨_, rfl, ?_, by simpa [ControlFlowAction.optionIsRefinedBy] using hcf⟩
+        -- The result point `afterLast (l₁ ++ []) = afterLast l₁`, where `hsRef` already lands.
+        simpa using hsRef
+      · exact absurd hsrc (hPreNoTerm hl2 s2 cf)
   · simp
 
 /--
