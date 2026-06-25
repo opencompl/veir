@@ -182,9 +182,24 @@ axiom WfIRContext.Dom.blockArgument_dominatesIp_entry (ctxDom : ctx.Dom)
     (hMem : value ∈ block.getArguments! ctx.raw) :
     value.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx
 
-/-- An argument of a block cannot dominate a program point that dominates hde block start. -/
+/-- An argument of a block cannot dominate a program point that dominates the block start. -/
 axiom WfIRContext.Dom.blockArgument_not_dominatesIp_before_of_dominatesIp_firstOp
     (ctxDom : ctx.Dom) {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
     (opDom : op.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx)
     (hMem : value ∈ block.getArguments! ctx.raw) :
     ¬ value.dominatesIp (InsertPoint.before op) ctx
+
+/-- A block argument dominates the end of its own block: it is in scope throughout the block body. -/
+axiom WfIRContext.Dom.blockArgument_dominatesIp_atEnd
+    (ctxDom : ctx.Dom) {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
+    (hMem : value ∈ block.getArguments! ctx.raw) :
+    value.dominatesIp (InsertPoint.atEnd block) ctx
+
+/-- A result of an operation in a block body does not dominate that block's entry (the SSA
+property: results are defined strictly inside the block, not before it). -/
+axiom WfIRContext.Dom.opResult_not_dominatesIp_atStart!
+    (ctxDom : ctx.Dom) {op : OperationPtr} (opIn : op.InBounds ctx.raw)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
+    (opInBlock : op ∈ block.operationList ctx.raw ctx.wellFormed blockIn)
+    {r : ValuePtr} (rResult : r ∈ op.getResults! ctx.raw) :
+    ¬ r.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx

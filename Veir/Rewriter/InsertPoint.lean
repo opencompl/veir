@@ -81,10 +81,23 @@ def InsertPoint.after? (op : OperationPtr) (ctx : IRContext OpInfo) : Option Ins
     | none => some (.atEnd block)
   | none => none
 
+/-- Witness-free variant of `InsertPoint.after`: the point just after `op` in its parent block,
+falling back to `before op` when `op` has no parent (out of bounds). Equals `InsertPoint.after`
+whenever `op` has a parent. -/
+def InsertPoint.after! (op : OperationPtr) (ctx : IRContext OpInfo) : InsertPoint :=
+  (InsertPoint.after? op ctx).getD (.before op)
+
 theorem InsertPoint.after?_eq_some_of_after_eq :
     InsertPoint.after op ctx block h₁ h₂ = ip →
     InsertPoint.after? op ctx = some ip := by
   grind [InsertPoint.after, InsertPoint.after?]
+
+theorem InsertPoint.after!_eq_after
+    (hblock : (op.get! ctx).parent = some block) (hop : op.InBounds ctx) :
+    InsertPoint.after! op ctx = InsertPoint.after op ctx block hblock hop := by
+  have h := InsertPoint.after?_eq_some_of_after_eq
+    (ip := InsertPoint.after op ctx block hblock hop) rfl
+  simp [InsertPoint.after!, h]
 
 theorem InsertPoint.after?_eq_of_after?_eq_some
     (h : InsertPoint.after? op ctx = some ip)
@@ -97,6 +110,62 @@ theorem InsertPoint.after?_eq_of_after?_eq_some
 theorem InsertPoint.after_inBounds (ctxWf : ctx.WellFormed) :
     (InsertPoint.after op ctx blockPtr opHasParent opInBounds).InBounds ctx := by
   grind [InsertPoint.after]
+
+@[grind .]
+theorem InsertPoint.after!_inBounds (ctxWf : ctx.WellFormed)
+    (hblock : (op.get! ctx).parent = some block) (hop : op.InBounds ctx) :
+    (InsertPoint.after! op ctx).InBounds ctx := by
+  rw [InsertPoint.after!_eq_after hblock hop]
+  exact InsertPoint.after_inBounds ctxWf
+
+/-- The point just after the **last** operation of `ops` (witness-free, via `InsertPoint.after!`),
+or `fallback` when `ops` is empty. Characterizes where interpretation of an operation list ends:
+`fallback` is the start point, advanced past the whole list. -/
+@[expose]
+def InsertPoint.afterLast (ops : List OperationPtr) (ctx : IRContext OpInfo)
+    (fallback : InsertPoint) : InsertPoint :=
+  match ops.getLast? with
+  | some last => InsertPoint.after! last ctx
+  | none => fallback
+
+@[simp, grind =]
+theorem InsertPoint.afterLast_nil (ctx : IRContext OpInfo) (fallback : InsertPoint) :
+    InsertPoint.afterLast [] ctx fallback = fallback := rfl
+
+@[simp, grind =]
+theorem InsertPoint.afterLast_singleton (a : OperationPtr) (ctx : IRContext OpInfo)
+    (fallback : InsertPoint) :
+    InsertPoint.afterLast [a] ctx fallback = InsertPoint.after! a ctx := rfl
+
+/-- The end point of `a :: l` is the end point of `l` started from just after `a` (the fallback is
+only consulted for the empty list, so advancing it past `a` is harmless). -/
+theorem InsertPoint.afterLast_cons (a : OperationPtr) (l : List OperationPtr)
+    (ctx : IRContext OpInfo) (fallback : InsertPoint) :
+    InsertPoint.afterLast (a :: l) ctx fallback
+      = InsertPoint.afterLast l ctx (InsertPoint.after! a ctx) := by
+  cases l <;> rfl
+
+/-- `afterLast_cons` phrased with the witnessed `InsertPoint.after`, matching how the recursion
+advances the start point across each operation. -/
+theorem InsertPoint.afterLast_cons_after (l : List OperationPtr) (fallback : InsertPoint)
+    (hblock : (a.get! ctx).parent = some block) (hop : a.InBounds ctx) :
+    InsertPoint.afterLast (a :: l) ctx fallback
+      = InsertPoint.afterLast l ctx (InsertPoint.after a ctx block hblock hop) := by
+  rw [InsertPoint.afterLast_cons, InsertPoint.after!_eq_after hblock hop]
+
+@[grind .]
+theorem InsertPoint.afterLast_inBounds {ops : List OperationPtr} (ctxWf : ctx.WellFormed)
+    (hfb : fallback.InBounds ctx)
+    (hparent : ∀ op ∈ ops, ∃ block, (op.get! ctx).parent = some block)
+    (hin : ∀ op ∈ ops, op.InBounds ctx) :
+    (InsertPoint.afterLast ops ctx fallback).InBounds ctx := by
+  unfold InsertPoint.afterLast
+  cases h : ops.getLast? with
+  | none => exact hfb
+  | some last =>
+    have hmem := List.mem_of_getLast? h
+    obtain ⟨block, hb⟩ := hparent last hmem
+    exact InsertPoint.after!_inBounds ctxWf hb (hin last hmem)
 
 theorem InsertPoint.after_eq_of_some_next :
     (op.get! ctx).next = some nextOp →

@@ -1,5 +1,6 @@
 import Veir.Interpreter.Basic
 import Veir.Data.Refinement
+import Veir.Dominance
 
 /-!
 # Refinement of programs
@@ -198,5 +199,37 @@ def InterpreterState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
     (mapping : ValueMapping ctx ctx') : Prop :=
   state.memory = state'.memory ∧
   state.variables.isRefinedBy state'.variables mapping
+
+/--
+A variable state `state` is refined by `state'` through the value renaming `mapping`, scoped to
+the program points `p` (in `ctx`) and `p'` (in `ctx'`). Only values that are *in scope* at both
+points are constrained: a source value `val` must dominate `p`, and its image `mapping val` must
+dominate `p'`. This excuses stale values that remain in the persistent map from prior iterations
+or prior blocks without constraining them.
+
+The relation uses `∀ sv tv` (not `∃ tv`) so existence is delegated to `DefinesDominating`
+at the call site, which simplifies proof obligations at maintenance steps.
+-/
+def VariableState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
+    (state : VariableState ctx) (state' : VariableState ctx')
+    (mapping : ValueMapping ctx ctx') (p : InsertPoint) (p' : InsertPoint)
+    (_pIn : p.InBounds ctx.raw := by grind) (_p'In : p'.InBounds ctx'.raw := by grind) : Prop :=
+  ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw),
+    val.dominatesIp p ctx →
+    (mapping ⟨val, valIn⟩).val.dominatesIp p' ctx' →
+    ∀ sv tv, state.getVar? val = some sv →
+             state'.getVar? (mapping ⟨val, valIn⟩) = some tv → sv ⊒ tv
+
+/--
+An interpreter state `state` is refined by `state'` through the value mapping `mapping`, scoped
+to source point `p` and target point `p'`: they have the same memory, and the variable state of
+`state` is scoped-refined by the variable state of `state'` through `mapping` at `(p, p')`.
+-/
+def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
+    (state : InterpreterState ctx) (state' : InterpreterState ctx')
+    (mapping : ValueMapping ctx ctx') (p : InsertPoint) (p' : InsertPoint)
+    (_pIn : p.InBounds ctx.raw := by grind) (_p'In : p'.InBounds ctx'.raw := by grind) : Prop :=
+  state.memory = state'.memory ∧
+  state.variables.isRefinedByAt state'.variables mapping p p'
 
 end Veir
