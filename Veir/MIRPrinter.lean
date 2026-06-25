@@ -148,11 +148,33 @@ def succArgs (ctx : IRContext OpCode) (term : OperationPtr) : Array (Array Value
     off := off + nk
   return res
 
-/-- A degenerate conditional branch (both successors the same block) that passes
-    *different* arguments on its two edges is a value selection we can't lower by
-    collapsing to one edge; it needs edge-splitting, which we don't do yet. -/
-def hasUnsupportedDegenerate (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Bool := Id.run do
-  for bi in 0...blocks.size do
+/-- The lowered CFG: predecessors of every block (real + synthetic), which real
+    blocks have a split branch, and the trampoline blocks to emit.
+
+    A degenerate conditional branch (both successors the same block S) that passes
+    *different* arguments on its two edges is a value selection.  MIR forbids a
+    block listing S twice or a PHI taking two values from the same predecessor, so
+    we split the edge: route the two sides through fresh single-jump trampoline
+    blocks t0/t1, each forwarding to S, so S's PHI gets one entry per trampoline.
+    Equal-argument degenerate branches need no split (collapsed to one edge). -/
+structure EdgePlan where
+  /-- preds[i] = predecessors of block i as (predBlockIndex, argValues). -/
+  preds : Array (Array (Nat × Array ValuePtr))
+  /-- split[bi] = some (t0, t1) if real block bi's branch is edge-split. -/
+  split : Array (Option (Nat × Nat))
+  /-- trampolines to emit, as (trampolineIndex, targetBlockIndex), in index order. -/
+  tramps : Array (Nat × Nat)
+
+def planEdges (ctx : IRContext OpCode) (blocks : Array BlockPtr) : EdgePlan := Id.run do
+  let n := blocks.size
+  -- Pass 1: assign trampoline indices to degenerate branches with differing args.
+  let mut split : Array (Option (Nat × Nat)) := #[]
+  for _ in 0...n do
+    split := split.push none
+  let mut tramps : Array (Nat × Nat) := #[]
+  let mut trampEdges : Array (Nat × Nat × Array ValuePtr) := #[]
+  let mut nextIdx := n
+  for bi in 0...n do
     match (blocks[bi]!).get! ctx |>.firstOp with
     | none => pure ()
     | some f =>
@@ -161,33 +183,38 @@ def hasUnsupportedDegenerate (ctx : IRContext OpCode) (blocks : Array BlockPtr) 
          (term.getSuccessor! ctx 0).id == (term.getSuccessor! ctx 1).id then
         let a := succArgs ctx term
         if (a[0]!).map (vreg ctx) != (a[1]!).map (vreg ctx) then
-          return true
-  return false
-
-/-- For each block (by index), its predecessors as (predBlockIndex, argValues). -/
-def computePreds (ctx : IRContext OpCode) (blocks : Array BlockPtr) :
-    Array (Array (Nat × Array ValuePtr)) := Id.run do
-  let mut preds := #[]
-  for _ in 0...blocks.size do
+          let s := bbOf blocks (term.getSuccessor! ctx 0).id
+          let t0 := nextIdx
+          let t1 := nextIdx + 1
+          nextIdx := nextIdx + 2
+          split := split.set! bi (some (t0, t1))
+          tramps := (tramps.push (t0, s)).push (t1, s)
+          trampEdges := (trampEdges.push (t0, s, a[0]!)).push (t1, s, a[1]!)
+  let total := nextIdx
+  -- Pass 2: predecessors for every block (real blocks + trampolines).
+  let mut preds : Array (Array (Nat × Array ValuePtr)) := #[]
+  for _ in 0...total do
     preds := preds.push #[]
-  for bi in 0...blocks.size do
+  for bi in 0...n do
     match (blocks[bi]!).get! ctx |>.firstOp with
     | none => pure ()
     | some f =>
-      let term := lastOp ctx f
-      let args := succArgs ctx term
-      -- A conditional branch whose successors are the same block becomes a
-      -- single edge: record each target block at most once per terminator.
-      -- (Only reached when those edges carry identical args; see
-      -- hasUnsupportedDegenerate.)
-      let mut seenTargets : List Nat := []
-      for k in 0...term.getNumSuccessors! ctx do
-        let tid := (term.getSuccessor! ctx k).id
-        if !seenTargets.contains tid then
-          seenTargets := tid :: seenTargets
-          let ti := bbOf blocks tid
-          preds := preds.set! ti (preds[ti]!.push (bi, args[k]!))
-  return preds
+      match split[bi]! with
+      | some _ => pure ()  -- this block's edges flow through its trampolines
+      | none =>
+        let term := lastOp ctx f
+        let args := succArgs ctx term
+        -- record each distinct target at most once (collapses equal-arg degenerates)
+        let mut seenTargets : List Nat := []
+        for k in 0...term.getNumSuccessors! ctx do
+          let tid := (term.getSuccessor! ctx k).id
+          if !seenTargets.contains tid then
+            seenTargets := tid :: seenTargets
+            let ti := bbOf blocks tid
+            preds := preds.set! ti (preds[ti]!.push (bi, args[k]!))
+  for e in trampEdges do
+    preds := preds.set! e.2.1 (preds[e.2.1]!.push (e.1, e.2.2))
+  return { preds := preds, split := split, tramps := tramps }
 
 /-- Emit a single non-terminator operation. -/
 def emitRegular (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
@@ -226,15 +253,17 @@ def emitRegular (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
           | none => IO.println s!"    ; UNHANDLED {reprStr rop}"
   | _ => IO.println s!"    ; UNHANDLED op"
 
-/-- Emit a terminator operation (branch / return). -/
-def emitTerminator (ctx : IRContext OpCode) (blocks : Array BlockPtr)
-    (op : OperationPtr) : IO Unit := do
+/-- Emit a terminator operation (branch / return).  `lsuccs` gives the lowered
+    successor block index for each successor position (trampolines when split). -/
+def emitTerminator (ctx : IRContext OpCode) (op : OperationPtr)
+    (lsuccs : Array Nat) : IO Unit := do
   let opType := op.getOpType! ctx
   let ops := getOperands ctx op
   let v := fun (i : Nat) => vreg ctx (ops[i]!)
-  let succ := fun (k : Nat) => bbOf blocks (op.getSuccessor! ctx k).id
-  -- Degenerate conditional branch (both targets identical) → unconditional jump.
-  if op.getNumSuccessors! ctx == 2 && succ 0 == succ 1 then
+  let succ := fun (k : Nat) => lsuccs[k]!
+  -- Degenerate conditional branch with both edges collapsed to the same block
+  -- (equal arguments) → unconditional jump.  Split edges have distinct lsuccs.
+  if lsuccs.size == 2 && succ 0 == succ 1 then
     IO.println s!"    PseudoBR %bb.{succ 0}"
     return
   match opType with
@@ -273,52 +302,66 @@ def emitTerminator (ctx : IRContext OpCode) (blocks : Array BlockPtr)
   | _ => IO.println s!"    ; UNHANDLED terminator"
 
 /-- Emit the op list of a block, treating the last op as the terminator. -/
-partial def emitOps (ctx : IRContext OpCode) (blocks : Array BlockPtr)
-    (op : OperationPtr) : IO Unit := do
+partial def emitOps (ctx : IRContext OpCode) (op : OperationPtr)
+    (lsuccs : Array Nat) : IO Unit := do
   match (op.get! ctx).next with
   | some n =>
     emitRegular ctx op
-    emitOps ctx blocks n
+    emitOps ctx n lsuccs
   | none =>
-    emitTerminator ctx blocks op
+    emitTerminator ctx op lsuccs
 
-/-- Emit one basic block: label, successors, PHIs, then instructions. -/
+/-- The lowered successor block indices for a real block, in successor order
+    (the trampoline pair when the block's branch is edge-split). -/
+def loweredSuccs (ctx : IRContext OpCode) (blocks : Array BlockPtr)
+    (split : Array (Option (Nat × Nat))) (bi : Nat) (term : OperationPtr) : Array Nat :=
+  match split[bi]! with
+  | some (t0, t1) => #[t0, t1]
+  | none => Id.run do
+    let mut r := #[]
+    for k in 0...term.getNumSuccessors! ctx do
+      r := r.push (bbOf blocks (term.getSuccessor! ctx k).id)
+    return r
+
+/-- Emit one real basic block: label, successors, PHIs, then instructions. -/
 def emitBlock (ctx : IRContext OpCode) (blocks : Array BlockPtr)
+    (split : Array (Option (Nat × Nat)))
     (preds : Array (Array (Nat × Array ValuePtr))) (bi : Nat) : IO Unit := do
   let b := blocks[bi]!
   IO.println s!"  bb.{bi}:"
-  -- successors line, from the terminator
   match (b.get! ctx).firstOp with
+  | none => pure ()
   | some f =>
     let term := lastOp ctx f
-    let nsucc := term.getNumSuccessors! ctx
-    if nsucc != 0 then
-      -- distinct successor block indices, in order
+    let lsuccs := loweredSuccs ctx blocks split bi term
+    -- successors line: distinct lowered successor indices, in order
+    if !lsuccs.isEmpty then
       let mut sis : List Nat := []
-      for k in 0...nsucc do
-        let si := bbOf blocks (term.getSuccessor! ctx k).id
+      for si in lsuccs do
         if !sis.contains si then sis := sis ++ [si]
       let parts := sis.map (fun si => s!"%bb.{si}")
       IO.println s!"    successors: {String.intercalate ", " parts}"
-  | none => pure ()
-  -- block arguments → PHI (or COPY for a single predecessor)
-  let np := b.getNumArguments! ctx
-  if np != 0 then
-    let plist := preds[bi]!
-    for ai in 0...np do
-      let name := s!"%arg{b.id}_{ai}"
-      if plist.size == 0 then
-        IO.println s!"    {name}:gpr = IMPLICIT_DEF"
-      else if plist.size == 1 then
-        let (_, vals) := plist[0]!
-        IO.println s!"    {name}:gpr = COPY {vreg ctx (vals[ai]!)}"
-      else
-        let parts := plist.toList.map (fun (pbi, vals) => s!"{vreg ctx (vals[ai]!)}, %bb.{pbi}")
-        IO.println s!"    {name}:gpr = PHI {String.intercalate ", " parts}"
-  -- instructions
-  match (b.get! ctx).firstOp with
-  | some f => emitOps ctx blocks f
-  | none => pure ()
+    -- block arguments → PHI (or COPY for a single predecessor)
+    let np := b.getNumArguments! ctx
+    if np != 0 then
+      let plist := preds[bi]!
+      for ai in 0...np do
+        let name := s!"%arg{b.id}_{ai}"
+        if plist.size == 0 then
+          IO.println s!"    {name}:gpr = IMPLICIT_DEF"
+        else if plist.size == 1 then
+          let (_, vals) := plist[0]!
+          IO.println s!"    {name}:gpr = COPY {vreg ctx (vals[ai]!)}"
+        else
+          let parts := plist.toList.map (fun (pbi, vals) => s!"{vreg ctx (vals[ai]!)}, %bb.{pbi}")
+          IO.println s!"    {name}:gpr = PHI {String.intercalate ", " parts}"
+    emitOps ctx f lsuccs
+
+/-- Emit a trampoline block: an unconditional jump to its target. -/
+def emitTrampoline (t : Nat) (s : Nat) : IO Unit := do
+  IO.println s!"  bb.{t}:"
+  IO.println s!"    successors: %bb.{s}"
+  IO.println s!"    PseudoBR %bb.{s}"
 
 /-- Print a full MIR module for the given `main` function. -/
 def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
@@ -330,10 +373,7 @@ def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
     if allBlocks.isEmpty then []
     else reachable ctx allBlocks [(allBlocks[0]!).id]
   let blocks := allBlocks.filter (fun b => reach.contains b.id)
-  if hasUnsupportedDegenerate ctx blocks then
-    IO.println "; UNHANDLED: degenerate same-target conditional branch with differing block arguments (needs edge split)"
-    return
-  let preds := computePreds ctx blocks
+  let plan := planEdges ctx blocks
   IO.println "--- |"
   IO.println "  define i64 @main() #0 {"
   IO.println "    ret i64 0"
@@ -346,7 +386,10 @@ def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
   IO.println "body:             |"
   for bi in 0...blocks.size do
     if bi != 0 then IO.println ""
-    emitBlock ctx blocks preds bi
+    emitBlock ctx blocks plan.split plan.preds bi
+  for tr in plan.tramps do
+    IO.println ""
+    emitTrampoline tr.1 tr.2
   IO.println "..."
 
 end Veir.MIRPrinter
