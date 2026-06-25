@@ -38,9 +38,9 @@ def matchAndi (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
   let (op, _) ← matchOp op ctx (.llvm .and) 2
   return (op[0]!, op[1]!)
 
-def matchAnd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
-  let (op, _) ← matchOp op ctx (.llvm .and) 2
-  return (op[0]!, op[1]!)
+def matchAnd (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .and)) := do
+  let (op, properties) ← matchOp op ctx (.llvm .and) 2
+  return (op[0]!, op[1]!, properties)
 
 def matchOri (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr × propertiesOf (.llvm .or)) := do
   let (op, properties) ← matchOp op ctx (.llvm .or) 2
