@@ -45,7 +45,7 @@ RISCV_PASSES = (
 # whose _start calls the lowered `main`, compares its i64 return value against
 # veir-interpret's result, and reports the verdict via the HTIF tohost device
 # (exit 0 = agree, 1 = disagree). The ELF runs under spike.
-MIR_TOOLS = ("llc", "riscv64-unknown-elf-gcc", "spike")
+MIR_TOOLS = ("llc", "clang", "spike")
 MIR_MARCH = "rv64im_zba_zbb_zbs_zbc_zbkb_zicond"
 MIR_ABI = "lp64"
 SPIKE_TIMEOUT = 30
@@ -167,6 +167,7 @@ def run_tool(repo: Path, cmd: list[str]) -> ToolResult:
     result = subprocess.run(
         cmd,
         cwd=repo,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -457,7 +458,7 @@ def refines(original: str, optimized: str) -> bool:
 
 @functools.lru_cache(maxsize=1)
 def resolve_mir_tools() -> dict[str, str] | None:
-    """Resolve {llc, riscv64-unknown-elf-gcc, spike}; None if any is missing."""
+    """Resolve {llc, clang, spike}; None if any is missing."""
     resolved = {name: shutil.which(name) for name in MIR_TOOLS}
     if any(path is None for path in resolved.values()):
         return None
@@ -480,7 +481,8 @@ def after_to_u64(after: str) -> int | None:
 
 def _mir_run(cmd: list[str], timeout: int | None = None) -> tuple[int, str]:
     result = subprocess.run(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=timeout
+        cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, timeout=timeout
     )
     return result.returncode, result.stdout
 
@@ -517,7 +519,7 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
             for f in artifacts:
                 f.unlink(missing_ok=True)
 
-    march = [f"-march={MIR_MARCH}", f"-mabi={MIR_ABI}"]
+    march = ["--target=riscv64-unknown-elf", f"-march={MIR_MARCH}", f"-mabi={MIR_ABI}"]
 
     # 1. veir2mir: riscv-dialect MLIR -> pre-RA MIR
     rc, out = _mir_run([str(veir2mir), str(opt)])
@@ -542,11 +544,11 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
         ld_script.write_text(MIR_LINK_LD)
     drv_s.write_text(MIR_DRIVER_TEMPLATE.format(expected=expected))
     for label, src_path, obj in (("function", asm, func_o), ("driver", drv_s, drv_o)):
-        rc, out = _mir_run([tools["riscv64-unknown-elf-gcc"], *march, "-c", str(src_path), "-o", str(obj)])
+        rc, out = _mir_run([tools["clang"], *march, "-c", str(src_path), "-o", str(obj)])
         if rc != 0:
             return False, (f"assembling MIR {label} failed\n"
                            f"optimized: {opt}\nmir: {mir}\n{out}")
-    rc, out = _mir_run([tools["riscv64-unknown-elf-gcc"], *march, "-nostdlib", "-nostartfiles",
+    rc, out = _mir_run([tools["clang"], *march, "-fuse-ld=lld", "-nostdlib", "-nostartfiles",
                         "-static", f"-Wl,-T,{ld_script}", str(func_o), str(drv_o), "-o", str(elf)])
     if rc != 0:
         return False, (f"linking MIR executable failed\n"
