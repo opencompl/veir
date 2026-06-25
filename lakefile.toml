@@ -28,3 +28,7 @@ root = "RunBenchmarks"
 [[lean_exe]]
 name = "veir-interpret"
 root = "VeirInterpret"
+
+[[lean_exe]]
+name = "veir2mir"
+root = "VeirToMIR"

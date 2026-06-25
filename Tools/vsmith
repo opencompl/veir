@@ -492,6 +492,7 @@ def _worker(
     start_index: int,
     passes: str,
     riscv: bool,
+    keep: bool,
     queue: "multiprocessing.Queue",
 ) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -518,10 +519,11 @@ def _worker(
                 result.before_llvm,
                 result.after_llvm,
             ))
-            src.unlink(missing_ok=True)
-            opt.unlink(missing_ok=True)
-            src.with_suffix(".ll").unlink(missing_ok=True)
-            opt.with_suffix(".ll").unlink(missing_ok=True)
+            if not keep:
+                src.unlink(missing_ok=True)
+                opt.unlink(missing_ok=True)
+                src.with_suffix(".ll").unlink(missing_ok=True)
+                opt.with_suffix(".ll").unlink(missing_ok=True)
         queue.put(("done",))
     except BaseException:
         queue.put(("fail", f"worker crashed:\n{traceback.format_exc()}"))
@@ -536,6 +538,7 @@ def fuzz(
     iterations: int,
     passes: str,
     riscv: bool,
+    keep: bool,
     rng: random.Random,
     num_workers: int,
     spinner: Spinner,
@@ -563,7 +566,7 @@ def fuzz(
         subdir = workdir / f"w{w}"
         p = ctx.Process(
             target=_worker,
-            args=(repo, interp_bin, opt_bin, llvm_interps, subdir, seed, count, start, passes, riscv, queue),
+            args=(repo, interp_bin, opt_bin, llvm_interps, subdir, seed, count, start, passes, riscv, keep, queue),
         )
         p.start()
         processes.append(p)
@@ -688,7 +691,7 @@ def main(argv: list[str]) -> int:
 
     success = fuzz(
         repo, interp_bin, opt_bin, llvm_interps, workdir,
-        args.iterations, args.passes, args.riscv, rng,
+        args.iterations, args.passes, args.riscv, args.keep, rng,
         args.workers, Spinner(), args.verbose,
     )
 
