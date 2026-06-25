@@ -63,6 +63,22 @@ theorem InterpreterState.isRefinedBy_refl
     state.isRefinedBy state id := by
   grind [InterpreterState.isRefinedBy, VariableState.isRefinedBy]
 
+/-- `isRefinedByAt` is reflexive under the identity mapping at any program point. -/
+@[simp, grind .]
+theorem VariableState.isRefinedByAt_refl
+    {ctx : WfIRContext OpInfo} {state : VariableState ctx}
+    {p : InsertPoint} {pIn : p.InBounds ctx.raw} :
+    state.isRefinedByAt state id p p := by
+  grind [VariableState.isRefinedByAt]
+
+/-- `isRefinedByAt` is reflexive for `InterpreterState` under the identity mapping at any point. -/
+@[simp, grind .]
+theorem InterpreterState.isRefinedByAt_refl
+    {ctx : WfIRContext OpInfo} {state : InterpreterState ctx}
+    {p : InsertPoint} {pIn : p.InBounds ctx.raw} :
+    state.isRefinedByAt state id p p := by
+  grind [InterpreterState.isRefinedByAt]
+
 @[simp, grind .]
 theorem ControlFlowAction.isRefinedBy_refl (cf : ControlFlowAction) : cf ⊒ cf := by
   cases cf <;> simp [ControlFlowAction.isRefinedBy]
