@@ -144,7 +144,22 @@ def OperationPtr.verifyBranchSuccessorArgTypes
     if opTy.val ≠ argTy.val then
       throw s!"{errPrefix} argument {j} type mismatch: operand has type {opTy}, block argument has type {argTy}"
 
-def OperationPtr.verifyRISCVBranchOperandSegmentSizes
+/--
+  Verify an unconditional branch with a single successor: every operand is
+  forwarded positionally to the successor block's arguments, so the operand
+  count must equal the successor's argument count and the operand types must
+  match the block argument types.
+-/
+def OperationPtr.verifyUnconditionalBranch (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyTerminatorCounts ctx opIn 1
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+  let dest := op.getSuccessor! ctx.raw 0
+  if op.getNumOperands ctx.raw opIn ≠ dest.getNumArguments! ctx.raw then
+    throw s!"{instrName}: branch expected operand count {dest.getNumArguments! ctx.raw}, got {op.getNumOperands ctx.raw opIn}"
+  op.verifyBranchSuccessorArgTypes ctx 0 dest s!"{instrName}: successor"
+
+def OperationPtr.verifyCondBranchOperandSegmentSizes
     (op : OperationPtr) (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw)
     (sizes : DenseArrayAttr) (fixedOperands : Nat) :
     Except String PUnit := do
@@ -446,19 +461,14 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyFuncReturnTypes ctx opIn
   /- CF -/
   | .cf .br => do
-    op.verifyTerminatorCounts ctx opIn 1
-    pure ()
+    op.verifyUnconditionalBranch ctx opIn
   | .cf .cond_br => do
     op.verifyTerminatorCounts ctx opIn 2
     let weights := (op.getProperties! ctx.raw (OpCode.cf .cond_br)).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
     let sizes := (op.getProperties! ctx.raw (OpCode.cf .cond_br)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 3 then
-      throw "Expected 1 operand plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 then
-      throw "Expected 1 operand plus 2 variadic operands"
-    pure ()
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
   /- TEST -/
   | .test .test => do
     pure ()
@@ -529,19 +539,14 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyPlainOpCounts ctx opIn 0 0
     pure ()
   | .llvm .br => do
-    op.verifyTerminatorCounts ctx opIn 1
-    pure ()
+    op.verifyUnconditionalBranch ctx opIn
   | .llvm .cond_br => do
     op.verifyTerminatorCounts ctx opIn 2
     let weights := (op.getProperties! ctx.raw (.llvm .cond_br)).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
     let sizes := (op.getProperties! ctx.raw (.llvm .cond_br)).operandSegmentSizes
-    if _ : sizes.values.size ≠ 3 then
-      throw "Expected 1 operand plus 2 variadic operands"
-    if sizes.values[0]! ≠ 1 then
-      throw "Expected 1 operand plus 2 variadic operands"
-    pure ()
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
   | .llvm .alloca => do
     op.verifyPlainOpCounts ctx opIn 1 1
     let properties := (op.getProperties! ctx.raw (.llvm .alloca))
@@ -749,52 +754,46 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   /- RISCV CF -/
   | .riscv_cf .branch => do
-    op.verifyTerminatorCounts ctx opIn 1
-    let dest := op.getSuccessor! ctx.raw 0
-    if op.getNumOperands ctx.raw opIn ≠ dest.getNumArguments! ctx.raw then
-      throw s!"RISCV branch expected operand count {dest.getNumArguments! ctx.raw}, got {op.getNumOperands ctx.raw opIn}"
-    let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
-    op.verifyBranchSuccessorArgTypes ctx 0 dest s!"{instrName}: successor"
-    pure ()
+    op.verifyUnconditionalBranch ctx opIn
   | .riscv_cf .beq => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .beq)).operandSegmentSizes
-    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bne => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bne)).operandSegmentSizes
-    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .blt => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .blt)).operandSegmentSizes
-    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bge => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bge)).operandSegmentSizes
-    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bltu => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bltu)).operandSegmentSizes
-    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bgeu => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bgeu)).operandSegmentSizes
-    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .beqz => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .beqz)).operandSegmentSizes
-    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 1
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
     pure ()
   | .riscv_cf .bnez => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bnez)).operandSegmentSizes
-    op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 1
+    op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
     pure ()
   /- RISCV Stack -/
   | .riscv_stack .alloca => do
