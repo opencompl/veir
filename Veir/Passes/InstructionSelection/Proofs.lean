@@ -25,6 +25,13 @@ theorem constant_refinement {v : Int}:
   veir_bv_decide
 
 /--
+  Prove the correctness of the `poisonConst` lowering pattern.
+-/
+theorem poisonConst_refinement :
+    (LLVM.Int.poison (w := 64)) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 0)) 64) := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `add` lowering pattern.
 -/
 theorem add_refinement {x y : LLVM.Int 64} :

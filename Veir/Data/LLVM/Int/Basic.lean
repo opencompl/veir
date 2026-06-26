@@ -91,6 +91,12 @@ instance {w : Nat} : ToString (Int w) where
 def constant (w : Nat) (v : _root_.Int) : Int w := val (BitVec.ofInt w v)
 
 /--
+  We define the semantics of a `poison` operation.
+  The result of this operation is always poison.
+-/
+def mlir_poison (w : Nat) : Int w := poison
+
+/--
 The ‘add’ instruction returns the sum of its two operands.
 
 If the sum has unsigned overflow, the result returned is the mathematical result

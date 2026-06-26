@@ -124,6 +124,11 @@ theorem isPoison_constant {w : Nat} (v : _root_.Int) :
     (constant w v).isPoison = false := by rfl
 
 @[veir_bv_normalize, grind =]
+theorem isPoison_poison {w : Nat} :
+    (mlir_poison w).isPoison = true := by
+  simp [mlir_poison, isPoison]
+
+@[veir_bv_normalize, grind =]
 theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
     (add x y nsw nuw).isPoison =
       if h : x.isPoison = true ∨ y.isPoison = true then true

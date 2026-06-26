@@ -10,4 +10,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: RISCV branch expected operand count 2, got 1
+// CHECK: riscv_cf.branch: branch expected operand count 2, got 1

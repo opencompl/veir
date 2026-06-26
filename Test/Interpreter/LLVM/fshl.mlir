@@ -14,10 +14,7 @@
     %x = "llvm.mlir.constant"() <{ "value" = 0xF0000001 : i32 }> : () -> i32
     %c4 = "llvm.mlir.constant"() <{ "value" = 4 : i32 }> : () -> i32
 
-    // Poison i32 via `llvm.add nuw` of -1 + 1 (unsigned overflow).
-    %neg1 = "llvm.mlir.constant"() <{ "value" = -1 : i32 }> : () -> i32
-    %one  = "llvm.mlir.constant"() <{ "value" = 1 : i32 }> : () -> i32
-    %p32  = "llvm.add"(%neg1, %one) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
+    %p32 = "llvm.mlir.poison"() : () -> i32
 
     // Funnel shift left by 8.
     %r1 = "llvm.intr.fshl"(%a, %b, %c8) : (i32, i32, i32) -> i32
