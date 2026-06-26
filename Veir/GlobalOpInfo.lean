@@ -406,6 +406,7 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .riscv _ => false
   -- For LLVM we enumerate the pure ops
   | .llvm .mlir__constant
+  | .llvm .mlir__poison
   | .llvm .and | .llvm .or | .llvm .xor
   | .llvm .add | .llvm .sub | .llvm .mul
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
