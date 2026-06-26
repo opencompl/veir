@@ -157,7 +157,8 @@ def OperationPtr.verifyRISCVBranchOperandSegmentSizes
   op.verifyBranchSuccessorArgTypes ctx (fixedOperands + trueArgCount) falseDest s!"{instrName}: false successor"
 
 def OperationPtr.verifyRISCVimm12 (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) (imm : Int) : Except String PUnit :=
+    (opIn : op.InBounds ctx.raw) (operands results : Nat) (imm : Int) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn operands results
   if imm < -2048 ∨ imm > 2047 then
     let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
     throw s!"{instrName} immediate out of bounds: must fit in a signed 12-bit field [-2048, 2047]"
@@ -256,14 +257,18 @@ def OperationPtr.verifyLLVMICmp (op : OperationPtr) (ctx : WfIRContext OpCode)
   ((op.getResult 0).get! ctx.raw).type.verifyI1 s!"{instrName}: Expected i1 result"
 
 def OperationPtr.verifySelectTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (instrName : String) : Except String PUnit := do
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 3 1
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
   ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyI1 s!"{instrName}: Expected i1 condition"
   -- Both `arith.select` and `llvm.select` accept values of any type.
   let operandType ← op.verifyOperandTypesMatch ctx 1 2 s!"{instrName}: Expected select values to have the same type"
   op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match select value type"
 
 def OperationPtr.verifyIntegerTruncTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (instrName : String) : Except String PUnit := do
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
   let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
   let resultType := ((op.getResult 0).get! ctx.raw).type
   let .integerType operandInt := operandType.val
@@ -276,7 +281,9 @@ def OperationPtr.verifyIntegerTruncTypes (op : OperationPtr) (ctx : WfIRContext 
     pure ()
 
 def OperationPtr.verifyIntegerExtTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (instrName : String) : Except String PUnit := do
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 1 1
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
   let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
   let resultType := ((op.getResult 0).get! ctx.raw).type
   let .integerType operandInt := operandType.val
@@ -289,7 +296,8 @@ def OperationPtr.verifyIntegerExtTypes (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
 
 def OperationPtr.verifyRISCVneg (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) (imm : Int) : Except String PUnit :=
+    (opIn : op.InBounds ctx.raw) (operands results : Nat) (imm : Int) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn operands results
   if imm < 0 ∨ 1048575 < imm then -- 1048575 = 2 ^ 20 - 1
     let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
     throw s!"{instrName} immediate out of bounds: must fit in a unsigned 20-bit field."
@@ -366,12 +374,10 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyIntegerBinop ctx opIn
     pure ()
   | .arith .extui => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyIntegerExtTypes ctx "arith.extui"
+    op.verifyIntegerExtTypes ctx opIn
     pure ()
   | .arith .extsi => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyIntegerExtTypes ctx "arith.extsi"
+    op.verifyIntegerExtTypes ctx opIn
     pure ()
   | .arith .floordivsi => do
     op.verifyIntegerBinop ctx opIn
@@ -407,8 +413,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyIntegerBinop ctx opIn
     pure ()
   | .arith .select => do
-    op.verifyPlainOpCounts ctx opIn 3 1
-    op.verifySelectTypes ctx "arith.select"
+    op.verifySelectTypes ctx opIn
     pure ()
   | .arith .shli => do
     op.verifyIntegerBinop ctx opIn
@@ -423,8 +428,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyIntegerBinop ctx opIn
     pure ()
   | .arith .trunci => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyIntegerTruncTypes ctx "arith.trunci"
+    op.verifyIntegerTruncTypes ctx opIn
     pure ()
   | .arith .xori => do
     op.verifyIntegerBinop ctx opIn
@@ -626,20 +630,16 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyLLVMICmp ctx opIn
     pure ()
   | .llvm .select => do
-    op.verifyPlainOpCounts ctx opIn 3 1
-    op.verifySelectTypes ctx "llvm.select"
+    op.verifySelectTypes ctx opIn
     pure ()
   | .llvm .trunc => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyIntegerTruncTypes ctx "llvm.trunc"
+    op.verifyIntegerTruncTypes ctx opIn
     pure ()
   | .llvm .sext => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyIntegerExtTypes ctx "llvm.sext"
+    op.verifyIntegerExtTypes ctx opIn
     pure ()
   | .llvm .zext => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyIntegerExtTypes ctx "llvm.zext"
+    op.verifyIntegerExtTypes ctx opIn
     pure ()
   | .llvm .return => do
     if op.getNumResults ctx.raw opIn ≠ 0 then
@@ -755,40 +755,31 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
   | .riscv .lui => do
-    op.verifyPlainOpCounts ctx opIn 0 1
-    op.verifyRISCVneg ctx opIn (op.getProperties! ctx.raw (.riscv .lui)).value.value
+    op.verifyRISCVneg ctx opIn 0 1 (op.getProperties! ctx.raw (.riscv .lui)).value.value
     pure ()
   | .riscv .auipc => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyRISCVneg ctx opIn (op.getProperties! ctx.raw (.riscv .auipc)).value.value
+    op.verifyRISCVneg ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .auipc)).value.value
     pure ()
   | .riscv .addi => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .addi)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .addi)).value.value
     pure ()
   | .riscv .slti => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .slti)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .slti)).value.value
     pure ()
   | .riscv .sltiu => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .sltiu)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .sltiu)).value.value
     pure ()
   | .riscv .andi => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .andi)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .andi)).value.value
     pure ()
   | .riscv .ori => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .ori)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .ori)).value.value
     pure ()
   | .riscv .xori => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .xori)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .xori)).value.value
     pure ()
   | .riscv .addiw => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .addiw)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .addiw)).value.value
     pure ()
   | .riscv .slli => do
     op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .slli)).value.value
@@ -1026,24 +1017,19 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .riscv .ld | .riscv .lw | .riscv .lwu
   | .riscv .lh | .riscv .lhu | .riscv .lb | .riscv .lbu => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .ld)).value.value
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .ld)).value.value
     pure ()
   | .riscv .sd => do
-    op.verifyPlainOpCounts ctx opIn 2 0
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .sd)).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw (.riscv .sd)).value.value
     pure ()
   | .riscv .sw => do
-    op.verifyPlainOpCounts ctx opIn 2 0
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .sw)).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw (.riscv .sw)).value.value
     pure ()
   | .riscv .sh => do
-    op.verifyPlainOpCounts ctx opIn 2 0
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .sh)).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw (.riscv .sh)).value.value
     pure ()
   | .riscv .sb => do
-    op.verifyPlainOpCounts ctx opIn 2 0
-    op.verifyRISCVimm12 ctx opIn (op.getProperties! ctx.raw (.riscv .sb)).value.value
+    op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw (.riscv .sb)).value.value
     pure ()
   | .riscv .mv => do
     op.verifyPlainOpCounts ctx opIn 1 1
