@@ -961,6 +961,19 @@ def fshlConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
   replaceWithReg rewriter op (roriOp.getResult 0)
 
+
+set_option warn.sorry false in
+/-- llvm.mlir.poison -> riscv.li 0 -/
+def poisonConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some _ := matchPoison op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
+  let (rewriter, liOp) ← rewriter.createOp (.riscv .li) #[RegisterType.mk] #[]
+      #[] #[] imm (some $ .before op) (by simp) (by simp) (by simp) sorry
+  replaceWithReg rewriter op (liOp.getResult 0)
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
@@ -970,7 +983,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral, ctlz, cttz, ctpop, bswap, bitreverse, constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store,
-    smax, smin, umax, umin, fshlConst, fshrConst, fshl, fshr]
+    smax, smin, umax, umin, fshlConst, fshrConst, fshl, fshr, poisonConst]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
