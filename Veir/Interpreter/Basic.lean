@@ -597,7 +597,10 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
       if bw.bitwidth ≠ 64 then
         none
       return (#[.float 64 floatAttr.value], mem, none)
-  | .mlir__poison => Interp.ub
+  | .mlir__poison => do
+    let some resType := resultTypes[0]? | none
+    let .integerType bw := resType.val | none
+    return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
   | .add => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
