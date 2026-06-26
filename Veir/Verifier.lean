@@ -353,25 +353,20 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   /- ARITH -/
-  | .arith .addi => do
+  | .arith .addi | .arith .andi | .arith .ceildivsi | .arith .ceildivui
+  | .arith .divsi | .arith .divui | .arith .floordivsi | .arith .maxsi
+  | .arith .maxui | .arith .minsi | .arith .minui | .arith .muli
+  | .arith .ori | .arith .remsi | .arith .remui | .arith .shli
+  | .arith .shrsi | .arith .shrui | .arith .subi | .arith .xori => do
     op.verifyIntegerBinop ctx opIn
     pure ()
-  | .arith .addui_extended => do
+  | .arith .addui_extended | .arith .mulsi_extended | .arith .mului_extended => do
     op.verifyPlainOpCounts ctx opIn 2 2
-    pure ()
-  | .arith .andi => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .ceildivsi => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .ceildivui => do
-    op.verifyIntegerBinop ctx opIn
     pure ()
   | .arith .cmpi => do
     op.verifyICmp ctx opIn
     pure ()
-   | .arith .constant => do
+  | .arith .constant => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
       throw "Expected 0 operands"
     else if _ : op.getNumResults ctx.raw opIn ≠ 1 then
@@ -384,71 +379,14 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
           ((op.getResult 0).get ctx.raw).type.val then
         throw "Expected result type to be equal to the constant's type"
     pure ()
-  | .arith .divsi => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .divui => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .extui => do
+  | .arith .extui | .arith .extsi => do
     op.verifyIntegerExtTypes ctx opIn
-    pure ()
-  | .arith .extsi => do
-    op.verifyIntegerExtTypes ctx opIn
-    pure ()
-  | .arith .floordivsi => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .maxsi => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .maxui => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .minsi => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .minui => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .muli => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .mulsi_extended => do
-    op.verifyPlainOpCounts ctx opIn 2 2
-    pure ()
-  | .arith .mului_extended => do
-    op.verifyPlainOpCounts ctx opIn 2 2
-    pure ()
-  | .arith .ori => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .remsi => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .remui => do
-    op.verifyIntegerBinop ctx opIn
     pure ()
   | .arith .select => do
     op.verifySelectTypes ctx opIn
     pure ()
-  | .arith .shli => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .shrsi => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .shrui => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .arith .subi => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
   | .arith .trunci => do
     op.verifyIntegerTruncTypes ctx opIn
-    pure ()
-  | .arith .xori => do
-    op.verifyIntegerBinop ctx opIn
     pure ()
   | .builtin .module => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
@@ -552,55 +490,17 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .llvm .mlir__poison => do
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
-  | .llvm .and => do
+  | .llvm .and | .llvm .or | .llvm .xor | .llvm .intr__smax | .llvm .intr__smin
+  | .llvm .intr__umax | .llvm .intr__umin | .llvm .add | .llvm .sub | .llvm .shl
+  | .llvm .lshr | .llvm .ashr | .llvm .mul | .llvm .sdiv | .llvm .udiv
+  | .llvm .srem | .llvm .urem => do
     op.verifyIntegerBinop ctx opIn
     pure ()
-  | .llvm .or => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .xor => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .intr__smax => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .intr__smin => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .intr__umax => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .intr__umin => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .add => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .sub => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .shl => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .lshr => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .ashr => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .intr__fshl => do
+  | .llvm .intr__fshl | .llvm .intr__fshr => do
     op.verifyIntegerTernop ctx opIn
     pure ()
-  | .llvm .intr__fshr => do
-    op.verifyIntegerTernop ctx opIn
-    pure ()
-  | .llvm .intr__ctlz => do
-    let _ ← op.verifyIntegerUnop ctx opIn
-    pure ()
-  | .llvm .intr__cttz => do
-    let _ ← op.verifyIntegerUnop ctx opIn
-    pure ()
-  | .llvm .intr__ctpop => do
+  | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
+  | .llvm .intr__bitreverse => do
     let _ ← op.verifyIntegerUnop ctx opIn
     pure ()
   | .llvm .intr__bswap => do
@@ -609,24 +509,6 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       | throw "llvm.intr.bswap: Expected operand 0 to have integer type"
     if intType.bitwidth ∉ [16, 32, 64] then
       throw "llvm.intr.bswap: bitwidth must be 16, 32, or 64"
-    pure ()
-  | .llvm .intr__bitreverse => do
-    let _ ← op.verifyIntegerUnop ctx opIn
-    pure ()
-  | .llvm .mul => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .sdiv => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .udiv => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .srem => do
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .llvm .urem => do
-    op.verifyIntegerBinop ctx opIn
     pure ()
   | .llvm .icmp => do
     op.verifyLLVMICmp ctx opIn
@@ -637,10 +519,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .llvm .trunc => do
     op.verifyIntegerTruncTypes ctx opIn
     pure ()
-  | .llvm .sext => do
-    op.verifyIntegerExtTypes ctx opIn
-    pure ()
-  | .llvm .zext => do
+  | .llvm .sext | .llvm .zext => do
     op.verifyIntegerExtTypes ctx opIn
     pure ()
   | .llvm .return => do
@@ -725,17 +604,11 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       "llvm.freeze: Expected result type to match operand type"
     pure ()
   /- MOD_ARITH -/
-  | .mod_arith .add => do
+  | .mod_arith .add | .mod_arith .mul | .mod_arith .sub => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .mod_arith .constant => do
     op.verifyPlainOpCounts ctx opIn 0 1
-    pure ()
-  | .mod_arith .mul => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .mod_arith .sub => do
-    op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   /- RISCV -/
   | .riscv .li => do
@@ -777,34 +650,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .riscv .srai => do
     op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .srai)).value.value
     pure ()
-  | .riscv .add => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sub => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sll => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .slt => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sltu => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .xor => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .srl => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sra => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .or => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .and => do
+  | .riscv .add | .riscv .sub | .riscv .sll | .riscv .slt | .riscv .sltu
+  | .riscv .xor | .riscv .srl | .riscv .sra | .riscv .or | .riscv .and => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .riscv .slliw => do
@@ -816,148 +663,25 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .riscv .sraiw => do
     op.verifyRISCVuimm5 ctx opIn (op.getProperties! ctx.raw (.riscv .sraiw)).value.value
     pure ()
-  | .riscv .addw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .subw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sllw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .srlw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sraw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .rem => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .remu => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .remw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .remuw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .mul => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .mulh => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .mulhu => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .mulhsu => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .mulw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .div => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .divw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .divu => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .divuw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .adduw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sh1adduw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sh2adduw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sh3adduw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sh1add => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sh2add => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sh3add => do
+  | .riscv .addw | .riscv .subw | .riscv .sllw | .riscv .srlw | .riscv .sraw
+  | .riscv .rem | .riscv .remu | .riscv .remw | .riscv .remuw
+  | .riscv .mul | .riscv .mulh | .riscv .mulhu | .riscv .mulhsu | .riscv .mulw
+  | .riscv .div | .riscv .divw | .riscv .divu | .riscv .divuw
+  | .riscv .adduw | .riscv .sh1adduw | .riscv .sh2adduw | .riscv .sh3adduw
+  | .riscv .sh1add | .riscv .sh2add | .riscv .sh3add => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .riscv .slliuw => do
     op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .slliuw)).value.value
     pure ()
-  | .riscv .andn => do
+  | .riscv .andn | .riscv .orn | .riscv .xnor
+  | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
+  | .riscv .rol | .riscv .ror | .riscv .rolw | .riscv .rorw => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
-  | .riscv .orn => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .xnor => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .max => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .maxu => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .min => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .minu => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .rol => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .ror => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .rolw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .rorw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .sextb => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .sexth => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .zexth => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .clz => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .clzw => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .ctz => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .ctzw => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .cpop => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .cpopw => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .orcb => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .rev8 => do
+  | .riscv .sextb | .riscv .sexth | .riscv .zexth
+  | .riscv .clz | .riscv .clzw | .riscv .ctz | .riscv .ctzw
+  | .riscv .cpop | .riscv .cpopw | .riscv .orcb | .riscv .rev8 => do
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   | .riscv .roriw => do
@@ -966,16 +690,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .riscv .rori => do
     op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .rori)).value.value
     pure ()
-  | .riscv .bclr => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .bext => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .binv => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .bset => do
+  | .riscv .bclr | .riscv .bext | .riscv .binv | .riscv .bset => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
   | .riscv .bclri => do
@@ -990,21 +705,30 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .riscv .bseti => do
     op.verifyRISCVuimm6 ctx opIn (op.getProperties! ctx.raw (.riscv .bseti)).value.value
     pure ()
-  | .riscv .pack => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .packh => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
-  | .riscv .packw => do
-    op.verifyPlainOpCounts ctx opIn 2 1
-    pure ()
+  | .riscv .pack | .riscv .packh | .riscv .packw
   | .riscv .czeroeqz | .riscv .czeronez => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
-  | .riscv .ld | .riscv .lw | .riscv .lwu
-  | .riscv .lh | .riscv .lhu | .riscv .lb | .riscv .lbu => do
+  | .riscv .ld => do
     op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .ld)).value.value
+    pure ()
+  | .riscv .lw => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lw)).value.value
+    pure ()
+  | .riscv .lwu => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lwu)).value.value
+    pure ()
+  | .riscv .lh => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lh)).value.value
+    pure ()
+  | .riscv .lhu => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lhu)).value.value
+    pure ()
+  | .riscv .lb => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lb)).value.value
+    pure ()
+  | .riscv .lbu => do
+    op.verifyRISCVimm12 ctx opIn 1 1 (op.getProperties! ctx.raw (.riscv .lbu)).value.value
     pure ()
   | .riscv .sd => do
     op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw (.riscv .sd)).value.value
@@ -1018,37 +742,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .riscv .sb => do
     op.verifyRISCVimm12 ctx opIn 2 0 (op.getProperties! ctx.raw (.riscv .sb)).value.value
     pure ()
-  | .riscv .mv => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .not => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .neg => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .negw => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .sextw => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .zextb => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .zextw => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .seqz => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .snez => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .sltz => do
-    op.verifyPlainOpCounts ctx opIn 1 1
-    pure ()
-  | .riscv .sgtz => do
+  | .riscv .mv | .riscv .not | .riscv .neg | .riscv .negw | .riscv .sextw
+  | .riscv .zextb | .riscv .zextw | .riscv .seqz | .riscv .snez
+  | .riscv .sltz | .riscv .sgtz => do
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   /- RISCV CF -/
