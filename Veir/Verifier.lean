@@ -110,6 +110,23 @@ def OperationPtr.verifyPlainOpCounts (op : OperationPtr) (ctx : WfIRContext OpCo
     throw s!"{instrName}: Expected 0 successors"
 
 /--
+  Verify the result, region, and successor counts of a terminator: one that
+  produces no results, has no regions, and transfers control to `successors`
+  successor blocks. The operand count is left to the caller, since terminators
+  are typically variadic in their forwarded arguments. The instruction name is
+  included in each error message.
+-/
+def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) (successors : Nat) : Except String PUnit := do
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+  if op.getNumResults ctx.raw opIn ≠ 0 then
+    throw s!"{instrName}: Expected 0 results"
+  if op.getNumRegions ctx.raw opIn ≠ 0 then
+    throw s!"{instrName}: Expected 0 regions"
+  if op.getNumSuccessors ctx.raw opIn ≠ successors then
+    throw s!"{instrName}: Expected {successors} successor(s)"
+
+/--
   Check that the operands forwarded to a successor block match the types of that
   block's arguments. `operandBase` is the index of the first forwarded operand;
   the forwarded operands are `operandBase .. operandBase + dest.numArguments`,
@@ -487,29 +504,14 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     pure ()
   | .func .return => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+    op.verifyTerminatorCounts ctx opIn 0
     op.verifyFuncReturnTypes ctx opIn
   /- CF -/
   | .cf .br => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 1 then
-      throw "Expected 1 successor"
+    op.verifyTerminatorCounts ctx opIn 1
     pure ()
   | .cf .cond_br => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 2 successors"
+    op.verifyTerminatorCounts ctx opIn 2
     let weights := (op.getProperties! ctx.raw (OpCode.cf .cond_br)).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
@@ -642,31 +644,16 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyIntegerExtTypes ctx opIn
     pure ()
   | .llvm .return => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+    op.verifyTerminatorCounts ctx opIn 0
     op.verifyLLVMReturnTypes ctx opIn
   | .llvm .unreachable => do
     op.verifyPlainOpCounts ctx opIn 0 0
     pure ()
   | .llvm .br => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 1 then
-      throw "Expected 1 successor"
+    op.verifyTerminatorCounts ctx opIn 1
     pure ()
   | .llvm .cond_br => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 2 successors"
+    op.verifyTerminatorCounts ctx opIn 2
     let weights := (op.getProperties! ctx.raw (.llvm .cond_br)).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
@@ -1066,12 +1053,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   /- RISCV CF -/
   | .riscv_cf .branch => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 1 then
-      throw "Expected 1 successor"
+    op.verifyTerminatorCounts ctx opIn 1
     let dest := op.getSuccessor! ctx.raw 0
     if op.getNumOperands ctx.raw opIn ≠ dest.getNumArguments! ctx.raw then
       throw s!"RISCV branch expected operand count {dest.getNumArguments! ctx.raw}, got {op.getNumOperands ctx.raw opIn}"
@@ -1079,82 +1061,42 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyBranchSuccessorArgTypes ctx 0 dest s!"{instrName}: successor"
     pure ()
   | .riscv_cf .beq => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 2 successors"
+    op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .beq)).operandSegmentSizes
     op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bne => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 2 successors"
+    op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bne)).operandSegmentSizes
     op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .blt => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 2 successors"
+    op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .blt)).operandSegmentSizes
     op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bge => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 2 successors"
+    op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bge)).operandSegmentSizes
     op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bltu => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 2 successors"
+    op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bltu)).operandSegmentSizes
     op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .bgeu => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 2 successors"
+    op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bgeu)).operandSegmentSizes
     op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 2
     pure ()
   | .riscv_cf .beqz => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 2 successors"
+    op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .beqz)).operandSegmentSizes
     op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 1
     pure ()
   | .riscv_cf .bnez => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 2 then
-      throw "Expected 2 successors"
+    op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw (OpCode.riscv_cf .bnez)).operandSegmentSizes
     op.verifyRISCVBranchOperandSegmentSizes ctx opIn sizes 1
     pure ()
@@ -1210,12 +1152,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
       throw "Expected 0 successors"
     pure ()
   | .hw .output => do
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumRegions ctx.raw opIn ≠ 0 then
-      throw "Expected 0 regions"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+    op.verifyTerminatorCounts ctx opIn 0
     pure ()
 
 /--
