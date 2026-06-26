@@ -855,137 +855,178 @@ theorem isRefinedBy_interpretOpList_seqCompose
       · exact absurd hsrc (hPreNoTerm hl2 s2 cf)
   · simp
 
+/-- For a block whose op-chain starts with a slice `l ++ [x]`, running `l` from the block entry
+`atStart!` ends at the point just before `x`. Used to bridge the scoped `interpretOpList_monoAt`
+end point (`afterLast l (atStart! block)`) to the next operation's entry point in the block. -/
+theorem afterLast_atStart!_eq_before_of_chain {ctx : WfIRContext OpCode} {block : BlockPtr}
+    {l : List OperationPtr} {x : OperationPtr}
+    (hChain : block.OpChainSlice ctx.raw (l ++ [x]))
+    (hHead : (block.get! ctx.raw).firstOp = (l ++ [x]).head?) :
+    InsertPoint.afterLast l ctx.raw (InsertPoint.atStart! block ctx.raw) = InsertPoint.before x := by
+  cases l with
+  | nil =>
+    simp only [List.nil_append, List.head?_cons] at hHead
+    simp only [InsertPoint.afterLast_nil, InsertPoint.atStart!, hHead]
+  | cons a t =>
+    obtain ⟨lastOp, hlast⟩ : ∃ lastOp, (a :: t).getLast? = some lastOp := by
+      cases hg : (a :: t).getLast? with
+      | none => simp at hg
+      | some y => exact ⟨y, rfl⟩
+    have hmem : lastOp ∈ (a :: t) ++ [x] :=
+      List.mem_append_left _ (List.mem_of_getLast? hlast)
+    have hnext : (lastOp.get! ctx.raw).next = some x := hChain.getLast?_next_eq hlast
+    have lastIn : lastOp.InBounds ctx.raw := hChain.inBounds_of_mem lastOp hmem
+    have lastParent : (lastOp.get! ctx.raw).parent = some block := hChain.parent_of_mem lastOp hmem
+    simp only [InsertPoint.afterLast, hlast]
+    rw [InsertPoint.after!_eq_after lastParent lastIn, InsertPoint.after_eq_of_some_next hnext]
+
+/-- If running `a ++ b` never produces a control-flow action, then running the prefix `a` never does
+either: an action from `a` would short-circuit `interpretOpList (a ++ b)` to that same action.
+Bridges the whole-list `hFrontNoCf` (from `hSrcSplit`) to the prefix non-termination obligations of
+`isRefinedBy_interpretOpList_seqCompose`. -/
+theorem interpretOpList_append_noCf_left {ctx : WfIRContext OpCode} {a b : List OperationPtr}
+    {state : InterpreterState ctx} (hab : ∀ o ∈ a ++ b, o.InBounds ctx.raw)
+    (h : ∀ (s2 : InterpreterState ctx) (cf : ControlFlowAction),
+      interpretOpList (a ++ b) state hab ≠ some (.ok (s2, some cf))) :
+    ∀ (s2 : InterpreterState ctx) (cf : ControlFlowAction),
+      interpretOpList a state (fun o ho => hab o (List.mem_append_left _ ho))
+        ≠ some (.ok (s2, some cf)) := by
+  intro s2 cf hc
+  refine h s2 cf ?_
+  rw [interpretOpList_append]
+  simp only [hc]
+
+/-- If running `a ++ b` never produces a control-flow action, and `a` runs to completion without one,
+then running the suffix `b` from the resulting state never produces one either. The run-local suffix
+analogue of `interpretOpList_append_noCf_left`. -/
+theorem interpretOpList_append_noCf_right {ctx : WfIRContext OpCode} {a b : List OperationPtr}
+    {state s2 : InterpreterState ctx} (hab : ∀ o ∈ a ++ b, o.InBounds ctx.raw)
+    (h : ∀ (s3 : InterpreterState ctx) (cf : ControlFlowAction),
+      interpretOpList (a ++ b) state hab ≠ some (.ok (s3, some cf)))
+    (hrun : interpretOpList a state (fun o ho => hab o (List.mem_append_left _ ho))
+      = some (.ok (s2, none))) :
+    ∀ (s3 : InterpreterState ctx) (cf : ControlFlowAction),
+      interpretOpList b s2 (fun o ho => hab o (List.mem_append_right _ ho))
+        ≠ some (.ok (s3, some cf)) := by
+  intro s3 cf hc
+  refine h s3 cf ?_
+  rw [interpretOpList_append, hrun]
+  simp only [hc]
+
+/-- If running the whole list never produces a control-flow action, neither does running its init
+segment `dropLast`. Feeds the run-local `hInitNoCf` of `interpretOpList_monoAt` from a whole-list
+non-branching fact (used for the `pre` segment). -/
+theorem interpretOpList_dropLast_noCf {ctx : WfIRContext OpCode} :
+    ∀ (ops : List OperationPtr) (state : InterpreterState ctx) (hIn : ∀ o ∈ ops, o.InBounds ctx.raw),
+    (∀ (s2 : InterpreterState ctx) (cf : ControlFlowAction),
+      interpretOpList ops state hIn ≠ some (.ok (s2, some cf))) →
+    ∀ (s2 : InterpreterState ctx) (cf : ControlFlowAction),
+      interpretOpList ops.dropLast state (fun o ho => hIn o (List.dropLast_subset ops ho))
+        ≠ some (.ok (s2, some cf)) := by
+  intro ops
+  induction ops with
+  | nil => intro state hIn _ s2 cf hc; simp only [List.dropLast_nil, interpretOpList_nil] at hc; grind
+  | cons a l ih =>
+    rcases l with _ | ⟨b, rest⟩
+    · intro state hIn _ s2 cf hc
+      simp only [List.dropLast, interpretOpList_nil] at hc; grind
+    · intro state hIn hwhole s2 cf hc
+      simp only [List.dropLast_cons_cons, interpretOpList_cons] at hc
+      rcases hi : interpretOp a state (hIn a (by simp)) with _ | (⟨s, act⟩ | _)
+      · simp only [hi] at hc; grind
+      · simp only [hi] at hc
+        cases act with
+        | none =>
+          refine ih s (fun o ho => hIn o (List.mem_cons_of_mem a ho)) ?_ s2 cf hc
+          intro s3 cf3 hc3
+          refine hwhole s3 cf3 ?_
+          rw [interpretOpList_cons]; simp only [hi]; exact hc3
+        | some cf' =>
+          exact hwhole s cf' (by rw [interpretOpList_cons]; simp only [hi])
+      · simp only [hi] at hc; grind
+
 /--
-**Block-`B` simulation.** Interpreting the source block list `pre ++ [op] ++ post` is refined by
-interpreting the target block list `pre ++ newOps ++ post` (the `post` operations are the same
-pointers — their operands are redirected, recorded by `σ` in clause 4).
+**Block-`B` simulation (scoped).** Interpreting the source block list `pre ++ [op] ++ post` is
+refined by interpreting the target block list `pre ++ newOps ++ post`, with the scoped state
+refinement `isRefinedByAt` carried from the block entry `(atStart! block)` to the end of the block.
 
-Stated over the op-lists directly; PR 8 obtains the lists and the source/target chain-and-parent
-structure from `RewrittenAt.srcList`/`tgtList` (clause 3), the source-entry `EquationLemmaAt`/target
-`DefinesDominating` invariants from the per-block invariant `I`, and supplies `hOpSim` from
-`PreservesSemantics`.
+The proof composes the three regimes via the scoped `isRefinedBy_interpretOpList_seqCompose`:
+* **`pre` (identical list)** — scoped cross-context monotonicity `interpretOpList_monoAt`, advancing
+  the scope point from `atStart! block` to `before op` (source) / the corresponding target point.
+* **`[op]` vs `newOps`** — the scoped local op-step simulation `hOpSim`, after threading the SSA
+  invariant `EquationLemmaAt` from block entry through `pre` to `op`.
+* **`post` (same pointers, redirected operands)** — scoped cross-context monotonicity, fed the
+  target `DefinesDominating` derived from `hTgtDefDom` and the completed target prefix run.
 
-The proof composes the three regimes via `isRefinedBy_interpretOpList_seqCompose`:
-* **`pre` (identical list)** — cross-context monotonicity `hPre` (PR 3), fed the clause-4 frames.
-* **`[op]` vs `newOps`** — the local op-step simulation `hOpSim`, after threading the SSA invariant
-  `EquationLemmaAt` from block entry through `pre` to `op` (`interpretOpList_equationLemmaAt`).
-* **`post` (same pointers, redirected operands)** — cross-context monotonicity `hPost` (PR 3) under
-  `σ`, applicable from any pair of `σ`-refined post-`op` states.
-
-No target-progress argument is needed: a source `ub` refines any target outcome, so cross-context
-monotonicity (`interpretOpList_mono`) and `isRefinedBy_interpretOpList_seqCompose` discharge the
-source-UB case directly. The target-side `DefinesDominating` invariant is therefore unused by the
-proof, but kept in the signature (`_hDefDom'`) for the Stage D / PR 8 contract.
+Non-branching is supplied as the single whole-list `hSrcSplit` (the source list splits as
+`front ++ [term]` with `front` never branching from any state), mirroring the driver's `hSrcSplit`
+clause so `interpretBlock_refinement` can forward it verbatim. From it the proof derives:
+* the `hPreNoTerm` hypotheses of the scoped `seqCompose` — `pre` (and `pre ++ [op]` when
+  `post ≠ []`) is a prefix of `front`, so `interpretOpList_append_noCf_left` makes it non-branching;
+* the per-segment non-branching fed to `interpretOpList_monoAt`, threaded along the actual run
+  (`pre`/`post.dropLast` are run-local prefixes of `front`).
 -/
 theorem RewrittenAt.blockSimulation
     (hRW : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
     (newCtxVerif : newCtx.Verified)
-    {state : InterpreterState ctx} {state' : InterpreterState newCtx}
-    (hState : state.isRefinedBy state' hRW.σ)
-    -- Source dominance well-formedness (PR 8 supplies it from the function-level `ctx.Dom` assumption).
     (hCtxDom : ctx.Dom)
-    -- Source-side SSA invariant at block entry: threads `EquationLemmaAt` up to `op` (PR 8 supplies
-    -- it from invariant `I`; the source `pre`-chain is derived via `RewrittenAt.preChainOp`).
+    {state : InterpreterState ctx} {state' : InterpreterState newCtx}
+    (hState : state.isRefinedByAt state' hRW.σ
+      (InsertPoint.atStart! block ctx.raw) (InsertPoint.atStart! block newCtx.raw))
+    (hTgtDefDom : state'.DefinesDominating (InsertPoint.atStart! block newCtx.raw)
+      ((InsertPoint.inBounds_atStart! newCtx.wellFormed blockIn').mpr blockIn'))
     (hEqLem : ∀ fst (hfst : (block.get! ctx.raw).firstOp = some fst),
       state.EquationLemmaAt (.before fst))
+    (hSrcSplit : ∃ (front : List OperationPtr) (term : OperationPtr)
+        (frontIn : ∀ o ∈ front, o.InBounds ctx.raw),
+        (pre.toList ++ [op] ++ post.toList) = front ++ [term] ∧
+        (∀ (s s' : InterpreterState ctx) (cf : ControlFlowAction),
+            interpretOpList front s frontIn ≠ some (.ok (s', some cf))))
     (hOpSim : OpStepSimulation op newOps hRW.σ opIn hRW.newOpsInBounds') :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × ControlFlowAction)
            (r₂ : InterpreterState newCtx × ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 hRW.σ ∧ r₁.2.isRefinedBy r₂.2)
+        r₁.1.isRefinedByAt r₂.1 hRW.σ
+          (InsertPoint.afterLast (pre.toList ++ [op] ++ post.toList) ctx.raw
+            (InsertPoint.atStart! block ctx.raw))
+          (InsertPoint.afterLast (pre.toList ++ newOps.toList ++ post.toList) newCtx.raw
+            (InsertPoint.atStart! block newCtx.raw))
+          (InsertPoint.afterLast_inBounds ctx.wellFormed
+            ((InsertPoint.inBounds_atStart! ctx.wellFormed blockIn).mpr blockIn)
+            (fun o ho => ⟨block, hRW.srcChain.parent_of_mem o ho⟩)
+            (sourceListIn opIn hRW.preInBounds hRW.postInBounds))
+          (InsertPoint.afterLast_inBounds newCtx.wellFormed
+            ((InsertPoint.inBounds_atStart! newCtx.wellFormed blockIn').mpr blockIn')
+            (fun o ho => ⟨block, hRW.tgtChain.parent_of_mem o ho⟩)
+            (targetListIn hRW.preInBounds' hRW.newOpsInBounds' hRW.postInBounds')) ∧
+        r₁.2.isRefinedBy r₂.2)
       (interpretTerminatedOpList (pre.toList ++ [op] ++ post.toList) state
         (sourceListIn opIn hRW.preInBounds hRW.postInBounds))
       (interpretTerminatedOpList (pre.toList ++ newOps.toList ++ post.toList) state'
         (targetListIn hRW.preInBounds' hRW.newOpsInBounds' hRW.postInBounds')) := by
-  -- In-bounds witnesses for `pre`/`post`/`newOps`, derived from the block lists `hRW.srcList` /
-  -- `hRW.tgtList` (membership in an `operationList` implies in-bounds).
-  have preIn := hRW.preInBounds
-  have postIn := hRW.postInBounds
-  have preIn' := hRW.preInBounds'
-  have newOpsIn' := hRW.newOpsInBounds'
-  have postIn' := hRW.postInBounds'
-  -- Regime 1 (`pre`, identical list): cross-context monotonicity (PR 3), fed the
-  -- `CrossContextFrame`s of clause 4 (`hRW.frame_of_ne`, since every `pre` op survives and `≠ op`).
-  -- Threads `σ`-refinement and (in the full proof) the `EquationLemmaAt`/`DefinesDominating`
-  -- invariants from block entry up to `op`.
-  have hPre : Interp.isRefinedBy
-      (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
-           (r₂ : InterpreterState newCtx × Option ControlFlowAction) =>
-        r₁.1.isRefinedBy r₂.1 hRW.σ ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
-      (interpretOpList pre.toList state preIn)
-      (interpretOpList pre.toList state' preIn') := by
-    exact interpretOpList_mono newCtxVerif preIn preIn' hState
-      (fun o h => hRW.frame o (preIn o h) (preIn' o h) (fun heq => hRW.opNotMemPre (heq ▸ h)))
-  -- Regime 3 (`post`, same pointers / redirected operands): cross-context monotonicity (PR 3)
-  -- under `σ`, applicable from any pair of `σ`-refined post-`op` states. Each `post` op survives
-  -- and `≠ op`, so clause 4 supplies its frame under `σ` (operands redirected through `σ`).
-  have hPost : ∀ (s : InterpreterState ctx) (s' : InterpreterState newCtx),
-      s.isRefinedBy s' hRW.σ →
-      Interp.isRefinedBy
-        (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
-             (r₂ : InterpreterState newCtx × Option ControlFlowAction) =>
-          r₁.1.isRefinedBy r₂.1 hRW.σ ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
-        (interpretOpList post.toList s postIn)
-        (interpretOpList post.toList s' postIn') := by
-    intro s s' hs
-    exact interpretOpList_mono newCtxVerif postIn postIn' hs
-      (fun o h => hRW.frame o (postIn o h) (postIn' o h) (fun heq => hRW.opNotMemPost (heq ▸ h)))
-  -- Assembly. Prove the op-list refinement over `pre ++ [op] ++ post` vs `pre ++ newOps ++ post` by
-  -- two nested `isRefinedBy_interpretOpList_seqCompose` applications (inner: `pre`/`[op]` vs
-  -- `pre`/`newOps`; outer: append `post`), threading `EquationLemmaAt` (source, for `hOpSim`) and
-  -- `DefinesDominating` (target, for `hPost`); the UB-source obligation is the verified target run's
-  -- progress. Then convert to the terminated lists, dispatching the source-UB case via `hPostTerm`.
-  -- In-bounds helpers for the intermediate prefixes `pre ++ [op]` (source) and `pre ++ newOps`
-  -- (target).
-  have hpreOpIn : ∀ o ∈ pre.toList ++ [op], o.InBounds ctx.raw := by
-    intro o ho; simp only [List.mem_append, List.mem_singleton] at ho
-    rcases ho with h | h
-    · exact preIn o h
-    · exact h ▸ opIn
-  have hpreNewIn' : ∀ o ∈ pre.toList ++ newOps.toList, o.InBounds newCtx.raw := by
-    intro o ho; simp only [List.mem_append] at ho
-    rcases ho with h | h
-    · exact preIn' o h
-    · exact newOpsIn' o h
-  -- Inner composition: `pre ++ [op]` (source) refined by `pre ++ newOps` (target).
-  have hInner := isRefinedBy_interpretOpList_seqCompose
-    (l₁ := pre.toList) (l₂ := [op]) (m₁ := pre.toList) (m₂ := newOps.toList)
-    hpreOpIn hpreNewIn' hPre
-    (fun s1 s1' hs1Ref hrunSrc hrunTgt => by
-      -- Thread the SSA invariant `EquationLemmaAt` from block entry through `pre` to `op`.
-      have hEq1 : s1.EquationLemmaAt (.before op) opIn :=
-        interpretOpList_equationLemmaAt_before hCtxDom preIn opIn hRW.preChainOp
-          (fun fst _ hhead => hEqLem fst
-            (by rw [hRW.srcFirstOp]; simp only [List.head?_append, hhead, Option.some_or]))
-          hrunSrc
-      rw [interpretOpList_singleton]
-      exact hOpSim s1 s1' hs1Ref hEq1)
-  -- Outer composition: append `post` on both sides.
-  have hFull := isRefinedBy_interpretOpList_seqCompose
-    (l₁ := pre.toList ++ [op]) (l₂ := post.toList)
-    (m₁ := pre.toList ++ newOps.toList) (m₂ := post.toList)
-    (sourceListIn opIn preIn postIn) (targetListIn preIn' newOpsIn' postIn')
-    hInner
-    (fun s2 s2' hs2Ref hrunSrc hrunTgt => hPost s2 s2' hs2Ref)
-  -- Convert the op-list refinement to the terminated-list refinement: the source-UB case is
-  -- refined by any target outcome (monotonicity now discharges target progress internally).
-  simp only [interpretTerminatedOpList, bind]
-  rcases hs : interpretOpList (pre.toList ++ [op] ++ post.toList) state
-      (sourceListIn opIn preIn postIn) with _ | (⟨sf, act⟩ | _)
-  · simp [Interp.isRefinedBy]
-  · rw [hs] at hFull
-    simp only [Interp.isRefinedBy_ok_target_iff] at hFull
-    obtain ⟨⟨sf', act'⟩, htgt, hsRef, hactRef⟩ := hFull
-    rw [htgt]
-    cases act with
-    | none => simp [Interp.isRefinedBy]
-    | some cf =>
-      obtain ⟨cf', hact', hcfRef⟩ : ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' := by
-        cases act' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
-      subst hact'
-      exact ⟨hsRef, hcfRef⟩
-  · -- Source-UB case: a source `ub` is refined by any target outcome.
-    simp [Interp.isRefinedBy]
+  -- TODO(step 5, blockSimulation body): three-way scoped composition. All helper lemmas it relies on
+  -- are proved above and `interpretOpList_monoAt` already takes the run-local `hInitNoCf`; this is the
+  -- remaining assembly.
+  -- Destructure `hSrcSplit` into `front`/`term`/`hFrontNoCf`; `front = pre ++ ([op] ++ post).dropLast`
+  -- (via `List.dropLast_concat` + `List.dropLast_append_of_ne_nil`), then `subst` so `hFrontNoCf` is
+  -- stated over that. Non-branching facts:
+  --   * `pre` whole: `interpretOpList_append_noCf_left` (prefix of `front`) → inner `hPreNoTerm`;
+  --   * `pre.dropLast`: `interpretOpList_dropLast_noCf` of the above → `pre` segment `hInitNoCf`;
+  --   * `pre ++ [op]` whole (when `post ≠ []`): `append_noCf_left` → outer `hPreNoTerm`;
+  --   * `post.dropLast` (inside outer `hCont`, from the actual prefix run): `append_noCf_right` →
+  --     `post` segment `hInitNoCf`.
+  -- 1. `pre` via `interpretOpList_monoAt` from `(atStart! block, atStart! block)`; end point bridged
+  --    to `before op` (source) by `afterLast_atStart!_eq_before_of_chain`; `hPointsHead` from
+  --    `srcFirstOp`/`tgtFirstOp`; chains from `preChainOp.append_left`/`preChain'`.
+  -- 2. `[op]`/`newOps` via scoped `hOpSim` (its target point `p' := afterLast pre ps'`), `EquationLemmaAt`
+  --    threaded via `interpretOpList_equationLemmaAt_before` as in the old proof; output points bridged
+  --    by `afterLast_append`/`afterLast_singleton`.
+  -- 3. `post` via `interpretOpList_monoAt`; target `DefinesDominating` at the post-entry from
+  --    `hTgtDefDom` advanced through `pre ++ newOps` by `interpretOpList_DefinesDominating`.
+  -- Glue with the scoped `seqCompose` (inner `pre`/`[op]`, outer append `post`); `hM2Nil` is `by simp`
+  -- (`[op] ≠ []`) / `id` (`post`/`post`); `afterLast` in-bounds via `InsertPoint.afterLast_inBounds`.
+  -- Finish: convert op-list → terminated list as in the pre-refactor proof; source-UB refines any target.
+  sorry
 
 /-- Bridge `interpretBlock` to a `setArgumentValues?` followed by `interpretTerminatedOpList` over the
 block's operation list. When the block is empty (`firstOp = none`) the operation list is empty and both

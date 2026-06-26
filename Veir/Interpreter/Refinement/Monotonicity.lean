@@ -421,10 +421,9 @@ theorem interpretOpList_monoAt
     (tgtDefDom : state'.DefinesDominating p' p'In)
     (hPreserves : ∀ op, (h : op ∈ ops) → mapping.PreservesOperation op op)
     (hPointsHead : ∀ (h : ops ≠ []), p = .before (ops.head h) ∧ p' = .before (ops.head h))
-    (hOnlyLastAction : ∀ op, op ∈ ops.dropLast →
-        ∀ (st : InterpreterState ctx) (stIn : op.InBounds ctx.raw)
-          (st' : InterpreterState ctx) (cf : ControlFlowAction),
-          interpretOp op st stIn ≠ some (.ok (st', some cf))) :
+    (hInitNoCf : ∀ (s2 : InterpreterState ctx) (cf : ControlFlowAction),
+        interpretOpList ops.dropLast state
+          (fun o ho => opsInBounds o (List.dropLast_subset ops ho)) ≠ some (.ok (s2, some cf))) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
@@ -463,18 +462,22 @@ theorem interpretOpList_monoAt
         simp only
         have tgtDomAfter : s'.DefinesDominating (InsertPoint.after a ctx'.raw block') :=
           interpretOp_DefinesDominating ctxDom' tgtDefDom aParent' htgt
-        have hdropSub : ∀ op, op ∈ l.dropLast → op ∈ (a :: l).dropLast := by
-          intro op hop
-          cases l with
-          | nil => simp at hop
-          | cons b rest => simp_all [List.dropLast]
         refine ih (hChain := hChainL) (hChain' := hChainL')
           (p := InsertPoint.after a ctx.raw block aParent aIn)
           (p' := InsertPoint.after a ctx'.raw block' aParent' aIn')
           (pIn := by grind) (p'In := by grind) (hState := hsRef) (tgtDefDom := tgtDomAfter)
           (hPreserves := fun op hop => hPreserves op (List.mem_cons_of_mem a hop))
           (hPointsHead := ?_)
-          (hOnlyLastAction := fun op hop => hOnlyLastAction op (hdropSub op hop))
+          (hInitNoCf := ?_)
+        rotate_left
+        · -- The tail's init segment never branches: the head `a` ran without an action, so a tail
+          -- branch would make the head's init segment `(a :: l).dropLast` branch — contra `hInitNoCf`.
+          intro s2 cf hcontra
+          rcases l with _ | ⟨b, rest⟩
+          · simp only [List.dropLast_nil, interpretOpList_nil] at hcontra; grind
+          · refine hInitNoCf s2 cf ?_
+            simp only [List.dropLast_cons_cons, interpretOpList_cons, hsrc]
+            exact hcontra
         · intro hl
           have hb : l.head? = some (l.head hl) := by
             cases l with
@@ -486,7 +489,9 @@ theorem interpretOpList_monoAt
         obtain rfl : l = [] := by
           rcases l with _ | ⟨b, rest⟩
           · rfl
-          · exact absurd hsrc (hOnlyLastAction a (by simp [List.dropLast]) state aIn s cf)
+          · exfalso
+            apply hInitNoCf s cf
+            simp only [List.dropLast_cons_cons, interpretOpList_cons, hsrc]
         -- `afterLast [] _ (after a ..)` is just `after a ..`, where `hsRef` already lands.
         have ⟨cf', hact', hcfRef⟩ : ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' := by
           cases act' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
@@ -512,10 +517,9 @@ theorem interpretTerminatedOpList_monoAt
     (tgtDefDom : state'.DefinesDominating p' p'In)
     (hFrame : ∀ op, (h : op ∈ ops) → mapping.PreservesOperation op op)
     (hPointsHead : ∀ (h : ops ≠ []), p = .before (ops.head h) ∧ p' = .before (ops.head h))
-    (hOnlyLastAction : ∀ op, op ∈ ops.dropLast →
-        ∀ (st : InterpreterState ctx) (stIn : op.InBounds ctx.raw)
-          (st' : InterpreterState ctx) (cf : ControlFlowAction),
-          interpretOp op st stIn ≠ some (.ok (st', some cf))) :
+    (hInitNoCf : ∀ (s2 : InterpreterState ctx) (cf : ControlFlowAction),
+        interpretOpList ops.dropLast state
+          (fun o ho => opsInBounds o (List.dropLast_subset ops ho)) ≠ some (.ok (s2, some cf))) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × ControlFlowAction)
            (r₂ : InterpreterState ctx' × ControlFlowAction) =>
@@ -525,7 +529,7 @@ theorem interpretTerminatedOpList_monoAt
       (interpretTerminatedOpList ops state opsInBounds)
       (interpretTerminatedOpList ops state' opsInBounds') := by
   have hList := interpretOpList_monoAt ctx'Verif ctxDom ctxDom' opsInBounds opsInBounds'
-    hChain hChain' pIn p'In hState tgtDefDom hFrame hPointsHead hOnlyLastAction
+    hChain hChain' pIn p'In hState tgtDefDom hFrame hPointsHead hInitNoCf
   simp only [interpretTerminatedOpList, bind]
   rcases hsrc : interpretOpList ops state opsInBounds with _ | (⟨s, act⟩ | _)
   · simp [Interp.isRefinedBy]
