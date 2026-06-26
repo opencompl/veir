@@ -933,11 +933,6 @@ These are the lemmas that give the information about the structure of verified o
 There is one lemma per operation, and they are all of the same form: given that an operation
 satisfies its local invariants, we can conclude that it has the expected number of operands,
 results, regions, and successors, and that the types of its operands and results are as expected.
-
-Operations whose local invariants are checked by a shared helper (e.g. every integer binary
-operation goes through `verifyIntegerBinop`) share a single workhorse lemma stated in terms of
-that helper; each per-operation lemma is then a thin wrapper that reduces `op.Verified` to the
-helper's success and applies the workhorse.
 -/
 
 /--
