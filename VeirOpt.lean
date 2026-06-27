@@ -132,7 +132,7 @@ def main (args : List String) : IO Unit := do
       IO.eprintln errMsg
       IO.Process.exit 1
     | .ok (ctx, op) =>
-      match ctx.verify with
+      match WfIRContext.verify ctx (some op) with
       | .error errMsg =>
         IO.eprintln s!"Error verifying input program: {errMsg}"
         IO.Process.exit 1

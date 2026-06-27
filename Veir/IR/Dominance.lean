@@ -144,7 +144,7 @@ def immediateDominator?
 /--
 Dominance query between two blocks, where a block dominates itself.
 -/
-def dominates
+def dominatesByAnalysis
     [FactSpec .dominator]
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
@@ -154,7 +154,7 @@ def dominates
 /--
 Dominance query between two blocks, where a block does not dominate itself.
 -/
-def properlyDominates
+def properlyDominatesByAnalysis
     [FactSpec .dominator]
     (dominator block : BlockPtr)
     (dfCtx : DataFlowContext)
@@ -169,7 +169,7 @@ namespace OperationPtr
 /--
 Dominance query between two operations, where an operation dominates itself.
 -/
-def dominates
+def dominatesByAnalysis
     (dominator op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=
@@ -178,7 +178,7 @@ def dominates
 /--
 Dominance query between two operations, where an operation does not dominate itself.
 -/
-def properlyDominates
+def properlyDominatesByAnalysis
     (dominator op : OperationPtr)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=

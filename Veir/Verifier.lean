@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.Basic
+public import Veir.IR.Dominance
 public import Veir.IR.Fields
 public import Veir.Properties
 public import Veir.GlobalOpInfo
@@ -883,12 +884,63 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     if !(lastOp.getOpType! ctx.raw).isTerminator then
       throw "Expected the last operation of a block to be a terminator"
 
+def ValuePtr.dominatesBeforeOp?
+    (value : ValuePtr) (useOp : OperationPtr)
+    (dfCtx : DataFlowContext) (ctx : IRContext OpCode) : Bool :=
+  match value with
+  | .opResult result =>
+      OperationPtr.properlyDominatesByAnalysis result.op useOp dfCtx ctx
+  | .blockArgument arg =>
+      match (useOp.get! ctx).parent with
+      | some useBlock => BlockPtr.dominatesByAnalysis arg.block useBlock dfCtx ctx
+      | none => false
+
+def OperationPtr.verifyOperandDominance
+    (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (dfCtx : DataFlowContext) (opIn : op.InBounds ctx.raw) :
+    Except String PUnit := do
+  -- The SSA dominance constraint only applies inside SSACFG regions and, as in
+  -- LLVM/MLIR, only to uses in blocks reachable from the region entry. Operands
+  -- used in graph regions or in unreachable code impose no dominance requirement;
+  -- the analysis records no dominator fact for unreachable blocks (whereas the
+  -- entry block has a fact with no immediate dominator).
+  let shouldCheck : Bool := Id.run do
+    let some useBlock := (op.get ctx.raw opIn).parent | return false
+    let some region := (useBlock.get! ctx.raw).parent | return false
+    let .SSACFG := region.getRegionKind ctx | return false
+    return (useBlock.getDominatorFact? dfCtx ctx.raw).isSome
+  if shouldCheck then
+    let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+    for i in [0:op.getNumOperands ctx.raw opIn] do
+      let value := op.getOperand! ctx.raw i
+      if !value.dominatesBeforeOp? op dfCtx ctx.raw then
+        throw s!"{instrName}: operand {i} ({reprStr value}) does not dominate its use in operation {reprStr op}"
+
+/--
+  Dynamically check the SSA dominance condition used by `ctx.Dom`: every ordinary operation
+  operand must dominate the point immediately before the operation that uses it.
+
+  This is intentionally an executable checker. It does not yet provide a Lean proof of
+  `ctx.Dom`, but its algorithm is structured to match that property.
+-/
+def WfIRContext.verifyDominance
+    (ctx : WfIRContext OpCode) (top : OperationPtr) : Except String Unit := do
+  if _ : top.InBounds ctx.raw then
+    let some dfCtx := fixpointSolve top #[DominanceAnalysis] ctx.raw
+      | throw "dominance analysis did not terminate"
+    ctx.raw.forOpsDepM fun op opIn =>
+      op.verifyOperandDominance ctx dfCtx opIn
+  else
+    throw s!"dominance root operation is not in bounds: {reprStr top}"
+
 public section
 
 /--
-  Verify that all operations in the IRContext satisfy their local invariants.
+  Verify that all operations in the IRContext satisfy their local invariants. If `top?` is
+  provided, also run the dynamic SSA dominance checker rooted at that operation.
 -/
-def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
+def WfIRContext.verify (ctx : WfIRContext OpCode)
+    (top? : Option OperationPtr := none) : Except String Unit := do
   ctx.raw.forOpsDepM (fun op opIn => do
     op.verifyLocalInvariants ctx opIn
     if let .riscv _ := op.getOpType ctx.raw opIn then
@@ -902,6 +954,9 @@ def WfIRContext.verify (ctx : WfIRContext OpCode) : Except String Unit := do
       if region.getRegionKind ctx = .SSACFG then
         block.verifyTerminator ctx blockIn
     | none => pure ())
+  match top? with
+  | some top => ctx.verifyDominance top
+  | none => pure ()
 
 /--
 Assert that all operations in the IRContext satisfy their local invariants.

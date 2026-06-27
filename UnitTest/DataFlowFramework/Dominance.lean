@@ -36,9 +36,9 @@ private def compareExpectedDominator
     | return #[s!"dominators {expected.name}: missing block label {expectedDom}"]
   let shouldProperlyDom := expectedDom ≠ expected.name
   let mut report := #[]
-  if !expectedBlock.dominates block dfCtx irCtx then
+  if !expectedBlock.dominatesByAnalysis block dfCtx irCtx then
     report := report.push s!"dominators {expected.name}: missing expected dominator {expectedDom}"
-  if expectedBlock.properlyDominates block dfCtx irCtx ≠ shouldProperlyDom then
+  if expectedBlock.properlyDominatesByAnalysis block dfCtx irCtx ≠ shouldProperlyDom then
     report := report.push
       s!"dominators {expected.name}: unexpected properlyDominates result for {expectedDom}"
   return report
@@ -56,8 +56,8 @@ private def compareObservedDominator
     (expected : ExpectedBlockDominators)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : MismatchReport := Id.run do
-  let observedByRelation := observedBlock.dominates block dfCtx irCtx
-  let observedProperly := observedBlock.properlyDominates block dfCtx irCtx
+  let observedByRelation := observedBlock.dominatesByAnalysis block dfCtx irCtx
+  let observedProperly := observedBlock.properlyDominatesByAnalysis block dfCtx irCtx
   let mut report := #[]
   if observedProperly ≠ (observedByRelation && observedBlock ≠ block) then
     report := report.push
@@ -173,8 +173,8 @@ private def compareOperationDominance
   let some dominated := getNamedOperation? recovered expected.dominated irCtx
     | return #[s!"op dominance {expected.dominator}->{expected.dominated}: missing dominated op"]
 
-  let observedDominates := dominator.dominates dominated dfCtx irCtx
-  let observedProperly := dominator.properlyDominates dominated dfCtx irCtx
+  let observedDominates := dominator.dominatesByAnalysis dominated dfCtx irCtx
+  let observedProperly := dominator.properlyDominatesByAnalysis dominated dfCtx irCtx
   let mut report := #[]
   if observedDominates ≠ expected.dominates then
     report := report.push
