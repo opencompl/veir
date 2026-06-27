@@ -872,6 +872,59 @@ def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext
     throw "Expected a terminator to be the last operation of its block"
 
 /--
+  Verify that no operation branches to the entry block of a region. The entry
+  block of a region may not have predecessors: it is the unique block that the
+  region is entered through, and dominance assumes it dominates every other block
+  in the region.
+-/
+def OperationPtr.verifyDoesNotBranchToEntryBlock (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  for succ in op.getSuccessors ctx.raw opIn do
+    match (succ.get! ctx.raw).parent with
+    | some region =>
+      if (region.get! ctx.raw).firstBlock = some succ then
+        throw "entry block of a region may not have predecessors"
+    | none => pure ()
+
+/--
+  Verify that every successor of an operation lies in the same region as the
+  operation itself. Control flow may not branch out of its enclosing region.
+
+  This cannot be expressed in the textual format (block labels are region-scoped,
+  so the parser already rejects a reference to a block in another region), but it
+  guards against passes that build malformed cross-region control flow.
+-/
+def OperationPtr.verifySuccessorsInSameRegion (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match (op.get ctx.raw opIn).parent with
+  | none => pure ()
+  | some block =>
+    let blockRegion := (block.get! ctx.raw).parent
+    for succ in op.getSuccessors ctx.raw opIn do
+      if (succ.get! ctx.raw).parent ≠ blockRegion then
+        throw "branching to a block of a different region"
+
+/--
+  Verify that graph regions of registered operations contain at most one block.
+  Like MLIR, this restriction limits the cases transforms must handle; it applies
+  only to registered operations, so unregistered ops and the test dialect may
+  still use multi-block graph regions.
+-/
+def OperationPtr.verifyGraphRegionBlockCount (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let opCode := op.getOpType ctx.raw opIn
+  match opCode with
+  | .builtin .unregistered | .test .test => pure ()
+  | _ =>
+    for i in [0:op.getNumRegions ctx.raw opIn] do
+      if opCode.getRegionKind i = .Graph then
+        match (op.getRegion! ctx.raw i |>.get! ctx.raw).firstBlock with
+        | some b =>
+          if (b.get! ctx.raw).next.isSome then
+            throw s!"expects graph region {i} to have 0 or 1 blocks"
+        | none => pure ()
+
+/--
   Check that a block is non-empty and its last operation is a
   terminator.
 -/
@@ -947,7 +1000,10 @@ def WfIRContext.verify (ctx : WfIRContext OpCode)
       op.verifyRISCVRegisterTypes ctx opIn
     match (op.get ctx.raw opIn).parent with
     | some _ => op.verifyTerminatorPosition ctx opIn
-    | none => pure ())
+    | none => pure ()
+    op.verifyDoesNotBranchToEntryBlock ctx opIn
+    op.verifySuccessorsInSameRegion ctx opIn
+    op.verifyGraphRegionBlockCount ctx opIn)
   ctx.raw.forBlocksDepM (fun block blockIn => do
     match (block.get ctx.raw blockIn).parent with
     | some region =>
