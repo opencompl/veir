@@ -177,30 +177,6 @@ structure ValueMapping.PreservesOperation {ctx ctx' : WfIRContext OpInfo}
   reflect : mapping.ReflectsResults op op'
 
 /--
-A variable state `state` is refined by `state'` through the value renaming `mapping`: every
-variable defined in `state` is, after renaming through `mapping`, also defined in `state'` with a
-value that refines the source value.
--/
-def VariableState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
-    (state : VariableState ctx) (state' : VariableState ctx')
-    (mapping : ValueMapping ctx ctx') : Prop :=
-  ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw),
-  ∀ sourceVar, state.getVar? val = some sourceVar →
-  ∃ targetVar, state'.getVar? (mapping ⟨val, valIn⟩) = some targetVar ∧
-  sourceVar ⊒ targetVar
-
-/--
-An interpreter state `state` is refined by `state'` through the value mapping
-`mapping`: they have the same memory, and the variable state of `state` is refined by the variable
-state of `state'` through `mapping`.
--/
-def InterpreterState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
-    (state : InterpreterState ctx) (state' : InterpreterState ctx')
-    (mapping : ValueMapping ctx ctx') : Prop :=
-  state.memory = state'.memory ∧
-  state.variables.isRefinedBy state'.variables mapping
-
-/--
 A *refinement point* selects which values a scoped refinement relation constrains. It is the
 position parameter of `isRefinedByAt`, richer than a bare `InsertPoint`:
 
