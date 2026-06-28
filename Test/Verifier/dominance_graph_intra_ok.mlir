@@ -1,4 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
+// RUN: MLIR_AGREE
 
 // Inside a multi-block graph region there is no block ordering, so %a (defined in
 // ^g0) may be used in the sibling block ^g1. The captured value %v dominates the

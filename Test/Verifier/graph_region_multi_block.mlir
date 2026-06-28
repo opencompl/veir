@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_AGREE
 
 // builtin.module is a registered op with a graph region, so its region may have
 // at most one block. (Unregistered ops and the test dialect are exempt and may

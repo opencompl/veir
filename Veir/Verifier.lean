@@ -1031,26 +1031,22 @@ def OperationPtr.verifyOperandDominance
     (op : OperationPtr) (ctx : WfIRContext OpCode)
     (dfCtx : DataFlowContext) (opIn : op.InBounds ctx.raw) :
     Except String PUnit := do
-  -- As in LLVM/MLIR, dominance is only checked in blocks reachable from the
-  -- region entry. Graph regions still need an operand check: their same-block
-  -- operation order is non-SSA, but captured values from enclosing SSACFG
-  -- regions must dominate the operation that owns the graph region. The
-  -- analysis records no dominator fact for unreachable blocks (whereas the
-  -- entry block has a fact with no immediate dominator).
+  -- As in LLVM/MLIR, dominance is only checked in blocks reachable from their
+  -- region's entry. This matches MLIR's verifier, which gates the operand
+  -- dominance check on `DominanceInfo::isReachableFromEntry(block)`
+  -- (`mlir/lib/IR/Verifier.cpp`): the region's entry block is always reachable,
+  -- and every other block is reachable iff the region's dominator tree says so.
+  -- A block carries a dominator fact in exactly those cases, so fact presence is
+  -- the executable form of `isReachableFromEntry`.
+  --
+  -- A consequence, shared with MLIR, is that a use hidden in a *non-entry* block
+  -- of a graph region with no intra-region control-flow edges is unreachable and
+  -- therefore not checked, even if it captures a value that does not dominate the
+  -- graph-owning operation. (A capture used in the graph region's *entry* block
+  -- is still checked, because the entry block is always reachable.)
   let shouldCheck : Bool := Id.run do
     let some useBlock := (op.get ctx.raw opIn).parent | return false
-    -- Reachable blocks carry a dominator fact and are always checked.
-    if (useBlock.getDominatorFact? dfCtx ctx.raw).isSome then
-      return true
-    -- A non-entry block of a graph region has no dominator fact of its own, but
-    -- its operations are still live when the graph region is. Fall back to the
-    -- region's entry block, which carries the fact whenever the region is live.
-    -- (Unreachable SSACFG blocks have no fact and are correctly skipped.)
-    let some region := (useBlock.get! ctx.raw).parent | return false
-    if region.getRegionKind ctx = .SSACFG then
-      return false
-    let some entry := (region.get! ctx.raw).firstBlock | return false
-    return (entry.getDominatorFact? dfCtx ctx.raw).isSome
+    return (useBlock.getDominatorFact? dfCtx ctx.raw).isSome
   if shouldCheck then
     let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
     -- The inner `∀ value ∈ op.getOperands!` of `ctx.Dom`: these indices enumerate
@@ -1081,8 +1077,10 @@ def OperationPtr.verifyOperandDominance
   Therefore `verifyDominance ctx top = .ok ()` means every operand of every operation
   in a reachable block dominates its use according to the region-aware dominance
   relation used by MLIR: SSACFG regions enforce control-flow and same-block order,
-  graph regions ignore same-block order, and values captured by nested graph regions
-  must still dominate the enclosing operation in the parent region.
+  graph regions ignore same-block order, and values captured into the *entry* block of
+  a graph region must still dominate the enclosing operation in the parent region. As in
+  MLIR, blocks that are not reachable from their region's entry are not checked, so a
+  capture used in a non-entry, edgeless graph-region block is left unverified.
 
   This is still an executable checker, not a Lean proof of `ctx.Dom`; it is written so
   that each step lines up with a clause of the definition, which is what makes the

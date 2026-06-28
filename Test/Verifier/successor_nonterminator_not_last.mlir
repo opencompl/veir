@@ -1,4 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_AGREE
 
 // MLIR's generic verifier requires any operation with block successors to
 // terminate its parent block, even if the operation is not a registered

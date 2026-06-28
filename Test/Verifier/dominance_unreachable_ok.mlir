@@ -1,4 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
+// RUN: MLIR_AGREE
 
 // Like LLVM/MLIR, the dominance check is skipped for unreachable blocks. ^dead
 // has no predecessors (^entry returns), so its use of %v imposes no dominance

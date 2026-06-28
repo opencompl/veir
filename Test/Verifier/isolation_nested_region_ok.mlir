@@ -1,4 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
+// RUN: MLIR_AGREE
 
 // A non-isolated nested region (the body of an unregistered test.test op) may
 // reference values from an enclosing region. Only IsolatedFromAbove ops, such as

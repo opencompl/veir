@@ -127,7 +127,8 @@ SSA dominance.
   written so that each step matches a clause of this definition for reachable SSACFG
   blocks. For graph regions, the executable checker follows MLIR's region-aware
   dominance rule: same-block order is ignored inside the graph region, but values
-  captured from enclosing regions must still dominate the graph-owning operation.
+  captured into its entry block must still dominate the graph-owning operation. As in
+  MLIR, the check is skipped for blocks that are unreachable from their region's entry.
 -/
 def WfIRContext.Dom (ctx : WfIRContext OpInfo) : Prop :=
   ∀ {op : OperationPtr} (_opInBounds : op.InBounds ctx.raw) {value : ValuePtr},
