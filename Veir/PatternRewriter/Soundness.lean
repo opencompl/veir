@@ -29,7 +29,7 @@ The clauses describe the edit as the composition *insert `newOps` before `op`* �
    an identical operation list.
 4. **intrinsic-data frame** — every surviving operation satisfies `CrossContextFrame` under `σ`
    (op-type/properties/result-types/successors agree; operands/results map through `σ`; `op` verified
-   in `newCtx`) — exactly what `interpretOp_monotone`/`interpretOpList_monotone` consume.
+   in `newCtx`) — exactly what `interpretOp_monotone_at`/`interpretOpList_monoAt` consume.
 5. **structure frame** — blocks stay in bounds (successor transport), and parent operations of
    surviving operations are preserved (so `IsTopLevelFuncWithName` transports).
 6. **result well-formedness** — `newCtx` is dominance-well-formed, and every member of `newOps` is
@@ -152,18 +152,29 @@ structure RewrittenAt
   /-- `σ` fixes every value that is not a result of `op`. `LocalRewritePattern.mapping` is the
   identity except on `op`'s results (which it redirects to `newValues`), so every other value — in
   particular every block argument, which is never an `op` result — is left untouched. This is what
-  discharges the `hFix`/`hReflectArgs` frame hypotheses of `setArgumentValues?_isRefinedBy`. -/
+  discharges the `hFix`/`hReflectArgs` frame hypotheses of `setArgumentValues?_isRefinedByAt`. -/
   mappingFixesNonResults : ∀ (v : ValuePtr) (vIn : v.InBounds ctx.raw),
     v ∉ op.getResults! ctx.raw →
       ((rewriteMapping op newValues mapResultsInBounds mapNonResultsInBounds) ⟨v, vIn⟩).val = v
-  /-- Every produced value is an operation result, never a block argument (in the concrete driver they
-  are results of `newOps`). Together with `mappingFixesNonResults`, this lets `σ` reflect a block
-  argument only from that same block argument. -/
-  newValuesAreResults : ∀ v ∈ newValues, ∃ opr : OpResultPtr, v = ValuePtr.opResult opr
+  /-- Every produced value dominates the post-insertion point in `block` — the `newCtx` analog of
+  "after `op`", i.e. the end of the inserted `newOps` span (`afterLast newOps (atStart! block)`). This
+  is the genuine SSA-validity condition on produced values, satisfied both by results of inserted
+  `newOps` (defined within the span) and by forwarded pre-existing values (e.g. a block argument),
+  which are in scope throughout the block. It replaces the old `newValuesAreResults`, admitting
+  block-argument forwarding (`x + 0 → x`, where `x` is a block argument). -/
+  newValuesDominate : ∀ v ∈ newValues,
+    v.dominatesIp (InsertPoint.afterLast newOps.toList newCtx.raw
+      (InsertPoint.atStart! block newCtx.raw)) newCtx
   /-- The block-argument list of every block is preserved by the rewrite (it only edits operations).
   Gives equal argument counts and argument types across the two contexts. -/
   blockArgsPreserved : ∀ (bl : BlockPtr), bl.InBounds ctx.raw →
     (bl.get! newCtx.raw).arguments = (bl.get! ctx.raw).arguments
+  /-- Block-level dominance is preserved by the rewrite: it only edits the operation list inside
+  `block` (replacing `[op]` by `newOps`), leaving the CFG (block successors / terminators / region
+  entries) unchanged, so the dominance relation between any two in-bounds blocks agrees across the two
+  contexts. Used to bridge the cross-context antisymmetry argument of `mappingImageNotArg`. -/
+  blockDominatesPreserved : ∀ (b₁ b₂ : BlockPtr), b₁.InBounds ctx.raw → b₂.InBounds ctx.raw →
+    (b₁.dominates b₂ newCtx ↔ b₁.dominates b₂ ctx)
   -- Clause 8: region/block structure frame (the rewrite edits only operation lists).
   /-- Regions stay in bounds — region-`InBounds` transport (mirrors `blocksInBounds`). -/
   regionsInBounds : ∀ (r : RegionPtr), r.InBounds ctx.raw → r.InBounds newCtx.raw
@@ -385,7 +396,7 @@ theorem blockArg_notMem_getResults
   simp [BlockPtr.getArgument, OperationPtr.getResult_def] at heq
 
 /-- `σ` fixes block-argument pointers: it maps `bl.getArgument i` to itself. Discharges the `hFix`
-hypothesis of `setArgumentValues?_isRefinedBy`. -/
+hypothesis of `setArgumentValues?_isRefinedByAt`. -/
 theorem mappingFixesArg
     (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
     {bl : BlockPtr} {i : Nat} (vIn : (bl.getArgument i : ValuePtr).InBounds ctx.raw) :
@@ -394,7 +405,7 @@ theorem mappingFixesArg
 
 /-- `σ` fixes a block's argument array: applying it to `bl`'s source arguments yields the same
 arguments in the target context. Discharges the `hArgs` hypothesis of
-`setArgumentValues?_isRefinedBy`. -/
+`setArgumentValues?_isRefinedByAt`. -/
 theorem argsApplyToArray
     (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
     {bl : BlockPtr} (blIn : bl.InBounds ctx.raw) :
@@ -429,42 +440,49 @@ theorem getArguments!_eq
     bl.getArguments! newCtx.raw = bl.getArguments! ctx.raw := by
   simp only [BlockPtr.getArguments!, BlockPtr.getNumArguments!, h.blockArgsPreserved bl blIn]
 
-/-- `σ` never maps a value onto one of `bl`'s block arguments unless it already is that block
-argument: a value not in `bl`'s arguments is either fixed by `σ` (so stays out of the arguments) or a
-result of `op` (so maps into `newValues`, which are operation results, never block arguments).
-Discharges the `hImageNotArg` hypothesis of `setArgumentValues?_isRefinedByAt`. -/
+/-- `σ` never maps an in-scope value onto one of `bl`'s block arguments unless it already is that
+block argument: a value not in `bl`'s arguments is either fixed by `σ` (so stays out of the
+arguments), or a result `r` of `op` and then a cross-block antisymmetry argument applies. If `bl` is
+`block` itself, `r` does not dominate `block`'s entry (SSA), contradicting `hdom`. If `bl ≠ block`,
+then the image `σ r` (which dominates the post-insertion point inside `block`) being a `bl`-argument
+would force `bl` to dominate `block`, while `hdom` forces `block` to dominate `bl`; antisymmetry gives
+`bl = block`, a contradiction. Discharges the `hImageNotArg` hypothesis of
+`setArgumentValues?_isRefinedByAt`. -/
 theorem mappingImageNotArg
     (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
+    (ctxDom : ctx.Dom)
     {bl : BlockPtr} (blIn : bl.InBounds ctx.raw) {val : ValuePtr} (valIn : val.InBounds ctx.raw)
-    (hNotArg : val ∉ bl.getArguments! ctx.raw) :
+    (hNotArg : val ∉ bl.getArguments! ctx.raw)
+    (hdom : val.dominatesIp (InsertPoint.atStart! bl ctx.raw) ctx) :
     (h.σ ⟨val, valIn⟩).val ∉ bl.getArguments! newCtx.raw := by
-  rw [h.getArguments!_eq blIn]
   by_cases hMem : val ∈ op.getResults! ctx.raw
-  · have hmem := h.mapping_getResult_mem_newValues valIn hMem
-    obtain ⟨opr, hopr⟩ := h.newValuesAreResults _ hmem
-    rw [hopr]
-    simp only [BlockPtr.getArguments!.mem_iff_exists_index, not_exists, not_and]
-    intro i _ heq
-    simp [BlockPtr.getArgument] at heq
-  · rw [h.mappingFixesNonResults val valIn hMem]
+  · -- `val` is a result `r` of `op`, which lives in `block`.
+    have opInBlock : op ∈ block.operationList ctx.raw ctx.wellFormed blockIn := by
+      rw [h.srcList]; simp
+    by_cases hbl : bl = block
+    · -- `bl = block`: `r` cannot dominate `block`'s own entry (SSA), contradicting `hdom`.
+      subst hbl
+      exact absurd hdom (ctxDom.opResult_not_dominatesIp_atStart! opIn blockIn opInBlock hMem)
+    · -- `bl ≠ block`: cross-block antisymmetry rules out `σ r ∈ bl.args`.
+      intro hσMem
+      have hImgMem := h.mapping_getResult_mem_newValues valIn hMem
+      have hσDom := h.newValuesDominate _ hImgMem
+      have hops : ∀ o ∈ newOps.toList,
+          o ∈ block.operationList newCtx.raw newCtx.wellFormed blockIn' := by
+        intro o ho
+        rw [Array.mem_toList_iff] at ho
+        rw [h.tgtList]
+        exact Array.mem_append.mpr (Or.inl (Array.mem_append.mpr (Or.inr ho)))
+      have hBlDomBlock : bl.dominates block newCtx :=
+        WfIRContext.Dom.block_dominates_of_arg_dominatesIp_afterLast h.newCtxDom
+          (h.blocksInBounds bl blIn) blockIn' hσMem hops hσDom
+      have hBlockDomBl : block.dominates bl newCtx :=
+        (h.blockDominatesPreserved block bl blockIn blIn).mpr
+          (WfIRContext.Dom.block_dominates_of_opResult_dominatesIp_atStart! ctxDom opIn blockIn blIn
+            opInBlock hMem hdom)
+      exact hbl (BlockPtr.dominates_antisymm hBlDomBlock hBlockDomBl)
+  · rw [h.getArguments!_eq blIn, h.mappingFixesNonResults val valIn hMem]
     exact hNotArg
-
-/-- `σ` reflects block-argument pointers: the only value it maps onto `bl.getArgument i` is
-`bl.getArgument i` itself (results map into `newValues`, which are never block arguments). Discharges
-the `hReflectArgs` hypothesis of `setArgumentValues?_isRefinedBy`. -/
-theorem mappingReflectsArg
-    (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
-    {bl : BlockPtr} (val : ValuePtr) (valIn : val.InBounds ctx.raw) (i : Nat)
-    (heq : (h.σ ⟨val, valIn⟩).val = (bl.getArgument i : ValuePtr)) :
-    val = (bl.getArgument i : ValuePtr) := by
-  by_cases hMem : val ∈ op.getResults! ctx.raw
-  · exfalso
-    have hmem := h.mapping_getResult_mem_newValues valIn hMem
-    rw [heq] at hmem
-    obtain ⟨opr, hopr⟩ := h.newValuesAreResults _ hmem
-    simp [BlockPtr.getArgument] at hopr
-  · rw [h.mappingFixesNonResults val valIn hMem] at heq
-    exact heq
 
 /-- Every new operation is verified in the target context. Derived from `newCtxVerif`: the target
 context is verified, so every in-bounds operation (in particular every `newOp`) satisfies its local
@@ -502,14 +520,14 @@ the rewrite renaming `σ`.
 The proof (below) splits the list with `interpretTerminatedOpList_append` and dispatches on the source
 outcome at the matched operation `op`:
 
-* **`pre` (identical list)** — cross-context monotonicity `interpretOpList_monotone` (PR 3), fed the
+* **`pre` (identical list)** — cross-context monotonicity `interpretOpList_monoAt` (PR 3), fed the
   `CrossContextFrame`s of clause 4; this also threads `EquationLemmaAt`/`DefinesDominating` to `op`.
 * **`[op]` vs `newOps`** — the local op-step simulation `hOpSim`, which PR 8 discharges from
   `PreservesSemantics` (bridging its create-only context to the inserted/erased `newCtx` via clause 4).
-* **`post` (same pointers, redirected operands)** — `interpretOpList_mono` again, now under `σ`,
+* **`post` (same pointers, redirected operands)** — `interpretOpList_monoAt` again, now under `σ`,
   seeded by the post-`op` state from the previous regime.
 * **source `.ub` at `op`** — a source `ub` refines any target outcome, so no target-progress argument
-  is needed: cross-context monotonicity (`interpretOpList_mono`) discharges this regime directly.
+  is needed: cross-context monotonicity (`interpretOpList_monoAt`) discharges this regime directly.
 
 The `hOpSim` hypothesis is the local op→`newOps` simulation, stated so PR 8 can supply it: refined,
 SSA-valid entry states map a source `interpretOp op` step onto a target `interpretOpList newOps` run,
@@ -876,7 +894,7 @@ theorem isRefinedBy_interpretOpList_seqCompose
         obtain ⟨cf', ha', hcf⟩ : ∃ cf', a' = some cf' ∧ cf.isRefinedBy cf' := by
           cases a' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
         subst ha'
-        simp only [interpretOpList_nil, Interp.isRefinedBy_ok_target_iff]
+        simp only [Interp.isRefinedBy_ok_target_iff]
         refine ⟨_, rfl, ?_, by simpa [ControlFlowAction.optionIsRefinedBy] using hcf⟩
         -- The result point `afterLast (l₁ ++ []) = afterLast l₁`, where `hsRef` already lands.
         simpa using hsRef
@@ -1480,7 +1498,7 @@ theorem RewrittenAt.interpretBlock_refinement
           (hRW.numArgsEq bIn ▸ hj))
     obtain ⟨newVars', hsa', hpsRefVar⟩ := VariableState.setArgumentValues?_isRefinedByAt
       bIn bIn' hState.2 hVals (hRW.argsApplyToArray bIn)
-      (fun val valIn hNotArg _hdom => hRW.mappingImageNotArg bIn valIn hNotArg)
+      (fun val valIn hNotArg hdom => hRW.mappingImageNotArg hCtxDom bIn valIn hNotArg hdom)
       tgtConforms hsa
     have hpsRef : (InterpreterState.mk newVars state.memory).isRefinedByAt
         ⟨newVars', state'.memory⟩ hRW.σ
@@ -2037,17 +2055,6 @@ same memory); the source-entry SSA invariant on it is supplied by the caller (PR
 driver), exactly as in Stage D.
 -/
 
-/-- The fresh, empty interpreter state (no variables, memory `mem`) in the source context is refined
-by the fresh empty state in the target context under any renaming `σ`: they define no variables (so
-the variable-refinement obligation is vacuous) and share the same memory. -/
-theorem InterpreterState.empty_isRefinedBy {ctx ctx' : WfIRContext OpCode}
-    (μ : ValueMapping ctx ctx') (mem : MemoryState) :
-    (InterpreterState.mk (VariableState.empty ctx) mem).isRefinedBy
-      (InterpreterState.mk (VariableState.empty ctx') mem) μ := by
-  refine ⟨rfl, ?_⟩
-  intro val valIn sourceVar hget
-  simp [VariableState.getVar?, VariableState.empty] at hget
-
 /-- The fresh, empty interpreter state satisfies the scoped relation at any pair of refinement
 points: it defines no variables, so the constraint is vacuous (and the memories coincide). -/
 theorem InterpreterState.empty_isRefinedByAt {ctx ctx' : WfIRContext OpCode}
@@ -2061,7 +2068,7 @@ theorem InterpreterState.empty_isRefinedByAt {ctx ctx' : WfIRContext OpCode}
 
 /-- Lift a `σ`-refinement of two region runs to a `FunctionResult` refinement of the corresponding
 function runs: `interpretFunction` post-processes `interpretRegion` by keeping only the final memory
-and the returned values, and `InterpreterState.isRefinedBy` already entails equal memories, so the
+and the returned values, and `InterpreterState.isRefinedByAt` already entails equal memories, so the
 refinement is preserved by that projection. -/
 theorem Interp.isRefinedBy_functionResult_of_region {ctx ctx' : WfIRContext OpCode}
     {a : Interp (InterpreterState ctx × Array RuntimeValue)}
@@ -2639,11 +2646,15 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- `σ` (`rewriteMapping`) is the identity off `op`'s results: it takes the `else` branch.
     mappingFixesNonResults := fun v vIn hv => by
       simp only [rewriteMapping, dif_neg hv]
-    -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS. The four `Return*` props do not force `newValues` to be
-    -- operation results (a pattern could return a block argument), so this needs a pattern obligation.
-    newValuesAreResults := by sorry
+    -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS. Produced values must dominate the post-insertion point in
+    -- `block` (the SSA-validity condition: results of `newOps` are defined within the span, forwarded
+    -- values are in scope throughout the block); discharged from a pattern obligation.
+    newValuesDominate := by sorry
     -- TODO(PR 9, keystone): operation-list edits leave block-argument lists untouched.
     blockArgsPreserved := by sorry
+    -- TODO(PR 9, keystone): op-list edits inside `block` leave the CFG unchanged, so block-level
+    -- dominance agrees across the two contexts.
+    blockDominatesPreserved := by sorry
     -- Regions stay in bounds: into `newCtxPat`, then the folds/erase (erase removes only `op`).
     regionsInBounds := fun r hr =>
       hSurviveRegion r (hCreated.inBounds_mono (GenericPtr.region r) (by grind))

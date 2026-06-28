@@ -1,6 +1,5 @@
 import Veir.Interpreter.Basic
 import Veir.Data.Refinement
-import Veir.Dominance
 
 /-!
 # Refinement of programs
@@ -241,10 +240,24 @@ inductive RefinementPoint where
 
 instance : Coe InsertPoint RefinementPoint := ⟨.at⟩
 
-def RefinementPoint.InBounds (point : RefinementPoint) (ctx : IRContext OpInfo) : Prop :=
-  match point with
-  | .at p => p.InBounds ctx
-  | .blockEntry b => b.InBounds ctx
+/-- The values *in scope* at a refinement point. For `.at p` this is exactly the values dominating
+`p`; for `.blockEntry b` it additionally excludes `b`'s own arguments. -/
+def RefinementPoint.inScope {OpInfo : Type} [HasOpInfo OpInfo] :
+    RefinementPoint → ValuePtr → WfIRContext OpInfo → Prop
+  | .at p,         val, ctx => val.dominatesIp p ctx
+  | .blockEntry b, val, ctx =>
+      val.dominatesIp (InsertPoint.atStart! b ctx.raw) ctx ∧ val ∉ b.getArguments! ctx.raw
+
+/-- `inScope (.at p)` is, definitionally, just domination of `p`. -/
+@[simp, grind =]
+theorem RefinementPoint.inScope_at {OpInfo : Type} [HasOpInfo OpInfo]
+    {p : InsertPoint} {val : ValuePtr} {ctx : WfIRContext OpInfo} :
+    RefinementPoint.inScope (.at p) val ctx = val.dominatesIp p ctx := rfl
+
+/-- In-bounds witness carried by `isRefinedByAt` for a refinement point. -/
+def RefinementPoint.InBounds : RefinementPoint → IRContext OpInfo → Prop
+  | .at p,         ctx => p.InBounds ctx
+  | .blockEntry b, ctx => b.InBounds ctx
 
 @[simp, grind =]
 theorem RefinementPoint.inBounds_at {p : InsertPoint} {ctx : IRContext OpInfo} :
@@ -254,45 +267,30 @@ theorem RefinementPoint.inBounds_at {p : InsertPoint} {ctx : IRContext OpInfo} :
 theorem RefinementPoint.inBounds_blockEntry {b : BlockPtr} {ctx : IRContext OpInfo} :
     (RefinementPoint.blockEntry b).InBounds ctx = b.InBounds ctx := rfl
 
-/-- Whether `value` is *in scope* at a refinement point. For `.at p` this holds exactly when the
-value dominates `p`; for `.blockEntry b` it must dominate the block entry and not be one of `b`'s
-own arguments. -/
-def ValuePtr.InScopeAt (value : ValuePtr) (point : RefinementPoint) (ctx : WfIRContext OpInfo) :
-    Prop :=
-  match point with
-  | .at p => value.dominatesIp p ctx
-  | .blockEntry b =>
-    value.dominatesIp (InsertPoint.atStart! b ctx.raw) ctx ∧ value ∉ b.getArguments! ctx.raw
-
-@[simp, grind =]
-theorem ValuePtr.inScopeAt_at :
-    ValuePtr.InScopeAt val (.at p) ctx = val.dominatesIp p ctx := rfl
-
-@[simp, grind =]
-theorem ValuePtr.inScopeAt_blockEntry :
-    ValuePtr.InScopeAt val (.blockEntry b) ctx =
-      (val.dominatesIp (InsertPoint.atStart! b ctx.raw) ctx
-      ∧ val ∉ b.getArguments! ctx.raw) := rfl
-
 /--
-A refinement relation for variable states in two different contexts at different locations.
-This asserts that every value in `state` and in scope, that is mapped to a value in `state'` and
-in scope, have refining runtime values.
+A variable state `state` is refined by `state'` through the value renaming `mapping`, scoped to
+the refinement points `s` (in `ctx`) and `s'` (in `ctx'`). Only values that are *in scope* at both
+points are constrained. This excuses stale values that remain in the persistent map from prior
+iterations or prior blocks without constraining them; the `.blockEntry` scope additionally excuses
+a block's own arguments at its entry.
+
+The relation uses `∀ sv tv` (not `∃ tv`) so existence is delegated to `DefinesDominating`
+at the call site, which simplifies proof obligations at maintenance steps.
 -/
 def VariableState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
     (state : VariableState ctx) (state' : VariableState ctx')
     (mapping : ValueMapping ctx ctx') (s : RefinementPoint) (s' : RefinementPoint)
     (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind) : Prop :=
   ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw),
-  val.InScopeAt s ctx →
-  (mapping ⟨val, valIn⟩).val.InScopeAt s' ctx' →
-  ∀ sv, state.getVar? val = some sv →
-  ∀ tv, state'.getVar? (mapping ⟨val, valIn⟩) = some tv →
-  sv ⊒ tv
+    s.inScope val ctx →
+    s'.inScope (mapping ⟨val, valIn⟩).val ctx' →
+    ∀ sv tv, state.getVar? val = some sv →
+             state'.getVar? (mapping ⟨val, valIn⟩) = some tv → sv ⊒ tv
 
 /--
-A refinement relation for intepreter states in two different locations.
-This asserts that memory is equal, and that the variable states are refined at the given points.
+An interpreter state `state` is refined by `state'` through the value mapping `mapping`, scoped
+to source point `s` and target point `s'`: they have the same memory, and the variable state of
+`state` is scoped-refined by the variable state of `state'` through `mapping` at `(s, s')`.
 -/
 def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
