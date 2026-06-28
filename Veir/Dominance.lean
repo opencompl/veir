@@ -119,6 +119,14 @@ SSA dominance.
 /--
   A predicate that states that the values in the IR context are used in operations that
   are dominated by the operation or block that defines them.
+
+  `WfIRContext.verifyDominance` (in `Veir/Verifier.lean`) is the executable decision
+  procedure for this predicate: it visits every in-bounds operation and every operand,
+  and for each checks `value.dominatesIp (InsertPoint.before op) ctx` via the dominance
+  analysis. A successful run is intended to witness exactly `ctx.Dom`; the checker is
+  written so that each step matches a clause of this definition. (`ctx.Dom` assumes
+  SSACFG regions, and the checker restricts itself to SSACFG, reachable blocks
+  accordingly.)
 -/
 def WfIRContext.Dom (ctx : WfIRContext OpInfo) : Prop :=
   ∀ {op : OperationPtr} (_opInBounds : op.InBounds ctx.raw) {value : ValuePtr},

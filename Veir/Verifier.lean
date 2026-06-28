@@ -990,6 +990,27 @@ def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
     if !(lastOp.getOpType! ctx.raw).isTerminator then
       throw "Expected the last operation of a block to be a terminator"
 
+/--
+  Decide the per-operand condition of `WfIRContext.Dom` (see `Veir/Dominance.lean`):
+  whether `value` dominates the program point immediately before `useOp`, i.e. the
+  proposition `value.dominatesIp (InsertPoint.before useOp) ctx`.
+
+  The two `ValuePtr` cases mirror the two ways a value is defined:
+
+  * `.opResult result` — the result is available immediately after `result.op`, so
+    it dominates the point before `useOp` exactly when `result.op` *strictly*
+    dominates `useOp` (mirroring `OperationPtr.dominatesIp_before`, which relates
+    `dominatesIp (.before _)` to `strictlyDominates`). `properlyDominatesByAnalysis`
+    decides precisely that strict-dominance fact.
+
+  * `.blockArgument arg` — a block argument is live from the top of `arg.block`, so
+    it dominates the point before `useOp` exactly when `arg.block` dominates
+    `useOp`'s block (reflexively — the same block counts, since the argument
+    precedes every operation in it). `dominatesByAnalysis` decides that.
+
+  So `dominatesBeforeOp? value useOp = true` is exactly the clause `ctx.Dom`
+  demands of the `(value, useOp)` pair.
+-/
 def ValuePtr.dominatesBeforeOp?
     (value : ValuePtr) (useOp : OperationPtr)
     (dfCtx : DataFlowContext) (ctx : IRContext OpCode) : Bool :=
@@ -1017,17 +1038,40 @@ def OperationPtr.verifyOperandDominance
     return (useBlock.getDominatorFact? dfCtx ctx.raw).isSome
   if shouldCheck then
     let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+    -- The inner `∀ value ∈ op.getOperands!` of `ctx.Dom`: these indices enumerate
+    -- exactly `op.getOperands!`, and `dominatesBeforeOp?` decides the required
+    -- `value.dominatesIp (InsertPoint.before op) ctx` for each one.
     for i in [0:op.getNumOperands ctx.raw opIn] do
       let value := op.getOperand! ctx.raw i
       if !value.dominatesBeforeOp? op dfCtx ctx.raw then
         throw s!"{instrName}: operand {i} ({reprStr value}) does not dominate its use in operation {reprStr op}"
 
 /--
-  Dynamically check the SSA dominance condition used by `ctx.Dom`: every ordinary operation
-  operand must dominate the point immediately before the operation that uses it.
+  Executable decision procedure for `WfIRContext.Dom` (defined in `Veir/Dominance.lean`).
 
-  This is intentionally an executable checker. It does not yet provide a Lean proof of
-  `ctx.Dom`, but its algorithm is structured to match that property.
+  `ctx.Dom` is:
+
+      ∀ (op) (_ : op.InBounds ctx.raw) (value),
+        value ∈ op.getOperands! ctx.raw →
+        value.dominatesIp (InsertPoint.before op) ctx
+
+  and this checker discharges that proposition clause for clause:
+
+  * `forOpsDepM` visits every in-bounds operation — the outer `∀ op`.
+  * `verifyOperandDominance` iterates `op`'s operands — the inner
+    `∀ value ∈ op.getOperands!`.
+  * `ValuePtr.dominatesBeforeOp?` decides `value.dominatesIp (InsertPoint.before op) ctx`
+    for each operand (see its docstring for the `opResult`/`blockArgument` cases).
+
+  Therefore `verifyDominance ctx top = .ok ()` means every operand of every operation
+  dominates its use, i.e. `ctx.Dom` holds. The restriction in `verifyOperandDominance`
+  to SSACFG, reachable blocks matches the scope of `ctx.Dom`: that predicate is stated
+  for SSACFG regions (graph regions impose no dominance), and dominance over
+  unreachable code is vacuous.
+
+  This is still an executable checker, not a Lean proof of `ctx.Dom`; it is written so
+  that each step lines up with a clause of the definition, which is what makes the
+  implication "the check succeeds ⇒ `ctx.Dom`" clear.
 -/
 def WfIRContext.verifyDominance
     (ctx : WfIRContext OpCode) (top : OperationPtr) : Except String Unit := do
