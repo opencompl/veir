@@ -301,4 +301,31 @@ def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
   state.memory = state'.memory ∧
   state.variables.isRefinedByAt state'.variables mapping s s'
 
+/-- Scope-weakening (antitone): `isRefinedByAt` at a *wider* pair of scopes implies it at a
+*narrower* pair. If every value in scope at `(t, t')` is in scope at `(s, s')`, the relation
+transports from `(s, s')` to `(t, t')`. -/
+theorem VariableState.isRefinedByAt.weaken {ctx ctx' : WfIRContext OpInfo}
+    {state : VariableState ctx} {state' : VariableState ctx'}
+    {mapping : ValueMapping ctx ctx'} {s s' t t' : RefinementPoint}
+    {sIn : s.InBounds ctx.raw} {s'In : s'.InBounds ctx'.raw}
+    {tIn : t.InBounds ctx.raw} {t'In : t'.InBounds ctx'.raw}
+    (h : state.isRefinedByAt state' mapping s s' sIn s'In)
+    (hsrc : ∀ (val : ValuePtr), t.inScope val ctx → s.inScope val ctx)
+    (htgt : ∀ (val : ValuePtr), t'.inScope val ctx' → s'.inScope val ctx') :
+    state.isRefinedByAt state' mapping t t' tIn t'In :=
+  fun val valIn hsc htsc sv tv hsv htv =>
+    h val valIn (hsrc val hsc) (htgt _ htsc) sv tv hsv htv
+
+/-- Interpreter-state version of `VariableState.isRefinedByAt.weaken`. -/
+theorem InterpreterState.isRefinedByAt.weaken {ctx ctx' : WfIRContext OpInfo}
+    {state : InterpreterState ctx} {state' : InterpreterState ctx'}
+    {mapping : ValueMapping ctx ctx'} {s s' t t' : RefinementPoint}
+    {sIn : s.InBounds ctx.raw} {s'In : s'.InBounds ctx'.raw}
+    {tIn : t.InBounds ctx.raw} {t'In : t'.InBounds ctx'.raw}
+    (h : state.isRefinedByAt state' mapping s s' sIn s'In)
+    (hsrc : ∀ (val : ValuePtr), t.inScope val ctx → s.inScope val ctx)
+    (htgt : ∀ (val : ValuePtr), t'.inScope val ctx' → s'.inScope val ctx') :
+    state.isRefinedByAt state' mapping t t' tIn t'In :=
+  ⟨h.1, h.2.weaken hsrc htgt⟩
+
 end Veir
