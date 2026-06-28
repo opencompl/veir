@@ -32,6 +32,18 @@ theorem poisonConst_refinement :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `constant` lowering pattern at i32, currently using grind tactic.
+-/
+theorem constant_refinement_32 {v : Int} :
+    (LLVM.Int.constant 32 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 32) := by
+  have h : BitVec.setWidth 32 (BitVec.ofInt 64 v) = BitVec.ofInt 32 v := by
+      rw [← BitVec.toInt_inj]
+      simp only [BitVec.toInt_setWidth, BitVec.toNat_ofInt, Nat.reducePow, Int.cast_ofNat_Int, Int.ofNat_toNat,
+       BitVec.toInt_ofInt]
+      grind
+  veir_bv_decide
+
+/--
   Prove the correctness of the `add` lowering pattern.
 -/
 theorem add_refinement {x y : LLVM.Int 64} :
