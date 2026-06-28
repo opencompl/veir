@@ -138,6 +138,13 @@ private def dominates
 /--
 Proper dominance query between two insertion points.
 
+From the MLIR documentation: "If A and B are in the same block and A
+properly dominates B within the block, or if the block that contains A
+properly dominates the block that contains B. In an SSACFG region,
+Operation A dominates Operation B in the same block if A preceeds
+B. In a Graph region, all operations in a block properly dominate all
+operations in the same block."
+
 An insertion point does not properly dominate itself. Otherwise this is the same query as `InsertPoint.dominates`.
 -/
 private def properlyDominates
