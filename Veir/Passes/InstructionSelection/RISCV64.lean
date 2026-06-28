@@ -122,10 +122,10 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBou
     Option (PatternRewriter OpCode) := do
   let some const := matchConstantIntOp op rewriter.ctx
       | return rewriter
-  if const.type.bitwidth ≠ 64 then return rewriter
+  if const.type.bitwidth ≠ 64 ∧ const.type.bitwidth ≠ 32 then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType type' := type.val | rewriter
-  if type'.bitwidth ≠ 64 then return rewriter
+  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 then return rewriter
   let (rewriter, newOp) ← rewriter.createOp (.riscv .li) #[RegisterType.mk] #[]
       #[] #[] {value := const} (some $ .before op) (by simp) (by simp) (by simp) sorry
   let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type]
