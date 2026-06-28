@@ -28,7 +28,7 @@ theorem constant_refinement {v : Int}:
   Prove the correctness of the `poisonConst` lowering pattern.
 -/
 theorem poisonConst_refinement :
-    (LLVM.Int.poison (w := 64)) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 0)) 64) := by
+    (LLVM.Int.poison (w := _)) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 0)) 64) := by
   veir_bv_decide
 
 /--

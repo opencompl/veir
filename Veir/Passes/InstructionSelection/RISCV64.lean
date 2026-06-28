@@ -967,8 +967,6 @@ set_option warn.sorry false in
 def poisonConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some _ := matchPoison op rewriter.ctx | return rewriter
-  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
-  if t.bitwidth ≠ 64 then return rewriter
   let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
   let (rewriter, liOp) ← rewriter.createOp (.riscv .li) #[RegisterType.mk] #[]
       #[] #[] imm (some $ .before op) (by simp) (by simp) (by simp) sorry
