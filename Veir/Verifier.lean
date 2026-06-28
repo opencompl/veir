@@ -905,6 +905,59 @@ def OperationPtr.verifySuccessorsInSameRegion (op : OperationPtr) (ctx : WfIRCon
         throw "branching to a block of a different region"
 
 /--
+  Starting from `region` (the region containing a use) and walking outward, decide
+  whether an `IsolatedFromAbove` barrier is crossed before reaching `defRegion`
+  (the region containing the used value's definition). Reaching `defRegion` first
+  means the use is in scope; crossing a barrier first means the value escapes it.
+-/
+private partial def regionEscapesIsolation
+    (defRegion region : RegionPtr) (ctx : WfIRContext OpCode) : Bool :=
+  if region = defRegion then
+    false
+  else
+    match (region.get! ctx.raw).parent with
+    | none => false
+    | some parentOp =>
+      if (parentOp.getOpType! ctx.raw).isIsolatedFromAbove then
+        true
+      else
+        match (parentOp.get! ctx.raw).parent with
+        | none => false
+        | some parentBlock =>
+          match (parentBlock.get! ctx.raw).parent with
+          | none => false
+          | some parentRegion => regionEscapesIsolation defRegion parentRegion ctx
+
+/--
+  Verify the `IsolatedFromAbove` property: an operation nested inside an isolated
+  region may not use a value defined outside the nearest enclosing isolated
+  operation.
+-/
+def OperationPtr.verifyOperandIsolation (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  match (op.get ctx.raw opIn).parent with
+  | none => pure ()
+  | some useBlock =>
+    match (useBlock.get! ctx.raw).parent with
+    | none => pure ()
+    | some useRegion =>
+      let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+      for i in [0:op.getNumOperands ctx.raw opIn] do
+        let value := op.getOperand! ctx.raw i
+        let defBlock? : Option BlockPtr :=
+          match value with
+          | .opResult result => (result.op.get! ctx.raw).parent
+          | .blockArgument arg => some arg.block
+        match defBlock? with
+        | none => pure ()
+        | some defBlock =>
+          match (defBlock.get! ctx.raw).parent with
+          | none => pure ()
+          | some defRegion =>
+            if regionEscapesIsolation defRegion useRegion ctx then
+              throw s!"{instrName}: operand {i} ({reprStr value}) uses a value defined outside the isolated region that encloses its use"
+
+/--
   Verify that graph regions of registered operations contain at most one block.
   Like MLIR, this restriction limits the cases transforms must handle; it applies
   only to registered operations, so unregistered ops and the test dialect may
@@ -1003,7 +1056,8 @@ def WfIRContext.verify (ctx : WfIRContext OpCode)
     | none => pure ()
     op.verifyDoesNotBranchToEntryBlock ctx opIn
     op.verifySuccessorsInSameRegion ctx opIn
-    op.verifyGraphRegionBlockCount ctx opIn)
+    op.verifyGraphRegionBlockCount ctx opIn
+    op.verifyOperandIsolation ctx opIn)
   ctx.raw.forBlocksDepM (fun block blockIn => do
     match (block.get ctx.raw blockIn).parent with
     | some region =>
