@@ -7,7 +7,7 @@
         %sextb = "llvm.zext"(%b) : (i16) -> i32
         %sextc = "llvm.zext"(%c) : (i32) -> i64
         %sextd = "llvm.zext"(%a) : (i1) -> i64
-        
+        %zextd = "llvm.zext"(%a) : (i8) -> i32
         // CHECK:           ^{{.*}}([[A:.*]] : i1, [[B:.*]] : i16, [[C:.*]] : i32, [[D:.*]] : i42):
         // CHECK-NEXT:      %[[E:.*]] = "builtin.unrealized_conversion_cast"([[B]]) : (i16) -> !riscv.reg
         // CHECK-NEXT:      %[[F:.*]] = "riscv.zexth"(%[[E]]) : (!riscv.reg) -> !riscv.reg
@@ -21,7 +21,9 @@
         // CHECK-NEXT:      %[[N:.*]] = "builtin.unrealized_conversion_cast"([[A]]) : (i1) -> !riscv.reg
         // CHECK-NEXT:      %[[O:.*]] = "riscv.andi"(%[[N]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:      %[[P:.*]] = "builtin.unrealized_conversion_cast"(%[[O]]) : (!riscv.reg) -> i64
-        
+        // CHECK-NEXT:      %[[N:.*]] = "builtin.unrealized_conversion_cast"([[A]]) : (i8) -> !riscv.reg
+        // CHECK-NEXT:      %[[O:.*]] = "riscv.zextb"(%[[N]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:      %[[P:.*]] = "builtin.unrealized_conversion_cast"(%[[O]]) : (!riscv.reg) -> i32
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()
