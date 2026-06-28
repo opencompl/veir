@@ -52,10 +52,14 @@ private partial def BlockPtr.dominatesWithinRegion
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool := Id.run do
   if dominator = block then
-    true
-  else
-    let some idom := block.getIDom? dfCtx irCtx | return false
-    idom ≠ block && dominatesWithinRegion dominator idom dfCtx irCtx
+    return true
+  -- In a graph region there is no block ordering, so every block dominates every
+  -- other block in the region.
+  if let some region := (block.get! irCtx).parent then
+    if !region.hasSSADominanceByKind irCtx then
+      return true
+  let some idom := block.getIDom? dfCtx irCtx | return false
+  return idom ≠ block && dominatesWithinRegion dominator idom dfCtx irCtx
 
 
 /--

@@ -1039,7 +1039,18 @@ def OperationPtr.verifyOperandDominance
   -- entry block has a fact with no immediate dominator).
   let shouldCheck : Bool := Id.run do
     let some useBlock := (op.get ctx.raw opIn).parent | return false
-    return (useBlock.getDominatorFact? dfCtx ctx.raw).isSome
+    -- Reachable blocks carry a dominator fact and are always checked.
+    if (useBlock.getDominatorFact? dfCtx ctx.raw).isSome then
+      return true
+    -- A non-entry block of a graph region has no dominator fact of its own, but
+    -- its operations are still live when the graph region is. Fall back to the
+    -- region's entry block, which carries the fact whenever the region is live.
+    -- (Unreachable SSACFG blocks have no fact and are correctly skipped.)
+    let some region := (useBlock.get! ctx.raw).parent | return false
+    if region.getRegionKind ctx = .SSACFG then
+      return false
+    let some entry := (region.get! ctx.raw).firstBlock | return false
+    return (entry.getDominatorFact? dfCtx ctx.raw).isSome
   if shouldCheck then
     let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
     -- The inner `∀ value ∈ op.getOperands!` of `ctx.Dom`: these indices enumerate
