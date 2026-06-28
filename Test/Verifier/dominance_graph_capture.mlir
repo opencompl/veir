@@ -1,5 +1,5 @@
 // RUN: veir-opt %s | filecheck %s
-// RUN: MLIR_AGREE
+// RUN: VEIR_MLIR_SAME_VERDICT
 
 // A graph region captures %x from ^A, and ^A does not dominate ^B (the block
 // that owns the graph region). The capture is used in a NON-entry block (^g1)

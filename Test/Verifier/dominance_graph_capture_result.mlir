@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s
-// RUN: MLIR_AGREE
+// RUN: VEIR_MLIR_SAME_VERDICT
 
 // The use of %x is inside a graph region, where same-block operation order does
 // not matter. But %x is defined in sibling CFG block ^b, and ^b does not
