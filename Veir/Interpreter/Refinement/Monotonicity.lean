@@ -155,18 +155,20 @@ entry constrains them only vacuously; it does constrain the non-argument values 
 the entry, which is exactly what the proof reuses for the surviving (non-argument) values.
 
 Hypotheses compared to `setArgumentValues?_isRefinedBy`:
-- `hRef` uses `isRefinedByAt` at the block entry instead of unscoped `isRefinedBy`.
+- `hRef` uses `isRefinedByAt` at the **incoming-edge** scope `.blockEntry block` (which excuses
+  `block`'s own arguments) instead of unscoped `isRefinedBy`.
 - `hImageNotArg`: the mapping does not send a non-argument value that is *in scope at the block
   entry* onto a block-argument slot. (Justified by dominance: a forwarded block argument dominates
   the value it replaces, so it cannot also be dominated by it — hence no value dominating the block
-  entry maps onto one of the block's own arguments.) -/
+  entry maps onto one of the block's own arguments.) It places `σval` in the *target* `.blockEntry`
+  scope. -/
 theorem VariableState.setArgumentValues?_isRefinedByAt {ctx ctx' : WfIRContext OpCode}
     {srcVars : VariableState ctx} {tgtVars : VariableState ctx'}
     {mapping : ValueMapping ctx ctx'}
     {values values' : Array RuntimeValue} {newSrcVars : VariableState ctx}
     (blockIn : block.InBounds ctx.raw) (blockIn' : block.InBounds ctx'.raw)
     (hRef : srcVars.isRefinedByAt tgtVars mapping
-      (InsertPoint.atStart! block ctx.raw) (InsertPoint.atStart! block ctx'.raw))
+      (.blockEntry block) (.blockEntry block))
     (hVals : values ⊒ values')
     (hArgs : block.getArguments! ctx'.raw = mapping.applyToArray (block.getArguments! ctx.raw))
     /- A non-argument value that is in scope at the block entry is never mapped onto a block-argument
@@ -220,9 +222,9 @@ theorem VariableState.setArgumentValues?_isRefinedByAt {ctx ctx' : WfIRContext O
     have hσnotMem : (mapping ⟨val, valIn⟩).val ∉ block.getArguments! ctx'.raw :=
       hImageNotArg val valIn hMem hValDom
     rw [VariableState.getVar?_setArgumentValues?_of_notMem_getArguments! hσnotMem hTgt] at htv
-    -- The surviving value `val` is in scope at the block entry on both sides, so the entry-point
-    -- input relation `hRef` constrains it directly.
-    exact hRef val valIn hValDom hσValDom sv tv hsv htv
+    -- The surviving value `val` is a non-argument in scope at the block entry on both sides (its
+    -- image likewise, by `hσnotMem`), so the incoming-edge relation `hRef` constrains it directly.
+    exact hRef val valIn ⟨hValDom, hMem⟩ ⟨hσValDom, hσnotMem⟩ sv tv hsv htv
 
 /-! ## Scoped (`isRefinedByAt`) variants of the monotonicity lemmas -/
 
@@ -233,7 +235,7 @@ theorem VariableState.getOperandValues_isRefinedByAt
     {srcVars : VariableState ctx} {tgtVars : VariableState ctx'}
     {mapping : ValueMapping ctx ctx'}
     (opIn : op.InBounds ctx.raw) (opIn' : op'.InBounds ctx'.raw)
-    (hRef : srcVars.isRefinedByAt tgtVars mapping (.before op) (.before op'))
+    (hRef : srcVars.isRefinedByAt tgtVars mapping (.at (.before op)) (.at (.before op')))
     (ctxDom : ctx.Dom)
     (ctxDom' : ctx'.Dom)
     (hOperands : op'.getOperands! ctx'.raw = mapping.applyToArray (op.getOperands! ctx.raw))
@@ -241,7 +243,7 @@ theorem VariableState.getOperandValues_isRefinedByAt
          v.dominatesIp (.before op') ctx' → (tgtVars.getVar? v).isSome)
     (hSrc : srcVars.getOperandValues op = some srcVal) :
     ∃ tgtVal, tgtVars.getOperandValues op' = some tgtVal ∧ srcVal ⊒ tgtVal := by
-  simp only [VariableState.isRefinedByAt] at hRef
+  simp only [VariableState.isRefinedByAt, RefinementPoint.inScope_at] at hRef
   have ⟨hsize, hSrc'⟩ := VariableState.getOperandValues_eq_some_iff.mp hSrc
   -- All target operands are defined (from `tgtDef` + target operand dominance via `ctxDom'`).
   have hTgtDef : ∀ (i : Nat) (hi : i < (op'.getOperands! ctx'.raw).size),
@@ -298,7 +300,7 @@ theorem VariableState.setResultValues?_isRefinedByAt
     {srcVars : VariableState ctx} {tgtVars : VariableState ctx'}
     {mapping : ValueMapping ctx ctx'}
     (opIn : op.InBounds ctx.raw) (opIn' : op'.InBounds ctx'.raw)
-    (hRef : srcVars.isRefinedByAt tgtVars mapping (.before op) (.before op'))
+    (hRef : srcVars.isRefinedByAt tgtVars mapping (.at (.before op)) (.at (.before op')))
     {newSrcVars : VariableState ctx}
     {srcVals tgtVals : Array RuntimeValue} (hVals : srcVals ⊒ tgtVals)
     (hResults : op'.getResults! ctx'.raw = mapping.applyToArray (op.getResults! ctx.raw))
@@ -317,6 +319,7 @@ theorem VariableState.setResultValues?_isRefinedByAt
       (varState := tgtVars) (inBounds := opIn')).mp tgtValsConforms
   refine ⟨newTgtVars, hTgt, ?_⟩
   intro val valIn hValDomAfter hσValDomAfter sv tv hsv htv
+  simp only [RefinementPoint.inScope_at] at hValDomAfter hσValDomAfter
   -- By `value_dominatesIp_after_iff`: val dominates (before op) or is a result of op.
   rw [ctxDom.value_dominatesIp_after_iff] at hValDomAfter
   rw [ctxDom'.value_dominatesIp_after_iff] at hσValDomAfter
@@ -344,7 +347,7 @@ theorem interpretOp_monotone_at
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     {mapping : ValueMapping ctx ctx'}
     (opIn : op.InBounds ctx.raw) (opIn' : op'.InBounds ctx'.raw)
-    (hState : state.isRefinedByAt state' mapping (.before op) (.before op'))
+    (hState : state.isRefinedByAt state' mapping (.at (.before op)) (.at (.before op')))
     (hPreserves : mapping.PreservesOperation op op')
     (opVerif' : op'.Verified ctx' opIn')
     (ctxDom : ctx.Dom) (ctxDom' : ctx'.Dom)
