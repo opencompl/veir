@@ -27,6 +27,20 @@ private partial def normalizeInsertPoint
   normalizeInsertPoint region (.before parentOp) irCtx
 
 /--
+Whether this region has MLIR-style SSA dominance. In graph regions, operations
+in the same block may use each other without respecting source order, but values
+defined outside the graph region must still dominate the operation that owns the
+graph region.
+-/
+private def RegionPtr.hasSSADominanceByKind
+    (region : RegionPtr) (irCtx : IRContext OpCode) : Bool :=
+  match (region.get! irCtx).parent with
+  | some parentOp =>
+    let parent := parentOp.get! irCtx
+    parent.opType.getRegionKind (parent.regions.idxOf region) = .SSACFG
+  | none => true
+
+/--
 Check dominance between two blocks that are already known
 to lie in the same region.
 
@@ -70,6 +84,10 @@ to lie in the same block.
 private def dominatesWithinBlock
     (dominator point : InsertPoint)
     (irCtx : IRContext OpCode) : Bool := Id.run do
+  let some block := dominator.block! irCtx | return false
+  let some region := (block.get! irCtx).parent | return false
+  if !region.hasSSADominanceByKind irCtx then
+    return true
   if dominator = point then
     return true
   match dominator, point with
@@ -123,7 +141,15 @@ private def properlyDominates
     (point : InsertPoint)
     (dfCtx : DataFlowContext)
     (irCtx : IRContext OpCode) : Bool :=
-  dominator ≠ point && dominator.dominates point dfCtx irCtx
+  if dominator = point then
+    match dominator.block! irCtx with
+    | some block =>
+      match (block.get! irCtx).parent with
+      | some region => !region.hasSSADominanceByKind irCtx
+      | none => false
+    | none => false
+  else
+    dominator.dominates point dfCtx irCtx
 
 
 end InsertPoint

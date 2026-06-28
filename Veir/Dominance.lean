@@ -124,9 +124,10 @@ SSA dominance.
   procedure for this predicate: it visits every in-bounds operation and every operand,
   and for each checks `value.dominatesIp (InsertPoint.before op) ctx` via the dominance
   analysis. A successful run is intended to witness exactly `ctx.Dom`; the checker is
-  written so that each step matches a clause of this definition. (`ctx.Dom` assumes
-  SSACFG regions, and the checker restricts itself to SSACFG, reachable blocks
-  accordingly.)
+  written so that each step matches a clause of this definition for reachable SSACFG
+  blocks. For graph regions, the executable checker follows MLIR's region-aware
+  dominance rule: same-block order is ignored inside the graph region, but values
+  captured from enclosing regions must still dominate the graph-owning operation.
 -/
 def WfIRContext.Dom (ctx : WfIRContext OpInfo) : Prop :=
   ∀ {op : OperationPtr} (_opInBounds : op.InBounds ctx.raw) {value : ValuePtr},

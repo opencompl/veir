@@ -862,14 +862,19 @@ def RegionPtr.getRegionKind (region : RegionPtr) (ctx : WfIRContext OpCode) : Re
   | none => .SSACFG
 
 /--
-  Verify that a terminator only ever appears as the last operation of its block:
-  an operation that is a terminator must not be followed by another operation.
+  Verify operation/block control-flow position rules: a terminator only ever
+  appears as the last operation of its block, and any operation with block
+  successors must also terminate its parent block. The second rule matches
+  MLIR's generic verifier and catches malformed successor-bearing unknown/test
+  ops even when they are not registered terminators.
 -/
 def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let operation := op.get ctx.raw opIn
   if operation.opType.isTerminator && operation.next.isSome then
     throw "Expected a terminator to be the last operation of its block"
+  if op.getNumSuccessors ctx.raw opIn ≠ 0 && operation.next.isSome then
+    throw "operation with block successors must terminate its parent block"
 
 /--
   Verify that no operation branches to the entry block of a region. The entry
@@ -1026,15 +1031,14 @@ def OperationPtr.verifyOperandDominance
     (op : OperationPtr) (ctx : WfIRContext OpCode)
     (dfCtx : DataFlowContext) (opIn : op.InBounds ctx.raw) :
     Except String PUnit := do
-  -- The SSA dominance constraint only applies inside SSACFG regions and, as in
-  -- LLVM/MLIR, only to uses in blocks reachable from the region entry. Operands
-  -- used in graph regions or in unreachable code impose no dominance requirement;
-  -- the analysis records no dominator fact for unreachable blocks (whereas the
+  -- As in LLVM/MLIR, dominance is only checked in blocks reachable from the
+  -- region entry. Graph regions still need an operand check: their same-block
+  -- operation order is non-SSA, but captured values from enclosing SSACFG
+  -- regions must dominate the operation that owns the graph region. The
+  -- analysis records no dominator fact for unreachable blocks (whereas the
   -- entry block has a fact with no immediate dominator).
   let shouldCheck : Bool := Id.run do
     let some useBlock := (op.get ctx.raw opIn).parent | return false
-    let some region := (useBlock.get! ctx.raw).parent | return false
-    let .SSACFG := region.getRegionKind ctx | return false
     return (useBlock.getDominatorFact? dfCtx ctx.raw).isSome
   if shouldCheck then
     let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
@@ -1064,10 +1068,10 @@ def OperationPtr.verifyOperandDominance
     for each operand (see its docstring for the `opResult`/`blockArgument` cases).
 
   Therefore `verifyDominance ctx top = .ok ()` means every operand of every operation
-  dominates its use, i.e. `ctx.Dom` holds. The restriction in `verifyOperandDominance`
-  to SSACFG, reachable blocks matches the scope of `ctx.Dom`: that predicate is stated
-  for SSACFG regions (graph regions impose no dominance), and dominance over
-  unreachable code is vacuous.
+  in a reachable block dominates its use according to the region-aware dominance
+  relation used by MLIR: SSACFG regions enforce control-flow and same-block order,
+  graph regions ignore same-block order, and values captured by nested graph regions
+  must still dominate the enclosing operation in the parent region.
 
   This is still an executable checker, not a Lean proof of `ctx.Dom`; it is written so
   that each step lines up with a clause of the definition, which is what makes the
