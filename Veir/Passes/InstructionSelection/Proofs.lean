@@ -750,3 +750,8 @@ theorem fold_bexti_sound (rs1 : Reg) (shamt : BitVec 6) :
 theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
     sll (li (shamt.setWidth 64)) (zextw rs1) = slliuw shamt rs1 := by
   rw [val_inj]; veir_bv_decide
+
+theorem freeze_refinement {a : LLVM.Int 64} :
+    (Data.LLVM.Int.freeze a) ⊒
+      (RISCV.Reg.toInt (LLVM.Int.toReg a) 64) := by
+  veir_bv_decide
