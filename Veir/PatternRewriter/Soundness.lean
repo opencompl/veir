@@ -89,13 +89,30 @@ theorem rewriteMapping_applyToArray_getResults {ctx newCtx : WfIRContext OpCode}
       grind
     simp [hidx, getElem!_pos, h2]
 
+/-- The in-bounds witness for the redirect branch of `rewriteMapping`: each result index of `op`
+selects a value of `newValues` that is in bounds of the target context. Derived from `newValuesSize`
+(the index is within `newValues`) and `newValuesInBounds` (every member is in bounds). This is the
+witness `rewriteMapping` expects; previously it was carried as a `RewrittenAt` field. -/
+theorem rewriteMapping_resultsInBounds {ctx newCtx : WfIRContext OpCode}
+    (op : OperationPtr) (newValues : Array ValuePtr)
+    (newValuesSize : newValues.size = op.getNumResults! ctx.raw)
+    (newValuesInBounds : ∀ v ∈ newValues, v.InBounds newCtx.raw) :
+    ∀ (index : Nat), index < (op.getResults! ctx.raw).size →
+      newValues[index]!.InBounds newCtx.raw := by
+  intro index hidx
+  have hsize : index < newValues.size := by
+    rw [newValuesSize, ← OperationPtr.getResults!.size_eq_getNumResults!]; exact hidx
+  rw [getElem!_pos newValues index hsize]
+  exact newValuesInBounds _ (Array.getElem_mem hsize)
+
 /--
 `RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn'` asserts that
 `newCtx` is obtained from `ctx` by the single local rewrite that replaces `op` with `newOps`
 (producing `newValues`). The renaming identifying surviving values across the two contexts is *not* a
 parameter: it is the function `RewrittenAt.σ` of the instance, defined as `rewriteMapping op newValues
-h.mapResultsInBounds h.mapNonResultsInBounds` (the in-bounds witnesses `mapResultsInBounds`/
-`mapNonResultsInBounds` are fields below). `block` is the block containing `op`, `pre`/`post` the
+h.mapResultsInBounds h.mapNonResultsInBounds` (the redirect-branch witness `RewrittenAt.mapResultsInBounds`
+is derived from `newValuesSize`/`newValuesInBounds`; the identity-branch witness `mapNonResultsInBounds`
+is a field below). `block` is the block containing `op`, `pre`/`post` the
 operation lists before/after `op` in `block`, and `blockIn`/`blockIn'` the in-bounds witnesses for
 `block` in the source/target contexts. See the module docstring for the clauses.
 -/
@@ -118,11 +135,6 @@ structure RewrittenAt
   newValuesInBounds : ∀ v ∈ newValues, v.InBounds newCtx.raw
   /-- `newOps` are exactly the operations fresh to the target context. -/
   newOpsFresh : ∀ newOp, newOp ∈ newOps ↔ (newOp.InBounds newCtx.raw ∧ ¬ newOp.InBounds ctx.raw)
-  /-- In-bounds witness for the redirect branch of `σ` (`rewriteMapping`): each produced value is in
-  bounds of the target context. (Derivable from `newValuesSize`/`newValuesInBounds`, but kept as a
-  field so `σ := RewrittenAt.σ` is total without re-deriving it.) -/
-  mapResultsInBounds : ∀ (index : Nat), index < (op.getResults! ctx.raw).size →
-    newValues[index]!.InBounds newCtx.raw
   /-- In-bounds witness for the identity branch of `σ` (`rewriteMapping`): every value that is not a
   result of `op` survives into the target context. -/
   mapNonResultsInBounds : ∀ (v : ValuePtr), v.InBounds ctx.raw →
@@ -130,32 +142,27 @@ structure RewrittenAt
   -- Clause 2: `op` erased, others survive.
   /-- The matched operation is erased. -/
   opErased : ¬ op.InBounds newCtx.raw
-  /-- Every operation other than `op` survives into the target context. -/
   survives : ∀ (o : OperationPtr), o.InBounds ctx.raw → o ≠ op → o.InBounds newCtx.raw
   -- Clause 4: intrinsic-data frame for survivors.
   /-- Every surviving operation carries identical intrinsic data, modulo the renaming `σ`. -/
   frame : ∀ (o : OperationPtr) (oIn : o.InBounds ctx.raw) (oIn' : o.InBounds newCtx.raw),
     o ≠ op →
-      (rewriteMapping op newValues mapResultsInBounds mapNonResultsInBounds).PreservesOperation
+      (rewriteMapping op newValues
+        (rewriteMapping_resultsInBounds op newValues newValuesSize newValuesInBounds)
+        mapNonResultsInBounds).PreservesOperation
         o o oIn oIn'
   -- Clause 5: structure frame.
   /-- Blocks stay in bounds — successor-`InBounds` transport. -/
   blocksInBounds : ∀ (b : BlockPtr), b.InBounds ctx.raw → b.InBounds newCtx.raw
-  /-- Parent operations of surviving operations are preserved. -/
-  parentOps : ∀ (o : OperationPtr), o.InBounds ctx.raw → o ≠ op →
-    o.getParentOp! newCtx.raw = o.getParentOp! ctx.raw
+  blockArgsPreserved : ∀ (bl : BlockPtr), bl.InBounds ctx.raw →
+    (bl.get! newCtx.raw).arguments = (bl.get! ctx.raw).arguments
+  blockDominatesPreserved : ∀ (b₁ b₂ : BlockPtr), b₁.InBounds ctx.raw → b₂.InBounds ctx.raw →
+    (b₁.dominates b₂ newCtx ↔ b₁.dominates b₂ ctx)
   -- Clause 6: result well-formedness.
   /-- The target context is dominance-well-formed. -/
   newCtxDom : newCtx.Dom
   newCtxVerif : newCtx.Verified
   -- Clause 7: value-renaming frame for block arguments (PR 9 / `LocalRewritePattern.mapping`).
-  /-- `σ` fixes every value that is not a result of `op`. `LocalRewritePattern.mapping` is the
-  identity except on `op`'s results (which it redirects to `newValues`), so every other value — in
-  particular every block argument, which is never an `op` result — is left untouched. This is what
-  discharges the `hFix`/`hReflectArgs` frame hypotheses of `setArgumentValues?_isRefinedByAt`. -/
-  mappingFixesNonResults : ∀ (v : ValuePtr) (vIn : v.InBounds ctx.raw),
-    v ∉ op.getResults! ctx.raw →
-      ((rewriteMapping op newValues mapResultsInBounds mapNonResultsInBounds) ⟨v, vIn⟩).val = v
   /-- Every produced value dominates the post-insertion point in `block` — the `newCtx` analog of
   "after `op`", i.e. the end of the inserted `newOps` span (`afterLast newOps (atStart! block)`). This
   is the genuine SSA-validity condition on produced values, satisfied both by results of inserted
@@ -165,19 +172,7 @@ structure RewrittenAt
   newValuesDominate : ∀ v ∈ newValues,
     v.dominatesIp (InsertPoint.afterLast newOps.toList newCtx.raw
       (InsertPoint.atStart! block newCtx.raw)) newCtx
-  /-- The block-argument list of every block is preserved by the rewrite (it only edits operations).
-  Gives equal argument counts and argument types across the two contexts. -/
-  blockArgsPreserved : ∀ (bl : BlockPtr), bl.InBounds ctx.raw →
-    (bl.get! newCtx.raw).arguments = (bl.get! ctx.raw).arguments
-  /-- Block-level dominance is preserved by the rewrite: it only edits the operation list inside
-  `block` (replacing `[op]` by `newOps`), leaving the CFG (block successors / terminators / region
-  entries) unchanged, so the dominance relation between any two in-bounds blocks agrees across the two
-  contexts. Used to bridge the cross-context antisymmetry argument of `mappingImageNotArg`. -/
-  blockDominatesPreserved : ∀ (b₁ b₂ : BlockPtr), b₁.InBounds ctx.raw → b₂.InBounds ctx.raw →
-    (b₁.dominates b₂ newCtx ↔ b₁.dominates b₂ ctx)
   -- Clause 8: region/block structure frame (the rewrite edits only operation lists).
-  /-- Regions stay in bounds — region-`InBounds` transport (mirrors `blocksInBounds`). -/
-  regionsInBounds : ∀ (r : RegionPtr), r.InBounds ctx.raw → r.InBounds newCtx.raw
   /-- The region list of every surviving operation is preserved: the rewrite only edits the operation
   list of `block`, never region structure. Gives equal region counts and equal region pointers across
   the two contexts (used to relate `interpretFunction`/`interpretRegion`). -/
@@ -205,12 +200,36 @@ variable {ctx newCtx : WfIRContext OpCode} {op : OperationPtr}
 
 namespace RewrittenAt
 
+/-- In-bounds witness for the redirect branch of `σ` (`rewriteMapping`): each produced value is in
+bounds of the target context. Derived from `newValuesSize`/`newValuesInBounds` (it used to be a field).
+Exposed under the `RewrittenAt` namespace so the `rewriteMapping` callsites can keep writing
+`h.mapResultsInBounds`. -/
+theorem mapResultsInBounds
+    (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn') :
+    ∀ (index : Nat), index < (op.getResults! ctx.raw).size →
+      newValues[index]!.InBounds newCtx.raw :=
+  rewriteMapping_resultsInBounds op newValues h.newValuesSize h.newValuesInBounds
+
 /-- The fixed renaming performed by the rewrite: `rewriteMapping` applied to the in-bounds witnesses
 carried by the `RewrittenAt` instance. This is *not* a parameter of `RewrittenAt`; it is a function of
 the instance (the lemmas below refer to it as `h.σ`). -/
 abbrev σ (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn') :
     ValueMapping ctx newCtx :=
   rewriteMapping op newValues h.mapResultsInBounds h.mapNonResultsInBounds
+
+/-- `σ` fixes every value that is not a result of `op`. `LocalRewritePattern.mapping` is the identity
+except on `op`'s results (which it redirects to `newValues`), so every other value — in particular
+every block argument, which is never an `op` result — is left untouched: `rewriteMapping` takes its
+`else` branch. This used to be a field; it is purely a fact about `rewriteMapping`, independent of the
+other `RewrittenAt` data. It discharges the `hFix`/`hReflectArgs` frame hypotheses of
+`setArgumentValues?_isRefinedByAt`. -/
+theorem mappingFixesNonResults
+    (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
+    (v : ValuePtr) (vIn : v.InBounds ctx.raw) (hv : v ∉ op.getResults! ctx.raw) :
+    ((rewriteMapping op newValues
+        (rewriteMapping_resultsInBounds op newValues h.newValuesSize h.newValuesInBounds)
+        h.mapNonResultsInBounds) ⟨v, vIn⟩).val = v := by
+  simp only [rewriteMapping, dif_neg hv]
 
 /-- `op` lives in `block`: derived from `srcList`, since `op` occurs in `block`'s operation list. -/
 theorem opParent (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn') :
@@ -2605,9 +2624,6 @@ theorem RewrittenAt.of_fromLocalRewrite
       · rintro ⟨h1, h2⟩
         have hne : newOp ≠ op := by rintro rfl; exact h2 opInBounds
         exact hfresh.mpr ⟨(hOpBnd newOp hne).mp h1, h2⟩
-    -- TODO(PR 9): as `newValuesInBounds` (indexed form via `ReturnValues` size). NEEDS EXTRA
-    -- HYPOTHESIS: `newValues` must not reference `op`'s results (so they survive `eraseOp`).
-    mapResultsInBounds := by sorry
     -- A value that is not a result of `op` survives: its owner (if any) is `≠ op`, so it is not one
     -- of the pointers `eraseOp` removes.
     mapNonResultsInBounds := by
@@ -2634,8 +2650,6 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- Blocks stay in bounds: into `newCtxPat`, then the folds/erase (erase removes only `op`).
     blocksInBounds := fun b hb =>
       hSurviveBlock b (hCreated.inBounds_mono (GenericPtr.block b) (by grind))
-    -- TODO(PR 9, keystone): parent ops of survivors preserved (op-list edits don't move other ops).
-    parentOps := by sorry
     -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS. Dominance/verification are not preserved by arbitrary
     -- `insertOp`s, so this requires source `rewriter.ctx.Dom` plus a pattern obligation that the rewrite
     -- produces a dominance-well-formed result (mirroring `PreservesSemantics`'s `ctxDom`).
@@ -2643,9 +2657,6 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS, as `newCtxDom` (source `rewriter.ctx.Verified` + pattern
     -- obligation that the result is verified).
     newCtxVerif := by sorry
-    -- `σ` (`rewriteMapping`) is the identity off `op`'s results: it takes the `else` branch.
-    mappingFixesNonResults := fun v vIn hv => by
-      simp only [rewriteMapping, dif_neg hv]
     -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS. Produced values must dominate the post-insertion point in
     -- `block` (the SSA-validity condition: results of `newOps` are defined within the span, forwarded
     -- values are in scope throughout the block); discharged from a pattern obligation.
@@ -2655,9 +2666,6 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- TODO(PR 9, keystone): op-list edits inside `block` leave the CFG unchanged, so block-level
     -- dominance agrees across the two contexts.
     blockDominatesPreserved := by sorry
-    -- Regions stay in bounds: into `newCtxPat`, then the folds/erase (erase removes only `op`).
-    regionsInBounds := fun r hr =>
-      hSurviveRegion r (hCreated.inBounds_mono (GenericPtr.region r) (by grind))
     -- TODO(PR 9, keystone): op-list edits leave survivors' region lists untouched.
     opRegionsPreserved := by sorry
     -- TODO(PR 9, keystone): op-list edits leave region entry blocks untouched.
