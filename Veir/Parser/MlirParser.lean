@@ -384,10 +384,11 @@ def parseType (errorMsg : String := "type expected") : MlirParserM TypeAttr := d
   | none => throwAtCurrentPos errorMsg
 
 /--
-  Parse an operation type, consisting of a colon followed by a function type.
+  Parse the body of a function type: `(inTypes) -> outTypes`, where `outTypes`
+  is either a single type or a parenthesized list. This is the part of an
+  operation type after the leading colon.
 -/
-def parseOperationType : MlirParserM (Array TypeAttr × Array TypeAttr) := do
-  parsePunctuation ":"
+def parseFunctionTypeBody : MlirParserM (Array TypeAttr × Array TypeAttr) := do
   let inputs ← parseDelimitedList .paren parseType
   parsePunctuation "->"
   if (←peekToken).kind = .lParen then
@@ -396,6 +397,13 @@ def parseOperationType : MlirParserM (Array TypeAttr × Array TypeAttr) := do
   else
     let outputType ← parseType
     return (inputs, #[outputType])
+
+/--
+  Parse an operation type, consisting of a colon followed by a function type.
+-/
+def parseOperationType : MlirParserM (Array TypeAttr × Array TypeAttr) := do
+  parsePunctuation ":"
+  parseFunctionTypeBody
 
 /--
   Parse an SSA value followed by a colon and a type, if present.
@@ -483,6 +491,42 @@ def parseEntryBlockLabel (ip : BlockInsertPoint) : MlirParserM BlockPtr := do
     let block ← defineBlock ByteArray.empty ip (← getPos)
     return block
 
+/--
+  Create an operation from already-parsed and resolved ingredients, going
+  through the verified `Rewriter.createOp` path, and register its results.
+-/
+def createAndRegisterOp (opId : OpCode) (opName : String) (results : Array (ByteArray × Nat × Location))
+    (outputTypes : Array TypeAttr) (operands : Array ValuePtr) (blockOperands : Array BlockPtr)
+    (regions : Array RegionPtr) (properties : propertiesOf opId) (attrs : DictionaryAttr)
+    (ip : Option InsertPoint) (opNameStart : Location) : MlirParserM OperationPtr := do
+  /- Results can have multiple parts so sum the sizes. -/
+  let numResults := results.foldl (· + ·.2.1) 0
+
+  /- Check that the number of results matches with the operation type. -/
+  if outputTypes.size ≠ numResults then
+    throwAt opNameStart s!"operation '{opName}' declares {outputTypes.size} result types, but {numResults} result values were provided"
+
+  let op ← modifyContextM' fun ctx => do
+    let ⟨hoper⟩ ← checkAllValuesInBounds operands ctx.raw
+    let ⟨hblockOperands⟩ ← checkAllBlocksInBounds blockOperands ctx.raw
+    let ⟨hregions⟩ ← checkAllRegionsInBounds regions ctx.raw
+    let ⟨hins⟩ ← checkMaybeInsertPointInBounds ip ctx.raw
+    match hctx' : Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip hoper hblockOperands hregions hins with
+    | none => throwAt opNameStart "internal error: failed to create operation"
+    | some (ctx', op) =>
+      have hop : op.InBounds ctx' := Rewriter.createOp_new_inBounds op hctx'
+      let ctx'' := op.setAttributes ctx' attrs hop
+      /- Update the parser context. -/
+      pure ⟨op, ⟨ctx'', by grind [Rewriter.createOp_WellFormed, OperationPtr.setAttributes_WellFormed]⟩⟩
+
+  /- Register the values for each result name. -/
+  let mut index := 0
+  for (name, count, tokenPos) in results do
+    let values := .ofFn <| fun (i : Fin count) => op.getResult (index + i)
+    registerValueDefs name tokenPos values
+    index := index + count
+  return op
+
 mutual
 
 /--
@@ -521,39 +565,12 @@ partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option Oper
   let attrs ← parseOpAttributes
   let (inputTypes, outputTypes) ← parseOperationType
 
-  /- Results can have multiple parts so sum the sizes. -/
-  let numResults := results.foldl (· + ·.2.1) 0
-
-  /- Check that the number of results matches with the operation type. -/
-  if outputTypes.size ≠ numResults then
-    throwAt opNameStart s!"operation '{opName}' declares {outputTypes.size} result types, but {numResults} result values were provided"
-
   /- Check that the number and types of operands matches with the operation type. -/
   if inputTypes.size ≠ operands.size then
     throwAt opNameStart s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
   let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
 
-  let op ← modifyContextM' fun ctx => do
-    let ⟨hoper⟩ ← checkAllValuesInBounds operands ctx.raw
-    let ⟨hblockOperands⟩ ← checkAllBlocksInBounds blockOperands ctx.raw
-    let ⟨hregions⟩ ← checkAllRegionsInBounds regions ctx.raw
-    let ⟨hins⟩ ← checkMaybeInsertPointInBounds ip ctx.raw
-    match hctx' : Rewriter.createOp ctx opId outputTypes operands blockOperands regions properties ip hoper hblockOperands hregions hins with
-    | none => throwAt opNameStart "internal error: failed to create operation"
-    | some (ctx', op) =>
-      have hop : op.InBounds ctx' := Rewriter.createOp_new_inBounds op hctx'
-      let ctx'' := op.setAttributes ctx' attrs hop
-      /- Update the parser context. -/
-      pure ⟨op, ⟨ctx'', by grind [Rewriter.createOp_WellFormed, OperationPtr.setAttributes_WellFormed]⟩⟩
-
-  let ctx ← getContext
-
-  /- Register the values for each result name. -/
-  let mut index := 0
-  for (name, count, tokenPos) in results do
-    let values := .ofFn <| fun (i : Fin count) => op.getResult (index + i)
-    registerValueDefs name tokenPos values
-    index := index + count
+  let op ← createAndRegisterOp opId opName results outputTypes operands blockOperands regions properties attrs ip opNameStart
   return op
 
 /--
