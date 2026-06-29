@@ -362,7 +362,7 @@ set_option warn.sorry false in
 /-- llvm.sext x i1 to i64 -> srai (slli x 63) 1 -/
 def sext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (operand, _) := matchZext op rewriter.ctx | return rewriter
+  let some (operand, _) := matchSext op rewriter.ctx | return rewriter
   let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
   if t.bitwidth ≠ 64 then return rewriter
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
