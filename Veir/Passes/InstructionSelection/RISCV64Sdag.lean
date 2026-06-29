@@ -339,6 +339,46 @@ def slliuw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
   replaceWithReg rewriter op (newOp.getResult 0)
 
+set_option warn.sorry false in
+/-- llvm.zext x i1 to i64 -> and x 1 -/
+def zext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (operand, _) := matchZext op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
+  if opType.bitwidth ≠ 1 then return rewriter
+  /- First, cast the operand to registers -/
+  let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+  let (rewriter, andiOp) ← rewriter.createOp (.riscv .andi) #[RegisterType.mk] #[opCastOp.getResult 0]
+      #[] #[] imm (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[t] #[andiOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+/-- llvm.sext x i1 to i64 -> srai (slli x 63) 1 -/
+def sext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (operand, _) := matchZext op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
+  if opType.bitwidth ≠ 1 then return rewriter
+  /- First, cast the operand to registers -/
+  let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 63 (IntegerType.mk 64))
+  let (rewriter, slliOp) ← rewriter.createOp (.riscv .slli) #[RegisterType.mk] #[opCastOp.getResult 0]
+      #[] #[] imm (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, sraiOp) ← rewriter.createOp (.riscv .srai) #[RegisterType.mk] #[slliOp.getResult 0]
+      #[] #[] imm (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[t] #[sraiOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+
 /-! # Pass implementation -/
 
 def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
@@ -350,7 +390,7 @@ def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let pattern := RewritePattern.GreedyRewritePattern #[andn, orn, xnor, orcb,
     bexti, bseti, bclri, binvi, slliuw,
     addi, ori, andi, xori, slli, srli, srai, slti,
-    addiw, slliw, srliw, sraiw, roriw, roliw]
+    addiw, slliw, srliw, sraiw, roriw, roliw, zext_1, sext_1]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying SDAG patterns"
   | some ctx => pure ctx

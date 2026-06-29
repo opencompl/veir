@@ -448,6 +448,14 @@ theorem zext_refinement_32_64 {x : LLVM.Int 32} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `zext` lowering pattern `i1` -> `i64`
+-/
+theorem zext_refinement_1_64 {x : LLVM.Int 1} :
+    (Data.LLVM.Int.zext x 64 b h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.andi 1#12 (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `sext` lowering pattern `i8` -> `i16`
 -/
 theorem sext_refinement_8_16 {x : LLVM.Int 8} :
@@ -493,6 +501,14 @@ theorem sext_refinement_16_64 {x : LLVM.Int 16} :
 theorem sext_refinement_32_64 {x : LLVM.Int 32} :
     (Data.LLVM.Int.sext x 64 h) ⊒
       (RISCV.Reg.toInt (Data.RISCV.sextw (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `sext` lowering pattern `i1` -> `i64`
+-/
+theorem sext_refinement_1_64 {x : LLVM.Int 1} :
+    (Data.LLVM.Int.sext x 64 h) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.srai 63#6 (Data.RISCV.slli 63#6 (LLVM.Int.toReg x))) 64) := by
   veir_bv_decide
 
 /--
