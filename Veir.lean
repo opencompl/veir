@@ -9,6 +9,7 @@ import Veir.Rewriter.WellFormed
 import Veir.Rewriter.InlineBlock
 import Veir.Rewriter.WfRewriter
 import Veir.Printer
+import Veir.AssemblyFormat
 import Veir.PatternRewriter.Basic
 import Veir.Passes.RISCVCombines.Proofs
 import Veir.Benchmarks
