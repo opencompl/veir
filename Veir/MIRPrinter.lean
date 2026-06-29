@@ -241,6 +241,19 @@ def emitRegular (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
     | .sextw => IO.println s!"    {res} = ADDIW {v 0}, 0"
     | .zextw => IO.println s!"    {res} = ADD_UW {v 0}, $x0"
     | .zextb => IO.println s!"    {res} = ANDI {v 0}, 255"
+    -- memory: loads (result ← mem[base + imm])
+    | .ld  => IO.println s!"    {res} = LD {v 0}, {imm}"
+    | .lw  => IO.println s!"    {res} = LW {v 0}, {imm}"
+    | .lwu => IO.println s!"    {res} = LWU {v 0}, {imm}"
+    | .lh  => IO.println s!"    {res} = LH {v 0}, {imm}"
+    | .lhu => IO.println s!"    {res} = LHU {v 0}, {imm}"
+    | .lb  => IO.println s!"    {res} = LB {v 0}, {imm}"
+    | .lbu => IO.println s!"    {res} = LBU {v 0}, {imm}"
+    -- memory: stores (mem[base + imm] ← value; operands: value, base)
+    | .sd  => IO.println s!"    SD {v 0}, {v 1}, {imm}"
+    | .sw  => IO.println s!"    SW {v 0}, {v 1}, {imm}"
+    | .sh  => IO.println s!"    SH {v 0}, {v 1}, {imm}"
+    | .sb  => IO.println s!"    SB {v 0}, {v 1}, {imm}"
     | _ =>
       match unaryMnem rop with
       | some m => IO.println s!"    {res} = {m} {v 0}"
