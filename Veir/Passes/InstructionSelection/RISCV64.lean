@@ -972,6 +972,24 @@ def poisonConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       #[] #[] imm (some $ .before op) (by simp) (by simp) (by simp) sorry
   replaceWithReg rewriter op (liOp.getResult 0)
 
+set_option warn.sorry false in
+/-- llvm.freeze arg : Int w ->
+  unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
+def freeze (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
+    Option (PatternRewriter OpCode) := do
+  let some operand := matchFreeze op rewriter.ctx | return rewriter
+  let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
+  let type := ((op.getResult 0).get! rewriter.ctx.raw).type
+  let .integerType retType := type.val | rewriter
+  if opType.bitwidth ≠ 64 ∨ retType.bitwidth ≠ 64 then return rewriter
+  /- First, cast the operand to registers -/
+  let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
+      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  /- Then, cast register to expected output width. -/
+  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[type] #[opCastOp.getResult 0]
+      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
+  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
@@ -981,7 +999,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral, ctlz, cttz, ctpop, bswap, bitreverse, constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store,
-    smax, smin, umax, umin, fshlConst, fshrConst, fshl, fshr, poisonConst]
+    smax, smin, umax, umin, fshlConst, fshrConst, fshl, fshr, poisonConst, freeze]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx

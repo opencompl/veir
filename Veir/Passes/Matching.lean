@@ -229,3 +229,7 @@ def matchStore (op : OperationPtr) (ctx : IRContext OpCode) :
   let operands := op.getOperands! ctx
   let properties := op.getProperties! ctx (.llvm .store)
   return (operands[0]!, operands[1]!, properties)
+
+def matchFreeze (op : OperationPtr) (ctx : IRContext OpCode) : Option ValuePtr := do
+  let (op, _) ← matchOp op ctx (.llvm .freeze) 1
+  return (op[0]!)
