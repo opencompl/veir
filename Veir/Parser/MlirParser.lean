@@ -9,6 +9,7 @@ import Veir.Rewriter.WellFormed
 import Veir.Rewriter.WfRewriter
 import Veir.Properties
 import Veir.GlobalOpInfo
+import Veir.AssemblyFormat
 
 open Veir.Parser.Lexer
 open Veir.Parser
@@ -386,7 +387,8 @@ def parseType (errorMsg : String := "type expected") : MlirParserM TypeAttr := d
 /--
   Parse the body of a function type: `(inTypes) -> outTypes`, where `outTypes`
   is either a single type or a parenthesized list. This is the part of an
-  operation type after the leading colon.
+  operation type after the leading colon, and is reused by the `functional-type`
+  assembly-format directive.
 -/
 def parseFunctionTypeBody : MlirParserM (Array TypeAttr × Array TypeAttr) := do
   let inputs ← parseDelimitedList .paren parseType
@@ -491,21 +493,84 @@ def parseEntryBlockLabel (ip : BlockInsertPoint) : MlirParserM BlockPtr := do
     let block ← defineBlock ByteArray.empty ip (← getPos)
     return block
 
+/-!
+  ## Declarative assembly format parsing
+
+  The helpers below interpret a parsed `AssemblyFormat.Format` to parse an
+  operation written in its custom (pretty) syntax. They accumulate the
+  ingredients of an operation (operands, types, attributes, ...) into a
+  `FormatParseState`, which is then funnelled through the same verified
+  `Rewriter.createOp` path as the generic parser.
+-/
+
+open Veir.AssemblyFormat (Element Directive TypeArg)
+
+/-- Parse a literal token (keyword or punctuation) from a format. -/
+def parseFormatLiteral (s : String) : MlirParserM Unit := do
+  match isPunctuation s with
+  | some kind => let _ ← parseToken kind s!"expected '{s}'"
+  | none => parseKeyword s.toByteArray
+
+/-- Parse a single attribute (used for a `$var` element). -/
+def parseFormatAttr : MlirParserM Attribute := do
+  match AttrParser.parseAttribute.run { allowUnregisteredDialect := (← get).allowUnregisteredDialect } (← getThe ParserState) with
+  | .ok (attr, _, parserState) =>
+    set parserState
+    return attr
+  | .error err => throw err
+
+/-- Parse a comma-separated list of operands without surrounding delimiters
+    (the delimiters, if any, are literals in the format). -/
+def parseFormatOperands : MlirParserM (Array UnresolvedOperand) := do
+  if (← peekToken).kind ≠ .percentIdent then return #[]
+  parseList parseOperand
+
+/-- Parse a comma-separated list of types without surrounding delimiters. -/
+def parseFormatTypeList : MlirParserM (Array TypeAttr) := do
+  parseList parseType
+
+/-- Does the next token plausibly begin the first element of an optional group?
+    Used to decide whether an optional group is present while parsing. -/
+def peekMatchesFirst (el : Element) : MlirParserM Bool := do
+  let tk := (← peekToken).kind
+  match el with
+  | .directive .operands => return tk == .percentIdent
+  | .directive .successors => return tk == .caretIdent
+  | .directive .regions => return tk == .lBrace
+  | .attrVar _ => return tk == .atIdent || tk == .lBrace || tk == .stringLit || tk == .intLit
+  | .literal s =>
+      match isPunctuation s with
+      | some kind => return tk == kind
+      | none =>
+        match ← peekToken with
+        | {kind := .bareIdent, slice} => return slice.of (← getInput) == s.toByteArray
+        | _ => return false
+  | _ => return true
+
+/-- The accumulated ingredients of an operation parsed via an assembly format. -/
+structure FormatParseState where
+  operands : Array UnresolvedOperand := #[]
+  operandTypes : Array TypeAttr := #[]
+  resultTypes : Array TypeAttr := #[]
+  propEntries : Array (ByteArray × Attribute) := #[]
+  attrDict : DictionaryAttr := DictionaryAttr.empty
+  blockOperands : Array BlockPtr := #[]
+  regions : Array RegionPtr := #[]
+deriving Inhabited
+
 /--
   Create an operation from already-parsed and resolved ingredients, going
   through the verified `Rewriter.createOp` path, and register its results.
+  Shared by the generic parser, the declarative-format parser, and the
+  `func.func` hook.
 -/
 def createAndRegisterOp (opId : OpCode) (opName : String) (results : Array (ByteArray × Nat × Location))
     (outputTypes : Array TypeAttr) (operands : Array ValuePtr) (blockOperands : Array BlockPtr)
     (regions : Array RegionPtr) (properties : propertiesOf opId) (attrs : DictionaryAttr)
     (ip : Option InsertPoint) (opNameStart : Location) : MlirParserM OperationPtr := do
-  /- Results can have multiple parts so sum the sizes. -/
   let numResults := results.foldl (· + ·.2.1) 0
-
-  /- Check that the number of results matches with the operation type. -/
   if outputTypes.size ≠ numResults then
     throwAt opNameStart s!"operation '{opName}' declares {outputTypes.size} result types, but {numResults} result values were provided"
-
   let op ← modifyContextM' fun ctx => do
     let ⟨hoper⟩ ← checkAllValuesInBounds operands ctx.raw
     let ⟨hblockOperands⟩ ← checkAllBlocksInBounds blockOperands ctx.raw
@@ -516,10 +581,7 @@ def createAndRegisterOp (opId : OpCode) (opName : String) (results : Array (Byte
     | some (ctx', op) =>
       have hop : op.InBounds ctx' := Rewriter.createOp_new_inBounds op hctx'
       let ctx'' := op.setAttributes ctx' attrs hop
-      /- Update the parser context. -/
       pure ⟨op, ⟨ctx'', by grind [Rewriter.createOp_WellFormed, OperationPtr.setAttributes_WellFormed]⟩⟩
-
-  /- Register the values for each result name. -/
   let mut index := 0
   for (name, count, tokenPos) in results do
     let values := .ofFn <| fun (i : Fin count) => op.getResult (index + i)
@@ -539,39 +601,186 @@ partial def parseOpRegions : MlirParserM (Array RegionPtr) := do
   Parse an operation, if present, and insert it at the given insert point.
 -/
 partial def parseOptionalOp (ip : Option InsertPoint) : MlirParserM (Option OperationPtr) := do
-  /- Parse the operation. -/
+  /- Parse the optional results prefix `%x, %y = `. -/
   let results ← parseOpResults
   let opNameStart ← getPos
-  let some opName ← parseOptionalStringLiteral | return none
-  let operands ← parseOperands
-  let blockOperands ← parseBlockOperands
+  /- The operation name is either a quoted string literal (generic form) or a
+     bare identifier (custom/pretty form). -/
+  match ← parseOptionalStringLiteral with
+  | some opName =>
+    /- Generic form: `"dialect.op"(operands) ... : (types) -> types`. -/
+    let operands ← parseOperands
+    let blockOperands ← parseBlockOperands
+    let opId := OpCode.fromName opName.toByteArray
+    if let .builtin .unregistered := opId then
+      if !(← get).allowUnregisteredDialect then
+        throwAt opNameStart
+          s!"op '{opName}' is not registered. Consider using --allow-unregistered-dialect."
+    let properties ← parseOpProperties opId
+    /- For `builtin.unregistered`, record the original op name in the properties so it can be
+       printed back out. -/
+    let properties : propertiesOf opId := match opId, properties with
+      | .builtin .unregistered, props => { props with opName := opName.toByteArray }
+      | _, props => props
+    let regions ← parseOpRegions
+    let attrs ← parseOpAttributes
+    let (inputTypes, outputTypes) ← parseOperationType
+    if inputTypes.size ≠ operands.size then
+      throwAt opNameStart s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
+    let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
+    some <$> createAndRegisterOp opId opName results outputTypes operands blockOperands regions properties attrs ip opNameStart
+  | none =>
+    /- Custom (pretty) form: the op name is a bare identifier, e.g. `func.call`. -/
+    match ← parseOptionalIdentifier with
+    | some opNameBytes =>
+      let opId := OpCode.fromName opNameBytes
+      match opId with
+      | .func .func => some <$> parseFuncFunc ip opNameStart
+      | .builtin .unregistered =>
+        /- A bare identifier that does not name a registered operation is not a
+           valid operation in either form. -/
+        throwAt opNameStart "operation expected"
+      | _ =>
+        match AssemblyFormat.OpCode.assemblyFormat? opId with
+        | some fmt => some <$> parseOpWithFormat opId fmt ip results opNameStart
+        | none =>
+          throwAt opNameStart
+            s!"operation '{String.fromUTF8! opNameBytes}' has no custom assembly format; use the generic form"
+    | none =>
+      if results.isEmpty then return none
+      else throwAtCurrentPos "expected operation name"
 
-  /- Get the operation opcode. -/
-  let opId := OpCode.fromName opName.toByteArray
+/-- Parse a single element of an assembly format, threading the accumulated state. -/
+partial def parseFormatElement (opId : OpCode) (el : Element) (st : FormatParseState) :
+    MlirParserM FormatParseState := do
+  match el with
+  | .literal s => parseFormatLiteral s; return st
+  | .attrVar name =>
+      let attr ← parseFormatAttr
+      return { st with propEntries := st.propEntries.push (name.toUTF8, attr) }
+  | .directive .attrDict =>
+      return { st with attrDict := ← parseOpAttributes }
+  | .directive .attrDictWithKeyword =>
+      let _ ← parseOptionalKeyword "attributes".toByteArray
+      return { st with attrDict := ← parseOpAttributes }
+  | .directive .operands =>
+      return { st with operands := st.operands ++ (← parseFormatOperands) }
+  | .directive .results => return st
+  | .directive (.typeOf .operands) =>
+      return { st with operandTypes := st.operandTypes ++ (← parseFormatTypeList) }
+  | .directive (.typeOf .results) =>
+      return { st with resultTypes := st.resultTypes ++ (← parseFormatTypeList) }
+  | .directive (.functionalType ins outs) =>
+      let (inTys, outTys) ← parseFunctionTypeBody
+      let st := match ins with
+        | .operands => { st with operandTypes := st.operandTypes ++ inTys }
+        | .results => { st with resultTypes := st.resultTypes ++ inTys }
+      match outs with
+      | .operands => return { st with operandTypes := st.operandTypes ++ outTys }
+      | .results => return { st with resultTypes := st.resultTypes ++ outTys }
+  | .directive .regions =>
+      return { st with regions := st.regions ++ (← parseOpRegions) }
+  | .directive .successors =>
+      return { st with blockOperands := st.blockOperands ++ (← parseBlockOperands) }
+  | .optional thenElems _anchor elseElems =>
+      let present ← match thenElems[0]? with
+        | some first => peekMatchesFirst first
+        | none => pure false
+      if present then parseFormatElements opId thenElems st
+      else parseFormatElements opId elseElems st
 
-  if let .builtin .unregistered := opId then
-    if !(← get).allowUnregisteredDialect then
-      throwAt opNameStart
-        s!"op '{opName}' is not registered. Consider using --allow-unregistered-dialect."
+/-- Parse a sequence of assembly-format elements. -/
+partial def parseFormatElements (opId : OpCode) (elems : Array Element) (st : FormatParseState) :
+    MlirParserM FormatParseState := do
+  let mut st := st
+  for el in elems do
+    st ← parseFormatElement opId el st
+  return st
 
-  let properties ← parseOpProperties opId
-  /- For `builtin.unregistered`, record the original op name in the properties so it can be
-     printed back out. The properties dictionary itself has already been populated by
-     `Properties.fromAttrDict` (see `UnregisteredProperties.fromAttrDict`). -/
-  let properties : propertiesOf opId := match opId, properties with
-    | .builtin .unregistered, props => { props with opName := opName.toByteArray }
-    | _, props => props
-  let regions ← parseOpRegions
-  let attrs ← parseOpAttributes
-  let (inputTypes, outputTypes) ← parseOperationType
+/-- Parse an operation written in a declarative assembly format. -/
+partial def parseOpWithFormat (opId : OpCode) (fmt : AssemblyFormat.Format) (ip : Option InsertPoint)
+    (results : Array (ByteArray × Nat × Location)) (opNameStart : Location) : MlirParserM OperationPtr := do
+  let st ← parseFormatElements opId fmt {}
+  let properties ← match Properties.fromAttrDict opId (.ofArray st.propEntries) with
+    | .ok p => pure p
+    | .error e => throwAt opNameStart e
+  if st.operandTypes.size ≠ st.operands.size then
+    throwAt opNameStart s!"operation declares {st.operandTypes.size} operand types, but {st.operands.size} operands were provided"
+  let operands ← st.operands.zip st.operandTypes |>.mapM (fun (o, t) => resolveOperand o t)
+  createAndRegisterOp opId (String.fromUTF8! opId.name) results st.resultTypes operands st.blockOperands st.regions properties st.attrDict ip opNameStart
 
-  /- Check that the number and types of operands matches with the operation type. -/
-  if inputTypes.size ≠ operands.size then
-    throwAt opNameStart s!"operation '{opName}' declares {inputTypes.size} operand types, but {operands.size} operands were provided"
-  let operands ← operands.zip inputTypes |>.mapM (fun (operand, type) => resolveOperand operand type)
+/-- Parse a `func.func` body region: create the entry block from the signature
+    arguments, bind their names, then parse the body operations. -/
+partial def parseFuncBodyRegion (argNames : Array (ByteArray × Location)) (argTypes : Array TypeAttr) :
+    MlirParserM RegionPtr := do
+  inChildScope do
+  let oldBlocks := (← getThe MlirParserState).blocks
+  modifyThe MlirParserState fun s => {s with blocks := Std.HashMap.emptyWithCapacity 1}
+  parsePunctuation "{"
+  let region ← modifyContextM' fun ctx => do
+    match hctx' : Rewriter.createRegion ctx with
+    | none => throwAtCurrentPos "internal error: failed to create region"
+    | some (ctx', region) => pure (region, ⟨ctx', by grind [IRContext.wellFormed_Rewriter_createRegion]⟩)
+  /- Create the entry block with the signature arguments. -/
+  let block ← defineBlock ByteArray.empty (BlockInsertPoint.atEnd region) (← getPos)
+  modifyContextM fun ctx => do
+    let ⟨h_block_InBounds⟩ ← checkBlockInBounds block ctx.raw
+    let ⟨h_block_NoArgs⟩ ← checkBlockHasNoArgs block ctx.raw
+    pure (WfRewriter.setBlockArguments ctx block argTypes h_block_InBounds
+      (by grind [BlockPtr.getArguments!.mem_iff_exists_index]))
+  for ((argName, loc), index) in argNames.zipIdx do
+    registerValueDef argName loc (ValuePtr.blockArgument {block := block, index := index})
+  /- Parse the body operations into the entry block. -/
+  while true do
+    if (← parseOptionalOp (InsertPoint.atEnd block)) = none then break
+  /- Parse any subsequent labeled blocks. -/
+  while true do
+    if (← parseOptionalBlock (BlockInsertPoint.atEnd region)) = none then break
+  parsePunctuation "}"
+  for (blockName, entry) in (← getThe MlirParserState).blocks do
+    if let .ForwardDeclared _ forwardLoc := entry then
+      throwAt forwardLoc s!"block %{String.fromUTF8! blockName} was used but never defined"
+  modifyThe MlirParserState fun s => {s with blocks := oldBlocks}
+  return region
 
-  let op ← createAndRegisterOp opId opName results outputTypes operands blockOperands regions properties attrs ip opNameStart
-  return op
+/-- Custom (pretty) parser for `func.func`, mirroring MLIR's
+    `hasCustomAssemblyFormat`. Parses `func.func @name(%args) -> results { body }`. -/
+partial def parseFuncFunc (ip : Option InsertPoint) (opNameStart : Location) : MlirParserM OperationPtr := do
+  /- Symbol name `@name`. -/
+  let name ← parsePrefixedKeyword .atIdent (errorMsg := "expected function symbol name '@name'")
+  /- Signature arguments: `(%arg : T, ...)`. -/
+  parsePunctuation "("
+  let mut argNames : Array (ByteArray × Location) := #[]
+  let mut argTypes : Array TypeAttr := #[]
+  if !(← parseOptionalPunctuation ")") then
+    repeat
+      let (n, ty, loc) ← parseTypedValue
+      argNames := argNames.push (n, loc)
+      argTypes := argTypes.push ty
+      if !(← parseOptionalPunctuation ",") then break
+    parsePunctuation ")"
+  /- Optional results: `-> R` or `-> (R1, R2)`. -/
+  let mut resultTypes : Array TypeAttr := #[]
+  if ← parseOptionalPunctuation "->" then
+    if (← peekToken).kind = .lParen then
+      resultTypes ← parseDelimitedList .paren parseType
+    else
+      resultTypes := #[← parseType]
+  /- Optional `attributes { ... }`. -/
+  let mut attrEntries : Array (ByteArray × Attribute) := #[]
+  if ← parseOptionalKeyword "attributes".toByteArray then
+    attrEntries := (← parseOpAttributes).entries
+  /- Build the function type and the properties dictionary. -/
+  let funcType : FunctionType := { inputs := argTypes.map (·.val), outputs := resultTypes.map (·.val) }
+  let mut dict := attrEntries
+  dict := dict.push ("sym_name".toUTF8, Attribute.stringAttr (StringAttr.mk name))
+  dict := dict.push ("function_type".toUTF8, Attribute.functionType funcType)
+  let properties ← match Properties.fromAttrDict (.func .func) (.ofArray dict) with
+    | .ok p => pure p
+    | .error e => throwAt opNameStart e
+  /- Parse the body region and create the operation. -/
+  let region ← parseFuncBodyRegion argNames argTypes
+  createAndRegisterOp (.func .func) "func.func" #[] #[] #[] #[] #[region] properties DictionaryAttr.empty ip opNameStart
 
 /--
   Parse an operation.
