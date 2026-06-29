@@ -543,6 +543,7 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchSext op rewriter.ctx | return rewriter
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
+  if opType.bitwidth = 8 then return rewriter
   if ¬ isLegalExtOpWidth (opType.bitwidth) then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
