@@ -1,6 +1,6 @@
 name = "VeIR"
 version = "0.1.0"
-defaultTargets = ["veir-opt", "veir-interpret", "run-benchmarks", "Veir"]
+defaultTargets = ["veir-opt", "veir-interpret", "run-benchmarks", "veir2mir", "Veir"]
 testRunner = "UnitTest"
 moreLeanArgs = ["--tstack=400000"]
 moreServerArgs = ["--tstack=400000"]
@@ -28,3 +28,7 @@ root = "RunBenchmarks"
 [[lean_exe]]
 name = "veir-interpret"
 root = "VeirInterpret"
+
+[[lean_exe]]
+name = "veir2mir"
+root = "VeirToMIR"
