@@ -2486,6 +2486,627 @@ theorem PatternRewriter.eraseOp_ctx_eq {b b' : PatternRewriter OpCode} {op : Ope
   subst h
   rfl
 
+/-! ### Keystone helpers: how the driver's insert/replace/erase folds reshape block op-lists.
+
+These discharge the `tgtList`/`otherBlocks` fields of `RewrittenAt.of_fromLocalRewrite`. The insert
+fold rewrites `block`'s list `pre ++ [op] ++ post` into `pre ++ newOps ++ [op] ++ post`, the replace
+fold leaves every list untouched, and the final `eraseOp op` drops `op`, giving `pre ++ newOps ++ post`.
+Every other block's list is untouched by all three stages. -/
+
+/-- A `List.insertIdx` at the boundary index splices the new element just before the pivot. -/
+private theorem List.insertIdx_mid {α} (pre l₂ : List α) (op a : α) :
+    (pre ++ [op] ++ l₂).insertIdx pre.length a = pre ++ [a] ++ [op] ++ l₂ := by
+  induction pre with
+  | nil => simp [List.insertIdx]
+  | cons hd tl ih =>
+    simp only [List.cons_append, List.length_cons, List.insertIdx_succ_cons]
+    simp only [List.append_assoc, List.cons_append, List.nil_append] at ih ⊢
+    rw [ih]
+
+/-- Array version of `List.insertIdx_mid`. -/
+private theorem Array.insertIdx_mid {α} (pre post : Array α) (op a : α)
+    (hle : pre.size ≤ (pre ++ #[op] ++ post).size) :
+    (pre ++ #[op] ++ post).insertIdx pre.size a hle = pre ++ #[a] ++ #[op] ++ post := by
+  apply Array.toList_inj.mp
+  simp only [Array.toList_insertIdx, Array.toList_append, List.append_assoc]
+  have := List.insertIdx_mid pre.toList post.toList op a
+  simp only [List.append_assoc] at this
+  simpa using this
+
+/-- The index of the pivot in `pre ++ [op] ++ post` is `pre.size` when `op ∉ pre`. -/
+private theorem Array.idxOf_mid {α} [BEq α] [LawfulBEq α] (pre post : Array α) (op : α)
+    (h : op ∉ pre) : (pre ++ #[op] ++ post).idxOf op = pre.size := by
+  rw [show pre ++ #[op] ++ post = pre ++ (#[op] ++ post) by simp]
+  rw [Array.idxOf_append, Array.idxOf_append]; simp [h]
+
+/-- Erasing the unique pivot from `pre ++ mid ++ [op] ++ post` removes exactly that occurrence. -/
+private theorem Array.erase_mid {α} [BEq α] [LawfulBEq α] (pre mid post : Array α) (op : α)
+    (h1 : op ∉ pre) (h2 : op ∉ mid) :
+    (pre ++ mid ++ #[op] ++ post).erase op = pre ++ mid ++ post := by
+  apply Array.toList_inj.mp
+  have hm : op ∉ (pre ++ mid) := by simp only [Array.mem_append]; exact fun h => h.elim h1 h2
+  simp only [Array.toList_erase, Array.toList_append, Array.append_assoc]
+  rw [show pre.toList ++ (mid.toList ++ ([op] ++ post.toList))
+        = (pre.toList ++ mid.toList) ++ ([op] ++ post.toList) by simp]
+  rw [List.erase_append_right _ (by simpa using hm)]
+  simp [List.erase_cons_head]
+
+/-- `operationList` only depends on the underlying context, so equal contexts give equal lists. -/
+theorem BlockPtr.operationList_congr {c₁ c₂ : WfIRContext OpInfo} (h : c₁ = c₂) {block : BlockPtr}
+    (b1 : block.InBounds c₁.raw) (b2 : block.InBounds c₂.raw) :
+    block.operationList c₁.raw c₁.wellFormed b1 = block.operationList c₂.raw c₂.wellFormed b2 := by
+  subst h; rfl
+
+/-- `WfRewriter.createOp` with no insertion point leaves every block's operation list unchanged. -/
+theorem BlockPtr.operationList_WfRewriter_createOp_none {ctx newCtx : WfIRContext OpInfo}
+    {opType : OpInfo} {resultTypes operands blockOperands regions properties}
+    {h₁ h₂ h₃ h₄} {newOp : OperationPtr} {block : BlockPtr}
+    (h : WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      none h₁ h₂ h₃ h₄ = some (newCtx, newOp))
+    (blockIn : block.InBounds ctx.raw) (blockIn' : block.InBounds newCtx.raw) :
+    block.operationList newCtx.raw newCtx.wellFormed blockIn' =
+    block.operationList ctx.raw ctx.wellFormed blockIn := by
+  simp only [WfRewriter.createOp] at h
+  split at h
+  · exact absurd h (by simp)
+  · rename_i c op' hc
+    simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, -⟩ := h
+    simpa using BlockPtr.operationList_rewriter_createOp hc ctx.wellFormed
+
+/-- A `WithCreatedOps` chain (the pattern only creates detached operations) leaves every block's
+operation list unchanged. -/
+theorem WfIRContext.WithCreatedOps.operationList_eq {ctx₁ ctx₂ : WfIRContext OpInfo}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {block : BlockPtr}
+    (blockIn₁ : block.InBounds ctx₁.raw) :
+    ∀ (blockIn₂ : block.InBounds ctx₂.raw),
+      block.operationList ctx₂.raw ctx₂.wellFormed blockIn₂ =
+      block.operationList ctx₁.raw ctx₁.wellFormed blockIn₁ := by
+  induction h with
+  | Nil ctx => intro blockIn₂; rfl
+  | CreatedOp ctx₁ ctx₂ ctx₃ hwco hex ih =>
+    intro blockIn₃
+    obtain ⟨opType, resultTypes, operands, successors, regions, properties, k₁, k₂, k₃, k₄, hcreate⟩ := hex
+    have hb₂ : block.InBounds ctx₂.raw := by
+      have := hwco.inBounds_mono (GenericPtr.block block) (by grind); grind
+    rw [BlockPtr.operationList_WfRewriter_createOp_none hcreate hb₂ blockIn₃]
+    exact ih blockIn₁ hb₂
+
+/-- The block operation list after a `WfRewriter.insertOp`: the new op is spliced into the insertion
+point's block, every other block is untouched. -/
+theorem BlockPtr.operationList_WfRewriter_insertOp {ctx ctx' : WfIRContext OpInfo}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {block : BlockPtr}
+    (h : WfRewriter.insertOp ctx newOp ip h1 h2 = some ctx')
+    (blockIn : block.InBounds ctx.raw) (blockIn' : block.InBounds ctx'.raw) :
+    block.operationList ctx'.raw ctx'.wellFormed blockIn' =
+      if hb : ip.block! ctx.raw = some block then
+        (block.operationList ctx.raw ctx.wellFormed blockIn).insertIdx
+          (ip.idxIn ctx.raw block) newOp (by apply InsertPoint.idxIn.le_size_operationList)
+      else block.operationList ctx.raw ctx.wellFormed blockIn := by
+  simp only [WfRewriter.insertOp] at h
+  split at h
+  · exact absurd h (by simp)
+  · rename_i c hc
+    simp only [Option.pure_def, Option.some.injEq] at h
+    obtain rfl := h
+    exact BlockPtr.operationList_rewriter_insertOp hc ctx.wellFormed
+
+/-- `PatternRewriter.insertOp` lift of `operationList_WfRewriter_insertOp`. -/
+theorem PatternRewriter.insertOp_operationList {b b' : PatternRewriter OpInfo}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {block : BlockPtr}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b')
+    (blockIn : block.InBounds b.ctx.raw) (blockIn' : block.InBounds b'.ctx.raw) :
+    block.operationList b'.ctx.raw b'.ctx.wellFormed blockIn' =
+      if hb : ip.block! b.ctx.raw = some block then
+        (block.operationList b.ctx.raw b.ctx.wellFormed blockIn).insertIdx
+          (ip.idxIn b.ctx.raw block) newOp (by apply InsertPoint.idxIn.le_size_operationList)
+      else block.operationList b.ctx.raw b.ctx.wellFormed blockIn := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · exact absurd h (by simp)
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact BlockPtr.operationList_WfRewriter_insertOp hwf blockIn blockIn'
+
+/-- `PatternRewriter.insertOp` preserves the parent of every operation other than the inserted one. -/
+theorem PatternRewriter.insertOp_op_parent {b b' : PatternRewriter OpInfo}
+    {newOp op : OperationPtr} {ip : InsertPoint} {h1 h2}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') (hne : op ≠ newOp) :
+    (op.get! b'.ctx.raw).parent = (op.get! b.ctx.raw).parent := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · exact absurd h (by simp)
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    have := OperationPtr.parent!_wfRewriter_insertOp (operation := op) hwf
+    simpa [hne] using this
+
+/-- `PatternRewriter.insertOp` preserves all `InBounds` facts. -/
+theorem PatternRewriter.insertOp_genericPtr_inBounds {b b' : PatternRewriter OpInfo}
+    {newOp : OperationPtr} {ptr : GenericPtr} {ip : InsertPoint} {h1 h2}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    ptr.InBounds b'.ctx.raw ↔ ptr.InBounds b.ctx.raw := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · exact absurd h (by simp)
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact WfRewriter.insertOp_inBounds_iff hwf
+
+/-- `WfRewriter.replaceValue` only redirects operands, leaving every block's operation list intact. -/
+theorem BlockPtr.operationList_WfRewriter_replaceValue {ctx : WfIRContext OpInfo}
+    {oldValue newValue : ValuePtr} {ne : oldValue ≠ newValue}
+    {oldIn : oldValue.InBounds ctx.raw} {newIn : newValue.InBounds ctx.raw}
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
+    (blockIn' : block.InBounds (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw) :
+    block.operationList (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw
+        (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).wellFormed blockIn' =
+    block.operationList ctx.raw ctx.wellFormed blockIn := by
+  have hchain : BlockPtr.OpChain block
+      (WfRewriter.replaceValue ctx oldValue newValue ne oldIn newIn).raw
+      (block.operationList ctx.raw ctx.wellFormed blockIn) := by
+    apply BlockPtr.OpChain_unchanged
+      (BlockPtr.operationListWF ctx.raw block blockIn ctx.wellFormed) blockIn'
+    · grind
+    · grind
+    · intro opPtr hop hpar; refine ⟨?_, ?_, ?_, ?_⟩ <;> grind
+    · intro opPtr hop hpar; refine ⟨?_, ?_⟩ <;> grind
+  grind
+
+/-- `PatternRewriter.replaceValue` lift of `operationList_WfRewriter_replaceValue`. -/
+theorem PatternRewriter.replaceValue_operationList {b : PatternRewriter OpInfo}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {block : BlockPtr}
+    (blockIn : block.InBounds b.ctx.raw)
+    (blockIn' : block.InBounds (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw) :
+    block.operationList (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw
+        (b.replaceValue oldVal newVal ne oldIn newIn).ctx.wellFormed blockIn' =
+    block.operationList b.ctx.raw b.ctx.wellFormed blockIn := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  revert blockIn'
+  rw [hctx]
+  intro blockIn'
+  exact BlockPtr.operationList_WfRewriter_replaceValue blockIn _
+
+/-- `PatternRewriter.replaceValue` preserves all `InBounds` facts. -/
+theorem PatternRewriter.replaceValue_genericPtr_inBounds {b : PatternRewriter OpInfo}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {ptr : GenericPtr} :
+    ptr.InBounds (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw ↔ ptr.InBounds b.ctx.raw := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]; exact WfRewriter.replaceValue_inBounds
+
+/-- `PatternRewriter.replaceValue` preserves block in-boundedness (the `BlockPtr`-headed form, so it
+unifies against goals where the replace proofs are opaque). -/
+theorem PatternRewriter.replaceValue_blockPtr_inBounds {b : PatternRewriter OpInfo}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {block : BlockPtr} :
+    block.InBounds (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw ↔ block.InBounds b.ctx.raw := by
+  have := PatternRewriter.replaceValue_genericPtr_inBounds (b := b) (oldVal := oldVal)
+    (newVal := newVal) (ne := ne) (oldIn := oldIn) (newIn := newIn) (ptr := GenericPtr.block block)
+  grind
+
+/-- The block operation list after a `WfRewriter.eraseOp`: the erased op is dropped from its parent
+block, every other block is untouched. -/
+theorem BlockPtr.operationList_WfRewriter_eraseOp {ctx : WfIRContext OpInfo} {op : OperationPtr}
+    {hr hu ho} {block : BlockPtr}
+    (blockIn : block.InBounds ctx.raw)
+    (blockIn' : block.InBounds (WfRewriter.eraseOp ctx op hr hu ho).raw) :
+    block.operationList (WfRewriter.eraseOp ctx op hr hu ho).raw
+        (WfRewriter.eraseOp ctx op hr hu ho).wellFormed blockIn'
+      = if (op.get! ctx.raw).parent = block then
+          (block.operationList ctx.raw ctx.wellFormed blockIn).erase op
+        else block.operationList ctx.raw ctx.wellFormed blockIn := by
+  simp only [WfRewriter.eraseOp]
+  exact BlockPtr.operationList_rewriter_eraseOp ctx.wellFormed
+
+/-- Folding `insertOp · (before op)` over a list of fresh ops splices them, in order, just before
+`op` inside `op`'s block, leaving `op`'s membership/parent intact. -/
+theorem PatternRewriter.foldlM_insertOp_before_opList
+    {op : OperationPtr} {block : BlockPtr}
+    {f : PatternRewriter OpInfo → OperationPtr → Option (PatternRewriter OpInfo)}
+    (hf : ∀ b a b', f b a = some b' →
+       ∃ (k1 : a.InBounds b.ctx.raw) (k2 : (InsertPoint.before op).InBounds b.ctx.raw),
+         PatternRewriter.insertOp b a (InsertPoint.before op) k1 k2 = some b') :
+    ∀ {l : List OperationPtr} {init s : PatternRewriter OpInfo} {pre post : Array OperationPtr},
+    op.InBounds init.ctx.raw →
+    List.foldlM f init l = some s →
+    (op.get! init.ctx.raw).parent = some block →
+    (∀ (hb : block.InBounds init.ctx.raw),
+      block.operationList init.ctx.raw init.ctx.wellFormed hb = pre ++ #[op] ++ post) →
+    op ∉ pre → op ∉ post → op ∉ l →
+    op.InBounds s.ctx.raw ∧
+    (op.get! s.ctx.raw).parent = some block ∧
+    (∀ (hb : block.InBounds s.ctx.raw),
+      block.operationList s.ctx.raw s.ctx.wellFormed hb = pre ++ l.toArray ++ #[op] ++ post) := by
+  intro l
+  induction l with
+  | nil =>
+    intro init s pre post hinit hfold hpar hlist _ _ _
+    simp only [List.foldlM_nil, Option.pure_def, Option.some.injEq] at hfold
+    subst hfold
+    exact ⟨hinit, hpar, by intro hb; simpa using hlist hb⟩
+  | cons a t ih =>
+    intro init s pre post hinit hfold hpar hlist hpre hpost hnotmem
+    rw [List.foldlM_cons] at hfold
+    obtain ⟨b, hfa, htail⟩ := Option.bind_eq_some_iff.mp hfold
+    obtain ⟨k1, k2, hins⟩ := hf init a b hfa
+    have hblockInit : block.InBounds init.ctx.raw := by
+      have := init.ctx.wellFormed.inBounds; grind
+    have hane : op ≠ a := by intro h; subst h; exact hnotmem (by simp)
+    have hopB : op.InBounds b.ctx.raw := by
+      have := PatternRewriter.insertOp_genericPtr_inBounds (ptr := GenericPtr.operation op) hins
+      grind
+    have hparB : (op.get! b.ctx.raw).parent = some block := by
+      rw [PatternRewriter.insertOp_op_parent hins hane]; exact hpar
+    have hipblock : (InsertPoint.before op).block! init.ctx.raw = some block := by
+      rw [InsertPoint.block!_before_eq]; exact hpar
+    have hlistB : ∀ (hb : block.InBounds b.ctx.raw),
+        block.operationList b.ctx.raw b.ctx.wellFormed hb = (pre ++ #[a]) ++ #[op] ++ post := by
+      intro hb
+      rw [PatternRewriter.insertOp_operationList hins hblockInit hb, dif_pos hipblock]
+      simp only [InsertPoint.idxIn_before_eq, hlist hblockInit, Array.idxOf_mid pre post op hpre]
+      exact Array.insertIdx_mid pre post op a _
+    have hpre' : op ∉ pre ++ #[a] := by
+      simp only [Array.mem_append, Array.mem_singleton]
+      exact fun h => h.elim hpre (fun h => hane h)
+    have hnotmemt : op ∉ t := fun h => hnotmem (List.mem_cons_of_mem a h)
+    obtain ⟨hs, hsp, hsl⟩ := ih hopB htail hparB hlistB hpre' hpost hnotmemt
+    refine ⟨hs, hsp, ?_⟩
+    intro hb
+    rw [hsl hb, show (a :: t).toArray = #[a] ++ t.toArray from List.toArray_cons a t]
+    simp only [Array.append_assoc]
+
+/-- A fold that preserves `c`'s operation list (and `c`'s in-boundedness) at every step preserves it
+overall. -/
+theorem PatternRewriter.foldlM_preserves_opList {α} {c : BlockPtr}
+    {f : PatternRewriter OpInfo → α → Option (PatternRewriter OpInfo)}
+    (hstep : ∀ b a b', f b a = some b' →
+        (c.InBounds b.ctx.raw → c.InBounds b'.ctx.raw) ∧
+        (∀ (hc : c.InBounds b.ctx.raw) (hc' : c.InBounds b'.ctx.raw),
+          c.operationList b'.ctx.raw b'.ctx.wellFormed hc'
+            = c.operationList b.ctx.raw b.ctx.wellFormed hc)) :
+    ∀ {l : List α} {init s : PatternRewriter OpInfo},
+    List.foldlM f init l = some s →
+    ∀ (hc : c.InBounds init.ctx.raw) (hc' : c.InBounds s.ctx.raw),
+      c.operationList s.ctx.raw s.ctx.wellFormed hc'
+        = c.operationList init.ctx.raw init.ctx.wellFormed hc := by
+  intro l
+  induction l with
+  | nil =>
+    intro init s hfold hc hc'
+    simp only [List.foldlM_nil, Option.pure_def, Option.some.injEq] at hfold
+    subst hfold; rfl
+  | cons a t ih =>
+    intro init s hfold hc hc'
+    rw [List.foldlM_cons] at hfold
+    obtain ⟨b, hfa, htail⟩ := Option.bind_eq_some_iff.mp hfold
+    obtain ⟨hinb, hop⟩ := hstep init a b hfa
+    have hcb : c.InBounds b.ctx.raw := hinb hc
+    rw [ih htail hcb hc', hop hc hcb]
+
+/-- Folding `insertOp · (before op)` leaves every block other than `op`'s parent untouched. -/
+theorem PatternRewriter.foldlM_insertOp_before_other
+    {op : OperationPtr} {block c : BlockPtr} (hcb : c ≠ block)
+    {f : PatternRewriter OpInfo → OperationPtr → Option (PatternRewriter OpInfo)}
+    (hf : ∀ b a b', f b a = some b' →
+       ∃ (k1 : a.InBounds b.ctx.raw) (k2 : (InsertPoint.before op).InBounds b.ctx.raw),
+         PatternRewriter.insertOp b a (InsertPoint.before op) k1 k2 = some b') :
+    ∀ {l : List OperationPtr} {init s : PatternRewriter OpInfo},
+    op.InBounds init.ctx.raw →
+    (op.get! init.ctx.raw).parent = some block →
+    List.foldlM f init l = some s →
+    op ∉ l →
+    ∀ (hc : c.InBounds init.ctx.raw) (hc' : c.InBounds s.ctx.raw),
+      c.operationList s.ctx.raw s.ctx.wellFormed hc'
+        = c.operationList init.ctx.raw init.ctx.wellFormed hc := by
+  intro l
+  induction l with
+  | nil =>
+    intro init s hinit hpar hfold _ hc hc'
+    simp only [List.foldlM_nil, Option.pure_def, Option.some.injEq] at hfold
+    subst hfold; rfl
+  | cons a t ih =>
+    intro init s hinit hpar hfold hnotmem hc hc'
+    rw [List.foldlM_cons] at hfold
+    obtain ⟨b, hfa, htail⟩ := Option.bind_eq_some_iff.mp hfold
+    obtain ⟨k1, k2, hins⟩ := hf init a b hfa
+    have hane : op ≠ a := by intro h; subst h; exact hnotmem (by simp)
+    have hcInB : c.InBounds b.ctx.raw := by
+      have := PatternRewriter.insertOp_genericPtr_inBounds (ptr := GenericPtr.block c) hins
+      grind
+    have hopB : op.InBounds b.ctx.raw := by
+      have := PatternRewriter.insertOp_genericPtr_inBounds (ptr := GenericPtr.operation op) hins
+      grind
+    have hparB : (op.get! b.ctx.raw).parent = some block := by
+      rw [PatternRewriter.insertOp_op_parent hins hane]; exact hpar
+    have hstep : c.operationList b.ctx.raw b.ctx.wellFormed hcInB
+        = c.operationList init.ctx.raw init.ctx.wellFormed hc := by
+      rw [PatternRewriter.insertOp_operationList hins hc hcInB, dif_neg ?_]
+      rw [InsertPoint.block!_before_eq, hpar]
+      simp only [Option.some.injEq]
+      exact fun h => hcb h.symm
+    rw [ih hopB hparB htail (fun h => hnotmem (List.mem_cons_of_mem a h)) hcInB hc', hstep]
+
+/-! ### Keystone helpers: how the driver's pipeline frames a *survivor's* intrinsic data.
+
+These discharge the `frame` field of `RewrittenAt.of_fromLocalRewrite`. For an operation `o ≠ op` the
+driver leaves its op type, properties, result count, successors and result types untouched at every
+stage (created ops, insert fold, replace fold, erase); only its operands are rewritten, and exactly by
+the result→`newValues` redirect, which equals the value renaming `σ`. -/
+
+/-- `createEmptyOp` leaves a pre-existing operation's properties (at every op code) untouched: it only
+`set`s the fresh `newOp`'s record. The shipped `getProperties!_createEmptyOp` is code-specific. -/
+theorem OperationPtr.getProperties!_createEmptyOp_ne {ctx ctx' : IRContext OpCode}
+    {opType : OpCode} {properties : HasOpInfo.propertiesOf opType} {newOp operation : OperationPtr}
+    {oc : OpCode}
+    (h : Rewriter.createEmptyOp ctx opType properties = some (ctx', newOp))
+    (hne : operation ≠ newOp) :
+    operation.getProperties! ctx' oc = operation.getProperties! ctx oc := by
+  simp only [Rewriter.createEmptyOp, OperationPtr.allocEmpty] at h
+  grind [OperationPtr.getProperties!, OperationPtr.set, OperationPtr.get!]
+
+/-- A `WfRewriter.createOp` leaves a pre-existing operation's properties (at every op code) untouched:
+only the fresh `newOp` gets properties, and the init steps touch only results/regions/operands. The
+code-specific `getProperties!_WfRewriter_createOp` covers only the created op's own type. -/
+theorem OperationPtr.getProperties!_WfRewriter_createOp_ne {ctx ctx' : WfIRContext OpCode}
+    {opType : OpCode} {resultTypes operands blockOperands regions properties h₁ h₂ h₃ h₄}
+    {newOp operation : OperationPtr} {oc : OpCode}
+    (h : WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      none h₁ h₂ h₃ h₄ = some (ctx', newOp))
+    (hne : operation ≠ newOp) :
+    operation.getProperties! ctx'.raw oc = operation.getProperties! ctx.raw oc := by
+  simp only [WfRewriter.createOp] at h
+  grind [Rewriter.createOp, OperationPtr.getProperties!_createEmptyOp_ne,
+    OperationPtr.getProperties!_initOpRegions]
+
+/-- Intrinsic operation data the rewrite driver leaves untouched for a *surviving* operation `o`: its
+op type, properties (at every op code), result count, successors and result types. Operands are
+deliberately excluded — the redirect fold rewrites them. Packaged as a single `Prop` so the driver's
+folds can thread it through `Array.foldlM_option_invariant` in one shot. -/
+def OperationPtr.SameIntrinsic (o : OperationPtr) (c c' : IRContext OpCode) : Prop :=
+  o.getOpType! c' = o.getOpType! c ∧
+  (∀ ot, o.getProperties! c' ot = o.getProperties! c ot) ∧
+  o.getNumResults! c' = o.getNumResults! c ∧
+  o.getSuccessors! c' = o.getSuccessors! c ∧
+  o.getResultTypes! c' = o.getResultTypes! c
+
+@[refl]
+theorem OperationPtr.SameIntrinsic.rfl {o : OperationPtr} {c : IRContext OpCode} :
+    o.SameIntrinsic c c := ⟨_root_.rfl, fun _ => _root_.rfl, _root_.rfl, _root_.rfl, _root_.rfl⟩
+
+theorem OperationPtr.SameIntrinsic.symm {o : OperationPtr} {c c' : IRContext OpCode}
+    (h : o.SameIntrinsic c c') : o.SameIntrinsic c' c :=
+  ⟨h.1.symm, fun ot => (h.2.1 ot).symm, h.2.2.1.symm, h.2.2.2.1.symm, h.2.2.2.2.symm⟩
+
+theorem OperationPtr.SameIntrinsic.trans {o : OperationPtr} {c c' c'' : IRContext OpCode}
+    (h : o.SameIntrinsic c c') (h' : o.SameIntrinsic c' c'') : o.SameIntrinsic c c'' :=
+  ⟨h'.1.trans h.1, fun ot => (h'.2.1 ot).trans (h.2.1 ot), h'.2.2.1.trans h.2.2.1,
+    h'.2.2.2.1.trans h.2.2.2.1, h'.2.2.2.2.trans h.2.2.2.2⟩
+
+/-- `PatternRewriter.insertOp` frames a survivor's intrinsic data (it only links a fresh op). -/
+theorem PatternRewriter.insertOp_sameIntrinsic {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {o : OperationPtr}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    o.SameIntrinsic b.ctx.raw b'.ctx.raw := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · simp at h
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact ⟨OperationPtr.getOpType!_wfRewriter_insertOp hwf,
+      fun _ => OperationPtr.getProperties!_wfRewriter_insertOp hwf,
+      OperationPtr.getNumResults!_wfRewriter_insertOp hwf,
+      OperationPtr.getSuccessors!_wfRewriter_insertOp hwf,
+      OperationPtr.getResultTypes!_wfRewriter_insertOp hwf⟩
+
+/-- `PatternRewriter.insertOp` frames a survivor's operands. -/
+theorem PatternRewriter.insertOp_getOperands {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {o : OperationPtr}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    o.getOperands! b'.ctx.raw = o.getOperands! b.ctx.raw := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · simp at h
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact OperationPtr.getOperands!_wfRewriter_insertOp hwf
+
+/-- `PatternRewriter.replaceValue` frames every operation's intrinsic data (it only redirects
+operands). -/
+theorem PatternRewriter.replaceValue_sameIntrinsic {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {o : OperationPtr} :
+    o.SameIntrinsic b.ctx.raw (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]
+  exact ⟨OperationPtr.getOpType!_WfRewriter_replaceValue,
+    fun _ => OperationPtr.getProperties!_WfRewriter_replaceValue,
+    OperationPtr.getNumResults!_WfRewriter_replaceValue,
+    OperationPtr.getSuccessors!_WfRewriter_replaceValue,
+    OperationPtr.getResultTypes!_WfRewriter_replaceValue⟩
+
+/-- `PatternRewriter.replaceValue` rewrites a survivor's operands by the single-value redirect. -/
+theorem PatternRewriter.replaceValue_getOperands {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {o : OperationPtr} (hin : o.InBounds b.ctx.raw) :
+    o.getOperands! (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw =
+    (o.getOperands! b.ctx.raw).map (fun v => if v = oldVal then newVal else v) := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]
+  exact OperationPtr.getOperands!_WfRewriter_replaceValue hin
+
+/-- A `WithCreatedOps` chain frames a survivor's intrinsic data (it only creates fresh ops). -/
+theorem WfIRContext.WithCreatedOps.sameIntrinsic {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {o : OperationPtr} (oIn : o.InBounds ctx₁.raw) :
+    o.SameIntrinsic ctx₁.raw ctx₂.raw := by
+  induction h with
+  | Nil => rfl
+  | CreatedOp ctx₁ ctx₂ ctx₃ hwco hex ih =>
+    obtain ⟨opType, rt, ops, succ, regs, props, k₁, k₂, k₃, k₄, hcreate⟩ := hex
+    have ho2 : o.InBounds ctx₂.raw := by
+      have := hwco.inBounds_mono (GenericPtr.operation o) (by grind); grind
+    have hstep : o.SameIntrinsic ctx₂.raw ctx₃.raw := by
+      refine ⟨by grind, fun ot => ?_, by grind, by grind, by grind⟩
+      exact OperationPtr.getProperties!_WfRewriter_createOp_ne hcreate (by grind)
+    exact (ih oIn).trans hstep
+
+/-- A `WithCreatedOps` chain frames a survivor's operands (it only creates fresh ops). -/
+theorem WfIRContext.WithCreatedOps.getOperands_eq {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {o : OperationPtr} (oIn : o.InBounds ctx₁.raw) :
+    o.getOperands! ctx₂.raw = o.getOperands! ctx₁.raw := by
+  induction h with
+  | Nil => rfl
+  | CreatedOp ctx₁ ctx₂ ctx₃ hwco hex ih =>
+    obtain ⟨opType, rt, ops, succ, regs, props, k₁, k₂, k₃, k₄, hcreate⟩ := hex
+    have ho2 : o.InBounds ctx₂.raw := by
+      have := hwco.inBounds_mono (GenericPtr.operation o) (by grind); grind
+    rw [OperationPtr.getOperands!_WfRewriter_createOp hcreate, if_neg (by grind)]
+    exact ih oIn
+
+/-- Fuse a left-fold of array `map`s into one `map` of left-folds. -/
+theorem List.foldl_arrayMap_fusion {α β : Type} (l : List β) (g : β → α → α) (arr : Array α) :
+    l.foldl (fun a b => a.map (fun x => g b x)) arr
+      = arr.map (fun x => l.foldl (fun acc b => g b acc) x) := by
+  induction l generalizing arr with
+  | nil => simp
+  | cons b t ih => simp only [List.foldl_cons, ih, Array.map_map, Function.comp_def]
+
+/-- The result→`newValues` redirect fold, applied to a value that is *not* one of `op`'s results, is
+the identity: no step's `oldVal` (an `op` result) ever matches. -/
+theorem fold_replaceResult_eq_self (op : OperationPtr) :
+    ∀ (l : List (ValuePtr × Nat)) (v : ValuePtr),
+    (∀ q ∈ l, v ≠ (op.getResult q.2 : ValuePtr)) →
+    l.foldl (fun acc q => if acc = (op.getResult q.2 : ValuePtr) then q.1 else acc) v = v := by
+  intro l
+  induction l with
+  | nil => intro v _; rfl
+  | cons q t ih =>
+    intro v h
+    rw [List.foldl_cons, if_neg (h q (by simp))]
+    exact ih v (fun q' hq' => h q' (by simp [hq']))
+
+/-- The redirect fold over `newValues.zipIdx`, applied to `op`'s `(start+k)`-th result, lands on
+`newValues[k]`: every earlier step targets a different result so leaves it; the matching step sends it
+to `newValues[k]`; later steps cannot touch `newValues[k]`, which is not an `op` result. -/
+theorem fold_replaceResult_zipIdx_hit (op : OperationPtr) :
+    ∀ (vs : List ValuePtr) (start k : Nat) (hk : k < vs.length),
+    (∀ x ∈ vs, ∀ m, x ≠ (op.getResult m : ValuePtr)) →
+    (vs.zipIdx start).foldl
+        (fun acc q => if acc = (op.getResult q.2 : ValuePtr) then q.1 else acc)
+        (op.getResult (start + k) : ValuePtr) = vs[k] := by
+  intro vs
+  induction vs with
+  | nil => intro start k hk _; simp at hk
+  | cons a t ih =>
+    intro start k hk hrepl
+    rw [List.zipIdx_cons, List.foldl_cons]
+    match k with
+    | 0 =>
+      simp only [Nat.add_zero, List.getElem_cons_zero]
+      exact fold_replaceResult_eq_self op (t.zipIdx (start + 1)) a
+        (fun q hq => hrepl a (by simp) q.2)
+    | k' + 1 =>
+      have hne : (op.getResult (start + (k' + 1)) : ValuePtr) ≠ (op.getResult start : ValuePtr) := by
+        simp only [OperationPtr.getResult, ne_eq, ValuePtr.opResult.injEq,
+          OpResultPtr.mk.injEq, true_and]
+        omega
+      rw [if_neg hne, show start + (k' + 1) = (start + 1) + k' by omega,
+        List.getElem_cons_succ]
+      exact ih (start + 1) k' (by simpa using hk) (fun x hx m => hrepl x (by simp [hx]) m)
+
+/-- The driver's redirect fold (`foldlM` of `replaceValue (op.getResult i) newValues[i]` over
+`newValues.zipIdx`) rewrites a survivor's operand array by mapping each operand through the
+single-result redirect, composed left-to-right. -/
+theorem PatternRewriter.foldlM_replaceValue_getOperands {op o : OperationPtr}
+    {f : PatternRewriter OpCode → (ValuePtr × Nat) → Option (PatternRewriter OpCode)}
+    (hf : ∀ b q b', f b q = some b' →
+        ∃ ne oldIn newIn, b.replaceValue (op.getResult q.2 : ValuePtr) q.1 ne oldIn newIn = b') :
+    ∀ {l : List (ValuePtr × Nat)} {init s : PatternRewriter OpCode},
+    List.foldlM f init l = some s → o.InBounds init.ctx.raw →
+    o.getOperands! s.ctx.raw =
+      l.foldl (fun arr q => arr.map (fun v => if v = (op.getResult q.2 : ValuePtr) then q.1 else v))
+        (o.getOperands! init.ctx.raw) := by
+  intro l
+  induction l with
+  | nil =>
+    intro init s hfold _
+    simp only [List.foldlM_nil, Option.pure_def, Option.some.injEq] at hfold
+    subst hfold; rfl
+  | cons q t ih =>
+    intro init s hfold hin
+    rw [List.foldlM_cons] at hfold
+    obtain ⟨b, hfb, htail⟩ := Option.bind_eq_some_iff.mp hfold
+    obtain ⟨ne, oldIn, newIn, hb⟩ := hf init q b hfb
+    have hinb : o.InBounds b.ctx.raw := by
+      rw [← hb]
+      have h := PatternRewriter.replaceValue_genericPtr_inBounds (b := init)
+        (oldVal := (op.getResult q.2 : ValuePtr)) (newVal := q.1) (ne := ne) (oldIn := oldIn)
+        (newIn := newIn) (ptr := GenericPtr.operation o)
+      grind
+    have hstep : o.getOperands! b.ctx.raw
+        = (o.getOperands! init.ctx.raw).map
+            (fun v => if v = (op.getResult q.2 : ValuePtr) then q.1 else v) := by
+      rw [← hb]; exact PatternRewriter.replaceValue_getOperands hin
+    rw [List.foldl_cons, ih htail hinb, hstep]
+
+/-- The driver's redirect fold over `newValues.zipIdx` realizes the value renaming `σ` pointwise: a
+value that is one of `op`'s results `i` goes to `newValues[i]`, anything else is fixed. Requires that
+no `newValue` is itself an `op` result (`hNoAlias`) so the sequential fold cannot chain redirects. -/
+theorem fold_replaceResult_zipIdx_eq_sigma {ctx : WfIRContext OpCode}
+    (op : OperationPtr) (newValues : Array ValuePtr)
+    (hsize : newValues.size = op.getNumResults! ctx.raw)
+    (hNoAlias : ∀ x ∈ newValues, ∀ m, x ≠ (op.getResult m : ValuePtr))
+    (v : ValuePtr) :
+    (newValues.zipIdx.toList).foldl
+        (fun acc q => if acc = (op.getResult q.2 : ValuePtr) then q.1 else acc) v
+      = if v ∈ op.getResults! ctx.raw
+        then newValues[(op.getResults! ctx.raw).idxOf v]! else v := by
+  rw [Array.toList_zipIdx]
+  by_cases hv : v ∈ op.getResults! ctx.raw
+  · rw [if_pos hv]
+    obtain ⟨j, hj, hvj⟩ := OperationPtr.getResults!.mem_iff_exists_index.mp hv
+    have hidx : (op.getResults! ctx.raw).idxOf v = j := by
+      have h1 : (op.getResult ((op.getResults! ctx.raw).idxOf v) : ValuePtr) = v :=
+        OperationPtr.getResult_eq_of_idxOf_getResults! hv rfl
+      have := h1.trans hvj.symm
+      simp only [OperationPtr.getResult, ValuePtr.opResult.injEq, OpResultPtr.mk.injEq,
+        true_and] at this
+      exact this
+    have hjsize : j < newValues.toList.length := by
+      rw [Array.length_toList]; omega
+    have key := fold_replaceResult_zipIdx_hit op newValues.toList 0 j hjsize
+      (by simpa [Array.mem_toList_iff] using hNoAlias)
+    rw [Nat.zero_add] at key
+    rw [hidx, show v = (op.getResult j : ValuePtr) from hvj.symm, key]
+    rw [Array.getElem_toList]
+    exact (getElem!_pos newValues j (by omega)).symm
+  · rw [if_neg hv]
+    apply fold_replaceResult_eq_self
+    intro q hq hcontra
+    apply hv
+    rw [hcontra]
+    refine OperationPtr.getResults!.mem_getResult ?_
+    have hlt := List.snd_lt_of_mem_zipIdx (by simpa using hq)
+    rw [Array.length_toList] at hlt; omega
+
+/-- `rewriteMapping`'s `applyToArray` is, pointwise, the underlying value renaming: a value among
+`op`'s results is redirected to the matching `newValue`, everything else is fixed. -/
+theorem rewriteMapping_applyToArray_eq_map {ctx newCtx : WfIRContext OpCode}
+    (op : OperationPtr) (newValues : Array ValuePtr) {mR mN} (arr : Array ValuePtr)
+    (hin : ∀ v ∈ arr, v.InBounds ctx.raw) :
+    (rewriteMapping (ctx := ctx) (newCtx := newCtx) op newValues mR mN).applyToArray arr hin
+      = arr.map (fun v => if v ∈ op.getResults! ctx.raw
+          then newValues[(op.getResults! ctx.raw).idxOf v]! else v) := by
+  apply Array.ext
+  · simp [ValueMapping.applyToArray]
+  · intro i h1 h2
+    simp only [ValueMapping.applyToArray, Array.getElem_map, Array.getElem_attach, rewriteMapping]
+    split <;> grind
+
 set_option warn.sorry false in
 /--
 **PR 9 — bridge from the concrete driver.** When `fromLocalRewrite` runs the rewrite branch for a
@@ -2504,6 +3125,7 @@ theorem RewrittenAt.of_fromLocalRewrite
     (hReturnCtxChanges : pattern.ReturnCtxChanges)
     (hReturnValuesInBounds : pattern.ReturnValuesInBounds)
     (hReturnValues : pattern.ReturnValues)
+    (hReturnValuesNotSourceResults : pattern.ReturnValuesNotSourceResults)
     {rewriter rewriter' : PatternRewriter OpCode}
     {op : OperationPtr} (opInBounds : op.InBounds rewriter.ctx.raw)
     {block : BlockPtr} (hOpParent : (op.get! rewriter.ctx.raw).parent = some block)
@@ -2595,22 +3217,110 @@ theorem RewrittenAt.of_fromLocalRewrite
     have hb := (hbnd (GenericPtr.value v)).mpr hv
     rw [PatternRewriter.eraseOp_ctx_eq herase]
     grind [WfRewriter.eraseOp]
+  -- === Keystone block-list facts (shared by the `tgtList`/`otherBlocks` fields). ===
+  -- `op` is in bounds of the pattern's output and not among the freshly created `newOps`.
+  have hopNewCtxPat : op.InBounds newCtxPat.raw := by
+    have := hCreated.inBounds_mono (GenericPtr.operation op) (by grind); grind
+  have hopNotNewOps : op ∉ newOps := fun hmem =>
+    ((hReturnOps rewriter.ctx op newCtxPat newOps newValues hpat op).mp hmem).2 opInBounds
+  -- `op` occurs once in `block`'s source list, so it is in neither `pre` nor `post`.
+  have hoppre : op ∉ pre ∧ op ∉ post := by
+    have hnodup := BlockPtr.OpChain_array_toList_Nodup
+      (BlockPtr.operationListWF rewriter.ctx.raw block blockIn rewriter.ctx.wellFormed)
+    rw [hsrcList] at hnodup
+    simp only [Array.toList_append, List.nodup_append, List.mem_append] at hnodup
+    exact ⟨fun h => hnodup.1.2.2 op (by simpa using h) op (by simp) rfl,
+           fun h => hnodup.2.2 op (Or.inr (by simp)) op (by simpa using h) rfl⟩
+  -- `block`'s list in the pattern output is still `pre ++ [op] ++ post` (only ops were created).
+  have hlistInit : ∀ (hb : block.InBounds newCtxPat.raw),
+      block.operationList newCtxPat.raw newCtxPat.wellFormed hb = pre ++ #[op] ++ post := by
+    intro hb; rw [hCreated.operationList_eq blockIn hb, hsrcList]
+  have hparInit : (op.get! newCtxPat.raw).parent = some block :=
+    (BlockPtr.operationList.mem hopNewCtxPat).mpr
+      (by rw [hlistInit hblockNewCtxPat]; simp [Array.mem_append])
+  -- The two driver folds as `List.foldlM`s.
+  have hfold1L := hfold1; rw [← Array.foldlM_toList] at hfold1L
+  have hfold2L := hfold2; rw [← Array.foldlM_toList] at hfold2L
+  -- Insert fold: `block`'s list becomes `pre ++ newOps ++ [op] ++ post`; `op` keeps its parent.
+  obtain ⟨hopS1, hparS1, hlistS1⟩ :=
+    PatternRewriter.foldlM_insertOp_before_opList
+      (hf := fun b a b' hfa => ⟨_, _, hfa⟩)
+      hopNewCtxPat hfold1L hparInit hlistInit hoppre.1 hoppre.2 (by simpa using hopNotNewOps)
+  have hblockS1 : block.InBounds s₁.ctx.raw := by have := s₁.ctx.wellFormed.inBounds; grind
+  have hblockS2 : block.InBounds s₂.ctx.raw := by
+    have := hbnd (GenericPtr.block block); grind
+  -- Replace fold leaves `block`'s list untouched (`hstep` is inlined so `f` matches the driver's).
+  have hblockListS2 : block.operationList s₂.ctx.raw s₂.ctx.wellFormed hblockS2
+      = pre ++ newOps ++ #[op] ++ post := by
+    rw [PatternRewriter.foldlM_preserves_opList (c := block)
+      (hstep := by
+        intro b a b' hfa
+        simp only [Option.some.injEq] at hfa; subst hfa
+        exact ⟨fun hcin => PatternRewriter.replaceValue_blockPtr_inBounds.mpr hcin,
+          fun hc hc' => PatternRewriter.replaceValue_operationList hc hc'⟩)
+      hfold2L hblockS1 hblockS2, hlistS1 hblockS1]
+  have hopS2 : op.InBounds s₂.ctx.raw := by have := hbnd (GenericPtr.operation op); grind
+  have hopParentS2 : (op.get! s₂.ctx.raw).parent = some block :=
+    (BlockPtr.operationList.mem hopS2).mpr (by rw [hblockListS2]; simp [Array.mem_append])
   refine ⟨pre, post, blockIn, blockIn', ?_⟩
   exact {
     -- Block-list shape: discharged for the source by the split lemma.
     srcList := hsrcList
-    -- TODO(PR 9, keystone): `operationList_rewriter_insertOp` (newOps before op) +
-    -- `operationList_rewriter_eraseOp` (op removed) on the fold decomposition.
-    tgtList := by sorry
-    -- TODO(PR 9, keystone): insert/erase only touch `block`'s list (other blocks unchanged).
-    otherBlocks := by sorry
+    -- Target list: the insert fold turns `pre ++ [op] ++ post` into `pre ++ newOps ++ [op] ++ post`
+    -- (`hblockListS2`), then `eraseOp op` drops the unique `op`, leaving `pre ++ newOps ++ post`.
+    tgtList := by
+      rw [BlockPtr.operationList_congr (PatternRewriter.eraseOp_ctx_eq herase) blockIn'
+            (PatternRewriter.eraseOp_ctx_eq herase ▸ blockIn'),
+          BlockPtr.operationList_WfRewriter_eraseOp (block := block) hblockS2,
+          if_pos hopParentS2, hblockListS2]
+      exact Array.erase_mid pre newOps post op hoppre.1 hopNotNewOps
+    -- Other blocks: untouched by the created ops (`WithCreatedOps`), the insert fold (inserts target
+    -- `block ≠ c`), the replace fold, and the final `eraseOp` (drops `op`, whose parent is `block ≠ c`).
+    otherBlocks := by
+      intro c cIn cIn' hcne
+      -- `c` is in bounds throughout the rewrite.
+      have hcNewCtxPat : c.InBounds newCtxPat.raw := by
+        have := hCreated.inBounds_mono (GenericPtr.block c) (by grind); grind
+      have hcS1 : c.InBounds s₁.ctx.raw := by
+        have h1 := Array.foldlM_option_invariant
+          (P := fun b : PatternRewriter OpCode => (GenericPtr.block c).InBounds b.ctx.raw)
+          (fun b a b' h => PatternRewriter.insertOp_ctx_inBounds h) hfold1
+        grind
+      have hcS2 : c.InBounds s₂.ctx.raw := by have := hbnd (GenericPtr.block c); grind
+      have hcond : (op.get! s₂.ctx.raw).parent ≠ (c : Option BlockPtr) := by
+        rw [hopParentS2]
+        intro h
+        have hbc : block = c := by simpa using h
+        exact hcne hbc.symm
+      -- `eraseOp op` leaves `c`'s list alone, since `op`'s parent is `block ≠ c`.
+      rw [BlockPtr.operationList_congr (PatternRewriter.eraseOp_ctx_eq herase) cIn'
+            (PatternRewriter.eraseOp_ctx_eq herase ▸ cIn'),
+          BlockPtr.operationList_WfRewriter_eraseOp (block := c) hcS2, if_neg hcond]
+      -- Replace fold leaves `c`'s list alone.
+      rw [PatternRewriter.foldlM_preserves_opList (c := c)
+        (hstep := by
+          intro b a b' hfa
+          simp only [Option.some.injEq] at hfa; subst hfa
+          exact ⟨fun hcin => PatternRewriter.replaceValue_blockPtr_inBounds.mpr hcin,
+            fun h1 h2 => PatternRewriter.replaceValue_operationList h1 h2⟩)
+        hfold2L hcS1 hcS2]
+      -- Insert fold leaves `c`'s list alone (inserts target `block ≠ c`).
+      rw [PatternRewriter.foldlM_insertOp_before_other (c := c) (block := block) hcne
+        (hf := fun b a b' hfa => ⟨_, _, hfa⟩)
+        hopNewCtxPat hparInit hfold1L (by simpa using hopNotNewOps) hcNewCtxPat hcS1]
+      -- Created ops leave `c`'s list alone.
+      exact (hCreated.operationList_eq cIn hcNewCtxPat).symm
     -- Number of produced values: directly from the pattern's `ReturnValues` obligation.
     newValuesSize := hReturnValues rewriter.ctx op opInBounds newCtxPat newOps newValues hpat
-    -- TODO(PR 9): `ReturnValuesInBounds` gives in-bounds of `newCtxPat`; transport via `hbnd`, then
-    -- `eraseOp`. NEEDS EXTRA HYPOTHESIS: a `newValue` that is one of `op`'s own results would be erased,
-    -- so this requires the pattern to guarantee `newValues` do not reference `op`'s results (cf.
-    -- `hSurviveVal`, which is then directly applicable).
-    newValuesInBounds := by sorry
+    -- Every produced value is in bounds of `newCtxPat` (`ReturnValuesInBounds`) and is not a result of
+    -- `op` (`ReturnValuesNotSourceResults`, since `op` is in bounds of the source), so it survives the
+    -- final `eraseOp op` (`hSurviveVal`).
+    newValuesInBounds := by
+      intro v hv
+      apply hSurviveVal v (hReturnValuesInBounds rewriter.ctx op newCtxPat newOps newValues hpat v hv)
+      intro orp hvorp heq
+      exact hReturnValuesNotSourceResults rewriter.ctx op newCtxPat newOps newValues hpat v hv orp hvorp
+        (heq ▸ opInBounds)
     -- `ReturnOps` characterizes `newOps` as fresh to `newCtxPat`; a `newOp ≠ op` has the same bounds
     -- in `newCtxPat` and `rewriter'.ctx` (`hOpBnd`), so the freshness transports.
     newOpsFresh := by
@@ -2644,9 +3354,118 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- Every operation `≠ op` survives: into `newCtxPat` (pattern only creates), then the folds/erase.
     survives := fun o hoIn hne =>
       hSurviveOp o hne (hCreated.inBounds_mono (GenericPtr.operation o) (by grind))
-    -- TODO(PR 9, keystone): `CrossContextFrame` under `σ`; `*_insertOp`/`*_detachOp` GetSet lemmas
-    -- give unchanged type/props/results/successors, `replaceValue` redirects operands = `σ.applyToArray`.
-    frame := by sorry
+    -- `CrossContextFrame` under `σ`: created-ops/insert-fold/erase frame `o`'s intrinsic data
+    -- (`SameIntrinsic`), the replace fold redirects its operands exactly as `σ` does, and `o`'s own
+    -- results survive untouched. `reflect` uses that no `newValue` is a source-context result.
+    frame := by
+      intro o oIn oIn' hne
+      have hNoAlias : ∀ x ∈ newValues, ∀ m, x ≠ (op.getResult m : ValuePtr) := by
+        intro x hx m heq
+        exact hReturnValuesNotSourceResults rewriter.ctx op newCtxPat newOps newValues hpat x hx
+          (op.getResult m) heq (by simpa using opInBounds)
+      have hsize : newValues.size = op.getNumResults! rewriter.ctx.raw :=
+        hReturnValues rewriter.ctx op opInBounds newCtxPat newOps newValues hpat
+      -- `o` survives every stage in bounds.
+      have hoNewCtxPat : o.InBounds newCtxPat.raw :=
+        hCreated.inBounds_mono (GenericPtr.operation o) (by grind)
+      have hoS1 : o.InBounds s₁.ctx.raw := by
+        have h := Array.foldlM_option_invariant
+          (P := fun b : PatternRewriter OpCode => (GenericPtr.operation o).InBounds b.ctx.raw)
+          (fun b a b' hh => PatternRewriter.insertOp_ctx_inBounds hh) hfold1
+        grind
+      have hoErase := PatternRewriter.eraseOp_ctx_eq herase ▸ oIn'
+      -- (1) Intrinsic data is framed across the whole pipeline.
+      have hcre : o.SameIntrinsic rewriter.ctx.raw newCtxPat.raw := hCreated.sameIntrinsic oIn
+      have hins : o.SameIntrinsic newCtxPat.raw s₁.ctx.raw := by
+        have h := Array.foldlM_option_invariant
+          (P := fun b : PatternRewriter OpCode => o.SameIntrinsic newCtxPat.raw b.ctx.raw)
+          (fun b a b' hh =>
+            ⟨fun hb => hb.trans (PatternRewriter.insertOp_sameIntrinsic hh).symm,
+             fun hb => hb.trans (PatternRewriter.insertOp_sameIntrinsic hh)⟩) hfold1
+        exact h.mpr OperationPtr.SameIntrinsic.rfl
+      have hrep : o.SameIntrinsic s₁.ctx.raw s₂.ctx.raw := by
+        have h := Array.foldlM_option_invariant
+          (P := fun b : PatternRewriter OpCode => o.SameIntrinsic s₁.ctx.raw b.ctx.raw)
+          (fun b a b' hh => by
+            have hst : o.SameIntrinsic b.ctx.raw b'.ctx.raw := by
+              simp only [Option.some.injEq] at hh; subst hh
+              exact PatternRewriter.replaceValue_sameIntrinsic
+            exact ⟨fun hb => hb.trans hst.symm, fun hb => hb.trans hst⟩) hfold2
+        exact h.mpr OperationPtr.SameIntrinsic.rfl
+      have hers : o.SameIntrinsic s₂.ctx.raw rewriter'.ctx.raw := by
+        rw [PatternRewriter.eraseOp_ctx_eq herase]
+        exact ⟨OperationPtr.getOpType!_wfRewriter_eraseOp hoErase,
+          fun _ => OperationPtr.getProperties!_wfRewriter_eraseOp hoErase,
+          OperationPtr.getNumResults!_wfRewriter_eraseOp hoErase,
+          OperationPtr.getSuccessors!_wfRewriter_eraseOp hoErase,
+          OperationPtr.getResultTypes!_wfRewriter_eraseOp hoErase⟩
+      have hsame : o.SameIntrinsic rewriter.ctx.raw rewriter'.ctx.raw :=
+        hcre.trans (hins.trans (hrep.trans hers))
+      -- (2) Operands are rewritten by the result→`newValues` redirect, which equals `σ`.
+      have hopsErase : o.getOperands! rewriter'.ctx.raw = o.getOperands! s₂.ctx.raw := by
+        rw [PatternRewriter.eraseOp_ctx_eq herase]
+        exact OperationPtr.getOperands!_wfRewriter_eraseOp hoErase
+      have hopsRepl : o.getOperands! s₂.ctx.raw
+          = (newValues.zipIdx.toList).foldl
+              (fun arr q => arr.map (fun v => if v = (op.getResult q.2 : ValuePtr) then q.1 else v))
+              (o.getOperands! s₁.ctx.raw) :=
+        PatternRewriter.foldlM_replaceValue_getOperands
+          (hf := fun b q b' hfa => ⟨_, _, _, by simp only [Option.some.injEq] at hfa; exact hfa⟩)
+          hfold2L hoS1
+      have hopsIns : o.getOperands! s₁.ctx.raw = o.getOperands! newCtxPat.raw := by
+        have h := Array.foldlM_option_invariant
+          (P := fun b : PatternRewriter OpCode =>
+            o.getOperands! b.ctx.raw = o.getOperands! newCtxPat.raw)
+          (fun b a b' hh => by
+            have := PatternRewriter.insertOp_getOperands (o := o) hh
+            constructor <;> intro hb <;> grind) hfold1
+        exact h.mpr rfl
+      have hopsCre : o.getOperands! newCtxPat.raw = o.getOperands! rewriter.ctx.raw :=
+        hCreated.getOperands_eq oIn
+      -- Assemble `PreservesOperation` (fields: opType, props, resultTypes, successors, operands,
+      -- results, reflect).
+      refine ⟨hsame.1, ?_, hsame.2.2.2.2, hsame.2.2.2.1, ?_, ?_, ?_⟩
+      · -- props
+        rw [hsame.2.1]
+        refine eq_of_heq (HEq.trans ?_ (eqRec_heq _ _).symm)
+        rw [hsame.1]
+      · -- operands
+        rw [hopsErase, hopsRepl, hopsIns, hopsCre, List.foldl_arrayMap_fusion,
+          rewriteMapping_applyToArray_eq_map]
+        congr 1
+        funext v
+        exact fold_replaceResult_zipIdx_eq_sigma op newValues hsize hNoAlias v
+      · -- results: `o`'s results are unchanged and fixed by `σ` (none is a result of `op`).
+        have hres : o.getResults! rewriter'.ctx.raw = o.getResults! rewriter.ctx.raw := by
+          simp only [OperationPtr.getResults!]; rw [hsame.2.2.1]
+        rw [hres, rewriteMapping_applyToArray_eq_map]
+        apply Array.ext
+        · simp
+        · intro i h1 _
+          simp only [Array.getElem_map]
+          have hidx : i < o.getNumResults! rewriter.ctx.raw := by
+            simpa [OperationPtr.getResults!.size_eq_getNumResults!] using h1
+          have hnotmem : (o.getResults! rewriter.ctx.raw)[i] ∉ op.getResults! rewriter.ctx.raw := by
+            rw [OperationPtr.getResults!.getElem_eq_getResult hidx]
+            intro hmem
+            obtain ⟨k, _, hkeq⟩ := OperationPtr.getResults!.mem_iff_exists_index.mp hmem
+            simp only [OperationPtr.getResult, ValuePtr.opResult.injEq, OpResultPtr.mk.injEq] at hkeq
+            exact hne hkeq.1.symm
+          rw [if_neg hnotmem]
+      · -- reflect
+        intro val valIn i hval
+        by_cases hvr : val ∈ op.getResults! rewriter.ctx.raw
+        · exfalso
+          simp only [rewriteMapping, dif_pos hvr] at hval
+          have hk : (op.getResults! rewriter.ctx.raw).idxOf val < newValues.size := by
+            have hlt : (op.getResults! rewriter.ctx.raw).idxOf val
+                < (op.getResults! rewriter.ctx.raw).size := Array.idxOf_lt_length_of_mem hvr
+            simp only [OperationPtr.getResults!.size_eq_getNumResults!] at hlt; omega
+          have hmem : newValues[(op.getResults! rewriter.ctx.raw).idxOf val]! ∈ newValues := by
+            rw [getElem!_pos newValues _ hk]; exact Array.getElem_mem hk
+          exact hReturnValuesNotSourceResults rewriter.ctx op newCtxPat newOps newValues hpat _ hmem
+            (o.getResult i) hval (by simpa using oIn)
+        · simpa only [rewriteMapping, dif_neg hvr] using hval
     -- Blocks stay in bounds: into `newCtxPat`, then the folds/erase (erase removes only `op`).
     blocksInBounds := fun b hb =>
       hSurviveBlock b (hCreated.inBounds_mono (GenericPtr.block b) (by grind))
