@@ -41,6 +41,25 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert CanonicalizePass.name CanonicalizePass
 
 /--
+  A map of named pass groups, each expanding to a comma-separated pipeline of pass names.
+  Selected with the `-pgrp=` flag.
+-/
+def passGroups : Std.HashMap String String :=
+  (Std.HashMap.emptyWithCapacity 2)
+    |>.insert "O" "canonicalize,instcombine,cse,dce"
+    |>.insert "riscv"
+        "isel-br-riscv64,canonicalize,isel-sdag-riscv64,isel-riscv64,riscv-combine,reconcile-cast,dce"
+
+/--
+  A human-readable description of every pass group and the passes it expands to,
+  used in the usage message.
+-/
+def passGroupsUsage : String :=
+  String.intercalate "\n"
+    ((passGroups.toList.toArray.qsort (·.1 < ·.1)).toList.map fun (name, passes) =>
+      s!"    {name}: {passes}")
+
+/--
   Arguments for the `veir-opt` command-line tool, parsed from the CLI.
 -/
 structure VeirOptArgs where
@@ -52,20 +71,34 @@ structure VeirOptArgs where
   allowUnregisteredDialect : Bool
 
 /--
-  Parse the `-p` flag to construct a pass pipeline.
-  Returns an error if the flag is malformed or if any pass name is unknown.
+  Parse the `-p` and `-pgrp` flags to construct a pass pipeline.
+  `-p` takes a comma-separated list of pass names; `-pgrp` takes the name of a predefined
+  pass group (see `passGroups`). The two flags are mutually exclusive, and at most one of
+  each may appear. Both are optional.
+  Returns an error if a flag is malformed or if any pass name / group is unknown.
 -/
 def parsePipelineOption (args : List String) :
     Except String (PassPipeline OpCode × List String) := do
   let (passesFlags, rest) := args.partition (·.startsWith "-p=")
-  match passesFlags with
-  | [] => return ({ passes := #[] }, rest)
-  | [flag] =>
+  let (groupFlags, rest) := rest.partition (·.startsWith "-pgrp=")
+  match passesFlags, groupFlags with
+  | [], [] => return ({ passes := #[] }, rest)
+  | [flag], [] =>
     let arg := (flag.drop 3).toString
     match PassPipeline.ofString? availablePasses arg with
     | .ok pipeline => return (pipeline, rest)
     | .error errMsg => .error s!"Error parsing -p flag: {errMsg}"
-  | _ => .error "Expected at most one -p flag."
+  | [], [flag] =>
+    let groupName := (flag.drop 6).toString
+    match passGroups.get? groupName with
+    | some arg =>
+      match PassPipeline.ofString? availablePasses arg with
+      | .ok pipeline => return (pipeline, rest)
+      | .error errMsg => .error s!"Error parsing -pgrp flag: {errMsg}"
+    | none =>
+      .error s!"Unknown pass group '{groupName}'. Available groups: {", ".intercalate passGroups.keys}"
+  | _, _ =>
+    .error "Expected at most one -p or -pgrp flag, and they are mutually exclusive."
 
 /--
   Parse CLI arguments. Returns an error if the arguments are malformed.
@@ -126,7 +159,9 @@ def main (args : List String) : IO Unit := do
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
-    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"] [--allow-unregistered-dialect]"
+    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\" | -pgrp=<group>] [--allow-unregistered-dialect]"
+    IO.eprintln "Pass groups (-pgrp):"
+    IO.eprintln passGroupsUsage
     IO.Process.exit 1
   | .ok { filename, passes, allowUnregisteredDialect } =>
     match ← parseOperation filename allowUnregisteredDialect with
