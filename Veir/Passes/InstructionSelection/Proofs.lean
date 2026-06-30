@@ -822,3 +822,223 @@ theorem freeze_refinement {a : LLVM.Int 64} :
     (Data.LLVM.Int.freeze a) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg a) 64) := by
   veir_bv_decide
+
+/-! ## i32 lowering refinement proofs
+
+  These proofs cover all operations added to the i32 isel path.
+  The semantic model zero-extends i32 values when loading into a 64-bit
+  register (`LLVM.Int.toReg`), so signed operations that inspect the sign
+  bit must first `sextw`-extend the low 32 bits.
+-/
+
+theorem and_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.and x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.and (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem ashr_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.ashr x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sraw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem mul_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.mul x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.mulw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem sdiv_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.sdiv x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.divw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem udiv_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.udiv x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.divuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem srem_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.srem x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.remw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem urem_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.urem x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.remuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem ctlz_refinement_32 {x : LLVM.Int 32} {is_zero_poison : Bool} :
+    (Data.LLVM.Int.ctlz x is_zero_poison) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.clzw (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem cttz_refinement_32 {x : LLVM.Int 32} {is_zero_poison : Bool} :
+    (Data.LLVM.Int.cttz x is_zero_poison) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.ctzw (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem ctpop_refinement_32 {x : LLVM.Int 32} :
+    (Data.LLVM.Int.ctpop x) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.cpopw (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem bswap_refinement_32 {x : LLVM.Int 32} :
+    (Data.LLVM.Int.bswap x) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.srli 32#6 (Data.RISCV.rev8 (LLVM.Int.toReg x))) 32) := by
+  veir_bv_decide
+
+theorem bitreverse_refinement_32 {x : LLVM.Int 32} :
+    (Data.LLVM.Int.bitreverse x) ⊒
+      (RISCV.Reg.toInt
+        (let x0 := LLVM.Int.toReg x
+         let m1 := Data.RISCV.li 0x55555555#64
+         let x1 := Data.RISCV.or
+           (Data.RISCV.slli 1#6 (Data.RISCV.and m1 x0))
+           (Data.RISCV.and m1 (Data.RISCV.srli 1#6 x0))
+         let m2 := Data.RISCV.li 0x33333333#64
+         let x2 := Data.RISCV.or
+           (Data.RISCV.slli 2#6 (Data.RISCV.and m2 x1))
+           (Data.RISCV.and m2 (Data.RISCV.srli 2#6 x1))
+         let m4 := Data.RISCV.li 0x0f0f0f0f#64
+         let x3 := Data.RISCV.or
+           (Data.RISCV.slli 4#6 (Data.RISCV.and m4 x2))
+           (Data.RISCV.and m4 (Data.RISCV.srli 4#6 x2))
+         Data.RISCV.srli 32#6 (Data.RISCV.rev8 x3)) 32) := by
+  veir_bv_decide
+
+theorem icmp_refinement_eq_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.eq) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu 1#12
+        (Data.RISCV.xor
+          (Data.RISCV.sextw (LLVM.Int.toReg y))
+          (Data.RISCV.sextw (LLVM.Int.toReg x)))) 1) := by
+  veir_bv_decide
+
+theorem icmp_refinement_ne_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.ne) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltu
+        (Data.RISCV.xor
+          (Data.RISCV.sextw (LLVM.Int.toReg y))
+          (Data.RISCV.sextw (LLVM.Int.toReg x)))
+        (Data.RISCV.li 0#64)) 1) := by
+  veir_bv_decide
+
+theorem icmp_refinement_slt_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.slt) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slt
+        (Data.RISCV.sextw (LLVM.Int.toReg y))
+        (Data.RISCV.sextw (LLVM.Int.toReg x))) 1) := by
+  veir_bv_decide
+
+theorem icmp_refinement_sle_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.sle) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
+        (Data.RISCV.slt
+          (Data.RISCV.sextw (LLVM.Int.toReg x))
+          (Data.RISCV.sextw (LLVM.Int.toReg y)))) 1) := by
+  veir_bv_decide
+
+theorem icmp_refinement_sgt_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.sgt) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slt
+        (Data.RISCV.sextw (LLVM.Int.toReg x))
+        (Data.RISCV.sextw (LLVM.Int.toReg y))) 1) := by
+  veir_bv_decide
+
+theorem icmp_refinement_sge_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.sge) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
+        (Data.RISCV.slt
+          (Data.RISCV.sextw (LLVM.Int.toReg y))
+          (Data.RISCV.sextw (LLVM.Int.toReg x)))) 1) := by
+  veir_bv_decide
+
+theorem icmp_refinement_ult_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.ult) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltu
+        (Data.RISCV.sextw (LLVM.Int.toReg y))
+        (Data.RISCV.sextw (LLVM.Int.toReg x))) 1) := by
+  veir_bv_decide
+
+theorem icmp_refinement_ule_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.ule) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
+        (Data.RISCV.sltu
+          (Data.RISCV.sextw (LLVM.Int.toReg x))
+          (Data.RISCV.sextw (LLVM.Int.toReg y)))) 1) := by
+  veir_bv_decide
+
+theorem icmp_refinement_ugt_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.ugt) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltu
+        (Data.RISCV.sextw (LLVM.Int.toReg x))
+        (Data.RISCV.sextw (LLVM.Int.toReg y))) 1) := by
+  veir_bv_decide
+
+theorem icmp_refinement_uge_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.uge) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
+        (Data.RISCV.sltu
+          (Data.RISCV.sextw (LLVM.Int.toReg y))
+          (Data.RISCV.sextw (LLVM.Int.toReg x)))) 1) := by
+  veir_bv_decide
+
+theorem smax_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.smax x y) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.max
+          (Data.RISCV.sextw (LLVM.Int.toReg y))
+          (Data.RISCV.sextw (LLVM.Int.toReg x))) 32) := by
+  veir_bv_decide
+
+theorem smin_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.smin x y) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.min
+          (Data.RISCV.sextw (LLVM.Int.toReg y))
+          (Data.RISCV.sextw (LLVM.Int.toReg x))) 32) := by
+  veir_bv_decide
+
+theorem umax_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.umax x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.maxu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem umin_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.umin x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.minu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem fshl_rol_refinement_32 {a c : LLVM.Int 32} :
+    (Data.LLVM.Int.fshl a a c) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.rolw (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 32) := by
+  veir_bv_decide
+
+theorem fshr_ror_refinement_32 {a c : LLVM.Int 32} :
+    (Data.LLVM.Int.fshr a a c) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.rorw (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 32) := by
+  veir_bv_decide
+
+theorem select_czeroeqz_refinement_32 {c : LLVM.Int 1} {t : LLVM.Int 32} :
+    (Data.LLVM.Int.select c t (LLVM.Int.constant 32 0)) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t)) 32) := by
+  veir_bv_decide
+
+theorem select_czeronez_refinement_32 {c : LLVM.Int 1} {f : LLVM.Int 32} :
+    (Data.LLVM.Int.select c (LLVM.Int.constant 32 0) f) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f)) 32) := by
+  veir_bv_decide
+
+theorem select_refinement_32 {c : LLVM.Int 1} {t f : LLVM.Int 32} :
+    (Data.LLVM.Int.select c t f) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.or
+          (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f))
+          (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t))) 32) := by
+  veir_bv_decide
+
+theorem freeze_refinement_32 {a : LLVM.Int 32} :
+    (Data.LLVM.Int.freeze a) ⊒
+      (RISCV.Reg.toInt (LLVM.Int.toReg a) 32) := by
+  veir_bv_decide

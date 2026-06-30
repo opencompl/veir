@@ -9,4 +9,12 @@
         // CHECK-NEXT: "riscv.sd"({{.*}}, {{.*}}) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
+    "func.func"()  <{function_type = (!llvm.ptr) -> ()}> ({
+    ^bb0(%a: !llvm.ptr, %b : i32):
+        "llvm.store"(%b, %a) : (i32, !llvm.ptr) -> ()
+        // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
+        // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (i32) -> !riscv.reg
+        // CHECK-NEXT: "riscv.sw"({{.*}}, {{.*}}) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
 }) : () -> ()

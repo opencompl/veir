@@ -11,4 +11,13 @@
 
         "func.return"() : () -> ()
     }) : () -> ()
+    "func.func"()  <{function_type = (i32, i32) -> ()}> ({
+    ^bb0(%a: i32, %b: i32):
+        %urem32 = "llvm.urem"(%a, %b) : (i32, i32) -> i32
+        // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.remuw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
+        "func.return"() : () -> ()
+    }) : () -> ()
 }) : () -> ()
