@@ -3340,7 +3340,7 @@ theorem RewrittenAt.of_fromLocalRewrite
         block pre post blockIn blockIn' := by
   obtain ⟨-, hReturnCtxChanges, hReturnOps, hReturnValues, hReturnValuesInBounds,
     hReturnValuesNotOwnResults, hReturnValuesDominate, -, hRewritePreservesDom,
-    hRewritePreservesVerified⟩ := hValid
+    hRewritePreservesVerified, hRewriteNewValuesDominate⟩ := hValid
   -- `block` is in bounds of the source context: it is the parent of the in-bounds `op`.
   have blockIn : block.InBounds rewriter.ctx.raw := by
     have := rewriter.ctx.wellFormed.inBounds; grind
@@ -3775,10 +3775,12 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- As `newCtxDom`, via the source `rewriter.ctx.Verified` and the `RewritePreservesVerified`
     -- pattern obligation.
     newCtxVerif := hRewritePreservesVerified rewriter op opInBounds rewriter' hdriverOrig hSrcVerif
-    -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS. Produced values must dominate the post-insertion point in
-    -- `block` (the SSA-validity condition: results of `newOps` are defined within the span, forwarded
-    -- values are in scope throughout the block); discharged from a pattern obligation.
-    newValuesDominate := by sorry
+    -- Produced values dominate the post-insertion point in `block` (the SSA-validity condition:
+    -- results of `newOps` are defined within the span, forwarded values are in scope throughout the
+    -- block); discharged from the driver-level `RewriteNewValuesDominate` pattern obligation.
+    newValuesDominate :=
+      hRewriteNewValuesDominate rewriter op opInBounds rewriter' hdriverOrig block newCtxPat
+        newOps newValues hOpParent hpat
     -- Operation-list edits leave block-argument counts and types untouched (the chain `hNumArgs` /
     -- `hArgTypes` established above). The full `arguments` record is not preserved — argument
     -- `firstUse` heads move as uses are redirected/erased — but count and type are, which is all the
