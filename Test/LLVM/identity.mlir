@@ -76,6 +76,9 @@
       %59 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz, nnan, ninf>}> : (f64, f64) -> f64
       %60 = "llvm.freeze"(%5) : (i32) -> i32
       %61 = "llvm.mlir.poison"() : () -> i64
+      %62 = "llvm.bitcast"(%5) : (i32) -> !llvm.byte<32>
+      %63 = "llvm.lshr"(%62, %5) : (!llvm.byte<32>, i32) -> !llvm.byte<32>
+      %64 = "llvm.trunc"(%62) : (!llvm.byte<32>) -> !llvm.byte<16>
       "llvm.return"(%arg7_0) : (i32) -> ()
   }) : () -> ()
 }) : () -> ()
@@ -156,6 +159,9 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.freeze"(%{{.*}}) : (i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.mlir.poison"() : () -> i64
+// CHECK-NEXT:       %{{.*}} = "llvm.bitcast"(%{{.*}}) : (i32) -> !llvm.byte<32>
+// CHECK-NEXT:       %{{.*}} = "llvm.lshr"(%{{.*}}, %{{.*}}) : (!llvm.byte<32>, i32) -> !llvm.byte<32>
+// CHECK-NEXT:       %{{.*}} = "llvm.trunc"(%{{.*}}) : (!llvm.byte<32>) -> !llvm.byte<16>
 // CHECK-NEXT:       "llvm.return"(%{{.*}}) : (i32) -> ()
 // CHECK-NEXT:   }) : () -> ()
 // CHECK-NEXT: }) : () -> ()
