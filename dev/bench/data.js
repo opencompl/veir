@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782833394911,
+  "lastUpdate": 1782837510336,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -69392,6 +69392,184 @@ window.BENCHMARK_DATA = {
             "range": "± 28186",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=7 median=0.000589s stddev=0.000028186s cv=4.6910%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@gzgz.dev",
+            "name": "Gavin Zhao",
+            "username": "GZGavinZhao"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "38815ba33d449b0dc29f75fcef4490548d6dbe92",
+          "message": "fix(parser): allow omitting `!llvm.` prefix for nested `!llvm.struct` (#951)\n\nLLVM dialect has a custom directive `PrettyLLVMType` that allows one to\nwrite types from the LLVM dialect without `!llvm.` prefix when it's\nalready nested inside another LLVM-dialect type. For example,\n`!llvm.array<2 x struct<...>>` is the same as `!llvm.array<2 x\n!llvm.struct<...>>`.\n\nThis convenience syntax is only available for types wrapped inside the\n`PrettyLLVMType` custom directive. In practice, this convenience syntax\nis available wherever a nested type is allowed, so we can always turn it\non when we know we're parsing inside a `!llvm.` type. We're already\ndoing this for some LLVM-dialect types like `!llvm.array`; this PR just\nenables this convenience syntax for `!llvm.struct` as well.\n\nPrinting without `!llvm.` is not supported for now, always prints the\nfull `!llvm.struct` regardless of nesting status, same behavior as\n`!llvm.aray`. \n\nNote that since this shorthand is valid for any LLVM-dialect type, our\n`parseLLVMType` is incomplete (only handles 4 out of the 10 LLVM-dialect\ntypes). This needs to be fixed in future PRs. Tracked in #952.",
+          "timestamp": "2026-06-30T16:32:05Z",
+          "tree_id": "81650dc82b40807d4f8e714d1c10245764c70208",
+          "url": "https://github.com/opencompl/veir/commit/38815ba33d449b0dc29f75fcef4490548d6dbe92"
+        },
+        "date": 1782837494444,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 1883000,
+            "range": "± 84571",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001883s stddev=0.000084571s cv=4.4624%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3549000,
+            "range": "± 89577",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003549s stddev=0.000089577s cv=2.5035%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 1817000,
+            "range": "± 53528",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001817s stddev=0.000053528s cv=2.9145%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2956000,
+            "range": "± 124977",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002956s stddev=0.000124977s cv=4.1598%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 1873000,
+            "range": "± 84086",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001873s stddev=0.000084086s cv=4.4001%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2262000,
+            "range": "± 82907",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002262s stddev=0.000082907s cv=3.6267%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1579000,
+            "range": "± 48905",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001579s stddev=0.000048905s cv=3.1074%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1834000,
+            "range": "± 47410",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001834s stddev=0.000047410s cv=2.5588%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 1817000,
+            "range": "± 44072",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001817s stddev=0.000044072s cv=2.3918%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5025000,
+            "range": "± 64767",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.005025s stddev=0.000064767s cv=1.2801%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 1854000,
+            "range": "± 89063",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=10 median=0.001854000s stddev=0.000089063s cv=4.7734%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2668000,
+            "range": "± 54288",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=10 median=0.002668000s stddev=0.000054288s cv=2.0222%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 1872000,
+            "range": "± 38079",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001872s stddev=0.000038079s cv=2.0233%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1732000,
+            "range": "± 26197",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001732s stddev=0.000026197s cv=1.5208%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1549000,
+            "range": "± 57405",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001549s stddev=0.000057405s cv=3.6831%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1374000,
+            "range": "± 50677",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001374s stddev=0.000050677s cv=3.6411%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 1868500,
+            "range": "± 100200",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001868500s stddev=0.000100200s cv=5.2538%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3297500,
+            "range": "± 89753",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.003297500s stddev=0.000089753s cv=2.7093%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1549500,
+            "range": "± 58804",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001549500s stddev=0.000058804s cv=3.7617%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 10000,
+            "range": "± 3126",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000010000s stddev=0.000003126s cv=26.5658%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1553000,
+            "range": "± 19409",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001553s stddev=0.000019409s cv=1.2504%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 754000,
+            "range": "± 13856",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.000754s stddev=0.000013856s cv=1.8208%"
           }
         ]
       }
