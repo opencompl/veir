@@ -199,11 +199,11 @@ theorem VariableState.setResultValues?_isRefinedByAt
   cases OperationPtr.getResults!_not_mem_or_eq_getResult ctx.raw val op with
   | inl hNotMem =>
     -- `val` is not a result of `op`: unchanged by `setResultValues?` on both sides.
-    rw [VariableState.getVar?_setResultValues?_of_notMem_getResults! hNotMem hSrc] at hsv
-    have hσNotMem := (hReflect.not_mem_getResults valIn hNotMem)
-    rw [VariableState.getVar?_setResultValues?_of_notMem_getResults! hσNotMem hTgt] at htv
     have hValDomBefore : val.dominatesIp (.before op) ctx :=
       hValDomAfter.resolve_right hNotMem
+    rw [VariableState.getVar?_setResultValues?_of_notMem_getResults! hNotMem hSrc] at hsv
+    have hσNotMem := (hReflect.not_mem_getResults valIn hValDomBefore hNotMem)
+    rw [VariableState.getVar?_setResultValues?_of_notMem_getResults! hσNotMem hTgt] at htv
     have hσValDomBefore : (mapping ⟨val, valIn⟩).val.dominatesIp (.before op') ctx' :=
       hσValDomAfter.resolve_right hσNotMem
     exact hRef val valIn hValDomBefore hσValDomBefore sv tv hsv htv
