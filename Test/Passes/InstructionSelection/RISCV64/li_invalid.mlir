@@ -2,10 +2,10 @@
 
 "builtin.module"() ({
     "func.func"()  <{function_type = () -> ()}> ({
-        %one = "llvm.mlir.constant"() <{ "value" = 1 : i32 }> : () -> i32
-        %two = "llvm.mlir.constant"() <{ "value" = 2 : i32 }> : () -> i32
-        // CHECK:      %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
-        // CHECK-NEXT: %{{.*}} = "llvm.mlir.constant"() <{"value" = 2 : i32}> : () -> i32
+        %one = "llvm.mlir.constant"() <{ "value" = 1 : i16 }> : () -> i16
+        %two = "llvm.mlir.constant"() <{ "value" = 2 : i16 }> : () -> i16
+        // CHECK:      %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i16}> : () -> i16
+        // CHECK-NEXT: %{{.*}} = "llvm.mlir.constant"() <{"value" = 2 : i16}> : () -> i16
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()
