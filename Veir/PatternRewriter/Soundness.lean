@@ -3508,7 +3508,6 @@ theorem RewrittenAt.of_fromLocalRewrite
     (hSrcVerif : rewriter.ctx.Verified)
     {op : OperationPtr} (opInBounds : op.InBounds rewriter.ctx.raw)
     {block : BlockPtr} (hOpParent : (op.get! rewriter.ctx.raw).parent = some block)
-    (hOpRegions : op.getNumRegions! rewriter.ctx.raw = 0)
     {newCtxPat : WfIRContext OpCode} {newOps : Array OperationPtr} {newValues : Array ValuePtr}
     (hpat : pattern rewriter.ctx op = some (newCtxPat, some (newOps, newValues)))
     (hdriver : RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter') :
@@ -3517,8 +3516,12 @@ theorem RewrittenAt.of_fromLocalRewrite
       RewrittenAt rewriter.ctx op newOps newValues rewriter'.ctx opInBounds
         block pre post blockIn blockIn' := by
   obtain ⟨-, hReturnCtxChanges, hReturnOps, hReturnValues, hReturnValuesInBounds,
-    hReturnValuesNotOwnResults, hReturnValuesDominate, -, hRewritePreservesDom,
-    hRewritePreservesVerified, hRewriteNewValuesDominate, hRewritePreservesBlockDominance⟩ := hValid
+    hReturnValuesNotOwnResults, hReturnValuesDominate, hMatchedOpHasNoRegions, -,
+    hRewritePreservesDom, hRewritePreservesVerified, hRewriteNewValuesDominate,
+    hRewritePreservesBlockDominance⟩ := hValid
+  -- `op` has no regions: this is one of the pattern's validity obligations.
+  have hOpRegions : op.getNumRegions! rewriter.ctx.raw = 0 :=
+    hMatchedOpHasNoRegions rewriter.ctx op newCtxPat newOps newValues hpat
   -- `block` is in bounds of the source context: it is the parent of the in-bounds `op`.
   have blockIn : block.InBounds rewriter.ctx.raw := by
     have := rewriter.ctx.wellFormed.inBounds; grind

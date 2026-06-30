@@ -121,6 +121,14 @@ def LocalRewritePattern.ReturnValuesDominate (pattern : LocalRewritePattern OpCo
   ∀ v ∈ newValues, v.InBounds ctx.raw → v.dominatesIp (InsertPoint.before op) ctx
 
 /--
+The matched operation has no regions. The driver's "insert before, redirect results, erase" pipeline
+is only sound for region-free operations, so the pattern may only match such operations. In particular
+this implies the matched operation is not a function (clause 9, `opNotFunction`). -/
+def LocalRewritePattern.MatchedOpHasNoRegions (pattern : LocalRewritePattern OpCode) : Prop :=
+  ∀ ctx op newCtx newOps newValues, pattern ctx op = some (newCtx, some (newOps, newValues)) →
+  op.getNumRegions! ctx.raw = 0
+
+/--
 Indexed access on the returned values is in bounds of the new context.
 Discharges the second `sorry` in `LocalRewritePattern.Mapping`.
 -/
@@ -274,6 +282,8 @@ structure LocalRewritePattern.Valid (pattern : LocalRewritePattern OpCode) : Pro
   returnValuesNotOwnResults : pattern.ReturnValuesNotOwnResults
   /-- Every forwarded pre-existing returned value dominates the point before `op`. -/
   returnValuesDominate : pattern.ReturnValuesDominate
+  /-- The matched operation has no regions. -/
+  matchedOpHasNoRegions : pattern.MatchedOpHasNoRegions
   /-- Interpreting the matched operation is refined by interpreting the new operations. -/
   preservesSemantics :
     pattern.PreservesSemantics returnOps returnCtxChanges returnValuesInBounds returnValues
