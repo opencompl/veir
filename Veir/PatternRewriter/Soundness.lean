@@ -3503,18 +3503,23 @@ The remaining structural fields are discharged from the keystone fold decomposit
 theorem RewrittenAt.of_fromLocalRewrite
     {pattern : LocalRewritePattern OpCode}
     (hValid : pattern.Valid)
-    {rewriter rewriter' : PatternRewriter OpCode}
     (hSrcDom : rewriter.ctx.Dom)
     (hSrcVerif : rewriter.ctx.Verified)
-    {op : OperationPtr} (opInBounds : op.InBounds rewriter.ctx.raw)
-    {block : BlockPtr} (hOpParent : (op.get! rewriter.ctx.raw).parent = some block)
-    {newCtxPat : WfIRContext OpCode} {newOps : Array OperationPtr} {newValues : Array ValuePtr}
     (hpat : pattern rewriter.ctx op = some (newCtxPat, some (newOps, newValues)))
     (hdriver : RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter') :
-    ∃ (pre post : Array OperationPtr)
+    ∃ (block : BlockPtr) (pre post : Array OperationPtr)
       (blockIn : block.InBounds rewriter.ctx.raw) (blockIn' : block.InBounds rewriter'.ctx.raw),
+      (op.get! rewriter.ctx.raw).parent = some block ∧
       RewrittenAt rewriter.ctx op newOps newValues rewriter'.ctx opInBounds
         block pre post blockIn blockIn' := by
+  -- `op` has a parent block: the driver inserts every `newOp` *before* `op`, and an insertion before
+  -- a parentless op fails, so a successful `fromLocalRewrite` witnesses `op`'s parent. This recovers
+  -- the block (and the parent equation) that the previous statement took as a hypothesis.
+  obtain ⟨block, hOpParent⟩ : ∃ block, (op.get! rewriter.ctx.raw).parent = some block := by
+    have h := hdriver
+    simp only [RewritePattern.fromLocalRewrite, hpat] at h
+    obtain ⟨block, hpar, -⟩ := Option.bind_eq_some_iff.mp h
+    exact ⟨block, hpar⟩
   obtain ⟨-, hReturnCtxChanges, hReturnOps, hReturnValues, hReturnValuesInBounds,
     hReturnValuesNotOwnResults, hReturnValuesDominate, hMatchedOpHasNoRegions, -,
     hRewritePreservesDom, hRewritePreservesVerified, hRewriteNewValuesDominate,
@@ -3540,6 +3545,9 @@ theorem RewrittenAt.of_fromLocalRewrite
   unfold RewritePattern.fromLocalRewrite at hdriver
   rw [hpat] at hdriver
   simp only [bind_pure_comp, Array.forIn_yield_eq_foldlM, id_map'] at hdriver
+  -- Peel the leading parent guard (`let _ ← (op.get! …).parent`): a successful driver witnesses `op`'s
+  -- parent block. We already recovered it as `hOpParent` above, so this binding is discarded here.
+  obtain ⟨_guardBlock, _hguardBlock, hdriver⟩ := Option.bind_eq_some_iff.mp hdriver
   -- Decompose the reduced driver into its three stages: insert-fold (→ `s₁`), replace-fold (→ `s₂`),
   -- then the final `eraseOp` of `op`. The middle operands-collection loop is discarded.
   obtain ⟨s₁, hfold1, hdriver⟩ := Option.bind_eq_some_iff.mp hdriver
@@ -3728,7 +3736,7 @@ theorem RewrittenAt.of_fromLocalRewrite
       rw [PatternRewriter.eraseOp_ctx_eq herase]
       exact ValuePtr.getType!_wfRewriter_eraseOp (PatternRewriter.eraseOp_ctx_eq herase ▸ hvIn)
     rw [hErase, hRep, hIns, hCre]
-  refine ⟨pre, post, blockIn, blockIn', ?_⟩
+  refine ⟨block, pre, post, blockIn, blockIn', hOpParent, ?_⟩
   exact {
     -- Block-list shape: discharged for the source by the split lemma.
     srcList := hsrcList
