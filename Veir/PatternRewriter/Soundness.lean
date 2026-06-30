@@ -3310,7 +3310,6 @@ theorem rewriteMapping_applyToArray_eq_map {ctx newCtx : WfIRContext OpCode}
     simp only [ValueMapping.applyToArray, Array.getElem_map, Array.getElem_attach, rewriteMapping]
     split <;> grind
 
-set_option warn.sorry false in
 /--
 **PR 9 — bridge from the concrete driver.** When `fromLocalRewrite` runs the rewrite branch for a
 matched, in-bounds, region-free `op` that lives inside a block, and the pattern satisfies the four
@@ -3340,7 +3339,7 @@ theorem RewrittenAt.of_fromLocalRewrite
         block pre post blockIn blockIn' := by
   obtain ⟨-, hReturnCtxChanges, hReturnOps, hReturnValues, hReturnValuesInBounds,
     hReturnValuesNotOwnResults, hReturnValuesDominate, -, hRewritePreservesDom,
-    hRewritePreservesVerified, hRewriteNewValuesDominate⟩ := hValid
+    hRewritePreservesVerified, hRewriteNewValuesDominate, hRewritePreservesBlockDominance⟩ := hValid
   -- `block` is in bounds of the source context: it is the parent of the in-bounds `op`.
   have blockIn : block.InBounds rewriter.ctx.raw := by
     have := rewriter.ctx.wellFormed.inBounds; grind
@@ -3787,9 +3786,12 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- block-argument frame consequences (`numArgsEq`/`argType_eq`/`getArguments!_eq`) need.
     blockNumArgsPreserved := fun bl _ => hNumArgs bl
     blockArgTypesPreserved := hArgTypes
-    -- TODO(PR 9, keystone): op-list edits inside `block` leave the CFG unchanged, so block-level
-    -- dominance agrees across the two contexts.
-    blockDominatesPreserved := by sorry
+    -- Op-list edits inside `block` leave the CFG unchanged, so block-level dominance agrees across
+    -- the two contexts. As with `newCtxDom`/`newCtxVerif`, this is propagated from the driver-level
+    -- pattern obligation `RewritePreservesBlockDominance` (block-dominance preservation does not hold
+    -- for an arbitrary op-list surgery, so it is discharged per concrete pattern).
+    blockDominatesPreserved := fun b₁ b₂ h₁ h₂ =>
+      hRewritePreservesBlockDominance rewriter op opInBounds rewriter' hdriverOrig b₁ b₂ h₁ h₂
     -- Op-list edits (create / insert / replace-value / erase) never touch a survivor's region list:
     -- chain the per-stage `getNumRegions!`/`getRegion!` frame facts and reassemble the array.
     opRegionsPreserved := by
