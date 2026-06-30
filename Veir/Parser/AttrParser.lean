@@ -667,6 +667,30 @@ partial def parseType (errorMsg : String := "type expected") : AttrParserM TypeA
   | none => throwAtCurrentPos errorMsg
 
 /--
+  Parse a dense elements attribute, if present.
+  Its syntax is `dense<value> : type`, e.g. `dense<0> : tensor<4xi8>`.
+  Both the value body and the type are stored as raw strings pending full
+  tensor/vector type support.
+-/
+partial def parseOptionalDenseElementsAttr : AttrParserM (Option DenseElementsAttr) := do
+  if !(← parseOptionalKeyword "dense".toByteArray) then
+    return none
+  parsePunctuation "<"
+  let value ← parseUnregisteredAttrBody
+  parsePunctuation ">"
+  parsePunctuation ":"
+  -- tensor<4xi8> is an unregistered type: capture it as a balanced string
+  -- using the same scheme as parseOptionalDialectAttr's fallback case.
+  let typeStartPos ← getPos
+  parseKeyword "tensor".toByteArray
+  parsePunctuation "<"
+  let _ ← parseUnregisteredAttrBody
+  let typeEndPos := (← peekToken).slice.stop
+  parsePunctuation ">"
+  let typeStr := (Slice.mk typeStartPos typeEndPos).of (← getThe ParserState).input
+  return some (DenseElementsAttr.mk value (String.fromUTF8! typeStr))
+
+/--
   Parse an entry in an attribute dictionary, which has the form `name = value`
   or the shorthand `name` (equivalent to `name = unit`).
 -/
@@ -730,6 +754,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some stringAttr
   else if let some denseArrayAttr ← parseOptionalDenseArrayAttr then
     return some denseArrayAttr
+  else if let some denseElementsAttr ← parseOptionalDenseElementsAttr then
+    return some denseElementsAttr
   else if let some unitAttr ← parseOptionalUnitAttr then
     return some unitAttr
   else if let some arrayAttr ← parseOptionalArrayAttr then

@@ -5,6 +5,7 @@ import Veir.IR.Basic
 import Veir.Verifier
 import Veir.Properties
 import Veir.Pass
+import Veir.Panic
 
 import Veir.Passes.PrintIR
 import Veir.Passes.InstCombine
@@ -121,6 +122,7 @@ def parseOperation (filename : Option String) (allowUnregisteredDialect : Bool :
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
+  enableExitOnPanic
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"

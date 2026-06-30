@@ -3,6 +3,7 @@ import Veir.Printer
 import Veir.IR.Basic
 import Veir.Verifier
 import Veir.Interpreter.Basic
+import Veir.Panic
 
 /-!
   # Veir Interpreter CLI Tool
@@ -91,6 +92,7 @@ def resolveEntryPoint (ctx : IRContext OpCode) (moduleOp : OperationPtr) : IO Op
 
 set_option warn.sorry false in
 def main (args : List String) : IO Unit := do
+  enableExitOnPanic
   match args with
   | [filename] =>
     match ← parseOperation filename with

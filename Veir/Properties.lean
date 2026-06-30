@@ -177,11 +177,12 @@ def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
   return ⟨value⟩
 
 /--
-The two types of constants an LLVM constant can store.
+The types of constants an LLVM constant can store.
 -/
 inductive LLVMConstantValue where
 | integer (value : IntegerAttr)
 | float (value : FloatAttr)
+| dense (value : DenseElementsAttr)
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 /--
@@ -202,8 +203,10 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     return { value := .integer intAttr }
   | .floatAttr floatAttr =>
     return { value := .float floatAttr }
+  | .denseElementsAttr denseAttr =>
+    return { value := .dense denseAttr }
   | _ =>
-    throw s!"llvm.constant: expected 'value' to be an integer or float attribute, but got {attr}"
+    throw s!"llvm.constant: expected 'value' to be an integer, float, or dense elements attribute, but got {attr}"
 
 /-- Properties of integer comparison operations in the LLVM and arith dialects. -/
 structure IcmpProperties where
