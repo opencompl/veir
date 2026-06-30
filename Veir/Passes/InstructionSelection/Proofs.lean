@@ -32,11 +32,27 @@ theorem poisonConst_refinement :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `constant` lowering pattern at i32 (similar to the `i64` case above), however currently using the grind tactic.
+-/
+theorem constant_refinement_32 {v : Int} :
+    (LLVM.Int.constant 32 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 32) := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `add` lowering pattern.
 -/
 theorem add_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.add x y) ⊒
       (RISCV.Reg.toInt (Data.RISCV.add (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `add` lowering pattern at i32, which selects the
+  32-bit `addw`.
+-/
+theorem addw_refinement {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.add x y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.addw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
 /--
@@ -195,10 +211,24 @@ theorem or_refinement {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `or` lowering pattern at i32 (plain `or`, no `W` variant).
+-/
+theorem or_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.or x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.or (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `xor` lowering pattern.
 -/
 theorem xor_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.xor x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.xor (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `xor` lowering pattern at i32.
+-/
+theorem xor_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.xor x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.xor (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
 /--
@@ -241,6 +271,27 @@ theorem urem_refinement {x y : LLVM.Int 64} :
 -/
 theorem sub_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.sub x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.sub (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `sub` lowering pattern at i32.
+-/
+theorem subw_refinement {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.sub x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.subw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `shl` lowering pattern.
+-/
+theorem sllw_refinement {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.shl x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.sllw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `lshr` lowering pattern.
+-/
+theorem srlw_refinement {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.lshr x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.srlw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
 /--
