@@ -2,7 +2,7 @@ module
 
 public import Std.Data.ExtHashSet
 public import Std.Data.HashMap
-public import Veir.Meta.BVNormalizeSimp -- registers the `veir_bv_normalize` simp attr
+public import Veir.Meta.BVNormalizeSimp
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
 
