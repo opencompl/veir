@@ -4452,4 +4452,339 @@ theorem RewrittenAt.of_fromLocalRewrite
     opNotFunction := by simp [hOpRegions]
   }
 
+/-! ### PR 8 foundation: list interpretation depends only on each op's local data
+
+`interpretOp` reads the context only through an operation's *local* data — its operands, type,
+properties, result types, successors, and result pointers — plus the variable map and memory. It
+never consults `.parent`, `.next`, or block membership. So if those data fields agree across two
+contexts and the states share the same underlying variable map and memory, the runs are *literally
+equal* (projected onto the context-independent data: the variable map, the memory, and the optional
+control-flow action). This `SameData` frame is the key to PR 8: the driver's edits (insert `newOps`
+before `op`, redirect `op`'s results, erase `op`) are inert on `newOps`' interpreted data, so a run
+of `newOps` transports unchanged from the create-only `newCtxPat` to the inserted/erased
+`rewriter'.ctx`. -/
+
+/-- The context-independent data of an interpreter-state/action result: the variable map, the memory,
+and the optional control-flow action. Two `interpretOp`/`interpretOpList` results "agree as data" when
+their projections under `interpProj` are equal — this is meaningful *across* contexts, where the
+result states have different types but a common underlying `ExtHashMap`/`MemoryState`. -/
+def interpProj {ctx : WfIRContext OpCode} :
+    Interp (InterpreterState ctx × Option ControlFlowAction) →
+    Option (UBOr (Std.ExtHashMap ValuePtr RuntimeValue × MemoryState × Option ControlFlowAction)) :=
+  Option.map (UBOr.map (fun p => (p.1.variables.variables, p.1.memory, p.2)))
+
+/-- Cross-context agreement of `setVar?` on the underlying variable map: with the same starting map
+and the same target-type (`getType!` agrees), the conformance check and the insert coincide. -/
+theorem VariableState.setVar?_variables_eq_of_dataEq
+    {ctxA ctxB : WfIRContext OpCode} {var : ValuePtr} {val : RuntimeValue}
+    {varStateA : VariableState ctxA} {varStateB : VariableState ctxB} {iA iB}
+    (hVars : varStateA.variables = varStateB.variables)
+    (hType : var.getType! ctxA.raw = var.getType! ctxB.raw) :
+    (varStateA.setVar? var val iA).map (·.variables)
+      = (varStateB.setVar? var val iB).map (·.variables) := by
+  simp only [VariableState.setVar?, hType, hVars]
+  split <;> simp
+
+/-- Cross-context agreement of `setResultValues?` on the underlying variable map: the loop sets the
+context-independent result pointers `op.getResult i` to the same values with the same per-result
+conformance check (`getType!` agrees), so it produces the same map (or fails on both sides). -/
+theorem VariableState.setResultValues?_loop_variables_eq_of_dataEq
+    {ctxA ctxB : WfIRContext OpCode} {op : OperationPtr} {resValues : Array RuntimeValue}
+    {varStateA : VariableState ctxA} {varStateB : VariableState ctxB}
+    (hVars : varStateA.variables = varStateB.variables)
+    (hType : ∀ i, (ValuePtr.opResult (op.getResult i)).getType! ctxA.raw
+                = (ValuePtr.opResult (op.getResult i)).getType! ctxB.raw)
+    {idx : Nat} {iA hiA hsA iB hiB hsB} :
+    (varStateA.setResultValues?_loop op resValues idx iA hiA hsA).map (·.variables)
+      = (varStateB.setResultValues?_loop op resValues idx iB hiB hsB).map (·.variables) := by
+  induction idx generalizing varStateA varStateB with
+  | zero => simp [VariableState.setResultValues?_loop, hVars]
+  | succ i ih =>
+    simp only [VariableState.setResultValues?_loop, Option.bind_eq_bind]
+    have hstep := VariableState.setVar?_variables_eq_of_dataEq (val := resValues[i])
+      (varStateA := varStateA) (varStateB := varStateB) (iA := by grind) (iB := by grind)
+      hVars (hType i)
+    rcases hA : varStateA.setVar? (op.getResult i) resValues[i] with _ | varStateA' <;>
+      rcases hB : varStateB.setVar? (op.getResult i) resValues[i] with _ | varStateB' <;>
+      simp only [hA, hB, Option.map_none, Option.map_some] at hstep
+    · rfl
+    · exact absurd hstep (by simp)
+    · exact absurd hstep (by simp)
+    · exact ih (by simpa using hstep)
+
+/-- Cross-context agreement of `setResultValues?` on the underlying variable map. -/
+theorem VariableState.setResultValues?_variables_eq_of_dataEq
+    {ctxA ctxB : WfIRContext OpCode} {op : OperationPtr} {resValues : Array RuntimeValue}
+    {varStateA : VariableState ctxA} {varStateB : VariableState ctxB} {iA iB}
+    (hVars : varStateA.variables = varStateB.variables)
+    (hNum : op.getNumResults! ctxA.raw = op.getNumResults! ctxB.raw)
+    (hType : ∀ i, (ValuePtr.opResult (op.getResult i)).getType! ctxA.raw
+                = (ValuePtr.opResult (op.getResult i)).getType! ctxB.raw) :
+    (varStateA.setResultValues? op resValues iA).map (·.variables)
+      = (varStateB.setResultValues? op resValues iB).map (·.variables) := by
+  simp only [VariableState.setResultValues?, hNum]
+  split
+  · exact VariableState.setResultValues?_loop_variables_eq_of_dataEq hVars hType
+  · rfl
+
+/-- **`interpretOp` data-equality frame.** If an operation's local data (operands, type, properties,
+result types, successors) and its result pointers' types agree across two contexts, and the two
+states share the same underlying variable map and memory, then the two `interpretOp` runs agree under
+`interpProj` — i.e. they produce the same variable map, memory, and control-flow action (or both fail
+identically). No parents/dominance involved. -/
+theorem interpretOp_interpProj_eq_of_dataEq
+    {ctxA ctxB : WfIRContext OpCode} {op : OperationPtr} {oInA : op.InBounds ctxA.raw}
+    {oInB : op.InBounds ctxB.raw}
+    (hOpType : op.getOpType! ctxA.raw = op.getOpType! ctxB.raw)
+    (hProps : op.getProperties! ctxA.raw (op.getOpType! ctxA.raw)
+            = hOpType ▸ op.getProperties! ctxB.raw (op.getOpType! ctxB.raw))
+    (hResTypes : op.getResultTypes! ctxA.raw = op.getResultTypes! ctxB.raw)
+    (hSucc : op.getSuccessors! ctxA.raw = op.getSuccessors! ctxB.raw)
+    (hOperands : op.getOperands! ctxA.raw = op.getOperands! ctxB.raw)
+    (hNum : op.getNumResults! ctxA.raw = op.getNumResults! ctxB.raw)
+    (hType : ∀ i, (ValuePtr.opResult (op.getResult i)).getType! ctxA.raw
+                = (ValuePtr.opResult (op.getResult i)).getType! ctxB.raw)
+    {sA : InterpreterState ctxA} {sB : InterpreterState ctxB}
+    (hVars : sA.variables.variables = sB.variables.variables)
+    (hMem : sA.memory = sB.memory) :
+    interpProj (interpretOp op sA oInA) = interpProj (interpretOp op sB oInB) := by
+  -- Operand values agree: same operand pointers (`hOperands`), same map (`getVar?` is a pure lookup).
+  have hgv : sA.variables.getVar? = sB.variables.getVar? := by
+    funext v; simp only [VariableState.getVar?, hVars]
+  have hOps : sA.variables.getOperandValues op = sB.variables.getOperandValues op := by
+    simp only [VariableState.getOperandValues, hOperands, hgv]
+  -- The pure `interpretOp'` step agrees (same opType/props/resultTypes/successors/operands/memory).
+  have hInterp : ∀ ov mem, op.interpret ctxA.raw ov mem = op.interpret ctxB.raw ov mem := by
+    intro ov mem
+    simp only [OperationPtr.interpret, hResTypes, hSucc]
+    exact interpretOp'_opType_cast hOpType hProps
+  -- `setResultValues?` agrees on the underlying map for any result values / in-bounds proofs.
+  have hsetMap : ∀ (rv : Array RuntimeValue) p q,
+      (sA.variables.setResultValues? op rv p).map (·.variables)
+        = (sB.variables.setResultValues? op rv q).map (·.variables) :=
+    fun rv _ _ => VariableState.setResultValues?_variables_eq_of_dataEq hVars hNum hType
+  -- A successful (`ok`) run is mirrored across the two contexts, componentwise (operands agree, the
+  -- pure step agrees, memory agrees, and `setResultValues?` agrees on the variable map). Stated
+  -- generically so it applies in *both* directions (the four data hypotheses are symmetric).
+  have okMirror : ∀ {ctx1 ctx2 : WfIRContext OpCode} (s1 : InterpreterState ctx1)
+      (s2 : InterpreterState ctx2) (oi1 : op.InBounds ctx1.raw) (oi2 : op.InBounds ctx2.raw) st1 act1,
+      s1.variables.getOperandValues op = s2.variables.getOperandValues op →
+      (∀ ov m, op.interpret ctx1.raw ov m = op.interpret ctx2.raw ov m) →
+      s1.memory = s2.memory →
+      (∀ rv p q, (s1.variables.setResultValues? op rv p).map (·.variables)
+        = (s2.variables.setResultValues? op rv q).map (·.variables)) →
+      interpretOp op s1 oi1 = some (.ok (st1, act1)) →
+      ∃ st2, interpretOp op s2 oi2 = some (.ok (st2, act1)) ∧
+        st2.variables.variables = st1.variables.variables ∧ st2.memory = st1.memory := by
+    intro ctx1 ctx2 s1 s2 oi1 oi2 st1 act1 hop hin hmem hset h
+    obtain ⟨ov, rv, mem', vs', hov, hint, hsetv, rfl⟩ := interpretOp_some_iff.mp h
+    have hov2 : s2.variables.getOperandValues op = some ov := hop ▸ hov
+    have hint2 : op.interpret ctx2.raw ov s2.memory = some (.ok (rv, mem', act1)) := by
+      rw [← hin ov s2.memory, ← hmem]; exact hint
+    have hsetv' : s1.variables.setResultValues? op rv oi1 = some vs' := hsetv
+    have hsetEq := hset rv oi1 oi2
+    rw [hsetv', Option.map_some] at hsetEq
+    rcases hsB : s2.variables.setResultValues? op rv oi2 with _ | vs2
+    · rw [hsB, Option.map_none] at hsetEq; exact absurd hsetEq.symm (by simp)
+    · refine ⟨⟨vs2, mem'⟩, interpretOp_some_iff.mpr ⟨ov, rv, mem', vs2, hov2, hint2, hsB, rfl⟩, ?_, rfl⟩
+      rw [hsB, Option.map_some] at hsetEq
+      exact (Option.some_inj.mp hsetEq).symm
+  -- A `ub` run is likewise mirrored (operands agree, the pure step's `ub` agrees).
+  have ubMirror : ∀ {ctx1 ctx2 : WfIRContext OpCode} (s1 : InterpreterState ctx1)
+      (s2 : InterpreterState ctx2) (oi1 : op.InBounds ctx1.raw) (oi2 : op.InBounds ctx2.raw),
+      s1.variables.getOperandValues op = s2.variables.getOperandValues op →
+      (∀ ov m, op.interpret ctx1.raw ov m = op.interpret ctx2.raw ov m) →
+      s1.memory = s2.memory →
+      interpretOp op s1 oi1 = some .ub → interpretOp op s2 oi2 = some .ub := by
+    intro ctx1 ctx2 s1 s2 oi1 oi2 hop hin hmem h
+    obtain ⟨ov, hov, hint⟩ := interpretOp_ub_iff.mp h
+    refine interpretOp_ub_iff.mpr ⟨ov, hop ▸ hov, ?_⟩
+    rw [← hin ov s2.memory, ← hmem]; exact hint
+  -- Dispatch on the source result and mirror onto the target.
+  rcases hA : interpretOp op sA oInA with _ | (⟨stA, actA⟩ | _)
+  · -- A `none`: the target is `none` too — otherwise mirroring back would make A succeed.
+    rcases hB : interpretOp op sB oInB with _ | (⟨stB, actB⟩ | _)
+    · simp [interpProj]
+    · obtain ⟨stA', hA', _⟩ := okMirror sB sA oInB oInA stB actB hOps.symm
+        (fun ov m => (hInterp ov m).symm) hMem.symm (fun rv p q => (hsetMap rv q p).symm) hB
+      rw [hA] at hA'; exact absurd hA' (by simp)
+    · exact absurd (ubMirror sB sA oInB oInA hOps.symm (fun ov m => (hInterp ov m).symm) hMem.symm hB
+        |>.symm.trans hA) (by simp)
+  · obtain ⟨stB, hB, hvars, hmem⟩ := okMirror sA sB oInA oInB stA actA hOps hInterp hMem hsetMap hA
+    simp only [interpProj, hB, Option.map_some, UBOr.map, hvars, hmem]
+  · rw [ubMirror sA sB oInA oInB hOps hInterp hMem hA]
+    rfl
+
+/-- Two interpreter states "agree as data" when they share the underlying variable map and memory.
+Phantom-typed by their (possibly different) contexts. -/
+def InterpreterState.SameData {ctxA ctxB : WfIRContext OpCode}
+    (sA : InterpreterState ctxA) (sB : InterpreterState ctxB) : Prop :=
+  sA.variables.variables = sB.variables.variables ∧ sA.memory = sB.memory
+
+/-- The local data of an operation agrees across two contexts: its type, properties, result types,
+successors, operand pointers, result count, and result-pointer types coincide. This is exactly what
+`interpretOp`/`interpretOpList` consume, so it is the precondition of the data-equality frame. -/
+structure OpDataEq (op : OperationPtr) (ctxA ctxB : WfIRContext OpCode) : Prop where
+  opType : op.getOpType! ctxA.raw = op.getOpType! ctxB.raw
+  props : op.getProperties! ctxA.raw (op.getOpType! ctxA.raw)
+            = opType ▸ op.getProperties! ctxB.raw (op.getOpType! ctxB.raw)
+  resTypes : op.getResultTypes! ctxA.raw = op.getResultTypes! ctxB.raw
+  succ : op.getSuccessors! ctxA.raw = op.getSuccessors! ctxB.raw
+  operands : op.getOperands! ctxA.raw = op.getOperands! ctxB.raw
+  numResults : op.getNumResults! ctxA.raw = op.getNumResults! ctxB.raw
+  resElemType : ∀ i, (ValuePtr.opResult (op.getResult i)).getType! ctxA.raw
+                  = (ValuePtr.opResult (op.getResult i)).getType! ctxB.raw
+
+/-- `interpProj` inverts at an `ok` outcome: the projection is `ok (vars, mem, act)` exactly when the
+run is `ok (st, act)` for some state `st` whose data is `(vars, mem)`. -/
+theorem interpProj_eq_ok_iff {ctx : WfIRContext OpCode}
+    {X : Interp (InterpreterState ctx × Option ControlFlowAction)}
+    {vars : Std.ExtHashMap ValuePtr RuntimeValue} {mem : MemoryState} {act : Option ControlFlowAction} :
+    interpProj X = some (.ok (vars, mem, act)) ↔
+    ∃ st, X = some (.ok (st, act)) ∧ st.variables.variables = vars ∧ st.memory = mem := by
+  rcases X with _ | (⟨st, a⟩ | _) <;> simp [interpProj, UBOr.map] <;> grind
+
+/-- Per-op `ok`-transport: under `OpDataEq` and same-data entry states, a source `ok` step is mirrored
+by a target `ok` step with the same control-flow action and same-data result. -/
+theorem interpretOp_sameData_transport {ctxA ctxB : WfIRContext OpCode} {op : OperationPtr}
+    {sA : InterpreterState ctxA} {sB : InterpreterState ctxB}
+    (hData : OpDataEq op ctxA ctxB) (hsame : sA.SameData sB)
+    {oInA : op.InBounds ctxA.raw} {oInB : op.InBounds ctxB.raw}
+    {st : InterpreterState ctxA} {act : Option ControlFlowAction}
+    (h : interpretOp op sA oInA = some (.ok (st, act))) :
+    ∃ st', interpretOp op sB oInB = some (.ok (st', act)) ∧ st.SameData st' := by
+  have he := interpretOp_interpProj_eq_of_dataEq (oInA := oInA) (oInB := oInB)
+    hData.opType hData.props hData.resTypes hData.succ hData.operands hData.numResults
+    hData.resElemType hsame.1 hsame.2
+  rw [h] at he
+  have hP : interpProj (interpretOp op sB oInB) = some (.ok (st.variables.variables, st.memory, act)) := by
+    rw [← he]; simp [interpProj, UBOr.map]
+  obtain ⟨st', hB, hv, hm⟩ := interpProj_eq_ok_iff.mp hP
+  exact ⟨st', hB, hv.symm, hm.symm⟩
+
+/-- **`interpretOpList` data-equality transport.** Over an identical op list whose every operation has
+matching local data across the two contexts, a successful (`ok`) run transports from same-data entry
+states to same-data result states, preserving the control-flow action. The driver's edits are inert on
+`newOps`' data, so this is what carries a `newOps` run from `newCtxPat` to `rewriter'.ctx`. -/
+theorem interpretOpList_sameData_transport {ctxA ctxB : WfIRContext OpCode} {ops : List OperationPtr}
+    (oInA : ∀ o ∈ ops, o.InBounds ctxA.raw) (oInB : ∀ o ∈ ops, o.InBounds ctxB.raw)
+    (hData : ∀ o ∈ ops, OpDataEq o ctxA ctxB)
+    {sA : InterpreterState ctxA} {sB : InterpreterState ctxB} (hsame : sA.SameData sB)
+    {sA2 : InterpreterState ctxA} {cf : Option ControlFlowAction}
+    (h : interpretOpList ops sA oInA = some (.ok (sA2, cf))) :
+    ∃ sB2, interpretOpList ops sB oInB = some (.ok (sB2, cf)) ∧ sA2.SameData sB2 := by
+  induction ops generalizing sA sB with
+  | nil =>
+    rw [interpretOpList_nil] at h
+    injection h with h1; injection h1 with h2; rw [Prod.mk.injEq] at h2
+    obtain ⟨rfl, rfl⟩ := h2
+    exact ⟨sB, interpretOpList_nil, hsame⟩
+  | cons a l ih =>
+    rw [interpretOpList_cons] at h
+    rcases hA : interpretOp a sA (oInA a (by simp)) with _ | (⟨sMid, act⟩ | _)
+    · rw [hA] at h; injection h
+    · obtain ⟨sMidB, hB, hsmid⟩ :=
+        interpretOp_sameData_transport (hData a (by simp)) hsame (oInB := oInB a (by simp)) hA
+      rw [interpretOpList_cons, hB]
+      rw [hA] at h
+      cases act with
+      | none =>
+        exact ih (fun o ho => oInA o (by simp [ho])) (fun o ho => oInB o (by simp [ho]))
+          (fun o ho => hData o (by simp [ho])) hsmid h
+      | some c =>
+        injection h with h1; injection h1 with h2; rw [Prod.mk.injEq] at h2
+        obtain ⟨rfl, rfl⟩ := h2
+        exact ⟨sMidB, rfl, hsmid⟩
+    · rw [hA] at h; injection h with h1; injection h1
+
+/-! ### PR 9, final bridge: the driver refines every module
+
+Composing the two endpoints — `RewrittenAt.of_fromLocalRewrite` (the driver's net edit *is* a
+`RewrittenAt` instance) and `RewrittenAt.isModuleRefinedBy` (a `RewrittenAt` instance refines every
+module) — gives the headline driver-level soundness statement: running `fromLocalRewrite` for a
+matched, in-bounds `op` on a `Valid` pattern over a verified, dominance-wellformed context refines
+every module.
+
+This is the **composition skeleton**: the easy side-conditions of `isModuleRefinedBy` are discharged
+here (`ctxVerif`/`hCtxDom` are the source hypotheses; `newCtxVerif` is the pattern's
+`rewritePreservesVerified` obligation applied to the driver run). The remaining four are the
+*semantic* bridges, left as `sorry` for now:
+* `hOpSim` — bridge the pattern's value-level `PreservesSemantics` to the scoped
+  `OpStepSimulation` on `hRW.σ` (requires `hRW.σ = LocalRewritePattern.mapping hpat`);
+* `hSrcSplit`/`hTgtSplit` — every verified block is `front ++ [terminator]` with `front` never
+  yielding a control-flow action;
+* `hSrcInv`/`hTgtInv` — the function-entry base case: the empty state with entry block-arguments set
+  satisfies `EquationLemmaAt`/`DefinesDominating` at the entry point.
+-/
+theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
+    {pattern : LocalRewritePattern OpCode}
+    (hValid : pattern.Valid)
+    (hSrcDom : rewriter.ctx.Dom)
+    (hSrcVerif : rewriter.ctx.Verified)
+    (hpat : pattern rewriter.ctx op = some (newCtxPat, some (newOps, newValues)))
+    (hdriver : RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter')
+    (hSrcSplit : ∀ (b : BlockPtr) (bIn : b.InBounds rewriter.ctx.raw),
+      ∃ (front : List OperationPtr) (term : OperationPtr)
+        (frontIn : ∀ o ∈ front, o.InBounds rewriter.ctx.raw) (_termIn : term.InBounds rewriter.ctx.raw),
+        (b.operationList rewriter.ctx.raw rewriter.ctx.wellFormed bIn).toList = front ++ [term] ∧
+        (∀ (s s' : InterpreterState rewriter.ctx) (cf : ControlFlowAction),
+            interpretOpList front s frontIn ≠ some (.ok (s', some cf))))
+    (hTgtSplit : ∀ (b : BlockPtr) (bIn' : b.InBounds rewriter'.ctx.raw),
+      ∃ (front : List OperationPtr) (term : OperationPtr)
+        (frontIn : ∀ o ∈ front, o.InBounds rewriter'.ctx.raw) (_termIn : term.InBounds rewriter'.ctx.raw),
+        (b.operationList rewriter'.ctx.raw rewriter'.ctx.wellFormed bIn').toList = front ++ [term] ∧
+        (∀ (s s' : InterpreterState rewriter'.ctx) (cf : ControlFlowAction),
+            interpretOpList front s frontIn ≠ some (.ok (s', some cf))))
+    (hSrcInv : ∀ (_funcOp : OperationPtr) (values : Array RuntimeValue) (mem : MemoryState)
+        (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds rewriter.ctx.raw)
+        (newVars : VariableState rewriter.ctx),
+        (VariableState.empty rewriter.ctx).setArgumentValues? entryBlock values entryIn = some newVars →
+        ∀ fst (hfst : (entryBlock.get! rewriter.ctx.raw).firstOp = some fst),
+          (InterpreterState.mk newVars mem).EquationLemmaAt (.before fst)
+            (by have := rewriter.ctx.wellFormed.inBounds; grind))
+    (hTgtInv : ∀ (_funcOp : OperationPtr) (values' : Array RuntimeValue) (mem : MemoryState)
+        (entryBlock : BlockPtr) (entryIn' : entryBlock.InBounds rewriter'.ctx.raw)
+        (newVars' : VariableState rewriter'.ctx),
+        (VariableState.empty rewriter'.ctx).setArgumentValues? entryBlock values' entryIn' = some newVars' →
+        (InterpreterState.mk newVars' mem).DefinesDominating
+          (InsertPoint.atStart! entryBlock rewriter'.ctx.raw)
+          ((InsertPoint.inBounds_atStart! rewriter'.ctx.wellFormed entryIn').mpr entryIn'))
+    {moduleOp : OperationPtr} :
+    moduleOp.isModuleRefinedBy rewriter.ctx moduleOp rewriter'.ctx := by
+  -- The driver's net edit is a `RewrittenAt` instance.
+  obtain ⟨block, pre, post, blockIn, blockIn', hOpParent, hRW⟩ :=
+    RewrittenAt.of_fromLocalRewrite hValid hSrcDom hSrcVerif hpat hdriver
+  -- The target context is verified: the pattern's `rewritePreservesVerified` obligation propagates
+  -- source verification across the driver run.
+  have newCtxVerif : rewriter'.ctx.Verified :=
+    hValid.rewritePreservesVerified rewriter op opInBounds rewriter' hdriver hSrcVerif
+  -- `RewrittenAt.isModuleRefinedBy` consumes the instance; the easy well-formedness side-conditions
+  -- are discharged here, the four semantic bridges remain.
+  -- `hSrcSplit`/`hTgtSplit`/`hSrcInv` discharge positionally; `hTgtInv` is restated with a target
+  -- in-bounds binder, so reroute the source binder through `hRW.blocksInBounds`.
+  refine hRW.isModuleRefinedBy hSrcVerif newCtxVerif hSrcDom ?hOpSim hSrcSplit hTgtSplit hSrcInv
+    ?hTgtInv
+  case hTgtInv =>
+    intro _funcOp values' mem entryBlock entryIn newVars' h
+    exact hTgtInv _funcOp values' mem entryBlock (hRW.blocksInBounds entryBlock entryIn) newVars' h
+  case hOpSim =>
+    -- === PR 8: bridge `pattern.PreservesSemantics` to `OpStepSimulation op newOps hRW.σ`. ===
+    -- `hValid.preservesSemantics` (at `ctx := rewriter.ctx`) supplies the *source* side exactly:
+    -- `interpretOp op` in `rewriter.ctx` refined by `interpretOpList newOps` in the create-only
+    -- `newCtxPat`. The target side is transported with the **data-equality frame** above
+    -- (`interpretOpList_sameData_transport`): `interpretOp`/`interpretOpList` depend only on each op's
+    -- local data (operands/type/properties/result-types/successors/results), never on parents or
+    -- dominance, so a `newOps` run transports unchanged between two contexts whose op-data agree —
+    -- sidestepping the scoped-refinement/parent obstruction that blocked the earlier attempts.
+    --
+    -- Remaining to finish `hOpSim`:
+    -- (1) `OpDataEq newOp newCtxPat rewriter'.ctx` for every `newOp` — all fields hold across the
+    --     driver's insert/redirect/erase edits; `operands` needs that `newOps` do not reference `op`'s
+    --     results, which is *forced* by the successful `newCtxPat` run when the entry state is built
+    --     from `s'` (where `op` is erased, so its results are not in scope), making the redirect inert.
+    -- (2) Build the `newCtxPat` entry state from `s'` (`SameData`) and apply `preservesSemantics`.
+    -- (3) Reconcile `LocalRewritePattern.mapping hpat` with `hRW.σ` and the `(.before op, p')` ↔
+    --     `(.before op, .before op)` scopes to land the `Interp.isRefinedBy` goal.
+    sorry
+
 end Veir
