@@ -237,6 +237,23 @@ def LocalRewritePattern.RewriteNewValuesDominate (pattern : LocalRewritePattern 
         (InsertPoint.atStart! block rewriter'.ctx.raw)) rewriter'.ctx
 
 /--
+Applying the pattern through the standard driver (`RewritePattern.fromLocalRewrite`) preserves
+block-level dominance: any two in-bounds blocks dominate each other in the rewritten context exactly
+when they do in the source context. The driver edits only the operation list of the matched
+operation's block (insert `newOps` before `op`, redirect `op`'s results, erase `op`); it never adds
+or removes a block, nor alters region structure. That op-list surgery does not preserve the block
+CFG for an *arbitrary* pattern — replacing a block's terminator can re-route its successors — so, like
+`RewritePreservesDom`/`RewritePreservesVerified`, each concrete pattern must discharge this obligation
+(typically because its `newOps` reproduce the matched operation's control-flow behaviour, leaving every
+block's successor edges intact). -/
+def LocalRewritePattern.RewritePreservesBlockDominance (pattern : LocalRewritePattern OpCode) : Prop :=
+  ∀ (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) (rewriter' : PatternRewriter OpCode),
+    RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter' →
+    ∀ (b₁ b₂ : BlockPtr), b₁.InBounds rewriter.ctx.raw → b₂.InBounds rewriter.ctx.raw →
+      (b₁.dominates b₂ rewriter'.ctx ↔ b₁.dominates b₂ rewriter.ctx)
+
+/--
 The bundle of correctness obligations a `LocalRewritePattern` must satisfy for the soundness
 results (notably `RewrittenAt.of_fromLocalRewrite` and the soundness lift built on it) to apply.
 Bundling them into a single structure avoids threading every obligation as a separate argument.
@@ -267,3 +284,5 @@ structure LocalRewritePattern.Valid (pattern : LocalRewritePattern OpCode) : Pro
   rewritePreservesVerified : pattern.RewritePreservesVerified
   /-- Every produced value dominates the post-insertion point in the matched operation's block. -/
   rewriteNewValuesDominate : pattern.RewriteNewValuesDominate
+  /-- The driver-applied rewrite preserves block-level dominance. -/
+  rewritePreservesBlockDominance : pattern.RewritePreservesBlockDominance
