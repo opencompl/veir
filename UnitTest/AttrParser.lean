@@ -232,6 +232,36 @@ macro "#assert " e:term : command =>
 /-! ## LLVM Byte type -/
 #assert expectSuccessType "!llvm.byte<64>" (LLVM.ByteType.mk 64)
 
+/-! ## LLVM Struct type (parsed opaquely; see `parseOptionalLLVMStructType`)
+
+  The struct type is handled by a dedicated parser that accepts both the
+  standalone `!llvm.struct<...>` form and the bare `struct<...>` form used when a
+  struct is nested inside another LLVM type (e.g. an array element). Both forms
+  are normalized to the full `!llvm.struct<...>` spelling, and neither requires
+  `allowUnregisteredDialect` (like `!llvm.array`). The struct name, fields, and
+  packed flag are *not* modeled structurally — they survive only as text. -/
+
+-- Standalone struct: both forms parse identically, with or without the flag.
+#assert expectSuccessType "!llvm.struct<(i32, f32)>"
+  ⟨UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true, by grind⟩ false
+#assert expectSuccessType "!llvm.struct<(i32, f32)>"
+  ⟨UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true, by grind⟩ true
+-- Literal struct nested in an array (original `!llvm.array<N x struct<...>>` bug).
+#assert expectSuccessType "!llvm.array<2 x struct<(i32, f32)>>"
+  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true : Attribute)) true
+#assert expectSuccessType "!llvm.array<2 x struct<(i32, f32)>>"
+  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true : Attribute)) false
+-- The bare nested form and the prefixed nested form are equivalent.
+#assert expectSuccessType "!llvm.array<2 x !llvm.struct<(i32, f32)>>"
+  (LLVM.ArrayType.mk 2 (UnregisteredAttr.mk "!llvm.struct<(i32, f32)>" true : Attribute)) false
+-- Identified (named) struct: the name is preserved verbatim inside the text.
+#assert expectSuccessType "!llvm.array<23 x struct<\"struct.et_info\", (i8, i8)>>"
+  (LLVM.ArrayType.mk 23
+    (UnregisteredAttr.mk "!llvm.struct<\"struct.et_info\", (i8, i8)>" true : Attribute)) true
+-- Packed struct nested in an array.
+#assert expectSuccessType "!llvm.array<4 x struct<packed (i8, i32)>>"
+  (LLVM.ArrayType.mk 4 (UnregisteredAttr.mk "!llvm.struct<packed (i8, i32)>" true : Attribute)) true
+
 /-! ## LLVM Function type -/
 #assert expectSuccessType "!llvm.func<i32 (i32)>"
   ⟨.llvmFunctionType (FunctionType.mk
