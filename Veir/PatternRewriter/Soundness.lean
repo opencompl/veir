@@ -3310,6 +3310,185 @@ theorem rewriteMapping_applyToArray_eq_map {ctx newCtx : WfIRContext OpCode}
     simp only [ValueMapping.applyToArray, Array.getElem_map, Array.getElem_attach, rewriteMapping]
     split <;> grind
 
+/-! ### Bridges from the `!`-checked driver operations to their proof-carrying counterparts.
+
+`RewritePattern.fromLocalRewrite` drives the rewrite with the dynamically-checked `insertOp!`,
+`replaceValue!`, and `eraseOp!` (each returns `none` if a precondition fails). When such a call
+returns `some b'`, it agrees with the proof-carrying `insertOp`/`replaceValue`/`eraseOp` it reduces
+to. These bridges expose that fact, letting the keystone fold lemmas below run unchanged against the
+non-`!` API. -/
+
+/-- When `insertOp!` succeeds it exhibits the proof-carrying `insertOp` call it reduces to. -/
+theorem PatternRewriter.insertOp!_eq_some {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint}
+    (h : b.insertOp! newOp ip = some b') :
+    ∃ (h1 : newOp.InBounds b.ctx.raw) (h2 : ip.InBounds b.ctx.raw),
+      PatternRewriter.insertOp b newOp ip h1 h2 = some b' := by
+  unfold PatternRewriter.insertOp! at h
+  split at h
+  · rename_i hop
+    split at h
+    · exact ⟨hop, _, h⟩
+    · simp at h
+  · simp at h
+
+/-- When `replaceValue!` succeeds it is the `replaceValue` of the same arguments. -/
+theorem PatternRewriter.replaceValue!_eq_some {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    ∃ (ne : oldVal ≠ newVal) (oldIn : oldVal.InBounds b.ctx.raw) (newIn : newVal.InBounds b.ctx.raw),
+      b.replaceValue oldVal newVal ne oldIn newIn = b' := by
+  unfold PatternRewriter.replaceValue! at h
+  split at h
+  · rename_i hne
+    split at h
+    · rename_i hold
+      split at h
+      · rename_i hnew
+        simp only [Option.some.injEq] at h
+        exact ⟨hne, hold, hnew, h⟩
+      · simp at h
+    · simp at h
+  · simp at h
+
+/-- When `eraseOp!` succeeds it exhibits the proof-carrying `eraseOp` call it reduces to. -/
+theorem PatternRewriter.eraseOp!_eq_some {b b' : PatternRewriter OpCode} {op : OperationPtr}
+    (h : b.eraseOp! op = some b') :
+    ∃ (r : op.getNumRegions! b.ctx.raw = 0) (u : (!op.hasUses! b.ctx.raw) = true)
+      (hop : op.InBounds b.ctx.raw),
+      PatternRewriter.eraseOp b op r u hop = some b' := by
+  unfold PatternRewriter.eraseOp! at h
+  split at h
+  · rename_i hOp
+    split at h
+    · rename_i hRegions
+      split at h
+      · rename_i hUses
+        exact ⟨hRegions, hUses, hOp, h⟩
+      · simp at h
+    · simp at h
+  · simp at h
+
+/-- `insertOp!` (when it succeeds) preserves all `InBounds` facts. -/
+theorem PatternRewriter.insertOp!_ctx_inBounds {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {ptr : GenericPtr}
+    (h : b.insertOp! newOp ip = some b') :
+    ptr.InBounds b'.ctx.raw ↔ ptr.InBounds b.ctx.raw := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_ctx_inBounds h
+
+/-- `insertOp!` (when it succeeds) frames a survivor's intrinsic data. -/
+theorem PatternRewriter.insertOp!_sameIntrinsic {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {o : OperationPtr}
+    (h : b.insertOp! newOp ip = some b') :
+    o.SameIntrinsic b.ctx.raw b'.ctx.raw := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_sameIntrinsic h
+
+/-- `insertOp!` (when it succeeds) frames a survivor's operands. -/
+theorem PatternRewriter.insertOp!_getOperands {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {o : OperationPtr}
+    (h : b.insertOp! newOp ip = some b') :
+    o.getOperands! b'.ctx.raw = o.getOperands! b.ctx.raw := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_getOperands h
+
+/-- `insertOp!` (when it succeeds) leaves every operation's region count unchanged. -/
+theorem PatternRewriter.insertOp!_getNumRegions {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {o : OperationPtr}
+    (h : b.insertOp! newOp ip = some b') :
+    o.getNumRegions! b'.ctx.raw = o.getNumRegions! b.ctx.raw := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_getNumRegions h
+
+/-- `insertOp!` (when it succeeds) leaves every operation's region pointers unchanged. -/
+theorem PatternRewriter.insertOp!_getRegion {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {o : OperationPtr} {idx : Nat}
+    (h : b.insertOp! newOp ip = some b') :
+    o.getRegion! b'.ctx.raw idx = o.getRegion! b.ctx.raw idx := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_getRegion h
+
+/-- `insertOp!` (when it succeeds) leaves every region's entry block unchanged. -/
+theorem PatternRewriter.insertOp!_firstBlock {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {r : RegionPtr}
+    (h : b.insertOp! newOp ip = some b') :
+    (r.get! b'.ctx.raw).firstBlock = (r.get! b.ctx.raw).firstBlock := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_firstBlock h
+
+/-- `insertOp!` (when it succeeds) leaves every block's argument count unchanged. -/
+theorem PatternRewriter.insertOp!_getNumArguments {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {bl : BlockPtr}
+    (h : b.insertOp! newOp ip = some b') :
+    bl.getNumArguments! b'.ctx.raw = bl.getNumArguments! b.ctx.raw := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_getNumArguments h
+
+/-- `insertOp!` (when it succeeds) leaves every value's type unchanged. -/
+theorem PatternRewriter.insertOp!_getType {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {v : ValuePtr}
+    (h : b.insertOp! newOp ip = some b') :
+    v.getType! b'.ctx.raw = v.getType! b.ctx.raw := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_getType h
+
+/-- `replaceValue!` (when it succeeds) preserves all `InBounds` facts. -/
+theorem PatternRewriter.replaceValue!_ctx_inBounds {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ptr : GenericPtr}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    ptr.InBounds b'.ctx.raw ↔ ptr.InBounds b.ctx.raw := by
+  obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
+  exact PatternRewriter.replaceValue_ctx_inBounds
+
+/-- `replaceValue!` (when it succeeds) frames a survivor's intrinsic data. -/
+theorem PatternRewriter.replaceValue!_sameIntrinsic {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {o : OperationPtr}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    o.SameIntrinsic b.ctx.raw b'.ctx.raw := by
+  obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
+  exact PatternRewriter.replaceValue_sameIntrinsic
+
+/-- `replaceValue!` (when it succeeds) leaves every operation's region count unchanged. -/
+theorem PatternRewriter.replaceValue!_getNumRegions {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {o : OperationPtr}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    o.getNumRegions! b'.ctx.raw = o.getNumRegions! b.ctx.raw := by
+  obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
+  exact PatternRewriter.replaceValue_getNumRegions
+
+/-- `replaceValue!` (when it succeeds) leaves every operation's region pointers unchanged. -/
+theorem PatternRewriter.replaceValue!_getRegion {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {o : OperationPtr} {idx : Nat}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    o.getRegion! b'.ctx.raw idx = o.getRegion! b.ctx.raw idx := by
+  obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
+  exact PatternRewriter.replaceValue_getRegion
+
+/-- `replaceValue!` (when it succeeds) leaves every region's entry block unchanged. -/
+theorem PatternRewriter.replaceValue!_firstBlock {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {r : RegionPtr}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    (r.get! b'.ctx.raw).firstBlock = (r.get! b.ctx.raw).firstBlock := by
+  obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
+  exact PatternRewriter.replaceValue_firstBlock
+
+/-- `replaceValue!` (when it succeeds) leaves every block's argument count unchanged. -/
+theorem PatternRewriter.replaceValue!_getNumArguments {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {bl : BlockPtr}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    bl.getNumArguments! b'.ctx.raw = bl.getNumArguments! b.ctx.raw := by
+  obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
+  exact PatternRewriter.replaceValue_getNumArguments
+
+/-- `replaceValue!` (when it succeeds) leaves every value's type unchanged. -/
+theorem PatternRewriter.replaceValue!_getType {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {v : ValuePtr}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    v.getType! b'.ctx.raw = v.getType! b.ctx.raw := by
+  obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
+  exact PatternRewriter.replaceValue_getType
+
 /--
 **PR 9 — bridge from the concrete driver.** When `fromLocalRewrite` runs the rewrite branch for a
 matched, in-bounds, region-free `op` that lives inside a block, and the pattern satisfies the four
@@ -3363,17 +3542,19 @@ theorem RewrittenAt.of_fromLocalRewrite
   obtain ⟨s₁, hfold1, hdriver⟩ := Option.bind_eq_some_iff.mp hdriver
   obtain ⟨s₂, hfold2, hdriver⟩ := Option.bind_eq_some_iff.mp hdriver
   obtain ⟨_arr, _hloop, herase⟩ := Option.bind_eq_some_iff.mp hdriver
+  -- The driver erases `op` with the dynamically-checked `eraseOp!`; recover the proof-carrying
+  -- `eraseOp` call it reduces to (shadowing `herase`) so the keystone `eraseOp` lemmas apply.
+  obtain ⟨_eraseRegions, _eraseUses, _eraseIn, herase⟩ := PatternRewriter.eraseOp!_eq_some herase
   -- Bounds transport across the insert/replace folds: both preserve every `InBounds` fact, so `s₂.ctx`
   -- agrees with the pattern's output `newCtxPat` on bounds.
   have hbnd : ∀ ptr : GenericPtr, ptr.InBounds s₂.ctx.raw ↔ ptr.InBounds newCtxPat.raw := by
     intro ptr
     have h1 := Array.foldlM_option_invariant
       (P := fun b : PatternRewriter OpCode => ptr.InBounds b.ctx.raw)
-      (fun b a b' h => PatternRewriter.insertOp_ctx_inBounds h) hfold1
+      (fun b a b' h => PatternRewriter.insertOp!_ctx_inBounds h) hfold1
     have h2 := Array.foldlM_option_invariant
       (P := fun b : PatternRewriter OpCode => ptr.InBounds b.ctx.raw)
-      (fun b a b' h => by
-        rw [Option.some.injEq] at h; subst h; exact PatternRewriter.replaceValue_ctx_inBounds) hfold2
+      (fun b a b' h => PatternRewriter.replaceValue!_ctx_inBounds h) hfold2
     exact h2.trans h1
   -- `block` survives into the pattern's output context (the pattern only creates ops).
   have hblockNewCtxPat : block.InBounds newCtxPat.raw :=
@@ -3450,7 +3631,7 @@ theorem RewrittenAt.of_fromLocalRewrite
   -- Insert fold: `block`'s list becomes `pre ++ newOps ++ [op] ++ post`; `op` keeps its parent.
   obtain ⟨hopS1, hparS1, hlistS1⟩ :=
     PatternRewriter.foldlM_insertOp_before_opList
-      (hf := fun b a b' hfa => ⟨_, _, hfa⟩)
+      (hf := fun b a b' hfa => PatternRewriter.insertOp!_eq_some hfa)
       hopNewCtxPat hfold1L hparInit hlistInit hoppre.1 hoppre.2 (by simpa using hopNotNewOps)
   have hblockS1 : block.InBounds s₁.ctx.raw := by have := s₁.ctx.wellFormed.inBounds; grind
   have hblockS2 : block.InBounds s₂.ctx.raw := by
@@ -3461,7 +3642,7 @@ theorem RewrittenAt.of_fromLocalRewrite
     rw [PatternRewriter.foldlM_preserves_opList (c := block)
       (hstep := by
         intro b a b' hfa
-        simp only [Option.some.injEq] at hfa; subst hfa
+        obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some hfa
         exact ⟨fun hcin => PatternRewriter.replaceValue_blockPtr_inBounds.mpr hcin,
           fun hc hc' => PatternRewriter.replaceValue_operationList hc hc'⟩)
       hfold2L hblockS1 hblockS2, hlistS1 hblockS1]
@@ -3482,7 +3663,7 @@ theorem RewrittenAt.of_fromLocalRewrite
         (P := fun b : PatternRewriter OpCode =>
           bl.getNumArguments! b.ctx.raw = bl.getNumArguments! newCtxPat.raw)
         (fun b a b' hh => by
-          have := PatternRewriter.insertOp_getNumArguments (bl := bl) hh
+          have := PatternRewriter.insertOp!_getNumArguments (bl := bl) hh
           constructor <;> intro hb <;> grind) hfold1
       exact h.mpr rfl
     have hRep : bl.getNumArguments! s₂.ctx.raw = bl.getNumArguments! s₁.ctx.raw := by
@@ -3490,9 +3671,8 @@ theorem RewrittenAt.of_fromLocalRewrite
         (P := fun b : PatternRewriter OpCode =>
           bl.getNumArguments! b.ctx.raw = bl.getNumArguments! s₁.ctx.raw)
         (fun b a b' hh => by
-          have hst : bl.getNumArguments! b'.ctx.raw = bl.getNumArguments! b.ctx.raw := by
-            simp only [Option.some.injEq] at hh; subst hh
-            exact PatternRewriter.replaceValue_getNumArguments
+          have hst : bl.getNumArguments! b'.ctx.raw = bl.getNumArguments! b.ctx.raw :=
+            PatternRewriter.replaceValue!_getNumArguments hh
           constructor <;> intro hb <;> grind) hfold2
       exact h.mpr rfl
     have hErase : bl.getNumArguments! rewriter'.ctx.raw = bl.getNumArguments! s₂.ctx.raw := by
@@ -3518,7 +3698,7 @@ theorem RewrittenAt.of_fromLocalRewrite
           (ValuePtr.blockArgument ⟨bl, i⟩).getType! b.ctx.raw
             = (ValuePtr.blockArgument ⟨bl, i⟩).getType! newCtxPat.raw)
         (fun b a b' hh => by
-          have := PatternRewriter.insertOp_getType (v := (ValuePtr.blockArgument ⟨bl, i⟩)) hh
+          have := PatternRewriter.insertOp!_getType (v := (ValuePtr.blockArgument ⟨bl, i⟩)) hh
           constructor <;> intro hb <;> grind) hfold1
       exact h.mpr rfl
     have hRep : (ValuePtr.blockArgument ⟨bl, i⟩).getType! s₂.ctx.raw
@@ -3529,9 +3709,8 @@ theorem RewrittenAt.of_fromLocalRewrite
             = (ValuePtr.blockArgument ⟨bl, i⟩).getType! s₁.ctx.raw)
         (fun b a b' hh => by
           have hst : (ValuePtr.blockArgument ⟨bl, i⟩).getType! b'.ctx.raw
-              = (ValuePtr.blockArgument ⟨bl, i⟩).getType! b.ctx.raw := by
-            simp only [Option.some.injEq] at hh; subst hh
-            exact PatternRewriter.replaceValue_getType
+              = (ValuePtr.blockArgument ⟨bl, i⟩).getType! b.ctx.raw :=
+            PatternRewriter.replaceValue!_getType hh
           constructor <;> intro hb <;> grind) hfold2
       exact h.mpr rfl
     -- `eraseOp` preserves the type of any *in-bounds* value; the `i`-th argument of the surviving
@@ -3568,7 +3747,7 @@ theorem RewrittenAt.of_fromLocalRewrite
       have hcS1 : c.InBounds s₁.ctx.raw := by
         have h1 := Array.foldlM_option_invariant
           (P := fun b : PatternRewriter OpCode => (GenericPtr.block c).InBounds b.ctx.raw)
-          (fun b a b' h => PatternRewriter.insertOp_ctx_inBounds h) hfold1
+          (fun b a b' h => PatternRewriter.insertOp!_ctx_inBounds h) hfold1
         grind
       have hcS2 : c.InBounds s₂.ctx.raw := by have := hbnd (GenericPtr.block c); grind
       have hcond : (op.get! s₂.ctx.raw).parent ≠ (c : Option BlockPtr) := by
@@ -3584,13 +3763,13 @@ theorem RewrittenAt.of_fromLocalRewrite
       rw [PatternRewriter.foldlM_preserves_opList (c := c)
         (hstep := by
           intro b a b' hfa
-          simp only [Option.some.injEq] at hfa; subst hfa
+          obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some hfa
           exact ⟨fun hcin => PatternRewriter.replaceValue_blockPtr_inBounds.mpr hcin,
             fun h1 h2 => PatternRewriter.replaceValue_operationList h1 h2⟩)
         hfold2L hcS1 hcS2]
       -- Insert fold leaves `c`'s list alone (inserts target `block ≠ c`).
       rw [PatternRewriter.foldlM_insertOp_before_other (c := c) (block := block) hcne
-        (hf := fun b a b' hfa => ⟨_, _, hfa⟩)
+        (hf := fun b a b' hfa => PatternRewriter.insertOp!_eq_some hfa)
         hopNewCtxPat hparInit hfold1L (by simpa using hopNotNewOps) hcNewCtxPat hcS1]
       -- Created ops leave `c`'s list alone.
       exact (hCreated.operationList_eq cIn hcNewCtxPat).symm
@@ -3654,7 +3833,7 @@ theorem RewrittenAt.of_fromLocalRewrite
       have hoS1 : o.InBounds s₁.ctx.raw := by
         have h := Array.foldlM_option_invariant
           (P := fun b : PatternRewriter OpCode => (GenericPtr.operation o).InBounds b.ctx.raw)
-          (fun b a b' hh => PatternRewriter.insertOp_ctx_inBounds hh) hfold1
+          (fun b a b' hh => PatternRewriter.insertOp!_ctx_inBounds hh) hfold1
         grind
       have hoErase := PatternRewriter.eraseOp_ctx_eq herase ▸ oIn'
       -- (1) Intrinsic data is framed across the whole pipeline.
@@ -3663,16 +3842,15 @@ theorem RewrittenAt.of_fromLocalRewrite
         have h := Array.foldlM_option_invariant
           (P := fun b : PatternRewriter OpCode => o.SameIntrinsic newCtxPat.raw b.ctx.raw)
           (fun b a b' hh =>
-            ⟨fun hb => hb.trans (PatternRewriter.insertOp_sameIntrinsic hh).symm,
-             fun hb => hb.trans (PatternRewriter.insertOp_sameIntrinsic hh)⟩) hfold1
+            ⟨fun hb => hb.trans (PatternRewriter.insertOp!_sameIntrinsic hh).symm,
+             fun hb => hb.trans (PatternRewriter.insertOp!_sameIntrinsic hh)⟩) hfold1
         exact h.mpr OperationPtr.SameIntrinsic.rfl
       have hrep : o.SameIntrinsic s₁.ctx.raw s₂.ctx.raw := by
         have h := Array.foldlM_option_invariant
           (P := fun b : PatternRewriter OpCode => o.SameIntrinsic s₁.ctx.raw b.ctx.raw)
           (fun b a b' hh => by
-            have hst : o.SameIntrinsic b.ctx.raw b'.ctx.raw := by
-              simp only [Option.some.injEq] at hh; subst hh
-              exact PatternRewriter.replaceValue_sameIntrinsic
+            have hst : o.SameIntrinsic b.ctx.raw b'.ctx.raw :=
+              PatternRewriter.replaceValue!_sameIntrinsic hh
             exact ⟨fun hb => hb.trans hst.symm, fun hb => hb.trans hst⟩) hfold2
         exact h.mpr OperationPtr.SameIntrinsic.rfl
       have hers : o.SameIntrinsic s₂.ctx.raw rewriter'.ctx.raw := by
@@ -3693,14 +3871,14 @@ theorem RewrittenAt.of_fromLocalRewrite
               (fun arr q => arr.map (fun v => if v = (op.getResult q.2 : ValuePtr) then q.1 else v))
               (o.getOperands! s₁.ctx.raw) :=
         PatternRewriter.foldlM_replaceValue_getOperands
-          (hf := fun b q b' hfa => ⟨_, _, _, by simp only [Option.some.injEq] at hfa; exact hfa⟩)
+          (hf := fun b q b' hfa => PatternRewriter.replaceValue!_eq_some hfa)
           hfold2L hoS1
       have hopsIns : o.getOperands! s₁.ctx.raw = o.getOperands! newCtxPat.raw := by
         have h := Array.foldlM_option_invariant
           (P := fun b : PatternRewriter OpCode =>
             o.getOperands! b.ctx.raw = o.getOperands! newCtxPat.raw)
           (fun b a b' hh => by
-            have := PatternRewriter.insertOp_getOperands (o := o) hh
+            have := PatternRewriter.insertOp!_getOperands (o := o) hh
             constructor <;> intro hb <;> grind) hfold1
         exact h.mpr rfl
       have hopsCre : o.getOperands! newCtxPat.raw = o.getOperands! rewriter.ctx.raw :=
@@ -3809,7 +3987,7 @@ theorem RewrittenAt.of_fromLocalRewrite
             (P := fun b : PatternRewriter OpCode =>
               o.getNumRegions! b.ctx.raw = o.getNumRegions! newCtxPat.raw)
             (fun b a b' hh => by
-              have := PatternRewriter.insertOp_getNumRegions (o := o) hh
+              have := PatternRewriter.insertOp!_getNumRegions (o := o) hh
               constructor <;> intro hb <;> grind) hfold1
           exact h.mpr rfl
         have hrep : o.getNumRegions! s₂.ctx.raw = o.getNumRegions! s₁.ctx.raw := by
@@ -3817,9 +3995,8 @@ theorem RewrittenAt.of_fromLocalRewrite
             (P := fun b : PatternRewriter OpCode =>
               o.getNumRegions! b.ctx.raw = o.getNumRegions! s₁.ctx.raw)
             (fun b a b' hh => by
-              have hst : o.getNumRegions! b'.ctx.raw = o.getNumRegions! b.ctx.raw := by
-                simp only [Option.some.injEq] at hh; subst hh
-                exact PatternRewriter.replaceValue_getNumRegions
+              have hst : o.getNumRegions! b'.ctx.raw = o.getNumRegions! b.ctx.raw :=
+                PatternRewriter.replaceValue!_getNumRegions hh
               constructor <;> intro hb <;> grind) hfold2
           exact h.mpr rfl
         have hers : o.getNumRegions! rewriter'.ctx.raw = o.getNumRegions! s₂.ctx.raw := by
@@ -3836,7 +4013,7 @@ theorem RewrittenAt.of_fromLocalRewrite
             (P := fun b : PatternRewriter OpCode =>
               o.getRegion! b.ctx.raw idx = o.getRegion! newCtxPat.raw idx)
             (fun b a b' hh => by
-              have := PatternRewriter.insertOp_getRegion (o := o) (idx := idx) hh
+              have := PatternRewriter.insertOp!_getRegion (o := o) (idx := idx) hh
               constructor <;> intro hb <;> grind) hfold1
           exact h.mpr rfl
         have hrep : o.getRegion! s₂.ctx.raw idx = o.getRegion! s₁.ctx.raw idx := by
@@ -3844,9 +4021,8 @@ theorem RewrittenAt.of_fromLocalRewrite
             (P := fun b : PatternRewriter OpCode =>
               o.getRegion! b.ctx.raw idx = o.getRegion! s₁.ctx.raw idx)
             (fun b a b' hh => by
-              have hst : o.getRegion! b'.ctx.raw idx = o.getRegion! b.ctx.raw idx := by
-                simp only [Option.some.injEq] at hh; subst hh
-                exact PatternRewriter.replaceValue_getRegion
+              have hst : o.getRegion! b'.ctx.raw idx = o.getRegion! b.ctx.raw idx :=
+                PatternRewriter.replaceValue!_getRegion hh
               constructor <;> intro hb <;> grind) hfold2
           exact h.mpr rfl
         have hers : o.getRegion! rewriter'.ctx.raw idx = o.getRegion! s₂.ctx.raw idx := by
@@ -3865,7 +4041,7 @@ theorem RewrittenAt.of_fromLocalRewrite
           (P := fun b : PatternRewriter OpCode =>
             (r.get! b.ctx.raw).firstBlock = (r.get! newCtxPat.raw).firstBlock)
           (fun b a b' hh => by
-            have := PatternRewriter.insertOp_firstBlock (r := r) hh
+            have := PatternRewriter.insertOp!_firstBlock (r := r) hh
             constructor <;> intro hb <;> grind) hfold1
         exact h.mpr rfl
       have hrep : (r.get! s₂.ctx.raw).firstBlock = (r.get! s₁.ctx.raw).firstBlock := by
@@ -3873,9 +4049,8 @@ theorem RewrittenAt.of_fromLocalRewrite
           (P := fun b : PatternRewriter OpCode =>
             (r.get! b.ctx.raw).firstBlock = (r.get! s₁.ctx.raw).firstBlock)
           (fun b a b' hh => by
-            have hst : (r.get! b'.ctx.raw).firstBlock = (r.get! b.ctx.raw).firstBlock := by
-              simp only [Option.some.injEq] at hh; subst hh
-              exact PatternRewriter.replaceValue_firstBlock
+            have hst : (r.get! b'.ctx.raw).firstBlock = (r.get! b.ctx.raw).firstBlock :=
+              PatternRewriter.replaceValue!_firstBlock hh
             constructor <;> intro hb <;> grind) hfold2
         exact h.mpr rfl
       have hers : (r.get! rewriter'.ctx.raw).firstBlock = (r.get! s₂.ctx.raw).firstBlock := by
