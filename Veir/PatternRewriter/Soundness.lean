@@ -2926,6 +2926,30 @@ theorem PatternRewriter.insertOp_getOperands {b b' : PatternRewriter OpCode}
     simp only [Option.some.injEq] at h; subst h
     exact OperationPtr.getOperands!_wfRewriter_insertOp hwf
 
+/-- `PatternRewriter.insertOp` leaves every operation's region count unchanged. -/
+theorem PatternRewriter.insertOp_getNumRegions {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {o : OperationPtr}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    o.getNumRegions! b'.ctx.raw = o.getNumRegions! b.ctx.raw := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · simp at h
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact OperationPtr.getNumRegions!_wfRewriter_insertOp hwf
+
+/-- `PatternRewriter.insertOp` leaves every operation's region pointers unchanged. -/
+theorem PatternRewriter.insertOp_getRegion {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {o : OperationPtr} {idx : Nat}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    o.getRegion! b'.ctx.raw idx = o.getRegion! b.ctx.raw idx := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · simp at h
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact OperationPtr.getRegion!_wfRewriter_insertOp hwf
+
 /-- `PatternRewriter.replaceValue` frames every operation's intrinsic data (it only redirects
 operands). -/
 theorem PatternRewriter.replaceValue_sameIntrinsic {b : PatternRewriter OpCode}
@@ -2951,6 +2975,39 @@ theorem PatternRewriter.replaceValue_getOperands {b : PatternRewriter OpCode}
     simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
   rw [hctx]
   exact OperationPtr.getOperands!_WfRewriter_replaceValue hin
+
+/-- `PatternRewriter.replaceValue` leaves every operation's region count unchanged. -/
+theorem PatternRewriter.replaceValue_getNumRegions {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {o : OperationPtr} :
+    o.getNumRegions! (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw =
+    o.getNumRegions! b.ctx.raw := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]; exact OperationPtr.getNumRegions!_WfRewriter_replaceValue
+
+/-- `PatternRewriter.replaceValue` leaves every operation's region pointers unchanged. -/
+theorem PatternRewriter.replaceValue_getRegion {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {o : OperationPtr} {idx : Nat} :
+    o.getRegion! (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw idx =
+    o.getRegion! b.ctx.raw idx := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]; exact OperationPtr.getRegion!_WfRewriter_replaceValue
+
+/-- An operation's region list is determined by its region count and region pointers, so equal counts
+plus equal pointers (at every index) give equal region lists across two contexts. -/
+theorem OperationPtr.regions_eq_of {o : OperationPtr} {ctx ctx' : IRContext OpCode}
+    (hsize : o.getNumRegions! ctx = o.getNumRegions! ctx')
+    (helem : ∀ idx, o.getRegion! ctx idx = o.getRegion! ctx' idx) :
+    (o.get! ctx).regions = (o.get! ctx').regions := by
+  apply Array.ext
+  · simpa only [OperationPtr.getNumRegions!] using hsize
+  · intro i hi hi'
+    have h := helem i
+    simp only [OperationPtr.getRegion!] at h
+    rwa [getElem!_pos _ i hi, getElem!_pos _ i hi'] at h
 
 /-- A `WithCreatedOps` chain frames a survivor's intrinsic data (it only creates fresh ops). -/
 theorem WfIRContext.WithCreatedOps.sameIntrinsic {ctx₁ ctx₂ : WfIRContext OpCode}
@@ -2978,6 +3035,33 @@ theorem WfIRContext.WithCreatedOps.getOperands_eq {ctx₁ ctx₂ : WfIRContext O
     have ho2 : o.InBounds ctx₂.raw := by
       have := hwco.inBounds_mono (GenericPtr.operation o) (by grind); grind
     rw [OperationPtr.getOperands!_WfRewriter_createOp hcreate, if_neg (by grind)]
+    exact ih oIn
+
+/-- A `WithCreatedOps` chain frames a survivor's region count (it only creates fresh ops). -/
+theorem WfIRContext.WithCreatedOps.getNumRegions_eq {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {o : OperationPtr} (oIn : o.InBounds ctx₁.raw) :
+    o.getNumRegions! ctx₂.raw = o.getNumRegions! ctx₁.raw := by
+  induction h with
+  | Nil => rfl
+  | CreatedOp ctx₁ ctx₂ ctx₃ hwco hex ih =>
+    obtain ⟨opType, rt, ops, succ, regs, props, k₁, k₂, k₃, k₄, hcreate⟩ := hex
+    have ho2 : o.InBounds ctx₂.raw := by
+      have := hwco.inBounds_mono (GenericPtr.operation o) (by grind); grind
+    rw [OperationPtr.getNumRegions!_WfRewriter_createOp hcreate, if_neg (by grind)]
+    exact ih oIn
+
+/-- A `WithCreatedOps` chain frames a survivor's region pointers (it only creates fresh ops). -/
+theorem WfIRContext.WithCreatedOps.getRegion_eq {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {o : OperationPtr} (oIn : o.InBounds ctx₁.raw)
+    (idx : Nat) :
+    o.getRegion! ctx₂.raw idx = o.getRegion! ctx₁.raw idx := by
+  induction h with
+  | Nil => rfl
+  | CreatedOp ctx₁ ctx₂ ctx₃ hwco hex ih =>
+    obtain ⟨opType, rt, ops, succ, regs, props, k₁, k₂, k₃, k₄, hcreate⟩ := hex
+    have ho2 : o.InBounds ctx₂.raw := by
+      have := hwco.inBounds_mono (GenericPtr.operation o) (by grind); grind
+    rw [OperationPtr.getRegion!_WfRewriter_createOp hcreate, dif_neg (by grind)]
     exact ih oIn
 
 /-! ### Block-argument count/type frame across the rewrite stages.
@@ -3670,8 +3754,68 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- TODO(PR 9, keystone): op-list edits inside `block` leave the CFG unchanged, so block-level
     -- dominance agrees across the two contexts.
     blockDominatesPreserved := by sorry
-    -- TODO(PR 9, keystone): op-list edits leave survivors' region lists untouched.
-    opRegionsPreserved := by sorry
+    -- Op-list edits (create / insert / replace-value / erase) never touch a survivor's region list:
+    -- chain the per-stage `getNumRegions!`/`getRegion!` frame facts and reassemble the array.
+    opRegionsPreserved := by
+      intro o oIn hne
+      have hoNewCtxPat : o.InBounds newCtxPat.raw :=
+        hCreated.inBounds_mono (GenericPtr.operation o) (by grind)
+      have oIn' : o.InBounds rewriter'.ctx.raw := hSurviveOp o hne hoNewCtxPat
+      have hoErase := PatternRewriter.eraseOp_ctx_eq herase ▸ oIn'
+      -- (1) Region counts are framed across the whole pipeline.
+      have hNum : o.getNumRegions! rewriter'.ctx.raw = o.getNumRegions! rewriter.ctx.raw := by
+        have hcre : o.getNumRegions! newCtxPat.raw = o.getNumRegions! rewriter.ctx.raw :=
+          hCreated.getNumRegions_eq oIn
+        have hins : o.getNumRegions! s₁.ctx.raw = o.getNumRegions! newCtxPat.raw := by
+          have h := Array.foldlM_option_invariant
+            (P := fun b : PatternRewriter OpCode =>
+              o.getNumRegions! b.ctx.raw = o.getNumRegions! newCtxPat.raw)
+            (fun b a b' hh => by
+              have := PatternRewriter.insertOp_getNumRegions (o := o) hh
+              constructor <;> intro hb <;> grind) hfold1
+          exact h.mpr rfl
+        have hrep : o.getNumRegions! s₂.ctx.raw = o.getNumRegions! s₁.ctx.raw := by
+          have h := Array.foldlM_option_invariant
+            (P := fun b : PatternRewriter OpCode =>
+              o.getNumRegions! b.ctx.raw = o.getNumRegions! s₁.ctx.raw)
+            (fun b a b' hh => by
+              have hst : o.getNumRegions! b'.ctx.raw = o.getNumRegions! b.ctx.raw := by
+                simp only [Option.some.injEq] at hh; subst hh
+                exact PatternRewriter.replaceValue_getNumRegions
+              constructor <;> intro hb <;> grind) hfold2
+          exact h.mpr rfl
+        have hers : o.getNumRegions! rewriter'.ctx.raw = o.getNumRegions! s₂.ctx.raw := by
+          rw [PatternRewriter.eraseOp_ctx_eq herase]
+          exact OperationPtr.getNumRegions!_wfRewriter_eraseOp hoErase
+        exact hers.trans (hrep.trans (hins.trans hcre))
+      -- (2) Region pointers are framed across the whole pipeline, index by index.
+      have hReg : ∀ idx, o.getRegion! rewriter'.ctx.raw idx = o.getRegion! rewriter.ctx.raw idx := by
+        intro idx
+        have hcre : o.getRegion! newCtxPat.raw idx = o.getRegion! rewriter.ctx.raw idx :=
+          hCreated.getRegion_eq oIn idx
+        have hins : o.getRegion! s₁.ctx.raw idx = o.getRegion! newCtxPat.raw idx := by
+          have h := Array.foldlM_option_invariant
+            (P := fun b : PatternRewriter OpCode =>
+              o.getRegion! b.ctx.raw idx = o.getRegion! newCtxPat.raw idx)
+            (fun b a b' hh => by
+              have := PatternRewriter.insertOp_getRegion (o := o) (idx := idx) hh
+              constructor <;> intro hb <;> grind) hfold1
+          exact h.mpr rfl
+        have hrep : o.getRegion! s₂.ctx.raw idx = o.getRegion! s₁.ctx.raw idx := by
+          have h := Array.foldlM_option_invariant
+            (P := fun b : PatternRewriter OpCode =>
+              o.getRegion! b.ctx.raw idx = o.getRegion! s₁.ctx.raw idx)
+            (fun b a b' hh => by
+              have hst : o.getRegion! b'.ctx.raw idx = o.getRegion! b.ctx.raw idx := by
+                simp only [Option.some.injEq] at hh; subst hh
+                exact PatternRewriter.replaceValue_getRegion
+              constructor <;> intro hb <;> grind) hfold2
+          exact h.mpr rfl
+        have hers : o.getRegion! rewriter'.ctx.raw idx = o.getRegion! s₂.ctx.raw idx := by
+          rw [PatternRewriter.eraseOp_ctx_eq herase]
+          exact OperationPtr.getRegion!_wfRewriter_eraseOp hoErase
+        exact hers.trans (hrep.trans (hins.trans hcre))
+      exact OperationPtr.regions_eq_of hNum hReg
     -- TODO(PR 9, keystone): op-list edits leave region entry blocks untouched.
     regionFirstBlockPreserved := by sorry
     -- `op` is not a function: it has no regions, so in particular not exactly one.
