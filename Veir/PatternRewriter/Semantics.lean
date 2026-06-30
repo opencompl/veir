@@ -89,20 +89,36 @@ def LocalRewritePattern.ReturnValuesInBounds (pattern : LocalRewritePattern OpCo
   ∀ v ∈ newValues, v.InBounds newCtx.raw
 
 /--
-No value returned by the pattern is a result of a *pre-existing* (source-context) operation: a
-returned value is either a result of one of the freshly created `newOps`, or a pre-existing non-result
-value (e.g. a block argument). It may never be a result of an operation already in `ctx`.
+No value returned by the pattern is one of `op`'s *own* result pointers. This rules out two problems
+with the driver's "redirect `op`'s results to `newValues`, then erase `op`" pipeline: (a) a `newValue`
+equal to a result of `op` would dangle once `op` is erased; (b) it would make the sequential redirect
+fold chain instead of matching the parallel value renaming `σ`.
 
-This rules out three problems with the driver's "redirect `op`'s results to `newValues`, then erase
-`op`" pipeline: (a) a `newValue` equal to a result of `op` would dangle once `op` is erased; (b) it
-would make the sequential redirect fold diverge from the parallel value renaming `σ`; and (c) a
-`newValue` equal to a result of *any* surviving operation `o` would let `σ` map `op`'s result onto
-`o`'s result, breaking the `ReflectsResults o o` frame clause. It admits block-argument forwarding
-(`x + 0 → x` with `x` a block argument), which is the forwarding case the framework supports.
--/
-def LocalRewritePattern.ReturnValuesNotSourceResults (pattern : LocalRewritePattern OpCode) : Prop :=
+This replaces the old `ReturnValuesNotSourceResults`, which *also* forbade results of surviving
+(pre-existing) operations. That extra restriction is unnecessary: a returned value may now be a result
+of an operation already in `ctx`, provided it is in scope at `op` (`ReturnValuesDominate`). This is
+what makes general forwarding `x + 0 → x` sound — `x` may be a block argument *or* a result of an
+operation defined before `op`. -/
+def LocalRewritePattern.ReturnValuesNotOwnResults (pattern : LocalRewritePattern OpCode) : Prop :=
   ∀ ctx op newCtx newOps newValues, pattern ctx op = some (newCtx, some (newOps, newValues)) →
-  ∀ v ∈ newValues, ∀ orp : OpResultPtr, v = ValuePtr.opResult orp → ¬ orp.op.InBounds ctx.raw
+  ∀ v ∈ newValues, ∀ m, v ≠ (op.getResult m : ValuePtr)
+
+/--
+Every produced value that already exists in the source context (a *forwarded* pre-existing value)
+dominates the program point before `op`: it is in scope at `op`'s use site. Produced values that are
+fresh (results of the inserted `newOps`, not in bounds of `ctx`) are excluded by the `v.InBounds`
+guard — they are inserted before `op` and dominate it by construction.
+
+This is the SSA-validity condition for forwarding. Together with source dominance-wellformedness it is
+exactly what discharges the (dominance-scoped) `ReflectsResults o o` frame clause for a surviving
+operation `o` whose result is forwarded: `op`'s own result cannot dominate the point before `o` while
+`o`'s forwarded result dominates the point before `op` (SSA antisymmetry,
+`WfIRContext.Dom.not_opResult_dominatesIp_before_cycle`). It admits any in-scope value — a block
+argument or a result of an operation defined before `op` (`x + 0 → x`).
+-/
+def LocalRewritePattern.ReturnValuesDominate (pattern : LocalRewritePattern OpCode) : Prop :=
+  ∀ ctx op newCtx newOps newValues, pattern ctx op = some (newCtx, some (newOps, newValues)) →
+  ∀ v ∈ newValues, v.InBounds ctx.raw → v.dominatesIp (InsertPoint.before op) ctx
 
 /--
 Indexed access on the returned values is in bounds of the new context.

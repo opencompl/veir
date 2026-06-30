@@ -150,13 +150,22 @@ def ValueMapping.applyToArray {ctx ctx' : WfIRContext OpInfo} (mapping : ValueMa
   vals.attach.map (fun ⟨v, hv⟩ => (mapping ⟨v, valsIn v hv⟩).val)
 
 /--
-`mapping` *reflects* `op'`'s result pointers back to `op`'s if the only value it sends onto `op'`'s
-`i`-th result pointer is `op`'s `i`-th result pointer. Paired with the "fixes" equation
+`mapping` *reflects* `op'`'s result pointers back to `op`'s if the only **in-scope** value it sends
+onto `op'`'s `i`-th result pointer is `op`'s `i`-th result pointer. Paired with the "fixes" equation
 `mapping.applyToArray (op.getResults! ..) = op'.getResults! ..`, this says `mapping` matches the two
-operations' results index-by-index without mapping any other value onto them. -/
+operations' results index-by-index without mapping any other in-scope value onto them.
+
+The reflection is required only for `val` that **dominate the program point before `op`** — i.e. the
+values actually live at `op`'s step. This is exactly the set of values the sole consumer
+(`setResultValues?_isRefinedByAt`, via `not_mem_getResults`) ever queries, and the scoping is what
+makes op-result *forwarding* sound: a rewrite that redirects `op`'s result onto a result of a
+surviving operation `o` (`o` defined before `op`) does *not* break `ReflectsResults o o`, because the
+only would-be witness — `op`'s own result mapping onto `o`'s — fails the dominance guard (`op`'s
+result cannot dominate `.before o` when `o` is defined before `op`; SSA antisymmetry). -/
 def ValueMapping.ReflectsResults {ctx ctx' : WfIRContext OpInfo} (mapping : ValueMapping ctx ctx')
     (op op' : OperationPtr) : Prop :=
   ∀ (val : ValuePtr) (valIn : val.InBounds ctx.raw) (i : Nat),
+    val.dominatesIp (InsertPoint.before op) ctx →
     (mapping ⟨val, valIn⟩).val = op'.getResult i → val = op.getResult i
 
 /-- An operation `op` in `ctx` is *preserved* and renamed to an operation `op'` in `ctx'` by the

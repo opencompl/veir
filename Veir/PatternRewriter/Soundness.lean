@@ -166,9 +166,11 @@ structure RewrittenAt
   /-- Every produced value dominates the post-insertion point in `block` — the `newCtx` analog of
   "after `op`", i.e. the end of the inserted `newOps` span (`afterLast newOps (atStart! block)`). This
   is the genuine SSA-validity condition on produced values, satisfied both by results of inserted
-  `newOps` (defined within the span) and by forwarded pre-existing values (e.g. a block argument),
-  which are in scope throughout the block. It replaces the old `newValuesAreResults`, admitting
-  block-argument forwarding (`x + 0 → x`, where `x` is a block argument). -/
+  `newOps` (defined within the span) and by forwarded pre-existing values in scope at `op`. It replaces
+  the old `newValuesAreResults`, admitting general forwarding (`x + 0 → x`): `x` may be a block
+  argument *or* a result of an operation defined before `op` — the latter is what the dominance-scoped
+  `ReflectsResults` and `ReturnValuesDominate` together make sound (a forwarded surviving-op result
+  cannot collide with `op`'s own result by SSA antisymmetry). -/
   newValuesDominate : ∀ v ∈ newValues,
     v.dominatesIp (InsertPoint.afterLast newOps.toList newCtx.raw
       (InsertPoint.atStart! block newCtx.raw)) newCtx
@@ -3125,8 +3127,10 @@ theorem RewrittenAt.of_fromLocalRewrite
     (hReturnCtxChanges : pattern.ReturnCtxChanges)
     (hReturnValuesInBounds : pattern.ReturnValuesInBounds)
     (hReturnValues : pattern.ReturnValues)
-    (hReturnValuesNotSourceResults : pattern.ReturnValuesNotSourceResults)
+    (hReturnValuesNotOwnResults : pattern.ReturnValuesNotOwnResults)
+    (hReturnValuesDominate : pattern.ReturnValuesDominate)
     {rewriter rewriter' : PatternRewriter OpCode}
+    (hSrcDom : rewriter.ctx.Dom)
     {op : OperationPtr} (opInBounds : op.InBounds rewriter.ctx.raw)
     {block : BlockPtr} (hOpParent : (op.get! rewriter.ctx.raw).parent = some block)
     (hOpRegions : op.getNumRegions! rewriter.ctx.raw = 0)
@@ -3312,15 +3316,16 @@ theorem RewrittenAt.of_fromLocalRewrite
       exact (hCreated.operationList_eq cIn hcNewCtxPat).symm
     -- Number of produced values: directly from the pattern's `ReturnValues` obligation.
     newValuesSize := hReturnValues rewriter.ctx op opInBounds newCtxPat newOps newValues hpat
-    -- Every produced value is in bounds of `newCtxPat` (`ReturnValuesInBounds`) and is not a result of
-    -- `op` (`ReturnValuesNotSourceResults`, since `op` is in bounds of the source), so it survives the
-    -- final `eraseOp op` (`hSurviveVal`).
+    -- Every produced value is in bounds of `newCtxPat` (`ReturnValuesInBounds`) and is not one of
+    -- `op`'s own results (`ReturnValuesNotOwnResults`), so it survives the final `eraseOp op`
+    -- (`hSurviveVal`, which only needs the value's owner to differ from `op`).
     newValuesInBounds := by
       intro v hv
       apply hSurviveVal v (hReturnValuesInBounds rewriter.ctx op newCtxPat newOps newValues hpat v hv)
       intro orp hvorp heq
-      exact hReturnValuesNotSourceResults rewriter.ctx op newCtxPat newOps newValues hpat v hv orp hvorp
-        (heq ▸ opInBounds)
+      apply hReturnValuesNotOwnResults rewriter.ctx op newCtxPat newOps newValues hpat v hv orp.index
+      obtain ⟨o', i'⟩ := orp
+      grind [OperationPtr.getResult]
     -- `ReturnOps` characterizes `newOps` as fresh to `newCtxPat`; a `newOp ≠ op` has the same bounds
     -- in `newCtxPat` and `rewriter'.ctx` (`hOpBnd`), so the freshness transports.
     newOpsFresh := by
@@ -3359,10 +3364,8 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- results survive untouched. `reflect` uses that no `newValue` is a source-context result.
     frame := by
       intro o oIn oIn' hne
-      have hNoAlias : ∀ x ∈ newValues, ∀ m, x ≠ (op.getResult m : ValuePtr) := by
-        intro x hx m heq
-        exact hReturnValuesNotSourceResults rewriter.ctx op newCtxPat newOps newValues hpat x hx
-          (op.getResult m) heq (by simpa using opInBounds)
+      have hNoAlias : ∀ x ∈ newValues, ∀ m, x ≠ (op.getResult m : ValuePtr) :=
+        hReturnValuesNotOwnResults rewriter.ctx op newCtxPat newOps newValues hpat
       have hsize : newValues.size = op.getNumResults! rewriter.ctx.raw :=
         hReturnValues rewriter.ctx op opInBounds newCtxPat newOps newValues hpat
       -- `o` survives every stage in bounds.
@@ -3452,8 +3455,12 @@ theorem RewrittenAt.of_fromLocalRewrite
             simp only [OperationPtr.getResult, ValuePtr.opResult.injEq, OpResultPtr.mk.injEq] at hkeq
             exact hne hkeq.1.symm
           rw [if_neg hnotmem]
-      · -- reflect
-        intro val valIn i hval
+      · -- reflect: SSA dominance rules out the only would-be collision. The reflection is required
+        -- only for `val` in scope at `o` (`hValDom`). If `val` is a result of `op` redirected by `σ`
+        -- onto `o`'s `i`-th result, then `op`'s result dominates `.before o` while `o`'s forwarded
+        -- result (a source value, in scope at `op` by `ReturnValuesDominate`) dominates `.before op`
+        -- — impossible for `o ≠ op` (`not_opResult_dominatesIp_before_cycle`).
+        intro val valIn i hValDom hval
         by_cases hvr : val ∈ op.getResults! rewriter.ctx.raw
         · exfalso
           simp only [rewriteMapping, dif_pos hvr] at hval
@@ -3461,10 +3468,22 @@ theorem RewrittenAt.of_fromLocalRewrite
             have hlt : (op.getResults! rewriter.ctx.raw).idxOf val
                 < (op.getResults! rewriter.ctx.raw).size := Array.idxOf_lt_length_of_mem hvr
             simp only [OperationPtr.getResults!.size_eq_getNumResults!] at hlt; omega
-          have hmem : newValues[(op.getResults! rewriter.ctx.raw).idxOf val]! ∈ newValues := by
-            rw [getElem!_pos newValues _ hk]; exact Array.getElem_mem hk
-          exact hReturnValuesNotSourceResults rewriter.ctx op newCtxPat newOps newValues hpat _ hmem
-            (o.getResult i) hval (by simpa using oIn)
+          -- The forwarded value `σ val = (o.getResult i : ValuePtr)` is one of `newValues`.
+          have hmem : (ValuePtr.opResult (o.getResult i)) ∈ newValues := by
+            rw [← hval, getElem!_pos newValues _ hk]; exact Array.getElem_mem hk
+          -- It is a *source* result of `o` (its index is framed by `hcre`), hence in scope at `op`
+          -- (`ReturnValuesDominate`).
+          have hvInPat := hReturnValuesInBounds rewriter.ctx op newCtxPat newOps newValues hpat _ hmem
+          have hiSrc : i < o.getNumResults! rewriter.ctx.raw := by
+            have hi := OpResultPtr.inBounds_OperationPtr_getNumResults! (o.getResult i) newCtxPat.raw
+              (by simpa using hvInPat)
+            simpa [hcre.2.2.1] using hi
+          have hvRes : (ValuePtr.opResult (o.getResult i)) ∈ o.getResults! rewriter.ctx.raw :=
+            OperationPtr.getResults!.mem_getResult hiSrc
+          have hvInSrc : (ValuePtr.opResult (o.getResult i)).InBounds rewriter.ctx.raw := by
+            simpa using OpResultPtr.inBounds_of (result := o.getResult i) oIn (by simpa using hiSrc)
+          have hvDom := hReturnValuesDominate rewriter.ctx op newCtxPat newOps newValues hpat _ hmem hvInSrc
+          exact hSrcDom.not_opResult_dominatesIp_before_cycle hne.symm hvr hValDom hvRes hvDom
         · simpa only [rewriteMapping, dif_neg hvr] using hval
     -- Blocks stay in bounds: into `newCtxPat`, then the folds/erase (erase removes only `op`).
     blocksInBounds := fun b hb =>

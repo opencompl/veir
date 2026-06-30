@@ -147,19 +147,20 @@ theorem ValueMapping.applyToArray_getArguments!_ext
     Array.getElem_attach] at hArgs
   grind
 
-/-- If a value mapping reflects results from `op` to `op'`, then values that are not in
-`op` results are not mapped to values in `op'` results. -/
+/-- If a value mapping reflects results from `op` to `op'`, then in-scope values (dominating the point
+before `op`) that are not in `op` results are not mapped to values in `op'` results. -/
 @[grind .]
 theorem ValueMapping.ReflectsResults.not_mem_getResults
     {ctx ctx' : WfIRContext OpInfo} {mapping : ValueMapping ctx ctx'} {op op' : OperationPtr}
     {val : ValuePtr} (valIn : val.InBounds ctx.raw)
     (hReflect : mapping.ReflectsResults op op')
+    (hValDom : val.dominatesIp (InsertPoint.before op) ctx)
     (hNotMem : val ∉ op.getResults! ctx.raw) :
     (mapping ⟨val, valIn⟩).val ∉ op'.getResults! ctx'.raw := by
   intro hmem
   simp only [OperationPtr.getResults!.mem_iff_exists_index] at hmem
   have ⟨index, hindex, heq⟩ := hmem
-  grind [OperationPtr.getResults!.mem_iff_exists_index, hReflect val valIn index heq.symm]
+  grind [OperationPtr.getResults!.mem_iff_exists_index, hReflect val valIn index hValDom heq.symm]
 
 /-! ## Conformance under refinement -/
 
