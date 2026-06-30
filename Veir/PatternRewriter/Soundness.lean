@@ -2950,6 +2950,18 @@ theorem PatternRewriter.insertOp_getRegion {b b' : PatternRewriter OpCode}
     simp only [Option.some.injEq] at h; subst h
     exact OperationPtr.getRegion!_wfRewriter_insertOp hwf
 
+/-- `PatternRewriter.insertOp` leaves every region's entry block unchanged. -/
+theorem PatternRewriter.insertOp_firstBlock {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {r : RegionPtr}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    (r.get! b'.ctx.raw).firstBlock = (r.get! b.ctx.raw).firstBlock := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · simp at h
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact RegionPtr.firstBlock!_wfRewriter_insertOp hwf
+
 /-- `PatternRewriter.replaceValue` frames every operation's intrinsic data (it only redirects
 operands). -/
 theorem PatternRewriter.replaceValue_sameIntrinsic {b : PatternRewriter OpCode}
@@ -2995,6 +3007,16 @@ theorem PatternRewriter.replaceValue_getRegion {b : PatternRewriter OpCode}
       = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
     simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
   rw [hctx]; exact OperationPtr.getRegion!_WfRewriter_replaceValue
+
+/-- `PatternRewriter.replaceValue` leaves every region's entry block unchanged. -/
+theorem PatternRewriter.replaceValue_firstBlock {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {r : RegionPtr} :
+    (r.get! (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw).firstBlock =
+    (r.get! b.ctx.raw).firstBlock := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]; exact RegionPtr.firstBlock!_WfRewriter_replaceValue
 
 /-- An operation's region list is determined by its region count and region pointers, so equal counts
 plus equal pointers (at every index) give equal region lists across two contexts. -/
@@ -3063,6 +3085,17 @@ theorem WfIRContext.WithCreatedOps.getRegion_eq {ctx₁ ctx₂ : WfIRContext OpC
       have := hwco.inBounds_mono (GenericPtr.operation o) (by grind); grind
     rw [OperationPtr.getRegion!_WfRewriter_createOp hcreate, dif_neg (by grind)]
     exact ih oIn
+
+/-- A `WithCreatedOps` chain frames every region's entry block (it only creates fresh ops). -/
+theorem WfIRContext.WithCreatedOps.firstBlock_eq {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {r : RegionPtr} :
+    (r.get! ctx₂.raw).firstBlock = (r.get! ctx₁.raw).firstBlock := by
+  induction h with
+  | Nil => rfl
+  | CreatedOp ctx₁ ctx₂ ctx₃ hwco hex ih =>
+    obtain ⟨opType, rt, ops, succ, regs, props, k₁, k₂, k₃, k₄, hcreate⟩ := hex
+    rw [RegionPtr.firstBlock!_WfRewriter_createOp hcreate]
+    exact ih
 
 /-! ### Block-argument count/type frame across the rewrite stages.
 
@@ -3291,14 +3324,10 @@ The remaining structural fields are discharged from the keystone fold decomposit
 -/
 theorem RewrittenAt.of_fromLocalRewrite
     {pattern : LocalRewritePattern OpCode}
-    (hReturnOps : pattern.ReturnOps)
-    (hReturnCtxChanges : pattern.ReturnCtxChanges)
-    (hReturnValuesInBounds : pattern.ReturnValuesInBounds)
-    (hReturnValues : pattern.ReturnValues)
-    (hReturnValuesNotOwnResults : pattern.ReturnValuesNotOwnResults)
-    (hReturnValuesDominate : pattern.ReturnValuesDominate)
+    (hValid : pattern.Valid)
     {rewriter rewriter' : PatternRewriter OpCode}
     (hSrcDom : rewriter.ctx.Dom)
+    (hSrcVerif : rewriter.ctx.Verified)
     {op : OperationPtr} (opInBounds : op.InBounds rewriter.ctx.raw)
     {block : BlockPtr} (hOpParent : (op.get! rewriter.ctx.raw).parent = some block)
     (hOpRegions : op.getNumRegions! rewriter.ctx.raw = 0)
@@ -3309,6 +3338,9 @@ theorem RewrittenAt.of_fromLocalRewrite
       (blockIn : block.InBounds rewriter.ctx.raw) (blockIn' : block.InBounds rewriter'.ctx.raw),
       RewrittenAt rewriter.ctx op newOps newValues rewriter'.ctx opInBounds
         block pre post blockIn blockIn' := by
+  obtain ⟨-, hReturnCtxChanges, hReturnOps, hReturnValues, hReturnValuesInBounds,
+    hReturnValuesNotOwnResults, hReturnValuesDominate, -, hRewritePreservesDom,
+    hRewritePreservesVerified⟩ := hValid
   -- `block` is in bounds of the source context: it is the parent of the in-bounds `op`.
   have blockIn : block.InBounds rewriter.ctx.raw := by
     have := rewriter.ctx.wellFormed.inBounds; grind
@@ -3321,6 +3353,9 @@ theorem RewrittenAt.of_fromLocalRewrite
   -- `hdriver` reads: insert every `newOp` before `op`, redirect each result to `newValues`, erase
   -- `op` — the middle operands-collection loop is dead (its result is discarded). Every `RewrittenAt`
   -- field below is a fact about the resulting `rewriter'.ctx` read off this fold.
+  -- Keep the un-reduced driver equation for the well-formedness obligations (`newCtxDom`/`newCtxVerif`),
+  -- which are stated against `RewritePattern.fromLocalRewrite`; `hdriver` itself is reduced below.
+  have hdriverOrig := hdriver
   unfold RewritePattern.fromLocalRewrite at hdriver
   rw [hpat] at hdriver
   simp only [bind_pure_comp, Array.forIn_yield_eq_foldlM, id_map'] at hdriver
@@ -3734,13 +3769,12 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- Blocks stay in bounds: into `newCtxPat`, then the folds/erase (erase removes only `op`).
     blocksInBounds := fun b hb =>
       hSurviveBlock b (hCreated.inBounds_mono (GenericPtr.block b) (by grind))
-    -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS. Dominance/verification are not preserved by arbitrary
-    -- `insertOp`s, so this requires source `rewriter.ctx.Dom` plus a pattern obligation that the rewrite
-    -- produces a dominance-well-formed result (mirroring `PreservesSemantics`'s `ctxDom`).
-    newCtxDom := by sorry
-    -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS, as `newCtxDom` (source `rewriter.ctx.Verified` + pattern
-    -- obligation that the result is verified).
-    newCtxVerif := by sorry
+    -- Source dominance-wellformedness is propagated across the rewrite by the pattern obligation
+    -- `RewritePreservesDom` (the driver-level counterpart of `PreservesSemantics`'s `ctxDom`).
+    newCtxDom := hRewritePreservesDom rewriter op opInBounds rewriter' hdriverOrig hSrcDom
+    -- As `newCtxDom`, via the source `rewriter.ctx.Verified` and the `RewritePreservesVerified`
+    -- pattern obligation.
+    newCtxVerif := hRewritePreservesVerified rewriter op opInBounds rewriter' hdriverOrig hSrcVerif
     -- TODO(PR 9): NEEDS EXTRA HYPOTHESIS. Produced values must dominate the post-insertion point in
     -- `block` (the SSA-validity condition: results of `newOps` are defined within the span, forwarded
     -- values are in scope throughout the block); discharged from a pattern obligation.
@@ -3816,8 +3850,34 @@ theorem RewrittenAt.of_fromLocalRewrite
           exact OperationPtr.getRegion!_wfRewriter_eraseOp hoErase
         exact hers.trans (hrep.trans (hins.trans hcre))
       exact OperationPtr.regions_eq_of hNum hReg
-    -- TODO(PR 9, keystone): op-list edits leave region entry blocks untouched.
-    regionFirstBlockPreserved := by sorry
+    -- Op-list edits (create / insert / replace-value / erase) never touch a region's entry block:
+    -- chain the per-stage `firstBlock` frame facts across the pipeline.
+    regionFirstBlockPreserved := by
+      intro r _
+      have hcre : (r.get! newCtxPat.raw).firstBlock = (r.get! rewriter.ctx.raw).firstBlock :=
+        hCreated.firstBlock_eq
+      have hins : (r.get! s₁.ctx.raw).firstBlock = (r.get! newCtxPat.raw).firstBlock := by
+        have h := Array.foldlM_option_invariant
+          (P := fun b : PatternRewriter OpCode =>
+            (r.get! b.ctx.raw).firstBlock = (r.get! newCtxPat.raw).firstBlock)
+          (fun b a b' hh => by
+            have := PatternRewriter.insertOp_firstBlock (r := r) hh
+            constructor <;> intro hb <;> grind) hfold1
+        exact h.mpr rfl
+      have hrep : (r.get! s₂.ctx.raw).firstBlock = (r.get! s₁.ctx.raw).firstBlock := by
+        have h := Array.foldlM_option_invariant
+          (P := fun b : PatternRewriter OpCode =>
+            (r.get! b.ctx.raw).firstBlock = (r.get! s₁.ctx.raw).firstBlock)
+          (fun b a b' hh => by
+            have hst : (r.get! b'.ctx.raw).firstBlock = (r.get! b.ctx.raw).firstBlock := by
+              simp only [Option.some.injEq] at hh; subst hh
+              exact PatternRewriter.replaceValue_firstBlock
+            constructor <;> intro hb <;> grind) hfold2
+        exact h.mpr rfl
+      have hers : (r.get! rewriter'.ctx.raw).firstBlock = (r.get! s₂.ctx.raw).firstBlock := by
+        rw [PatternRewriter.eraseOp_ctx_eq herase]
+        exact RegionPtr.firstBlock!_wfRewriter_eraseOp
+      exact hers.trans (hrep.trans (hins.trans hcre))
     -- `op` is not a function: it has no regions, so in particular not exactly one.
     opNotFunction := by simp [hOpRegions]
   }
