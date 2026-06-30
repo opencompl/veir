@@ -706,7 +706,7 @@ def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds
   /- cast value (i64/i32/i8) -> register -/
   let (rewriter, valcastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[arg]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
-  /- 64-bit `riscv.sd`, or its `sw` (i32, low 4 bytes) / `sb` (i8, low byte) -/
+  /- 64-bit `riscv.sd`, or its `sw` (i32, low 4 bytes) / `sb` (i8, low byte), with offset zero: operands are (addr, val), no results -/
   let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
   let (rewriter, sdOp) ←
     if type'.bitwidth = 8 then
