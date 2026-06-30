@@ -535,6 +535,8 @@ def sub (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
 
 set_option warn.sorry false in
 /--
+  llvm.sext %x `i8`  to `i32` -> riscv.sextb %x
+  llvm.sext %x `i8`  to `i64` -> riscv.sextb %x
   llvm.sext %x `i16` to `i64` -> riscv.sexth %x
   llvm.sext %x `i16` to `i32` -> riscv.sexth %x
   llvm.sext %x `i32` to `i64` -> riscv.sextw %x
@@ -543,7 +545,6 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
     Option (PatternRewriter OpCode) := do
   let some (operand, _) := matchSext op rewriter.ctx | return rewriter
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
-  if opType.bitwidth = 8 then return rewriter
   if ¬ isLegalExtOpWidth (opType.bitwidth) then return rewriter
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
   let .integerType retType := type.val | rewriter
@@ -552,6 +553,10 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
   let (rewriter, retOp) ← match opType.bitwidth with
+    | 8 =>
+      let (rewriter, retOp) ← rewriter.createOp (.riscv .sextb) #[RegisterType.mk] #[opCastOp.getResult 0]
+        #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+      pure (rewriter, retOp)
     | 16 =>
       let (rewriter, retOp) ← rewriter.createOp (.riscv .sexth) #[RegisterType.mk] #[opCastOp.getResult 0]
         #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
