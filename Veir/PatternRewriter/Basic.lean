@@ -331,6 +331,9 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
     | some (newCtx, none) => return {rewriter with ctx := newCtx, hasDoneAction := false}
     -- match and rewrite
     | some (newCtx, some (newOps, newRes)) =>
+      -- Only rewrite an operation that lives inside a block: the surgery below (insert before `op`,
+      -- erase `op`) is only meaningful for a parented op, and soundness needs `op`'s parent block.
+      let _ ← (op.get! rewriter.ctx.raw).parent
       let mut rewriter := { rewriter with ctx := newCtx, hasDoneAction := true }
       for newOp in newOps do
         rewriter ← rewriter.insertOp! newOp (InsertPoint.before op)
