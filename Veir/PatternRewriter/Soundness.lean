@@ -154,8 +154,19 @@ structure RewrittenAt
   -- Clause 5: structure frame.
   /-- Blocks stay in bounds — successor-`InBounds` transport. -/
   blocksInBounds : ∀ (b : BlockPtr), b.InBounds ctx.raw → b.InBounds newCtx.raw
-  blockArgsPreserved : ∀ (bl : BlockPtr), bl.InBounds ctx.raw →
-    (bl.get! newCtx.raw).arguments = (bl.get! ctx.raw).arguments
+  /-- The number of arguments of every in-bounds block is preserved: op-list edits never add or
+  remove block arguments. -/
+  blockNumArgsPreserved : ∀ (bl : BlockPtr), bl.InBounds ctx.raw →
+    bl.getNumArguments! newCtx.raw = bl.getNumArguments! ctx.raw
+  /-- Every block argument's type is preserved. Note the full `Block.arguments` record is *not*
+  preserved: each `BlockArgument` carries the head (`firstUse`) of its def-use chain, which the
+  rewrite mutates (erasing `op` detaches its operands; redirecting `op`'s result-uses onto a forwarded
+  `newValue` that is itself a block argument grows that argument's chain). The SSA-relevant data — the
+  argument count (`blockNumArgsPreserved`) and per-argument type — is what survives and is all the
+  block-argument frame consequences below need. -/
+  blockArgTypesPreserved : ∀ (bl : BlockPtr), bl.InBounds ctx.raw →
+    ∀ i, i < bl.getNumArguments! ctx.raw →
+      (bl.getArgument i : ValuePtr).getType! newCtx.raw = (bl.getArgument i : ValuePtr).getType! ctx.raw
   blockDominatesPreserved : ∀ (b₁ b₂ : BlockPtr), b₁.InBounds ctx.raw → b₂.InBounds ctx.raw →
     (b₁.dominates b₂ newCtx ↔ b₁.dominates b₂ ctx)
   -- Clause 6: result well-formedness.
@@ -397,15 +408,14 @@ theorem postParentEq' (h : RewrittenAt ctx op newOps newValues newCtx opIn block
 /-- The number of arguments of any in-bounds block is preserved by the rewrite. -/
 theorem numArgsEq (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
     {bl : BlockPtr} (blIn : bl.InBounds ctx.raw) :
-    bl.getNumArguments! newCtx.raw = bl.getNumArguments! ctx.raw := by
-  simp only [BlockPtr.getNumArguments!, h.blockArgsPreserved bl blIn]
+    bl.getNumArguments! newCtx.raw = bl.getNumArguments! ctx.raw :=
+  h.blockNumArgsPreserved bl blIn
 
-/-- The type of any block argument is preserved by the rewrite. -/
+/-- The type of any (in-range) block argument is preserved by the rewrite. -/
 theorem argType_eq (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
-    {bl : BlockPtr} (blIn : bl.InBounds ctx.raw) (i : Nat) :
-    (bl.getArgument i : ValuePtr).getType! newCtx.raw = (bl.getArgument i : ValuePtr).getType! ctx.raw := by
-  simp only [ValuePtr.getType!_blockArgument, BlockArgumentPtr.get!, BlockPtr.getArgument_block,
-    BlockPtr.getArgument_index, h.blockArgsPreserved bl blIn]
+    {bl : BlockPtr} (blIn : bl.InBounds ctx.raw) (i : Nat) (hi : i < bl.getNumArguments! ctx.raw) :
+    (bl.getArgument i : ValuePtr).getType! newCtx.raw = (bl.getArgument i : ValuePtr).getType! ctx.raw :=
+  h.blockArgTypesPreserved bl blIn i hi
 
 /-- A block argument is never a result of `op` (distinct `ValuePtr` constructors). -/
 theorem blockArg_notMem_getResults
@@ -453,13 +463,14 @@ theorem mapping_getResult_mem_newValues
     h.mapNonResultsInBounds h.newValuesSize] at hx
   exact hx
 
-/-- The block-argument array of `bl` is identical across the two contexts (the rewrite only edits
-operation lists, never block arguments). -/
+/-- The block-argument *pointer* array of `bl` is identical across the two contexts: `getArguments!`
+is `getArgument` mapped over `range (getNumArguments! ·)`, so it depends only on the argument count,
+which the rewrite preserves (`blockNumArgsPreserved`). -/
 theorem getArguments!_eq
     (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
     {bl : BlockPtr} (blIn : bl.InBounds ctx.raw) :
     bl.getArguments! newCtx.raw = bl.getArguments! ctx.raw := by
-  simp only [BlockPtr.getArguments!, BlockPtr.getNumArguments!, h.blockArgsPreserved bl blIn]
+  simp only [BlockPtr.getArguments!, h.blockNumArgsPreserved bl blIn]
 
 /-- `σ` never maps an in-scope value onto one of `bl`'s block arguments unless it already is that
 block argument: a value not in `bl`'s arguments is either fixed by `σ` (so stays out of the
@@ -1513,7 +1524,7 @@ theorem RewrittenAt.interpretBlock_refinement
         · exact hpt j h
         · rw [getElem!_neg values j h, getElem!_neg values' j (hsize ▸ h)]
           exact RuntimeValue.isRefinedBy_refl _
-      rw [hRW.argType_eq bIn]
+      rw [hRW.argType_eq bIn j (hRW.numArgsEq bIn ▸ hj)]
       exact RuntimeValue.Conforms_of_isRefinedBy hPt
         ((VariableState.setArgumentValues?_isSome_iff_conforms state.variables).mpr ⟨newVars, hsa⟩ j
           (hRW.numArgsEq bIn ▸ hj))
@@ -2969,6 +2980,79 @@ theorem WfIRContext.WithCreatedOps.getOperands_eq {ctx₁ ctx₂ : WfIRContext O
     rw [OperationPtr.getOperands!_WfRewriter_createOp hcreate, if_neg (by grind)]
     exact ih oIn
 
+/-! ### Block-argument count/type frame across the rewrite stages.
+
+The rewrite never adds, removes, or retypes block arguments (it only edits operation lists and
+def-use chains). The lemmas below lift the per-primitive `getNumArguments!`/`getType!` frame facts to
+the `PatternRewriter` insert/replace folds and to `WithCreatedOps`; they discharge the
+`blockNumArgsPreserved`/`blockArgTypesPreserved` fields of `RewrittenAt.of_fromLocalRewrite`. -/
+
+/-- `PatternRewriter.insertOp` leaves every block's argument count unchanged. -/
+theorem PatternRewriter.insertOp_getNumArguments {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {bl : BlockPtr}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    bl.getNumArguments! b'.ctx.raw = bl.getNumArguments! b.ctx.raw := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · simp at h
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact BlockPtr.getNumArguments!_wfRewriter_insertOp hwf
+
+/-- `PatternRewriter.insertOp` leaves every value's type unchanged. -/
+theorem PatternRewriter.insertOp_getType {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {v : ValuePtr}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    v.getType! b'.ctx.raw = v.getType! b.ctx.raw := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · simp at h
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact ValuePtr.getType!_wfRewriter_insertOp hwf
+
+/-- `PatternRewriter.replaceValue` leaves every block's argument count unchanged. -/
+theorem PatternRewriter.replaceValue_getNumArguments {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {bl : BlockPtr} :
+    bl.getNumArguments! (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw =
+    bl.getNumArguments! b.ctx.raw := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]; exact BlockPtr.getNumArguments!_WfRewriter_replaceValue
+
+/-- `PatternRewriter.replaceValue` leaves every value's type unchanged. -/
+theorem PatternRewriter.replaceValue_getType {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {v : ValuePtr} :
+    v.getType! (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw =
+    v.getType! b.ctx.raw := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]; exact ValuePtr.getType!_WfRewriter_replaceValue
+
+/-- A `WithCreatedOps` chain leaves every block's argument count unchanged (it only creates fresh
+ops). -/
+theorem WfIRContext.WithCreatedOps.getNumArguments_eq {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) (bl : BlockPtr) :
+    bl.getNumArguments! ctx₂.raw = bl.getNumArguments! ctx₁.raw := by
+  induction h with
+  | Nil => rfl
+  | CreatedOp ctx₁ ctx₂ ctx₃ hwco hex ih =>
+    obtain ⟨opType, rt, ops, succ, regs, props, k₁, k₂, k₃, k₄, hcreate⟩ := hex
+    rw [BlockPtr.getNumArguments!_WfRewriter_createOp hcreate]; exact ih
+
+/-- A `WithCreatedOps` chain leaves every block argument's type unchanged: creating a fresh op only
+fixes the types of that op's own (`opResult`) values, never any block argument. -/
+theorem WfIRContext.WithCreatedOps.getType_blockArgument_eq {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) (ba : BlockArgumentPtr) :
+    (ValuePtr.blockArgument ba).getType! ctx₂.raw = (ValuePtr.blockArgument ba).getType! ctx₁.raw := by
+  induction h with
+  | Nil => rfl
+  | CreatedOp ctx₁ ctx₂ ctx₃ hwco hex ih =>
+    obtain ⟨opType, rt, ops, succ, regs, props, k₁, k₂, k₃, k₄, hcreate⟩ := hex
+    rw [ValuePtr.getType!_WfRewriter_createOp hcreate]; exact ih
+
 /-- Fuse a left-fold of array `map`s into one `map` of left-folds. -/
 theorem List.foldl_arrayMap_fusion {α β : Type} (l : List β) (g : β → α → α) (arr : Array α) :
     l.foldl (fun a b => a.map (fun x => g b x)) arr
@@ -3266,6 +3350,84 @@ theorem RewrittenAt.of_fromLocalRewrite
   have hopS2 : op.InBounds s₂.ctx.raw := by have := hbnd (GenericPtr.operation op); grind
   have hopParentS2 : (op.get! s₂.ctx.raw).parent = some block :=
     (BlockPtr.operationList.mem hopS2).mpr (by rw [hblockListS2]; simp [Array.mem_append])
+  -- === Block-argument count/type frame (clause 7). The four stages — created ops, insert fold,
+  -- replace fold, final `eraseOp` — each preserve argument counts and types. Counts are preserved
+  -- unconditionally; argument types need only the block argument's in-bounds witness for the `eraseOp`
+  -- stage. ===
+  have hNumArgs : ∀ (bl : BlockPtr),
+      bl.getNumArguments! rewriter'.ctx.raw = bl.getNumArguments! rewriter.ctx.raw := by
+    intro bl
+    have hCre : bl.getNumArguments! newCtxPat.raw = bl.getNumArguments! rewriter.ctx.raw :=
+      hCreated.getNumArguments_eq bl
+    have hIns : bl.getNumArguments! s₁.ctx.raw = bl.getNumArguments! newCtxPat.raw := by
+      have h := Array.foldlM_option_invariant
+        (P := fun b : PatternRewriter OpCode =>
+          bl.getNumArguments! b.ctx.raw = bl.getNumArguments! newCtxPat.raw)
+        (fun b a b' hh => by
+          have := PatternRewriter.insertOp_getNumArguments (bl := bl) hh
+          constructor <;> intro hb <;> grind) hfold1
+      exact h.mpr rfl
+    have hRep : bl.getNumArguments! s₂.ctx.raw = bl.getNumArguments! s₁.ctx.raw := by
+      have h := Array.foldlM_option_invariant
+        (P := fun b : PatternRewriter OpCode =>
+          bl.getNumArguments! b.ctx.raw = bl.getNumArguments! s₁.ctx.raw)
+        (fun b a b' hh => by
+          have hst : bl.getNumArguments! b'.ctx.raw = bl.getNumArguments! b.ctx.raw := by
+            simp only [Option.some.injEq] at hh; subst hh
+            exact PatternRewriter.replaceValue_getNumArguments
+          constructor <;> intro hb <;> grind) hfold2
+      exact h.mpr rfl
+    have hErase : bl.getNumArguments! rewriter'.ctx.raw = bl.getNumArguments! s₂.ctx.raw := by
+      rw [PatternRewriter.eraseOp_ctx_eq herase]
+      exact BlockPtr.getNumArguments!_wfRewriter_eraseOp
+    rw [hErase, hRep, hIns, hCre]
+  have hArgTypes : ∀ (bl : BlockPtr), bl.InBounds rewriter.ctx.raw →
+      ∀ i, i < bl.getNumArguments! rewriter.ctx.raw →
+        (bl.getArgument i : ValuePtr).getType! rewriter'.ctx.raw =
+        (bl.getArgument i : ValuePtr).getType! rewriter.ctx.raw := by
+    intro bl blIn i hi
+    -- Work with the explicit block-argument value `blockArgument ⟨bl, i⟩` (`getArgument i` is `⟨bl, i⟩`).
+    have hv : (bl.getArgument i : ValuePtr) = ValuePtr.blockArgument ⟨bl, i⟩ := by
+      rw [BlockPtr.getArgument_def]
+    rw [hv]
+    have hCre : (ValuePtr.blockArgument ⟨bl, i⟩).getType! newCtxPat.raw
+        = (ValuePtr.blockArgument ⟨bl, i⟩).getType! rewriter.ctx.raw :=
+      hCreated.getType_blockArgument_eq ⟨bl, i⟩
+    have hIns : (ValuePtr.blockArgument ⟨bl, i⟩).getType! s₁.ctx.raw
+        = (ValuePtr.blockArgument ⟨bl, i⟩).getType! newCtxPat.raw := by
+      have h := Array.foldlM_option_invariant
+        (P := fun b : PatternRewriter OpCode =>
+          (ValuePtr.blockArgument ⟨bl, i⟩).getType! b.ctx.raw
+            = (ValuePtr.blockArgument ⟨bl, i⟩).getType! newCtxPat.raw)
+        (fun b a b' hh => by
+          have := PatternRewriter.insertOp_getType (v := (ValuePtr.blockArgument ⟨bl, i⟩)) hh
+          constructor <;> intro hb <;> grind) hfold1
+      exact h.mpr rfl
+    have hRep : (ValuePtr.blockArgument ⟨bl, i⟩).getType! s₂.ctx.raw
+        = (ValuePtr.blockArgument ⟨bl, i⟩).getType! s₁.ctx.raw := by
+      have h := Array.foldlM_option_invariant
+        (P := fun b : PatternRewriter OpCode =>
+          (ValuePtr.blockArgument ⟨bl, i⟩).getType! b.ctx.raw
+            = (ValuePtr.blockArgument ⟨bl, i⟩).getType! s₁.ctx.raw)
+        (fun b a b' hh => by
+          have hst : (ValuePtr.blockArgument ⟨bl, i⟩).getType! b'.ctx.raw
+              = (ValuePtr.blockArgument ⟨bl, i⟩).getType! b.ctx.raw := by
+            simp only [Option.some.injEq] at hh; subst hh
+            exact PatternRewriter.replaceValue_getType
+          constructor <;> intro hb <;> grind) hfold2
+      exact h.mpr rfl
+    -- `eraseOp` preserves the type of any *in-bounds* value; the `i`-th argument of the surviving
+    -- block `bl` is in bounds of `rewriter'.ctx` because the count is preserved.
+    have hblRew' : bl.InBounds rewriter'.ctx.raw :=
+      hSurviveBlock bl (hCreated.inBounds_mono (GenericPtr.block bl) (by grind))
+    have hvIn : (ValuePtr.blockArgument ⟨bl, i⟩).InBounds rewriter'.ctx.raw := by
+      have hlt : i < bl.getNumArguments! rewriter'.ctx.raw := by rw [hNumArgs bl]; exact hi
+      grind [BlockArgumentPtr.inBounds_def, BlockPtr.getNumArguments!_eq_getNumArguments]
+    have hErase : (ValuePtr.blockArgument ⟨bl, i⟩).getType! rewriter'.ctx.raw
+        = (ValuePtr.blockArgument ⟨bl, i⟩).getType! s₂.ctx.raw := by
+      rw [PatternRewriter.eraseOp_ctx_eq herase]
+      exact ValuePtr.getType!_wfRewriter_eraseOp (PatternRewriter.eraseOp_ctx_eq herase ▸ hvIn)
+    rw [hErase, hRep, hIns, hCre]
   refine ⟨pre, post, blockIn, blockIn', ?_⟩
   exact {
     -- Block-list shape: discharged for the source by the split lemma.
@@ -3499,8 +3661,12 @@ theorem RewrittenAt.of_fromLocalRewrite
     -- `block` (the SSA-validity condition: results of `newOps` are defined within the span, forwarded
     -- values are in scope throughout the block); discharged from a pattern obligation.
     newValuesDominate := by sorry
-    -- TODO(PR 9, keystone): operation-list edits leave block-argument lists untouched.
-    blockArgsPreserved := by sorry
+    -- Operation-list edits leave block-argument counts and types untouched (the chain `hNumArgs` /
+    -- `hArgTypes` established above). The full `arguments` record is not preserved — argument
+    -- `firstUse` heads move as uses are redirected/erased — but count and type are, which is all the
+    -- block-argument frame consequences (`numArgsEq`/`argType_eq`/`getArguments!_eq`) need.
+    blockNumArgsPreserved := fun bl _ => hNumArgs bl
+    blockArgTypesPreserved := hArgTypes
     -- TODO(PR 9, keystone): op-list edits inside `block` leave the CFG unchanged, so block-level
     -- dominance agrees across the two contexts.
     blockDominatesPreserved := by sorry
