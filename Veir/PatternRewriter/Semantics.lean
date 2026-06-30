@@ -213,6 +213,29 @@ def LocalRewritePattern.RewritePreservesVerified (pattern : LocalRewritePattern 
     rewriter.ctx.Verified → rewriter'.ctx.Verified
 
 /--
+Applying the pattern through the standard driver (`RewritePattern.fromLocalRewrite`) leaves every
+produced value dominating the post-insertion point in the matched operation's block: the end of the
+inserted `newOps` span (`afterLast newOps (atStart! block)`) in the rewritten context. This is the
+SSA-validity condition on produced values — fresh results of inserted `newOps` are defined within the
+span, and forwarded pre-existing values are in scope throughout `block`.
+
+It is the rewritten-context (`rewriter'.ctx`) counterpart of `ReturnValuesDominate`, which states the
+source-context (`rewriter.ctx`) version (each forwarded value dominates `before op`). Like
+`RewritePreservesDom`/`RewritePreservesVerified`, it is a driver-level fact each concrete pattern must
+discharge — typically from `ReturnValuesDominate` together with the SSA structure of its `newOps`. -/
+def LocalRewritePattern.RewriteNewValuesDominate (pattern : LocalRewritePattern OpCode) : Prop :=
+  ∀ (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) (rewriter' : PatternRewriter OpCode),
+    RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter' →
+    ∀ (block : BlockPtr) (newCtx : WfIRContext OpCode)
+      (newOps : Array OperationPtr) (newValues : Array ValuePtr),
+    (op.get! rewriter.ctx.raw).parent = some block →
+    pattern rewriter.ctx op = some (newCtx, some (newOps, newValues)) →
+    ∀ v ∈ newValues,
+      v.dominatesIp (InsertPoint.afterLast newOps.toList rewriter'.ctx.raw
+        (InsertPoint.atStart! block rewriter'.ctx.raw)) rewriter'.ctx
+
+/--
 The bundle of correctness obligations a `LocalRewritePattern` must satisfy for the soundness
 results (notably `RewrittenAt.of_fromLocalRewrite` and the soundness lift built on it) to apply.
 Bundling them into a single structure avoids threading every obligation as a separate argument.
@@ -241,3 +264,5 @@ structure LocalRewritePattern.Valid (pattern : LocalRewritePattern OpCode) : Pro
   rewritePreservesDom : pattern.RewritePreservesDom
   /-- The driver-applied rewrite preserves verification. -/
   rewritePreservesVerified : pattern.RewritePreservesVerified
+  /-- Every produced value dominates the post-insertion point in the matched operation's block. -/
+  rewriteNewValuesDominate : pattern.RewriteNewValuesDominate
