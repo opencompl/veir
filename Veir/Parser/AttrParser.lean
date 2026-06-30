@@ -603,8 +603,66 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
     return some (FunctionType.mk inputs #[outputType] (isVarArg := false))
 
 /--
+  Parse an LLVM struct type, if present.
+  Its syntax is `!llvm.struct<...>`, or (exclusively) the shorter form
+  `struct<...>` if the corresponding argument is set.
+
+  LIMITATION: the struct is parsed *opaquely* as an `UnregisteredAttr` holding the
+  body as text. There is no structured representation: the struct name (for
+  identified structs like `struct<"name", (...)>`), the element list, and the
+  packed flag all live only as a substring of the stored text, so VeIR cannot
+  compare struct types semantically, resolve a recursive reference
+  (`struct<"node">`) against its definition, or inspect fields.
+
+  A proper fix would introduce a dedicated `LLVM.StructType` (mirroring the
+  existing `LLVM.ArrayType`): an inductive constructor carrying the literal vs.
+  identified distinction, the packed flag, and the element list, with the
+  identity/recursion handling that identified structs require. That is a larger
+  change and unnecessary until a pass needs to reason about struct layout or
+  identity; until then the opaque representation parses and roundtrips correctly,
+  which is all that is currently required.
+-/
+partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option TypeAttr) := do
+  if short then
+    let .true ← parseOptionalKeyword "struct".toByteArray | return none
+  else
+    let token ← peekToken
+    let .exclamationIdent := token.kind | return none
+    let input := (← getThe ParserState).input
+    let typeName := { token.slice with start := token.slice.start + 1 }.of input
+    if typeName ≠ "llvm.struct".toByteArray then return none
+    let _ ← consumeToken
+  -- Capture the `struct<...>` body opaquely and normalize to the full
+  -- `!llvm.struct<...>` spelling, so both forms produce identical output.
+  let startPos ← getPos
+  parsePunctuation "<"
+  let _ ← parseUnregisteredAttrBody
+  let endPos := (← peekToken).slice.stop
+  parsePunctuation ">"
+  let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
+  return some ⟨UnregisteredAttr.mk ("!llvm.struct" ++ String.fromUTF8! body) true, by grind⟩
+
+/--
   Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"
-  sugar keywords `void` and `ptr` in addition to the regular MLIR type forms.
+  sugar keywords `void`, `ptr`, and the bare nested forms `array<...>` and
+  `struct<...>` in addition to the regular MLIR type forms.
+
+  The bare nested form exists because the LLVM dialect has a custom directive
+  `PrettyLLVMType`, which allows types from the LLVM dialect to be written
+  without the `!llvm.` prefix when they're already nested inside a LLVM-dialect
+  type. For example, `!llvm.array<2 x struct<...>>` is the same as
+  `!llvm.array<2 x !llvm.struct<...>>`.
+
+  In practice, this syntax (`PrettyLLVMType`) is used almost everywhere in the
+  LLVM dialect wherever a nested type is allowed. So we can always turn on the
+  shorthand whenever we know that we're parsing a LLVM-dialect type.
+
+  Upstream MLIR handles this convenience syntax by rolling their own parser and
+  printer. VeIR needs to do the same. We only handle the parser part for now
+  since always printing the full `!llvm.` prefix is still valid syntax.
+
+  Source: see `dispatchParse` and `LLVM::parsePrettyLLVMType` in
+  `mlir/lib/Dialect/LLVMIR/IR/LLVMTypeSyntax.cpp`.
 -/
 partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   if ← parseOptionalKeyword "void".toByteArray then
@@ -612,6 +670,8 @@ partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM T
   if ← parseOptionalKeyword "ptr".toByteArray then
     return (LLVM.PointerType.mk : TypeAttr)
   if let some type ← parseOptionalLLVMArrayType true then
+    return type
+  if let some type ← parseOptionalLLVMStructType true then
     return type
   parseType errorMsg
 
@@ -663,6 +723,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some llvmPointerType
   if let some llvmArrayType := ← parseOptionalLLVMArrayType then
     return some llvmArrayType
+  if let some llvmStructType ← parseOptionalLLVMStructType then
+    return some llvmStructType
   if let some llvmFunctionType ← parseOptionalLLVMFunctionType then
     return some llvmFunctionType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
