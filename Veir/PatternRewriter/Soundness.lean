@@ -195,6 +195,17 @@ structure RewrittenAt
   CFG walk from the same entry block in both contexts. -/
   regionFirstBlockPreserved : ∀ (r : RegionPtr), r.InBounds ctx.raw →
     (r.get! newCtx.raw).firstBlock = (r.get! ctx.raw).firstBlock
+  /-- The enclosing operation of every surviving operation is preserved: the rewrite only edits
+  operation lists, never the block→region→operation parent pointers along a survivor's spine. This is
+  the "parent operations of surviving operations are preserved" promise of clause 5, and it is what
+  lets `IsTopLevelFuncWithName` transport across the rewrite (so the module-refinement lift can pick
+  the same surviving function in the target context). It is stated as an implication rather than a raw
+  equality because a detached source region could in principle be attached when the rewrite creates a
+  new operation — but a survivor that is *already* enclosed by some `enclosing` (its spine is fully
+  parented) keeps that enclosing operation. -/
+  getParentOpPreserved : ∀ (o enclosing : OperationPtr), o.InBounds ctx.raw → o ≠ op →
+    o.getParentOp! ctx.raw = some enclosing →
+    o.getParentOp! newCtx.raw = some enclosing
   -- Clause 9: the matched operation is not a function.
   /-- The matched operation `op` is not a function: it does not have exactly one region. Functions
   (the operations `interpretFunction` runs) have exactly one region, so this guarantees every function
@@ -2406,6 +2417,79 @@ theorem RewrittenAt.interpretModule_refinement
     rw [dif_pos (by simpa using hNum)]
     exact Interp.isRefinedBy_none_target
 
+/--
+**Stage E — module refinement (`isModuleRefinedBy`).** A rewrite refines a module: every top-level
+`func.func` of `moduleOp` in the source context is refined, as a function, by the *same* operation in
+the target context. The surviving function is its own witness — it is distinct from the matched `op`
+(a `func.func` has one region by verification, `op` has none), so it survives the rewrite, keeps its
+op type and `sym_name` (`frame`), and keeps `moduleOp` as its enclosing operation
+(`getParentOpPreserved`); the per-function refinement is exactly `interpretFunction_refinement`.
+-/
+theorem RewrittenAt.isModuleRefinedBy
+    (hRW : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
+    (ctxVerif : ctx.Verified)
+    (newCtxVerif : newCtx.Verified)
+    (hCtxDom : ctx.Dom)
+    (hOpSim : OpStepSimulation op newOps hRW.σ opIn hRW.newOpsInBounds')
+    (hSrcSplit : ∀ (b : BlockPtr) (bIn : b.InBounds ctx.raw),
+      ∃ (front : List OperationPtr) (term : OperationPtr)
+        (frontIn : ∀ o ∈ front, o.InBounds ctx.raw) (_termIn : term.InBounds ctx.raw),
+        (b.operationList ctx.raw ctx.wellFormed bIn).toList = front ++ [term] ∧
+        (∀ (s s' : InterpreterState ctx) (cf : ControlFlowAction),
+            interpretOpList front s frontIn ≠ some (.ok (s', some cf))))
+    (hTgtSplit : ∀ (b : BlockPtr) (bIn' : b.InBounds newCtx.raw),
+      ∃ (front : List OperationPtr) (term : OperationPtr)
+        (frontIn : ∀ o ∈ front, o.InBounds newCtx.raw) (_termIn : term.InBounds newCtx.raw),
+        (b.operationList newCtx.raw newCtx.wellFormed bIn').toList = front ++ [term] ∧
+        (∀ (s s' : InterpreterState newCtx) (cf : ControlFlowAction),
+            interpretOpList front s frontIn ≠ some (.ok (s', some cf))))
+    (hSrcInv : ∀ (_funcOp : OperationPtr) (values : Array RuntimeValue) (mem : MemoryState)
+        (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw) (newVars : VariableState ctx),
+        (VariableState.empty ctx).setArgumentValues? entryBlock values entryIn = some newVars →
+        ∀ fst (hfst : (entryBlock.get! ctx.raw).firstOp = some fst),
+          (InterpreterState.mk newVars mem).EquationLemmaAt (.before fst)
+            (by have := ctx.wellFormed.inBounds; grind))
+    (hTgtInv : ∀ (_funcOp : OperationPtr) (values' : Array RuntimeValue) (mem : MemoryState)
+        (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw) (newVars' : VariableState newCtx),
+        (VariableState.empty newCtx).setArgumentValues? entryBlock values'
+          (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
+        (InterpreterState.mk newVars' mem).DefinesDominating
+          (InsertPoint.atStart! entryBlock newCtx.raw)
+          ((InsertPoint.inBounds_atStart! newCtx.wellFormed
+            (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn)))
+    {moduleOp : OperationPtr} :
+    moduleOp.isModuleRefinedBy ctx moduleOp newCtx := by
+  intro func₁ func₁In name hTop
+  -- A verified `func.func` has one region, while `op` has none, so the function survives.
+  have hfuncVerif : func₁.Verified ctx func₁In :=
+    OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants ctxVerif func₁In
+  have hOneRegion : func₁.getNumRegions! ctx.raw = 1 :=
+    OperationPtr.Verified.func_func hfuncVerif hTop.isFunc
+  have hne : func₁ ≠ op := by rintro rfl; exact hRW.opNotFunction hOneRegion
+  have func₁In' : func₁.InBounds newCtx.raw := hRW.survives func₁ func₁In hne
+  have hframe := hRW.frame_of_ne func₁In hne
+  refine ⟨func₁, func₁In', ⟨?_, ?_, ?_⟩, ?_⟩
+  · -- The op type `.func .func` is preserved.
+    rw [hframe.opType]; exact hTop.isFunc
+  · -- The `sym_name` property is preserved (transport the `props` frame across the op-type equality).
+    rw [hTop.hasName]
+    have hOT : func₁.getOpType! newCtx.raw = func₁.getOpType! ctx.raw := hframe.opType
+    have hp : func₁.getProperties! newCtx.raw (func₁.getOpType! newCtx.raw)
+            = hOT ▸ func₁.getProperties! ctx.raw (func₁.getOpType! ctx.raw) := hframe.props
+    have hF : func₁.getOpType! ctx.raw = OpCode.func Func.func := hTop.isFunc
+    clear hSrcInv hTgtInv hSrcSplit hTgtSplit hOpSim hframe hTop
+    grind
+  · -- The enclosing operation `moduleOp` is preserved.
+    exact hRW.getParentOpPreserved func₁ moduleOp func₁In hne hTop.isTopLevel
+  · -- The per-function refinement is Stage E.
+    intro values valuesTarget mem hVals
+    exact hRW.interpretFunction_refinement newCtxVerif hCtxDom hOpSim hSrcSplit hTgtSplit
+      func₁In func₁In' hVals
+      (fun entryBlock entryIn newVars h fst hfst =>
+        hSrcInv func₁ values mem entryBlock entryIn newVars h fst hfst)
+      (fun entryBlock entryIn newVars' h =>
+        hTgtInv func₁ valuesTarget mem entryBlock entryIn newVars' h)
+
 /-! ## PR 9: connecting the concrete driver `fromLocalRewrite` to `RewrittenAt`
 
 The whole soundness lift above is developed against the abstract `RewrittenAt` relation. This section
@@ -3489,6 +3573,214 @@ theorem PatternRewriter.replaceValue!_getType {b b' : PatternRewriter OpCode}
   obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
   exact PatternRewriter.replaceValue_getType
 
+/-! ### Helpers for the `getParentOpPreserved` field of `of_fromLocalRewrite`.
+
+The enclosing-operation chain of a survivor is the composite `o → parent block → parent region →
+parent operation`. The rewrite pipeline preserves each link: block and region parents are untouched
+by op-list edits, a survivor's own parent is untouched (it is neither inserted nor erased), and a
+region that is already attached cannot be re-attached (so its parent is stable). These lemmas package
+those per-stage facts; the congruence lemma below then assembles them into `getParentOp!` stability. -/
+
+/-- Membership-aware variant of `List.foldlM_option_invariant`: the per-step hypothesis may use that
+the folded element comes from the list. Used to thread "the survivor is not the inserted op" through
+the insert fold. -/
+theorem List.foldlM_option_invariant_mem {α β : Type} {f : β → α → Option β} {P : β → Prop} :
+    ∀ {l : List α} {init s : β},
+      (∀ b a b', a ∈ l → f b a = some b' → (P b' ↔ P b)) →
+      l.foldlM f init = some s → (P s ↔ P init)
+  | [], init, s, _, h => by
+    rw [List.foldlM_nil] at h
+    obtain rfl : init = s := by simpa using h
+    rfl
+  | a :: t, init, s, hstep, h => by
+    rw [List.foldlM_cons] at h
+    obtain ⟨b, hf, hb⟩ := Option.bind_eq_some_iff.mp h
+    have ih := List.foldlM_option_invariant_mem (l := t)
+      (fun b a' b' hmem hfa => hstep b a' b' (List.mem_cons_of_mem a hmem) hfa) hb
+    rw [ih, hstep init a b (by simp) hf]
+
+/-- `getParentOp!` is stable between two contexts that agree on the relevant parent links: a
+survivor's own parent block, every block's parent region, and every *already-parented* region's
+parent operation. Stated as an implication on a concrete enclosing operation, which is all the
+soundness lift needs (and is robust to detached regions being attached elsewhere). -/
+theorem OperationPtr.getParentOp!_eq_of {c c' : IRContext OpCode} {o m : OperationPtr}
+    (hfib : c.FieldsInBounds) (oIn : o.InBounds c)
+    (hop : (o.get! c').parent = (o.get! c).parent)
+    (hblk : ∀ b : BlockPtr, (b.get! c').parent = (b.get! c).parent)
+    (hrgn : ∀ r : RegionPtr, r.InBounds c → (r.get! c).parent ≠ none →
+      (r.get! c').parent = (r.get! c).parent)
+    (h : o.getParentOp! c = some m) :
+    o.getParentOp! c' = some m := by
+  have key : ∀ d : IRContext OpCode, o.getParentOp! d =
+      ((o.get! d).parent).bind (fun b => ((b.get! d).parent).bind (fun r => (r.get! d).parent)) := by
+    intro d
+    unfold OperationPtr.getParentOp!
+    split
+    · next heq => simp [heq]
+    · next b heq =>
+      split
+      · next heq2 => simp [heq, heq2]
+      · next r heq2 => simp [heq, heq2]
+  rw [key c] at h
+  obtain ⟨b, hb, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨r, hr, h⟩ := Option.bind_eq_some_iff.mp h
+  have hbIn : b.InBounds c := by grind [OperationPtr.parent!_inBounds]
+  have hrIn : r.InBounds c := by grind [BlockPtr.parent!_inBounds]
+  rw [key c', hop, hb]
+  simp only [Option.bind_some, hblk b, hr,
+    hrgn r hrIn (by rw [h]; exact Option.some_ne_none m)]
+  exact h
+
+/-- `PatternRewriter.insertOp` preserves every block's parent region. -/
+theorem PatternRewriter.insertOp_blockParent {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {block : BlockPtr}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    (block.get! b'.ctx.raw).parent = (block.get! b.ctx.raw).parent := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · simp at h
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact BlockPtr.parent!_wfRewriter_insertOp hwf
+
+/-- `PatternRewriter.insertOp` preserves every region's parent operation. -/
+theorem PatternRewriter.insertOp_regionParent {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {h1 h2} {r : RegionPtr}
+    (h : PatternRewriter.insertOp b newOp ip h1 h2 = some b') :
+    (r.get! b'.ctx.raw).parent = (r.get! b.ctx.raw).parent := by
+  unfold PatternRewriter.insertOp at h
+  split at h
+  · simp at h
+  · rename_i newCtx hwf
+    simp only [Option.some.injEq] at h; subst h
+    exact RegionPtr.parent!_wfRewriter_insertOp hwf
+
+/-- `insertOp!` (when it succeeds) preserves every block's parent region. -/
+theorem PatternRewriter.insertOp!_blockParent {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {block : BlockPtr}
+    (h : b.insertOp! newOp ip = some b') :
+    (block.get! b'.ctx.raw).parent = (block.get! b.ctx.raw).parent := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_blockParent h
+
+/-- `insertOp!` (when it succeeds) preserves every region's parent operation. -/
+theorem PatternRewriter.insertOp!_regionParent {b b' : PatternRewriter OpCode}
+    {newOp : OperationPtr} {ip : InsertPoint} {r : RegionPtr}
+    (h : b.insertOp! newOp ip = some b') :
+    (r.get! b'.ctx.raw).parent = (r.get! b.ctx.raw).parent := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_regionParent h
+
+/-- `insertOp!` (when it succeeds) preserves the parent of every operation other than the inserted
+one. -/
+theorem PatternRewriter.insertOp!_opParent {b b' : PatternRewriter OpCode}
+    {newOp o : OperationPtr} {ip : InsertPoint}
+    (h : b.insertOp! newOp ip = some b') (hne : o ≠ newOp) :
+    (o.get! b'.ctx.raw).parent = (o.get! b.ctx.raw).parent := by
+  obtain ⟨h1, h2, h⟩ := PatternRewriter.insertOp!_eq_some h
+  exact PatternRewriter.insertOp_op_parent h hne
+
+/-- `PatternRewriter.replaceValue` preserves every block's parent region. -/
+theorem PatternRewriter.replaceValue_blockParent {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {block : BlockPtr} :
+    (block.get! (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw).parent =
+    (block.get! b.ctx.raw).parent := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]; exact BlockPtr.parent!_WfRewriter_replaceValue
+
+/-- `PatternRewriter.replaceValue` preserves every region's parent operation. -/
+theorem PatternRewriter.replaceValue_regionParent {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {r : RegionPtr} :
+    (r.get! (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw).parent =
+    (r.get! b.ctx.raw).parent := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]; exact RegionPtr.parent!_WfRewriter_replaceValue
+
+/-- `PatternRewriter.replaceValue` preserves every operation's parent block. -/
+theorem PatternRewriter.replaceValue_opParent {b : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {ne oldIn newIn} {o : OperationPtr} :
+    (o.get! (b.replaceValue oldVal newVal ne oldIn newIn).ctx.raw).parent =
+    (o.get! b.ctx.raw).parent := by
+  have hctx : (b.replaceValue oldVal newVal ne oldIn newIn).ctx
+      = WfRewriter.replaceValue b.ctx oldVal newVal ne oldIn newIn := by
+    simp only [PatternRewriter.replaceValue, PatternRewriter.addUsersInWorklist_same_ctx]
+  rw [hctx]; exact OperationPtr.parent!_WfRewriter_replaceValue
+
+/-- `replaceValue!` (when it succeeds) preserves every block's parent region. -/
+theorem PatternRewriter.replaceValue!_blockParent {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {block : BlockPtr}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    (block.get! b'.ctx.raw).parent = (block.get! b.ctx.raw).parent := by
+  obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
+  exact PatternRewriter.replaceValue_blockParent
+
+/-- `replaceValue!` (when it succeeds) preserves every region's parent operation. -/
+theorem PatternRewriter.replaceValue!_regionParent {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {r : RegionPtr}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    (r.get! b'.ctx.raw).parent = (r.get! b.ctx.raw).parent := by
+  obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
+  exact PatternRewriter.replaceValue_regionParent
+
+/-- `replaceValue!` (when it succeeds) preserves every operation's parent block. -/
+theorem PatternRewriter.replaceValue!_opParent {b b' : PatternRewriter OpCode}
+    {oldVal newVal : ValuePtr} {o : OperationPtr}
+    (h : b.replaceValue! oldVal newVal = some b') :
+    (o.get! b'.ctx.raw).parent = (o.get! b.ctx.raw).parent := by
+  obtain ⟨ne, oldIn, newIn, rfl⟩ := PatternRewriter.replaceValue!_eq_some h
+  exact PatternRewriter.replaceValue_opParent
+
+/-- A `WithCreatedOps` chain preserves every block's parent region (it only creates fresh ops). -/
+theorem WfIRContext.WithCreatedOps.blockParent_eq {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {b : BlockPtr} :
+    (b.get! ctx₂.raw).parent = (b.get! ctx₁.raw).parent := by
+  induction h with
+  | Nil => rfl
+  | CreatedOp ctx₁ ctx₂ ctx₃ hwco hex ih =>
+    obtain ⟨opType, rt, ops, succ, regs, props, k₁, k₂, k₃, k₄, hcreate⟩ := hex
+    rw [BlockPtr.parent!_WfRewriter_createOp hcreate]
+    exact ih
+
+/-- A `WithCreatedOps` chain preserves a survivor's parent block (it only creates fresh ops). -/
+theorem WfIRContext.WithCreatedOps.opParent_eq {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {o : OperationPtr} (oIn : o.InBounds ctx₁.raw) :
+    (o.get! ctx₂.raw).parent = (o.get! ctx₁.raw).parent := by
+  induction h with
+  | Nil => rfl
+  | CreatedOp ctx₁ ctx₂ ctx₃ hwco hex ih =>
+    obtain ⟨opType, rt, ops, succ, regs, props, k₁, k₂, k₃, k₄, hcreate⟩ := hex
+    have ho2 : o.InBounds ctx₂.raw := by
+      have := hwco.inBounds_mono (GenericPtr.operation o) (by grind); grind
+    rw [OperationPtr.parent!_WfRewriter_createOp hcreate, if_neg (by grind)]
+    exact ih oIn
+
+/-- A `WithCreatedOps` chain preserves the parent operation of every *already-parented* in-bounds
+region. The parent operation `P` is a survivor whose region list is preserved (`getRegion_eq`), and a
+region is in its parent op's region list (wellformedness `region_parent`), so the link is stable. -/
+theorem WfIRContext.WithCreatedOps.regionParent_eq_of_parented {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {r : RegionPtr}
+    (rIn : r.InBounds ctx₁.raw) (hpar : (r.get! ctx₁.raw).parent ≠ none) :
+    (r.get! ctx₂.raw).parent = (r.get! ctx₁.raw).parent := by
+  rcases hP : (r.get! ctx₁.raw).parent with _ | P
+  · exact absurd hP hpar
+  · have hPIn₁ : P.InBounds ctx₁.raw := by
+      have := RegionPtr.parent!_inBounds ctx₁.wellFormed.inBounds rIn; grind
+    have hPIn₂ : P.InBounds ctx₂.raw := by
+      have := h.inBounds_mono (GenericPtr.operation P) (by grind); grind
+    have rIn₂ : r.InBounds ctx₂.raw := by
+      have := h.inBounds_mono (GenericPtr.region r) (by grind); grind
+    obtain ⟨i, hi, hreg⟩ := ((ctx₁.wellFormed.operations P hPIn₁).region_parent r rIn).mpr hP
+    have hnum : P.getNumRegions! ctx₂.raw = P.getNumRegions! ctx₁.raw := h.getNumRegions_eq hPIn₁
+    have hregeq : P.getRegion! ctx₂.raw i = P.getRegion! ctx₁.raw i := h.getRegion_eq hPIn₁ i
+    have hr₂ : (r.get! ctx₂.raw).parent = some P :=
+      ((ctx₂.wellFormed.operations P hPIn₂).region_parent r rIn₂).mp
+        ⟨i, by rw [hnum]; exact hi, by rw [hregeq]; exact hreg⟩
+    rw [hr₂]
+
 /--
 **PR 9 — bridge from the concrete driver.** When `fromLocalRewrite` runs the rewrite branch for a
 matched, in-bounds, region-free `op` that lives inside a block, and the pattern satisfies the four
@@ -4068,6 +4360,94 @@ theorem RewrittenAt.of_fromLocalRewrite
         rw [PatternRewriter.eraseOp_ctx_eq herase]
         exact RegionPtr.firstBlock!_wfRewriter_eraseOp
       exact hers.trans (hrep.trans (hins.trans hcre))
+    -- The enclosing operation of every survivor is preserved: block/op/region parents are framed
+    -- across the whole pipeline, then assembled by `getParentOp!_eq_of`.
+    getParentOpPreserved := by
+      intro o enclosing oIn hne hpar
+      have honotnew : o ∉ newOps := fun hm =>
+        ((hReturnOps rewriter.ctx op newCtxPat newOps newValues hpat o).mp hm).2 oIn
+      have oInPat : o.InBounds newCtxPat.raw := by
+        have := hCreated.inBounds_mono (GenericPtr.operation o) (by grind); grind
+      have oIn' : o.InBounds rewriter'.ctx.raw := hSurviveOp o hne oInPat
+      -- Block-parent preservation (unconditional at every stage).
+      have hblk : ∀ bl : BlockPtr,
+          (bl.get! rewriter'.ctx.raw).parent = (bl.get! rewriter.ctx.raw).parent := by
+        intro bl
+        have hcre : (bl.get! newCtxPat.raw).parent = (bl.get! rewriter.ctx.raw).parent :=
+          hCreated.blockParent_eq
+        have hins : (bl.get! s₁.ctx.raw).parent = (bl.get! newCtxPat.raw).parent := by
+          have h := Array.foldlM_option_invariant
+            (P := fun b : PatternRewriter OpCode =>
+              (bl.get! b.ctx.raw).parent = (bl.get! newCtxPat.raw).parent)
+            (fun b a b' hh => by
+              have := PatternRewriter.insertOp!_blockParent (block := bl) hh
+              constructor <;> intro <;> grind) hfold1
+          exact h.mpr rfl
+        have hrep : (bl.get! s₂.ctx.raw).parent = (bl.get! s₁.ctx.raw).parent := by
+          have h := Array.foldlM_option_invariant
+            (P := fun b : PatternRewriter OpCode =>
+              (bl.get! b.ctx.raw).parent = (bl.get! s₁.ctx.raw).parent)
+            (fun b a b' hh => by
+              have := PatternRewriter.replaceValue!_blockParent (block := bl) hh
+              constructor <;> intro <;> grind) hfold2
+          exact h.mpr rfl
+        have hers : (bl.get! rewriter'.ctx.raw).parent = (bl.get! s₂.ctx.raw).parent := by
+          rw [PatternRewriter.eraseOp_ctx_eq herase]; exact BlockPtr.parent!_wfRewriter_eraseOp
+        exact hers.trans (hrep.trans (hins.trans hcre))
+      -- Op-parent preservation for the survivor `o` (it is neither created, inserted, nor erased).
+      have hop : (o.get! rewriter'.ctx.raw).parent = (o.get! rewriter.ctx.raw).parent := by
+        have hcre : (o.get! newCtxPat.raw).parent = (o.get! rewriter.ctx.raw).parent :=
+          hCreated.opParent_eq oIn
+        have hins : (o.get! s₁.ctx.raw).parent = (o.get! newCtxPat.raw).parent := by
+          have hL := hfold1; rw [← Array.foldlM_toList] at hL
+          have h := List.foldlM_option_invariant_mem (l := newOps.toList)
+            (P := fun b : PatternRewriter OpCode =>
+              (o.get! b.ctx.raw).parent = (o.get! newCtxPat.raw).parent)
+            (fun b a b' hmem hh => by
+              have hane : o ≠ a := by rintro rfl; exact honotnew (by simpa using hmem)
+              have := PatternRewriter.insertOp!_opParent (o := o) hh hane
+              constructor <;> intro <;> grind) hL
+          exact h.mpr rfl
+        have hrep : (o.get! s₂.ctx.raw).parent = (o.get! s₁.ctx.raw).parent := by
+          have h := Array.foldlM_option_invariant
+            (P := fun b : PatternRewriter OpCode =>
+              (o.get! b.ctx.raw).parent = (o.get! s₁.ctx.raw).parent)
+            (fun b a b' hh => by
+              have := PatternRewriter.replaceValue!_opParent (o := o) hh
+              constructor <;> intro <;> grind) hfold2
+          exact h.mpr rfl
+        have hoErase := PatternRewriter.eraseOp_ctx_eq herase ▸ oIn'
+        have hers : (o.get! rewriter'.ctx.raw).parent = (o.get! s₂.ctx.raw).parent := by
+          rw [PatternRewriter.eraseOp_ctx_eq herase, OperationPtr.parent!_wfRewriter_eraseOp hoErase,
+            if_neg hne]
+        exact hers.trans (hrep.trans (hins.trans hcre))
+      -- Region-parent preservation for parented in-bounds regions.
+      have hrgn : ∀ r : RegionPtr, r.InBounds rewriter.ctx.raw →
+          (r.get! rewriter.ctx.raw).parent ≠ none →
+          (r.get! rewriter'.ctx.raw).parent = (r.get! rewriter.ctx.raw).parent := by
+        intro r rIn hrne
+        have hcre : (r.get! newCtxPat.raw).parent = (r.get! rewriter.ctx.raw).parent :=
+          hCreated.regionParent_eq_of_parented rIn hrne
+        have hins : (r.get! s₁.ctx.raw).parent = (r.get! newCtxPat.raw).parent := by
+          have h := Array.foldlM_option_invariant
+            (P := fun b : PatternRewriter OpCode =>
+              (r.get! b.ctx.raw).parent = (r.get! newCtxPat.raw).parent)
+            (fun b a b' hh => by
+              have := PatternRewriter.insertOp!_regionParent (r := r) hh
+              constructor <;> intro <;> grind) hfold1
+          exact h.mpr rfl
+        have hrep : (r.get! s₂.ctx.raw).parent = (r.get! s₁.ctx.raw).parent := by
+          have h := Array.foldlM_option_invariant
+            (P := fun b : PatternRewriter OpCode =>
+              (r.get! b.ctx.raw).parent = (r.get! s₁.ctx.raw).parent)
+            (fun b a b' hh => by
+              have := PatternRewriter.replaceValue!_regionParent (r := r) hh
+              constructor <;> intro <;> grind) hfold2
+          exact h.mpr rfl
+        have hers : (r.get! rewriter'.ctx.raw).parent = (r.get! s₂.ctx.raw).parent := by
+          rw [PatternRewriter.eraseOp_ctx_eq herase]; exact RegionPtr.parent!_wfRewriter_eraseOp
+        exact hers.trans (hrep.trans (hins.trans hcre))
+      exact OperationPtr.getParentOp!_eq_of rewriter.ctx.wellFormed.inBounds oIn hop hblk hrgn hpar
     -- `op` is not a function: it has no regions, so in particular not exactly one.
     opNotFunction := by simp [hOpRegions]
   }
