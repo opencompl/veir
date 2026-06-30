@@ -73,6 +73,7 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 @[opcodes]
 inductive Llvm where
 | mlir__constant
+| mlir__poison
 | and
 | or
 | xor
@@ -81,6 +82,13 @@ inductive Llvm where
 | shl
 | lshr
 | ashr
+| intr__ctlz
+| intr__cttz
+| intr__ctpop
+| intr__bswap
+| intr__bitreverse
+| intr__fshl
+| intr__fshr
 | mul
 | sdiv
 | udiv
@@ -108,6 +116,10 @@ inductive Llvm where
 | fdiv
 | frem
 | freeze
+| intr__smax
+| intr__smin
+| intr__umax
+| intr__umin
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
@@ -199,6 +211,8 @@ inductive Riscv where
 | pack
 | packh
 | packw
+| czeroeqz
+| czeronez
 /- memory -/
 | ld
 | lw

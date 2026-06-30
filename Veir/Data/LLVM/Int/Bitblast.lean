@@ -12,6 +12,19 @@ namespace Veir.Data.LLVM.Int
 
 public section
 
+attribute [veir_bv_normalize] Bool.false_eq_true false_and or_self decide_false dite_eq_ite Bool.if_false_right
+  Bool.decide_or Bool.decide_eq_true Bool.and_true Bool.or_eq_false_iff implies_true
+  BitVec.truncate_eq_setWidth BitVec.setWidth_eq forall_const and_imp true_and
+  BitVec.natCast_eq_ofNat ge_iff_le Bool.or_false dite_eq_ite Bool.if_true_left
+  Bool.decide_or Bool.decide_eq_true Bool.or_eq_false_iff decide_eq_false_iff_not
+  BitVec.not_le Nat.sub_zero and_imp dite_eq_ite Bool.if_true_left
+  Bool.decide_or Bool.decide_eq_true Bool.or_eq_false_iff
+  decide_eq_false_iff_not BitVec.not_le and_imp
+
+attribute [veir_bv_normalize_post] dite_eq_ite Bool.if_true_left Bool.decide_or
+  Bool.decide_eq_true Bool.or_eq_false_iff decide_eq_false_iff_not
+  BitVec.not_le and_imp
+
 /-- Return true if the LLVM.Int `x` is poison. -/
 def isPoison {w : Nat} : (x : Int w) → Bool
   | .poison => true
@@ -109,6 +122,11 @@ theorem getValue_constant {w : Nat} (v : _root_.Int) :
 @[veir_bv_normalize, grind =]
 theorem isPoison_constant {w : Nat} (v : _root_.Int) :
     (constant w v).isPoison = false := by rfl
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_poison {w : Nat} :
+    (mlir_poison w).isPoison = true := by
+  simp [mlir_poison, isPoison]
 
 @[veir_bv_normalize, grind =]
 theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
@@ -289,6 +307,82 @@ theorem getValue_ashr {w : Nat} (x y : Int w) {exact : Bool} (h : (ashr x y exac
   grind
 
 @[veir_bv_normalize, grind =]
+theorem isPoison_ctlz {w : Nat} (x : Int w) {is_zero_poison : Bool} :
+    (ctlz x is_zero_poison).isPoison =
+      if _ : x.isPoison = true then true else is_zero_poison && (x.getValue == 0#w) := by
+  simp only [ctlz, isPoison, getValue, Id.run]
+  simp [pure]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_ctlz {w : Nat} (x : Int w) {is_zero_poison : Bool}
+    (h : (ctlz x is_zero_poison).isPoison = false) :
+    (ctlz x is_zero_poison).getValue h = x.getValue.clz := by
+  simp only [ctlz, isPoison, getValue, Id.run]
+  simp [pure] at h ⊢
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_cttz {w : Nat} (x : Int w) {is_zero_poison : Bool} :
+    (cttz x is_zero_poison).isPoison =
+      if _ : x.isPoison = true then true else is_zero_poison && (x.getValue == 0#w) := by
+  simp only [cttz, isPoison, getValue, Id.run]
+  simp [pure]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_cttz {w : Nat} (x : Int w) {is_zero_poison : Bool}
+    (h : (cttz x is_zero_poison).isPoison = false) :
+    (cttz x is_zero_poison).getValue h = x.getValue.ctz := by
+  simp only [cttz, isPoison, getValue, Id.run]
+  simp [pure] at h ⊢
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_ctpop {w : Nat} (x : Int w) :
+    (ctpop x).isPoison = x.isPoison := by
+  simp [ctpop, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_ctpop {w : Nat} (x : Int w) (h : (ctpop x).isPoison = false) :
+    (ctpop x).getValue h = x.getValue.cpop := by
+  cases x <;> simp [ctpop, getValue, Id.run] at h ⊢
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_bswap {w : Nat} (x : Int w) :
+    (bswap x).isPoison = x.isPoison := by
+  cases x with
+  | poison => simp [bswap, isPoison, Id.run]
+  | val x' =>
+      by_cases h16 : w = 16
+      · simp [bswap, isPoison, Id.run, pure, h16]
+      · by_cases h32 : w = 32
+        · simp [bswap, isPoison, Id.run, pure, h32]
+        · by_cases h64 : w = 64
+          · simp [bswap, isPoison, Id.run, pure, h64]
+          · simp [bswap, isPoison, Id.run, h16, h32, h64]
+
+@[veir_bv_normalize, grind =]
+theorem getValue_bswap_64 (x : Int 64) (h : (bswap x).isPoison = false) :
+    (bswap x).getValue h =
+      x.getValue.extractLsb 7 0 ++ x.getValue.extractLsb 15 8 ++
+      x.getValue.extractLsb 23 16 ++ x.getValue.extractLsb 31 24 ++
+      x.getValue.extractLsb 39 32 ++ x.getValue.extractLsb 47 40 ++
+      x.getValue.extractLsb 55 48 ++ x.getValue.extractLsb 63 56 := by
+  cases x <;> simp [bswap, bswap64BV, getValue, Id.run, pure] at h ⊢
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_bitreverse {w : Nat} (x : Int w) :
+    (bitreverse x).isPoison = x.isPoison := by
+  cases x <;> simp [bitreverse, isPoison, Id.run]
+
+@[veir_bv_normalize, grind =]
+theorem getValue_bitreverse {w : Nat} (x : Int w) (h : (bitreverse x).isPoison = false) :
+    (bitreverse x).getValue h = x.getValue.reverse := by
+  cases x <;> simp [bitreverse, getValue, Id.run] at h ⊢
+
+@[veir_bv_normalize, grind =]
 theorem isPoison_cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) :
     (cast x h).isPoison = x.isPoison := by
   simp [cast, isPoison]
@@ -413,6 +507,84 @@ theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) (h : (select c x y).
   simp [select, Id.run]
   grind
 
+@[veir_bv_normalize, grind =]
+theorem isPoison_smax {w : Nat} (x y : Int w) :
+    (smax x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
+  simp [smax, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_smax {w : Nat} (x y : Int w) (h : (smax x y).isPoison = false) :
+    (smax x y).getValue h = if x.getValue.sle y.getValue then y.getValue else x.getValue := by
+  simp [smax, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_smin {w : Nat} (x y : Int w) :
+    (smin x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
+  simp [smin, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_smin {w : Nat} (x y : Int w) (h : (smin x y).isPoison = false) :
+    (smin x y).getValue h = if x.getValue.sle y.getValue then x.getValue else y.getValue := by
+  simp [smin, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_umax {w : Nat} (x y : Int w) :
+    (umax x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
+  simp [umax, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_umax {w : Nat} (x y : Int w) (h : (umax x y).isPoison = false) :
+    (umax x y).getValue h = if x.getValue.ule y.getValue then y.getValue else x.getValue := by
+  simp [umax, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_umin {w : Nat} (x y : Int w) :
+    (umin x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
+  simp [umin, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_umin {w : Nat} (x y : Int w) (h : (umin x y).isPoison = false) :
+    (umin x y).getValue h = if x.getValue.ule y.getValue then x.getValue else y.getValue := by
+  simp [umin, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_fshl {w : Nat} (a b c : Int w) :
+    (fshl a b c).isPoison = decide (a.isPoison ∨ b.isPoison ∨ c.isPoison) := by
+  simp [fshl, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_fshl {w : Nat} (a b c : Int w) (h : (fshl a b c).isPoison = false) :
+    (fshl a b c).getValue h =
+      ((a.getValue ++ b.getValue) <<< (c.getValue % BitVec.ofNat w w)).extractLsb' w w := by
+  simp only [fshl, Id.run]
+  rw [BitVec.shiftLeft_eq']
+  simp [BitVec.toNat_umod]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_fshr {w : Nat} (a b c : Int w) :
+    (fshr a b c).isPoison = decide (a.isPoison ∨ b.isPoison ∨ c.isPoison) := by
+  simp [fshr, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_fshr {w : Nat} (a b c : Int w) (h : (fshr a b c).isPoison = false) :
+    (fshr a b c).getValue h =
+      ((a.getValue ++ b.getValue) >>> (c.getValue % BitVec.ofNat w w)).truncate w := by
+  simp only [fshr, Id.run]
+  rw [BitVec.ushiftRight_eq']
+  simp [BitVec.toNat_umod]
+  grind
+
 theorem add_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (nsw nuw : Bool) :
     add x₁ x₂ nsw nuw ⊒ add y₁ y₂ nsw nuw := by
@@ -506,4 +678,16 @@ theorem icmp_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (p : IntPred)
 theorem select_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (c₁ c₂ : Int 1)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (h₃ : c₁ ⊒ c₂) :
     select c₁ x₁ x₂ ⊒ select c₂ y₁ y₂ := by
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_freeze {w : Nat} (x : Int w) :
+    (freeze x).isPoison = false := by
+  simp [freeze, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_freeze {w : Nat} (x : Int w) :
+    (freeze x).getValue = if h : x.isPoison then 0#w else x.getValue := by
+  simp [freeze, Id.run]
   grind

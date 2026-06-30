@@ -122,6 +122,8 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     case shl => exact (NswNuwProperties.fromAttrDict attrDict)
     case lshr => exact (ExactProperties.fromAttrDict attrDict)
     case ashr => exact (ExactProperties.fromAttrDict attrDict)
+    case intr__ctlz => exact (ZeroPoisonProperties.fromAttrDictFor "llvm.intr.ctlz" attrDict)
+    case intr__cttz => exact (ZeroPoisonProperties.fromAttrDictFor "llvm.intr.cttz" attrDict)
     case or => exact (DisjointProperties.fromAttrDict attrDict)
     case trunc => exact (NswNuwProperties.fromAttrDict attrDict)
     case zext => exact (NnegProperties.fromAttrDict attrDict)
@@ -194,6 +196,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr intAttr)
     | .float floatAttr =>
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.floatAttr floatAttr)
+    | .dense denseAttr =>
+      (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.denseElementsAttr denseAttr)
   | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     if props.attr.nsw || props.attr.nuw then
@@ -238,6 +242,10 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     if props.nneg then
       dict := dict.insert "nneg".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
+  | .llvm .intr__ctlz | .llvm .intr__cttz =>
+    let value := if props.is_zero_poison then 1 else 0
+    let attr := IntegerAttr.mk value (IntegerType.mk 1)
+    (Std.HashMap.emptyWithCapacity 1).insert "is_zero_poison".toUTF8 (Attribute.integerAttr attr)
   | .riscv .li  | .riscv .lui | .riscv .auipc | .riscv .andi | .riscv .ori | .riscv .xori
   | .riscv .addi | .riscv .slti | .riscv .sltiu | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
   | .riscv .slliw | .riscv .srliw | .riscv .sraiw | .riscv .rori | .riscv .roriw | .riscv .slliuw
@@ -400,13 +408,18 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .riscv _ => false
   -- For LLVM we enumerate the pure ops
   | .llvm .mlir__constant
+  | .llvm .mlir__poison
   | .llvm .and | .llvm .or | .llvm .xor
   | .llvm .add | .llvm .sub | .llvm .mul
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .shl | .llvm .lshr | .llvm .ashr
+  | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
+  | .llvm .intr__bswap | .llvm .intr__bitreverse
+  | .llvm .intr__fshl | .llvm .intr__fshr
   | .llvm .icmp | .llvm .select
   | .llvm .trunc | .llvm .sext | .llvm .zext
   | .llvm .getelementptr
+  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
   | .llvm .fadd | .llvm .fsub | .llvm .fmul | .llvm .fdiv | .llvm .frem => false
   -- Volatile loads are definitionally side-effecting
   | .llvm .load => (op.getProperties! ctx (.llvm .load)).volatile_
@@ -438,6 +451,7 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | .arith .mulsi_extended | .arith .mului_extended
   | .llvm .add | .llvm .mul
   | .llvm .and | .llvm .or | .llvm .xor
+  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
   | .llvm .fadd | .llvm .fmul
   | .riscv .add | .riscv .and | .riscv .or | .riscv .xor | .riscv .xnor
   | .riscv .mul | .riscv .mulh | .riscv .mulhu

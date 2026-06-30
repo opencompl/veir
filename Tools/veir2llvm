@@ -467,6 +467,40 @@ ICMP_PREDICATES = {
 }
 
 
+# Integer intrinsics whose operands and result all share one type.  The value
+# is the LLVM intrinsic base name and the number of SSA operands.  Each becomes
+# an overloaded `call @llvm.<base>.<iN>(...)` plus a matching `declare`.
+SIMPLE_INTRINSICS = {
+    "llvm.intr.smax": ("smax", 2),
+    "llvm.intr.smin": ("smin", 2),
+    "llvm.intr.umax": ("umax", 2),
+    "llvm.intr.umin": ("umin", 2),
+    "llvm.intr.fshl": ("fshl", 3),
+    "llvm.intr.fshr": ("fshr", 3),
+    "llvm.intr.ctpop": ("ctpop", 1),
+    "llvm.intr.bswap": ("bswap", 1),
+    "llvm.intr.bitreverse": ("bitreverse", 1),
+}
+
+# ctlz/cttz take their single value operand plus an i1 `is_zero_poison` immarg.
+ZERO_POISON_INTRINSICS = {
+    "llvm.intr.ctlz": "ctlz",
+    "llvm.intr.cttz": "cttz",
+}
+
+
+def parse_zero_poison(attr: str) -> str:
+    """Return 'true'/'false' for the is_zero_poison flag in either spelling:
+    the generator's `is_zero_poison = false` or veir-opt's `"is_zero_poison" = 0 : i1`."""
+    m = re.search(r'"?is_zero_poison"?\s*=\s*(true|false)\b', attr)
+    if m:
+        return m.group(1)
+    m = re.search(r'"?is_zero_poison"?\s*=\s*(-?\d+)\s*:\s*i1', attr)
+    if m:
+        return "true" if int(m.group(1)) != 0 else "false"
+    raise Error("llvm.intr.ctlz/cttz is missing the is_zero_poison flag")
+
+
 def require_result(op: Operation) -> str:
     if op.result is None:
         raise Error(f"{op.name} must have one result")
@@ -480,8 +514,53 @@ def require_operands(op: Operation, count: int) -> None:
         raise Error(f"{op.name} expects {count} operands")
 
 
+def translate_intrinsic(
+    op: Operation,
+    out_result: str,
+    dst_type: str,
+    aliases: dict[str, str],
+    declarations: set[str],
+) -> list[str] | None:
+    """Translate llvm.freeze and the integer intrinsics, recording any
+    intrinsic declarations needed.  Returns None for non-intrinsic ops."""
+    name = op.name
+    if name == "llvm.freeze":
+        require_operands(op, 1)
+        if op.operand_types[0] != dst_type:
+            raise Error("llvm.freeze operand/result types must match")
+        typ = convert_type(dst_type)
+        src = llvm_value(op.operands[0], aliases)
+        return [f"  {out_result} = freeze {typ} {src}"]
+
+    if name in SIMPLE_INTRINSICS:
+        base, arity = SIMPLE_INTRINSICS[name]
+        require_operands(op, arity)
+        if any(t != dst_type for t in op.operand_types):
+            raise Error(f"{name} operand/result types must match")
+        typ = convert_type(dst_type)
+        args = ", ".join(f"{typ} {llvm_value(o, aliases)}" for o in op.operands)
+        declarations.add(f"declare {typ} @llvm.{base}.{typ}({', '.join([typ] * arity)})")
+        return [f"  {out_result} = call {typ} @llvm.{base}.{typ}({args})"]
+
+    if name in ZERO_POISON_INTRINSICS:
+        base = ZERO_POISON_INTRINSICS[name]
+        require_operands(op, 1)
+        if op.operand_types[0] != dst_type:
+            raise Error(f"{name} operand/result types must match")
+        typ = convert_type(dst_type)
+        src = llvm_value(op.operands[0], aliases)
+        poison = parse_zero_poison(op.attr)
+        declarations.add(f"declare {typ} @llvm.{base}.{typ}({typ}, i1)")
+        return [f"  {out_result} = call {typ} @llvm.{base}.{typ}({typ} {src}, i1 {poison})"]
+
+    return None
+
+
 def translate_nonterminator(
-    op: Operation, aliases: dict[str, str], value_types: dict[str, str]
+    op: Operation,
+    aliases: dict[str, str],
+    value_types: dict[str, str],
+    declarations: set[str],
 ) -> list[str]:
     name = op.name
     if name == "llvm.mlir.constant":
@@ -499,6 +578,12 @@ def translate_nonterminator(
     out_result = llvm_ssa_name(result)
     dst_type = op.result_types[0]
     value_types[result] = dst_type
+
+    # Intrinsics and freeze carry their own attributes and bypass flag parsing.
+    intrinsic = translate_intrinsic(op, out_result, dst_type, aliases, declarations)
+    if intrinsic is not None:
+        return intrinsic
+
     flags = flags_from_attrs(name, op.attr)
     flag_text = (" " + " ".join(flags)) if flags else ""
 
@@ -656,6 +741,7 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
     body_lines: dict[str, list[str]] = {}
     edges: list[Edge] = []
     edge_blocks: list[EdgeBlock] = []
+    declarations: set[str] = set()
 
     for idx, block in enumerate(blocks):
         for arg_name, arg_type in block.args:
@@ -676,7 +762,7 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
             else:
                 if is_last:
                     raise Error(f"block ^{block.label} has no terminator")
-                lines.extend(translate_nonterminator(op, aliases, value_types))
+                lines.extend(translate_nonterminator(op, aliases, value_types, declarations))
         body_lines[block.label] = lines
 
     incoming: dict[str, list[list[tuple[str, str]]]] = {
@@ -712,6 +798,11 @@ def translate_function(name: str, blocks: list[Block], ret_type: str, arg_types:
         out.append(f"  br label {llvm_label(edge_block.target)}")
 
     out.append("}")
+    # Intrinsic declarations follow the definition; LLVM IR is order-independent
+    # at module scope, and keeping `define` first satisfies vsmith's translator
+    # check that the output begins with `define`.
+    for decl in sorted(declarations):
+        out.append(decl)
     return "\n".join(out) + "\n"
 
 

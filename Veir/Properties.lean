@@ -130,6 +130,36 @@ def NnegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let nneg ← getUnitAttr "nneg" attrDict
   return { nneg := nneg }
 
+/--
+  Properties of LLVM count-zero intrinsics. In LLVM IR, the second intrinsic
+  argument is an immediate `i1` named `is_zero_poison`.
+-/
+structure ZeroPoisonProperties where
+  is_zero_poison : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def ZeroPoisonProperties.fromAttrDictFor (opName : String)
+    (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String ZeroPoisonProperties := do
+  if attrDict.size > 1 then
+    throw s!"{opName}: expected only 'is_zero_poison' property, but got {attrDict.size} properties"
+  let some attr := attrDict["is_zero_poison".toUTF8]?
+    | throw s!"{opName}: missing 'is_zero_poison' property"
+  let .integerAttr intAttr := attr
+    | throw s!"{opName}: expected 'is_zero_poison' to be an i1 integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 1 then
+    throw s!"{opName}: expected 'is_zero_poison' to be an i1 integer attribute, but got i{intAttr.type.bitwidth}"
+  if intAttr.value = 0 then
+    return { is_zero_poison := false }
+  else if intAttr.value = 1 then
+    return { is_zero_poison := true }
+  else
+    throw s!"{opName}: expected 'is_zero_poison' to be 0 or 1, but got {intAttr.value}"
+
+def ZeroPoisonProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String ZeroPoisonProperties :=
+  ZeroPoisonProperties.fromAttrDictFor "llvm.intr.ctlz" attrDict
+
 structure FastMathFlagsProperties where
   attr : FastMathFlagsAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -147,11 +177,12 @@ def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
   return ⟨value⟩
 
 /--
-The two types of constants an LLVM constant can store.
+The types of constants an LLVM constant can store.
 -/
 inductive LLVMConstantValue where
 | integer (value : IntegerAttr)
 | float (value : FloatAttr)
+| dense (value : DenseElementsAttr)
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 /--
@@ -172,8 +203,10 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     return { value := .integer intAttr }
   | .floatAttr floatAttr =>
     return { value := .float floatAttr }
+  | .denseElementsAttr denseAttr =>
+    return { value := .dense denseAttr }
   | _ =>
-    throw s!"llvm.constant: expected 'value' to be an integer or float attribute, but got {attr}"
+    throw s!"llvm.constant: expected 'value' to be an integer, float, or dense elements attribute, but got {attr}"
 
 /-- Properties of integer comparison operations in the LLVM and arith dialects. -/
 structure IcmpProperties where

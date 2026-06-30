@@ -111,12 +111,16 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   let properties := op.getProperties! ctx opType
   let kind : Kind := ⟨opType, properties⟩
   match opType with
-  | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor =>
+  | .llvm .add | .llvm .mul | .llvm .and | .llvm .or | .llvm .xor
+  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin =>
       return commutativeBinopKey ctx op kind
   | .llvm .icmp =>
       return icmpKey ctx op (op.getProperties! ctx (.llvm .icmp))
   | .llvm .sub | .llvm .mlir__constant
   | .llvm .shl | .llvm .lshr | .llvm .ashr
+  | .llvm .intr__ctlz | .llvm .intr__cttz | .llvm .intr__ctpop
+  | .llvm .intr__bswap | .llvm .intr__bitreverse
+  | .llvm .intr__fshl | .llvm .intr__fshr
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem
   | .llvm .zext | .llvm .sext | .llvm .trunc
   | .llvm .select =>

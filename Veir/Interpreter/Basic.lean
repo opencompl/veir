@@ -597,6 +597,12 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
       if bw.bitwidth ≠ 64 then
         none
       return (#[.float 64 floatAttr.value], mem, none)
+    | .dense denseAttr =>
+      none
+  | .mlir__poison => do
+    let some resType := resultTypes[0]? | none
+    let .integerType bw := resType.val | none
+    return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
   | .add => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
@@ -677,6 +683,35 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.ashr lhs rhs properties.exact)], mem, none)
+  | .intr__fshl => do
+    let [.int bw a, .int bw' b, .int bw'' c] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    if h'': bw'' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    let c := c.cast (by simp at h''; exact h'')
+    return (#[.int bw (LLVM.Int.fshl a b c)], mem, none)
+  | .intr__fshr => do
+    let [.int bw a, .int bw' b, .int bw'' c] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    if h'': bw'' ≠ bw then none else
+    let b := b.cast (by simp at h; exact h)
+    let c := c.cast (by simp at h''; exact h'')
+    return (#[.int bw (LLVM.Int.fshr a b c)], mem, none)
+  | .intr__ctlz => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.ctlz x properties.is_zero_poison)], mem, none)
+  | .intr__cttz => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.cttz x properties.is_zero_poison)], mem, none)
+  | .intr__ctpop => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.ctpop x)], mem, none)
+  | .intr__bswap => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.bswap x)], mem, none)
+  | .intr__bitreverse => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.bitreverse x)], mem, none)
   | .and => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
@@ -692,6 +727,26 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.xor lhs rhs)], mem, none)
+  | .intr__smax => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.smax lhs rhs)], mem, none)
+  | .intr__smin => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.smin lhs rhs)], mem, none)
+  | .intr__umax => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.umax lhs rhs)], mem, none)
+  | .intr__umin => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.umin lhs rhs)], mem, none)
   | .trunc => do
     let [.int w val] := operands.toList | none
     let some resType := resultTypes[0]? | none
@@ -1086,6 +1141,12 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
   | .packw => do
     let [.reg op1, .reg op2] := operands.toList | none
     return (#[.reg (RISCV.packw op2 op1)], mem, none)
+  | .czeroeqz => do
+    let [.reg op1, .reg op2] := operands.toList | none
+    return (#[.reg (RISCV.czeroeqz op2 op1)], mem, none)
+  | .czeronez => do
+    let [.reg op1, .reg op2] := operands.toList | none
+    return (#[.reg (RISCV.czeronez op2 op1)], mem, none)
   | .mv => do
     let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.mv op)], mem, none)
@@ -1265,7 +1326,7 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInf
   | .beqz => do
     let [destTrue, destFalse] := blockOperands.toList | none
     let some (RuntimeValue.reg cond) := operands[0]? | none
-    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let some trueSize := properties.operandSegmentSizes.values[1]? | none
     let trueSize := trueSize.toNat
     if cond.val = 0#64 then
       return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
@@ -1274,7 +1335,7 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : HasDialectOpInf
   | .bnez => do
     let [destTrue, destFalse] := blockOperands.toList | none
     let some (RuntimeValue.reg cond) := operands[0]? | none
-    let some trueSize := properties.operandSegmentSizes.values[2]? | none
+    let some trueSize := properties.operandSegmentSizes.values[1]? | none
     let trueSize := trueSize.toNat
     if cond.val ≠ 0#64 then
       return (#[], some (.branch (operands.extract 1 (trueSize + 1)) destTrue))

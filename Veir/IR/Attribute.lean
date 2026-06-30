@@ -211,6 +211,16 @@ structure DenseArrayAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
+  An array of dense elements, e.g., `!llvm.array<4 x i32>`.
+  The values are stored as a string, and an associated type.
+  The string is expected to be a valid MLIR representation of the array elements.
+-/
+structure DenseElementsAttr where
+  value : String
+  type : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
   An attribute from an unknown dialect.
   It can be either a type attribute or a non-type attribute.
 -/
@@ -383,6 +393,8 @@ inductive Attribute
 | arrayAttr (attr : ArrayAttr)
 /-- Dense array attribute -/
 | denseArrayAttr (attr : DenseArrayAttr)
+/-- Dense elements attribute -/
+| denseElementsAttr (attr : DenseElementsAttr)
 /-- Dictionary attribute -/
 | dictionaryAttr (attr : DictionaryAttr)
 /-- Function type -/
@@ -627,6 +639,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
+  case denseElementsAttr.denseElementsAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
   case denseArrayAttr.denseArrayAttr attr1 attr2 =>
     exact (match decEq attr1 attr2 with
       | isTrue hEq => isTrue (by grind)
@@ -746,6 +762,9 @@ instance : ToString DenseArrayAttr where
     let values := if attr.values.isEmpty then ""
       else ": " ++ String.intercalate ", " (attr.values.toList.map ToString.toString)
     s!"array<{attr.elementType}{values}>"
+
+instance : ToString DenseElementsAttr where
+  toString attr := s!"dense<{attr.value}> : {attr.type}"
 
 instance : ToString UnregisteredAttr where
   toString attr := attr.value
@@ -877,6 +896,7 @@ def Attribute.toString (attr : Attribute) : String :=
   | .unitAttr attr => ToString.toString attr
   | .locationAttr attr => ToString.toString attr
   | .arrayAttr attr => attr.toString
+  | .denseElementsAttr attr => ToString.toString attr
   | .denseArrayAttr attr => ToString.toString attr
   | .dictionaryAttr attr => attr.toString
   | .unregisteredAttr attr => ToString.toString attr
@@ -976,6 +996,9 @@ instance : Coe ArithIntegerOverflowFlagsAttr Attribute where
 instance : Coe DenseArrayAttr Attribute where
   coe attr := .denseArrayAttr attr
 
+instance : Coe DenseElementsAttr Attribute where
+  coe attr := .denseElementsAttr attr
+
 instance : Coe DictionaryAttr Attribute where
   coe attr := .dictionaryAttr attr
 
@@ -1034,6 +1057,7 @@ def isType (attr : Attribute) : Bool :=
   | .locationAttr _ => false
   | .arrayAttr _ => false
   | .denseArrayAttr _ => false
+  | .denseElementsAttr _ => false
   | .dictionaryAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .flatSymbolRefAttr _ => false

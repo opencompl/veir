@@ -2,6 +2,7 @@ module
 
 public import Std.Data.ExtHashSet
 public import Std.Data.HashMap
+public import Veir.Meta.BVNormalizeSimp
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
 
@@ -406,6 +407,14 @@ theorem smulOverflow_comm {w : Nat} (x y : BitVec w) :
 theorem umulOverflow_comm {w : Nat} (x y : BitVec w) :
     x.umulOverflow y = y.umulOverflow x := by
   grind [BitVec.umulOverflow]
+
+@[veir_bv_normalize]
+theorem setWidth_ofInt_32_64 (v : Int) :
+    BitVec.setWidth 32 (BitVec.ofInt 64 v) = BitVec.ofInt 32 v := by
+  rw [← BitVec.toInt_inj]
+  simp only [BitVec.toInt_setWidth, BitVec.toNat_ofInt, Nat.reducePow, Int.cast_ofNat_Int, Int.ofNat_toNat,
+    BitVec.toInt_ofInt]
+  grind
 
 end BitVec
 

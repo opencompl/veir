@@ -9,6 +9,7 @@ outputs differ.
 from __future__ import annotations
 
 import argparse
+import functools
 import itertools
 import multiprocessing
 import os
@@ -29,6 +30,71 @@ from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).parent))
 from vsmith_generate import generate
+
+
+DEFAULT_PASSES = "instcombine,dce,cse,dce"
+RISCV_PASSES = (
+    "canonicalize,instcombine,canonicalize,cse,dce,"
+    "isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,"
+    "canonicalize,riscv-combine,reconcile-cast,dce"
+)
+
+# --- RISC-V MIR execution cross-check -------------------------------------
+# In --riscv mode we further lower the optimized riscv-dialect MLIR to LLVM
+# pre-RA MIR (Tools/veir2mir + llc), assemble/link it into a bare-metal ELF
+# whose _start calls the lowered `main`, compares its i64 return value against
+# veir-interpret's result, and reports the verdict via the HTIF tohost device
+# (exit 0 = agree, 1 = disagree). The ELF runs under spike.
+MIR_TOOLS = ("llc", "clang", "spike")
+MIR_MARCH = "rv64im_zba_zbb_zbs_zbc_zbkb_zicond"
+MIR_ABI = "lp64"
+SPIKE_TIMEOUT = 30
+
+MIR_LINK_LD = """OUTPUT_ARCH(riscv)
+ENTRY(_start)
+SECTIONS {
+  . = 0x80000000;
+  .text : { *(.text._start) *(.text*) }
+  .rodata : { *(.rodata*) *(.srodata*) }
+  .data : { *(.data*) *(.sdata*) }
+  .htif ALIGN(0x1000) : { *(.htif) }
+  .bss : { *(.bss*) *(.sbss*) *(COMMON) }
+}
+"""
+
+# _start calls main, compares a0 to the expected value, then HTIF-exits with
+# code 0 (match) or 1 (mismatch).  {expected} is the interpreter's i64 result.
+MIR_DRIVER_TEMPLATE = """\
+.section .text._start
+.globl _start
+_start:
+    la   sp, _stack_top
+    call main
+    la   t0, expected
+    ld   t1, 0(t0)
+    bne  a0, t1, .Lfail
+    li   t0, 1            # (0<<1)|1  => HTIF exit code 0
+    j    .Lhalt
+.Lfail:
+    li   t0, 3            # (1<<1)|1  => HTIF exit code 1
+.Lhalt:
+    la   t1, tohost
+    sd   t0, 0(t1)
+1:  j 1b
+.section .rodata
+.align 3
+expected: .dword {expected}
+.section .htif, "aw", @progbits
+.align 6
+.globl tohost
+tohost:   .dword 0
+.globl fromhost
+fromhost: .dword 0
+.section .bss
+.align 4
+.skip 65536
+_stack_top:
+"""
 
 
 @dataclass(frozen=True)
@@ -101,6 +167,7 @@ def run_tool(repo: Path, cmd: list[str]) -> ToolResult:
     result = subprocess.run(
         cmd,
         cwd=repo,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -129,10 +196,13 @@ def outcome_key(output: str | None) -> str:
     return output
 
 
-def prebuild(repo: Path) -> None:
+def prebuild(repo: Path, mir_exec: bool = False) -> None:
     """Build veir-opt and veir-interpret so workers can exec them directly."""
+    targets = ["veir-opt", "veir-interpret"]
+    if mir_exec:
+        targets.append("veir2mir")
     result = subprocess.run(
-        ["lake", "build", "veir-opt", "veir-interpret"],
+        ["lake", "build", *targets],
         cwd=repo,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -327,6 +397,19 @@ def check_llvm_interps(
     return True, "", tuple(collected)
 
 
+LLVM_DIALECT_OP_RE = re.compile(r'"(llvm\.[A-Za-z0-9_.]+)"')
+
+# These LLVM dialect ops are expected to remain after the RISC-V pipeline:
+# the function wrapper and its terminator are not lowered away.
+LLVM_DIALECT_OP_WHITELIST = frozenset({"llvm.func", "llvm.return"})
+
+
+def find_llvm_dialect_ops(text: str) -> list[str]:
+    """Return the sorted, unique LLVM dialect op names in generic-form MLIR."""
+    ops = set(LLVM_DIALECT_OP_RE.findall(text))
+    return sorted(ops - LLVM_DIALECT_OP_WHITELIST)
+
+
 def optimize(repo: Path, opt_bin: Path, src: Path, dst: Path, passes: str) -> tuple[bool, str]:
     """Run veir-opt and write the result to dst. Returns (success, log)."""
     result = run_tool(repo, [str(opt_bin), str(src), f"-p={passes}"])
@@ -373,6 +456,123 @@ def refines(original: str, optimized: str) -> bool:
     return all(o == "poison" or o == p for o, p in zip(orig, opt))
 
 
+@functools.lru_cache(maxsize=1)
+def resolve_mir_tools() -> dict[str, str] | None:
+    """Resolve {llc, clang, spike}; None if any is missing."""
+    resolved = {name: shutil.which(name) for name in MIR_TOOLS}
+    if any(path is None for path in resolved.values()):
+        return None
+    return resolved  # type: ignore[return-value]
+
+
+def after_to_u64(after: str) -> int | None:
+    """Parse a single-i64 'Program output:' line into its 64-bit value."""
+    values = parse_output_values(after)
+    if values is None or len(values) != 1:
+        return None
+    value = values[0]
+    if not value.endswith("#64") or not value.startswith("0x"):
+        return None
+    try:
+        return int(value[:-3], 16) & ((1 << 64) - 1)
+    except ValueError:
+        return None
+
+
+def _mir_run(cmd: list[str], timeout: int | None = None) -> tuple[int, str]:
+    result = subprocess.run(
+        cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, timeout=timeout
+    )
+    return result.returncode, result.stdout
+
+
+def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[bool, str]:
+    """Lower `opt` to MIR, execute it under spike, and check the returned i64
+    equals the interpreter's value `after`.  Returns (ok, message).
+
+    Cases the lowering can't yet handle (non-i64 result, unsupported ops, or a
+    veir2mir failure) are skipped (treated as ok); genuine value disagreements
+    and toolchain failures on supported input are reported.
+    """
+    expected = after_to_u64(after)
+    if expected is None:
+        return True, ""  # only single-i64 returns are executable here
+
+    tools = resolve_mir_tools()
+    assert tools is not None  # guaranteed by the startup check
+    veir2mir = repo / ".lake" / "build" / "bin" / "veir2mir"
+
+    stem = opt.name[: -len(".opt.mlir")] if opt.name.endswith(".opt.mlir") else opt.stem
+    d = opt.parent
+    mir = d / f"{stem}.mir"
+    asm = d / f"{stem}.s"
+    func_o = d / f"{stem}.func.o"
+    drv_s = d / f"{stem}.driver.s"
+    drv_o = d / f"{stem}.driver.o"
+    elf = d / f"{stem}.elf"
+    ld_script = d / "veir_mir_link.ld"
+    artifacts = [mir, asm, func_o, drv_s, drv_o, elf]
+
+    def cleanup() -> None:
+        if not keep:
+            for f in artifacts:
+                f.unlink(missing_ok=True)
+
+    march = ["--target=riscv64-unknown-elf", f"-march={MIR_MARCH}", f"-mabi={MIR_ABI}"]
+
+    # 1. veir2mir: riscv-dialect MLIR -> pre-RA MIR
+    rc, out = _mir_run([str(veir2mir), str(opt)])
+    if rc != 0 or "UNHANDLED" in out:
+        cleanup()
+        return True, ""  # lowering not supported for this case; skip
+    mir.write_text(out)
+
+    # 2. llc: MIR -> RISC-V assembly. -O0 runs the minimal machine pipeline (no
+    # MachineCSE/peephole/sched/combiner), so VeIR's instruction selection passes
+    # through unmodified; -start-after=finalize-isel resumes from exactly the
+    # post-isel state our MIR represents, keeping the essential pre-RA passes
+    # (UnreachableMachineBlockElim, ProcessImplicitDefs, RISCVPreRAExpandPseudo).
+    rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64",
+                        "-O0", "-start-after=finalize-isel", "-o", str(asm)])
+    if rc != 0:
+        return False, (f"llc failed to lower MIR\n"
+                       f"optimized: {opt}\nmir: {mir}\n{out}")
+
+    # 3. assemble the lowered function and the comparison driver, then link
+    if not ld_script.exists():
+        ld_script.write_text(MIR_LINK_LD)
+    drv_s.write_text(MIR_DRIVER_TEMPLATE.format(expected=expected))
+    for label, src_path, obj in (("function", asm, func_o), ("driver", drv_s, drv_o)):
+        rc, out = _mir_run([tools["clang"], *march, "-c", str(src_path), "-o", str(obj)])
+        if rc != 0:
+            return False, (f"assembling MIR {label} failed\n"
+                           f"optimized: {opt}\nmir: {mir}\n{out}")
+    rc, out = _mir_run([tools["clang"], *march, "-fuse-ld=lld", "-nostdlib", "-nostartfiles",
+                        "-static", f"-Wl,-T,{ld_script}", str(func_o), str(drv_o), "-o", str(elf)])
+    if rc != 0:
+        return False, (f"linking MIR executable failed\n"
+                       f"optimized: {opt}\nmir: {mir}\n{out}")
+
+    # 4. execute under spike: exit 0 = return value agrees, nonzero = disagrees
+    try:
+        rc, out = _mir_run([tools["spike"], f"--isa={MIR_MARCH}", str(elf)], timeout=SPIKE_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return False, (f"MIR execution under spike timed out ({SPIKE_TIMEOUT}s)\n"
+                       f"optimized: {opt}\nmir: {mir}\nelf: {elf}")
+
+    if rc == 0:
+        cleanup()
+        return True, ""
+    if rc == 1:
+        return False, (f"MIR execution disagrees with interpreter\n"
+                       f"optimized: {opt}\nmir: {mir}\nelf: {elf}\n"
+                       f"interpreter: {after}  (expected 0x{expected:016x})\n"
+                       f"spike returned a different i64 (exit {rc})\n{out}")
+    return False, (f"spike crashed running MIR (exit {rc})\n"
+                   f"optimized: {opt}\nmir: {mir}\nelf: {elf}\n{out}")
+
+
 def check(
     repo: Path,
     interp_bin: Path,
@@ -381,6 +581,9 @@ def check(
     src: Path,
     opt: Path,
     passes: str,
+    riscv: bool,
+    keep: bool,
+    mir_exec: bool,
 ) -> CheckResult:
     """Interpret, optimize, re-interpret, and compare."""
     before, _ = interpret(repo, interp_bin, src)
@@ -405,6 +608,21 @@ def check(
             message=f"optimizer failed on {src}\n{opt_log}",
             before_llvm=before_llvm,
         )
+
+    if riscv:
+        leftover = find_llvm_dialect_ops(opt_log)
+        if leftover:
+            return CheckResult(
+                ok=False,
+                before=before,
+                after=None,
+                message=(
+                    f"LLVM dialect ops survived the RISC-V pipeline\n"
+                    f"source: {src}\noptimized: {opt}\n"
+                    f"ops: {', '.join(leftover)}"
+                ),
+                before_llvm=before_llvm,
+            )
 
     after, _ = interpret(repo, interp_bin, opt)
     after_llvm: tuple[tuple[str, str], ...] = ()
@@ -434,6 +652,19 @@ def check(
                 f"optimized: {after}"
             ),
         )
+
+    if riscv and mir_exec:
+        mir_ok, mir_message = mir_execution_check(repo, opt, after, keep)
+        if not mir_ok:
+            return CheckResult(
+                ok=False,
+                before=before,
+                after=after,
+                before_llvm=before_llvm,
+                after_llvm=after_llvm,
+                message=mir_message,
+            )
+
     return CheckResult(
         ok=True,
         before=before,
@@ -454,6 +685,9 @@ def _worker(
     count: int,
     start_index: int,
     passes: str,
+    riscv: bool,
+    keep: bool,
+    mir_exec: bool,
     queue: "multiprocessing.Queue",
 ) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -465,8 +699,8 @@ def _worker(
             idx = start_index + i
             src = workdir / f"case_{idx}.mlir"
             opt = workdir / f"case_{idx}.opt.mlir"
-            generate(src, rng)
-            result = check(repo, interp_bin, opt_bin, llvm_interps, src, opt, passes)
+            generate(src, rng, riscv)
+            result = check(repo, interp_bin, opt_bin, llvm_interps, src, opt, passes, riscv, keep, mir_exec)
             if not result.ok:
                 queue.put(("fail", result.message))
                 return
@@ -480,10 +714,11 @@ def _worker(
                 result.before_llvm,
                 result.after_llvm,
             ))
-            src.unlink(missing_ok=True)
-            opt.unlink(missing_ok=True)
-            src.with_suffix(".ll").unlink(missing_ok=True)
-            opt.with_suffix(".ll").unlink(missing_ok=True)
+            if not keep:
+                src.unlink(missing_ok=True)
+                opt.unlink(missing_ok=True)
+                src.with_suffix(".ll").unlink(missing_ok=True)
+                opt.with_suffix(".ll").unlink(missing_ok=True)
         queue.put(("done",))
     except BaseException:
         queue.put(("fail", f"worker crashed:\n{traceback.format_exc()}"))
@@ -497,6 +732,9 @@ def fuzz(
     workdir: Path,
     iterations: int,
     passes: str,
+    riscv: bool,
+    keep: bool,
+    mir_exec: bool,
     rng: random.Random,
     num_workers: int,
     spinner: Spinner,
@@ -524,7 +762,7 @@ def fuzz(
         subdir = workdir / f"w{w}"
         p = ctx.Process(
             target=_worker,
-            args=(repo, interp_bin, opt_bin, llvm_interps, subdir, seed, count, start, passes, queue),
+            args=(repo, interp_bin, opt_bin, llvm_interps, subdir, seed, count, start, passes, riscv, keep, mir_exec, queue),
         )
         p.start()
         processes.append(p)
@@ -595,10 +833,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help="number of random programs to test, or -1 to run forever (default: 100)")
     parser.add_argument("--seed", type=int, default=None,
                         help="random seed (default: fresh system entropy)")
-    parser.add_argument("--passes", default="instcombine,dce,cse,dce",
-                        help="veir-opt pass pipeline (default: instcombine,dce,cse,dce)")
+    parser.add_argument("--passes", default=DEFAULT_PASSES,
+                        help=f"veir-opt pass pipeline (default: {DEFAULT_PASSES})")
+    parser.add_argument("--riscv", action="store_true",
+                        help="use the RISC-V backend pass pipeline")
     parser.add_argument("--keep", action="store_true",
                         help="keep workdir on success (always kept on failure)")
+    parser.add_argument("--no-mir-exec", action="store_true",
+                        help="in --riscv mode, skip lowering to MIR and executing it under spike")
     parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
                         help="number of parallel workers (default: all available cores)")
     parser.add_argument("--verbose", action="store_true",
@@ -621,7 +863,16 @@ def resolve_llvm_interp(
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
+    if args.riscv:
+        args.passes = RISCV_PASSES
     repo = Path(__file__).resolve().parents[1]
+    mir_exec = args.riscv and not args.no_mir_exec
+    if mir_exec and resolve_mir_tools() is None:
+        missing = [name for name in MIR_TOOLS if shutil.which(name) is None]
+        raise SystemExit(
+            f"--riscv MIR execution needs {', '.join(missing)} in PATH; "
+            f"install them or pass --no-mir-exec"
+        )
     llvm_interps: list[LlvmInterpreter] = []
     if args.llubi:
         llvm_interps.append(resolve_llvm_interp("llubi", "--llubi", ("--verbose",), classify_llubi_output))
@@ -636,16 +887,18 @@ def main(argv: list[str]) -> int:
     print(f"seed:    {seed}")
     print(f"passes:  {args.passes}")
     print(f"workers: {args.workers}")
+    if mir_exec:
+        print(f"mir-exec:    lower to MIR and execute under spike ({MIR_MARCH})")
     for interp in llvm_interps:
         print(f"{interp.name + ':':<12}{interp.bin}")
 
-    prebuild(repo)
+    prebuild(repo, mir_exec)
     interp_bin = repo / ".lake" / "build" / "bin" / "veir-interpret"
     opt_bin = repo / ".lake" / "build" / "bin" / "veir-opt"
 
     success = fuzz(
         repo, interp_bin, opt_bin, llvm_interps, workdir,
-        args.iterations, args.passes, rng,
+        args.iterations, args.passes, args.riscv, args.keep, mir_exec, rng,
         args.workers, Spinner(), args.verbose,
     )
 

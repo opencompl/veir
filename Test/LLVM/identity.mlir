@@ -10,6 +10,10 @@
       %7 = "llvm.and"(%5, %5) : (i32, i32) -> i32
       %8 = "llvm.or"(%5, %5) : (i32, i32) -> i32
       %9 = "llvm.xor"(%5, %5) : (i32, i32) -> i32
+      %smax = "llvm.intr.smax"(%5, %5) : (i32, i32) -> i32
+      %smin = "llvm.intr.smin"(%5, %5) : (i32, i32) -> i32
+      %umax = "llvm.intr.umax"(%5, %5) : (i32, i32) -> i32
+      %umin = "llvm.intr.umin"(%5, %5) : (i32, i32) -> i32
       %add = "llvm.add"(%5, %5) : (i32, i32) -> i32
       %add_nsw = "llvm.add"(%5, %5) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
       %add_nuw = "llvm.add"(%5, %5) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
@@ -71,6 +75,7 @@
       %58 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
       %59 = "llvm.frem"(%fcst, %fcst) <{fastmathFlags = #llvm.fastmath<nsz, nnan, ninf>}> : (f64, f64) -> f64
       %60 = "llvm.freeze"(%5) : (i32) -> i32
+      %61 = "llvm.mlir.poison"() : () -> i64
       "llvm.return"(%arg7_0) : (i32) -> ()
   }) : () -> ()
 }) : () -> ()
@@ -85,6 +90,10 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.and"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.or"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.xor"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.intr.smax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.intr.smin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.intr.umax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.intr.umin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 1 : i32}> : (i32, i32) -> i32
 // CHECK-NEXT:       %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 2 : i32}> : (i32, i32) -> i32
@@ -146,6 +155,7 @@
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<nsz>}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.frem"(%arg7_0, %arg7_0) <{"fastmathFlags" = #llvm.fastmath<fast>}> : (f64, f64) -> f64
 // CHECK-NEXT:       %{{.*}} = "llvm.freeze"(%{{.*}}) : (i32) -> i32
+// CHECK-NEXT:       %{{.*}} = "llvm.mlir.poison"() : () -> i64
 // CHECK-NEXT:       "llvm.return"(%{{.*}}) : (i32) -> ()
 // CHECK-NEXT:   }) : () -> ()
 // CHECK-NEXT: }) : () -> ()
