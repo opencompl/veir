@@ -176,6 +176,16 @@ def insertOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertP
     worklist := rewriter.worklist.push op,
   }
 
+/-- Like `insertOp`, but dynamically checks the in-bounds preconditions instead of
+requiring them as proofs. Returns `none` if a precondition fails to hold. -/
+def insertOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertPoint)
+    : Option (PatternRewriter OpInfo) := do
+  if hop : op.InBounds rewriter.ctx.raw then
+    if hip : ip.InBounds rewriter.ctx.raw then
+      rewriter.insertOp op ip hop hip
+    else none
+  else none
+
 def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     (opRegions : op.getNumRegions! rewriter.ctx.raw = 0 := by grind)
     (opUses : !op.hasUses! rewriter.ctx.raw := by grind)
@@ -187,6 +197,18 @@ def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     hasDoneAction := true,
     worklist := rewriter.worklist.remove op,
   }
+
+/-- Like `eraseOp`, but dynamically checks the preconditions instead of requiring them
+as proofs. Returns `none` if a precondition fails to hold. -/
+def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
+    : Option (PatternRewriter OpInfo) := do
+  if hOp : op.InBounds rewriter.ctx.raw then
+    if hRegions : op.getNumRegions! rewriter.ctx.raw = 0 then
+      if hUses : (!op.hasUses! rewriter.ctx.raw) = true then
+        rewriter.eraseOp op hRegions hUses hOp
+      else none
+    else none
+  else none
 
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
@@ -214,6 +236,18 @@ def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
   let rewriter := rewriter.addUsersInWorklist oldVal (by grind)
   let ctx := WfRewriter.replaceValue rewriter.ctx oldVal newVal
   { rewriter with ctx, hasDoneAction := true}
+
+/-- Like `replaceValue`, but dynamically checks the preconditions instead of requiring
+them as proofs. Returns `none` if a precondition fails to hold. -/
+def replaceValue! (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
+    : Option (PatternRewriter OpInfo) := do
+  if hne : oldVal ≠ newVal then
+    if hold : oldVal.InBounds rewriter.ctx.raw then
+      if hnew : newVal.InBounds rewriter.ctx.raw then
+        some (rewriter.replaceValue oldVal newVal hne hold hnew)
+      else none
+    else none
+  else none
 
 def createBlock (rewriter: PatternRewriter OpInfo)
     (argTypes: Array TypeAttr)
@@ -246,9 +280,8 @@ abbrev RewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
 abbrev LocalRewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
   WfIRContext OpInfo → OperationPtr → Option (WfIRContext OpInfo × Option (Array OperationPtr × Array ValuePtr))
 
-set_option warn.sorry false in
 def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : RewritePattern OpInfo :=
-  fun rewriter op opInBounds => do
+  fun rewriter op _opInBounds => do
     match pattern rewriter.ctx op with
     -- error while applying pattern
     | none => none
@@ -258,13 +291,13 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
     | some (newCtx, some (newOps, newRes)) =>
       let mut rewriter := { rewriter with ctx := newCtx, hasDoneAction := true }
       for newOp in newOps do
-        rewriter ← rewriter.insertOp newOp (InsertPoint.before op) (by sorry) (by sorry)
+        rewriter ← rewriter.insertOp! newOp (InsertPoint.before op)
       for (res, i) in newRes.zipIdx do
-        rewriter ← rewriter.replaceValue (op.getResult i) res (by sorry) (by sorry) (by sorry)
+        rewriter ← rewriter.replaceValue! (op.getResult i) res
       let mut operands : Array ValuePtr := #[]
-      for i in 0...op.getNumOperands rewriter.ctx.raw (by sorry) do
+      for i in 0...op.getNumOperands! rewriter.ctx.raw do
         operands := operands.push (op.getOperand! rewriter.ctx.raw i)
-      rewriter ← rewriter.eraseOp op (by sorry) (by sorry) (by sorry)
+      rewriter ← rewriter.eraseOp! op
       return rewriter
 
 set_option warn.sorry false in
