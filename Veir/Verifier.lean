@@ -496,6 +496,10 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
         if intType.bitwidth ≠ floatAttr.type.bitwidth then
           throw s!"llvm.mlir.constant: Expected integer result type with bitwidth {floatAttr.type.bitwidth}"
       | _ => throw "llvm.mlir.constant: Expected float or integer result type for a float constant"
+    | .dense _ =>
+      match resultType with
+      | .llvmArrayType _ => pure ()
+      | _ => throw "llvm.mlir.constant: Expected array result type for a dense elements constant"
     pure ()
   | .llvm .mlir__poison => do
     op.verifyPlainOpCounts ctx opIn 0 1
