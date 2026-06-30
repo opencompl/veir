@@ -72,6 +72,22 @@ def parseOptionalFloatType : AttrParserM (Option FloatType) := do
   | _ => return none
 
 /--
+  Parse an optional byte type.
+  A byte type is represented as `!llvm.byte<bitwidth>` where bitwidth is a positive integer.
+-/
+def parseOptionalByteType : AttrParserM (Option LLVM.ByteType) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "llvm.byte".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let bitwidth ← parseInteger false false
+  parsePunctuation ">"
+  return some (LLVM.ByteType.mk bitwidth.toNat)
+
+/--
   Parse an optional register type, which is fundamentally a wrapper for `i64`.
   An unallocated register type is represented as `!riscv.reg`.
   Allocated register types range from `!riscv.reg<x0>` to `!riscv.reg<x31>`.
@@ -635,6 +651,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some integerType
   if let some floatType ← parseOptionalFloatType then
     return some floatType
+  if let some byteType ← parseOptionalByteType then
+    return some byteType
   if let some registerType ← parseOptionalRegisterType then
     return some registerType
   if let some modArithType ← parseOptionalModArithType then
