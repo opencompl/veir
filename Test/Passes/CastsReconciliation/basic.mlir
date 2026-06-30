@@ -108,7 +108,19 @@
         // CHECK-NEXT:   "test.test"([[ARG]], [[ARG]]) : (i64, i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
-    
-    
+
+  ^10():
+    "func.func"()  <{function_type = (i32) -> ()}> ({
+      ^1(%0 : i32):
+        // Conversion cast to/from dissimilar types
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (i32) -> !mod_arith.int<7 : i32>
+        %2 = "builtin.unrealized_conversion_cast"(%1) : (!mod_arith.int<7 : i32>) -> i32
+        "test.test"(%2) : (i32) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : i32):
+        // CHECK-NEXT:   "test.test"([[ARG]]) : (i32) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+
+
 
 }) : () -> ()
