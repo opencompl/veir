@@ -28,6 +28,7 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
   match source, target with
   | .int bw s, .int bw' t => ∃ h : bw = bw', s.cast h ⊒ t
+  | .byte bw s, .byte bw' t => ∃ h : bw = bw', s.cast h ⊒ t
   | .addr s, .addr t => s = t
   | .reg s, .reg t => s = t
   | .float bw s, .float bw' t => bw = bw' ∧ s = t
