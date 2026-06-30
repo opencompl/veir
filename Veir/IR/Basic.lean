@@ -801,6 +801,51 @@ theorem getRegion!_eq_of_OperationPtr_get!_eq {op : OperationPtr} :
     op.getRegion! ctx = op.getRegion! ctx' := by
   grind [get!, getRegion!]
 
+def getRegions (op : OperationPtr) (ctx : IRContext OpInfo)
+  (inBounds : op.InBounds ctx := by grind) : Array RegionPtr :=
+  (op.get ctx inBounds).regions
+
+def getRegions! (op : OperationPtr) (ctx : IRContext OpInfo) : Array RegionPtr :=
+  (op.get! ctx).regions
+
+@[grind =_, eq_bang ←]
+theorem getRegions!_eq_getRegions {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getRegions! ctx = op.getRegions ctx (by grind) := by
+  grind [getRegions, getRegions!]
+
+theorem getRegions!.mem_iff_exists_index {op : OperationPtr} :
+    region ∈ op.getRegions! ctx ↔
+    ∃ index, index < op.getNumRegions! ctx ∧ op.getRegion! ctx index = region := by
+  simp only [getRegions!, getRegion!, getNumRegions!]
+  constructor
+  · rintro hregion
+    have ⟨i, hi, hregion⟩ := Array.getElem_of_mem hregion
+    exists i
+    grind
+  · grind
+
+theorem getRegions!.mem_getRegion! {op : OperationPtr} :
+    index < op.getNumRegions! ctx →
+    op.getRegion! ctx index ∈ op.getRegions! ctx := by
+  grind [getRegions!, getRegion!, getNumRegions!]
+
+@[simp, grind =]
+theorem getRegions!.size_eq_getNumRegions! {op : OperationPtr} :
+    (op.getRegions! ctx).size = op.getNumRegions! ctx := by
+  grind [getRegions!, getNumRegions!]
+
+@[simp, grind =]
+theorem getRegions!.getElem!_eq_getRegion! {op : OperationPtr} :
+    (op.getRegions! ctx)[index]! = op.getRegion! ctx index := by
+  simp only [getRegions!, getRegion!]
+
+@[simp, grind =]
+theorem getRegions!.getElem_eq_getRegion!
+    {op : OperationPtr} {h : index < (op.getRegions! ctx).size} :
+    (op.getRegions! ctx)[index]'h = op.getRegion! ctx index := by
+  simp only [getRegions!, getRegion!]
+  grind
+
 def set (ptr : OperationPtr) (ctx : IRContext OpInfo) (newOp : Operation OpInfo) : IRContext OpInfo :=
   {ctx with operations := ctx.operations.insert ptr newOp}
 
