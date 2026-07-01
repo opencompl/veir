@@ -32,10 +32,10 @@ BSWAP_WIDTHS = (16, 32, 64)
 
 # Widths the RISC-V backend can compute on. In RISC-V mode, i1 appears only as
 # the result of an icmp, and that result may feed only a conditional branch or
-# the condition of an llvm.select: icmps always take i64 operands (never i1), and
-# i1 values are never consumed by arithmetic/bitwise/shift/cast operations or
-# further comparisons.
-RISCV_WIDTHS = (64,)
+# the condition of an llvm.select: icmps take i32 or i64 operands (never i1),
+# and i1 values are never consumed by arithmetic/bitwise/shift/cast operations
+# or further comparisons.
+RISCV_WIDTHS = (32, 64)
 
 
 def bitwidth(typ: str) -> int:
@@ -277,7 +277,7 @@ class Generator:
         """Emit a random integer intrinsic. All operands share the result type.
 
         `bswap` is restricted to widths it is defined on; in RISC-V mode every
-        intrinsic uses i64 (the only width `rand_type` yields there).
+        intrinsic uses i32 or i64 (the only widths `rand_type` yields there).
         """
         r = self.rng.random()
         if r < 0.30:
@@ -308,7 +308,7 @@ class Generator:
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation(op, [operand], [typ], typ)
         else:
-            typ = "i64" if self.riscv else f"i{self.rng.choice(BSWAP_WIDTHS)}"
+            typ = self.rand_type() if self.riscv else f"i{self.rng.choice(BSWAP_WIDTHS)}"
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation("llvm.intr.bswap", [operand], [typ], typ)
 
@@ -383,8 +383,8 @@ class Generator:
                 self.add_operation("llvm.trunc", [operand], [src], dst, props)
             elif choice < 0.90:
                 # icmp operands are ordinary integer values; in RISC-V mode that
-                # means i64 (rand_type never yields i1 there), so an icmp result
-                # is never fed back into another comparison.
+                # means i32 or i64 (rand_type never yields i1 there), so an icmp
+                # result is never fed back into another comparison.
                 typ = self.rand_type()
                 width = bitwidth(typ)
                 lhs = self.random_dominating_value(width)
@@ -515,7 +515,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("output", type=Path, help="path for the generated MLIR file")
     parser.add_argument("--seed", type=int, default=None, help="random seed; defaults to fresh system entropy")
     parser.add_argument("--riscv", action="store_true",
-                        help="restrict bitwidths to those the RISC-V backend supports (8, 16, 32, 64)")
+                        help="restrict bitwidths to those the RISC-V backend supports (32, 64)")
     args = parser.parse_args(argv)
     seed = args.seed if args.seed is not None else secrets.randbits(64)
     generate(args.output, random.Random(seed), args.riscv)

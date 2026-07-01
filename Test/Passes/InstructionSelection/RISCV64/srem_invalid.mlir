@@ -1,10 +1,10 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = (i32, i32) -> ()}> ({
-    ^bb0(%a: i32, %b: i32):
-        %srem = "llvm.srem"(%a, %b) : (i32, i32) -> i32
-        // CHECK: %{{.*}} = "llvm.srem"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    "func.func"()  <{function_type = (i16, i16) -> ()}> ({
+    ^bb0(%a: i16, %b: i16):
+        %srem = "llvm.srem"(%a, %b) : (i16, i16) -> i16
+        // CHECK: %{{.*}} = "llvm.srem"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 
         "func.return"() : () -> ()
     }) : () -> ()
