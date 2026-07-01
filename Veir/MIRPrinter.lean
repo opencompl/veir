@@ -227,7 +227,7 @@ def emitRegular (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   | .builtin .unrealized_conversion_cast =>
     let operandAttr := (op.getOperandTypes! ctx)[0]?.map (·.val)
     match operandAttr with
-    | some (.integerType { bitwidth := 32 }) => IO.println s!"    {res} = ADD_UW {v 0}, $x0"
+    | some (.integerType { bitwidth := 32 }) => IO.println s!"    {res} = PseudoZEXT_W {v 0}"
     | _ => IO.println s!"    {res} = COPY {v 0}"
   | .riscv rop =>
     match rop with
