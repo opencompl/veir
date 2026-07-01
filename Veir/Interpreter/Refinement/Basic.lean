@@ -1,5 +1,6 @@
 import Veir.Interpreter.Basic
 import Veir.Data.Refinement
+import Veir.Dominance
 
 /-!
 # Refinement of programs
