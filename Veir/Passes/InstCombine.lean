@@ -29,7 +29,7 @@ def mulITwoToAddi (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.
 /-- Rewrites `x * 0` to `0`. -/
 def mulIZeroToCst (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, properties) := matchMuli op rewriter.ctx
+  let some (lhs, rhs, _) := matchMuli op rewriter.ctx
     | return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx
     | return rewriter
