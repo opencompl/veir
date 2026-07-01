@@ -219,6 +219,13 @@ axiom WfIRContext.Dom.opResult_not_dominatesIp_atStart!
     {r : ValuePtr} (rResult : r ∈ op.getResults! ctx.raw) :
     ¬ r.dominatesIp (InsertPoint.atStart! block ctx.raw) ctx
 
+/-- A result of an operation does not dominate the point before that same operation (the SSA
+property: a result is only defined once its own operation has run). -/
+axiom WfIRContext.Dom.opResult_not_dominatesIp_before_self
+    (ctxDom : ctx.Dom) {op : OperationPtr}
+    {r : ValuePtr} (rResult : r ∈ op.getResults! ctx.raw) :
+    ¬ r.dominatesIp (InsertPoint.before op) ctx
+
 /-- SSA antisymmetry of the definition order, used to justify op-result *forwarding* in the pattern
 rewriter. Two distinct operations cannot each be defined before the other: if a result of `op₁`
 dominates the point before `op₂`, then a result of `op₂` cannot dominate the point before `op₁`

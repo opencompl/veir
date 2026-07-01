@@ -342,7 +342,11 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
       let mut operands : Array ValuePtr := #[]
       for i in 0...op.getNumOperands! rewriter.ctx.raw do
         operands := operands.push (op.getOperand! rewriter.ctx.raw i)
-      rewriter ← rewriter.eraseOp! op
+      if h : op.getNumRegions! rewriter.ctx.raw = 0 ∧ !op.hasUses! rewriter.ctx.raw ∧
+          op.InBounds rewriter.ctx.raw then
+        rewriter ← rewriter.eraseOp op
+      else
+        failure
       return rewriter
 
 set_option warn.sorry false in

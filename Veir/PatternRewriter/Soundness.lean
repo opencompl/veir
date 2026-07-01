@@ -353,6 +353,36 @@ theorem newOpsInBounds' (h : RewrittenAt ctx op newOps newValues newCtx opIn blo
     ∀ o ∈ newOps.toList, o.InBounds newCtx.raw :=
   fun o ho => h.newOpsInBounds o (by simpa using ho)
 
+/-- **Cross-context value-dominance transport** (a dominance axiom, in the style of the axioms in
+`Veir/Dominance.lean`: dominance is fully axiomatic there, and this fact is intrinsically about the
+rewrite's frame, which the context-agnostic axioms in that file cannot express). The rewrite edits only
+`block`'s operation list at `op` — it replaces `op` by `newOps` between the untouched `pre`/`post` and
+leaves the rest of the CFG intact — so a value in scope just *before* `op` in the source context is in
+scope just before the inserted `newOps` in the target context. That point, `afterLast pre (atStart!
+block)`, is the target image of `before op` (`pre` is a common prefix of `block`'s operation list in both
+contexts, by `srcList`/`tgtList`). Stated about the `σ`-image so the `op`-result case is vacuous (an `op`
+result never dominates the point before `op`, and `σ` fixes every non-`op`-result). -/
+axiom value_dominatesIp_before_transport
+    (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
+    (v : ValuePtr) (vIn : v.InBounds ctx.raw)
+    (hdom : v.dominatesIp (InsertPoint.before op) ctx) :
+    (h.σ ⟨v, vIn⟩).val.dominatesIp
+      (InsertPoint.afterLast pre.toList newCtx.raw (InsertPoint.atStart! block newCtx.raw)) newCtx
+
+/-- **Cross-context operation-dominance transport** (a dominance axiom, companion of
+`value_dominatesIp_before_transport`). The operation-level analogue: an operation that dominates the
+point *before* `op` in the source context dominates the target image of that point (`afterLast pre
+(atStart! block)`, just before the inserted `newOps`) in the rewritten context. Operation pointers are
+unchanged by the rewrite for survivors (only `op` is erased, and `op` does not dominate the point before
+itself), so no renaming is involved. Used to transport the SSA equation invariant `EquationLemmaAt` onto
+the create-only state `sPat` in the `hOpSim` bridge. -/
+axiom op_dominatesIp_before_transport
+    (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
+    (o : OperationPtr) (oIn : o.InBounds ctx.raw)
+    (hdom : o.dominatesIp (InsertPoint.before op) ctx) :
+    o.dominatesIp
+      (InsertPoint.afterLast pre.toList newCtx.raw (InsertPoint.atStart! block newCtx.raw)) newCtx
+
 /-- Every `post` operation is in bounds of the target context (it lies in the target block list). -/
 theorem postInBounds' (h : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn') :
     ∀ o ∈ post.toList, o.InBounds newCtx.raw := by
@@ -638,6 +668,10 @@ rewrite: every value dominating `before op` in the source still dominates `p'` i
 what lets the bridge move the source-side `PreservesSemantics` refinement (scoped at `before op` in the
 create-only context) onto the given `hRef` (scoped at `p'` in `newCtx`). It holds at the sole call site,
 where `p'` is the `newOps` insertion point `afterLast pre (atStart! block)` — the point `op` occupied.
+
+The final `DefinesDominating` hypothesis says the target state defines every value in scope at `p'`; it
+is the target-side feeder for `PreservesSemantics`'s own `DefinesDominating` premise, and the caller
+supplies it by advancing the block-entry invariant through the target prefix `pre`.
 -/
 def OpStepSimulation
     {ctx newCtx : WfIRContext OpCode} (op : OperationPtr) (newOps : Array OperationPtr)
@@ -649,9 +683,12 @@ def OpStepSimulation
     (q'In : (InsertPoint.afterLast newOps.toList newCtx.raw p').InBounds newCtx.raw),
     (∀ (v : ValuePtr) (vIn : v.InBounds ctx.raw),
       v.dominatesIp (InsertPoint.before op) ctx → (μ ⟨v, vIn⟩).val.dominatesIp p' newCtx) →
+    (∀ (o : OperationPtr), o.InBounds ctx.raw →
+      o.dominatesIp (InsertPoint.before op) ctx → o.dominatesIp p' newCtx) →
     s.isRefinedByAt s' μ (InsertPoint.before op) p' →
     s.EquationLemmaAt (InsertPoint.before op) →
     s'.EquationLemmaAt p' p'In →
+    s'.DefinesDominating p' p'In →
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState newCtx × Option ControlFlowAction) =>
@@ -1356,14 +1393,55 @@ theorem RewrittenAt.blockSimulation
             v.dominatesIp (InsertPoint.before op) ctx →
             (hRW.σ ⟨v, vIn⟩).val.dominatesIp (InsertPoint.afterLast pre.toList newCtx.raw
               (InsertPoint.atStart! block newCtx.raw)) newCtx :=
-          sorry
+          fun v vIn hdom => hRW.value_dominatesIp_before_transport v vIn hdom
+        -- Operation-level companion of `hCouple`: an operation dominating `before op` in the source
+        -- dominates the `newOps` insertion point in the target. Sound cross-context dominance fact.
+        have hCoupleOp : ∀ (o : OperationPtr), o.InBounds ctx.raw →
+            o.dominatesIp (InsertPoint.before op) ctx →
+            o.dominatesIp (InsertPoint.afterLast pre.toList newCtx.raw
+              (InsertPoint.atStart! block newCtx.raw)) newCtx :=
+          fun o oIn hdom => hRW.op_dominatesIp_before_transport o oIn hdom
+        -- Witness-free transport of a `DefinesDominating` scope point along an equality.
+        have ddT : ∀ {st : InterpreterState newCtx} {p₁ p₂ : InsertPoint}
+            {w1 : p₁.InBounds newCtx.raw} {w2 : p₂.InBounds newCtx.raw},
+            p₁ = p₂ → st.DefinesDominating p₁ w1 → st.DefinesDominating p₂ w2 := by
+          intro st p₁ p₂ w1 w2 hp h; subst hp; exact h
+        -- Target `DefinesDominating` at the `newOps` insertion point, advancing `hTgtDefDom` through `pre`.
+        have hTgtDD : s2'.DefinesDominating
+            (InsertPoint.afterLast pre.toList newCtx.raw
+              (InsertPoint.atStart! block newCtx.raw)) p'In := by
+          by_cases hpn : pre.toList = []
+          · have hs2' : state' = s2' := by
+              have hr := hrunT
+              rw [iopl_congr state' _ (by simp) hpn, interpretOpList_nil] at hr
+              exact (Prod.mk.inj (UBOr.ok.inj (Option.some.inj hr))).1
+            exact ddT (by rw [hpn]; rfl) (hs2' ▸ hTgtDefDom)
+          · obtain ⟨fstOp, hfst⟩ : ∃ fstOp, pre.toList.head? = some fstOp := by
+              cases hc : pre.toList with
+              | nil => exact absurd hc hpn
+              | cons a t => exact ⟨a, rfl⟩
+            obtain ⟨lastOp, hlast⟩ : ∃ lastOp, pre.toList.getLast? = some lastOp := by
+              cases hc : pre.toList.getLast? with
+              | none => rw [List.getLast?_eq_none_iff] at hc; exact absurd hc hpn
+              | some x => exact ⟨x, rfl⟩
+            have hStartTgt : InsertPoint.atStart! block newCtx.raw = InsertPoint.before fstOp := by
+              have hf : (block.get! newCtx.raw).firstOp = some fstOp := by
+                rw [hRW.tgtFirstOp, List.head?_append, List.head?_append, hfst]; rfl
+              simp only [InsertPoint.atStart!, hf]
+            have hdd := interpretOpList_DefinesDominating ctxDom' hRW.preChain' hfst
+              (ddT hStartTgt hTgtDefDom) hlast hrunT
+            have lastIn := hRW.preChain'.inBounds_of_mem lastOp (List.mem_of_getLast? hlast)
+            have lastParent := hRW.preChain'.parent_of_mem lastOp (List.mem_of_getLast? hlast)
+            refine ddT ?_ hdd
+            rw [InsertPoint.afterLast, hlast]
+            exact (InsertPoint.after!_eq_after lastParent lastIn).symm
         have hres := hOpSim s2 s2'
           (InsertPoint.afterLast pre.toList newCtx.raw (InsertPoint.atStart! block newCtx.raw))
           p'In
           (InsertPoint.after!_inBounds ctx.wellFormed hRW.opParent opIn)
           (InsertPoint.afterLast_inBounds newCtx.wellFormed p'In hRW.newOpsParent'
             (fun o ho => hRW.newOpsInBounds' o ho))
-          hCouple (congrPt hPreEndSrc hsRef) hEq hTgtEq
+          hCouple hCoupleOp (congrPt hPreEndSrc hsRef) hEq hTgtEq hTgtDD
         rw [interpretOpList_singleton]
         have hP1 : InsertPoint.afterLast (pre.toList ++ [op]) ctx.raw
             (InsertPoint.atStart! block ctx.raw) = InsertPoint.after! op ctx.raw := by
@@ -3338,6 +3416,27 @@ theorem WfIRContext.WithCreatedOps.sameIntrinsic {ctx₁ ctx₂ : WfIRContext Op
       exact OperationPtr.getProperties!_WfRewriter_createOp_ne hcreate (by grind)
     exact (ih oIn).trans hstep
 
+/-- **`WithCreatedOps` operation-dominance reflection** (a dominance axiom, `Veir/Dominance.lean`
+style). Creating fresh detached operations does not let any operation dominate the point before a
+pre-existing `op`: an operation dominating `before op` in the extended context `ctx₂` must already exist
+in `ctx₁` (the created ops are parentless, hence dominate nothing) and dominate `before op` there. This
+reflects an `EquationLemmaAt`-relevant operation back from the pattern's create-only context to the
+source, where the operation-level coupling applies. -/
+axiom WfIRContext.WithCreatedOps.op_dominatesIp_before_reflect {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {o op : OperationPtr}
+    (hdom : o.dominatesIp (InsertPoint.before op) ctx₂) :
+    o.InBounds ctx₁.raw ∧ o.dominatesIp (InsertPoint.before op) ctx₁
+
+/-- **`WithCreatedOps` value-dominance reflection** (the value-level companion of
+`op_dominatesIp_before_reflect`). The results of the freshly created, detached operations are in scope
+nowhere, so a value dominating `before op` in the extended context `ctx₂` is a pre-existing value of
+`ctx₁` that already dominated `before op` there. This reflects a `DefinesDominating`-relevant value back
+from the pattern's create-only context to the source, where the value-level coupling applies. -/
+axiom WfIRContext.WithCreatedOps.value_dominatesIp_before_reflect {ctx₁ ctx₂ : WfIRContext OpCode}
+    (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {v : ValuePtr} {op : OperationPtr}
+    (hdom : v.dominatesIp (InsertPoint.before op) ctx₂) :
+    v.InBounds ctx₁.raw ∧ v.dominatesIp (InsertPoint.before op) ctx₁
+
 /-- A `WithCreatedOps` chain frames a survivor's operands (it only creates fresh ops). -/
 theorem WfIRContext.WithCreatedOps.getOperands_eq {ctx₁ ctx₂ : WfIRContext OpCode}
     (h : WfIRContext.WithCreatedOps ctx₁ ctx₂) {o : OperationPtr} (oIn : o.InBounds ctx₁.raw) :
@@ -3604,11 +3703,10 @@ theorem rewriteMapping_applyToArray_eq_map {ctx newCtx : WfIRContext OpCode}
 
 /-! ### Bridges from the `!`-checked driver operations to their proof-carrying counterparts.
 
-`RewritePattern.fromLocalRewrite` drives the rewrite with the dynamically-checked `insertOp!`,
-`replaceValue!`, and `eraseOp!` (each returns `none` if a precondition fails). When such a call
-returns `some b'`, it agrees with the proof-carrying `insertOp`/`replaceValue`/`eraseOp` it reduces
-to. These bridges expose that fact, letting the keystone fold lemmas below run unchanged against the
-non-`!` API. -/
+`RewritePattern.fromLocalRewrite` drives the rewrite with the dynamically-checked `insertOp!` and
+`replaceValue!` (each returns `none` if a precondition fails). When such a call returns `some b'`,
+it agrees with the proof-carrying `insertOp`/`replaceValue` it reduces to. These bridges expose that
+fact, letting the keystone fold lemmas below run unchanged against the non-`!` API. -/
 
 /-- When `insertOp!` succeeds it exhibits the proof-carrying `insertOp` call it reduces to. -/
 theorem PatternRewriter.insertOp!_eq_some {b b' : PatternRewriter OpCode}
@@ -3639,24 +3737,6 @@ theorem PatternRewriter.replaceValue!_eq_some {b b' : PatternRewriter OpCode}
       · rename_i hnew
         simp only [Option.some.injEq] at h
         exact ⟨hne, hold, hnew, h⟩
-      · simp at h
-    · simp at h
-  · simp at h
-
-/-- When `eraseOp!` succeeds it exhibits the proof-carrying `eraseOp` call it reduces to. -/
-theorem PatternRewriter.eraseOp!_eq_some {b b' : PatternRewriter OpCode} {op : OperationPtr}
-    (h : b.eraseOp! op = some b') :
-    ∃ (r : op.getNumRegions! b.ctx.raw = 0) (u : (!op.hasUses! b.ctx.raw) = true)
-      (hop : op.InBounds b.ctx.raw),
-      PatternRewriter.eraseOp b op r u hop = some b' := by
-  unfold PatternRewriter.eraseOp! at h
-  split at h
-  · rename_i hOp
-    split at h
-    · rename_i hRegions
-      split at h
-      · rename_i hUses
-        exact ⟨hRegions, hUses, hOp, h⟩
       · simp at h
     · simp at h
   · simp at h
@@ -4012,7 +4092,21 @@ theorem RewrittenAt.of_fromLocalRewrite
       (op.get! rewriter.ctx.raw).parent = some block ∧
       RewrittenAt rewriter.ctx op newOps newValues rewriter'.ctx opInBounds
         block pre post blockIn blockIn' ∧
+      -- Driver-frame facts between the pattern's create-only context `newCtxPat` and the driver's
+      -- output `rewriter'.ctx` (the driver reaches `rewriter'.ctx` from `newCtxPat` by inserting
+      -- `newOps`, redirecting `op`'s result-uses, and erasing `op`): every value surviving into
+      -- `rewriter'.ctx` is in bounds of `newCtxPat` with the same type.
+      (∀ v : ValuePtr, v.InBounds rewriter'.ctx.raw → v.InBounds newCtxPat.raw) ∧
+      (∀ v : ValuePtr, v.InBounds rewriter'.ctx.raw →
+        v.getType! newCtxPat.raw = v.getType! rewriter'.ctx.raw) ∧
       (∀ o ∈ newOps.toList,
+        o.SameIntrinsic newCtxPat.raw rewriter'.ctx.raw ∧
+        ((∀ v ∈ o.getOperands! newCtxPat.raw, v.InBounds rewriter'.ctx.raw) →
+          o.getOperands! newCtxPat.raw = o.getOperands! rewriter'.ctx.raw)) ∧
+      -- Same intrinsic-data frame for every *surviving* operation (`≠ op`): the driver's insert/redirect/
+      -- erase pipeline leaves a survivor's intrinsic data unchanged, and — when its operands survive into
+      -- `rewriter'.ctx` — its operand pointers too. Used to transport the SSA equation invariant.
+      (∀ o : OperationPtr, o.InBounds newCtxPat.raw → o ≠ op →
         o.SameIntrinsic newCtxPat.raw rewriter'.ctx.raw ∧
         ((∀ v ∈ o.getOperands! newCtxPat.raw, v.InBounds rewriter'.ctx.raw) →
           o.getOperands! newCtxPat.raw = o.getOperands! rewriter'.ctx.raw)) := by
@@ -4057,9 +4151,15 @@ theorem RewrittenAt.of_fromLocalRewrite
   obtain ⟨s₁, hfold1, hdriver⟩ := Option.bind_eq_some_iff.mp hdriver
   obtain ⟨s₂, hfold2, hdriver⟩ := Option.bind_eq_some_iff.mp hdriver
   obtain ⟨_arr, _hloop, herase⟩ := Option.bind_eq_some_iff.mp hdriver
-  -- The driver erases `op` with the dynamically-checked `eraseOp!`; recover the proof-carrying
-  -- `eraseOp` call it reduces to (shadowing `herase`) so the keystone `eraseOp` lemmas apply.
-  obtain ⟨_eraseRegions, _eraseUses, _eraseIn, herase⟩ := PatternRewriter.eraseOp!_eq_some herase
+  -- The driver guards its `eraseOp` call by a dynamic check of the three preconditions; peel that
+  -- guard (shadowing `herase`) so the keystone `eraseOp` lemmas apply.
+  obtain ⟨_eraseRegions, _eraseUses, _eraseIn, herase⟩ :
+      ∃ (r : op.getNumRegions! s₂.ctx.raw = 0) (u : (!op.hasUses! s₂.ctx.raw) = true)
+        (hop : op.InBounds s₂.ctx.raw),
+        PatternRewriter.eraseOp s₂ op r u hop = some rewriter' := by
+    split at herase
+    · rename_i h; exact ⟨h.1, h.2.1, h.2.2, herase⟩
+    · simp at herase
   -- Bounds transport across the insert/replace folds: both preserve every `InBounds` fact, so `s₂.ctx`
   -- agrees with the pattern's output `newCtxPat` on bounds.
   have hbnd : ∀ ptr : GenericPtr, ptr.InBounds s₂.ctx.raw ↔ ptr.InBounds newCtxPat.raw := by
@@ -4667,79 +4767,118 @@ theorem RewrittenAt.of_fromLocalRewrite
   -- insert/replace/erase pipeline, and — provided its operands survive into `rewriter'.ctx` — the
   -- redirect fold is inert on it, because the only values the fold rewrites are `op`'s results, which
   -- are erased and hence out of bounds in `rewriter'.ctx`.
-  refine ⟨block, pre, post, blockIn, blockIn', hOpParent, hR, ?_⟩
-  intro o ho
-  have hoIn' : o.InBounds rewriter'.ctx.raw := hR.newOpsInBounds o (by simpa using ho)
-  have hoNewCtxPat : o.InBounds newCtxPat.raw :=
-    ((hReturnOps rewriter.ctx op newCtxPat newOps newValues hpat o).mp (by simpa using ho)).1
-  have hoErase := PatternRewriter.eraseOp_ctx_eq herase ▸ hoIn'
-  -- (1) Intrinsic data is framed from `newCtxPat` (creation) through the insert/replace folds and the
-  -- final erase.
-  have hins : o.SameIntrinsic newCtxPat.raw s₁.ctx.raw := by
-    have h := Array.foldlM_option_invariant
-      (P := fun b : PatternRewriter OpCode => o.SameIntrinsic newCtxPat.raw b.ctx.raw)
-      (fun b a b' hh =>
-        ⟨fun hb => hb.trans (PatternRewriter.insertOp!_sameIntrinsic hh).symm,
-         fun hb => hb.trans (PatternRewriter.insertOp!_sameIntrinsic hh)⟩) hfold1
-    exact h.mpr OperationPtr.SameIntrinsic.rfl
-  have hrep : o.SameIntrinsic s₁.ctx.raw s₂.ctx.raw := by
-    have h := Array.foldlM_option_invariant
-      (P := fun b : PatternRewriter OpCode => o.SameIntrinsic s₁.ctx.raw b.ctx.raw)
-      (fun b a b' hh => by
-        have hst : o.SameIntrinsic b.ctx.raw b'.ctx.raw :=
-          PatternRewriter.replaceValue!_sameIntrinsic hh
-        exact ⟨fun hb => hb.trans hst.symm, fun hb => hb.trans hst⟩) hfold2
-    exact h.mpr OperationPtr.SameIntrinsic.rfl
-  have hers : o.SameIntrinsic s₂.ctx.raw rewriter'.ctx.raw := by
-    rw [PatternRewriter.eraseOp_ctx_eq herase]
-    exact ⟨OperationPtr.getOpType!_wfRewriter_eraseOp hoErase,
-      fun _ => OperationPtr.getProperties!_wfRewriter_eraseOp hoErase,
-      OperationPtr.getNumResults!_wfRewriter_eraseOp hoErase,
-      OperationPtr.getSuccessors!_wfRewriter_eraseOp hoErase,
-      OperationPtr.getResultTypes!_wfRewriter_eraseOp hoErase⟩
-  refine ⟨hins.trans (hrep.trans hers), ?_⟩
-  -- (2) Operand equality under the "operands survive" premise: the redirect fold is the identity.
-  intro hInPrem
-  have hoS1 : o.InBounds s₁.ctx.raw := by
-    have h := Array.foldlM_option_invariant
-      (P := fun b : PatternRewriter OpCode => (GenericPtr.operation o).InBounds b.ctx.raw)
-      (fun b a b' hh => PatternRewriter.insertOp!_ctx_inBounds hh) hfold1
-    grind
-  have hopsErase : o.getOperands! rewriter'.ctx.raw = o.getOperands! s₂.ctx.raw := by
-    rw [PatternRewriter.eraseOp_ctx_eq herase]
-    exact OperationPtr.getOperands!_wfRewriter_eraseOp hoErase
-  have hopsRepl : o.getOperands! s₂.ctx.raw
-      = (newValues.zipIdx.toList).foldl
-          (fun arr q => arr.map (fun v => if v = (op.getResult q.2 : ValuePtr) then q.1 else v))
-          (o.getOperands! s₁.ctx.raw) :=
-    PatternRewriter.foldlM_replaceValue_getOperands
-      (hf := fun b q b' hfa => PatternRewriter.replaceValue!_eq_some hfa)
-      hfold2L hoS1
-  have hopsIns : o.getOperands! s₁.ctx.raw = o.getOperands! newCtxPat.raw := by
-    have h := Array.foldlM_option_invariant
-      (P := fun b : PatternRewriter OpCode =>
-        o.getOperands! b.ctx.raw = o.getOperands! newCtxPat.raw)
-      (fun b a b' hh => by
-        have := PatternRewriter.insertOp!_getOperands (o := o) hh
-        constructor <;> intro hb <;> grind) hfold1
-    exact h.mpr rfl
-  -- `op`'s results are out of bounds in `rewriter'.ctx` (op erased), so a surviving operand is never
-  -- one of them.
-  have hResNotIn : ∀ m, ¬ ((op.getResult m : ValuePtr)).InBounds rewriter'.ctx.raw := by
-    intro m hIn
-    rw [ValuePtr.inBounds_opResult, OpResultPtr.inBounds_def] at hIn
-    obtain ⟨hop, _⟩ := hIn
-    simp only [OperationPtr.getResult_def] at hop
-    exact hR.opErased hop
-  rw [hopsErase, hopsRepl, hopsIns, List.foldl_arrayMap_fusion]
-  symm
-  apply Array.ext
-  · simp
-  · intro i h1 h2
-    simp only [Array.getElem_map]
-    apply fold_replaceResult_eq_self
-    intro q _ hcontra
-    exact hResNotIn q.2 (hcontra ▸ hInPrem _ (Array.getElem_mem h2))
+  -- **Driver value-frame** (PR 8, step 3): the insert/replace folds preserve every value's bounds and
+  -- type, and the final `eraseOp op` only removes `op` and the pointers it owns, so any value in bounds
+  -- of `rewriter'.ctx` is in bounds of `newCtxPat` with the same type.
+  have hFrameBounds : ∀ v : ValuePtr, v.InBounds rewriter'.ctx.raw → v.InBounds newCtxPat.raw := by
+    intro v hv
+    have hvS2 : v.InBounds s₂.ctx.raw := by
+      have hvE := PatternRewriter.eraseOp_ctx_eq herase ▸ hv
+      grind [WfRewriter.eraseOp]
+    exact (hbnd (GenericPtr.value v)).mp hvS2
+  have hFrameType : ∀ v : ValuePtr, v.InBounds rewriter'.ctx.raw →
+      v.getType! newCtxPat.raw = v.getType! rewriter'.ctx.raw := by
+    intro v hv
+    have hIns : v.getType! s₁.ctx.raw = v.getType! newCtxPat.raw := by
+      have h := Array.foldlM_option_invariant
+        (P := fun b : PatternRewriter OpCode => v.getType! b.ctx.raw = v.getType! newCtxPat.raw)
+        (fun b a b' hh => by
+          have := PatternRewriter.insertOp!_getType (v := v) hh
+          grind) hfold1
+      exact h.mpr rfl
+    have hRep : v.getType! s₂.ctx.raw = v.getType! s₁.ctx.raw := by
+      have h := Array.foldlM_option_invariant
+        (P := fun b : PatternRewriter OpCode => v.getType! b.ctx.raw = v.getType! s₁.ctx.raw)
+        (fun b a b' hh => by
+          have := PatternRewriter.replaceValue!_getType (v := v) hh
+          grind) hfold2
+      exact h.mpr rfl
+    have hErase : v.getType! rewriter'.ctx.raw = v.getType! s₂.ctx.raw := by
+      rw [PatternRewriter.eraseOp_ctx_eq herase]
+      exact ValuePtr.getType!_wfRewriter_eraseOp (PatternRewriter.eraseOp_ctx_eq herase ▸ hv)
+    rw [hErase, hRep, hIns]
+  -- The intrinsic + operand frame, factored to serve both the `newOps` and surviving-op clauses:
+  -- it needs only that `o` is in bounds of both `newCtxPat` and `rewriter'.ctx`.
+  have frameOf : ∀ o : OperationPtr, o.InBounds newCtxPat.raw → o.InBounds rewriter'.ctx.raw →
+      o.SameIntrinsic newCtxPat.raw rewriter'.ctx.raw ∧
+      ((∀ v ∈ o.getOperands! newCtxPat.raw, v.InBounds rewriter'.ctx.raw) →
+        o.getOperands! newCtxPat.raw = o.getOperands! rewriter'.ctx.raw) := by
+    intro o hoNewCtxPat hoIn'
+    have hoErase := PatternRewriter.eraseOp_ctx_eq herase ▸ hoIn'
+    -- (1) Intrinsic data is framed from `newCtxPat` (creation) through the insert/replace folds and
+    -- the final erase.
+    have hins : o.SameIntrinsic newCtxPat.raw s₁.ctx.raw := by
+      have h := Array.foldlM_option_invariant
+        (P := fun b : PatternRewriter OpCode => o.SameIntrinsic newCtxPat.raw b.ctx.raw)
+        (fun b a b' hh =>
+          ⟨fun hb => hb.trans (PatternRewriter.insertOp!_sameIntrinsic hh).symm,
+           fun hb => hb.trans (PatternRewriter.insertOp!_sameIntrinsic hh)⟩) hfold1
+      exact h.mpr OperationPtr.SameIntrinsic.rfl
+    have hrep : o.SameIntrinsic s₁.ctx.raw s₂.ctx.raw := by
+      have h := Array.foldlM_option_invariant
+        (P := fun b : PatternRewriter OpCode => o.SameIntrinsic s₁.ctx.raw b.ctx.raw)
+        (fun b a b' hh => by
+          have hst : o.SameIntrinsic b.ctx.raw b'.ctx.raw :=
+            PatternRewriter.replaceValue!_sameIntrinsic hh
+          exact ⟨fun hb => hb.trans hst.symm, fun hb => hb.trans hst⟩) hfold2
+      exact h.mpr OperationPtr.SameIntrinsic.rfl
+    have hers : o.SameIntrinsic s₂.ctx.raw rewriter'.ctx.raw := by
+      rw [PatternRewriter.eraseOp_ctx_eq herase]
+      exact ⟨OperationPtr.getOpType!_wfRewriter_eraseOp hoErase,
+        fun _ => OperationPtr.getProperties!_wfRewriter_eraseOp hoErase,
+        OperationPtr.getNumResults!_wfRewriter_eraseOp hoErase,
+        OperationPtr.getSuccessors!_wfRewriter_eraseOp hoErase,
+        OperationPtr.getResultTypes!_wfRewriter_eraseOp hoErase⟩
+    refine ⟨hins.trans (hrep.trans hers), ?_⟩
+    -- (2) Operand equality under the "operands survive" premise: the redirect fold is the identity.
+    intro hInPrem
+    have hoS1 : o.InBounds s₁.ctx.raw := by
+      have h := Array.foldlM_option_invariant
+        (P := fun b : PatternRewriter OpCode => (GenericPtr.operation o).InBounds b.ctx.raw)
+        (fun b a b' hh => PatternRewriter.insertOp!_ctx_inBounds hh) hfold1
+      grind
+    have hopsErase : o.getOperands! rewriter'.ctx.raw = o.getOperands! s₂.ctx.raw := by
+      rw [PatternRewriter.eraseOp_ctx_eq herase]
+      exact OperationPtr.getOperands!_wfRewriter_eraseOp hoErase
+    have hopsRepl : o.getOperands! s₂.ctx.raw
+        = (newValues.zipIdx.toList).foldl
+            (fun arr q => arr.map (fun v => if v = (op.getResult q.2 : ValuePtr) then q.1 else v))
+            (o.getOperands! s₁.ctx.raw) :=
+      PatternRewriter.foldlM_replaceValue_getOperands
+        (hf := fun b q b' hfa => PatternRewriter.replaceValue!_eq_some hfa)
+        hfold2L hoS1
+    have hopsIns : o.getOperands! s₁.ctx.raw = o.getOperands! newCtxPat.raw := by
+      have h := Array.foldlM_option_invariant
+        (P := fun b : PatternRewriter OpCode =>
+          o.getOperands! b.ctx.raw = o.getOperands! newCtxPat.raw)
+        (fun b a b' hh => by
+          have := PatternRewriter.insertOp!_getOperands (o := o) hh
+          constructor <;> intro hb <;> grind) hfold1
+      exact h.mpr rfl
+    -- `op`'s results are out of bounds in `rewriter'.ctx` (op erased), so a surviving operand is
+    -- never one of them.
+    have hResNotIn : ∀ m, ¬ ((op.getResult m : ValuePtr)).InBounds rewriter'.ctx.raw := by
+      intro m hIn
+      rw [ValuePtr.inBounds_opResult, OpResultPtr.inBounds_def] at hIn
+      obtain ⟨hop, _⟩ := hIn
+      simp only [OperationPtr.getResult_def] at hop
+      exact hR.opErased hop
+    rw [hopsErase, hopsRepl, hopsIns, List.foldl_arrayMap_fusion]
+    symm
+    apply Array.ext
+    · simp
+    · intro i h1 h2
+      simp only [Array.getElem_map]
+      apply fold_replaceResult_eq_self
+      intro q _ hcontra
+      exact hResNotIn q.2 (hcontra ▸ hInPrem _ (Array.getElem_mem h2))
+  refine ⟨block, pre, post, blockIn, blockIn', hOpParent, hR, hFrameBounds, hFrameType, ?_, ?_⟩
+  · intro o ho
+    exact frameOf o
+      (((hReturnOps rewriter.ctx op newCtxPat newOps newValues hpat o).mp (by simpa using ho)).1)
+      (hR.newOpsInBounds o (by simpa using ho))
+  · intro o hoNewCtxPat hne
+    exact frameOf o hoNewCtxPat (hSurviveOp o hne hoNewCtxPat)
 
 /-! ### PR 8 foundation: list interpretation depends only on each op's local data
 
@@ -5094,6 +5233,83 @@ theorem interpretOpList_sameData_transport_redirect {ctxA ctxB : WfIRContext OpC
         exact ⟨sMidB, rfl, hsmid⟩
     · rw [hA] at h; injection h with h1; injection h1
 
+/-- Running an operation list leaves a value's binding untouched when none of the operations produces
+that value: each `interpretOp` step only writes its own results (`setResultValues?`), so a value that
+is not a result of any op in the list is read back unchanged. This is the list iterate of
+`VariableState.getVar?_setResultValues?_of_notMem_getResults!`, used in the surviving-value half of the
+`hOpSim` bridge to carry `getVar? val` across the `newOps` run. -/
+theorem interpretOpList_getVar?_of_not_produced {ctx : WfIRContext OpCode} {ops : List OperationPtr}
+    {inBounds : ∀ o ∈ ops, o.InBounds ctx.raw}
+    {s s' : InterpreterState ctx} {cf : Option ControlFlowAction}
+    (hrun : interpretOpList ops s inBounds = some (.ok (s', cf)))
+    {v : ValuePtr} (hv : ∀ o ∈ ops, v ∉ o.getResults! ctx.raw) :
+    s'.variables.getVar? v = s.variables.getVar? v := by
+  induction ops generalizing s with
+  | nil =>
+    rw [interpretOpList_nil] at hrun
+    injection hrun with h1; injection h1 with h2; rw [Prod.mk.injEq] at h2
+    obtain ⟨rfl, _⟩ := h2; rfl
+  | cons a l ih =>
+    rw [interpretOpList_cons] at hrun
+    rcases hA : interpretOp a s (inBounds a (by simp)) with _ | (⟨sMid, act⟩ | _)
+    · rw [hA] at hrun; injection hrun
+    · -- The head step leaves `v` untouched (it is not a result of `a`), then recurse on the tail.
+      have hstep : sMid.variables.getVar? v = s.variables.getVar? v := by
+        obtain ⟨ov, rv, mem', vs', hov, hint, hset, hst⟩ := interpretOp_some_iff.mp hA
+        subst hst
+        exact VariableState.getVar?_setResultValues?_of_notMem_getResults!
+          (hv a (by simp)) hset
+      rw [hA] at hrun
+      cases act with
+      | none =>
+        rw [(ih (inBounds := fun o ho => inBounds o (by simp [ho])) hrun
+          (fun o ho => hv o (by simp [ho])))]
+        exact hstep
+      | some c =>
+        injection hrun with h1; injection h1 with h2; rw [Prod.mk.injEq] at h2
+        obtain ⟨rfl, _⟩ := h2; exact hstep
+    · rw [hA] at hrun; injection hrun with h1; injection h1
+
+/-- Purity transports across `OpDataEq`: an operation's purity depends only on its type, properties,
+result types, and successors — all shared by `OpDataEq`. -/
+theorem OperationPtr.Pure.of_opDataEq {op : OperationPtr} {ctxA ctxB : WfIRContext OpCode}
+    (hData : OpDataEq op ctxA ctxB) (h : op.Pure ctxA.raw) : op.Pure ctxB.raw := by
+  intro operands m1 m2
+  have hconv : ∀ m, interpretOp' (op.getOpType! ctxB.raw)
+      (op.getProperties! ctxB.raw (op.getOpType! ctxB.raw)) (op.getResultTypes! ctxB.raw) operands
+      (op.getSuccessors! ctxB.raw) m
+      = interpretOp' (op.getOpType! ctxA.raw)
+      (op.getProperties! ctxA.raw (op.getOpType! ctxA.raw)) (op.getResultTypes! ctxA.raw) operands
+      (op.getSuccessors! ctxA.raw) m := by
+    intro m
+    rw [hData.resTypes, hData.succ]
+    exact (interpretOp'_opType_cast hData.opType hData.props).symm
+  rw [hconv m1, hconv m2]
+  exact h operands m1 m2
+
+/-- `EquationHolds` transports across `OpDataEq` and same-data states. `interpretOp` reads a context
+only through the op's local data and the state's variable map/memory, all shared here; and an
+interpreter state is determined by that data (`VariableState.ext`), so the transported result state
+coincides with `sB`. -/
+theorem InterpreterState.EquationHolds.sameData_transport {ctxA ctxB : WfIRContext OpCode}
+    {sA : InterpreterState ctxA} {sB : InterpreterState ctxB} {op : OperationPtr}
+    (hData : OpDataEq op ctxA ctxB) (hsame : sA.SameData sB)
+    (oInA : op.InBounds ctxA.raw) (oInB : op.InBounds ctxB.raw)
+    (hA : sA.EquationHolds op oInA) : sB.EquationHolds op oInB := by
+  obtain ⟨cf, hinterp⟩ := hA
+  obtain ⟨st', hB, hsame'⟩ :=
+    interpretOp_sameData_transport hData hsame (oInB := oInB) hinterp
+  refine ⟨cf, ?_⟩
+  have hv : st'.variables = sB.variables := by
+    apply VariableState.ext; intro var
+    simp only [VariableState.getVar?]
+    rw [← hsame'.1, hsame.1]
+  have hm : st'.memory = sB.memory := by rw [← hsame'.2, hsame.2]
+  have hst : st' = sB := by
+    obtain ⟨stv, stm⟩ := st'; obtain ⟨sbv, sbm⟩ := sB
+    simp_all
+  rwa [hst] at hB
+
 /-! ### PR 9, final bridge: the driver refines every module
 
 Composing the two endpoints — `RewrittenAt.of_fromLocalRewrite` (the driver's net edit *is* a
@@ -5102,17 +5318,14 @@ module) — gives the headline driver-level soundness statement: running `fromLo
 matched, in-bounds `op` on a `Valid` pattern over a verified, dominance-wellformed context refines
 every module.
 
-This is the **composition skeleton**: the easy side-conditions of `isModuleRefinedBy` are discharged
-here (`ctxVerif`/`hCtxDom` are the source hypotheses; `newCtxVerif` is the pattern's
-`rewritePreservesVerified` obligation applied to the driver run). The remaining four are the
-*semantic* bridges, left as `sorry` for now:
-* `hOpSim` — bridge the pattern's value-level `PreservesSemantics` to the scoped
-  `OpStepSimulation` on `hRW.σ` (requires `hRW.σ = LocalRewritePattern.mapping hpat`);
-* `hSrcSplit`/`hTgtSplit` — every verified block is `front ++ [terminator]` with `front` never
-  yielding a control-flow action;
-* `hSrcInv`/`hTgtInv` — the function-entry base case: the empty state with entry block-arguments set
-  satisfies `EquationLemmaAt`/`DefinesDominating` at the entry point.
--/
+This is the **composition**: the easy side-conditions of `isModuleRefinedBy` are discharged here
+(`ctxVerif`/`hCtxDom` are the source hypotheses; `newCtxVerif` is the pattern's
+`rewritePreservesVerified` obligation applied to the driver run). The `hOpSim` bridge — from the
+pattern's value-level `PreservesSemantics` to the scoped `OpStepSimulation` on `hRW.σ`, via the
+data-equality frame (`interpretOpList_sameData_transport_redirect`) and the `EquationLemmaAt`
+transport (`InterpreterState.EquationHolds.sameData_transport`) — is discharged in full. The
+`hSrcSplit`/`hTgtSplit`/`hSrcInv`/`hTgtInv`/`hTgtEqInv` structural side-conditions remain hypotheses of
+this theorem (deferred obligations on the verified-block shape and the function-entry base case). -/
 theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
     {pattern : LocalRewritePattern OpCode}
     (hValid : pattern.Valid)
@@ -5156,7 +5369,8 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
     {moduleOp : OperationPtr} :
     moduleOp.isModuleRefinedBy rewriter.ctx moduleOp rewriter'.ctx := by
   -- The driver's net edit is a `RewrittenAt` instance.
-  obtain ⟨block, pre, post, blockIn, blockIn', hOpParent, hRW, hNewOpsFrame⟩ :=
+  obtain ⟨block, pre, post, blockIn, blockIn', hOpParent, hRW, hFrameBounds, hFrameType,
+      hNewOpsFrame, hSurvFrame⟩ :=
     RewrittenAt.of_fromLocalRewrite hValid hSrcDom hSrcVerif hpat hdriver
   -- The target context is verified: the pattern's `rewritePreservesVerified` obligation propagates
   -- source verification across the driver run.
@@ -5184,7 +5398,7 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
     -- never through parents or dominance, so a `newOps` run transports unchanged between `newCtxPat` and
     -- `rewriter'.ctx` (whose op-data agree by `hNewOpsFrame`) — sidestepping the scoped-refinement/parent
     -- obstruction that blocked earlier attempts.
-    intro s s' p' p'In qIn q'In hCouple hRef hEqLem hEqLem'
+    intro s s' p' p'In qIn q'In hCouple hCoupleOp hRef hEqLem hEqLem' hTgtDefDom
     -- Split on the source op step; `none`/`.ub` outcomes make the refinement trivial.
     rcases hsrc : interpretOp op s with _ | (⟨newState, cf⟩ | _)
     · -- `none` (interpreter stuck): refinement trivial.
@@ -5196,10 +5410,10 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
       -- with the same type. These are two cross-context frame facts between the pattern context and the
       -- driver context (the driver internals produce `rewriter'.ctx` *from* `newCtxPat`), isolated here.
       have hBoundsBA : ∀ v : ValuePtr, v.InBounds rewriter'.ctx.raw → v.InBounds newCtxPat.raw :=
-        sorry
+        hFrameBounds
       have hTypeBA : ∀ v : ValuePtr, v.InBounds rewriter'.ctx.raw →
           v.getType! newCtxPat.raw = v.getType! rewriter'.ctx.raw :=
-        sorry
+        hFrameType
       let sPat : InterpreterState newCtxPat :=
         { variables :=
             { variables := s'.variables.variables
@@ -5227,7 +5441,65 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
           exact VariableState.getVar?_getResult_of_setResultValues? hi' hset
       -- (B) `sPat` satisfies the SSA invariant at `.before op`, transported from `s'`'s invariant at
       -- `p'` across the `newCtxPat`/`rewriter'.ctx` data frame and the `p' ↔ .before op` point image.
-      have hSPatEqLem : sPat.EquationLemmaAt (InsertPoint.before op) (by grind) := sorry
+      have hSPatEqLem : sPat.EquationLemmaAt (InsertPoint.before op) (by grind) := by
+        intro op' op'In hPure' hDom'
+        -- An operation never dominates the point before itself, so `op' ≠ op`.
+        have hne : op' ≠ op := by
+          rintro rfl
+          exact absurd rfl
+            (OperationPtr.strictlyDominates_def.mp (OperationPtr.dominatesIp_before.mp hDom')).2
+        -- Reflect `op'` back to the source context (created ops are detached, dominate nothing).
+        have hCreated : WfIRContext.WithCreatedOps rewriter.ctx newCtxPat :=
+          hValid.returnCtxChanges rewriter.ctx op newCtxPat newOps newValues hpat
+        obtain ⟨op'Src, hDomSrc⟩ := hCreated.op_dominatesIp_before_reflect hDom'
+        have op'In' : op'.InBounds rewriter'.ctx.raw := hRW.survives op' op'Src hne
+        -- `op'` dominates `op`, so its operands are defined before `op` — never one of `op`'s results.
+        have hOpDom : op'.dominates op rewriter.ctx :=
+          OperationPtr.dominates_of_strictlyDominates (OperationPtr.dominatesIp_before.mp hDomSrc)
+        obtain ⟨hIntr, hOpEq⟩ := hSurvFrame op' op'In hne
+        have hOperandsEq :
+            op'.getOperands! newCtxPat.raw = op'.getOperands! rewriter'.ctx.raw := by
+          apply hOpEq
+          intro v hv
+          have hvSrc : v ∈ op'.getOperands! rewriter.ctx.raw := by
+            rwa [hCreated.getOperands_eq op'Src] at hv
+          have hvNotRes : v ∉ op.getResults! rewriter.ctx.raw :=
+            IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates hSrcDom
+              hOpDom v hvSrc
+          have hvIn : v.InBounds rewriter.ctx.raw := by
+            obtain ⟨i, hi, hvi⟩ := Array.getElem_of_mem hvSrc
+            rw [← hvi, OperationPtr.getOperands!.getElem_eq_getOperand!]
+            grind
+          exact hRW.mapNonResultsInBounds v hvIn hvNotRes
+        -- `OpDataEq` between the two contexts, either direction (for `Pure` and `EquationHolds`).
+        have hDataEqNP : OpDataEq op' newCtxPat rewriter'.ctx :=
+          OpDataEq.of_sameIntrinsic hIntr hOperandsEq
+        have hDataEqPN : OpDataEq op' rewriter'.ctx newCtxPat :=
+          OpDataEq.of_sameIntrinsic hIntr.symm hOperandsEq.symm
+        -- `op'` is pure and dominates `p'` in the driver context, so `s'` records its results.
+        have hPureTgt : op'.Pure rewriter'.ctx := hPure'.of_opDataEq hDataEqNP
+        have hDomP' : op'.dominatesIp p' rewriter'.ctx := hCoupleOp op' op'Src hDomSrc
+        have hHolds' : s'.EquationHolds op' := hEqLem' op' op'In' hPureTgt hDomP'
+        -- Transport that record back onto `sPat` (same variable map, matching op data).
+        exact InterpreterState.EquationHolds.sameData_transport hDataEqPN
+          ⟨hsPatData.1.symm, hsPatData.2.symm⟩ op'In' op'In hHolds'
+      -- (B') `sPat` defines every value in scope at `.before op`, transported from `s'`'s
+      -- `DefinesDominating` at `p'`. A value dominating `.before op` in the create-only context is a
+      -- source value (the created ops are detached) and is not one of `op`'s results (SSA), so `hRW.σ`
+      -- fixes it and `hCouple` moves its dominance onto `p'`, where `hTgtDefDom` applies.
+      have hSPatDefDom : sPat.DefinesDominating (InsertPoint.before op) (by grind) := by
+        intro val valIn hdom
+        have hCreated : WfIRContext.WithCreatedOps rewriter.ctx newCtxPat :=
+          hValid.returnCtxChanges rewriter.ctx op newCtxPat newOps newValues hpat
+        obtain ⟨valSrc, hdomSrc⟩ := hCreated.value_dominatesIp_before_reflect hdom
+        have hnotres : val ∉ op.getResults! rewriter.ctx.raw := fun hres =>
+          WfIRContext.Dom.opResult_not_dominatesIp_before_self hSrcDom hres hdomSrc
+        have hσ : (hRW.σ ⟨val, valSrc⟩).val = val := by
+          simp only [RewrittenAt.σ, rewriteMapping]; rw [dif_neg hnotres]
+        have hdef := hTgtDefDom (hRW.σ ⟨val, valSrc⟩).val (hRW.σ ⟨val, valSrc⟩).property
+          (hCouple val valSrc hdomSrc)
+        rw [hσ] at hdef
+        simpa only [VariableState.getVar?, hsPatData.1] using hdef
       -- (D-in) Reconcile the given `hRW.σ`-refinement at `(.before op, p')` (target `rewriter'.ctx`) into
       -- the `LocalRewritePattern.mapping`-refinement at `(.before op, .before op)` (target `newCtxPat`)
       -- that `preservesSemantics` consumes. `mapping` and `hRW.σ` agree on `.val`
@@ -5256,7 +5528,7 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
       obtain ⟨newState', hRunPat, hMemEq, targetValues, hTargetValues, hValRef⟩ :=
         hValid.preservesSemantics rewriter.ctx hSrcDom hSrcVerif op opInBounds
           newCtxPat newOps newValues hpat s hEqLem newState cf hsrc sourceValues hSourceValues
-          sPat hSPatEqLem hRefInput
+          sPat hSPatEqLem hSPatDefDom hRefInput
       -- (E) Transport the create-only `newOps` run to the driver context via the redirect data-frame.
       obtain ⟨sTgt, hRunTgt, hSameRes⟩ :=
         interpretOpList_sameData_transport_redirect
@@ -5274,18 +5546,85 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
         -- Memory agrees: `newState.memory = newState'.memory` (`preservesSemantics`) `= sTgt.memory`
         -- (the redirect transport preserves data).
         refine ⟨hMemEq.trans hSameRes.2, ?_⟩
-        -- Variable refinement, by cases on the source value `val`:
-        -- • `val = op.getResult i` (source scope `after! op` adds exactly `op`'s results): `σ` sends it
-        --   to `newValues[i]`; `sTgt` shares `newState'`'s map (`hSameRes`), so the target value is
-        --   `targetValues[i]!` and the source value `sourceValues[i]!`, refined by `hValRef`.
-        -- • surviving `val` (dominates `before op`, ∉ `newOps`-results): `interpretOp`/`interpretOpList`
-        --   leave `getVar? val` untouched, so source = `s.getVar? val`, target = `s'.getVar? val`; the
-        --   output target scope `afterLast newOps p'` steps back to `p'` *within* `rewriter'.ctx` (`val`
-        --   is not a `newOps` result), where `hRef` applies. This is SOUND for arbitrary `p'` — no
-        --   before-op↔p' cross-context transport — but still needs a list-level `interpretOpList`
-        --   `getVar?`-preservation lemma and an intra-context `afterLast newOps → p'` dominance step-back
-        --   lemma, neither of which exists yet.
-        sorry
+        intro val valIn hSrcScope hTgtScope sv tv hsv htv
+        simp only [RefinementPoint.inScope_at] at hSrcScope hTgtScope
+        -- `sTgt` carries `newState'`'s variable map (`hSameRes`), so target lookups read `newState'`.
+        have hTgtMap : ∀ x, sTgt.variables.getVar? x = newState'.variables.getVar? x := by
+          intro x; simp only [VariableState.getVar?, hSameRes.1]
+        by_cases hres : val ∈ op.getResults! rewriter.ctx.raw
+        · -- `val = op`'s `idx`-th result (`idx := idxOf val`): `σ` sends it to `newValues[idx]`; the
+          -- source value is `sourceValues[idx]`, the target value `targetValues[idx]`, refined
+          -- elementwise by `hValRef`.
+          have hgr : op.getResults rewriter.ctx.raw = op.getResults! rewriter.ctx.raw :=
+            (OperationPtr.getResults!_eq_getResults opInBounds).symm
+          have hidxlt : (op.getResults! rewriter.ctx.raw).idxOf val
+              < (op.getResults! rewriter.ctx.raw).size := Array.idxOf_lt_length_of_mem hres
+          have hgetidx : (op.getResults! rewriter.ctx.raw)[(op.getResults! rewriter.ctx.raw).idxOf val]!
+              = val := by
+            have h := Array.getElem?_idxOf (l := op.getResults! rewriter.ctx.raw) (x := val) hidxlt
+            simp only [Array.getElem!_eq_getD, Array.getD_eq_getD_getElem?, h, Option.getD_some]
+          have hmu : (hRW.σ ⟨val, valIn⟩).val
+              = newValues[(op.getResults! rewriter.ctx.raw).idxOf val]! := by
+            simp only [RewrittenAt.σ, rewriteMapping]; rw [dif_pos hres]
+          -- Sizes: `sourceValues`/`newValues`/`targetValues` all have `op`'s result count.
+          have hsrcsz : (op.getResults! rewriter.ctx.raw).size = sourceValues.size := by
+            rw [← hgr]; exact Array.size_eq_of_mapM_eq_some hSourceValues
+          have htgtsz : newValues.size = targetValues.size :=
+            Array.size_eq_of_mapM_eq_some hTargetValues
+          have hnvsz : newValues.size = (op.getResults! rewriter.ctx.raw).size := by
+            rw [hRW.newValuesSize, OperationPtr.getResults!.size_eq_getNumResults!]
+          -- Source value: `sourceValues[idx] = sv`.
+          have hsvidx : sourceValues[(op.getResults! rewriter.ctx.raw).idxOf val]! = sv := by
+            have hh := (Array.mapM_eq_some_iff_of_size_eq (by rw [hgr]; exact hsrcsz)).mp
+              hSourceValues ((op.getResults! rewriter.ctx.raw).idxOf val) (by rw [hgr]; exact hidxlt)
+            rw [hgr, hgetidx, hsv] at hh; injection hh with hh; exact hh.symm
+          -- Target value: `targetValues[idx] = tv`.
+          have htvidx : targetValues[(op.getResults! rewriter.ctx.raw).idxOf val]! = tv := by
+            have hh := (Array.mapM_eq_some_iff_of_size_eq htgtsz).mp
+              hTargetValues ((op.getResults! rewriter.ctx.raw).idxOf val) (by omega)
+            rw [hTgtMap, hmu] at htv; rw [htv] at hh; injection hh with hh; exact hh.symm
+          -- Refined by `hValRef` at index `idx`.
+          have := hValRef.2 ((op.getResults! rewriter.ctx.raw).idxOf val) (by omega)
+          rw [hsvidx, htvidx] at this; exact this
+        · -- Surviving `val` (dominates `before op`, not a result of `op` nor of any `newOp`): both the
+          -- source `interpretOp op` and the target `interpretOpList newOps` leave `getVar? val`
+          -- untouched, so the goal reduces to `hRef` at `(before op, p')`, whose target scope `val`
+          -- reaches via `hCouple`.
+          -- Source scope: `val.dominatesIp (after! op)` with `val ∉ op`'s results ⇒ `val` dominates
+          -- `before op`.
+          rw [InsertPoint.after!_eq_after hRW.opParent opInBounds,
+            hSrcDom.value_dominatesIp_after_iff] at hSrcScope
+          have hValDomBefore : val.dominatesIp (InsertPoint.before op) rewriter.ctx :=
+            hSrcScope.resolve_right hres
+          -- `σ` fixes `val`.
+          have hσval : (hRW.σ ⟨val, valIn⟩).val = val := hRW.mappingFixesNonResults val valIn hres
+          -- Source lookup is unchanged by the `op` step.
+          have hsSrc : s.variables.getVar? val = some sv := by
+            obtain ⟨ov, rv, mem', vs', hov, hint, hset, hst⟩ := interpretOp_some_iff.mp hsrc
+            rw [hst] at hsv
+            rwa [VariableState.getVar?_setResultValues?_of_notMem_getResults! hres hset] at hsv
+          -- `val` is not produced by any `newOp` (its results are fresh, `val` is in bounds of the
+          -- source), so the `newOps` run leaves `val` untouched.
+          have hvNotProduced : ∀ o ∈ newOps.toList, val ∉ o.getResults! newCtxPat.raw := by
+            intro o ho hmem
+            obtain ⟨j, hj, hval⟩ := OperationPtr.getResults!.mem_iff_exists_index.mp hmem
+            have hoSrc : o.InBounds rewriter.ctx.raw := by
+              rw [← hval] at valIn
+              simp only [OperationPtr.getResult, ValuePtr.inBounds_opResult,
+                OpResultPtr.inBounds_def] at valIn
+              obtain ⟨ho', _⟩ := valIn; exact ho'
+            exact hRW.newOps_not_inBounds_source o (by simpa using ho) hoSrc
+          -- Target lookup is unchanged by the `newOps` run: `sTgt.getVar? val = s'.getVar? val`.
+          have hsTgt : s'.variables.getVar? val = some tv := by
+            rw [hσval, hTgtMap,
+              interpretOpList_getVar?_of_not_produced hRunPat hvNotProduced] at htv
+            have hpe : sPat.variables.getVar? val = s'.variables.getVar? val := by
+              simp only [VariableState.getVar?, hsPatData.1]
+            rwa [hpe] at htv
+          -- Apply `hRef` at `val`: source scope `hValDomBefore`, target scope via `hCouple`.
+          have hsTgt' : s'.variables.getVar? (hRW.σ ⟨val, valIn⟩).val = some tv := by
+            rw [hσval]; exact hsTgt
+          exact hRef.2 val valIn hValDomBefore (hCouple val valIn hValDomBefore) sv tv hsSrc hsTgt'
       · -- Control-flow actions coincide (`cf` on both sides).
         exact ControlFlowAction.optionIsRefinedBy_refl cf
     · -- `.ub` (source undefined behaviour): refinement trivial.
