@@ -4,10 +4,9 @@
 // RUN: ./Tools/vcc -S %s -o %t.s
 // RUN: test -s %t.s
 /*
-    SHA-256 block compression function (FIPS 180-4), processing one 512-bit block.
+    SHA-256 block compression function (FIPS 180-4, https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf), processing one 512-bit block.
 
-    Like fastntt.c / chacha20.c, this is a single exported function operating on
-    caller-provided buffers, with no local arrays and no globals:
+    Like fastntt.c / chacha20.c it uses caller-provided buffers, with no local arrays and no globals:
       - H: 8 state words   (read + updated in place)
       - M: 16 message words (the input block)
       - K: 64 round constants
@@ -18,7 +17,7 @@
     over each 512-bit block. The compression function is the "core" of the hash.
 
     Some references for the SHA-256 compression function & the algorithm in general:
-      - FIPS 180-4: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
+      - FIPS 180-4: see link above
       - RFC 6234: https://datatracker.ietf.org/doc/html/rfc6234
 
 */
