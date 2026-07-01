@@ -166,6 +166,21 @@ def createOp (rewriter: PatternRewriter OpInfo) (opType: OpInfo)
   else
     ({ rewriter with ctx := newCtx, hasDoneAction := true , worklist := rewriter.worklist.push op}, op)
 
+/--
+Create an operation and insert it at a given location, panicking if any operand, block operand,
+or region is out of bounds, if the insertion point is out of bounds, or if the operation could
+not be created.
+-/
+def createOp! (rewriter: PatternRewriter OpInfo) (opType: OpInfo)
+    (resultTypes: Array TypeAttr) (operands: Array ValuePtr)
+    (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: HasOpInfo.propertiesOf opType)
+    (insertionPoint: Option InsertPoint) : (PatternRewriter OpInfo) × OperationPtr :=
+  let (newCtx, op) := WfRewriter.createOp! rewriter.ctx opType resultTypes operands blockOperands regions properties insertionPoint
+  if insertionPoint.isNone then
+    ({ rewriter with ctx := newCtx}, op)
+  else
+    ({ rewriter with ctx := newCtx, hasDoneAction := true , worklist := rewriter.worklist.push op}, op)
+
 def insertOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertPoint)
     (newOpIn: op.InBounds rewriter.ctx.raw := by grind) (insIn : ip.InBounds rewriter.ctx.raw)
     : Option (PatternRewriter OpInfo) := do
