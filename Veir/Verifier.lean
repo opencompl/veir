@@ -77,6 +77,12 @@ def TypeAttr.verifyIntegerType (ty : TypeAttr) (errMsg : String) : Except String
   | .integerType _ => pure ()
   | _ => throw errMsg
 
+def TypeAttr.verifyIntegerOrByteType (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .integerType _ => pure ()
+  | .byteType _ => pure ()
+  | _ => throw errMsg
+
 def TypeAttr.verifyIntegerOrPointerType (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
   match ty.val with
   | .integerType _ => pure ()
@@ -267,6 +273,14 @@ def OperationPtr.verifyIntegerUnop (op : OperationPtr) (ctx : WfIRContext OpCode
   op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
   pure operandType
 
+def OperationPtr.verifyLLVMLshr (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 1
+  let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerOrByteType s!"{instrName}: Expected operand 0 to have integer or byte type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType s!"{instrName}: Expected operand 1 to have integer type"
+  op.verifyResultTypeMatches ctx ((op.getOperand! ctx.raw 0).getType! ctx.raw) s!"{instrName}: Expected result type to match first operand type"
+
 def OperationPtr.verifyICmp (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
@@ -297,20 +311,24 @@ def OperationPtr.verifySelectTypes (op : OperationPtr) (ctx : WfIRContext OpCode
   let operandType ← op.verifyOperandTypesMatch ctx 1 2 s!"{instrName}: Expected select values to have the same type"
   op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match select value type"
 
-def OperationPtr.verifyIntegerTruncTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+def OperationPtr.verifyTruncTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) (allowByte : Bool) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 1 1
   let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
   let operandType := (op.getOperand! ctx.raw 0).getType! ctx.raw
   let resultType := ((op.getResult 0).get! ctx.raw).type
-  let .integerType operandInt := operandType.val
-    | throw s!"{instrName}: Expected operand 0 to have integer type"
-  let .integerType resultInt := resultType.val
-    | throw s!"{instrName}: Expected integer result type"
-  if operandInt.bitwidth ≤ resultInt.bitwidth then
-    throw s!"{instrName}: Result's width must be smaller than operand's width"
-  else
-    pure ()
+  match operandType.val, resultType.val, allowByte with
+  | .integerType ⟨bw1⟩, .integerType ⟨bw2⟩, _ =>
+    if bw1 ≤ bw2 then
+      throw s!"{instrName}: Result's width must be smaller than operand's width"
+    else
+      pure ()
+  | .byteType ⟨bw1⟩, .byteType ⟨bw2⟩, true =>
+    if bw1 ≤ bw2 then
+      throw s!"{instrName}: Result's width must be smaller than operand's width"
+    else
+      pure ()
+  | _, _, _ => throw s!"{instrName}: Expected 1 integer operand and 1 integer result"
 
 def OperationPtr.verifyIntegerExtTypes (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
@@ -401,7 +419,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifySelectTypes ctx opIn
     pure ()
   | .arith .trunci => do
-    op.verifyIntegerTruncTypes ctx opIn
+    op.verifyTruncTypes ctx opIn false
     pure ()
   | .builtin .module => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
@@ -506,9 +524,12 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .llvm .and | .llvm .or | .llvm .xor | .llvm .intr__smax | .llvm .intr__smin
   | .llvm .intr__umax | .llvm .intr__umin | .llvm .add | .llvm .sub | .llvm .shl
-  | .llvm .lshr | .llvm .ashr | .llvm .mul | .llvm .sdiv | .llvm .udiv
+  | .llvm .ashr | .llvm .mul | .llvm .sdiv | .llvm .udiv
   | .llvm .srem | .llvm .urem => do
     op.verifyIntegerBinop ctx opIn
+    pure ()
+  | .llvm .lshr => do
+    op.verifyLLVMLshr ctx opIn
     pure ()
   | .llvm .intr__fshl | .llvm .intr__fshr => do
     op.verifyIntegerTernop ctx opIn
@@ -531,7 +552,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifySelectTypes ctx opIn
     pure ()
   | .llvm .trunc => do
-    op.verifyIntegerTruncTypes ctx opIn
+    op.verifyTruncTypes ctx opIn true
     pure ()
   | .llvm .sext | .llvm .zext => do
     op.verifyIntegerExtTypes ctx opIn
@@ -611,6 +632,9 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyPlainOpCounts ctx opIn 1 1
     op.verifyResultTypeMatches ctx ((op.getOperand! ctx.raw 0).getType! ctx.raw)
       "llvm.freeze: Expected result type to match operand type"
+    pure ()
+  | .llvm .bitcast => do
+    op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   /- MOD_ARITH -/
   | .mod_arith .add | .mod_arith .mul | .mod_arith .sub => do
@@ -1156,11 +1180,6 @@ theorem OperationPtr.Verified.llvm_sub {op : OperationPtr} {opInBounds}
 
 theorem OperationPtr.Verified.llvm_shl {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .shl) :
-    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
-
-theorem OperationPtr.Verified.llvm_lshr {op : OperationPtr} {opInBounds}
-    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .lshr) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
