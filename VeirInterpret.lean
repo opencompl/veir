@@ -97,7 +97,7 @@ def main (args : List String) : IO Unit := do
   | [filename] =>
     match ← parseOperation filename with
     | .ok (ctx, op) =>
-      match ctx.verify with
+      match WfIRContext.verify ctx (some op) with
       | .ok _ =>
         let rawCtx : IRContext OpCode := ctx
         let mainOp ← resolveEntryPoint rawCtx op

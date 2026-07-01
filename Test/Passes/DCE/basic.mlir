@@ -5,7 +5,6 @@
 "builtin.module"() ({
   
   // An operation that returns one unused result
-  ^4():
     "func.func"()  <{function_type = (i64) -> ()}> ({
       ^6(%1 : i64):
         %2 = "llvm.add"(%1, %1) : (i64, i64) -> i64
@@ -18,7 +17,6 @@
     }) : () -> ()
   
   // A chain of operations that is eventually unused
-  ^5():
     "func.func"()  <{function_type = () -> ()}> ({
       ^6():
         %1 = "arith.constant"() <{ "value" = 1 : i64 }> : () -> i64
@@ -34,7 +32,6 @@
     }) : () -> ()
   
   // A chain of operations that is eventually used
-  ^6():
     "func.func"()  <{function_type = () -> ()}> ({
       ^6():
         %1 = "arith.constant"() <{ "value" = 1 : i64 }> : () -> i64

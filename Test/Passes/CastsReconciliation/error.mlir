@@ -2,7 +2,6 @@
 
 "builtin.module"() ({
 
-  ^1():
     "func.func"()  <{function_type = (i64) -> ()}> ({
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> i8
@@ -14,7 +13,6 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-  ^2():
     "func.func"()  <{function_type = (i64) -> ()}> ({
       ^1(%0 : i64):
         %1 = "builtin.unrealized_conversion_cast"(%0) : (i64) -> !riscv.reg

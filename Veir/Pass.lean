@@ -67,7 +67,7 @@ def run (pipeline : PassPipeline OpCode)
     if h : moduleOp.InBounds currentCtx.raw then
       let ctx' ← try pass.run currentCtx moduleOp h
                  catch errMsg => throw s!"pass '{pass.name}' failed: {errMsg}"
-      if let .error errMsg := ctx'.verify then
+      if let .error errMsg := WfIRContext.verify ctx' (some moduleOp) then
         throw s!"verification failed after pass '{pass.name}': {errMsg}"
       currentCtx := ctx'
     else
