@@ -9,7 +9,7 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 
 @[simp, grind .]
 theorem RuntimeValue.isRefinedBy_refl (v : RuntimeValue) : v ⊒ v := by
-  cases v <;> simp [RuntimeValue.isRefinedBy]
+  cases v <;> grind [RuntimeValue.isRefinedBy]
 
 @[simp, grind .]
 theorem RuntimeValue.arrayIsRefinedBy_refl (a : Array RuntimeValue) : a ⊒ a := by
@@ -51,7 +51,8 @@ theorem ControlFlowAction.optionIsRefinedBy_refl (cf : Option ControlFlowAction)
 
 theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}
     (h12 : v₁ ⊒ v₂) (h23 : v₂ ⊒ v₃) : v₁ ⊒ v₃ := by
-  grind [RuntimeValue.isRefinedBy, isRefinedBy_trans, cases RuntimeValue]
+  cases v₁ <;> grind [RuntimeValue.isRefinedBy, isRefinedBy_trans, cases RuntimeValue]
+
 
 theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
     (h12 : a ⊒ b) (h23 : b ⊒ c) : a ⊒ c := by
