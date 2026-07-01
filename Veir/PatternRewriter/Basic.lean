@@ -268,6 +268,19 @@ def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
   let ctx := WfRewriter.replaceValue rewriter.ctx oldVal newVal
   { rewriter with ctx, hasDoneAction := true}
 
+/--
+Replace a value with another value, panicking if the two values are equal, or if either value
+is out of bounds.
+-/
+def replaceValue! (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
+    : PatternRewriter OpInfo :=
+  if oldIn : oldVal.InBounds rewriter.ctx.raw then
+    let rewriter := rewriter.addUsersInWorklist oldVal oldIn
+    let ctx := WfRewriter.replaceValue! rewriter.ctx oldVal newVal
+    { rewriter with ctx, hasDoneAction := true }
+  else
+    panic! "PatternRewriter.replaceValue! failed: old value is out of bounds"
+
 def createBlock (rewriter: PatternRewriter OpInfo)
     (argTypes: Array TypeAttr)
     (insertPoint : Option BlockInsertPoint)

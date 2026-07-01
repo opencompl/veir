@@ -19,93 +19,83 @@ def sub_minus_one (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     #[] #[] () (some $ .before op)
   return rewriter.replaceOp! op newOp
 
-set_option warn.sorry false in
 def right_identity_zero_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _props) := matchSub op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) lhs
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def right_identity_zero_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _props) := matchAdd op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) lhs
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def right_identity_zero_2 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _props) := matchOr op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) lhs
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def right_identity_zero_3 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _props) := matchXor op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) lhs
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def right_identity_zero_4 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _props) := matchShl op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) lhs
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def right_identity_zero_5 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _props) := matchAshr op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) lhs
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def right_identity_zero_6 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, _props) := matchLshr op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) lhs
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def right_identity_one_int (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (x, rhs, _props) := matchMul op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ 1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) x
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def binop_same_val_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (src, src1, _) := matchAnd op rewriter.ctx | return rewriter
   if src != src1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) src
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def binop_same_val_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (src, src1, _props) := matchOr op rewriter.ctx | return rewriter
   if src != src1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) src
+  return rewriter.eraseOp! op
 
 def same_val_zero_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -127,14 +117,13 @@ def same_val_zero_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     #[] #[] cstProp (some $ .before op)
   return rewriter.replaceOp! op newOp
 
-set_option warn.sorry false in
 def binop_right_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, zero, _props) := matchMul op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal zero rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) zero sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) zero
+  return rewriter.eraseOp! op
 
 def mul_by_neg_one (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -177,25 +166,23 @@ def and_xor_or_to_and (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     #[] #[] () (some $ .before op)
   return rewriter.replaceOp! op newOp
 
-set_option warn.sorry false in
 def add_sub_reg_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (x, tmp, _props) := matchAdd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp tmp rewriter.ctx | return rewriter
   let some (src, x1, _props1) := matchSub defOp rewriter.ctx | return rewriter
   if x != x1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) src
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def add_sub_reg_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (tmp, x, _props) := matchAdd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp tmp rewriter.ctx | return rewriter
   let some (src, x1, _props1) := matchSub defOp rewriter.ctx | return rewriter
   if x != x1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) src
+  return rewriter.eraseOp! op
 
 def APlusBMinusCMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -243,25 +230,23 @@ def APlusZeroMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
-set_option warn.sorry false in
 def APlusBMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (A, sub, _props) := matchAdd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp sub rewriter.ctx | return rewriter
   let some (B, A1, _props1) := matchSub defOp rewriter.ctx | return rewriter
   if A != A1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) B sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) B
+  return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 def BMinusAPlusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (sub, A, _props) := matchAdd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp sub rewriter.ctx | return rewriter
   let some (B, A1, _props1) := matchSub defOp rewriter.ctx | return rewriter
   if A != A1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) B sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) B
+  return rewriter.eraseOp! op
 
 def AMinusBPlusCMinusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -322,15 +307,14 @@ def AMinusZeroMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
-set_option warn.sorry false in
 def AMinusBMinusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (A, add, _props) := matchSub op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp add rewriter.ctx | return rewriter
   let some (A1, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
   if A != A1 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) B sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) B
+  return rewriter.eraseOp! op
 
 def mir_pattern_combines :=
   [sub_minus_one,

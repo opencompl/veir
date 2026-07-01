@@ -29,7 +29,6 @@ def isPreservingIntegerTypeRoundTrip (inputType interType : TypeAttr) : Bool :=
   | _, _ => false
 
 /- Reconciles round-trip casts of the form X->Y->X if allowed for these types by `legal X Y` -/
-set_option warn.sorry false in
 def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) (rewriter : PatternRewriter OpCode)
     (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -48,17 +47,16 @@ def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) (rewriter : Pa
   /- And the reconciliation is legal -/
   if ¬ legal inputType interType then return rewriter
   /- Replace the initial operation's output with the parent operations input -/
-  let rewriter := rewriter.replaceValue (op.getResult 0) parentInput sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) parentInput
   /- Erase the redundant cast operation -/
-  let rewriter ← rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.eraseOp! op
   /- If unused and side-effect-free, erase the parent cast operation as well.
     These need to be erased in this order, otherwise the parent operation will always be used. -/
   if ¬ op'.op.hasUses! rewriter.ctx.raw && ¬ op'.op.hasSideEffects rewriter.ctx.raw then
-    rewriter.eraseOp op'.op sorry sorry sorry
+    return rewriter.eraseOp! op'.op
   else
     return rewriter
 
-set_option warn.sorry false in
 def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some cast := matchCastOp op rewriter.ctx.raw | return rewriter
@@ -67,8 +65,8 @@ def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr
   let inputType := input.getType! rewriter.ctx.raw
   let resultType := ((op.getResult 0).get! rewriter.ctx.raw).type
   if inputType ≠ resultType then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) input sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) input
+  return rewriter.eraseOp! op
 
 def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do

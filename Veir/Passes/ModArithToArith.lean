@@ -97,7 +97,6 @@ abbrev Builder :=
   (ip : InsertPoint) →
   Option (PatternRewriter OpCode × ValuePtr)
 
-set_option warn.sorry false in
 /-- Lower a binary `mod_arith` op `modOp`,
     using intermediate Type iM given storage type iM, with M = `widen` N,
     and using Builder `build` to determine the exact `arith` operations to emit -/
@@ -122,8 +121,8 @@ def lowerModArithBinOp (modOp : Mod_Arith) (widen : Nat → Nat) (build : Builde
   let (rewriter, r) ← build rewriter a b q ip
   let (rewriter, r) ← emitArithBinOp rewriter .remui () r q ip
   let (rewriter, r) ← packValue rewriter r modArithType ip
-  let rewriter := rewriter.replaceValue (op.getResult 0) r sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) r
+  return rewriter.eraseOp! op
 
 /-! ## Binary op lowering Patterns -/
 
@@ -150,7 +149,6 @@ def lowerModArithSubOp := lowerModArithBinOp .sub (· + 1) buildSub
 
 /-! ## Constant lowering Pattern -/
 
-set_option warn.sorry false in
 /-- Lower `mod_arith.constant` to an `arith.constant` (assumes value is in `[0, q)` already). -/
 def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -166,8 +164,8 @@ def lowerModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr
   let ip := InsertPoint.before op
   let (rewriter, r) ← emitArithConstant rewriter c storageType.bitwidth ip
   let (rewriter, out) ← castToModArith rewriter (r : ValuePtr) modArithType ip
-  let rewriter := rewriter.replaceValue (op.getResult 0) out sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) out
+  return rewriter.eraseOp! op
 
 /-! ## Pass implementation -/
 
