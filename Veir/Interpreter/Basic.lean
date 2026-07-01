@@ -4,6 +4,7 @@ import Veir.ForLean
 import Veir.IR.WellFormed
 import Veir.Data.Comb.Basic
 import Veir.Data.LLVM.Int.Basic
+import Veir.Data.LLVM.Byte.Basic
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.HW.Basic
 import Veir.Data.Casting
@@ -35,6 +36,7 @@ variable {ctx : WfIRContext OpInfo}
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
+| byte (bitwidth : Nat) (value : LLVM.Byte bitwidth)
 | float (bitwidth : Nat) (value : Float)
 | addr (value : UInt64)
 | reg (value : RISCV.Reg)
@@ -43,6 +45,7 @@ deriving Inhabited
 instance : ToString (RuntimeValue) where
   toString
     | .int _ val => ToString.toString val
+    | .byte _ val => ToString.toString val
     | .float _ val => ToString.toString val
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
@@ -58,6 +61,7 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   match val, ty with
   | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
   | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
+  | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
   | .reg _, ⟨.registerType _, _⟩ => True
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | _, _ => False
@@ -74,6 +78,18 @@ theorem Conforms.integerType :
   cases runtimeValue
   case int bw val =>
     simp only [int.injEq, exists_and_left]
+    intro _; subst bw
+    grind
+  all_goals grind
+
+@[grind <=]
+theorem Conforms.byteType {runtimeValue byteType h} :
+    Conforms runtimeValue ⟨.byteType byteType, h⟩ →
+    ∃ val, runtimeValue = .byte byteType.bitwidth val := by
+  simp only [Conforms]
+  cases runtimeValue
+  case byte bw val =>
+    simp only [byte.injEq, exists_and_left]
     intro _; subst bw
     grind
   all_goals grind
