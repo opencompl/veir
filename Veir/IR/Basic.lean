@@ -490,6 +490,54 @@ theorem getOperands!.getElem_eq_getOperand! {op : OperationPtr} {h} :
     (op.getOperands! ctx)[index]'h = op.getOperand! ctx index := by
   grind [getOperands!, getOperand!]
 
+def getOpOperands (op : OperationPtr) (ctx : IRContext OpInfo)
+  (inBounds : op.InBounds ctx := by grind) : Array OpOperandPtr :=
+  Array.map (fun i => op.getOpOperand i) (Array.range (op.getNumOperands ctx inBounds))
+
+def getOpOperands! (op : OperationPtr) (ctx : IRContext OpInfo) : Array OpOperandPtr :=
+  Array.map (fun i => op.getOpOperand i) (Array.range (op.getNumOperands! ctx))
+
+@[grind =_, eq_bang ←]
+theorem getOpOperands!_eq_getOpOperands {op : OperationPtr} (hin : op.InBounds ctx) :
+    op.getOpOperands! ctx = op.getOpOperands ctx (by grind) := by
+  grind [getOpOperands, getOpOperands!]
+
+theorem getOpOperands!.mem_iff_exists_index {op : OperationPtr} :
+    operand ∈ op.getOpOperands! ctx ↔
+    ∃ index, index < op.getNumOperands! ctx ∧ op.getOpOperand index = operand := by
+  simp only [getOpOperands!, Array.mem_map, getOpOperand, getNumOperands!]
+  constructor
+  · rintro ⟨opr, ⟨hopr, oprValue⟩⟩
+    have ⟨i, hi, hopr⟩ := Array.getElem_of_mem hopr
+    exists i
+    grind
+  · grind
+
+theorem getOpOperands!.mem_getOpOperand {op : OperationPtr} :
+    index < op.getNumOperands! ctx →
+    op.getOpOperand index ∈ op.getOpOperands! ctx := by
+  grind [getOpOperands!, getOpOperand, getNumOperands!]
+
+@[simp, grind =]
+theorem getOpOperands!.size_eq_getNumOperands! {op : OperationPtr} :
+    (op.getOpOperands! ctx).size = op.getNumOperands! ctx := by
+  grind [getOpOperands!, getNumOperands!]
+
+@[simp, grind =]
+theorem getOpOperands!.getElem!_eq_getOpOperand {op : OperationPtr} :
+    index < op.getNumOperands! ctx →
+    (op.getOpOperands! ctx)[index]! = op.getOpOperand index := by
+  simp only [getOpOperands!, getOpOperand]
+  grind
+
+@[simp, grind =]
+theorem getOpOperands!.getElem_eq_getOpOperand
+    {op : OperationPtr} {h : index < (op.getOpOperands! ctx).size} :
+    index < op.getNumOperands! ctx →
+    (op.getOpOperands! ctx)[index]'h = op.getOpOperand index := by
+  simp only [getOpOperands!, getOpOperand]
+  grind
+
 def getOperandTypes (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : Array TypeAttr :=
   (op.get ctx).operands.map fun opr =>
