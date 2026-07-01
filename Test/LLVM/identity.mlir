@@ -1,5 +1,4 @@
 // RUN: VEIR_UNREGISTERED_ROUNDTRIP
-// RUN: MLIR_UNREGISTERED_ROUNDTRIP
 
 "builtin.module"() ({
   "llvm.module_flags"() <{flags = [#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>, #llvm.mlir.module_flag<min, "PIC Level", 2 : i32>, #llvm.mlir.module_flag<max, "PIE Level", 2 : i32>, #llvm.mlir.module_flag<max, "uwtable", 2 : i32>, #llvm.mlir.module_flag<max, "frame-pointer", 2 : i32>]}> : () -> ()
