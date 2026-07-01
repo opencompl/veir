@@ -196,6 +196,8 @@ def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr intAttr)
     | .float floatAttr =>
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.floatAttr floatAttr)
+    | .dense denseAttr =>
+      (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.denseElementsAttr denseAttr)
   | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     if props.attr.nsw || props.attr.nuw then
@@ -406,6 +408,7 @@ def OperationPtr.hasSideEffects (op : OperationPtr) (ctx : IRContext OpCode) : B
   | .riscv _ => false
   -- For LLVM we enumerate the pure ops
   | .llvm .mlir__constant
+  | .llvm .mlir__poison
   | .llvm .and | .llvm .or | .llvm .xor
   | .llvm .add | .llvm .sub | .llvm .mul
   | .llvm .sdiv | .llvm .udiv | .llvm .srem | .llvm .urem

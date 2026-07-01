@@ -23,14 +23,18 @@ ICMP_PREDS = tuple(range(10))
 # type. `ctlz`/`cttz` additionally carry an `is_zero_poison` flag, and `bswap`
 # is only defined for the byte-swappable widths below.
 INTRINSIC_BINARY = ("llvm.intr.smax", "llvm.intr.smin", "llvm.intr.umax", "llvm.intr.umin")
+# Funnel shifts are only ever emitted in their rotate form (the first two
+# operands equal), since veir can't yet select the general funnel shift.
 INTRINSIC_TERNARY = ("llvm.intr.fshl", "llvm.intr.fshr")
 INTRINSIC_COUNT = ("llvm.intr.ctpop", "llvm.intr.bitreverse")
 INTRINSIC_ZERO_POISON = ("llvm.intr.ctlz", "llvm.intr.cttz")
 BSWAP_WIDTHS = (16, 32, 64)
 
-# Widths the RISC-V backend can compute on. i1 is permitted only as an icmp
-# operand (so comparison results can feed into further comparisons); it is
-# never produced or consumed by arithmetic/bitwise/shift/cast operations.
+# Widths the RISC-V backend can compute on. In RISC-V mode, i1 appears only as
+# the result of an icmp, and that result may feed only a conditional branch or
+# the condition of an llvm.select: icmps always take i64 operands (never i1), and
+# i1 values are never consumed by arithmetic/bitwise/shift/cast operations or
+# further comparisons.
 RISCV_WIDTHS = (64,)
 
 
@@ -119,13 +123,6 @@ class Generator:
     def rand_type(self) -> str:
         return rand_int_type(self.rng, self.riscv)
 
-    def rand_icmp_type(self) -> str:
-        """Operand type for an icmp. In RISC-V mode, i1 is allowed here so that
-        comparison results can be fed back into further comparisons."""
-        if self.riscv:
-            return f"i{self.rng.choice((1,) + RISCV_WIDTHS)}"
-        return self.rand_type()
-
     def random_dominating_value(self, width: int) -> str:
         typ = f"i{width}"
         local = self.local.get(typ, [])
@@ -135,8 +132,24 @@ class Generator:
         else:
             pool = local or imported
         if not pool:
+            if width == 1:
+                # Never inject a fresh i1 literal: i1 constants have no RISC-V
+                # lowering. Every boolean must originate from a comparison.
+                return self.make_bool()
             return self.add_const(typ, rand_const_val(self.rng, width))
         return self.rng.choice(pool)
+
+    def make_bool(self) -> str:
+        """Materialize an i1 value via an icmp rather than a fresh literal."""
+        typ = self.rand_type()
+        while bitwidth(typ) == 1:
+            typ = self.rand_type()
+        width = bitwidth(typ)
+        lhs = self.random_dominating_value(width)
+        rhs = self.random_dominating_value(width)
+        pred = self.rng.choice(ICMP_PREDS)
+        props = f' <{{"predicate" = {pred} : i64}}>'
+        return self.add_operation("llvm.icmp", [lhs, rhs], [typ, typ], "i1", props)
 
     def nsw_nuw_props(self) -> str:
         flags = self.rng.choice((0, 1, 2, 3))
@@ -278,8 +291,11 @@ class Generator:
             op = self.rng.choice(INTRINSIC_TERNARY)
             typ = self.rand_type()
             width = bitwidth(typ)
-            operands = [self.random_dominating_value(width) for _ in range(3)]
-            self.add_operation(op, operands, [typ, typ, typ], typ)
+            # veir can't yet select the general funnel shift, only the rotate
+            # special case where the two shifted operands are equal.
+            value = self.random_dominating_value(width)
+            amount = self.random_dominating_value(width)
+            self.add_operation(op, [value, value, amount], [typ, typ, typ], typ)
         elif r < 0.78:
             op = self.rng.choice(INTRINSIC_ZERO_POISON)
             typ = self.rand_type()
@@ -366,7 +382,10 @@ class Generator:
                 operand = self.random_dominating_value(src_w)
                 self.add_operation("llvm.trunc", [operand], [src], dst, props)
             elif choice < 0.90:
-                typ = self.rand_icmp_type()
+                # icmp operands are ordinary integer values; in RISC-V mode that
+                # means i64 (rand_type never yields i1 there), so an icmp result
+                # is never fed back into another comparison.
+                typ = self.rand_type()
                 width = bitwidth(typ)
                 lhs = self.random_dominating_value(width)
                 rhs = self.random_dominating_value(width)

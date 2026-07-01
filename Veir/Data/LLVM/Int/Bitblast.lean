@@ -124,6 +124,11 @@ theorem isPoison_constant {w : Nat} (v : _root_.Int) :
     (constant w v).isPoison = false := by rfl
 
 @[veir_bv_normalize, grind =]
+theorem isPoison_poison {w : Nat} :
+    (mlir_poison w).isPoison = true := by
+  simp [mlir_poison, isPoison]
+
+@[veir_bv_normalize, grind =]
 theorem isPoison_add {w : Nat} (x y : Int w) {nsw nuw : Bool} :
     (add x y nsw nuw).isPoison =
       if h : x.isPoison = true ∨ y.isPoison = true then true
@@ -673,4 +678,16 @@ theorem icmp_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (p : IntPred)
 theorem select_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (c₁ c₂ : Int 1)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) (h₃ : c₁ ⊒ c₂) :
     select c₁ x₁ x₂ ⊒ select c₂ y₁ y₂ := by
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_freeze {w : Nat} (x : Int w) :
+    (freeze x).isPoison = false := by
+  simp [freeze, isPoison, Id.run]
+  grind
+
+@[veir_bv_normalize, grind =]
+theorem getValue_freeze {w : Nat} (x : Int w) :
+    (freeze x).getValue = if h : x.isPoison then 0#w else x.getValue := by
+  simp [freeze, Id.run]
   grind

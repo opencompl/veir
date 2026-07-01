@@ -78,11 +78,15 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
   for i in List.range (block.getNumArguments! c.raw) do
     let bap : BlockArgumentPtr := { block := block, index := i }
 
+    -- preserving the block argument's original type so the cast back from the
+    -- register reproduces the correct type (e.g. i32 instead of i64)
+    let origType := (ValuePtr.blockArgument bap).getType! c.raw
+
     c := WfRewriter.setType c bap (RegisterType.mk) sorry
     let ip := InsertPoint.atStart block c.raw sorry
     let some (c', cast) := WfRewriter.createOp c
       (OpCode.builtin .unrealized_conversion_cast)
-      #[IntegerType.mk 64] #[] #[] #[] default ip sorry sorry sorry
+      #[origType] #[] #[] #[] default ip sorry sorry sorry
       sorry | return c
     let c' := WfRewriter.replaceValue c' bap (cast.getResult 0) sorry sorry
       sorry
