@@ -24,17 +24,21 @@ theorem Interp.isRefinedBy_refl_of_ne_none {α : Type} {R : α → α → Prop}
     (hR : ∀ a, R a a) (x : Interp α) (neNone : x ≠ none) : Interp.isRefinedBy R x x := by
   rcases x with _ | (x | _) <;> grind [Interp.isRefinedBy]
 
+/-- `isRefinedByAt` is reflexive under the identity mapping at any program point. -/
 @[simp, grind .]
-theorem VariableState.isRefinedBy_refl
-    {ctx : WfIRContext OpInfo} {state : VariableState ctx} :
-    state.isRefinedBy state id := by
-  grind [VariableState.isRefinedBy]
+theorem VariableState.isRefinedByAt_refl
+    {ctx : WfIRContext OpInfo} {state : VariableState ctx}
+    {p : InsertPoint} {pIn : p.InBounds ctx.raw} :
+    state.isRefinedByAt state id p p := by
+  grind [VariableState.isRefinedByAt]
 
+/-- `isRefinedByAt` is reflexive for `InterpreterState` under the identity mapping at any point. -/
 @[simp, grind .]
-theorem InterpreterState.isRefinedBy_refl
-    {ctx : WfIRContext OpInfo} {state : InterpreterState ctx} :
-    state.isRefinedBy state id := by
-  grind [InterpreterState.isRefinedBy, VariableState.isRefinedBy]
+theorem InterpreterState.isRefinedByAt_refl
+    {ctx : WfIRContext OpInfo} {state : InterpreterState ctx}
+    {p : InsertPoint} {pIn : p.InBounds ctx.raw} :
+    state.isRefinedByAt state id p p := by
+  grind [InterpreterState.isRefinedByAt]
 
 @[simp, grind .]
 theorem ControlFlowAction.isRefinedBy_refl (cf : ControlFlowAction) : cf ⊒ cf := by
@@ -130,16 +134,42 @@ theorem ValueMapping.applyToArray_getResults!_ext
     Array.getElem_attach] at hResults
   grind
 
-/-- If a value mapping reflects results from `op` to `op'`, then values that are not in
-`op` results are not mapped to values in `op'` results. -/
+/-- Extensibility theorem for value mappings fixing a block's argument pointers across contexts. -/
+theorem ValueMapping.applyToArray_getArguments!_ext
+    {ctx ctx' : WfIRContext OpInfo} {block : BlockPtr}
+    {mapping : ValueMapping ctx ctx'}
+    (blockIn : block.InBounds ctx.raw)
+    (hArgs : mapping.applyToArray (block.getArguments! ctx.raw) = block.getArguments! ctx'.raw) :
+    ∀ (i : Nat) (hi : i < block.getNumArguments! ctx.raw),
+      (mapping ⟨block.getArgument i, (by grind)⟩).val = block.getArgument i := by
+  intro i hi
+  simp only [applyToArray, Array.ext_iff, Array.size_map, Array.size_attach,
+    BlockPtr.getArguments!.size_eq_getNumArguments!, Array.getElem_map,
+    Array.getElem_attach] at hArgs
+  grind
+
+/-- If a value mapping reflects results from `op` to `op'`, then in-scope values (dominating the point
+before `op`) that are not in `op` results are not mapped to values in `op'` results. -/
 @[grind .]
 theorem ValueMapping.ReflectsResults.not_mem_getResults
     {ctx ctx' : WfIRContext OpInfo} {mapping : ValueMapping ctx ctx'} {op op' : OperationPtr}
     {val : ValuePtr} (valIn : val.InBounds ctx.raw)
     (hReflect : mapping.ReflectsResults op op')
+    (hValDom : val.dominatesIp (InsertPoint.before op) ctx)
     (hNotMem : val ∉ op.getResults! ctx.raw) :
     (mapping ⟨val, valIn⟩).val ∉ op'.getResults! ctx'.raw := by
   intro hmem
   simp only [OperationPtr.getResults!.mem_iff_exists_index] at hmem
   have ⟨index, hindex, heq⟩ := hmem
-  grind [OperationPtr.getResults!.mem_iff_exists_index, hReflect val valIn index heq.symm]
+  grind [OperationPtr.getResults!.mem_iff_exists_index, hReflect val valIn index hValDom heq.symm]
+
+/-! ## Conformance under refinement -/
+
+/-- Refinement preserves conformance to a type: if `sv ⊒ tv` and `sv` conforms to `ty`, then `tv`
+conforms to `ty`. -/
+@[grind →]
+theorem RuntimeValue.Conforms_of_isRefinedBy {sv tv : RuntimeValue} {ty : TypeAttr}
+    (href : sv ⊒ tv) (hconf : sv.Conforms ty) : tv.Conforms ty := by
+  obtain ⟨attr, hattr⟩ := ty
+  cases sv <;> cases attr <;> simp_all [RuntimeValue.isRefinedBy, RuntimeValue.Conforms]
+  all_goals cases tv <;> grind

@@ -1213,5 +1213,15 @@ theorem OperationPtr.Verified.llvm_urem {op : OperationPtr} {opInBounds}
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
+/-- A verified `func.func` operation has exactly one region (its body). This is what lets the rewrite
+soundness lift conclude that a `func.func` survivor is distinct from the matched, region-free `op`. -/
+theorem OperationPtr.Verified.func_func {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .func .func) :
+    op.getNumRegions! ctx.raw = 1 := by
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, ne_eq,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
+    ite_not] at opVerify
+  grind
+
 end
 end Veir
