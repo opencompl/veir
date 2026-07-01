@@ -87,6 +87,9 @@ def lshr (x : Byte w) (y : Int w) (exact := false) : Byte w :=
       simp [←BitVec.ushiftRight_and_distrib, x.h]
     )⟩
 
+def freeze (x : Byte w) : Byte w :=
+  ⟨x.val, 0#w, by grind⟩
+
 def toString_rec {w : Nat} (b : Byte w) : String :=
   if w = 0 then "" else
   s!"{if b.poison.getMsbD 0 then "?" else ToString.toString (b.val.getMsbD 0).toNat}{(b.trunc (w - 1)).toString_rec}"

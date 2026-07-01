@@ -917,8 +917,13 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
     | .poison => Interp.ub
   | .freeze => do
-    let [RuntimeValue.int w val] := operands.toList | none
-    return (#[RuntimeValue.int w (LLVM.Int.freeze val)], mem, none)
+    let [val] := operands.toList | none
+    match val with
+    | .int w val =>
+        return (#[.int w val.freeze], mem, none)
+    | .byte w val =>
+        return (#[.byte w val.freeze], mem, none)
+    | _ => none
   | .bitcast => do
     let [val] := operands.toList | none
     let [⟨type, _⟩] := resultTypes.toList | none
