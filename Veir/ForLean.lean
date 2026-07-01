@@ -38,6 +38,11 @@ def UInt64.toByteArrayLE (u : UInt64) : ByteArray :=
     (u >>> 0x38).toUInt8,
   ])
 
+@[simp, grind =]
+theorem UInt64.toByteArrayLE_size (u : UInt64) :
+    u.toByteArrayLE.size = 8 := by
+  simp [toByteArrayLE, ByteArray.size]
+
 namespace ByteArray
 
 @[simp, grind =]
@@ -414,6 +419,11 @@ theorem setWidth_ofInt_32_64 (v : Int) :
   rw [← BitVec.toInt_inj]
   simp only [BitVec.toInt_setWidth, BitVec.toNat_ofInt, Nat.reducePow, Int.cast_ofNat_Int, Int.ofNat_toNat,
     BitVec.toInt_ofInt]
+  grind
+
+@[grind =]
+theorem eq_setWidth_zero (x : BitVec w) :
+    x = 0#w → x.setWidth w' = 0#w' := by
   grind
 
 end BitVec

@@ -116,6 +116,7 @@ inductive Llvm where
 | fdiv
 | frem
 | freeze
+| bitcast
 | intr__smax
 | intr__smin
 | intr__umax
