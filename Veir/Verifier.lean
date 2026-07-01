@@ -297,7 +297,7 @@ def OperationPtr.verifyIntegerUnop (op : OperationPtr) (ctx : WfIRContext OpCode
   op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
   pure operandType
 
-def OperationPtr.verifyLLVMLshr (op : OperationPtr) (ctx : WfIRContext OpCode)
+def OperationPtr.verifyLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCode)
     (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   op.verifyPlainOpCounts ctx opIn 2 1
   let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
@@ -579,7 +579,7 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
   | .llvm .and | .llvm .or | .llvm .xor | .llvm .intr__smax | .llvm .intr__smin
-  | .llvm .intr__umax | .llvm .intr__umin | .llvm .add | .llvm .sub | .llvm .shl
+  | .llvm .intr__umax | .llvm .intr__umin | .llvm .add | .llvm .sub
   | .llvm .ashr | .llvm .mul | .llvm .sdiv | .llvm .udiv
   | .llvm .srem | .llvm .urem
   | .llvm .intr__sadd__sat | .llvm .intr__uadd__sat
@@ -587,11 +587,11 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .llvm .intr__sshl__sat | .llvm .intr__ushl__sat => do
     op.verifyIntegerBinop ctx opIn
     pure ()
+  | .llvm .lshr | .llvm .shl => do
+    op.verifyLLVMShift ctx opIn
+    pure ()
   | .llvm .intr__abs => do
     let _ ← op.verifyIntegerUnop ctx opIn
-    pure ()
-  | .llvm .lshr => do
-    op.verifyLLVMLshr ctx opIn
     pure ()
   | .llvm .intr__fshl | .llvm .intr__fshr => do
     op.verifyIntegerTernop ctx opIn
@@ -1237,11 +1237,6 @@ theorem OperationPtr.Verified.llvm_add {op : OperationPtr} {opInBounds}
 
 theorem OperationPtr.Verified.llvm_sub {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .sub) :
-    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
-    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
-
-theorem OperationPtr.Verified.llvm_shl {op : OperationPtr} {opInBounds}
-    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .shl) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 

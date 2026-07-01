@@ -710,21 +710,29 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
       if v' = 0 then Interp.ub
       else return (#[.int bw (LLVM.Int.urem lhs rhs)], mem, none)
   | .shl => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.shl lhs rhs properties.nsw properties.nuw)], mem, none)
+    let [lhs, .int bw' rhs] := operands.toList | none
+    match lhs with
+    | .int bw lhs =>
+      if h: bw' ≠ bw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (LLVM.Int.shl lhs rhs properties.nsw properties.nuw)], mem, none)
+    | .byte bw lhs =>
+      if h: bw' ≠ bw then none else
+      if properties.nsw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      return (#[.byte bw (LLVM.Byte.shl lhs rhs properties.nuw)], mem, none)
+    | _ => none
   | .lshr => do
     let [lhs, .int bw' rhs] := operands.toList | none
     match lhs with
     | .int bw lhs =>
-      if h: bw' ≠ bw then none else -- ????
+      if h: bw' ≠ bw then none else
       let rhs := rhs.cast (by simp at h; exact h)
       return (#[.int bw (LLVM.Int.lshr lhs rhs properties.exact)], mem, none)
     | .byte bw lhs =>
       if h: bw' ≠ bw then none else
       let rhs := rhs.cast (by simp at h; exact h)
-      return (#[.byte bw (LLVM.Byte.lshr lhs rhs)], mem, none)
+      return (#[.byte bw (LLVM.Byte.lshr lhs rhs properties.exact)], mem, none)
     | _ => none
   | .ashr => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none

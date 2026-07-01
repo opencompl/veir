@@ -59,13 +59,31 @@ def trunc (x : Byte w) (w' : Nat) : Byte w' :=
     simp [←BitVec.setWidth_and, x.h]
   )⟩
 
+def shl {w : Nat} (x : Byte w) (y : Int w) (nuw : Bool := false) : Byte w := Id.run do
+  let .val y' := y | allPoison
+
+  if y' ≥ w then
+    return allPoison
+
+  if nuw ∧ (x.val <<< y') >>> y' ≠ x.val then
+    return allPoison
+
+  if nuw ∧ (x.poison <<< y') >>> y' ≠ x.poison then
+    return allPoison
+
+  ⟨x.val <<< y', x.poison <<< y', by simp [←BitVec.shiftLeft_and_distrib, x.h]⟩
+
 @[veir_bv_normalize]
-def lshr (x : Byte w) (y : Int w) : Byte w :=
-  if y.isPoison || y.getValueD ≥ w then
+def lshr (x : Byte w) (y : Int w) (exact := false) : Byte w :=
+  let y' := y.getValueD
+  if y.isPoison || y' ≥ w then
+    allPoison
+  else if exact ∧ (x.val >>> y') <<< y' ≠ x.val then
+    allPoison
+  else if exact ∧ (x.poison >>> y') <<< y' ≠ x.poison then
     allPoison
   else
-    let y := y.getValueD
-    ⟨x.val >>> y, x.poison >>> y, by (
+    ⟨x.val >>> y', x.poison >>> y', by (
       simp [←BitVec.ushiftRight_and_distrib, x.h]
     )⟩
 

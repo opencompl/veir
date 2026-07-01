@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> (!llvm.byte<64>, i32, i32)}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (!llvm.byte<64>, i32, i32, !llvm.byte<64>)}> ({
     %1 = "llvm.mlir.constant"() <{ "value" = 1 : i64 }> : () -> i64
     %2 = "llvm.mlir.constant"() <{ "value" = 17 : i64 }> : () -> i64
     %3 = "llvm.mlir.poison"() : () -> i8
@@ -17,9 +17,10 @@
     %11 = "llvm.trunc"(%7) : (!llvm.byte<64>) -> !llvm.byte<32>
     %12 = "llvm.bitcast"(%10) : (!llvm.byte<32>) -> i32
     %13 = "llvm.bitcast"(%11) : (!llvm.byte<32>) -> i32
-    %14 = "llvm.mlir.constant"() <{ "value" = 32 : i32 }> : () -> i32
-    "func.return"(%7, %12, %13) : (!llvm.byte<64>, i32, i32) -> ()
+    %14 = "llvm.mlir.constant"() <{ "value" = 4 : i64 }> : () -> i64
+    %15 = "llvm.shl"(%7, %14) : (!llvm.byte<64>, i64) -> !llvm.byte<64>
+    "func.return"(%7, %12, %13, %15) : (!llvm.byte<64>, i32, i32, !llvm.byte<64>) -> ()
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0b000000000000000000000000????????00000000000000000000000000010001#64, poison, 0x00000011#32]
+// CHECK: Program output: #[0b000000000000000000000000????????00000000000000000000000000010001#64, poison, 0x00000011#32, 0b00000000000000000000????????000000000000000000000000000100010000#64]
