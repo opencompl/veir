@@ -164,7 +164,7 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBou
 /-- llvm.add -> riscv.add -/
 def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, properties) := matchAdd op rewriter.ctx | return rewriter
+  let some (lhs, rhs, _) := matchAdd op rewriter.ctx | return rewriter
   /- support `i64` and `i32` (experiment) -/
   let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return rewriter
@@ -219,7 +219,7 @@ def and (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
 /-- llvm.ashr -> riscv.sra -/
 def ashr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, properties) := matchAshr op rewriter.ctx | return rewriter
+  let some (lhs, rhs, _) := matchAshr op rewriter.ctx | return rewriter
   /- support `i64` and `i32` -/
   let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return rewriter
@@ -284,7 +284,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
       pure (rewriter, lcastOp.getResult 0, rcastOp.getResult 0)
   /- Casting back result for type consistency is always necessary. -/
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
-  let .integerType type' := type.val | rewriter
+  let .integerType _ := type.val | rewriter
   /- Match depending on the predicate and build correct lowering. -/
   let (rewriter, retOp) ← match property.predicate with
     | .eq =>
