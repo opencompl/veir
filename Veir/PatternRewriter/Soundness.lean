@@ -105,6 +105,29 @@ theorem rewriteMapping_resultsInBounds {ctx newCtx : WfIRContext OpCode}
   rw [getElem!_pos newValues index hsize]
   exact newValuesInBounds _ (Array.getElem_mem hsize)
 
+/-- `LocalRewritePattern.mapping` and `rewriteMapping` (for the same `op`/`newValues`) agree on the
+underlying value pointer, regardless of their (possibly different) target contexts: both fix every
+non-result and send `op`'s `i`-th result onto `newValues`'s `i`-th entry. The two mappings have
+different codomains (`mapping`'s is the pattern's create-only context, `rewriteMapping`'s is the
+driver's edited context), so only the `.val` projection — which is context-independent — is compared.
+This bridges the `PreservesSemantics` refinement (stated with `mapping`) to `hRW.σ`. -/
+theorem mapping_val_eq_rewriteMapping_val {ctx newCtxA newCtxB : WfIRContext OpCode}
+    {pattern : LocalRewritePattern OpCode} {op : OperationPtr}
+    {newOps : Array OperationPtr} {newValues : Array ValuePtr}
+    (hpat : pattern ctx op = some (newCtxA, some (newOps, newValues)))
+    (hRVIB : pattern.ReturnValuesInBounds) (hRV : pattern.ReturnValues)
+    (hRCC : pattern.ReturnCtxChanges)
+    {mapResultsInBounds : ∀ (index : Nat), index < (op.getResults! ctx.raw).size →
+      newValues[index]!.InBounds newCtxB.raw}
+    {mapNonResultsInBounds : ∀ (v : ValuePtr), v.InBounds ctx.raw →
+      v ∉ op.getResults! ctx.raw → v.InBounds newCtxB.raw}
+    {v : ValuePtr} (vIn1 : v.InBounds ctx.raw) (vIn2 : v.InBounds ctx.raw) :
+    (LocalRewritePattern.mapping hpat hRVIB hRV hRCC ⟨v, vIn1⟩).val
+      = (rewriteMapping op newValues mapResultsInBounds mapNonResultsInBounds ⟨v, vIn2⟩).val := by
+  by_cases h : v ∈ op.getResults! ctx.raw
+  · simp only [LocalRewritePattern.mapping, rewriteMapping, dif_pos h]
+  · simp only [LocalRewritePattern.mapping, rewriteMapping, dif_neg h]
+
 /--
 `RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn'` asserts that
 `newCtx` is obtained from `ctx` by the single local rewrite that replaces `op` with `newOps`
@@ -620,6 +643,7 @@ def OpStepSimulation
     (q'In : (InsertPoint.afterLast newOps.toList newCtx.raw p').InBounds newCtx.raw),
     s.isRefinedByAt s' μ (InsertPoint.before op) p' →
     s.EquationLemmaAt (InsertPoint.before op) →
+    s'.EquationLemmaAt p' p'In →
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState newCtx × Option ControlFlowAction) =>
@@ -838,6 +862,53 @@ theorem interpretOpList_DefinesDominating_before {ctx : WfIRContext OpCode}
       (stateDom a (by simp) (by simp)) hlast hrun
     simp only [InsertPoint.after_eq_of_some_next (hChain.getLast?_next_eq hlast)] at hDom
     exact hDom
+
+/-- Landing `EquationLemmaAt` at the `afterLast` end point of a block prefix. Running a block-prefix
+`ops` (a chain slice starting at the block entry) from a state satisfying the SSA invariant at the
+block start yields a state satisfying it at `afterLast ops (atStart! block)` — the point reached just
+after the prefix. This is the target-side feeder for `OpStepSimulation`'s new `s'.EquationLemmaAt p'`
+hypothesis, where `p'` is the `newOps` insertion point `afterLast pre (atStart! block)`. -/
+theorem interpretOpList_equationLemmaAt_afterLast_atStart {ctx : WfIRContext OpCode}
+    {block : BlockPtr} {ops : List OperationPtr} {state state' : InterpreterState ctx}
+    (ctxDom : ctx.Dom) (bIn : block.InBounds ctx.raw)
+    (opsIn : ∀ op ∈ ops, op.InBounds ctx.raw)
+    (hChain : block.OpChainSlice ctx.raw ops)
+    (hFirstOfHead : ∀ h, ops.head? = some h → (block.get! ctx.raw).firstOp = some h)
+    (hstart : state.EquationLemmaAt (InsertPoint.atStart! block ctx.raw)
+      ((InsertPoint.inBounds_atStart! ctx.wellFormed bIn).mpr bIn))
+    (pIn : (InsertPoint.afterLast ops ctx.raw (InsertPoint.atStart! block ctx.raw)).InBounds ctx.raw)
+    (hrun : interpretOpList ops state opsIn = some (.ok (state', none))) :
+    state'.EquationLemmaAt
+      (InsertPoint.afterLast ops ctx.raw (InsertPoint.atStart! block ctx.raw)) pIn := by
+  cases ops with
+  | nil =>
+    rw [interpretOpList_nil] at hrun
+    obtain rfl : state = state' := by grind
+    simpa only [InsertPoint.afterLast_nil] using hstart
+  | cons a t =>
+    obtain ⟨lastOp, hlast⟩ : ∃ lastOp, (a :: t).getLast? = some lastOp := by
+      cases hg : (a :: t).getLast? with
+      | none => simp at hg
+      | some x => exact ⟨x, rfl⟩
+    have hfa : (block.get! ctx.raw).firstOp = some a := hFirstOfHead a (by simp)
+    have eqPtS : ∀ {p₁ p₂ : InsertPoint} {w1 : p₁.InBounds ctx.raw} {w2 : p₂.InBounds ctx.raw},
+        p₁ = p₂ → state.EquationLemmaAt p₁ w1 → state.EquationLemmaAt p₂ w2 := by
+      intro p₁ p₂ w1 w2 hp h; subst hp; exact h
+    have hstart' : state.EquationLemmaAt (InsertPoint.before a) :=
+      eqPtS (by simp only [InsertPoint.atStart!, hfa]) hstart
+    have hEq := interpretOpList_equationLemmaAt ctxDom hChain (by simp) hstart' hlast hrun
+    have lastIn : lastOp.InBounds ctx.raw :=
+      hChain.inBounds_of_mem lastOp (List.mem_of_getLast? hlast)
+    have lastParent : (lastOp.get! ctx.raw).parent = some block :=
+      hChain.parent_of_mem lastOp (List.mem_of_getLast? hlast)
+    have hpt : InsertPoint.afterLast (a :: t) ctx.raw (InsertPoint.atStart! block ctx.raw)
+        = InsertPoint.after lastOp ctx.raw block := by
+      simp only [InsertPoint.afterLast, hlast]
+      rw [InsertPoint.after!_eq_after lastParent lastIn]
+    have eqPt : ∀ {p₁ p₂ : InsertPoint} {w1 : p₁.InBounds ctx.raw} {w2 : p₂.InBounds ctx.raw},
+        p₁ = p₂ → state'.EquationLemmaAt p₁ w1 → state'.EquationLemmaAt p₂ w2 := by
+      intro p₁ p₂ w1 w2 hp h; subst hp; exact h
+    exact eqPt hpt.symm hEq
 
 /-- Interpreting a singleton operation list is interpreting the operation. -/
 theorem interpretOpList_singleton {ctx : WfIRContext OpCode} {op : OperationPtr}
@@ -1098,6 +1169,8 @@ theorem RewrittenAt.blockSimulation
       ((InsertPoint.inBounds_atStart! newCtx.wellFormed blockIn').mpr blockIn'))
     (hEqLem : ∀ fst (hfst : (block.get! ctx.raw).firstOp = some fst),
       state.EquationLemmaAt (.before fst))
+    (hTgtEqLem : state'.EquationLemmaAt (InsertPoint.atStart! block newCtx.raw)
+      ((InsertPoint.inBounds_atStart! newCtx.wellFormed blockIn').mpr blockIn'))
     (hSrcSplit : ∃ (front : List OperationPtr) (term : OperationPtr)
         (frontIn : ∀ o ∈ front, o.InBounds ctx.raw),
         (pre.toList ++ [op] ++ post.toList) = front ++ [term] ∧
@@ -1253,6 +1326,13 @@ theorem RewrittenAt.blockSimulation
         have hEq : s2.EquationLemmaAt (InsertPoint.before op) opIn :=
           interpretOpList_equationLemmaAt_before hCtxDom hRW.preInBounds opIn hRW.preChainOp
             (fun fst _ hhd => hEqLem fst (by rw [hRW.srcFirstOp, List.head?_append, hhd]; rfl)) hrunS
+        -- Target `EquationLemmaAt` at the `newOps` insertion point, threading `hTgtEqLem` through `pre`.
+        have hTgtEq : s2'.EquationLemmaAt
+            (InsertPoint.afterLast pre.toList newCtx.raw (InsertPoint.atStart! block newCtx.raw)) p'In :=
+          interpretOpList_equationLemmaAt_afterLast_atStart ctxDom' blockIn' hRW.preInBounds'
+            hRW.preChain'
+            (fun h hh => by rw [hRW.tgtFirstOp, List.head?_append, List.head?_append, hh]; rfl)
+            hTgtEqLem p'In hrunT
         -- Transport the source scope point `afterLast pre (atStart!)` to `before op` (witness-free).
         have congrPt : ∀ {p₁ p₂ : InsertPoint} {w1 : p₁.InBounds ctx.raw} {w1' w2'}
             {w2 : p₂.InBounds ctx.raw}, p₁ = p₂ →
@@ -1267,7 +1347,7 @@ theorem RewrittenAt.blockSimulation
           (InsertPoint.after!_inBounds ctx.wellFormed hRW.opParent opIn)
           (InsertPoint.afterLast_inBounds newCtx.wellFormed p'In hRW.newOpsParent'
             (fun o ho => hRW.newOpsInBounds' o ho))
-          (congrPt hPreEndSrc hsRef) hEq
+          (congrPt hPreEndSrc hsRef) hEq hTgtEq
         rw [interpretOpList_singleton]
         have hP1 : InsertPoint.afterLast (pre.toList ++ [op]) ctx.raw
             (InsertPoint.atStart! block ctx.raw) = InsertPoint.after! op ctx.raw := by
@@ -1499,6 +1579,12 @@ theorem RewrittenAt.interpretBlock_refinement
           (InsertPoint.atStart! b newCtx.raw)
           ((InsertPoint.inBounds_atStart! newCtx.wellFormed (hRW.blocksInBounds b bIn)).mpr
             (hRW.blocksInBounds b bIn)))
+    (hTgtEqInv : ∀ newVars',
+        state'.variables.setArgumentValues? b values' (hRW.blocksInBounds b bIn) = some newVars' →
+        (InterpreterState.mk newVars' state'.memory).EquationLemmaAt
+          (InsertPoint.atStart! b newCtx.raw)
+          ((InsertPoint.inBounds_atStart! newCtx.wellFormed (hRW.blocksInBounds b bIn)).mpr
+            (hRW.blocksInBounds b bIn)))
     (hSrcSplitB : ∃ (front : List OperationPtr) (term : OperationPtr)
         (frontIn : ∀ o ∈ front, o.InBounds ctx.raw) (_termIn : term.InBounds ctx.raw),
         (b.operationList ctx.raw ctx.wellFormed bIn).toList = front ++ [term] ∧
@@ -1573,7 +1659,9 @@ theorem RewrittenAt.interpretBlock_refinement
           (InterpreterState.mk newVars state.memory).EquationLemmaAt (.before fst)
             (by have := ctx.wellFormed.inBounds; grind) :=
         fun fst hfst => hSrcInv newVars hsa fst hfst
-      have hbs := hRW.blockSimulation newCtxVerif hCtxDom hpsRef hTgtDD hEqLemArg hSplit hOpSim
+      have hTgtEqLemArg := hTgtEqInv newVars' hsa'
+      have hbs := hRW.blockSimulation newCtxVerif hCtxDom hpsRef hTgtDD hEqLemArg hTgtEqLemArg hSplit
+        hOpSim
       simp only [hsrc] at hSp
       simp only [hsrc, htgt]
       simp only [hSp, hTp] at hbs
@@ -1854,6 +1942,52 @@ theorem interpretBlock_branch_definesDominating_succ_atStart
   exact InterpreterState.DefinesDominating.setArgumentValues?_succ_entry ctxDom bIn
     hSucc hAfterTerm hArgs
 
+/-- **Target-side cross-block re-establishment of `EquationLemmaAt` (`atStart!` framing).** The
+`EquationLemmaAt` analogue of `interpretBlock_branch_definesDominating_succ_atStart`: threads the SSA
+invariant from `b`'s entry through its operation chain to the terminator's exit, then across the CFG
+edge into `succ`, stating both the entry and re-established successor invariants at `atStart!`. -/
+theorem interpretBlock_branch_equationLemmaAt_succ_atStart
+    {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom)
+    {b succ : BlockPtr} (bIn : b.InBounds ctx.raw) (succIn : succ.InBounds ctx.raw)
+    {values res : Array RuntimeValue} {state exitState : InterpreterState ctx}
+    {front : List OperationPtr} {term : OperationPtr}
+    (frontIn : ∀ o ∈ front, o.InBounds ctx.raw) (termIn : term.InBounds ctx.raw)
+    (harr : (b.operationList ctx.raw ctx.wellFormed bIn).toList = front ++ [term])
+    (hFrontNoCf : ∀ (s s' : InterpreterState ctx) (cf : ControlFlowAction),
+        interpretOpList front s frontIn ≠ some (.ok (s', some cf)))
+    (hEntryInv : ∀ newVars, state.variables.setArgumentValues? b values bIn = some newVars →
+        (InterpreterState.mk newVars state.memory).EquationLemmaAt (.atStart! b ctx.raw)
+          (by have := ctx.wellFormed.inBounds; grind))
+    (hRun : interpretBlock b values state bIn = some (.ok (exitState, .branch res succ))) :
+    ∀ newVars', exitState.variables.setArgumentValues? succ res succIn = some newVars' →
+      (InterpreterState.mk newVars' exitState.memory).EquationLemmaAt (.atStart! succ ctx.raw)
+        (by have := ctx.wellFormed.inBounds; grind) := by
+  intro newVars' hArgs
+  obtain ⟨newVars, s', hSetArgs, hFrontRun, hTermRun⟩ :=
+    interpretBlock_branch_split bIn frontIn termIn harr hFrontNoCf hRun
+  obtain ⟨hparent, hnext, hchain, hfirst⟩ := operationList_split_term_facts bIn termIn harr
+  have hBeforeTerm : s'.EquationLemmaAt (.before term) termIn :=
+    interpretOpList_equationLemmaAt_before ctxDom frontIn termIn hchain
+      (fun fst _ hhead => by
+        have hfo : (b.get! ctx.raw).firstOp = some fst := by rw [hfirst]; exact hhead
+        have heq := hEntryInv newVars hSetArgs
+        have hpt : InsertPoint.atStart! b ctx.raw = .before fst := by
+          simp [InsertPoint.atStart!, hfo]
+        simp only [hpt] at heq
+        exact heq)
+      hFrontRun
+  have hAfterTerm := interpretOp_equationLemmaAt ctxDom hBeforeTerm hparent hTermRun
+  have succMem : succ ∈ term.getSuccessors! ctx.raw :=
+    interpretOp_branch_dest_mem_getSuccessors! hTermRun
+  have hlast : (b.get! ctx.raw).lastOp = some term := by grind
+  have hSucc : succ ∈ b.getSuccessors! ctx.raw := by
+    simp only [BlockPtr.getSuccessors!, hlast]; exact succMem
+  have hAtEnd : InsertPoint.after term ctx.raw b hparent termIn = InsertPoint.atEnd b := by
+    grind [InsertPoint.after]
+  simp only [hAtEnd] at hAfterTerm
+  exact InterpreterState.EquationLemmaAt.setArgumentValues?_succ_entry ctxDom bIn
+    hSucc hAfterTerm hArgs
+
 /-- **Cross-edge transport of the scoped entry relation.** Given the full scoped state refinement at
 the predecessor's exit (`atEnd b`), produce the incoming-edge scoped relation at the successor's
 entry (`.blockEntry succ`). This is a pure scope-weakening (`isRefinedByAt.weaken`): a value in
@@ -1944,6 +2078,12 @@ theorem RewrittenAt.interpretBlockCFG_refinement
         (InterpreterState.mk newVars' state'.memory).DefinesDominating
           (InsertPoint.atStart! b newCtx.raw)
           ((InsertPoint.inBounds_atStart! newCtx.wellFormed (hRW.blocksInBounds b bIn)).mpr
+            (hRW.blocksInBounds b bIn)))
+    (hTgtEqInv : ∀ newVars',
+        state'.variables.setArgumentValues? b values' (hRW.blocksInBounds b bIn) = some newVars' →
+        (InterpreterState.mk newVars' state'.memory).EquationLemmaAt
+          (InsertPoint.atStart! b newCtx.raw)
+          ((InsertPoint.inBounds_atStart! newCtx.wellFormed (hRW.blocksInBounds b bIn)).mpr
             (hRW.blocksInBounds b bIn))) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Array RuntimeValue)
@@ -1967,13 +2107,19 @@ theorem RewrittenAt.interpretBlockCFG_refinement
           (InsertPoint.atStart! b newCtx.raw)
           ((InsertPoint.inBounds_atStart! newCtx.wellFormed (hRW.blocksInBounds b bIn)).mpr
             (hRW.blocksInBounds b bIn))) →
+      (∀ newVars',
+        state'.variables.setArgumentValues? b values' (hRW.blocksInBounds b bIn) = some newVars' →
+        (InterpreterState.mk newVars' state'.memory).EquationLemmaAt
+          (InsertPoint.atStart! b newCtx.raw)
+          ((InsertPoint.inBounds_atStart! newCtx.wellFormed (hRW.blocksInBounds b bIn)).mpr
+            (hRW.blocksInBounds b bIn))) →
       Interp.isRefinedBy
         (fun (r₁ : InterpreterState ctx × Array RuntimeValue)
              (r₂ : InterpreterState newCtx × Array RuntimeValue) =>
           r₁.1.memory = r₂.1.memory ∧ r₁.2 ⊒ r₂.2)
         (g b values state bIn)
         (interpretBlockCFG b values' state' (hRW.blocksInBounds b bIn)))
-    ?admissible ?step b bIn values values' state state' hState hVals hSrcInv hTgtInv
+    ?admissible ?step b bIn values values' state state' hState hVals hSrcInv hTgtInv hTgtEqInv
   case admissible =>
     -- Peel the (dependent) leading `∀ b` together with the `g b` application with
     -- `admissible_pi_apply`, the remaining (non-dependent) binders with `admissible_pi`, the
@@ -1995,6 +2141,12 @@ theorem RewrittenAt.interpretBlockCFG_refinement
               (InsertPoint.atStart! b newCtx.raw)
               ((InsertPoint.inBounds_atStart! newCtx.wellFormed (hRW.blocksInBounds b bIn)).mpr
                 (hRW.blocksInBounds b bIn))) →
+          (∀ newVars',
+            state'.variables.setArgumentValues? b values' (hRW.blocksInBounds b bIn) = some newVars' →
+            (InterpreterState.mk newVars' state'.memory).EquationLemmaAt
+              (InsertPoint.atStart! b newCtx.raw)
+              ((InsertPoint.inBounds_atStart! newCtx.wellFormed (hRW.blocksInBounds b bIn)).mpr
+                (hRW.blocksInBounds b bIn))) →
           Interp.isRefinedBy
             (fun (r₁ : InterpreterState ctx × Array RuntimeValue)
                  (r₂ : InterpreterState newCtx × Array RuntimeValue) =>
@@ -2011,6 +2163,7 @@ theorem RewrittenAt.interpretBlockCFG_refinement
     apply Lean.Order.admissible_pi; intro hVals
     apply Lean.Order.admissible_pi; intro hSrcInv
     apply Lean.Order.admissible_pi; intro hTgtInv
+    apply Lean.Order.admissible_pi; intro hTgtEqInv
     apply Lean.Order.admissible_apply
       (P := fun (_v : Array RuntimeValue) (gv : InterpreterState ctx → b.InBounds ctx.raw →
               Interp (InterpreterState ctx × Array RuntimeValue)) =>
@@ -2039,9 +2192,9 @@ theorem RewrittenAt.interpretBlockCFG_refinement
       (x := bIn)
     exact Lean.Order.admissible_flatOrder _ trivial
   case step =>
-    intro g IH b bIn values values' state state' hState hVals hSrcInv hTgtInv
+    intro g IH b bIn values values' state state' hState hVals hSrcInv hTgtInv hTgtEqInv
     have hBlk := hRW.interpretBlock_refinement newCtxVerif hCtxDom bIn hState hVals hSrcInv hTgtInv
-      (hSrcSplit b bIn) hOpSim
+      hTgtEqInv (hSrcSplit b bIn) hOpSim
     rw [interpretBlockCFG]
     rcases hsrc : interpretBlock b values state bIn with _ | (⟨s, act⟩ | _)
     · -- Source block run fails: the CFG step is `none`, refinement is trivial.
@@ -2080,8 +2233,10 @@ theorem RewrittenAt.interpretBlockCFG_refinement
             (hRW.blocksInBounds succ hsuccIn) hsucc hsucc' hsRef
           have hTgtInvSucc := interpretBlock_branch_definesDominating_succ_atStart hRW.newCtxDom
             bIn' (hRW.blocksInBounds succ hsuccIn) frontInT termInT harrT hFrontNoCfT hTgtInv htgt
+          have hTgtEqInvSucc := interpretBlock_branch_equationLemmaAt_succ_atStart hRW.newCtxDom
+            bIn' (hRW.blocksInBounds succ hsuccIn) frontInT termInT harrT hFrontNoCfT hTgtEqInv htgt
           simp only [hsrc, htgt, dif_pos hsuccIn, dif_pos (hRW.blocksInBounds succ hsuccIn)]
-          exact IH succ hsuccIn r r' s s' hStateSucc hr hSrcInvSucc hTgtInvSucc
+          exact IH succ hsuccIn r r' s s' hStateSucc hr hSrcInvSucc hTgtInvSucc hTgtEqInvSucc
         · -- Successor out of bounds in the source: the source CFG step is `none`, refinement trivial.
           simp only [hsrc, dif_neg hsuccIn, Interp.isRefinedBy_none_target]
     · -- Source block run is UB, which is refined by any target outcome.
@@ -2198,6 +2353,14 @@ theorem RewrittenAt.interpretRegion_refinement
         (InterpreterState.mk newVars' state'.memory).DefinesDominating
           (InsertPoint.atStart! entryBlock newCtx.raw)
           ((InsertPoint.inBounds_atStart! newCtx.wellFormed
+            (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn)))
+    (hTgtEqInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
+        (newVars' : VariableState newCtx),
+        state'.variables.setArgumentValues? entryBlock values'
+          (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
+        (InterpreterState.mk newVars' state'.memory).EquationLemmaAt
+          (InsertPoint.atStart! entryBlock newCtx.raw)
+          ((InsertPoint.inBounds_atStart! newCtx.wellFormed
             (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn))) :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Array RuntimeValue)
@@ -2238,6 +2401,7 @@ theorem RewrittenAt.interpretRegion_refinement
         (hState entryBlock entryIn) hVals
         (fun newVars h fst hfst => hSrcInv entryBlock entryIn newVars h fst hfst)
         (fun newVars' h => hTgtInv entryBlock entryIn newVars' h)
+        (fun newVars' h => hTgtEqInv entryBlock entryIn newVars' h)
 
 /--
 **Stage E — `interpretFunction` refinement (monotonicity).** Interpreting a function operation
@@ -2281,6 +2445,14 @@ theorem RewrittenAt.interpretFunction_refinement
         (InterpreterState.mk newVars' mem).DefinesDominating
           (InsertPoint.atStart! entryBlock newCtx.raw)
           ((InsertPoint.inBounds_atStart! newCtx.wellFormed
+            (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn)))
+    (hTgtEqInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
+        (newVars' : VariableState newCtx),
+        (VariableState.empty newCtx).setArgumentValues? entryBlock values'
+          (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
+        (InterpreterState.mk newVars' mem).EquationLemmaAt
+          (InsertPoint.atStart! entryBlock newCtx.raw)
+          ((InsertPoint.inBounds_atStart! newCtx.wellFormed
             (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn))) :
     Interp.isRefinedBy FunctionResult.isRefinedBy
       (interpretFunction funcOp values mem funcOpIn)
@@ -2318,6 +2490,7 @@ theorem RewrittenAt.interpretFunction_refinement
       hVals
       (fun entryBlock entryIn newVars h fst hfst => hSrcInv entryBlock entryIn newVars h fst hfst)
       (fun entryBlock entryIn newVars' h => hTgtInv entryBlock entryIn newVars' h)
+      (fun entryBlock entryIn newVars' h => hTgtEqInv entryBlock entryIn newVars' h)
     -- The function result keeps only the final memory and returned values of the region run.
     show Interp.isRefinedBy FunctionResult.isRefinedBy
       ((interpretRegion (funcOp.getRegion ctx.raw 0 funcOpIn hi) values ⟨.empty ctx, mem⟩ rIn)
@@ -2369,6 +2542,14 @@ theorem RewrittenAt.interpretModule_refinement
         (InterpreterState.mk newVars' MemoryState.empty).DefinesDominating
           (InsertPoint.atStart! entryBlock newCtx.raw)
           ((InsertPoint.inBounds_atStart! newCtx.wellFormed
+            (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn)))
+    (hTgtEqInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
+        (newVars' : VariableState newCtx),
+        (VariableState.empty newCtx).setArgumentValues? entryBlock #[]
+          (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
+        (InterpreterState.mk newVars' MemoryState.empty).EquationLemmaAt
+          (InsertPoint.atStart! entryBlock newCtx.raw)
+          ((InsertPoint.inBounds_atStart! newCtx.wellFormed
             (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn))) :
     Interp.isRefinedBy RuntimeValue.arrayIsRefinedBy
       (interpretModule ctx moduleOp moduleOpIn)
@@ -2406,6 +2587,7 @@ theorem RewrittenAt.interpretModule_refinement
       (RuntimeValue.arrayIsRefinedBy_refl #[])
       (fun entryBlock entryIn newVars h fst hfst => hSrcInv entryBlock entryIn newVars h fst hfst)
       (fun entryBlock entryIn newVars' h => hTgtInv entryBlock entryIn newVars' h)
+      (fun entryBlock entryIn newVars' h => hTgtEqInv entryBlock entryIn newVars' h)
     -- The module result keeps only the returned values of the region run.
     show Interp.isRefinedBy RuntimeValue.arrayIsRefinedBy
       ((interpretRegion (moduleOp.getRegion ctx.raw 0 moduleOpIn hi) #[] (InterpreterState.empty ctx) rIn)
@@ -2457,6 +2639,14 @@ theorem RewrittenAt.isModuleRefinedBy
           (InsertPoint.atStart! entryBlock newCtx.raw)
           ((InsertPoint.inBounds_atStart! newCtx.wellFormed
             (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn)))
+    (hTgtEqInv : ∀ (_funcOp : OperationPtr) (values' : Array RuntimeValue) (mem : MemoryState)
+        (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw) (newVars' : VariableState newCtx),
+        (VariableState.empty newCtx).setArgumentValues? entryBlock values'
+          (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
+        (InterpreterState.mk newVars' mem).EquationLemmaAt
+          (InsertPoint.atStart! entryBlock newCtx.raw)
+          ((InsertPoint.inBounds_atStart! newCtx.wellFormed
+            (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn)))
     {moduleOp : OperationPtr} :
     moduleOp.isModuleRefinedBy ctx moduleOp newCtx := by
   intro func₁ func₁In name hTop
@@ -2489,6 +2679,8 @@ theorem RewrittenAt.isModuleRefinedBy
         hSrcInv func₁ values mem entryBlock entryIn newVars h fst hfst)
       (fun entryBlock entryIn newVars' h =>
         hTgtInv func₁ valuesTarget mem entryBlock entryIn newVars' h)
+      (fun entryBlock entryIn newVars' h =>
+        hTgtEqInv func₁ valuesTarget mem entryBlock entryIn newVars' h)
 
 /-! ## PR 9: connecting the concrete driver `fromLocalRewrite` to `RewrittenAt`
 
@@ -4749,6 +4941,13 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
         (InterpreterState.mk newVars' mem).DefinesDominating
           (InsertPoint.atStart! entryBlock rewriter'.ctx.raw)
           ((InsertPoint.inBounds_atStart! rewriter'.ctx.wellFormed entryIn').mpr entryIn'))
+    (hTgtEqInv : ∀ (_funcOp : OperationPtr) (values' : Array RuntimeValue) (mem : MemoryState)
+        (entryBlock : BlockPtr) (entryIn' : entryBlock.InBounds rewriter'.ctx.raw)
+        (newVars' : VariableState rewriter'.ctx),
+        (VariableState.empty rewriter'.ctx).setArgumentValues? entryBlock values' entryIn' = some newVars' →
+        (InterpreterState.mk newVars' mem).EquationLemmaAt
+          (InsertPoint.atStart! entryBlock rewriter'.ctx.raw)
+          ((InsertPoint.inBounds_atStart! rewriter'.ctx.wellFormed entryIn').mpr entryIn'))
     {moduleOp : OperationPtr} :
     moduleOp.isModuleRefinedBy rewriter.ctx moduleOp rewriter'.ctx := by
   -- The driver's net edit is a `RewrittenAt` instance.
@@ -4763,10 +4962,13 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
   -- `hSrcSplit`/`hTgtSplit`/`hSrcInv` discharge positionally; `hTgtInv` is restated with a target
   -- in-bounds binder, so reroute the source binder through `hRW.blocksInBounds`.
   refine hRW.isModuleRefinedBy hSrcVerif newCtxVerif hSrcDom ?hOpSim hSrcSplit hTgtSplit hSrcInv
-    ?hTgtInv
+    ?hTgtInv ?hTgtEqInv
   case hTgtInv =>
     intro _funcOp values' mem entryBlock entryIn newVars' h
     exact hTgtInv _funcOp values' mem entryBlock (hRW.blocksInBounds entryBlock entryIn) newVars' h
+  case hTgtEqInv =>
+    intro _funcOp values' mem entryBlock entryIn newVars' h
+    exact hTgtEqInv _funcOp values' mem entryBlock (hRW.blocksInBounds entryBlock entryIn) newVars' h
   case hOpSim =>
     -- === PR 8: bridge `pattern.PreservesSemantics` to `OpStepSimulation op newOps hRW.σ`. ===
     -- `hValid.preservesSemantics` (at `ctx := rewriter.ctx`) supplies the *source* side exactly:
