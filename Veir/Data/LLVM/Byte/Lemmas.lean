@@ -50,7 +50,7 @@ theorem and_comm {w : Nat} (x y : Byte w) :
   simp only [and_eq, BitVec.and_comm, BitVec.or_comm]
 
 theorem val_and {w : Nat} (x y : Byte w) :
-    (x&&& y).val = (x.val &&& y.val) &&& ~~~(x.poison ||| y.poison) := by
+    (x &&& y).val = (x.val &&& y.val) &&& ~~~(x.poison ||| y.poison) := by
   simp [and_eq]
 
 /- # or -/
