@@ -17,7 +17,7 @@ namespace Veir.RISCV
 
 /-- riscv.add x 0 -> x -/
 def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (operands, _) := matchOp op rewriter.ctx (.riscv .add) 2 | return rewriter
   let lhs := operands[0]!
   let some liOp := getDefiningOp operands[1]! rewriter.ctx | return rewriter
