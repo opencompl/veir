@@ -192,24 +192,27 @@ set_option warn.sorry false in
 /--
   Immediate-form integer comparison selection (`PatGprSimm12` family). When the
   rhs is a constant that fits a signed 12-bit immediate, lower `icmp` directly to
-  `slti`/`sltiu`, inverting the sense with `xori _ 1` for the `≥`/`>` predicates
-  and using the identity `x ≤ C  ==  x < C+1` for the `≤`/`>` predicates:
+  `slti`/`sltiu`, inverting the sense with `xori _ 1` for the `≥` predicates and
+  using the identity `x ≤ C  ==  x < C+1` for the `≤` predicates:
 
       slt  x C  ->       slti  x C
       ult  x C  ->       sltiu x C
       sge  x C  -> xori (slti  x C)      1
       uge  x C  -> xori (sltiu x C)      1
       sle  x C  ->       slti  x (C+1)
-      sgt  x C  -> xori (slti  x (C+1))  1
       ule  x C  ->       sltiu x (C+1)              (requires C ≠ -1)
-      ugt  x C  -> xori (sltiu x (C+1))  1          (requires C ≠ -1)
 
   Canonicalization moves the constant to the rhs before isel, so we only match
   there. Each emitted immediate (`C` or `C+1`) must still land in `[-2048, 2047]`,
   otherwise we bail and defer to the reg-reg `icmp` lowering in `isel-riscv64`.
-  For the unsigned `≤`/`>` off-by-one forms, `C = -1` (unsigned `UINT_MAX`) is
+  For the unsigned `≤` off-by-one form, `C = -1` (unsigned `UINT_MAX`) is
   excluded: there `C+1` wraps to `0` and `x < 0` would not equal `x ≤ UINT_MAX`.
-  Mirrors `PatGprSimm12`/`Pat<setuge ...>`/etc. in RISCVInstrInfo.td.
+
+  The `>` predicates (`sgt`/`ugt`) are deliberately *not* handled: their reg-reg
+  lowering (`slt`/`sltu` with swapped operands, no `xori`) is already the same
+  instruction count, and folding the constant is strictly worse for `x > 0`,
+  which the reg-reg path plus the `li 0 -> x0` combine lowers to a single
+  `slt x0, x`. Mirrors `PatGprSimm12`/`Pat<setuge ...>`/etc. in RISCVInstrInfo.td.
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1636-L1651
 -/
 def slti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -242,9 +245,7 @@ def slti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   | .sge => emit .slti  rfl c       true
   | .uge => emit .sltiu rfl c       true
   | .sle => emit .slti  rfl (c + 1) false
-  | .sgt => emit .slti  rfl (c + 1) true
   | .ule => if c = -1 then return rewriter else emit .sltiu rfl (c + 1) false
-  | .ugt => if c = -1 then return rewriter else emit .sltiu rfl (c + 1) true
   | _    => return rewriter
 
 /-! ## Zbs single-bit immediate selection

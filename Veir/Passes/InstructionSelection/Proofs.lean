@@ -238,10 +238,10 @@ theorem icmp_refinement_uge {x y : LLVM.Int 64} :
   Each theorem justifies one arm of the `slti` immediate-form selection in
   `isel-sdag-riscv64`, comparing `x` against a constant that equals the
   sign-extension of the 12-bit immediate `imm` actually encoded in the emitted
-  instruction. For the `≤`/`>` predicates the constant is `sext(imm) - 1`,
-  capturing the `x ≤ C == x < C+1` rewrite (the code stores `C+1` as the
-  immediate). The unsigned off-by-one forms carry the `imm ≠ 0` hypothesis that
-  the code enforces by rejecting `C = -1` (else `C+1` wraps past `UINT_MAX`). -/
+  instruction. For the `≤` predicates the constant is `sext(imm) - 1`, capturing
+  the `x ≤ C == x < C+1` rewrite (the code stores `C+1` as the immediate). The
+  unsigned off-by-one form carries the `imm ≠ 0` hypothesis that the code
+  enforces by rejecting `C = -1` (else `C+1` wraps past `UINT_MAX`). -/
 
 /-- `icmp sge x C` with `C = sext(imm)` -> `xori (slti x imm) 1`. -/
 theorem icmp_refinement_sge_imm {x : LLVM.Int 64} (imm : BitVec 12) :
@@ -261,23 +261,11 @@ theorem icmp_refinement_sle_imm {x : LLVM.Int 64} (imm : BitVec 12) :
       (RISCV.Reg.toInt (Data.RISCV.slti imm (LLVM.Int.toReg x)) 1) := by
   veir_bv_decide
 
-/-- `icmp sgt x C` with `C = sext(imm) - 1` -> `xori (slti x imm) 1`. -/
-theorem icmp_refinement_sgt_imm {x : LLVM.Int 64} (imm : BitVec 12) :
-    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.sgt) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.slti imm (LLVM.Int.toReg x))) 1) := by
-  veir_bv_decide
-
 /-- `icmp ule x C` with `C = sext(imm) - 1` -> `sltiu x imm`; needs `imm ≠ 0`
     (else `C = UINT_MAX` and `C+1` wraps to `0`). -/
 theorem icmp_refinement_ule_imm {x : LLVM.Int 64} (imm : BitVec 12) (h : imm ≠ 0) :
     (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.ule) ⊒
       (RISCV.Reg.toInt (Data.RISCV.sltiu imm (LLVM.Int.toReg x)) 1) := by
-  veir_bv_decide
-
-/-- `icmp ugt x C` with `C = sext(imm) - 1` -> `xori (sltiu x imm) 1`; needs `imm ≠ 0`. -/
-theorem icmp_refinement_ugt_imm {x : LLVM.Int 64} (imm : BitVec 12) (h : imm ≠ 0) :
-    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.ugt) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltiu imm (LLVM.Int.toReg x))) 1) := by
   veir_bv_decide
 
 /--
