@@ -140,6 +140,54 @@ theorem icmp_refinement_ne {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the constant-zero `icmp eq` peephole, with the zero on
+  the right (`x == 0`). The lowering drops the `xor` and emits `sltiu x 1` (seqz)
+  directly on the non-zero operand.
+-/
+theorem icmp_refinement_eq_zero_rhs {x : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp x (LLVM.Int.constant 64 0) LLVM.IntPred.eq) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu 1#12 (LLVM.Int.toReg x)) 1) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the constant-zero `icmp eq` peephole, with the zero on
+  the left (`0 == x`); the lowering is emitted on the non-zero operand `x`.
+-/
+theorem icmp_refinement_eq_zero_lhs {x : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp (LLVM.Int.constant 64 0) x LLVM.IntPred.eq) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu 1#12 (LLVM.Int.toReg x)) 1) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the constant-zero `icmp ne` peephole, with the zero on
+  the right (`x != 0`). The lowering drops the `xor` and emits `sltu 0 x` (snez)
+  directly on the non-zero operand.
+-/
+theorem icmp_refinement_ne_zero_rhs {x : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp x (LLVM.Int.constant 64 0) LLVM.IntPred.ne) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltu (LLVM.Int.toReg x) (Data.RISCV.li 0#64)) 1) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the constant-zero `icmp ne` peephole, with the zero on
+  the left (`0 != x`); the lowering is emitted on the non-zero operand `x`.
+-/
+theorem icmp_refinement_ne_zero_lhs {x : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp (LLVM.Int.constant 64 0) x LLVM.IntPred.ne) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltu (LLVM.Int.toReg x) (Data.RISCV.li 0#64)) 1) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `riscv-combine` `li 0 -> x0` rewrite: materializing
+  the constant `0` with `li` produces exactly the value of the hard-wired zero
+  register `x0` (which the interpreter models as the register holding `0#64`).
+  Since every consumer is a pure function of its source registers' values,
+  substituting `x0` for the `li 0` result preserves semantics.
+-/
+theorem li_zero_eq_x0 :
+    Data.RISCV.li 0#64 = RISCV.Reg.mk 0#64 := rfl
+
+/--
   Prove the correctness of the `icmp` lowering pattern with `slt`.
 -/
 theorem icmp_refinement_slt {x y : LLVM.Int 64} :

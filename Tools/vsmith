@@ -36,7 +36,7 @@ DEFAULT_PASSES = "instcombine,dce,cse,dce"
 RISCV_PASSES = (
     "canonicalize,instcombine,canonicalize,cse,dce,"
     "isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,"
-    "canonicalize,riscv-combine,reconcile-cast,dce"
+    "canonicalize,reconcile-cast,riscv-combine,dce"
 )
 
 # --- RISC-V MIR execution cross-check -------------------------------------

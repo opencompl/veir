@@ -299,23 +299,55 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   /- Match depending on the predicate and build correct lowering. -/
   let (rewriter, retOp) ← match property.predicate with
     | .eq =>
-      /- llvm.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1 -/
-      let (rewriter, xorOp) := rewriter.createOp! (.riscv .xor) #[RegisterType.mk] #[rCmpReg, lCmpReg]
-        #[] #[] () (some $ .before op)
-      let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-      let (rewriter, retOp) := rewriter.createOp! (.riscv .sltiu) #[RegisterType.mk] #[xorOp.getResult 0]
-        #[] #[] c1 (some $ .before op)
-      pure (rewriter, retOp)
+      /- Peephole: when one operand is a constant 0, `a == 0` lowers directly to
+         `riscv.sltiu a 1` (seqz) with no xor. Otherwise fall back to the generic
+         `riscv.sltiu (riscv.xor lhs rhs) 1` idiom. `zeroCmpReg` picks the non-zero
+         operand's register (the constant 0 is on the other side). -/
+      let zeroCmpReg :=
+        if (matchConstantZero rhs rewriter.ctx).isSome then some lCmpReg
+        else if (matchConstantZero lhs rewriter.ctx).isSome then some rCmpReg
+        else none
+      match zeroCmpReg with
+      | some cmpReg =>
+        /- llvm.icmp eq a 0  -> riscv.sltiu a 1 (seqz) -/
+        let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+        let (rewriter, retOp) := rewriter.createOp! (.riscv .sltiu) #[RegisterType.mk] #[cmpReg]
+          #[] #[] c1 (some $ .before op)
+        pure (rewriter, retOp)
+      | none =>
+        /- llvm.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1 -/
+        let (rewriter, xorOp) := rewriter.createOp! (.riscv .xor) #[RegisterType.mk] #[rCmpReg, lCmpReg]
+          #[] #[] () (some $ .before op)
+        let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+        let (rewriter, retOp) := rewriter.createOp! (.riscv .sltiu) #[RegisterType.mk] #[xorOp.getResult 0]
+          #[] #[] c1 (some $ .before op)
+        pure (rewriter, retOp)
     | .ne =>
-      /- llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs) -/
-      let (rewriter, xorOp) := rewriter.createOp! (.riscv .xor) #[RegisterType.mk] #[rCmpReg, lCmpReg]
-        #[] #[] () (some $ .before op)
+      /- Peephole: when one operand is a constant 0, `a != 0` lowers directly to
+         `riscv.sltu 0 a` (snez) with no xor. Otherwise fall back to the generic
+         `riscv.sltu 0 (riscv.xor lhs rhs)` idiom. -/
+      let zeroCmpReg :=
+        if (matchConstantZero rhs rewriter.ctx).isSome then some lCmpReg
+        else if (matchConstantZero lhs rewriter.ctx).isSome then some rCmpReg
+        else none
       let c0 := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-      let (rewriter, liOp) := rewriter.createOp! (.riscv .li) #[RegisterType.mk] #[]
-        #[] #[] c0 (some $ .before op)
-      let (rewriter, retOp) := rewriter.createOp! (.riscv .sltu) #[RegisterType.mk] #[liOp.getResult 0, xorOp.getResult 0]
-        #[] #[] () (some $ .before op)
-      pure (rewriter, retOp)
+      match zeroCmpReg with
+      | some cmpReg =>
+        /- llvm.icmp ne a 0  -> riscv.sltu 0 a (snez) -/
+        let (rewriter, liOp) := rewriter.createOp! (.riscv .li) #[RegisterType.mk] #[]
+          #[] #[] c0 (some $ .before op)
+        let (rewriter, retOp) := rewriter.createOp! (.riscv .sltu) #[RegisterType.mk] #[liOp.getResult 0, cmpReg]
+          #[] #[] () (some $ .before op)
+        pure (rewriter, retOp)
+      | none =>
+        /- llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs) -/
+        let (rewriter, xorOp) := rewriter.createOp! (.riscv .xor) #[RegisterType.mk] #[rCmpReg, lCmpReg]
+          #[] #[] () (some $ .before op)
+        let (rewriter, liOp) := rewriter.createOp! (.riscv .li) #[RegisterType.mk] #[]
+          #[] #[] c0 (some $ .before op)
+        let (rewriter, retOp) := rewriter.createOp! (.riscv .sltu) #[RegisterType.mk] #[liOp.getResult 0, xorOp.getResult 0]
+          #[] #[] () (some $ .before op)
+        pure (rewriter, retOp)
     | .slt =>
       /- llvm.icmp slt lhs rhs -> riscv.slt lhs rhs  -/
       let (rewriter, retOp) := rewriter.createOp! (.riscv .slt) #[RegisterType.mk] #[lCmpReg, rCmpReg]
