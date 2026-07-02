@@ -299,13 +299,12 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   /- Match depending on the predicate and build correct lowering. -/
   let (rewriter, retOp) ← match property.predicate with
     | .eq =>
-      /- Peephole: when one operand is a constant 0, `a == 0` lowers directly to
+      /- Peephole: when the rhs is a constant 0, `a == 0` lowers directly to
          `riscv.sltiu a 1` (seqz) with no xor. Otherwise fall back to the generic
-         `riscv.sltiu (riscv.xor lhs rhs) 1` idiom. `zeroCmpReg` picks the non-zero
-         operand's register (the constant 0 is on the other side). -/
+         `riscv.sltiu (riscv.xor lhs rhs) 1` idiom. Canonicalization runs before
+         isel and moves the constant to the rhs, so we only check that side. -/
       let zeroCmpReg :=
         if (matchConstantZero rhs rewriter.ctx).isSome then some lCmpReg
-        else if (matchConstantZero lhs rewriter.ctx).isSome then some rCmpReg
         else none
       match zeroCmpReg with
       | some cmpReg =>
@@ -323,12 +322,12 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
           #[] #[] c1 (some $ .before op)
         pure (rewriter, retOp)
     | .ne =>
-      /- Peephole: when one operand is a constant 0, `a != 0` lowers directly to
+      /- Peephole: when the rhs is a constant 0, `a != 0` lowers directly to
          `riscv.sltu 0 a` (snez) with no xor. Otherwise fall back to the generic
-         `riscv.sltu 0 (riscv.xor lhs rhs)` idiom. -/
+         `riscv.sltu 0 (riscv.xor lhs rhs)` idiom. Canonicalization runs before
+         isel and moves the constant to the rhs, so we only check that side. -/
       let zeroCmpReg :=
         if (matchConstantZero rhs rewriter.ctx).isSome then some lCmpReg
-        else if (matchConstantZero lhs rewriter.ctx).isSome then some rCmpReg
         else none
       let c0 := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
       match zeroCmpReg with

@@ -1,11 +1,5 @@
 // RUN: veir2mir %s | filecheck %s
 
-// `rv64.get_register` referencing the hard-wired zero register `x0` (produced by
-// the `li 0 -> x0` riscv-combine) lowers to a `COPY $x0` into a virtual register,
-// rather than an unhandled op. The copy makes the value usable both as a direct
-// operand and (elsewhere) as a PHI operand, and the register allocator coalesces
-// it into a direct `zero` reference in the final assembly.
-
 "builtin.module"() ({
   ^0():
     "llvm.func"() <{"function_type" = !llvm.func<i64 ()>, "sym_name" = "main"}> ({

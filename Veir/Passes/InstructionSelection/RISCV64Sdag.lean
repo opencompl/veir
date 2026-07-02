@@ -190,32 +190,62 @@ def sraiw := selectBinopImm matchAshr .sraiw rfl 32 0 31
 
 set_option warn.sorry false in
 /--
-  `icmp slt x (const imm12)` -> `riscv.slti x imm`;
-  `icmp ult x (const imm12)` -> `riscv.sltiu x imm`.
-  Mirrors `PatGprSimm12<setlt, SLTI>` / `PatGprSimm12<setult, SLTIU>`; preempts the
-  general `icmp` lowering in `isel-riscv64` for these two predicate/constant cases.
-  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1636-L1638
+  Immediate-form integer comparison selection (`PatGprSimm12` family). When the
+  rhs is a constant that fits a signed 12-bit immediate, lower `icmp` directly to
+  `slti`/`sltiu`, inverting the sense with `xori _ 1` for the `≥`/`>` predicates
+  and using the identity `x ≤ C  ==  x < C+1` for the `≤`/`>` predicates:
+
+      slt  x C  ->       slti  x C
+      ult  x C  ->       sltiu x C
+      sge  x C  -> xori (slti  x C)      1
+      uge  x C  -> xori (sltiu x C)      1
+      sle  x C  ->       slti  x (C+1)
+      sgt  x C  -> xori (slti  x (C+1))  1
+      ule  x C  ->       sltiu x (C+1)              (requires C ≠ -1)
+      ugt  x C  -> xori (sltiu x (C+1))  1          (requires C ≠ -1)
+
+  Canonicalization moves the constant to the rhs before isel, so we only match
+  there. Each emitted immediate (`C` or `C+1`) must still land in `[-2048, 2047]`,
+  otherwise we bail and defer to the reg-reg `icmp` lowering in `isel-riscv64`.
+  For the unsigned `≤`/`>` off-by-one forms, `C = -1` (unsigned `UINT_MAX`) is
+  excluded: there `C+1` wraps to `0` and `x < 0` would not equal `x ≤ UINT_MAX`.
+  Mirrors `PatGprSimm12`/`Pat<setuge ...>`/etc. in RISCVInstrInfo.td.
+  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1636-L1651
 -/
 def slti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, rhs, prop) := matchIcmp op rewriter.ctx | return rewriter
   let .integerType lt := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if lt.bitwidth ≠ 64 then return rewriter
-  let some imm := matchConstantIntVal rhs rewriter.ctx | return rewriter
-  if imm.value < -2048 || imm.value > 2047 then return rewriter
-  let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm.value (IntegerType.mk 64))
+  let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
+  let c := cst.value
+  /- Emit `[xori _ 1] (<dst> x immVal)`, or bail (leaving `op` for the reg-reg
+     lowering) when `immVal` does not fit a signed 12-bit field. `dst` is either
+     `.slti` or `.sltiu`, both with `RISCVImmediateProperties` (hence `h`). -/
+  let emit (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
+      (immVal : Int) (wrap : Bool) : Option (PatternRewriter OpCode) := do
+    if immVal < -2048 || immVal > 2047 then return rewriter
+    let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk immVal (IntegerType.mk 64))
+    let (rewriter, xReg) ← castToReg rewriter op lhs
+    let (rewriter, cmpOp) ← rewriter.createOp (.riscv dst) #[RegisterType.mk] #[xReg]
+        #[] #[] (cast h.symm immProps) (some $ .before op) sorry (by simp) (by simp) sorry
+    if wrap then
+      let one := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+      let (rewriter, xorOp) ← rewriter.createOp (.riscv .xori) #[RegisterType.mk] #[cmpOp.getResult 0]
+          #[] #[] one (some $ .before op) sorry (by simp) (by simp) sorry
+      replaceWithReg rewriter op (xorOp.getResult 0)
+    else
+      replaceWithReg rewriter op (cmpOp.getResult 0)
   match prop.predicate with
-  | .slt =>
-    let (rewriter, xReg) ← castToReg rewriter op lhs
-    let (rewriter, newOp) ← rewriter.createOp (.riscv .slti) #[RegisterType.mk] #[xReg]
-        #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
-    replaceWithReg rewriter op (newOp.getResult 0)
-  | .ult =>
-    let (rewriter, xReg) ← castToReg rewriter op lhs
-    let (rewriter, newOp) ← rewriter.createOp (.riscv .sltiu) #[RegisterType.mk] #[xReg]
-        #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
-    replaceWithReg rewriter op (newOp.getResult 0)
-  | _ => return rewriter
+  | .slt => emit .slti  rfl c       false
+  | .ult => emit .sltiu rfl c       false
+  | .sge => emit .slti  rfl c       true
+  | .uge => emit .sltiu rfl c       true
+  | .sle => emit .slti  rfl (c + 1) false
+  | .sgt => emit .slti  rfl (c + 1) true
+  | .ule => if c = -1 then return rewriter else emit .sltiu rfl (c + 1) false
+  | .ugt => if c = -1 then return rewriter else emit .sltiu rfl (c + 1) true
+  | _    => return rewriter
 
 /-! ## Zbs single-bit immediate selection
 
