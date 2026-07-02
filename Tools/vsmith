@@ -506,13 +506,14 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     stem = opt.name[: -len(".opt.mlir")] if opt.name.endswith(".opt.mlir") else opt.stem
     d = opt.parent
     mir = d / f"{stem}.mir"
+    lowered = d / f"{stem}.lowered.mir"
     asm = d / f"{stem}.s"
     func_o = d / f"{stem}.func.o"
     drv_s = d / f"{stem}.driver.s"
     drv_o = d / f"{stem}.driver.o"
     elf = d / f"{stem}.elf"
     ld_script = d / "veir_mir_link.ld"
-    artifacts = [mir, asm, func_o, drv_s, drv_o, elf]
+    artifacts = [mir, lowered, asm, func_o, drv_s, drv_o, elf]
 
     def cleanup() -> None:
         if not keep:
@@ -528,16 +529,30 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
         return True, ""  # lowering not supported for this case; skip
     mir.write_text(out)
 
-    # 2. llc: MIR -> RISC-V assembly. -O0 runs the minimal machine pipeline (no
-    # MachineCSE/peephole/sched/combiner), so VeIR's instruction selection passes
-    # through unmodified; -start-after=finalize-isel resumes from exactly the
-    # post-isel state our MIR represents, keeping the essential pre-RA passes
-    # (UnreachableMachineBlockElim, ProcessImplicitDefs, RISCVPreRAExpandPseudo).
-    rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64",
-                        "-O0", "-start-after=finalize-isel", "-o", str(asm)])
+    # 2a. llc, register-allocation stage: MIR -> fully-lowered MIR. Rather than a
+    # canned -O0/-O2 pipeline we drive an explicit minimal machine pipeline via
+    # -run-pass so VeIR's instruction selection passes through unmodified while we
+    # still get the greedy allocator: PHI elimination, two-address lowering,
+    # register coalescing (deletes isel-generated copies), greedy allocation +
+    # virtual-register rewriting, prologue/epilogue insertion, and post-RA / RISCV
+    # pseudo expansion. -run-pass emits MIR, so the asm printer runs in stage 2b.
+    rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
+                        "-run-pass=phi-node-elimination,twoaddressinstruction,"
+                        "register-coalescer,greedy,virtregrewriter,prologepilog,"
+                        "postrapseudos,riscv-expand-pseudo", "-o", str(lowered)])
     if rc != 0:
-        return False, (f"llc failed to lower MIR\n"
+        return False, (f"llc failed to lower MIR (regalloc stage)\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
+
+    # 2b. llc, emission stage: fully-lowered MIR -> RISC-V assembly.
+    # -start-after=riscv-expand-pseudo skips straight to the asm printer (the few
+    # remaining passes are no-ops here) without re-running regalloc or prologue
+    # insertion, which would corrupt the already-lowered MIR.
+    rc, out = _mir_run([tools["llc"], str(lowered), "-mtriple=riscv64", "-x", "mir",
+                        "-start-after=riscv-expand-pseudo", "-o", str(asm)])
+    if rc != 0:
+        return False, (f"llc failed to emit assembly from lowered MIR\n"
+                       f"optimized: {opt}\nlowered: {lowered}\n{out}")
 
     # 3. assemble the lowered function and the comparison driver, then link
     if not ld_script.exists():
