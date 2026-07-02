@@ -35,6 +35,29 @@ def BlockEntry.block : BlockEntry → BlockPtr
   | .Defined block _ => block
   | .ForwardDeclared block _ => block
 
+/--
+  Bookkeeping for an SSA value that has been referenced before it is defined
+  (a "forward reference"). For each referenced result index, we hold a detached
+  single-result placeholder operation whose result stands in for the eventual
+  definition. When the definition is finally parsed, all uses of each
+  placeholder result are replaced by the real value (via `Rewriter.replaceValue`)
+  and the placeholder operation is erased, keeping the module well-formed by
+  construction.
+
+  This mirrors MLIR's `createForwardRefPlaceholder`, which likewise uses a throwaway
+  operation result (not a distinct kind of SSA value) as the placeholder.
+-/
+structure ForwardValue where
+  /-- Map from each referenced result index to its placeholder operation and first-use location. -/
+  placeholders : Std.HashMap Nat (OperationPtr × Location)
+  /-- Location of the first use, used for error reporting if the value is never defined. -/
+  loc : Location
+  /-- The nesting depth of the scope in which this value was first referenced.
+      A forward reference can only be resolved by a definition in the same scope,
+      matching MLIR's SSA scoping rules. -/
+  scopeDepth : Nat
+  deriving Inhabited
+
 structure MlirParserState where
   /-- The current IR context. -/
   ctx : WfIRContext OpCode
@@ -46,6 +69,13 @@ structure MlirParserState where
     Each scope sees all values defined in parent scopes (those that appear earlier in the array).
   -/
   definitionsPerScope : Array (Std.HashSet ByteArray)
+  /--
+    Values that have been referenced but not yet defined, keyed by name.
+    These are resolved and removed when the corresponding definition is parsed;
+    any that remain when their enclosing region finishes parsing are reported as
+    uses of undefined values.
+  -/
+  forwardValues : Std.HashMap ByteArray ForwardValue
   /--
     The blocks that have been encountered during parsing, along with whether
     they have been defined or only forward declared.
@@ -62,6 +92,7 @@ def MlirParserState.fromContext (ctx : WfIRContext OpCode)
     allowUnregisteredDialect
     values := Std.HashMap.emptyWithCapacity 128
     definitionsPerScope := #[Std.HashSet.emptyWithCapacity 2]
+    forwardValues := Std.HashMap.emptyWithCapacity 1
     blocks := Std.HashMap.emptyWithCapacity 1
   }
 
@@ -126,28 +157,6 @@ def inChildScope {α : Type} (m : MlirParserM α) : MlirParserM α := do
   return result
 
 /--
-  Register an array of parsed values with the given name in the current scope.
-  This is used to keep track of values that have been defined during parsing.
--/
-def registerValueDefs (name : ByteArray) (pos : Location) (values : Array ValuePtr) : MlirParserM Unit := do
-  if let some (_, existingPos) := (← get).values[name]? then
-    let error := ParserError.mk s!"value %{String.fromUTF8! name} has already been defined" pos []
-    let error := error.addNote existingPos "previously defined here"
-    throw error
-  modify fun s =>
-    { s with
-      values := s.values.insert name (values, pos)
-      definitionsPerScope := s.definitionsPerScope.modify (s.definitionsPerScope.size - 1) (·.insert name)
-    }
-
-/--
-  Register a single value with the given name in current scope.
-  This is used to keep track of values that have been defined during parsing.
--/
-def registerValueDef (name : ByteArray) (pos : Location) (value : ValuePtr) : MlirParserM Unit :=
-  registerValueDefs name pos #[value]
-
-/--
   Set the current IR context.
   This should be called whenever any modifications have been made to the context
   outside of the parser monad.
@@ -183,6 +192,93 @@ def modifyContextM' (f : WfIRContext OpCode → MlirParserM (α × WfIRContext O
 -/
 def modifyContextM (f : WfIRContext OpCode → MlirParserM (WfIRContext OpCode)) : MlirParserM Unit :=
   modifyContextM' (fun ctx => do pure ((), ← f ctx))
+
+/--
+  The operation code used for forward-reference placeholders.
+  As in MLIR (`createForwardRefPlaceholder`), we use a throwaway operation result
+  (specifically a `builtin.unrealized_conversion_cast`) to stand in for a value that
+  is referenced before it is defined. This avoids introducing a distinct kind of SSA
+  value: a placeholder is just an ordinary operation result.
+-/
+def placeholderOpCode : OpCode := .builtin .unrealized_conversion_cast
+
+/--
+  Create a detached, single-result placeholder operation of the given type.
+  Its result is used to stand in for a value that has been referenced but not yet
+  defined. The operation is not inserted into any block; once the real definition is
+  parsed, `resolveForwardValue` replaces all uses of this result with the real value
+  and erases this operation.
+-/
+def createForwardRefPlaceholder (ty : TypeAttr) (loc : Location) : MlirParserM OperationPtr :=
+  modifyContextM' fun ctx => do
+    match WfRewriter.createOp ctx placeholderOpCode #[ty] #[] #[] #[]
+        (default : propertiesOf placeholderOpCode) none with
+    | none => throwAt loc "internal error: failed to create forward-reference placeholder"
+    | some (ctx', op) => pure (op, ctx')
+
+/--
+  Resolve a forward-referenced value now that its real definition has been parsed.
+  For each result index that was referenced, replace all uses of the placeholder result
+  with the corresponding real value and erase the placeholder operation.
+-/
+def resolveForwardValue (name : ByteArray) (pos : Location) (fwd : ForwardValue)
+    (values : Array ValuePtr) : MlirParserM Unit := do
+  for (index, (placeholderOp, useLoc)) in fwd.placeholders do
+    let some realValue := values[index]?
+      | throw (({ msg := s!"definition of value %{String.fromUTF8! name} provides {values.size} results, but result #{index} was used",
+                  pos := some pos } : ParserError).addNote useLoc "value used here")
+    let placeholderValue : ValuePtr := placeholderOp.getResult 0
+    /- The value has a single type, so the definition must match every use. -/
+    let ⟨ctx, _⟩ ← getContext
+    let usedType := placeholderValue.getType! ctx
+    let definedType := realValue.getType! ctx
+    if usedType ≠ definedType then
+      throw (({ msg := s!"definition of value %{String.fromUTF8! name}#{index} has type {definedType} but was used with type {usedType}",
+                pos := some pos } : ParserError).addNote useLoc "value used here")
+    /- Rewire all uses of the placeholder to the real value, then erase the placeholder. -/
+    modifyContextM fun ctx => do
+      let ⟨hOldIn⟩ ← checkValueInBounds placeholderValue ctx.raw
+      let ⟨hNewIn⟩ ← checkValueInBounds realValue ctx.raw
+      let ⟨hNe⟩ ← checkValuesNe placeholderValue realValue
+      pure (WfRewriter.replaceValue ctx placeholderValue realValue hNe hOldIn hNewIn)
+    modifyContextM fun ctx => do
+      let ⟨hOpIn⟩ ← checkOpInBounds placeholderOp ctx.raw
+      let ⟨hNoRegions⟩ ← checkOpNoRegions placeholderOp ctx.raw
+      let ⟨hNoUses⟩ ← checkOpNoUses placeholderOp ctx.raw
+      pure (WfRewriter.eraseOp ctx placeholderOp hNoRegions (by simpa using hNoUses) hOpIn)
+  modify fun s => { s with forwardValues := s.forwardValues.erase name }
+
+/--
+  Register an array of parsed values with the given name in the current scope.
+  This is used to keep track of values that have been defined during parsing.
+  If the name was forward-referenced earlier in the same scope, the placeholders
+  created for it are resolved to the newly-parsed values.
+-/
+def registerValueDefs (name : ByteArray) (pos : Location) (values : Array ValuePtr) : MlirParserM Unit := do
+  let state ← get
+  let currentDepth := state.definitionsPerScope.size - 1
+  /- If this name was forward-referenced in the current scope, resolve it. A forward
+     reference in an enclosing scope is left alone: it cannot be satisfied by a
+     definition nested inside it, and will be reported when its own region finishes. -/
+  if let some fwd := state.forwardValues[name]? then
+    if fwd.scopeDepth = currentDepth then
+      resolveForwardValue name pos fwd values
+  if let some (_, existingPos) := (← get).values[name]? then
+    let error := ParserError.mk s!"value %{String.fromUTF8! name} has already been defined" pos []
+    let error := error.addNote existingPos "previously defined here"
+    throw error
+  modify fun s =>
+    { s with
+      values := s.values.insert name (values, pos)
+      definitionsPerScope := s.definitionsPerScope.modify (s.definitionsPerScope.size - 1) (·.insert name)
+    }
+
+/--
+  Register a single value with the given name in current scope.
+  This is used to keep track of values that have been defined during parsing.
+-/
+def registerValueDef (name : ByteArray) (pos : Location) (value : ValuePtr) : MlirParserM Unit :=
+  registerValueDefs name pos #[value]
 
 /--
   Create a block at the given insert point and register its name in the parsing context.
@@ -348,12 +444,51 @@ def parseBlockOperands : MlirParserM (Array BlockPtr) := do
   return (← parseOptionalDelimitedList .square parseBlockOperand).getD #[]
 
 /--
+  Resolve a reference to a value that has not yet been defined by creating (or reusing)
+  a placeholder operation whose result stands in for the eventual definition.
+  The placeholder is recorded in `forwardValues` and resolved once the definition is parsed.
+-/
+def resolveForwardOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) : MlirParserM ValuePtr := do
+  let idx := operand.indexD
+  match (← get).forwardValues[operand.name]? with
+  | some fwd =>
+    match fwd.placeholders[idx]? with
+    | some (placeholderOp, useLoc) =>
+      /- The same result index was referenced before: reuse its placeholder and
+         check the type is consistent with the previous use. -/
+      let placeholderValue : ValuePtr := placeholderOp.getResult 0
+      let ⟨ctx, _⟩ ← getContext
+      let parsedType := placeholderValue.getType! ctx
+      if parsedType ≠ expectedType then
+        throw (({ msg := s!"type mismatch for value {operand}: expected {expectedType}, got {parsedType}",
+                  pos := some operand.pos } : ParserError).addNote useLoc "value first used here")
+      return placeholderValue
+    | none =>
+      /- A new result index of an already forward-referenced value. -/
+      let placeholderOp ← createForwardRefPlaceholder expectedType operand.pos
+      modify fun s => { s with
+        forwardValues := s.forwardValues.insert operand.name
+          { fwd with placeholders := fwd.placeholders.insert idx (placeholderOp, operand.pos) } }
+      return placeholderOp.getResult 0
+  | none =>
+    /- First reference of a not-yet-defined value. -/
+    let placeholderOp ← createForwardRefPlaceholder expectedType operand.pos
+    modify fun s => { s with
+      forwardValues := s.forwardValues.insert operand.name
+        { placeholders := (Std.HashMap.emptyWithCapacity 1).insert idx (placeholderOp, operand.pos),
+          loc := operand.pos,
+          scopeDepth := s.definitionsPerScope.size - 1 } }
+    return placeholderOp.getResult 0
+
+/--
   Resolve an operand to an SSA value of the expected type.
-  Throw an error if the value is not defined or if the type does not match.
+  If the value has not yet been defined, a forward-reference placeholder is created;
+  it will be resolved when the definition is parsed, or reported as an error if the
+  value is never defined within its region.
 -/
 def resolveOperand (operand : UnresolvedOperand) (expectedType : TypeAttr) : MlirParserM ValuePtr := do
   let some (values, defPos) := (← getValues? operand.name)
-    | throwAt operand.pos s!"use of undefined value %{operand.nameString}"
+    | resolveForwardOperand operand expectedType
   let some value := values[operand.indexD]?
     | throw (({ msg := s!"invalid result index {operand.indexD} for %{operand.nameString}",
                 pos := some operand.pos } : ParserError).addNote defPos "value defined here")
@@ -599,6 +734,12 @@ partial def parseRegion : MlirParserM RegionPtr := do
   for (blockName, entry) in (← getThe MlirParserState).blocks do
     if let .ForwardDeclared _ forwardLoc := entry then
       throwAt forwardLoc s!"block %{String.fromUTF8! blockName} was used but never defined"
+
+  /- Check that all values forward referenced in this region were eventually defined. -/
+  let currentDepth := (← getThe MlirParserState).definitionsPerScope.size - 1
+  for (valueName, fwd) in (← getThe MlirParserState).forwardValues do
+    if fwd.scopeDepth = currentDepth then
+      throwAt fwd.loc s!"use of undefined value %{String.fromUTF8! valueName}"
 
   /- Restore the previous block parsing state. -/
   modifyThe MlirParserState fun s => {s with blocks := oldBlocks}

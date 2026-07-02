@@ -280,3 +280,94 @@ def testParseOp (s : String) : IO Unit :=
 ^bb1:
   %a = "test.test"() : () -> i32
 }) : () -> ()"#
+
+/-!
+## Forward references to SSA values
+
+The parser accepts textual forward references to SSA values by creating a placeholder
+for the not-yet-defined value and resolving it once the definition is parsed. Dominance
+is not checked by the parser.
+-/
+
+/--
+  info: "builtin.module"() ({
+  ^4():
+    "test.test"() [^5] : () -> ()
+  ^5():
+    "test.test"(%10) : (i32) -> ()
+  ^9():
+    %10 = "test.test"() : () -> i32
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1] : () -> ()
+^bb1:
+  "test.test"(%v) : (i32) -> ()
+^bb2:
+  %v = "test.test"() : () -> i32
+}) : () -> ()"#
+
+/--
+  info: "builtin.module"() ({
+  ^4():
+    %6 = "test.test"(%7) : (i32) -> i32
+    %7 = "test.test"() : () -> i32
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  %b = "test.test"(%a) : (i32) -> i32
+  %a = "test.test"() : () -> i32
+}) : () -> ()"#
+
+/--
+  info: "builtin.module"() ({
+  ^4():
+    "test.test"() [^5] : () -> ()
+  ^5():
+    %8 = "test.test"(%10#1) : (i64) -> i32
+  ^9():
+    %10:2 = "test.test"() : () -> (i32, i64)
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+^bb0:
+  "test.test"() [^bb1] : () -> ()
+^bb1:
+  %b = "test.test"(%a#1) : (i64) -> i32
+^bb2:
+  %a:2 = "test.test"() : () -> (i32, i64)
+}) : () -> ()"#
+
+/--
+  error: definition of value %a#0 has type i64 but was used with type i32
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  %b = "test.test"(%a) : (i32) -> i32
+  %a = "test.test"() : () -> i64
+}) : () -> ()"#
+
+/--
+  error: type mismatch for value %a: expected i64, got i32
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  %b = "test.test"(%a) : (i32) -> i32
+  %c = "test.test"(%a) : (i64) -> i32
+  %a = "test.test"() : () -> i32
+}) : () -> ()"#
+
+/--
+  error: use of undefined value %a
+-/
+#guard_msgs in
+#eval! testParseOp r#""builtin.module"() ({
+  "test.test"(%a) : (i32) -> ()
+  "test.test"() ({
+    %a = "test.test"() : () -> i32
+  }) : () -> ()
+}) : () -> ()"#

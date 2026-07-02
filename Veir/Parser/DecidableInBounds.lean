@@ -66,6 +66,24 @@ def checkValueInBounds (value : ValuePtr) (ctx : IRContext OpInfo) :
   if h : value.InBounds ctx then pure ⟨h⟩
   else throwString s!"internal error: value is not in bounds"
 
+/-- Check that two values are distinct. -/
+def checkValuesNe (v₁ v₂ : ValuePtr) :
+    m (PLift (v₁ ≠ v₂)) :=
+  if h : v₁ ≠ v₂ then pure ⟨h⟩
+  else throwString s!"internal error: values are unexpectedly equal"
+
+/-- Check that an operation has no regions. -/
+def checkOpNoRegions (op : OperationPtr) (ctx : IRContext OpInfo) :
+    m (PLift (op.getNumRegions! ctx = 0)) :=
+  if h : op.getNumRegions! ctx = 0 then pure ⟨h⟩
+  else throwString s!"internal error: operation unexpectedly has regions"
+
+/-- Check that an operation has no uses. -/
+def checkOpNoUses (op : OperationPtr) (ctx : IRContext OpInfo) :
+    m (PLift (op.hasUses! ctx = false)) :=
+  if h : op.hasUses! ctx = false then pure ⟨h⟩
+  else throwString s!"internal error: operation unexpectedly has uses"
+
 /-- Check that a region is in bounds. -/
 def checkRegionInBounds (region : RegionPtr) (ctx : IRContext OpInfo) :
     m (PLift (region.InBounds ctx)) :=
