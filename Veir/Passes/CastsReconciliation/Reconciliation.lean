@@ -28,6 +28,15 @@ def isPreservingIntegerTypeRoundTrip (inputType interType : TypeAttr) : Bool :=
   | .integerType x, .integerType y => x.bitwidth ≤ y.bitwidth
   | _, _ => false
 
+
+/- We reconcile cast from `!mod_arith.int< q: iN> to iM (and back) for any M -/
+def isPreservingModArithToIntCast (inputType interType : TypeAttr) : Bool :=
+  match inputType.val, interType.val with
+  | .modArithType _, .integerType _ => True
+  | .integerType _, .modArithType _ => True
+  | _, _ => false
+
+
 /- Reconciles round-trip casts of the form X->Y->X if allowed for these types by `legal X Y` -/
 set_option warn.sorry false in
 def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) (rewriter : PatternRewriter OpCode)
@@ -72,7 +81,7 @@ def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr
 
 def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern #[reconcilePairingCast isRiscvRegToI64Cast, reconcilePairingCast isPreservingIntegerTypeRoundTrip, reconcileIdentityCast]
+  let pattern := RewritePattern.GreedyRewritePattern #[reconcilePairingCast isRiscvRegToI64Cast, reconcilePairingCast isPreservingIntegerTypeRoundTrip, reconcilePairingCast isPreservingModArithToIntCast, reconcileIdentityCast]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying cast reconciliation"
   | some ctx => pure ctx
