@@ -475,8 +475,8 @@ def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
   | Attribute.byteType { bitwidth := 64 } =>
       let ba ← state.load addr 8
       let baPoison ← state.loadPoison addr 8
-      -- needs invariant in memory
-      return .byte 64 ⟨BitVec.ofNat 64 ba.toUInt64LE!.toNat, BitVec.ofNat 64 baPoison.toUInt64LE!.toNat, by sorry⟩
+      let poison := baPoison.toUInt64LE!.toBitVec
+      return .byte 64 ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
   | Attribute.llvmPointerType _ =>
       let ba ← state.load addr 8
       -- FIXME poison address
