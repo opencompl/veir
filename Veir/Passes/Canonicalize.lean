@@ -27,7 +27,7 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
   if reordered == operands then return rewriter
   let resultTypes := op.getResultTypes! rewriter.ctx.raw
   let properties := op.getProperties! rewriter.ctx.raw opType
-  let (rewriter, newOp) := rewriter.createOp! opType resultTypes reordered
+  let (rewriter, newOp) ← rewriter.createOp! opType resultTypes reordered
     #[] #[] properties (some $ .before op)
   return rewriter.replaceOp! op newOp
 

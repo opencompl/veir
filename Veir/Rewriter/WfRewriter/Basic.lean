@@ -423,17 +423,14 @@ def WfRewriter.createOp! (wfCtx : WfIRContext OpInfo) (opType : OpInfo)
     (resultTypes : Array TypeAttr) (operands : Array ValuePtr) (blockOperands : Array BlockPtr)
     (regions : Array RegionPtr) (properties : HasOpInfo.propertiesOf opType)
     (insertionPoint : Option InsertPoint)
-    : WfIRContext OpInfo × OperationPtr :=
+    : Option (WfIRContext OpInfo × OperationPtr) :=
   if hoper : ∀ oper, oper ∈ operands → oper.InBounds wfCtx.raw then
     if hblockOperands : ∀ oper, oper ∈ blockOperands → oper.InBounds wfCtx.raw then
       if hregions : ∀ reg, reg ∈ regions → reg.InBounds wfCtx.raw then
         match insertionPoint with
         | none =>
-          if let some result := WfRewriter.createOp wfCtx opType resultTypes operands
-              blockOperands regions properties none hoper hblockOperands hregions then
-            result
-          else
-            panic! "WfRewriter.createOp! failed: could not create operation"
+          WfRewriter.createOp wfCtx opType resultTypes operands blockOperands regions
+            properties none hoper hblockOperands hregions
         | some ip =>
           if hins : ip.InBounds wfCtx.raw then
             if let some result := WfRewriter.createOp wfCtx opType resultTypes operands

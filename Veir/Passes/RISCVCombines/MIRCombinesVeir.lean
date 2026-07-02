@@ -13,9 +13,9 @@ def sub_minus_one (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   if cst.value ≠ -1 then return rewriter
   let .integerType ctype := (op1.getType! rewriter.ctx.raw).val | return rewriter
   let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) ctype))
-  let (rewriter, cstOp) := rewriter.createOp! (.llvm .mlir__constant) #[op1.getType! rewriter.ctx.raw] #[]
+  let (rewriter, cstOp) ← rewriter.createOp! (.llvm .mlir__constant) #[op1.getType! rewriter.ctx.raw] #[]
     #[] #[] cstOpProp (some $ .before op)
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .xor) #[op1.getType! rewriter.ctx.raw] #[op1, (cstOp.getResult 0)]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .xor) #[op1.getType! rewriter.ctx.raw] #[op1, (cstOp.getResult 0)]
     #[] #[] () (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -113,7 +113,7 @@ def same_val_zero_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   if x != x1 then return rewriter
   let .integerType type := (x.getType! rewriter.ctx.raw).val | return rewriter
   let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) type))
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
     #[] #[] cstProp (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -123,7 +123,7 @@ def same_val_zero_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   if x != x1 then return rewriter
   let .integerType type := (x.getType! rewriter.ctx.raw).val | return rewriter
   let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) type))
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
     #[] #[] cstProp (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -143,9 +143,9 @@ def mul_by_neg_one (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   if cst.value ≠ -1 then return rewriter
   let .integerType ctype := (x.getType! rewriter.ctx.raw).val | return rewriter
   let cstOpProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) ctype))
-  let (rewriter, cstOp) := rewriter.createOp! (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
+  let (rewriter, cstOp) ← rewriter.createOp! (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
     #[] #[] cstOpProp (some $ .before op)
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .sub) #[x.getType! rewriter.ctx.raw] #[(cstOp.getResult 0), x]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[x.getType! rewriter.ctx.raw] #[(cstOp.getResult 0), x]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -159,7 +159,7 @@ def or_and_xor_to_or (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   if y != y1 then return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ -1 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .or) #[and.getType! rewriter.ctx.raw] #[x, y]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .or) #[and.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -173,7 +173,7 @@ def and_xor_or_to_and (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   if y != y1 then return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ -1 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .and) #[or.getType! rewriter.ctx.raw] #[x, y]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .and) #[or.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] () (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -205,7 +205,7 @@ def APlusBMinusCMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some defOp1 := getDefiningOp sub1 rewriter.ctx | return rewriter
   let some (B1, C, _props2) := matchSub defOp1 rewriter.ctx | return rewriter
   if B != B1 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .sub) #[add1.getType! rewriter.ctx.raw] #[A, C]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[add1.getType! rewriter.ctx.raw] #[A, C]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -217,7 +217,7 @@ def AMinusBMinusCMinusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some defOp1 := getDefiningOp sub1 rewriter.ctx | return rewriter
   let some (B, C1, _props2) := matchSub defOp1 rewriter.ctx | return rewriter
   if C != C1 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .sub) #[sub2.getType! rewriter.ctx.raw] #[A, B]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[sub2.getType! rewriter.ctx.raw] #[A, B]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -228,7 +228,7 @@ def ZeroMinusAPlusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (lhs, A, _props1) := matchSub defOp rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal lhs rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .sub) #[sub.getType! rewriter.ctx.raw] #[B, A]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[sub.getType! rewriter.ctx.raw] #[B, A]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -239,7 +239,7 @@ def APlusZeroMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (lhs, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal lhs rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .sub) #[A.getType! rewriter.ctx.raw] #[A, B]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[A.getType! rewriter.ctx.raw] #[A, B]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -271,7 +271,7 @@ def AMinusBPlusCMinusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some defOp1 := getDefiningOp sub2 rewriter.ctx | return rewriter
   let some (C, A1, _props2) := matchSub defOp1 rewriter.ctx | return rewriter
   if A != A1 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .sub) #[sub1.getType! rewriter.ctx.raw] #[C, B]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[sub1.getType! rewriter.ctx.raw] #[C, B]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -283,7 +283,7 @@ def AMinusBPlusBMinusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some defOp1 := getDefiningOp sub2 rewriter.ctx | return rewriter
   let some (B1, C, _props2) := matchSub defOp1 rewriter.ctx | return rewriter
   if B != B1 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .sub) #[sub1.getType! rewriter.ctx.raw] #[A, C]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[sub1.getType! rewriter.ctx.raw] #[A, C]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -295,7 +295,7 @@ def APlusBMinusAplusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some defOp1 := getDefiningOp add1 rewriter.ctx | return rewriter
   let some (A1, C, _props2) := matchAdd defOp1 rewriter.ctx | return rewriter
   if A != A1 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .sub) #[A.getType! rewriter.ctx.raw] #[B, C]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[A.getType! rewriter.ctx.raw] #[B, C]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -307,7 +307,7 @@ def APlusBMinusCPlusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some defOp1 := getDefiningOp add1 rewriter.ctx | return rewriter
   let some (C, A1, _props2) := matchAdd defOp1 rewriter.ctx | return rewriter
   if A != A1 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .sub) #[A.getType! rewriter.ctx.raw] #[B, C]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[A.getType! rewriter.ctx.raw] #[B, C]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 
@@ -318,7 +318,7 @@ def AMinusZeroMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (lhs, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal lhs rewriter.ctx | return rewriter
   if cst.value ≠ 0 then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.llvm .add) #[A.getType! rewriter.ctx.raw] #[A, B]
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .add) #[A.getType! rewriter.ctx.raw] #[A, B]
     #[] #[] _props (some $ .before op)
   return rewriter.replaceOp! op newOp
 

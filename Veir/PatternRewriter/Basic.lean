@@ -179,8 +179,9 @@ not be created.
 def createOp! (rewriter: PatternRewriter OpInfo) (opType: OpInfo)
     (resultTypes: Array TypeAttr) (operands: Array ValuePtr)
     (blockOperands: Array BlockPtr) (regions: Array RegionPtr) (properties: HasOpInfo.propertiesOf opType)
-    (insertionPoint: Option InsertPoint) : (PatternRewriter OpInfo) × OperationPtr :=
-  let (newCtx, op) := WfRewriter.createOp! rewriter.ctx opType resultTypes operands blockOperands regions properties insertionPoint
+    (insertionPoint: Option InsertPoint) : Option ((PatternRewriter OpInfo) × OperationPtr) := do
+  let (newCtx, op) ← WfRewriter.createOp! rewriter.ctx opType resultTypes operands blockOperands
+    regions properties insertionPoint
   if insertionPoint.isNone then
     ({ rewriter with ctx := newCtx}, op)
   else
