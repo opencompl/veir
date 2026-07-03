@@ -26,6 +26,20 @@ def UInt8.isDigit (c : UInt8) : Bool :=
 def UInt8.isHexDigit (c : UInt8) : Bool :=
   c.isDigit || (c >= 'a'.toUInt8 && c <= 'f'.toUInt8) || (c >= 'A'.toUInt8 && c <= 'F'.toUInt8)
 
+def UInt16.toByteArrayLE (u : UInt16) : ByteArray :=
+  ByteArray.mk (Array.mk [
+    u.toUInt8,
+    (u >>> 0x08).toUInt8,
+  ])
+
+def UInt32.toByteArrayLE (u : UInt32) : ByteArray :=
+  ByteArray.mk (Array.mk [
+    u.toUInt8,
+    (u >>> 0x08).toUInt8,
+    (u >>> 0x10).toUInt8,
+    (u >>> 0x18).toUInt8,
+  ])
+
 def UInt64.toByteArrayLE (u : UInt64) : ByteArray :=
   ByteArray.mk (Array.mk [
     u.toUInt8,
@@ -77,6 +91,11 @@ theorem replicate_size (n : Nat) (v : UInt8) :
 @[inline]
 def getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
   if h : i < ba.size then ba[i] else default
+
+/-- Interpret the bytes of a little-endian `ByteArray`
+    as a `BitVec (8 * bytes)` (byte 0 is the least significant). -/
+def toBitVecLE (ba : ByteArray) (bytes : Nat) : BitVec (8 * bytes) :=
+  ba.toByteSlice.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth (8 * bytes)) 0
 
 end ByteArray
 

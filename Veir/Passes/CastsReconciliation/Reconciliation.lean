@@ -15,6 +15,24 @@ def isRiscvRegToI64Cast (inputType interType : TypeAttr): Bool :=
   | _, _ => false
 
 /-!
+    We reconcile casts in `builtin.unrealized_conversion_cast` operations for `!riscv.reg` and `i32` types, however only for the `i32 -> reg -> i32` direction.
+-/
+def isRiscvRegToI32Cast (inputType interType : TypeAttr): Bool :=
+ match inputType.val, interType.val with
+  | .integerType x, .registerType _ => x.bitwidth = 32
+  | _, _ => false
+
+/-!
+ We reconcile casts in `builtin.unrealized_conversion_cast` operations for `!llvm.ptr` and `!riscv.reg` types.
+ This cast assums that the `.llvmPointerType` is bit-wide.
+-/
+def isRiscvRegToPtrCast (inputType interType : TypeAttr): Bool :=
+ match inputType.val, interType.val with
+  | .llvmPointerType _ , .registerType _ => true
+  | .registerType _, .llvmPointerType _  => true
+  | _, _ => false
+
+/-!
   We reconcile casts in `builtin.unrealized_conversion_cast` operations for `iX` and `iY` types,
   of the form:
   ```
@@ -72,7 +90,7 @@ def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr
 
 def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern #[reconcilePairingCast isRiscvRegToI64Cast, reconcilePairingCast isPreservingIntegerTypeRoundTrip, reconcileIdentityCast]
+  let pattern := RewritePattern.GreedyRewritePattern #[reconcilePairingCast isRiscvRegToI64Cast, reconcilePairingCast isRiscvRegToI32Cast, reconcilePairingCast isRiscvRegToPtrCast, reconcilePairingCast isPreservingIntegerTypeRoundTrip, reconcileIdentityCast]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying cast reconciliation"
   | some ctx => pure ctx
