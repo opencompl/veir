@@ -389,6 +389,22 @@ def sext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   `RISCVTargetLowering::BuildSDIVPow2` instead emits a branchy `cmov` form), which we
   do not model, so the sequences below are what a plain `-mtriple=riscv64` emits.
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5270-L5285
+
+  The Veir target has Zicond, but that does not change this analysis:
+  `BuildSDIVPow2`'s branchy form is gated purely on `short-forward-branch-ialu`
+  (real conditional branches, profitable only on cores where a short forward
+  branch is nearly free), not on Zicond's `czero.eqz`/`czero.nez`. Checked against
+  upstream `llc`: `-mattr=+zicond` alone produces byte-identical output to no
+  Zicond at all, and `-mattr=+short-forward-branch-ialu,+zicond` together still
+  emits a real `bgez`/`addi` branch, never `czero`. This makes sense instruction-
+  count-wise too: `czero.eqz`/`czero.nez` take only register operands (see
+  `Veir.Verifier`, `verifyPlainOpCounts _ _ 2 1`), so a `czero`-based correction
+  would need an extra instruction to materialize the mask `2^k - 1` into a
+  register (and only fits a single `li`/`addi` when `k ≤ 11`, matching
+  `BuildSDIVPow2`'s own `2**k-1 < 2048` guard) -- whereas the shift-derived
+  correction below (`sign`/`corr`) gets that same mask for free, for any `k`, by
+  reusing the shift already needed to read the sign bit. So a Zicond rewrite
+  would be strictly more instructions, not fewer.
 -/
 
 /-- The `w`-bit unsigned magnitude of `v`, i.e. `v`'s bit pattern reduced mod `2^w`.

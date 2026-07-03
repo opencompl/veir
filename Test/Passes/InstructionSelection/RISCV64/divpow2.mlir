@@ -1,10 +1,5 @@
 // RUN: veir-opt %s -p=isel-sdag-riscv64 | filecheck %s
 
-// `udiv`/`sdiv` by a constant power of two select directly to shifts, mirroring
-// LLVM's `BuildLogBase2` (`udiv`), `BuildExactSDIV` (`sdiv exact`), and the
-// generic `sra`/`srl`/`add` sequence built by `visitSDIVLike` (`sdiv`, no `exact`).
-// See the `## Division by a constant power of two` section of RISCV64Sdag.lean.
-
 "builtin.module"() ({
     // llvm.udiv x, 8 -> riscv.srli x, 3
     "func.func"() <{function_type = (i64) -> i64}> ({
