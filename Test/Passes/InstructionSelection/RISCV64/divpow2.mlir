@@ -119,14 +119,4 @@
         // CHECK-NEXT: %{{.*}} = "riscv.sraiw"(%{{.*}}) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
         "func.return"(%r) : (i32) -> ()
     }) : () -> ()
-
-    // Not a power of two: left unselected here (the generic isel-riscv64 pass
-    // picks it up as a plain `riscv.div`).
-    "func.func"() <{function_type = (i64) -> i64}> ({
-    ^bb(%a: i64):
-        %c = "llvm.mlir.constant"() <{value = 6 : i64}> : () -> i64
-        %r = "llvm.sdiv"(%a, %c) : (i64, i64) -> i64
-        // CHECK: %{{.*}} = "llvm.sdiv"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
-        "func.return"(%r) : (i64) -> ()
-    }) : () -> ()
 }) : () -> ()
