@@ -263,10 +263,19 @@ theorem udiv_refinement {x y : LLVM.Int 64} :
   would divide the register's bit pattern `0x8000000000000000` as if it meant
   `+2^63`, when the hardware `sdiv` semantics necessarily reads it as `-2^63`.
 
-  `udivPow2`/`udivwPow2` need no such lemma here: they are simple immediate-folds
-  (`x udiv 2^k = x >>u k` unconditionally, for *any* bit pattern), so they live with
-  the other `## Immediate-selection folds` below instead.
+  `udivPow2`/`udivwPow2` need no domain restriction: `x udiv 2^k = x >>u k` holds
+  unconditionally, for *any* bit pattern.
 -/
+
+/--
+  `udiv x, 2^k` -> `riscv.srli x, k` (`udivPow2`). Mirrors `DAGCombiner::visitUDIVLike`'s
+  `fold (udiv x, (1 << c)) -> x >>u c` (via `BuildLogBase2`).
+  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5430-L5440
+-/
+theorem udivPow2_refinement {x : LLVM.Int 64} (k : BitVec 6) :
+    (Data.LLVM.Int.udiv x (LLVM.Int.val ((1#64) <<< k))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.srli k (LLVM.Int.toReg x)) 64) := by
+  veir_bv_normalize; bv_decide (config := { timeout := 120 })
 
 /--
   `sdiv exact x, 2^k` -> `riscv.srai x, k` (`sdivPow2Exact`, positive divisor).
@@ -886,14 +895,6 @@ theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
     sll (li (shamt.setWidth 64)) (zextw rs1) = slliuw shamt rs1 := by
   rw [val_inj]; veir_bv_decide
 
-/-- `divu (li (1 <<< k)) rs1 = srli k rs1`: unsigned division by a power of two is a
-    logical right shift by the exponent (`udivPow2`, mirroring `BuildLogBase2`).
-    Unlike the `sdiv` case above, this holds unconditionally for every bit pattern,
-    so it needs no domain restriction on `k`. -/
-theorem fold_divu_li_pow2_to_srli_sound (rs1 : Reg) (k : BitVec 6) :
-    divu (li ((1#64) <<< k)) rs1 = srli k rs1 := by
-  rw [val_inj]; veir_bv_normalize; bv_decide (config := { timeout := 120 })
-
 theorem freeze_refinement {a : LLVM.Int 64} :
     (Data.LLVM.Int.freeze a) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg a) 64) := by
@@ -932,10 +933,11 @@ theorem udiv_refinement_32 {x y : LLVM.Int 32} :
       (RISCV.Reg.toInt (Data.RISCV.divuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
-/-- `i32` analogue of `fold_divu_li_pow2_to_srli_sound` (`udivwPow2`). -/
-theorem fold_divuw_li_pow2_to_srliw_sound (rs1 : Reg) (k : BitVec 5) :
-    divuw (li (((1#32) <<< k).zeroExtend 64)) rs1 = srliw k rs1 := by
-  rw [val_inj]; veir_bv_normalize; bv_decide (config := { timeout := 120 })
+/-- `i32` analogue of `udivPow2_refinement` (`udivwPow2`). -/
+theorem udivwPow2_refinement {x : LLVM.Int 32} (k : BitVec 5) :
+    (Data.LLVM.Int.udiv x (LLVM.Int.val ((1#32) <<< k))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.srliw k (LLVM.Int.toReg x)) 32) := by
+  veir_bv_normalize; bv_decide (config := { timeout := 120 })
 
 /-- `i32` analogue of `sdivPow2Exact_pos_refinement` (`sdivwPow2Exact`, positive
     divisor): a genuine positive `i32` divisor `2^k` needs `k < 31`. -/
