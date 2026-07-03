@@ -43,6 +43,8 @@ def Worklist.empty : Worklist where
   indexInStack := HashMap.emptyWithCapacity
   wf_index := by grind
 
+instance : Inhabited Worklist := ⟨Worklist.empty⟩
+
 def Worklist.isEmpty (worklist: Worklist) : Bool :=
   worklist.indexInStack.size = 0
 
@@ -107,6 +109,9 @@ structure PatternRewriter (OpInfo : Type) [HasOpInfo OpInfo] where
   ctx: WfIRContext OpInfo
   hasDoneAction: Bool
   worklist: PatternRewriter.Worklist
+
+instance : Inhabited (PatternRewriter OpInfo) :=
+  ⟨{ ctx := default, hasDoneAction := false, worklist := default }⟩
 
 variable {rewriter : PatternRewriter OpInfo}
 
@@ -203,6 +208,18 @@ def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     worklist := rewriter.worklist.remove op,
   }
 
+/--
+Erase an operation, panicking if the operation is out of bounds, has regions, or has uses.
+-/
+def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
+    : PatternRewriter OpInfo :=
+  let newCtx := WfRewriter.eraseOp! rewriter.ctx op
+  { rewriter with
+    ctx := newCtx,
+    hasDoneAction := true,
+    worklist := rewriter.worklist.remove op,
+  }
+
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
     (hpar : (oldOp.get! rewriter.ctx.raw).parent.isSome = true := by grind)
@@ -220,6 +237,27 @@ def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     hasDoneAction := true,
     worklist := rewriter.worklist.remove oldOp |>.push newOp,
   }
+
+/--
+Replace all results of an operation with the results of another, erasing the replaced operation.
+Panics if the two operations are equal, if the old operation has no parent or has regions, if
+either operation is out of bounds, or if the operations have different numbers of results.
+-/
+def replaceOp! (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
+    : PatternRewriter OpInfo :=
+  if oldIn : oldOp.InBounds rewriter.ctx.raw then Id.run do
+    let mut rw : {r : PatternRewriter OpInfo // r.ctx = rewriter.ctx } := ⟨rewriter, by grind⟩
+    for h : i in 0...(oldOp.getNumResults rewriter.ctx.raw oldIn) do
+      rw := ⟨rw.val.addUsersInWorklist (oldOp.getResult i) (by grind), by grind⟩
+    let rewriter := rw.val
+    let newCtx := WfRewriter.replaceOp! rewriter.ctx oldOp newOp
+    return { rewriter with
+      ctx := newCtx,
+      hasDoneAction := true,
+      worklist := rewriter.worklist.remove oldOp |>.push newOp,
+    }
+  else
+    panic! "PatternRewriter.replaceOp! failed: old operation is out of bounds"
 
 def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
     (neValues : oldVal ≠ newVal := by grind)
