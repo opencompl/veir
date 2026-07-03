@@ -208,6 +208,18 @@ def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     worklist := rewriter.worklist.remove op,
   }
 
+/--
+Erase an operation, panicking if the operation is out of bounds, has regions, or has uses.
+-/
+def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
+    : PatternRewriter OpInfo :=
+  let newCtx := WfRewriter.eraseOp! rewriter.ctx op
+  { rewriter with
+    ctx := newCtx,
+    hasDoneAction := true,
+    worklist := rewriter.worklist.remove op,
+  }
+
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
     (hpar : (oldOp.get! rewriter.ctx.raw).parent.isSome = true := by grind)
