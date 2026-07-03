@@ -15,17 +15,16 @@ namespace Veir.RISCV
   added to the pattern list in `Combine.impl`.
 -/
 
-set_option warn.sorry false in
 /-- riscv.add x 0 -> x -/
 def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (operands, _) := matchOp op rewriter.ctx (.riscv .add) 2 | return rewriter
   let lhs := operands[0]!
   let some liOp := getDefiningOp operands[1]! rewriter.ctx | return rewriter
   let some (_, cst) := matchOp liOp rewriter.ctx (.riscv .li) 0 | return rewriter
   if cst.value.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let rewriter := rewriter.replaceValue! (op.getResult 0) lhs
+  return rewriter.eraseOp! op
 
 def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do

@@ -127,7 +127,6 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
       return ordinaryKey ctx op kind
   | _ => none
 
-set_option warn.sorry false in
 /-- Perform CSE on a single BB: Walk the operations, building up a
     hash of available values. For any operation whose value is already
     available, replace it with the earlier one. -/
@@ -143,14 +142,13 @@ def processBlock
     if let some key := key? ctx.raw op then
         match available[key]? with
         | some earlier =>
-            ctx := WfRewriter.replaceValue ctx (op.getResult 0) (earlier.getResult 0) sorry sorry sorry
-            ctx := WfRewriter.eraseOp ctx op sorry sorry sorry
+            ctx := WfRewriter.replaceValue! ctx (op.getResult 0) (earlier.getResult 0)
+            ctx := WfRewriter.eraseOp! ctx op
         | none =>
             available := available.insert key op
     current := next
   return ctx
 
-set_option warn.sorry false in
 def processAllBlocks (ctx : WfIRContext OpCode) :
     WfIRContext OpCode := Id.run do
   let mut ctx := ctx
