@@ -124,7 +124,7 @@
   ^11():
     "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
       ^1(%0 : !riscv.reg):
-        // reg -> i32 -> reg : NOT IMPLEMENT YET SO SHOULD NOT BE FOLDED AWAY.
+        // reg -> i32 -> reg : should not be folded away.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i32
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i32) -> !riscv.reg
         "test.test"(%2) : (!riscv.reg) -> ()

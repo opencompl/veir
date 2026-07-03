@@ -15,9 +15,8 @@ def isRiscvRegToI64Cast (inputType interType : TypeAttr): Bool :=
   | _, _ => false
 
 /-!
-  Same for `!riscv.reg` and `i32`, but only the `i32 -> reg -> i32` direction:
-  `toReg` zero-extends into the 64-bit register and `toInt 32` takes the low 32
-  bits.
+   Cast for the `i32 -> reg -> i32` direction: `toReg` zero-extends into the 64-bit register and
+   `toInt 32` takes the low 32 bits.
 -/
 def isRiscvRegToI32Cast (inputType interType : TypeAttr): Bool :=
  match inputType.val, interType.val with
