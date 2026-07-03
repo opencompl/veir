@@ -399,11 +399,13 @@ def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
   Store an LLVM value to memory.
   Yields UB if the access is out of bounds or the address is 0.
 -/
-def MemoryState.storeValue (state : MemoryState) (addr : UInt64) (val : RuntimeValue)
+def MemoryState.llvmStore (state : MemoryState) (addr : UInt64) (val : RuntimeValue)
     : Interp MemoryState :=
   if addr.toNat == 0 then Interp.ub else
   match val with
   | .int 8 (.val v) => state.store addr (ByteArray.empty.push (UInt8.ofBitVec v))
+  | .int 16 (.val v) => state.store addr (UInt16.ofBitVec v).toByteArrayLE
+  | .int 32 (.val v) => state.store addr (UInt32.ofBitVec v).toByteArrayLE
   | .int 64 (.val v) => state.store addr (UInt64.ofBitVec v).toByteArrayLE
   | .int n .poison => state.empoison addr (n / 8)
   | .addr v => state.store addr v.toByteArrayLE
@@ -440,7 +442,7 @@ def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
   Load an LLVM value from the given memory address.
   Yields UB if access is out of bounds or the address is 0.
 -/
-def MemoryState.loadValue (state : MemoryState) (addr : UInt64) (type : TypeAttr)
+def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
     : Interp RuntimeValue := do
   if addr == 0 then Interp.ub else
   match type.val with
@@ -448,6 +450,14 @@ def MemoryState.loadValue (state : MemoryState) (addr : UInt64) (type : TypeAttr
       let ba ← state.load addr 1
       if ← state.hasPoison addr 1 then return .int 8 .poison
       return .int 8 (.val ba[0]!.toNat)
+  | Attribute.integerType { bitwidth := 16 } =>
+      let ba ← state.load addr 2
+      if ← state.hasPoison addr 2 then return .int 16 .poison
+      return .int 16 (.val (ba.toBitVecLE 2))
+  | Attribute.integerType { bitwidth := 32 } =>
+      let ba ← state.load addr 4
+      if ← state.hasPoison addr 4 then return .int 32 .poison
+      return .int 32 (.val (ba.toBitVecLE 4))
   | Attribute.integerType { bitwidth := 64 } =>
       let ba ← state.load addr 8
       if ← state.hasPoison addr 8 then return .int 64 .poison
@@ -823,11 +833,11 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
   | .load => do
     let [.addr addr] := operands.toList | none
     let [type] := resultTypes.toList | none
-    let val ← mem.loadValue addr type
+    let val ← mem.llvmLoad addr type
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | none
-    let mem ← mem.storeValue addr val
+    let mem ← mem.llvmStore addr val
     return (#[], mem, none)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
@@ -850,12 +860,6 @@ def riscvEffectiveAddr (base : BitVec 64) (offset : Int) : BitVec 64 :=
 inductive LoadExtension
   | signExt
   | zeroExt
-
-/-- Interpret the first `bytes` bytes of a little-endian `ByteArray`
-    as a `BitVec (8 * bytes)` (byte 0 is the least significant). -/
-def _root_.ByteArray.toBitVecLE (ba : ByteArray) (bytes : Nat) : BitVec (8 * bytes) :=
-  -- NB ByteArray does not define its own foldr
-  ba.toList.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth (8 * bytes)) 0
 
 /-- Read `bytes` of little-endian data from memory starting at
     `eaddr` and extend it to 64 bits according to `ext`. Memory is
