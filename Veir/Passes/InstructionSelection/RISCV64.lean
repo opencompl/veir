@@ -19,7 +19,6 @@ namespace Veir
 def isLegalExtOpWidth (w : Nat) : Bool :=
   w = 8 ∨ w = 16 ∨ w = 32
 
-set_option warn.sorry false in
 /--
   `llvm.intr.ctlz` -> `riscv.clz`.
 -/
@@ -38,7 +37,6 @@ def ctlz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
           #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (retOp.getResult 0)
 
-set_option warn.sorry false in
 /--
   `llvm.intr.cttz` -> `riscv.ctz`.
 -/
@@ -57,7 +55,6 @@ def cttz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
           #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (retOp.getResult 0)
 
-set_option warn.sorry false in
 /--
   `llvm.intr.ctpop` -> `riscv.cpop`.
 -/
@@ -76,7 +73,6 @@ def ctpop (rewriter : PatternRewriter OpCode) (op : OperationPtr)
           #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (retOp.getResult 0)
 
-set_option warn.sorry false in
 /--
   `llvm.intr.bswap` -> `riscv.rev8`.
 -/
@@ -98,7 +94,6 @@ def bswap (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   else
     replaceWithReg rewriter op (rev8Op.getResult 0)
 
-set_option warn.sorry false in
 /--
   One SWAR bit-reversal stage:
   `((x & mask) << shamt) | ((x >> shamt) & mask)`.
@@ -122,7 +117,6 @@ def bitreverseStage (mask shamt : Int) (rewriter : PatternRewriter OpCode)
       #[lowShiftOp.getResult 0, highOp.getResult 0] #[] #[] () (some $ .before op)
   return (rewriter, orOp.getResult 0)
 
-set_option warn.sorry false in
 /--
   `llvm.intr.bitreverse` -> mask/shift/or stages followed by `riscv.rev8`.
 -/
@@ -152,7 +146,6 @@ def bitreverse (rewriter : PatternRewriter OpCode) (op : OperationPtr)
         #[] #[] () (some $ .before op)
     replaceWithReg rewriter op (retOp.getResult 0)
 
-set_option warn.sorry false in
 /-- llvm.constant -> riscv.li -/
 def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -166,13 +159,12 @@ def constant (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBou
       #[] #[] {value := const} (some $ .before op)
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type]
       #[newOp.getResult 0] #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.add -> riscv.add -/
 def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, properties) := matchAdd op rewriter.ctx | return rewriter
+  let some (lhs, rhs, _) := matchAdd op rewriter.ctx | return rewriter
   /- support `i64` and `i32` (experiment) -/
   let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return rewriter
@@ -197,9 +189,8 @@ def add (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
   /- Cast back result for type consistency-/
   let (rewriter, castAddOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[addOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castAddOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castAddOp
 
-set_option warn.sorry false in
 /-- llvm.and -> riscv.and -/
 def and (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -223,13 +214,12 @@ def and (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
   /- Cast back result for type consistency-/
   let (rewriter, castAddOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[andOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castAddOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castAddOp
 
-set_option warn.sorry false in
 /-- llvm.ashr -> riscv.sra -/
 def ashr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, properties) := matchAshr op rewriter.ctx | return rewriter
+  let some (lhs, rhs, _) := matchAshr op rewriter.ctx | return rewriter
   /- support `i64` and `i32` -/
   let .integerType ltype := (lhs.getType! rewriter.ctx.raw).val | return rewriter
   if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return rewriter
@@ -254,9 +244,8 @@ def ashr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   /- Cast back result for type consistency-/
   let (rewriter, castSraOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[sraOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castSraOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castSraOp
 
-set_option warn.sorry false in
 /--
     llvm.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
     llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
@@ -295,7 +284,7 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
       pure (rewriter, lcastOp.getResult 0, rcastOp.getResult 0)
   /- Casting back result for type consistency is always necessary. -/
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
-  let .integerType type' := type.val | rewriter
+  let .integerType _ := type.val | rewriter
   /- Match depending on the predicate and build correct lowering. -/
   let (rewriter, retOp) ← match property.predicate with
     | .eq =>
@@ -370,9 +359,8 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
       pure (rewriter, retOp)
   let (rewriter, castEqOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
         #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castEqOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castEqOp
 
-set_option warn.sorry false in
 /-- llvm.or -> riscv.or -/
 def or (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -396,9 +384,8 @@ def or (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds re
   /- Cast back result for type consistency-/
   let (rewriter, castOrOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[orOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOrOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOrOp
 
-set_option warn.sorry false in
 /-- llvm.xor -> riscv.xor -/
 def xor (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -422,9 +409,8 @@ def xor (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
   /- Cast back result for type consistency-/
   let (rewriter, castXorOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[xorOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castXorOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castXorOp
 
-set_option warn.sorry false in
 /-- llvm.mul -> riscv.mul -/
 def mul (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -453,9 +439,8 @@ def mul (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
   /- Cast back result for type consistency-/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[mulOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.sdiv -> riscv.div -/
 def sdiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -484,9 +469,8 @@ def sdiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   /- Cast back result for type consistency-/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[divOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.udiv -> riscv.divu -/
 def udiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -515,9 +499,8 @@ def udiv (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   /- Cast back result for type consistency-/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[divuOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.srem -> riscv.rem -/
 def srem (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -546,9 +529,8 @@ def srem (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   /- Cast back result for type consistency-/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[remOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.urem -> riscv.remu -/
 def urem (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -577,9 +559,8 @@ def urem (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   /- Cast back result for type consistency-/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[remuOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.sub -> riscv.sub -/
 def sub (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -608,9 +589,8 @@ def sub (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
   /- Cast back result for type consistency-/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[subOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /--
   llvm.sext %x `i8`  to `i32` -> riscv.sextb %x
   llvm.sext %x `i8`  to `i64` -> riscv.sextb %x
@@ -648,9 +628,8 @@ def sext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   /- Cast back result for type consistency-/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /--
   llvm.zext %x `i16` to `i64` -> riscv.zexth %x
   llvm.zext %x `i16` to `i32` -> riscv.zexth %x
@@ -686,9 +665,8 @@ def zext (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   /- Cast back result for type consistency-/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /--
   llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
   where `iY`'s width is smaller than `iX`'s.
@@ -706,9 +684,8 @@ def trunc (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds
   /- Then, cast register to expected output width. -/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[opCastOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.shl -> riscv.sll -/
 def shl (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -737,9 +714,8 @@ def shl (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
   /- Cast back result for type consistency-/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[mulOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.shl -> riscv.srl -/
 def lshr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -768,9 +744,8 @@ def lshr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   /- Cast back result for type consistency-/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[mulOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.load -> riscv.ld (i64) / riscv.lw (i32) / riscv.lb (i8) -/
 def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -796,9 +771,8 @@ def load (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
         #[] #[] zero (some $ .before op)
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[ldOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.store -> riscv.sd (i64) / riscv.sw (i32) / riscv.sb (i8) -/
 def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -825,9 +799,8 @@ def store (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds
     else
       rewriter.createOp! (.riscv .sd) #[] #[pcastOp.getResult 0, valcastOp.getResult 0]
         #[] #[] zero (some $ .before op)
-  rewriter.replaceOp op sdOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op sdOp
 
-set_option warn.sorry false in
 /--
   Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
   where `scale` is the byte size of the element type.
@@ -885,7 +858,7 @@ def getelementptr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.
   /- Cast the resulting register back to `!llvm.ptr`. -/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
 /-! ## Zicond branchless `select` lowering
 
@@ -901,7 +874,6 @@ def getelementptr (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.
   `selectCzeronez` are registered before `selectGeneral`.
 -/
 
-set_option warn.sorry false in
 /--
   `select c t 0` -> `riscv.czeroeqz t c`.
 -/
@@ -917,7 +889,6 @@ def selectCzeroeqz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (czOp.getResult 0)
 
-set_option warn.sorry false in
 /--
   `select c 0 f` -> `riscv.czeronez f c`.
 -/
@@ -933,7 +904,6 @@ def selectCzeronez (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (czOp.getResult 0)
 
-set_option warn.sorry false in
 /--
   General branchless select:
   `select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
@@ -964,7 +934,6 @@ def selectGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   multi-instruction expansion and is intentionally left unselected.
 -/
 
-set_option warn.sorry false in
 /-- llvm.intr.smax -> riscv.max -/
 def smax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -988,7 +957,6 @@ def smax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
         #[] #[] () (some $ .before op)
     replaceWithReg rewriter op (maxOp.getResult 0)
 
-set_option warn.sorry false in
 /-- llvm.intr.smin -> riscv.min -/
 def smin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -1012,7 +980,6 @@ def smin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
         #[] #[] () (some $ .before op)
     replaceWithReg rewriter op (minOp.getResult 0)
 
-set_option warn.sorry false in
 /-- llvm.intr.umax -> riscv.maxu -/
 def umax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -1025,7 +992,6 @@ def umax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (maxuOp.getResult 0)
 
-set_option warn.sorry false in
 /-- llvm.intr.umin -> riscv.minu -/
 def umin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -1038,7 +1004,6 @@ def umin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (minuOp.getResult 0)
 
-set_option warn.sorry false in
 /-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol.
     The general (distinct-operand) funnel shift is left unselected. -/
 def fshl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1058,7 +1023,6 @@ def fshl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
           #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (rolOp.getResult 0)
 
-set_option warn.sorry false in
 /-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror.
     The general (distinct-operand) funnel shift is left unselected. -/
 def fshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1078,7 +1042,6 @@ def fshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
           #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (rorOp.getResult 0)
 
-set_option warn.sorry false in
 /-- llvm.intr.fshr with identical data operands and a constant shift amount is a
     constant rotate-right: -> riscv.rori (mirrors `PatGprImm<rotr, RORI>`). -/
 def fshrConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1103,7 +1066,6 @@ def fshrConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
         #[] #[] imm (some $ .before op)
     replaceWithReg rewriter op (roriOp.getResult 0)
 
-set_option warn.sorry false in
 /-- llvm.intr.fshl with identical data operands and a constant shift amount is a
     constant rotate-left. There is no `roli`, so (like LLVM) it lowers to
     `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
@@ -1133,7 +1095,6 @@ def fshlConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     replaceWithReg rewriter op (roriOp.getResult 0)
 
 
-set_option warn.sorry false in
 /-- llvm.mlir.poison -> riscv.li 0 -/
 def poisonConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -1143,7 +1104,6 @@ def poisonConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       #[] #[] imm (some $ .before op)
   replaceWithReg rewriter op (liOp.getResult 0)
 
-set_option warn.sorry false in
 /-- llvm.freeze arg : Int w ->
   unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
 def freeze (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
@@ -1159,7 +1119,7 @@ def freeze (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBound
   /- Then, cast register to expected output width. -/
   let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[type] #[opCastOp.getResult 0]
       #[] #[] () (some $ .before op)
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  return rewriter.replaceOp! op castOp
 
 /-! # Pass implementation -/
 

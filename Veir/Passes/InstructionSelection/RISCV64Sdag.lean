@@ -19,7 +19,6 @@ def singleSetBit (x : BitVec 64) : Option Int :=
 
 /-! # SelectionDAG Lowering Patterns  -/
 
-set_option warn.sorry false in
 /--
   `and x (not y)` -> `riscv.andn x y`. The `not` may appear on either operand.
 -/
@@ -36,11 +35,10 @@ def andn (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
                | none => none) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let (rewriter, yReg) ← castToReg rewriter op y
-  let (rewriter, andnOp) ← rewriter.createOp (.riscv .andn) #[RegisterType.mk] #[xReg, yReg]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, andnOp) := rewriter.createOp! (.riscv .andn) #[RegisterType.mk] #[xReg, yReg]
+      #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (andnOp.getResult 0)
 
-set_option warn.sorry false in
 /--
   `or x (not y)` -> `riscv.orn x y`. The `not` may appear on either operand.
 -/
@@ -57,11 +55,10 @@ def orn (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
                | none => none) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let (rewriter, yReg) ← castToReg rewriter op y
-  let (rewriter, ornOp) ← rewriter.createOp (.riscv .orn) #[RegisterType.mk] #[xReg, yReg]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, ornOp) := rewriter.createOp! (.riscv .orn) #[RegisterType.mk] #[xReg, yReg]
+      #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (ornOp.getResult 0)
 
-set_option warn.sorry false in
 /--
   `xor x (not y)` -> `riscv.xnor x y`. The `not` may appear on either operand.
 -/
@@ -78,11 +75,10 @@ def xnor (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
                | none => none) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let (rewriter, yReg) ← castToReg rewriter op y
-  let (rewriter, xnorOp) ← rewriter.createOp (.riscv .xnor) #[RegisterType.mk] #[xReg, yReg]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, xnorOp) := rewriter.createOp! (.riscv .xnor) #[RegisterType.mk] #[xReg, yReg]
+      #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (xnorOp.getResult 0)
 
-set_option warn.sorry false in
 /--
   `sub (shl M (8 - Y)) (lshr M Y)` -> `riscv.orcb M`,
   where `M = and Z (0x0101_0101_0101_0101 <<< Y)`
@@ -124,8 +120,8 @@ def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   if !(isMask mo0 || isMask mo1) then return rewriter
   let (rewriter, mReg) ← castToReg rewriter op m
   /- actual `riscv.orcb` -/
-  let (rewriter, orcbOp) ← rewriter.createOp (.riscv .orcb) #[RegisterType.mk] #[mReg]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, orcbOp) := rewriter.createOp! (.riscv .orcb) #[RegisterType.mk] #[mReg]
+      #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (orcbOp.getResult 0)
 
 
@@ -146,7 +142,6 @@ def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1386-L1393
 -/
 
-set_option warn.sorry false in
 /--
   `OP x (const imm)` -> `OPi x imm`, when the op's result has width `width` and the
   immediate lies in `[lo, hi]`. Mirrors `PatGprImm<OpNode, Inst, ImmType>`. The
@@ -163,8 +158,8 @@ def selectBinopImm {α} (matchPair : OperationPtr → IRContext OpCode → Optio
   if imm.value < lo || imm.value > hi then return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm.value (IntegerType.mk 64))
-  let (rewriter, newOp) ← rewriter.createOp (.riscv dst) #[RegisterType.mk] #[xReg]
-      #[] #[] (cast h.symm immProps) (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, newOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
+      #[] #[] (cast h.symm immProps) (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
 /-- imm12 binops on i64: `add/or/and/xor x (const ∈ [-2048, 2047])` -> `addi/ori/andi/xori`.
@@ -188,7 +183,6 @@ def slliw := selectBinopImm matchShl  .slliw rfl 32 0 31
 def srliw := selectBinopImm matchLshr .srliw rfl 32 0 31
 def sraiw := selectBinopImm matchAshr .sraiw rfl 32 0 31
 
-set_option warn.sorry false in
 /--
   `icmp slt x (const imm12)` -> `riscv.slti x imm`;
   `icmp ult x (const imm12)` -> `riscv.sltiu x imm`.
@@ -207,13 +201,13 @@ def slti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   match prop.predicate with
   | .slt =>
     let (rewriter, xReg) ← castToReg rewriter op lhs
-    let (rewriter, newOp) ← rewriter.createOp (.riscv .slti) #[RegisterType.mk] #[xReg]
-        #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, newOp) := rewriter.createOp! (.riscv .slti) #[RegisterType.mk] #[xReg]
+        #[] #[] immProps (some $ .before op)
     replaceWithReg rewriter op (newOp.getResult 0)
   | .ult =>
     let (rewriter, xReg) ← castToReg rewriter op lhs
-    let (rewriter, newOp) ← rewriter.createOp (.riscv .sltiu) #[RegisterType.mk] #[xReg]
-        #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, newOp) := rewriter.createOp! (.riscv .sltiu) #[RegisterType.mk] #[xReg]
+        #[] #[] immProps (some $ .before op)
     replaceWithReg rewriter op (newOp.getResult 0)
   | _ => return rewriter
 
@@ -231,7 +225,6 @@ def slti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L529-L534
 -/
 
-set_option warn.sorry false in
 /--
   Single-bit immediate selection. `complement = false` for `bseti`/`binvi` (the
   immediate itself is a single set bit); `complement = true` for `bclri` (the
@@ -252,15 +245,14 @@ def selectSingleBit {α} (matchPair : OperationPtr → IRContext OpCode → Opti
   let some n := singleSetBit (if complement then ~~~ bv else bv) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk n (IntegerType.mk 64))
-  let (rewriter, newOp) ← rewriter.createOp (.riscv dst) #[RegisterType.mk] #[xReg]
-      #[] #[] (cast h.symm immProps) (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, newOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
+      #[] #[] (cast h.symm immProps) (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
 def bseti := selectSingleBit matchOr  .bseti rfl false
 def binvi := selectSingleBit matchXor .binvi rfl false
 def bclri := selectSingleBit matchAnd .bclri rfl true
 
-set_option warn.sorry false in
 /-- `and (lshr x n) 1` -> `riscv.bexti x n` (`PatGprImm`-style single-bit extract).
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L536-L537 -/
 def bexti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -276,11 +268,10 @@ def bexti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   if sh.value < 0 || sh.value > 63 then return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk sh.value (IntegerType.mk 64))
-  let (rewriter, newOp) ← rewriter.createOp (.riscv .bexti) #[RegisterType.mk] #[xReg]
-      #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, newOp) := rewriter.createOp! (.riscv .bexti) #[RegisterType.mk] #[xReg]
+      #[] #[] immProps (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
-set_option warn.sorry false in
 /-- `fshr x x (const)` on i32 is a constant word rotate-right -> `riscv.roriw`
     (i32 analogue of `fshrConst` -> `rori`; mirrors `PatGprImm<riscv_rorw, RORIW, uimm5>`).
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L504 -/
@@ -294,11 +285,10 @@ def roriw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let sh : Int := ((amtAttr.value % 32) + 32) % 32
   let (rewriter, valReg) ← castToReg rewriter op a
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk sh (IntegerType.mk 64))
-  let (rewriter, newOp) ← rewriter.createOp (.riscv .roriw) #[RegisterType.mk] #[valReg]
-      #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, newOp) := rewriter.createOp! (.riscv .roriw) #[RegisterType.mk] #[valReg]
+      #[] #[] immProps (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
-set_option warn.sorry false in
 /-- `fshl x x (const)` on i32 is a constant word rotate-left. There is no `roliw`,
     so (like `fshlConst` at i64) it lowers to `riscv.roriw` with the negated immediate
     `(32 - amt) mod 32` (i32 analogue of `fshlConst`). -/
@@ -314,11 +304,10 @@ def roliw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let imm : Int := (32 - sh) % 32
   let (rewriter, valReg) ← castToReg rewriter op a
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm (IntegerType.mk 64))
-  let (rewriter, newOp) ← rewriter.createOp (.riscv .roriw) #[RegisterType.mk] #[valReg]
-      #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, newOp) := rewriter.createOp! (.riscv .roriw) #[RegisterType.mk] #[valReg]
+      #[] #[] immProps (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
-set_option warn.sorry false in
 /-- `shl (zext i32->i64 x) (const ∈ [0,31])` -> `riscv.slliuw x shamt`
     (Zba: `(i64 (shl (and GPR, 0xFFFFFFFF), uimm5)) -> SLLI_UW`; our `zext` is the mask).
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L821-L822 -/
@@ -335,11 +324,10 @@ def slliuw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   if srcT.bitwidth ≠ 32 then return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk sh.value (IntegerType.mk 64))
-  let (rewriter, newOp) ← rewriter.createOp (.riscv .slliuw) #[RegisterType.mk] #[xReg]
-      #[] #[] immProps (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, newOp) := rewriter.createOp! (.riscv .slliuw) #[RegisterType.mk] #[xReg]
+      #[] #[] immProps (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
-set_option warn.sorry false in
 /-- llvm.zext x i1 to i64 -> and x 1 -/
 def zext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -349,16 +337,15 @@ def zext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if opType.bitwidth ≠ 1 then return rewriter
   /- First, cast the operand to registers -/
-  let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, opCastOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
+      #[] #[] () (some $ .before op)
   let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-  let (rewriter, andiOp) ← rewriter.createOp (.riscv .andi) #[RegisterType.mk] #[opCastOp.getResult 0]
-      #[] #[] imm (some $ .before op) sorry (by simp) (by simp) sorry
-  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[t] #[andiOp.getResult 0]
-      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  let (rewriter, andiOp) := rewriter.createOp! (.riscv .andi) #[RegisterType.mk] #[opCastOp.getResult 0]
+      #[] #[] imm (some $ .before op)
+  let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[t] #[andiOp.getResult 0]
+      #[] #[] () (some $ .before op)
+  return rewriter.replaceOp! op castOp
 
-set_option warn.sorry false in
 /-- llvm.sext x i1 to i64 -> srai (slli x 63) 1 -/
 def sext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -368,16 +355,16 @@ def sext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if opType.bitwidth ≠ 1 then return rewriter
   /- First, cast the operand to registers -/
-  let (rewriter, opCastOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
-      #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, opCastOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
+      #[] #[] () (some $ .before op)
   let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 63 (IntegerType.mk 64))
-  let (rewriter, slliOp) ← rewriter.createOp (.riscv .slli) #[RegisterType.mk] #[opCastOp.getResult 0]
-      #[] #[] imm (some $ .before op) sorry (by simp) (by simp) sorry
-  let (rewriter, sraiOp) ← rewriter.createOp (.riscv .srai) #[RegisterType.mk] #[slliOp.getResult 0]
-      #[] #[] imm (some $ .before op) sorry (by simp) (by simp) sorry
-  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast) #[t] #[sraiOp.getResult 0]
-      #[] #[] () (some $ .before op) (by sorry) (by simp) (by simp) sorry
-  rewriter.replaceOp op castOp sorry sorry sorry sorry sorry
+  let (rewriter, slliOp) := rewriter.createOp! (.riscv .slli) #[RegisterType.mk] #[opCastOp.getResult 0]
+      #[] #[] imm (some $ .before op)
+  let (rewriter, sraiOp) := rewriter.createOp! (.riscv .srai) #[RegisterType.mk] #[slliOp.getResult 0]
+      #[] #[] imm (some $ .before op)
+  let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[t] #[sraiOp.getResult 0]
+      #[] #[] () (some $ .before op)
+  return rewriter.replaceOp! op castOp
 
 /-! ## Division by a constant power of two
 
