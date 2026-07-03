@@ -158,9 +158,9 @@ def parseOptionalIntegerAttr : AttrParserM (Option IntegerAttr) := do
   Its syntax is a string literal enclosed in double quotes, e.g., `"foo"`.
 -/
 def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
-  let some str ← parseOptionalStringLiteral
+  let some bytes ← parseOptionalStringLiteral
     | return none
-  return some (StringAttr.mk str.toByteArray)
+  return some (StringAttr.mk bytes)
 
 /--
 Parse a float attribute, if present.
