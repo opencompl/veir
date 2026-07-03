@@ -254,19 +254,6 @@ theorem udiv_refinement {x y : LLVM.Int 64} :
 
 /-! ### `sdiv`/`udiv` by a constant power of two
 
-  Refinements for the `sdivPow2Exact`/`sdivPow2` (and `i32` analogues) lowerings in
-  `isel-sdag-riscv64` (`RISCV64Sdag.lean`). The positive-divisor lemmas require
-  `k < 63`: a genuine (canonically-ranged) positive `i64` divisor `2^k` must satisfy
-  `2^k ≤ 2^63 - 1`, i.e. `k ≤ 62`, since `k = 63` only arises as the *negative*
-  divisor `-2^63` (`Int64.minValue`). Without this bound, `k = 63, x = -1` is a
-  genuine counterexample (found by `bv_decide` itself): the positive-divisor formula
-  would divide the register's bit pattern `0x8000000000000000` as if it meant
-  `+2^63`, when the hardware `sdiv` semantics necessarily reads it as `-2^63`.
-
-  `udivPow2`/`udivwPow2` need no domain restriction: `x udiv 2^k = x >>u k` holds
-  unconditionally, for *any* bit pattern.
--/
-
 set_option warn.sorry false in
 /--
   `udiv x, 2^k` -> `riscv.srli x, k` (`udivPow2`). Mirrors `DAGCombiner::visitUDIVLike`'s
