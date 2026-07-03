@@ -2,6 +2,8 @@ import Veir.Pass
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 import Veir.Passes.DCE.dce
+import Veir.Rewriter.WfRewriter
+import Veir.Properties
 
 namespace Veir
 
@@ -88,8 +90,184 @@ def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr
   let rewriter := rewriter.replaceValue (op.getResult 0) input sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
+/-! ## Coercing function boundaries to `!riscv.reg`
+
+  Before removing round-trip casts, we rewrite each `func.func`'s integer-typed
+  arguments and return values to `!riscv.reg`, inserting `unrealized_conversion_cast`s
+  to bridge to/from the original integer types. Instruction selection already casts
+  every use of a function argument (and every return operand) through a register, so
+  this coercion turns those into `reg -> iX -> reg` round-trips that the reconciliation
+  patterns above then collapse. The function's `function_type` attribute is rewritten to
+  match so the verifier's return-type check still holds.
+
+  We coerce the 64-bit boundary types: `i64` and `!llvm.ptr`. A `reg <-> i64` or
+  `reg <-> !llvm.ptr` round-trip is the identity (a register, an `i64`, and a pointer are
+  all exactly 64 bits), so coercing such a boundary lets the reconciliation patterns
+  *remove* the surrounding casts entirely (`isRiscvRegToI64Cast` / `isRiscvRegToPtrCast`
+  fire in both directions). `i32` is deliberately excluded: `reg -> i32 -> reg` truncates,
+  so it is unsound to reconcile (this is why `isRiscvRegToI32Cast` only fires in the
+  `i32 -> reg -> i32` direction) — coercing an `i32` boundary would *add* a permanent
+  truncation cast rather than remove one, and would widen the interpreter's printed result.
+  Other boundary types (narrower integers, floats, `void`/empty returns, …) are likewise
+  left untouched. Both `func.func` (terminated by `func.return`) and `llvm.func` (terminated
+  by `llvm.return`) are handled.
+-/
+
+/-- Whether a boundary value of this type should be coerced to `!riscv.reg`. The coercible
+    types are the 64-bit ones whose `reg` round-trip is the identity: `i64` and `!llvm.ptr`. -/
+def isRegCoercibleType (t : TypeAttr) : Bool :=
+  match t.val with
+  | .integerType x => x.bitwidth == 64
+  | .llvmPointerType _ => true
+  | _ => false
+
+/-- The raw `!riscv.reg` attribute used to build a coerced `function_type`. -/
+def regAttribute : Attribute := .registerType ⟨none⟩
+
+/-- Walk up to the operation enclosing `op`'s parent region (the enclosing function op). -/
+def enclosingFunctionOp? (raw : IRContext OpCode) (op : OperationPtr) : Option OperationPtr := do
+  let block ← (op.get! raw).parent
+  let region ← (block.get! raw).parent
+  (region.get! raw).parent
+
+/-- Whether an opcode belongs to one of the RISC-V dialects. -/
+def isRiscvFamilyOp : OpCode → Bool
+  | .riscv _ | .riscv_cf _ | .riscv_stack _ | .rv64 _ => true
+  | _ => false
+
+/-- Whether `funcOp`'s body contains any RISC-V-dialect operation, i.e. whether it
+    has actually been lowered by instruction selection. We only coerce the boundaries
+    of lowered functions, so non-lowered functions (and mixed-dialect fixtures) keep
+    their original argument/return types. -/
+def functionIsLowered (raw : IRContext OpCode) (funcOp : OperationPtr) : Bool :=
+  raw.operations.keys.any fun o =>
+    isRiscvFamilyOp (o.getOpType! raw) && enclosingFunctionOp? raw o == some funcOp
+
+/-- Whether an opcode is a function-definition op whose boundaries we coerce. -/
+def isFunctionOp : OpCode → Bool
+  | .func .func | .llvm .func => true
+  | _ => false
+
+/-- The return-terminator opcode paired with a function op (`func.return` for
+    `func.func`, `llvm.return` for `llvm.func`). -/
+def returnOpCodeFor : OpCode → OpCode
+  | .llvm .func => .llvm .return
+  | _ => .func .return
+
+/-- Read a function op's declared `function_type`. The boolean records whether it used the
+    `.llvmFunctionType` spelling, so the same spelling is preserved when we rewrite it.
+    `func.func` keeps it in `extra`; `llvm.func` has a first-class `function_type` field. -/
+def readFunctionType? (raw : IRContext OpCode) (funcOp : OperationPtr) :
+    Option (Bool × FunctionType) :=
+  match funcOp.getOpType! raw with
+  | .func .func =>
+    match (funcOp.getProperties! raw (.func .func) : FuncFuncProperties).extra.entries.find?
+        (fun e => e.1 == "function_type".toUTF8) with
+    | some (_, .functionType ft) => some (false, ft)
+    | _ => none
+  | .llvm .func =>
+    match (funcOp.getProperties! raw (.llvm .func) : LLVMFuncProperties).function_type with
+    | some ta =>
+      match ta.val with
+      | .functionType ft => some (false, ft)
+      | .llvmFunctionType ft => some (true, ft)
+      | _ => none
+    | none => none
+  | _ => none
+
+set_option warn.sorry false in
+/-- Rewrite a function op's `function_type` to the given input/output type lists,
+    preserving the `.functionType`/`.llvmFunctionType` spelling. -/
+def setFunctionType (c : WfIRContext OpCode) (funcOp : OperationPtr) (isLlvmFnType : Bool)
+    (inputs outputs : Array Attribute) : WfIRContext OpCode :=
+  let ftType : TypeAttr :=
+    if isLlvmFnType then ⟨.llvmFunctionType { inputs, outputs }, by rfl⟩
+    else ⟨.functionType { inputs, outputs }, by rfl⟩
+  match funcOp.getOpType! c.raw with
+  | .func .func =>
+    let props : FuncFuncProperties := funcOp.getProperties! c.raw (.func .func)
+    let newEntries := props.extra.entries.map fun (k, v) =>
+      if k == "function_type".toUTF8 then (k, ftType.val) else (k, v)
+    let newProps : FuncFuncProperties := { props with extra := DictionaryAttr.fromArray newEntries }
+    ⟨funcOp.setProperties (opCode := .func .func) c.raw newProps sorry sorry, sorry⟩
+  | .llvm .func =>
+    let props : LLVMFuncProperties := funcOp.getProperties! c.raw (.llvm .func)
+    let newProps : LLVMFuncProperties := { props with function_type := some ftType }
+    ⟨funcOp.setProperties (opCode := .llvm .func) c.raw newProps sorry sorry, sorry⟩
+  | _ => c
+
+set_option warn.sorry false in
+/-- Coerce one function's `i32`/`i64` arguments and return values to `!riscv.reg`,
+    inserting bridging casts and rewriting the `function_type` to match. Handles both
+    `func.func` and `llvm.func`. -/
+def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
+    ExceptT String IO (WfIRContext OpCode) := do
+  let mut c := ctx
+  -- The function body, if any, is its single region. Declarations have no blocks.
+  if funcOp.getNumRegions! c.raw = 0 then return c
+  let region := funcOp.getRegion! c.raw 0
+  let some entry := (region.get! c.raw).firstBlock | return c
+  -- Only coerce boundaries of functions that instruction selection has lowered.
+  if !functionIsLowered c.raw funcOp then return c
+  let returnCode := returnOpCodeFor (funcOp.getOpType! c.raw)
+  -- Default the output types to the currently-declared ones, then flip coerced positions.
+  -- This preserves non-integer results and `llvm.func`'s `void` return.
+  let (isLlvmFnType, declaredFt) :=
+    match readFunctionType? c.raw funcOp with
+    | some x => x
+    | none => (false, ({ inputs := #[], outputs := #[] } : FunctionType))
+  let mut outputs : Array Attribute := declaredFt.outputs
+  -- (1) Coerce entry-block arguments (the function parameters). This mirrors the
+  --     block-argument coercion in `isel-br-riscv64`, which skips entry blocks.
+  let mut inputs : Array Attribute := #[]
+  for i in List.range (entry.getNumArguments! c.raw) do
+    let bap : BlockArgumentPtr := { block := entry, index := i }
+    let origType := (ValuePtr.blockArgument bap).getType! c.raw
+    if isRegCoercibleType origType then
+      c := WfRewriter.setType c bap RegisterType.mk sorry
+      let ip := InsertPoint.atStart entry c.raw sorry
+      let some (c', cast) := WfRewriter.createOp c
+        (.builtin .unrealized_conversion_cast) #[origType] #[] #[] #[] default (some ip)
+        sorry sorry sorry sorry | return c
+      let c' := WfRewriter.replaceValue c' bap (cast.getResult 0) sorry sorry sorry
+      c := WfRewriter.pushOperand c' cast bap sorry sorry
+      inputs := inputs.push regAttribute
+    else
+      inputs := inputs.push origType.val
+  -- (2) Coerce the operands of every return terminator in this function.
+  let returnOps := c.raw.operations.keys.filter fun o =>
+    o.getOpType! c.raw == returnCode &&
+      enclosingFunctionOp? c.raw o == some funcOp
+  for retOp in returnOps do
+    for j in List.range (retOp.getNumOperands! c.raw) do
+      let opVal := retOp.getOperand! c.raw j
+      let opType := opVal.getType! c.raw
+      if isRegCoercibleType opType then
+        let some (c', cast) := WfRewriter.createOp c
+          (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[opVal] #[] #[] default
+          (some (InsertPoint.before retOp)) sorry sorry sorry sorry | return c
+        c := WfRewriter.replaceOperand c' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
+        -- The `j`-th operand maps to the `j`-th declared result (for non-void returns).
+        if j < outputs.size then
+          outputs := outputs.set! j regAttribute
+  -- (3) Rewrite the function_type to reflect the coerced boundary types.
+  c := setFunctionType c funcOp isLlvmFnType inputs outputs
+  return c
+
+/-- Coerce every `func.func` and `llvm.func` in the module (see `coerceFunction`). -/
+def coerceFunctionBoundaries (ctx : WfIRContext OpCode) :
+    ExceptT String IO (WfIRContext OpCode) := do
+  let mut c := ctx
+  let funcOps := ctx.raw.operations.keys.filter fun o => isFunctionOp (o.getOpType! ctx.raw)
+  for funcOp in funcOps do
+    c ← coerceFunction c funcOp
+  return c
+
 def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
+  -- First coerce function argument/return boundaries to registers, turning the
+  -- boundary casts into round-trips that the reconciliation patterns below remove.
+  let ctx ← coerceFunctionBoundaries ctx
   let pattern := RewritePattern.GreedyRewritePattern #[reconcilePairingCast isRiscvRegToI64Cast, reconcilePairingCast isRiscvRegToI32Cast, reconcilePairingCast isRiscvRegToPtrCast, reconcilePairingCast isPreservingIntegerTypeRoundTrip, reconcileIdentityCast]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying cast reconciliation"

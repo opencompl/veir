@@ -804,7 +804,7 @@
 // CHECK-NEXT:   ^[[bb4:[0-9]+]]():
 // CHECK-NEXT:     "llvm.module_flags"() {{.*}} : () -> ()
 // CHECK-NEXT:     "llvm.func"() <{{{.*}}"sym_name" = "chacha20_block"{{.*}}}> ({
-// CHECK-NEXT:       ^[[bb7:[0-9]+]](%[[varg7_0:[a-zA-Z0-9_]+]] : !llvm.ptr, %[[varg7_1:[a-zA-Z0-9_]+]] : i32, %[[varg7_2:[a-zA-Z0-9_]+]] : !llvm.ptr, %[[varg7_3:[a-zA-Z0-9_]+]] : !llvm.ptr, %[[varg7_4:[a-zA-Z0-9_]+]] : !llvm.ptr, %[[varg7_5:[a-zA-Z0-9_]+]] : !llvm.ptr):
+// CHECK-NEXT:       ^[[bb7:[0-9]+]](%[[varg7_0:[a-zA-Z0-9_]+]] : !riscv.reg, %[[varg7_1:[a-zA-Z0-9_]+]] : i32, %[[varg7_2:[a-zA-Z0-9_]+]] : !riscv.reg, %[[varg7_3:[a-zA-Z0-9_]+]] : !riscv.reg, %[[varg7_4:[a-zA-Z0-9_]+]] : !riscv.reg, %[[varg7_5:[a-zA-Z0-9_]+]] : !riscv.reg):
 // CHECK-NEXT:         %[[v3462:[0-9]+]] = "riscv.li"() <{"value" = 0 : i64}> : () -> !riscv.reg
 // CHECK-NEXT:         %[[v3460:[0-9]+]] = "riscv.li"() <{"value" = 1634760805 : i32}> : () -> !riscv.reg
 // CHECK-NEXT:         %[[v3461:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3460]]) : (!riscv.reg) -> i32
@@ -861,20 +861,16 @@
 // CHECK-NEXT:         %[[v3400:[0-9]+]] = "riscv.li"() <{"value" = 11 : i32}> : () -> !riscv.reg
 // CHECK-NEXT:         %[[v3401:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3400]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3398:[0-9]+]] = "riscv.li"() <{"value" = 13 : i64}> : () -> !riscv.reg
-// CHECK-NEXT:         %[[v3394:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_4]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3396:[0-9]+]] = "riscv.sh2add"(%[[v3462]], %[[v3394]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3396:[0-9]+]] = "riscv.sh2add"(%[[v3462]], %[[varg7_4]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3392:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3461]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3396]], %[[v3392]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v3387:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_4]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3389:[0-9]+]] = "riscv.sh2add"(%[[v3458]], %[[v3387]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3389:[0-9]+]] = "riscv.sh2add"(%[[v3458]], %[[varg7_4]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3385:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3457]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3389]], %[[v3385]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v3380:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_4]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3382:[0-9]+]] = "riscv.sh2add"(%[[v3454]], %[[v3380]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3382:[0-9]+]] = "riscv.sh2add"(%[[v3454]], %[[varg7_4]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3378:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3453]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3382]], %[[v3378]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v3373:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_4]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3375:[0-9]+]] = "riscv.sh2add"(%[[v3450]], %[[v3373]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3375:[0-9]+]] = "riscv.sh2add"(%[[v3450]], %[[varg7_4]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3371:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3449]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3375]], %[[v3371]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         "riscv_cf.branch"(%[[v3462]]) [^[[bb49:[0-9]+]]] : (!riscv.reg) -> ()
@@ -885,8 +881,7 @@
 // CHECK-NEXT:         "riscv_cf.bnez"(%[[v827]]) [^[[bb52:[0-9]+]], ^[[bb53:[0-9]+]]] <{"operandSegmentSizes" = array<i32: 1, 0, 0>}> : (!riscv.reg) -> ()
 // CHECK-NEXT:       ^[[bb52]]():
 // CHECK-NEXT:         %[[v3364:[0-9]+]] = "riscv.mul"(%[[varg49_0]], %[[v3438]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v3358:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_0]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3360:[0-9]+]] = "riscv.add"(%[[v3358]], %[[v3364]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3360:[0-9]+]] = "riscv.add"(%[[varg7_0]], %[[v3364]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3356:[0-9]+]] = "riscv.lb"(%[[v3360]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3357:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3356]]) : (!riscv.reg) -> i8
 // CHECK-NEXT:         %[[v3352:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3357]]) : (i8) -> !riscv.reg
@@ -935,8 +930,7 @@
 // CHECK-NEXT:         %[[v3300:[0-9]+]] = "riscv.or"(%[[v3299]], %[[v3298]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3301:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3300]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3296:[0-9]+]] = "riscv.add"(%[[varg49_0]], %[[v3438]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v3290:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_4]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3292:[0-9]+]] = "riscv.sh2add"(%[[v3296]], %[[v3290]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3292:[0-9]+]] = "riscv.sh2add"(%[[v3296]], %[[varg7_4]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3288:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3301]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3292]], %[[v3288]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         "riscv_cf.branch"() [^[[bb77:[0-9]+]]] : () -> ()
@@ -944,8 +938,7 @@
 // CHECK-NEXT:         %[[v3285:[0-9]+]] = "riscv.add"(%[[v3458]], %[[varg49_0]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         "riscv_cf.branch"(%[[v3285]]) [^[[bb49]]] : (!riscv.reg) -> ()
 // CHECK-NEXT:       ^[[bb53]]():
-// CHECK-NEXT:         %[[v3279:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_4]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3281:[0-9]+]] = "riscv.sh2add"(%[[v3444]], %[[v3279]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3281:[0-9]+]] = "riscv.sh2add"(%[[v3444]], %[[varg7_4]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3277:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_1]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3281]], %[[v3277]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         "riscv_cf.branch"(%[[v3462]]) [^[[bb83:[0-9]+]]] : (!riscv.reg) -> ()
@@ -956,8 +949,7 @@
 // CHECK-NEXT:         "riscv_cf.bnez"(%[[v829]]) [^[[bb86:[0-9]+]], ^[[bb87:[0-9]+]]] <{"operandSegmentSizes" = array<i32: 1, 0, 0>}> : (!riscv.reg) -> ()
 // CHECK-NEXT:       ^[[bb86]]():
 // CHECK-NEXT:         %[[v3270:[0-9]+]] = "riscv.mul"(%[[varg83_0]], %[[v3438]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v3264:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_2]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3266:[0-9]+]] = "riscv.add"(%[[v3264]], %[[v3270]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3266:[0-9]+]] = "riscv.add"(%[[varg7_2]], %[[v3270]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3262:[0-9]+]] = "riscv.lb"(%[[v3266]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3263:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3262]]) : (!riscv.reg) -> i8
 // CHECK-NEXT:         %[[v3258:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3263]]) : (i8) -> !riscv.reg
@@ -1006,8 +998,7 @@
 // CHECK-NEXT:         %[[v3206:[0-9]+]] = "riscv.or"(%[[v3205]], %[[v3204]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3207:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3206]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3202:[0-9]+]] = "riscv.add"(%[[varg83_0]], %[[v3398]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v3196:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_4]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3198:[0-9]+]] = "riscv.sh2add"(%[[v3202]], %[[v3196]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3198:[0-9]+]] = "riscv.sh2add"(%[[v3202]], %[[varg7_4]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3194:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3207]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3198]], %[[v3194]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         "riscv_cf.branch"() [^[[bb111:[0-9]+]]] : () -> ()
@@ -1022,12 +1013,10 @@
 // CHECK-NEXT:         %[[v831:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3188]]) : (i1) -> !riscv.reg
 // CHECK-NEXT:         "riscv_cf.bnez"(%[[v831]]) [^[[bb118:[0-9]+]], ^[[bb119:[0-9]+]]] <{"operandSegmentSizes" = array<i32: 1, 0, 0>}> : (!riscv.reg) -> ()
 // CHECK-NEXT:       ^[[bb118]]():
-// CHECK-NEXT:         %[[v3181:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_4]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3183:[0-9]+]] = "riscv.sh2add"(%[[varg115_0]], %[[v3181]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3183:[0-9]+]] = "riscv.sh2add"(%[[varg115_0]], %[[varg7_4]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3179:[0-9]+]] = "riscv.lw"(%[[v3183]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3180:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3179]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v3174:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3176:[0-9]+]] = "riscv.sh2add"(%[[varg115_0]], %[[v3174]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3176:[0-9]+]] = "riscv.sh2add"(%[[varg115_0]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3172:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3180]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3176]], %[[v3172]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         "riscv_cf.branch"() [^[[bb125:[0-9]+]]] : () -> ()
@@ -1044,14 +1033,12 @@
 // CHECK-NEXT:       ^[[bb132]]():
 // CHECK-NEXT:         %[[v3160:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3431]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v3161:[0-9]+]] = "riscv.sextw"(%[[v3160]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v3156:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3158:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v3156]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3158:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3154:[0-9]+]] = "riscv.lw"(%[[v3158]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3155:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3154]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3150:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3429]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v3151:[0-9]+]] = "riscv.sextw"(%[[v3150]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v3146:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3148:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[v3146]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3148:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3144:[0-9]+]] = "riscv.lw"(%[[v3148]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3145:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3144]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3139:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3145]]) : (i32) -> !riscv.reg
@@ -1060,14 +1047,12 @@
 // CHECK-NEXT:         %[[v3142:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3141]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3137:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3142]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3148]], %[[v3137]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v3132:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3134:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[v3132]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3134:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3130:[0-9]+]] = "riscv.lw"(%[[v3134]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3131:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3130]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3126:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3427]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v3127:[0-9]+]] = "riscv.sextw"(%[[v3126]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v3122:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3124:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v3122]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3124:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3120:[0-9]+]] = "riscv.lw"(%[[v3124]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3121:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3120]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3115:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3121]]) : (i32) -> !riscv.reg
@@ -1076,8 +1061,7 @@
 // CHECK-NEXT:         %[[v3118:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3117]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3113:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3118]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3124]], %[[v3113]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v3108:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3110:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v3108]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3110:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3106:[0-9]+]] = "riscv.lw"(%[[v3110]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3107:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3106]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3101:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3107]]) : (i32) -> !riscv.reg
@@ -1096,18 +1080,15 @@
 // CHECK-NEXT:         %[[v3090:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3096]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v3091:[0-9]+]] = "riscv.or"(%[[v3090]], %[[v3089]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3092:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3091]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v3085:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3087:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v3085]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3087:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3083:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3092]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3087]], %[[v3083]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v3078:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3080:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v3078]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3080:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3076:[0-9]+]] = "riscv.lw"(%[[v3080]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3077:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3076]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3072:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3437]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v3073:[0-9]+]] = "riscv.sextw"(%[[v3072]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v3068:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3070:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[v3068]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3070:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3066:[0-9]+]] = "riscv.lw"(%[[v3070]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3067:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3066]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3061:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3067]]) : (i32) -> !riscv.reg
@@ -1116,12 +1097,10 @@
 // CHECK-NEXT:         %[[v3064:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3063]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3059:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3064]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3070]], %[[v3059]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v3054:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3056:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[v3054]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3056:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3052:[0-9]+]] = "riscv.lw"(%[[v3056]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3053:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3052]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v3047:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3049:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v3047]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3049:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3045:[0-9]+]] = "riscv.lw"(%[[v3049]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3046:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3045]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3040:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3046]]) : (i32) -> !riscv.reg
@@ -1130,8 +1109,7 @@
 // CHECK-NEXT:         %[[v3043:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3042]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3038:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3043]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3049]], %[[v3038]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v3033:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3035:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v3033]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3035:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3031:[0-9]+]] = "riscv.lw"(%[[v3035]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3032:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3031]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v3026:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3032]]) : (i32) -> !riscv.reg
@@ -1150,16 +1128,13 @@
 // CHECK-NEXT:         %[[v3015:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3021]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v3016:[0-9]+]] = "riscv.or"(%[[v3015]], %[[v3014]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3017:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3016]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v3010:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3012:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v3010]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3012:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3008:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3017]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v3012]], %[[v3008]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v3003:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v3005:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v3003]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v3005:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3001:[0-9]+]] = "riscv.lw"(%[[v3005]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v3002:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3001]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2996:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2998:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[v2996]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2998:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2994:[0-9]+]] = "riscv.lw"(%[[v2998]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2995:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2994]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2989:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2995]]) : (i32) -> !riscv.reg
@@ -1168,12 +1143,10 @@
 // CHECK-NEXT:         %[[v2992:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2991]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2987:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2992]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2998]], %[[v2987]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2982:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2984:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[v2982]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2984:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2980:[0-9]+]] = "riscv.lw"(%[[v2984]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2981:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2980]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2975:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2977:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v2975]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2977:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2973:[0-9]+]] = "riscv.lw"(%[[v2977]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2974:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2973]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2968:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2974]]) : (i32) -> !riscv.reg
@@ -1182,8 +1155,7 @@
 // CHECK-NEXT:         %[[v2971:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2970]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2966:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2971]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2977]], %[[v2966]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2961:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2963:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v2961]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2963:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2959:[0-9]+]] = "riscv.lw"(%[[v2963]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2960:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2959]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2954:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2960]]) : (i32) -> !riscv.reg
@@ -1202,16 +1174,13 @@
 // CHECK-NEXT:         %[[v2943:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2949]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2944:[0-9]+]] = "riscv.or"(%[[v2943]], %[[v2942]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2945:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2944]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2938:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2940:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v2938]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2940:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2936:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2945]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2940]], %[[v2936]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2931:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2933:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v2931]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2933:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2929:[0-9]+]] = "riscv.lw"(%[[v2933]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2930:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2929]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2924:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2926:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[v2924]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2926:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2922:[0-9]+]] = "riscv.lw"(%[[v2926]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2923:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2922]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2917:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2923]]) : (i32) -> !riscv.reg
@@ -1220,12 +1189,10 @@
 // CHECK-NEXT:         %[[v2920:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2919]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2915:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2920]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2926]], %[[v2915]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2910:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2912:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[v2910]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2912:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2908:[0-9]+]] = "riscv.lw"(%[[v2912]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2909:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2908]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2903:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2905:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v2903]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2905:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2901:[0-9]+]] = "riscv.lw"(%[[v2905]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2902:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2901]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2896:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2902]]) : (i32) -> !riscv.reg
@@ -1234,8 +1201,7 @@
 // CHECK-NEXT:         %[[v2899:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2898]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2894:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2899]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2905]], %[[v2894]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2889:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2891:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v2889]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2891:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2887:[0-9]+]] = "riscv.lw"(%[[v2891]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2888:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2887]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2882:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2888]]) : (i32) -> !riscv.reg
@@ -1254,20 +1220,17 @@
 // CHECK-NEXT:         %[[v2871:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2877]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2872:[0-9]+]] = "riscv.or"(%[[v2871]], %[[v2870]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2873:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2872]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2866:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2868:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v2866]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2868:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2864:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2873]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2868]], %[[v2864]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         %[[v2860:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3421]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2861:[0-9]+]] = "riscv.sextw"(%[[v2860]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2856:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2858:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v2856]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2858:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2854:[0-9]+]] = "riscv.lw"(%[[v2858]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2855:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2854]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2850:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3419]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2851:[0-9]+]] = "riscv.sextw"(%[[v2850]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2846:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2848:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[v2846]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2848:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2844:[0-9]+]] = "riscv.lw"(%[[v2848]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2845:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2844]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2839:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2845]]) : (i32) -> !riscv.reg
@@ -1276,14 +1239,12 @@
 // CHECK-NEXT:         %[[v2842:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2841]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2837:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2842]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2848]], %[[v2837]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2832:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2834:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[v2832]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2834:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2830:[0-9]+]] = "riscv.lw"(%[[v2834]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2831:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2830]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2826:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3417]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2827:[0-9]+]] = "riscv.sextw"(%[[v2826]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2822:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2824:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v2822]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2824:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2820:[0-9]+]] = "riscv.lw"(%[[v2824]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2821:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2820]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2815:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2821]]) : (i32) -> !riscv.reg
@@ -1292,8 +1253,7 @@
 // CHECK-NEXT:         %[[v2818:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2817]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2813:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2818]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2824]], %[[v2813]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2808:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2810:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v2808]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2810:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2806:[0-9]+]] = "riscv.lw"(%[[v2810]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2807:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2806]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2801:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2807]]) : (i32) -> !riscv.reg
@@ -1308,18 +1268,15 @@
 // CHECK-NEXT:         %[[v2794:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2800]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2795:[0-9]+]] = "riscv.or"(%[[v2794]], %[[v2793]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2796:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2795]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2789:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2791:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v2789]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2791:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2787:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2796]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2791]], %[[v2787]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2782:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2784:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v2782]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2784:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2780:[0-9]+]] = "riscv.lw"(%[[v2784]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2781:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2780]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2776:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3415]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2777:[0-9]+]] = "riscv.sextw"(%[[v2776]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2772:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2774:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[v2772]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2774:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2770:[0-9]+]] = "riscv.lw"(%[[v2774]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2771:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2770]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2765:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2771]]) : (i32) -> !riscv.reg
@@ -1328,12 +1285,10 @@
 // CHECK-NEXT:         %[[v2768:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2767]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2763:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2768]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2774]], %[[v2763]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2758:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2760:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[v2758]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2760:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2756:[0-9]+]] = "riscv.lw"(%[[v2760]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2757:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2756]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2751:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2753:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v2751]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2753:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2749:[0-9]+]] = "riscv.lw"(%[[v2753]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2750:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2749]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2744:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2750]]) : (i32) -> !riscv.reg
@@ -1342,8 +1297,7 @@
 // CHECK-NEXT:         %[[v2747:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2746]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2742:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2747]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2753]], %[[v2742]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2737:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2739:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v2737]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2739:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2735:[0-9]+]] = "riscv.lw"(%[[v2739]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2736:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2735]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2730:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2736]]) : (i32) -> !riscv.reg
@@ -1358,16 +1312,13 @@
 // CHECK-NEXT:         %[[v2723:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2729]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2724:[0-9]+]] = "riscv.or"(%[[v2723]], %[[v2722]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2725:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2724]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2718:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2720:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v2718]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2720:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2716:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2725]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2720]], %[[v2716]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2711:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2713:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v2711]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2713:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2709:[0-9]+]] = "riscv.lw"(%[[v2713]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2710:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2709]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2704:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2706:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[v2704]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2706:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2702:[0-9]+]] = "riscv.lw"(%[[v2706]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2703:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2702]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2697:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2703]]) : (i32) -> !riscv.reg
@@ -1376,12 +1327,10 @@
 // CHECK-NEXT:         %[[v2700:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2699]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2695:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2700]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2706]], %[[v2695]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2690:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2692:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[v2690]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2692:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2688:[0-9]+]] = "riscv.lw"(%[[v2692]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2689:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2688]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2683:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2685:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v2683]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2685:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2681:[0-9]+]] = "riscv.lw"(%[[v2685]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2682:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2681]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2676:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2682]]) : (i32) -> !riscv.reg
@@ -1390,8 +1339,7 @@
 // CHECK-NEXT:         %[[v2679:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2678]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2674:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2679]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2685]], %[[v2674]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2669:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2671:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v2669]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2671:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2667:[0-9]+]] = "riscv.lw"(%[[v2671]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2668:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2667]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2662:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2668]]) : (i32) -> !riscv.reg
@@ -1406,16 +1354,13 @@
 // CHECK-NEXT:         %[[v2655:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2661]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2656:[0-9]+]] = "riscv.or"(%[[v2655]], %[[v2654]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2657:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2656]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2650:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2652:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v2650]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2652:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2648:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2657]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2652]], %[[v2648]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2643:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2645:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v2643]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2645:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2641:[0-9]+]] = "riscv.lw"(%[[v2645]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2642:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2641]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2636:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2638:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[v2636]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2638:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2634:[0-9]+]] = "riscv.lw"(%[[v2638]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2635:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2634]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2629:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2635]]) : (i32) -> !riscv.reg
@@ -1424,12 +1369,10 @@
 // CHECK-NEXT:         %[[v2632:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2631]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2627:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2632]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2638]], %[[v2627]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2622:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2624:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[v2622]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2624:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2620:[0-9]+]] = "riscv.lw"(%[[v2624]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2621:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2620]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2615:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2617:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v2615]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2617:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2613:[0-9]+]] = "riscv.lw"(%[[v2617]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2614:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2613]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2608:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2614]]) : (i32) -> !riscv.reg
@@ -1438,8 +1381,7 @@
 // CHECK-NEXT:         %[[v2611:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2610]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2606:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2611]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2617]], %[[v2606]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2601:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2603:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v2601]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2603:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2599:[0-9]+]] = "riscv.lw"(%[[v2603]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2600:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2599]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2594:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2600]]) : (i32) -> !riscv.reg
@@ -1454,20 +1396,17 @@
 // CHECK-NEXT:         %[[v2587:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2593]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2588:[0-9]+]] = "riscv.or"(%[[v2587]], %[[v2586]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2589:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2588]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2582:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2584:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v2582]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2584:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2580:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2589]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2584]], %[[v2580]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         %[[v2576:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3413]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2577:[0-9]+]] = "riscv.sextw"(%[[v2576]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2572:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2574:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v2572]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2574:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2570:[0-9]+]] = "riscv.lw"(%[[v2574]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2571:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2570]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2566:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3411]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2567:[0-9]+]] = "riscv.sextw"(%[[v2566]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2562:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2564:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[v2562]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2564:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2560:[0-9]+]] = "riscv.lw"(%[[v2564]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2561:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2560]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2555:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2561]]) : (i32) -> !riscv.reg
@@ -1476,14 +1415,12 @@
 // CHECK-NEXT:         %[[v2558:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2557]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2553:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2558]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2564]], %[[v2553]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2548:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2550:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[v2548]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2550:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2546:[0-9]+]] = "riscv.lw"(%[[v2550]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2547:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2546]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2542:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3409]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2543:[0-9]+]] = "riscv.sextw"(%[[v2542]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2538:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2540:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v2538]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2540:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2536:[0-9]+]] = "riscv.lw"(%[[v2540]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2537:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2536]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2531:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2537]]) : (i32) -> !riscv.reg
@@ -1492,8 +1429,7 @@
 // CHECK-NEXT:         %[[v2534:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2533]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2529:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2534]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2540]], %[[v2529]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2524:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2526:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v2524]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2526:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2522:[0-9]+]] = "riscv.lw"(%[[v2526]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2523:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2522]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2517:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2523]]) : (i32) -> !riscv.reg
@@ -1508,18 +1444,15 @@
 // CHECK-NEXT:         %[[v2510:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2516]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2511:[0-9]+]] = "riscv.or"(%[[v2510]], %[[v2509]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2512:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2511]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2505:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2507:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v2505]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2507:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2503:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2512]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2507]], %[[v2503]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2498:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2500:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v2498]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2500:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2496:[0-9]+]] = "riscv.lw"(%[[v2500]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2497:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2496]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2492:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3407]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2493:[0-9]+]] = "riscv.sextw"(%[[v2492]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2488:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2490:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[v2488]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2490:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2486:[0-9]+]] = "riscv.lw"(%[[v2490]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2487:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2486]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2481:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2487]]) : (i32) -> !riscv.reg
@@ -1528,12 +1461,10 @@
 // CHECK-NEXT:         %[[v2484:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2483]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2479:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2484]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2490]], %[[v2479]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2474:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2476:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[v2474]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2476:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2472:[0-9]+]] = "riscv.lw"(%[[v2476]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2473:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2472]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2467:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2469:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v2467]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2469:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2465:[0-9]+]] = "riscv.lw"(%[[v2469]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2466:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2465]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2460:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2466]]) : (i32) -> !riscv.reg
@@ -1542,8 +1473,7 @@
 // CHECK-NEXT:         %[[v2463:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2462]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2458:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2463]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2469]], %[[v2458]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2453:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2455:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v2453]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2455:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2451:[0-9]+]] = "riscv.lw"(%[[v2455]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2452:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2451]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2446:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2452]]) : (i32) -> !riscv.reg
@@ -1558,16 +1488,13 @@
 // CHECK-NEXT:         %[[v2439:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2445]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2440:[0-9]+]] = "riscv.or"(%[[v2439]], %[[v2438]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2441:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2440]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2434:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2436:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v2434]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2436:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2432:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2441]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2436]], %[[v2432]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2427:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2429:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v2427]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2429:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2425:[0-9]+]] = "riscv.lw"(%[[v2429]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2426:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2425]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2420:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2422:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[v2420]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2422:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2418:[0-9]+]] = "riscv.lw"(%[[v2422]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2419:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2418]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2413:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2419]]) : (i32) -> !riscv.reg
@@ -1576,12 +1503,10 @@
 // CHECK-NEXT:         %[[v2416:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2415]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2411:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2416]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2422]], %[[v2411]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2406:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2408:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[v2406]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2408:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2404:[0-9]+]] = "riscv.lw"(%[[v2408]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2405:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2404]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2399:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2401:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v2399]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2401:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2397:[0-9]+]] = "riscv.lw"(%[[v2401]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2398:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2397]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2392:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2398]]) : (i32) -> !riscv.reg
@@ -1590,8 +1515,7 @@
 // CHECK-NEXT:         %[[v2395:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2394]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2390:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2395]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2401]], %[[v2390]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2385:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2387:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v2385]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2387:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2383:[0-9]+]] = "riscv.lw"(%[[v2387]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2384:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2383]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2378:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2384]]) : (i32) -> !riscv.reg
@@ -1606,16 +1530,13 @@
 // CHECK-NEXT:         %[[v2371:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2377]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2372:[0-9]+]] = "riscv.or"(%[[v2371]], %[[v2370]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2373:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2372]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2366:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2368:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v2366]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2368:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2364:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2373]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2368]], %[[v2364]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2359:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2361:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v2359]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2361:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2357:[0-9]+]] = "riscv.lw"(%[[v2361]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2358:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2357]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2352:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2354:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[v2352]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2354:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2350:[0-9]+]] = "riscv.lw"(%[[v2354]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2351:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2350]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2345:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2351]]) : (i32) -> !riscv.reg
@@ -1624,12 +1545,10 @@
 // CHECK-NEXT:         %[[v2348:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2347]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2343:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2348]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2354]], %[[v2343]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2338:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2340:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[v2338]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2340:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2336:[0-9]+]] = "riscv.lw"(%[[v2340]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2337:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2336]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2331:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2333:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v2331]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2333:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2329:[0-9]+]] = "riscv.lw"(%[[v2333]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2330:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2329]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2324:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2330]]) : (i32) -> !riscv.reg
@@ -1638,8 +1557,7 @@
 // CHECK-NEXT:         %[[v2327:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2326]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2322:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2327]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2333]], %[[v2322]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2317:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2319:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v2317]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2319:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2315:[0-9]+]] = "riscv.lw"(%[[v2319]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2316:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2315]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2310:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2316]]) : (i32) -> !riscv.reg
@@ -1654,20 +1572,17 @@
 // CHECK-NEXT:         %[[v2303:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2309]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2304:[0-9]+]] = "riscv.or"(%[[v2303]], %[[v2302]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2305:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2304]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2298:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2300:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v2298]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2300:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2296:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2305]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2300]], %[[v2296]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         %[[v2292:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3423]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2293:[0-9]+]] = "riscv.sextw"(%[[v2292]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2288:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2290:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v2288]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2290:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2286:[0-9]+]] = "riscv.lw"(%[[v2290]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2287:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2286]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2282:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3405]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2283:[0-9]+]] = "riscv.sextw"(%[[v2282]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2278:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2280:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[v2278]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2280:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2276:[0-9]+]] = "riscv.lw"(%[[v2280]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2277:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2276]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2271:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2277]]) : (i32) -> !riscv.reg
@@ -1676,14 +1591,12 @@
 // CHECK-NEXT:         %[[v2274:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2273]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2269:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2274]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2280]], %[[v2269]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2264:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2266:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[v2264]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2266:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2262:[0-9]+]] = "riscv.lw"(%[[v2266]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2263:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2262]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2258:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3403]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2259:[0-9]+]] = "riscv.sextw"(%[[v2258]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2254:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2256:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v2254]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2256:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2252:[0-9]+]] = "riscv.lw"(%[[v2256]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2253:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2252]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2247:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2253]]) : (i32) -> !riscv.reg
@@ -1692,8 +1605,7 @@
 // CHECK-NEXT:         %[[v2250:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2249]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2245:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2250]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2256]], %[[v2245]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2240:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2242:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v2240]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2242:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2238:[0-9]+]] = "riscv.lw"(%[[v2242]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2239:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2238]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2233:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2239]]) : (i32) -> !riscv.reg
@@ -1708,18 +1620,15 @@
 // CHECK-NEXT:         %[[v2226:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2232]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2227:[0-9]+]] = "riscv.or"(%[[v2226]], %[[v2225]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2228:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2227]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2221:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2223:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v2221]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2223:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2219:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2228]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2223]], %[[v2219]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2214:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2216:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v2214]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2216:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2212:[0-9]+]] = "riscv.lw"(%[[v2216]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2213:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2212]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2208:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v3401]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2209:[0-9]+]] = "riscv.sextw"(%[[v2208]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v2204:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2206:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[v2204]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2206:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2202:[0-9]+]] = "riscv.lw"(%[[v2206]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2203:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2202]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2197:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2203]]) : (i32) -> !riscv.reg
@@ -1728,12 +1637,10 @@
 // CHECK-NEXT:         %[[v2200:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2199]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2195:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2200]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2206]], %[[v2195]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2190:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2192:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[v2190]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2192:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2188:[0-9]+]] = "riscv.lw"(%[[v2192]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2189:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2188]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2183:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2185:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v2183]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2185:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2181:[0-9]+]] = "riscv.lw"(%[[v2185]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2182:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2181]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2176:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2182]]) : (i32) -> !riscv.reg
@@ -1742,8 +1649,7 @@
 // CHECK-NEXT:         %[[v2179:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2178]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2174:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2179]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2185]], %[[v2174]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2169:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2171:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v2169]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2171:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2167:[0-9]+]] = "riscv.lw"(%[[v2171]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2168:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2167]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2162:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2168]]) : (i32) -> !riscv.reg
@@ -1758,16 +1664,13 @@
 // CHECK-NEXT:         %[[v2155:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2161]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2156:[0-9]+]] = "riscv.or"(%[[v2155]], %[[v2154]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2157:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2156]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2150:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2152:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v2150]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2152:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2148:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2157]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2152]], %[[v2148]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2143:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2145:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v2143]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2145:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2141:[0-9]+]] = "riscv.lw"(%[[v2145]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2142:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2141]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2136:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2138:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[v2136]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2138:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2134:[0-9]+]] = "riscv.lw"(%[[v2138]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2135:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2134]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2129:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2135]]) : (i32) -> !riscv.reg
@@ -1776,12 +1679,10 @@
 // CHECK-NEXT:         %[[v2132:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2131]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2127:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2132]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2138]], %[[v2127]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2122:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2124:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[v2122]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2124:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2120:[0-9]+]] = "riscv.lw"(%[[v2124]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2121:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2120]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2115:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2117:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v2115]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2117:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2113:[0-9]+]] = "riscv.lw"(%[[v2117]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2114:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2113]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2108:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2114]]) : (i32) -> !riscv.reg
@@ -1790,8 +1691,7 @@
 // CHECK-NEXT:         %[[v2111:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2110]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2106:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2111]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2117]], %[[v2106]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2101:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2103:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v2101]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2103:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2099:[0-9]+]] = "riscv.lw"(%[[v2103]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2100:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2099]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2094:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2100]]) : (i32) -> !riscv.reg
@@ -1806,16 +1706,13 @@
 // CHECK-NEXT:         %[[v2087:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2093]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2088:[0-9]+]] = "riscv.or"(%[[v2087]], %[[v2086]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2089:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2088]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2082:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2084:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v2082]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2084:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2080:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2089]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2084]], %[[v2080]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2075:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2077:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v2075]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2077:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2073:[0-9]+]] = "riscv.lw"(%[[v2077]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2074:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2073]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2068:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2070:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[v2068]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2070:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2066:[0-9]+]] = "riscv.lw"(%[[v2070]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2067:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2066]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2061:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2067]]) : (i32) -> !riscv.reg
@@ -1824,12 +1721,10 @@
 // CHECK-NEXT:         %[[v2064:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2063]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2059:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2064]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2070]], %[[v2059]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2054:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2056:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[v2054]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2056:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2052:[0-9]+]] = "riscv.lw"(%[[v2056]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2053:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2052]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2047:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2049:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v2047]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2049:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2045:[0-9]+]] = "riscv.lw"(%[[v2049]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2046:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2045]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2040:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2046]]) : (i32) -> !riscv.reg
@@ -1838,8 +1733,7 @@
 // CHECK-NEXT:         %[[v2043:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2042]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2038:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2043]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2049]], %[[v2038]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2033:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2035:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v2033]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2035:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2031:[0-9]+]] = "riscv.lw"(%[[v2035]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2032:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2031]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v2026:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2032]]) : (i32) -> !riscv.reg
@@ -1854,16 +1748,13 @@
 // CHECK-NEXT:         %[[v2019:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2025]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v2020:[0-9]+]] = "riscv.or"(%[[v2019]], %[[v2018]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2021:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2020]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2014:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2016:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v2014]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2016:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2012:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2021]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2016]], %[[v2012]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v2007:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2009:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v2007]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2009:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2005:[0-9]+]] = "riscv.lw"(%[[v2009]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v2006:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v2005]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v2000:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v2002:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[v2000]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v2002:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1998:[0-9]+]] = "riscv.lw"(%[[v2002]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1999:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1998]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1993:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1999]]) : (i32) -> !riscv.reg
@@ -1872,12 +1763,10 @@
 // CHECK-NEXT:         %[[v1996:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1995]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1991:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1996]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v2002]], %[[v1991]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1986:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1988:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[v1986]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1988:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1984:[0-9]+]] = "riscv.lw"(%[[v1988]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1985:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1984]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1979:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1981:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v1979]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1981:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1977:[0-9]+]] = "riscv.lw"(%[[v1981]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1978:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1977]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1972:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1978]]) : (i32) -> !riscv.reg
@@ -1886,8 +1775,7 @@
 // CHECK-NEXT:         %[[v1975:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1974]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1970:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1975]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1981]], %[[v1970]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1965:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1967:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v1965]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1967:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1963:[0-9]+]] = "riscv.lw"(%[[v1967]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1964:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1963]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1958:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1964]]) : (i32) -> !riscv.reg
@@ -1902,16 +1790,13 @@
 // CHECK-NEXT:         %[[v1951:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1957]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1952:[0-9]+]] = "riscv.or"(%[[v1951]], %[[v1950]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1953:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1952]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1946:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1948:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v1946]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1948:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1944:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1953]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1948]], %[[v1944]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1939:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1941:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v1939]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1941:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1937:[0-9]+]] = "riscv.lw"(%[[v1941]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1938:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1937]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1932:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1934:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[v1932]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1934:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1930:[0-9]+]] = "riscv.lw"(%[[v1934]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1931:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1930]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1925:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1931]]) : (i32) -> !riscv.reg
@@ -1920,12 +1805,10 @@
 // CHECK-NEXT:         %[[v1928:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1927]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1923:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1928]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1934]], %[[v1923]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1918:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1920:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[v1918]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1920:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1916:[0-9]+]] = "riscv.lw"(%[[v1920]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1917:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1916]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1911:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1913:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v1911]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1913:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1909:[0-9]+]] = "riscv.lw"(%[[v1913]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1910:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1909]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1904:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1910]]) : (i32) -> !riscv.reg
@@ -1934,8 +1817,7 @@
 // CHECK-NEXT:         %[[v1907:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1906]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1902:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1907]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1913]], %[[v1902]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1897:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1899:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v1897]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1899:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1895:[0-9]+]] = "riscv.lw"(%[[v1899]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1896:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1895]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1890:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1896]]) : (i32) -> !riscv.reg
@@ -1950,16 +1832,13 @@
 // CHECK-NEXT:         %[[v1883:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1889]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1884:[0-9]+]] = "riscv.or"(%[[v1883]], %[[v1882]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1885:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1884]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1878:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1880:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v1878]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1880:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1876:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1885]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1880]], %[[v1876]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1871:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1873:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v1871]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1873:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1869:[0-9]+]] = "riscv.lw"(%[[v1873]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1870:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1869]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1864:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1866:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[v1864]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1866:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1862:[0-9]+]] = "riscv.lw"(%[[v1866]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1863:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1862]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1857:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1863]]) : (i32) -> !riscv.reg
@@ -1968,12 +1847,10 @@
 // CHECK-NEXT:         %[[v1860:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1859]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1855:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1860]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1866]], %[[v1855]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1850:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1852:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[v1850]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1852:[0-9]+]] = "riscv.sh2add"(%[[v3151]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1848:[0-9]+]] = "riscv.lw"(%[[v1852]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1849:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1848]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1843:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1845:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v1843]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1845:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1841:[0-9]+]] = "riscv.lw"(%[[v1845]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1842:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1841]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1836:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1842]]) : (i32) -> !riscv.reg
@@ -1982,8 +1859,7 @@
 // CHECK-NEXT:         %[[v1839:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1838]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1834:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1839]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1845]], %[[v1834]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1829:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1831:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v1829]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1831:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1827:[0-9]+]] = "riscv.lw"(%[[v1831]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1828:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1827]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1822:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1828]]) : (i32) -> !riscv.reg
@@ -1998,16 +1874,13 @@
 // CHECK-NEXT:         %[[v1815:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1821]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1816:[0-9]+]] = "riscv.or"(%[[v1815]], %[[v1814]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1817:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1816]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1810:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1812:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v1810]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1812:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1808:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1817]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1812]], %[[v1808]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1803:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1805:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[v1803]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1805:[0-9]+]] = "riscv.sh2add"(%[[v2259]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1801:[0-9]+]] = "riscv.lw"(%[[v1805]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1802:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1801]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1796:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1798:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[v1796]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1798:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1794:[0-9]+]] = "riscv.lw"(%[[v1798]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1795:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1794]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1789:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1795]]) : (i32) -> !riscv.reg
@@ -2016,12 +1889,10 @@
 // CHECK-NEXT:         %[[v1792:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1791]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1787:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1792]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1798]], %[[v1787]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1782:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1784:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[v1782]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1784:[0-9]+]] = "riscv.sh2add"(%[[v2493]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1780:[0-9]+]] = "riscv.lw"(%[[v1784]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1781:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1780]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1775:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1777:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v1775]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1777:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1773:[0-9]+]] = "riscv.lw"(%[[v1777]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1774:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1773]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1768:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1774]]) : (i32) -> !riscv.reg
@@ -2030,8 +1901,7 @@
 // CHECK-NEXT:         %[[v1771:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1770]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1766:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1771]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1777]], %[[v1766]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1761:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1763:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v1761]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1763:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1759:[0-9]+]] = "riscv.lw"(%[[v1763]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1760:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1759]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1754:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1760]]) : (i32) -> !riscv.reg
@@ -2046,16 +1916,13 @@
 // CHECK-NEXT:         %[[v1747:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1753]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1748:[0-9]+]] = "riscv.or"(%[[v1747]], %[[v1746]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1749:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1748]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1742:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1744:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[v1742]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1744:[0-9]+]] = "riscv.sh2add"(%[[v2861]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1740:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1749]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1744]], %[[v1740]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1735:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1737:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v1735]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1737:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1733:[0-9]+]] = "riscv.lw"(%[[v1737]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1734:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1733]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1728:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1730:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[v1728]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1730:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1726:[0-9]+]] = "riscv.lw"(%[[v1730]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1727:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1726]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1721:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1727]]) : (i32) -> !riscv.reg
@@ -2064,12 +1931,10 @@
 // CHECK-NEXT:         %[[v1724:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1723]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1719:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1724]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1730]], %[[v1719]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1714:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1716:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[v1714]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1716:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1712:[0-9]+]] = "riscv.lw"(%[[v1716]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1713:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1712]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1707:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1709:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v1707]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1709:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1705:[0-9]+]] = "riscv.lw"(%[[v1709]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1706:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1705]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1700:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1706]]) : (i32) -> !riscv.reg
@@ -2078,8 +1943,7 @@
 // CHECK-NEXT:         %[[v1703:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1702]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1698:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1703]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1709]], %[[v1698]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1693:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1695:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v1693]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1695:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1691:[0-9]+]] = "riscv.lw"(%[[v1695]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1692:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1691]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1686:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1692]]) : (i32) -> !riscv.reg
@@ -2094,16 +1958,13 @@
 // CHECK-NEXT:         %[[v1679:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1685]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1680:[0-9]+]] = "riscv.or"(%[[v1679]], %[[v1678]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1681:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1680]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1674:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1676:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v1674]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1676:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1672:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1681]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1676]], %[[v1672]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1667:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1669:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v1667]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1669:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1665:[0-9]+]] = "riscv.lw"(%[[v1669]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1666:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1665]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1660:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1662:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[v1660]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1662:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1658:[0-9]+]] = "riscv.lw"(%[[v1662]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1659:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1658]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1653:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1659]]) : (i32) -> !riscv.reg
@@ -2112,12 +1973,10 @@
 // CHECK-NEXT:         %[[v1656:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1655]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1651:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1656]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1662]], %[[v1651]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1646:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1648:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[v1646]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1648:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1644:[0-9]+]] = "riscv.lw"(%[[v1648]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1645:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1644]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1639:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1641:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v1639]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1641:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1637:[0-9]+]] = "riscv.lw"(%[[v1641]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1638:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1637]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1632:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1638]]) : (i32) -> !riscv.reg
@@ -2126,8 +1985,7 @@
 // CHECK-NEXT:         %[[v1635:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1634]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1630:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1635]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1641]], %[[v1630]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1625:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1627:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v1625]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1627:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1623:[0-9]+]] = "riscv.lw"(%[[v1627]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1624:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1623]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1618:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1624]]) : (i32) -> !riscv.reg
@@ -2142,16 +2000,13 @@
 // CHECK-NEXT:         %[[v1611:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1617]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1612:[0-9]+]] = "riscv.or"(%[[v1611]], %[[v1610]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1613:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1612]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1606:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1608:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v1606]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1608:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1604:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1613]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1608]], %[[v1604]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1599:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1601:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v1599]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1601:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1597:[0-9]+]] = "riscv.lw"(%[[v1601]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1598:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1597]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1592:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1594:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[v1592]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1594:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1590:[0-9]+]] = "riscv.lw"(%[[v1594]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1591:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1590]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1585:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1591]]) : (i32) -> !riscv.reg
@@ -2160,12 +2015,10 @@
 // CHECK-NEXT:         %[[v1588:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1587]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1583:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1588]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1594]], %[[v1583]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1578:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1580:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[v1578]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1580:[0-9]+]] = "riscv.sh2add"(%[[v2851]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1576:[0-9]+]] = "riscv.lw"(%[[v1580]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1577:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1576]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1571:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1573:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v1571]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1573:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1569:[0-9]+]] = "riscv.lw"(%[[v1573]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1570:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1569]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1564:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1570]]) : (i32) -> !riscv.reg
@@ -2174,8 +2027,7 @@
 // CHECK-NEXT:         %[[v1567:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1566]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1562:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1567]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1573]], %[[v1562]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1557:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1559:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v1557]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1559:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1555:[0-9]+]] = "riscv.lw"(%[[v1559]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1556:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1555]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1550:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1556]]) : (i32) -> !riscv.reg
@@ -2190,16 +2042,13 @@
 // CHECK-NEXT:         %[[v1543:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1549]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1544:[0-9]+]] = "riscv.or"(%[[v1543]], %[[v1542]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1545:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1544]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1538:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1540:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v1538]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1540:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1536:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1545]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1540]], %[[v1536]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1531:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1533:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[v1531]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1533:[0-9]+]] = "riscv.sh2add"(%[[v3127]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1529:[0-9]+]] = "riscv.lw"(%[[v1533]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1530:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1529]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1524:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1526:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[v1524]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1526:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1522:[0-9]+]] = "riscv.lw"(%[[v1526]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1523:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1522]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1517:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1523]]) : (i32) -> !riscv.reg
@@ -2208,12 +2057,10 @@
 // CHECK-NEXT:         %[[v1520:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1519]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1515:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1520]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1526]], %[[v1515]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1510:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1512:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[v1510]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1512:[0-9]+]] = "riscv.sh2add"(%[[v2209]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1508:[0-9]+]] = "riscv.lw"(%[[v1512]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1509:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1508]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1503:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1505:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v1503]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1505:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1501:[0-9]+]] = "riscv.lw"(%[[v1505]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1502:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1501]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1496:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1502]]) : (i32) -> !riscv.reg
@@ -2222,8 +2069,7 @@
 // CHECK-NEXT:         %[[v1499:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1498]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1494:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1499]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1505]], %[[v1494]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1489:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1491:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v1489]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1491:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1487:[0-9]+]] = "riscv.lw"(%[[v1491]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1488:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1487]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1482:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1488]]) : (i32) -> !riscv.reg
@@ -2238,16 +2084,13 @@
 // CHECK-NEXT:         %[[v1475:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1481]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1476:[0-9]+]] = "riscv.or"(%[[v1475]], %[[v1474]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1477:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1476]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1470:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1472:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[v1470]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1472:[0-9]+]] = "riscv.sh2add"(%[[v2577]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1468:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1477]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1472]], %[[v1468]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1463:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1465:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v1463]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1465:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1461:[0-9]+]] = "riscv.lw"(%[[v1465]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1462:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1461]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1456:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1458:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[v1456]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1458:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1454:[0-9]+]] = "riscv.lw"(%[[v1458]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1455:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1454]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1449:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1455]]) : (i32) -> !riscv.reg
@@ -2256,12 +2099,10 @@
 // CHECK-NEXT:         %[[v1452:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1451]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1447:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1452]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1458]], %[[v1447]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1442:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1444:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[v1442]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1444:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1440:[0-9]+]] = "riscv.lw"(%[[v1444]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1441:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1440]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1435:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1437:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v1435]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1437:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1433:[0-9]+]] = "riscv.lw"(%[[v1437]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1434:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1433]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1428:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1434]]) : (i32) -> !riscv.reg
@@ -2270,8 +2111,7 @@
 // CHECK-NEXT:         %[[v1431:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1430]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1426:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1431]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1437]], %[[v1426]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1421:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1423:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v1421]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1423:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1419:[0-9]+]] = "riscv.lw"(%[[v1423]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1420:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1419]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1414:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1420]]) : (i32) -> !riscv.reg
@@ -2286,16 +2126,13 @@
 // CHECK-NEXT:         %[[v1407:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1413]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1408:[0-9]+]] = "riscv.or"(%[[v1407]], %[[v1406]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1409:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1408]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1402:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1404:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v1402]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1404:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1400:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1409]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1404]], %[[v1400]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1395:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1397:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v1395]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1397:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1393:[0-9]+]] = "riscv.lw"(%[[v1397]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1394:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1393]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1388:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1390:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[v1388]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1390:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1386:[0-9]+]] = "riscv.lw"(%[[v1390]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1387:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1386]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1381:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1387]]) : (i32) -> !riscv.reg
@@ -2304,12 +2141,10 @@
 // CHECK-NEXT:         %[[v1384:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1383]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1379:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1384]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1390]], %[[v1379]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1374:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1376:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[v1374]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1376:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1372:[0-9]+]] = "riscv.lw"(%[[v1376]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1373:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1372]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1367:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1369:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v1367]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1369:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1365:[0-9]+]] = "riscv.lw"(%[[v1369]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1366:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1365]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1360:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1366]]) : (i32) -> !riscv.reg
@@ -2318,8 +2153,7 @@
 // CHECK-NEXT:         %[[v1363:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1362]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1358:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1363]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1369]], %[[v1358]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1353:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1355:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v1353]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1355:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1351:[0-9]+]] = "riscv.lw"(%[[v1355]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1352:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1351]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1346:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1352]]) : (i32) -> !riscv.reg
@@ -2334,16 +2168,13 @@
 // CHECK-NEXT:         %[[v1339:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1345]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1340:[0-9]+]] = "riscv.or"(%[[v1339]], %[[v1338]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1341:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1340]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1334:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1336:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v1334]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1336:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1332:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1341]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1336]], %[[v1332]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1327:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1329:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v1327]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1329:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1325:[0-9]+]] = "riscv.lw"(%[[v1329]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1326:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1325]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1320:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1322:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[v1320]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1322:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1318:[0-9]+]] = "riscv.lw"(%[[v1322]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1319:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1318]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1313:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1319]]) : (i32) -> !riscv.reg
@@ -2352,12 +2183,10 @@
 // CHECK-NEXT:         %[[v1316:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1315]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1311:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1316]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1322]], %[[v1311]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1306:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1308:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[v1306]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1308:[0-9]+]] = "riscv.sh2add"(%[[v2567]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1304:[0-9]+]] = "riscv.lw"(%[[v1308]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1305:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1304]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1299:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1301:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v1299]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1301:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1297:[0-9]+]] = "riscv.lw"(%[[v1301]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1298:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1297]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1292:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1298]]) : (i32) -> !riscv.reg
@@ -2366,8 +2195,7 @@
 // CHECK-NEXT:         %[[v1295:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1294]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1290:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1295]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1301]], %[[v1290]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1285:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1287:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v1285]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1287:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1283:[0-9]+]] = "riscv.lw"(%[[v1287]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1284:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1283]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1278:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1284]]) : (i32) -> !riscv.reg
@@ -2382,16 +2210,13 @@
 // CHECK-NEXT:         %[[v1271:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1277]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1272:[0-9]+]] = "riscv.or"(%[[v1271]], %[[v1270]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1273:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1272]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1266:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1268:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v1266]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1268:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1264:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1273]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1268]], %[[v1264]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1259:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1261:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[v1259]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1261:[0-9]+]] = "riscv.sh2add"(%[[v2827]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1257:[0-9]+]] = "riscv.lw"(%[[v1261]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1258:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1257]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1252:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1254:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[v1252]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1254:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1250:[0-9]+]] = "riscv.lw"(%[[v1254]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1251:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1250]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1245:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1251]]) : (i32) -> !riscv.reg
@@ -2400,12 +2225,10 @@
 // CHECK-NEXT:         %[[v1248:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1247]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1243:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1248]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1254]], %[[v1243]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1238:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1240:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[v1238]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1240:[0-9]+]] = "riscv.sh2add"(%[[v3073]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1236:[0-9]+]] = "riscv.lw"(%[[v1240]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1237:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1236]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1231:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1233:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v1231]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1233:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1229:[0-9]+]] = "riscv.lw"(%[[v1233]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1230:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1229]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1224:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1230]]) : (i32) -> !riscv.reg
@@ -2414,8 +2237,7 @@
 // CHECK-NEXT:         %[[v1227:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1226]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1222:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1227]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1233]], %[[v1222]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1217:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1219:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v1217]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1219:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1215:[0-9]+]] = "riscv.lw"(%[[v1219]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1216:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1215]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1210:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1216]]) : (i32) -> !riscv.reg
@@ -2430,16 +2252,13 @@
 // CHECK-NEXT:         %[[v1203:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1209]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1204:[0-9]+]] = "riscv.or"(%[[v1203]], %[[v1202]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1205:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1204]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1198:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1200:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[v1198]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1200:[0-9]+]] = "riscv.sh2add"(%[[v2293]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1196:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1205]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1200]], %[[v1196]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1191:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1193:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v1191]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1193:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1189:[0-9]+]] = "riscv.lw"(%[[v1193]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1190:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1189]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1184:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1186:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[v1184]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1186:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1182:[0-9]+]] = "riscv.lw"(%[[v1186]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1183:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1182]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1177:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1183]]) : (i32) -> !riscv.reg
@@ -2448,12 +2267,10 @@
 // CHECK-NEXT:         %[[v1180:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1179]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1175:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1180]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1186]], %[[v1175]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1170:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1172:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[v1170]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1172:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1168:[0-9]+]] = "riscv.lw"(%[[v1172]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1169:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1168]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1163:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1165:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v1163]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1165:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1161:[0-9]+]] = "riscv.lw"(%[[v1165]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1162:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1161]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1156:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1162]]) : (i32) -> !riscv.reg
@@ -2462,8 +2279,7 @@
 // CHECK-NEXT:         %[[v1159:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1158]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1154:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1159]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1165]], %[[v1154]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1149:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1151:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v1149]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1151:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1147:[0-9]+]] = "riscv.lw"(%[[v1151]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1148:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1147]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1142:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1148]]) : (i32) -> !riscv.reg
@@ -2478,16 +2294,13 @@
 // CHECK-NEXT:         %[[v1135:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1141]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1136:[0-9]+]] = "riscv.or"(%[[v1135]], %[[v1134]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1137:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1136]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1130:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1132:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v1130]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1132:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1128:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1137]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1132]], %[[v1128]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1123:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1125:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v1123]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1125:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1121:[0-9]+]] = "riscv.lw"(%[[v1125]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1122:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1121]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1116:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1118:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[v1116]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1118:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1114:[0-9]+]] = "riscv.lw"(%[[v1118]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1115:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1114]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1109:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1115]]) : (i32) -> !riscv.reg
@@ -2496,12 +2309,10 @@
 // CHECK-NEXT:         %[[v1112:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1111]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1107:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1112]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1118]], %[[v1107]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1102:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1104:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[v1102]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1104:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1100:[0-9]+]] = "riscv.lw"(%[[v1104]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1101:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1100]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1095:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1097:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v1095]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1097:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1093:[0-9]+]] = "riscv.lw"(%[[v1097]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1094:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1093]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1088:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1094]]) : (i32) -> !riscv.reg
@@ -2510,8 +2321,7 @@
 // CHECK-NEXT:         %[[v1091:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1090]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1086:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1091]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1097]], %[[v1086]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1081:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1083:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v1081]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1083:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1079:[0-9]+]] = "riscv.lw"(%[[v1083]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1080:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1079]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1074:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1080]]) : (i32) -> !riscv.reg
@@ -2526,16 +2336,13 @@
 // CHECK-NEXT:         %[[v1067:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1073]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1068:[0-9]+]] = "riscv.or"(%[[v1067]], %[[v1066]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1069:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1068]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1062:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1064:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v1062]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1064:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1060:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1069]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1064]], %[[v1060]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1055:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1057:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v1055]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1057:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1053:[0-9]+]] = "riscv.lw"(%[[v1057]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1054:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1053]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1048:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1050:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[v1048]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1050:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1046:[0-9]+]] = "riscv.lw"(%[[v1050]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1047:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1046]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1041:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1047]]) : (i32) -> !riscv.reg
@@ -2544,12 +2351,10 @@
 // CHECK-NEXT:         %[[v1044:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1043]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1039:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1044]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1050]], %[[v1039]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1034:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1036:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[v1034]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1036:[0-9]+]] = "riscv.sh2add"(%[[v2283]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1032:[0-9]+]] = "riscv.lw"(%[[v1036]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1033:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1032]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v1027:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1029:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v1027]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1029:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1025:[0-9]+]] = "riscv.lw"(%[[v1029]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1026:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1025]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1020:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1026]]) : (i32) -> !riscv.reg
@@ -2558,8 +2363,7 @@
 // CHECK-NEXT:         %[[v1023:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1022]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1018:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1023]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v1029]], %[[v1018]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v1013:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v1015:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v1013]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v1015:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1011:[0-9]+]] = "riscv.lw"(%[[v1015]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1012:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1011]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v1006:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1012]]) : (i32) -> !riscv.reg
@@ -2574,16 +2378,13 @@
 // CHECK-NEXT:         %[[v999:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1005]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v1000:[0-9]+]] = "riscv.or"(%[[v999]], %[[v998]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v1001:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1000]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v994:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v996:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v994]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v996:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v992:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v1001]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v996]], %[[v992]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v987:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v989:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[v987]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v989:[0-9]+]] = "riscv.sh2add"(%[[v2543]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v985:[0-9]+]] = "riscv.lw"(%[[v989]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v986:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v985]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v980:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v982:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[v980]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v982:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v978:[0-9]+]] = "riscv.lw"(%[[v982]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v979:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v978]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v973:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v979]]) : (i32) -> !riscv.reg
@@ -2592,12 +2393,10 @@
 // CHECK-NEXT:         %[[v976:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v975]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v971:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v976]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v982]], %[[v971]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v966:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v968:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[v966]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v968:[0-9]+]] = "riscv.sh2add"(%[[v2777]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v964:[0-9]+]] = "riscv.lw"(%[[v968]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v965:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v964]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v959:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v961:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v959]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v961:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v957:[0-9]+]] = "riscv.lw"(%[[v961]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v958:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v957]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v952:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v958]]) : (i32) -> !riscv.reg
@@ -2606,8 +2405,7 @@
 // CHECK-NEXT:         %[[v955:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v954]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v950:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v955]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v961]], %[[v950]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
-// CHECK-NEXT:         %[[v945:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v947:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v945]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v947:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v943:[0-9]+]] = "riscv.lw"(%[[v947]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v944:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v943]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v938:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v944]]) : (i32) -> !riscv.reg
@@ -2622,8 +2420,7 @@
 // CHECK-NEXT:         %[[v931:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v937]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         %[[v932:[0-9]+]] = "riscv.or"(%[[v931]], %[[v930]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v933:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v932]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v926:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v928:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[v926]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v928:[0-9]+]] = "riscv.sh2add"(%[[v3161]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v924:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v933]]) : (i32) -> !riscv.reg
 // CHECK-NEXT:         "riscv.sw"(%[[v928]], %[[v924]]) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
 // CHECK-NEXT:         "riscv_cf.branch"() [^[[bb763:[0-9]+]]] : () -> ()
@@ -2639,14 +2436,11 @@
 // CHECK-NEXT:         "riscv_cf.bnez"(%[[v806]]) [^[[bb770:[0-9]+]], ^[[bb771:[0-9]+]]] <{"operandSegmentSizes" = array<i32: 1, 0, 0>}> : (!riscv.reg) -> ()
 // CHECK-NEXT:       ^[[bb770]]():
 // CHECK-NEXT:         %[[v913:[0-9]+]] = "riscv.mul"(%[[varg767_0]], %[[v3438]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v907:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_3]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v909:[0-9]+]] = "riscv.add"(%[[v907]], %[[v913]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-// CHECK-NEXT:         %[[v903:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_5]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v905:[0-9]+]] = "riscv.sh2add"(%[[varg767_0]], %[[v903]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v909:[0-9]+]] = "riscv.add"(%[[varg7_3]], %[[v913]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v905:[0-9]+]] = "riscv.sh2add"(%[[varg767_0]], %[[varg7_5]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v901:[0-9]+]] = "riscv.lw"(%[[v905]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v902:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v901]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:         %[[v896:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[varg7_4]]) : (!llvm.ptr) -> !riscv.reg
-// CHECK-NEXT:         %[[v898:[0-9]+]] = "riscv.sh2add"(%[[varg767_0]], %[[v896]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT:         %[[v898:[0-9]+]] = "riscv.sh2add"(%[[varg767_0]], %[[varg7_4]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v894:[0-9]+]] = "riscv.lw"(%[[v898]]) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT:         %[[v895:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v894]]) : (!riscv.reg) -> i32
 // CHECK-NEXT:         %[[v889:[0-9]+]] = "builtin.unrealized_conversion_cast"(%[[v902]]) : (i32) -> !riscv.reg
@@ -2692,4 +2486,3 @@
 // CHECK-NEXT:         "llvm.return"() : () -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT: }) {{.*}} : () -> ()
-
