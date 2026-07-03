@@ -24,4 +24,16 @@ example (x : Byte 8) :
     (Byte.fromInt x.toInt) = x := by
   veir_bv_decide
 
+example (x y : Byte 8) : (x ||| y).trunc 4 = x.trunc 4 ||| y.trunc 4 := by
+  veir_bv_decide
+
+example (x : Byte 8) : x.lshr .poison = allPoison := by
+  veir_bv_decide
+
+example (x : Byte 8) : x.lshr (.val 0#8) = x := by
+  veir_bv_decide
+
+example (x : Byte 8) : x.lshr (.val 8#8) = allPoison := by
+  veir_bv_decide
+
 end Veir.Data.LLVM.Byte
