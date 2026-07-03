@@ -417,7 +417,6 @@ def matchSignedPow2Divisor (v : Int) : Option (Nat × Bool) := do
 def matchUnsignedPow2Divisor (w : Nat) (v : Int) : Option Nat :=
   log2IfPow2 (unsignedMod w v)
 
-set_option warn.sorry false in
 /-- `udiv x, 2^k` -> `riscv.srli x, k`. Mirrors `DAGCombiner::visitUDIVLike`'s
     `fold (udiv x, (1 << c)) -> x >>u c` (via `BuildLogBase2`).
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5430-L5440 -/
@@ -430,11 +429,10 @@ def udivPow2 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some k := matchUnsignedPow2Divisor 64 imm.value | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (rewriter, srliOp) ← rewriter.createOp (.riscv .srli) #[RegisterType.mk] #[xReg]
-      #[] #[] shamt (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, srliOp) := rewriter.createOp! (.riscv .srli) #[RegisterType.mk] #[xReg]
+      #[] #[] shamt (some $ .before op)
   replaceWithReg rewriter op (srliOp.getResult 0)
 
-set_option warn.sorry false in
 /-- `udiv x, 2^k` -> `riscv.srliw x, k`, the `i32` analogue of `udivPow2`.
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5430-L5440 -/
 def udivwPow2 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -446,11 +444,10 @@ def udivwPow2 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some k := matchUnsignedPow2Divisor 32 imm.value | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (rewriter, srliwOp) ← rewriter.createOp (.riscv .srliw) #[RegisterType.mk] #[xReg]
-      #[] #[] shamt (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, srliwOp) := rewriter.createOp! (.riscv .srliw) #[RegisterType.mk] #[xReg]
+      #[] #[] shamt (some $ .before op)
   replaceWithReg rewriter op (srliwOp.getResult 0)
 
-set_option warn.sorry false in
 /-- `sdiv exact x, 2^k` -> `riscv.srai x, k`; when the divisor is negative, negate
     the shifted result: `sdiv exact x, -2^k` -> `riscv.sub 0, (riscv.srai x, k)`.
     Mirrors `TargetLowering::BuildExactSDIV` (a plain arithmetic shift by the
@@ -470,18 +467,17 @@ def sdivPow2Exact (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some (k, isNeg) := matchSignedPow2Divisor imm.value | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (rewriter, sraiOp) ← rewriter.createOp (.riscv .srai) #[RegisterType.mk] #[xReg]
-      #[] #[] shamt (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, sraiOp) := rewriter.createOp! (.riscv .srai) #[RegisterType.mk] #[xReg]
+      #[] #[] shamt (some $ .before op)
   if ¬ isNeg then replaceWithReg rewriter op (sraiOp.getResult 0)
   else
     let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-    let (rewriter, zeroOp) ← rewriter.createOp (.riscv .li) #[RegisterType.mk] #[]
-        #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, negOp) ← rewriter.createOp (.riscv .sub) #[RegisterType.mk]
-        #[zeroOp.getResult 0, sraiOp.getResult 0] #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, zeroOp) := rewriter.createOp! (.riscv .li) #[RegisterType.mk] #[]
+        #[] #[] zero (some $ .before op)
+    let (rewriter, negOp) := rewriter.createOp! (.riscv .sub) #[RegisterType.mk]
+        #[zeroOp.getResult 0, sraiOp.getResult 0] #[] #[] () (some $ .before op)
     replaceWithReg rewriter op (negOp.getResult 0)
 
-set_option warn.sorry false in
 /-- `i32` analogue of `sdivPow2Exact`: `sdiv exact x, 2^k` -> `riscv.sraiw x, k`,
     negated via `riscv.subw` when the divisor is negative.
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5294-L5301
@@ -496,18 +492,17 @@ def sdivwPow2Exact (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let some (k, isNeg) := matchSignedPow2Divisor imm.value | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (rewriter, sraiwOp) ← rewriter.createOp (.riscv .sraiw) #[RegisterType.mk] #[xReg]
-      #[] #[] shamt (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, sraiwOp) := rewriter.createOp! (.riscv .sraiw) #[RegisterType.mk] #[xReg]
+      #[] #[] shamt (some $ .before op)
   if ¬ isNeg then replaceWithReg rewriter op (sraiwOp.getResult 0)
   else
     let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-    let (rewriter, zeroOp) ← rewriter.createOp (.riscv .li) #[RegisterType.mk] #[]
-        #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, negOp) ← rewriter.createOp (.riscv .subw) #[RegisterType.mk]
-        #[zeroOp.getResult 0, sraiwOp.getResult 0] #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, zeroOp) := rewriter.createOp! (.riscv .li) #[RegisterType.mk] #[]
+        #[] #[] zero (some $ .before op)
+    let (rewriter, negOp) := rewriter.createOp! (.riscv .subw) #[RegisterType.mk]
+        #[zeroOp.getResult 0, sraiwOp.getResult 0] #[] #[] () (some $ .before op)
     replaceWithReg rewriter op (negOp.getResult 0)
 
-set_option warn.sorry false in
 /-- General `sdiv x, 2^k` (`exact` not set): bias negative dividends before
     shifting so truncation rounds toward zero, then negate for a negative divisor:
     ```
@@ -538,26 +533,25 @@ def sdivPow2 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   if k = 0 then return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let sh63 := RISCVImmediateProperties.mk (IntegerAttr.mk 63 (IntegerType.mk 64))
-  let (rewriter, signOp) ← rewriter.createOp (.riscv .srai) #[RegisterType.mk] #[xReg]
-      #[] #[] sh63 (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, signOp) := rewriter.createOp! (.riscv .srai) #[RegisterType.mk] #[xReg]
+      #[] #[] sh63 (some $ .before op)
   let shCorr := RISCVImmediateProperties.mk (IntegerAttr.mk (64 - k) (IntegerType.mk 64))
-  let (rewriter, corrOp) ← rewriter.createOp (.riscv .srli) #[RegisterType.mk] #[signOp.getResult 0]
-      #[] #[] shCorr (some $ .before op) sorry (by simp) (by simp) sorry
-  let (rewriter, biasedOp) ← rewriter.createOp (.riscv .add) #[RegisterType.mk]
-      #[xReg, corrOp.getResult 0] #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, corrOp) := rewriter.createOp! (.riscv .srli) #[RegisterType.mk] #[signOp.getResult 0]
+      #[] #[] shCorr (some $ .before op)
+  let (rewriter, biasedOp) := rewriter.createOp! (.riscv .add) #[RegisterType.mk]
+      #[xReg, corrOp.getResult 0] #[] #[] () (some $ .before op)
   let shQ := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (rewriter, qOp) ← rewriter.createOp (.riscv .srai) #[RegisterType.mk] #[biasedOp.getResult 0]
-      #[] #[] shQ (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, qOp) := rewriter.createOp! (.riscv .srai) #[RegisterType.mk] #[biasedOp.getResult 0]
+      #[] #[] shQ (some $ .before op)
   if ¬ isNeg then replaceWithReg rewriter op (qOp.getResult 0)
   else
     let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-    let (rewriter, zeroOp) ← rewriter.createOp (.riscv .li) #[RegisterType.mk] #[]
-        #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, negOp) ← rewriter.createOp (.riscv .sub) #[RegisterType.mk]
-        #[zeroOp.getResult 0, qOp.getResult 0] #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, zeroOp) := rewriter.createOp! (.riscv .li) #[RegisterType.mk] #[]
+        #[] #[] zero (some $ .before op)
+    let (rewriter, negOp) := rewriter.createOp! (.riscv .sub) #[RegisterType.mk]
+        #[zeroOp.getResult 0, qOp.getResult 0] #[] #[] () (some $ .before op)
     replaceWithReg rewriter op (negOp.getResult 0)
 
-set_option warn.sorry false in
 /-- `i32` analogue of `sdivPow2`, using the `w`-suffixed 32-bit shift/add/sub forms
     so intermediate values stay correctly sign-extended in the 64-bit register.
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5294-L5345
@@ -573,23 +567,23 @@ def sdivwPow2 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   if k = 0 then return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let sh31 := RISCVImmediateProperties.mk (IntegerAttr.mk 31 (IntegerType.mk 64))
-  let (rewriter, signOp) ← rewriter.createOp (.riscv .sraiw) #[RegisterType.mk] #[xReg]
-      #[] #[] sh31 (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, signOp) := rewriter.createOp! (.riscv .sraiw) #[RegisterType.mk] #[xReg]
+      #[] #[] sh31 (some $ .before op)
   let shCorr := RISCVImmediateProperties.mk (IntegerAttr.mk (32 - k) (IntegerType.mk 64))
-  let (rewriter, corrOp) ← rewriter.createOp (.riscv .srliw) #[RegisterType.mk] #[signOp.getResult 0]
-      #[] #[] shCorr (some $ .before op) sorry (by simp) (by simp) sorry
-  let (rewriter, biasedOp) ← rewriter.createOp (.riscv .addw) #[RegisterType.mk]
-      #[xReg, corrOp.getResult 0] #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, corrOp) := rewriter.createOp! (.riscv .srliw) #[RegisterType.mk] #[signOp.getResult 0]
+      #[] #[] shCorr (some $ .before op)
+  let (rewriter, biasedOp) := rewriter.createOp! (.riscv .addw) #[RegisterType.mk]
+      #[xReg, corrOp.getResult 0] #[] #[] () (some $ .before op)
   let shQ := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (rewriter, qOp) ← rewriter.createOp (.riscv .sraiw) #[RegisterType.mk] #[biasedOp.getResult 0]
-      #[] #[] shQ (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, qOp) := rewriter.createOp! (.riscv .sraiw) #[RegisterType.mk] #[biasedOp.getResult 0]
+      #[] #[] shQ (some $ .before op)
   if ¬ isNeg then replaceWithReg rewriter op (qOp.getResult 0)
   else
     let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-    let (rewriter, zeroOp) ← rewriter.createOp (.riscv .li) #[RegisterType.mk] #[]
-        #[] #[] zero (some $ .before op) sorry (by simp) (by simp) sorry
-    let (rewriter, negOp) ← rewriter.createOp (.riscv .subw) #[RegisterType.mk]
-        #[zeroOp.getResult 0, qOp.getResult 0] #[] #[] () (some $ .before op) sorry (by simp) (by simp) sorry
+    let (rewriter, zeroOp) := rewriter.createOp! (.riscv .li) #[RegisterType.mk] #[]
+        #[] #[] zero (some $ .before op)
+    let (rewriter, negOp) := rewriter.createOp! (.riscv .subw) #[RegisterType.mk]
+        #[zeroOp.getResult 0, qOp.getResult 0] #[] #[] () (some $ .before op)
     replaceWithReg rewriter op (negOp.getResult 0)
 
 /-! # Pass implementation -/

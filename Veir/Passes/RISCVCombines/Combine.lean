@@ -44,8 +44,8 @@ def srl_sra_signbit (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   if outerImm.value.value ≠ 63 then return rewriter
   let some sraOp := getDefiningOp operands[0]! rewriter.ctx | return rewriter
   let some (sraOperands, _) := matchOp sraOp rewriter.ctx (.riscv .srai) 1 | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.riscv .srli) #[RegisterType.mk] #[sraOperands[0]!]
-      #[] #[] outerImm (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, newOp) := rewriter.createOp! (.riscv .srli) #[RegisterType.mk] #[sraOperands[0]!]
+      #[] #[] outerImm (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
@@ -58,8 +58,8 @@ def srlw_sraw_signbit (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   if outerImm.value.value ≠ 31 then return rewriter
   let some sraOp := getDefiningOp operands[0]! rewriter.ctx | return rewriter
   let some (sraOperands, _) := matchOp sraOp rewriter.ctx (.riscv .sraiw) 1 | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.riscv .srliw) #[RegisterType.mk] #[sraOperands[0]!]
-      #[] #[] outerImm (some $ .before op) sorry (by simp) (by simp) sorry
+  let (rewriter, newOp) := rewriter.createOp! (.riscv .srliw) #[RegisterType.mk] #[sraOperands[0]!]
+      #[] #[] outerImm (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
