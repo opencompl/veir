@@ -1,9 +1,10 @@
 // RUN: veir-opt %s -p=reconcile-cast | filecheck %s
 
-// The cast-reconciliation pass coerces the integer arguments and return values of
-// *lowered* functions (those containing RISC-V ops) to `!riscv.reg`, inserting
-// bridging casts and rewriting `function_type`. The boundary casts inserted by
-// instruction selection then become round-trips that the pass removes.
+// The cast-reconciliation pass coerces the register-width arguments and return values
+// of *lowered* functions (those containing RISC-V ops) to `!riscv.reg`, inserting
+// bridging casts and rewriting `function_type`. For 64-bit boundaries (`i64`, `!llvm.ptr`)
+// the casts inserted by instruction selection then become identity round-trips that the
+// pass removes; for `i32` boundaries the round-trip truncates and is kept (see `i32fn`).
 
 "builtin.module"() ({
 
@@ -63,6 +64,28 @@
       // CHECK-NEXT: ^{{.*}}([[PARG:%.*]] : !riscv.reg):
       // CHECK-NEXT:   [[PR:%.*]] = "riscv.addi"([[PARG]]) <{"value" = 8 : i64}> : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   "func.return"([[PR]]) : (!riscv.reg) -> ()
+    }) : () -> ()
+
+  // `i32` boundaries are coerced too (RISC-V passes/returns `int` in a register), but the
+  // `reg <-> i32` round-trip truncates rather than being the identity, so the reconciliation
+  // patterns do *not* remove it: the `function_type` becomes `(!riscv.reg) -> !riscv.reg`
+  // while a residual `reg -> i32 -> reg` truncation cast remains on both the argument and the
+  // return operand.
+  ^5():
+    "func.func"() <{sym_name = "i32fn", function_type = (i32) -> i32}> ({
+    ^bb(%a: i32):
+      %r = "builtin.unrealized_conversion_cast"(%a) : (i32) -> !riscv.reg
+      %s = "riscv.addi"(%r) <{value = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+      %o = "builtin.unrealized_conversion_cast"(%s) : (!riscv.reg) -> i32
+      "func.return"(%o) : (i32) -> ()
+      // CHECK:      "func.func"() <{"function_type" = (!riscv.reg) -> !riscv.reg, "sym_name" = "i32fn"}>
+      // CHECK-NEXT: ^{{.*}}([[IARG:%.*]] : !riscv.reg):
+      // CHECK-NEXT:   [[IE:%.*]] = "builtin.unrealized_conversion_cast"([[IARG]]) : (!riscv.reg) -> i32
+      // CHECK-NEXT:   [[IR:%.*]] = "builtin.unrealized_conversion_cast"([[IE]]) : (i32) -> !riscv.reg
+      // CHECK-NEXT:   [[IS:%.*]] = "riscv.addi"([[IR]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+      // CHECK-NEXT:   [[IO:%.*]] = "builtin.unrealized_conversion_cast"([[IS]]) : (!riscv.reg) -> i32
+      // CHECK-NEXT:   [[IRET:%.*]] = "builtin.unrealized_conversion_cast"([[IO]]) : (i32) -> !riscv.reg
+      // CHECK-NEXT:   "func.return"([[IRET]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
 }) : () -> ()
