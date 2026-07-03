@@ -25,7 +25,7 @@ def isRiscvRegToI32Cast (inputType interType : TypeAttr): Bool :=
   | _, _ => false
 
 /-!
-  Same for `!llvm.ptr` and `!riscv.reg` (analog to 'RiscvRegToI64Cast')
+  Same for `!llvm.ptr` and `!riscv.reg` (analogous to `isRiscvRegToI64Cast`).
 -/
 def isRiscvRegToPtrCast (inputType interType : TypeAttr): Bool :=
  match inputType.val, interType.val with
