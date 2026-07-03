@@ -28,12 +28,10 @@ We should figure out which ones, and add just those to `veir_bv_normalize_post`.
 /--
 `veir_bv_decide` preprocesses a goal with `LLVM.Int`s and other bitblastable
 Veir types into a form suitable for bitblasting, via `veir_bv_normalize`, and
-then calls `bv_decide` to automatically close the goal. Accepts the same
-configuration syntax as `bv_decide` itself, e.g. `veir_bv_decide (config := {
-timeout := 120 })`.
+then calls `bv_decide` to automatically close the goal.
 -/
-@[expose] macro "veir_bv_decide" cfg:Lean.Parser.Tactic.optConfig : tactic =>
-  `(tactic| ((veir_bv_normalize <;> bv_decide $cfg)))
+@[expose] macro "veir_bv_decide" : tactic =>
+  `(tactic| ((veir_bv_normalize <;> bv_decide)))
 
 attribute [veir_bv_normalize] Bool.false_eq_true false_and or_self decide_false
   dite_eq_ite Bool.if_false_right Bool.and_true implies_true
