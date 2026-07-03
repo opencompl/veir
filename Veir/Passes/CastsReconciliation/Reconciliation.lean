@@ -92,33 +92,15 @@ def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr
 
 /-! ## Coercing function boundaries to `!riscv.reg`
 
-  Before removing round-trip casts, we rewrite each `func.func`'s integer-typed
-  arguments and return values to `!riscv.reg`, inserting `unrealized_conversion_cast`s
-  to bridge to/from the original integer types. Instruction selection already casts
-  every use of a function argument (and every return operand) through a register, so
-  this coercion turns those into `reg -> iX -> reg` round-trips that the reconciliation
-  patterns above then collapse. The function's `function_type` attribute is rewritten to
-  match so the verifier's return-type check still holds.
-
-  We coerce the register-width boundary types: `i64`, `i32`, and `!llvm.ptr`. This matches
-  the RISC-V calling convention, which passes and returns both `i64` and (sign-extended)
-  `i32` values in XLEN registers.
-
-  For the 64-bit types (`i64`, `!llvm.ptr`) a `reg <-> i64` / `reg <-> !llvm.ptr` round-trip
-  is the identity (a register, an `i64`, and a pointer are all exactly 64 bits), so coercing
-  such a boundary lets the reconciliation patterns *remove* the surrounding casts entirely
-  (`isRiscvRegToI64Cast` / `isRiscvRegToPtrCast` fire in both directions).
-
-  For `i32` the coercion is not free: `reg -> i32 -> reg` truncates, so it is unsound to
-  reconcile away (this is why `isRiscvRegToI32Cast` only fires in the `i32 -> reg -> i32`
-  direction). Coercing an `i32` boundary therefore leaves a *permanent* `reg -> i32 -> reg`
-  truncation cast in the body rather than removing one, and widens the interpreter's printed
-  result to 64 bits. This is intentional: it makes the boundary uniformly register-typed at
-  the cost of that residual truncation.
-
-  Other boundary types (narrower integers, floats, `void`/empty returns, …) are left
-  untouched. Both `func.func` (terminated by `func.return`) and `llvm.func` (terminated by
-  `llvm.return`) are handled.
+  Before removing round-trip casts, we rewrite each `func.func` and
+  `llvm.func`'s i32- and i64- and pointer-typed arguments and return
+  values to `!riscv.reg`, inserting `unrealized_conversion_cast`s to
+  bridge to/from the original integer types. Instruction selection
+  already casts every use of a function argument (and every return
+  operand) through a register, so this coercion turns those into `reg
+  -> iX -> reg` round-trips that the reconciliation patterns above
+  then collapse. The function's `function_type` attribute is rewritten
+  to match so the verifier's return-type check still holds.
 -/
 
 /-- Whether a boundary value of this type should be coerced to `!riscv.reg`. The coercible
