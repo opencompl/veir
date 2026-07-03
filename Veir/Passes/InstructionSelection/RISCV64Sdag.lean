@@ -212,8 +212,17 @@ set_option warn.sorry false in
   lowering (`slt`/`sltu` with swapped operands, no `xori`) is already the same
   instruction count, and folding the constant is strictly worse for `x > 0`,
   which the reg-reg path plus the `li 0 -> x0` combine lowers to a single
-  `slt x0, x`. Mirrors `PatGprSimm12`/`Pat<setuge ...>`/etc. in RISCVInstrInfo.td.
-  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1636-L1651
+  `slt x0, x`.
+
+  LLVM correspondence (commit d9906882fc61):
+  * `slt`/`ult` immediate: `PatGprSimm12<setlt, SLTI>` / `<setult, SLTIU>`
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1636-L1638
+  * `sle`/`ule` off-by-one (`x <= C == x < C+1`, plus the `x <= MAX -> true`
+    fold that motivates the `C = -1` guard): generic `SimplifySetCC`
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/CodeGen/SelectionDAG/TargetLowering.cpp#L5273-L5290
+  * `sge`/`uge` `xori`-inversion: `SETGE`/`SETUGE` are `Expand`ed (legalized to
+    `xor (setlt ...), 1`)
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelLowering.cpp#L326-L332
 -/
 def slti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do

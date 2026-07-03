@@ -34,7 +34,11 @@ set_option warn.sorry false in
     RV64 the hard-wired zero register `x0` reads as 0 in any source position, so
     we can replace the result of a `riscv.li 0` with a reference to `x0` and drop
     the materialization. This removes the `li 0` wherever the constant is only fed
-    into ops that can take `x0` directly (slt, sltu, branch-arg inits, ...). -/
+    into ops that can take `x0` directly (slt, sltu, branch-arg inits, ...).
+
+    LLVM does this during isel: an `ISD::Constant` of 0 selects to a copy from
+    the `X0` register rather than being materialized (commit d9906882fc61).
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelDAGToDAG.cpp#L1119-L1126 -/
 def li_zero_to_x0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (_, cst) := matchOp op rewriter.ctx (.riscv .li) 0 | return rewriter

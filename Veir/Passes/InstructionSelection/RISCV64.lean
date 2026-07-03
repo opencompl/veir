@@ -302,7 +302,10 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
       /- Peephole: when the rhs is a constant 0, `a == 0` lowers directly to
          `riscv.sltiu a 1` (seqz) with no xor. Otherwise fall back to the generic
          `riscv.sltiu (riscv.xor lhs rhs) 1` idiom. Canonicalization runs before
-         isel and moves the constant to the rhs, so we only check that side. -/
+         isel and moves the constant to the rhs, so we only check that side.
+         LLVM: `Pat<(riscv_seteq GPR:$rs1), (SLTIU GPR:$rs1, 1)>` (`selectSETEQ`
+         normalizes `a == 0` to the zero-compare form first).
+         https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1649 -/
       let zeroCmpReg :=
         if (matchConstantZero rhs rewriter.ctx).isSome then some lCmpReg
         else none
@@ -325,7 +328,11 @@ def icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
       /- Peephole: when the rhs is a constant 0, `a != 0` lowers directly to
          `riscv.sltu 0 a` (snez) with no xor. Otherwise fall back to the generic
          `riscv.sltu 0 (riscv.xor lhs rhs)` idiom. Canonicalization runs before
-         isel and moves the constant to the rhs, so we only check that side. -/
+         isel and moves the constant to the rhs, so we only check that side.
+         The `riscv.li 0` feeding `sltu` becomes `x0` under `riscv-combine` (see
+         `li_zero_to_x0`), matching LLVM's `SLTU X0, rs1`.
+         LLVM: `Pat<(riscv_setne GPR:$rs1), (SLTU (XLenVT X0), GPR:$rs1)>`.
+         https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1650 -/
       let zeroCmpReg :=
         if (matchConstantZero rhs rewriter.ctx).isSome then some lCmpReg
         else none
