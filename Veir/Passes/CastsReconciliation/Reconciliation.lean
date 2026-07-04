@@ -112,17 +112,17 @@ def reconcileRegIntCast (rewriter : PatternRewriter OpCode)
   /- Replace the initial operation's output with a zero-extension of the parent's input -/
   let (rewriter, newOp) ← match interBw with
   | 8 =>
-      some $ rewriter.createOp! (.riscv .zextb) #[RegisterType.mk] #[parentInput] #[] #[] () (some $ .before op)
+      rewriter.createOp! (.riscv .zextb) #[RegisterType.mk] #[parentInput] #[] #[] () (some $ .before op)
   | 16 =>
-      some $ rewriter.createOp! (.riscv .zexth) #[RegisterType.mk] #[parentInput] #[] #[] () (some $ .before op)
+      rewriter.createOp! (.riscv .zexth) #[RegisterType.mk] #[parentInput] #[] #[] () (some $ .before op)
   | 32 =>
-      some $ rewriter.createOp! (.riscv .zextw) #[RegisterType.mk] #[parentInput] #[] #[] () (some $ .before op)
+      rewriter.createOp! (.riscv .zextw) #[RegisterType.mk] #[parentInput] #[] #[] () (some $ .before op)
   | bw =>
       /- for bitwidths with no dedicated instruction, shift left then right -/
       if bw >= 64 then none else
       let imm := IntegerAttr.mk (64-bw) (.mk 64)
-      let (rewriter, shlOp) := rewriter.createOp! (.riscv .slli) #[RegisterType.mk] #[parentInput] #[] #[] ⟨imm⟩ (some $ .before op)
-      some $ rewriter.createOp! (.riscv .srli) #[RegisterType.mk] #[shlOp.getResult 0] #[] #[] ⟨imm⟩ (some $ .before op)
+      let (rewriter, shlOp) ← rewriter.createOp! (.riscv .slli) #[RegisterType.mk] #[parentInput] #[] #[] ⟨imm⟩ (some $ .before op)
+      rewriter.createOp! (.riscv .srli) #[RegisterType.mk] #[shlOp.getResult 0] #[] #[] ⟨imm⟩ (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
   /- Erase the redundant cast operation -/
   let rewriter ← rewriter.eraseOp op sorry sorry sorry

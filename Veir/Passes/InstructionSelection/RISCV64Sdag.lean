@@ -35,7 +35,7 @@ def andn (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
                | none => none) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let (rewriter, yReg) ← castToReg rewriter op y
-  let (rewriter, andnOp) := rewriter.createOp! (.riscv .andn) #[RegisterType.mk] #[xReg, yReg]
+  let (rewriter, andnOp) ← rewriter.createOp! (.riscv .andn) #[RegisterType.mk] #[xReg, yReg]
       #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (andnOp.getResult 0)
 
@@ -55,7 +55,7 @@ def orn (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds r
                | none => none) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let (rewriter, yReg) ← castToReg rewriter op y
-  let (rewriter, ornOp) := rewriter.createOp! (.riscv .orn) #[RegisterType.mk] #[xReg, yReg]
+  let (rewriter, ornOp) ← rewriter.createOp! (.riscv .orn) #[RegisterType.mk] #[xReg, yReg]
       #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (ornOp.getResult 0)
 
@@ -75,7 +75,7 @@ def xnor (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
                | none => none) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let (rewriter, yReg) ← castToReg rewriter op y
-  let (rewriter, xnorOp) := rewriter.createOp! (.riscv .xnor) #[RegisterType.mk] #[xReg, yReg]
+  let (rewriter, xnorOp) ← rewriter.createOp! (.riscv .xnor) #[RegisterType.mk] #[xReg, yReg]
       #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (xnorOp.getResult 0)
 
@@ -120,7 +120,7 @@ def orcb (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds 
   if !(isMask mo0 || isMask mo1) then return rewriter
   let (rewriter, mReg) ← castToReg rewriter op m
   /- actual `riscv.orcb` -/
-  let (rewriter, orcbOp) := rewriter.createOp! (.riscv .orcb) #[RegisterType.mk] #[mReg]
+  let (rewriter, orcbOp) ← rewriter.createOp! (.riscv .orcb) #[RegisterType.mk] #[mReg]
       #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (orcbOp.getResult 0)
 
@@ -158,7 +158,7 @@ def selectBinopImm {α} (matchPair : OperationPtr → IRContext OpCode → Optio
   if imm.value < lo || imm.value > hi then return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm.value (IntegerType.mk 64))
-  let (rewriter, newOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
+  let (rewriter, newOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
       #[] #[] (cast h.symm immProps) (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
@@ -233,11 +233,11 @@ def slti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     if immVal < -2048 || immVal > 2047 then return rewriter
     let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk immVal (IntegerType.mk 64))
     let (rewriter, xReg) ← castToReg rewriter op lhs
-    let (rewriter, cmpOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
+    let (rewriter, cmpOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
         #[] #[] (cast h.symm immProps) (some $ .before op)
     if wrap then
       let one := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-      let (rewriter, xorOp) := rewriter.createOp! (.riscv .xori) #[RegisterType.mk] #[cmpOp.getResult 0]
+      let (rewriter, xorOp) ← rewriter.createOp! (.riscv .xori) #[RegisterType.mk] #[cmpOp.getResult 0]
           #[] #[] one (some $ .before op)
       replaceWithReg rewriter op (xorOp.getResult 0)
     else
@@ -285,7 +285,7 @@ def selectSingleBit {α} (matchPair : OperationPtr → IRContext OpCode → Opti
   let some n := singleSetBit (if complement then ~~~ bv else bv) | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk n (IntegerType.mk 64))
-  let (rewriter, newOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
+  let (rewriter, newOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
       #[] #[] (cast h.symm immProps) (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
@@ -308,7 +308,7 @@ def bexti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   if sh.value < 0 || sh.value > 63 then return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk sh.value (IntegerType.mk 64))
-  let (rewriter, newOp) := rewriter.createOp! (.riscv .bexti) #[RegisterType.mk] #[xReg]
+  let (rewriter, newOp) ← rewriter.createOp! (.riscv .bexti) #[RegisterType.mk] #[xReg]
       #[] #[] immProps (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
@@ -325,7 +325,7 @@ def roriw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let sh : Int := ((amtAttr.value % 32) + 32) % 32
   let (rewriter, valReg) ← castToReg rewriter op a
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk sh (IntegerType.mk 64))
-  let (rewriter, newOp) := rewriter.createOp! (.riscv .roriw) #[RegisterType.mk] #[valReg]
+  let (rewriter, newOp) ← rewriter.createOp! (.riscv .roriw) #[RegisterType.mk] #[valReg]
       #[] #[] immProps (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
@@ -344,7 +344,7 @@ def roliw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let imm : Int := (32 - sh) % 32
   let (rewriter, valReg) ← castToReg rewriter op a
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk imm (IntegerType.mk 64))
-  let (rewriter, newOp) := rewriter.createOp! (.riscv .roriw) #[RegisterType.mk] #[valReg]
+  let (rewriter, newOp) ← rewriter.createOp! (.riscv .roriw) #[RegisterType.mk] #[valReg]
       #[] #[] immProps (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
@@ -364,7 +364,7 @@ def slliuw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   if srcT.bitwidth ≠ 32 then return rewriter
   let (rewriter, xReg) ← castToReg rewriter op x
   let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk sh.value (IntegerType.mk 64))
-  let (rewriter, newOp) := rewriter.createOp! (.riscv .slliuw) #[RegisterType.mk] #[xReg]
+  let (rewriter, newOp) ← rewriter.createOp! (.riscv .slliuw) #[RegisterType.mk] #[xReg]
       #[] #[] immProps (some $ .before op)
   replaceWithReg rewriter op (newOp.getResult 0)
 
@@ -377,12 +377,12 @@ def zext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if opType.bitwidth ≠ 1 then return rewriter
   /- First, cast the operand to registers -/
-  let (rewriter, opCastOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
+  let (rewriter, opCastOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op)
   let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-  let (rewriter, andiOp) := rewriter.createOp! (.riscv .andi) #[RegisterType.mk] #[opCastOp.getResult 0]
+  let (rewriter, andiOp) ← rewriter.createOp! (.riscv .andi) #[RegisterType.mk] #[opCastOp.getResult 0]
       #[] #[] imm (some $ .before op)
-  let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[t] #[andiOp.getResult 0]
+  let (rewriter, castOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast) #[t] #[andiOp.getResult 0]
       #[] #[] () (some $ .before op)
   return rewriter.replaceOp! op castOp
 
@@ -395,14 +395,14 @@ def sext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let .integerType opType := (operand.getType! rewriter.ctx.raw).val | return rewriter
   if opType.bitwidth ≠ 1 then return rewriter
   /- First, cast the operand to registers -/
-  let (rewriter, opCastOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
+  let (rewriter, opCastOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () (some $ .before op)
   let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 63 (IntegerType.mk 64))
-  let (rewriter, slliOp) := rewriter.createOp! (.riscv .slli) #[RegisterType.mk] #[opCastOp.getResult 0]
+  let (rewriter, slliOp) ← rewriter.createOp! (.riscv .slli) #[RegisterType.mk] #[opCastOp.getResult 0]
       #[] #[] imm (some $ .before op)
-  let (rewriter, sraiOp) := rewriter.createOp! (.riscv .srai) #[RegisterType.mk] #[slliOp.getResult 0]
+  let (rewriter, sraiOp) ← rewriter.createOp! (.riscv .srai) #[RegisterType.mk] #[slliOp.getResult 0]
       #[] #[] imm (some $ .before op)
-  let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast) #[t] #[sraiOp.getResult 0]
+  let (rewriter, castOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast) #[t] #[sraiOp.getResult 0]
       #[] #[] () (some $ .before op)
   return rewriter.replaceOp! op castOp
 
@@ -456,7 +456,7 @@ def udivPow2Gen (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProper
   let some k := matchUnsignedPow2Divisor width imm.value | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (rewriter, shiftOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
+  let (rewriter, shiftOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
       #[] #[] (cast h.symm shamt) (some $ .before op)
   replaceWithReg rewriter op (shiftOp.getResult 0)
 
@@ -468,9 +468,9 @@ def udivwPow2 := udivPow2Gen .srliw rfl 32
     divisor is negative. -/
 def negateReg (negDst : Riscv) (h : Riscv.propertiesOf negDst = Unit)
     (rewriter : PatternRewriter OpCode) (op : OperationPtr) (x : ValuePtr) :
-    PatternRewriter OpCode × OperationPtr :=
+    Option (PatternRewriter OpCode × OperationPtr) := do
   let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-  let (rewriter, zeroOp) := rewriter.createOp! (.riscv .li) #[RegisterType.mk] #[]
+  let (rewriter, zeroOp) ← rewriter.createOp! (.riscv .li) #[RegisterType.mk] #[]
       #[] #[] zero (some $ .before op)
   rewriter.createOp! (.riscv negDst) #[RegisterType.mk] #[zeroOp.getResult 0, x]
       #[] #[] (cast h.symm ()) (some $ .before op)
@@ -497,11 +497,11 @@ def sdivPow2ExactGen (dst : Riscv) (hDst : Riscv.propertiesOf dst = RISCVImmedia
   let some (k, isNeg) := matchSignedPow2Divisor imm.value | return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (rewriter, sraOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
+  let (rewriter, sraOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[xReg]
       #[] #[] (cast hDst.symm shamt) (some $ .before op)
   if ¬ isNeg then replaceWithReg rewriter op (sraOp.getResult 0)
   else
-    let (rewriter, negOp) := negateReg negDst hNeg rewriter op (sraOp.getResult 0)
+    let (rewriter, negOp) ← negateReg negDst hNeg rewriter op (sraOp.getResult 0)
     replaceWithReg rewriter op (negOp.getResult 0)
 
 def sdivPow2Exact := sdivPow2ExactGen .srai rfl .sub rfl 64
@@ -543,19 +543,19 @@ def sdivPow2Gen (shiftDst : Riscv) (hShift : Riscv.propertiesOf shiftDst = RISCV
   if k = 0 then return rewriter
   let (rewriter, xReg) ← castToReg rewriter op lhs
   let shSign := RISCVImmediateProperties.mk (IntegerAttr.mk (width - 1) (IntegerType.mk 64))
-  let (rewriter, signOp) := rewriter.createOp! (.riscv shiftDst) #[RegisterType.mk] #[xReg]
+  let (rewriter, signOp) ← rewriter.createOp! (.riscv shiftDst) #[RegisterType.mk] #[xReg]
       #[] #[] (cast hShift.symm shSign) (some $ .before op)
   let shCorr := RISCVImmediateProperties.mk (IntegerAttr.mk (width - k) (IntegerType.mk 64))
-  let (rewriter, corrOp) := rewriter.createOp! (.riscv corrDst) #[RegisterType.mk] #[signOp.getResult 0]
+  let (rewriter, corrOp) ← rewriter.createOp! (.riscv corrDst) #[RegisterType.mk] #[signOp.getResult 0]
       #[] #[] (cast hCorr.symm shCorr) (some $ .before op)
-  let (rewriter, biasedOp) := rewriter.createOp! (.riscv addDst) #[RegisterType.mk]
+  let (rewriter, biasedOp) ← rewriter.createOp! (.riscv addDst) #[RegisterType.mk]
       #[xReg, corrOp.getResult 0] #[] #[] (cast hAdd.symm ()) (some $ .before op)
   let shQ := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
-  let (rewriter, qOp) := rewriter.createOp! (.riscv shiftDst) #[RegisterType.mk] #[biasedOp.getResult 0]
+  let (rewriter, qOp) ← rewriter.createOp! (.riscv shiftDst) #[RegisterType.mk] #[biasedOp.getResult 0]
       #[] #[] (cast hShift.symm shQ) (some $ .before op)
   if ¬ isNeg then replaceWithReg rewriter op (qOp.getResult 0)
   else
-    let (rewriter, negOp) := negateReg negDst hNeg rewriter op (qOp.getResult 0)
+    let (rewriter, negOp) ← negateReg negDst hNeg rewriter op (qOp.getResult 0)
     replaceWithReg rewriter op (negOp.getResult 0)
 
 def sdivPow2 := sdivPow2Gen .srai rfl .srli rfl .add rfl .sub rfl 64

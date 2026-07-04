@@ -13,7 +13,7 @@ namespace Veir
 -/
 def castToReg (rewriter : PatternRewriter OpCode) (op : OperationPtr) (v : ValuePtr) :
     Option (PatternRewriter OpCode × ValuePtr) := do
-  let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast)
+  let (rewriter, castOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast)
       #[RegisterType.mk] #[v] #[] #[] () (some $ .before op)
   return (rewriter, castOp.getResult 0)
 
@@ -25,7 +25,7 @@ def castToReg (rewriter : PatternRewriter OpCode) (op : OperationPtr) (v : Value
 def replaceWithReg (rewriter : PatternRewriter OpCode) (op : OperationPtr) (reg : ValuePtr) :
     Option (PatternRewriter OpCode) := do
   let type := ((op.getResult 0).get! rewriter.ctx.raw).type
-  let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast)
+  let (rewriter, castOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast)
       #[type] #[reg] #[] #[] () (some $ .before op)
   return rewriter.replaceOp! op castOp
 
