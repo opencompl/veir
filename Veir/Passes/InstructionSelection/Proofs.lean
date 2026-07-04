@@ -6,6 +6,7 @@ import Veir.Data.LLVM.Int.Bitblast
 import Veir.Data.Casting
 import Veir.Data.Refinement
 import Std.Tactic.BVDecide
+import Veir.ForLean
 
 /-!
   In this file we prove the correctness of the lowering patterns used in the
@@ -320,7 +321,6 @@ theorem udiv_refinement {x y : LLVM.Int 64} :
 
 /-! ### `sdiv`/`udiv` by a constant power of two -/
 
-set_option warn.sorry false in
 /--
   `udiv x, 2^k` -> `riscv.srli x, k` (`udivPow2`). Mirrors `DAGCombiner::visitUDIVLike`'s
   `fold (udiv x, (1 << c)) -> x >>u c` (via `BuildLogBase2`).
@@ -329,7 +329,7 @@ set_option warn.sorry false in
 theorem udivPow2_refinement {x : LLVM.Int 64} (k : BitVec 6) :
     (Data.LLVM.Int.udiv x (LLVM.Int.val ((1#64) <<< k))) ⊒
       (RISCV.Reg.toInt (Data.RISCV.srli k (LLVM.Int.toReg x)) 64) := by
-  sorry -- bv_decide needs a non-default timeout (120s) to close this goal
+  veir_bv_decide
 
 set_option warn.sorry false in
 /--
