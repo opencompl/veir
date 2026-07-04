@@ -133,6 +133,20 @@ def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext O
     throw s!"{instrName}: Expected {successors} successor(s)"
 
 /--
+  Type compatibility for matching an operand forwarded to a successor block
+  against that block's argument type. Register types are compatible when their
+  register constraints agree, treating an unconstrained `!riscv.reg` (no index)
+  as matching any physical register such as `!riscv.reg<x0>`. This lets a
+  hard-wired register like `x0` be forwarded into a generic register block
+  argument. All other types must be equal.
+-/
+def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
+  match opTy, argTy with
+  | .registerType r1, .registerType r2 =>
+      decide (r1.index = r2.index) || r1.index.isNone || r2.index.isNone
+  | _, _ => decide (opTy = argTy)
+
+/--
   Check that the operands forwarded to a successor block match the types of that
   block's arguments. `operandBase` is the index of the first forwarded operand;
   the forwarded operands are `operandBase .. operandBase + dest.numArguments`,
@@ -147,7 +161,7 @@ def OperationPtr.verifyBranchSuccessorArgTypes
   for j in [0:dest.getNumArguments! ctx.raw] do
     let opTy := (op.getOperand! ctx.raw (operandBase + j)).getType! ctx.raw
     let argTy := ((dest.getArgument j).get! ctx.raw).type
-    if opTy.val ≠ argTy.val then
+    if !Attribute.branchArgCompatible opTy.val argTy.val then
       throw s!"{errPrefix} argument {j} type mismatch: operand has type {opTy}, block argument has type {argTy}"
 
 /--

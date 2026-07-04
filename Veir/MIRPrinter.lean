@@ -26,6 +26,12 @@ public section
 
 namespace Veir.MIRPrinter
 
+/-- The physical-register MIR name (e.g. `$x0`) named by a register type
+    carrying an index, if any. -/
+def physRegName? : Attribute → Option String
+  | .registerType { index := some n } => some s!"$x{n}"
+  | _ => none
+
 /-- Virtual-register name for a value: `%v<opId>` for op results,
     `%arg<blockId>_<i>` for block arguments. -/
 def vreg (ctx : IRContext OpCode) (v : ValuePtr) : String :=
@@ -267,6 +273,14 @@ def emitRegular (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
           match regRegMnem rop with
           | some m => IO.println s!"    {res} = {m} {v 0}, {v 1}"
           | none => IO.println s!"    ; UNHANDLED {reprStr rop}"
+  -- `rv64.get_register` references a physical register (e.g. the zero register
+  -- `$x0`). Copy it into a virtual register so every use -- including PHI
+  -- operands, which may not be physical registers -- is valid MIR; the register
+  -- allocator coalesces the copy away, leaving a direct `$x0` use in assembly.
+  | .rv64 .get_register =>
+    match (op.getResultTypes! ctx)[0]?.bind (physRegName? ·.val) with
+    | some name => IO.println s!"    {res} = COPY {name}"
+    | none => IO.println s!"    ; UNHANDLED op"
   | _ => IO.println s!"    ; UNHANDLED op"
 
 /-- Emit a terminator operation (branch / return).  `lsuccs` gives the lowered
