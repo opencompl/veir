@@ -113,9 +113,6 @@ def isRegCoercibleType (t : TypeAttr) : Bool :=
   | .llvmPointerType _ => true
   | _ => false
 
-/-- The raw `!riscv.reg` attribute used to build a coerced `function_type`. -/
-def regAttribute : Attribute := .registerType ⟨none⟩
-
 /-- Walk up to the operation enclosing `op`'s parent region (the enclosing function op). -/
 def enclosingFunctionOp? (raw : IRContext OpCode) (op : OperationPtr) : Option OperationPtr := do
   let block ← (op.get! raw).parent
@@ -223,7 +220,7 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
         sorry sorry sorry sorry | return c
       let c' := WfRewriter.replaceValue c' bap (cast.getResult 0) sorry sorry sorry
       c := WfRewriter.pushOperand c' cast bap sorry sorry
-      inputs := inputs.push regAttribute
+      inputs := inputs.push (.registerType ⟨none⟩)
     else
       inputs := inputs.push origType.val
   -- (2) Coerce the operands of every return terminator in this function.
@@ -241,7 +238,7 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
         c := WfRewriter.replaceOperand c' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
         -- The `j`-th operand maps to the `j`-th declared result (for non-void returns).
         if j < outputs.size then
-          outputs := outputs.set! j regAttribute
+          outputs := outputs.set! j (.registerType ⟨none⟩)
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
   c := setFunctionType c funcOp isLlvmFnType inputs outputs
   return c
