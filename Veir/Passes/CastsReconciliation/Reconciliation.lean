@@ -95,23 +95,9 @@ def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr
   Before removing round-trip casts, we rewrite each `func.func` and
   `llvm.func`'s i32- and i64- and pointer-typed arguments and return
   values to `!riscv.reg`, inserting `unrealized_conversion_cast`s to
-  bridge to/from the original integer types. Instruction selection
-  already casts every use of a function argument (and every return
-  operand) through a register, so this coercion turns those into `reg
-  -> iX -> reg` round-trips that the reconciliation patterns above
-  then collapse. The function's `function_type` attribute is rewritten
-  to match so the verifier's return-type check still holds.
-
-  This assumes instruction selection has already run: it is the
-  responsibility of whoever invokes this pass to have lowered the
-  function body first, so its boundary casts have something to
-  reconcile with.
+  bridge to/from the original integer types.
 -/
 
-/-- Whether a boundary value of this type should be coerced to `!riscv.reg`. The coercible
-    types are the register-width ones passed/returned in registers by the RISC-V calling
-    convention: `i64`, `i32`, and `!llvm.ptr`. (`i32`'s `reg` round-trip truncates rather
-    than being the identity — see the section comment above.) -/
 def isRegCoercibleType (t : TypeAttr) : Bool :=
   match t.val with
   | .integerType x => x.bitwidth == 64 || x.bitwidth == 32
@@ -153,70 +139,70 @@ set_option warn.sorry false in
     `func.func` and `llvm.func`. -/
 def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
     ExceptT String IO (WfIRContext OpCode) := do
-  let mut c := ctx
-  -- `func.func`/`llvm.func` always have exactly one region; declarations have no blocks.
-  let region := funcOp.getRegion! c.raw 0
-  let some entry := (region.get! c.raw).firstBlock | return c
-  let returnCode := returnOpCodeFor (funcOp.getOpType! c.raw)
+  -- Shadow the parameter: from here on `ctx` always names the latest version, with no
+  -- separate old binding left around to second-guess.
+  let mut ctx := ctx
+  let region := funcOp.getRegion! ctx.raw 0
+  let some entry := (region.get! ctx.raw).firstBlock | return ctx
+  let returnCode := returnOpCodeFor (funcOp.getOpType! ctx.raw)
   -- Default the output types to the currently-declared ones, then flip coerced positions.
   -- This preserves non-integer results and `llvm.func`'s `void` return.
-  let declaredFt := (readFunctionType? c.raw funcOp).getD { inputs := #[], outputs := #[] }
+  let declaredFt := (readFunctionType? ctx.raw funcOp).getD { inputs := #[], outputs := #[] }
   let mut outputs : Array Attribute := declaredFt.outputs
   -- (1) Coerce entry-block arguments (the function parameters). This mirrors the
   --     block-argument coercion in `isel-br-riscv64`, which skips entry blocks.
   let mut inputs : Array Attribute := #[]
-  for i in List.range (entry.getNumArguments! c.raw) do
+  for i in List.range (entry.getNumArguments! ctx.raw) do
     let bap : BlockArgumentPtr := { block := entry, index := i }
-    let origType := (ValuePtr.blockArgument bap).getType! c.raw
+    let origType := (ValuePtr.blockArgument bap).getType! ctx.raw
     if isRegCoercibleType origType then
-      c := WfRewriter.setType c bap RegisterType.mk sorry
-      let ip := InsertPoint.atStart entry c.raw sorry
-      let some (c', cast) := WfRewriter.createOp c
+      ctx := WfRewriter.setType ctx bap RegisterType.mk sorry
+      let ip := InsertPoint.atStart entry ctx.raw sorry
+      let some (ctx', cast) := WfRewriter.createOp ctx
         (.builtin .unrealized_conversion_cast) #[origType] #[] #[] #[] default (some ip)
-        sorry sorry sorry sorry | return c
-      let c' := WfRewriter.replaceValue c' bap (cast.getResult 0) sorry sorry sorry
-      c := WfRewriter.pushOperand c' cast bap sorry sorry
+        sorry sorry sorry sorry | return ctx
+      let ctx' := WfRewriter.replaceValue ctx' bap (cast.getResult 0) sorry sorry sorry
+      ctx := WfRewriter.pushOperand ctx' cast bap sorry sorry
       inputs := inputs.push (.registerType ⟨none⟩)
     else
       inputs := inputs.push origType.val
   -- (2) Coerce the operands of every return terminator in this function.
-  let returnOps := c.raw.operations.keys.filter fun o =>
-    o.getOpType! c.raw == returnCode &&
-      o.getParentOp! c.raw == some funcOp
+  let returnOps := ctx.raw.operations.keys.filter fun o =>
+    o.getOpType! ctx.raw == returnCode &&
+      o.getParentOp! ctx.raw == some funcOp
   for retOp in returnOps do
-    for j in List.range (retOp.getNumOperands! c.raw) do
-      let opVal := retOp.getOperand! c.raw j
-      let opType := opVal.getType! c.raw
+    for j in List.range (retOp.getNumOperands! ctx.raw) do
+      let opVal := retOp.getOperand! ctx.raw j
+      let opType := opVal.getType! ctx.raw
       if isRegCoercibleType opType then
-        let some (c', cast) := WfRewriter.createOp c
+        let some (ctx', cast) := WfRewriter.createOp ctx
           (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[opVal] #[] #[] default
-          (some (InsertPoint.before retOp)) sorry sorry sorry sorry | return c
-        c := WfRewriter.replaceOperand c' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
+          (some (InsertPoint.before retOp)) sorry sorry sorry sorry | return ctx
+        ctx := WfRewriter.replaceOperand ctx' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
         -- The `j`-th operand maps to the `j`-th declared result: the verifier guarantees
         -- a return's operand count equals the function's declared result count.
         outputs := outputs.set! j (.registerType ⟨none⟩)
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
-  c := setFunctionType c funcOp inputs outputs
-  return c
+  ctx := setFunctionType ctx funcOp inputs outputs
+  return ctx
 
-/-- Coerce every `func.func` and `llvm.func` in the module (see `coerceFunction`). -/
 def coerceFunctionBoundaries (ctx : WfIRContext OpCode) :
     ExceptT String IO (WfIRContext OpCode) := do
-  let mut c := ctx
+  let mut ctx := ctx
   let funcOps := ctx.raw.operations.keys.filter fun o =>
     match o.getOpType! ctx.raw with
     | .func .func | .llvm .func => true
     | _ => false
   for funcOp in funcOps do
-    c ← coerceFunction c funcOp
-  return c
+    ctx ← coerceFunction ctx funcOp
+  return ctx
 
 def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  -- First coerce function argument/return boundaries to registers, turning the
-  -- boundary casts into round-trips that the reconciliation patterns below remove.
   let ctx ← coerceFunctionBoundaries ctx
-  let pattern := RewritePattern.GreedyRewritePattern #[reconcilePairingCast isRiscvRegToI64Cast, reconcilePairingCast isRiscvRegToI32Cast, reconcilePairingCast isRiscvRegToPtrCast, reconcilePairingCast isPreservingIntegerTypeRoundTrip, reconcileIdentityCast]
+  let pattern := RewritePattern.GreedyRewritePattern #[reconcilePairingCast isRiscvRegToI64Cast,
+    reconcilePairingCast isRiscvRegToI32Cast, reconcilePairingCast isRiscvRegToPtrCast,
+    reconcilePairingCast isPreservingIntegerTypeRoundTrip, reconcileIdentityCast]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying cast reconciliation"
   | some ctx => pure ctx
