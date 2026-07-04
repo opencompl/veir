@@ -118,37 +118,11 @@ def isRegCoercibleType (t : TypeAttr) : Bool :=
   | .llvmPointerType _ => true
   | _ => false
 
-/-- Whether an opcode is a function-definition op whose boundaries we coerce. -/
-def isFunctionOp : OpCode → Bool
-  | .func .func | .llvm .func => true
-  | _ => false
-
 /-- The return-terminator opcode paired with a function op (`func.return` for
     `func.func`, `llvm.return` for `llvm.func`). -/
 def returnOpCodeFor : OpCode → OpCode
   | .llvm .func => .llvm .return
   | _ => .func .return
-
-/-- Read a function op's declared `function_type`. The boolean records whether it used the
-    `.llvmFunctionType` spelling, so the same spelling is preserved when we rewrite it.
-    `func.func` keeps it in `extra`; `llvm.func` has a first-class `function_type` field. -/
-def readFunctionType? (raw : IRContext OpCode) (funcOp : OperationPtr) :
-    Option (Bool × FunctionType) :=
-  match funcOp.getOpType! raw with
-  | .func .func =>
-    match (funcOp.getProperties! raw (.func .func) : FuncFuncProperties).extra.entries.find?
-        (fun e => e.1 == "function_type".toUTF8) with
-    | some (_, .functionType ft) => some (false, ft)
-    | _ => none
-  | .llvm .func =>
-    match (funcOp.getProperties! raw (.llvm .func) : LLVMFuncProperties).function_type with
-    | some ta =>
-      match ta.val with
-      | .functionType ft => some (false, ft)
-      | .llvmFunctionType ft => some (true, ft)
-      | _ => none
-    | none => none
-  | _ => none
 
 set_option warn.sorry false in
 /-- Rewrite a function op's `function_type` to the given input/output type lists,
@@ -231,7 +205,10 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
 def coerceFunctionBoundaries (ctx : WfIRContext OpCode) :
     ExceptT String IO (WfIRContext OpCode) := do
   let mut c := ctx
-  let funcOps := ctx.raw.operations.keys.filter fun o => isFunctionOp (o.getOpType! ctx.raw)
+  let funcOps := ctx.raw.operations.keys.filter fun o =>
+    match o.getOpType! ctx.raw with
+    | .func .func | .llvm .func => true
+    | _ => false
   for funcOp in funcOps do
     c ← coerceFunction c funcOp
   return c
