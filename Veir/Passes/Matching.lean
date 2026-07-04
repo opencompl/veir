@@ -61,7 +61,11 @@ def matchConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) : Option Integ
   let op := opResultPtr.op
   matchConstantIntOp op ctx
 
-/-- Match a constant integer with value zero, returning `val` itself. -/
+/-- Match a constant integer with value zero, returning `val` itself.
+    TODO: We should either change the name of this function to be matchLLVMConstantZero,
+    or else broaden it to match some of our other zero forms, such as "li 0" or the
+    zero register
+-/
 def matchConstantZero (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
   let attr ← matchConstantIntVal val ctx
   guard (attr.value = 0)

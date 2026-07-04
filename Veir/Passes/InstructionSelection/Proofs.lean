@@ -140,6 +140,36 @@ theorem icmp_refinement_ne {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the constant-zero `icmp eq` peephole, with the zero on
+  the right (`x == 0`). The lowering drops the `xor` and emits `sltiu x 1` (seqz)
+  directly on the non-zero operand.
+-/
+theorem icmp_refinement_eq_zero_rhs {x : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp x (LLVM.Int.constant 64 0) LLVM.IntPred.eq) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu 1#12 (LLVM.Int.toReg x)) 1) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the constant-zero `icmp ne` peephole, with the zero on
+  the right (`x != 0`). The lowering drops the `xor` and emits `sltu 0 x` (snez)
+  directly on the non-zero operand.
+-/
+theorem icmp_refinement_ne_zero_rhs {x : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp x (LLVM.Int.constant 64 0) LLVM.IntPred.ne) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltu (LLVM.Int.toReg x) (Data.RISCV.li 0#64)) 1) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `riscv-combine` `li 0 -> x0` rewrite: materializing
+  the constant `0` with `li` produces exactly the value of the hard-wired zero
+  register `x0` (which the interpreter models as the register holding `0#64`).
+  Since every consumer is a pure function of its source registers' values,
+  substituting `x0` for the `li 0` result preserves semantics.
+-/
+theorem li_zero_eq_x0 :
+    Data.RISCV.li 0#64 = RISCV.Reg.mk 0#64 := rfl
+
+/--
   Prove the correctness of the `icmp` lowering pattern with `slt`.
 -/
 theorem icmp_refinement_slt {x y : LLVM.Int 64} :
@@ -201,6 +231,41 @@ theorem icmp_refinement_ugt {x y : LLVM.Int 64} :
 theorem icmp_refinement_uge {x y : LLVM.Int 64} :
     (Data.LLVM.Int.icmp x y LLVM.IntPred.uge) ⊒
       (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltu (LLVM.Int.toReg y) (LLVM.Int.toReg x))) 1) := by
+  veir_bv_decide
+
+/-! ### Immediate-constant refinements for ordered comparisons
+
+  Each theorem justifies one arm of the `slti` immediate-form selection in
+  `isel-sdag-riscv64`, comparing `x` against a constant that equals the
+  sign-extension of the 12-bit immediate `imm` actually encoded in the emitted
+  instruction. For the `≤` predicates the constant is `sext(imm) - 1`, capturing
+  the `x ≤ C == x < C+1` rewrite (the code stores `C+1` as the immediate). The
+  unsigned off-by-one form carries the `imm ≠ 0` hypothesis that the code
+  enforces by rejecting `C = -1` (else `C+1` wraps past `UINT_MAX`). -/
+
+/-- `icmp sge x C` with `C = sext(imm)` -> `xori (slti x imm) 1`. -/
+theorem icmp_refinement_sge_imm {x : LLVM.Int 64} (imm : BitVec 12) :
+    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.sge) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.slti imm (LLVM.Int.toReg x))) 1) := by
+  veir_bv_decide
+
+/-- `icmp uge x C` with `C = sext(imm)` -> `xori (sltiu x imm) 1`. -/
+theorem icmp_refinement_uge_imm {x : LLVM.Int 64} (imm : BitVec 12) :
+    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.uge) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltiu imm (LLVM.Int.toReg x))) 1) := by
+  veir_bv_decide
+
+/-- `icmp sle x C` with `C = sext(imm) - 1` -> `slti x imm` (i.e. `x < C+1`). -/
+theorem icmp_refinement_sle_imm {x : LLVM.Int 64} (imm : BitVec 12) :
+    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.sle) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slti imm (LLVM.Int.toReg x)) 1) := by
+  veir_bv_decide
+
+/-- `icmp ule x C` with `C = sext(imm) - 1` -> `sltiu x imm`; needs `imm ≠ 0`
+    (else `C = UINT_MAX` and `C+1` wraps to `0`). -/
+theorem icmp_refinement_ule_imm {x : LLVM.Int 64} (imm : BitVec 12) (h : imm ≠ 0) :
+    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.ule) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu imm (LLVM.Int.toReg x)) 1) := by
   veir_bv_decide
 
 /--
