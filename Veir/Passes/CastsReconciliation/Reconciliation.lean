@@ -125,13 +125,15 @@ def returnOpCodeFor : OpCode → OpCode
   | _ => .func .return
 
 set_option warn.sorry false in
-/-- Rewrite a function op's `function_type` to the given input/output type lists,
-    preserving the `.functionType`/`.llvmFunctionType` spelling. -/
-def setFunctionType (c : WfIRContext OpCode) (funcOp : OperationPtr) (isLlvmFnType : Bool)
+/-- Rewrite a function op's `function_type` to the given input/output type lists.
+    `llvm.func` is canonicalized to the `.llvmFunctionType` spelling, regardless of
+    which spelling the original attribute used. -/
+def setFunctionType (c : WfIRContext OpCode) (funcOp : OperationPtr)
     (inputs outputs : Array Attribute) : WfIRContext OpCode :=
   let ftType : TypeAttr :=
-    if isLlvmFnType then ⟨.llvmFunctionType { inputs, outputs }, by rfl⟩
-    else ⟨.functionType { inputs, outputs }, by rfl⟩
+    match funcOp.getOpType! c.raw with
+    | .llvm .func => ⟨.llvmFunctionType { inputs, outputs }, by rfl⟩
+    | _ => ⟨.functionType { inputs, outputs }, by rfl⟩
   match funcOp.getOpType! c.raw with
   | .func .func =>
     let props : FuncFuncProperties := funcOp.getProperties! c.raw (.func .func)
@@ -159,10 +161,7 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
   let returnCode := returnOpCodeFor (funcOp.getOpType! c.raw)
   -- Default the output types to the currently-declared ones, then flip coerced positions.
   -- This preserves non-integer results and `llvm.func`'s `void` return.
-  let (isLlvmFnType, declaredFt) :=
-    match readFunctionType? c.raw funcOp with
-    | some x => x
-    | none => (false, ({ inputs := #[], outputs := #[] } : FunctionType))
+  let declaredFt := (readFunctionType? c.raw funcOp).getD { inputs := #[], outputs := #[] }
   let mut outputs : Array Attribute := declaredFt.outputs
   -- (1) Coerce entry-block arguments (the function parameters). This mirrors the
   --     block-argument coercion in `isel-br-riscv64`, which skips entry blocks.
@@ -198,7 +197,7 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
         if j < outputs.size then
           outputs := outputs.set! j (.registerType ⟨none⟩)
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
-  c := setFunctionType c funcOp isLlvmFnType inputs outputs
+  c := setFunctionType c funcOp inputs outputs
   return c
 
 /-- Coerce every `func.func` and `llvm.func` in the module (see `coerceFunction`). -/

@@ -20,23 +20,21 @@ def OperationPtr.getEnclosingFunctionOp (op : OperationPtr) (ctx : WfIRContext O
   | some funcOp => pure funcOp
   | none => throw s!"Expected {opName} to have an enclosing function operation"
 
-/-- Read a function op's declared `function_type`. The boolean records whether it used the
-    `.llvmFunctionType` spelling, so the same spelling can be preserved if it's rewritten.
-    `func.func` keeps it in `extra`; `llvm.func` has a first-class `function_type` field. -/
+/-- Read a function op's declared `function_type`. `func.func` keeps it in `extra`;
+    `llvm.func` has a first-class `function_type` field. -/
 public def readFunctionType? (raw : IRContext OpCode) (funcOp : OperationPtr) :
-    Option (Bool × FunctionType) :=
+    Option FunctionType :=
   match funcOp.getOpType! raw with
   | .func .func =>
     match (funcOp.getProperties! raw (.func .func) : FuncFuncProperties).extra.entries.find?
         (fun e => e.1 == "function_type".toUTF8) with
-    | some (_, .functionType ft) => some (false, ft)
+    | some (_, .functionType ft) => some ft
     | _ => none
   | .llvm .func =>
     match (funcOp.getProperties! raw (.llvm .func) : LLVMFuncProperties).function_type with
     | some ta =>
       match ta.val with
-      | .functionType ft => some (false, ft)
-      | .llvmFunctionType ft => some (true, ft)
+      | .functionType ft | .llvmFunctionType ft => some ft
       | _ => none
     | none => none
   | _ => none
@@ -50,7 +48,7 @@ def OperationPtr.verifyFuncReturnTypes (op : OperationPtr) (ctx : WfIRContext Op
   let funcOp ← op.getEnclosingFunctionOp ctx "func.return"
   let .func .func := funcOp.getOpType! ctx.raw
     | throw "Expected func.return to be enclosed by func.func"
-  let some (_, ft) := readFunctionType? ctx.raw funcOp
+  let some ft := readFunctionType? ctx.raw funcOp
     | throw "Expected enclosing func.func to have a function_type attribute"
   let outputs := ft.outputs
   if op.getNumOperands ctx.raw opIn ≠ outputs.size then
@@ -70,7 +68,7 @@ def OperationPtr.verifyLLVMReturnTypes (op : OperationPtr) (ctx : WfIRContext Op
   let funcOp ← op.getEnclosingFunctionOp ctx "llvm.return"
   let .llvm .func := funcOp.getOpType! ctx.raw
     | throw "Expected llvm.return to be enclosed by llvm.func"
-  let some (_, ft) := readFunctionType? ctx.raw funcOp
+  let some ft := readFunctionType? ctx.raw funcOp
     | throw "Expected enclosing llvm.func to have a function_type attribute"
   -- A single `llvm.void` result corresponds to no return operands.
   let outputs := match ft.outputs with
