@@ -154,8 +154,7 @@ set_option warn.sorry false in
 def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
     ExceptT String IO (WfIRContext OpCode) := do
   let mut c := ctx
-  -- The function body, if any, is its single region. Declarations have no blocks.
-  if funcOp.getNumRegions! c.raw = 0 then return c
+  -- `func.func`/`llvm.func` always have exactly one region; declarations have no blocks.
   let region := funcOp.getRegion! c.raw 0
   let some entry := (region.get! c.raw).firstBlock | return c
   let returnCode := returnOpCodeFor (funcOp.getOpType! c.raw)
@@ -193,9 +192,9 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
           (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[opVal] #[] #[] default
           (some (InsertPoint.before retOp)) sorry sorry sorry sorry | return c
         c := WfRewriter.replaceOperand c' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
-        -- The `j`-th operand maps to the `j`-th declared result (for non-void returns).
-        if j < outputs.size then
-          outputs := outputs.set! j (.registerType ⟨none⟩)
+        -- The `j`-th operand maps to the `j`-th declared result: the verifier guarantees
+        -- a return's operand count equals the function's declared result count.
+        outputs := outputs.set! j (.registerType ⟨none⟩)
   -- (3) Rewrite the function_type to reflect the coerced boundary types.
   c := setFunctionType c funcOp inputs outputs
   return c
