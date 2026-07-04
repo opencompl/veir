@@ -213,39 +213,6 @@ def SimplifyCFG.isUniquelyReachedFrom? (ctx : IRContext OpCode) (dest : BlockPtr
   | none => false
 
 set_option warn.sorry false in
-def SimplifyCFG.detachBlockFromRegion (ctx : WfIRContext OpCode) (block : BlockPtr) :
-    WfIRContext OpCode :=
-  let blockData := block.get! ctx.raw
-  let prev := blockData.prev
-  let next := blockData.next
-  let parent := blockData.parent
-  let raw :=
-    match prev with
-    | some prevBlock => prevBlock.setNextBlock! ctx.raw next
-    | none => ctx.raw
-  let raw :=
-    match next with
-    | some nextBlock => nextBlock.setPrevBlock! raw prev
-    | none => raw
-  let raw :=
-    match parent with
-    | some region =>
-        let raw :=
-          if (region.get! raw).firstBlock == some block then
-            region.setFirstBlock! raw next
-          else
-            raw
-        if (region.get! raw).lastBlock == some block then
-          region.setLastBlock! raw prev
-        else
-          raw
-    | none => raw
-  let raw := block.setPrevBlock! raw none
-  let raw := block.setNextBlock! raw none
-  let raw := block.setParent! raw none
-  ⟨raw, by sorry⟩
-
-set_option warn.sorry false in
 def SimplifyCFG.mergeUnconditionalBranch (rewriter : PatternRewriter OpCode)
     (op : OperationPtr) (opIn : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -257,6 +224,9 @@ def SimplifyCFG.mergeUnconditionalBranch (rewriter : PatternRewriter OpCode)
   if hSelf : pred = dest then
     return rewriter
   if !SimplifyCFG.isUniquelyReachedFrom? rewriter.ctx.raw dest op then
+    return rewriter
+  let some destParent := (dest.get! rewriter.ctx.raw).parent | return rewriter
+  if (destParent.get! rewriter.ctx.raw).firstBlock == some dest then
     return rewriter
 
   let ip := InsertPoint.before op
@@ -276,8 +246,51 @@ def SimplifyCFG.mergeUnconditionalBranch (rewriter : PatternRewriter OpCode)
     let some branchArg := branchArgs[i]? | none
     mergedCtx := WfRewriter.replaceValue mergedCtx blockArg branchArg sorry sorry sorry
   let finalCtx := WfRewriter.eraseOp mergedCtx op sorry sorry sorry
-  let finalCtx := SimplifyCFG.detachBlockFromRegion finalCtx dest
+  let some finalCtx := WfRewriter.eraseBlock finalCtx dest sorry | none
   return { rewriter with ctx := finalCtx, hasDoneAction := true }
+
+def SimplifyCFG.isDeadBlock (ctx : IRContext OpCode) (block : BlockPtr) : Bool :=
+  let blockData := block.get! ctx
+  match blockData.parent with
+  | none => false
+  | some region =>
+      blockData.firstUse.isNone && (region.get! ctx).firstBlock != some block
+
+set_option warn.sorry false in
+def SimplifyCFG.eraseDeadBlockOps (rewriter : PatternRewriter OpCode)
+    (block : BlockPtr) (fuel : Nat) : PatternRewriter OpCode :=
+  match fuel with
+  | 0 => rewriter
+  | fuel + 1 =>
+      match (block.get! rewriter.ctx.raw).lastOp with
+      | none => rewriter
+      | some deadOp =>
+          if deadOp.getNumRegions! rewriter.ctx.raw != 0 then
+            rewriter
+          else if deadOp.hasUses! rewriter.ctx.raw then
+            rewriter
+          else
+            let ctx := WfRewriter.eraseOp rewriter.ctx deadOp sorry sorry sorry
+            let rewriter :=
+              { rewriter with
+                ctx := ctx
+                hasDoneAction := true
+                worklist := rewriter.worklist.remove deadOp }
+            SimplifyCFG.eraseDeadBlockOps rewriter block fuel
+
+set_option warn.sorry false in
+def SimplifyCFG.removeDeadBlock (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (_ : op.InBounds rewriter.ctx.raw) :
+    Option (PatternRewriter OpCode) := do
+  let some block := (op.get! rewriter.ctx.raw).parent | return rewriter
+  if !SimplifyCFG.isDeadBlock rewriter.ctx.raw block then
+    return rewriter
+  let rewriter :=
+    SimplifyCFG.eraseDeadBlockOps rewriter block rewriter.ctx.raw.operations.size
+  if (block.get! rewriter.ctx.raw).lastOp.isSome then
+    return rewriter
+  let some ctx := WfRewriter.eraseBlock rewriter.ctx block sorry | return rewriter
+  return { rewriter with ctx := ctx, hasDoneAction := true }
 
 def SimplifyCFGPass.impl (ctx : WfIRContext OpCode)
     (_op : OperationPtr) (_ : _op.InBounds ctx.raw) :
@@ -291,7 +304,8 @@ def SimplifyCFGPass.impl (ctx : WfIRContext OpCode)
     SimplifyCFG.bypassLLVMUnconditionalBranch,
     SimplifyCFG.bypassCfCondBranch,
     SimplifyCFG.bypassLLVMCondBranch,
-    SimplifyCFG.mergeUnconditionalBranch
+    SimplifyCFG.mergeUnconditionalBranch,
+    SimplifyCFG.removeDeadBlock
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying simplify-cfg"
