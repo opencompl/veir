@@ -1,0 +1,148 @@
+import Veir.Pass
+import Veir.PatternRewriter.Basic
+import Veir.Rewriter.InlineBlock
+
+namespace Veir
+
+def SimplifyCFG.constantBoolValue? (val : ValuePtr) (ctx : IRContext OpCode) : Option Bool := do
+  let .opResult result := val | none
+  let definingOp := result.op
+  match definingOp.getOpType! ctx with
+  | .arith .constant =>
+      let props := definingOp.getProperties! ctx (.arith .constant)
+      return decide (props.value.value ≠ 0)
+  | .llvm .mlir__constant =>
+      let props := definingOp.getProperties! ctx (.llvm .mlir__constant)
+      let .integer intAttr := props.value | none
+      return decide (intAttr.value ≠ 0)
+  | _ => none
+
+def SimplifyCFG.condBrArgsAndDest? (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (props : CondBrProperties) :
+    Option (Array ValuePtr × BlockPtr) := do
+  let operands := op.getOperands! rewriter.ctx.raw
+  let some cond := operands[0]? | none
+  let some takeTrue := SimplifyCFG.constantBoolValue? cond rewriter.ctx.raw | none
+  let some trueArgCountInt := props.operandSegmentSizes.values[1]? | none
+  let some falseArgCountInt := props.operandSegmentSizes.values[2]? | none
+  if trueArgCountInt < 0 then none else
+  if falseArgCountInt < 0 then none else
+  let trueArgCount := Int.toNat trueArgCountInt
+  let falseArgCount := Int.toNat falseArgCountInt
+  let dest := op.getSuccessor! rewriter.ctx.raw (if takeTrue then 0 else 1)
+  let args :=
+    if takeTrue then
+      operands.extract 1 (1 + trueArgCount)
+    else
+      operands.extract (1 + trueArgCount) (1 + trueArgCount + falseArgCount)
+  return (args, dest)
+
+def SimplifyCFG.foldCfConstantCondBr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  if op.getOpType! rewriter.ctx.raw ≠ .cf .cond_br then
+    return rewriter
+  let props := op.getProperties! rewriter.ctx.raw (.cf .cond_br)
+  let some (args, dest) := SimplifyCFG.condBrArgsAndDest? rewriter op props | return rewriter
+  let (rewriter, newOp) ← rewriter.createOp! (.cf .br) #[] args #[dest] #[] () (some (.before op))
+  return rewriter.replaceOp! op newOp
+
+def SimplifyCFG.foldLLVMConstantCondBr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  if op.getOpType! rewriter.ctx.raw ≠ .llvm .cond_br then
+    return rewriter
+  let props := op.getProperties! rewriter.ctx.raw (.llvm .cond_br)
+  let some (args, dest) := SimplifyCFG.condBrArgsAndDest? rewriter op props | return rewriter
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .br) #[] args #[dest] #[] () (some (.before op))
+  return rewriter.replaceOp! op newOp
+
+def SimplifyCFG.isUniquelyReachedFrom? (ctx : IRContext OpCode) (dest : BlockPtr)
+    (branch : OperationPtr) : Bool :=
+  match (dest.get! ctx).firstUse with
+  | some use =>
+      let blockOperand := use.get! ctx
+      blockOperand.owner == branch && blockOperand.nextUse.isNone
+  | none => false
+
+def SimplifyCFG.detachBlockFromRegion (ctx : WfIRContext OpCode) (block : BlockPtr) :
+    WfIRContext OpCode :=
+  let blockData := block.get! ctx.raw
+  let prev := blockData.prev
+  let next := blockData.next
+  let parent := blockData.parent
+  let raw :=
+    match prev with
+    | some prevBlock => prevBlock.setNextBlock! ctx.raw next
+    | none => ctx.raw
+  let raw :=
+    match next with
+    | some nextBlock => nextBlock.setPrevBlock! raw prev
+    | none => raw
+  let raw :=
+    match parent with
+    | some region =>
+        let raw :=
+          if (region.get! raw).firstBlock == some block then
+            region.setFirstBlock! raw next
+          else
+            raw
+        if (region.get! raw).lastBlock == some block then
+          region.setLastBlock! raw prev
+        else
+          raw
+    | none => raw
+  let raw := block.setPrevBlock! raw none
+  let raw := block.setNextBlock! raw none
+  let raw := block.setParent! raw none
+  ⟨raw, by sorry⟩
+
+def SimplifyCFG.mergeUnconditionalBranch (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (opIn : op.InBounds rewriter.ctx.raw) :
+    Option (PatternRewriter OpCode) := do
+  let opType := op.getOpType! rewriter.ctx.raw
+  if opType ≠ .cf .br && opType ≠ .llvm .br then
+    return rewriter
+  let some pred := (op.get! rewriter.ctx.raw).parent | return rewriter
+  let dest := op.getSuccessor! rewriter.ctx.raw 0
+  if hSelf : pred = dest then
+    return rewriter
+  if !SimplifyCFG.isUniquelyReachedFrom? rewriter.ctx.raw dest op then
+    return rewriter
+
+  let ip := InsertPoint.before op
+  let blockArgs := (List.range (dest.getNumArguments! rewriter.ctx.raw)).toArray.map
+    fun i => (ValuePtr.blockArgument { block := dest, index := i })
+  let branchArgs := op.getOperands! rewriter.ctx.raw
+  let afterInline ← match hInline : Rewriter.inlineBlock rewriter.ctx.raw dest ip
+      (ipIn := by simpa [ip] using opIn)
+      (block' := pred)
+      (ipBlock := by sorry)
+      (blockNe := by sorry)
+      (blockIn := by sorry) with
+    | some rawCtx => some (⟨rawCtx, Rewriter.inlineBlock_wellFormed hInline⟩ : WfIRContext OpCode)
+    | none => none
+  let mut mergedCtx := afterInline
+  for (blockArg, i) in blockArgs.zipIdx do
+    let some branchArg := branchArgs[i]? | none
+    mergedCtx := WfRewriter.replaceValue mergedCtx blockArg branchArg sorry sorry sorry
+  let finalCtx := WfRewriter.eraseOp mergedCtx op sorry sorry sorry
+  let finalCtx := SimplifyCFG.detachBlockFromRegion finalCtx dest
+  return { rewriter with ctx := finalCtx, hasDoneAction := true }
+
+def SimplifyCFGPass.impl (ctx : WfIRContext OpCode)
+    (_op : OperationPtr) (_ : _op.InBounds ctx.raw) :
+    ExceptT String IO (WfIRContext OpCode) := do
+  let pattern := RewritePattern.GreedyRewritePattern #[
+    SimplifyCFG.foldCfConstantCondBr,
+    SimplifyCFG.foldLLVMConstantCondBr,
+    SimplifyCFG.mergeUnconditionalBranch
+  ]
+  match RewritePattern.applyInContext pattern ctx with
+  | none => throw "Error while applying simplify-cfg"
+  | some ctx => pure ctx
+
+public def SimplifyCFGPass : Pass OpCode :=
+  { name := "simplify-cfg"
+    description := "Simplify control-flow graph structure."
+    run := SimplifyCFGPass.impl }
+
+end Veir

@@ -18,6 +18,7 @@ import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.RISCVCombines.Combine
 import Veir.Passes.ModArithToArith
 import Veir.Passes.Canonicalize
+import Veir.Passes.SimplifyCFG
 
 open Veir.Parser
 open Veir.Parser.ParserError
@@ -39,6 +40,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
     |>.insert RISCV.Combine.name RISCV.Combine
     |>.insert ModArithToArithPass.name ModArithToArithPass
     |>.insert CanonicalizePass.name CanonicalizePass
+    |>.insert SimplifyCFGPass.name SimplifyCFGPass
 
 /--
   Arguments for the `veir-opt` command-line tool, parsed from the CLI.
