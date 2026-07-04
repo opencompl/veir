@@ -40,6 +40,21 @@ public def readFunctionType? (raw : IRContext OpCode) (funcOp : OperationPtr) :
   | _ => none
 
 /--
+  Type compatibility for matching an actual value's type against a declared type.
+  Register types are compatible when their register constraints agree, treating an
+  unconstrained `!riscv.reg` (no index) as matching any physical register such as
+  `!riscv.reg<x0>`. This lets a hard-wired register like `x0` be forwarded into a
+  generic register slot, whether that's a successor block argument (see
+  `verifyBranchSuccessorArgTypes`) or a function return value. All other types must
+  be equal.
+-/
+def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
+  match opTy, argTy with
+  | .registerType r1, .registerType r2 =>
+      decide (r1.index = r2.index) || r1.index.isNone || r2.index.isNone
+  | _, _ => decide (opTy = argTy)
+
+/--
   Check that a `func.return` returns the declared result types of its
   enclosing `func.func`.
 -/
@@ -55,7 +70,7 @@ def OperationPtr.verifyFuncReturnTypes (op : OperationPtr) (ctx : WfIRContext Op
     throw s!"Expected func.return to have {outputs.size} operand(s)"
   let opTypes := op.getOperandTypes! ctx.raw
   for i in [0:outputs.size] do
-    if (opTypes[i]!).val ≠ outputs[i]! then
+    if !Attribute.branchArgCompatible (opTypes[i]!).val outputs[i]! then
       throw s!"func.return operand {i} type does not match the function's declared result type"
 
 /--
@@ -78,7 +93,7 @@ def OperationPtr.verifyLLVMReturnTypes (op : OperationPtr) (ctx : WfIRContext Op
     throw s!"Expected llvm.return to have {outputs.size} operand(s)"
   let opTypes := op.getOperandTypes! ctx.raw
   for i in [0:outputs.size] do
-    if (opTypes[i]!).val ≠ outputs[i]! then
+    if !Attribute.branchArgCompatible (opTypes[i]!).val outputs[i]! then
       throw s!"llvm.return operand {i} type does not match the function's declared result type"
 
 def TypeAttr.verifyIntegerType (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
@@ -140,20 +155,6 @@ def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext O
     throw s!"{instrName}: Expected 0 regions"
   if op.getNumSuccessors ctx.raw opIn ≠ successors then
     throw s!"{instrName}: Expected {successors} successor(s)"
-
-/--
-  Type compatibility for matching an operand forwarded to a successor block
-  against that block's argument type. Register types are compatible when their
-  register constraints agree, treating an unconstrained `!riscv.reg` (no index)
-  as matching any physical register such as `!riscv.reg<x0>`. This lets a
-  hard-wired register like `x0` be forwarded into a generic register block
-  argument. All other types must be equal.
--/
-def Attribute.branchArgCompatible (opTy argTy : Attribute) : Bool :=
-  match opTy, argTy with
-  | .registerType r1, .registerType r2 =>
-      decide (r1.index = r2.index) || r1.index.isNone || r2.index.isNone
-  | _, _ => decide (opTy = argTy)
 
 /--
   Check that the operands forwarded to a successor block match the types of that
