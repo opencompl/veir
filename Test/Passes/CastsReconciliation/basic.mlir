@@ -129,9 +129,8 @@
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i32) -> !riscv.reg
         "test.test"(%2) : (!riscv.reg) -> ()
         // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
-        // CHECK-NEXT:   %[[C1:.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> i32
-        // CHECK-NEXT:   %[[C2:.*]] = "builtin.unrealized_conversion_cast"(%[[C1]]) : (i32) -> !riscv.reg
-        // CHECK-NEXT:   "test.test"(%[[C2]]) : (!riscv.reg) -> ()
+        // CHECK-NEXT:   %[[C1:.*]] = "riscv.zextw"([[ARG]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:   "test.test"(%[[C1]]) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -174,6 +173,44 @@
         "func.return"() : () -> ()
     }) : () -> ()
     
+  ^15():
+    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
+      ^1(%0 : !riscv.reg):
+        // reg -> i16 -> reg : should not be folded away.
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i16
+        %2 = "builtin.unrealized_conversion_cast"(%1) : (i16) -> !riscv.reg
+        "test.test"(%2) : (!riscv.reg) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
+        // CHECK-NEXT:   %[[C1:.*]] = "riscv.zexth"([[ARG]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:   "test.test"(%[[C1]]) : (!riscv.reg) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
     
+  ^16():
+    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
+      ^1(%0 : !riscv.reg):
+        // reg -> i8 -> reg : should not be folded away.
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i8
+        %2 = "builtin.unrealized_conversion_cast"(%1) : (i8) -> !riscv.reg
+        "test.test"(%2) : (!riscv.reg) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
+        // CHECK-NEXT:   %[[C1:.*]] = "riscv.zextb"([[ARG]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:   "test.test"(%[[C1]]) : (!riscv.reg) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+
+  ^17():
+    "func.func"()  <{function_type = (!riscv.reg) -> ()}> ({
+      ^1(%0 : !riscv.reg):
+        // reg -> i14 -> reg : should not be folded away.
+        %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i14
+        %2 = "builtin.unrealized_conversion_cast"(%1) : (i14) -> !riscv.reg
+        "test.test"(%2) : (!riscv.reg) -> ()
+        // CHECK:        ^{{.*}}([[ARG:%.*]] : !riscv.reg):
+        // CHECK-NEXT:   %[[C1:.*]] = "riscv.slli"([[ARG]]) <{"value" = 50 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:   %[[C2:.*]] = "riscv.srli"(%[[C1]]) <{"value" = 50 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:   "test.test"(%[[C2]]) : (!riscv.reg) -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
 
 }) : () -> ()
