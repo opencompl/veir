@@ -5,7 +5,8 @@
 // regardless of whether the body has actually been lowered by instruction selection yet
 // (that's the caller's responsibility -- see `notlowered`). For 64-bit boundaries (`i64`,
 // `!llvm.ptr`) a round-trip already present in a lowered body becomes an identity that the
-// pass removes; for `i32` boundaries the round-trip truncates and is kept (see `i32fn`).
+// pass removes; for `i32` boundaries the round-trip truncates and is instead reconciled
+// into an explicit `zextw` (see `i32fn`).
 
 "builtin.module"() ({
 
@@ -58,9 +59,9 @@
 
   // `i32` boundaries are coerced too (RISC-V passes/returns `int` in a register), but the
   // `reg <-> i32` round-trip truncates rather than being the identity, so the reconciliation
-  // patterns do *not* remove it: the `function_type` becomes `(!riscv.reg) -> !riscv.reg`
-  // while a residual `reg -> i32 -> reg` truncation cast remains on both the argument and the
-  // return operand.
+  // patterns do *not* simply erase it: the `function_type` becomes `(!riscv.reg) -> !riscv.reg`
+  // while the residual `reg -> i32 -> reg` truncation on both the argument and the return
+  // operand is reconciled into an explicit `zextw`.
   ^5():
     "func.func"() <{sym_name = "i32fn", function_type = (i32) -> i32}> ({
     ^bb(%a: i32):
@@ -70,11 +71,9 @@
       "func.return"(%o) : (i32) -> ()
       // CHECK:      "func.func"() <{"function_type" = (!riscv.reg) -> !riscv.reg, "sym_name" = "i32fn"}>
       // CHECK-NEXT: ^{{.*}}([[IARG:%.*]] : !riscv.reg):
-      // CHECK-NEXT:   [[IE:%.*]] = "builtin.unrealized_conversion_cast"([[IARG]]) : (!riscv.reg) -> i32
-      // CHECK-NEXT:   [[IR:%.*]] = "builtin.unrealized_conversion_cast"([[IE]]) : (i32) -> !riscv.reg
-      // CHECK-NEXT:   [[IS:%.*]] = "riscv.addi"([[IR]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
-      // CHECK-NEXT:   [[IO:%.*]] = "builtin.unrealized_conversion_cast"([[IS]]) : (!riscv.reg) -> i32
-      // CHECK-NEXT:   [[IRET:%.*]] = "builtin.unrealized_conversion_cast"([[IO]]) : (i32) -> !riscv.reg
+      // CHECK-NEXT:   [[IZ:%.*]] = "riscv.zextw"([[IARG]]) : (!riscv.reg) -> !riscv.reg
+      // CHECK-NEXT:   [[IS:%.*]] = "riscv.addi"([[IZ]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+      // CHECK-NEXT:   [[IRET:%.*]] = "riscv.zextw"([[IS]]) : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   "func.return"([[IRET]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
