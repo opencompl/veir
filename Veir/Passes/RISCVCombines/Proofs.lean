@@ -1,10 +1,5 @@
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.RISCV.Reg.Lemmas
-import Veir.Data.LLVM.Int.Basic
-import Veir.Data.LLVM.Int.Lemmas
-import Veir.Data.LLVM.Int.Bitblast
-import Veir.Data.Casting
-import Veir.Data.Refinement
 
 import Veir.Meta.BVDecide
 
@@ -22,29 +17,26 @@ theorem right_identity_zero_add:
   veir_bv_decide
 
 /--
-  Prove the correctness of the `srl_sra_signbit` combine, phrased at the LLVM
-  level (the combine itself fires on already-selected `riscv.srai`/`riscv.srli`,
-  but the fact it relies on is a generic, division-agnostic property of `ashr`
-  followed by `lshr`): an arithmetic right shift by any amount `shamt` -- even an
-  out-of-range one, where `ashr` itself is poison and the refinement holds
-  trivially -- never changes the top bit, so a subsequent logical shift by 63
-  (which keeps only that bit) gives the same result as skipping the `ashr`
-  entirely. Mirrors LLVM's generic `DAGCombiner::visitSRL` rule
-  `fold (srl (sra X, Y), 31) -> (srl X, 31)`.
+  Prove the correctness of the `srl_sra_signbit` combine, phrased directly on the
+  already-selected RISC-V register ops the combine rewrites: `riscv.srli 63
+  (riscv.srai shamt x) = riscv.srli 63 x`. An arithmetic right shift by any amount
+  `shamt` never changes the top bit, so a subsequent logical shift by 63 (which
+  keeps only that bit) gives the same result as skipping the `srai` entirely. The
+  RISC-V ops are total, so this is an exact equality. Mirrors LLVM's generic
+  `DAGCombiner::visitSRL` rule `fold (srl (sra X, Y), 31) -> (srl X, 31)`.
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L11628-L11633
 -/
-theorem srl_sra_signbit_refinement {x shamt : LLVM.Int 64} :
-    (Data.LLVM.Int.lshr (Data.LLVM.Int.ashr x shamt) (LLVM.Int.constant 64 63)) ⊒
-      (Data.LLVM.Int.lshr x (LLVM.Int.constant 64 63)) := by
+theorem srl_sra_signbit {x : Reg} {shamt : BitVec 6} :
+    RISCV.srli 63 (RISCV.srai shamt x) = RISCV.srli 63 x := by
   veir_bv_decide
 
 /--
   Prove the correctness of the `srlw_sraw_signbit` combine (the `i32` analogue of
-  `srl_sra_signbit_refinement`, at bit 31).
+  `srl_sra_signbit`, at bit 31): `riscv.srliw 31 (riscv.sraiw shamt x) =
+  riscv.srliw 31 x`.
 -/
-theorem srlw_sraw_signbit_refinement {x shamt : LLVM.Int 32} :
-    (Data.LLVM.Int.lshr (Data.LLVM.Int.ashr x shamt) (LLVM.Int.constant 32 31)) ⊒
-      (Data.LLVM.Int.lshr x (LLVM.Int.constant 32 31)) := by
+theorem srlw_sraw_signbit {x : Reg} {shamt : BitVec 5} :
+    RISCV.srliw 31 (RISCV.sraiw shamt x) = RISCV.srliw 31 x := by
   veir_bv_decide
 
 end Veir.Data.RISCV
