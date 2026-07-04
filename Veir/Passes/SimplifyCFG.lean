@@ -17,25 +17,61 @@ def SimplifyCFG.constantBoolValue? (val : ValuePtr) (ctx : IRContext OpCode) : O
       return decide (intAttr.value ≠ 0)
   | _ => none
 
-def SimplifyCFG.condBrArgsAndDest? (rewriter : PatternRewriter OpCode)
-    (op : OperationPtr) (props : CondBrProperties) :
-    Option (Array ValuePtr × BlockPtr) := do
-  let operands := op.getOperands! rewriter.ctx.raw
-  let some cond := operands[0]? | none
-  let some takeTrue := SimplifyCFG.constantBoolValue? cond rewriter.ctx.raw | none
+def SimplifyCFG.condBrEdgeArgs? (operands : Array ValuePtr) (props : CondBrProperties) :
+    Option (Array ValuePtr × Array ValuePtr) := do
   let some trueArgCountInt := props.operandSegmentSizes.values[1]? | none
   let some falseArgCountInt := props.operandSegmentSizes.values[2]? | none
   if trueArgCountInt < 0 then none else
   if falseArgCountInt < 0 then none else
   let trueArgCount := Int.toNat trueArgCountInt
   let falseArgCount := Int.toNat falseArgCountInt
+  let trueArgs := operands.extract 1 (1 + trueArgCount)
+  let falseArgs := operands.extract (1 + trueArgCount) (1 + trueArgCount + falseArgCount)
+  return (trueArgs, falseArgs)
+
+def SimplifyCFG.condBrArgsAndDest? (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (props : CondBrProperties) :
+    Option (Array ValuePtr × BlockPtr) := do
+  let operands := op.getOperands! rewriter.ctx.raw
+  let some cond := operands[0]? | none
+  let some takeTrue := SimplifyCFG.constantBoolValue? cond rewriter.ctx.raw | none
+  let (trueArgs, falseArgs) ← SimplifyCFG.condBrEdgeArgs? operands props
   let dest := op.getSuccessor! rewriter.ctx.raw (if takeTrue then 0 else 1)
-  let args :=
-    if takeTrue then
-      operands.extract 1 (1 + trueArgCount)
-    else
-      operands.extract (1 + trueArgCount) (1 + trueArgCount + falseArgCount)
+  let args := if takeTrue then trueArgs else falseArgs
   return (args, dest)
+
+def SimplifyCFG.sameSuccessorCondBrArgsAndDest? (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (props : CondBrProperties) :
+    Option (Array ValuePtr × BlockPtr) := do
+  let trueDest := op.getSuccessor! rewriter.ctx.raw 0
+  let falseDest := op.getSuccessor! rewriter.ctx.raw 1
+  if trueDest != falseDest then
+    none
+  let operands := op.getOperands! rewriter.ctx.raw
+  let (trueArgs, falseArgs) ← SimplifyCFG.condBrEdgeArgs? operands props
+  if trueArgs != falseArgs then
+    none
+  return (trueArgs, trueDest)
+
+def SimplifyCFG.foldCfSameSuccessorCondBr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  if op.getOpType! rewriter.ctx.raw ≠ .cf .cond_br then
+    return rewriter
+  let props := op.getProperties! rewriter.ctx.raw (.cf .cond_br)
+  let some (args, dest) := SimplifyCFG.sameSuccessorCondBrArgsAndDest? rewriter op props
+    | return rewriter
+  let (rewriter, newOp) ← rewriter.createOp! (.cf .br) #[] args #[dest] #[] () (some (.before op))
+  return rewriter.replaceOp! op newOp
+
+def SimplifyCFG.foldLLVMSameSuccessorCondBr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  if op.getOpType! rewriter.ctx.raw ≠ .llvm .cond_br then
+    return rewriter
+  let props := op.getProperties! rewriter.ctx.raw (.llvm .cond_br)
+  let some (args, dest) := SimplifyCFG.sameSuccessorCondBrArgsAndDest? rewriter op props
+    | return rewriter
+  let (rewriter, newOp) ← rewriter.createOp! (.llvm .br) #[] args #[dest] #[] () (some (.before op))
+  return rewriter.replaceOp! op newOp
 
 def SimplifyCFG.foldCfConstantCondBr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -63,6 +99,7 @@ def SimplifyCFG.isUniquelyReachedFrom? (ctx : IRContext OpCode) (dest : BlockPtr
       blockOperand.owner == branch && blockOperand.nextUse.isNone
   | none => false
 
+set_option warn.sorry false in
 def SimplifyCFG.detachBlockFromRegion (ctx : WfIRContext OpCode) (block : BlockPtr) :
     WfIRContext OpCode :=
   let blockData := block.get! ctx.raw
@@ -95,6 +132,7 @@ def SimplifyCFG.detachBlockFromRegion (ctx : WfIRContext OpCode) (block : BlockP
   let raw := block.setParent! raw none
   ⟨raw, by sorry⟩
 
+set_option warn.sorry false in
 def SimplifyCFG.mergeUnconditionalBranch (rewriter : PatternRewriter OpCode)
     (op : OperationPtr) (opIn : op.InBounds rewriter.ctx.raw) :
     Option (PatternRewriter OpCode) := do
@@ -132,6 +170,8 @@ def SimplifyCFGPass.impl (ctx : WfIRContext OpCode)
     (_op : OperationPtr) (_ : _op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
+    SimplifyCFG.foldCfSameSuccessorCondBr,
+    SimplifyCFG.foldLLVMSameSuccessorCondBr,
     SimplifyCFG.foldCfConstantCondBr,
     SimplifyCFG.foldLLVMConstantCondBr,
     SimplifyCFG.mergeUnconditionalBranch

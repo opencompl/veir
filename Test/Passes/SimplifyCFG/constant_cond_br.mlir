@@ -25,19 +25,15 @@
 // CHECK:      "func.func"() <{"function_type" = (i32, i32) -> (), "sym_name" = "cf_false"}> ({
 // CHECK-NEXT:   ^{{.*}}(%{{.*}} : i32, %{{.*}} : i32):
 // CHECK-NEXT:     %{{.*}} = "arith.constant"() <{"value" = 0 : i1}> : () -> i1
-// CHECK-NEXT:     "cf.br"(%{{.*}}) [^[[CF_FALSE:[0-9]+]]] : (i32) -> ()
-// CHECK-NEXT:   ^{{[0-9]+}}(%{{.*}} : i32):
 // CHECK-NEXT:     "func.return"() : () -> ()
-// CHECK-NEXT:   ^[[CF_FALSE]](%{{.*}} : i32):
-// CHECK-NEXT:     "func.return"() : () -> ()
-// CHECK-NEXT: }) : () -> ()
+// CHECK-NOT:      "cf.cond_br"
+// CHECK-NOT:      "cf.br"
+// CHECK:      }) : () -> ()
 
 // CHECK:      "func.func"() <{"function_type" = (i32, i32) -> (), "sym_name" = "llvm_true"}> ({
 // CHECK-NEXT:   ^{{.*}}(%{{.*}} : i32, %{{.*}} : i32):
 // CHECK-NEXT:     %{{.*}} = "llvm.mlir.constant"() <{"value" = 1 : i1}> : () -> i1
-// CHECK-NEXT:     "llvm.br"(%{{.*}}) [^[[LLVM_TRUE:[0-9]+]]] : (i32) -> ()
-// CHECK-NEXT:   ^[[LLVM_TRUE]](%{{.*}} : i32):
 // CHECK-NEXT:     "func.return"() : () -> ()
-// CHECK-NEXT:   ^{{[0-9]+}}(%{{.*}} : i32):
-// CHECK-NEXT:     "func.return"() : () -> ()
-// CHECK-NEXT: }) : () -> ()
+// CHECK-NOT:      "llvm.cond_br"
+// CHECK-NOT:      "llvm.br"
+// CHECK:      }) : () -> ()
