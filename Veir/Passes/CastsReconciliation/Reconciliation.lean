@@ -101,6 +101,11 @@ def reconcileIdentityCast (rewriter : PatternRewriter OpCode) (op : OperationPtr
   -> iX -> reg` round-trips that the reconciliation patterns above
   then collapse. The function's `function_type` attribute is rewritten
   to match so the verifier's return-type check still holds.
+
+  This assumes instruction selection has already run: it is the
+  responsibility of whoever invokes this pass to have lowered the
+  function body first, so its boundary casts have something to
+  reconcile with.
 -/
 
 /-- Whether a boundary value of this type should be coerced to `!riscv.reg`. The coercible
@@ -112,19 +117,6 @@ def isRegCoercibleType (t : TypeAttr) : Bool :=
   | .integerType x => x.bitwidth == 64 || x.bitwidth == 32
   | .llvmPointerType _ => true
   | _ => false
-
-/-- Whether an opcode belongs to one of the RISC-V dialects. -/
-def isRiscvFamilyOp : OpCode → Bool
-  | .riscv _ | .riscv_cf _ | .riscv_stack _ | .rv64 _ => true
-  | _ => false
-
-/-- Whether `funcOp`'s body contains any RISC-V-dialect operation, i.e. whether it
-    has actually been lowered by instruction selection. We only coerce the boundaries
-    of lowered functions, so non-lowered functions (and mixed-dialect fixtures) keep
-    their original argument/return types. -/
-def functionIsLowered (raw : IRContext OpCode) (funcOp : OperationPtr) : Bool :=
-  raw.operations.keys.any fun o =>
-    isRiscvFamilyOp (o.getOpType! raw) && o.getParentOp! raw == some funcOp
 
 /-- Whether an opcode is a function-definition op whose boundaries we coerce. -/
 def isFunctionOp : OpCode → Bool
@@ -190,8 +182,6 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
   if funcOp.getNumRegions! c.raw = 0 then return c
   let region := funcOp.getRegion! c.raw 0
   let some entry := (region.get! c.raw).firstBlock | return c
-  -- Only coerce boundaries of functions that instruction selection has lowered.
-  if !functionIsLowered c.raw funcOp then return c
   let returnCode := returnOpCodeFor (funcOp.getOpType! c.raw)
   -- Default the output types to the currently-declared ones, then flip coerced positions.
   -- This preserves non-integer results and `llvm.func`'s `void` return.

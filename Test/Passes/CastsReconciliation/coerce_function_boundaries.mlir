@@ -1,9 +1,10 @@
 // RUN: veir-opt %s -p=reconcile-cast | filecheck %s
 
-// The cast-reconciliation pass coerces the register-width arguments and return values
-// of *lowered* functions (those containing RISC-V ops) to `!riscv.reg`, inserting
-// bridging casts and rewriting `function_type`. For 64-bit boundaries (`i64`, `!llvm.ptr`)
-// the casts inserted by instruction selection then become identity round-trips that the
+// The cast-reconciliation pass coerces every function's register-width arguments and
+// return values to `!riscv.reg`, inserting bridging casts and rewriting `function_type`,
+// regardless of whether the body has actually been lowered by instruction selection yet
+// (that's the caller's responsibility -- see `notlowered`). For 64-bit boundaries (`i64`,
+// `!llvm.ptr`) a round-trip already present in a lowered body becomes an identity that the
 // pass removes; for `i32` boundaries the round-trip truncates and is kept (see `i32fn`).
 
 "builtin.module"() ({
@@ -22,17 +23,6 @@
       // CHECK-NEXT: ^{{.*}}([[ARG:%.*]] : !riscv.reg):
       // CHECK-NEXT:   [[R:%.*]] = "riscv.addi"([[ARG]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
       // CHECK-NEXT:   "func.return"([[R]]) : (!riscv.reg) -> ()
-    }) : () -> ()
-
-  // A function with no RISC-V ops is not lowered, so its boundary types are left
-  // untouched.
-  ^2():
-    "func.func"() <{sym_name = "notlowered", function_type = (i64) -> i64}> ({
-    ^bb(%a: i64):
-      "func.return"(%a) : (i64) -> ()
-      // CHECK:      "func.func"() <{"function_type" = (i64) -> i64, "sym_name" = "notlowered"}>
-      // CHECK-NEXT: ^{{.*}}([[ARG2:%.*]] : i64):
-      // CHECK-NEXT:   "func.return"([[ARG2]]) : (i64) -> ()
     }) : () -> ()
 
   // `llvm.func` is handled too: the `i64` argument and result are coerced to
