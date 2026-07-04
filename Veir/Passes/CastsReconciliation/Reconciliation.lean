@@ -113,12 +113,6 @@ def isRegCoercibleType (t : TypeAttr) : Bool :=
   | .llvmPointerType _ => true
   | _ => false
 
-/-- Walk up to the operation enclosing `op`'s parent region (the enclosing function op). -/
-def enclosingFunctionOp? (raw : IRContext OpCode) (op : OperationPtr) : Option OperationPtr := do
-  let block ← (op.get! raw).parent
-  let region ← (block.get! raw).parent
-  (region.get! raw).parent
-
 /-- Whether an opcode belongs to one of the RISC-V dialects. -/
 def isRiscvFamilyOp : OpCode → Bool
   | .riscv _ | .riscv_cf _ | .riscv_stack _ | .rv64 _ => true
@@ -130,7 +124,7 @@ def isRiscvFamilyOp : OpCode → Bool
     their original argument/return types. -/
 def functionIsLowered (raw : IRContext OpCode) (funcOp : OperationPtr) : Bool :=
   raw.operations.keys.any fun o =>
-    isRiscvFamilyOp (o.getOpType! raw) && enclosingFunctionOp? raw o == some funcOp
+    isRiscvFamilyOp (o.getOpType! raw) && o.getParentOp! raw == some funcOp
 
 /-- Whether an opcode is a function-definition op whose boundaries we coerce. -/
 def isFunctionOp : OpCode → Bool
@@ -226,7 +220,7 @@ def coerceFunction (ctx : WfIRContext OpCode) (funcOp : OperationPtr) :
   -- (2) Coerce the operands of every return terminator in this function.
   let returnOps := c.raw.operations.keys.filter fun o =>
     o.getOpType! c.raw == returnCode &&
-      enclosingFunctionOp? c.raw o == some funcOp
+      o.getParentOp! c.raw == some funcOp
   for retOp in returnOps do
     for j in List.range (retOp.getNumOperands! c.raw) do
       let opVal := retOp.getOperand! c.raw j

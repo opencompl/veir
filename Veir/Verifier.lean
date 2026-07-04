@@ -15,14 +15,10 @@ namespace Veir
   operation.
 -/
 def OperationPtr.getEnclosingFunctionOp (op : OperationPtr) (ctx : WfIRContext OpCode)
-    (opName : String) : Except String OperationPtr := do
-  let some block := (op.get! ctx.raw).parent
-    | throw s!"Expected {opName} to have a parent block"
-  let some region := (block.get! ctx.raw).parent
-    | throw s!"Expected {opName}'s parent block to have a parent region"
-  let some funcOp := (region.get! ctx.raw).parent
-    | throw s!"Expected {opName}'s parent region to have a parent operation"
-  pure funcOp
+    (opName : String) : Except String OperationPtr :=
+  match op.getParentOp! ctx.raw with
+  | some funcOp => pure funcOp
+  | none => throw s!"Expected {opName} to have an enclosing function operation"
 
 /--
   Check that a `func.return` returns the declared result types of its
