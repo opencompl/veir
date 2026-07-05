@@ -433,6 +433,16 @@ theorem umulOverflow_comm {w : Nat} (x y : BitVec w) :
   grind [BitVec.umulOverflow]
 
 @[veir_bv_normalize]
+theorem udiv_one_shl {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂) :
+    x / 1#w₁ <<< k = x >>> k := by
+  rw [BitVec.shiftLeft_eq', BitVec.ushiftRight_eq', ← BitVec.twoPow_eq]
+  rcases Nat.lt_or_ge k.toNat w₁ with hk | hk
+  · exact BitVec.udiv_twoPow_eq_of_lt hk
+  · have htw : BitVec.twoPow w₁ k.toNat = 0#w₁ := BitVec.eq_of_toNat_eq (by
+      rw [BitVec.toNat_twoPow_of_le hk, BitVec.toNat_ofNat, Nat.zero_mod])
+    rw [htw, BitVec.udiv_zero, BitVec.ushiftRight_eq_zero hk]
+
+@[veir_bv_normalize]
 theorem setWidth_ofInt_32_64 (v : Int) :
     BitVec.setWidth 32 (BitVec.ofInt 64 v) = BitVec.ofInt 32 v := by
   rw [← BitVec.toInt_inj]
