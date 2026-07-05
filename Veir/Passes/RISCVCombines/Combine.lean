@@ -59,6 +59,57 @@ def srl_sra_signbit := srl_sra_signbitGen .srli rfl .srai 64
     riscv.srliw 31 x`. -/
 def srlw_sraw_signbit := srl_sra_signbitGen .srliw rfl .sraiw 32
 
+private def stripDefiningZextw (val : ValuePtr) (ctx : IRContext OpCode) : ValuePtr × Bool :=
+  match getDefiningOp val ctx with
+  | none => (val, false)
+  | some defOp =>
+    match matchOp defOp ctx (.riscv .zextw) 1 with
+    | none => (val, false)
+    | some (operands, _) => (operands[0]!, true)
+
+set_option warn.sorry false in
+/-- Drop `riscv.zextw` operands feeding a binary op whose semantics use only
+    operand bits 31:0. For these consumers, the high 32 bits of each source are
+    ignored, so zero-extending the source first is redundant. -/
+private def drop_zextw_binary_low_word (dst : Riscv) (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
+    Option (PatternRewriter OpCode) := do
+  let some (operands, props) := matchOp op rewriter.ctx (.riscv dst) 2 | return rewriter
+  let (lhs, lhsChanged) := stripDefiningZextw operands[0]! rewriter.ctx
+  let (rhs, rhsChanged) := stripDefiningZextw operands[1]! rewriter.ctx
+  if !lhsChanged && !rhsChanged then return rewriter
+  let (rewriter, newOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[lhs, rhs]
+      #[] #[] props (some $ .before op)
+  let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
+  rewriter.eraseOp op sorry sorry sorry
+
+set_option warn.sorry false in
+/-- Drop a `riscv.zextw` operand feeding a unary immediate op whose semantics use
+    only operand bits 31:0. -/
+private def drop_zextw_unary_imm_low_word (dst : Riscv) (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
+    Option (PatternRewriter OpCode) := do
+  let some (operands, props) := matchOp op rewriter.ctx (.riscv dst) 1 | return rewriter
+  let (src, changed) := stripDefiningZextw operands[0]! rewriter.ctx
+  if !changed then return rewriter
+  let (rewriter, newOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[src]
+      #[] #[] props (some $ .before op)
+  let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
+  rewriter.eraseOp op sorry sorry sorry
+
+/-- `riscv.addw (riscv.zextw x), y -> riscv.addw x, y`, and symmetrically for
+    the right operand. `addw` reads only the low 32 bits of each source. -/
+def drop_zextw_addw := drop_zextw_binary_low_word .addw
+
+/-- `riscv.addiw (riscv.zextw x), imm -> riscv.addiw x, imm`. -/
+def drop_zextw_addiw := drop_zextw_unary_imm_low_word .addiw
+
+/-- `riscv.roriw (riscv.zextw x), imm -> riscv.roriw x, imm`. -/
+def drop_zextw_roriw := drop_zextw_unary_imm_low_word .roriw
+
+/-- `riscv.srliw (riscv.zextw x), imm -> riscv.srliw x, imm`. -/
+def drop_zextw_srliw := drop_zextw_unary_imm_low_word .srliw
+
 set_option warn.sorry false in
 /-- riscv.li 0 -> rv64.get_register (x0)
 
@@ -85,7 +136,15 @@ def li_zero_to_x0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let patterns : Array (RewritePattern OpCode) :=
-    #[right_identity_zero_add, srl_sra_signbit, srlw_sraw_signbit, li_zero_to_x0]
+    #[ right_identity_zero_add
+     , srl_sra_signbit
+     , srlw_sraw_signbit
+     , drop_zextw_addw
+     , drop_zextw_addiw
+     , drop_zextw_roriw
+     , drop_zextw_srliw
+     , li_zero_to_x0
+     ]
   let pattern := RewritePattern.GreedyRewritePattern patterns
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"

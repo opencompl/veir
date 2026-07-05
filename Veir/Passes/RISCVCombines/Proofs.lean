@@ -39,4 +39,52 @@ theorem srlw_sraw_signbit {x : Reg} {shamt : BitVec 5} :
     RISCV.srliw 31 (RISCV.sraiw shamt x) = RISCV.srliw 31 x := by
   veir_bv_decide
 
+/--
+  Prove the correctness of dropping a `riscv.zextw` from the `rs2` operand of
+  `riscv.addw`. The instruction reads only bits 31:0 of both operands.
+-/
+theorem drop_zextw_addw_rs2 {rs1 rs2 : Reg} :
+    RISCV.addw (RISCV.zextw rs2) rs1 = RISCV.addw rs2 rs1 := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of dropping a `riscv.zextw` from the `rs1` operand of
+  `riscv.addw`.
+-/
+theorem drop_zextw_addw_rs1 {rs1 rs2 : Reg} :
+    RISCV.addw rs2 (RISCV.zextw rs1) = RISCV.addw rs2 rs1 := by
+  veir_bv_decide
+
+/--
+  Convenience form for the common case where both `riscv.addw` operands are
+  defined by `riscv.zextw`.
+-/
+theorem drop_zextw_addw {rs1 rs2 : Reg} :
+    RISCV.addw (RISCV.zextw rs2) (RISCV.zextw rs1) = RISCV.addw rs2 rs1 := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of `riscv.addiw (riscv.zextw x), imm ->
+  riscv.addiw x, imm`. `addiw` reads only bits 31:0 of its register operand.
+-/
+theorem drop_zextw_addiw {rs1 : Reg} {imm : BitVec 12} :
+    RISCV.addiw imm (RISCV.zextw rs1) = RISCV.addiw imm rs1 := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of `riscv.roriw (riscv.zextw x), imm ->
+  riscv.roriw x, imm`. `roriw` rotates only the low 32-bit word.
+-/
+theorem drop_zextw_roriw {rs1 : Reg} {shamt : BitVec 5} :
+    RISCV.roriw shamt (RISCV.zextw rs1) = RISCV.roriw shamt rs1 := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of `riscv.srliw (riscv.zextw x), imm ->
+  riscv.srliw x, imm`. `srliw` shifts only the low 32-bit word.
+-/
+theorem drop_zextw_srliw {rs1 : Reg} {shamt : BitVec 5} :
+    RISCV.srliw shamt (RISCV.zextw rs1) = RISCV.srliw shamt rs1 := by
+  veir_bv_decide
+
 end Veir.Data.RISCV
