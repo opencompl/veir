@@ -1103,7 +1103,7 @@ def selectCzeronez_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tval, fval) := matchSelect op ctx | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 ∧ t.bitwidth ≠ 1 then return (ctx, none)
   let some _ := matchConstantZero tval ctx | return (ctx, none)
   let (ctx, fCastOp) ← castToRegLocal ctx fval
   let (ctx, condCastOp) ← castToRegLocal ctx cond
