@@ -331,7 +331,6 @@ theorem udivPow2_refinement {x : LLVM.Int 64} (k : BitVec 6) :
       (RISCV.Reg.toInt (Data.RISCV.srli k (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
-set_option warn.sorry false in
 /--
   `sdiv exact x, 2^k` -> `riscv.srai x, k` (`sdivPow2Exact`, positive divisor).
   Since `exact` makes the source poison whenever `x` isn't a multiple of `2^k`, this
@@ -341,7 +340,7 @@ set_option warn.sorry false in
 theorem sdivPow2Exact_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk : k < 63) :
     (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#64) <<< k)) true) ⊒
       (RISCV.Reg.toInt (Data.RISCV.srai k (LLVM.Int.toReg x)) 64) := by
-  sorry -- bv_decide needs a non-default timeout (120s) to close this goal
+  veir_bv_decide
 
 set_option warn.sorry false in
 /--
@@ -994,13 +993,12 @@ theorem udivwPow2_refinement {x : LLVM.Int 32} (k : BitVec 5) :
       (RISCV.Reg.toInt (Data.RISCV.srliw k (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
-set_option warn.sorry false in
 /-- `i32` analogue of `sdivPow2Exact_pos_refinement` (`sdivwPow2Exact`, positive
     divisor): a genuine positive `i32` divisor `2^k` needs `k < 31`. -/
 theorem sdivwPow2Exact_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk : k < 31) :
     (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#32) <<< k)) true) ⊒
       (RISCV.Reg.toInt (Data.RISCV.sraiw k (LLVM.Int.toReg x)) 32) := by
-  sorry -- bv_decide times out with the default timeout on this goal
+  veir_bv_decide
 
 set_option warn.sorry false in
 /-- `i32` analogue of `sdivPow2Exact_neg_refinement` (`sdivwPow2Exact`, negative
