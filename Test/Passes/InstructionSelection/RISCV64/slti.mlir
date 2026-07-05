@@ -1,8 +1,10 @@
 // RUN: veir-opt %s -p=isel-sdag-riscv64 | filecheck %s
 
 // icmp against a signed-12-bit constant on the right selects to slti / sltiu
-// (PatGprSimm12<setlt, SLTI> / PatGprSimm12<setult, SLTIU>). Other predicates
-// and out-of-range immediates fall through to the general icmp lowering in
+// (PatGprSimm12<setlt, SLTI> / PatGprSimm12<setult, SLTIU>), and the `<=`/`>=`
+// predicates select to the same via an `xori _ 1` inversion and/or a `+1`
+// off-by-one immediate (see icmp_imm.mlir). The `>` predicates (sgt/ugt) and
+// out-of-range immediates fall through to the general icmp lowering in
 // isel-riscv64, so here they stay as `llvm.icmp`.
 
 "builtin.module"() ({
@@ -25,6 +27,8 @@
     }) : () -> ()
 
     // icmp sgt: no immediate form (predicate 4 = sgt) -> stays `llvm.icmp`.
+    // The reg-reg lowering (slt with swapped operands) is already the same
+    // instruction count, and is strictly better for the `> 0` case via x0.
     "func.func"() <{function_type = (i64) -> i1}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 7 : i64}> : () -> i64

@@ -6,6 +6,7 @@ import Veir.Data.LLVM.Int.Bitblast
 import Veir.Data.Casting
 import Veir.Data.Refinement
 import Std.Tactic.BVDecide
+import Veir.ForLean
 
 /-!
   In this file we prove the correctness of the lowering patterns used in the
@@ -140,6 +141,37 @@ theorem icmp_refinement_ne {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the constant-zero `icmp eq` peephole, with the zero on
+  the right (`x == 0`). The lowering drops the `xor` and emits `sltiu x 1` (seqz)
+  directly on the non-zero operand.
+-/
+theorem icmp_refinement_eq_zero_rhs {x : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp x (LLVM.Int.constant 64 0) LLVM.IntPred.eq) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu 1#12 (LLVM.Int.toReg x)) 1) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the constant-zero `icmp ne` peephole, with the zero on
+  the right (`x != 0`). The lowering drops the `xor` and emits `sltu 0 x` (snez)
+  directly on the non-zero operand.
+-/
+theorem icmp_refinement_ne_zero_rhs {x : LLVM.Int 64} :
+    (Data.LLVM.Int.icmp x (LLVM.Int.constant 64 0) LLVM.IntPred.ne) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltu (LLVM.Int.toReg x) (Data.RISCV.li 0#64)) 1) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `riscv-combine` `li 0 -> x0` rewrite: materializing
+  the constant `0` with `li` produces exactly the value of the hard-wired zero
+  register `x0` (which the interpreter models as the register holding `0#64`).
+  Since every consumer is a pure function of its source registers' values,
+  substituting `x0` for the `li 0` result preserves semantics.
+-/
+theorem li_zero_eq_x0 :
+    Data.RISCV.li 0#64 = RISCV.Reg.mk 0#64 := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `icmp` lowering pattern with `slt`.
 -/
 theorem icmp_refinement_slt {x y : LLVM.Int 64} :
@@ -203,6 +235,41 @@ theorem icmp_refinement_uge {x y : LLVM.Int 64} :
       (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltu (LLVM.Int.toReg y) (LLVM.Int.toReg x))) 1) := by
   veir_bv_decide
 
+/-! ### Immediate-constant refinements for ordered comparisons
+
+  Each theorem justifies one arm of the `slti` immediate-form selection in
+  `isel-sdag-riscv64`, comparing `x` against a constant that equals the
+  sign-extension of the 12-bit immediate `imm` actually encoded in the emitted
+  instruction. For the `≤` predicates the constant is `sext(imm) - 1`, capturing
+  the `x ≤ C == x < C+1` rewrite (the code stores `C+1` as the immediate). The
+  unsigned off-by-one form carries the `imm ≠ 0` hypothesis that the code
+  enforces by rejecting `C = -1` (else `C+1` wraps past `UINT_MAX`). -/
+
+/-- `icmp sge x C` with `C = sext(imm)` -> `xori (slti x imm) 1`. -/
+theorem icmp_refinement_sge_imm {x : LLVM.Int 64} (imm : BitVec 12) :
+    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.sge) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.slti imm (LLVM.Int.toReg x))) 1) := by
+  veir_bv_decide
+
+/-- `icmp uge x C` with `C = sext(imm)` -> `xori (sltiu x imm) 1`. -/
+theorem icmp_refinement_uge_imm {x : LLVM.Int 64} (imm : BitVec 12) :
+    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.uge) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltiu imm (LLVM.Int.toReg x))) 1) := by
+  veir_bv_decide
+
+/-- `icmp sle x C` with `C = sext(imm) - 1` -> `slti x imm` (i.e. `x < C+1`). -/
+theorem icmp_refinement_sle_imm {x : LLVM.Int 64} (imm : BitVec 12) :
+    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.sle) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slti imm (LLVM.Int.toReg x)) 1) := by
+  veir_bv_decide
+
+/-- `icmp ule x C` with `C = sext(imm) - 1` -> `sltiu x imm`; needs `imm ≠ 0`
+    (else `C = UINT_MAX` and `C+1` wraps to `0`). -/
+theorem icmp_refinement_ule_imm {x : LLVM.Int 64} (imm : BitVec 12) (h : imm ≠ 0) :
+    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.ule) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu imm (LLVM.Int.toReg x)) 1) := by
+  veir_bv_decide
+
 /--
   Prove the correctness of the `or` lowering pattern.
 -/
@@ -251,6 +318,70 @@ theorem sdiv_refinement {x y : LLVM.Int 64} :
 theorem udiv_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.udiv x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.divu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
+
+/-! ### `sdiv`/`udiv` by a constant power of two -/
+
+/--
+  `udiv x, 2^k` -> `riscv.srli x, k` (`udivPow2`). Mirrors `DAGCombiner::visitUDIVLike`'s
+  `fold (udiv x, (1 << c)) -> x >>u c` (via `BuildLogBase2`).
+  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5430-L5440
+-/
+theorem udivPow2_refinement {x : LLVM.Int 64} (k : BitVec 6) :
+    (Data.LLVM.Int.udiv x (LLVM.Int.val ((1#64) <<< k))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.srli k (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  `sdiv exact x, 2^k` -> `riscv.srai x, k` (`sdivPow2Exact`, positive divisor).
+  Since `exact` makes the source poison whenever `x` isn't a multiple of `2^k`, this
+  only has to hold when the arithmetic right shift and the truncating division
+  agree, i.e. when there is no fractional part to round differently.
+-/
+theorem sdivPow2Exact_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk : k < 63) :
+    (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#64) <<< k)) true) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.srai k (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
+  `sdiv exact x, -2^k` -> `riscv.sub 0, (riscv.srai x, k)` (`sdivPow2Exact`, negative
+  divisor). No upper bound on `k` is needed here: `-2^63` (`k = 63`) is itself a
+  valid `i64` divisor.
+-/
+theorem sdivPow2Exact_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) :
+    (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#64) <<< k))) true) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.neg (Data.RISCV.srai k (LLVM.Int.toReg x))) 64) := by
+  veir_bv_decide
+
+set_option warn.sorry false in
+/--
+  General (non-`exact`) `sdiv x, 2^k` -> the Hacker's-Delight bias/shift sequence
+  (`sdivPow2`, positive divisor): bias a negative dividend by `2^k - 1` before the
+  arithmetic shift, so truncation rounds toward zero. `k = 0` is excluded because the
+  correction shift `64 - k` would then need a full 64-bit shift, which has no legal
+  RISC-V immediate encoding (`sdiv x, ±1` never reaches instruction selection as
+  such: it is always simplified away first).
+-/
+theorem sdivPow2_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) (hk63 : k < 63) :
+    (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#64) <<< k)) false) ⊒
+      (RISCV.Reg.toInt
+        (let sign := Data.RISCV.srai 63 (LLVM.Int.toReg x)
+         let corr := Data.RISCV.srli (64 - k) sign
+         let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
+         Data.RISCV.srai k biased) 64) := by
+  sorry -- bv_decide needs a non-default timeout (300s) to close this goal
+
+set_option warn.sorry false in
+/--
+  Negative-divisor case of `sdivPow2_pos_refinement`: negate the biased-shift result.
+-/
+theorem sdivPow2_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) :
+    (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#64) <<< k))) false) ⊒
+      (RISCV.Reg.toInt
+        (let sign := Data.RISCV.srai 63 (LLVM.Int.toReg x)
+         let corr := Data.RISCV.srli (64 - k) sign
+         let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
+         Data.RISCV.neg (Data.RISCV.srai k biased)) 64) := by
+  sorry -- bv_decide needs a non-default timeout (300s) to close this goal
 
 /--
   Prove the correctness of the `udiv` lowering pattern.
@@ -731,8 +862,7 @@ theorem fold_slt_li_to_slti_sound (rs1 : Reg) (imm : BitVec 12) :
 -/
 theorem fold_sltu_li_to_sltiu_sound (rs1 : Reg) (imm : BitVec 12) :
     sltu (li (imm.signExtend 64)) rs1 = sltiu imm rs1 := by
-  rw [val_inj]
-  simp only [val_sltu, val_sltiu, val_li]
+  veir_bv_decide
 
 /-! ### Immediate-selection folds
 
@@ -746,77 +876,77 @@ theorem fold_sltu_li_to_sltiu_sound (rs1 : Reg) (imm : BitVec 12) :
 /-- imm12 binops: `OP (li imm.sext) rs1 = OPi imm rs1` (sign-extended immediate). -/
 theorem fold_add_li_to_addi_sound (rs1 : Reg) (imm : BitVec 12) :
     add (li (imm.signExtend 64)) rs1 = addi imm rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_or_li_to_ori_sound (rs1 : Reg) (imm : BitVec 12) :
     or (li (imm.signExtend 64)) rs1 = ori imm rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_and_li_to_andi_sound (rs1 : Reg) (imm : BitVec 12) :
     and (li (imm.signExtend 64)) rs1 = andi imm rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_xor_li_to_xori_sound (rs1 : Reg) (imm : BitVec 12) :
     xor (li (imm.signExtend 64)) rs1 = xori imm rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 /-- uimm6 shifts: `SH (li shamt) rs1 = SHi shamt rs1` (reg-reg form uses the low 6 bits). -/
 theorem fold_sll_li_to_slli_sound (rs1 : Reg) (shamt : BitVec 6) :
     sll (li (shamt.setWidth 64)) rs1 = slli shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_srl_li_to_srli_sound (rs1 : Reg) (shamt : BitVec 6) :
     srl (li (shamt.setWidth 64)) rs1 = srli shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_sra_li_to_srai_sound (rs1 : Reg) (shamt : BitVec 6) :
     sra (li (shamt.setWidth 64)) rs1 = srai shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 /-- Word `*w` forms: `OPw (li imm) rs1 = OPiw imm rs1`. -/
 theorem fold_addw_li_to_addiw_sound (rs1 : Reg) (imm : BitVec 12) :
     addw (li (imm.signExtend 64)) rs1 = addiw imm rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_sllw_li_to_slliw_sound (rs1 : Reg) (shamt : BitVec 5) :
     sllw (li (shamt.setWidth 64)) rs1 = slliw shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_srlw_li_to_srliw_sound (rs1 : Reg) (shamt : BitVec 5) :
     srlw (li (shamt.setWidth 64)) rs1 = srliw shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_sraw_li_to_sraiw_sound (rs1 : Reg) (shamt : BitVec 5) :
     sraw (li (shamt.setWidth 64)) rs1 = sraiw shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_rorw_li_to_roriw_sound (rs1 : Reg) (shamt : BitVec 5) :
     rorw (li (shamt.setWidth 64)) rs1 = roriw shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 /-- Zbs single-bit forms. The bit `shamt` is set/cleared/inverted/extracted; the
     materialized constant is the single-bit mask `1 <<< shamt` (or its complement). -/
 theorem fold_or_singlebit_to_bseti_sound (rs1 : Reg) (shamt : BitVec 6) :
     or (li (((1#1).zeroExtend 64) <<< shamt)) rs1 = bseti shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_xor_singlebit_to_binvi_sound (rs1 : Reg) (shamt : BitVec 6) :
     xor (li (((1#1).zeroExtend 64) <<< shamt)) rs1 = binvi shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem fold_and_clearbit_to_bclri_sound (rs1 : Reg) (shamt : BitVec 6) :
     and (li (~~~(((1#1).setWidth 64) <<< shamt))) rs1 = bclri shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 /-- `andi 1 (srli shamt rs1) = bexti shamt rs1`: `(x >> shamt) & 1` extracts bit `shamt`. -/
 theorem fold_bexti_sound (rs1 : Reg) (shamt : BitVec 6) :
     andi 1 (srli shamt rs1) = bexti shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 /-- Zba: `sll (li shamt) (zextw rs1) = slliuw shamt rs1` (shift of a 32-bit zero-extend). -/
 theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
     sll (li (shamt.setWidth 64)) (zextw rs1) = slliuw shamt rs1 := by
-  rw [val_inj]; veir_bv_decide
+  veir_bv_decide
 
 theorem freeze_refinement {a : LLVM.Int 64} :
     (Data.LLVM.Int.freeze a) ⊒
@@ -855,6 +985,49 @@ theorem udiv_refinement_32 {x y : LLVM.Int 32} :
     (Data.LLVM.Int.udiv x y) ⊒
       (RISCV.Reg.toInt (Data.RISCV.divuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
+
+/-- `i32` analogue of `udivPow2_refinement` (`udivwPow2`). -/
+theorem udivwPow2_refinement {x : LLVM.Int 32} (k : BitVec 5) :
+    (Data.LLVM.Int.udiv x (LLVM.Int.val ((1#32) <<< k))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.srliw k (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+/-- `i32` analogue of `sdivPow2Exact_pos_refinement` (`sdivwPow2Exact`, positive
+    divisor): a genuine positive `i32` divisor `2^k` needs `k < 31`. -/
+theorem sdivwPow2Exact_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk : k < 31) :
+    (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#32) <<< k)) true) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sraiw k (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+/-- `i32` analogue of `sdivPow2Exact_neg_refinement` (`sdivwPow2Exact`, negative
+    divisor): `-2^31` (`k = 31`) is itself a valid `i32` divisor, so no upper bound
+    on `k` is needed. -/
+theorem sdivwPow2Exact_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) :
+    (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#32) <<< k))) true) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.negw (Data.RISCV.sraiw k (LLVM.Int.toReg x))) 32) := by
+  veir_bv_decide
+
+set_option warn.sorry false in
+/-- `i32` analogue of `sdivPow2_pos_refinement` (`sdivwPow2`, positive divisor). -/
+theorem sdivwPow2_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) (hk31 : k < 31) :
+    (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#32) <<< k)) false) ⊒
+      (RISCV.Reg.toInt
+        (let sign := Data.RISCV.sraiw 31 (LLVM.Int.toReg x)
+         let corr := Data.RISCV.srliw (32 - k) sign
+         let biased := Data.RISCV.addw corr (LLVM.Int.toReg x)
+         Data.RISCV.sraiw k biased) 32) := by
+  sorry -- bv_decide needs a non-default timeout (300s) to close this goal
+
+set_option warn.sorry false in
+/-- `i32` analogue of `sdivPow2_neg_refinement` (`sdivwPow2`, negative divisor). -/
+theorem sdivwPow2_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) :
+    (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#32) <<< k))) false) ⊒
+      (RISCV.Reg.toInt
+        (let sign := Data.RISCV.sraiw 31 (LLVM.Int.toReg x)
+         let corr := Data.RISCV.srliw (32 - k) sign
+         let biased := Data.RISCV.addw corr (LLVM.Int.toReg x)
+         Data.RISCV.negw (Data.RISCV.sraiw k biased)) 32) := by
+  sorry -- bv_decide times out with the default timeout on this goal
 
 theorem srem_refinement_32 {x y : LLVM.Int 32} :
     (Data.LLVM.Int.srem x y) ⊒

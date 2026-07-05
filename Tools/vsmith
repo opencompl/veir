@@ -36,7 +36,7 @@ DEFAULT_PASSES = "instcombine,dce,cse,dce"
 RISCV_PASSES = (
     "canonicalize,instcombine,canonicalize,cse,dce,"
     "isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,"
-    "canonicalize,riscv-combine,reconcile-cast,dce"
+    "canonicalize,reconcile-cast,riscv-combine,dce"
 )
 
 # --- RISC-V MIR execution cross-check -------------------------------------
@@ -410,6 +410,19 @@ def find_llvm_dialect_ops(text: str) -> list[str]:
     return sorted(ops - LLVM_DIALECT_OP_WHITELIST)
 
 
+CONVERSION_CAST_RE = re.compile(r'"(builtin\.unrealized_conversion_cast)"')
+
+
+def find_conversion_casts(text: str) -> list[str]:
+    """Return one entry per `builtin.unrealized_conversion_cast` op in generic-form MLIR.
+
+    The RISC-V pipeline's `reconcile-cast` pass is expected to reconcile away every
+    conversion cast isel inserts (and every boundary cast it inserts itself), leaving
+    pure `riscv.*` ops. A survivor here means cast reconciliation missed a case.
+    """
+    return CONVERSION_CAST_RE.findall(text)
+
+
 def optimize(repo: Path, opt_bin: Path, src: Path, dst: Path, passes: str) -> tuple[bool, str]:
     """Run veir-opt and write the result to dst. Returns (success, log)."""
     result = run_tool(repo, [str(opt_bin), str(src), f"-p={passes}"])
@@ -439,12 +452,48 @@ def parse_output_values(line: str) -> list[str] | None:
     return [elem.strip() for elem in inner.split(",")] if inner else []
 
 
-def refines(original: str, optimized: str) -> bool:
+VALUE_RE = re.compile(r"^0x([0-9a-fA-F]+)#(\d+)$")
+
+
+def parse_value(value: str) -> tuple[int, int] | None:
+    """Parse a single output element like '0xdeadbeef#32' into (value, width)."""
+    m = VALUE_RE.match(value)
+    if not m:
+        return None
+    return int(m.group(1), 16), int(m.group(2))
+
+
+def value_refines(riscv: bool, o: str, p: str) -> bool:
+    """Return True if optimized element `p` is an acceptable refinement of original `o`."""
+    if o == "poison" or o == p:
+        return True
+    if not riscv:
+        return False
+    # In --riscv mode, a function whose declared return type is narrower than a register
+    # (e.g. i32) has that boundary coerced to `!riscv.reg` (see `coerceFunction` in
+    # Reconciliation.lean), so the optimized value prints at the full register width.
+    # The RISC-V calling convention does not guarantee the upper bits are zero- or
+    # sign-extended, so they're garbage as far as this check is concerned: only the
+    # original width's worth of low bits is meaningful and must be compared.
+    orig = parse_value(o)
+    opt = parse_value(p)
+    if orig is None or opt is None:
+        return False
+    orig_value, orig_width = orig
+    opt_value, opt_width = opt
+    if opt_width != 64 or orig_width >= opt_width:
+        return False
+    return orig_value == (opt_value & ((1 << orig_width) - 1))
+
+
+def refines(original: str, optimized: str, riscv: bool = False) -> bool:
     """Return True if optimized is a valid refinement of original.
 
     Undefined behavior in the original may map to any interpreter outcome.
     Poison values in the original may map to poison or concrete values.
-    Concrete values in the original must be preserved exactly.
+    Concrete values in the original must be preserved exactly, except that in --riscv
+    mode a narrower-than-register return value may come back truncated from garbage
+    upper bits at register width (see `value_refines`).
     """
     if original == "Undefined behavior":
         return optimized == "Undefined behavior" or optimized.startswith("Program output:")
@@ -453,7 +502,7 @@ def refines(original: str, optimized: str) -> bool:
     opt = parse_output_values(optimized)
     if orig is None or opt is None or len(orig) != len(opt):
         return original == optimized
-    return all(o == "poison" or o == p for o, p in zip(orig, opt))
+    return all(value_refines(riscv, o, p) for o, p in zip(orig, opt))
 
 
 @functools.lru_cache(maxsize=1)
@@ -506,13 +555,14 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     stem = opt.name[: -len(".opt.mlir")] if opt.name.endswith(".opt.mlir") else opt.stem
     d = opt.parent
     mir = d / f"{stem}.mir"
+    lowered = d / f"{stem}.lowered.mir"
     asm = d / f"{stem}.s"
     func_o = d / f"{stem}.func.o"
     drv_s = d / f"{stem}.driver.s"
     drv_o = d / f"{stem}.driver.o"
     elf = d / f"{stem}.elf"
     ld_script = d / "veir_mir_link.ld"
-    artifacts = [mir, asm, func_o, drv_s, drv_o, elf]
+    artifacts = [mir, lowered, asm, func_o, drv_s, drv_o, elf]
 
     def cleanup() -> None:
         if not keep:
@@ -528,16 +578,30 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
         return True, ""  # lowering not supported for this case; skip
     mir.write_text(out)
 
-    # 2. llc: MIR -> RISC-V assembly. -O0 runs the minimal machine pipeline (no
-    # MachineCSE/peephole/sched/combiner), so VeIR's instruction selection passes
-    # through unmodified; -start-after=finalize-isel resumes from exactly the
-    # post-isel state our MIR represents, keeping the essential pre-RA passes
-    # (UnreachableMachineBlockElim, ProcessImplicitDefs, RISCVPreRAExpandPseudo).
-    rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64",
-                        "-O0", "-start-after=finalize-isel", "-o", str(asm)])
+    # 2a. llc, register-allocation stage: MIR -> fully-lowered MIR. Rather than a
+    # canned -O0/-O2 pipeline we drive an explicit minimal machine pipeline via
+    # -run-pass so VeIR's instruction selection passes through unmodified while we
+    # still get the greedy allocator: PHI elimination, two-address lowering,
+    # register coalescing (deletes isel-generated copies), greedy allocation +
+    # virtual-register rewriting, prologue/epilogue insertion, and post-RA / RISCV
+    # pseudo expansion. -run-pass emits MIR, so the asm printer runs in stage 2b.
+    rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
+                        "-run-pass=phi-node-elimination,twoaddressinstruction,"
+                        "register-coalescer,greedy,virtregrewriter,prologepilog,"
+                        "postrapseudos,riscv-expand-pseudo", "-o", str(lowered)])
     if rc != 0:
-        return False, (f"llc failed to lower MIR\n"
+        return False, (f"llc failed to lower MIR (regalloc stage)\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
+
+    # 2b. llc, emission stage: fully-lowered MIR -> RISC-V assembly.
+    # -start-after=riscv-expand-pseudo skips straight to the asm printer (the few
+    # remaining passes are no-ops here) without re-running regalloc or prologue
+    # insertion, which would corrupt the already-lowered MIR.
+    rc, out = _mir_run([tools["llc"], str(lowered), "-mtriple=riscv64", "-x", "mir",
+                        "-start-after=riscv-expand-pseudo", "-o", str(asm)])
+    if rc != 0:
+        return False, (f"llc failed to emit assembly from lowered MIR\n"
+                       f"optimized: {opt}\nlowered: {lowered}\n{out}")
 
     # 3. assemble the lowered function and the comparison driver, then link
     if not ld_script.exists():
@@ -624,6 +688,21 @@ def check(
                 before_llvm=before_llvm,
             )
 
+        leftover_casts = find_conversion_casts(opt_log)
+        if leftover_casts:
+            count = len(leftover_casts)
+            return CheckResult(
+                ok=False,
+                before=before,
+                after=None,
+                message=(
+                    f"unrealized_conversion_cast survived the RISC-V pipeline "
+                    f"({count} occurrence{'s' if count != 1 else ''})\n"
+                    f"source: {src}\noptimized: {opt}"
+                ),
+                before_llvm=before_llvm,
+            )
+
     after, _ = interpret(repo, interp_bin, opt)
     after_llvm: tuple[tuple[str, str], ...] = ()
     if llvm_interps:
@@ -638,7 +717,7 @@ def check(
                 after_llvm=after_llvm,
             )
 
-    if not refines(before, after):
+    if not refines(before, after, riscv):
         return CheckResult(
             ok=False,
             before=before,

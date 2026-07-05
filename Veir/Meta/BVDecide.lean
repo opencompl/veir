@@ -14,11 +14,23 @@ Preprocessing happens in two stages because rewrites are generally
 easier to state with the dependently-typed `Int.getValue`, but `bv_decide` works
 better with the non-dependent `Int.getValueD`. Thus, `veir_bv_normalize_post`
 contains `Int.getValue_eq_getValueD`, which rewrites the former into the latter.
+
+Exception: conditional rewrites whose side condition only becomes available *after*
+unfolding poison-checks into a chain of hypotheses (e.g. `isPoison_sdiv`) must go in
+`veir_bv_normalize_post` instead, since only its `simp` call runs with `+contextual`
+(threading those hypotheses forward as it descends). Its `discharger := bv_omega` lets
+such a lemma's side condition draw on both the threaded hypotheses and any ambient
+local hypotheses (e.g. a range bound on a shift amount) that aren't part of that chain,
+since `bv_omega` scans the whole local context, not just the current subgoal. The
+first-phase `simp` is plain (no `+contextual`, no discharger), so such lemmas silently
+fail to fire there.
 -/
 @[expose] macro "veir_bv_normalize" : tactic =>
   `(tactic| ((
       simp -failIfUnchanged only [veir_bv_normalize] <;>
-      simp +contextual -failIfUnchanged only [veir_bv_normalize_post])))
+      simp +contextual -failIfUnchanged
+        (discharger := bv_omega)
+        only [veir_bv_normalize_post, reduceIte])))
 /-
 The lack of `only` is copied from the previous version of this tactic, and indeed
 some of the tests seem to rely on certain simp-lemmas from the default simp-set.
@@ -39,7 +51,8 @@ attribute [veir_bv_normalize] Bool.false_eq_true false_and or_self decide_false
   BitVec.natCast_eq_ofNat ge_iff_le Bool.or_false Bool.if_true_left
   BitVec.not_le Nat.sub_zero Bool.decide_or Bool.decide_eq_true
   Bool.or_eq_false_iff decide_eq_false_iff_not and_imp
+  BitVec.udiv_eq
 
 attribute [veir_bv_normalize_post] dite_eq_ite Bool.if_true_left Bool.decide_or
   Bool.decide_eq_true Bool.or_eq_false_iff decide_eq_false_iff_not
-  BitVec.not_le and_imp
+  BitVec.not_le and_imp Bool.false_eq_true implies_true Decidable.not_not
