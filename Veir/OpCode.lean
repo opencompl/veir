@@ -121,6 +121,13 @@ inductive Llvm where
 | intr__smin
 | intr__umax
 | intr__umin
+| intr__abs
+| intr__sadd__sat
+| intr__uadd__sat
+| intr__ssub__sat
+| intr__usub__sat
+| intr__sshl__sat
+| intr__ushl__sat
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[opcodes]
