@@ -342,7 +342,6 @@ theorem sdivPow2Exact_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk : k < 
       (RISCV.Reg.toInt (Data.RISCV.srai k (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
-set_option warn.sorry false in
 /--
   `sdiv exact x, -2^k` -> `riscv.sub 0, (riscv.srai x, k)` (`sdivPow2Exact`, negative
   divisor). No upper bound on `k` is needed here: `-2^63` (`k = 63`) is itself a
@@ -351,7 +350,7 @@ set_option warn.sorry false in
 theorem sdivPow2Exact_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) :
     (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#64) <<< k))) true) ⊒
       (RISCV.Reg.toInt (Data.RISCV.neg (Data.RISCV.srai k (LLVM.Int.toReg x))) 64) := by
-  sorry -- bv_decide needs a non-default timeout (120s) to close this goal
+  veir_bv_decide
 
 set_option warn.sorry false in
 /--
@@ -1000,14 +999,13 @@ theorem sdivwPow2Exact_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk : k <
       (RISCV.Reg.toInt (Data.RISCV.sraiw k (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
-set_option warn.sorry false in
 /-- `i32` analogue of `sdivPow2Exact_neg_refinement` (`sdivwPow2Exact`, negative
     divisor): `-2^31` (`k = 31`) is itself a valid `i32` divisor, so no upper bound
     on `k` is needed. -/
 theorem sdivwPow2Exact_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) :
     (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#32) <<< k))) true) ⊒
       (RISCV.Reg.toInt (Data.RISCV.negw (Data.RISCV.sraiw k (LLVM.Int.toReg x))) 32) := by
-  sorry -- bv_decide times out with the default timeout on this goal
+  veir_bv_decide
 
 set_option warn.sorry false in
 /-- `i32` analogue of `sdivPow2_pos_refinement` (`sdivwPow2`, positive divisor). -/
