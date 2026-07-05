@@ -397,6 +397,38 @@ def OperationPtr.verifyRISCVRegisterTypes (op : OperationPtr) (ctx : WfIRContext
     | .registerType _ => pure ()
     | _ => throw s!"{instrName}: Expected result {i} to have !riscv.reg type"
 
+def TypeAttr.verifyModArithType (ty : TypeAttr) (msg : String): Except String ModArithType :=
+  match ty.val with
+  | .modArithType type => do
+    let modulus := type.modulus.value
+    let bitWidth := type.modulus.type.bitwidth
+    if modulus ≤ 0 then
+      throw s!"{msg} but found invalid ModArithType type: modulus {modulus} must be positive."
+    if modulus ≥ (2 ^ bitWidth) then
+      throw s!"{msg} but found invalid ModArithType type: modulus {modulus} does not fit into the underlying storage type 'i{bitWidth}'."
+    pure type
+  | type => throw s!"{msg} but found {type} instead."
+
+def OperationPtr.verifyModArithBinOp (op : OperationPtr) (ctx: WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+    op.verifyPlainOpCounts ctx opIn 2 1
+    let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+    let operandType ← op.verifyOperandTypesMatch ctx 0 1 s!"{instrName}: Expected operands to have the same type"
+    op.verifyResultTypeMatches ctx operandType s!"{instrName}: Expected result type to match operand type"
+    let _ ← operandType.verifyModArithType s!"{instrName}: Expected ModArithType"
+
+def OperationPtr.verifyModArithConstantOp (op : OperationPtr) (ctx: WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+    op.verifyPlainOpCounts ctx opIn 0 1
+    let instrName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+    let mat ← ((op.getResult 0).get! ctx.raw).type.verifyModArithType s!"{instrName}: Expected result to have ModArithType"
+    let value := (op.getProperties! ctx.raw (.mod_arith .constant)).value.value
+    let bw := mat.modulus.type.bitwidth
+    -- slightly odd range because the storage type is signless
+    if value < -(2 ^ (bw - 1) : Int) ∨ (2 ^ bw : Int) ≤ value then
+      throw s!"{instrName}: constant value {value} does not fit in storage type 'i{bw}'."
+
+
 /--
   Verify local invariants of an operation.
   This typically includes checking that the number of operands, successors, results, and regions
@@ -662,10 +694,10 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   /- MOD_ARITH -/
   | .mod_arith .add | .mod_arith .mul | .mod_arith .sub => do
-    op.verifyPlainOpCounts ctx opIn 2 1
+    op.verifyModArithBinOp ctx opIn
     pure ()
   | .mod_arith .constant => do
-    op.verifyPlainOpCounts ctx opIn 0 1
+    op.verifyModArithConstantOp ctx opIn
     pure ()
   /- RISCV -/
   | .riscv .li => do
@@ -1236,6 +1268,103 @@ theorem OperationPtr.Verified.llvm_urem {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .urem) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+/- Verified ModArith Op Lemmas -/
+
+def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 2 ∧
+  op.getNumSuccessors! ctx.raw = 0 ∧
+  op.getNumRegions! ctx.raw = 0 ∧
+  ∃ modArithType,
+    modArithType.modulus.value > 0 ∧
+    modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
+    ((op.getResult 0).get! ctx.raw).type = ⟨.modArithType modArithType, (by grind)⟩ ∧
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = ⟨.modArithType modArithType, (by grind)⟩ ∧
+    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = ⟨.modArithType modArithType, (by grind)⟩
+
+
+/- Unpack a long `Except` chain that succeeds overall into a conjunction of successes. -/
+private theorem Except_bind_ok_iff {ε α β} {x : Except ε α} {f : α → Except ε β}
+    {b : β} :
+    (x >>= f) = Except.ok b ↔ ∃ a, x = Except.ok a ∧ f a = Except.ok b := by
+  cases x <;> simp [bind, Except.bind]
+
+/- Remove the existential binders produced by successful `PUnit` checks. -/
+private theorem exists_punit {p : PUnit → Prop} :
+    (∃ u, p u) ↔ p PUnit.unit :=
+  ⟨fun ⟨⟨⟩, h⟩ => h, fun h => ⟨PUnit.unit, h⟩⟩
+
+private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (h : op.verifyModArithBinOp ctx opInBounds = .ok ()) :
+    op.IsVerifiedModArithBinop ctx := by
+  simp only [IsVerifiedModArithBinop, TypeAttr.inj]
+  simp only [verifyModArithBinOp, verifyPlainOpCounts, verifyOperandTypesMatch,
+             verifyResultTypeMatches, TypeAttr.verifyModArithType,
+             Except_bind_ok_iff, exists_punit] at h
+  obtain ⟨hPlainOpCounts, operandType, hOperandTypesMatch,
+          hResultTypeMatches, modArithType, hModArithType, _⟩ := h
+  simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
+    at hPlainOpCounts hOperandTypesMatch hResultTypeMatches hModArithType
+  grind
+
+private theorem OperationPtr.Verified.modArithBinop {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyModArithBinOp ctx opInBounds >>= fun _ => pure ())) :
+    op.IsVerifiedModArithBinop ctx := by
+  rw [Verified, armReduces] at opVerify
+  have h : op.verifyModArithBinOp ctx opInBounds = .ok () := by
+    cases hb : op.verifyModArithBinOp ctx opInBounds with
+    | ok _ => rfl
+    | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+  exact op.verifyModArithBinOp_eq_ok h
+
+theorem OperationPtr.Verified.mod_arith_add {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .mod_arith .add) :
+    op.IsVerifiedModArithBinop ctx := OperationPtr.Verified.modArithBinop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.mod_arith_mul {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .mod_arith .mul) :
+    op.IsVerifiedModArithBinop ctx := OperationPtr.Verified.modArithBinop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.mod_arith_sub {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .mod_arith .sub) :
+    op.IsVerifiedModArithBinop ctx := OperationPtr.Verified.modArithBinop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+def OperationPtr.IsVerifiedModArithConstant (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumOperands! ctx.raw = 0 ∧
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumSuccessors! ctx.raw = 0 ∧
+  op.getNumRegions! ctx.raw = 0 ∧
+  ∃ modArithType,
+    ((op.getResult 0).get! ctx.raw).type = ⟨.modArithType modArithType, (by grind)⟩ ∧
+    modArithType.modulus.value > 0 ∧
+    modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
+    -(2 ^ (modArithType.modulus.type.bitwidth - 1) : Int)
+        ≤ (op.getProperties! ctx.raw (.mod_arith .constant)).value.value ∧
+    (op.getProperties! ctx.raw (.mod_arith .constant)).value.value
+        < 2 ^ modArithType.modulus.type.bitwidth
+
+theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .mod_arith .constant) :
+    op.IsVerifiedModArithConstant ctx := by
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType] at opVerify
+  have h : op.verifyModArithConstantOp ctx opInBounds = .ok () := by
+    cases hb : op.verifyModArithConstantOp ctx opInBounds with
+    | ok _ => rfl
+    | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+  simp only [IsVerifiedModArithConstant, TypeAttr.inj]
+  simp only [verifyModArithConstantOp, verifyPlainOpCounts, TypeAttr.verifyModArithType,
+            Except_bind_ok_iff, exists_punit] at h
+  obtain ⟨hPlainOpCounts, modArithType, hModArithType, hAttr⟩ := h
+  simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
+    at hPlainOpCounts hModArithType hAttr
+  grind
 
 end
 end Veir
