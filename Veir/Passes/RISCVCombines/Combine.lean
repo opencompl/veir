@@ -59,6 +59,17 @@ def srl_sra_signbit := srl_sra_signbitGen .srli rfl .srai 64
     riscv.srliw 31 x`. -/
 def srlw_sraw_signbit := srl_sra_signbitGen .srliw rfl .sraiw 32
 
+set_option warn.sorry false in
+/-- `riscv.zextw (riscv.zextw x) -> riscv.zextw x`. -/
+def zextw_zextw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (operands, _) := matchOp op rewriter.ctx (.riscv .zextw) 1 | return rewriter
+  let outerSrc := operands[0]!
+  let some innerOp := getDefiningOp outerSrc rewriter.ctx | return rewriter
+  let some (_, _) := matchOp innerOp rewriter.ctx (.riscv .zextw) 1 | return rewriter
+  let rewriter := rewriter.replaceValue (op.getResult 0) outerSrc sorry sorry sorry
+  rewriter.eraseOp op sorry sorry sorry
+
 private def stripDefiningZextw (val : ValuePtr) (ctx : IRContext OpCode) : ValuePtr × Bool :=
   match getDefiningOp val ctx with
   | none => (val, false)
@@ -78,7 +89,7 @@ private def drop_zextw_binary_low_word (dst : Riscv) (rewriter : PatternRewriter
   let (lhs, lhsChanged) := stripDefiningZextw operands[0]! rewriter.ctx
   let (rhs, rhsChanged) := stripDefiningZextw operands[1]! rewriter.ctx
   if !lhsChanged && !rhsChanged then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[lhs, rhs]
+  let (rewriter, newOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[lhs, rhs]
       #[] #[] props (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
@@ -92,7 +103,7 @@ private def drop_zextw_unary_imm_low_word (dst : Riscv) (rewriter : PatternRewri
   let some (operands, props) := matchOp op rewriter.ctx (.riscv dst) 1 | return rewriter
   let (src, changed) := stripDefiningZextw operands[0]! rewriter.ctx
   if !changed then return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[src]
+  let (rewriter, newOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[src]
       #[] #[] props (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
@@ -109,6 +120,57 @@ def drop_zextw_roriw := drop_zextw_unary_imm_low_word .roriw
 
 /-- `riscv.srliw (riscv.zextw x), imm -> riscv.srliw x, imm`. -/
 def drop_zextw_srliw := drop_zextw_unary_imm_low_word .srliw
+
+/-- `riscv.sextw (riscv.zextw x) -> riscv.sextw x`. `sextw` is `addiw 0`
+    (`Data.RISCV.sextw`), so like `addiw` it reads only bits 31:0 of its operand. -/
+def drop_zextw_sextw := drop_zextw_unary_imm_low_word .sextw
+
+set_option warn.sorry false in
+/-- Drop a `riscv.zextw` wrapping the result of a bitwise op (`and`/`or`/`xor`)
+    both of whose operands are themselves guarded by a `riscv.zextw`. Each source
+    already has bits 63:32 cleared, so bitwise-combining two such sources leaves
+    bits 63:32 cleared too -- the outer `zextw` is redundant. -/
+private def drop_zextw_of_bitwise (dst : Riscv) (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
+    Option (PatternRewriter OpCode) := do
+  let some (operands, _) := matchOp op rewriter.ctx (.riscv .zextw) 1 | return rewriter
+  let inner := operands[0]!
+  let some innerOp := getDefiningOp inner rewriter.ctx | return rewriter
+  let some (innerOperands, _) := matchOp innerOp rewriter.ctx (.riscv dst) 2 | return rewriter
+  let some lhsOp := getDefiningOp innerOperands[0]! rewriter.ctx | return rewriter
+  let some (_, _) := matchOp lhsOp rewriter.ctx (.riscv .zextw) 1 | return rewriter
+  let some rhsOp := getDefiningOp innerOperands[1]! rewriter.ctx | return rewriter
+  let some (_, _) := matchOp rhsOp rewriter.ctx (.riscv .zextw) 1 | return rewriter
+  let rewriter := rewriter.replaceValue (op.getResult 0) inner sorry sorry sorry
+  rewriter.eraseOp op sorry sorry sorry
+
+/-- `riscv.zextw (riscv.and (riscv.zextw a) (riscv.zextw b)) -> riscv.and (riscv.zextw a) (riscv.zextw b)`. -/
+def zextw_and := drop_zextw_of_bitwise .and
+
+/-- `riscv.zextw (riscv.or (riscv.zextw a) (riscv.zextw b)) -> riscv.or (riscv.zextw a) (riscv.zextw b)`. -/
+def zextw_or := drop_zextw_of_bitwise .or
+
+/-- `riscv.zextw (riscv.xor (riscv.zextw a) (riscv.zextw b)) -> riscv.xor (riscv.zextw a) (riscv.zextw b)`. -/
+def zextw_xor := drop_zextw_of_bitwise .xor
+
+set_option warn.sorry false in
+/-- Drop a `riscv.zextw` from the value operand of `riscv.sw`. A word store only
+    writes bits 31:0 of its source register (see the `.sw` case of
+    `Interpreter.Basic.exec`, which stores just the low 4 bytes), and `zextw`
+    never changes those bits -- it only clears bits 63:32 -- so zero-extending the
+    stored value first is redundant. The address operand is left untouched: it
+    needs the full 64 bits. -/
+def drop_zextw_sw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  if op.getOpType! rewriter.ctx ≠ OpCode.riscv .sw then return rewriter
+  if op.getNumOperands! rewriter.ctx ≠ 2 then return rewriter
+  let operands := op.getOperands! rewriter.ctx
+  let props := op.getProperties! rewriter.ctx (OpCode.riscv .sw)
+  let (val, changed) := stripDefiningZextw operands[1]! rewriter.ctx
+  if !changed then return rewriter
+  let (rewriter, _newOp) ← rewriter.createOp! (.riscv .sw) #[] #[operands[0]!, val]
+      #[] #[] props (some $ .before op)
+  rewriter.eraseOp op sorry sorry sorry
 
 set_option warn.sorry false in
 /-- riscv.li 0 -> rv64.get_register (x0)
@@ -139,10 +201,16 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
     #[ right_identity_zero_add
      , srl_sra_signbit
      , srlw_sraw_signbit
+     , zextw_zextw
      , drop_zextw_addw
      , drop_zextw_addiw
      , drop_zextw_roriw
      , drop_zextw_srliw
+     , drop_zextw_sextw
+     , zextw_and
+     , zextw_or
+     , zextw_xor
+     , drop_zextw_sw
      , li_zero_to_x0
      ]
   let pattern := RewritePattern.GreedyRewritePattern patterns

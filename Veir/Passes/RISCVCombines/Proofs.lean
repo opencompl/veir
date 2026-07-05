@@ -39,6 +39,11 @@ theorem srlw_sraw_signbit {x : Reg} {shamt : BitVec 5} :
     RISCV.srliw 31 (RISCV.sraiw shamt x) = RISCV.srliw 31 x := by
   veir_bv_decide
 
+/-- Prove the correctness of `riscv.zextw (riscv.zextw x) -> riscv.zextw x`. -/
+theorem zextw_zextw {x : Reg} :
+    RISCV.zextw (RISCV.zextw x) = RISCV.zextw x := by
+  veir_bv_decide
+
 /--
   Prove the correctness of dropping a `riscv.zextw` from the `rs2` operand of
   `riscv.addw`. The instruction reads only bits 31:0 of both operands.
@@ -85,6 +90,46 @@ theorem drop_zextw_roriw {rs1 : Reg} {shamt : BitVec 5} :
 -/
 theorem drop_zextw_srliw {rs1 : Reg} {shamt : BitVec 5} :
     RISCV.srliw shamt (RISCV.zextw rs1) = RISCV.srliw shamt rs1 := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of `riscv.sextw (riscv.zextw x) -> riscv.sextw x`.
+  `sextw` is `addiw 0`, which reads only bits 31:0 of its operand.
+-/
+theorem drop_zextw_sextw {rs1 : Reg} :
+    RISCV.sextw (RISCV.zextw rs1) = RISCV.sextw rs1 := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of dropping an outer `riscv.zextw` wrapping a bitwise
+  `and` whose both operands are themselves `riscv.zextw`-guarded: each source has
+  bits 63:32 cleared, so their `and` does too.
+-/
+theorem zextw_and {a b : Reg} :
+    RISCV.zextw (RISCV.and (RISCV.zextw a) (RISCV.zextw b)) =
+      RISCV.and (RISCV.zextw a) (RISCV.zextw b) := by
+  veir_bv_decide
+
+/-- `or` analogue of `zextw_and`. -/
+theorem zextw_or {a b : Reg} :
+    RISCV.zextw (RISCV.or (RISCV.zextw a) (RISCV.zextw b)) =
+      RISCV.or (RISCV.zextw a) (RISCV.zextw b) := by
+  veir_bv_decide
+
+/-- `xor` analogue of `zextw_and`. -/
+theorem zextw_xor {a b : Reg} :
+    RISCV.zextw (RISCV.xor (RISCV.zextw a) (RISCV.zextw b)) =
+      RISCV.xor (RISCV.zextw a) (RISCV.zextw b) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of dropping a `riscv.zextw` from the value operand of
+  `riscv.sw`: a word store only reads bits 31:0 of its source register (see the
+  `.sw` case of `Interpreter.Basic.exec`, which stores just the low 4 bytes), and
+  `zextw` leaves bits 31:0 unchanged -- it only clears bits 63:32.
+-/
+theorem drop_zextw_sw {rs1 : Reg} :
+    (RISCV.zextw rs1).val.extractLsb 31 0 = rs1.val.extractLsb 31 0 := by
   veir_bv_decide
 
 end Veir.Data.RISCV
