@@ -287,14 +287,14 @@ class Generator:
         `bswap` is restricted to widths it is defined on; in RISC-V mode every
         intrinsic uses i32 or i64 (the only widths `rand_type` yields there).
 
-        Note: the saturating arithmetic intrinsics and `llvm.intr.abs` do not
-        have a RISC-V lowering yet, so `--riscv` mode currently generates them
-        too even though isel can't select them.
+        Note: the saturating arithmetic intrinsics and `llvm.intr.abs` are only
+        lowered at i64 in RISC-V mode (there is no i32 isel yet), so `--riscv`
+        mode pins them to i64 rather than letting `rand_type` also pick i32.
         """
         if self.rng.random() < 0.30:
             if self.rng.random() < 0.85:
                 op = self.rng.choice(INTRINSIC_SAT_BINARY)
-                typ = self.rand_type()
+                typ = "i64" if self.riscv else self.rand_type()
                 width = bitwidth(typ)
                 lhs = self.random_dominating_value(width)
                 rhs = self.random_dominating_value(width)
@@ -302,7 +302,7 @@ class Generator:
             else:
                 # `abs` carries an `is_int_min_poison` i1 flag deciding whether
                 # abs(INT_MIN) is poison (true) or INT_MIN (false).
-                typ = self.rand_type()
+                typ = "i64" if self.riscv else self.rand_type()
                 operand = self.random_dominating_value(bitwidth(typ))
                 poison = "true" if self.rng.random() < 0.5 else "false"
                 self.add_operation("llvm.intr.abs", [operand], [typ], typ,
