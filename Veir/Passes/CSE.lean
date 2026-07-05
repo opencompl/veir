@@ -125,6 +125,41 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   | .llvm .zext | .llvm .sext | .llvm .trunc
   | .llvm .select =>
       return ordinaryKey ctx op kind
+  -- Pure, single-result RISC-V register ops: no memory/control-flow effects,
+  -- deterministic given their operands and immediate (which `Kind` already
+  -- distinguishes). Excludes loads/stores (memory-dependent), branches/calls,
+  -- `riscv.auipc` (depends on its own instruction address), and
+  -- `rv64.get_register` (only `x0` has interpreter semantics, and that case is
+  -- handled by the `zextw_x0`/`li_zero_to_x0` combines instead).
+  | .riscv .add | .riscv .addw | .riscv .mul | .riscv .mulw
+  | .riscv .mulh | .riscv .mulhu | .riscv .and | .riscv .or | .riscv .xor
+  | .riscv .xnor | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu =>
+      return commutativeBinopKey ctx op kind
+  | .riscv .li | .riscv .lui
+  | .riscv .addi | .riscv .slti | .riscv .sltiu | .riscv .andi | .riscv .ori | .riscv .xori
+  | .riscv .addiw | .riscv .slli | .riscv .srli | .riscv .srai
+  | .riscv .slliw | .riscv .srliw | .riscv .sraiw
+  | .riscv .sub | .riscv .subw | .riscv .sll | .riscv .srl | .riscv .sra
+  | .riscv .sllw | .riscv .srlw | .riscv .sraw
+  | .riscv .slt | .riscv .sltu | .riscv .mulhsu
+  | .riscv .div | .riscv .divw | .riscv .divu | .riscv .divuw
+  | .riscv .rem | .riscv .remu | .riscv .remw | .riscv .remuw
+  | .riscv .adduw | .riscv .sh1adduw | .riscv .sh2adduw | .riscv .sh3adduw
+  | .riscv .sh1add | .riscv .sh2add | .riscv .sh3add | .riscv .slliuw
+  | .riscv .andn | .riscv .orn
+  | .riscv .rol | .riscv .ror | .riscv .rolw | .riscv .rorw
+  | .riscv .roriw | .riscv .rori
+  | .riscv .bclr | .riscv .bext | .riscv .binv | .riscv .bset
+  | .riscv .bclri | .riscv .bexti | .riscv .binvi | .riscv .bseti
+  | .riscv .pack | .riscv .packh | .riscv .packw
+  | .riscv .czeroeqz | .riscv .czeronez
+  | .riscv .sextb | .riscv .sexth | .riscv .zextb | .riscv .zexth
+  | .riscv .sextw | .riscv .zextw
+  | .riscv .clz | .riscv .clzw | .riscv .ctz | .riscv .ctzw
+  | .riscv .cpop | .riscv .cpopw | .riscv .orcb | .riscv .rev8
+  | .riscv .mv | .riscv .not | .riscv .neg | .riscv .negw
+  | .riscv .seqz | .riscv .snez | .riscv .sltz | .riscv .sgtz =>
+      return ordinaryKey ctx op kind
   | _ => none
 
 set_option warn.sorry false in

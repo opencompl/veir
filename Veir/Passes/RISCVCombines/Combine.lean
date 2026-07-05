@@ -60,6 +60,52 @@ def srl_sra_signbit := srl_sra_signbitGen .srli rfl .srai 64
 def srlw_sraw_signbit := srl_sra_signbitGen .srliw rfl .sraiw 32
 
 set_option warn.sorry false in
+/-- Drop `riscv.srli 63 (riscv.slli 63 X)` when `X` is defined by a comparison
+    op that's already guaranteed to produce exactly 0 or 1 (bits 63:1 clear).
+    `slli 63` isolates bit 0 of `X` into bit 63, and `srli 63` moves it back
+    down to bit 0 -- for such an `X` that round trip is the identity, so both
+    shifts (and the `X` they wrap) can be replaced by `X` itself. We don't need
+    `X`'s properties here (unlike `srl_sra_signbitGen`, which reads the inner
+    op's shift amount), so no `propertiesOf`/`cast` dance is needed to support
+    a generic inner opcode. -/
+private def drop_slli_srli_boolGen (boolDst : Riscv) (arity : Nat)
+    (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (operands, outerImm) := matchOp op rewriter.ctx (.riscv .srli) 1 | return rewriter
+  if outerImm.value.value ≠ 63 then return rewriter
+  let some slliOp := getDefiningOp operands[0]! rewriter.ctx | return rewriter
+  let some (slliOperands, innerImm) := matchOp slliOp rewriter.ctx (.riscv .slli) 1 | return rewriter
+  if innerImm.value.value ≠ 63 then return rewriter
+  let some boolOp := getDefiningOp slliOperands[0]! rewriter.ctx | return rewriter
+  let some (_, _) := matchOp boolOp rewriter.ctx (.riscv boolDst) arity | return rewriter
+  let rewriter := rewriter.replaceValue (op.getResult 0) slliOperands[0]! sorry sorry sorry
+  rewriter.eraseOp op sorry sorry sorry
+
+/-- `riscv.slt` produces exactly 0 or 1. -/
+def drop_slli_srli_slt := drop_slli_srli_boolGen .slt 2
+
+/-- `riscv.sltu` produces exactly 0 or 1. -/
+def drop_slli_srli_sltu := drop_slli_srli_boolGen .sltu 2
+
+/-- `riscv.slti` produces exactly 0 or 1. -/
+def drop_slli_srli_slti := drop_slli_srli_boolGen .slti 1
+
+/-- `riscv.sltiu` produces exactly 0 or 1. -/
+def drop_slli_srli_sltiu := drop_slli_srli_boolGen .sltiu 1
+
+/-- `riscv.seqz` produces exactly 0 or 1. -/
+def drop_slli_srli_seqz := drop_slli_srli_boolGen .seqz 1
+
+/-- `riscv.snez` produces exactly 0 or 1. -/
+def drop_slli_srli_snez := drop_slli_srli_boolGen .snez 1
+
+/-- `riscv.sltz` produces exactly 0 or 1. -/
+def drop_slli_srli_sltz := drop_slli_srli_boolGen .sltz 1
+
+/-- `riscv.sgtz` produces exactly 0 or 1. -/
+def drop_slli_srli_sgtz := drop_slli_srli_boolGen .sgtz 1
+
+set_option warn.sorry false in
 /-- `riscv.zextw (riscv.zextw x) -> riscv.zextw x`. -/
 def zextw_zextw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -203,12 +249,47 @@ def li_zero_to_x0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let rewriter := rewriter.replaceValue (op.getResult 0) (x0Op.getResult 0) sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
+set_option warn.sorry false in
+/-- `riscv.zextw` of the hard-wired zero register `x0` is a no-op: `x0` reads as
+    0 in any source position (see `li_zero_to_x0`), so it already has bits 63:32
+    clear. -/
+def zextw_x0 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (operands, _) := matchOp op rewriter.ctx (.riscv .zextw) 1 | return rewriter
+  let src := operands[0]!
+  let .registerType regType := (src.getType! rewriter.ctx.raw).val | return rewriter
+  if regType.index ≠ some 0 then return rewriter
+  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
+  rewriter.eraseOp op sorry sorry sorry
+
+set_option warn.sorry false in
+/-- `riscv.zextw (riscv.li v) -> riscv.li v` when `0 ≤ v < 2^32`: `li`'s
+    materialized 64-bit value (`BitVec.ofInt 64 v`) already has bits 63:32
+    clear in that range, so zero-extending it again is redundant. -/
+def zextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (operands, _) := matchOp op rewriter.ctx (.riscv .zextw) 1 | return rewriter
+  let src := operands[0]!
+  let some srcOp := getDefiningOp src rewriter.ctx | return rewriter
+  let some (_, cst) := matchOp srcOp rewriter.ctx (.riscv .li) 0 | return rewriter
+  if cst.value.value < 0 ∨ cst.value.value ≥ 4294967296 then return rewriter
+  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
+  rewriter.eraseOp op sorry sorry sorry
+
 def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let patterns : Array (RewritePattern OpCode) :=
     #[ right_identity_zero_add
      , srl_sra_signbit
      , srlw_sraw_signbit
+     , drop_slli_srli_slt
+     , drop_slli_srli_sltu
+     , drop_slli_srli_slti
+     , drop_slli_srli_sltiu
+     , drop_slli_srli_seqz
+     , drop_slli_srli_snez
+     , drop_slli_srli_sltz
+     , drop_slli_srli_sgtz
      , zextw_zextw
      , drop_zextw_addw
      , drop_zextw_addiw
@@ -219,6 +300,8 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , zextw_or
      , zextw_xor
      , drop_zextw_sw
+     , zextw_x0
+     , zextw_li_low32
      , li_zero_to_x0
      ]
   let pattern := RewritePattern.GreedyRewritePattern patterns

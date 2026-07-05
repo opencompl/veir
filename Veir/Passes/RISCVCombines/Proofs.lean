@@ -39,6 +39,51 @@ theorem srlw_sraw_signbit {x : Reg} {shamt : BitVec 5} :
     RISCV.srliw 31 (RISCV.sraiw shamt x) = RISCV.srliw 31 x := by
   veir_bv_decide
 
+/--
+  Prove the correctness of the `drop_slli_srli_boolGen` family: for a
+  comparison op producing exactly 0 or 1, `riscv.slli 63` isolates its bit 0
+  into bit 63 and `riscv.srli 63` moves it straight back, so the round trip is
+  the identity and both shifts can be dropped entirely.
+-/
+theorem drop_slli_srli_slt {rs1 rs2 : Reg} :
+    RISCV.srli 63 (RISCV.slli 63 (RISCV.slt rs2 rs1)) = RISCV.slt rs2 rs1 := by
+  veir_bv_decide
+
+/-- `sltu` analogue of `drop_slli_srli_slt`. -/
+theorem drop_slli_srli_sltu {rs1 rs2 : Reg} :
+    RISCV.srli 63 (RISCV.slli 63 (RISCV.sltu rs2 rs1)) = RISCV.sltu rs2 rs1 := by
+  veir_bv_decide
+
+/-- `slti` analogue of `drop_slli_srli_slt`. -/
+theorem drop_slli_srli_slti {rs1 : Reg} {imm : BitVec 12} :
+    RISCV.srli 63 (RISCV.slli 63 (RISCV.slti imm rs1)) = RISCV.slti imm rs1 := by
+  veir_bv_decide
+
+/-- `sltiu` analogue of `drop_slli_srli_slt`. -/
+theorem drop_slli_srli_sltiu {rs1 : Reg} {imm : BitVec 12} :
+    RISCV.srli 63 (RISCV.slli 63 (RISCV.sltiu imm rs1)) = RISCV.sltiu imm rs1 := by
+  veir_bv_decide
+
+/-- `seqz` analogue of `drop_slli_srli_slt`. -/
+theorem drop_slli_srli_seqz {rs1 : Reg} :
+    RISCV.srli 63 (RISCV.slli 63 (RISCV.seqz rs1)) = RISCV.seqz rs1 := by
+  veir_bv_decide
+
+/-- `snez` analogue of `drop_slli_srli_slt`. -/
+theorem drop_slli_srli_snez {rs1 : Reg} :
+    RISCV.srli 63 (RISCV.slli 63 (RISCV.snez rs1)) = RISCV.snez rs1 := by
+  veir_bv_decide
+
+/-- `sltz` analogue of `drop_slli_srli_slt`. -/
+theorem drop_slli_srli_sltz {rs1 : Reg} :
+    RISCV.srli 63 (RISCV.slli 63 (RISCV.sltz rs1)) = RISCV.sltz rs1 := by
+  veir_bv_decide
+
+/-- `sgtz` analogue of `drop_slli_srli_slt`. -/
+theorem drop_slli_srli_sgtz {rs1 : Reg} :
+    RISCV.srli 63 (RISCV.slli 63 (RISCV.sgtz rs1)) = RISCV.sgtz rs1 := by
+  veir_bv_decide
+
 /-- Prove the correctness of `riscv.zextw (riscv.zextw x) -> riscv.zextw x`. -/
 theorem zextw_zextw {x : Reg} :
     RISCV.zextw (RISCV.zextw x) = RISCV.zextw x := by
@@ -130,6 +175,27 @@ theorem zextw_xor {a b : Reg} :
 -/
 theorem drop_zextw_sw {rs1 : Reg} :
     (RISCV.zextw rs1).val.extractLsb 31 0 = rs1.val.extractLsb 31 0 := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `zextw_x0` combine: zero-extending the value 0
+  (which is what the hard-wired zero register `x0` reads as -- an interpreter
+  fact, not a `Reg`-algebra one, so it isn't itself part of this theorem) is a
+  no-op.
+-/
+theorem zextw_x0 :
+    RISCV.zextw (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `zextw_li_low32` combine. The combine checks
+  `0 ≤ v < 2^32` on the `Int` immediate `v`; that range is exactly the one where
+  `BitVec.ofInt 64 v` (the value `riscv.li` materializes, see
+  `Interpreter.Basic.exec`'s `.li` case) has bits 63:32 already clear, which is
+  the hypothesis `h` below.
+-/
+theorem zextw_li_low32 {x : BitVec 64} (h : x.extractLsb 63 32 = 0#32) :
+    RISCV.zextw (Data.RISCV.li x) = Data.RISCV.li x := by
   veir_bv_decide
 
 end Veir.Data.RISCV
