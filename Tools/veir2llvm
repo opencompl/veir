@@ -480,6 +480,15 @@ SIMPLE_INTRINSICS = {
     "llvm.intr.ctpop": ("ctpop", 1),
     "llvm.intr.bswap": ("bswap", 1),
     "llvm.intr.bitreverse": ("bitreverse", 1),
+    # Saturating arithmetic intrinsics.  The LLVM base name keeps its own dot
+    # (e.g. `@llvm.sadd.sat.i32`); the `*shl.sat` shift amount is an ordinary
+    # operand, so all six are just two-operand same-type intrinsics.
+    "llvm.intr.sadd.sat": ("sadd.sat", 2),
+    "llvm.intr.uadd.sat": ("uadd.sat", 2),
+    "llvm.intr.ssub.sat": ("ssub.sat", 2),
+    "llvm.intr.usub.sat": ("usub.sat", 2),
+    "llvm.intr.sshl.sat": ("sshl.sat", 2),
+    "llvm.intr.ushl.sat": ("ushl.sat", 2),
 }
 
 # ctlz/cttz take their single value operand plus an i1 `is_zero_poison` immarg.
@@ -488,17 +497,26 @@ ZERO_POISON_INTRINSICS = {
     "llvm.intr.cttz": "cttz",
 }
 
+# abs takes its single value operand plus an i1 `is_int_min_poison` immarg.
+INT_MIN_POISON_INTRINSICS = {
+    "llvm.intr.abs": "abs",
+}
 
-def parse_zero_poison(attr: str) -> str:
-    """Return 'true'/'false' for the is_zero_poison flag in either spelling:
-    the generator's `is_zero_poison = false` or veir-opt's `"is_zero_poison" = 0 : i1`."""
-    m = re.search(r'"?is_zero_poison"?\s*=\s*(true|false)\b', attr)
+
+def parse_bool_immarg(attr: str, flag: str, op_desc: str) -> str:
+    """Return 'true'/'false' for a boolean i1 immarg named `flag`, in either
+    spelling: the generator's `flag = false` or veir-opt's `"flag" = 0 : i1`."""
+    m = re.search(rf'"?{re.escape(flag)}"?\s*=\s*(true|false)\b', attr)
     if m:
         return m.group(1)
-    m = re.search(r'"?is_zero_poison"?\s*=\s*(-?\d+)\s*:\s*i1', attr)
+    m = re.search(rf'"?{re.escape(flag)}"?\s*=\s*(-?\d+)\s*:\s*i1', attr)
     if m:
         return "true" if int(m.group(1)) != 0 else "false"
-    raise Error("llvm.intr.ctlz/cttz is missing the is_zero_poison flag")
+    raise Error(f"{op_desc} is missing the {flag} flag")
+
+
+def parse_zero_poison(attr: str) -> str:
+    return parse_bool_immarg(attr, "is_zero_poison", "llvm.intr.ctlz/cttz")
 
 
 def require_result(op: Operation) -> str:
@@ -550,6 +568,17 @@ def translate_intrinsic(
         typ = convert_type(dst_type)
         src = llvm_value(op.operands[0], aliases)
         poison = parse_zero_poison(op.attr)
+        declarations.add(f"declare {typ} @llvm.{base}.{typ}({typ}, i1)")
+        return [f"  {out_result} = call {typ} @llvm.{base}.{typ}({typ} {src}, i1 {poison})"]
+
+    if name in INT_MIN_POISON_INTRINSICS:
+        base = INT_MIN_POISON_INTRINSICS[name]
+        require_operands(op, 1)
+        if op.operand_types[0] != dst_type:
+            raise Error(f"{name} operand/result types must match")
+        typ = convert_type(dst_type)
+        src = llvm_value(op.operands[0], aliases)
+        poison = parse_bool_immarg(op.attr, "is_int_min_poison", name)
         declarations.add(f"declare {typ} @llvm.{base}.{typ}({typ}, i1)")
         return [f"  {out_result} = call {typ} @llvm.{base}.{typ}({typ} {src}, i1 {poison})"]
 

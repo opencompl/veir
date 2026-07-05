@@ -773,6 +773,39 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.umin lhs rhs)], mem, none)
+  | .intr__abs => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.abs x properties.is_int_min_poison)], mem, none)
+  | .intr__sadd__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.saddSat lhs rhs)], mem, none)
+  | .intr__uadd__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.uaddSat lhs rhs)], mem, none)
+  | .intr__ssub__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.ssubSat lhs rhs)], mem, none)
+  | .intr__usub__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.usubSat lhs rhs)], mem, none)
+  | .intr__sshl__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.sshlSat lhs rhs)], mem, none)
+  | .intr__ushl__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.ushlSat lhs rhs)], mem, none)
   | .trunc => do
     let [.int w val] := operands.toList | none
     let some resType := resultTypes[0]? | none
