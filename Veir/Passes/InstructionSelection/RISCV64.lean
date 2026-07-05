@@ -289,6 +289,14 @@ def ashr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
       #[] #[] () none
   let (ctx, rcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[rhs]
       #[] #[] () none
+  if type'.bitwidth = 8 then
+    let (ctx, lsOp) ← WfRewriter.createOp! ctx (.riscv .sextb) #[RegisterType.mk] #[lcastOp.getResult 0]
+          #[] #[] () none
+    let (ctx, sraOp) ← WfRewriter.createOp! ctx (.riscv .sra) #[RegisterType.mk] #[lsOp.getResult 0, rcastOp.getResult 0]
+          #[] #[] () none
+    let (ctx, castSraOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[type] #[sraOp.getResult 0]
+      #[] #[] () none
+    return (ctx, some (#[lcastOp, rcastOp, lsOp, sraOp, castSraOp], #[castSraOp.getResult 0]))
   /- sraw for i32 (sign-extends result), sra for i64 -/
   let (ctx, sraOp) ←
     if type'.bitwidth = 32 then
@@ -297,10 +305,10 @@ def ashr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     else
       WfRewriter.createOp! ctx (.riscv .sra) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
           #[] #[] () none
-  /- Cast back result for type consistency-/
+  /- Cast back result for type consistency -/
   let (ctx, castSraOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[type] #[sraOp.getResult 0]
       #[] #[] () none
-  some (ctx, some (#[lcastOp, rcastOp, sraOp, castSraOp], #[castSraOp.getResult 0]))
+  return (ctx, some (#[lcastOp, rcastOp, sraOp, castSraOp], #[castSraOp.getResult 0]))
 
 /-- llvm.ashr -> riscv.sra -/
 def ashr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
