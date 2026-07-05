@@ -446,8 +446,7 @@ theorem udiv_one_shl {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂) :
     amount of the same width as the shifted value. -/
 theorem toInt_sshiftRight'' {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂) :
     (x.sshiftRight' k).toInt = x.toInt >>> k.toNat := by
-  rw [BitVec.sshiftRight_eq']
-  exact BitVec.toInt_sshiftRight
+  simp
 
 /-- An exact `sdiv` by a power of two (i.e. one where the dividend has no fractional part to
     round, witnessed by `x.smod (2^k) = 0`) agrees with the arithmetic shift `x.sshiftRight' k`.
