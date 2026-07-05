@@ -48,7 +48,7 @@ def srl_sra_signbitGen (srlDst : Riscv) (hSrl : Riscv.propertiesOf srlDst = RISC
     return rewriter
   let some sraOp := getDefiningOp operands[0]! rewriter.ctx | return rewriter
   let some (sraOperands, _) := matchOp sraOp rewriter.ctx (.riscv sraDst) 1 | return rewriter
-  let (rewriter, newOp) := rewriter.createOp! (.riscv srlDst) #[RegisterType.mk] #[sraOperands[0]!]
+  let (rewriter, newOp) ← rewriter.createOp! (.riscv srlDst) #[RegisterType.mk] #[sraOperands[0]!]
       #[] #[] outerImm (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
@@ -77,7 +77,7 @@ def li_zero_to_x0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   if cst.value.value ≠ 0 then return rewriter
   /- Nothing to do for a dead `li 0`; leave it for DCE and avoid creating a dead x0. -/
   if !op.hasUses! rewriter.ctx.raw then return rewriter
-  let (rewriter, x0Op) := rewriter.createOp! (.rv64 .get_register)
+  let (rewriter, x0Op) ← rewriter.createOp! (.rv64 .get_register)
     #[(RegisterType.mk (some 0) : TypeAttr)] #[] #[] #[] () (some $ .before op)
   let rewriter := rewriter.replaceValue (op.getResult 0) (x0Op.getResult 0) sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry

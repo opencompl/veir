@@ -23,14 +23,14 @@ def castToStorage (rewriter : PatternRewriter OpCode) (v : ValuePtr) (ip : Inser
   let .modArithType mt := (v.getType! rewriter.ctx.raw).val
     | none
   let storageType : TypeAttr := mt.modulus.type
-  let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast)
+  let (rewriter, castOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast)
     #[storageType] #[v] #[] #[] () (some ip)
   return (rewriter, (castOp.getResult 0 : ValuePtr))
 
 /-- Emit `unrealized_conversion_cast x : iN → ty`, where `ty` is a `mod_arith` type. -/
 def castToModArith (rewriter : PatternRewriter OpCode) (x : ValuePtr) (ty : ModArithType)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
-  let (rewriter, castOp) := rewriter.createOp! (.builtin .unrealized_conversion_cast)
+  let (rewriter, castOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast)
     #[ty] #[x] #[] #[] () (some ip)
   return (rewriter, (castOp.getResult 0 : ValuePtr))
 
@@ -45,7 +45,7 @@ def unpackValue (rewriter : PatternRewriter OpCode) (v : ValuePtr) (intermediate
   let .integerType storageType := (stored.getType! rewriter.ctx.raw).val
     | none
   if intermediateType.bitwidth > storageType.bitwidth then
-    let (rewriter, ext) := rewriter.createOp! (.arith .extui)
+    let (rewriter, ext) ← rewriter.createOp! (.arith .extui)
       #[intermediateType] #[stored] #[] #[] { nneg := false } (some ip)
     return (rewriter, (ext.getResult 0 : ValuePtr))
   else
@@ -60,7 +60,7 @@ def packValue (rewriter : PatternRewriter OpCode) (v : ValuePtr) (ty : ModArithT
     | none
   let storageType := ty.modulus.type
   if intermediateType.bitwidth > storageType.bitwidth then
-    let (rewriter, narrowed) := rewriter.createOp! (.arith .trunci)
+    let (rewriter, narrowed) ← rewriter.createOp! (.arith .trunci)
       #[storageType] #[v] #[] #[] { attr := { nsw := false, nuw := true } }
       (some ip)
     castToModArith rewriter (narrowed.getResult 0 : ValuePtr) ty ip
@@ -75,7 +75,7 @@ def emitArithConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let ty : TypeAttr := IntegerType.mk width
   let props : ArithConstantProperties := { value := IntegerAttr.mk c (IntegerType.mk width) }
-  let (rewriter, c) := rewriter.createOp! (.arith .constant)
+  let (rewriter, c) ← rewriter.createOp! (.arith .constant)
     #[ty] #[] #[] #[] props (some ip)
   return (rewriter, (c.getResult 0 : ValuePtr))
 
@@ -84,7 +84,7 @@ def emitArithBinOp (rewriter : PatternRewriter OpCode) (arithOp : Arith)
     (props : propertiesOf (.arith arithOp)) (a b : ValuePtr) (ip : InsertPoint) :
     Option (PatternRewriter OpCode × ValuePtr) := do
   let ty := a.getType! rewriter.ctx.raw
-  let (rewriter, r) := rewriter.createOp! (.arith arithOp)
+  let (rewriter, r) ← rewriter.createOp! (.arith arithOp)
     #[ty] #[a, b] #[] #[] props (some ip)
   return (rewriter, (r.getResult 0 : ValuePtr))
 
