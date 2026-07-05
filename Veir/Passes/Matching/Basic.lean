@@ -117,6 +117,30 @@ def matchUmin (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr ×
   let (op, _) ← matchOp op ctx (.llvm .intr__umin) 2
   return (op[0]!, op[1]!)
 
+def matchSaddSat (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__sadd__sat) 2
+  return (op[0]!, op[1]!)
+
+def matchUaddSat (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__uadd__sat) 2
+  return (op[0]!, op[1]!)
+
+def matchSsubSat (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__ssub__sat) 2
+  return (op[0]!, op[1]!)
+
+def matchUsubSat (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__usub__sat) 2
+  return (op[0]!, op[1]!)
+
+def matchSshlSat (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__sshl__sat) 2
+  return (op[0]!, op[1]!)
+
+def matchUshlSat (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (op, _) ← matchOp op ctx (.llvm .intr__ushl__sat) 2
+  return (op[0]!, op[1]!)
+
 /-- Match `llvm.intr.fshl`, returning the two data operands and the shift amount. -/
 def matchFshl (op : OperationPtr) (ctx : IRContext OpCode) :
     Option (ValuePtr × ValuePtr × ValuePtr) := do
