@@ -324,9 +324,9 @@ def icmp_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (lhs, rhs, property) := matchIcmp op ctx | return (ctx, none)
   /- support `i64` and `i32` -/
   let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return (ctx, none)
+  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 then return (ctx, none)
   let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
-  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 then return (ctx, none)
+  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 ∧ rtype.bitwidth ≠ 8 then return (ctx, none)
   /- Casting is necessary regardless of the predicate. -/
   let (ctx, lcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[lhs]
       #[] #[] () none
@@ -335,7 +335,7 @@ def icmp_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- For i32, sign-extend operands so both signed and unsigned comparisons work correctly.
      Zero-extended i32 negatives look positive in 64-bit signed arithmetic without this. -/
   let (ctx, extOps, lCmpReg, rCmpReg) ←
-    if ltype.bitwidth = 32 then do
+    if ltype.bitwidth = 32 ∨ ltype.bitwidth = 8 then do
       let (ctx, ls) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[lcastOp.getResult 0]
           #[] #[] () none
       let (ctx, rs) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[rcastOp.getResult 0]
