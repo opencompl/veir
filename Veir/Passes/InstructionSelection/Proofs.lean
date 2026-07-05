@@ -39,6 +39,10 @@ theorem constant_refinement_32 {v : Int} :
     (LLVM.Int.constant 32 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 32) := by
   veir_bv_decide
 
+theorem constant_refinement_8 {v : Int} :
+    (LLVM.Int.constant 8 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 8) := by
+  veir_bv_decide
+
 /--
   Prove the correctness of the `add` lowering pattern.
 -/
@@ -62,6 +66,19 @@ theorem addw_refinement {x y : LLVM.Int 32} :
 theorem and_refinement{x y : LLVM.Int 64} :
     (Data.LLVM.Int.and x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.and (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
+
+theorem and_refinement_32 {x y : LLVM.Int 32} :
+    (Data.LLVM.Int.and x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.and (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem and_refinement_8 {x y : LLVM.Int 8} :
+    (Data.LLVM.Int.and x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.and (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 8) := by
+  veir_bv_decide
+
+theorem and_refinement_1 {x y : LLVM.Int 1} :
+    (Data.LLVM.Int.and x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.and (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 1) := by
+  veir_bv_decide
+
 
 /--
   Prove the correctness of the `ctlz` intrinsic lowering pattern.
@@ -282,6 +299,14 @@ theorem or_refinement {x y : LLVM.Int 64} :
 -/
 theorem or_refinement_32 {x y : LLVM.Int 32} :
     (Data.LLVM.Int.or x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.or (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem or_refinement_8 {x y : LLVM.Int 8} :
+    (Data.LLVM.Int.or x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.or (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 8) := by
+  veir_bv_decide
+
+theorem or_refinement_1 {x y : LLVM.Int 1} :
+    (Data.LLVM.Int.or x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.or (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 1) := by
   veir_bv_decide
 
 /--
