@@ -9,6 +9,7 @@
 ;   bitreverse           -> SWAR stages + rev8    (Zbb)
 ;   sadd/ssub/sshl.sat   -> overflow test + czero select (Zicond)
 ;   uadd/usub/ushl.sat   -> Zbb/minmax and bit-test idioms
+;   abs                  -> neg + max                (Zbb)
 ;
 ; Import the IR to the MLIR LLVM dialect with mlir-translate, lower to generic
 ; form with mlir-opt, then run the RISC-V instruction selector with veir-opt.
@@ -33,6 +34,7 @@ declare i64 @llvm.ssub.sat.i64(i64, i64)
 declare i64 @llvm.usub.sat.i64(i64, i64)
 declare i64 @llvm.sshl.sat.i64(i64, i64)
 declare i64 @llvm.ushl.sat.i64(i64, i64)
+declare i64 @llvm.abs.i64(i64, i1)
 
 ; CHECK-LABEL: "sym_name" = "test_rotl"
 ; CHECK: "riscv.rol"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -154,6 +156,14 @@ define i64 @test_sshl_sat(i64 %a, i64 %b) {
 ; CHECK: "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 define i64 @test_ushl_sat(i64 %a, i64 %b) {
   %r = call i64 @llvm.ushl.sat.i64(i64 %a, i64 %b)
+  ret i64 %r
+}
+
+; CHECK-LABEL: "sym_name" = "test_abs"
+; CHECK: "riscv.neg"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+; CHECK: "riscv.max"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+define i64 @test_abs(i64 %a) {
+  %r = call i64 @llvm.abs.i64(i64 %a, i1 false)
   ret i64 %r
 }
 
