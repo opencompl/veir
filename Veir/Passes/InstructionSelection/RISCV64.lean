@@ -1042,6 +1042,179 @@ def umin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
       #[] #[] () (some $ .before op)
   replaceWithReg rewriter op (minuOp.getResult 0)
 
+/-! ## Saturating integer intrinsics
+
+  These mirror LLVM's RV64+Zbb+Zicond lowering for scalar i64 saturating
+  arithmetic. The signed cases compute the wrapped result and an overflow
+  predicate, build the signed saturation endpoint, then select with Zicond:
+
+    `or (czero.eqz saturated overflow) (czero.nez wrapped overflow)`
+
+  Unsigned add/sub use the compact Zbb min/max idioms selected by LLVM.
+
+  The generic DAG expansions live in
+  `llvm/lib/CodeGen/SelectionDAG/TargetLowering.cpp`:
+    * `TargetLowering::expandAddSubSat`  (add/sub sat)      @ line 12432
+    * `TargetLowering::expandShlSat`     (shl sat)          @ line 12598
+    * `TargetLowering::expandSADDSUBO`   (signed overflow)  @ line 13046
+  The signed `select`s become Zicond `czero.{eqz,nez}`/`or`, and the signed
+  saturation constant `select(x<0, INT_MIN, INT_MAX)` folds to `(x >>s 63) ^
+  INT_MAX`. Each sequence below was confirmed identical, instruction for
+  instruction, to `llc -mtriple=riscv64 -mattr=+zbb,+zicond`
+  (LLVM commit d9906882fc61).
+-/
+
+def mkRISCVImm (value : Int) : RISCVImmediateProperties :=
+  RISCVImmediateProperties.mk (IntegerAttr.mk value (IntegerType.mk 64))
+
+def createRISCVImm (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
+    (operands : Array ValuePtr) (value : Int) :
+    Option (PatternRewriter OpCode × OperationPtr) :=
+  rewriter.createOp! (.riscv dst) #[RegisterType.mk] operands #[] #[]
+      (cast h.symm (mkRISCVImm value)) (some $ .before op)
+
+def createRISCVUnit (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (dst : Riscv) (h : Riscv.propertiesOf dst = Unit) (operands : Array ValuePtr) :
+    Option (PatternRewriter OpCode × OperationPtr) :=
+  rewriter.createOp! (.riscv dst) #[RegisterType.mk] operands #[] #[]
+      (cast h.symm ()) (some $ .before op)
+
+def signedSatSelect (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (wrapped overflow sat : ValuePtr) : Option (PatternRewriter OpCode) := do
+  let (rewriter, wrappedOrZero) ← rewriter.createOp! (.riscv .czeronez) #[RegisterType.mk]
+      #[wrapped, overflow] #[] #[] () (some $ .before op)
+  let (rewriter, satOrZero) ← rewriter.createOp! (.riscv .czeroeqz) #[RegisterType.mk]
+      #[sat, overflow] #[] #[] () (some $ .before op)
+  let (rewriter, selectOp) ← rewriter.createOp! (.riscv .or) #[RegisterType.mk]
+      #[satOrZero.getResult 0, wrappedOrZero.getResult 0] #[] #[] () (some $ .before op)
+  replaceWithReg rewriter op (selectOp.getResult 0)
+
+/-- llvm.intr.sadd.sat.i64 -> LLVM's RV64+Zicond signed saturating-add sequence.
+    Wrapped `add` + SADDO overflow `(rhs >>u 63) ^ (sum <s lhs)`
+    (TargetLowering.cpp:12432 `expandAddSubSat`, overflow at 13072
+    `expandSADDSUBO` add branch; sat endpoint `(sum >>s 63) ^ INT_MIN` at 12554). -/
+def saddSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs) := matchSaddSat op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, lReg) ← castToReg rewriter op lhs
+  let (rewriter, rReg) ← castToReg rewriter op rhs
+  let (rewriter, minusOne) ← createRISCVImm rewriter op .li rfl #[] (-1)
+  let (rewriter, sum) ← createRISCVUnit rewriter op .add rfl #[lReg, rReg]
+  let (rewriter, rhsSign) ← createRISCVImm rewriter op .srli rfl #[rReg] 63
+  let (rewriter, carryLike) ← createRISCVUnit rewriter op .slt rfl #[sum.getResult 0, lReg]
+  let (rewriter, sumSign) ← createRISCVImm rewriter op .srai rfl #[sum.getResult 0] 63
+  let (rewriter, intMin) ← createRISCVImm rewriter op .slli rfl #[minusOne.getResult 0] 63
+  let (rewriter, overflow) ← createRISCVUnit rewriter op .xor rfl #[rhsSign.getResult 0, carryLike.getResult 0]
+  let (rewriter, sat) ← createRISCVUnit rewriter op .xor rfl #[sumSign.getResult 0, intMin.getResult 0]
+  signedSatSelect rewriter op (sum.getResult 0) (overflow.getResult 0) (sat.getResult 0)
+
+/-- llvm.intr.ssub.sat.i64 -> LLVM's RV64+Zicond signed saturating-sub sequence.
+    Wrapped `sub` + SSUBO overflow `(lhs <s rhs) ^ (diff >>u 63)`
+    (TargetLowering.cpp:12432 `expandAddSubSat`, overflow at 13082
+    `expandSADDSUBO` sub branch; sat endpoint `(diff >>s 63) ^ INT_MIN` at 12554). -/
+def ssubSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs) := matchSsubSat op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, lReg) ← castToReg rewriter op lhs
+  let (rewriter, rReg) ← castToReg rewriter op rhs
+  let (rewriter, minusOne) ← createRISCVImm rewriter op .li rfl #[] (-1)
+  let (rewriter, diff) ← createRISCVUnit rewriter op .sub rfl #[lReg, rReg]
+  let (rewriter, cmp) ← createRISCVUnit rewriter op .slt rfl #[lReg, rReg]
+  let (rewriter, diffSignBit) ← createRISCVImm rewriter op .srli rfl #[diff.getResult 0] 63
+  let (rewriter, diffSign) ← createRISCVImm rewriter op .srai rfl #[diff.getResult 0] 63
+  let (rewriter, intMin) ← createRISCVImm rewriter op .slli rfl #[minusOne.getResult 0] 63
+  let (rewriter, overflow) ← createRISCVUnit rewriter op .xor rfl #[cmp.getResult 0, diffSignBit.getResult 0]
+  let (rewriter, sat) ← createRISCVUnit rewriter op .xor rfl #[diffSign.getResult 0, intMin.getResult 0]
+  signedSatSelect rewriter op (diff.getResult 0) (overflow.getResult 0) (sat.getResult 0)
+
+/-- llvm.intr.uadd.sat.i64 -> not rhs; minu lhs, not-rhs; add rhs.
+    `uadd.sat(a,b) -> umin(a, ~b) + b` (TargetLowering.cpp:12462
+    `expandAddSubSat`, UADDSAT/UMIN idiom). -/
+def uaddSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs) := matchUaddSat op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, lReg) ← castToReg rewriter op lhs
+  let (rewriter, rReg) ← castToReg rewriter op rhs
+  let (rewriter, notRhs) ← createRISCVImm rewriter op .xori rfl #[rReg] (-1)
+  let (rewriter, minuOp) ← createRISCVUnit rewriter op .minu rfl #[lReg, notRhs.getResult 0]
+  let (rewriter, addOp) ← createRISCVUnit rewriter op .add rfl #[minuOp.getResult 0, rReg]
+  replaceWithReg rewriter op (addOp.getResult 0)
+
+/-- llvm.intr.usub.sat.i64 -> maxu lhs, rhs; sub rhs.
+    `usub.sat(a,b) -> umax(a, b) - b` (TargetLowering.cpp:12442
+    `expandAddSubSat`, USUBSAT/UMAX idiom). -/
+def usubSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs) := matchUsubSat op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, lReg) ← castToReg rewriter op lhs
+  let (rewriter, rReg) ← castToReg rewriter op rhs
+  let (rewriter, maxuOp) ← createRISCVUnit rewriter op .maxu rfl #[lReg, rReg]
+  let (rewriter, subOp) ← createRISCVUnit rewriter op .sub rfl #[maxuOp.getResult 0, rReg]
+  replaceWithReg rewriter op (subOp.getResult 0)
+
+/-- llvm.intr.sshl.sat.i64 -> LLVM's RV64+Zicond signed saturating-shl sequence.
+    `overflow = lhs != (lhs << rhs) >>s rhs`, saturate to
+    `select(lhs<0, INT_MIN, INT_MAX)` folded to `(lhs >>s 63) ^ INT_MAX`
+    (TargetLowering.cpp:12598 `expandShlSat`, signed branch at 12626-12632). -/
+def sshlSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs) := matchSshlSat op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, lReg) ← castToReg rewriter op lhs
+  let (rewriter, rReg) ← castToReg rewriter op rhs
+  let (rewriter, shifted) ← createRISCVUnit rewriter op .sll rfl #[lReg, rReg]
+  let (rewriter, minusOne) ← createRISCVImm rewriter op .li rfl #[] (-1)
+  let (rewriter, unshifted) ← createRISCVUnit rewriter op .sra rfl #[shifted.getResult 0, rReg]
+  let (rewriter, sign) ← createRISCVImm rewriter op .srai rfl #[lReg] 63
+  let (rewriter, intMax) ← createRISCVImm rewriter op .srli rfl #[minusOne.getResult 0] 1
+  let (rewriter, overflow) ← createRISCVUnit rewriter op .xor rfl #[lReg, unshifted.getResult 0]
+  let (rewriter, sat) ← createRISCVUnit rewriter op .xor rfl #[sign.getResult 0, intMax.getResult 0]
+  signedSatSelect rewriter op (shifted.getResult 0) (overflow.getResult 0) (sat.getResult 0)
+
+/-- llvm.intr.ushl.sat.i64 -> LLVM's RV64 unsigned saturating-shl sequence.
+    `overflow = lhs != (lhs << rhs) >>u rhs`, saturate to all-ones;
+    the `select(overflow, ~0, shifted)` becomes the `sltiu`/`addi`/`or`
+    mask idiom (TargetLowering.cpp:12598 `expandShlSat`, unsigned branch
+    at 12630-12633). -/
+def ushlSat (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhs, rhs) := matchUshlSat op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, lReg) ← castToReg rewriter op lhs
+  let (rewriter, rReg) ← castToReg rewriter op rhs
+  let (rewriter, shifted) ← createRISCVUnit rewriter op .sll rfl #[lReg, rReg]
+  let (rewriter, unshifted) ← createRISCVUnit rewriter op .srl rfl #[shifted.getResult 0, rReg]
+  let (rewriter, lostBits) ← createRISCVUnit rewriter op .xor rfl #[lReg, unshifted.getResult 0]
+  let (rewriter, noOverflow) ← createRISCVImm rewriter op .sltiu rfl #[lostBits.getResult 0] 1
+  let (rewriter, overflowMask) ← createRISCVImm rewriter op .addi rfl #[noOverflow.getResult 0] (-1)
+  let (rewriter, orOp) ← createRISCVUnit rewriter op .or rfl #[overflowMask.getResult 0, shifted.getResult 0]
+  replaceWithReg rewriter op (orOp.getResult 0)
+
+/-- llvm.intr.abs.i64 -> `max(x, -x)` via Zbb `neg`/`max`.
+    LLVM's RV64+Zbb lowering (`neg a1, a0; max a0, a0, a1`). The `neg` wraps
+    `intMin` back to `intMin`, so this is correct for both the
+    `is_int_min_poison` and non-poison forms of the intrinsic. -/
+def abs (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some val := matchAbs op rewriter.ctx | return rewriter
+  let .integerType t := ((op.getResult 0).get! rewriter.ctx.raw).type.val | return rewriter
+  if t.bitwidth ≠ 64 then return rewriter
+  let (rewriter, xReg) ← castToReg rewriter op val
+  let (rewriter, negOp) ← createRISCVUnit rewriter op .neg rfl #[xReg]
+  let (rewriter, maxOp) ← createRISCVUnit rewriter op .max rfl #[xReg, negOp.getResult 0]
+  replaceWithReg rewriter op (maxOp.getResult 0)
+
 /-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol.
     The general (distinct-operand) funnel shift is left unselected. -/
 def fshl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1168,7 +1341,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral, ctlz, cttz, ctpop, bswap, bitreverse, constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store,
-    smax, smin, umax, umin, fshlConst, fshrConst, fshl, fshr, poisonConst, freeze]
+    smax, smin, umax, umin, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
+    fshlConst, fshrConst, fshl, fshr, poisonConst, freeze]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
