@@ -111,55 +111,24 @@ Detach an empty, unused, non-entry block from its parent region.
 
 This does not deallocate the block pointer; blocks currently have no deallocator.
 -/
-def WfRewriter.eraseBlock (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
+def WfRewriter.detachBlock (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
     (hBlock : block.InBounds wfCtx.raw := by grind) : Option (WfIRContext OpInfo) := do
-  let blockData := block.get! wfCtx.raw
-  let some parent := blockData.parent | none
-  if blockData.firstUse.isSome then
-    none
-  else if blockData.firstOp.isSome || blockData.lastOp.isSome then
-    none
-  else if (parent.get! wfCtx.raw).firstBlock == some block then
-    none
-  else
-    let prev := blockData.prev
-    let next := blockData.next
-    let raw :=
-      match prev with
-      | some prevBlock => prevBlock.setNextBlock! wfCtx.raw next
-      | none => wfCtx.raw
-    let raw :=
-      match next with
-      | some nextBlock => nextBlock.setPrevBlock! raw prev
-      | none => raw
-    let raw :=
-      if (parent.get! raw).firstBlock == some block then
-        parent.setFirstBlock! raw next
-      else
-        raw
-    let raw :=
-      if (parent.get! raw).lastBlock == some block then
-        parent.setLastBlock! raw prev
-      else
-        raw
-    let raw := block.setPrevBlock! raw none
-    let raw := block.setNextBlock! raw none
-    let raw := block.setParent! raw none
-    some ⟨raw, by sorry⟩
+  let some raw := Rewriter.detachBlock wfCtx.raw block (by grind) hBlock | none
+  some ⟨raw, by sorry⟩
 
 /--
 Detach an empty, unused, non-entry block from its parent region, panicking if any precondition
 does not hold.
 -/
-def WfRewriter.eraseBlock! (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
+def WfRewriter.detachBlock! (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
     : WfIRContext OpInfo :=
   if hBlock : block.InBounds wfCtx.raw then
-    if let some ctx := WfRewriter.eraseBlock wfCtx block hBlock then
+    if let some ctx := WfRewriter.detachBlock wfCtx block hBlock then
       ctx
     else
-      panic! "WfRewriter.eraseBlock! failed: block is not empty, has uses, is an entry block, or has no parent"
+      panic! "WfRewriter.detachBlock! failed: block is not empty, has uses, is an entry block, or has no parent"
   else
-    panic! "WfRewriter.eraseBlock! failed: block is out of bounds"
+    panic! "WfRewriter.detachBlock! failed: block is out of bounds"
 
 /-- Insert a block at a given location. -/
 @[inline]

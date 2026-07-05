@@ -245,9 +245,11 @@ def SimplifyCFG.mergeUnconditionalBranch (rewriter : PatternRewriter OpCode)
   for (blockArg, i) in blockArgs.zipIdx do
     let some branchArg := branchArgs[i]? | none
     mergedCtx := WfRewriter.replaceValue mergedCtx blockArg branchArg sorry sorry sorry
-  let finalCtx := WfRewriter.eraseOp mergedCtx op sorry sorry sorry
-  let some finalCtx := WfRewriter.eraseBlock finalCtx dest sorry | none
-  return { rewriter with ctx := finalCtx, hasDoneAction := true }
+  let some rewriter :=
+    ({ rewriter with ctx := mergedCtx } : PatternRewriter OpCode).eraseOp op sorry sorry sorry
+    | none
+  let some rewriter := rewriter.detachBlock dest sorry | none
+  return rewriter
 
 def SimplifyCFG.isDeadBlock (ctx : IRContext OpCode) (block : BlockPtr) : Bool :=
   let blockData := block.get! ctx
@@ -270,13 +272,9 @@ def SimplifyCFG.eraseDeadBlockOps (rewriter : PatternRewriter OpCode)
           else if deadOp.hasUses! rewriter.ctx.raw then
             rewriter
           else
-            let ctx := WfRewriter.eraseOp rewriter.ctx deadOp sorry sorry sorry
-            let rewriter :=
-              { rewriter with
-                ctx := ctx
-                hasDoneAction := true
-                worklist := rewriter.worklist.remove deadOp }
-            SimplifyCFG.eraseDeadBlockOps rewriter block fuel
+            match rewriter.eraseOp deadOp sorry sorry sorry with
+            | some rewriter => SimplifyCFG.eraseDeadBlockOps rewriter block fuel
+            | none => rewriter
 
 set_option warn.sorry false in
 def SimplifyCFG.removeDeadBlock (rewriter : PatternRewriter OpCode)
@@ -289,8 +287,8 @@ def SimplifyCFG.removeDeadBlock (rewriter : PatternRewriter OpCode)
     SimplifyCFG.eraseDeadBlockOps rewriter block rewriter.ctx.raw.operations.size
   if (block.get! rewriter.ctx.raw).lastOp.isSome then
     return rewriter
-  let some ctx := WfRewriter.eraseBlock rewriter.ctx block sorry | return rewriter
-  return { rewriter with ctx := ctx, hasDoneAction := true }
+  let some rewriter := rewriter.detachBlock block sorry | return rewriter
+  return rewriter
 
 def SimplifyCFGPass.impl (ctx : WfIRContext OpCode)
     (_op : OperationPtr) (_ : _op.InBounds ctx.raw) :

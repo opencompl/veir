@@ -264,6 +264,49 @@ theorem Rewriter.insertBlock_fieldsInBounds_mono
   simp only [insertBlock] at heq
   grind
 
+/--
+Detach an empty, unused, non-entry block from its parent region.
+
+This does not deallocate the block pointer; blocks currently have no deallocator.
+-/
+@[irreducible]
+def Rewriter.detachBlock (ctx : IRContext OpInfo) (block : BlockPtr)
+    (_hCtx : ctx.FieldsInBounds := by grind)
+    (_hBlock : block.InBounds ctx := by grind) : Option (IRContext OpInfo) := do
+  let blockData := block.get! ctx
+  let some parent := blockData.parent | none
+  if blockData.firstUse.isSome then
+    none
+  else if blockData.firstOp.isSome || blockData.lastOp.isSome then
+    none
+  else if (parent.get! ctx).firstBlock == some block then
+    none
+  else
+    let prev := blockData.prev
+    let next := blockData.next
+    let ctx :=
+      match prev with
+      | some prevBlock => prevBlock.setNextBlock! ctx next
+      | none => ctx
+    let ctx :=
+      match next with
+      | some nextBlock => nextBlock.setPrevBlock! ctx prev
+      | none => ctx
+    let ctx :=
+      if (parent.get! ctx).firstBlock == some block then
+        parent.setFirstBlock! ctx next
+      else
+        ctx
+    let ctx :=
+      if (parent.get! ctx).lastBlock == some block then
+        parent.setLastBlock! ctx prev
+      else
+        ctx
+    let ctx := block.setPrevBlock! ctx none
+    let ctx := block.setNextBlock! ctx none
+    let ctx := block.setParent! ctx none
+    some ctx
+
 def Rewriter.replaceUse (ctx: IRContext OpInfo) (use : OpOperandPtr) (newValue: ValuePtr)
     (useIn: use.InBounds ctx := by grind)
     (newIn: newValue.InBounds ctx := by grind)

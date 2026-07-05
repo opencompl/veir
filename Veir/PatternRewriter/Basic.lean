@@ -221,6 +221,15 @@ def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     worklist := rewriter.worklist.remove op,
   }
 
+def detachBlock (rewriter : PatternRewriter OpInfo) (block : BlockPtr)
+    (hBlock : block.InBounds rewriter.ctx.raw := by grind) :
+    Option (PatternRewriter OpInfo) := do
+  let newCtx ← WfRewriter.detachBlock rewriter.ctx block hBlock
+  some { rewriter with
+    ctx := newCtx,
+    hasDoneAction := true,
+  }
+
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
     (hpar : (oldOp.get! rewriter.ctx.raw).parent.isSome = true := by grind)
