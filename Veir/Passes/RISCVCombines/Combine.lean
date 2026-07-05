@@ -153,6 +153,17 @@ def zextw_or := drop_zextw_of_bitwise .or
 /-- `riscv.zextw (riscv.xor (riscv.zextw a) (riscv.zextw b)) -> riscv.xor (riscv.zextw a) (riscv.zextw b)`. -/
 def zextw_xor := drop_zextw_of_bitwise .xor
 
+/-- Match `riscv.sw addr, val`, returning `(addr, val, properties)`. `riscv.sw`
+    has no results, so it can't go through `matchOp` (which requires exactly
+    one). -/
+private def matchRiscvSw (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × ValuePtr × propertiesOf (.riscv .sw)) := do
+  guard (op.getOpType! ctx = .riscv .sw)
+  guard (op.getNumOperands! ctx = 2)
+  let operands := op.getOperands! ctx
+  let properties := op.getProperties! ctx (.riscv .sw)
+  return (operands[0]!, operands[1]!, properties)
+
 set_option warn.sorry false in
 /-- Drop a `riscv.zextw` from the value operand of `riscv.sw`. A word store only
     writes bits 31:0 of its source register (see the `.sw` case of
@@ -162,13 +173,10 @@ set_option warn.sorry false in
     needs the full 64 bits. -/
 def drop_zextw_sw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  if op.getOpType! rewriter.ctx ≠ OpCode.riscv .sw then return rewriter
-  if op.getNumOperands! rewriter.ctx ≠ 2 then return rewriter
-  let operands := op.getOperands! rewriter.ctx
-  let props := op.getProperties! rewriter.ctx (OpCode.riscv .sw)
-  let (val, changed) := stripDefiningZextw operands[1]! rewriter.ctx
+  let some (addr, val, props) := matchRiscvSw op rewriter.ctx | return rewriter
+  let (val, changed) := stripDefiningZextw val rewriter.ctx
   if !changed then return rewriter
-  let (rewriter, _newOp) ← rewriter.createOp! (.riscv .sw) #[] #[operands[0]!, val]
+  let (rewriter, _newOp) ← rewriter.createOp! (.riscv .sw) #[] #[addr, val]
       #[] #[] props (some $ .before op)
   rewriter.eraseOp op sorry sorry sorry
 

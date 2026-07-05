@@ -29,6 +29,13 @@
     %y = "riscv.srliw"(%zx) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
     "func.return"(%y) : (!riscv.reg) -> ()
   }) : () -> ()
+
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  ^bb0(%x: !riscv.reg):
+    %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
+    %y = "riscv.sextw"(%zx) : (!riscv.reg) -> !riscv.reg
+    "func.return"(%y) : (!riscv.reg) -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // CHECK:      ^{{.*}}(%[[ADDW_X:.*]] : !riscv.reg, %[[ADDW_Y:.*]] : !riscv.reg):
@@ -46,3 +53,7 @@
 // CHECK:      ^{{.*}}(%[[SRLIW_X:.*]] : !riscv.reg):
 // CHECK:      %[[SRLIW:.*]] = "riscv.srliw"(%[[SRLIW_X]]) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[SRLIW]]) : (!riscv.reg) -> ()
+
+// CHECK:      ^{{.*}}(%[[SEXTW_X:.*]] : !riscv.reg):
+// CHECK:      %[[SEXTW:.*]] = "riscv.sextw"(%[[SEXTW_X]]) : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT: "func.return"(%[[SEXTW]]) : (!riscv.reg) -> ()
