@@ -453,4 +453,3 @@ namespace Rat
 def twoPow (k : Int) : Rat := 2 ^ k
 
 end Rat
-
