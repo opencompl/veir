@@ -472,6 +472,46 @@ theorem sdiv_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k : Bi
   have hcancel := BitVec.toInt_bmod_cancel (x.sshiftRight' k)
   rwa [toInt_sshiftRight''] at hcancel
 
+/-- The `toInt` of a negated power of two. Unlike `toInt_twoPow`, this needs no case split on
+    whether `2^k` is itself `intMin`: negating `intMin` wraps back to `intMin` (`neg_intMin`),
+    whose `toInt` is `-2^(w-1)`, i.e. exactly `-2^k` at that boundary too. -/
+theorem toInt_neg_one_shl {w₁ w₂ : Nat} (k : BitVec w₂) (hk : k.toNat < w₁) :
+    (-((1#w₁) <<< k)).toInt = -((2 ^ k.toNat : Nat) : Int) := by
+  have hle : 2 ^ k.toNat ≤ 2 ^ (w₁ - 1) := Nat.pow_le_pow_right (by omega) (by omega)
+  have hlt : 2 ^ k.toNat < 2 ^ w₁ := Nat.pow_lt_pow_right (by omega) hk
+  have h2 : 2 ^ (w₁ - 1) * 2 = 2 ^ w₁ := by
+    rw [← Nat.pow_succ]
+    congr 1
+    omega
+  have hy : ((1#w₁) <<< k).toNat = 2 ^ k.toNat := by
+    rw [BitVec.shiftLeft_eq', ← BitVec.twoPow_eq, BitVec.toNat_twoPow_of_lt hk]
+  obtain ⟨q, hq⟩ := Nat.le.dest (Nat.le_of_lt hlt)
+  have hsubval : 2 ^ w₁ - 2 ^ k.toNat = q := by omega
+  have hneg : (-((1#w₁) <<< k)).toNat = q := by
+    rw [BitVec.toNat_neg, hy, Nat.mod_eq_of_lt (Nat.sub_lt (Nat.two_pow_pos w₁) (Nat.two_pow_pos k.toNat)),
+      hsubval]
+  have hcond : ¬ (2 * (-((1#w₁) <<< k)).toNat < 2 ^ w₁) := by rw [hneg]; omega
+  rw [BitVec.toInt_eq_toNat_cond, if_neg hcond, hneg]
+  omega
+
+/-- Negative-divisor analogue of `sdiv_one_shl_of_smod_eq_zero`: an exact `sdiv` by `-2^k` agrees
+    with the negated arithmetic shift. No bound relating `k` to `w` is needed beyond `k < w`
+    (unlike the positive-divisor version): `-2^(w-1)` is itself a valid divisor, since negating
+    it wraps back to itself. -/
+@[veir_bv_normalize_post]
+theorem sdiv_neg_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂)
+    (hk : k.toNat < w₁) (h : x.smod (-((1#w₁) <<< k)) = 0#w₁) :
+    x.sdiv (-((1#w₁) <<< k)) = -(x.sshiftRight' k) := by
+  apply BitVec.eq_of_toInt_eq
+  have hsmod : x.toInt.fmod (-((2 ^ k.toNat : Nat) : Int)) = 0 := by
+    have hcong := congrArg BitVec.toInt h
+    rwa [BitVec.toInt_smod, toInt_neg_one_shl k hk, BitVec.toInt_zero] at hcong
+  have hdvd : ((2 ^ k.toNat : Nat) : Int) ∣ x.toInt :=
+    Int.neg_dvd.mp (Int.dvd_of_fmod_eq_zero hsmod)
+  rw [BitVec.toInt_sdiv, toInt_neg_one_shl k hk, Int.tdiv_neg,
+    Int.tdiv_eq_ediv_of_dvd hdvd, ← Int.shiftRight_eq_div_pow,
+    BitVec.toInt_neg, toInt_sshiftRight'']
+
 @[veir_bv_normalize]
 theorem setWidth_ofInt_32_64 (v : Int) :
     BitVec.setWidth 32 (BitVec.ofInt 64 v) = BitVec.ofInt 32 v := by
