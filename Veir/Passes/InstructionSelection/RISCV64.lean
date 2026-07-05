@@ -278,12 +278,12 @@ def ashr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (lhs, rhs, _) := matchAshr op ctx | return (ctx, none)
   /- support `i64` and `i32` -/
   let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return (ctx, none)
+  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 then return (ctx, none)
   let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
-  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 then return (ctx, none)
+  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 ∧ rtype.bitwidth ≠ 8 then return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 then return (ctx, none)
+  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 then return (ctx, none)
   /- First, cast the operands to registers -/
   let (ctx, lcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[lhs]
       #[] #[] () none
