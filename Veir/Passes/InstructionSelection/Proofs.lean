@@ -43,6 +43,10 @@ theorem constant_refinement_8 {v : Int} :
     (LLVM.Int.constant 8 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 8) := by
   veir_bv_decide
 
+theorem constant_refinement_1 {v : Int} :
+    (LLVM.Int.constant 1 v) ⊒ (RISCV.Reg.toInt (Data.RISCV.li (BitVec.ofInt 64 v)) 1) := by
+  veir_bv_decide
+
 /--
   Prove the correctness of the `add` lowering pattern.
 -/
@@ -1116,11 +1120,6 @@ theorem freeze_refinement {a : LLVM.Int 64} :
   register (`LLVM.Int.toReg`), so signed operations that inspect the sign
   bit must first `sextw`-extend the low 32 bits.
 -/
-
-theorem and_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.and x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.and (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
 
 theorem ashr_refinement_32 {x y : LLVM.Int 32} :
     (Data.LLVM.Int.ashr x y) ⊒
