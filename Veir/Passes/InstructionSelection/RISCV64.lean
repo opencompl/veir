@@ -335,10 +335,16 @@ def icmp_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   /- For i32, sign-extend operands so both signed and unsigned comparisons work correctly.
      Zero-extended i32 negatives look positive in 64-bit signed arithmetic without this. -/
   let (ctx, extOps, lCmpReg, rCmpReg) ←
-    if ltype.bitwidth = 32 ∨ ltype.bitwidth = 8 then do
+    if ltype.bitwidth = 32 then do
       let (ctx, ls) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[lcastOp.getResult 0]
           #[] #[] () none
       let (ctx, rs) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[rcastOp.getResult 0]
+          #[] #[] () none
+      pure (ctx, #[ls, rs], ls.getResult 0, rs.getResult 0)
+    else if ltype.bitwidth = 8 then do
+      let (ctx, ls) ← WfRewriter.createOp! ctx (.riscv .sextb) #[RegisterType.mk] #[lcastOp.getResult 0]
+          #[] #[] () none
+      let (ctx, rs) ← WfRewriter.createOp! ctx (.riscv .sextb) #[RegisterType.mk] #[rcastOp.getResult 0]
           #[] #[] () none
       pure (ctx, #[ls, rs], ls.getResult 0, rs.getResult 0)
     else

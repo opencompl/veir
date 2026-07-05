@@ -1323,77 +1323,77 @@ theorem icmp_refinement_eq_8 {x y : LLVM.Int 8} :
     (Data.LLVM.Int.icmp x y LLVM.IntPred.eq) ⊒
       (RISCV.Reg.toInt (Data.RISCV.sltiu 1#12
         (Data.RISCV.xor
-          (Data.RISCV.sextw (LLVM.Int.toReg y))
-          (Data.RISCV.sextw (LLVM.Int.toReg x)))) 1) := by
+          (Data.RISCV.sextb (LLVM.Int.toReg y))
+          (Data.RISCV.sextb (LLVM.Int.toReg x)))) 1) := by
   veir_bv_decide
 
 theorem icmp_refinement_ne_8 {x y : LLVM.Int 8} :
     (Data.LLVM.Int.icmp x y LLVM.IntPred.ne) ⊒
       (RISCV.Reg.toInt (Data.RISCV.sltu
         (Data.RISCV.xor
-          (Data.RISCV.sextw (LLVM.Int.toReg y))
-          (Data.RISCV.sextw (LLVM.Int.toReg x)))
+          (Data.RISCV.sextb (LLVM.Int.toReg y))
+          (Data.RISCV.sextb (LLVM.Int.toReg x)))
         (Data.RISCV.li 0#64)) 1) := by
   veir_bv_decide
 
--- theorem icmp_refinement_slt_8 {x y : LLVM.Int 8} :
---     (Data.LLVM.Int.icmp x y LLVM.IntPred.slt) ⊒
---       (RISCV.Reg.toInt (Data.RISCV.slt
---         (Data.RISCV.sextw (LLVM.Int.toReg y))
---         (Data.RISCV.sextw (LLVM.Int.toReg x))) 1) := by
---   veir_bv_decide
+theorem icmp_refinement_slt_8 {x y : LLVM.Int 8} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.slt) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slt
+        (Data.RISCV.sextb (LLVM.Int.toReg y))
+        (Data.RISCV.sextb (LLVM.Int.toReg x))) 1) := by
+  veir_bv_decide
 
--- theorem icmp_refinement_sle_8 {x y : LLVM.Int 8} :
---     (Data.LLVM.Int.icmp x y LLVM.IntPred.sle) ⊒
---       (RISCV.Reg.toInt (Data.RISCV.xori 1#12
---         (Data.RISCV.slt
---           (Data.RISCV.sextw (LLVM.Int.toReg x))
---           (Data.RISCV.sextw (LLVM.Int.toReg y)))) 1) := by
---   veir_bv_decide
+theorem icmp_refinement_sle_8 {x y : LLVM.Int 8} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.sle) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
+        (Data.RISCV.slt
+          (Data.RISCV.sextb (LLVM.Int.toReg x))
+          (Data.RISCV.sextb (LLVM.Int.toReg y)))) 1) := by
+  veir_bv_decide
 
--- theorem icmp_refinement_sgt_8 {x y : LLVM.Int 8} :
---     (Data.LLVM.Int.icmp x y LLVM.IntPred.sgt) ⊒
---       (RISCV.Reg.toInt (Data.RISCV.slt
---         (Data.RISCV.sextw (LLVM.Int.toReg x))
---         (Data.RISCV.sextw (LLVM.Int.toReg y))) 1) := by
---   veir_bv_decide
+theorem icmp_refinement_sgt_8 {x y : LLVM.Int 8} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.sgt) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slt
+        (Data.RISCV.sextb (LLVM.Int.toReg x))
+        (Data.RISCV.sextb (LLVM.Int.toReg y))) 1) := by
+  veir_bv_decide
 
--- theorem icmp_refinement_sge_8 {x y : LLVM.Int 8} :
---     (Data.LLVM.Int.icmp x y LLVM.IntPred.sge) ⊒
---       (RISCV.Reg.toInt (Data.RISCV.xori 1#12
---         (Data.RISCV.slt
---           (Data.RISCV.sextw (LLVM.Int.toReg y))
---           (Data.RISCV.sextw (LLVM.Int.toReg x)))) 1) := by
---   veir_bv_decide
+theorem icmp_refinement_sge_8 {x y : LLVM.Int 8} :
+    (Data.LLVM.Int.icmp x y LLVM.IntPred.sge) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12
+        (Data.RISCV.slt
+          (Data.RISCV.sextb (LLVM.Int.toReg y))
+          (Data.RISCV.sextb (LLVM.Int.toReg x)))) 1) := by
+  veir_bv_decide
 
 theorem icmp_refinement_ult_8 {x y : LLVM.Int 8} :
     (Data.LLVM.Int.icmp x y LLVM.IntPred.ult) ⊒
       (RISCV.Reg.toInt (Data.RISCV.sltu
-        (Data.RISCV.sextw (LLVM.Int.toReg y))
-        (Data.RISCV.sextw (LLVM.Int.toReg x))) 1) := by
+        (Data.RISCV.sextb (LLVM.Int.toReg y))
+        (Data.RISCV.sextb (LLVM.Int.toReg x))) 1) := by
   veir_bv_decide
 
 theorem icmp_refinement_ule_8 {x y : LLVM.Int 8} :
     (Data.LLVM.Int.icmp x y LLVM.IntPred.ule) ⊒
       (RISCV.Reg.toInt (Data.RISCV.xori 1#12
         (Data.RISCV.sltu
-          (Data.RISCV.sextw (LLVM.Int.toReg x))
-          (Data.RISCV.sextw (LLVM.Int.toReg y)))) 1) := by
+          (Data.RISCV.sextb (LLVM.Int.toReg x))
+          (Data.RISCV.sextb (LLVM.Int.toReg y)))) 1) := by
   veir_bv_decide
 
 theorem icmp_refinement_ugt_8 {x y : LLVM.Int 8} :
     (Data.LLVM.Int.icmp x y LLVM.IntPred.ugt) ⊒
       (RISCV.Reg.toInt (Data.RISCV.sltu
-        (Data.RISCV.sextw (LLVM.Int.toReg x))
-        (Data.RISCV.sextw (LLVM.Int.toReg y))) 1) := by
+        (Data.RISCV.sextb (LLVM.Int.toReg x))
+        (Data.RISCV.sextb (LLVM.Int.toReg y))) 1) := by
   veir_bv_decide
 
 theorem icmp_refinement_uge_8 {x y : LLVM.Int 8} :
     (Data.LLVM.Int.icmp x y LLVM.IntPred.uge) ⊒
       (RISCV.Reg.toInt (Data.RISCV.xori 1#12
         (Data.RISCV.sltu
-          (Data.RISCV.sextw (LLVM.Int.toReg y))
-          (Data.RISCV.sextw (LLVM.Int.toReg x)))) 1) := by
+          (Data.RISCV.sextb (LLVM.Int.toReg y))
+          (Data.RISCV.sextb (LLVM.Int.toReg x)))) 1) := by
   veir_bv_decide
 
 theorem smax_refinement_32 {x y : LLVM.Int 32} :
