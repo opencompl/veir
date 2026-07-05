@@ -581,8 +581,14 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
   | .llvm .and | .llvm .or | .llvm .xor | .llvm .intr__smax | .llvm .intr__smin
   | .llvm .intr__umax | .llvm .intr__umin | .llvm .add | .llvm .sub | .llvm .shl
   | .llvm .ashr | .llvm .mul | .llvm .sdiv | .llvm .udiv
-  | .llvm .srem | .llvm .urem => do
+  | .llvm .srem | .llvm .urem
+  | .llvm .intr__sadd__sat | .llvm .intr__uadd__sat
+  | .llvm .intr__ssub__sat | .llvm .intr__usub__sat
+  | .llvm .intr__sshl__sat | .llvm .intr__ushl__sat => do
     op.verifyIntegerBinop ctx opIn
+    pure ()
+  | .llvm .intr__abs => do
+    let _ ← op.verifyIntegerUnop ctx opIn
     pure ()
   | .llvm .lshr => do
     op.verifyLLVMLshr ctx opIn
