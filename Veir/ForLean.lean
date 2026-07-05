@@ -442,6 +442,37 @@ theorem udiv_one_shl {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂) :
       rw [BitVec.toNat_twoPow_of_le hk, BitVec.toNat_ofNat, Nat.zero_mod])
     rw [htw, BitVec.udiv_zero, BitVec.ushiftRight_eq_zero hk]
 
+/-- The heterogeneous-width variant of `toInt_sshiftRight'`, which is only stated for a shift
+    amount of the same width as the shifted value. -/
+theorem toInt_sshiftRight'' {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂) :
+    (x.sshiftRight' k).toInt = x.toInt >>> k.toNat := by
+  rw [BitVec.sshiftRight_eq']
+  exact BitVec.toInt_sshiftRight
+
+/-- An exact `sdiv` by a power of two (i.e. one where the dividend has no fractional part to
+    round, witnessed by `x.smod (2^k) = 0`) agrees with the arithmetic shift `x.sshiftRight' k`.
+    `k` must leave room for a sign bit (`k.toNat + 1 < w`, i.e. `2^k` isn't `x`'s own `intMin`),
+    matching the range for which `sdivPow2Exact`/`sdivwPow2Exact` are selected. -/
+@[veir_bv_normalize_post]
+theorem sdiv_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂)
+    (hk : k.toNat + 1 < w₁) (h : x.smod ((1#w₁) <<< k) = 0#w₁) :
+    x.sdiv ((1#w₁) <<< k) = x.sshiftRight' k := by
+  have hy : ((1#w₁) <<< k).toInt = ((2 ^ k.toNat : Nat) : Int) := by
+    rw [BitVec.shiftLeft_eq', ← BitVec.twoPow_eq, BitVec.toInt_twoPow, if_neg (by omega),
+      if_neg (by omega)]
+    exact (Int.natCast_pow 2 k.toNat).symm
+  apply BitVec.eq_of_toInt_eq
+  have hsmod : x.toInt.fmod ((1#w₁) <<< k).toInt = 0 := by
+    rw [← BitVec.toInt_smod, h, BitVec.toInt_zero]
+  rw [hy] at hsmod
+  rw [BitVec.toInt_sdiv, toInt_sshiftRight'', hy]
+  have hnn : (0 : Int) ≤ ((2 ^ k.toNat : Nat) : Int) := Int.natCast_nonneg _
+  rw [Int.fmod_eq_emod_of_nonneg _ hnn] at hsmod
+  have hdvd : ((2 ^ k.toNat : Nat) : Int) ∣ x.toInt := Int.dvd_of_emod_eq_zero hsmod
+  rw [Int.tdiv_eq_ediv_of_dvd hdvd, ← Int.shiftRight_eq_div_pow]
+  have hcancel := BitVec.toInt_bmod_cancel (x.sshiftRight' k)
+  rwa [toInt_sshiftRight''] at hcancel
+
 @[veir_bv_normalize]
 theorem setWidth_ofInt_32_64 (v : Int) :
     BitVec.setWidth 32 (BitVec.ofInt 64 v) = BitVec.ofInt 32 v := by
