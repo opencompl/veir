@@ -1647,6 +1647,122 @@ def fshlConst (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite fshlConst_local rewriter op opInBounds
 
+/-! ## General (distinct-operand) funnel shift
+
+  A funnel shift whose two data operands differ is a true funnel shift, not a
+  rotate, so there is no single Zbb instruction for it. We mirror LLVM's generic
+  `TargetLowering::expandFunnelShift` (`SelectionDAG/TargetLowering.cpp`), which
+  is the path RV64 baseline takes since `FSHL`/`FSHR` are marked `Expand`. For a
+  power-of-two bit width `w` and a variable shift amount `z` (the case a register
+  operand always lands in), the expansion is
+
+    fshl x y z = (x << (z % w)) | ((y >> 1) >> ((w-1) - (z % w)))
+    fshr x y z = ((x << 1) << ((w-1) - (z % w))) | (y >> (z % w))
+
+  The RISC-V shifts already reduce their amount modulo the register width, so
+  `z % w` is just `z` and `(w-1) - (z % w)` is `~z` (both masked by the hardware).
+  The `>> 1` / `<< 1` pre-shifts keep the `z % w = 0` case correct (they push the
+  inverse shift to a full-width shift-out of zero). i32 uses the `w`-suffixed
+  shifts; only the low `w` bits of the `or` matter, so their sign-extension is
+  harmless.
+
+  These run after the rotate/const-rotate matchers, so the identical-operand and
+  constant-amount special cases still select the cheaper `rol`/`ror`/`rori`. -/
+
+/-- General `llvm.intr.fshl x y z` -> `(x << z) | ((y >> 1) >> ~z)` (see the
+    section comment). Handles i64 and i32; the i32 form uses the `w` shifts. -/
+def fshlGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (a, b, amt) := matchFshl op ctx | return (ctx, none)
+  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, xCastOp) ← castToRegLocal ctx a
+  let (ctx, yCastOp) ← castToRegLocal ctx b
+  let (ctx, zCastOp) ← castToRegLocal ctx amt
+  /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
+  let notImm := RISCVImmediateProperties.mk (IntegerAttr.mk (-1) (IntegerType.mk 64))
+  let (ctx, notzOp) ← WfRewriter.createOp! ctx (.riscv .xori) #[RegisterType.mk] #[zCastOp.getResult 0]
+      #[] #[] notImm none
+  let oneImm := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+  /- shx = x << z ; shy = (y >> 1) >> ~z ; result = shx | shy. The i32 form uses
+     the `w` shifts (only the low 32 bits of the `or` are observed). -/
+  if t.bitwidth = 32 then
+    let (ctx, shxOp) ← WfRewriter.createOp! ctx (.riscv .sllw) #[RegisterType.mk] #[xCastOp.getResult 0, zCastOp.getResult 0]
+        #[] #[] () none
+    let (ctx, y1Op) ← WfRewriter.createOp! ctx (.riscv .srliw) #[RegisterType.mk] #[yCastOp.getResult 0]
+        #[] #[] oneImm none
+    let (ctx, shyOp) ← WfRewriter.createOp! ctx (.riscv .srlw) #[RegisterType.mk] #[y1Op.getResult 0, notzOp.getResult 0]
+        #[] #[] () none
+    let (ctx, orOp) ← WfRewriter.createOp! ctx (.riscv .or) #[RegisterType.mk] #[shxOp.getResult 0, shyOp.getResult 0]
+        #[] #[] () none
+    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orOp.getResult 0)
+    some (ctx, some (#[xCastOp, yCastOp, zCastOp, notzOp, shxOp, y1Op, shyOp, orOp, castBackOp],
+      #[castBackOp.getResult 0]))
+  else
+    let (ctx, shxOp) ← WfRewriter.createOp! ctx (.riscv .sll) #[RegisterType.mk] #[xCastOp.getResult 0, zCastOp.getResult 0]
+        #[] #[] () none
+    let (ctx, y1Op) ← WfRewriter.createOp! ctx (.riscv .srli) #[RegisterType.mk] #[yCastOp.getResult 0]
+        #[] #[] oneImm none
+    let (ctx, shyOp) ← WfRewriter.createOp! ctx (.riscv .srl) #[RegisterType.mk] #[y1Op.getResult 0, notzOp.getResult 0]
+        #[] #[] () none
+    let (ctx, orOp) ← WfRewriter.createOp! ctx (.riscv .or) #[RegisterType.mk] #[shxOp.getResult 0, shyOp.getResult 0]
+        #[] #[] () none
+    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orOp.getResult 0)
+    some (ctx, some (#[xCastOp, yCastOp, zCastOp, notzOp, shxOp, y1Op, shyOp, orOp, castBackOp],
+      #[castBackOp.getResult 0]))
+
+/-- General `llvm.intr.fshl` -> shift/or expansion (see `fshlGeneral_local`). -/
+def fshlGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite fshlGeneral_local rewriter op opInBounds
+
+/-- General `llvm.intr.fshr x y z` -> `((x << 1) << ~z) | (y >> z)` (see the
+    section comment). Handles i64 and i32; the i32 form uses the `w` shifts. -/
+def fshrGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (a, b, amt) := matchFshr op ctx | return (ctx, none)
+  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, xCastOp) ← castToRegLocal ctx a
+  let (ctx, yCastOp) ← castToRegLocal ctx b
+  let (ctx, zCastOp) ← castToRegLocal ctx amt
+  /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
+  let notImm := RISCVImmediateProperties.mk (IntegerAttr.mk (-1) (IntegerType.mk 64))
+  let (ctx, notzOp) ← WfRewriter.createOp! ctx (.riscv .xori) #[RegisterType.mk] #[zCastOp.getResult 0]
+      #[] #[] notImm none
+  let oneImm := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+  /- shx = (x << 1) << ~z ; shy = y >> z ; result = shx | shy. The i32 form uses
+     the `w` shifts (only the low 32 bits of the `or` are observed). -/
+  if t.bitwidth = 32 then
+    let (ctx, x1Op) ← WfRewriter.createOp! ctx (.riscv .slliw) #[RegisterType.mk] #[xCastOp.getResult 0]
+        #[] #[] oneImm none
+    let (ctx, shxOp) ← WfRewriter.createOp! ctx (.riscv .sllw) #[RegisterType.mk] #[x1Op.getResult 0, notzOp.getResult 0]
+        #[] #[] () none
+    let (ctx, shyOp) ← WfRewriter.createOp! ctx (.riscv .srlw) #[RegisterType.mk] #[yCastOp.getResult 0, zCastOp.getResult 0]
+        #[] #[] () none
+    let (ctx, orOp) ← WfRewriter.createOp! ctx (.riscv .or) #[RegisterType.mk] #[shxOp.getResult 0, shyOp.getResult 0]
+        #[] #[] () none
+    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orOp.getResult 0)
+    some (ctx, some (#[xCastOp, yCastOp, zCastOp, notzOp, x1Op, shxOp, shyOp, orOp, castBackOp],
+      #[castBackOp.getResult 0]))
+  else
+    let (ctx, x1Op) ← WfRewriter.createOp! ctx (.riscv .slli) #[RegisterType.mk] #[xCastOp.getResult 0]
+        #[] #[] oneImm none
+    let (ctx, shxOp) ← WfRewriter.createOp! ctx (.riscv .sll) #[RegisterType.mk] #[x1Op.getResult 0, notzOp.getResult 0]
+        #[] #[] () none
+    let (ctx, shyOp) ← WfRewriter.createOp! ctx (.riscv .srl) #[RegisterType.mk] #[yCastOp.getResult 0, zCastOp.getResult 0]
+        #[] #[] () none
+    let (ctx, orOp) ← WfRewriter.createOp! ctx (.riscv .or) #[RegisterType.mk] #[shxOp.getResult 0, shyOp.getResult 0]
+        #[] #[] () none
+    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orOp.getResult 0)
+    some (ctx, some (#[xCastOp, yCastOp, zCastOp, notzOp, x1Op, shxOp, shyOp, orOp, castBackOp],
+      #[castBackOp.getResult 0]))
+
+/-- General `llvm.intr.fshr` -> shift/or expansion (see `fshrGeneral_local`). -/
+def fshrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite fshrGeneral_local rewriter op opInBounds
+
 
 /-- llvm.mlir.poison -> riscv.li 0 -/
 def poisonConst_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -1696,7 +1812,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral, ctlz, cttz, ctpop, bswap, bitreverse, constant, add, and, ashr, icmp, or, xor, mul,
     sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store,
     smax, smin, umax, umin, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
-    fshlConst, fshrConst, fshl, fshr, poisonConst, freeze]
+    fshlConst, fshrConst, fshl, fshr, fshlGeneral, fshrGeneral, poisonConst, freeze]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
