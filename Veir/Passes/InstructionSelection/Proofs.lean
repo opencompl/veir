@@ -905,13 +905,17 @@ theorem abs_refinement {x : LLVM.Int 64} {is_int_min_poison : Bool} :
   veir_bv_decide
 
 /-!
-  The funnel-shift rotate lowerings cannot use `veir_bv_decide` directly: its
-  simp normalization rewrites the BitVec shift in the funnel-shift semantics into
-  a *symbolic* `Nat` shift (`c.toNat % w`) on the `2*w`-bit concatenation, which
-  `bv_decide` cannot bit-blast. Instead we reduce the refinement to a pure-BitVec
-  goal by hand (discharging the poison cases from the non-poison hypothesis on the
-  result, and keeping the shift amounts as `BitVec`s) and finish with bare
-  `bv_decide`.
+  ## Funnel-shift lowerings
+
+  These cover both the rotate special cases (identical data operands, selecting
+  `rol`/`ror`/`rori`/`roriw`) and the general distinct-operand funnel shifts
+  (selecting LLVM's `expandFunnelShift` shift/or sequence).
+
+  `veir_bv_decide` closes all of them directly. Its `veir_bv_normalize` phase
+  rewrites the funnel-shift semantics (via `getValue_fshl`/`getValue_fshr`) into a
+  BitVec shift by the `BitVec` amount `c.getValue % w` on the `2*w`-bit
+  concatenation `a ++ b`, which `bv_decide` bit-blasts as a barrel shifter and
+  proves equal to the RISC-V register expression. No manual reduction is needed.
 -/
 
 /--
@@ -974,6 +978,90 @@ theorem fshl_roriw_refinement {a c : LLVM.Int 32} :
     (Data.LLVM.Int.fshl a a c) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.roriw (-(BitVec.extractLsb 4 0 (LLVM.Int.toReg c).val)) (LLVM.Int.toReg a)) 32) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the general (distinct-operand) i64 `fshl` lowering,
+  mirroring LLVM's generic `expandFunnelShift`:
+
+    fshl a b c = (a << c) | ((b >> 1) >> ~c)
+
+  The RISC-V shifts mask their amount modulo 64, so `c` stands for `c % 64` and
+  `~c` (the `xori a, -1`) stands for `(63 - c % 64)`; the `>> 1` pre-shift keeps
+  the `c % 64 = 0` case (where `shy` shifts fully out to zero) correct.
+-/
+theorem fshlGeneral_refinement {a b c : LLVM.Int 64} :
+    (Data.LLVM.Int.fshl a b c) ⊒
+      (RISCV.Reg.toInt
+        (let x0 := LLVM.Int.toReg a
+         let y0 := LLVM.Int.toReg b
+         let z0 := LLVM.Int.toReg c
+         let notz := Data.RISCV.xori (BitVec.ofInt 12 (-1)) z0
+         let shx := Data.RISCV.sll z0 x0
+         let y1 := Data.RISCV.srli 1#6 y0
+         let shy := Data.RISCV.srl notz y1
+         Data.RISCV.or shx shy) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the general (distinct-operand) i64 `fshr` lowering,
+  mirroring LLVM's generic `expandFunnelShift`:
+
+    fshr a b c = ((a << 1) << ~c) | (b >> c)
+
+  The RISC-V shifts mask their amount modulo 64, so `c` stands for `c % 64` and
+  `~c` (the `xori a, -1`) stands for `(63 - c % 64)`; the `<< 1` pre-shift keeps
+  the `c % 64 = 0` case (where `shx` shifts fully out to zero) correct.
+-/
+theorem fshrGeneral_refinement {a b c : LLVM.Int 64} :
+    (Data.LLVM.Int.fshr a b c) ⊒
+      (RISCV.Reg.toInt
+        (let x0 := LLVM.Int.toReg a
+         let y0 := LLVM.Int.toReg b
+         let z0 := LLVM.Int.toReg c
+         let notz := Data.RISCV.xori (BitVec.ofInt 12 (-1)) z0
+         let x1 := Data.RISCV.slli 1#6 x0
+         let shx := Data.RISCV.sll notz x1
+         let shy := Data.RISCV.srl z0 y0
+         Data.RISCV.or shx shy) 64) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the general (distinct-operand) i32 `fshl` lowering: the
+  i64 expansion using the `w`-suffixed shifts (`sllw`/`srliw`/`srlw`), which mask
+  their amount modulo 32. Only the low 32 bits of the `or` are observed (`toInt …
+  32`), so the sign-extension the `w` shifts produce is harmless.
+-/
+theorem fshlGeneralw_refinement {a b c : LLVM.Int 32} :
+    (Data.LLVM.Int.fshl a b c) ⊒
+      (RISCV.Reg.toInt
+        (let x0 := LLVM.Int.toReg a
+         let y0 := LLVM.Int.toReg b
+         let z0 := LLVM.Int.toReg c
+         let notz := Data.RISCV.xori (BitVec.ofInt 12 (-1)) z0
+         let shx := Data.RISCV.sllw z0 x0
+         let y1 := Data.RISCV.srliw 1#5 y0
+         let shy := Data.RISCV.srlw notz y1
+         Data.RISCV.or shx shy) 32) := by
+  veir_bv_decide
+
+/--
+  Prove the correctness of the general (distinct-operand) i32 `fshr` lowering: the
+  i64 expansion using the `w`-suffixed shifts (`slliw`/`sllw`/`srlw`), which mask
+  their amount modulo 32. Only the low 32 bits of the `or` are observed (`toInt …
+  32`), so the sign-extension the `w` shifts produce is harmless.
+-/
+theorem fshrGeneralw_refinement {a b c : LLVM.Int 32} :
+    (Data.LLVM.Int.fshr a b c) ⊒
+      (RISCV.Reg.toInt
+        (let x0 := LLVM.Int.toReg a
+         let y0 := LLVM.Int.toReg b
+         let z0 := LLVM.Int.toReg c
+         let notz := Data.RISCV.xori (BitVec.ofInt 12 (-1)) z0
+         let x1 := Data.RISCV.slliw 1#5 x0
+         let shx := Data.RISCV.sllw notz x1
+         let shy := Data.RISCV.srlw z0 y0
+         Data.RISCV.or shx shy) 32) := by
   veir_bv_decide
 
 /--
