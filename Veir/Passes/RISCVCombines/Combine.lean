@@ -243,58 +243,73 @@ def drop_sextw_zextw := drop_ext_unary_imm_low_word .sextw .zextw
 
 set_option warn.sorry false in
 /-- Drop a `riscv.<ext>` wrapping the result of a bitwise op (`and`/`or`/`xor`)
-    both of whose operands are themselves guarded by the same `riscv.<ext>`.
-    Bitwise ops act bit-by-bit, so if every operand's bits 63:32 already match the
-    extension's high-bit pattern (all clear for `zextw`; all equal to bit 31 for
-    `sextw`), the result's bits 63:32 match it too -- the outer `<ext>` is
-    redundant.
+    when its operands already establish the extension's high-bit pattern (bits
+    63:32 all clear for `zextw`; all equal to bit 31 for `sextw`). Bitwise ops act
+    bit-by-bit, so if the operands carry that pattern then so does the result --
+    the outer `<ext>` is redundant.
+
+    How many operands must be guarded depends on the op. In general *both* must be
+    (`oneOperandSuffices := false`): e.g. `zextw (or a b)` clears bits 63:32 only
+    when both `a` and `b` do, since a set high bit OR-ed in from either side stays
+    set; likewise `xor`, and every `sextw` case (whose no-op condition needs the
+    high bits to *match bit 31*, not merely be zero, so one guarded operand can't
+    force it). The exception is `and` under `zextw`: `and` clears a result bit
+    whenever *either* operand clears it, so a single `zextw`-guarded operand
+    already forces bits 63:32 of the `and` to zero -- hence `oneOperandSuffices`
+    there. When only one operand is guarded we still keep the inner op (and its
+    unguarded operand) untouched; only the outer `<ext>` is dropped.
 
     LLVM: `AND`/`OR`/`XOR` are the "lower word of output depends only on lower
     word of input" cases of `hasAllNBitUsers`, which recurse into their own
     users; combined with the known high bits of the operands this lets
     `SimplifyDemandedBits` / sext.w removal drop the outer extension.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L317-L321 -/
-private def drop_ext_of_bitwise (ext dst : Riscv) (rewriter : PatternRewriter OpCode)
-    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
-    Option (PatternRewriter OpCode) := do
+private def drop_ext_of_bitwise (ext dst : Riscv) (oneOperandSuffices : Bool)
+    (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (operands, _) := matchOp op rewriter.ctx (.riscv ext) 1 | return rewriter
   let inner := operands[0]!
   let some innerOp := getDefiningOp inner rewriter.ctx | return rewriter
   let some (innerOperands, _) := matchOp innerOp rewriter.ctx (.riscv dst) 2 | return rewriter
-  let some lhsOp := getDefiningOp innerOperands[0]! rewriter.ctx | return rewriter
-  let some (_, _) := matchOp lhsOp rewriter.ctx (.riscv ext) 1 | return rewriter
-  let some rhsOp := getDefiningOp innerOperands[1]! rewriter.ctx | return rewriter
-  let some (_, _) := matchOp rhsOp rewriter.ctx (.riscv ext) 1 | return rewriter
+  let (_, lhsGuarded) := stripDefiningExt ext innerOperands[0]! rewriter.ctx
+  let (_, rhsGuarded) := stripDefiningExt ext innerOperands[1]! rewriter.ctx
+  let guarded := if oneOperandSuffices then lhsGuarded || rhsGuarded else lhsGuarded && rhsGuarded
+  if !guarded then return rewriter
   let rewriter := rewriter.replaceValue (op.getResult 0) inner sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
-/-- `riscv.zextw (riscv.and (riscv.zextw a) (riscv.zextw b)) -> riscv.and (riscv.zextw a) (riscv.zextw b)`.
+/-- `riscv.zextw (riscv.and a b) -> riscv.and a b` when *at least one* of `a`, `b`
+    is `riscv.zextw`-guarded: `and` forces a result bit to zero whenever either
+    operand's bit is zero, so one guarded operand already clears bits 63:32.
     LLVM: `AND` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L317 -/
-def zextw_and := drop_ext_of_bitwise .zextw .and
+def zextw_and := drop_ext_of_bitwise .zextw .and true
 
 /-- `riscv.zextw (riscv.or (riscv.zextw a) (riscv.zextw b)) -> riscv.or (riscv.zextw a) (riscv.zextw b)`.
     LLVM: `OR` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L319 -/
-def zextw_or := drop_ext_of_bitwise .zextw .or
+def zextw_or := drop_ext_of_bitwise .zextw .or false
 
 /-- `riscv.zextw (riscv.xor (riscv.zextw a) (riscv.zextw b)) -> riscv.xor (riscv.zextw a) (riscv.zextw b)`.
     LLVM: `XOR` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L321 -/
-def zextw_xor := drop_ext_of_bitwise .zextw .xor
+def zextw_xor := drop_ext_of_bitwise .zextw .xor false
 
 /-- Sext mirror of `zextw_and`: `riscv.sextw (riscv.and (riscv.sextw a) (riscv.sextw b))
-    -> riscv.and (riscv.sextw a) (riscv.sextw b)`. LLVM: `AND` case of `hasAllNBitUsers`.
+    -> riscv.and (riscv.sextw a) (riscv.sextw b)`. Both operands are required here
+    (unlike `zextw_and`): `sextw`'s no-op condition is that bits 63:32 match bit
+    31, which a single guarded operand can't force. LLVM: `AND` case of
+    `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L317 -/
-def sextw_and := drop_ext_of_bitwise .sextw .and
+def sextw_and := drop_ext_of_bitwise .sextw .and false
 
 /-- Sext mirror of `zextw_or`. LLVM: `OR` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L319 -/
-def sextw_or := drop_ext_of_bitwise .sextw .or
+def sextw_or := drop_ext_of_bitwise .sextw .or false
 
 /-- Sext mirror of `zextw_xor`. LLVM: `XOR` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L321 -/
-def sextw_xor := drop_ext_of_bitwise .sextw .xor
+def sextw_xor := drop_ext_of_bitwise .sextw .xor false
 
 /-- Match `riscv.sw addr, val`, returning `(addr, val, properties)`. `riscv.sw`
     has no results, so it can't go through `matchOp` (which requires exactly

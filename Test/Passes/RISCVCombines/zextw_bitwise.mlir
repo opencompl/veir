@@ -32,8 +32,20 @@
     "func.return"(%ze) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  // Negative case: only one operand is `zextw`-guarded, so the result's upper
-  // bits aren't known clear -- the outer `zextw` must stay.
+  // `and` only needs *one* `zextw`-guarded operand: `and` clears a result bit
+  // whenever either operand's bit is clear, so bits 63:32 of the `and` are known
+  // clear even though `%y` is unguarded -- the outer `zextw` folds away.
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  ^bb0(%x: !riscv.reg, %y: !riscv.reg):
+    %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
+    %a = "riscv.and"(%zx, %y) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %za = "riscv.zextw"(%a) : (!riscv.reg) -> !riscv.reg
+    "func.return"(%za) : (!riscv.reg) -> ()
+  }) : () -> ()
+
+  // Negative case: `xor` (unlike `and`) needs *both* operands `zextw`-guarded;
+  // with only one, the result's upper bits aren't known clear -- the outer
+  // `zextw` must stay.
   "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
   ^bb0(%x: !riscv.reg, %y: !riscv.reg):
     %zx = "riscv.zextw"(%x) : (!riscv.reg) -> !riscv.reg
@@ -60,6 +72,11 @@
 // CHECK:      %[[XOR_ZY:.*]] = "riscv.zextw"(%[[XOR_Y]])
 // CHECK:      %[[XOR:.*]] = "riscv.xor"(%[[XOR_ZX]], %[[XOR_ZY]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[XOR]]) : (!riscv.reg) -> ()
+
+// CHECK:      ^{{.*}}(%[[AND1_X:.*]] : !riscv.reg, %[[AND1_Y:.*]] : !riscv.reg):
+// CHECK:      %[[AND1_ZX:.*]] = "riscv.zextw"(%[[AND1_X]])
+// CHECK:      %[[AND1:.*]] = "riscv.and"(%[[AND1_ZX]], %[[AND1_Y]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT: "func.return"(%[[AND1]]) : (!riscv.reg) -> ()
 
 // CHECK:      ^{{.*}}(%[[NEG_X:.*]] : !riscv.reg, %[[NEG_Y:.*]] : !riscv.reg):
 // CHECK:      %[[NEG_ZX:.*]] = "riscv.zextw"(%[[NEG_X]])

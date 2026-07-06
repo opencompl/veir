@@ -147,8 +147,25 @@ theorem drop_zextw_sextw {rs1 : Reg} :
 
 /--
   Prove the correctness of dropping an outer `riscv.zextw` wrapping a bitwise
-  `and` whose both operands are themselves `riscv.zextw`-guarded: each source has
-  bits 63:32 cleared, so their `and` does too.
+  `and` when only the *left* operand is `riscv.zextw`-guarded (the right operand
+  `b` is arbitrary): `and` forces a result bit to zero whenever either operand's
+  bit is zero, so the guarded left operand alone clears bits 63:32 of the result.
+  This subsumes the both-operands-guarded case, and is what lets `zextw_and` fire
+  with `oneOperandSuffices := true`.
+-/
+theorem zextw_and_left {a b : Reg} :
+    RISCV.zextw (RISCV.and (RISCV.zextw a) b) = RISCV.and (RISCV.zextw a) b := by
+  veir_bv_decide
+
+/-- Right-operand mirror of `zextw_and_left`. -/
+theorem zextw_and_right {a b : Reg} :
+    RISCV.zextw (RISCV.and a (RISCV.zextw b)) = RISCV.and a (RISCV.zextw b) := by
+  veir_bv_decide
+
+/--
+  The both-operands-guarded case of `zextw_and`, kept for symmetry with the
+  `or`/`xor` proofs below (each source has bits 63:32 cleared, so their `and`
+  does too). Subsumed by `zextw_and_left`/`zextw_and_right`.
 -/
 theorem zextw_and {a b : Reg} :
     RISCV.zextw (RISCV.and (RISCV.zextw a) (RISCV.zextw b)) =
