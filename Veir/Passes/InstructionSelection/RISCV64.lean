@@ -20,23 +20,38 @@ def isLegalExtOpWidth (w : Nat) : Bool :=
   w = 8 ∨ w = 16 ∨ w = 32
 
 /--
-  `llvm.intr.ctlz` -> `riscv.clz`.
+  Shared shape of the unary RISC-V lowerings (`ctlz`/`cttz`/`ctpop`): match a single-operand
+  LLVM op whose operand has integer type `i64` or `i32`, cast the operand to a register, apply
+  `op64` (or its `W` variant `op32` for `i32`), and cast the result back to the source type.
+  Lowerings of this shape share the correctness proof of `lowerUnaryWLocal`, so proving a new
+  one only requires the per-op data-level refinement lemmas.
 -/
-def ctlz_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+def lowerUnaryWLocal {P : Type}
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × P))
+    (op64 op32 : Riscv)
+    (props64 : propertiesOf (.riscv op64)) (props32 : propertiesOf (.riscv op32))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchCtlz op ctx | return (ctx, none)
+  let some (operand, _) := match? op ctx | return (ctx, none)
   let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
   if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
   let (ctx, castOp) ← castToRegLocal ctx operand
   let (ctx, retOp) ←
     if opType.bitwidth = 32 then
-      WfRewriter.createOp! ctx (.riscv .clzw) #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] () none
+      WfRewriter.createOp! ctx (.riscv op32) #[RegisterType.mk] #[castOp.getResult 0]
+          #[] #[] props32 none
     else
-      WfRewriter.createOp! ctx (.riscv .clz) #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] () none
+      WfRewriter.createOp! ctx (.riscv op64) #[RegisterType.mk] #[castOp.getResult 0]
+          #[] #[] props64 none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
   some (ctx, some (#[castOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+
+/--
+  `llvm.intr.ctlz` -> `riscv.clz`.
+-/
+def ctlz_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerUnaryWLocal matchCtlz .clz .clzw () () ctx op
 
 /--
   `llvm.intr.ctlz` -> `riscv.clz`.
@@ -49,20 +64,8 @@ def ctlz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   `llvm.intr.cttz` -> `riscv.ctz`.
 -/
 def cttz_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchCttz op ctx | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx operand
-  let (ctx, retOp) ←
-    if opType.bitwidth = 32 then
-      WfRewriter.createOp! ctx (.riscv .ctzw) #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] () none
-    else
-      WfRewriter.createOp! ctx (.riscv .ctz) #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
-  some (ctx, some (#[castOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerUnaryWLocal matchCttz .ctz .ctzw () () ctx op
 
 /--
   `llvm.intr.cttz` -> `riscv.ctz`.
@@ -75,20 +78,8 @@ def cttz (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   `llvm.intr.ctpop` -> `riscv.cpop`.
 -/
 def ctpop_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some operand := matchCtpop op ctx | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if opType.bitwidth ≠ 64 ∧ opType.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx operand
-  let (ctx, retOp) ←
-    if opType.bitwidth = 32 then
-      WfRewriter.createOp! ctx (.riscv .cpopw) #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] () none
-    else
-      WfRewriter.createOp! ctx (.riscv .cpop) #[RegisterType.mk] #[castOp.getResult 0]
-          #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
-  some (ctx, some (#[castOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerUnaryWLocal matchCtpop .cpop .cpopw () () ctx op
 
 /--
   `llvm.intr.ctpop` -> `riscv.cpop`.
