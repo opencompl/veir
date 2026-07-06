@@ -463,13 +463,13 @@ def sext_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operand, _) := matchSext op ctx | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
   let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
   if opType.bitwidth ≠ 1 then return (ctx, none)
   /- First, cast the operand to registers -/
   let (ctx, opCastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () none
-  let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 63 (IntegerType.mk 64))
+  let imm := RISCVImmediateProperties.mk (IntegerAttr.mk 63 (IntegerType.mk 6))
   let (ctx, slliOp) ← WfRewriter.createOp! ctx (.riscv .slli) #[RegisterType.mk] #[opCastOp.getResult 0]
       #[] #[] imm none
   let (ctx, sraiOp) ← WfRewriter.createOp! ctx (.riscv .srai) #[RegisterType.mk] #[slliOp.getResult 0]
