@@ -198,4 +198,93 @@ theorem zextw_li_low32 {x : BitVec 64} (h : x.extractLsb 63 32 = 0#32) :
     RISCV.zextw (Data.RISCV.li x) = Data.RISCV.li x := by
   veir_bv_decide
 
+/-! ## Sext-side mirrors of the `zextw` combines.
+
+    `sextw` leaves bits 31:0 unchanged (it only rewrites bits 63:32 to a copy of
+    bit 31), so every combine justified by "the consumer reads only bits 31:0"
+    holds verbatim with `sextw` in place of `zextw`. The redundancy combines
+    (idempotence, `x0`, constant) transfer too, with the constant guard shifting
+    from the unsigned to the signed 32-bit range. -/
+
+/-- Sext mirror of `drop_zextw_addw` (`rs2` operand). -/
+theorem drop_sextw_addw_rs2 {rs1 rs2 : Reg} :
+    RISCV.addw (RISCV.sextw rs2) rs1 = RISCV.addw rs2 rs1 := by
+  veir_bv_decide
+
+/-- Sext mirror of `drop_zextw_addw` (`rs1` operand). -/
+theorem drop_sextw_addw_rs1 {rs1 rs2 : Reg} :
+    RISCV.addw rs2 (RISCV.sextw rs1) = RISCV.addw rs2 rs1 := by
+  veir_bv_decide
+
+/-- Convenience form with both `riscv.addw` operands `sextw`-defined. -/
+theorem drop_sextw_addw {rs1 rs2 : Reg} :
+    RISCV.addw (RISCV.sextw rs2) (RISCV.sextw rs1) = RISCV.addw rs2 rs1 := by
+  veir_bv_decide
+
+/-- Sext mirror of `drop_zextw_addiw`. -/
+theorem drop_sextw_addiw {rs1 : Reg} {imm : BitVec 12} :
+    RISCV.addiw imm (RISCV.sextw rs1) = RISCV.addiw imm rs1 := by
+  veir_bv_decide
+
+/-- Sext mirror of `drop_zextw_roriw`. -/
+theorem drop_sextw_roriw {rs1 : Reg} {shamt : BitVec 5} :
+    RISCV.roriw shamt (RISCV.sextw rs1) = RISCV.roriw shamt rs1 := by
+  veir_bv_decide
+
+/-- Sext mirror of `drop_zextw_srliw`. -/
+theorem drop_sextw_srliw {rs1 : Reg} {shamt : BitVec 5} :
+    RISCV.srliw shamt (RISCV.sextw rs1) = RISCV.srliw shamt rs1 := by
+  veir_bv_decide
+
+/-- `drop_sextw_zextw`: `zextw` keeps only bits 31:0, so a `sextw` feeding it is
+    redundant. (Mirror of `drop_zextw_sextw` with the extensions swapped.) -/
+theorem drop_sextw_zextw {rs1 : Reg} :
+    RISCV.zextw (RISCV.sextw rs1) = RISCV.zextw rs1 := by
+  veir_bv_decide
+
+/-- `sextw_sextw`: sign extension is idempotent. -/
+theorem sextw_sextw {x : Reg} :
+    RISCV.sextw (RISCV.sextw x) = RISCV.sextw x := by
+  veir_bv_decide
+
+/-- Sext mirror of `zextw_and`: `and` of two sign-extended operands is already
+    sign-extended (bit i≥32 of the result is `a₃₁ & b₃₁`, which equals result
+    bit 31), so the outer `sextw` is redundant. -/
+theorem sextw_and {a b : Reg} :
+    RISCV.sextw (RISCV.and (RISCV.sextw a) (RISCV.sextw b)) =
+      RISCV.and (RISCV.sextw a) (RISCV.sextw b) := by
+  veir_bv_decide
+
+/-- `or` analogue of `sextw_and`. -/
+theorem sextw_or {a b : Reg} :
+    RISCV.sextw (RISCV.or (RISCV.sextw a) (RISCV.sextw b)) =
+      RISCV.or (RISCV.sextw a) (RISCV.sextw b) := by
+  veir_bv_decide
+
+/-- `xor` analogue of `sextw_and`. -/
+theorem sextw_xor {a b : Reg} :
+    RISCV.sextw (RISCV.xor (RISCV.sextw a) (RISCV.sextw b)) =
+      RISCV.xor (RISCV.sextw a) (RISCV.sextw b) := by
+  veir_bv_decide
+
+/-- Sext mirror of `drop_zextw_sw`: a word store reads only bits 31:0 of its
+    value operand, which `sextw` leaves unchanged. -/
+theorem drop_sextw_sw {rs1 : Reg} :
+    (RISCV.sextw rs1).val.extractLsb 31 0 = rs1.val.extractLsb 31 0 := by
+  veir_bv_decide
+
+/-- Sext mirror of `zextw_x0`: sign-extending the value 0 (what `x0` reads as) is
+    a no-op. -/
+theorem sextw_x0 :
+    RISCV.sextw (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+  veir_bv_decide
+
+/-- Sext mirror of `zextw_li_low32`. The combine checks `-2^31 ≤ v < 2^31` on the
+    `Int` immediate `v`; that signed 32-bit range is exactly where
+    `BitVec.ofInt 64 v` already equals the sign-extension of its own low 32 bits,
+    which is the hypothesis `h` below. -/
+theorem sextw_li_low32 {x : BitVec 64} (h : (x.extractLsb 31 0).signExtend 64 = x) :
+    RISCV.sextw (Data.RISCV.li x) = Data.RISCV.li x := by
+  veir_bv_decide
+
 end Veir.Data.RISCV
