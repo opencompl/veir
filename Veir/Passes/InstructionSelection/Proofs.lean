@@ -385,7 +385,7 @@ theorem sdivPow2Exact_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) :
       (RISCV.Reg.toInt (Data.RISCV.neg (Data.RISCV.srai k (LLVM.Int.toReg x))) 64) := by
   veir_bv_decide
 
-set_option warn.sorry false in
+set_option maxHeartbeats 1000000 in
 /--
   General (non-`exact`) `sdiv x, 2^k` -> the Hacker's-Delight bias/shift sequence
   (`sdivPow2`, positive divisor): bias a negative dividend by `2^k - 1` before the
@@ -401,9 +401,10 @@ theorem sdivPow2_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) (
          let corr := Data.RISCV.srli (64 - k) sign
          let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
          Data.RISCV.srai k biased) 64) := by
-  sorry -- bv_decide needs a non-default timeout (300s) to close this goal
+  veir_bv_normalize
+  bv_decide (config := { timeout := 300 })
 
-set_option warn.sorry false in
+set_option maxHeartbeats 1000000 in
 /--
   Negative-divisor case of `sdivPow2_pos_refinement`: negate the biased-shift result.
 -/
@@ -414,7 +415,8 @@ theorem sdivPow2_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) :
          let corr := Data.RISCV.srli (64 - k) sign
          let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
          Data.RISCV.neg (Data.RISCV.srai k biased)) 64) := by
-  sorry -- bv_decide needs a non-default timeout (300s) to close this goal
+  veir_bv_normalize
+  bv_decide (config := { timeout := 300 })
 
 /--
   Prove the correctness of the `udiv` lowering pattern.
@@ -1171,7 +1173,6 @@ theorem sdivwPow2Exact_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) :
       (RISCV.Reg.toInt (Data.RISCV.negw (Data.RISCV.sraiw k (LLVM.Int.toReg x))) 32) := by
   veir_bv_decide
 
-set_option warn.sorry false in
 /-- `i32` analogue of `sdivPow2_pos_refinement` (`sdivwPow2`, positive divisor). -/
 theorem sdivwPow2_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) (hk31 : k < 31) :
     (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#32) <<< k)) false) ⊒
@@ -1180,9 +1181,8 @@ theorem sdivwPow2_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) 
          let corr := Data.RISCV.srliw (32 - k) sign
          let biased := Data.RISCV.addw corr (LLVM.Int.toReg x)
          Data.RISCV.sraiw k biased) 32) := by
-  sorry -- bv_decide needs a non-default timeout (300s) to close this goal
+  veir_bv_decide
 
-set_option warn.sorry false in
 /-- `i32` analogue of `sdivPow2_neg_refinement` (`sdivwPow2`, negative divisor). -/
 theorem sdivwPow2_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) :
     (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#32) <<< k))) false) ⊒
@@ -1191,7 +1191,7 @@ theorem sdivwPow2_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) 
          let corr := Data.RISCV.srliw (32 - k) sign
          let biased := Data.RISCV.addw corr (LLVM.Int.toReg x)
          Data.RISCV.negw (Data.RISCV.sraiw k biased)) 32) := by
-  sorry -- bv_decide times out with the default timeout on this goal
+  veir_bv_decide
 
 theorem srem_refinement_32 {x y : LLVM.Int 32} :
     (Data.LLVM.Int.srem x y) ⊒

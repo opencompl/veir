@@ -512,6 +512,272 @@ theorem sdiv_neg_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k 
     Int.tdiv_eq_ediv_of_dvd hdvd, ← Int.shiftRight_eq_div_pow,
     BitVec.toInt_neg, toInt_sshiftRight'']
 
+end BitVec
+
+/-- The Hacker's-Delight bias/shift identity underlying `sdivPow2`/`sdivwPow2`: truncating
+    division by a positive `p` equals floor division of the dividend biased by `p - 1` when the
+    dividend is negative (so the floor rounds toward zero instead of toward `-∞`). -/
+theorem Int.tdiv_eq_ediv_add_of_pos {a p : Int} (hp : 0 < p) :
+    a.tdiv p = (a + (if a < 0 then p - 1 else 0)) / p := by
+  have hpne : p ≠ 0 := by omega
+  rw [Int.tdiv_eq_ediv, Int.sign_eq_one_of_pos hp]
+  by_cases ha : a < 0
+  · rw [if_pos ha]
+    by_cases hdvd : p ∣ a
+    · rw [if_pos (Or.inr hdvd)]
+      obtain ⟨q, hq⟩ := hdvd
+      subst hq
+      have hrw : p * q + (p - 1) = (p - 1) + q * p := by
+        rw [Int.mul_comm q p, Int.add_comm]
+      rw [hrw, Int.add_mul_ediv_right (p - 1) q hpne]
+      have h1 : (0:Int) ≤ p - 1 := by omega
+      have h2 : p - 1 < p := by omega
+      rw [Int.ediv_eq_zero_of_lt h1 h2, Int.mul_ediv_cancel_left q hpne]
+      omega
+    · have hnotor : ¬ (0 ≤ a ∨ p ∣ a) := fun h => h.elim (fun h0 => absurd h0 (by omega)) hdvd
+      rw [if_neg hnotor]
+      have hr : a % p + a / p * p = a := Int.emod_add_ediv_mul a p
+      have hr0 : 0 ≤ a % p := Int.emod_nonneg a hpne
+      have hrlt : a % p < p := Int.emod_lt_of_pos a hp
+      have hrne : a % p ≠ 0 := fun h => hdvd (Int.dvd_of_emod_eq_zero h)
+      have key : a + (p - 1) = (a % p - 1) + (a / p + 1) * p := by
+        have expand : (a / p + 1) * p = a / p * p + p := by
+          rw [Int.add_mul, Int.one_mul]
+        rw [expand]
+        omega
+      rw [key, Int.add_mul_ediv_right (a % p - 1) (a / p + 1) hpne]
+      have h1 : (0:Int) ≤ a % p - 1 := by omega
+      have h2 : a % p - 1 < p := by omega
+      rw [Int.ediv_eq_zero_of_lt h1 h2]
+      simp
+  · have haux : 0 ≤ a ∨ p ∣ a := Or.inl (by omega)
+    rw [if_neg ha, if_pos haux, Int.add_zero, Int.add_zero]
+
+/-- A shifted-in-from-the-left all-ones mask (`(2^w - 1) >>> (w - k)`, i.e. the top `w - k` bits
+    of `allOnes w` cleared) is exactly the `k`-bit all-ones mask `2^k - 1`. Used to compute the
+    Hacker's-Delight sign-extension bias as a plain arithmetic shift. -/
+theorem Nat.shiftRight_two_pow_sub_one {w k : Nat} (hk : k < w) :
+    (2 ^ w - 1) >>> (w - k) = 2 ^ k - 1 := by
+  rw [Nat.shiftRight_eq_div_pow]
+  have hsplit : w - k + k = w := by omega
+  have hpow : 2 ^ (w - k) * 2 ^ k = 2 ^ w := by
+    rw [← Nat.pow_add, hsplit]
+  have hle : 2 ^ (w - k) ≤ 2 ^ w := Nat.pow_le_pow_right (by omega) (by omega)
+  have hge2 : 1 ≤ 2 ^ (w - k) := Nat.one_le_two_pow
+  have heq : 2 ^ w - 1 = 2 ^ (w - k) * (2 ^ k - 1) + (2 ^ (w - k) - 1) := by
+    rw [Nat.mul_sub_one, hpow]
+    omega
+  rw [heq, Nat.mul_add_div (by omega), Nat.div_eq_of_lt (by omega), Nat.add_zero]
+
+namespace BitVec
+
+/-- The bias term added before the arithmetic shift in the Hacker's-Delight bias/shift sequence
+    for signed division by `2^k`: `2^k - 1` when `x` is negative, `0` otherwise, computed as a
+    plain arithmetic-then-logical shift (mirroring `sign := srai 63 x; corr := srli (64-k) sign`
+    in the `sdivPow2`/`sdivwPow2` lowering). -/
+theorem toNat_sign_mask_shift {w₁ : Nat} (x : BitVec w₁) (k : Nat) (hk : k < w₁) :
+    (x.sshiftRight (w₁ - 1) >>> (w₁ - k)).toNat = if x.msb then 2 ^ k - 1 else 0 := by
+  have hdouble : 2 ^ (w₁ - 1) * 2 = 2 ^ w₁ := by
+    rw [← Nat.pow_succ]
+    congr 1
+    omega
+  rw [BitVec.toNat_ushiftRight]
+  by_cases hmsb : x.msb = true
+  · rw [if_pos hmsb, BitVec.toNat_sshiftRight_of_msb_true hmsb]
+    have hxge : 2 ^ (w₁ - 1) ≤ x.toNat := BitVec.le_toNat_of_msb_true hmsb
+    have hxlt : x.toNat < 2 ^ w₁ := x.isLt
+    have hzero : (2 ^ w₁ - 1 - x.toNat) >>> (w₁ - 1) = 0 := by
+      rw [Nat.shiftRight_eq_div_pow, Nat.div_eq_of_lt (by omega)]
+    rw [hzero, Nat.sub_zero]
+    exact Nat.shiftRight_two_pow_sub_one hk
+  · rw [if_neg hmsb]
+    have hmsb' : x.msb = false := by simpa using hmsb
+    rw [BitVec.toNat_sshiftRight_of_msb_false hmsb']
+    have hxlt : x.toNat < 2 ^ (w₁ - 1) := BitVec.toNat_lt_of_msb_false hmsb'
+    have hinner : x.toNat >>> (w₁ - 1) = 0 := by
+      rw [Nat.shiftRight_eq_div_pow]
+      exact Nat.div_eq_of_lt hxlt
+    rw [hinner, Nat.zero_shiftRight]
+
+/-- `sdivPow2` (general, non-`exact` positive divisor): dividing by `2^k` equals arithmetic-shifting
+    `x` biased by `2^k - 1` when `x` is negative (so truncation rounds toward zero instead of
+    toward `-∞`). Unlike `sdiv_one_shl_of_smod_eq_zero`, this holds for *every* `x` (no `smod = 0`
+    side condition), but — like it — needs `k.toNat + 1 < w₁` to keep `2^k` off `x`'s own `intMin`.
+    Stated with plain `Nat`-indexed shifts; see `sdiv_one_shl_eq_biased_sshiftRight_bv` for the
+    `BitVec`-typed-shift-amount form that `bv_decide` can actually bitblast. -/
+theorem sdiv_one_shl_eq_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂)
+    (hk : k.toNat + 1 < w₁) :
+    x.sdiv ((1#w₁) <<< k) =
+      (x + (x.sshiftRight (w₁ - 1) >>> (w₁ - k.toNat))).sshiftRight' k := by
+  have hy : ((1#w₁) <<< k).toInt = ((2 ^ k.toNat : Nat) : Int) := by
+    rw [BitVec.shiftLeft_eq', ← BitVec.twoPow_eq, BitVec.toInt_twoPow, if_neg (by omega),
+      if_neg (by omega)]
+    exact (Int.natCast_pow 2 k.toNat).symm
+  generalize hcorr_def : x.sshiftRight (w₁ - 1) >>> (w₁ - k.toNat) = corr
+  have hcorrNat : corr.toNat = if x.msb then 2 ^ k.toNat - 1 else 0 := by
+    rw [← hcorr_def]
+    exact toNat_sign_mask_shift x k.toNat (by omega)
+  have hple : (2:Nat) ^ k.toNat ≤ 2 ^ (w₁ - 1) := Nat.pow_le_pow_right (by omega) (by omega)
+  have hcorrInt : corr.toInt = if x.toInt < 0 then ((2 ^ k.toNat : Nat) : Int) - 1 else 0 := by
+    rw [BitVec.msb_eq_toInt] at hcorrNat
+    simp only [decide_eq_true_eq] at hcorrNat
+    by_cases hx : x.toInt < 0
+    · rw [if_pos hx] at hcorrNat
+      rw [if_pos hx]
+      have hlt : 2 * corr.toNat < 2 ^ w₁ := by
+        rw [hcorrNat]
+        have : 2 ^ (w₁ - 1) * 2 = 2 ^ w₁ := by
+          rw [← Nat.pow_succ]; congr 1; omega
+        omega
+      rw [BitVec.toInt_eq_toNat_of_lt hlt, hcorrNat]
+      exact Int.natCast_sub Nat.one_le_two_pow
+    · rw [if_neg hx] at hcorrNat
+      rw [if_neg hx]
+      have hlt : 2 * corr.toNat < 2 ^ w₁ := by
+        rw [hcorrNat]
+        have := Nat.two_pow_pos w₁
+        omega
+      rw [BitVec.toInt_eq_toNat_of_lt hlt, hcorrNat]
+      rfl
+  have hsum : (x + corr).toInt = x.toInt + corr.toInt := by
+    have hpleMul : (2:Nat) ^ k.toNat * 2 ≤ 2 ^ w₁ := by
+      have h1 : 2 ^ (k.toNat + 1) ≤ 2 ^ w₁ := Nat.pow_le_pow_right (by omega) (by omega)
+      rwa [Nat.pow_succ] at h1
+    have hpleInt : ((2 ^ k.toNat : Nat) : Int) * 2 ≤ ((2 ^ w₁ : Nat) : Int) := by
+      exact_mod_cast hpleMul
+    rw [BitVec.toInt_add]
+    have hxlt := BitVec.toInt_lt (x := x)
+    have hxge := BitVec.le_toInt (x := x)
+    have hdoubleNat : (2:Nat) ^ (w₁ - 1) * 2 = 2 ^ w₁ := by
+      rw [← Nat.pow_succ]; congr 1; omega
+    have hdouble : (2:Int) ^ (w₁ - 1) * 2 = ((2 ^ w₁ : Nat) : Int) := by exact_mod_cast hdoubleNat
+    rw [hcorrInt]
+    by_cases hx : x.toInt < 0
+    · rw [if_pos hx]
+      have hb1 : (0:Int) ≤ ((2 ^ k.toNat : Nat) : Int) - 1 := by
+        have : (1:Int) ≤ ((2 ^ k.toNat : Nat) : Int) := by exact_mod_cast Nat.one_le_two_pow
+        omega
+      apply Int.bmod_eq_of_le <;> omega
+    · rw [if_neg hx]
+      simp only [Int.add_zero]
+      apply Int.bmod_eq_of_le <;> omega
+  have hppos : (0:Int) < ((2 ^ k.toNat : Nat) : Int) := by
+    exact_mod_cast Nat.two_pow_pos k.toNat
+  apply BitVec.eq_of_toInt_eq
+  rw [BitVec.toInt_sdiv, hy, Int.tdiv_eq_ediv_add_of_pos hppos, ← hcorrInt, ← hsum,
+    ← Int.shiftRight_eq_div_pow, ← toInt_sshiftRight'']
+  exact BitVec.toInt_bmod_cancel _
+
+/-- Negative-divisor analogue of `sdiv_one_shl_eq_biased_sshiftRight` (`sdivPow2`, negative
+    divisor): negate the biased-shift result. Like `sdiv_neg_one_shl_of_smod_eq_zero`, no bound
+    relating `k` to `w` is needed beyond `k < w`: `-2^(w-1)` is itself a valid divisor here too.
+    Stated with plain `Nat`-indexed shifts; see `sdiv_neg_one_shl_eq_neg_biased_sshiftRight_bv`. -/
+theorem sdiv_neg_one_shl_eq_neg_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂)
+    (hk : k.toNat < w₁) :
+    x.sdiv (-((1#w₁) <<< k)) =
+      -((x + (x.sshiftRight (w₁ - 1) >>> (w₁ - k.toNat))).sshiftRight' k) := by
+  have hz : (-((1#w₁) <<< k)).toInt = -((2 ^ k.toNat : Nat) : Int) := toInt_neg_one_shl k hk
+  generalize hcorr_def : x.sshiftRight (w₁ - 1) >>> (w₁ - k.toNat) = corr
+  have hcorrNat : corr.toNat = if x.msb then 2 ^ k.toNat - 1 else 0 := by
+    rw [← hcorr_def]
+    exact toNat_sign_mask_shift x k.toNat hk
+  have hple : (2:Nat) ^ k.toNat ≤ 2 ^ (w₁ - 1) := Nat.pow_le_pow_right (by omega) (by omega)
+  have hcorrInt : corr.toInt = if x.toInt < 0 then ((2 ^ k.toNat : Nat) : Int) - 1 else 0 := by
+    rw [BitVec.msb_eq_toInt] at hcorrNat
+    simp only [decide_eq_true_eq] at hcorrNat
+    by_cases hx : x.toInt < 0
+    · rw [if_pos hx] at hcorrNat
+      rw [if_pos hx]
+      have hlt : 2 * corr.toNat < 2 ^ w₁ := by
+        rw [hcorrNat]
+        have : 2 ^ (w₁ - 1) * 2 = 2 ^ w₁ := by
+          rw [← Nat.pow_succ]; congr 1; omega
+        omega
+      rw [BitVec.toInt_eq_toNat_of_lt hlt, hcorrNat]
+      exact Int.natCast_sub Nat.one_le_two_pow
+    · rw [if_neg hx] at hcorrNat
+      rw [if_neg hx]
+      have hlt : 2 * corr.toNat < 2 ^ w₁ := by
+        rw [hcorrNat]
+        have := Nat.two_pow_pos w₁
+        omega
+      rw [BitVec.toInt_eq_toNat_of_lt hlt, hcorrNat]
+      rfl
+  have hsum : (x + corr).toInt = x.toInt + corr.toInt := by
+    have hpleMul : (2:Nat) ^ k.toNat * 2 ≤ 2 ^ w₁ := by
+      have h1 : 2 ^ (w₁ - 1) * 2 = 2 ^ w₁ := by rw [← Nat.pow_succ]; congr 1; omega
+      calc (2:Nat) ^ k.toNat * 2 ≤ 2 ^ (w₁ - 1) * 2 := Nat.mul_le_mul_right 2 hple
+        _ = 2 ^ w₁ := h1
+    have hpleInt : ((2 ^ k.toNat : Nat) : Int) * 2 ≤ ((2 ^ w₁ : Nat) : Int) := by
+      exact_mod_cast hpleMul
+    rw [BitVec.toInt_add]
+    have hxlt := BitVec.toInt_lt (x := x)
+    have hxge := BitVec.le_toInt (x := x)
+    have hdoubleNat : (2:Nat) ^ (w₁ - 1) * 2 = 2 ^ w₁ := by
+      rw [← Nat.pow_succ]; congr 1; omega
+    have hdouble : (2:Int) ^ (w₁ - 1) * 2 = ((2 ^ w₁ : Nat) : Int) := by exact_mod_cast hdoubleNat
+    rw [hcorrInt]
+    by_cases hx : x.toInt < 0
+    · rw [if_pos hx]
+      have hb1 : (0:Int) ≤ ((2 ^ k.toNat : Nat) : Int) - 1 := by
+        have : (1:Int) ≤ ((2 ^ k.toNat : Nat) : Int) := by exact_mod_cast Nat.one_le_two_pow
+        omega
+      apply Int.bmod_eq_of_le <;> omega
+    · rw [if_neg hx]
+      simp only [Int.add_zero]
+      apply Int.bmod_eq_of_le <;> omega
+  have hppos : (0:Int) < ((2 ^ k.toNat : Nat) : Int) := by
+    exact_mod_cast Nat.two_pow_pos k.toNat
+  apply BitVec.eq_of_toInt_eq
+  rw [BitVec.toInt_sdiv, hz, Int.tdiv_neg, Int.tdiv_eq_ediv_add_of_pos hppos, ← hcorrInt, ← hsum,
+    ← Int.shiftRight_eq_div_pow, ← toInt_sshiftRight'', BitVec.toInt_neg]
+
+/-- `(-v).toNat` in terms of `v.toNat`, for `v` nonzero (no `% 2^w` needed: `2^w - v.toNat` is
+    already in range). -/
+theorem toNat_neg_eq_sub {w : Nat} (v : BitVec w) (hv : 0 < v.toNat) :
+    (-v).toNat = 2 ^ w - v.toNat := by
+  rw [BitVec.toNat_neg]
+  exact Nat.mod_eq_of_lt (Nat.sub_lt (Nat.two_pow_pos w) hv)
+
+/-- `BitVec`-typed-shift-amount form of `sdiv_one_shl_eq_biased_sshiftRight`, matching the shape
+    `sdivPow2`/`sdivwPow2` actually lower to: RISC-V immediates are register-width-sized (`w₂` bits
+    for a `2^w₂`-bit register), so the source's `srai (w₁-1) x`/`srli (w₁-k) sign` are literally
+    `sshiftRight' (-1)`/`ushiftRight (-k)` once the `w₁`-valued immediate wraps to `0` in `w₂` bits.
+    `bv_decide` can only bitblast a shift by a genuine `BitVec` value (not a symbolic `Nat`
+    expression like `w₁ - k.toNat`), so this is the form registered for `veir_bv_normalize`. -/
+@[veir_bv_normalize_post]
+theorem sdiv_one_shl_eq_biased_sshiftRight_bv {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂)
+    (hw2 : 0 < w₂) (hk0 : 0 < k.toNat) (hk : k.toNat + 1 < w₁) (hw : w₁ = 2 ^ w₂) :
+    x.sdiv ((1#w₁) <<< k) =
+      (x + (x.sshiftRight' (-1 : BitVec w₂) >>> (-k))).sshiftRight' k := by
+  have h1 : (1 : BitVec w₂).toNat = 1 := BitVec.toNat_one hw2
+  have heq1 : (-1 : BitVec w₂).toNat = w₁ - 1 := by
+    rw [toNat_neg_eq_sub _ (by omega), hw, h1]
+  have heq2 : (-k : BitVec w₂).toNat = w₁ - k.toNat := by
+    rw [toNat_neg_eq_sub _ hk0, hw]
+  show x.sdiv ((1#w₁) <<< k) =
+    (x + (x.sshiftRight (-1 : BitVec w₂).toNat >>> (-k : BitVec w₂).toNat)).sshiftRight k.toNat
+  rw [heq1, heq2]
+  exact sdiv_one_shl_eq_biased_sshiftRight x k hk
+
+/-- `BitVec`-typed-shift-amount form of `sdiv_neg_one_shl_eq_neg_biased_sshiftRight`; see
+    `sdiv_one_shl_eq_biased_sshiftRight_bv` for why this form (rather than the `Nat`-indexed one)
+    is what gets registered for `veir_bv_normalize`. -/
+@[veir_bv_normalize_post]
+theorem sdiv_neg_one_shl_eq_neg_biased_sshiftRight_bv {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂)
+    (hw2 : 0 < w₂) (hk0 : 0 < k.toNat) (hk : k.toNat < w₁) (hw : w₁ = 2 ^ w₂) :
+    x.sdiv (-((1#w₁) <<< k)) =
+      -((x + (x.sshiftRight' (-1 : BitVec w₂) >>> (-k))).sshiftRight' k) := by
+  have h1 : (1 : BitVec w₂).toNat = 1 := BitVec.toNat_one hw2
+  have heq1 : (-1 : BitVec w₂).toNat = w₁ - 1 := by
+    rw [toNat_neg_eq_sub _ (by omega), hw, h1]
+  have heq2 : (-k : BitVec w₂).toNat = w₁ - k.toNat := by
+    rw [toNat_neg_eq_sub _ hk0, hw]
+  show x.sdiv (-((1#w₁) <<< k)) =
+    -((x + (x.sshiftRight (-1 : BitVec w₂).toNat >>> (-k : BitVec w₂).toNat)).sshiftRight k.toNat)
+  rw [heq1, heq2]
+  exact sdiv_neg_one_shl_eq_neg_biased_sshiftRight x k hk
+
 @[veir_bv_normalize]
 theorem setWidth_ofInt_32_64 (v : Int) :
     BitVec.setWidth 32 (BitVec.ofInt 64 v) = BitVec.ofInt 32 v := by
