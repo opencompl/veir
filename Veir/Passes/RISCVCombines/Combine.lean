@@ -138,6 +138,14 @@ def zextw_zextw := drop_redundant_ext .zextw
 /-- `riscv.sextw (riscv.sextw x) -> riscv.sextw x`. -/
 def sextw_sextw := drop_redundant_ext .sextw
 
+/-- Byte- and half-word mirrors of `zextw_zextw`/`sextw_sextw`. Each extension is
+    idempotent (`ext (ext x) = ext x`) regardless of width, since the inner op
+    already establishes exactly the high-bit pattern the outer one would. -/
+def zextb_zextb := drop_redundant_ext .zextb
+def zexth_zexth := drop_redundant_ext .zexth
+def sextb_sextb := drop_redundant_ext .sextb
+def sexth_sexth := drop_redundant_ext .sexth
+
 /-- If `val` is defined by a `riscv.<ext>` op (`ext` being `zextw`/`sextw`),
     return its source operand and `true`; otherwise `val` unchanged and `false`. -/
 private def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) :
@@ -311,42 +319,72 @@ def sextw_or := drop_ext_of_bitwise .sextw .or false
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L321 -/
 def sextw_xor := drop_ext_of_bitwise .sextw .xor false
 
-/-- Match `riscv.sw addr, val`, returning `(addr, val, properties)`. `riscv.sw`
-    has no results, so it can't go through `matchOp` (which requires exactly
-    one). -/
-private def matchRiscvSw (op : OperationPtr) (ctx : IRContext OpCode) :
-    Option (ValuePtr × ValuePtr × propertiesOf (.riscv .sw)) := do
-  guard (op.getOpType! ctx = .riscv .sw)
+/-! Byte- and half-word mirrors of the `zextw`/`sextw` bitwise combines. The
+    `drop_ext_of_bitwise` reasoning is width-agnostic: for any extension that
+    forces the bits above its width to a fixed pattern (`zextb`/`zexth` clear bits
+    63:8 / 63:16; `sextb`/`sexth` set them to bit 7 / bit 15), a bitwise op whose
+    operands all carry that pattern produces a result that carries it too, so the
+    outer extension is redundant. As with `zextw_and`, `and` under a
+    *zero*-extension needs only one guarded operand; every other case needs both. -/
+def zextb_and := drop_ext_of_bitwise .zextb .and true
+def zextb_or := drop_ext_of_bitwise .zextb .or false
+def zextb_xor := drop_ext_of_bitwise .zextb .xor false
+def zexth_and := drop_ext_of_bitwise .zexth .and true
+def zexth_or := drop_ext_of_bitwise .zexth .or false
+def zexth_xor := drop_ext_of_bitwise .zexth .xor false
+def sextb_and := drop_ext_of_bitwise .sextb .and false
+def sextb_or := drop_ext_of_bitwise .sextb .or false
+def sextb_xor := drop_ext_of_bitwise .sextb .xor false
+def sexth_and := drop_ext_of_bitwise .sexth .and false
+def sexth_or := drop_ext_of_bitwise .sexth .or false
+def sexth_xor := drop_ext_of_bitwise .sexth .xor false
+
+/-- Match a `riscv.<store>` (`sw`/`sh`/`sb`), returning `(addr, val, properties)`.
+    These stores have no results, so they can't go through `matchOp` (which
+    requires exactly one). -/
+private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × ValuePtr × propertiesOf (.riscv store)) := do
+  guard (op.getOpType! ctx = .riscv store)
   guard (op.getNumOperands! ctx = 2)
   let operands := op.getOperands! ctx
-  let properties := op.getProperties! ctx (.riscv .sw)
+  let properties := op.getProperties! ctx (.riscv store)
   return (operands[0]!, operands[1]!, properties)
 
 set_option warn.sorry false in
-/-- Drop a `riscv.<ext>` (`zextw`/`sextw`) from the value operand of `riscv.sw`. A
-    word store only writes bits 31:0 of its source register (see the `.sw` case of
-    `Interpreter.Basic.exec`, which stores just the low 4 bytes), and neither
-    extension changes those bits -- they only rewrite bits 63:32 -- so extending
-    the stored value first is redundant. The address operand is left untouched: it
-    needs the full 64 bits.
+/-- Drop a `riscv.<ext>` from the value operand of a `riscv.<store>` whose width
+    matches the extension's: a word store (`sw`) writes only bits 31:0, a halfword
+    store (`sh`) only bits 15:0, and a byte store (`sb`) only bits 7:0 (see the
+    store cases of `Interpreter.Basic.exec`, which keep just the low 4/2/1 bytes).
+    An extension of the matching width leaves exactly those bits unchanged -- it
+    only rewrites higher bits -- so extending the stored value first is redundant.
+    The address operand is left untouched: it needs the full 64 bits.
 
-    LLVM: the `SW` case of `hasAllNBitUsers` demands only the low 32 bits of the
-    store's value operand (operand index 0), and nothing of the address.
+    LLVM: the `SW`/`SH`/`SB` cases of `hasAllNBitUsers` demand only the low 32/16/8
+    bits of the store's value operand (operand index 0), and nothing of the address.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L304-L311 -/
-private def drop_ext_sw (ext : Riscv) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (addr, val, props) := matchRiscvSw op rewriter.ctx | return rewriter
+private def drop_ext_store (ext store : Riscv) (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
+    Option (PatternRewriter OpCode) := do
+  let some (addr, val, props) := matchRiscvStore store op rewriter.ctx | return rewriter
   let (val, changed) := stripDefiningExt ext val rewriter.ctx
   if !changed then return rewriter
-  let (rewriter, _newOp) ← rewriter.createOp! (.riscv .sw) #[] #[addr, val]
+  let (rewriter, _newOp) ← rewriter.createOp! (.riscv store) #[] #[addr, val]
       #[] #[] props (some $ .before op)
   rewriter.eraseOp op sorry sorry sorry
 
 /-- `riscv.sw addr, (riscv.zextw val) -> riscv.sw addr, val`. -/
-def drop_zextw_sw := drop_ext_sw .zextw
+def drop_zextw_sw := drop_ext_store .zextw .sw
 
 /-- `riscv.sw addr, (riscv.sextw val) -> riscv.sw addr, val`. -/
-def drop_sextw_sw := drop_ext_sw .sextw
+def drop_sextw_sw := drop_ext_store .sextw .sw
+
+/-- Halfword- and byte-store mirrors of `drop_zextw_sw`/`drop_sextw_sw`: `sh` writes
+    only bits 15:0 (matched by `zexth`/`sexth`) and `sb` only bits 7:0 (matched by
+    `zextb`/`sextb`). -/
+def drop_zexth_sh := drop_ext_store .zexth .sh
+def drop_sexth_sh := drop_ext_store .sexth .sh
+def drop_zextb_sb := drop_ext_store .zextb .sb
+def drop_sextb_sb := drop_ext_store .sextb .sb
 
 set_option warn.sorry false in
 /-- riscv.li 0 -> rv64.get_register (x0)
@@ -394,6 +432,13 @@ def zextw_x0 := ext_x0 .zextw
 /-- `riscv.sextw x0 -> x0`. -/
 def sextw_x0 := ext_x0 .sextw
 
+/-- Byte- and half-word mirrors: every extension of `x0` (which reads as 0) is a
+    no-op, since 0 is its own zero- and sign-extension at any width. -/
+def zextb_x0 := ext_x0 .zextb
+def zexth_x0 := ext_x0 .zexth
+def sextb_x0 := ext_x0 .sextb
+def sexth_x0 := ext_x0 .sexth
+
 set_option warn.sorry false in
 /-- `riscv.zextw (riscv.li v) -> riscv.li v` when `0 ≤ v < 2^32`: `li`'s
     materialized 64-bit value (`BitVec.ofInt 64 v`) already has bits 63:32
@@ -434,6 +479,36 @@ def sextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
+set_option warn.sorry false in
+/-- Byte- and half-word mirrors of `zextw_li_low32`/`sextw_li_low32`: a `riscv.<ext>`
+    of a `riscv.li v` is redundant when `v`'s materialized value already carries
+    the extension's high-bit pattern. For a zero-extension that is the *unsigned*
+    range below `2^width` (bits above `width` clear); for a sign-extension the
+    *signed* range `[-2^(width-1), 2^(width-1))` (bits above `width` all equal the
+    sign bit). `ext`/`width` picks the op and its bit width. -/
+private def ext_li_range (ext : Riscv) (lo hi : Int) (rewriter : PatternRewriter OpCode)
+    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
+    Option (PatternRewriter OpCode) := do
+  let some (operands, _) := matchOp op rewriter.ctx (.riscv ext) 1 | return rewriter
+  let src := operands[0]!
+  let some srcOp := getDefiningOp src rewriter.ctx | return rewriter
+  let some (_, cst) := matchOp srcOp rewriter.ctx (.riscv .li) 0 | return rewriter
+  if cst.value.value < lo ∨ cst.value.value ≥ hi then return rewriter
+  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
+  rewriter.eraseOp op sorry sorry sorry
+
+/-- `riscv.zextb (riscv.li v) -> riscv.li v` when `0 ≤ v < 2^8`. -/
+def zextb_li_low8 := ext_li_range .zextb 0 256
+
+/-- `riscv.zexth (riscv.li v) -> riscv.li v` when `0 ≤ v < 2^16`. -/
+def zexth_li_low16 := ext_li_range .zexth 0 65536
+
+/-- `riscv.sextb (riscv.li v) -> riscv.li v` when `-2^7 ≤ v < 2^7`. -/
+def sextb_li_low8 := ext_li_range .sextb (-128) 128
+
+/-- `riscv.sexth (riscv.li v) -> riscv.li v` when `-2^15 ≤ v < 2^15`. -/
+def sexth_li_low16 := ext_li_range .sexth (-32768) 32768
+
 def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let patterns : Array (RewritePattern OpCode) :=
@@ -472,6 +547,34 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , drop_sextw_sw
      , sextw_x0
      , sextw_li_low32
+     , zextb_zextb
+     , zexth_zexth
+     , sextb_sextb
+     , sexth_sexth
+     , zextb_and
+     , zextb_or
+     , zextb_xor
+     , zexth_and
+     , zexth_or
+     , zexth_xor
+     , sextb_and
+     , sextb_or
+     , sextb_xor
+     , sexth_and
+     , sexth_or
+     , sexth_xor
+     , drop_zexth_sh
+     , drop_sexth_sh
+     , drop_zextb_sb
+     , drop_sextb_sb
+     , zextb_x0
+     , zexth_x0
+     , sextb_x0
+     , sexth_x0
+     , zextb_li_low8
+     , zexth_li_low16
+     , sextb_li_low8
+     , sexth_li_low16
      , li_zero_to_x0
      ]
   let pattern := RewritePattern.GreedyRewritePattern patterns

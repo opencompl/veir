@@ -304,4 +304,155 @@ theorem sextw_li_low32 {x : BitVec 64} (h : (x.extractLsb 31 0).signExtend 64 = 
     RISCV.sextw (Data.RISCV.li x) = Data.RISCV.li x := by
   veir_bv_decide
 
+/-! ## Byte- and half-word mirrors of the `zextw`/`sextw` combines.
+
+    Every `zextw`/`sextw` combine that rests only on "the extension establishes a
+    fixed pattern in the bits above its width, which some consumer ignores /
+    another extension re-establishes" holds verbatim at the 8- and 16-bit widths.
+    `zextb`/`zexth` clear bits 63:8 / 63:16; `sextb`/`sexth` set them to bit 7 /
+    bit 15. The `*w`-only combines (`addw`/`addiw`/`roriw`/`srliw`/cross-`w`) are
+    deliberately absent: those consumers read bits 31:0, which the narrower
+    extensions do *not* preserve. -/
+
+/-- Idempotence at the byte/half widths (mirrors `zextw_zextw`/`sextw_sextw`). -/
+theorem zextb_zextb {x : Reg} : RISCV.zextb (RISCV.zextb x) = RISCV.zextb x := by
+  veir_bv_decide
+
+theorem zexth_zexth {x : Reg} : RISCV.zexth (RISCV.zexth x) = RISCV.zexth x := by
+  veir_bv_decide
+
+theorem sextb_sextb {x : Reg} : RISCV.sextb (RISCV.sextb x) = RISCV.sextb x := by
+  veir_bv_decide
+
+theorem sexth_sexth {x : Reg} : RISCV.sexth (RISCV.sexth x) = RISCV.sexth x := by
+  veir_bv_decide
+
+/-- Byte/half mirrors of `zextw_and_left`/`_right` and the `or`/`xor` folds: a
+    zero-extension over a bitwise op is redundant when the operands clear the same
+    high bits (`and` needs only one such operand; `or`/`xor` need both). -/
+theorem zextb_and_left {a b : Reg} :
+    RISCV.zextb (RISCV.and (RISCV.zextb a) b) = RISCV.and (RISCV.zextb a) b := by
+  veir_bv_decide
+
+theorem zextb_and_right {a b : Reg} :
+    RISCV.zextb (RISCV.and a (RISCV.zextb b)) = RISCV.and a (RISCV.zextb b) := by
+  veir_bv_decide
+
+theorem zextb_or {a b : Reg} :
+    RISCV.zextb (RISCV.or (RISCV.zextb a) (RISCV.zextb b)) =
+      RISCV.or (RISCV.zextb a) (RISCV.zextb b) := by
+  veir_bv_decide
+
+theorem zextb_xor {a b : Reg} :
+    RISCV.zextb (RISCV.xor (RISCV.zextb a) (RISCV.zextb b)) =
+      RISCV.xor (RISCV.zextb a) (RISCV.zextb b) := by
+  veir_bv_decide
+
+theorem zexth_and_left {a b : Reg} :
+    RISCV.zexth (RISCV.and (RISCV.zexth a) b) = RISCV.and (RISCV.zexth a) b := by
+  veir_bv_decide
+
+theorem zexth_and_right {a b : Reg} :
+    RISCV.zexth (RISCV.and a (RISCV.zexth b)) = RISCV.and a (RISCV.zexth b) := by
+  veir_bv_decide
+
+theorem zexth_or {a b : Reg} :
+    RISCV.zexth (RISCV.or (RISCV.zexth a) (RISCV.zexth b)) =
+      RISCV.or (RISCV.zexth a) (RISCV.zexth b) := by
+  veir_bv_decide
+
+theorem zexth_xor {a b : Reg} :
+    RISCV.zexth (RISCV.xor (RISCV.zexth a) (RISCV.zexth b)) =
+      RISCV.xor (RISCV.zexth a) (RISCV.zexth b) := by
+  veir_bv_decide
+
+/-- Byte/half sext mirrors of `sextw_and`/`_or`/`_xor`: both operands must be
+    sign-extended (a single one can't force bits above the width to match the sign
+    bit). -/
+theorem sextb_and {a b : Reg} :
+    RISCV.sextb (RISCV.and (RISCV.sextb a) (RISCV.sextb b)) =
+      RISCV.and (RISCV.sextb a) (RISCV.sextb b) := by
+  veir_bv_decide
+
+theorem sextb_or {a b : Reg} :
+    RISCV.sextb (RISCV.or (RISCV.sextb a) (RISCV.sextb b)) =
+      RISCV.or (RISCV.sextb a) (RISCV.sextb b) := by
+  veir_bv_decide
+
+theorem sextb_xor {a b : Reg} :
+    RISCV.sextb (RISCV.xor (RISCV.sextb a) (RISCV.sextb b)) =
+      RISCV.xor (RISCV.sextb a) (RISCV.sextb b) := by
+  veir_bv_decide
+
+theorem sexth_and {a b : Reg} :
+    RISCV.sexth (RISCV.and (RISCV.sexth a) (RISCV.sexth b)) =
+      RISCV.and (RISCV.sexth a) (RISCV.sexth b) := by
+  veir_bv_decide
+
+theorem sexth_or {a b : Reg} :
+    RISCV.sexth (RISCV.or (RISCV.sexth a) (RISCV.sexth b)) =
+      RISCV.or (RISCV.sexth a) (RISCV.sexth b) := by
+  veir_bv_decide
+
+theorem sexth_xor {a b : Reg} :
+    RISCV.sexth (RISCV.xor (RISCV.sexth a) (RISCV.sexth b)) =
+      RISCV.xor (RISCV.sexth a) (RISCV.sexth b) := by
+  veir_bv_decide
+
+/-- Store mirrors of `drop_zextw_sw`/`drop_sextw_sw`: `sh` writes only bits 15:0
+    and `sb` only bits 7:0, which the matching-width extension leaves unchanged. -/
+theorem drop_zexth_sh {rs1 : Reg} :
+    (RISCV.zexth rs1).val.extractLsb 15 0 = rs1.val.extractLsb 15 0 := by
+  veir_bv_decide
+
+theorem drop_sexth_sh {rs1 : Reg} :
+    (RISCV.sexth rs1).val.extractLsb 15 0 = rs1.val.extractLsb 15 0 := by
+  veir_bv_decide
+
+theorem drop_zextb_sb {rs1 : Reg} :
+    (RISCV.zextb rs1).val.extractLsb 7 0 = rs1.val.extractLsb 7 0 := by
+  veir_bv_decide
+
+theorem drop_sextb_sb {rs1 : Reg} :
+    (RISCV.sextb rs1).val.extractLsb 7 0 = rs1.val.extractLsb 7 0 := by
+  veir_bv_decide
+
+/-- Byte/half mirrors of `zextw_x0`/`sextw_x0`: extending the value 0 (what `x0`
+    reads as) is a no-op at any width. -/
+theorem zextb_x0 :
+    RISCV.zextb (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+  veir_bv_decide
+
+theorem zexth_x0 :
+    RISCV.zexth (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+  veir_bv_decide
+
+theorem sextb_x0 :
+    RISCV.sextb (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+  veir_bv_decide
+
+theorem sexth_x0 :
+    RISCV.sexth (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+  veir_bv_decide
+
+/-- Byte/half mirrors of `zextw_li_low32`/`sextw_li_low32`. The combines check the
+    unsigned range `[0, 2^width)` (zero-extension) or signed range
+    `[-2^(width-1), 2^(width-1))` (sign-extension) on the `Int` immediate; the
+    hypotheses below are the corresponding facts about the materialized value. -/
+theorem zextb_li_low8 {x : BitVec 64} (h : x.extractLsb 63 8 = 0#56) :
+    RISCV.zextb (Data.RISCV.li x) = Data.RISCV.li x := by
+  veir_bv_decide
+
+theorem zexth_li_low16 {x : BitVec 64} (h : x.extractLsb 63 16 = 0#48) :
+    RISCV.zexth (Data.RISCV.li x) = Data.RISCV.li x := by
+  veir_bv_decide
+
+theorem sextb_li_low8 {x : BitVec 64} (h : (x.extractLsb 7 0).signExtend 64 = x) :
+    RISCV.sextb (Data.RISCV.li x) = Data.RISCV.li x := by
+  veir_bv_decide
+
+theorem sexth_li_low16 {x : BitVec 64} (h : (x.extractLsb 15 0).signExtend 64 = x) :
+    RISCV.sexth (Data.RISCV.li x) = Data.RISCV.li x := by
+  veir_bv_decide
+
 end Veir.Data.RISCV
