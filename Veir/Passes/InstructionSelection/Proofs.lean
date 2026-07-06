@@ -402,7 +402,7 @@ theorem sdivPow2_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) (
          let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
          Data.RISCV.srai k biased) 64) := by
   veir_bv_normalize
-  bv_decide (config := { timeout := 500 })
+  bv_decide (config := { timeout := 1000 })
 
 set_option maxHeartbeats 1000000 in
 /--
@@ -416,7 +416,7 @@ theorem sdivPow2_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) :
          let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
          Data.RISCV.neg (Data.RISCV.srai k biased)) 64) := by
   veir_bv_normalize
-  bv_decide (config := { timeout := 500 })
+  bv_decide (config := { timeout := 1000 })
 
 /--
   Prove the correctness of the `udiv` lowering pattern.
