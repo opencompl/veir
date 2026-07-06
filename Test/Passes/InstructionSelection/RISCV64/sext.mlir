@@ -7,7 +7,8 @@
         %sextb = "llvm.sext"(%b) : (i16) -> i32
         %sextc = "llvm.sext"(%c) : (i32) -> i64
         %sextd = "llvm.sext"(%a) : (i1) -> i64
-        %sexte = "llvm.sext"(%e) : (i8) -> i64
+        %sexte = "llvm.sext"(%a) : (i1) -> i32
+        %sextf = "llvm.sext"(%e) : (i8) -> i64
         // CHECK:           ^{{.*}}([[A:.*]] : i1, [[B:.*]] : i16, [[C:.*]] : i32, [[D:.*]] : i42, [[E:.*]] : i8):
         // CHECK-NEXT:      %[[F:.*]] = "builtin.unrealized_conversion_cast"([[B]]) : (i16) -> !riscv.reg
         // CHECK-NEXT:      %[[G:.*]] = "riscv.sexth"(%[[F]]) : (!riscv.reg) -> !riscv.reg
@@ -19,12 +20,16 @@
         // CHECK-NEXT:      %[[M:.*]] = "riscv.sextw"(%[[L]]) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:      %[[N:.*]] = "builtin.unrealized_conversion_cast"(%[[M]]) : (!riscv.reg) -> i64
         // CHECK-NEXT:      %[[O:.*]] = "builtin.unrealized_conversion_cast"([[A]]) : (i1) -> !riscv.reg
-        // CHECK-NEXT:      %[[P:.*]] = "riscv.slli"(%[[O]]) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT:      %[[Q:.*]] = "riscv.srai"(%[[P]]) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:      %[[P:.*]] = "riscv.slli"(%[[O]]) <{"value" = 63 : i6}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:      %[[Q:.*]] = "riscv.srai"(%[[P]]) <{"value" = 63 : i6}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT:      %[[R:.*]] = "builtin.unrealized_conversion_cast"(%[[Q]]) : (!riscv.reg) -> i64
-        // CHECK-NEXT:      %[[S:.*]] = "builtin.unrealized_conversion_cast"([[E]]) : (i8) -> !riscv.reg
-        // CHECK-NEXT:      %[[T:.*]] = "riscv.sextb"(%[[S]]) : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT:      %[[U:.*]] = "builtin.unrealized_conversion_cast"(%[[T]]) : (!riscv.reg) -> i64
+        // CHECK-NEXT:      %[[S:.*]] = "builtin.unrealized_conversion_cast"([[A]]) : (i1) -> !riscv.reg
+        // CHECK-NEXT:      %[[T:.*]] = "riscv.slli"(%[[S]]) <{"value" = 63 : i6}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:      %[[U:.*]] = "riscv.srai"(%[[T]]) <{"value" = 63 : i6}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:      %[[V:.*]] = "builtin.unrealized_conversion_cast"(%[[U]]) : (!riscv.reg) -> i32
+        // CHECK-NEXT:      %[[W:.*]] = "builtin.unrealized_conversion_cast"([[E]]) : (i8) -> !riscv.reg
+        // CHECK-NEXT:      %[[X:.*]] = "riscv.sextb"(%[[W]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:      %[[Y:.*]] = "builtin.unrealized_conversion_cast"(%[[X]]) : (!riscv.reg) -> i64
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

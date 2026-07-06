@@ -192,10 +192,10 @@ def constant_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some const := matchConstantIntOp op ctx
       | return (ctx, none)
-  if const.type.bitwidth ≠ 64 ∧ const.type.bitwidth ≠ 32 then return (ctx, none)
+  if const.type.bitwidth ≠ 64 ∧ const.type.bitwidth ≠ 32 ∧ const.type.bitwidth ≠ 8 ∧ const.type.bitwidth ≠ 1 then return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 then return (ctx, none)
+  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 ∧ type'.bitwidth ≠ 1 then return (ctx, none)
   let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv .li) #[RegisterType.mk] #[]
       #[] #[] {value := const} none
   let (ctx, castOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[type]
@@ -248,12 +248,12 @@ def and_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (lhs, rhs, _) := matchAnd op ctx | return (ctx, none)
   /- support `i64` and `i32` -/
   let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return (ctx, none)
+  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 ∧ ltype.bitwidth ≠ 1 then return (ctx, none)
   let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
-  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 then return (ctx, none)
+  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 ∧ rtype.bitwidth ≠ 8 ∧ rtype.bitwidth ≠ 1 then return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 then return (ctx, none)
+  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 ∧ type'.bitwidth ≠ 1 then return (ctx, none)
   /- First, cast the operands to registers -/
   let (ctx, lcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[lhs]
       #[] #[] () none
@@ -278,17 +278,25 @@ def ashr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (lhs, rhs, _) := matchAshr op ctx | return (ctx, none)
   /- support `i64` and `i32` -/
   let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return (ctx, none)
+  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 then return (ctx, none)
   let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
-  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 then return (ctx, none)
+  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 ∧ rtype.bitwidth ≠ 8 then return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 then return (ctx, none)
+  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 then return (ctx, none)
   /- First, cast the operands to registers -/
   let (ctx, lcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[lhs]
       #[] #[] () none
   let (ctx, rcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[rhs]
       #[] #[] () none
+  if type'.bitwidth = 8 then
+    let (ctx, lsOp) ← WfRewriter.createOp! ctx (.riscv .sextb) #[RegisterType.mk] #[lcastOp.getResult 0]
+          #[] #[] () none
+    let (ctx, sraOp) ← WfRewriter.createOp! ctx (.riscv .sra) #[RegisterType.mk] #[lsOp.getResult 0, rcastOp.getResult 0]
+          #[] #[] () none
+    let (ctx, castSraOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[type] #[sraOp.getResult 0]
+      #[] #[] () none
+    return (ctx, some (#[lcastOp, rcastOp, lsOp, sraOp, castSraOp], #[castSraOp.getResult 0]))
   /- sraw for i32 (sign-extends result), sra for i64 -/
   let (ctx, sraOp) ←
     if type'.bitwidth = 32 then
@@ -297,10 +305,10 @@ def ashr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     else
       WfRewriter.createOp! ctx (.riscv .sra) #[RegisterType.mk] #[lcastOp.getResult 0, rcastOp.getResult 0]
           #[] #[] () none
-  /- Cast back result for type consistency-/
+  /- Cast back result for type consistency -/
   let (ctx, castSraOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[type] #[sraOp.getResult 0]
       #[] #[] () none
-  some (ctx, some (#[lcastOp, rcastOp, sraOp, castSraOp], #[castSraOp.getResult 0]))
+  return (ctx, some (#[lcastOp, rcastOp, sraOp, castSraOp], #[castSraOp.getResult 0]))
 
 /-- llvm.ashr -> riscv.sra -/
 def ashr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -324,9 +332,9 @@ def icmp_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (lhs, rhs, property) := matchIcmp op ctx | return (ctx, none)
   /- support `i64` and `i32` -/
   let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return (ctx, none)
+  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 then return (ctx, none)
   let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
-  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 then return (ctx, none)
+  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 ∧ rtype.bitwidth ≠ 8 then return (ctx, none)
   /- Casting is necessary regardless of the predicate. -/
   let (ctx, lcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[lhs]
       #[] #[] () none
@@ -339,6 +347,12 @@ def icmp_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
       let (ctx, ls) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[lcastOp.getResult 0]
           #[] #[] () none
       let (ctx, rs) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[rcastOp.getResult 0]
+          #[] #[] () none
+      pure (ctx, #[ls, rs], ls.getResult 0, rs.getResult 0)
+    else if ltype.bitwidth = 8 then do
+      let (ctx, ls) ← WfRewriter.createOp! ctx (.riscv .sextb) #[RegisterType.mk] #[lcastOp.getResult 0]
+          #[] #[] () none
+      let (ctx, rs) ← WfRewriter.createOp! ctx (.riscv .sextb) #[RegisterType.mk] #[rcastOp.getResult 0]
           #[] #[] () none
       pure (ctx, #[ls, rs], ls.getResult 0, rs.getResult 0)
     else
@@ -471,12 +485,12 @@ def or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some (lhs, rhs, _) := matchOr op ctx | return (ctx, none)
   /- support `i64` and `i32` -/
   let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 then return (ctx, none)
+  if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 ∧ ltype.bitwidth ≠ 1 then return (ctx, none)
   let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
-  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 then return (ctx, none)
+  if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 ∧ rtype.bitwidth ≠ 8 ∧ rtype.bitwidth ≠ 1 then return (ctx, none)
   let type := ((op.getResult 0).get! ctx.raw).type
   let .integerType type' := type.val | return (ctx, none)
-  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 then return (ctx, none)
+  if type'.bitwidth ≠ 64 ∧ type'.bitwidth ≠ 32 ∧ type'.bitwidth ≠ 8 ∧ type'.bitwidth ≠ 1 then return (ctx, none)
   /- First, cast the operands to registers -/
   let (ctx, lcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[lhs]
       #[] #[] () none
@@ -1127,7 +1141,7 @@ def selectGeneral_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (cond, tval, fval) := matchSelect op ctx | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 ∧ t.bitwidth ≠ 1 then return (ctx, none)
   let (ctx, tCastOp) ← castToRegLocal ctx tval
   let (ctx, fCastOp) ← castToRegLocal ctx fval
   let (ctx, condCastOp) ← castToRegLocal ctx cond
