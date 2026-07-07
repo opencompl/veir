@@ -579,7 +579,8 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
     rlet ⟨ctxBuf, idx⟩ ← ctxBuf'.insertAttrs attrs
     some ⟨ptr.impl.writeAttrs ctxBuf idx (by
       have incl : IsIncludedIN ((ptr).spec.range (ctx).spec) (ctx).buf.mem.range := by
-        grind [(ctx).sim.in_bounds (.operation (ptr).spec)]
+        have := ctx.sim.in_bounds (.operation (ptr).spec)
+        grind
       have : ctxBuf.mem.size < 2^63 := by grind
       grind [layout_grind, Buffed.IRBufContext.insertAttrs]),
     ptr.spec.setAttributes ctxSpec attrs (by grind), by
@@ -2779,11 +2780,11 @@ theorem Sim.OperationPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
   -- TODO: we need to get from ctx.sim that the slot in the spec is free.
   sorry
 
-theorem Veir.Sim.BlockPtr.getParent_impl2 {OpInfo : Type} [inst : HasOpInfo OpInfo] (ctx : Sim.IRContext OpInfo)
-  (ptr : Sim.BlockPtr) (ib : ptr.InBounds ctx) :
-  (Sim.BlockPtr.getParentSim ctx ptr ib).impl = Sim.BlockPtr.getParentImpl ctx.buf ctx.spec ⋯ ptr.impl ptr.spec ib := by
-  unfold Sim.BlockPtr.getParentImpl
-  unfold Sim.BlockPtr.getParentSim
-  grind [Sim.OpOperandPtr, Sim.IRContext, Sim.ValuePtr, Sim.BlockArgumentPtr, Sim.BlockPtr, Sim.OperationPtr, Sim.BlockOperandPtr, Sim.OpResultPtr, Sim.RegionPtr, Sim.OpOperandPtrPtr, Sim.BlockOperandPtrPtr]
+-- theorem Veir.Sim.BlockPtr.getParent_impl2 {OpInfo : Type} [inst : HasOpInfo OpInfo] (ctx : Sim.IRContext OpInfo)
+--   (ptr : Sim.BlockPtr) (ib : ptr.InBounds ctx) :
+--   (Sim.BlockPtr.getParentSim ctx ptr ib).impl = Sim.BlockPtr.getParentImpl ctx.buf ctx.spec ⋯ ptr.impl ptr.spec ib := by
+--   unfold Sim.BlockPtr.getParentImpl
+--   unfold Sim.BlockPtr.getParentSim
+--   grind [Sim.OpOperandPtr, Sim.IRContext, Sim.ValuePtr, Sim.BlockArgumentPtr, Sim.BlockPtr, Sim.OperationPtr, Sim.BlockOperandPtr, Sim.OpResultPtr, Sim.RegionPtr, Sim.OpOperandPtrPtr, Sim.BlockOperandPtrPtr]
 
 -- TODO

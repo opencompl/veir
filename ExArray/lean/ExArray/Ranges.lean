@@ -23,15 +23,15 @@ This is a syntactic definition of range inclusion, that is a subset of
 the inclusion relation based on the set of elements in each range.
 The definition only disagrees when the ranges are empty.
 -/
-@[expose, grind =]
+@[expose, grind]
 def IsIncluded (range1 range2 : CORange) : Prop :=
   range2.lower ≤ range1.lower ∧ range1.upper ≤ range2.upper
 
-@[expose, grind =]
+@[expose, grind]
 def IsIncludedIN (range1 : Rco Int) (range2 : Rco Nat) : Prop :=
   range2.lower ≤ range1.lower ∧ range1.upper ≤ range2.upper
 
-@[expose, grind =]
+@[expose, grind]
 def IsIncludedI (range1 : Rco Int) (range2 : Rco Int) : Prop :=
   range2.lower ≤ range1.lower ∧ range1.upper ≤ range2.upper
 

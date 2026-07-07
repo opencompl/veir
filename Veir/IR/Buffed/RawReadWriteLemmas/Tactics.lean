@@ -42,10 +42,12 @@ These macros are NOT used for the multi-branch `rcases` proofs (ValueImpl / PtrP
 
 
 
+namespace RwReal
+
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpOperandPtr reader vs. a scalar operation write. -/
-scoped macro "rw_oo_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_oo_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.OpOperandPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -58,7 +60,7 @@ scoped macro "rw_oo_opScalar" read:grindParam ", " write:grindParam ", " r:term 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpOperandPtr reader vs. a top-level `BlockPtr` write (InBounds hyp `$wib`). -/
-scoped macro "rw_oo_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_oo_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.OpOperandPtr.after_lt_ctx
      have := @Sim.BlockPtr.after_lt_ctx
@@ -74,7 +76,7 @@ scoped macro "rw_oo_block" read:grindParam ", " write:grindParam ", " r:term ", 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpOperandPtr reader vs. a top-level `RegionPtr` write. -/
-scoped macro "rw_oo_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_oo_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.OpOperandPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -88,7 +90,7 @@ scoped macro "rw_oo_region" read:grindParam ", " write:grindParam ", " r:term ",
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpOperandPtr reader vs. a `BlockArgumentPtr` write. -/
-scoped macro "rw_oo_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_oo_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.OpOperandPtr.after_lt_ctx
      have := @Sim.BlockArgumentPtr.after_lt_ctx
@@ -104,7 +106,7 @@ scoped macro "rw_oo_blockArg" read:grindParam ", " write:grindParam ", " r:term 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpOperandPtr reader vs. the same-struct `OpOperandPtr` write (same op, possibly same slot). -/
-scoped macro "rw_oo_oo" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_oo_oo_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.OpOperandPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -117,7 +119,7 @@ scoped macro "rw_oo_oo" read:grindParam ", " write:grindParam ", " r:term ", " w
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpOperandPtr reader vs. a `OpResultPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_oo_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_oo_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.OpOperandPtr.after_lt_ctx
      have := @Sim.OpResultPtr.after_lt_ctx
@@ -139,7 +141,7 @@ scoped macro "rw_oo_opResult" read:grindParam ", " write:grindParam ", " r:term 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpOperandPtr reader vs. a `BlockOperandPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_oo_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_oo_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.OpOperandPtr.after_lt_ctx
      have := @Sim.BlockOperandPtr.after_lt_ctx
@@ -162,7 +164,7 @@ scoped macro "rw_oo_blockOperand" read:grindParam ", " write:grindParam ", " r:t
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpResultPtr reader vs. a scalar operation write. -/
-scoped macro "rw_or_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_or_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.OpResultPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -175,7 +177,7 @@ scoped macro "rw_or_opScalar" read:grindParam ", " write:grindParam ", " r:term 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpResultPtr reader vs. a top-level `BlockPtr` write (InBounds hyp `$wib`). -/
-scoped macro "rw_or_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_or_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.OpResultPtr.after_lt_ctx
      have := @Sim.BlockPtr.after_lt_ctx
@@ -192,7 +194,7 @@ scoped macro "rw_or_block" read:grindParam ", " write:grindParam ", " r:term ", 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpResultPtr reader vs. a top-level `RegionPtr` write. -/
-scoped macro "rw_or_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_or_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.OpResultPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -207,7 +209,7 @@ scoped macro "rw_or_region" read:grindParam ", " write:grindParam ", " r:term ",
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpResultPtr reader vs. a `BlockArgumentPtr` write. -/
-scoped macro "rw_or_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_or_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.OpResultPtr.after_lt_ctx
      have := @Sim.BlockArgumentPtr.after_lt_ctx
@@ -224,7 +226,7 @@ scoped macro "rw_or_blockArg" read:grindParam ", " write:grindParam ", " r:term 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpResultPtr reader vs. the same-struct `OpResultPtr` write (same op, possibly same slot). -/
-scoped macro "rw_or_or" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_or_or_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.OpResultPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -237,7 +239,7 @@ scoped macro "rw_or_or" read:grindParam ", " write:grindParam ", " r:term ", " w
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpResultPtr reader vs. a `OpOperandPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_or_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_or_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.OpResultPtr.after_lt_ctx
      have := @Sim.OpOperandPtr.after_lt_ctx
@@ -260,7 +262,7 @@ scoped macro "rw_or_opOperand" read:grindParam ", " write:grindParam ", " r:term
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- OpResultPtr reader vs. a `BlockOperandPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_or_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_or_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.OpResultPtr.after_lt_ctx
      have := @Sim.BlockOperandPtr.after_lt_ctx
@@ -284,7 +286,7 @@ scoped macro "rw_or_blockOperand" read:grindParam ", " write:grindParam ", " r:t
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- BlockOperandPtr reader vs. a scalar operation write. -/
-scoped macro "rw_bo_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_bo_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockOperandPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -297,7 +299,7 @@ scoped macro "rw_bo_opScalar" read:grindParam ", " write:grindParam ", " r:term 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- BlockOperandPtr reader vs. a top-level `BlockPtr` write (InBounds hyp `$wib`). -/
-scoped macro "rw_bo_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_bo_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.BlockOperandPtr.after_lt_ctx
      have := @Sim.BlockPtr.after_lt_ctx
@@ -313,7 +315,7 @@ scoped macro "rw_bo_block" read:grindParam ", " write:grindParam ", " r:term ", 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- BlockOperandPtr reader vs. a top-level `RegionPtr` write. -/
-scoped macro "rw_bo_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_bo_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockOperandPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -327,7 +329,7 @@ scoped macro "rw_bo_region" read:grindParam ", " write:grindParam ", " r:term ",
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- BlockOperandPtr reader vs. a `BlockArgumentPtr` write. -/
-scoped macro "rw_bo_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_bo_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockOperandPtr.after_lt_ctx
      have := @Sim.BlockArgumentPtr.after_lt_ctx
@@ -343,7 +345,7 @@ scoped macro "rw_bo_blockArg" read:grindParam ", " write:grindParam ", " r:term 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- BlockOperandPtr reader vs. the same-struct `BlockOperandPtr` write (same op, possibly same slot). -/
-scoped macro "rw_bo_bo" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_bo_bo_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockOperandPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -356,7 +358,7 @@ scoped macro "rw_bo_bo" read:grindParam ", " write:grindParam ", " r:term ", " w
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- BlockOperandPtr reader vs. a `OpResultPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_bo_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_bo_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.BlockOperandPtr.after_lt_ctx
      have := @Sim.OpResultPtr.after_lt_ctx
@@ -378,7 +380,7 @@ scoped macro "rw_bo_opResult" read:grindParam ", " write:grindParam ", " r:term 
 open Lean.Parser.Tactic in
 set_option hygiene false in
 /-- BlockOperandPtr reader vs. a `OpOperandPtr` write (same op — index bounds + `Sim` unfold + ReprIndices; InBounds hyp `$wib`). -/
-scoped macro "rw_bo_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_bo_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.BlockOperandPtr.after_lt_ctx
      have := @Sim.OpOperandPtr.after_lt_ctx
@@ -400,7 +402,7 @@ scoped macro "rw_bo_opOperand" read:grindParam ", " write:grindParam ", " r:term
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_ba_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_ba_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockArgumentPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -412,7 +414,7 @@ scoped macro "rw_ba_opScalar" read:grindParam ", " write:grindParam ", " r:term 
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_ba_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_ba_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockArgumentPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -425,7 +427,7 @@ scoped macro "rw_ba_region" read:grindParam ", " write:grindParam ", " r:term ",
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_ba_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_ba_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.BlockArgumentPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -442,7 +444,7 @@ scoped macro "rw_ba_block" read:grindParam ", " write:grindParam ", " r:term ", 
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_ba_ba" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_ba_ba_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockArgumentPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -458,7 +460,7 @@ scoped macro "rw_ba_ba" read:grindParam ", " write:grindParam ", " r:term ", " w
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_ba_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_ba_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockArgumentPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -473,7 +475,7 @@ scoped macro "rw_ba_opResult" read:grindParam ", " write:grindParam ", " r:term 
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_ba_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_ba_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockArgumentPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -488,7 +490,7 @@ scoped macro "rw_ba_opOperand" read:grindParam ", " write:grindParam ", " r:term
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_ba_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_ba_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockArgumentPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -504,7 +506,7 @@ scoped macro "rw_ba_blockOperand" read:grindParam ", " write:grindParam ", " r:t
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_rg" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " rib:term ", " wib:term : tactic =>
+scoped macro "rw_rg_rg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " rib:term ", " wib:term : tactic =>
   `(tactic|
     (have b1 := Sim.RegionPtr.after_lt_ctx (ctx := ctx) ($r) ($rib)
      have b2 := Sim.RegionPtr.after_lt_ctx (ctx := ctx) ($w).spec ($wib).ib
@@ -514,7 +516,7 @@ scoped macro "rw_rg_rg" read:grindParam ", " write:grindParam ", " r:term ", " w
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_rg_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.RegionPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -525,7 +527,7 @@ scoped macro "rw_rg_opScalar" read:grindParam ", " write:grindParam ", " r:term 
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+scoped macro "rw_rg_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
   `(tactic|
     (have := @Sim.RegionPtr.after_lt_ctx
      have := @Sim.BlockPtr.after_lt_ctx
@@ -538,7 +540,7 @@ scoped macro "rw_rg_block" read:grindParam ", " write:grindParam ", " r:term ", 
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_rg_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.RegionPtr.after_lt_ctx
      have := @Sim.BlockArgumentPtr.after_lt_ctx
@@ -551,7 +553,7 @@ scoped macro "rw_rg_blockArg" read:grindParam ", " write:grindParam ", " r:term 
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_rg_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.RegionPtr.after_lt_ctx
      have := @Sim.OpResultPtr.after_lt_ctx
@@ -564,7 +566,7 @@ scoped macro "rw_rg_opResult" read:grindParam ", " write:grindParam ", " r:term 
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_rg_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.RegionPtr.after_lt_ctx
      have := @Sim.OpOperandPtr.after_lt_ctx
@@ -577,7 +579,7 @@ scoped macro "rw_rg_opOperand" read:grindParam ", " write:grindParam ", " r:term
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_rg_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_rg_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.RegionPtr.after_lt_ctx
      have := @Sim.BlockOperandPtr.after_lt_ctx
@@ -591,7 +593,7 @@ scoped macro "rw_rg_blockOperand" read:grindParam ", " write:grindParam ", " r:t
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_bl_bl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic =>
+scoped macro "rw_bl_bl_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic =>
   `(tactic|
     (have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($r) ($rib)
      have b2 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($w).spec ($wib).ib
@@ -602,7 +604,7 @@ scoped macro "rw_bl_bl" read:grindParam ", " write:grindParam ", " r:term ", " w
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_bl_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_bl_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -613,7 +615,7 @@ scoped macro "rw_bl_opScalar" read:grindParam ", " write:grindParam ", " r:term 
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_bl_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_bl_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockPtr.after_lt_ctx
      have : ctx.buf.mem.size < 2 ^ 63 - 1 := by grind
@@ -624,7 +626,7 @@ scoped macro "rw_bl_region" read:grindParam ", " write:grindParam ", " r:term ",
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_bl_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic =>
+scoped macro "rw_bl_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic =>
   `(tactic|
     (have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) ($r) ($rib)
      have disj := ctx.sim.disjoint_allocs (.block ($w).spec.block) (.block ($r))
@@ -640,7 +642,7 @@ scoped macro "rw_bl_blockArg" read:grindParam ", " write:grindParam ", " r:term 
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_bl_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_bl_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockPtr.after_lt_ctx
      have := @Sim.OpResultPtr.after_lt_ctx
@@ -653,7 +655,7 @@ scoped macro "rw_bl_opResult" read:grindParam ", " write:grindParam ", " r:term 
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_bl_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_bl_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockPtr.after_lt_ctx
      have := @Sim.OpOperandPtr.after_lt_ctx
@@ -666,7 +668,7 @@ scoped macro "rw_bl_opOperand" read:grindParam ", " write:grindParam ", " r:term
 
 open Lean.Parser.Tactic in
 set_option hygiene false in
-scoped macro "rw_bl_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+scoped macro "rw_bl_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
   `(tactic|
     (have := @Sim.BlockPtr.after_lt_ctx
      have := @Sim.BlockOperandPtr.after_lt_ctx
@@ -677,6 +679,335 @@ scoped macro "rw_bl_blockOperand" read:grindParam ", " write:grindParam ", " r:t
      grind (splits := 20) [$read, $write, layout_grind,
        BlockPtr.range, BlockPtr.toFlat, BlockOperandPtr.range, BlockOperandPtr.toFlat, IsIncludedI, IsDisjointI]))
 
+
+end RwReal
+
+/-!
+### Stub implementations
+
+Same signatures as the `RwReal.*_impl` macros above, but each expands directly to `sorry`.  These skip
+the (very slow) `grind` calls so the files that *use* these tactics compile quickly while iterating.
+-/
+
+namespace RwStub
+
+open Lean.Parser.Tactic in
+scoped macro "rw_oo_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_oo_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_oo_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_oo_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_oo_oo_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_oo_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_oo_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_or_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_or_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_or_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_or_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_or_or_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_or_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_or_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bo_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bo_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bo_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bo_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bo_bo_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bo_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bo_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_ba_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_ba_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_ba_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_ba_ba_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_ba_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_ba_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_ba_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_rg_rg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " rib:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_rg_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_rg_block_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_rg_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_rg_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_rg_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_rg_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bl_bl_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bl_opScalar_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bl_region_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bl_blockArg_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bl_opResult_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bl_opOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+open Lean.Parser.Tactic in
+scoped macro "rw_bl_blockOperand_impl" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic => `(tactic| sorry)
+
+end RwStub
+
+/-!
+### The switch
+
+`open`  **exactly one**  of the two namespaces below.  The `*_impl` macros it brings into scope are the
+ones the public `rw_*` forwarders (further down) delegate to.
+
+  * `RwReal` — the real proofs (default).
+  * `RwStub` — fast `sorry` stubs; flip to this while iterating on the consumer files, flip back before
+    committing.
+-/
+
+-- open scoped RwReal
+open scoped RwStub
+
+/-!
+### Public `rw_*` entry points
+
+Thin forwarders to whichever `*_impl` is currently opened.  Consumers keep using the bare `rw_*` names
+(via `open scoped Veir.Buffed`) and never see the split.
+-/
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_oo_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_oo_opScalar_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_oo_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_oo_block_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_oo_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_oo_region_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_oo_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_oo_blockArg_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_oo_oo" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_oo_oo_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_oo_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_oo_opResult_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_oo_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_oo_blockOperand_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_or_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_or_opScalar_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_or_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_or_block_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_or_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_or_region_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_or_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_or_blockArg_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_or_or" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_or_or_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_or_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_or_opOperand_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_or_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_or_blockOperand_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bo_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_bo_opScalar_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bo_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_bo_block_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bo_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_bo_region_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bo_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_bo_blockArg_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bo_bo" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_bo_bo_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bo_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_bo_opResult_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bo_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_bo_opOperand_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_ba_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_ba_opScalar_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_ba_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_ba_region_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_ba_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_ba_block_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_ba_ba" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_ba_ba_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_ba_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_ba_opResult_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_ba_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_ba_opOperand_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_ba_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_ba_blockOperand_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_rg_rg" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " rib:term ", " wib:term : tactic =>
+  `(tactic| rw_rg_rg_impl $read, $write, $r, $w, $rib, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_rg_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_rg_opScalar_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_rg_block" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " wib:term : tactic =>
+  `(tactic| rw_rg_block_impl $read, $write, $r, $w, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_rg_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_rg_blockArg_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_rg_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_rg_opResult_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_rg_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_rg_opOperand_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_rg_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_rg_blockOperand_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bl_bl" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic =>
+  `(tactic| rw_bl_bl_impl $read, $write, $r, $w, $proj, $rib, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bl_opScalar" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_bl_opScalar_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bl_region" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_bl_region_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bl_blockArg" read:grindParam ", " write:grindParam ", " r:term ", " w:term ", " proj:ident ", " rib:term ", " wib:term : tactic =>
+  `(tactic| rw_bl_blockArg_impl $read, $write, $r, $w, $proj, $rib, $wib)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bl_opResult" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_bl_opResult_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bl_opOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_bl_opOperand_impl $read, $write, $r, $w)
+
+open Lean.Parser.Tactic in
+set_option hygiene false in
+scoped macro "rw_bl_blockOperand" read:grindParam ", " write:grindParam ", " r:term ", " w:term : tactic =>
+  `(tactic| rw_bl_blockOperand_impl $read, $write, $r, $w)
 
 end read_write
 
