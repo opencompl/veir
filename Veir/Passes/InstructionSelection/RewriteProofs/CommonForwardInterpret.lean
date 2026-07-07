@@ -80,6 +80,42 @@ theorem interpretOp_castBack_forward
       (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
   grind
 
+/-- Binary register-to-register `riscv` op specialization of `interpretOp_forward`: `theOp` is any
+`riscv` op `rop` whose interpretation maps two register operands `r₁`, `r₂` to `f r₁ r₂`
+(hypothesis `hSem`, discharged by `rfl` at each concrete opcode; note the interpreter applies the
+data-level op as `RISCV.op op2 op1`, so `f` is typically `fun r₁ r₂ => RISCV.op r₂ r₁`), with a
+single `!riscv.reg` result. Interpreting it always succeeds, leaves memory untouched, binds the
+result to `.reg (f r₁ r₂)`, and leaves every non-result value unchanged. This covers
+`riscv.add`/`sub`/`mul`/`div`/`rem`/`sll`/`srl` and their `W`/unsigned variants. -/
+theorem interpretOp_riscv_binaryReg_forward
+    {ctx : WfIRContext OpCode} {rop : Riscv} {theOp : OperationPtr} {state : InterpreterState ctx}
+    {inBounds : theOp.InBounds ctx.raw} {v₁ v₂ : ValuePtr} {rt : RegisterType} {hIsTy}
+    {r₁ r₂ : Data.RISCV.Reg} {f : Data.RISCV.Reg → Data.RISCV.Reg → Data.RISCV.Reg}
+    (hSem : ∀ (props : HasDialectOpInfo.propertiesOf rop) (resultTypes : Array TypeAttr)
+        (blockOperands : Array BlockPtr) (mem : MemoryState),
+        Riscv.interpretOp' rop props resultTypes #[.reg r₁, .reg r₂] blockOperands mem
+          = some (.ok (#[.reg (f r₁ r₂)], mem, none)))
+    (hType : theOp.getOpType! ctx.raw = .riscv rop)
+    (hOperands : theOp.getOperands! ctx.raw = #[v₁, v₂])
+    (hResTypes : theOp.getResultTypes! ctx.raw = #[⟨.registerType rt, hIsTy⟩])
+    (hVal₁ : state.variables.getVar? v₁ = some (.reg r₁))
+    (hVal₂ : state.variables.getVar? v₂ = some (.reg r₂)) :
+    ∃ state', interpretOp theOp state inBounds = some (.ok (state', none)) ∧
+      state'.memory = state.memory ∧
+      state'.variables.getVar? (ValuePtr.opResult (theOp.getResult 0))
+        = some (.reg (f r₁ r₂)) ∧
+      (∀ v', v' ∉ theOp.getResults! ctx.raw →
+        state'.variables.getVar? v' = state.variables.getVar? v') := by
+  obtain ⟨state', hI, hMem, hVal⟩ :=
+    interpretOp_forward (op := theOp) (state := state) (inBounds := inBounds)
+      (vals := #[.reg r₁, .reg r₂]) (results := #[.reg (f r₁ r₂)]) (mem' := state.memory)
+      (by simp [VariableState.getOperandValues, hOperands, hVal₁, hVal₂])
+      (by simp only [OperationPtr.interpret]
+          rw [hType]
+          simp [interpretOp', hSem, Interp])
+      (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
+  grind
+
 /-- Unary register-to-register `riscv` op specialization of `interpretOp_forward`: `theOp` is any
 `riscv` op `rop` whose interpretation maps a single register operand `r` to `f r` (hypothesis
 `hSem`, discharged by `rfl` at each concrete opcode), with a single `!riscv.reg` result.

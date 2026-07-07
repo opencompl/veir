@@ -2,7 +2,8 @@
 
 This document describes the proof strategy used for the `lowerUnaryWLocal` lowerings
 (`ctlz_local`, `cttz_local`, `ctpop_local` in `Veir/Passes/InstructionSelection/RISCV64.lean`)
-and how to extend it to the other `*_local` lowerings (`add_local`, `and_local`, `bswap_local`, …).
+and the `lowerBinaryWLocal` lowerings (`add_local`, `sub_local`, `mul_local`, `xor_local`, …),
+and how to extend it to the other `*_local` lowerings (`and_local`, `bswap_local`, …).
 
 ## What we prove
 
@@ -32,6 +33,15 @@ structural proof is done **once per combinator**. Currently:
   on `i64`/`i32`, then emit `castToRegLocal` → `op64` (or its `W` variant `op32` for `i32`) →
   `replaceWithRegLocal`. Its shared correctness proof is
   `lowerUnaryWLocal_preservesSemantics` (`RewriteProofs/LowerUnaryW.lean`).
+- `lowerBinaryWLocal match? op64 op32 props64 props32` — the two-operand analogue: match a
+  binary LLVM integer op on `i64`/`i32`, emit `castToRegLocal` for each operand → `op64`/`op32`
+  applied to the two cast results (in `#[lhs, rhs]` order) → `replaceWithRegLocal`. Instances:
+  `add`, `sub`, `mul`, `sdiv`, `udiv`, `srem`, `urem`, `xor`, `shl`, `lshr` (ops without a `W`
+  variant, like `xor`, pass the same opcode twice). Its shared correctness proof is
+  `lowerBinaryWLocal_preservesSemantics` (`RewriteProofs/LowerBinaryW.lean`), instantiated so
+  far for `add`, `sub`, `mul`, `xor`. The div/rem instances cannot use the current proof: their
+  LLVM interpretation has UB branches (division by zero, `intMin / -1`), so they do not satisfy
+  the total-success `hSemSrc` hypothesis and need a combinator proof variant that propagates UB.
 
 The generic theorem is parameterized over everything opcode-specific:
 
@@ -130,8 +140,14 @@ the matcher's syntactic facts, the `hSemSrc` computation fact, and a successful
 The operand value is *derived* inside the lemma — from `interpretOp_some_iff`, the matcher's
 `getOperands!` fact, and `VariableState.getVar?_conforms` + the operand's integer type
 (`RuntimeValue.Conforms.integerType` turns "conforms to `i{bw}`" into "`= .int bw x`") — so
-callers don't have to supply it. A binop combinator will need a binop analogue exposing two
-existentials, using two `Array.exists_mapM_option_eq_some_iff` reads (indices 0 and 1).
+callers don't have to supply it. `matchBinaryOp_interpretOp_unfold` (`LowerBinaryW.lean`) is the
+binop analogue exposing two existentials, via two `Array.exists_mapM_option_eq_some_iff` reads
+(indices 0 and 1).
+
+Note: for binops the `hSemSrc` computation fact is *not* `rfl` — the interpreter's binop arms
+check the two operand bitwidths against each other (`if h : bw' ≠ bw then none else … rhs.cast …`),
+which is stuck on a variable bitwidth. Instantiations discharge it with
+`by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp]` instead.
 
 ### Forward lemmas for the emitted ops
 
@@ -143,7 +159,11 @@ the generic `interpretOp_forward` (`Veir/Interpreter/Lemmas.lean`):
 - `interpretOp_riscv_unaryReg_forward` — **generic over the RISC-V opcode**: any unary
   reg-to-reg op whose `Riscv.interpretOp'` maps `.reg r` to `.reg (f r)` (hypothesis `hSem`,
   discharged by `rfl` at each concrete opcode). Covers `clz`/`clzw`/`ctz`/`ctzw`/`cpop`/`cpopw`
-  and any future unary Zbb op with **no new lemma needed**.
+  and any future unary Zbb op with **no new lemma needed**;
+- `interpretOp_riscv_binaryReg_forward` — the binary analogue: two register operands mapped to
+  `.reg (f r₁ r₂)`. Beware the operand swap: the interpreter applies the data-level op as
+  `RISCV.op op2 op1`, so instantiations pass `f := fun r₁ r₂ => RISCV.op r₂ r₁` and the Layer-0
+  lemmas are stated with `(toReg yt)` first.
 
 Each lemma's conclusion gives the successful one-step interpretation, memory unchanged, the
 result binding, and a **frame clause** (all non-result variables unchanged). The frame clause
@@ -165,6 +185,9 @@ and `vals := #[.reg r₁, .reg r₂]`.
   context, the new op, and the creation hypothesis (the `!` form also rewrites `createOp!` to
   plain `createOp` and transports a dominance hypothesis into the new context);
 - `peelCastToRegLocal` / `peelReplaceWithRegLocal` — same, specialized to the two cast helpers;
+- `peelCastToRegLocal₂` / `peelOpCreation!₂` / `peelReplaceWithRegLocal₂` — binary-lowering
+  variants that transport *two* dominance hypotheses (one per matched operand) through each
+  creation step;
 - `cleanupHpattern` — substitute the final `newOps`/`newValues`/`newCtx` equalities.
 
 The matcher itself is peeled inline in the generic proof (case on `match? op ctx.raw`, the
@@ -193,6 +216,17 @@ namespace of `LowerUnaryW.lean`:
 5. **Axiom check**: `#guard_msgs in #print axioms foo_local_preservesSemantics` to pin the
    axiom footprint.
 
+**If it fits `lowerBinaryWLocal`** (two integer operands of the same type, one binary reg-to-reg
+RISC-V op per bitwidth, total LLVM interpretation — no UB branches): same recipe against
+`lowerBinaryWLocal_preservesSemantics` in `LowerBinaryW.lean`, with the differences:
+
+- Layer-0 lemmas take two refined operands and are stated with the target registers swapped
+  (`RISCV.op (toReg yt) (toReg xt)`, matching the interpreter's `RISCV.op op2 op1`);
+- `hSemSrc` is `by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp]` (see above),
+  `hSemR64`/`hSemR32` stay `rfl` with `f64 := fun r₁ r₂ => RISCV.op64 r₂ r₁` (same for `f32`);
+- `matchFoo_implies` returns the two operands (`op.getOperands! ctx = #[lhs, rhs]`), and Layer 1
+  is `IsVerifiedIntegerBinop` (`Verified.llvm_add`/`llvm_sub`/… exist for all merged ops).
+
 **If it needs a new shape** (binop, longer chain, extra guards): first factor the lowering
 through a new combinator in `RISCV64.lean`, then prove that combinator's
 `PreservesSemantics` once, generic over the opcode-specific parameters, following
@@ -206,13 +240,21 @@ per lowering as above.
 
 ## Adapting to other lowering shapes
 
-- **Binops** (`add_local`, `and_local`, `mul_local`, …): two `castToRegLocal` peels, two
-  `exists_refined_int_getVar?` reads, two "operand is not a result of `op`" facts, a binop
-  analogue of `matchUnaryOp_interpretOp_unfold`, and a binop reg-to-reg forward lemma.
-  Crucially, when executing the chain, the value of the *first* cast's result must survive the
-  *second* cast's interpretation: keep the **frame clause** of the forward lemma (bind it as
-  `hFrame` instead of discarding with `-`) and rewrite the earlier result binding through it
-  before feeding the RISC-V op's forward lemma.
+- **Binops**: done — `lowerBinaryWLocal_preservesSemantics` (`LowerBinaryW.lean`). The proof
+  follows the unary template with: two `castToRegLocal` peels (via the `peel*₂` macros carrying
+  both operands' dominance), two `exists_refined_int_getVar?` reads, two "operand is not a
+  result of `op`" facts, `matchBinaryOp_interpretOp_unfold`, and
+  `interpretOp_riscv_binaryReg_forward`. Crucially, when executing the chain, the value of `rhs`
+  must survive the first cast and the *first* cast's result must survive the *second* cast's
+  interpretation: keep the **frame clause** of the forward lemmas (bind it as `hFrame` instead
+  of discarding with `-`) and rewrite the earlier bindings through it. The membership side
+  conditions (`rhs ∉ lcastOp.getResults! …`, `lcastOp.getResult 0 ∉ rcastOp.getResults! …`) are
+  *not* one-shot `grind`s: establish the freshness facts once before the bitwidth split
+  (`createOp_new_not_inBounds` + `ValuePtr.inBounds_opResult`) and case on
+  `getResults!_not_mem_or_eq_getResult` in each branch.
+  Ops whose LLVM interpretation can raise UB (`sdiv`, `udiv`, `srem`, `urem`) do not fit the
+  total `hSemSrc` hypothesis; they are merged into the combinator *definition* but still need a
+  UB-aware proof variant.
 - **Longer chains** (`bswap_local` 32-bit emits `cast, rev8, srli, castBack`): one extra
   `peelOpCreation!` and one extra forward-lemma application per op; ops with an immediate
   (`srli`) need their forward lemma to take the properties (`RISCVImmediateProperties`) into
@@ -239,6 +281,16 @@ per lowering as above.
   passed explicitly to `grind [...]`, instantiated at the right creation hypothesis.
 - **Bitwidth literals**: destructure `intType` (`obtain ⟨bw⟩ := intType`) and `subst` the
   branch hypothesis before applying the Layer-0 lemmas, which are stated at literal `64`/`32`.
+- **Identical guards split together**: in `lowerBinaryWLocal` both operands share `intType`, so
+  the two bitwidth guards have syntactically equal conditions and a single
+  `peelSplittableCondition` resolves both (a second one fails: nothing left to split).
+- **`bv_decide` and multipliers**: the SAT solver times out on 64-bit multiplier equivalence
+  (`mul_isRefinedBy_toInt_mul`). Rewrite both sides to the *same* product first
+  (`getValue_mul`, `toInt_getValue`, `val_toReg`, `BitVec.setWidth_eq`), so the goal closes by
+  `rw`/`rfl` (64-bit) or `bv_decide` sees structurally identical multipliers (32-bit `mulw`).
+- **Structural facts through 4 creations**: plain `grind` no longer finds the transports for
+  ops created three contexts back; seed `OperationPtr.getOperands!_WfRewriter_createOp` (and the
+  `getResultTypes!` analogue) explicitly at each creation hypothesis, as in `LowerBinaryW.lean`.
 - **`maxHeartbeats`**: the combinator theorem needs `set_option maxHeartbeats 1000000` (many
   `grind` calls over a large context).
 - **Expected axioms**: `#print axioms` will list the dominance axioms
@@ -255,11 +307,12 @@ per lowering as above.
 | File | Contents | Growth per new lowering |
 |---|---|---|
 | `RewriteProofs/LowerUnaryW.lean` | `matchUnaryOp_interpretOp_unfold`, `lowerUnaryWLocal_preservesSemantics`, and per-lowering Layer-0 lemmas + instantiations (`Example` namespace) | two data lemmas + one instantiation (unary); new file per new *shape* |
-| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary reg-to-reg riscv op) | one lemma per new emitted-op *shape* |
-| `RewriteProofs/CommonTactics.lean` | `peel*` macros, `cleanupHpattern` | rarely |
+| `RewriteProofs/LowerBinaryW.lean` | `matchBinaryOp_interpretOp_unfold`, `lowerBinaryWLocal_preservesSemantics`, and per-lowering Layer-0 lemmas + instantiations (`add`, `sub`, `mul`, `xor`) | two data lemmas + one instantiation (binary) |
+| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops) | one lemma per new emitted-op *shape* |
+| `RewriteProofs/CommonTactics.lean` | `peel*` macros (incl. the two-dominance `peel*₂` variants), `cleanupHpattern` | rarely |
 | `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `createOp!` reduction, properties/dominance transport | rarely |
 | `RewriteProofs/CommonMatchLemmas.lean` | ctlz-specific unfold/peel lemmas — currently unused (superseded by the generic `matchUnaryOp_interpretOp_unfold`); candidate for deletion | — |
-| `Veir/Passes/InstructionSelection/RISCV64.lean` | the lowering combinators (`lowerUnaryWLocal`) and their instances | one `def` (or a new combinator) |
+| `Veir/Passes/InstructionSelection/RISCV64.lean` | the lowering combinators (`lowerUnaryWLocal`, `lowerBinaryWLocal`) and their instances | one `def` (or a new combinator) |
 | `Veir/Verifier.lean` | `IsVerified*` bundles + `Verified.llvm_*` extractors (Layer 1) | one 3-line lemma (unop/binop) |
 | `Veir/Passes/Matching/Lemmas.lean` | `match*_implies` (Layer 2) | usually nothing |
 | `Veir/Interpreter/Lemmas.lean` | generic `interpretOp_forward`, `interpretOpList_cons` | nothing |
