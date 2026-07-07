@@ -778,6 +778,141 @@ theorem sdiv_neg_one_shl_eq_neg_biased_sshiftRight_bv {w₁ w₂ : Nat} (x : Bit
   rw [heq1, heq2]
   exact sdiv_neg_one_shl_eq_neg_biased_sshiftRight x k hk
 
+/-- When `x` is nonnegative, `sdiv_one_shl_eq_biased_sshiftRight`'s correction term is always `0`,
+    so `x.sdiv (2^k) = x.sshiftRight' k` outright — and unlike the general lemma, this needs no
+    bound on `k` at all: at the `k = 63` boundary (`2^k` wraps to `intMin`), both sides are
+    separately `0` (`x.toNat < 2^63` forces the shift to `0`, and `x ≠ intMin` forces the `sdiv`
+    to `0` too, via `BitVec.sdiv_intMin`). -/
+theorem sdiv_one_shl_eq_sshiftRight_of_msb_false (x : BitVec 64) (k : BitVec 6)
+    (hx : x.msb = false) :
+    x.sdiv ((1#64) <<< k) = x.sshiftRight' k := by
+  by_cases hk : k.toNat + 1 < 64
+  · have hcorr0 : x.sshiftRight 63 >>> (64 - k.toNat) = 0#64 := by
+      apply BitVec.eq_of_toNat_eq
+      rw [toNat_sign_mask_shift x k.toNat (by omega), if_neg (by simp [hx])]
+      rfl
+    rw [sdiv_one_shl_eq_biased_sshiftRight x k hk]
+    show (x + (x.sshiftRight (63 : Nat) >>> (64 - k.toNat))).sshiftRight k.toNat =
+      x.sshiftRight k.toNat
+    rw [hcorr0, BitVec.add_zero]
+  · have hk63 : k = (-1 : BitVec 6) := by bv_omega
+    subst hk63
+    have hy : (1#64) <<< (-1 : BitVec 6) = BitVec.intMin 64 := by
+      apply BitVec.eq_of_toNat_eq
+      decide
+    rw [hy, BitVec.sdiv_intMin]
+    have hxne : x ≠ BitVec.intMin 64 := by
+      intro h; rw [h] at hx; simp [BitVec.msb_intMin] at hx
+    rw [if_neg hxne]
+    apply BitVec.eq_of_toNat_eq
+    show (0 : BitVec 64).toNat = (x.sshiftRight (-1 : BitVec 6).toNat).toNat
+    rw [BitVec.toNat_sshiftRight_of_msb_false hx]
+    have heq : (-1 : BitVec 6).toNat = 63 := by decide
+    rw [heq]
+    have hxlt : x.toNat < 2 ^ 63 := BitVec.toNat_lt_of_msb_false hx
+    rw [Nat.shiftRight_eq_div_pow, Nat.div_eq_of_lt (by omega)]
+    rfl
+
+/-- `sdiv_one_shl_eq_biased_sshiftRight_bv`, specialized to the `i64` register width (`w₁ = 64`,
+    `w₂ = 6`) and restated as an `if` on `x.msb` instead of always adding the (possibly-zero)
+    correction term: whenever the correction isn't needed the RHS is a bare `sshiftRight'`, no
+    `add` required — that's the `x.msb = false` case (any `k`, via
+    `sdiv_one_shl_eq_sshiftRight_of_msb_false`) and the `k = 0` case (dividing by `1` is always
+    exact, regardless of sign). The only case that can't be phrased as a shift is `x.msb = true`
+    at `k = 63`, where `2^k` wraps to `intMin` and the identity genuinely doesn't hold (a real
+    counterexample: `x = intMin` gives `sdiv = 1` but the shift form gives `-1`); there the `if`
+    resolves to `BitVec.sdiv_intMin`'s closed form directly, so the RHS never needs `sdiv` at all. -/
+@[veir_bv_normalize_post]
+theorem sdiv_one_shl_eq_ite_sshiftRight (x : BitVec 64) (k : BitVec 6) :
+    x.sdiv ((1#64) <<< k) =
+      if x.msb then
+        if k = 0 then
+          x.sshiftRight' k
+        else if k ≠ (-1 : BitVec 6) then
+          (x + (x.sshiftRight' (-1 : BitVec 6) >>> (-k))).sshiftRight' k
+        else
+          if x = BitVec.intMin 64 then 1#64 else 0#64
+      else
+        x.sshiftRight' k := by
+  by_cases hx : x.msb
+  · rw [if_pos hx]
+    by_cases hk0 : k = 0
+    · rw [if_pos hk0, hk0]
+      simp [BitVec.sshiftRight_eq', BitVec.sdiv_one]
+    · rw [if_neg hk0]
+      by_cases hk63 : k ≠ (-1 : BitVec 6)
+      · rw [if_pos hk63]
+        have hk0' : 0 < k.toNat := by bv_omega
+        have hk' : k.toNat + 1 < 64 := by bv_omega
+        have h1 : (1 : BitVec 6).toNat = 1 := BitVec.toNat_one (by decide)
+        have heq1 : (-1 : BitVec 6).toNat = 63 := by
+          rw [toNat_neg_eq_sub _ (by omega), h1]
+        have heq2 : (-k : BitVec 6).toNat = 64 - k.toNat := by
+          rw [toNat_neg_eq_sub _ hk0']
+        show x.sdiv ((1#64) <<< k) =
+          (x + (x.sshiftRight (-1 : BitVec 6).toNat >>> (-k : BitVec 6).toNat)).sshiftRight k.toNat
+        rw [heq1, heq2]
+        exact sdiv_one_shl_eq_biased_sshiftRight x k hk'
+      · rw [if_neg hk63]
+        have hk63' : k = (-1 : BitVec 6) := Decidable.not_not.mp hk63
+        have hy : (1#64) <<< k = BitVec.intMin 64 := by rw [hk63']; decide
+        rw [hy, BitVec.sdiv_intMin]
+  · rw [if_neg hx]
+    exact sdiv_one_shl_eq_sshiftRight_of_msb_false x k (by simpa using hx)
+
+/-- Negative-divisor analogue of `sdiv_one_shl_eq_sshiftRight_of_msb_false`: when `x` is
+    nonnegative, `sdiv_neg_one_shl_eq_neg_biased_sshiftRight`'s correction term is always `0`, for
+    *any* `k` — unlike the positive-divisor case, there's no `k = 63` boundary to worry about here,
+    since `-2^63` is itself a valid divisor (negating `intMin` just gives `intMin` back). -/
+theorem sdiv_neg_one_shl_eq_neg_sshiftRight_of_msb_false (x : BitVec 64) (k : BitVec 6)
+    (hx : x.msb = false) :
+    x.sdiv (-((1#64) <<< k)) = -(x.sshiftRight' k) := by
+  have hk : k.toNat < 64 := k.isLt
+  have hcorr0 : x.sshiftRight 63 >>> (64 - k.toNat) = 0#64 := by
+    apply BitVec.eq_of_toNat_eq
+    rw [toNat_sign_mask_shift x k.toNat (by omega), if_neg (by simp [hx])]
+    rfl
+  rw [sdiv_neg_one_shl_eq_neg_biased_sshiftRight x k hk, hcorr0, BitVec.add_zero]
+
+/-- Negative-divisor analogue of `sdiv_one_shl_eq_ite_sshiftRight`. Simpler than the positive
+    case: there's no `sdiv` fallback branch needed at all, since `sdiv_neg_one_shl_eq_neg_biased_sshiftRight`
+    already holds for every `k` (no `k = 63` exclusion) — the only special case is `k = 0`
+    (dividing by `-1` is always exact, via `BitVec.sdiv_neg`/`BitVec.sdiv_one`), where the
+    correction term isn't well-defined as written (`-k = 0` shifts by `0` instead of the intended
+    "shift out everything"), so it's spelled out directly rather than going through the general
+    correction formula. -/
+@[veir_bv_normalize_post]
+theorem sdiv_neg_one_shl_eq_ite_sshiftRight (x : BitVec 64) (k : BitVec 6) :
+    x.sdiv (-((1#64) <<< k)) =
+      if x.msb then
+        if k = 0 then
+          -(x.sshiftRight' k)
+        else
+          -((x + (x.sshiftRight' (-1 : BitVec 6) >>> (-k))).sshiftRight' k)
+      else
+        -(x.sshiftRight' k) := by
+  by_cases hx : x.msb
+  · rw [if_pos hx]
+    by_cases hk0 : k = 0
+    · rw [if_pos hk0, hk0]
+      have hy : (-((1#64) <<< (0 : BitVec 6))) = (-1 : BitVec 64) := by simp
+      rw [hy, BitVec.sdiv_neg (by decide)]
+      simp [BitVec.sdiv_one, BitVec.sshiftRight_eq']
+    · rw [if_neg hk0]
+      have hk0' : 0 < k.toNat := by bv_omega
+      have hk' : k.toNat < 64 := k.isLt
+      have h1 : (1 : BitVec 6).toNat = 1 := BitVec.toNat_one (by decide)
+      have heq1 : (-1 : BitVec 6).toNat = 63 := by
+        rw [toNat_neg_eq_sub _ (by omega), h1]
+      have heq2 : (-k : BitVec 6).toNat = 64 - k.toNat := by
+        rw [toNat_neg_eq_sub _ hk0']
+      show x.sdiv (-((1#64) <<< k)) =
+        -((x + (x.sshiftRight (-1 : BitVec 6).toNat >>> (-k : BitVec 6).toNat)).sshiftRight k.toNat)
+      rw [heq1, heq2]
+      exact sdiv_neg_one_shl_eq_neg_biased_sshiftRight x k hk'
+  · rw [if_neg hx]
+    exact sdiv_neg_one_shl_eq_neg_sshiftRight_of_msb_false x k (by simpa using hx)
+
 @[veir_bv_normalize]
 theorem setWidth_ofInt_32_64 (v : Int) :
     BitVec.setWidth 32 (BitVec.ofInt 64 v) = BitVec.ofInt 32 v := by

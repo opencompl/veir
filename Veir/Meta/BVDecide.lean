@@ -14,32 +14,11 @@ Preprocessing happens in two stages because rewrites are generally
 easier to state with the dependently-typed `Int.getValue`, but `bv_decide` works
 better with the non-dependent `Int.getValueD`. Thus, `veir_bv_normalize_post`
 contains `Int.getValue_eq_getValueD`, which rewrites the former into the latter.
-
-Exception: conditional rewrites whose side condition only becomes available *after*
-unfolding poison-checks into a chain of hypotheses (e.g. `isPoison_sdiv`) must go in
-`veir_bv_normalize_post` instead, since only its `simp` call runs with `+contextual`
-(threading those hypotheses forward as it descends) and has a discharger that lets
-such a lemma's side condition draw on both the threaded hypotheses and any ambient
-local hypotheses (e.g. a range bound on a shift amount) that aren't part of that chain,
-by scanning the whole local context, not just the current subgoal, the way `bv_omega`
-does. The first-phase `simp` is plain (no `+contextual`, no discharger), so such lemmas
-silently fail to fire there.
-
-Note: the discharger is `(try simp -implicitDefEqProofs only [bitvec_to_nat] at *); omega`
-rather than plain `bv_omega`, even though it is otherwise identical to `bv_omega`'s
-definition. `simp`'s discharger mechanism is supposed to fail gracefully (treat the
-conditional rewrite as inapplicable) when the discharger tactic can't close a side
-condition, but that graceful handling breaks when the discharger tactic is built with
-`<;>` (as `bv_omega` is) instead of plain sequencing: `omega`'s failure message then
-leaks through as a hard tactic error instead of being absorbed, aborting the whole
-`veir_bv_normalize` call rather than just skipping the one inapplicable rewrite. Using
-`;` here instead of `bv_omega`'s `<;>` avoids that.
 -/
 @[expose] macro "veir_bv_normalize" : tactic =>
   `(tactic| ((
       simp -failIfUnchanged only [veir_bv_normalize] <;>
       simp +contextual -failIfUnchanged
-        (discharger := (try simp -implicitDefEqProofs only [bitvec_to_nat] at *); omega)
         only [veir_bv_normalize_post, reduceIte])))
 /-
 The lack of `only` is copied from the previous version of this tactic, and indeed

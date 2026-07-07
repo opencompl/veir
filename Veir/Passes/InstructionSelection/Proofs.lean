@@ -385,7 +385,6 @@ theorem sdivPow2Exact_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) :
       (RISCV.Reg.toInt (Data.RISCV.neg (Data.RISCV.srai k (LLVM.Int.toReg x))) 64) := by
   veir_bv_decide
 
-set_option maxHeartbeats 1000000 in
 /--
   General (non-`exact`) `sdiv x, 2^k` -> the Hacker's-Delight bias/shift sequence
   (`sdivPow2`, positive divisor): bias a negative dividend by `2^k - 1` before the
@@ -401,10 +400,8 @@ theorem sdivPow2_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) (
          let corr := Data.RISCV.srli (64 - k) sign
          let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
          Data.RISCV.srai k biased) 64) := by
-  veir_bv_normalize
-  bv_decide (config := { timeout := 1000 })
+  veir_bv_decide
 
-set_option maxHeartbeats 1000000 in
 /--
   Negative-divisor case of `sdivPow2_pos_refinement`: negate the biased-shift result.
 -/
@@ -415,8 +412,7 @@ theorem sdivPow2_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) :
          let corr := Data.RISCV.srli (64 - k) sign
          let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
          Data.RISCV.neg (Data.RISCV.srai k biased)) 64) := by
-  veir_bv_normalize
-  bv_decide (config := { timeout := 1000 })
+  veir_bv_decide
 
 /--
   Prove the correctness of the `udiv` lowering pattern.
