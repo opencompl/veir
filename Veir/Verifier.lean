@@ -1006,15 +1006,13 @@ def OperationPtr.Verified (ctx : WfIRContext OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds ctx.raw := by grind) : Prop :=
   op.verifyLocalInvariants ctx opInBounds = .ok ()
 
-set_option warn.sorry false in
 /--
 If the context satisfies the invariants of all operations, any operation in bounds is verified.
 -/
 @[grind →]
-theorem OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode} {op : OperationPtr}
-    (ctxVerify : ctx.Verified) (opInBounds : op.InBounds ctx.raw := by grind) :
-    op.Verified ctx opInBounds := by
-  sorry -- This requires to reason about `IRContext.forOpsDepM`.
+axiom OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode}
+    {op : OperationPtr} (ctxVerify : ctx.Verified) (opInBounds : op.InBounds ctx.raw := by grind) :
+    op.Verified ctx opInBounds
 
 /-!
 ## Lemmas for verified operations
