@@ -149,6 +149,35 @@ def lowerSignedMinMaxLocal
     some (ctx, some (#[lCastOp, rCastOp, mOp, castBackOp], #[castBackOp.getResult 0]))
 
 /--
+  Shared shape of the *rotate* RISC-V lowerings (`fshl`/`fshr` whose two data operands are
+  identical): match a funnel-shift LLVM op returning `(a, b, amt)`, require `a = b` (so the funnel
+  shift is a rotate), require the result to have integer type `i64` or `i32`, cast the value operand
+  `a` and the shift-amount operand `amt` to registers, apply `op64` (or its `W` variant `op32` for
+  `i32`) to `(value, amount)`, and cast the result back to the source type.
+-/
+def lowerRotateLocal
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × ValuePtr))
+    (op64 op32 : Riscv)
+    (props64 : propertiesOf (.riscv op64)) (props32 : propertiesOf (.riscv op32))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (a, b, amt) := match? op ctx | return (ctx, none)
+  if a ≠ b then return (ctx, none)
+  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, valCastOp) ← castToRegLocal ctx a
+  let (ctx, amtCastOp) ← castToRegLocal ctx amt
+  let (ctx, rotOp) ←
+    if t.bitwidth = 32 then
+      WfRewriter.createOp! ctx (.riscv op32) #[RegisterType.mk]
+          #[valCastOp.getResult 0, amtCastOp.getResult 0] #[] #[] props32 none
+    else
+      WfRewriter.createOp! ctx (.riscv op64) #[RegisterType.mk]
+          #[valCastOp.getResult 0, amtCastOp.getResult 0] #[] #[] props64 none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (rotOp.getResult 0)
+  some (ctx, some (#[valCastOp, amtCastOp, rotOp, castBackOp], #[castBackOp.getResult 0]))
+
+/--
   `llvm.intr.ctlz` -> `riscv.clz`.
 -/
 def ctlz_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -1020,25 +1049,11 @@ def umin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite umin_local rewriter op opInBounds
 
-/-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol.
+/-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol (riscv.rolw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
 def fshl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshl op ctx | return (ctx, none)
-  if a ≠ b then return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, valCastOp) ← castToRegLocal ctx a
-  let (ctx, amtCastOp) ← castToRegLocal ctx amt
-  let (ctx, rolOp) ←
-    if t.bitwidth = 32 then
-      WfRewriter.createOp! ctx (.riscv .rolw) #[RegisterType.mk] #[valCastOp.getResult 0, amtCastOp.getResult 0]
-          #[] #[] () none
-    else
-      WfRewriter.createOp! ctx (.riscv .rol) #[RegisterType.mk] #[valCastOp.getResult 0, amtCastOp.getResult 0]
-          #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (rolOp.getResult 0)
-  some (ctx, some (#[valCastOp, amtCastOp, rolOp, castBackOp], #[castBackOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerRotateLocal matchFshl .rol .rolw () () ctx op
 
 /-! ## Saturating integer intrinsics
 
@@ -1304,25 +1319,11 @@ def fshl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite fshl_local rewriter op opInBounds
 
-/-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror.
+/-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror (riscv.rorw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
 def fshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshr op ctx | return (ctx, none)
-  if a ≠ b then return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, valCastOp) ← castToRegLocal ctx a
-  let (ctx, amtCastOp) ← castToRegLocal ctx amt
-  let (ctx, rorOp) ←
-    if t.bitwidth = 32 then
-      WfRewriter.createOp! ctx (.riscv .rorw) #[RegisterType.mk] #[valCastOp.getResult 0, amtCastOp.getResult 0]
-          #[] #[] () none
-    else
-      WfRewriter.createOp! ctx (.riscv .ror) #[RegisterType.mk] #[valCastOp.getResult 0, amtCastOp.getResult 0]
-          #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (rorOp.getResult 0)
-  some (ctx, some (#[valCastOp, amtCastOp, rorOp, castBackOp], #[castBackOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerRotateLocal matchFshr .ror .rorw () () ctx op
 
 /-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror.
     The general (distinct-operand) funnel shift is left unselected. -/

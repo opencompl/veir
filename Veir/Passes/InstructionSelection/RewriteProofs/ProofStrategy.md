@@ -84,6 +84,29 @@ structural proof is done **once per combinator**. Currently:
   branch threads two extra `interpretOp_riscv_unaryReg_forward` steps and their frame clauses). The
   data lemmas come in `_64`/`_32` pairs, the `_32` one carrying the extra `sextw` (unfold
   `Data.RISCV.max`/`min`, `sextw`, `addiw`, then `veir_bv_decide`).
+- `lowerRotateLocal match? op64 op32 props64 props32` — the *rotate* cousin of `lowerBinaryWLocal`:
+  match a funnel-shift LLVM op returning `(a, b, amt)`, require `a = b` (so the funnel shift is a
+  rotate) and the *result* type to be `i64`/`i32`, emit `castToRegLocal` for the value `a` and the
+  amount `amt` → `op64` (or its `W` variant `op32` for `i32`) → `replaceWithRegLocal`. Instances:
+  `fshl` (`rol`/`rolw`), `fshr` (`ror`/`rorw`). Its shared correctness proof is
+  `lowerRotateLocal_preservesSemantics` (`RewriteProofs/LowerRotate.lean`). The emitted 4-op chain and
+  the `W`-variant bitwidth branch are identical to `lowerBinaryWLocal`; the two differences are that
+  the source op is *ternary* (three operands — a new `matchTernaryOp_interpretOp_unfold`, the ternary
+  analogue of the binary one, and a new `IsVerifiedIntegerTernop` verifier bundle behind
+  `Verified.llvm_intr__fshl`/`fshr`) and the type guard reads the *result* type (as in
+  `lowerBinaryRegLocal`). The matched `a = b` is derived in a side proof (`rcases Decidable.em`;
+  `by_contra` is unavailable) so `hpattern` and its dependents (`state'Wf`) are not reverted; the
+  middle operand `b`'s value collapses into `a`'s via `a = b ⇒ xa = xb`, so the data lemmas are stated
+  on `srcFn x x c` (the `_64`/`_32` refinement lemmas unfold `Data.RISCV.rol`/`rolw`/…, then
+  `veir_bv_decide` — the `getValue_fshl`/`getValue_fshr` `@[veir_bv_normalize]` lemmas already relate
+  the funnel shift's modular shift amount to the register op's `extractLsb 5 0`). Because the source
+  pattern carries an extra `if a ≠ b` conditional over `lowerSignedMinMaxLocal`, the *frozen* (unpeeled)
+  copy of `hpattern` that survives in context sends the structural-fact `grind`s into an exponential
+  case-split blowup; the fix is to establish every op-vs-op and `op`-vs-created distinctness fact and
+  every `ctx₄` in-bounds witness as an **inline term** (`createOp_new_inBounds`/`inBounds_mono`/
+  `createOp_new_not_inBounds`), `clear` the in-bounds hypotheses (they break `grind` by
+  non-monotonicity), and pass the in-bounds witnesses explicitly to the forward lemmas — after which
+  bare `grind` closes each structural fact by e-matching without touching `hpattern`.
 
 The generic theorem is parameterized over everything opcode-specific:
 
@@ -366,12 +389,13 @@ per lowering as above.
 | `RewriteProofs/LowerBinaryReg.lean` | `lowerBinaryRegLocal_preservesSemantics` (width-agnostic single-op binary, reuses `matchBinaryOp_interpretOp_unfold`) + per-lowering Layer-0 lemmas + instantiations (`umax`, `umin`) | two data lemmas + one instantiation (binary, single op) |
 | `RewriteProofs/LowerBitwiseReg.lean` | `lowerBitwiseRegLocal_preservesSemantics` (bitwise single-op binary over `i64`/`i32`/`i8`/`i1`, reuses `matchBinaryOp_interpretOp_unfold`; one width-generic refinement lemma, no bitwidth branch) + instantiations (`and`, `or`) | one width-generic data lemma + one instantiation |
 | `RewriteProofs/LowerSignedMinMax.lean` | `lowerSignedMinMaxLocal_preservesSemantics` (signed min/max; `i64` = 4 ops like `lowerBinaryRegLocal`, `i32` = 6 ops with two extra `riscv.sextw`; splits on bitwidth after the shared casts, reuses `matchBinaryOp_interpretOp_unfold`) + `_64`/`_32` data lemmas + instantiations (`smax`, `smin`) | two data lemmas + one instantiation |
+| `RewriteProofs/LowerRotate.lean` | `matchTernaryOp_interpretOp_unfold` (ternary source unfold) + `lowerRotateLocal_preservesSemantics` (rotate; ternary source with `a = b`, result-type guard, `W`-variant bitwidth branch like `lowerBinaryWLocal`; establishes op distinctness + `ctx₄` in-bounds as inline terms to keep `grind` off the frozen `hpattern`) + `_64`/`_32` data lemmas + instantiations (`fshl`, `fshr`) | two data lemmas + one instantiation |
 | `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops) | one lemma per new emitted-op *shape* |
 | `RewriteProofs/CommonTactics.lean` | `peel*` macros (incl. the two-dominance `peel*₂` variants), `cleanupHpattern` | rarely |
 | `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `createOp!` reduction, properties/dominance transport | rarely |
 | `RewriteProofs/CommonMatchLemmas.lean` | ctlz-specific unfold/peel lemmas — currently unused (superseded by the generic `matchUnaryOp_interpretOp_unfold`); candidate for deletion | — |
 | `Veir/Passes/InstructionSelection/RISCV64.lean` | the lowering combinators (`lowerUnaryWLocal`, `lowerBinaryWLocal`) and their instances | one `def` (or a new combinator) |
-| `Veir/Verifier.lean` | `IsVerified*` bundles + `Verified.llvm_*` extractors (Layer 1) | one 3-line lemma (unop/binop) |
+| `Veir/Verifier.lean` | `IsVerified*` bundles (`…IntegerUnop`/`Binop`/`Ternop`) + `Verified.llvm_*` extractors (Layer 1) | one 3-line lemma (unop/binop/ternop) |
 | `Veir/Passes/Matching/Lemmas.lean` | `match*_implies` (Layer 2) | usually nothing |
 | `Veir/Interpreter/Lemmas.lean` | generic `interpretOp_forward`, `interpretOpList_cons` | nothing |
 | `Veir/PatternRewriter/Semantics.lean` | `PreservesSemantics` | nothing |

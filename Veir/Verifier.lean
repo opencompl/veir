@@ -1295,6 +1295,76 @@ theorem OperationPtr.Verified.llvm_intr__ctpop {op : OperationPtr} {opInBounds}
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
   exact op.verifyIntegerUnop_eq_ok hty
 
+/--
+  Structural facts guaranteed by the verifier for a three-operand integer operation (e.g.
+  `llvm.intr.fshl`/`fshr`): one result, three operands, no successors or regions, and all three
+  operands *and* the result share one integer type. This is the ternary analogue of
+  `IsVerifiedIntegerBinop`.
+-/
+def OperationPtr.IsVerifiedIntegerTernop (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 3 ∧
+  op.getNumSuccessors! ctx.raw = 0 ∧
+  op.getNumRegions! ctx.raw = 0 ∧
+  ∃ integerType,
+    ((op.getResult 0).get! ctx.raw).type = ⟨.integerType integerType, (by grind)⟩ ∧
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩ ∧
+    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩ ∧
+    ((op.getOperand! ctx.raw 2).getType! ctx.raw) = ⟨.integerType integerType, (by grind)⟩
+
+/--
+  Structural facts extracted from a successful `verifyIntegerTernop` check. Shared core behind
+  every integer ternary operation's `Verified.*` lemma.
+-/
+private theorem OperationPtr.verifyIntegerTernop_eq_ok {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {opInBounds : op.InBounds ctx.raw}
+    (h : op.verifyIntegerTernop ctx opInBounds = .ok ()) :
+    op.IsVerifiedIntegerTernop ctx := by
+  simp only [IsVerifiedIntegerTernop, verifyIntegerTernop, verifyPlainOpCounts,
+    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [TypeAttr.inj]
+  split at h <;> grind
+
+/--
+  Reduce a verified integer ternary operation to a successful `verifyIntegerTernop` check.
+  `armReduces` says the operation's local-invariant check is exactly the `verifyIntegerTernop`
+  arm; it is discharged per operation by unfolding the dispatcher at the concrete opcode.
+-/
+private theorem OperationPtr.verifyIntegerTernop_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyIntegerTernop ctx opInBounds >>= fun _ => pure ())) :
+    op.verifyIntegerTernop ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  cases hb : op.verifyIntegerTernop ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/--
+  Every integer ternary operation's `Verified.*` lemma reduces to this: given a verified operation
+  whose local-invariant check is the `verifyIntegerTernop` arm, it satisfies
+  `IsVerifiedIntegerTernop`.
+-/
+private theorem OperationPtr.Verified.integerTernop {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyIntegerTernop ctx opInBounds >>= fun _ => pure ())) :
+    op.IsVerifiedIntegerTernop ctx :=
+  op.verifyIntegerTernop_eq_ok <| op.verifyIntegerTernop_ok_of_Verified opVerify armReduces
+
+/-- Structural facts from the verifier for a verified `llvm.intr.fshl`. -/
+theorem OperationPtr.Verified.llvm_intr__fshl {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__fshl) :
+    op.IsVerifiedIntegerTernop ctx := OperationPtr.Verified.integerTernop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+/-- Structural facts from the verifier for a verified `llvm.intr.fshr`. -/
+theorem OperationPtr.Verified.llvm_intr__fshr {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__fshr) :
+    op.IsVerifiedIntegerTernop ctx := OperationPtr.Verified.integerTernop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
 theorem OperationPtr.Verified.llvm_add {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .add) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
