@@ -118,6 +118,37 @@ def lowerBitwiseRegLocal {P : Type}
   some (ctx, some (#[lCastOp, rCastOp, mOp, castBackOp], #[castBackOp.getResult 0]))
 
 /--
+  Shared shape of the *signed* min/max RISC-V lowerings (`smax`/`smin`): match a two-operand LLVM
+  integer op whose result has type `i64` or `i32`, cast both operands to registers, and apply a
+  single signed `riscv` op `rop` (`max`/`min`).
+-/
+def lowerSignedMinMaxLocal
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
+    (rop : Riscv) (props : propertiesOf (.riscv rop))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs) := match? op ctx | return (ctx, none)
+  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, lCastOp) ← castToRegLocal ctx lhs
+  let (ctx, rCastOp) ← castToRegLocal ctx rhs
+  /- For i32, sign-extend before the compare so negative values order correctly. -/
+  if t.bitwidth = 32 then
+    let (ctx, ls) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[lCastOp.getResult 0]
+        #[] #[] () none
+    let (ctx, rs) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[rCastOp.getResult 0]
+        #[] #[] () none
+    let (ctx, mOp) ← WfRewriter.createOp! ctx (.riscv rop) #[RegisterType.mk]
+        #[ls.getResult 0, rs.getResult 0] #[] #[] props none
+    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (mOp.getResult 0)
+    some (ctx, some (#[lCastOp, rCastOp, ls, rs, mOp, castBackOp], #[castBackOp.getResult 0]))
+  else
+    let (ctx, mOp) ← WfRewriter.createOp! ctx (.riscv rop) #[RegisterType.mk]
+        #[lCastOp.getResult 0, rCastOp.getResult 0] #[] #[] props none
+    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (mOp.getResult 0)
+    some (ctx, some (#[lCastOp, rCastOp, mOp, castBackOp], #[castBackOp.getResult 0]))
+
+/--
   `llvm.intr.ctlz` -> `riscv.clz`.
 -/
 def ctlz_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -951,28 +982,8 @@ def selectGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /-- llvm.intr.smax -> riscv.max -/
 def smax_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchSmax op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  /- For i32, sign-extend before max so negative values compare correctly. -/
-  if t.bitwidth = 32 then
-    let (ctx, ls) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[lCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, rs) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[rCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, maxOp) ← WfRewriter.createOp! ctx (.riscv .max) #[RegisterType.mk]
-        #[ls.getResult 0, rs.getResult 0]
-        #[] #[] () none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (maxOp.getResult 0)
-    some (ctx, some (#[lCastOp, rCastOp, ls, rs, maxOp, castBackOp], #[castBackOp.getResult 0]))
-  else
-    let (ctx, maxOp) ← WfRewriter.createOp! ctx (.riscv .max) #[RegisterType.mk] #[lCastOp.getResult 0, rCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (maxOp.getResult 0)
-    some (ctx, some (#[lCastOp, rCastOp, maxOp, castBackOp], #[castBackOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerSignedMinMaxLocal matchSmax .max () ctx op
 
 /-- llvm.intr.smax -> riscv.max -/
 def smax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -981,28 +992,8 @@ def smax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /-- llvm.intr.smin -> riscv.min -/
 def smin_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchSmin op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  /- For i32, sign-extend before min so negative values compare correctly. -/
-  if t.bitwidth = 32 then
-    let (ctx, ls) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[lCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, rs) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[rCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, minOp) ← WfRewriter.createOp! ctx (.riscv .min) #[RegisterType.mk]
-        #[ls.getResult 0, rs.getResult 0]
-        #[] #[] () none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (minOp.getResult 0)
-    some (ctx, some (#[lCastOp, rCastOp, ls, rs, minOp, castBackOp], #[castBackOp.getResult 0]))
-  else
-    let (ctx, minOp) ← WfRewriter.createOp! ctx (.riscv .min) #[RegisterType.mk] #[lCastOp.getResult 0, rCastOp.getResult 0]
-        #[] #[] () none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (minOp.getResult 0)
-    some (ctx, some (#[lCastOp, rCastOp, minOp, castBackOp], #[castBackOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerSignedMinMaxLocal matchSmin .min () ctx op
 
 /-- llvm.intr.smin -> riscv.min -/
 def smin (rewriter : PatternRewriter OpCode) (op : OperationPtr)

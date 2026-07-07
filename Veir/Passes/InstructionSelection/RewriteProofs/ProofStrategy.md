@@ -53,7 +53,7 @@ structural proof is done **once per combinator**. Currently:
   `hRefine64`/`hRefine32` lemma is chosen. The matcher returns just `(lhs, rhs)` (no properties),
   so `hMatchImplies` omits the properties equation. The signed `smax`/`smin` do *not* fit this
   combinator: for `i32` they sign-extend both operands (`riscv.sextw`) before `max`/`min`, so they
-  need a longer-chain variant (two extra unary reg ops in the `i32` branch).
+  need the longer-chain `lowerSignedMinMaxLocal` (two extra unary reg ops in the `i32` branch).
 - `lowerBitwiseRegLocal match? rop props` — the *bitwise* cousin of `lowerBinaryRegLocal`: match a
   two-operand LLVM bitwise op whose *result* type is `i64`/`i32`/`i8`/`i1`, emit `castToRegLocal`
   for each operand → a *single* bitwise `riscv` op `rop` → `replaceWithRegLocal`. Instances: `and`
@@ -69,6 +69,21 @@ structural proof is done **once per combinator**. Currently:
   at both widths). Arithmetic ops (`add`/`sub`/`mul`/shifts) do *not* fit: a carry or shifted bit
   crosses the width boundary, so the `i32` result is not a function of the low 32 bits and a
   sign-extending `W` variant is required.
+- `lowerSignedMinMaxLocal match? rop props` — the *signed* min/max cousin of `lowerBinaryRegLocal`:
+  match a two-operand LLVM integer op whose result has type `i64`/`i32`, emit `castToRegLocal` for
+  each operand → a single signed `riscv` op `rop` (`max`/`min`) → `replaceWithRegLocal`. Instances:
+  `smax` (`riscv.max`), `smin` (`riscv.min`). Its shared correctness proof is
+  `lowerSignedMinMaxLocal_preservesSemantics` (`RewriteProofs/LowerSignedMinMax.lean`). The catch is
+  the `i32` branch: `castToRegLocal` puts the operand into the register *zero-extended*
+  (`LLVM.Int.toReg` computes `getValue.zeroExtend 64`), which preserves the *unsigned* order (so the
+  unsigned `umax`/`umin` need no fixup and use `lowerBinaryRegLocal`) but breaks the *signed* order,
+  so the two register operands are first sign-extended with `riscv.sextw` before the signed compare.
+  So unlike `lowerBinaryRegLocal`, the two bitwidths take *different* op chains — four ops for `i64`,
+  six for `i32` (two extra `sextw`s) — and the proof `split`s on the bitwidth *after* the two shared
+  casts, executing each chain separately (the `i64` branch mirrors `lowerBinaryRegLocal`, the `i32`
+  branch threads two extra `interpretOp_riscv_unaryReg_forward` steps and their frame clauses). The
+  data lemmas come in `_64`/`_32` pairs, the `_32` one carrying the extra `sextw` (unfold
+  `Data.RISCV.max`/`min`, `sextw`, `addiw`, then `veir_bv_decide`).
 
 The generic theorem is parameterized over everything opcode-specific:
 
@@ -318,6 +333,19 @@ per lowering as above.
 - **Structural facts through 4 creations**: plain `grind` no longer finds the transports for
   ops created three contexts back; seed `OperationPtr.getOperands!_WfRewriter_createOp` (and the
   `getResultTypes!` analogue) explicitly at each creation hypothesis, as in `LowerBinaryW.lean`.
+- **Deep dominance transport / `grind` non-monotonicity** (the pain point of `LowerSignedMinMax`'s
+  six-op `i32` chain): the `peelOpCreation!₂` macro discharges its `op.InBounds ctxₙ`,
+  operand-in-bounds, and `op ≠ newOp` side goals with `grind`, and those `grind`s *fail past ~3
+  creations deep* — worse, adding an `op.InBounds ctxₙ` hypothesis to the context to help them
+  *breaks the macro's other `grind`s* (grind is non-monotonic in context size/shape). Fix: peel the
+  deep ops **manually** rather than with the `!` macro, and build every `InBounds` witness as an
+  *inline term* (never a context hypothesis): `op.InBounds ctxₙ` as a chain of
+  `WfRewriter.createOp_inBounds_mono (ptr := .operation op)` from `opInBounds`; `op ≠ newOp` from
+  `createOp_new_not_inBounds`; and the `createOp!_none_eq` operand-in-bounds discharge as an inline
+  `have hIn … := createOp_new_inBounds/…_mono` + `have hNum : …getNumResults! … = 1` seed pair
+  (`grind` won't chain `createOp_new_inBounds` + `inBounds_mono` + `getResult_inBounds` on its own).
+  Also seed the `getOpType!` transport per creation when two emitted ops share an opcode (the two
+  `sextw`s), or `grind` conflates them.
 - **`maxHeartbeats`**: the combinator theorem needs `set_option maxHeartbeats 1000000` (many
   `grind` calls over a large context).
 - **Expected axioms**: `#print axioms` will list the dominance axioms
@@ -337,6 +365,7 @@ per lowering as above.
 | `RewriteProofs/LowerBinaryW.lean` | `matchBinaryOp_interpretOp_unfold`, `lowerBinaryWLocal_preservesSemantics`, and per-lowering Layer-0 lemmas + instantiations (`add`, `sub`, `mul`, `xor`) | two data lemmas + one instantiation (binary) |
 | `RewriteProofs/LowerBinaryReg.lean` | `lowerBinaryRegLocal_preservesSemantics` (width-agnostic single-op binary, reuses `matchBinaryOp_interpretOp_unfold`) + per-lowering Layer-0 lemmas + instantiations (`umax`, `umin`) | two data lemmas + one instantiation (binary, single op) |
 | `RewriteProofs/LowerBitwiseReg.lean` | `lowerBitwiseRegLocal_preservesSemantics` (bitwise single-op binary over `i64`/`i32`/`i8`/`i1`, reuses `matchBinaryOp_interpretOp_unfold`; one width-generic refinement lemma, no bitwidth branch) + instantiations (`and`, `or`) | one width-generic data lemma + one instantiation |
+| `RewriteProofs/LowerSignedMinMax.lean` | `lowerSignedMinMaxLocal_preservesSemantics` (signed min/max; `i64` = 4 ops like `lowerBinaryRegLocal`, `i32` = 6 ops with two extra `riscv.sextw`; splits on bitwidth after the shared casts, reuses `matchBinaryOp_interpretOp_unfold`) + `_64`/`_32` data lemmas + instantiations (`smax`, `smin`) | two data lemmas + one instantiation |
 | `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops) | one lemma per new emitted-op *shape* |
 | `RewriteProofs/CommonTactics.lean` | `peel*` macros (incl. the two-dominance `peel*₂` variants), `cleanupHpattern` | rarely |
 | `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `createOp!` reduction, properties/dominance transport | rarely |
