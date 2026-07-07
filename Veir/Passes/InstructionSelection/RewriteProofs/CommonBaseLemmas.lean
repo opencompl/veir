@@ -14,8 +14,7 @@ variable {rawCtx rawCtx' : IRContext OpInfo} {ctx ctx' : WfIRContext OpInfo}
 
 /-!
   This file contains lemmas that are useful when proving that a local rewrite preserves
-  semantics with `PreservesSemantics`. Some of these lemmas should be moved to other files in the
-  future.
+  semantics with `PreservesSemantics`.
 -/
 
 /--
