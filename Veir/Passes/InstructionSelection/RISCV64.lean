@@ -45,6 +45,40 @@ def lowerUnaryWLocal {P : Type}
   some (ctx, some (#[castOp, retOp, castBackOp], #[castBackOp.getResult 0]))
 
 /--
+  Shared shape of the integer-extension lowerings (`sext`/`zext`): match a single-operand LLVM
+  extension op whose operand has integer type `i8`, `i16`, or `i32` (see `isLegalExtOpWidth`) and
+  whose result is a strictly wider integer type of width at most 64 (a 64-bit register cannot
+  represent wider results, so e.g. `sext i8 to i128` is left unselected), cast the operand to a
+  register, apply the byte/halfword/word extension op matching the *operand* width (`op8`/`op16`/
+  `op32`), and cast the result back to the result type.
+-/
+def lowerExtLocal {P : Type}
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × P))
+    (op8 op16 op32 : Riscv)
+    (props8 : propertiesOf (.riscv op8)) (props16 : propertiesOf (.riscv op16))
+    (props32 : propertiesOf (.riscv op32))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operand, _) := match? op ctx | return (ctx, none)
+  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
+  if ¬ isLegalExtOpWidth opType.bitwidth then return (ctx, none)
+  let .integerType retType := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if retType.bitwidth ≤ opType.bitwidth ∨ 64 < retType.bitwidth then return (ctx, none)
+  let (ctx, castOp) ← castToRegLocal ctx operand
+  let (ctx, retOp) ←
+    if opType.bitwidth = 8 then
+      WfRewriter.createOp! ctx (.riscv op8) #[RegisterType.mk] #[castOp.getResult 0]
+          #[] #[] props8 none
+    else if opType.bitwidth = 16 then
+      WfRewriter.createOp! ctx (.riscv op16) #[RegisterType.mk] #[castOp.getResult 0]
+          #[] #[] props16 none
+    else
+      WfRewriter.createOp! ctx (.riscv op32) #[RegisterType.mk] #[castOp.getResult 0]
+          #[] #[] props32 none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
+  some (ctx, some (#[castOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+
+/--
   Shared shape of the binary RISC-V lowerings (`add`/`sub`/`mul`/`sdiv`/…): match a two-operand
   LLVM op whose operands have integer type `i64` or `i32`, cast both operands to registers, apply
   `op64` (or its `W` variant `op32` for `i32`) to the two registers, and cast the result back to
@@ -644,36 +678,8 @@ def sub (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   llvm.sext %x `i32` to `i64` -> riscv.sextw %x
 -/
 def sext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchSext op ctx | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if ¬ isLegalExtOpWidth (opType.bitwidth) then return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let .integerType retType := type.val | return (ctx, none)
-  if retType.bitwidth ≤ opType.bitwidth then return (ctx, none)
-  /- First, cast the operand to registers -/
-  let (ctx, opCastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
-      #[] #[] () none
-  let (ctx, retOp) ← match opType.bitwidth with
-    | 8 =>
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .sextb) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] () none
-      pure (ctx, retOp)
-    | 16 =>
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .sexth) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] () none
-      pure (ctx, retOp)
-    | 32 =>
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] () none
-      pure (ctx, retOp)
-    | _ =>
-      /- unreachable case -/
-      return (ctx, none)
-  /- Cast back result for type consistency-/
-  let (ctx, castOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
-      #[] #[] () none
-  some (ctx, some (#[opCastOp, retOp, castOp], #[castOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerExtLocal matchSext .sextb .sexth .sextw () () () ctx op
 
 /--
   llvm.sext -> riscv.sextb/sexth/sextw (see `sext_local`).
@@ -683,41 +689,15 @@ def sext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   RewritePattern.fromLocalRewrite sext_local rewriter op opInBounds
 
 /--
+  llvm.zext %x `i8`  to `i32` -> riscv.zextb %x
+  llvm.zext %x `i8`  to `i64` -> riscv.zextb %x
   llvm.zext %x `i16` to `i64` -> riscv.zexth %x
   llvm.zext %x `i16` to `i32` -> riscv.zexth %x
   llvm.zext %x `i32` to `i64` -> riscv.zextw %x
 -/
 def zext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchZext op ctx | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if ¬ isLegalExtOpWidth (opType.bitwidth) then return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let .integerType retType := type.val | return (ctx, none)
-  if retType.bitwidth ≤ opType.bitwidth then return (ctx, none)
-  /- First, cast the operand to registers -/
-  let (ctx, opCastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
-      #[] #[] () none
-  let (ctx, retOp) ← match opType.bitwidth with
-    | 8 =>
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .zextb) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] () none
-      pure (ctx, retOp)
-    | 16 =>
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .zexth) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] () none
-      pure (ctx, retOp)
-    | 32 =>
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .zextw) #[RegisterType.mk] #[opCastOp.getResult 0]
-        #[] #[] () none
-      pure (ctx, retOp)
-    | _ =>
-      /- unreachable case -/
-      return (ctx, none)
-  /- Cast back result for type consistency-/
-  let (ctx, castOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
-      #[] #[] () none
-  some (ctx, some (#[opCastOp, retOp, castOp], #[castOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerExtLocal matchZext .zextb .zexth .zextw () () () ctx op
 
 /--
   llvm.zext -> riscv.zexth/zextw (see `zext_local`).
