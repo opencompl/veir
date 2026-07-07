@@ -74,6 +74,29 @@ def lowerBinaryWLocal {P : Type}
   some (ctx, some (#[lcastOp, rcastOp, retOp, castBackOp], #[castBackOp.getResult 0]))
 
 /--
+  Shared shape of the width-agnostic binary RISC-V lowerings (`umax`/`umin`): match a two-operand
+  LLVM integer op whose result has integer type `i64` or `i32`, cast both operands to registers,
+  apply a single `riscv` op `rop` to the two registers, and cast the result back to the source
+  type. Unlike `lowerBinaryWLocal`, `rop` is the *same* instruction at both bitwidths (the register
+  already holds the correctly-represented value, so no `W` variant is needed), and the type guard
+  reads the *result* type rather than the operands'.
+-/
+def lowerBinaryRegLocal
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
+    (rop : Riscv) (props : propertiesOf (.riscv rop))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs) := match? op ctx | return (ctx, none)
+  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, lCastOp) ← castToRegLocal ctx lhs
+  let (ctx, rCastOp) ← castToRegLocal ctx rhs
+  let (ctx, mOp) ← WfRewriter.createOp! ctx (.riscv rop) #[RegisterType.mk]
+      #[lCastOp.getResult 0, rCastOp.getResult 0] #[] #[] props none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (mOp.getResult 0)
+  some (ctx, some (#[lCastOp, rCastOp, mOp, castBackOp], #[castBackOp.getResult 0]))
+
+/--
   `llvm.intr.ctlz` -> `riscv.clz`.
 -/
 def ctlz_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -1007,16 +1030,8 @@ def smin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /-- llvm.intr.umax -> riscv.maxu -/
 def umax_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchUmax op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  let (ctx, maxuOp) ← WfRewriter.createOp! ctx (.riscv .maxu) #[RegisterType.mk] #[lCastOp.getResult 0, rCastOp.getResult 0]
-      #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (maxuOp.getResult 0)
-  some (ctx, some (#[lCastOp, rCastOp, maxuOp, castBackOp], #[castBackOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerBinaryRegLocal matchUmax .maxu () ctx op
 
 /-- llvm.intr.umax -> riscv.maxu -/
 def umax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -1025,16 +1040,8 @@ def umax (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /-- llvm.intr.umin -> riscv.minu -/
 def umin_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs) := matchUmin op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, lCastOp) ← castToRegLocal ctx lhs
-  let (ctx, rCastOp) ← castToRegLocal ctx rhs
-  let (ctx, minuOp) ← WfRewriter.createOp! ctx (.riscv .minu) #[RegisterType.mk] #[lCastOp.getResult 0, rCastOp.getResult 0]
-      #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (minuOp.getResult 0)
-  some (ctx, some (#[lCastOp, rCastOp, minuOp, castBackOp], #[castBackOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerBinaryRegLocal matchUmin .minu () ctx op
 
 /-- llvm.intr.umin -> riscv.minu -/
 def umin (rewriter : PatternRewriter OpCode) (op : OperationPtr)
