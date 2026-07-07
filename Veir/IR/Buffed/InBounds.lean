@@ -110,30 +110,30 @@ theorem OperationPtr.getResult_inBounds (op : OperationPtr)
 
 @[grind =>]
 theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
-    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ = some (ptr', ctx')) :
+    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .fromOperation ptr') := by
   sorry
 
 theorem OperationPtr.allocEmpty_operationPtr_iff (ptr : OperationPtr)
-    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ = some (ptr', ctx')) :
+    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr =  ptr') := by
   grind [generic_ptr_grind, Sim.OperationPtr]
 
 @[grind . ]
 theorem OperationPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr)
-    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ = some (ptr', ctx')) :
+    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
   grind
 
 @[grind .]
 theorem OperationPtr.allocEmpty_newBlock_inBounds
-    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ = some (ptr', ctx')) :
+    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr'.InBounds ctx' := by
   sorry
 
 @[grind .]
 theorem OperationPtr.allocEmpty_newBlock_veir_inBounds {ptr : Veir.GenericPtr}
-    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ = some (ptr', ctx')) :
+    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx.spec → ptr.InBounds ctx'.spec := by
   sorry
 

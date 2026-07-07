@@ -116,6 +116,17 @@ def IRBufContext.insertAttrs (bctx : IRBufContext OpInfo) (attrs : Attribute) :
   else
     none
 
+/-- `insertAttrs` only grows the attribute table, so it leaves the buffer size unchanged. -/
+theorem IRBufContext.insertAttrs_size {bctx bctx' : IRBufContext OpInfo} {attrs : Attribute} {idx : UInt64}
+    (h : bctx.insertAttrs attrs = some (bctx', idx)) : bctx'.size = bctx.size := by
+  simp only [insertAttrs] at h
+  split at h
+  · simp only [Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨h, _⟩ := h
+    subst h
+    rfl
+  · exact absurd h (by simp)
+
 @[inline] def noOverflowsAdd (x y : UInt64) : Bool := x ≤ x + y
 
 @[inline]
@@ -1059,9 +1070,12 @@ theorem BlockMPtr.readNumArguments_eq_readNumArguments! {ptr : BlockMPtr} {h} :
     ptr.readNumArguments bctx h = ptr.readNumArguments! bctx := by
   simp [BlockMPtr.readNumArguments, BlockMPtr.readNumArguments!]
 
+-- The offset of the `idx`-th block argument depends only on `idx`, not on any bounds proof: a
+-- block with `capArguments = 0` genuinely has no room past its base, so no in-bounds fact is
+-- available (nor needed) here. Memory safety for an actual access is enforced when the returned
+-- `BlockArgumentMPtr` is read/written.
 @[inline]
-def BlockMPtr.computeArgumentOffset (ptr : BlockMPtr) (idx : UInt64)
-    (_h : (ptr + Block.Offsets.arguments).toInt + Block.Sizes.numArguments.toInt ≤ bctx.size) : Int64 :=
+def BlockMPtr.computeArgumentOffset (idx : UInt64) : Int64 :=
   Block.Offsets.arguments + (BlockArgument.size * idx)
 
 @[inline]
@@ -1069,22 +1083,21 @@ def BlockMPtr.computeArgumentOffset! (idx : UInt64) : Int64 :=
   Block.Offsets.arguments + (BlockArgument.size * idx)
 
 @[simp, grind =]
-theorem BlockMPtr.computeArgumentOffset_eq_computeArgumentOffset! {ptr : BlockMPtr} {idx : UInt64} {h} :
-    ptr.computeArgumentOffset bctx idx h = BlockMPtr.computeArgumentOffset! idx := by
+theorem BlockMPtr.computeArgumentOffset_eq_computeArgumentOffset! {idx : UInt64} :
+    BlockMPtr.computeArgumentOffset idx = BlockMPtr.computeArgumentOffset! idx := by
   simp [BlockMPtr.computeArgumentOffset, BlockMPtr.computeArgumentOffset!]
 
 @[inline]
-def BlockMPtr.getArgumentPtr (ptr : BlockMPtr) (idx : UInt64)
-    (h : (ptr + Block.Offsets.arguments).toInt + Block.Sizes.numArguments.toInt ≤ bctx.size) : BlockArgumentMPtr :=
-  ptr + ptr.computeArgumentOffset bctx idx h
+def BlockMPtr.getArgumentPtr (ptr : BlockMPtr) (idx : UInt64) : BlockArgumentMPtr :=
+  ptr + BlockMPtr.computeArgumentOffset idx
 
 @[inline]
 def BlockMPtr.getArgumentPtr! (ptr : BlockMPtr) (idx : UInt64) : BlockArgumentMPtr :=
   ptr + BlockMPtr.computeArgumentOffset! idx
 
 @[simp, grind =]
-theorem BlockMPtr.getArgumentPtr_eq_getArgumentPtr! {ptr : BlockMPtr} {idx : UInt64} {h} :
-    ptr.getArgumentPtr bctx idx h = ptr.getArgumentPtr! idx := by
+theorem BlockMPtr.getArgumentPtr_eq_getArgumentPtr! {ptr : BlockMPtr} {idx : UInt64} :
+    ptr.getArgumentPtr idx = ptr.getArgumentPtr! idx := by
   simp [BlockMPtr.getArgumentPtr, BlockMPtr.getArgumentPtr!]
 
 /-! ## Raw accessors for `Region` -/

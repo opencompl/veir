@@ -15,10 +15,12 @@ import all Veir.IR.Buffed.RawAccessors
 import all Veir.IR.Buffed.SimDefs
 import all Veir.IR.Buffed.Sim
 
+
 public section
 
 namespace Veir
 
+open Buffed (countCard)
 
 variable [HasOpInfo OpInfo]
 
@@ -244,6 +246,29 @@ macro "prove_allocBoundsOp" ctx₀:ident : tactic => `(tactic|
      Buffed.OperationMPtr.writeNumBlockOperands_size, Buffed.OperationMPtr.writeNumRegions_size,
      Buffed.OperationMPtr.writeParent_size, Buffed.OperationMPtr.writeNext_size,
      Buffed.OperationMPtr.writePrev_size]))
+
+/- Bounds proof for the field `write*` calls inside the raw `Rewriter.set{Result,Operand,
+BlockOperand}` setters. These write into a slot pointer (an `OpResult`/`OpOperand`/`BlockOperand`
+`MPtr`) of an *existing* operation, built with the proof-free `!` offset so the caller supplies
+only `hslot` — the whole slot `[slot, slot + <slot>.size)` fits in the buffer — plus, in
+`setResult`, `hsz`, that the intervening `insertAttrs` left the size unchanged. Each field
+write's `(slot + off).toInt + fsize ≤ size` follows because the field lies inside the slot;
+`fits_in_memory` rules out address wrap and `uint64_add_int64_toInt_lt` decomposes the pointer
+arithmetic. The `write*_size` lemmas collapse `.size` through the chain of earlier writes. -/
+set_option hygiene false in
+macro "prove_setSlotBounds" ctx₀:ident : tactic => `(tactic|
+  (have hb := ($ctx₀).mem.fits_in_memory
+   simp only [Buffed.IRBufContext.size_def] at *
+   grind [UInt64.uint64_add_int64_toInt_lt,
+     Buffed.OpResultMPtr.writeType_size, Buffed.OpResultMPtr.writeFirstUse_size,
+     Buffed.OpResultMPtr.writeIndex_size, Buffed.OpResultMPtr.writeOwner_size,
+     Buffed.OpOperandMPtr.writeNextUse_size, Buffed.OpOperandMPtr.writeBack_size,
+     Buffed.OpOperandMPtr.writeOwner_size, Buffed.OpOperandMPtr.writeValue_size,
+     Buffed.BlockOperandMPtr.writeNextUse_size, Buffed.BlockOperandMPtr.writeBack_size,
+     Buffed.BlockOperandMPtr.writeOwner_size, Buffed.BlockOperandMPtr.writeValue_size,
+     Buffed.BlockArgumentMPtr.writeType_size, Buffed.BlockArgumentMPtr.writeFirstUse_size,
+     Buffed.BlockArgumentMPtr.writeIndex_size, Buffed.BlockArgumentMPtr.writeOwner_size]))
+
 
 /-! ## Debugging printers -/
 
@@ -699,7 +724,11 @@ theorem Sim.OperationPtr.setAttributes_spec (ctx : Sim.IRContext OpInfo) (ptr : 
 def Sim.OperationPtr.getAttributes (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) : DictionaryAttr :=
   let idx := ptr.impl.readAttrs ctx.buf (by prove_setLinkBoundsOp ctx ptr)
-  (ctx.buf.attributes[idx.toNat]'admitted_bounds).asDict (admitted_sim ())
+  -- The `Sim` encoding invariant `attrs` says the stored attribute index points into the
+  -- attribute table (`attributes[readAttrs!]? = some _`), which is exactly the array bound.
+  (ctx.buf.attributes[idx.toNat]'(by
+    have hattr := ctx.sim.encoding_op ptr.spec (by grind) |>.attrs
+    grind)).asDict (admitted_sim ())
 
 @[inline]
 def Sim.OperationPtr.getAttributes! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : DictionaryAttr :=
@@ -715,7 +744,7 @@ theorem Sim.OperationPtr.getAttributes_eq_getAttributes! (ctx : IRContext OpInfo
 buffed
 def Sim.OperationPtr.getOperandPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) : Sim.OpOperandPtr :=
-  ⟨ptr.impl + ptr.impl.computeOperandOffset ctx.buf index admitted_bounds,
+  ⟨ptr.impl + ptr.impl.computeOperandOffset ctx.buf index (by prove_setLinkBoundsOp ctx ptr),
    ptr.spec.getOpOperand index.toNat⟩
 
 
@@ -2260,7 +2289,7 @@ theorem Sim.BlockPtr.getNumArguments_eq_getNumArguments! (ctx : IRContext OpInfo
 buffed
 def Sim.BlockPtr.getArgumentPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) : Sim.BlockArgumentPtr :=
-  ⟨ptr.impl + ptr.impl.computeArgumentOffset ctx.buf index admitted_bounds,
+  ⟨ptr.impl + Buffed.BlockMPtr.computeArgumentOffset index,
    ptr.spec.getArgument index.toNat⟩
 
 buffed
@@ -2725,28 +2754,26 @@ def Sim.OperationPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (addr : Nat) (
 @[inline]
 def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
     (properties : HasOpInfo.propertiesOf opType)
-    (numResults numOperands numBlockOperands numRegions : UInt64) :
+    (numResults numOperands numBlockOperands numRegions : UInt64)
+    (h₁ : numResults.toNat ≤ countCard) (h₂ : numOperands.toNat ≤ countCard)
+    (h₃ : numBlockOperands.toNat ≤ countCard) (h₄ : numRegions.toNat ≤ countCard) :
     Option (Sim.OperationPtr × Sim.IRContext OpInfo) :=
   -- An operation whose arrays exceed `countCard` (`2^32`) cannot be laid out without its size
   -- overflowing, so it is not allocatable; reject it here, which also supplies the size bounds
   -- needed by `allocEmptyImpl`. `propertySize_lt` bounds the property size (`< UInt32.size =
   -- countCard`), so it too is always in range.
-  if h : numResults.toNat ≤ Buffed.countCard ∧ numOperands.toNat ≤ Buffed.countCard ∧
-      numBlockOperands.toNat ≤ Buffed.countCard ∧ numRegions.toNat ≤ Buffed.countCard then
-    match allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
+  match allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
         (Buffed.Operation.propertySize opType)
-        h.1 h.2.1 h.2.2.1 h.2.2.2 (Nat.le_of_lt (Operation.propertySize_lt opType)) with
+        h₁ h₂ h₃ h₄ (Nat.le_of_lt (Operation.propertySize_lt opType)) with
     | none => none
     | some (ctxBuf, ptrImpl) =>
       let ⟨ctxSpec, ptrSpec⟩ := (allocEmptySpec ctx.spec ptrImpl.toNat opType properties
         numResults.toNat numBlockOperands.toNat numRegions.toNat numOperands.toNat).specGet!
       some ⟨⟨ptrImpl, ptrSpec⟩, ⟨ctxBuf, ctxSpec, admitted_sim ()⟩⟩
-  else
-    none
 
 @[grind! .]
 theorem Sim.OperationPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
-    allocEmpty ctx opType props c₁ c₂ c₃ c₄ = some ⟨ptr, ctx'⟩ →
+    allocEmpty ctx opType props c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some ⟨ptr, ctx'⟩ →
     ∃ addr, Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₂.toNat c₃.toNat c₄.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:= by
   unfold Sim.OperationPtr.allocEmpty
   -- TODO: we need to get from ctx.sim that the slot in the spec is free.
@@ -2758,3 +2785,5 @@ theorem Veir.Sim.BlockPtr.getParent_impl2 {OpInfo : Type} [inst : HasOpInfo OpIn
   unfold Sim.BlockPtr.getParentImpl
   unfold Sim.BlockPtr.getParentSim
   grind [Sim.OpOperandPtr, Sim.IRContext, Sim.ValuePtr, Sim.BlockArgumentPtr, Sim.BlockPtr, Sim.OperationPtr, Sim.BlockOperandPtr, Sim.OpResultPtr, Sim.RegionPtr, Sim.OpOperandPtrPtr, Sim.BlockOperandPtrPtr]
+
+-- TODO

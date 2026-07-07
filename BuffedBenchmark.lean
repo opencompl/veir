@@ -11,7 +11,7 @@ set_option warn.sorry false
 
 -- TODO: the array is bad... We need our own array type or not use arrays
 -- set_option trace.Compiler.reduceArity true in
-buffed --(inline := false)
+buffed (def_lemma := false)
 def createManyOpsLoopSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint)
     (prev2 prev1 : Sim.ValuePtr) (n : Nat) : Option (Sim.IRContext OpCode) :=
   match n with
@@ -19,15 +19,18 @@ def createManyOpsLoopSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint
   | n + 1 => do
     let prev2 := ⟨prev2.impl, .blockArgument ⟨⟨0⟩, 0⟩⟩
     let prev1 := ⟨prev1.impl, .blockArgument ⟨⟨0⟩, 0⟩⟩
-    let some (ctx, op) := Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[prev2, prev1] #[] #[]
-        (NswNuwProperties.mk false false) (some insertPoint) sorry sorry sorry sorry sorry
-      | none
-    let ctx := dumpOp op ctx "hello!"
-    createManyOpsLoopSim ctx insertPoint prev1
-      (Sim.ValuePtr.fromOpResultPtr (op.getResultPtr ctx 0 sorry)) n
+    match Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[prev2, prev1] #[] #[]
+        (NswNuwProperties.mk false false) (some insertPoint) sorry sorry sorry sorry sorry sorry with
+    | some (ctx, op) =>
+      createManyOpsLoopSim ctx insertPoint prev1
+        (Sim.ValuePtr.fromOpResultPtr (op.getResultPtr ctx 0 sorry)) n
+    | _ => none
+
+#print createManyOpsLoopImpl
+#print createManyOpsLoop
 
 -- set_option trace.Compiler.reduceArity true
-buffed
+buffed (def_lemma := false)
 def createManyOpsSim (n : Nat) : Option (Sim.BlockPtr × Sim.IRContext OpCode) := do
   -- Top-level `builtin.module` with one region holding a single empty block.
   let some (ctx, topOp) := IRContext.create OpCode
@@ -36,10 +39,10 @@ def createManyOpsSim (n : Nat) : Option (Sim.BlockPtr × Sim.IRContext OpCode) :
   let ctx := dumpOp topOp ctx "AFTER creation topOp is"
 
   -- Reach the module's block and give it one `i32` parameter.
-  let region : Sim.RegionPtr := topOp.getRegionPtr ctx 0 sorry
+  let region : Sim.RegionPtr := topOp.getRegionPtr ctx 0 sorry sorry
   let ctx := dumpRegion region ctx "AFTER region"
   -- TODO: add a block with two arguments
-  let block := (region.getFirstBlock ctx (by sorry)).toOption.get sorry
+  let block := (region.getFirstBlock ctx (by sorry)).toOption.get!
   let ctx := dumpRegion region ctx "region"
   let ctx := dumpBlock block ctx "block"
 
@@ -72,7 +75,7 @@ def replaceOps.loopSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) (dep
       -- let prevval := oper.getValue ctx (by sorry)
       -- let some ctx := Rewriter.replaceOp? ctx op prevop sorry sorry sorry sorry | none
       let prevop := op.getPrevOp ctx (by sorry) |>.toOption.get sorry
-      let some ctx := Rewriter.replaceOp? ctx op prevop sorry sorry sorry sorry | none
+      let some ctx := Rewriter.replaceOp? ctx op prevop sorry sorry sorry sorry sorry | none
       replaceOps.loopSim ctx nextOp (depth - 1)
     else
       none

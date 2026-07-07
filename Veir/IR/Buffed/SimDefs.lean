@@ -731,6 +731,7 @@ def TopLevelPtr.range (ptr : TopLevelPtr) (ctx : IRContext OpInfo) : Std.Rco Int
   | .region rg => rg.range
 
 structure Sim (ctx : Sim.RawIRContext OpInfo) where
+  /-- All the fields are in bounds -/
   fieldsInBounds : ctx.spec.FieldsInBounds
   /-- All the values are representable. -/
   repr : ctx.spec.IsRepr
@@ -901,6 +902,7 @@ theorem UInt64.uint64_add_int64_toNat_lt {a : UInt64} {b : Int64}
   · rfl
   · grind
   · grind
+
 
 @[simp, grind =]
 theorem Buffed.Operation.Offsets.results_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) (op : OperationPtr) (ib : op.InBounds ctx) :
@@ -1090,13 +1092,13 @@ theorem OperationPtr.computeRegionsOffset!_ideal (ctx : Sim.IRContext OpInfo) (o
   rw [← OperationMPtr.computeRegionsOffset_eq_computeRegionsOffset! (h := h)]
   exact OperationPtr.computeRegionsOffset_ideal ctx op hib hsim h
 
-theorem BlockPtr.computeArgumentOffset_eq (ctx : Sim.IRContext OpInfo) (bl : Sim.BlockPtr) (idx : UInt64) h :
-    bl.impl.computeArgumentOffset ctx.buf idx h = Block.Offsets.arguments + BlockArgument.size * idx := by
+theorem BlockPtr.computeArgumentOffset_eq (idx : UInt64) :
+    BlockMPtr.computeArgumentOffset idx = Block.Offsets.arguments + BlockArgument.size * idx := by
   simp [Veir.Buffed.BlockMPtr.computeArgumentOffset]
 
 theorem BlockPtr.computeArgumentOffset_ideal (ctx : Sim.IRContext OpInfo) (bl : Sim.BlockPtr) (idx : UInt64)
-    (hib : bl.spec.InBounds ctx.spec) (hidx : idx.toNat < (bl.spec.get! ctx.spec).capArguments) h :
-    (bl.impl.computeArgumentOffset ctx.buf idx h).toInt =
+    (hib : bl.spec.InBounds ctx.spec) (hidx : idx.toNat < (bl.spec.get! ctx.spec).capArguments) :
+    (BlockMPtr.computeArgumentOffset idx).toInt =
       Block.Offsets.argumentsInt + BlockArgument.sizeNat * idx.toNat := by
   have hcap := ctx.isRepr.blocks_indices bl.spec (by grind) |>.arguments
   have hidx' : idx.toNat < 4294967296 := by simp only [countCard, UInt32.size] at hcap; omega

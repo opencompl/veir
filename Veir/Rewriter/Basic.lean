@@ -5,6 +5,8 @@ public import Veir.Rewriter.InsertPoint
 public import Veir.Rewriter.LinkedList.Basic
 public import Veir.Rewriter.LinkedList.GetSet
 
+meta import Veir.IR.Buffed.Basic
+import Veir.IR.Buffed.RawAccessorsLemmas
 import Veir.IR.Buffed.Meta
 import Veir.IR.Buffed.InBounds
 import Veir.Rewriter.LinkedList.LayoutUnchanged
@@ -583,22 +585,24 @@ protected def Rewriter.pushBlockArgument (ctx : IRContext OpInfo) (blockPtr : Bl
   let argument := { type := type, firstUse := none, index := index, loc := (), owner := blockPtr : BlockArgument }
   blockPtr.pushArgument ctx argument (by grind)
 
--- TODO
-protected def Rewriter.setBlockArgument (blockPtr : Buffed.BlockMPtr) (ctx : Buffed.IRBufContext OpInfo) (idx : UInt64)
-    (type : TypeAttr) : Option (Buffed.IRBufContext OpInfo) := do
-  let arg := blockPtr.getArgumentPtr ctx idx admitted_bounds
-  let (ctx, typeIdx) ← ctx.insertAttrs type
-  let ctx := arg.writeType ctx typeIdx admitted_bounds
-  let ctx := arg.writeFirstUse ctx .none admitted_bounds
-  let ctx := arg.writeIndex ctx idx admitted_bounds
-  let ctx := arg.writeOwner ctx blockPtr admitted_bounds
-  ctx
+@[inline]
+protected def Rewriter.setBlockArgument (blockPtr : Buffed.BlockMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
+    (hslot : (blockPtr.getArgumentPtr idx).toNat + Buffed.BlockArgument.size.toNat ≤ ctx₀.size)
+    (type : TypeAttr) : Option (Buffed.IRBufContext OpInfo) :=
+  let arg := blockPtr.getArgumentPtr idx
+  rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
+  have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
+  let ctx := arg.writeType ctx typeIdx (by prove_setSlotBounds ctx₀)
+  let ctx := arg.writeFirstUse ctx .none (by prove_setSlotBounds ctx₀)
+  let ctx := arg.writeIndex ctx idx (by prove_setSlotBounds ctx₀)
+  let ctx := arg.writeOwner ctx blockPtr (by prove_setSlotBounds ctx₀)
+  some ctx
 
 protected buffed
 def Rewriter.pushBlockArgumentAtSim (blockPtr : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (type : TypeAttr) (ib : blockPtr.InBounds ctx) (hidx : idx.toNat = blockPtr.spec.getNumArguments! ctx.spec) :
     Option (Sim.IRContext OpInfo) := do
-  some ⟨← Rewriter.setBlockArgument blockPtr.impl ctx.buf idx type, Rewriter.pushBlockArgument ctx.spec blockPtr.spec type (by grind), admitted_sim ib⟩
+  some ⟨← Rewriter.setBlockArgument blockPtr.impl ctx.buf idx (by sorry) type, Rewriter.pushBlockArgument ctx.spec blockPtr.spec type (by grind), admitted_sim ib⟩
 
 @[grind .]
 theorem Rewriter.pushBlockArgumentAt_spec :
@@ -656,47 +660,61 @@ theorem Rewriter.pushBlockArgumentAt_fieldsInBounds {blockPtr : Sim.BlockPtr}
 Like `setBlockArgument`, these write a single entry into the (already allocated) result/operand/
 block-operand array of an operation, at a given index. They do not grow the array. -/
 
--- TODO
 @[inline]
-protected def Rewriter.setResult (opPtr : Buffed.OperationMPtr) (ctx : Buffed.IRBufContext OpInfo) (idx : UInt64)
-    (type : TypeAttr) : Option (Buffed.IRBufContext OpInfo) := do
-  let res := opPtr.getResultPtr ctx idx admitted_bounds
-  let (ctx, typeIdx) ← ctx.insertAttrs type
-  let ctx := res.writeType ctx typeIdx admitted_bounds
-  let ctx := res.writeFirstUse ctx .none admitted_bounds
-  let ctx := res.writeIndex ctx idx admitted_bounds
-  let ctx := res.writeOwner ctx opPtr admitted_bounds
-  ctx
+protected def Rewriter.setResult (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
+    (hnum : (opPtr + Buffed.Operation.Offsets.numResults).toInt + Buffed.Operation.Sizes.numResults.toInt ≤ ctx₀.size)
+    (hslot : (opPtr.getResultPtr ctx₀ idx hnum).toNat + Buffed.OpResult.size.toNat ≤ ctx₀.size)
+    (type : TypeAttr) : Option (Buffed.IRBufContext OpInfo) :=
+  let res := opPtr.getResultPtr ctx₀ idx hnum
+  rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
+  have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
+  let ctx := res.writeType ctx typeIdx (by prove_setSlotBounds ctx₀)
+  let ctx := res.writeFirstUse ctx .none (by prove_setSlotBounds ctx₀)
+  let ctx := res.writeIndex ctx idx (by prove_setSlotBounds ctx₀)
+  let ctx := res.writeOwner ctx opPtr (by prove_setSlotBounds ctx₀)
+  some ctx
 
--- TODO
 @[inline]
-protected def Rewriter.setOperand (opPtr : Buffed.OperationMPtr) (ctx : Buffed.IRBufContext OpInfo) (idx : UInt64)
+protected def Rewriter.setOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
+    (hnum : (opPtr + Buffed.Operation.Offsets.opType).toInt + Buffed.Operation.Sizes.opType.toInt ≤ ctx₀.size)
+    (hslot : (opPtr + opPtr.computeOperandOffset ctx₀ idx hnum).toNat + Buffed.OpOperand.size.toNat ≤ ctx₀.size)
     (value : Buffed.ValueImplMPtr) : Buffed.IRBufContext OpInfo :=
-  let oper : Buffed.OpOperandMPtr := opPtr + opPtr.computeOperandOffset ctx idx admitted_bounds
-  let ctx := oper.writeNextUse ctx .none admitted_bounds
-  let ctx := oper.writeBack ctx 0 admitted_bounds
-  let ctx := oper.writeOwner ctx opPtr admitted_bounds
-  let ctx := oper.writeValue ctx value admitted_bounds
+  let oper : Buffed.OpOperandMPtr := opPtr + opPtr.computeOperandOffset ctx₀ idx hnum
+  let ctx := oper.writeNextUse ctx₀ .none (by prove_setSlotBounds ctx₀)
+  let ctx := oper.writeBack ctx 0 (by prove_setSlotBounds ctx₀)
+  let ctx := oper.writeOwner ctx opPtr (by prove_setSlotBounds ctx₀)
+  let ctx := oper.writeValue ctx value (by prove_setSlotBounds ctx₀)
   ctx
 
--- TODO
 @[inline]
-protected def Rewriter.setBlockOperand (opPtr : Buffed.OperationMPtr) (ctx : Buffed.IRBufContext OpInfo) (idx : UInt64)
+protected def Rewriter.setBlockOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
+    (hnum : (opPtr + Buffed.Operation.Offsets.numOperands).toInt + Buffed.Operation.Sizes.numOperands.toInt ≤ ctx₀.size)
+    (hslot : (opPtr + opPtr.computeBlockOperandOffset ctx₀ idx hnum).toNat + Buffed.BlockOperand.size.toNat ≤ ctx₀.size)
     (value : Buffed.BlockMPtr) : Buffed.IRBufContext OpInfo :=
-  let oper : Buffed.BlockOperandMPtr := opPtr + opPtr.computeBlockOperandOffset ctx idx admitted_bounds
-  let ctx := oper.writeNextUse ctx .none admitted_bounds
-  let ctx := oper.writeBack ctx 0 admitted_bounds
-  let ctx := oper.writeOwner ctx opPtr admitted_bounds
-  let ctx := oper.writeValue ctx value admitted_bounds
+  let oper : Buffed.BlockOperandMPtr := opPtr + opPtr.computeBlockOperandOffset ctx₀ idx hnum
+  let ctx := oper.writeNextUse ctx₀ .none (by prove_setSlotBounds ctx₀)
+  let ctx := oper.writeBack ctx 0 (by prove_setSlotBounds ctx₀)
+  let ctx := oper.writeOwner ctx opPtr (by prove_setSlotBounds ctx₀)
+  let ctx := oper.writeValue ctx value (by prove_setSlotBounds ctx₀)
   ctx
 
--- TODO
 @[inline]
-protected def Rewriter.setRegion (opPtr : Buffed.OperationMPtr) (ctx : Buffed.IRBufContext OpInfo) (idx : UInt64)
-    (region : Buffed.RegionMPtr) : Buffed.IRBufContext OpInfo :=
-  let ctx := region.writeParent ctx opPtr admitted_bounds
-  let slot := opPtr + opPtr.computeRegionOffset ctx idx admitted_bounds
-  let mem := ctx.mem.blit64 slot region admitted_bounds
+protected def Rewriter.setRegion (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
+    (region : Buffed.RegionMPtr)
+    (hregion : (region + Buffed.Region.Offsets.parent).toInt + Buffed.Region.Sizes.parent.toInt ≤ ctx₀.size)
+    (hnum : (opPtr + Buffed.Operation.Offsets.numOperands).toInt + Buffed.Operation.Sizes.numOperands.toInt ≤ ctx₀.size)
+    (hslot : (opPtr + opPtr.computeRegionOffset ctx₀ idx hnum).toNat + Buffed.ptrSize.toNat ≤ ctx₀.size) :
+    Buffed.IRBufContext OpInfo :=
+  -- Compute the region slot from `ctx₀` (the region-`writeParent` below touches the region, not
+  -- the operation's count fields, so the offset is the same), then write the parent link and
+  -- blit the region pointer into the slot. `hregion` bounds the (independent) region pointer.
+  let slot := opPtr + opPtr.computeRegionOffset ctx₀ idx hnum
+  let ctx := region.writeParent ctx₀ opPtr hregion
+  let mem := ctx.mem.blit64 slot region (by
+    have hb := ctx₀.mem.fits_in_memory
+    simp only [Buffed.IRBufContext.size_def] at *
+    grind [UInt64.uint64_add_int64_toInt_lt, Buffed.RegionMPtr.writeParent_range,
+      Buffed.RegionMPtr.writeParent_size])
   { ctx with mem := mem }
 
 buffed
@@ -911,7 +929,7 @@ def Rewriter.pushRegionAtSim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpI
     (hop : opPtr.InBounds ctx := by grind) (hregion : region.InBounds ctx := by grind)
     (hRegionParent : (region.spec.get! ctx.spec).parent = none := by grind) :
     Sim.IRContext OpInfo :=
-  ⟨Rewriter.setRegion opPtr.impl ctx.buf idx region.impl,
+  ⟨Rewriter.setRegion opPtr.impl ctx.buf idx region.impl sorry sorry sorry,
    Rewriter.pushRegion ctx.spec opPtr.spec region.spec (by grind) (by grind) (by grind), admitted_sim ctx⟩
 
 @[simp, grind =]
@@ -1012,7 +1030,7 @@ def Rewriter.pushResultAtSim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpI
     (idx : UInt64) (type : TypeAttr) (hop : opPtr.InBounds ctx := by grind)
     (hidx : idx.toNat = opPtr.spec.getNumResults! ctx.spec := by grind) :
     Option (Sim.IRContext OpInfo) := do
-  some ⟨← Rewriter.setResult opPtr.impl ctx.buf idx type, Rewriter.pushResult ctx.spec opPtr.spec type (by grind), admitted_sim hidx⟩
+  some ⟨← Rewriter.setResult opPtr.impl ctx.buf idx sorry sorry type, Rewriter.pushResult ctx.spec opPtr.spec type (by grind), admitted_sim hidx⟩
 
 @[grind =>]
 theorem Rewriter.pushResultAt_spec {opPtr : Sim.OperationPtr}
@@ -1131,7 +1149,7 @@ def Rewriter.pushOperandAtUninsertedSim (opPtr : Sim.OperationPtr) (ctx : Sim.IR
     (valueInBounds : valuePtr.InBounds ctx := by grind) (hctx : ctx.spec.FieldsInBounds := by grind)
     (hidx : idx.toNat = opPtr.spec.getNumOperands! ctx.spec := by grind) :
     Sim.IRContext OpInfo :=
-  ⟨Rewriter.setOperand opPtr.impl ctx.buf idx valuePtr.impl,
+  ⟨Rewriter.setOperand opPtr.impl ctx.buf idx sorry sorry valuePtr.impl,
    Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind), admitted_sim hidx⟩
 
 @[simp, grind =]
@@ -1265,7 +1283,7 @@ def Rewriter.pushBlockOperandAtUnattachedSim (opPtr : Sim.OperationPtr) (ctx : S
     (blockInBounds : blockPtr.InBounds ctx := by grind) (hctx : ctx.spec.FieldsInBounds := by grind)
     (hidx : idx.toNat = opPtr.spec.getNumSuccessors! ctx.spec := by grind) :
     Sim.IRContext OpInfo :=
-  ⟨Rewriter.setBlockOperand opPtr.impl ctx.buf idx blockPtr.impl,
+  ⟨Rewriter.setBlockOperand opPtr.impl ctx.buf idx sorry sorry blockPtr.impl,
     Rewriter.pushBlockOperand ctx.spec opPtr.spec blockPtr.spec (by grind) (by grind) (by grind),
     admitted_sim hidx⟩
 
@@ -1408,6 +1426,7 @@ def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
     (hx : ctx.spec.FieldsInBounds := by grind) : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
   rlet ⟨newOpPtr, ctx⟩ ← Sim.OperationPtr.allocEmpty ctx opType properties
     resultTypes.usize.toUInt64 operands.usize.toUInt64 blockOperands.usize.toUInt64 regions.usize.toUInt64
+    sorry sorry sorry sorry
   have : newOpPtr.spec.getNumOperands! ctx.spec = 0 := by grind
   have : newOpPtr.spec.getNumSuccessors! ctx.spec = 0 := by grind
   have : newOpPtr.spec.getNumRegions! ctx.spec = 0 := by grind

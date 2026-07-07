@@ -1604,8 +1604,13 @@ elab_rules : command
       unless (← getEnv).contains implName do
         elabCommand (← buildRecursiveImplCmd declName implName inline defn.raw)
       -- Emit the `<name>_impl` lemma `(funcSim args).impl = funcImpl (projected args)`, proved by
-      -- induction along `<name>Sim` (see `mkRecursiveImplLemmaProof`).
-      liftCoreM <| generateBuffedImplLemma declName (recursive := true)
+      -- induction along `<name>Sim` (see `mkRecursiveImplLemmaProof`). Skipped when
+      -- `(def_lemma := false)`: its `fun_induction <;> grind` proof is what tends to fail (and even
+      -- its `sorry` fallback can hard-error on unusual shapes), so opting out of `def_lemma` opts out
+      -- of this lemma too. Downstream base/spec generation that relies on `<name>_impl` (via
+      -- `rebuildIRContextWithProvenSim`) then degrades gracefully to a `sorry` `sim` proof.
+      if defLemma then
+        liftCoreM <| generateBuffedImplLemma declName (recursive := true)
       liftCoreM <| generateBuffedSpecAndBase declName (recursive := true)
       -- Emit the `<name>_def` lemma `<base> args = <name>Sim args` by induction along `<name>Sim`,
       -- e.g. the hand-written `Rewriter.detachOperands.loop_def`. Skipped when `(def_lemma := false)`,
