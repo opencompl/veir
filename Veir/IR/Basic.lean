@@ -1,5 +1,6 @@
 module
 
+public import ExArray.CompilerExtras
 import Std.Data.HashMap
 import Veir.Prelude
 public import Veir.IR.OpInfo

@@ -1,5 +1,8 @@
 module
 
+public import ExArray.CompilerExtras
+import Veir.Prelude
+public import Veir.Prelude
 public import Veir.IR
 public import Veir.IR.Buffed.Basic
 public import Lean.Data.Json.Parser

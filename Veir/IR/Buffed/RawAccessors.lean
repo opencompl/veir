@@ -198,7 +198,7 @@ def ValueImplMPtr.readFirstUse! (ptr : ValueImplMPtr) : OpOperandOPtr :=
 @[simp, grind =]
 theorem ValueImplMPtr.readFirstUse_eq_readFirstUse! {ptr : ValueImplMPtr} {h} :
     ptr.readFirstUse bctx h = ptr.readFirstUse! bctx := by
-  simp [ValueImplMPtr.readFirstUse, ValueImplMPtr.readFirstUse!]
+  grind [ValueImplMPtr.readFirstUse, ValueImplMPtr.readFirstUse!]
 
 /-! ## Raw accessors for `OpResult` -/
 

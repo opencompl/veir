@@ -1,5 +1,6 @@
 module
 
+public import ExArray.CompilerExtras
 public import Veir.IR
 import Veir.IR.WellFormed
 import Veir.IR.Grind

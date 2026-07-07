@@ -452,58 +452,62 @@ private meta def rebuildIRContextWithProvenSim (declName : Name) (us : List Leve
   return mkApp partialApp proof
 
 /--
-Build `IRContext.mk buf spec <proof> : targetTy` for the *one `some` element* of an
-`Option (IRContext …)`-returning base wrapper, with the `sim` proof *proven* (not `sorry`).
+Build the *whole* base body for an `Option (IRContext …)`-returning non-recursive def as a `match` on
+`<name>Impl …`, with the `sim` proof *proven* (not `sorry`), avoiding the `Subtype`-projection-over-
+erased-`attach`-wrapper shape entirely:
 
-Here `buf := x.val` where `x : { v // v ∈ <name>Impl … }` comes from mapping over `…Impl.attach`
-(`buildBuffedBase`'s `mapSomeOverImplAttach`), so the membership fact `x.property : x.val ∈ <name>Impl …`
-is in scope. The `sim` goal `Sim ⟨x.val, spec⟩` is discharged with the template proof
-(cf. `Sim.OperationPtr.setParentWithCheck!`, the hand-written model for this shape):
+    match h : <name>Impl (projected xs) with
+    | none     => none
+    | some buf => some (Sim.IRContext.mk buf (<name>Spec xs).specGet! (by
+        have := <name>_impl xs
+        have := (<name>Sim xs).specGet!.sim
+        cases _ : <name>Sim xs <;> grind [<name>Spec, Option.specGet!]))
 
-    have := <name>_impl xs
-    have := (<name>Sim xs).specGet!.sim
-    cases _ : (<name>Sim xs) <;> grind [<name>Spec]
-
-`<name>_impl xs` relates `<name>Impl …` to `Option.map (·.buf) (<name>Sim xs)`; together with the
-membership `x.val ∈ <name>Impl …` it forces `<name>Sim xs = some v` with `v.buf = x.val`, and the
-`.specGet!.sim` fact plus `<name>Spec` (the spec is `(<name>Spec xs).specGet!`) let `grind` close the
-goal. The `cases` exposes the `some`/`none` split `grind` reasons over. If the proof fails it falls
-back to `sorry` (so `buffed` never breaks the build). Requires the `<name>_impl` lemma to have been
-emitted (and proven) already.
+`match h :` compiles (unlike a raw `Option.rec`) via a generated matcher, and the `some buf` branch's
+`sim` goal `Sim ⟨buf, (<name>Spec xs).specGet!⟩` is discharged by the template proof: `<name>_impl xs`
+relates `<name>Impl …` to `Option.map (·.buf) (<name>Sim xs)` — forcing `<name>Sim xs = some v` with
+`v.buf = buf` — and `.specGet!.sim` plus `<name>Spec` (the spec is `(<name>Spec xs).specGet!`) let
+`grind` close it after the `cases` `some`/`none` split. The match discriminant / spec value / `<name>_impl`
+lemma are delaborated to terms (so the autoParam args on `<name>_impl` stay pinned) and the `match` is
+elaborated against the expected `Option (IRContext …)` type. Requires the `<name>_impl` lemma to have been
+emitted (and proven) already. `implBody`/`specBody` are the `MetaM`-built `<name>Impl …`/`<name>Spec xs`
+calls (in scope over `xs`); `innerTy` is the bare `IRContext …` (the `Option`'s element type).
 -/
-private meta def rebuildIRContextOptionWithProvenSim (declName : Name) (us : List Level) (xs : Array Expr)
-    (targetTy buf spec : Expr) : Lean.Elab.TermElabM Expr := do
-  let tyArgs := targetTy.getAppArgs
-  let irContextInfo ← getConstInfo ``Veir.Sim.IRContext
-  let numParams ← forallTelescopeReducing irContextInfo.type fun ys _ => pure ys.size
-  unless tyArgs.size == numParams do
-    throwError "@[buffed]: unexpected IRContext type {targetTy}"
-  let mkConstE := mkConst ``Veir.Sim.IRContext.mk targetTy.getAppFn.constLevels!
-  let partialApp := mkAppN mkConstE (tyArgs ++ #[buf, spec])
-  let simTy := (← whnf (← inferType partialApp)).bindingDomain!
-  -- `<name>_impl xs` (delaborated to a term so the autoParam args are pinned), `<name>Sim xs`, and
-  -- `<name>Spec` for the template `cases … <;> grind` proof.
+private meta def mkOptionIRContextMatchBody (declName : Name) (us : List Level) (xs : Array Expr)
+    (innerTy implBody specBody : Expr) : Lean.Elab.TermElabM Expr := do
+  -- Splice the impl-call discriminant and the spec call in as *pre-built `Expr`s* via `exprToSyntax`
+  -- (a syntax leaf that re-elaborates to exactly that expr), NOT via delaboration: `implBody`/`specBody`
+  -- mention erased proof projections (e.g. `ctx.sim`) that a delaborate→re-elaborate roundtrip would turn
+  -- into fresh *unassigned* metavariables, which then leak into the base def (`declaration has
+  -- metavariables`). The `<name>_impl` lemma still goes through delaboration so its `:= by grind`
+  -- autoParam args stay pinned.
+  let implStx ← Lean.Elab.Term.exprToSyntax implBody
+  let specStx ← Lean.Elab.Term.exprToSyntax specBody
   let implLemmaApp := mkAppN (mkConst (mkImplLemmaName declName) us) xs
-  let implTerm ← Lean.PrettyPrinter.delab implLemmaApp
+  let implLemmaTerm ← Lean.PrettyPrinter.delab implLemmaApp
   let simCall := mkAppN (mkConst declName us) xs
   let simTerm ← Lean.PrettyPrinter.delab simCall
+  let ctorId := mkIdent ``Veir.Sim.IRContext.mk
   let specId := mkIdent (mkSpecName declName)
-  let attempt : Lean.Elab.TermElabM (Option Expr) := do
-    let goalMVar ← mkFreshExprSyntheticOpaqueMVar simTy
-    let remaining ← Lean.Elab.Tactic.run goalMVar.mvarId! do
-      Lean.Elab.Tactic.evalTactic (← `(tactic|
-        (have := $implTerm:term
-         have := ($simTerm:term).specGet!.sim
-         cases _ : $simTerm:term <;> grind [$specId:ident])))
-    if remaining.isEmpty then
-      pure (some (← instantiateMVars goalMVar))
-    else
-      pure none
-  let proof ←
-    match ← (try attempt catch _ => pure none) with
-    | some p => pure p
-    | none => mkSorry simTy (synthetic := true)
-  return mkApp partialApp proof
+  let getId := mkIdent ``Option.specGet!
+  -- The `sim` proof for the `some buf` branch (cf. `Sim.OperationPtr.setParentWithCheck!`).
+  let simProof ← `(term| (by
+    have := $implLemmaTerm:term
+    have := ($simTerm:term).specGet!.sim
+    cases _ : $simTerm:term <;> grind [$specId:ident, $getId:ident]))
+  let bodyStx ← `(term|
+    match h : $implStx:term with
+    | none => none
+    | some buf => some ($ctorId:ident buf ($specStx:term).specGet! $simProof:term))
+  -- Elaborate the `match` against the expected `Option (IRContext …)` type so the matcher is generated.
+  -- `elabTermEnsuringType` *postpones* the `by` block, leaving unsolved synthetic mvars in the returned
+  -- term; we must force them (`synthesizeSyntheticMVars`) and `instantiateMVars` so the base def body is
+  -- metavariable-free — otherwise later equation-lemma generation for the base hits a dangling mvar
+  -- (`unknown metavariable` panic) and the kernel rejects the def (`declaration has metavariables`).
+  let expectedTy ← mkAppM ``Option #[innerTy]
+  let body ← Lean.Elab.Term.elabTermEnsuringType bodyStx (some expectedTy)
+  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
+  instantiateMVars body
 
 /--
 Combine an impl-projection value `impl` and a spec-projection value `spec` back into the original
@@ -571,21 +575,6 @@ meta def buildBuffedBase (declName : Name) (recursive : Bool) :
       let mapFn ← withLocalDeclD `_x innerImplTy fun x => do
         mkLambdaFVars #[x] (← rebuild x specGet)
       mkAppM ``Option.map #[mapFn, implBody]
-    -- Like `mapSomeOverImpl`, but maps over `<name>Impl …|>.attach` instead of `<name>Impl …`, so the
-    -- bound element `x : { v // v ∈ <name>Impl … }` carries the membership fact `x.property`. The
-    -- `rebuild` callback receives the *value* `x.val` (the buf) and the spec; `x.property` stays in
-    -- scope inside any tactic block `rebuild` opens. Used for `Option (IRContext …)`, whose `sim` proof
-    -- needs that membership to relate `x.val` back to a `some` result of `<name>Sim` (cf.
-    -- `rebuildIRContextOptionWithProvenSim`). Runs in `TermElabM` so `rebuild` can discharge tactics.
-    let mapSomeOverImplAttach (rebuild : Expr → Expr → Lean.Elab.TermElabM Expr) :
-        Lean.Elab.TermElabM Expr := do
-      let attachBody ← mkAppM ``Option.attach #[implBody]
-      let attachInnerTy := (← whnf (← inferType attachBody)).getAppArgs[0]!
-      let specGet ← mkOptionGetSorry specBody
-      let mapFn ← withLocalDeclD `x attachInnerTy fun x => do
-        let xval ← mkAppM ``Subtype.val #[x]
-        mkLambdaFVars #[x] (← rebuild xval specGet)
-      mkAppM ``Option.map #[mapFn, attachBody]
     let baseBody ←
       match ← classifyReturn callTy with
       | .irContext =>
@@ -607,17 +596,18 @@ meta def buildBuffedBase (declName : Name) (recursive : Bool) :
       | .optionIRContext innerTy =>
         if recursive then
           -- A recursive Option-`IRContext` def: `<name>Impl` is an independent recursive function, and
-          -- the `_def`/`_impl` lemmas go through `fun_induction`. The `.attach`-with-proven-`sim`
-          -- wrapper (below) is incompatible with that `fun_induction <;> grind [<base>]` recipe, so we
-          -- keep the plain `Option.map` with a `sorry` `sim` (`rebuildIRContextWithSorrySim`) here.
+          -- the `_def`/`_impl` lemmas go through `fun_induction`. The `match`-with-proven-`sim` wrapper
+          -- (below) is incompatible with that `fun_induction <;> grind [<base>]` recipe, so we keep the
+          -- plain `Option.map` with a `sorry` `sim` (`rebuildIRContextWithSorrySim`) here.
           mapSomeOverImpl fun x specGet => rebuildIRContextWithSorrySim innerTy x specGet
         else
-          -- Non-recursive: map over `<name>Impl …|>.attach` so the `some` element `x` carries
-          -- `x.property : x.val ∈ <name>Impl …`, then *prove* the `sim` field from the `<name>_impl`
-          -- lemma (cf. the hand-written `Sim.OperationPtr.setParentWithCheck!`), rather than leaving it
-          -- as `sorry` — see `rebuildIRContextOptionWithProvenSim`.
-          mapSomeOverImplAttach fun xval specGet =>
-            rebuildIRContextOptionWithProvenSim declName us xs innerTy xval specGet
+          -- Non-recursive: build the body as `match h : <name>Impl … with | none => none | some buf =>
+          -- some ⟨buf, (<name>Spec …).specGet!, <proof-using-h>⟩`, *proving* the `sim` field from the
+          -- `<name>_impl` lemma (cf. the hand-written `Sim.OperationPtr.setParentWithCheck!`). The
+          -- `match` replaces the older `<name>Impl …|>.attach.map fun x => ⟨x.val, …⟩` shape — it keeps
+          -- the `sim`-membership fact (now the match equation `h`) without the `Subtype`-projection-over-
+          -- erased-`attach`-wrapper pattern. See `mkOptionIRContextMatchBody`.
+          mkOptionIRContextMatchBody declName us xs innerTy implBody specBody
       | .other =>
         -- Remaining product / dependent-`Sigma` returns (possibly under `Option`). Rebuild from
         -- *calls to* `<name>Impl`/`<name>Spec` (combined component-wise into the split shape) so the
@@ -641,10 +631,10 @@ private inductive DefLemmaProof where
   *not* defeq to `funcSim`; instead the lemma is proved by unfolding both sides (`simp [<base>,
   <name>Sim]`) and calling `grind`, mirroring the hand-written `…Sim_def` lemmas. -/
   | optionTactic
-  /-- An `Option (IRContext …)`-returning base wrapper, reassembled via `<name>Impl …|>.attach.map`
-  with a *proven* `sim` field (`rebuildIRContextOptionWithProvenSim`). The `.attach` defeats the plain
-  `optionTactic` recipe, so the lemma is proved with the template `cases … <;> grind` (mirroring the
-  hand-written `Sim.OperationPtr.setParentWithCheck!_def`). -/
+  /-- An `Option (IRContext …)`-returning base wrapper, reassembled via `match h : <name>Impl … with …`
+  with a *proven* `sim` field (`mkOptionIRContextMatchBody`). The dependent match defeats the plain
+  `optionTactic` recipe, so the lemma is proved with the template `split <;> cases … <;> simp_all`
+  (mirroring the hand-written `Sim.OperationPtr.setParentWithCheck!_def`). -/
   | optionIRContextTactic
   /-- The `Prod`/`Sigma` (`.other`) base wrapper is reassembled component-wise (`mkBuffedCombine`), so
   it is *not* defeq to `funcSim`. The lemma is proved by unfolding only the `Sim` side (`simp only
@@ -703,48 +693,49 @@ private meta def mkOptionDefLemmaProof (declName baseName : Name) (us : List Lev
 /--
 Build the proof term for an `Option (IRContext …)`-returning `<name>_def` lemma. `us`/`xs` are the
 level params and telescoped parameters (in scope); `instGoalTy` is the *instantiated* equation
-`<base> xs = <name>Sim xs`. This base wrapper reassembles the result via `<name>Impl …|>.attach.map`
-with a *proven* `sim` field (`rebuildIRContextOptionWithProvenSim`), so the plain `optionTactic`
-recipe (`rw [← <name>_impl]; rfl`) does not apply: the dependent `sim` proof field blocks both `rfl`
-and any `cases`/`generalize` on `<name>Sim xs` ("motive/result not type correct"). We first reduce
-the `Option (IRContext …)` equality to its `buf`/`spec` projections with `Sim.IRContext.option_ext`
-(which discards the `sim` field by proof irrelevance), collapse the `.attach`, rewrite `<name>Impl`
-back via `<name>_impl`, then split and `grind`, mirroring the hand-written
+`<base> xs = <name>Sim xs`. This base wrapper reassembles the result via `match h : <name>Impl … with …`
+with a *proven* `sim` field (`mkOptionIRContextMatchBody`), so the plain `optionTactic` recipe
+(`rw [← <name>_impl]; rfl`) does not apply: the dependent `sim` proof field (and the match's own
+dependent equation) block both `rfl` and any `rw`/`generalize` on the match discriminant
+("motive not type correct"). We first reduce the `Option (IRContext …)` equality to its `buf`/`spec`
+projections with `Sim.IRContext.option_ext` (which discards the `sim` field by proof irrelevance),
+unfold the base, then `split` the match and `cases` `<name>Sim xs`, closing with `simp_all` (given
+`<name>_impl xs`, `<name>Spec`, and `Option.specGet!`), mirroring the hand-written
 `Sim.OperationPtr.setAttributes_def_EXAMPLE`:
 
     apply Sim.IRContext.option_ext
     unfold <base>
-    simp only [Option.map_map, Function.comp_apply, Option.map_subtype, Option.unattach_attach]
-    rw [← <name>_impl xs]
-    cases _ : <name>Sim xs <;> grind [<name>Spec]
+    have := <name>_impl xs
+    split <;> cases _ : <name>Sim xs <;> simp_all [<name>Spec, Option.specGet!]
 
-`Sim.IRContext.option_ext` turns the goal into `… .map (·.spec) = … ∧ … .map (·.buf) = …`; the `simp`
-collapses `(<name>Impl …).attach.map (fun x => ⟨x.val, …⟩)` to maps over `<name>Impl …` directly;
-`← <name>_impl xs` (delaborated so the autoParam args are pinned) rewrites `<name>Impl …` back to
-`Option.map (·.buf) (<name>Sim xs)`; and the `cases <;> grind` closes both `some`/`none` branches. If
-it fails it falls back to the unfold-both recipe `simp only [<base>, <name>Sim]; grind` (a hard error
-if that also fails). Requires the `<name>_impl` lemma to have been emitted (and proven) already.
+`Sim.IRContext.option_ext` turns the goal into `… .map (·.spec) = … ∧ … .map (·.buf) = …`; `split`
+exposes the match's `none`/`some buf` branches with the equation `<name>Impl … = none`/`= some buf` as
+a plain hypothesis; `cases <name>Sim xs` concretizes the Sim result; and `<name>_impl xs` (relating
+`<name>Impl …` to `Option.map (·.buf) (<name>Sim xs)`) lets `simp_all` close every branch. If it fails
+it falls back to the unfold-both recipe `simp only [<base>, <name>Sim]; grind` (a hard error if that
+also fails). Requires the `<name>_impl` lemma to have been emitted (and proven) already.
 -/
 private meta def mkOptionIRContextDefLemmaProof (declName baseName : Name) (us : List Level)
     (xs : Array Expr) (instGoalTy : Expr) : Lean.Elab.TermElabM Expr := do
   let baseId := mkIdent baseName
   let declId := mkIdent declName
   let specId := mkIdent (mkSpecName declName)
+  let getId := mkIdent ``Option.specGet!
   -- `<name>_impl` applied to the explicit telescope args, delaborated to a term so the autoParam args
   -- are pinned (a bare `<name>_impl` would re-synthesize its `:= by grind` autoParams).
   let implLemmaApp := mkAppN (mkConst (mkImplLemmaName declName) us) xs
   let implTerm ← Lean.PrettyPrinter.delab implLemmaApp
-  let simCall := mkAppN (mkConst declName us) xs
-  let simTerm ← Lean.PrettyPrinter.delab simCall
-  -- Template: strip the `sim` field via `option_ext`, unfold the base, collapse `.attach`, rewrite
-  -- `<name>Impl` back via `← <name>_impl xs`, then split on `<name>Sim` and `grind` (cf. the
-  -- hand-written `Sim.OperationPtr.setAttributes_def_EXAMPLE`).
+  -- Template: strip the `sim` field via `option_ext`, unfold the base, add `<name>_impl xs` as a fact,
+  -- then `split` the match and close each branch with `simp_all [<name>Spec, Option.specGet!]` (which
+  -- chains `<name>_impl` with the branch equation `<name>Impl … = none`/`= some buf` and case-splits
+  -- `<name>Sim xs` via `Option.map_eq_none`/`_some`) finishing with `grind` (cf. the hand-written
+  -- `Sim.OperationPtr.setAttributes_def_EXAMPLE`). We *don't* `cases <name>Sim xs`: it destructures its
+  -- args (e.g. `match _ : ctx`), so an explicit `cases` yields a type-incorrect motive.
   let templateTac ← `(tactic|
     (apply Veir.Sim.IRContext.option_ext
      unfold $baseId:ident
-     simp only [Option.map_map, Function.comp_apply, Option.map_subtype, Option.unattach_attach]
-     rw [← $implTerm:term]
-     cases _ : $simTerm:term <;> grind [$specId:ident]))
+     have := $implTerm:term
+     split <;> simp_all [$specId:ident, $getId:ident] <;> grind))
   let attempt : Lean.Elab.TermElabM (Option Expr) := do
     let goalMVar ← mkFreshExprSyntheticOpaqueMVar instGoalTy
     let remaining ← Lean.Elab.Tactic.run goalMVar.mvarId! (Lean.Elab.Tactic.evalTactic templateTac)
@@ -929,8 +920,9 @@ meta def buildBuffedDefLemma (declName : Name) (recursive : Bool) :
       let defProof ← mkLambdaFVars xs instProof
       return some (defName, defForall, defProof, info.levelParams)
     | .optionIRContextTactic =>
-      -- The `Option (IRContext …)` base uses `<name>Impl …|>.attach.map` with a proven `sim`; the
-      -- `.attach` blocks the plain `optionTactic` `rfl`, so use the `cases … <;> grind` recipe.
+      -- The `Option (IRContext …)` base uses `match h : <name>Impl … with …` with a proven `sim`; the
+      -- dependent match blocks the plain `optionTactic` `rfl`, so use the `split <;> cases … <;>
+      -- simp_all` recipe.
       let instProof ← mkOptionIRContextDefLemmaProof declName baseName us xs eqTy
       let defProof ← mkLambdaFVars xs instProof
       return some (defName, defForall, defProof, info.levelParams)
