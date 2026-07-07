@@ -54,6 +54,21 @@ structural proof is done **once per combinator**. Currently:
   so `hMatchImplies` omits the properties equation. The signed `smax`/`smin` do *not* fit this
   combinator: for `i32` they sign-extend both operands (`riscv.sextw`) before `max`/`min`, so they
   need a longer-chain variant (two extra unary reg ops in the `i32` branch).
+- `lowerBitwiseRegLocal match? rop props` — the *bitwise* cousin of `lowerBinaryRegLocal`: match a
+  two-operand LLVM bitwise op whose *result* type is `i64`/`i32`/`i8`/`i1`, emit `castToRegLocal`
+  for each operand → a *single* bitwise `riscv` op `rop` → `replaceWithRegLocal`. Instances: `and`
+  (`riscv.and`), `or` (`riscv.or`). Its shared correctness proof is
+  `lowerBitwiseRegLocal_preservesSemantics` (`RewriteProofs/LowerBitwiseReg.lean`). Unlike the other
+  combinators, `rop` is correct at *every* legal width with no per-width variant, because a bitwise
+  op is bit-parallel: `zeroExtend`ing the operands to 64 bits, `and`/`or`ing, and truncating back to
+  `bw` bits gives the `bw`-bit result for *any* `bw ≤ 64`. So the value refinement is discharged by
+  a *single width-generic* lemma (`hRefine` takes the disjunction `bw ∈ {64,32,8,1}` and closes each
+  width with `bv_decide`) — there is no bitwidth branch anywhere in the proof. The matcher returns
+  `(lhs, rhs, props)`; `or`'s `disjoint` flag flows into `srcFn` via `hProps := rfl` (as usual).
+  `xor` is bitwise too and would fit here, but currently lowers via `lowerBinaryWLocal` (same opcode
+  at both widths). Arithmetic ops (`add`/`sub`/`mul`/shifts) do *not* fit: a carry or shifted bit
+  crosses the width boundary, so the `i32` result is not a function of the low 32 bits and a
+  sign-extending `W` variant is required.
 
 The generic theorem is parameterized over everything opcode-specific:
 
@@ -321,6 +336,7 @@ per lowering as above.
 | `RewriteProofs/LowerUnaryW.lean` | `matchUnaryOp_interpretOp_unfold`, `lowerUnaryWLocal_preservesSemantics`, and per-lowering Layer-0 lemmas + instantiations (`Example` namespace) | two data lemmas + one instantiation (unary); new file per new *shape* |
 | `RewriteProofs/LowerBinaryW.lean` | `matchBinaryOp_interpretOp_unfold`, `lowerBinaryWLocal_preservesSemantics`, and per-lowering Layer-0 lemmas + instantiations (`add`, `sub`, `mul`, `xor`) | two data lemmas + one instantiation (binary) |
 | `RewriteProofs/LowerBinaryReg.lean` | `lowerBinaryRegLocal_preservesSemantics` (width-agnostic single-op binary, reuses `matchBinaryOp_interpretOp_unfold`) + per-lowering Layer-0 lemmas + instantiations (`umax`, `umin`) | two data lemmas + one instantiation (binary, single op) |
+| `RewriteProofs/LowerBitwiseReg.lean` | `lowerBitwiseRegLocal_preservesSemantics` (bitwise single-op binary over `i64`/`i32`/`i8`/`i1`, reuses `matchBinaryOp_interpretOp_unfold`; one width-generic refinement lemma, no bitwidth branch) + instantiations (`and`, `or`) | one width-generic data lemma + one instantiation |
 | `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops) | one lemma per new emitted-op *shape* |
 | `RewriteProofs/CommonTactics.lean` | `peel*` macros (incl. the two-dominance `peel*₂` variants), `cleanupHpattern` | rarely |
 | `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `createOp!` reduction, properties/dominance transport | rarely |
