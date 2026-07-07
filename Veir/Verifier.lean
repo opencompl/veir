@@ -1228,6 +1228,73 @@ theorem OperationPtr.Verified.llvm_intr__umin {op : OperationPtr} {opInBounds}
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
+/--
+  The structural facts shared by every integer unary operation: exactly 1 operand and 1 result,
+  no regions or successors, the result type matches the operand type, and that type is an integer
+  type.
+-/
+def OperationPtr.IsVerifiedIntegerUnop (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 1 ∧
+  op.getNumSuccessors! ctx.raw = 0 ∧
+  op.getNumRegions! ctx.raw = 0 ∧
+  ((op.getResult 0).get! ctx.raw).type = (op.getOperand! ctx.raw 0).getType! ctx.raw ∧
+  ∃ integerType isT,
+    ((op.getResult 0).get! ctx.raw).type = ⟨.integerType integerType, isT⟩
+
+/--
+  Structural facts extracted from a successful `verifyIntegerUnop` check. This is the shared
+  core behind every integer unary operation's `Verified.*` lemma.
+-/
+private theorem OperationPtr.verifyIntegerUnop_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} {ty} (h : op.verifyIntegerUnop ctx opInBounds = .ok ty) :
+    op.IsVerifiedIntegerUnop ctx := by
+  simp only [IsVerifiedIntegerUnop, verifyIntegerUnop, verifyPlainOpCounts,
+    verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw, throwThe,
+    MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [TypeAttr.inj]
+  split at h <;> grind
+
+/--
+  Reduce a verified integer unary operation to a successful `verifyIntegerUnop` check.
+  The hypothesis `armReduces` says the operation's local-invariant check is exactly the
+  `verifyIntegerUnop` arm; it is discharged per operation by unfolding the dispatcher at the
+  concrete opcode.
+-/
+private theorem OperationPtr.verifyIntegerUnop_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyIntegerUnop ctx opInBounds >>= fun _ => pure ())) :
+    ∃ ty, op.verifyIntegerUnop ctx opInBounds = .ok ty := by
+  rw [Verified, armReduces] at opVerify
+  cases hb : op.verifyIntegerUnop ctx opInBounds with
+  | ok ty => exact ⟨ty, rfl⟩
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/-- Structural facts from the verifier for a verified `llvm.intr.ctlz`. -/
+theorem OperationPtr.Verified.llvm_intr__ctlz {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__ctlz) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
+/-- Structural facts from the verifier for a verified `llvm.intr.cttz`. -/
+theorem OperationPtr.Verified.llvm_intr__cttz {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__cttz) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
+/-- Structural facts from the verifier for a verified `llvm.intr.ctpop`. -/
+theorem OperationPtr.Verified.llvm_intr__ctpop {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__ctpop) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
 theorem OperationPtr.Verified.llvm_add {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .add) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
