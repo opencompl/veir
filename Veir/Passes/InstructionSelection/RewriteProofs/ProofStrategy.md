@@ -1,0 +1,266 @@
+# Proving `PreservesSemantics` for RISC-V lowerings
+
+This document describes the proof strategy used for the `lowerUnaryWLocal` lowerings
+(`ctlz_local`, `cttz_local`, `ctpop_local` in `Veir/Passes/InstructionSelection/RISCV64.lean`)
+and how to extend it to the other `*_local` lowerings (`add_local`, `and_local`, `bswap_local`, …).
+
+## What we prove
+
+For each lowering `foo_local : LocalRewritePattern OpCode` we prove
+
+```lean
+theorem foo_local_preservesSemantics :
+    LocalRewritePattern.PreservesSemantics foo_local h h₂ h₃ h₄
+```
+
+`PreservesSemantics` (`Veir/PatternRewriter/Semantics.lean`) is a one-step forward simulation:
+
+- **Given**: the pattern fired (`hpattern : foo_local ctx op = some (newCtx, some (newOps, newValues))`),
+  the matched `op` interpreted successfully in a source state (`interpretOp op state = some (newState, cf)`),
+  and a target state `state'` on `newCtx` that refines `state` at `InsertPoint.before op`
+  (plus `Dom`/`Verified`/`DefinesDominating` side conditions).
+- **Show**: `interpretOpList newOps.toList state'` succeeds with the *same* control flow `cf`,
+  the *same* memory, and the values in `newValues` refine the matched op's result values
+  (`sourceValues ⊒ targetValues`).
+
+## Architecture: one proof per lowering *shape*, not per lowering
+
+Lowerings sharing a shape are written as instances of a combinator in `RISCV64.lean`, and the
+structural proof is done **once per combinator**. Currently:
+
+- `lowerUnaryWLocal match? op64 op32 props64 props32` — match a single-operand LLVM integer op
+  on `i64`/`i32`, then emit `castToRegLocal` → `op64` (or its `W` variant `op32` for `i32`) →
+  `replaceWithRegLocal`. Its shared correctness proof is
+  `lowerUnaryWLocal_preservesSemantics` (`RewriteProofs/LowerUnaryW.lean`).
+
+The generic theorem is parameterized over everything opcode-specific:
+
+```lean
+theorem lowerUnaryWLocal_preservesSemantics
+    (hMatchImplies : …)   -- syntactic facts from a successful match?     (Layer 2)
+    (hVerified    : …)   -- Verified op ⇒ IsVerifiedIntegerUnop           (Layer 1)
+    (hSemSrc      : …)   -- Llvm.interpretOp' srcOp … = srcFn             (rfl)
+    (hSemR64      : …)   -- Riscv.interpretOp' op64 … = f64               (rfl)
+    (hSemR32      : …)   -- Riscv.interpretOp' op32 … = f32               (rfl)
+    (hRefine64    : …)   -- srcFn x props ⊒ toInt (f64 (toReg xt)) 64     (Layer 0)
+    (hRefine32    : …)   -- srcFn x props ⊒ toInt (f32 (toReg xt)) 32     (Layer 0)
+    : LocalRewritePattern.PreservesSemantics (lowerUnaryWLocal match? op64 op32 props64 props32) …
+```
+
+so instantiating it for a concrete lowering is a single term. The three `hSem*` interpreter
+computation facts are discharged by `rfl` at concrete opcodes. Example (`ctlz`):
+
+```lean
+theorem ctlz_local_preservesSemantics :
+    LocalRewritePattern.PreservesSemantics ctlz_local h h₂ h₃ h₄ :=
+  lowerUnaryWLocal_preservesSemantics
+    (srcOp := .intr__ctlz)
+    (srcFn := fun x props => Data.LLVM.Int.ctlz x props.is_zero_poison)
+    (f64 := Data.RISCV.clz) (f32 := Data.RISCV.clzw)
+    (fun hMatch => matchCtlz_implies hMatch)
+    (fun opVerif hOpType => OperationPtr.Verified.llvm_intr__ctlz opVerif hOpType)
+    (fun _ _ _ _ _ _ => rfl) (fun _ _ _ _ _ => rfl) (fun _ _ _ _ _ => rfl)
+    (fun _ _ props h => ctlz_isRefinedBy_toInt_clz props.is_zero_poison h)
+    (fun _ _ props h => ctlz_isRefinedBy_toInt_clzw props.is_zero_poison h)
+```
+
+The instantiations live in `namespace Example` at the bottom of `LowerUnaryW.lean`.
+
+## The per-lowering layers
+
+### Layer 0 — Pure data refinement lemmas (per lowering, the only real new work)
+
+The mathematical core, stated purely on `Data.LLVM.Int` / `Data.RISCV.Reg` with no IR at all,
+one per (bitwidth, RISC-V opcode) branch:
+
+```lean
+theorem ctlz_isRefinedBy_toInt_clz {x xt : Data.LLVM.Int 64} (pf : Bool) (h : x ⊒ xt) :
+    Data.LLVM.Int.ctlz x pf ⊒ RISCV.Reg.toInt (Data.RISCV.clz (LLVM.Int.toReg xt)) 64
+```
+
+i.e. *"round-tripping the (possibly more defined) operand through registers and running the
+RISC-V instruction refines the LLVM operation"*.
+
+Proof recipe: unfold refinement with `Data.LLVM.Int.isRefinedBy_iff`, split the
+poison/value obligations, reduce the value equality to a bitvector goal, close with
+`bv_decide` / `veir_bv_decide`. Poison bookkeeping (`isPoison_ctlz`, `getValueD_eq`, …) usually
+falls to `grind`. For binops the statement takes two refined operands
+(`h₁ : x ⊒ xt`, `h₂ : y ⊒ yt`).
+
+These lemmas live next to the instantiation (`Example` namespace of `LowerUnaryW.lean`); if they
+grow they can move to `Veir/Data/…/Lemmas.lean`.
+
+### Layer 1 — Verifier facts (per LLVM opcode, mostly shared)
+
+A `Verified.*` lemma in `Veir/Verifier.lean` extracting the structural facts the verifier
+guarantees for the matched opcode:
+
+```lean
+theorem OperationPtr.Verified.llvm_intr__ctlz … : op.IsVerifiedIntegerUnop ctx
+```
+
+`IsVerifiedIntegerUnop` / `IsVerifiedIntegerBinop` bundle: operand/result/successor/region
+counts, result type = operand type, and that type is an integer type. The heavy lifting is done
+once per *shape* (`verifyIntegerUnop_eq_ok` + `verifyIntegerUnop_ok_of_Verified`); the
+per-opcode lemma is then a three-liner that just points the dispatcher at the concrete opcode.
+These exist for the unops and binops proven or planned so far. Ops with a different verifier
+shape (e.g. `icmp`, `select`, `load`/`store`) need their own `IsVerified*` bundle, built the
+same way.
+
+### Layer 2 — Matcher facts (per LLVM opcode, mostly exist already)
+
+`matchFoo_implies` in `Veir/Passes/Matching/Lemmas.lean`: what a successful `matchFoo` says
+syntactically — op type, number of results, `getOperands! = #[operand…]`, and the properties
+equation. These exist for most matchers already; if one is missing, copy an existing one
+(the proof is `simp only [matchFoo, bind, Option.bind, pure]` + `grind`).
+
+## The shared machinery (already written, reused by every combinator proof)
+
+### Source-interpretation unfolding
+
+`matchUnaryOp_interpretOp_unfold` (`LowerUnaryW.lean`) is generic over the source opcode: given
+the matcher's syntactic facts, the `hSemSrc` computation fact, and a successful
+`interpretOp op state`, it produces
+
+- the operand's runtime value **as an existential** (`∃ x, state.variables.getVar? operand = some (.int bw x)`),
+- memory unchanged,
+- the result variable bound to `srcFn x props`,
+- `cf = none`.
+
+The operand value is *derived* inside the lemma — from `interpretOp_some_iff`, the matcher's
+`getOperands!` fact, and `VariableState.getVar?_conforms` + the operand's integer type
+(`RuntimeValue.Conforms.integerType` turns "conforms to `i{bw}`" into "`= .int bw x`") — so
+callers don't have to supply it. A binop combinator will need a binop analogue exposing two
+existentials, using two `Array.exists_mapM_option_eq_some_iff` reads (indices 0 and 1).
+
+### Forward lemmas for the emitted ops
+
+`CommonForwardInterpret.lean` holds *forward symbolic-execution* lemmas, thin specializations of
+the generic `interpretOp_forward` (`Veir/Interpreter/Lemmas.lean`):
+
+- `interpretOp_castToReg_forward` — `unrealized_conversion_cast`, `.int bw x` ↦ `.reg (toReg x)`;
+- `interpretOp_castBack_forward` — the reverse cast, `.reg r` ↦ `.int bw (toInt r bw)`;
+- `interpretOp_riscv_unaryReg_forward` — **generic over the RISC-V opcode**: any unary
+  reg-to-reg op whose `Riscv.interpretOp'` maps `.reg r` to `.reg (f r)` (hypothesis `hSem`,
+  discharged by `rfl` at each concrete opcode). Covers `clz`/`clzw`/`ctz`/`ctzw`/`cpop`/`cpopw`
+  and any future unary Zbb op with **no new lemma needed**.
+
+Each lemma's conclusion gives the successful one-step interpretation, memory unchanged, the
+result binding, and a **frame clause** (all non-result variables unchanged). The frame clause
+is what lets facts about earlier values survive to later ops in the chain — essential for
+binops (see below). New emitted-op *shapes* (binary reg ops, ops with immediates) need one new
+specialization each — ~20 lines of boilerplate: instantiate `interpretOp_forward` with explicit
+`vals := #[…]`, `results := #[…]`, `mem' := state.memory`, and discharge the three obligations
+with the same `simp` scripts as the existing ones. Binop variants take two operand hypotheses
+and `vals := #[.reg r₁, .reg r₂]`.
+
+### Peel tactics
+
+`CommonTactics.lean` provides macros that mirror the monadic structure of the pattern in
+`hpattern`:
+
+- `peelSplittableCondition` / `peelSplittableCondition'` — split an `if`/`match` guard,
+  discharge the impossible branch with `grind`;
+- `peelOpCreation` / `peelOpCreation!` — peel one op-creation bind, introducing the updated
+  context, the new op, and the creation hypothesis (the `!` form also rewrites `createOp!` to
+  plain `createOp` and transports a dominance hypothesis into the new context);
+- `peelCastToRegLocal` / `peelReplaceWithRegLocal` — same, specialized to the two cast helpers;
+- `cleanupHpattern` — substitute the final `newOps`/`newValues`/`newCtx` equalities.
+
+The matcher itself is peeled inline in the generic proof (case on `match? op ctx.raw`, the
+`none` branch contradicts `hpattern`), since the matcher is now a *parameter* rather than a
+concrete function.
+
+### Base lemmas
+
+`CommonBaseLemmas.lean` holds the glue: `LocalRewritePattern.exists_refined_int_getVar?`
+(read a refined integer operand in the target state), `WfRewriter.createOp!_none_eq`
+(reduce `createOp!` at a `none` insertion point to `createOp`), `getProperties!` preservation
+lemmas, and the axiom `ValuePtr.dominatesIp_before_WfRewriter_createOp` (dominance is preserved
+when creating a detached op — axiomatised because `dominatesIp` is opaque).
+
+## Checklist: proving a new lowering
+
+**If it fits `lowerUnaryWLocal`** (single integer operand, one unary reg-to-reg RISC-V op per
+bitwidth): define it as a `lowerUnaryWLocal` instance in `RISCV64.lean`, then in the `Example`
+namespace of `LowerUnaryW.lean`:
+
+1. **Layer 0**: `foo_isRefinedBy_toInt_<riscvop>` — one per bitwidth branch.
+2. **Layer 1**: check `OperationPtr.Verified.llvm_foo` exists in `Verifier.lean`; add the
+   three-liner if missing.
+3. **Layer 2**: check `matchFoo_implies` exists in `Matching/Lemmas.lean`; add if missing.
+4. Instantiate `lowerUnaryWLocal_preservesSemantics` (the three `hSem*` arguments are `rfl`).
+5. **Axiom check**: `#guard_msgs in #print axioms foo_local_preservesSemantics` to pin the
+   axiom footprint.
+
+**If it needs a new shape** (binop, longer chain, extra guards): first factor the lowering
+through a new combinator in `RISCV64.lean`, then prove that combinator's
+`PreservesSemantics` once, generic over the opcode-specific parameters, following
+`lowerUnaryWLocal_preservesSemantics` as the template. Its proof body is a linear script:
+peel the matcher and guards, unfold the source interpretation, peel the op creations (one
+`peel*` per created op, in program order), read the refined operand(s) with
+`exists_refined_int_getVar?`, establish the structural facts about the created ops (`grind`,
+seeded with `*_WfRewriter_createOp` transport lemmas where needed), symbolically execute the
+emitted chain with the forward lemmas, and assemble the simulation triple. Then instantiate
+per lowering as above.
+
+## Adapting to other lowering shapes
+
+- **Binops** (`add_local`, `and_local`, `mul_local`, …): two `castToRegLocal` peels, two
+  `exists_refined_int_getVar?` reads, two "operand is not a result of `op`" facts, a binop
+  analogue of `matchUnaryOp_interpretOp_unfold`, and a binop reg-to-reg forward lemma.
+  Crucially, when executing the chain, the value of the *first* cast's result must survive the
+  *second* cast's interpretation: keep the **frame clause** of the forward lemma (bind it as
+  `hFrame` instead of discarding with `-`) and rewrite the earlier result binding through it
+  before feeding the RISC-V op's forward lemma.
+- **Longer chains** (`bswap_local` 32-bit emits `cast, rev8, srli, castBack`): one extra
+  `peelOpCreation!` and one extra forward-lemma application per op; ops with an immediate
+  (`srli`) need their forward lemma to take the properties (`RISCVImmediateProperties`) into
+  account when unfolding `Riscv.interpretOp'`.
+- **Nested branching** (`bswap_local` branches *after* creating `rev8Op`): the `rcases` on the
+  bitwidth happens at the point where `hpattern` branches; peel the shared prefix first, split,
+  then peel each branch's suffix.
+- **Guards other than bitwidth** (e.g. constant-operand checks in `fshrConst_local`): each
+  `if c then return (ctx, none)` / `let some … := … | return (ctx, none)` in the pattern is one
+  `peelSplittableCondition` / matcher-style peel; the surviving hypothesis feeds the data lemma.
+
+## Gotchas
+
+- **`RewriteProofs` is not in the lake build graph**: nothing under `Veir/` imports these files,
+  so `lake build` alone does not check them. Build them explicitly, e.g.
+  `lake build Veir.Passes.InstructionSelection.RewriteProofs.LowerUnaryW`.
+- **`interpretOp_forward` needs explicit `vals`/`results`/`mem'`** — unification won't infer
+  them from the goal.
+- **`clear hpattern` inside dischargers**: the `peel*` macros clear `hpattern` in their
+  `by grind`/`by simp` side goals so its proof term isn't captured, which would block later
+  peels. Keep this if you write new peel macros.
+- **`grind` seeding for transport chains**: facts about ops created two contexts ago
+  (`retOp`'s result types viewed in `ctx₃`) need the `*_WfRewriter_createOp` transport lemmas
+  passed explicitly to `grind [...]`, instantiated at the right creation hypothesis.
+- **Bitwidth literals**: destructure `intType` (`obtain ⟨bw⟩ := intType`) and `subst` the
+  branch hypothesis before applying the Layer-0 lemmas, which are stated at literal `64`/`32`.
+- **`maxHeartbeats`**: the combinator theorem needs `set_option maxHeartbeats 1000000` (many
+  `grind` calls over a large context).
+- **Expected axioms**: `#print axioms` will list the dominance axioms
+  (`OperationPtr.dominates*`, `ValuePtr.dominatesIp*`,
+  `IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates`,
+  `ValuePtr.dominatesIp_before_WfRewriter_createOp`),
+  `OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants`, `floatEqOfToBitsEq`,
+  and a `…bv_decide.ax_…` native axiom per `bv_decide`/`veir_bv_decide` use (including
+  `MemoryState.llvmLoad._native.bv_decide.ax_8` pulled in by the interpreter) — that's the
+  accepted baseline, pin it with `#guard_msgs`.
+
+## File map
+
+| File | Contents | Growth per new lowering |
+|---|---|---|
+| `RewriteProofs/LowerUnaryW.lean` | `matchUnaryOp_interpretOp_unfold`, `lowerUnaryWLocal_preservesSemantics`, and per-lowering Layer-0 lemmas + instantiations (`Example` namespace) | two data lemmas + one instantiation (unary); new file per new *shape* |
+| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary reg-to-reg riscv op) | one lemma per new emitted-op *shape* |
+| `RewriteProofs/CommonTactics.lean` | `peel*` macros, `cleanupHpattern` | rarely |
+| `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `createOp!` reduction, properties/dominance transport | rarely |
+| `RewriteProofs/CommonMatchLemmas.lean` | ctlz-specific unfold/peel lemmas — currently unused (superseded by the generic `matchUnaryOp_interpretOp_unfold`); candidate for deletion | — |
+| `Veir/Passes/InstructionSelection/RISCV64.lean` | the lowering combinators (`lowerUnaryWLocal`) and their instances | one `def` (or a new combinator) |
+| `Veir/Verifier.lean` | `IsVerified*` bundles + `Verified.llvm_*` extractors (Layer 1) | one 3-line lemma (unop/binop) |
+| `Veir/Passes/Matching/Lemmas.lean` | `match*_implies` (Layer 2) | usually nothing |
+| `Veir/Interpreter/Lemmas.lean` | generic `interpretOp_forward`, `interpretOpList_cons` | nothing |
+| `Veir/PatternRewriter/Semantics.lean` | `PreservesSemantics` | nothing |
