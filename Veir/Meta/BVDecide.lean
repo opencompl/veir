@@ -32,7 +32,7 @@ Veir types into a form suitable for bitblasting, via `veir_bv_normalize`, and
 then calls `bv_decide` to automatically close the goal.
 -/
 @[expose] macro "veir_bv_decide" : tactic =>
-  `(tactic| ((veir_bv_normalize <;> bv_decide)))
+  `(tactic| ((veir_bv_normalize <;> bv_decide (config := { timeout := 300 }))))
 
 attribute [veir_bv_normalize] Bool.false_eq_true false_and or_self decide_false
   dite_eq_ite Bool.if_false_right Bool.and_true implies_true
