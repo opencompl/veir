@@ -375,6 +375,47 @@ def addOneTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
 def mulTwoTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
   constFoldTree (.arith .muli) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 2
 
+-- Create a program that looks like constFoldTree but with randomly selected constants as rhs and
+-- randomly selected previous ops as lhs
+def constFoldTreeSparse (opcode : OpCode) (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (WfIRContext OpCode × OperationPtr) :=
+  Xoshiro256PP.run do
+    let rootAttr := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.mk 32))
+    let incAttr := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.mk 32))
+    let (gctx, topOp, insertPoint) ← empty
+
+    let mut (gctx, root) ← WfRewriter.createOp gctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] rootAttr insertPoint sorry sorry sorry sorry
+    let mut runningTotals := #[root.getResult 0]
+    let mut constants := #[]
+
+    while runningTotals.size < size do
+      let ctx := gctx
+      -- Only create 20% constants to bias towards more reuse
+      let const ← randBool 20
+
+      if const then
+        let (ctx, op) ← WfRewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] incAttr insertPoint sorry sorry sorry sorry
+        constants := constants.push (op.getResult 0)
+        gctx := ctx
+
+      else
+        if let some lhs ← randIdx runningTotals then
+          if let some rhs ← randIdx constants then
+            let ⟨thisOp, prop⟩ : (op : OpCode) × propertiesOf op := if ←randBool pc then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
+            let (ctx, op) ← WfRewriter.createOp ctx thisOp #[IntegerType.mk 32] #[lhs, rhs] #[] #[] prop insertPoint sorry sorry sorry sorry
+            runningTotals := runningTotals.push (op.getResult 0)
+            gctx := ctx
+
+    let (ctx, op) ← WfRewriter.createOp gctx (.test .test) #[] #[runningTotals.back!] #[] #[] () insertPoint sorry sorry sorry sorry
+    return (ctx, topOp)
+
+def addZeroTreeSparse (size pc : Nat) : Option (WfIRContext OpCode × OperationPtr) :=
+  constFoldTreeSparse (.arith .addi) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 0
+
+def addOneTreeSparse (size pc : Nat) : Option (WfIRContext OpCode × OperationPtr) :=
+  constFoldTreeSparse (.arith .addi) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 1
+
+def mulTwoTreeSparse (size pc : Nat) : Option (WfIRContext OpCode × OperationPtr) :=
+  constFoldTreeSparse (.arith .muli) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 2
 
 -- Create a program that looks like:
 -- func @main() -> u64 {
@@ -491,6 +532,14 @@ def runBenchmarkWithResult (benchmark: String) (n pc: Nat) (quiet: Bool := false
   | "add-zero-reuse-forwards" =>      run n pc addZeroReuseTree        rewriteForwards  Custom.addIZeroFolding      print quiet
   | "mul-two-forwards" =>             run n pc mulTwoTree              rewriteForwards  Custom.mulITwoReduce        false quiet
 
+  | "add-fold-worklist-sparse" =>     run n pc addOneTreeSparse        rewriteWorklist  Pattern.addIConstantFolding false quiet
+  | "add-zero-worklist-sparse" =>     run n pc addZeroTreeSparse       rewriteWorklist  Pattern.addIZeroFolding     false quiet
+  | "mul-two-worklist-sparse" =>      run n pc mulTwoTreeSparse        rewriteWorklist  Pattern.mulITwoReduce       false quiet
+
+  | "add-fold-forwards-sparse" =>     run n pc addOneTreeSparse        rewriteForwards  Custom.addIConstantFolding  false quiet
+  | "add-zero-forwards-sparse" =>     run n pc addZeroTreeSparse       rewriteForwards  Custom.addIZeroFolding      false quiet
+  | "mul-two-forwards-sparse" =>      run n pc mulTwoTreeSparse        rewriteForwards  Custom.mulITwoReduce        false quiet
+
   | "add-zero-reuse-first" =>         run n pc addZeroReuseTree        rewriteFirstAddI Custom.addIZeroFolding      false quiet
   | "add-zero-lots-of-reuse-first" => run n pc addZeroLotsOfReuseTree  rewriteFirstAddI Custom.addIZeroFolding      false quiet
 
@@ -542,6 +591,33 @@ info: "builtin.module"() ({
 info: "builtin.module"() ({
   ^2():
     %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %4 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+    %5 = "arith.addi"(%3, %4) : (i32, i32) -> i32
+    %6 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+    %7 = "arith.addi"(%5, %4) : (i32, i32) -> i32
+    %8 = "arith.addi"(%3, %6) : (i32, i32) -> i32
+    %9 = "arith.addi"(%8, %4) : (i32, i32) -> i32
+    "test.test"(%9) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! Program.addOneTreeSparse 5 100 |> print
+
+/--
+info: "builtin.module"() ({
+  ^2():
+    %12 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
+    %14 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
+    "test.test"(%14) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testBench "add-fold-forwards-sparse" 5
+
+/--
+info: "builtin.module"() ({
+  ^2():
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
     "test.test"(%3) : (i32) -> ()
 }) : () -> ()
 -/
@@ -557,6 +633,16 @@ info: "builtin.module"() ({
 -/
 #guard_msgs in
 #eval! testBench "add-zero-forwards" 10
+
+/--
+info: "builtin.module"() ({
+  ^2():
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    "test.test"(%3) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testBench "add-zero-forwards-sparse" 10
 
 /--
 info: "builtin.module"() ({
@@ -597,6 +683,21 @@ info: "builtin.module"() ({
 -/
 #guard_msgs in
 #eval! testBench "mul-two-forwards" 10
+
+
+/--
+info: "builtin.module"() ({
+  ^2():
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %11 = "arith.addi"(%3, %3) : (i32, i32) -> i32
+    %12 = "arith.addi"(%11, %11) : (i32, i32) -> i32
+    %13 = "arith.addi"(%3, %3) : (i32, i32) -> i32
+    %14 = "arith.addi"(%13, %13) : (i32, i32) -> i32
+    "test.test"(%14) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testBench "mul-two-forwards-sparse" 5
 
 /--
 info: "builtin.module"() ({
