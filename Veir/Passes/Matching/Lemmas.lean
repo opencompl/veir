@@ -429,11 +429,12 @@ theorem matchCttz_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand 
   grind
 
 /-- What matching `llvm.intr.ctpop` (via `matchCtpop`) syntactically guarantees. -/
-theorem matchCtpop_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand} :
-    matchCtpop op ctx = some operand →
+theorem matchCtpop_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
+    matchCtpop op ctx = some (operand, props) →
     op.getOpType! ctx = .llvm .intr__ctpop ∧
     op.getNumResults! ctx = 1 ∧
-    op.getOperands! ctx = #[operand] := by
+    op.getOperands! ctx = #[operand] ∧
+    props = op.getProperties! ctx (.llvm .intr__ctpop) := by
   intro hmatch
   simp only [matchCtpop, bind, Option.bind, pure] at hmatch
   grind

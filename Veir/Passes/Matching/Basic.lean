@@ -227,9 +227,10 @@ def matchCttz (op : OperationPtr) (ctx : IRContext OpCode) :
   let (op, properties) ← matchOp op ctx (.llvm .intr__cttz) 1
   return (op[0]!, properties)
 
-def matchCtpop (op : OperationPtr) (ctx : IRContext OpCode) : Option ValuePtr := do
-  let (op, _) ← matchOp op ctx (.llvm .intr__ctpop) 1
-  return op[0]!
+def matchCtpop (op : OperationPtr) (ctx : IRContext OpCode) :
+    Option (ValuePtr × propertiesOf (.llvm .intr__ctpop)) := do
+  let (op, properties) ← matchOp op ctx (.llvm .intr__ctpop) 1
+  return (op[0]!, properties)
 
 def matchBswap (op : OperationPtr) (ctx : IRContext OpCode) : Option ValuePtr := do
   let (op, _) ← matchOp op ctx (.llvm .intr__bswap) 1
