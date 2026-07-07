@@ -36,6 +36,13 @@ theorem RuntimeValue.arrayIsRefinedBy_cons {a b : RuntimeValue} {as bs : List Ru
   · grind
 
 @[simp, grind .]
+theorem MemoryState.isRefinedBy_refl (m : MemoryState) :
+    m ⊒ m := by
+  simp only [isRefinedBy]
+  bv_normalize
+  grind
+
+@[simp, grind .]
 theorem FunctionResult.isRefinedBy_refl (r : MemoryState × Array RuntimeValue) : r ⊒ r := by
   simp [FunctionResult.isRefinedBy]
 
@@ -73,6 +80,14 @@ theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}
     (h12 : v₁ ⊒ v₂) (h23 : v₂ ⊒ v₃) : v₁ ⊒ v₃ := by
   cases v₁ <;> grind [RuntimeValue.isRefinedBy, isRefinedBy_trans, cases RuntimeValue]
 
+theorem MemoryState.isRefinedBy_trans {m1 m2 m3 : MemoryState}
+    (h12 : m1 ⊒ m2) (h23 : m2 ⊒ m3) : m1 ⊒ m3 := by
+  simp only [isRefinedBy] at *
+  intro addr
+  specialize h12 addr
+  specialize h23 addr
+  bv_normalize
+  grind
 
 theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
     (h12 : a ⊒ b) (h23 : b ⊒ c) : a ⊒ c := by
