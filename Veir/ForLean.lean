@@ -520,6 +520,22 @@ theorem setWidth_ofInt_32_64 (v : Int) :
     BitVec.toInt_ofInt]
   grind
 
+@[veir_bv_normalize]
+theorem setWidth_ofInt_8_64 (v : Int) :
+    BitVec.setWidth 8 (BitVec.ofInt 64 v) = BitVec.ofInt 8 v := by
+  rw [← BitVec.toInt_inj]
+  simp only [BitVec.toInt_setWidth, BitVec.toNat_ofInt, Nat.reducePow, Int.cast_ofNat_Int, Int.ofNat_toNat,
+    BitVec.toInt_ofInt]
+  grind
+
+@[veir_bv_normalize]
+theorem setWidth_ofInt_1_64 (v : Int) :
+    BitVec.setWidth 1 (BitVec.ofInt 64 v) = BitVec.ofInt 1 v := by
+  rw [← BitVec.toInt_inj]
+  simp only [BitVec.toInt_setWidth, BitVec.toNat_ofInt, Nat.reducePow, Int.cast_ofNat_Int, Int.ofNat_toNat,
+    BitVec.toInt_ofInt]
+  grind
+
 @[grind =]
 theorem eq_setWidth_zero (x : BitVec w) :
     x = 0#w → x.setWidth w' = 0#w' := by

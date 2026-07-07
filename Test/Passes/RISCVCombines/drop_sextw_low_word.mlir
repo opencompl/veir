@@ -1,0 +1,64 @@
+// RUN: veir-opt %s -p=riscv-combine | filecheck %s
+
+// Sext mirror of drop_zextw_low_word.mlir: `riscv.sextw` also leaves bits 31:0
+// unchanged, so for a consumer that reads only the low word the feeding `sextw`
+// is redundant and gets dropped.
+
+"builtin.module"() ({
+  "func.func"() <{function_type = (!riscv.reg, !riscv.reg) -> !riscv.reg}> ({
+  ^bb0(%x: !riscv.reg, %y: !riscv.reg):
+    %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
+    %sy = "riscv.sextw"(%y) : (!riscv.reg) -> !riscv.reg
+    %sum = "riscv.addw"(%sx, %sy) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    "func.return"(%sum) : (!riscv.reg) -> ()
+  }) : () -> ()
+
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  ^bb0(%x: !riscv.reg):
+    %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
+    %y = "riscv.addiw"(%sx) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+    "func.return"(%y) : (!riscv.reg) -> ()
+  }) : () -> ()
+
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  ^bb0(%x: !riscv.reg):
+    %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
+    %y = "riscv.roriw"(%sx) <{"value" = 7 : i64}> : (!riscv.reg) -> !riscv.reg
+    "func.return"(%y) : (!riscv.reg) -> ()
+  }) : () -> ()
+
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  ^bb0(%x: !riscv.reg):
+    %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
+    %y = "riscv.srliw"(%sx) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
+    "func.return"(%y) : (!riscv.reg) -> ()
+  }) : () -> ()
+
+  // `zextw` reads only bits 31:0, so a `sextw` feeding it is redundant too.
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg}> ({
+  ^bb0(%x: !riscv.reg):
+    %sx = "riscv.sextw"(%x) : (!riscv.reg) -> !riscv.reg
+    %y = "riscv.zextw"(%sx) : (!riscv.reg) -> !riscv.reg
+    "func.return"(%y) : (!riscv.reg) -> ()
+  }) : () -> ()
+}) : () -> ()
+
+// CHECK:      ^{{.*}}(%[[ADDW_X:.*]] : !riscv.reg, %[[ADDW_Y:.*]] : !riscv.reg):
+// CHECK:      %[[ADDW:.*]] = "riscv.addw"(%[[ADDW_X]], %[[ADDW_Y]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+// CHECK-NEXT: "func.return"(%[[ADDW]]) : (!riscv.reg) -> ()
+
+// CHECK:      ^{{.*}}(%[[ADDIW_X:.*]] : !riscv.reg):
+// CHECK:      %[[ADDIW:.*]] = "riscv.addiw"(%[[ADDIW_X]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT: "func.return"(%[[ADDIW]]) : (!riscv.reg) -> ()
+
+// CHECK:      ^{{.*}}(%[[RORIW_X:.*]] : !riscv.reg):
+// CHECK:      %[[RORIW:.*]] = "riscv.roriw"(%[[RORIW_X]]) <{"value" = 7 : i64}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT: "func.return"(%[[RORIW]]) : (!riscv.reg) -> ()
+
+// CHECK:      ^{{.*}}(%[[SRLIW_X:.*]] : !riscv.reg):
+// CHECK:      %[[SRLIW:.*]] = "riscv.srliw"(%[[SRLIW_X]]) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT: "func.return"(%[[SRLIW]]) : (!riscv.reg) -> ()
+
+// CHECK:      ^{{.*}}(%[[ZEXTW_X:.*]] : !riscv.reg):
+// CHECK:      %[[ZEXTW:.*]] = "riscv.zextw"(%[[ZEXTW_X]]) : (!riscv.reg) -> !riscv.reg
+// CHECK-NEXT: "func.return"(%[[ZEXTW]]) : (!riscv.reg) -> ()

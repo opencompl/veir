@@ -23,11 +23,17 @@ ICMP_PREDS = tuple(range(10))
 # type. `ctlz`/`cttz` additionally carry an `is_zero_poison` flag, and `bswap`
 # is only defined for the byte-swappable widths below.
 INTRINSIC_BINARY = ("llvm.intr.smax", "llvm.intr.smin", "llvm.intr.umax", "llvm.intr.umin")
-# Funnel shifts are only ever emitted in their rotate form (the first two
-# operands equal), since veir can't yet select the general funnel shift.
 INTRINSIC_TERNARY = ("llvm.intr.fshl", "llvm.intr.fshr")
 INTRINSIC_COUNT = ("llvm.intr.ctpop", "llvm.intr.bitreverse")
 INTRINSIC_ZERO_POISON = ("llvm.intr.ctlz", "llvm.intr.cttz")
+# Saturating arithmetic intrinsics: two operands sharing the result type, no
+# attributes. The `*shl.sat` shift-amount operand may be out of range (>= the
+# bit width), which yields poison, just like the ordinary shifts.
+INTRINSIC_SAT_BINARY = (
+    "llvm.intr.sadd.sat", "llvm.intr.uadd.sat",
+    "llvm.intr.ssub.sat", "llvm.intr.usub.sat",
+    "llvm.intr.sshl.sat", "llvm.intr.ushl.sat",
+)
 BSWAP_WIDTHS = (16, 32, 64)
 
 # Widths the RISC-V backend can compute on. In RISC-V mode, i1 appears only as
@@ -278,7 +284,28 @@ class Generator:
 
         `bswap` is restricted to widths it is defined on; in RISC-V mode every
         intrinsic uses i32 or i64 (the only widths `rand_type` yields there).
+
+        Note: the saturating arithmetic intrinsics and `llvm.intr.abs` are only
+        lowered at i64 in RISC-V mode (there is no i32 isel yet), so `--riscv`
+        mode pins them to i64 rather than letting `rand_type` also pick i32.
         """
+        if self.rng.random() < 0.30:
+            if self.rng.random() < 0.85:
+                op = self.rng.choice(INTRINSIC_SAT_BINARY)
+                typ = "i64" if self.riscv else self.rand_type()
+                width = bitwidth(typ)
+                lhs = self.random_dominating_value(width)
+                rhs = self.random_dominating_value(width)
+                self.add_operation(op, [lhs, rhs], [typ, typ], typ)
+            else:
+                # `abs` carries an `is_int_min_poison` i1 flag deciding whether
+                # abs(INT_MIN) is poison (true) or INT_MIN (false).
+                typ = "i64" if self.riscv else self.rand_type()
+                operand = self.random_dominating_value(bitwidth(typ))
+                poison = "true" if self.rng.random() < 0.5 else "false"
+                self.add_operation("llvm.intr.abs", [operand], [typ], typ,
+                                   f" <{{is_int_min_poison = {poison}}}>")
+            return
         r = self.rng.random()
         if r < 0.30:
             op = self.rng.choice(INTRINSIC_BINARY)
@@ -291,11 +318,12 @@ class Generator:
             op = self.rng.choice(INTRINSIC_TERNARY)
             typ = self.rand_type()
             width = bitwidth(typ)
-            # veir can't yet select the general funnel shift, only the rotate
-            # special case where the two shifted operands are equal.
-            value = self.random_dominating_value(width)
+            # General funnel shift: two independent data operands (when they
+            # happen to be equal this degenerates to the rotate special case).
+            hi = self.random_dominating_value(width)
+            lo = self.random_dominating_value(width)
             amount = self.random_dominating_value(width)
-            self.add_operation(op, [value, value, amount], [typ, typ, typ], typ)
+            self.add_operation(op, [hi, lo, amount], [typ, typ, typ], typ)
         elif r < 0.78:
             op = self.rng.choice(INTRINSIC_ZERO_POISON)
             typ = self.rand_type()

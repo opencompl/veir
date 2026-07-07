@@ -21,6 +21,7 @@ match op with
 | .lshr => ExactProperties
 | .ashr => ExactProperties
 | .intr__ctlz | .intr__cttz => ZeroPoisonProperties
+| .intr__abs => IntMinPoisonProperties
 | .or => DisjointProperties
 | .trunc => NswNuwProperties
 | .zext => NnegProperties
