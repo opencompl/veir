@@ -97,6 +97,12 @@ def getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
 def toBitVecLE (ba : ByteArray) (bytes : Nat) : BitVec (8 * bytes) :=
   ba.toByteSlice.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth (8 * bytes)) 0
 
+axiom toBitVecLE_one (ba : ByteArray) :
+    ba.toBitVecLE 1 = BitVec.ofNat 8 ba[0]!.toNat
+
+axiom toBitVecLE_eight (ba : ByteArray) :
+    ba.toBitVecLE 8 = BitVec.ofNat 64 ba.toUInt64LE!.toNat
+
 end ByteArray
 
 /--

@@ -1558,6 +1558,8 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     match resType.val, operands.toList with
     | .registerType _, [.int _bw val] =>
       return (#[.reg (LLVM.Int.toReg val )], mem, none)
+    | .registerType _, [.addr val] =>
+      return (#[.reg ⟨BitVec.ofNat 64 val.toNat⟩], mem, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
       return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)
