@@ -10,7 +10,8 @@ set_option maxHeartbeats 100000000
 set_option warn.sorry false
 
 -- TODO: the array is bad... We need our own array type or not use arrays
--- set_option trace.Compiler.reduceArity true in
+set_option trace.Compiler.reduceArity2 true in
+set_option trace.Compiler.removeSpuriousConstr true in
 buffed (def_lemma := false)
 def createManyOpsLoopSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint)
     (prev2 prev1 : Sim.ValuePtr) (n : Nat) : Option (Sim.IRContext OpCode) :=

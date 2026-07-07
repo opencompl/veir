@@ -1,5 +1,6 @@
 module
 
+public import Veir.Prelude
 public meta import Veir.IR.Buffed.Meta
 public import Veir.IR.Buffed.Sim
 public import Veir.IR.Basic
@@ -364,7 +365,7 @@ def dumpOptionRegion (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo)
 def dumpOptionOpOperand (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
 
-@[inline]
+Prelude
 def dumpOptionBlockOperand (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
 -/
@@ -372,7 +373,7 @@ def dumpOptionBlockOperand (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRCo
 
 /-! ## Setters and getters -/
 
-
+set_option trace.Compiler.reduceArity2 true in
 buffed
 def Sim.OperationPtr.setNextOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (next : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (nextIb : next.InBounds ctx) : Sim.IRContext OpInfo :=

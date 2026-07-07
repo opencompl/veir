@@ -2,6 +2,7 @@ module
 
 public import Lean
 public import Veir.PrePrelude
+public meta import Veir.PrePrelude
 meta import Veir.PrePrelude
 
 public section

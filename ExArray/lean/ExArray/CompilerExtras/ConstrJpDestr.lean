@@ -62,7 +62,7 @@ structure State where
   /-- Variables that are constructed, and their associated components.
       Not modified during the modification phase. -/
   constructed : HashMap FVarId (Array (Arg .pure))
-  /-- Associates jps with its variables that are only destructed once. 
+  /-- Associates jps with its variables that are only destructed once.
       Not modified during the modification phase. -/
   jps : HashMap FVarId (HashSet Nat)
   /-- Keeps track of which variables have been removed. This is only used during
@@ -97,11 +97,11 @@ def markJpDestructedVars (x : FVarId) (ps : HashSet Nat) : GatherM Unit :=
   modify fun s => {s with jps := s.jps.insert x ps }
 
 def unmarkJpConstrVar (x : FVarId) (pos : Nat) : GatherM Unit :=
-  modify fun s => 
+  modify fun s =>
     if let some ps := s.jps[x]? then
       let ps := ps.erase pos
       {s with jps := s.jps.insert x ps }
-    else 
+    else
       s
 
 def markAsDeleted (x : FVarId) : GatherM Unit :=
@@ -116,7 +116,7 @@ def visitLetValue (var : FVarId) (e : LetValue .pure) : GatherM Unit := do
     args.forM fun arg => if let .fvar x := arg then removeOnlyCase x else pure ()
   | .const declName _ args =>
     args.forM fun arg => if let .fvar x := arg then removeOnlyCase x else pure ()
-    if let some (.ctorInfo info) := (← getEnv).find? declName then 
+    if let some (.ctorInfo info) := (← getEnv).find? declName then
       if args.size = info.numParams + info.numFields then
         addConstr var (args.drop info.numParams)
 
@@ -169,7 +169,7 @@ def shedForall (type : Expr) : CompilerM Expr := match type with
   | .forallE _ _ t _ => pure t
   | _ => throwError "should be a forall"
 
-mutual 
+mutual
 partial def modifyJp (decl : FunDecl .pure) : GatherM (FunDecl .pure) := do
   let some jpInfo ← shouldModifyJp decl.fvarId | return ← decl.updateValue (← modifyCode decl.value)
   let mut type := decl.type
@@ -212,7 +212,7 @@ partial def modifyCode (code : Code .pure) : GatherM (Code .pure) := do
         if i ∈ jpInfo then
           let .fvar fvar := arg | panic "changed parameter must be an fvar"
           newArgs := newArgs.append (← get).constructed[fvar]!
-        else 
+        else
           newArgs := newArgs.push arg
       return .jmp jp newArgs
     else
@@ -255,6 +255,5 @@ def removeSpuriousConstr : Pass where
   run   := fun decls => do
     decls.mapM fun decl => Decl.removeSpuriousConstr decl
 
-builtin_initialize
+initialize
   registerTraceClass `Compiler.removeSpuriousConstr (inherited := true)
-

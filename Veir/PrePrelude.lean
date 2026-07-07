@@ -2,7 +2,7 @@ module
 
 public import Lean
 
-import ExArray.CompilerExtras
+public import ExArray.CompilerExtras
 
 public section
 

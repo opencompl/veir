@@ -1,5 +1,6 @@
 module
 
+public import Veir.Prelude
 public import Veir.IR
 public import Veir.Rewriter.InsertPoint
 public import Veir.Rewriter.LinkedList.Basic
@@ -1413,7 +1414,8 @@ theorem Rewriter.initBlockOperands_inBounds_mono (ptr : Sim.GenericPtr) {opPtr :
 --   -- grind [createEmptyOp]
 --   sorry
 
-buffed (inline := false)
+set_option trace.Compiler.reduceArity true in
+buffed
 def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
     (resultTypes: Array TypeAttr) (operands: Array Sim.ValuePtr) (blockOperands : Array Sim.BlockPtr)
     (regions: Array Sim.RegionPtr) (properties: HasOpInfo.propertiesOf opType)
