@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783448945545,
+  "lastUpdate": 1783461838271,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -76690,6 +76690,184 @@ window.BENCHMARK_DATA = {
             "range": "± 18811",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=6 median=0.000764500s stddev=0.000018811s cv=2.4536%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mathieu.fehr@gmail.com",
+            "name": "Mathieu Fehr",
+            "username": "math-fehr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "97defe25e51f9f6b49d1aed550d4ae0a6ca15d33",
+          "message": "feat: prove `ctlz`, `cttz`, and `ctpop` semantics preservation (#980)\n\nThis PR introduce the first proof of local semantics preservation for\nrewrites.\nIt contains the following files:\n* `CommonBaseLemmas.lean` : Lemmas that are useful to prove correctness,\nbut don't yet have a place in the rest of the codebase\n* `CommonForwardInterpret.lean` : A set of lemmas that proves that\n`interpretOp` is successful on given opcodes. This is very useful to\nsimplify the semantic preservation proofs\n* `CommonTactics.lean` : A few tactics that make processing a rewrite\npattern easier. They \"peel\" the pattern by reasonning about each\nmatching or rewriting instruction one by one\n* `LowerUnaryW.lean` : A proof of semantics preservation for `ctlz`,\n`cttz`, and `ctpop`. This is written as one single lemma\n(`lowerUnaryWLocal_preservesSemantics`) that is instantiated with the 3\ndifferent operations.\n* `ProofStrategy.md` : An LLM generated document that explains how to do\na similar proof for other lowerings.\n\n---------\n\nCo-authored-by: Tobias Christian Grosser <tobias@grosser.es>",
+          "timestamp": "2026-07-07T21:58:08Z",
+          "tree_id": "76266f5a381301c4f75bf7e3f1042435f3148a82",
+          "url": "https://github.com/opencompl/veir/commit/97defe25e51f9f6b49d1aed550d4ae0a6ca15d33"
+        },
+        "date": 1783461824115,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 1450000,
+            "range": "± 23868",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001450s stddev=0.000023868s cv=1.6424%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 2756000,
+            "range": "± 51378",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002756s stddev=0.000051378s cv=1.8513%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 1433000,
+            "range": "± 12818",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001433s stddev=0.000012818s cv=0.8911%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2292000,
+            "range": "± 33456",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002292s stddev=0.000033456s cv=1.4563%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 1461000,
+            "range": "± 39132",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001461s stddev=0.000039132s cv=2.6541%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 1758000,
+            "range": "± 47241",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001758s stddev=0.000047241s cv=2.6672%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1190000,
+            "range": "± 30738",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001190s stddev=0.000030738s cv=2.5433%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1526000,
+            "range": "± 51360",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001526s stddev=0.000051360s cv=3.4254%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 1452000,
+            "range": "± 73934",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=24 median=0.001452000s stddev=0.000073934s cv=4.9891%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 3888000,
+            "range": "± 56792",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=24 median=0.003888000s stddev=0.000056792s cv=1.4587%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 1452000,
+            "range": "± 19680",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001452s stddev=0.000019680s cv=1.3476%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2083000,
+            "range": "± 22016",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002083s stddev=0.000022016s cv=1.0520%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 1451000,
+            "range": "± 46784",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001451s stddev=0.000046784s cv=3.1908%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1338000,
+            "range": "± 59806",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001338s stddev=0.000059806s cv=4.3667%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1190000,
+            "range": "± 7120",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001190s stddev=0.000007120s cv=0.5987%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1080000,
+            "range": "± 45402",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001080s stddev=0.000045402s cv=4.1335%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 1434000,
+            "range": "± 59508",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001434s stddev=0.000059508s cv=4.0709%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 2492000,
+            "range": "± 86373",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002492s stddev=0.000086373s cv=3.4280%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1198000,
+            "range": "± 34523",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001198000s stddev=0.000034523s cv=2.8589%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "range": "± 2149",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000008000s stddev=0.000002149s cv=23.1898%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1210000,
+            "range": "± 53580",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001210s stddev=0.000053580s cv=4.3753%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 604000,
+            "range": "± 15176",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.000604s stddev=0.000015176s cv=2.5234%"
           }
         ]
       }
