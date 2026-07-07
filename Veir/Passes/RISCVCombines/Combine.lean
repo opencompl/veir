@@ -70,7 +70,7 @@ def AndSextSext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (y, yp) := matchSext dY rewriter.ctx | return rewriter
   let (rewriter, inner) ← rewriter.createOp (.llvm .and) #[x.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0)]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
     #[] #[] yp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -85,7 +85,7 @@ def OrSextSext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (y, yp) := matchSext dY rewriter.ctx | return rewriter
   let (rewriter, inner) ← rewriter.createOp (.llvm .or) #[x.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] oprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0)]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
     #[] #[] yp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -100,7 +100,7 @@ def XorSextSext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (y, yp) := matchSext dY rewriter.ctx | return rewriter
   let (rewriter, inner) ← rewriter.createOp (.llvm .xor) #[x.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] xprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0)]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
     #[] #[] yp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -115,7 +115,7 @@ def AndZextZext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (y, yp) := matchZext dY rewriter.ctx | return rewriter
   let (rewriter, inner) ← rewriter.createOp (.llvm .and) #[x.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0)]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
     #[] #[] yp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -130,7 +130,7 @@ def OrZextZext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (y, yp) := matchZext dY rewriter.ctx | return rewriter
   let (rewriter, inner) ← rewriter.createOp (.llvm .or) #[x.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] oprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0)]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
     #[] #[] yp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -145,7 +145,7 @@ def XorZextZext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (y, yp) := matchZext dY rewriter.ctx | return rewriter
   let (rewriter, inner) ← rewriter.createOp (.llvm .xor) #[x.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] xprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0)]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
     #[] #[] yp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -160,7 +160,7 @@ def AndTruncTrunc (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (y, yp) := matchTrunc dY rewriter.ctx | return rewriter
   let (rewriter, inner) ← rewriter.createOp (.llvm .and) #[x.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .trunc) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0)]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .trunc) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
     #[] #[] yp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -175,7 +175,7 @@ def OrTruncTrunc (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (y, yp) := matchTrunc dY rewriter.ctx | return rewriter
   let (rewriter, inner) ← rewriter.createOp (.llvm .or) #[x.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] oprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .trunc) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0)]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .trunc) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
     #[] #[] yp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -190,7 +190,7 @@ def XorTruncTrunc (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let some (y, yp) := matchTrunc dY rewriter.ctx | return rewriter
   let (rewriter, inner) ← rewriter.createOp (.llvm .xor) #[x.getType! rewriter.ctx.raw] #[x, y]
     #[] #[] xprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .trunc) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0)]
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .trunc) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
     #[] #[] yp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
