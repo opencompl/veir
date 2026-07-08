@@ -81,11 +81,13 @@ theorem interpretOp_castBack_forward
   grind
 
 /-- Binary register-to-register `riscv` op specialization of `interpretOp_forward`: `theOp` is any
-`riscv` op `rop` whose interpretation maps two register operands `r₁ r₂` to `f r₁ r₂` (hypothesis
-`hSem`, discharged by `rfl` at each concrete opcode), with a single `!riscv.reg` result.
-Interpreting it always succeeds, leaves memory untouched, binds the result to `.reg (f r₁ r₂)`,
-and leaves every non-result value unchanged. This covers `riscv.andn`/`orn`/`xnor` and any
-future binary reg-reg op (`add`/`sub`/`max`/…) with no new lemma needed. -/
+`riscv` op `rop` whose interpretation maps two register operands `r₁`, `r₂` to `f r₁ r₂`
+(hypothesis `hSem`, discharged by `rfl` at each concrete opcode; note the interpreter applies the
+data-level op as `RISCV.op op2 op1`, so `f` is typically `fun r₁ r₂ => RISCV.op r₂ r₁`), with a
+single `!riscv.reg` result. Interpreting it always succeeds, leaves memory untouched, binds the
+result to `.reg (f r₁ r₂)`, and leaves every non-result value unchanged. This covers
+`riscv.add`/`sub`/`mul`/`div`/`rem`/`sll`/`srl` and their `W`/unsigned variants, as well as
+`riscv.andn`/`orn`/`xnor`. -/
 theorem interpretOp_riscv_binaryReg_forward
     {ctx : WfIRContext OpCode} {rop : Riscv} {theOp : OperationPtr} {state : InterpreterState ctx}
     {inBounds : theOp.InBounds ctx.raw} {v₁ v₂ : ValuePtr} {rt : RegisterType} {hIsTy}

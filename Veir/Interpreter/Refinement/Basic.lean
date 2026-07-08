@@ -48,6 +48,15 @@ def RuntimeValue.arrayIsRefinedBy (source target : Array RuntimeValue) : Prop :=
 @[inherit_doc] infix:50 " ⊒ " => RuntimeValue.arrayIsRefinedBy
 
 /--
+Refinement of memory states, which can involve poison bits being refined into concrete bits.
+This should be kept consistent with the definition of refinement on the byte type.
+-/
+def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
+  ∀ addr, source.poisonMask.getD addr 0 ||| ((source.contents.getD addr 0 ^^^ ~~~target.contents.getD addr 0) &&& ~~~target.poisonMask.getD addr 0) = 0xff
+
+@[inherit_doc] infix:50 " ⊒ " => MemoryState.isRefinedBy
+
+/--
 A function interpretation `source` is refined by `target`. This asserts that the final memories
 are equal, and the returned values refine pointwise.
 -/

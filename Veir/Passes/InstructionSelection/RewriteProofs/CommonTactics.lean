@@ -103,3 +103,39 @@ macro "peelReplaceWithRegLocal" hpattern:ident newCtx:ident newOp:ident hCastBac
       have $newDom:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hCastBack:ident
         (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom:ident
      ))
+
+open Lean in
+/-- Like `peelCastToRegLocal`, but transports *two* dominance hypotheses (one per matched
+    operand of a binary lowering) through the creation step. -/
+macro "peelCastToRegLocal₂" hpattern:ident newCtx:ident newOp:ident hCast:ident
+    oldDom₁:ident newDom₁:ident oldDom₂:ident newDom₂:ident : tactic =>
+  `(tactic| (
+      peelCastToRegLocal $hpattern:ident $newCtx:ident $newOp:ident $hCast:ident
+        $oldDom₁:ident $newDom₁:ident
+      have $newDom₂:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hCast:ident
+        (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom₂:ident
+     ))
+
+open Lean in
+/-- Like `peelOpCreation!`, but transports *two* dominance hypotheses (one per matched operand of
+    a binary lowering) through the creation step. -/
+macro "peelOpCreation!₂" hpattern:ident newCtx:ident newOp:ident hNewCtx:ident
+    oldDom₁:ident newDom₁:ident oldDom₂:ident newDom₂:ident : tactic =>
+  `(tactic| (
+      peelOpCreation! $hpattern:ident $newCtx:ident $newOp:ident $hNewCtx:ident
+        $oldDom₁:ident $newDom₁:ident
+      have $newDom₂:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hNewCtx:ident
+        (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom₂:ident
+     ))
+
+open Lean in
+/-- Like `peelReplaceWithRegLocal`, but transports *two* dominance hypotheses (one per matched
+    operand of a binary lowering) through the creation step. -/
+macro "peelReplaceWithRegLocal₂" hpattern:ident newCtx:ident newOp:ident hCastBack:ident
+    oldDom₁:ident newDom₁:ident oldDom₂:ident newDom₂:ident : tactic =>
+  `(tactic| (
+      peelReplaceWithRegLocal $hpattern:ident $newCtx:ident $newOp:ident $hCastBack:ident
+        $oldDom₁:ident $newDom₁:ident
+      have $newDom₂:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hCastBack:ident
+        (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom₂:ident
+     ))
