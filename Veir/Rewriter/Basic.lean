@@ -614,6 +614,9 @@ protected buffed
 def Rewriter.pushBlockArgumentAtSim (blockPtr : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (type : TypeAttr) (ib : blockPtr.InBounds ctx) (hidx : idx.toNat = blockPtr.spec.getNumArguments! ctx.spec) :
     Option (Sim.IRContext OpInfo) := do
+  -- TODO(hslot): the argument-slot bound needs `idx < capArguments`, unavailable here (only
+  -- `hidx : idx = getNumArguments!` and the non-strict `getNumArguments! ≤ capArguments`); the
+  -- surrounding `pushBlockArgument` is also spec-only for now (see note above), so leave admitted.
   some ⟨← Rewriter.setBlockArgument blockPtr.impl ctx.buf idx admitted_bounds type, Rewriter.pushBlockArgument ctx.spec blockPtr.spec type (by grind), admitted_sim ib⟩
 
 @[grind .]
@@ -922,7 +925,9 @@ def Rewriter.pushRegionAtSim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpI
     (hop : opPtr.InBounds ctx := by grind) (hregion : region.InBounds ctx := by grind)
     (hRegionParent : (region.spec.get! ctx.spec).parent = none := by grind) :
     Sim.IRContext OpInfo :=
-  ⟨Rewriter.setRegion opPtr.impl ctx.buf idx region.impl admitted_bounds admitted_bounds admitted_bounds,
+  -- TODO(hslot): the region-slot bound needs `idx < capRegions`; see the `setResult` note.
+  ⟨Rewriter.setRegion opPtr.impl ctx.buf idx region.impl (by prove_setLinkBoundsRegion ctx region)
+      (by prove_setLinkBoundsOp ctx opPtr) admitted_bounds,
    Rewriter.pushRegion ctx.spec opPtr.spec region.spec (by grind) (by grind) (by grind), admitted_sim ctx⟩
 
 @[simp, grind =]
@@ -1033,7 +1038,10 @@ def Rewriter.pushResultAtSim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpI
     (idx : UInt64) (type : TypeAttr) (hop : opPtr.InBounds ctx := by grind)
     (hidx : idx.toNat = opPtr.spec.getNumResults! ctx.spec := by grind) :
     Option (Sim.IRContext OpInfo) := do
-  some ⟨← Rewriter.setResult opPtr.impl ctx.buf idx admitted_bounds admitted_bounds type, Rewriter.pushResult ctx.spec opPtr.spec type (by grind), admitted_sim hidx⟩
+  -- TODO(hslot): the result-slot bound needs `idx < capResults`, but this def only carries
+  -- `hidx : idx = getNumResults!` and the invariant `getNumResults! ≤ capResults` (non-strict),
+  -- so it is not provable without threading a strict-capacity precondition from the caller.
+  some ⟨← Rewriter.setResult opPtr.impl ctx.buf idx (by prove_setLinkBoundsOp ctx opPtr) admitted_bounds type, Rewriter.pushResult ctx.spec opPtr.spec type (by grind), admitted_sim hidx⟩
 
 @[grind =>]
 theorem Rewriter.pushResultAt_spec {opPtr : Sim.OperationPtr}
@@ -1161,7 +1169,8 @@ def Rewriter.pushOperandAtUninsertedSim (opPtr : Sim.OperationPtr) (ctx : Sim.IR
     (valueInBounds : valuePtr.InBounds ctx := by grind) (hctx : ctx.spec.FieldsInBounds := by grind)
     (hidx : idx.toNat = opPtr.spec.getNumOperands! ctx.spec := by grind) :
     Sim.IRContext OpInfo :=
-  ⟨Rewriter.setOperand opPtr.impl ctx.buf idx admitted_bounds admitted_bounds valuePtr.impl,
+  -- TODO(hslot): the operand-slot bound needs `idx < capOperands`; see the `setResult` note.
+  ⟨Rewriter.setOperand opPtr.impl ctx.buf idx (by prove_setLinkBoundsOp ctx opPtr) admitted_bounds valuePtr.impl,
    Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind), admitted_sim hidx⟩
 
 @[simp, grind =]
@@ -1312,7 +1321,8 @@ def Rewriter.pushBlockOperandAtUnattachedSim (opPtr : Sim.OperationPtr) (ctx : S
     (blockInBounds : blockPtr.InBounds ctx := by grind) (hctx : ctx.spec.FieldsInBounds := by grind)
     (hidx : idx.toNat = opPtr.spec.getNumSuccessors! ctx.spec := by grind) :
     Sim.IRContext OpInfo :=
-  ⟨Rewriter.setBlockOperand opPtr.impl ctx.buf idx admitted_bounds admitted_bounds blockPtr.impl,
+  -- TODO(hslot): the block-operand-slot bound needs `idx < capBlockOperands`; see `setResult` note.
+  ⟨Rewriter.setBlockOperand opPtr.impl ctx.buf idx (by prove_setLinkBoundsOp ctx opPtr) admitted_bounds blockPtr.impl,
     Rewriter.pushBlockOperand ctx.spec opPtr.spec blockPtr.spec (by grind) (by grind) (by grind),
     admitted_sim hidx⟩
 
