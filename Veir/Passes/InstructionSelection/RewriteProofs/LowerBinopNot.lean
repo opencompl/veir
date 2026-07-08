@@ -97,12 +97,14 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
   have ⟨hNRes, hNOper, hNSucc, hNReg, intType, hResType, hOp0Type, hOp1Type⟩ :=
     hVerified opVerif hOpType
   -- Resolve the result-type destructuring match in the pattern.
-  have hResTypeVal : ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType intType :=
-    congrArg Subtype.val hResType
+  have hResTypeVal : ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType intType := by
+    rw [hResType]
   rw [hResTypeVal] at hpattern
   simp only [] at hpattern
   -- The bitwidth guard must be false (otherwise the RHS would be `some (ctx, none)`).
-  peelSplittableCondition [hBw] hpattern
+  split at hpattern
+  case isFalse hne => simp at hpattern
+  rename_i hBw
   -- Both operands have the integer type `intType`.
   have hLhsIdx : lhs = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
   have hRhsIdx : rhs = (op.getOperands! ctx.raw)[1]! := by rw [hOperands]; rfl
@@ -145,7 +147,7 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
     simp only [] at hpattern
     -- Graph semantics of the matched `not`: pins `rhs`'s runtime value to `xor yv (-1)`.
     obtain ⟨yv, hyVal, hrhsVal, hyType, hyDomCtx, hyIn, hyNotRes⟩ :=
-      matchNot_getVar?_of_EquationLemmaAt ctxDom ctxVerif stateWf hNotR
+      matchNot_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds stateWf hNotR
         (by rw [hOperands]; simp) hRhsType
     obtain rfl : xrv = Data.LLVM.Int.xor yv (Data.LLVM.Int.constant intType.bitwidth (-1)) := by
       have := hrVal.symm.trans hrhsVal
@@ -174,7 +176,7 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
         hyDomCtx hDomY₄ hyNotRes
     -- Normalise the bitwidth to the literal `64`.
     obtain ⟨bw⟩ := intType; simp only at hBw
-    obtain rfl : bw = 64 := by omega
+    subst hBw
     -- Structural facts about the four created ops.
     have hCastXType : xCastOp.getOpType! ctx₄.raw = .builtin .unrealized_conversion_cast := by
       grind
@@ -183,11 +185,19 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
     have hRetType : retOp.getOpType! ctx₄.raw = .riscv dst := by grind
     have hCastBackType : castBackOp.getOpType! ctx₄.raw = .builtin .unrealized_conversion_cast := by
       grind
-    have hCastXOperands : xCastOp.getOperands! ctx₄.raw = #[lhs] := by grind
-    have hCastYOperands : yCastOp.getOperands! ctx₄.raw = #[y] := by grind
+    have hCastXOperands : xCastOp.getOperands! ctx₄.raw = #[lhs] := by
+        grind [OperationPtr.getOperands!_WfRewriter_createOp hCastX (operation := xCastOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hCastY (operation := xCastOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hRet (operation := xCastOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hCastBack (operation := xCastOp)]
+    have hCastYOperands : yCastOp.getOperands! ctx₄.raw = #[y] := by
+        grind [OperationPtr.getOperands!_WfRewriter_createOp hCastY (operation := yCastOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hRet (operation := yCastOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hCastBack (operation := yCastOp)]
     have hRetOperands : retOp.getOperands! ctx₄.raw
         = #[ValuePtr.opResult (xCastOp.getResult 0), ValuePtr.opResult (yCastOp.getResult 0)] := by
-      grind
+      grind [OperationPtr.getOperands!_WfRewriter_createOp hRet (operation := retOp),
+        OperationPtr.getOperands!_WfRewriter_createOp hCastBack (operation := retOp)]
     have hCastBackOperands :
         castBackOp.getOperands! ctx₄.raw = #[ValuePtr.opResult (retOp.getResult 0)] := by grind
     -- The cast-back op's result type is `i64`.
@@ -221,11 +231,13 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
         = #[⟨Attribute.integerType { bitwidth := 64 }, by grind⟩] := by grind
     -- Freshness facts for the frame clauses.
     have hyNotXCast : y ∉ xCastOp.getResults! ctx₄.raw :=
-      ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hyIn (by clear hyIn; grind)
+      ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hyIn (by grind)
     have hXCastNotYCast :
         ValuePtr.opResult (xCastOp.getResult 0) ∉ yCastOp.getResults! ctx₄.raw :=
       ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds (ctx := ctx₁.raw)
-        (by grind [ValuePtr.InBounds, OpResultPtr.InBounds]) (by grind)
+        (by grind [ValuePtr.InBounds, OpResultPtr.InBounds,
+          OperationPtr.getNumResults!_WfRewriter_createOp hCastX (operation := xCastOp)])
+        (by grind)
     -- Interpretation tail: execute
     -- `interpretOpList [xCastOp, yCastOp, retOp, castBackOp]` in `state'`.
     obtain ⟨s₁, hI₁, hMem₁, hRes₁, hFrame₁⟩ :=
@@ -264,7 +276,7 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
       simp only [] at hpattern
       -- Graph semantics of the matched `not`: pins `lhs`'s runtime value to `xor yv (-1)`.
       obtain ⟨yv, hyVal, hlhsVal, hyType, hyDomCtx, hyIn, hyNotRes⟩ :=
-        matchNot_getVar?_of_EquationLemmaAt ctxDom ctxVerif stateWf hNotL
+        matchNot_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds stateWf hNotL
           (by rw [hOperands]; simp) hLhsType
       obtain rfl : xlv = Data.LLVM.Int.xor yv (Data.LLVM.Int.constant intType.bitwidth (-1)) := by
         have := hlVal.symm.trans hlhsVal
@@ -292,7 +304,7 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
           hyDomCtx hDomY₄ hyNotRes
       -- Normalise the bitwidth to the literal `64`.
       obtain ⟨bw⟩ := intType; simp only at hBw
-      obtain rfl : bw = 64 := by omega
+      subst hBw
       -- Structural facts about the four created ops.
       have hCastXType : xCastOp.getOpType! ctx₄.raw = .builtin .unrealized_conversion_cast := by
         grind
@@ -302,12 +314,20 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
       have hCastBackType :
           castBackOp.getOpType! ctx₄.raw = .builtin .unrealized_conversion_cast := by
         grind
-      have hCastXOperands : xCastOp.getOperands! ctx₄.raw = #[rhs] := by grind
-      have hCastYOperands : yCastOp.getOperands! ctx₄.raw = #[y] := by grind
+      have hCastXOperands : xCastOp.getOperands! ctx₄.raw = #[rhs] := by
+        grind [OperationPtr.getOperands!_WfRewriter_createOp hCastX (operation := xCastOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hCastY (operation := xCastOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hRet (operation := xCastOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hCastBack (operation := xCastOp)]
+      have hCastYOperands : yCastOp.getOperands! ctx₄.raw = #[y] := by
+        grind [OperationPtr.getOperands!_WfRewriter_createOp hCastY (operation := yCastOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hRet (operation := yCastOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hCastBack (operation := yCastOp)]
       have hRetOperands : retOp.getOperands! ctx₄.raw
           = #[ValuePtr.opResult (xCastOp.getResult 0),
               ValuePtr.opResult (yCastOp.getResult 0)] := by
-        grind
+        grind [OperationPtr.getOperands!_WfRewriter_createOp hRet (operation := retOp),
+          OperationPtr.getOperands!_WfRewriter_createOp hCastBack (operation := retOp)]
       have hCastBackOperands :
           castBackOp.getOperands! ctx₄.raw = #[ValuePtr.opResult (retOp.getResult 0)] := by grind
       -- The cast-back op's result type is `i64`.
@@ -341,11 +361,13 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
           = #[⟨Attribute.integerType { bitwidth := 64 }, by grind⟩] := by grind
       -- Freshness facts for the frame clauses.
       have hyNotXCast : y ∉ xCastOp.getResults! ctx₄.raw :=
-        ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hyIn (by clear hyIn; grind)
+        ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hyIn (by grind)
       have hXCastNotYCast :
           ValuePtr.opResult (xCastOp.getResult 0) ∉ yCastOp.getResults! ctx₄.raw :=
         ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds (ctx := ctx₁.raw)
-          (by grind [ValuePtr.InBounds, OpResultPtr.InBounds]) (by grind)
+          (by grind [ValuePtr.InBounds, OpResultPtr.InBounds,
+          OperationPtr.getNumResults!_WfRewriter_createOp hCastX (operation := xCastOp)])
+        (by grind)
       -- Interpretation tail: execute
       -- `interpretOpList [xCastOp, yCastOp, retOp, castBackOp]` in `state'`.
       obtain ⟨s₁, hI₁, hMem₁, hRes₁, hFrame₁⟩ :=
@@ -374,5 +396,237 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
         · simp [hRes₄, Option.bind, Option.map]
         · exact RuntimeValue.arrayIsRefinedBy_singleton.mpr
             ⟨rfl, by simpa using hRefineL xrv yv xt yt matchProps hxtRef hytRef⟩
+
+/-!
+## RISC-V lowering of `and x (not y)` (`riscv.andn`)
+
+The structural part of the proof is shared (`lowerBinopNotLocal_preservesSemantics`); only the
+two data-level refinement lemmas below (one per `not`-operand orientation) are `andn`-specific,
+and similarly for `orn`/`xnor` further down.
+-/
+
+/-- Correctness of the `riscv.andn` lowering of `and x (not y)`: the round trip
+    `int ×2 → reg ×2 → andn → int` refines `and x (xor y (-1))`. (`xt`/`yt` are the
+    possibly-more-defined target-side values of the operands.) -/
+theorem and_not_isRefinedBy_toInt_andn {x y xt yt : Data.LLVM.Int 64}
+    (hx : x ⊒ xt) (hy : y ⊒ yt) :
+    Data.LLVM.Int.and x (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1)))
+      ⊒ RISCV.Reg.toInt (Data.RISCV.andn (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
+  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
+  obtain ⟨hxp, hxv⟩ := hx
+  obtain ⟨hyp, hyv⟩ := hy
+  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
+  have hxnp : x.isPoison = false := by grind
+  have hynp : y.isPoison = false := by grind
+  have hxvd : x.getValueD = xt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  have hyvd : y.getValueD = yt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  simp only [Data.RISCV.andn]
+  veir_bv_decide
+
+/-- Correctness of the `riscv.andn` lowering of `and (not y) x` (the `not` on the left). -/
+theorem not_and_isRefinedBy_toInt_andn {x y xt yt : Data.LLVM.Int 64}
+    (hx : x ⊒ xt) (hy : y ⊒ yt) :
+    Data.LLVM.Int.and (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1))) x
+      ⊒ RISCV.Reg.toInt (Data.RISCV.andn (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
+  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
+  obtain ⟨hxp, hxv⟩ := hx
+  obtain ⟨hyp, hyv⟩ := hy
+  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
+  have hxnp : x.isPoison = false := by grind
+  have hynp : y.isPoison = false := by grind
+  have hxvd : x.getValueD = xt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  have hyvd : y.getValueD = yt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  simp only [Data.RISCV.andn]
+  veir_bv_decide
+
+theorem andn_local_preservesSemantics :
+    LocalRewritePattern.PreservesSemantics andn_local h h₂ h₃ h₄ :=
+  lowerBinopNotLocal_preservesSemantics
+    (srcOp := .and)
+    (srcFn := fun x y _ => Data.LLVM.Int.and x y)
+    (f := fun r₁ r₂ => Data.RISCV.andn r₂ r₁)
+    matchAnd_implies
+    OperationPtr.Verified.llvm_and
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure])
+    (fun _ _ _ _ _ _ => rfl)
+    (fun _ _ _ _ _ hx hy => and_not_isRefinedBy_toInt_andn hx hy)
+    (fun _ _ _ _ _ hx hy => not_and_isRefinedBy_toInt_andn hx hy)
+
+/--
+info: 'Veir.andn_local_preservesSemantics' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ floatEqOfToBitsEq,
+ OperationPtr.dominates,
+ OperationPtr.dominatesIp,
+ OperationPtr.dominatesIp_before,
+ OperationPtr.dominates_refl,
+ OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants,
+ OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands!,
+ OperationPtr.strictlyDominates_trans,
+ ValuePtr.dominatesIp,
+ ValuePtr.dominatesIp_before_WfRewriter_createOp,
+ ValuePtr.dominatesIp_before_of_strictlyDominates,
+ IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates,
+ and_not_isRefinedBy_toInt_andn._native.bv_decide.ax_1_13,
+ not_and_isRefinedBy_toInt_andn._native.bv_decide.ax_1_13,
+ MemoryState.llvmLoad._native.bv_decide.ax_8]
+-/
+#guard_msgs in
+#print axioms andn_local_preservesSemantics
+
+/-! ## RISC-V lowering of `or x (not y)` (`riscv.orn`) -/
+
+/-- Correctness of the `riscv.orn` lowering of `or x (not y)` (any `disjoint` flag): the round
+    trip `int ×2 → reg ×2 → orn → int` refines `or x (xor y (-1))`. -/
+theorem or_not_isRefinedBy_toInt_orn {x y xt yt : Data.LLVM.Int 64} (disjoint : Bool)
+    (hx : x ⊒ xt) (hy : y ⊒ yt) :
+    Data.LLVM.Int.or x (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1))) disjoint
+      ⊒ RISCV.Reg.toInt (Data.RISCV.orn (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
+  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
+  obtain ⟨hxp, hxv⟩ := hx
+  obtain ⟨hyp, hyv⟩ := hy
+  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
+  have hxnp : x.isPoison = false := by grind
+  have hynp : y.isPoison = false := by grind
+  have hxvd : x.getValueD = xt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  have hyvd : y.getValueD = yt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  simp only [Data.RISCV.orn]
+  veir_bv_decide
+
+/-- Correctness of the `riscv.orn` lowering of `or (not y) x` (the `not` on the left). -/
+theorem not_or_isRefinedBy_toInt_orn {x y xt yt : Data.LLVM.Int 64} (disjoint : Bool)
+    (hx : x ⊒ xt) (hy : y ⊒ yt) :
+    Data.LLVM.Int.or (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1))) x disjoint
+      ⊒ RISCV.Reg.toInt (Data.RISCV.orn (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
+  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
+  obtain ⟨hxp, hxv⟩ := hx
+  obtain ⟨hyp, hyv⟩ := hy
+  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
+  have hxnp : x.isPoison = false := by grind
+  have hynp : y.isPoison = false := by grind
+  have hxvd : x.getValueD = xt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  have hyvd : y.getValueD = yt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  simp only [Data.RISCV.orn]
+  veir_bv_decide
+
+theorem orn_local_preservesSemantics :
+    LocalRewritePattern.PreservesSemantics orn_local h h₂ h₃ h₄ :=
+  lowerBinopNotLocal_preservesSemantics
+    (srcOp := .or)
+    (srcFn := fun x y props => Data.LLVM.Int.or x y props.disjoint)
+    (f := fun r₁ r₂ => Data.RISCV.orn r₂ r₁)
+    matchOr_implies
+    OperationPtr.Verified.llvm_or
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure])
+    (fun _ _ _ _ _ _ => rfl)
+    (fun _ _ _ _ props hx hy => or_not_isRefinedBy_toInt_orn props.disjoint hx hy)
+    (fun _ _ _ _ props hx hy => not_or_isRefinedBy_toInt_orn props.disjoint hx hy)
+
+/--
+info: 'Veir.orn_local_preservesSemantics' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ floatEqOfToBitsEq,
+ OperationPtr.dominates,
+ OperationPtr.dominatesIp,
+ OperationPtr.dominatesIp_before,
+ OperationPtr.dominates_refl,
+ OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants,
+ OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands!,
+ OperationPtr.strictlyDominates_trans,
+ ValuePtr.dominatesIp,
+ ValuePtr.dominatesIp_before_WfRewriter_createOp,
+ ValuePtr.dominatesIp_before_of_strictlyDominates,
+ IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates,
+ not_or_isRefinedBy_toInt_orn._native.bv_decide.ax_1_15,
+ or_not_isRefinedBy_toInt_orn._native.bv_decide.ax_1_15,
+ MemoryState.llvmLoad._native.bv_decide.ax_8]
+-/
+#guard_msgs in
+#print axioms orn_local_preservesSemantics
+
+/-! ## RISC-V lowering of `xor x (not y)` (`riscv.xnor`) -/
+
+/-- Correctness of the `riscv.xnor` lowering of `xor x (not y)`: the round trip
+    `int ×2 → reg ×2 → xnor → int` refines `xor x (xor y (-1))`. -/
+theorem xor_not_isRefinedBy_toInt_xnor {x y xt yt : Data.LLVM.Int 64}
+    (hx : x ⊒ xt) (hy : y ⊒ yt) :
+    Data.LLVM.Int.xor x (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1)))
+      ⊒ RISCV.Reg.toInt (Data.RISCV.xnor (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
+  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
+  obtain ⟨hxp, hxv⟩ := hx
+  obtain ⟨hyp, hyv⟩ := hy
+  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
+  have hxnp : x.isPoison = false := by grind
+  have hynp : y.isPoison = false := by grind
+  have hxvd : x.getValueD = xt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  have hyvd : y.getValueD = yt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  simp only [Data.RISCV.xnor]
+  veir_bv_decide
+
+/-- Correctness of the `riscv.xnor` lowering of `xor (not y) x` (the `not` on the left). -/
+theorem not_xor_isRefinedBy_toInt_xnor {x y xt yt : Data.LLVM.Int 64}
+    (hx : x ⊒ xt) (hy : y ⊒ yt) :
+    Data.LLVM.Int.xor (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1))) x
+      ⊒ RISCV.Reg.toInt (Data.RISCV.xnor (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
+  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
+  obtain ⟨hxp, hxv⟩ := hx
+  obtain ⟨hyp, hyv⟩ := hy
+  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
+  have hxnp : x.isPoison = false := by grind
+  have hynp : y.isPoison = false := by grind
+  have hxvd : x.getValueD = xt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  have hyvd : y.getValueD = yt.getValueD := by
+    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
+  simp only [Data.RISCV.xnor]
+  veir_bv_decide
+
+theorem xnor_local_preservesSemantics :
+    LocalRewritePattern.PreservesSemantics xnor_local h h₂ h₃ h₄ :=
+  lowerBinopNotLocal_preservesSemantics
+    (srcOp := .xor)
+    (srcFn := fun x y _ => Data.LLVM.Int.xor x y)
+    (f := fun r₁ r₂ => Data.RISCV.xnor r₂ r₁)
+    matchXor_implies
+    OperationPtr.Verified.llvm_xor
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure])
+    (fun _ _ _ _ _ _ => rfl)
+    (fun _ _ _ _ _ hx hy => xor_not_isRefinedBy_toInt_xnor hx hy)
+    (fun _ _ _ _ _ hx hy => not_xor_isRefinedBy_toInt_xnor hx hy)
+
+/--
+info: 'Veir.xnor_local_preservesSemantics' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ floatEqOfToBitsEq,
+ OperationPtr.dominates,
+ OperationPtr.dominatesIp,
+ OperationPtr.dominatesIp_before,
+ OperationPtr.dominates_refl,
+ OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants,
+ OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands!,
+ OperationPtr.strictlyDominates_trans,
+ ValuePtr.dominatesIp,
+ ValuePtr.dominatesIp_before_WfRewriter_createOp,
+ ValuePtr.dominatesIp_before_of_strictlyDominates,
+ IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates,
+ not_xor_isRefinedBy_toInt_xnor._native.bv_decide.ax_1_13,
+ xor_not_isRefinedBy_toInt_xnor._native.bv_decide.ax_1_13,
+ MemoryState.llvmLoad._native.bv_decide.ax_8]
+-/
+#guard_msgs in
+#print axioms xnor_local_preservesSemantics
 
 end Veir

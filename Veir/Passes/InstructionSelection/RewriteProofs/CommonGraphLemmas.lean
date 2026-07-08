@@ -189,7 +189,7 @@ set_option maxHeartbeats 1000000 in
     `PreservesSemantics` proof needs to read `y`'s refined value in the target state. -/
 theorem matchNot_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
     (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
-    {op : OperationPtr} {opInBounds : op.InBounds ctx.raw}
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
     {state : InterpreterState ctx}
     (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
     {v y : ValuePtr} {intType : IntegerType}

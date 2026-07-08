@@ -2,7 +2,9 @@
 
 This document describes the proof strategy used for the `lowerUnaryWLocal` lowerings
 (`ctlz_local`, `cttz_local`, `ctpop_local` in `Veir/Passes/InstructionSelection/RISCV64.lean`)
-and how to extend it to the other `*_local` lowerings (`add_local`, `and_local`, `bswap_local`, …).
+and the `lowerBinopNotLocal` lowerings (`andn_local`, `orn_local`, `xnor_local` in
+`Veir/Passes/InstructionSelection/RISCV64Sdag.lean`), and how to extend it to the other
+`*_local` lowerings (`add_local`, `bswap_local`, `selectBinopImmLocal`, …).
 
 ## What we prove
 
@@ -32,6 +34,13 @@ structural proof is done **once per combinator**. Currently:
   on `i64`/`i32`, then emit `castToRegLocal` → `op64` (or its `W` variant `op32` for `i32`) →
   `replaceWithRegLocal`. Its shared correctness proof is
   `lowerUnaryWLocal_preservesSemantics` (`RewriteProofs/LowerUnaryW.lean`).
+- `lowerBinopNotLocal match? dst props` (`RISCV64Sdag.lean`) — match a two-operand LLVM integer
+  op on `i64` one of whose operands is a `not` (`xor _, -1`, via `matchNot`, on either side),
+  then emit `castToRegLocal` ×2 → binary reg-reg `dst` → `replaceWithRegLocal`. Its shared
+  correctness proof is `lowerBinopNotLocal_preservesSemantics`
+  (`RewriteProofs/LowerBinopNot.lean`). This is the first *DAG-matching* proof: it recovers the
+  runtime value of the matched `not` from the `EquationLemmaAt` hypothesis (see
+  "Matched-subgraph semantics" below).
 
 The generic theorem is parameterized over everything opcode-specific:
 
@@ -114,6 +123,30 @@ syntactically — op type, number of results, `getOperands! = #[operand…]`, an
 equation. These exist for most matchers already; if one is missing, copy an existing one
 (the proof is `simp only [matchFoo, bind, Option.bind, pure]` + `grind`).
 
+### Layer 3 — Matched-subgraph semantics (per *matcher*, only for DAG-matching patterns)
+
+Patterns that inspect an operand's *defining op* (`matchNot`, `matchConstantIntVal`,
+`getDefiningOp` + `matchShl`/…) match more than the interpreted op, so their proofs need the
+*runtime* value of the matched subgraph, not just syntax. `PreservesSemantics` provides exactly
+the needed invariant: `state.EquationLemmaAt (InsertPoint.before op)` says every *pure* op
+dominating the match point has already been interpreted consistently into the source state.
+`RewriteProofs/CommonGraphLemmas.lean` packages this per matcher:
+
+- `OperationPtr.Pure.llvm_xor` / `.llvm_mlir__constant` — per-opcode purity facts (needed to
+  invoke `EquationLemmaAt`; one short `split`/`simp` proof per opcode);
+- `matchBinaryOp_interpretOp_unfold` / `constantOp_interpretOp_unfold` — unfold one successful
+  `interpretOp` of the given shape into its result bindings; applied at `newState := state`
+  they unfold an `EquationHolds` fact;
+- `matchNot_getVar?_of_EquationLemmaAt` — the packaged lemma: a successful `matchNot v = some y`
+  with `v` an operand of `op` yields `getVar? v = xor yv (-1)` where `yv` is `y`'s value, plus
+  the structural side conditions (`y`'s type, dominance at `before op`, in-bounds,
+  not-a-result-of-`op`) that `exists_refined_int_getVar?` needs.
+
+A new matcher (e.g. `matchConstantIntVal` for the immediate-selection patterns) gets one such
+lemma, built the same way: syntactic facts from the `match*_implies` lemma, dominance of the
+defining op via `strictlyDominates_of_getDefiningOp!_of_mem_getOperands!` (plus
+`strictlyDominates_trans` for deeper chains), purity, then `EquationHolds` unfolding.
+
 ## The shared machinery (already written, reused by every combinator proof)
 
 ### Source-interpretation unfolding
@@ -130,8 +163,10 @@ the matcher's syntactic facts, the `hSemSrc` computation fact, and a successful
 The operand value is *derived* inside the lemma — from `interpretOp_some_iff`, the matcher's
 `getOperands!` fact, and `VariableState.getVar?_conforms` + the operand's integer type
 (`RuntimeValue.Conforms.integerType` turns "conforms to `i{bw}`" into "`= .int bw x`") — so
-callers don't have to supply it. A binop combinator will need a binop analogue exposing two
-existentials, using two `Array.exists_mapM_option_eq_some_iff` reads (indices 0 and 1).
+callers don't have to supply it. The binop analogue is `matchBinaryOp_interpretOp_unfold`
+(`CommonGraphLemmas.lean`), exposing two existentials via two
+`Array.exists_mapM_option_eq_some_iff` reads (indices 0 and 1); it doubles as the
+`EquationHolds` unfolder for matched defining binops (Layer 3).
 
 ### Forward lemmas for the emitted ops
 
@@ -143,16 +178,25 @@ the generic `interpretOp_forward` (`Veir/Interpreter/Lemmas.lean`):
 - `interpretOp_riscv_unaryReg_forward` — **generic over the RISC-V opcode**: any unary
   reg-to-reg op whose `Riscv.interpretOp'` maps `.reg r` to `.reg (f r)` (hypothesis `hSem`,
   discharged by `rfl` at each concrete opcode). Covers `clz`/`clzw`/`ctz`/`ctzw`/`cpop`/`cpopw`
-  and any future unary Zbb op with **no new lemma needed**.
+  and any future unary Zbb op with **no new lemma needed**;
+- `interpretOp_riscv_binaryReg_forward` — the binary analogue: `.reg r₁, .reg r₂` ↦
+  `.reg (f r₁ r₂)`, two operand hypotheses. Covers `andn`/`orn`/`xnor` and any future binary
+  reg-reg op (`add`/`sub`/`max`/…) with no new lemma needed. Beware the interpreter's operand
+  order: `Riscv.interpretOp'` maps `[op1, op2]` to e.g. `RISCV.andn op2 op1`, so at
+  instantiation `f := fun r₁ r₂ => RISCV.andn r₂ r₁`.
 
 Each lemma's conclusion gives the successful one-step interpretation, memory unchanged, the
 result binding, and a **frame clause** (all non-result variables unchanged). The frame clause
-is what lets facts about earlier values survive to later ops in the chain — essential for
-binops (see below). New emitted-op *shapes* (binary reg ops, ops with immediates) need one new
+is what lets facts about earlier values survive to later ops in the chain — see the two-cast
+prefix of `lowerBinopNotLocal_preservesSemantics`, where the second cast's frame keeps the
+first cast's result binding and the first cast's frame keeps `y`'s value; the membership side
+conditions (`y ∉ xCastOp.getResults!`, `xCastOp.getResult 0 ∉ yCastOp.getResults!`) are
+discharged by `ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds`
+(`CommonBaseLemmas.lean`): a value existing *before* a `createOp` is never a result of the
+freshly created op. New emitted-op *shapes* (ops with immediates, `li`) need one new
 specialization each — ~20 lines of boilerplate: instantiate `interpretOp_forward` with explicit
 `vals := #[…]`, `results := #[…]`, `mem' := state.memory`, and discharge the three obligations
-with the same `simp` scripts as the existing ones. Binop variants take two operand hypotheses
-and `vals := #[.reg r₁, .reg r₂]`.
+with the same `simp` scripts as the existing ones.
 
 ### Peel tactics
 
@@ -193,6 +237,11 @@ namespace of `LowerUnaryW.lean`:
 5. **Axiom check**: `#guard_msgs in #print axioms foo_local_preservesSemantics` to pin the
    axiom footprint.
 
+**If it fits `lowerBinopNotLocal`** (two integer operands with a `not` on one side, one binary
+reg-to-reg RISC-V op at `i64`): same steps against `lowerBinopNotLocal_preservesSemantics` in
+`LowerBinopNot.lean`, with *two* Layer-0 lemmas (one per `not`-operand orientation; mind the
+riscv operand order, see the forward-lemma note above).
+
 **If it needs a new shape** (binop, longer chain, extra guards): first factor the lowering
 through a new combinator in `RISCV64.lean`, then prove that combinator's
 `PreservesSemantics` once, generic over the opcode-specific parameters, following
@@ -206,13 +255,16 @@ per lowering as above.
 
 ## Adapting to other lowering shapes
 
-- **Binops** (`add_local`, `and_local`, `mul_local`, …): two `castToRegLocal` peels, two
-  `exists_refined_int_getVar?` reads, two "operand is not a result of `op`" facts, a binop
-  analogue of `matchUnaryOp_interpretOp_unfold`, and a binop reg-to-reg forward lemma.
-  Crucially, when executing the chain, the value of the *first* cast's result must survive the
-  *second* cast's interpretation: keep the **frame clause** of the forward lemma (bind it as
-  `hFrame` instead of discarding with `-`) and rewrite the earlier result binding through it
-  before feeding the RISC-V op's forward lemma.
+- **Binops** (`add_local`, `mul_local`, …): everything needed is now in place — the binop
+  unfold lemma, the binary reg-reg forward lemma, and the frame-clause plumbing are all
+  demonstrated by `lowerBinopNotLocal_preservesSemantics`, which is the template to follow
+  (it is a plain binop proof plus one `matchNot` graph read). A plain binop combinator's proof
+  is that proof minus the `matchNot`/orientation parts.
+- **DAG-matching patterns** (`selectBinopImmLocal`, `bexti_local`, `orcb_local`, …): each
+  matcher applied to a *defining op* needs one Layer-3 lemma
+  (`match*_getVar?_of_EquationLemmaAt` style, see `matchNot_getVar?_of_EquationLemmaAt`);
+  constants additionally reuse `constantOp_interpretOp_unfold` and
+  `OperationPtr.Pure.llvm_mlir__constant` as-is.
 - **Longer chains** (`bswap_local` 32-bit emits `cast, rev8, srli, castBack`): one extra
   `peelOpCreation!` and one extra forward-lemma application per op; ops with an immediate
   (`srli`) need their forward lemma to take the properties (`RISCVImmediateProperties`) into
@@ -244,23 +296,40 @@ per lowering as above.
 - **Expected axioms**: `#print axioms` will list the dominance axioms
   (`OperationPtr.dominates*`, `ValuePtr.dominatesIp*`,
   `IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates`,
-  `ValuePtr.dominatesIp_before_WfRewriter_createOp`),
+  `ValuePtr.dominatesIp_before_WfRewriter_createOp`; DAG-matching proofs add
+  `OperationPtr.strictlyDominates_trans` and
+  `ValuePtr.dominatesIp_before_of_strictlyDominates`),
   `OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants`, `floatEqOfToBitsEq`,
   and a `…bv_decide.ax_…` native axiom per `bv_decide`/`veir_bv_decide` use (including
   `MemoryState.llvmLoad._native.bv_decide.ax_8` pulled in by the interpreter) — that's the
-  accepted baseline, pin it with `#guard_msgs`.
+  accepted baseline, pin it with `#guard_msgs` (see the end of `LowerBinopNot.lean`).
+- **Un-inferable implicits in packaged lemmas**: hypotheses whose only mention of a variable is
+  inside a `(by grind)` default argument (e.g. `opInBounds` in
+  `matchNot_getVar?_of_EquationLemmaAt`) must be *explicit* — unification cannot recover them
+  from proof terms at the call site.
+- **`simp` swaps negated `if` branches**: the initial `simp … at hpattern` applies
+  `ne_eq`/`ite_not`, so a source-level `if t.bitwidth ≠ 64 then bail else continue` becomes
+  `if t.bitwidth = 64 then continue else bail` — split it with
+  `split at hpattern; case isFalse hne => simp at hpattern` and `rename_i hBw`, rather than
+  assuming the source branch order (this is why `lowerBinopNotLocal_preservesSemantics` does
+  not use `peelSplittableCondition` for the bitwidth guard).
 
 ## File map
 
 | File | Contents | Growth per new lowering |
 |---|---|---|
-| `RewriteProofs/LowerUnaryW.lean` | `matchUnaryOp_interpretOp_unfold`, `lowerUnaryWLocal_preservesSemantics`, and per-lowering Layer-0 lemmas + instantiations (`Example` namespace) | two data lemmas + one instantiation (unary); new file per new *shape* |
-| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary reg-to-reg riscv op) | one lemma per new emitted-op *shape* |
+| `RewriteProofs/LowerUnaryW.lean` | `matchUnaryOp_interpretOp_unfold`, `lowerUnaryWLocal_preservesSemantics`, and per-lowering Layer-0 lemmas + instantiations | two data lemmas + one instantiation (unary); new file per new *shape* |
+| `RewriteProofs/LowerBinopNot.lean` | `lowerBinopNotLocal_preservesSemantics` (the DAG-matching template proof), per-lowering Layer-0 lemmas + instantiations (`andn`/`orn`/`xnor`), `#guard_msgs` axiom pins | two data lemmas + one instantiation (binop-with-not) |
+| `RewriteProofs/CommonGraphLemmas.lean` | Layer 3: `OperationPtr.Pure.llvm_*`, `matchBinaryOp_interpretOp_unfold`, `constantOp_interpretOp_unfold`, `matchNot_getVar?_of_EquationLemmaAt` | one packaged lemma per new *matcher* used on defining ops |
+| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops) | one lemma per new emitted-op *shape* |
 | `RewriteProofs/CommonTactics.lean` | `peel*` macros, `cleanupHpattern` | rarely |
-| `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `createOp!` reduction, properties/dominance transport | rarely |
+| `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `not_mem_getResults!_of_inBounds_of_not_inBounds`, `createOp!` reduction, properties/dominance transport | rarely |
 | `RewriteProofs/CommonMatchLemmas.lean` | ctlz-specific unfold/peel lemmas — currently unused (superseded by the generic `matchUnaryOp_interpretOp_unfold`); candidate for deletion | — |
-| `Veir/Passes/InstructionSelection/RISCV64.lean` | the lowering combinators (`lowerUnaryWLocal`) and their instances | one `def` (or a new combinator) |
-| `Veir/Verifier.lean` | `IsVerified*` bundles + `Verified.llvm_*` extractors (Layer 1) | one 3-line lemma (unop/binop) |
+| `Veir/Passes/InstructionSelection/RISCV64.lean` | the GlobalISel lowering combinators (`lowerUnaryWLocal`) and their instances | one `def` (or a new combinator) |
+| `Veir/Passes/InstructionSelection/RISCV64Sdag.lean` | the SelectionDAG lowering combinators (`lowerBinopNotLocal`, `selectBinopImmLocal`, …) and their instances | one `def` (or a new combinator) |
+| `Veir/Verifier.lean` | `IsVerified*` bundles + `Verified.llvm_*` extractors (Layer 1; incl. `Verified.llvm_mlir__constant`) | one 3-line lemma (unop/binop) |
 | `Veir/Passes/Matching/Lemmas.lean` | `match*_implies` (Layer 2) | usually nothing |
 | `Veir/Interpreter/Lemmas.lean` | generic `interpretOp_forward`, `interpretOpList_cons` | nothing |
+| `Veir/Interpreter/EquationLemma.lean` | `Pure`, `EquationHolds`, `EquationLemmaAt` (the Layer-3 invariant) | nothing |
+| `Veir/Dominance.lean` | dominance axioms (incl. `strictlyDominates_trans`, `dominatesIp_before_of_strictlyDominates`) | nothing |
 | `Veir/PatternRewriter/Semantics.lean` | `PreservesSemantics` | nothing |
