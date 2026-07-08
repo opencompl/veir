@@ -116,6 +116,17 @@ structural proof is done **once per combinator**. Currently:
   (`RewriteProofs/LowerBinopNot.lean`). This is the first *DAG-matching* proof: it recovers the
   runtime value of the matched `not` from the `EquationLemmaAt` hypothesis (see
   "Matched-subgraph semantics" below).
+- `zext_1_local` (`RISCV64Sdag.lean`) — the concrete `llvm.zext %x : i1 to i64` ⟶
+  `unrealized_conversion_cast` → `riscv.andi _, 1` → `unrealized_conversion_cast` lowering (masking
+  the low bit realizes the zero extension of an `i1`). Not a combinator: it is a *standalone* proof
+  (`zext_1_local_preservesSemantics`, `RewriteProofs/LowerZextOne.lean`) modelled on the
+  `lowerExtLocal` single-operand-extension template, but at the fixed `i1 → i64` widths and with the
+  middle op an *immediate*-form `riscv.andi` rather than a plain unary reg-to-reg op. It *reuses*
+  `matchExtOp_interpretOp_unfold` and the data-level `zextLike_isRefinedBy_toInt` from
+  `LowerExt.lean`; the only new pieces are the `andi 1` value characterisation (`andi_one_val`) and
+  the immediate-op forward lemma `interpretOp_riscv_unaryReg_imm_forward`. It is the first proof of a
+  lowering that emits an immediate-form riscv op — the template for the `selectBinopImmLocal` family
+  (which additionally needs a `matchConstantIntVal` DAG-matching Layer-3 lemma).
 
 The generic theorem is parameterized over everything opcode-specific:
 
@@ -454,8 +465,9 @@ per lowering as above.
 | `RewriteProofs/LowerSignedMinMax.lean` | `lowerSignedMinMaxLocal_preservesSemantics` (signed min/max; `i64` = 4 ops, `i32` = 6 ops with two extra `riscv.sextw`) + `_64`/`_32` data lemmas + instantiations (`smax`, `smin`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerRotate.lean` | `matchTernaryOp_interpretOp_unfold` (ternary source unfold) + `lowerRotateLocal_preservesSemantics` (rotate; ternary source with `a = b`, result-type guard, `W`-variant bitwidth branch) + `_64`/`_32` data lemmas + instantiations (`fshl`, `fshr`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerBinopNot.lean` | `lowerBinopNotLocal_preservesSemantics` (the DAG-matching template proof), per-lowering Layer-0 lemmas + instantiations (`andn`/`orn`/`xnor`), `#guard_msgs` axiom pins | two data lemmas + one instantiation (binop-with-not) |
+| `RewriteProofs/LowerZextOne.lean` | `zext_1_local_preservesSemantics` (standalone `i1 → i64` zext ⟶ `andi 1`; first immediate-emitting proof), `andi_one_val` + `zext1_isRefinedBy_toInt_andi` (reusing `matchExtOp_interpretOp_unfold` / `zextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/CommonGraphLemmas.lean` | `matchBinaryOp_interpretOp_unfold` (shared by the binary combinator proofs) + Layer 3: `OperationPtr.Pure.llvm_*`, `constantOp_interpretOp_unfold`, `matchNot_getVar?_of_EquationLemmaAt` | one packaged lemma per new *matcher* used on defining ops |
-| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops) | one lemma per new emitted-op *shape* |
+| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops + `interpretOp_riscv_unaryReg_imm_forward` for immediate-form unary ops) | one lemma per new emitted-op *shape* |
 | `RewriteProofs/CommonTactics.lean` | `peel*` macros (incl. the two-dominance `peel*₂` variants), `cleanupHpattern` | rarely |
 | `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `not_mem_getResults!_of_inBounds_of_not_inBounds`, `createOp!` reduction, properties/dominance transport | rarely |
 | `RewriteProofs/CommonMatchLemmas.lean` | ctlz-specific unfold/peel lemmas — currently unused (superseded by the generic `matchUnaryOp_interpretOp_unfold`); candidate for deletion | — |
