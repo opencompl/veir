@@ -104,7 +104,7 @@ theorem constant_local_preservesSemantics :
   -- Second width guard (on `retTy.bitwidth`) is false.
   peelSplittableCondition [hW2] hpattern
   have hRetLe : retTy.bitwidth ≤ 64 := by
-    simp only [ne_eq, not_and, Decidable.not_not] at hW2 ⊢
+    simp only [not_and, Decidable.not_not] at hW2 ⊢
     omega
   -- The op's result types, for the source interpretation.
   have hResTypes : op.getResultTypes! ctx.raw = #[⟨Attribute.integerType retTy, (by grind)⟩] := by
