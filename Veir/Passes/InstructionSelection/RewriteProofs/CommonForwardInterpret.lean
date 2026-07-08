@@ -150,3 +150,39 @@ theorem interpretOp_riscv_unaryReg_forward
           simp [interpretOp', hSem, Interp])
       (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
   grind
+
+/-- Immediate-form unary register-to-register `riscv` op specialization of `interpretOp_forward`:
+`theOp` is any `riscv` op `rop` with a *fixed* property bundle `props` (typically the immediate)
+whose interpretation maps a single register operand `r` to `res` (hypothesis `hSem`, discharged by
+`rfl`/`simp` at each concrete opcode-and-immediate), with a single `!riscv.reg` result. Unlike
+`interpretOp_riscv_unaryReg_forward`, the result depends on the op's properties, so the op's
+actual property bundle is required as an input (`hProps`). Interpreting it always succeeds, leaves
+memory untouched, binds the result to `.reg res`, and leaves every non-result value unchanged. This
+covers the immediate forms `riscv.andi`/`ori`/`xori`/`slli`/`srli`/`srai`/`addi`/… . -/
+theorem interpretOp_riscv_unaryReg_imm_forward
+    {ctx : WfIRContext OpCode} {rop : Riscv} {theOp : OperationPtr} {state : InterpreterState ctx}
+    {inBounds : theOp.InBounds ctx.raw} {v : ValuePtr} {rt : RegisterType} {hIsTy}
+    {r res : Data.RISCV.Reg} {props : HasDialectOpInfo.propertiesOf rop}
+    (hSem : ∀ (resultTypes : Array TypeAttr) (blockOperands : Array BlockPtr) (mem : MemoryState),
+        Riscv.interpretOp' rop props resultTypes #[.reg r] blockOperands mem
+          = some (.ok (#[.reg res], mem, none)))
+    (hType : theOp.getOpType! ctx.raw = .riscv rop)
+    (hProps : theOp.getProperties! ctx.raw (.riscv rop) = props)
+    (hOperands : theOp.getOperands! ctx.raw = #[v])
+    (hResTypes : theOp.getResultTypes! ctx.raw = #[⟨.registerType rt, hIsTy⟩])
+    (hVal : state.variables.getVar? v = some (.reg r)) :
+    ∃ state', interpretOp theOp state inBounds = some (.ok (state', none)) ∧
+      state'.memory = state.memory ∧
+      state'.variables.getVar? (ValuePtr.opResult (theOp.getResult 0))
+        = some (.reg res) ∧
+      (∀ v', v' ∉ theOp.getResults! ctx.raw →
+        state'.variables.getVar? v' = state.variables.getVar? v') := by
+  obtain ⟨state', hI, hMem, hVal⟩ :=
+    interpretOp_forward (op := theOp) (state := state) (inBounds := inBounds)
+      (vals := #[.reg r]) (results := #[.reg res]) (mem' := state.memory)
+      (by simp [VariableState.getOperandValues, hOperands, hVal])
+      (by simp only [OperationPtr.interpret]
+          rw [hType, hProps]
+          simp [interpretOp', hSem, Interp])
+      (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
+  grind

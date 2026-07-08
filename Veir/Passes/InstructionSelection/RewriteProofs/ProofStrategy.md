@@ -116,6 +116,21 @@ structural proof is done **once per combinator**. Currently:
   (`RewriteProofs/LowerBinopNot.lean`). This is the first *DAG-matching* proof: it recovers the
   runtime value of the matched `not` from the `EquationLemmaAt` hypothesis (see
   "Matched-subgraph semantics" below).
+- `bswap_local` (`RISCV64.lean`) — `llvm.intr.bswap` on `i64`/`i32`: `i64` lowers to
+  `unrealized_conversion_cast` → `riscv.rev8` → `unrealized_conversion_cast` (the `lowerUnaryWLocal`
+  3-op shape), `i32` to `unrealized_conversion_cast` → `riscv.rev8` → `riscv.srli _, 32` →
+  `unrealized_conversion_cast` (`rev8` reverses all 8 bytes, landing the wanted low 4 in the high
+  word, so `srli 32` shifts them back down). Standalone proof `bswap_local_preservesSemantics`
+  (`RewriteProofs/LowerBswap.lean`), reusing `matchUnaryOp_interpretOp_unfold` from `LowerUnaryW.lean`.
+  Unlike `lowerUnaryWLocal`, the two bitwidths take *different* op chains (three ops for `i64`, four
+  for `i32`), so the proof peels the shared `cast`/`rev8` prefix, `rcases` on the bitwidth, and
+  finishes each chain separately (the `i32` branch threads one extra
+  `interpretOp_riscv_unaryReg_imm_forward` step for the immediate `srli`). Layer 1 needs a bespoke
+  `Verified.llvm_intr__bswap` because `bswap`'s verifier arm runs `verifyIntegerUnop` *and then* an
+  extra bitwidth-∈-{16,32,64} check, so it does not reduce to the plain `verifyIntegerUnop >>= pure`
+  arm — the leading `verifyIntegerUnop` bind is peeled directly. The two new data lemmas
+  (`bswap_isRefinedBy_toInt_rev8`, `…_srli_rev8`) close by `veir_bv_decide` off the
+  `@[veir_bv_normalize]` `getValue_bswap_64`/`_32`.
 
 The generic theorem is parameterized over everything opcode-specific:
 
@@ -454,8 +469,9 @@ per lowering as above.
 | `RewriteProofs/LowerSignedMinMax.lean` | `lowerSignedMinMaxLocal_preservesSemantics` (signed min/max; `i64` = 4 ops, `i32` = 6 ops with two extra `riscv.sextw`) + `_64`/`_32` data lemmas + instantiations (`smax`, `smin`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerRotate.lean` | `matchTernaryOp_interpretOp_unfold` (ternary source unfold) + `lowerRotateLocal_preservesSemantics` (rotate; ternary source with `a = b`, result-type guard, `W`-variant bitwidth branch) + `_64`/`_32` data lemmas + instantiations (`fshl`, `fshr`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerBinopNot.lean` | `lowerBinopNotLocal_preservesSemantics` (the DAG-matching template proof), per-lowering Layer-0 lemmas + instantiations (`andn`/`orn`/`xnor`), `#guard_msgs` axiom pins | two data lemmas + one instantiation (binop-with-not) |
+| `RewriteProofs/LowerBswap.lean` | `bswap_local_preservesSemantics` (standalone `i64`/`i32` `bswap` ⟶ `rev8` [+ `srli 32` for `i32`]; shared `cast`/`rev8` prefix then per-width chains), `bswap_isRefinedBy_toInt_rev8` + `…_srli_rev8` (reusing `matchUnaryOp_interpretOp_unfold` from `LowerUnaryW.lean`), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/CommonGraphLemmas.lean` | `matchBinaryOp_interpretOp_unfold` (shared by the binary combinator proofs) + Layer 3: `OperationPtr.Pure.llvm_*`, `constantOp_interpretOp_unfold`, `matchNot_getVar?_of_EquationLemmaAt` | one packaged lemma per new *matcher* used on defining ops |
-| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops) | one lemma per new emitted-op *shape* |
+| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops + `interpretOp_riscv_unaryReg_imm_forward` for immediate-form unary ops) | one lemma per new emitted-op *shape* |
 | `RewriteProofs/CommonTactics.lean` | `peel*` macros (incl. the two-dominance `peel*₂` variants), `cleanupHpattern` | rarely |
 | `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `not_mem_getResults!_of_inBounds_of_not_inBounds`, `createOp!` reduction, properties/dominance transport | rarely |
 | `RewriteProofs/CommonMatchLemmas.lean` | ctlz-specific unfold/peel lemmas — currently unused (superseded by the generic `matchUnaryOp_interpretOp_unfold`); candidate for deletion | — |

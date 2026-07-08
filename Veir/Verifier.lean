@@ -1311,6 +1311,19 @@ theorem OperationPtr.Verified.llvm_intr__ctpop {op : OperationPtr} {opInBounds}
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
   exact op.verifyIntegerUnop_eq_ok hty
 
+/-- Structural facts from the verifier for a verified `llvm.intr.bswap`. Unlike the other integer
+    unops, `llvm.intr.bswap`'s verifier arm runs `verifyIntegerUnop` and *then* an extra
+    bitwidth-∈-{16,32,64} check, so it does not reduce to the plain `verifyIntegerUnop >>= pure`
+    arm; we instead peel the leading `verifyIntegerUnop` bind directly. -/
+theorem OperationPtr.Verified.llvm_intr__bswap {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__bswap) :
+    op.IsVerifiedIntegerUnop ctx := by
+  rw [Verified] at opVerify
+  simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType] at opVerify
+  cases hb : op.verifyIntegerUnop ctx opInBounds with
+  | ok ty => exact op.verifyIntegerUnop_eq_ok hb
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
 /--
   Structural facts guaranteed by the verifier for a three-operand integer operation (e.g.
   `llvm.intr.fshl`/`fshr`): one result, three operands, no successors or regions, and all three
