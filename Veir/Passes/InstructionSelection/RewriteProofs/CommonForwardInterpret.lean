@@ -86,7 +86,8 @@ theorem interpretOp_castBack_forward
 data-level op as `RISCV.op op2 op1`, so `f` is typically `fun r₁ r₂ => RISCV.op r₂ r₁`), with a
 single `!riscv.reg` result. Interpreting it always succeeds, leaves memory untouched, binds the
 result to `.reg (f r₁ r₂)`, and leaves every non-result value unchanged. This covers
-`riscv.add`/`sub`/`mul`/`div`/`rem`/`sll`/`srl` and their `W`/unsigned variants. -/
+`riscv.add`/`sub`/`mul`/`div`/`rem`/`sll`/`srl` and their `W`/unsigned variants, as well as
+`riscv.andn`/`orn`/`xnor`. -/
 theorem interpretOp_riscv_binaryReg_forward
     {ctx : WfIRContext OpCode} {rop : Riscv} {theOp : OperationPtr} {state : InterpreterState ctx}
     {inBounds : theOp.InBounds ctx.raw} {v₁ v₂ : ValuePtr} {rt : RegisterType} {hIsTy}

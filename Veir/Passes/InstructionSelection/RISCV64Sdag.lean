@@ -20,11 +20,17 @@ def singleSetBit (x : BitVec 64) : Option Int :=
 /-! # SelectionDAG Lowering Patterns  -/
 
 /--
-  `and x (not y)` -> `riscv.andn x y`. The `not` may appear on either operand.
+  Shared shape of the Zbb negated-operand lowerings (`andn`/`orn`/`xnor`): match a binary LLVM
+  op on `i64` one of whose operands is a `not` (`xor _, -1`), cast the plain operand `x` and the
+  `not`'s operand `y` to registers, apply the binary reg-reg riscv op `dst`, and cast the result
+  back to `i64`.
 -/
-def andn_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+def lowerBinopNotLocal {P : Type}
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
+    (dst : Riscv) (props : propertiesOf (.riscv dst))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchAnd op ctx | return (ctx, none)
+  let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ 64 then return (ctx, none)
   let some (x, y) :=
@@ -35,10 +41,17 @@ def andn_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
                | none => none) | return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx x
   let (ctx, yCastOp) ← castToRegLocal ctx y
-  let (ctx, andnOp) ← WfRewriter.createOp! ctx (.riscv .andn) #[RegisterType.mk]
-      #[xCastOp.getResult 0, yCastOp.getResult 0] #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (andnOp.getResult 0)
-  some (ctx, some (#[xCastOp, yCastOp, andnOp, castBackOp], #[castBackOp.getResult 0]))
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk]
+      #[xCastOp.getResult 0, yCastOp.getResult 0] #[] #[] props none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
+  some (ctx, some (#[xCastOp, yCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
+
+/--
+  `and x (not y)` -> `riscv.andn x y`. The `not` may appear on either operand.
+-/
+def andn_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerBinopNotLocal matchAnd .andn () ctx op
 
 /--
   `and x (not y)` -> `riscv.andn x y`. The `not` may appear on either operand.
@@ -51,22 +64,8 @@ def andn (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   `or x (not y)` -> `riscv.orn x y`. The `not` may appear on either operand.
 -/
 def orn_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchOr op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let some (x, y) :=
-    (match matchNot rhs ctx with
-     | some y => some (lhs, y)
-     | none => match matchNot lhs ctx with
-               | some y => some (rhs, y)
-               | none => none) | return (ctx, none)
-  let (ctx, xCastOp) ← castToRegLocal ctx x
-  let (ctx, yCastOp) ← castToRegLocal ctx y
-  let (ctx, ornOp) ← WfRewriter.createOp! ctx (.riscv .orn) #[RegisterType.mk]
-      #[xCastOp.getResult 0, yCastOp.getResult 0] #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (ornOp.getResult 0)
-  some (ctx, some (#[xCastOp, yCastOp, ornOp, castBackOp], #[castBackOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerBinopNotLocal matchOr .orn () ctx op
 
 /--
   `or x (not y)` -> `riscv.orn x y`. The `not` may appear on either operand.
@@ -79,22 +78,8 @@ def orn (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   `xor x (not y)` -> `riscv.xnor x y`. The `not` may appear on either operand.
 -/
 def xnor_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchXor op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let some (x, y) :=
-    (match matchNot rhs ctx with
-     | some y => some (lhs, y)
-     | none => match matchNot lhs ctx with
-               | some y => some (rhs, y)
-               | none => none) | return (ctx, none)
-  let (ctx, xCastOp) ← castToRegLocal ctx x
-  let (ctx, yCastOp) ← castToRegLocal ctx y
-  let (ctx, xnorOp) ← WfRewriter.createOp! ctx (.riscv .xnor) #[RegisterType.mk]
-      #[xCastOp.getResult 0, yCastOp.getResult 0] #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (xnorOp.getResult 0)
-  some (ctx, some (#[xCastOp, yCastOp, xnorOp, castBackOp], #[castBackOp.getResult 0]))
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  lowerBinopNotLocal matchXor .xnor () ctx op
 
 /--
   `xor x (not y)` -> `riscv.xnor x y`. The `not` may appear on either operand.

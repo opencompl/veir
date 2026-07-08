@@ -10,6 +10,7 @@ import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonForwardInterpret
+import Veir.Passes.InstructionSelection.RewriteProofs.CommonGraphLemmas
 
 namespace Veir
 
@@ -23,98 +24,6 @@ namespace Veir
 `xor_local`, …) only requires the matcher facts, the interpreter computation facts, and the two
 data-level refinement lemmas.
 -/
-
-/-- Interpreting a matched two-operand LLVM op (of opcode `srcOp`, interpreted by `srcFn` per
-    `hSemSrc`) whose operands both have integer type `intType` reads the operands' `i{bw}` values
-    `x` and `y` and stores `srcFn x y props` in the result variable, leaving memory and control
-    flow untouched. The operand values are derived internally (from the successful interpretation
-    and the operands' types), so they are exposed as existential outputs rather than required as
-    inputs. -/
-theorem matchBinaryOp_interpretOp_unfold {srcOp : Llvm} {ctx : WfIRContext OpCode}
-    {op : OperationPtr} {lhs rhs : ValuePtr} {props : propertiesOf (.llvm srcOp)} {intType}
-    {srcFn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → propertiesOf (.llvm srcOp) →
-      Data.LLVM.Int bw}
-    {state : InterpreterState ctx} {newState cf} (opInBounds : op.InBounds ctx.raw)
-    (hOpType : op.getOpType! ctx.raw = .llvm srcOp)
-    (hNumResults : op.getNumResults! ctx.raw = 1)
-    (hOperands : op.getOperands! ctx.raw = #[lhs, rhs])
-    (hProps : props = op.getProperties! ctx.raw (.llvm srcOp))
-    (hSemSrc : ∀ (bw : Nat) (x y : Data.LLVM.Int bw) (props : propertiesOf (.llvm srcOp))
-        (resultTypes : Array TypeAttr) (blockOperands : Array BlockPtr) (mem : MemoryState),
-        Llvm.interpretOp' srcOp props resultTypes #[.int bw x, .int bw y] blockOperands mem
-          = some (.ok (#[.int bw (srcFn x y props)], mem, none)))
-    (hinterp : interpretOp op state opInBounds = some (newState, cf))
-    (hLhsType : (lhs.getType! ctx.raw).val = Attribute.integerType intType)
-    (hRhsType : (rhs.getType! ctx.raw).val = Attribute.integerType intType) :
-    ∃ x y, state.variables.getVar? lhs = some (RuntimeValue.int intType.bitwidth x) ∧
-      state.variables.getVar? rhs = some (RuntimeValue.int intType.bitwidth y) ∧
-      state.memory = newState.memory ∧
-      newState.variables.getVar? (op.getResult 0) =
-        some (RuntimeValue.int intType.bitwidth (srcFn x y props)) ∧
-      cf = none := by
-  have hNumOperands : op.getNumOperands! ctx.raw = 2 := by
-    simp [← OperationPtr.getOperands!.size_eq_getNumOperands!, hOperands]
-  have hLhsEq : lhs = (op.getOperands! ctx.raw)[0]! := by
-    rw [hOperands]; rfl
-  have hRhsEq : rhs = (op.getOperands! ctx.raw)[1]! := by
-    rw [hOperands]; rfl
-  simp only [liftM, monadLift, MonadLift.monadLift] at hinterp
-  -- Derive the operands' `i{bw}` values from the successful interpretation and their types.
-  obtain ⟨operandValues, _, _, _, hOperandValues, _⟩ := interpretOp_some_iff.mp hinterp
-  simp only [VariableState.getOperandValues] at hOperandValues
-  have hsize0 : 0 < (op.getOperands! ctx.raw).size := by
-    rw [OperationPtr.getOperands!.size_eq_getNumOperands!]; omega
-  have hsize1 : 1 < (op.getOperands! ctx.raw).size := by
-    rw [OperationPtr.getOperands!.size_eq_getNumOperands!]; omega
-  obtain ⟨lval, hlval⟩ :=
-    Array.exists_mapM_option_eq_some_iff.mp ⟨operandValues, hOperandValues⟩ 0 hsize0
-  obtain ⟨rval, hrval⟩ :=
-    Array.exists_mapM_option_eq_some_iff.mp ⟨operandValues, hOperandValues⟩ 1 hsize1
-  have hlGetVar : state.variables.getVar? lhs = some lval := by
-    rw [hLhsEq, show (op.getOperands! ctx.raw)[0]! = (op.getOperands! ctx.raw)[0] from by grind]
-    exact hlval
-  have hrGetVar : state.variables.getVar? rhs = some rval := by
-    rw [hRhsEq, show (op.getOperands! ctx.raw)[1]! = (op.getOperands! ctx.raw)[1] from by grind]
-    exact hrval
-  have hlconf := VariableState.getVar?_conforms hlGetVar
-  rw [show lhs.getType! ctx.raw = ⟨.integerType intType, hLhsType ▸ (lhs.getType! ctx.raw).2⟩
-        from Subtype.ext hLhsType] at hlconf
-  obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType hlconf
-  have hrconf := VariableState.getVar?_conforms hrGetVar
-  rw [show rhs.getType! ctx.raw = ⟨.integerType intType, hRhsType ▸ (rhs.getType! ctx.raw).2⟩
-        from Subtype.ext hRhsType] at hrconf
-  obtain ⟨y, rfl⟩ := RuntimeValue.Conforms.integerType hrconf
-  refine ⟨x, y, hlGetVar, hrGetVar, ?_⟩
-  -- With the values in hand, unfold the interpretation of the matched op.
-  have hOperand0 : op.getOperand! ctx.raw 0 = lhs := by
-    rw [hLhsEq]
-    grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
-  have hOperand1 : op.getOperand! ctx.raw 1 = rhs := by
-    rw [hRhsEq]
-    grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
-  have hOpVals : state.variables.getOperandValues op
-      = some #[RuntimeValue.int intType.bitwidth x, RuntimeValue.int intType.bitwidth y] := by
-    rw [VariableState.getOperandValues_eq_some_iff]
-    refine ⟨by simp [hNumOperands], fun i hi => ?_⟩
-    rw [hNumOperands] at hi
-    have : i = 0 ∨ i = 1 := by omega
-    rcases this with rfl | rfl
-    · simpa [hOperand0] using hlGetVar
-    · simpa [hOperand1] using hrGetVar
-  rw [interpretOp_some_iff] at hinterp
-  obtain ⟨operandValues', resValues, mem', varState', hOV, hInterp', hSet, hNew⟩ := hinterp
-  rw [hOpVals, Option.some.injEq] at hOV
-  subst hOV
-  simp only [OperationPtr.interpret] at hInterp'
-  rw [hOpType] at hInterp'
-  simp only [← hProps, interpretOp'] at hInterp'
-  rw [hSemSrc] at hInterp'
-  obtain ⟨rfl, rfl, rfl⟩ : resValues = #[RuntimeValue.int intType.bitwidth (srcFn x y props)] ∧
-      mem' = state.memory ∧ cf = none := by grind
-  subst hNew
-  refine ⟨rfl, ?_, rfl⟩
-  rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumResults]; omega) hSet]
-  simp
 
 set_option maxHeartbeats 1000000 in
 /-- Shared correctness proof for every `lowerBinaryWLocal` lowering: the round trip

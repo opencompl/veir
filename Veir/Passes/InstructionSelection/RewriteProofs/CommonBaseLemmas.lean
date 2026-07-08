@@ -45,6 +45,19 @@ theorem LocalRewritePattern.exists_refined_int_getVar?
     grind [LocalRewritePattern.mapping, valueRefinement v]
   grind [RuntimeValue.int_of_isRefinedBy hRef]
 
+/-- A value that exists in a context `ctx` is never a result of an operation that is *not* in
+bounds of `ctx` (e.g. a freshly created op), in any context `ctx'`: result membership pins the
+value's operation pointer, and an in-bounds `opResult` value forces its operation in bounds.
+Used to discharge the frame-clause side conditions when symbolically executing a chain of
+created ops. -/
+theorem ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds
+    {value : ValuePtr} {op : OperationPtr} {ctx ctx' : IRContext OpInfo}
+    (hval : value.InBounds ctx) (hop : ¬ op.InBounds ctx) :
+    value ∉ op.getResults! ctx' := by
+  intro hmem
+  obtain ⟨i, -, rfl⟩ := (OperationPtr.getResults!.mem_iff_exists_index).mp hmem
+  exact hop (by grind [ValuePtr.InBounds, OpResultPtr.InBounds, OperationPtr.getResult])
+
 /-- `createEmptyOp` leaves a pre-existing operation's properties (at every op code) untouched: it only
 `set`s the fresh `newOp`'s record. The shipped `getProperties!_createEmptyOp` is code-specific. -/
 theorem OperationPtr.getProperties!_createEmptyOp_ne
