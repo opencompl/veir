@@ -9,6 +9,7 @@ import Veir.Data.LLVM.Int.Lemmas
 import Veir.Data.RISCV.Reg.Lemmas
 import Veir.Data.Casting
 import Veir.Passes.InstructionSelection.RISCV64
+import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonForwardInterpret

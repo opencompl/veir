@@ -1080,6 +1080,22 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
   simp only [TypeAttr.inj]
   grind
 
+/-- A verified `llvm.mlir.constant` whose value attribute is an integer has an integer result type. -/
+theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr} {opInBounds}
+    {intAttr : IntegerAttr}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .mlir__constant)
+    (hProp : (op.getProperties! ctx.raw (.llvm .mlir__constant)).value = .integer intAttr) :
+    ∃ intTy : IntegerType, ((op.getResult 0).get! ctx.raw).type.val = .integerType intTy := by
+  simp only [Verified, verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, verifyPlainOpCounts,
+    hProp, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
+    at opVerify
+  cases hty : ((op.getResult 0).get! ctx.raw).type.val with
+  | integerType intTy => exact ⟨intTy, rfl⟩
+  | _ =>
+    rw [hty] at opVerify
+    split at opVerify <;> simp_all [reduceCtorEq]
+
 /--
   Every integer binary operation's `Verified.*` lemma: given that the operation is verified and
   has the given binary-operation opcode, it satisfies `IsVerifiedIntegerBinop`. Each is a thin
@@ -1244,6 +1260,24 @@ theorem OperationPtr.Verified.llvm_intr__umin {op : OperationPtr} {opInBounds}
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
+theorem OperationPtr.Verified.llvm_intr__usub__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__usub__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__uadd__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__uadd__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__ushl__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__ushl__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
 /--
   The structural facts shared by every integer unary operation: exactly 1 operand and 1 result,
   no regions or successors, the result type matches the operand type, and that type is an integer
@@ -1309,6 +1343,32 @@ theorem OperationPtr.Verified.llvm_intr__ctpop {op : OperationPtr} {opInBounds}
     op.IsVerifiedIntegerUnop ctx := by
   obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
+/-- Structural facts from the verifier for a verified `llvm.intr.abs`. Its verifier arm is exactly
+    the shared `verifyIntegerUnop >>= pure` shape (the `is_int_min_poison` property is not checked
+    structurally), so it reduces like the `ctlz`/`cttz`/`ctpop` lemmas. -/
+theorem OperationPtr.Verified.llvm_intr__abs {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__abs) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
+/-- Structural facts from the verifier for a verified `llvm.intr.bswap`. Unlike the other unary
+    intrinsics, `bswap`'s verifier arm performs an extra bitwidth check *after* the shared
+    `verifyIntegerUnop`, so it is not exactly the `verifyIntegerUnop >>= pure` shape; we extract
+    the successful `verifyIntegerUnop` by hand from the leading bind. -/
+theorem OperationPtr.Verified.llvm_intr__bswap {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__bswap) :
+    op.IsVerifiedIntegerUnop ctx := by
+  rw [Verified] at opVerify
+  simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType, bind, Except.bind]
+    at opVerify
+  obtain ⟨ty, hty⟩ : ∃ ty, op.verifyIntegerUnop ctx opInBounds = .ok ty := by
+    cases hb : op.verifyIntegerUnop ctx opInBounds with
+    | ok ty => exact ⟨ty, rfl⟩
+    | error e => rw [hb] at opVerify; simp at opVerify
   exact op.verifyIntegerUnop_eq_ok hty
 
 /--

@@ -242,6 +242,36 @@ theorem matchUmin_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs}
   simp only [matchUmin, bind, Option.bind, pure] at hmatch
   grind
 
+/-- What matching `llvm.intr.usub.sat` (via `matchUsubSat`) syntactically guarantees. -/
+theorem matchUsubSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
+    matchUsubSat op ctx = some (lhs, rhs) →
+    op.getOpType! ctx = .llvm .intr__usub__sat ∧
+    op.getNumResults! ctx = 1 ∧
+    op.getOperands! ctx = #[lhs, rhs] := by
+  intro hmatch
+  simp only [matchUsubSat, bind, Option.bind, pure] at hmatch
+  grind
+
+/-- What matching `llvm.intr.ushl.sat` (via `matchUshlSat`) syntactically guarantees. -/
+theorem matchUshlSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
+    matchUshlSat op ctx = some (lhs, rhs) →
+    op.getOpType! ctx = .llvm .intr__ushl__sat ∧
+    op.getNumResults! ctx = 1 ∧
+    op.getOperands! ctx = #[lhs, rhs] := by
+  intro hmatch
+  simp only [matchUshlSat, bind, Option.bind, pure] at hmatch
+  grind
+
+/-- What matching `llvm.intr.uadd.sat` (via `matchUaddSat`) syntactically guarantees. -/
+theorem matchUaddSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
+    matchUaddSat op ctx = some (lhs, rhs) →
+    op.getOpType! ctx = .llvm .intr__uadd__sat ∧
+    op.getNumResults! ctx = 1 ∧
+    op.getOperands! ctx = #[lhs, rhs] := by
+  intro hmatch
+  simp only [matchUaddSat, bind, Option.bind, pure] at hmatch
+  grind
+
 /-- What matching `llvm.intr.fshl` (via `matchFshl`) syntactically guarantees. -/
 theorem matchFshl_implies {op : OperationPtr} {ctx : IRContext OpCode} {a b amt} :
     matchFshl op ctx = some (a, b, amt) →
@@ -447,6 +477,16 @@ theorem matchBswap_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand
     op.getOperands! ctx = #[operand] := by
   intro hmatch
   simp only [matchBswap, bind, Option.bind, pure] at hmatch
+  grind
+
+/-- What matching `llvm.intr.abs` (via `matchAbs`) syntactically guarantees. -/
+theorem matchAbs_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand} :
+    matchAbs op ctx = some operand →
+    op.getOpType! ctx = .llvm .intr__abs ∧
+    op.getNumResults! ctx = 1 ∧
+    op.getOperands! ctx = #[operand] := by
+  intro hmatch
+  simp only [matchAbs, bind, Option.bind, pure] at hmatch
   grind
 
 /-- What matching `llvm.intr.bitreverse` (via `matchBitreverse`) syntactically guarantees. -/

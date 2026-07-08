@@ -7,6 +7,7 @@ import Veir.PatternRewriter.Semantics
 import Veir.Verifier
 import Veir.Data.LLVM.Int.Lemmas
 import Veir.Passes.InstructionSelection.RISCV64
+import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonForwardInterpret
@@ -117,7 +118,10 @@ theorem lowerSignedMinMaxLocal_preservesSemantics {srcOp : Llvm}
   simp only [] at hpattern
   -- Unfold the interpretation of the matched op: exposes the operand values and their `srcFn`.
   obtain ⟨xVal, yVal, hxVal, hyVal, hMem, hRes, hCf⟩ :=
-    matchBinaryOp_interpretOp_unfold opInBounds hOpType hNumResults hOperands rfl hSemSrc
+    matchBinaryOp_interpretOp_unfold opInBounds hOpType hNumResults hOperands rfl
+      (fun bw x y props rt bo mem res h => by
+        rw [hSemSrc bw x y props rt bo mem] at h
+        injection h with h; injection h with h; exact h.symm)
       hinterp hLhsType hRhsType
   subst hCf
   -- The matched operands dominate the rewrite point in the source context.

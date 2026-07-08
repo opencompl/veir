@@ -70,9 +70,11 @@ theorem matchBinaryOp_interpretOp_unfold {srcOp : Llvm} {ctx : WfIRContext OpCod
     (hOperands : op.getOperands! ctx.raw = #[lhs, rhs])
     (hProps : props = op.getProperties! ctx.raw (.llvm srcOp))
     (hSemSrc : ∀ (bw : Nat) (x y : Data.LLVM.Int bw) (props : propertiesOf (.llvm srcOp))
-        (resultTypes : Array TypeAttr) (blockOperands : Array BlockPtr) (mem : MemoryState),
+        (resultTypes : Array TypeAttr) (blockOperands : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
         Llvm.interpretOp' srcOp props resultTypes #[.int bw x, .int bw y] blockOperands mem
-          = some (.ok (#[.int bw (srcFn x y props)], mem, none)))
+          = some (.ok res) →
+        res = (#[.int bw (srcFn x y props)], mem, none))
     (hinterp : interpretOp op state opInBounds = some (.ok (newState, cf)))
     (hLhsType : (lhs.getType! ctx.raw).val = Attribute.integerType intType)
     (hRhsType : (rhs.getType! ctx.raw).val = Attribute.integerType intType) :
@@ -134,7 +136,7 @@ theorem matchBinaryOp_interpretOp_unfold {srcOp : Llvm} {ctx : WfIRContext OpCod
   simp only [OperationPtr.interpret] at hInterp'
   rw [hOpType] at hInterp'
   simp only [← hProps, interpretOp'] at hInterp'
-  rw [hSemSrc] at hInterp'
+  have hInterp' := hSemSrc _ _ _ _ _ _ _ _ hInterp'
   obtain ⟨rfl, rfl, rfl⟩ :
       resValues = #[RuntimeValue.int intType.bitwidth (srcFn x y props)] ∧
       mem' = state.memory ∧ cf = none := by grind
@@ -264,8 +266,9 @@ theorem matchNot_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
       (srcFn := fun a b _ => Data.LLVM.Int.xor a b)
       (props := vPtr.op.getProperties! ctx.raw (.llvm .xor))
       hXorOpIn hXorType hXorNumResults hXorOperands rfl
-      (by intro bw a b props resultTypes blockOperands mem
-          simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure])
+      (by intro bw a b props resultTypes blockOperands mem res h
+          simp only [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp] at h
+          grind)
       hInterpXor hyType hCstValType
   -- The constant's structural facts.
   have hCstIn : (ValuePtr.opResult cstPtr).InBounds ctx.raw := by

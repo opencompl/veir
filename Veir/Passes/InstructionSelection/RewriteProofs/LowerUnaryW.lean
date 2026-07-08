@@ -7,6 +7,7 @@ import Veir.PatternRewriter.Semantics
 import Veir.Verifier
 import Veir.Data.LLVM.Int.Lemmas
 import Veir.Passes.InstructionSelection.RISCV64
+import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonForwardInterpret
