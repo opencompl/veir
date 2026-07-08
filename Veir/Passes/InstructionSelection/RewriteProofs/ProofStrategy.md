@@ -116,6 +116,26 @@ structural proof is done **once per combinator**. Currently:
   (`RewriteProofs/LowerBinopNot.lean`). This is the first *DAG-matching* proof: it recovers the
   runtime value of the matched `not` from the `EquationLemmaAt` hypothesis (see
   "Matched-subgraph semantics" below).
+- `sext_1_local` (`RISCV64Sdag.lean`) — the concrete `llvm.sext %x : i1 to i64` (or `to i32`) ⟶
+  `unrealized_conversion_cast` → `riscv.slli _, 63` → `riscv.srai _, 63` →
+  `unrealized_conversion_cast` lowering (shifting the low bit to the top and arithmetic-shifting it
+  back splats it across the register, realizing the sign extension of an `i1`). Not a combinator: it
+  is a *standalone* proof (`sext_1_local_preservesSemantics`, `RewriteProofs/LowerSextOne.lean`)
+  modelled on the `lowerExtLocal` single-operand-extension template, reusing
+  `matchExtOp_interpretOp_unfold` and the data-level `sextLike_isRefinedBy_toInt` from
+  `LowerExt.lean`. It is the first proof of a lowering that emits *immediate*-form riscv ops
+  (`slli`/`srai`), via the new generic forward lemma `interpretOp_riscv_unaryReg_imm_forward` (the
+  immediate cousin of `interpretOp_riscv_unaryReg_forward`, taking the op's actual property bundle as
+  input since the result depends on it). Two notable points: (a) the emitted register chain is
+  *identical* for both result widths (`slli 63; srai 63` yields `0`/`-1`, which reads correctly as
+  `0`/`-1` at 32 or 64 bits), so there is *no* bitwidth branch — the result width `retW ∈ {32, 64}`
+  only enters the cast-back type and the width-generic refinement lemma, and its `∧`-of-`≠` guard
+  peels with the *unprimed* `peelSplittableCondition` (unlike a single-`≠` guard, which the initial
+  `simp` swaps); (b) the chain has *four* created ops, so the `getOperands!`/`getProperties!`
+  structural facts need the transport lemmas seeded explicitly (the "past ~3 creations deep" grind
+  limit), and the two `getProperties!` reads use the op-code-agnostic
+  `getProperties!_WfRewriter_createOp_ne` chained across the later creations. The only new data lemma
+  is the `srai 63 ∘ slli 63` value characterisation (`srai_slli_63_val`).
 - `zext_1_local` (`RISCV64Sdag.lean`) — the concrete `llvm.zext %x : i1 to i64` ⟶
   `unrealized_conversion_cast` → `riscv.andi _, 1` → `unrealized_conversion_cast` lowering (masking
   the low bit realizes the zero extension of an `i1`). Not a combinator: it is a *standalone* proof
@@ -465,6 +485,7 @@ per lowering as above.
 | `RewriteProofs/LowerSignedMinMax.lean` | `lowerSignedMinMaxLocal_preservesSemantics` (signed min/max; `i64` = 4 ops, `i32` = 6 ops with two extra `riscv.sextw`) + `_64`/`_32` data lemmas + instantiations (`smax`, `smin`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerRotate.lean` | `matchTernaryOp_interpretOp_unfold` (ternary source unfold) + `lowerRotateLocal_preservesSemantics` (rotate; ternary source with `a = b`, result-type guard, `W`-variant bitwidth branch) + `_64`/`_32` data lemmas + instantiations (`fshl`, `fshr`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerBinopNot.lean` | `lowerBinopNotLocal_preservesSemantics` (the DAG-matching template proof), per-lowering Layer-0 lemmas + instantiations (`andn`/`orn`/`xnor`), `#guard_msgs` axiom pins | two data lemmas + one instantiation (binop-with-not) |
+| `RewriteProofs/LowerSextOne.lean` | `sext_1_local_preservesSemantics` (standalone `i1 → i64`/`i32` sext ⟶ `srai (slli _ 63) 63`; four-op chain, no bitwidth branch, first immediate-emitting proof), `srai_slli_63_val` + `sext1_isRefinedBy_toInt_srai_slli` (reusing `matchExtOp_interpretOp_unfold` / `sextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerZextOne.lean` | `zext_1_local_preservesSemantics` (standalone `i1 → i64` zext ⟶ `andi 1`; first immediate-emitting proof), `andi_one_val` + `zext1_isRefinedBy_toInt_andi` (reusing `matchExtOp_interpretOp_unfold` / `zextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/CommonGraphLemmas.lean` | `matchBinaryOp_interpretOp_unfold` (shared by the binary combinator proofs) + Layer 3: `OperationPtr.Pure.llvm_*`, `constantOp_interpretOp_unfold`, `matchNot_getVar?_of_EquationLemmaAt` | one packaged lemma per new *matcher* used on defining ops |
 | `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops + `interpretOp_riscv_unaryReg_imm_forward` for immediate-form unary ops) | one lemma per new emitted-op *shape* |
