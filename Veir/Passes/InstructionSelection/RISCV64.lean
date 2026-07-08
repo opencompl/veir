@@ -20,6 +20,15 @@ def isLegalExtOpWidth (w : Nat) : Bool :=
   w = 8 ∨ w = 16 ∨ w = 32
 
 /--
+  Returns the bitwidth of the given type if it is either an LLVM integer or byte type.
+-/
+def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
+  match t.val with
+  | .integerType ⟨bw⟩ => some bw
+  | .byteType ⟨bw⟩ => some bw
+  | _ => none
+
+/--
   Shared shape of the unary RISC-V lowerings (`ctlz`/`cttz`/`ctpop`): match a single-operand
   LLVM op whose operand has integer type `i64` or `i32`, cast the operand to a register, apply
   `op64` (or its `W` variant `op32` for `i32`), and cast the result back to the source type.
@@ -99,6 +108,31 @@ def lowerBinaryWLocal {P : Type}
   let (ctx, rcastOp) ← castToRegLocal ctx rhs
   let (ctx, retOp) ←
     if ltype.bitwidth = 32 then
+      WfRewriter.createOp! ctx (.riscv op32) #[RegisterType.mk]
+          #[lcastOp.getResult 0, rcastOp.getResult 0] #[] #[] props32 none
+    else
+      WfRewriter.createOp! ctx (.riscv op64) #[RegisterType.mk]
+          #[lcastOp.getResult 0, rcastOp.getResult 0] #[] #[] props64 none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (retOp.getResult 0)
+  some (ctx, some (#[lcastOp, rcastOp, retOp, castBackOp], #[castBackOp.getResult 0]))
+
+/--
+  Shared shape of the binary RISC-V lowerings that accept both integer and byte values (`shl`/`lshr`).
+-/
+def lowerByteBinaryWLocal {P : Type}
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
+    (op64 op32 : Riscv)
+    (props64 : propertiesOf (.riscv op64)) (props32 : propertiesOf (.riscv op32))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
+  let ltype := (lhs.getType! ctx.raw)
+  let some bw := getIntByteTypeBitwidth ltype | return (ctx, none)
+  if bw ≠ 64 ∧ bw ≠ 32 then return (ctx, none)
+  let (ctx, lcastOp) ← castToRegLocal ctx lhs
+  let (ctx, rcastOp) ← castToRegLocal ctx rhs
+  let (ctx, retOp) ←
+    if bw = 32 then
       WfRewriter.createOp! ctx (.riscv op32) #[RegisterType.mk]
           #[lcastOp.getResult 0, rcastOp.getResult 0] #[] #[] props32 none
     else
@@ -709,19 +743,26 @@ def zext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /--
   llvm.trunc %x iX to iY -> builtin_unrealized_conversion_cast (!riscv.reg) : iY
   where `iY`'s width is smaller than `iX`'s.
+  Also accepts the byte type.
 -/
 def trunc_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (operand, _) := matchTrunc op ctx | return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let .integerType retType := type.val | return (ctx, none)
-  if opType.bitwidth ≤ retType.bitwidth then return (ctx, none)
+  let opType := (operand.getType! ctx.raw)
+  let resType := ((op.getResult 0).get! ctx.raw).type
+  if match opType.val, resType.val with
+  | .integerType _, .integerType _ => false
+  | .byteType _, .byteType _ => false
+  | _, _ => true
+  then return (ctx, none)
+  let some opBw := getIntByteTypeBitwidth opType | return (ctx, none)
+  let some resBw := getIntByteTypeBitwidth resType | return (ctx, none)
+  if opBw ≤ resBw then return (ctx, none)
   /- First, cast the operand to registers -/
   let (ctx, opCastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
       #[] #[] () none
   /- Then, cast register to expected output width. -/
-  let (ctx, castOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[type] #[opCastOp.getResult 0]
+  let (ctx, castOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[resType] #[opCastOp.getResult 0]
       #[] #[] () none
   some (ctx, some (#[opCastOp, castOp], #[castOp.getResult 0]))
 
@@ -735,7 +776,7 @@ def trunc (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- llvm.shl -> riscv.sll -/
 def shl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryWLocal matchShl .sll .sllw () () ctx op
+  lowerByteBinaryWLocal matchShl .sll .sllw () () ctx op
 
 /-- llvm.shl -> riscv.sll -/
 def shl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -745,7 +786,7 @@ def shl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-- llvm.lshr -> riscv.srl (riscv.srlw for i32) -/
 def lshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinaryWLocal matchLshr .srl .srlw () () ctx op
+  lowerByteBinaryWLocal matchLshr .srl .srlw () () ctx op
 
 /-- llvm.shl -> riscv.srl -/
 def lshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
