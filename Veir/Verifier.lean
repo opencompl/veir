@@ -1365,6 +1365,74 @@ theorem OperationPtr.Verified.llvm_intr__fshr {op : OperationPtr} {opInBounds}
     op.IsVerifiedIntegerTernop ctx := OperationPtr.Verified.integerTernop opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
+/--
+  Structural facts guaranteed by the verifier for an integer extension operation
+  (`llvm.sext`/`llvm.zext`): one result, one operand, no successors or regions, and both the
+  operand and the result have integer types, with the operand's strictly narrower than the
+  result's. This is the width-crossing cousin of `IsVerifiedIntegerUnop`.
+-/
+def OperationPtr.IsVerifiedIntegerExtop (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 1 ∧
+  op.getNumSuccessors! ctx.raw = 0 ∧
+  op.getNumRegions! ctx.raw = 0 ∧
+  ∃ operandType resultType,
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = ⟨.integerType operandType, (by grind)⟩ ∧
+    ((op.getResult 0).get! ctx.raw).type = ⟨.integerType resultType, (by grind)⟩ ∧
+    operandType.bitwidth < resultType.bitwidth
+
+/--
+  Structural facts extracted from a successful `verifyIntegerExtTypes` check. Shared core behind
+  every integer extension operation's `Verified.*` lemma.
+-/
+private theorem OperationPtr.verifyIntegerExtTypes_eq_ok {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {opInBounds : op.InBounds ctx.raw}
+    (h : op.verifyIntegerExtTypes ctx opInBounds = .ok ()) :
+    op.IsVerifiedIntegerExtop ctx := by
+  simp only [IsVerifiedIntegerExtop, verifyIntegerExtTypes, verifyPlainOpCounts, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [TypeAttr.inj]
+  split at h <;> grind
+
+/--
+  Reduce a verified integer extension operation to a successful `verifyIntegerExtTypes` check.
+  `armReduces` says the operation's local-invariant check is exactly the `verifyIntegerExtTypes`
+  arm; it is discharged per operation by unfolding the dispatcher at the concrete opcode.
+-/
+private theorem OperationPtr.verifyIntegerExtTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyIntegerExtTypes ctx opInBounds >>= fun _ => pure ())) :
+    op.verifyIntegerExtTypes ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  cases hb : op.verifyIntegerExtTypes ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/--
+  Every integer extension operation's `Verified.*` lemma reduces to this: given a verified
+  operation whose local-invariant check is the `verifyIntegerExtTypes` arm, it satisfies
+  `IsVerifiedIntegerExtop`.
+-/
+private theorem OperationPtr.Verified.integerExtop {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyIntegerExtTypes ctx opInBounds >>= fun _ => pure ())) :
+    op.IsVerifiedIntegerExtop ctx :=
+  op.verifyIntegerExtTypes_eq_ok <| op.verifyIntegerExtTypes_ok_of_Verified opVerify armReduces
+
+/-- Structural facts from the verifier for a verified `llvm.sext`. -/
+theorem OperationPtr.Verified.llvm_sext {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .sext) :
+    op.IsVerifiedIntegerExtop ctx := OperationPtr.Verified.integerExtop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+/-- Structural facts from the verifier for a verified `llvm.zext`. -/
+theorem OperationPtr.Verified.llvm_zext {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .zext) :
+    op.IsVerifiedIntegerExtop ctx := OperationPtr.Verified.integerExtop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
 theorem OperationPtr.Verified.llvm_add {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .add) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
