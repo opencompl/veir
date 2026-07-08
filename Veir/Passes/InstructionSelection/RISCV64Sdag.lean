@@ -202,6 +202,29 @@ def slliw := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchShl  .sll
 def srliw := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchLshr .srliw rfl 32 0 31)
 def sraiw := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchAshr .sraiw rfl 32 0 31)
 
+/-- Emit `[xori _ 1] (<dst> x immVal)` for the comparison operand `lhs`, or bail (leaving `op`
+    for the reg-reg lowering) when `immVal` does not fit a signed 12-bit field. `dst` is either
+    `.slti` or `.sltiu`, both with `RISCVImmediateProperties` (hence `h`); `wrap` selects the
+    `≥`-predicate `xori _ 1` inversion. -/
+def sltiEmitLocal (op : OperationPtr) (lhs : ValuePtr) (dst : Riscv)
+    (h : Riscv.propertiesOf dst = RISCVImmediateProperties) (immVal : Int) (wrap : Bool)
+    (ctx : WfIRContext OpCode) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  if immVal < -2048 || immVal > 2047 then return (ctx, none)
+  let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk immVal (IntegerType.mk 64))
+  let (ctx, xCastOp) ← castToRegLocal ctx lhs
+  let (ctx, cmpOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk] #[xCastOp.getResult 0]
+      #[] #[] (cast h.symm immProps) none
+  if wrap then
+    let one := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+    let (ctx, xorOp) ← WfRewriter.createOp! ctx (.riscv .xori) #[RegisterType.mk] #[cmpOp.getResult 0]
+        #[] #[] one none
+    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (xorOp.getResult 0)
+    some (ctx, some (#[xCastOp, cmpOp, xorOp, castBackOp], #[castBackOp.getResult 0]))
+  else
+    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (cmpOp.getResult 0)
+    some (ctx, some (#[xCastOp, cmpOp, castBackOp], #[castBackOp.getResult 0]))
+
 /--
   Immediate-form integer comparison selection (`PatGprSimm12` family). When the
   rhs is a constant that fits a signed 12-bit immediate, lower `icmp` directly to
@@ -244,33 +267,13 @@ def slti_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if lt.bitwidth ≠ 64 then return (ctx, none)
   let some cst := matchConstantIntVal rhs ctx | return (ctx, none)
   let c := cst.value
-  /- Emit `[xori _ 1] (<dst> x immVal)`, or bail (leaving `op` for the reg-reg
-     lowering) when `immVal` does not fit a signed 12-bit field. `dst` is either
-     `.slti` or `.sltiu`, both with `RISCVImmediateProperties` (hence `h`). -/
-  let emit (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties)
-      (immVal : Int) (wrap : Bool) :
-      Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-    if immVal < -2048 || immVal > 2047 then return (ctx, none)
-    let immProps := RISCVImmediateProperties.mk (IntegerAttr.mk immVal (IntegerType.mk 64))
-    let (ctx, xCastOp) ← castToRegLocal ctx lhs
-    let (ctx, cmpOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk] #[xCastOp.getResult 0]
-        #[] #[] (cast h.symm immProps) none
-    if wrap then
-      let one := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-      let (ctx, xorOp) ← WfRewriter.createOp! ctx (.riscv .xori) #[RegisterType.mk] #[cmpOp.getResult 0]
-          #[] #[] one none
-      let (ctx, castBackOp) ← replaceWithRegLocal ctx op (xorOp.getResult 0)
-      some (ctx, some (#[xCastOp, cmpOp, xorOp, castBackOp], #[castBackOp.getResult 0]))
-    else
-      let (ctx, castBackOp) ← replaceWithRegLocal ctx op (cmpOp.getResult 0)
-      some (ctx, some (#[xCastOp, cmpOp, castBackOp], #[castBackOp.getResult 0]))
   match prop.predicate with
-  | .slt => emit .slti  rfl c       false
-  | .ult => emit .sltiu rfl c       false
-  | .sge => emit .slti  rfl c       true
-  | .uge => emit .sltiu rfl c       true
-  | .sle => emit .slti  rfl (c + 1) false
-  | .ule => if c = -1 then return (ctx, none) else emit .sltiu rfl (c + 1) false
+  | .slt => sltiEmitLocal op lhs .slti  rfl c       false ctx
+  | .ult => sltiEmitLocal op lhs .sltiu rfl c       false ctx
+  | .sge => sltiEmitLocal op lhs .slti  rfl c       true  ctx
+  | .uge => sltiEmitLocal op lhs .sltiu rfl c       true  ctx
+  | .sle => sltiEmitLocal op lhs .slti  rfl (c + 1) false ctx
+  | .ule => if c = -1 then return (ctx, none) else sltiEmitLocal op lhs .sltiu rfl (c + 1) false ctx
   | _    => return (ctx, none)
 
 /-- Immediate-form integer comparison selection (`PatGprSimm12` family, see `slti_local`). -/
@@ -494,9 +497,10 @@ def log2IfPow2 (m : Nat) : Option Nat :=
     whether `v` is negative. Used for `sdiv`, whose divisor is signed, so `v` (as
     decoded) already carries the correct sign. Mirrors `isDivisorPowerOfTwo`.
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5270-L5285 -/
-def matchSignedPow2Divisor (v : Int) : Option (Nat × Bool) := do
-  let k ← log2IfPow2 v.natAbs
-  return (k, decide (v < 0))
+def matchSignedPow2Divisor (w : Nat) (v : Int) : Option (Nat × Bool) := do
+  let s := (BitVec.ofInt w v).toInt
+  let k ← log2IfPow2 s.natAbs
+  return (k, decide (s < 0))
 
 /-- If the `w`-bit unsigned magnitude of `v` is a nonzero power of two, return its
     base-2 logarithm. Used for `udiv`. -/
@@ -559,7 +563,7 @@ def sdivPow2ExactGenLocal (dst : Riscv) (hDst : Riscv.propertiesOf dst = RISCVIm
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ width then return (ctx, none)
   let some imm := matchConstantIntVal rhs ctx | return (ctx, none)
-  let some (k, isNeg) := matchSignedPow2Divisor imm.value | return (ctx, none)
+  let some (k, isNeg) := matchSignedPow2Divisor width imm.value | return (ctx, none)
   let (ctx, xCastOp) ← castToRegLocal ctx lhs
   let shamt := RISCVImmediateProperties.mk (IntegerAttr.mk k (IntegerType.mk 64))
   let (ctx, sraOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk] #[xCastOp.getResult 0]
@@ -604,7 +608,7 @@ def sdivPow2GenLocal (shiftDst : Riscv) (hShift : Riscv.propertiesOf shiftDst = 
   let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
   if t.bitwidth ≠ width then return (ctx, none)
   let some imm := matchConstantIntVal rhs ctx | return (ctx, none)
-  let some (k, isNeg) := matchSignedPow2Divisor imm.value | return (ctx, none)
+  let some (k, isNeg) := matchSignedPow2Divisor width imm.value | return (ctx, none)
   /- `k = 0` (divisor ±1) would need a shift by the full register width, which has
      no legal immediate encoding; middle-end optimizations always turn `sdiv x, ±1`
      into `x`/`-x` well before instruction selection, so this case does not arise. -/
