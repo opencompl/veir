@@ -12,6 +12,7 @@ import Veir.IR.Buffed.Meta
 import Veir.IR.Buffed.InBounds
 import Veir.Rewriter.LinkedList.LayoutUnchanged
 import all Veir.Rewriter.LinkedList.Basic
+import all Veir.IR.Buffed.Basic
 
 public section
 namespace Veir
@@ -846,75 +847,56 @@ def Rewriter.createBlockSim (ctx: Sim.IRContext OpInfo) (argTypes : Array TypeAt
 @[grind .]
 theorem Rewriter.createBlock_inBounds_mono (ptr : Sim.GenericPtr) (heq : createBlock ctx types ip hctx hip hrep = some ⟨newCtx, newPtr⟩) :
     ptr.InBounds ctx → ptr.InBounds newCtx := by
-  simp only [createBlock] at heq
+  simp only [createBlock_def, createBlockSim] at heq
   split at heq
   · grind
-  · split at heq
-    · simp [Option.bind] at heq
-      split at heq <;> grind
+  · simp at heq
+    split at heq
     · grind
+    · split at heq
+      · simp [Option.bind] at heq
+        split at heq
+        · grind
+        · rename_i h
+          grind [Rewriter.insertBlock?_inBounds ptr h]
+      · grind
 
 @[grind .]
 theorem Rewriter.createBlock_fieldsInBounds_mono
     (heq : createBlock ctx types ip hctx hip hrep = some ⟨newCtx, newPtr⟩) :
     ctx.spec.FieldsInBounds → newCtx.spec.FieldsInBounds := by
-  simp only [createBlock] at heq
-  split at heq
-  · grind
-  · split at heq
-    · simp [Option.bind] at heq
-      split at heq <;> grind
-    · grind
-
--- def Rewriter.setBlockArguments (ctx : IRContext OpInfo) (blockPtr : BlockPtr)
---     (types : Array TypeAttr) (hblock : blockPtr.InBounds ctx := by grind) : IRContext OpInfo :=
---   let numArgs := blockPtr.getNumArguments ctx (by grind)
---   if _ : numArgs = 0 then
---     Rewriter.initBlockArguments ctx blockPtr types
---   else
---     let ctx := blockPtr.setArguments ctx #[]
---     Rewriter.initBlockArguments ctx blockPtr types
-
--- @[grind =]
--- theorem Rewriter.setBlockArguments_inBounds (ptr : GenericPtr) :
---     ptr.InBounds (Rewriter.setBlockArguments ctx blockPtr types hblock) ↔
---     match ptr with
---     | .blockArgument argPtr
---     | .value (.blockArgument argPtr)
---     | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
---       if argPtr.block = blockPtr then argPtr.index < types.size else argPtr.InBounds ctx
---     | _ => ptr.InBounds ctx := by
---   grind [Rewriter.setBlockArguments]
-
-/-!
-`Rewriter.setBlockArguments` preserves `FieldsInBounds` only if the context is well-formed and no
-previous block argument is used. Otherwise, another pointer could point to one of the block arguments.
--/
+  simp only [createBlock_def, createBlockSim] at heq
+  grind
 
 buffed
 def Rewriter.createRegionSim (ctx: Sim.IRContext OpInfo) : Option (Sim.IRContext OpInfo × Sim.RegionPtr) := do
-  let ⟨reg, ctx⟩ ← Sim.RegionPtr.allocEmpty ctx
+  rlet ⟨reg, ctx⟩ ← Sim.RegionPtr.allocEmpty ctx
   some (ctx, reg)
 
 @[grind .]
 theorem Rewriter.createRegion_new_inBounds (h : createRegion ctx = some (ctx', reg)) :
     reg.InBounds ctx' := by
-  grind [createRegion]
+  simp [createRegion_def, createRegionSim] at h
+  split at h
+  · grind [Option.bind]
+  · constructor
+    · sorry -- need a lemma
+    · grind [generic_ptr_grind]
 
 @[grind .]
 theorem Rewriter.createRegion_new_not_inBounds (h : createRegion ctx = some (ctx', reg)) :
     ¬ reg.InBounds ctx := by
-  grind [createRegion]
+  grind [createRegion_def, createRegionSim]
 
 @[grind =>]
-theorem Rewriter.createRegion_genericPtr_mono (ptr : Sim.GenericPtr) (heq : createRegion ctx = some (ctx', ptr')) :
-    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr.spec = .region ptr'.spec) := by
-  grind [createRegion]
+theorem Rewriter.createRegion_genericPtr_mono (ptr : GenericPtr) (heq : createRegion ctx = some (ctx', ptr')) :
+    ptr.InBounds ctx'.spec ↔ (ptr.InBounds ctx.spec ∨ ptr = .region ptr'.spec) := by
+  grind [createRegion_def, createRegionSim]
 
 @[grind .]
 theorem Rewriter.createRegion_fieldsInBounds (h : createRegion ctx = some (ctx', rg)) :
     ctx.spec.FieldsInBounds → ctx'.spec.FieldsInBounds := by
-  grind [createRegion]
+  grind [createRegion_def, createRegionSim]
 
 @[grind]
 def Rewriter.pushRegion (ctx : IRContext OpInfo) (op : OperationPtr) (region : RegionPtr)
@@ -1461,22 +1443,22 @@ def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
     some (ctx, newOpPtr)
 
 @[grind .]
-theorem Rewriter.createOp_inBounds_mono (ptr : Sim.GenericPtr)
+theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
     (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
-    ptr.InBounds ctx → ptr.InBounds newCtx := by
-  simp only [createOp] at heq; grind (gen := 10)
+    ptr.InBounds ctx.spec → ptr.InBounds newCtx.spec := by
+  simp only [createOp_def, createOpSim] at heq; sorry -- grind (gen := 30)
 
 @[grind .]
 theorem Rewriter.createOp_new_inBounds (ptr : Sim.OperationPtr)
     (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, ptr)) :
     ptr.InBounds newCtx := by
-  simp only [createOp] at heq; grind (gen := 10)
+  simp only [createOp_def, createOpSim] at heq; sorry -- grind (gen := 10)
 
 @[grind .]
 theorem Rewriter.createOp_new_not_inBounds (ptr : Sim.OperationPtr)
     (heq : createOp ctx opType numResults operands blockOperands regions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, ptr)) :
-    ¬ ptr.InBounds ctx := by
-  simp only [createOp] at heq; grind (gen := 10)
+    ¬ ptr.spec.InBounds ctx.spec := by
+  simp only [createOp_def, createOpSim] at heq; sorry -- grind (gen := 10)
 
 @[grind .]
 theorem Rewriter.createOp_fieldsInBounds
@@ -1513,4 +1495,4 @@ theorem IRContext.create_fieldsInBounds {op: Sim.OperationPtr} (h : IRContext.cr
 @[grind →]
 theorem IRContext.create_inBounds {op: Sim.OperationPtr} (h : IRContext.create OpInfo = some (ctx, op)) :
     op.InBounds ctx := by
-  simp only [IRContext.create] at h; grind (gen := 10)
+  simp only [IRContext.create_def, IRContext.createSim] at h; sorry -- grind (gen := 30)

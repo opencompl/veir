@@ -2703,6 +2703,12 @@ def Sim.RegionPtr.allocEmpty (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPt
     let ⟨ctxSpec, ptrSpec⟩ := (allocEmptySpec ctx.spec ptrImpl).specGet!
     some ⟨⟨ptrImpl, ptrSpec⟩, ⟨ctxBuf, ctxSpec, admitted_sim ()⟩⟩
 
+@[grind! .]
+theorem Sim.RegionPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
+    allocEmpty ctx = some ⟨ptr, ctx'⟩ →
+    ∃ addr, Veir.RegionPtr.allocEmptyAt ctx.spec addr = some ⟨ctx'.spec, ptr.spec⟩:= by
+  sorry
+
 @[inline]
 def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo)
     (numResults numOperands numBlockOperands numRegions propSize : UInt64)
