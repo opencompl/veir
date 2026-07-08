@@ -42,7 +42,7 @@ The getters we consider are:
 public section
 namespace Veir
 
-variable {OpInfo} [HasOpInfo OpInfo]
+variable {OpInfo} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 variable {ctx ctx' : WfIRContext OpInfo}
 variable {operation : OperationPtr} {region : RegionPtr} {block : BlockPtr} {value : ValuePtr}
 

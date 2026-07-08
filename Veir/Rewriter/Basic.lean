@@ -16,7 +16,7 @@ import all Veir.Rewriter.LinkedList.Basic
 public section
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [SerializableOpInfo OpInfo]
 variable {ctx : Sim.IRContext OpInfo}
 
 -- TODO: Sim.InsertPoint
@@ -1490,7 +1490,7 @@ def Sim.IRContext.emptySim : Sim.IRContext OpInfo :=
 
 -- TODO: lemma : ptr.IsRepr → ptr.id.toUInt64.toNat = ptr.id
 buffed (inline := false)
-def IRContext.createSim OpInfo [HasOpInfo OpInfo] : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
+def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
   rlet ⟨ctx, region⟩ ← Rewriter.createRegion .empty
   have regionIb : region.InBounds ctx := by grind
   have regionRepr : region.spec.IsRepr := by grind

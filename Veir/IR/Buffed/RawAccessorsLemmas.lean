@@ -12,7 +12,7 @@ namespace Veir.Buffed
 
 section range
 
-variable [HasOpInfo OpInfo] {bctx : IRBufContext OpInfo}
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {bctx : IRBufContext OpInfo}
 
 @[simp, grind =]
 theorem ValueImplMPtr.writeType_range :

@@ -12,7 +12,7 @@ namespace Veir.Buffed
 
 section read_write
 
-variable [HasOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
 
 @[local ext, local grind ext]
 theorem _root_.Veir.OpResultPtr.ext (x y : OpResultPtr) : x.op = y.op → x.index = y.index → x = y := by

@@ -15,7 +15,7 @@ public section
 
 namespace Veir
 
-variable [HasOpInfo OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 
 /-! ## Translate a high-level pointer to a flat address. -/
 
@@ -692,7 +692,7 @@ structure OperationPtr.MatchesBase (ctx : Sim.RawIRContext OpInfo) (op : Operati
   prev : Sim.OptionOperationPtr.Sim ⟨op.toM.readPrev! ctx.buf, (op.get! ctx.spec).prev⟩
   next : Sim.OptionOperationPtr.Sim ⟨op.toM.readNext! ctx.buf, (op.get! ctx.spec).next⟩
   parent : Sim.OptionBlockPtr.Sim ⟨op.toM.readParent! ctx.buf, (op.get! ctx.spec).parent⟩
-  opType : op.getOpType! ctx.spec = Operation.decodeOpInfo (op.toM.readOpType! ctx.buf)
+  opType : op.getOpType! ctx.spec = SerializableOpInfo.decode (op.toM.readOpType! ctx.buf)
   attrs : ctx.buf.attributes[op.toM.readAttrs! ctx.buf |>.toNat]? = some (op.get! ctx.spec).attrs
   -- TODO: properties
 
@@ -751,7 +751,7 @@ structure Sim (ctx : Sim.RawIRContext OpInfo) where
   encoding_region (rg : RegionPtr) (ib : rg.InBounds ctx.spec) :
     rg.Matches ctx ib
 
-variable (OpInfo) [HasOpInfo OpInfo] in
+variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] in
 structure Sim.IRContext where
   buf : IRBufContext OpInfo
   spec : Veir.IRContext OpInfo

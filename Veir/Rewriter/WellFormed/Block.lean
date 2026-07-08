@@ -15,7 +15,7 @@ public section
 
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 
 /-- # Rewriter.insertBlock? -/

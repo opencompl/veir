@@ -12,7 +12,7 @@ namespace Veir.Buffed
 
 section read_write
 
-variable [HasOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
 
 theorem Sim.OperationPtr.after_lt_ctx (op : Veir.OperationPtr) (opIb : op.InBounds ctx.spec) :
     op.id + Buffed.Operation.Offsets.afterInt op ctx.spec ≤ ctx.buf.size := by

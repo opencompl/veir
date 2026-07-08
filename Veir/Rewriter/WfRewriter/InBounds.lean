@@ -15,7 +15,7 @@ in principle never need to be manually invoked.
 public section
 namespace Veir
 
-variable {OpInfo} [HasOpInfo OpInfo]
+variable {OpInfo} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 variable {ctx ctx' : WfIRContext OpInfo}
 variable {newOp operation : OperationPtr} {region : RegionPtr} {block blockPtr : BlockPtr}
 variable {oldValue newValue : ValuePtr}

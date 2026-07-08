@@ -89,7 +89,6 @@ variable [HasOpInfo OpInfo] (op : OperationPtr) (ctx : IRContext OpInfo)
 -- Add this info to the typeclasses
 def propertySize (opCode : OpInfo) : UInt64 := 8 -- sorry
 @[inline] abbrev opInfoSize : Nat := 8
-def decodeOpInfo (x : UInt32) : OpInfo := default --sorry
 
 namespace Sizes
 abbrev results : UInt64 := UInt64.ofNat (op.get! ctx).capResults * OpResult.size

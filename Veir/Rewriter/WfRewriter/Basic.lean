@@ -10,7 +10,7 @@ import Veir.Rewriter.WellFormed
 public section
 namespace Veir
 
-variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 
 /-- Insert an operation at a given location. -/
 @[inline]
@@ -189,7 +189,7 @@ Create a new IR context with a single `builtin.module` operation at the top-leve
 The operation contains a single region, which contains a single empty block.
 -/
 @[inline]
-def WfIRContext.create (OpInfo : Type) [HasOpInfo OpInfo]
+def WfIRContext.create (OpInfo : Type) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
     : Option (WfIRContext OpInfo × OperationPtr) := do
   rlet (ctx, op) ← IRContext.create OpInfo
   return (⟨ctx, by grind [IRContext.wellFormed_IRContext_create]⟩, op)

@@ -52,7 +52,7 @@ public section
 
 namespace Veir
 
-variable {OpInfo} [HasOpInfo OpInfo]
+variable {OpInfo} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 section Rewriter.replaceUse
 

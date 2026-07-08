@@ -95,7 +95,7 @@ deriving Inhabited
 
 /-! ## Raw accessors -/
 
-variable [HasOpInfo OpInfo] (bctx : IRBufContext OpInfo)
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] (bctx : IRBufContext OpInfo)
 
 @[inline]
 def IRBufContext.size (bctx : IRBufContext OpInfo) : Nat := bctx.mem.size
@@ -689,12 +689,12 @@ theorem OperationMPtr.readAttrs_eq_readAttrs! {ptr : OperationMPtr} {h} :
 def OperationMPtr.computeOperandsOffset (ptr : OperationMPtr)
     (h : (ptr + Operation.Offsets.opType).toInt + Operation.Sizes.opType.toInt ≤ bctx.size) : Int64 :=
   let prop := ptr.readOpType bctx h
-  Operation.Offsets.properties + (Operation.propertySize (OpInfo := OpInfo) (Operation.decodeOpInfo prop))
+  Operation.Offsets.properties + (Operation.propertySize (OpInfo := OpInfo) (SerializableOpInfo.decode prop))
 
 @[inline]
 def OperationMPtr.computeOperandsOffset! (ptr : OperationMPtr) : Int64 :=
   let prop := ptr.readOpType! bctx
-  Operation.Offsets.properties + (Operation.propertySize (OpInfo := OpInfo) (Operation.decodeOpInfo prop))
+  Operation.Offsets.properties + (Operation.propertySize (OpInfo := OpInfo) (SerializableOpInfo.decode prop))
 
 @[simp, grind =]
 theorem OperationMPtr.computeOperandsOffset_eq_computeOperandsOffset! {ptr : OperationMPtr} {h} :
@@ -1185,7 +1185,7 @@ def OperationMPtr.dump (ptr : OperationMPtr) (bctx : IRBufContext OpInfo) : Stri
   let numOperands := ptr.readNumOperands bctx admitted_bounds
   let numBlockOperands := ptr.readNumBlockOperands bctx admitted_bounds
   let numRegions := ptr.readNumRegions bctx admitted_bounds
-  let size := Buffed.OperationMPtr.computeOperationSize numResults numOperands numBlockOperands numRegions (Operation.propertySize (OpInfo := OpInfo) (Operation.decodeOpInfo opType))
+  let size := Buffed.OperationMPtr.computeOperationSize numResults numOperands numBlockOperands numRegions (Operation.propertySize (OpInfo := OpInfo) (SerializableOpInfo.decode opType))
   let mut regions := ""
   for i in [0: numRegions.toNat] do
     let region := ptr.readNthRegion bctx i.toUInt64 admitted_bounds admitted_bounds

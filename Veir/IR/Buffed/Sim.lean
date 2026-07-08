@@ -18,7 +18,7 @@ public section
 
 namespace Veir
 
-variable [HasOpInfo OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 
 /-! ## Misc. defs on Sim Pointers  -/
 

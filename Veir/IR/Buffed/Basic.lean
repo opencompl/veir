@@ -22,7 +22,7 @@ namespace Veir
 
 open Buffed (countCard)
 
-variable [HasOpInfo OpInfo]
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 
 /- Shared `Sim` proof for `OperationPtr` setters that write a single link field
 (`setNextOpSim`, `setPrevOpSim`, …). The only thing that varies between them is the
@@ -2706,6 +2706,7 @@ def Sim.RegionPtr.allocEmpty (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPt
 @[inline]
 def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo)
     (numResults numOperands numBlockOperands numRegions propSize : UInt64)
+    (opType : UInt32)
     (hr : numResults.toNat ≤ Buffed.countCard) (ho : numOperands.toNat ≤ Buffed.countCard)
     (hbo : numBlockOperands.toNat ≤ Buffed.countCard) (hreg : numRegions.toNat ≤ Buffed.countCard)
     (hp : propSize.toNat ≤ Buffed.countCard) :
@@ -2745,6 +2746,7 @@ def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo)
   let ctx := ptr.writeParent ctx .none (by prove_allocBoundsOp ctx₀)
   let ctx := ptr.writeNext ctx .none (by prove_allocBoundsOp ctx₀)
   let ctx := ptr.writePrev ctx .none (by prove_allocBoundsOp ctx₀)
+  let ctx := ptr.writeOpType ctx opType sorry
   some (ctx, ptr)
 
 def Sim.OperationPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (addr : Nat) (opType : OpInfo)
@@ -2764,7 +2766,7 @@ def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
   -- needed by `allocEmptyImpl`. `propertySize_lt` bounds the property size (`< UInt32.size =
   -- countCard`), so it too is always in range.
   match allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
-        (Buffed.Operation.propertySize opType)
+        (Buffed.Operation.propertySize opType) (SerializableOpInfo.encode opType)
         h₁ h₂ h₃ h₄ (Nat.le_of_lt (Operation.propertySize_lt opType)) with
     | none => none
     | some (ctxBuf, ptrImpl) =>

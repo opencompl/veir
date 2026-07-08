@@ -36,7 +36,7 @@ theorem Option.maybe_and_isSome_specGet! {α} [Inhabited α] (x : Option α) (P 
     x.maybe P y → x.isSome → P x.specGet! y := by
   sorry
 
-theorem Veir.Sim.IRContext.option_ext [HasOpInfo OpInfo] (x y : Option (Veir.Sim.IRContext OpInfo)) :
+theorem Veir.Sim.IRContext.option_ext [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] (x y : Option (Veir.Sim.IRContext OpInfo)) :
     (x.map (·.spec) = y.map (·.spec) ∧ x.map (·.buf) = y.map (·.buf)) → x = y := by
   cases x <;> cases y <;> grind [cases Sim.IRContext]
 

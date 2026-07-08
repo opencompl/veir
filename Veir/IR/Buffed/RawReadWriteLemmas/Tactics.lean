@@ -12,7 +12,7 @@ namespace Veir.Buffed
 
 section read_write
 
-variable [HasOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
 
 /-!
 ## Tactic macros for the read/write interaction lemmas

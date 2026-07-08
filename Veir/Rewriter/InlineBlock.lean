@@ -12,7 +12,7 @@ public section
 
 namespace Veir
 
-variable [HasOpInfo OpInfo] {ctx : IRContext OpInfo}
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {ctx : IRContext OpInfo}
 
 theorem Rewriter.insertOp?.operationList {block : BlockPtr}
   (blockIn : block.InBounds ctx) (ctxWf : ctx.WellFormed)

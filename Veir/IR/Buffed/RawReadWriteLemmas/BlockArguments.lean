@@ -15,7 +15,7 @@ open scoped Veir.Buffed
 
 section read_write
 
-variable [HasOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
+variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
 
 theorem Sim.BlockArgumentPtr.after_lt_ctx (op : Veir.BlockArgumentPtr) (opIb : op.InBounds ctx.spec) :
     op.toFlat + Buffed.BlockArgument.Offsets.afterInt ≤ ctx.buf.size := by

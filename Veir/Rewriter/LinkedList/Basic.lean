@@ -32,7 +32,7 @@ attribute [local grind]
  Sim.OpResultPtr.toO
  Sim.ValuePtr.toO
 
-variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 variable {ctx : Sim.IRContext OpInfo}
 
 /-
@@ -319,7 +319,7 @@ def Sim.OperationPtr.setParentWithCheck! (self : Sim.OperationPtr) (ctx : Sim.IR
 -- -- TODO: have this as the proof for option functions
 -- def Veir.Sim.OperationPtr.setParentWithCheck! : {OpInfo : Type} →
 --   [inst : HasOpInfo OpInfo] → Sim.OperationPtr → Sim.IRContext OpInfo → Sim.BlockPtr → Option (Sim.IRContext OpInfo) :=
--- fun {OpInfo} [HasOpInfo OpInfo] self ctx parent =>
+-- fun {OpInfo} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] self ctx parent =>
 --   (Sim.OperationPtr.setParentWithCheck!Impl self.1 self.2 ctx.1 ctx.2 ctx.3 parent.1 parent.2).attach.map fun x =>
 --     { buf := x.val, spec := (self.setParentWithCheck!Spec ctx parent).specGet!, sim := (by
 --       have := Sim.OperationPtr.setParentWithCheck!_impl self ctx parent

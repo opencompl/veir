@@ -66,6 +66,10 @@ instance [HasOpInfo opCode] {op : opCode} : DecidableEq (HasOpInfo.propertiesOf 
 instance [HasOpInfo opCode] : DecidableEq opCode :=
   HasOpInfo.decideEq
 
+class SerializableOpInfo (opCode : Type) where
+  encode : opCode -> UInt32
+  decode : UInt32 -> opCode
+
 end -- public section
 
 end Veir
