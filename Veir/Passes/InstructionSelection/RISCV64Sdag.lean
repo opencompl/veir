@@ -23,9 +23,7 @@ def singleSetBit (x : BitVec 64) : Option Int :=
   Shared shape of the Zbb negated-operand lowerings (`andn`/`orn`/`xnor`): match a binary LLVM
   op on `i64` one of whose operands is a `not` (`xor _, -1`), cast the plain operand `x` and the
   `not`'s operand `y` to registers, apply the binary reg-reg riscv op `dst`, and cast the result
-  back to `i64`. Lowerings of this shape share the correctness proof of
-  `lowerBinopNotLocal_preservesSemantics`, so proving a new one only requires the per-op
-  data-level refinement lemmas.
+  back to `i64`.
 -/
 def lowerBinopNotLocal {P : Type}
     (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
