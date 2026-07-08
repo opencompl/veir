@@ -427,6 +427,15 @@ theorem Sim.OperationPtr.getNextOp_eq_getNextOp! (ctx : IRContext OpInfo) ptr ib
   simp [getNextOp_def, getNextOpSim, getNextOp!_def, getNextOp!Sim]
   grind
 
+@[inline]
+def Sim.OperationPtr.getOpType (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+    (ib : ptr.InBounds ctx) : OpInfo :=
+  SerializableOpInfo.decode (ptr.impl.readOpType ctx.buf (by prove_setLinkBoundsOp ctx ptr))
+
+@[inline]
+def Sim.OperationPtr.getOpType! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : OpInfo :=
+  SerializableOpInfo.decode (ptr.impl.readOpType! ctx.buf)
+
 buffed
 def Sim.OperationPtr.setPrevOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (prev : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (prevIb : prev.InBounds ctx) : Sim.IRContext OpInfo :=

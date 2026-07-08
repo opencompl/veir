@@ -9,6 +9,42 @@ open Attribute
 set_option maxHeartbeats 100000000
 set_option warn.sorry false
 
+-- buffed (def_lemma := false)
+def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+  if op.getOpType ctx sorry ≠ .arith .addi then
+    return ctx
+
+  -- Get the rhs and check that it is the constant 0
+  let rhsValuePtr := op.getOperandPtr ctx 1 sorry
+  let rhsValue := rhsValuePtr.getValue ctx sorry
+  -- Unsafe...
+  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, sorry⟩
+  let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
+
+  if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
+    return ctx
+
+  -- TODO: Check that value is 0
+  -- if (rhsOp.getProperties! ctx.raw (.arith .constant)).value.value ≠ 0 then
+  --   return ctx
+
+  -- Get the lhs value
+  let lhsValuePtr := op.getOperandPtr ctx 0 sorry
+  let lhsValue := lhsValuePtr.getValue ctx sorry
+
+  let oldValuePtr := op.getResultPtr ctx 0 sorry
+  let oldValue : Sim.ValuePtr := ⟨oldValuePtr.impl, sorry⟩
+  let ctx ← Rewriter.replaceValue? ctx oldValue lhsValue sorry sorry
+
+  let ctx ← Rewriter.eraseOp ctx op sorry sorry sorry sorry
+
+  if (rhsOpResultPtr.getFirstUse ctx sorry).toOption.isNone then
+    return Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry
+
+  return ctx
+
+#exit
+
 -- TODO: the array is bad... We need our own array type or not use arrays
 buffed (def_lemma := false)
 def createManyOpsLoopSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint)
