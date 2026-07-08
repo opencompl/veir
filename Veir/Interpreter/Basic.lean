@@ -1557,12 +1557,19 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let some resType := resultTypes[0]? | none
     match resType.val, operands.toList with
     | .registerType _, [.int _bw val] =>
-      return (#[.reg (LLVM.Int.toReg val )], mem, none)
+      return (#[.reg (LLVM.Int.toReg val)], mem, none)
+    | .registerType _, [.byte _bw val] =>
+      return (#[.reg (LLVM.Byte.toReg val)], mem, none)
     | .registerType _, [.addr val] =>
-      return (#[.reg ⟨BitVec.ofNat 64 val.toNat⟩], mem, none)
+      return (#[.reg ⟨val.toNat⟩], mem, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
       return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)
+    | .byteType _bw, [.reg val] =>
+      let .byteType resBw := resType.val | none
+      return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
+    | .llvmPointerType _, [.reg val] =>
+      return (#[.addr ⟨val.val⟩], mem, none)
     | _ , _ => none
   | _ => none
 

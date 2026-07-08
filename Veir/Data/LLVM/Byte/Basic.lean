@@ -121,8 +121,13 @@ def toUInt64 (x : Byte 64) : UInt64 :=
   else
     0
 
+@[simp, grind .]
+def fromBitVec {w : Nat} (x : BitVec w) : Byte w :=
+  ⟨x, 0, by simp⟩
+
+@[simp, grind .]
 def fromUInt64 (x : UInt64) : Byte 64 :=
-  ⟨x.toBitVec, 0, by simp⟩
+  fromBitVec x.toBitVec
 
 /--
   i is refined by i' if for each bit, either i is poison, or the bits are the same and i' is not poison.
