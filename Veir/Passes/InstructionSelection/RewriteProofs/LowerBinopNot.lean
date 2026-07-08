@@ -120,7 +120,10 @@ theorem lowerBinopNotLocal_preservesSemantics {srcOp : Llvm}
     rw [← hOperand1, hOp1Type]
   -- Unfold the interpretation of the matched op: exposes both operand values and `srcFn`.
   obtain ⟨xlv, xrv, hlVal, hrVal, hMem, hRes, hCf⟩ :=
-    matchBinaryOp_interpretOp_unfold opInBounds hOpType hNumResults hOperands hProps hSemSrc
+    matchBinaryOp_interpretOp_unfold opInBounds hOpType hNumResults hOperands hProps
+      (fun bw x y props rt bo mem res h => by
+        rw [hSemSrc bw x y props rt bo mem] at h
+        injection h with h; injection h with h; exact h.symm)
       hinterp hLhsType hRhsType
   subst hCf
   -- Both matched operands dominate the rewrite point in the source context.

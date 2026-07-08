@@ -1,0 +1,14 @@
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerAbs
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerBinaryReg
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerBinaryW
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerBswap
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerBitwiseReg
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerConst
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerExt
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerLoad
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerRotate
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerSignedMinMax
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerUaddSat
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerUnaryW
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerUshlSat
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerUsubSat
