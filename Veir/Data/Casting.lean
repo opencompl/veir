@@ -2,6 +2,7 @@ module
 
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.Int.Bitblast
+public import Veir.Data.LLVM.Byte.Basic
 public import Veir.Data.RISCV.Reg.Basic
 
 import all Veir.Data.LLVM.Int.Bitblast
@@ -52,3 +53,26 @@ theorem val_toReg {w : Nat} {i : Veir.Data.LLVM.Int w} :
   split
   · simp [Veir.Data.LLVM.Int.isPoison]
   · simp [veir_bv_normalize]
+
+/--
+  Cast `LLVM.Byte` to `RISCV.Reg`.
+-/
+def LLVM.Byte.toReg (b : Veir.Data.LLVM.Byte w) : Veir.Data.RISCV.Reg :=
+  ⟨b.val.zeroExtend 64⟩
+
+/--
+  Cast `RISCV.Reg` to `LLVM.Byte`.
+-/
+@[grind]
+def RISCV.Reg.toByte (r : Veir.Data.RISCV.Reg) (w : Nat) : Veir.Data.LLVM.Byte w :=
+  ⟨BitVec.zeroExtend w r.val, 0, by simp⟩
+
+@[veir_bv_normalize, grind =]
+theorem toByte_eq_val {r : Veir.Data.RISCV.Reg} :
+    (RISCV.Reg.toByte r 64).val = r.val := by
+  simp [RISCV.Reg.toByte]
+
+@[veir_bv_normalize, grind =]
+theorem toByte_val {w : Nat} {r : Veir.Data.RISCV.Reg} :
+    (RISCV.Reg.toByte r w).val = (r.val).zeroExtend w := by
+  simp [RISCV.Reg.toByte]
