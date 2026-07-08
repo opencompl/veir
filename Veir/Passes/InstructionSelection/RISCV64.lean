@@ -802,13 +802,13 @@ def store_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let zero := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
   let (ctx, sdOp) ←
     if type'.bitwidth = 8 then
-      WfRewriter.createOp! ctx (.riscv .sb) #[] #[pcastOp.getResult 0, valcastOp.getResult 0]
+      WfRewriter.createOp! ctx (.riscv .sb) #[] #[valcastOp.getResult 0, pcastOp.getResult 0]
         #[] #[] zero none
     else if type'.bitwidth = 32 then
-      WfRewriter.createOp! ctx (.riscv .sw) #[] #[pcastOp.getResult 0, valcastOp.getResult 0]
+      WfRewriter.createOp! ctx (.riscv .sw) #[] #[valcastOp.getResult 0, pcastOp.getResult 0]
         #[] #[] zero none
     else
-      WfRewriter.createOp! ctx (.riscv .sd) #[] #[pcastOp.getResult 0, valcastOp.getResult 0]
+      WfRewriter.createOp! ctx (.riscv .sd) #[] #[valcastOp.getResult 0, pcastOp.getResult 0]
         #[] #[] zero none
   some (ctx, some (#[pcastOp, valcastOp, sdOp], #[]))
 

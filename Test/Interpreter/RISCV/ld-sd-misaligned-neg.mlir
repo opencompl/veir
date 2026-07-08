@@ -11,11 +11,11 @@
   "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
     %a0 = "riscv.li"() <{ "value" = 0 : i64 }> : () -> !riscv.reg
     %v0 = "riscv.li"() <{ "value" = 506097522914230528 : i64 }> : () -> !riscv.reg
-    "riscv.sd"(%a0, %v0) <{ "value" = 0 : i64 }> : (!riscv.reg, !riscv.reg) -> ()
+    "riscv.sd"(%v0, %a0) <{ "value" = 0 : i64 }> : (!riscv.reg, !riscv.reg) -> ()
 
     %a8 = "riscv.li"() <{ "value" = 8 : i64 }> : () -> !riscv.reg
     %v8 = "riscv.li"() <{ "value" = 1084818905618843912 : i64 }> : () -> !riscv.reg
-    "riscv.sd"(%a8, %v8) <{ "value" = 0 : i64 }> : (!riscv.reg, !riscv.reg) -> ()
+    "riscv.sd"(%v8, %a8) <{ "value" = 0 : i64 }> : (!riscv.reg, !riscv.reg) -> ()
 
     %y = "riscv.ld"(%a8) <{ "value" = -5 : i64 }> : (!riscv.reg) -> !riscv.reg
     "func.return"(%y) : (!riscv.reg) -> ()
