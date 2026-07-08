@@ -137,6 +137,12 @@ theorem OperationPtr.allocEmpty_newBlock_veir_inBounds {ptr : Veir.GenericPtr}
     ptr.InBounds ctx.spec → ptr.InBounds ctx'.spec := by
   sorry
 
+@[grind .]
+theorem OperationPtr.allocEmpty_not_inBounds
+    (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
+    ¬ ptr'.spec.InBounds ctx.spec := by
+  sorry
+
 -- @[grind →]
 -- theorem OpResultPtr.dealloc.inBounds_genericPtr_of_inBounds_dealloc {ptr : GenericPtr} :
 --     ptr.InBounds (OperationPtr.dealloc op ctx inBounds) → ptr.InBounds ctx := by
