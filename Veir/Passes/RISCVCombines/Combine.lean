@@ -461,6 +461,541 @@ def xor_of_and_with_same_reg (rewriter: PatternRewriter OpCode) (op: OperationPt
     #[] #[] () (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
+/-! ### select_to_iminmax  (ported to LLVM min/max intrinsics — see assumption (D))
+
+  (icmp pred X Y) ? X : Y → {u,s}{max,min} X Y
+-/
+
+-- ugt → umax
+set_option warn.sorry false in
+def select_to_iminmax_ugt (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
+  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .ugt := ip.predicate | return rewriter
+  if il != tv then return rewriter
+  if ir != fv then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__umax) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- uge → umax
+set_option warn.sorry false in
+def select_to_iminmax_uge (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
+  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .uge := ip.predicate | return rewriter
+  if il != tv then return rewriter
+  if ir != fv then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__umax) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- sgt → smax
+set_option warn.sorry false in
+def select_to_iminmax_sgt (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
+  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .sgt := ip.predicate | return rewriter
+  if il != tv then return rewriter
+  if ir != fv then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__smax) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- sge → smax.
+set_option warn.sorry false in
+def select_to_iminmax_sge (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
+  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .sge := ip.predicate | return rewriter
+  if il != tv then return rewriter
+  if ir != fv then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__smax) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- ult → umin
+set_option warn.sorry false in
+def select_to_iminmax_ult (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
+  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .ult := ip.predicate | return rewriter
+  if il != tv then return rewriter
+  if ir != fv then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__umin) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- ule → umin
+set_option warn.sorry false in
+def select_to_iminmax_ule (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
+  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .ule := ip.predicate | return rewriter
+  if il != tv then return rewriter
+  if ir != fv then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__umin) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- slt → smin
+set_option warn.sorry false in
+def select_to_iminmax_slt (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
+  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .slt := ip.predicate | return rewriter
+  if il != tv then return rewriter
+  if ir != fv then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__smin) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- sle → smin
+set_option warn.sorry false in
+def select_to_iminmax_sle (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
+  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .sle := ip.predicate | return rewriter
+  if il != tv then return rewriter
+  if ir != fv then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__smin) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+/-! ### cast_of_cast_combines -/
+
+-- trunc (zext x) where trunc result type = x's type → x
+set_option warn.sorry false in
+def trunc_of_zext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (v0, _tp) := matchTrunc op rewriter.ctx | return rewriter
+  let some dZ := getDefiningOp v0 rewriter.ctx | return rewriter
+  let some (x, _zp) := matchZext dZ rewriter.ctx | return rewriter
+  if (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw != x.getType! rewriter.ctx.raw then return rewriter
+  let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
+  rewriter.eraseOp op sorry sorry sorry
+
+/-! ### select_of_{zext,truncate} : cast(select c,t,f) → select c, cast t, cast f -/
+
+set_option warn.sorry false in
+def select_of_zext_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (v0, zp) := matchZext op rewriter.ctx | return rewriter
+  let some dS := getDefiningOp v0 rewriter.ctx | return rewriter
+  let some (cond, tv, fv) := matchSelect dS rewriter.ctx | return rewriter
+  let outTy := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
+  let (rewriter, zt) ← rewriter.createOp (.llvm .zext) #[outTy] #[tv]
+    #[] #[] zp (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, zf) ← rewriter.createOp (.llvm .zext) #[outTy] #[fv]
+    #[] #[] zp (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .select) #[outTy] #[cond, (zt.getResult 0), (zf.getResult 0)]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def select_of_truncate_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (v0, tp) := matchTrunc op rewriter.ctx | return rewriter
+  let some dS := getDefiningOp v0 rewriter.ctx | return rewriter
+  let some (cond, tv, fv) := matchSelect dS rewriter.ctx | return rewriter
+  let outTy := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
+  let (rewriter, tt) ← rewriter.createOp (.llvm .trunc) #[outTy] #[tv]
+    #[] #[] tp (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, tf) ← rewriter.createOp (.llvm .trunc) #[outTy] #[fv]
+    #[] #[] tp (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .select) #[outTy] #[cond, (tt.getResult 0), (tf.getResult 0)]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+/-! ### matchMulOBy2 :  (mul x, 2) → (add x, x)   (overflow flags threaded via props)
+-/
+
+set_option warn.sorry false in
+def mulo_by_2_unsigned_signed (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (x, cval, mp) := matchMul op rewriter.ctx | return rewriter
+  let some cst := matchConstantIntVal cval rewriter.ctx | return rewriter
+  if cst.value ≠ 2 then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[x.getType! rewriter.ctx.raw] #[x, x]
+    #[] #[] mp (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+/-! ### add_shift :  A + shl(0 - B, C) → A - shl(B, C) -/
+
+set_option warn.sorry false in
+def add_shift (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (a, shlNeg, _ap) := matchAdd op rewriter.ctx | return rewriter
+  let some dShl := getDefiningOp shlNeg rewriter.ctx | return rewriter
+  let some (negB, c, shp) := matchShl dShl rewriter.ctx | return rewriter
+  let some dSub := getDefiningOp negB rewriter.ctx | return rewriter
+  let some (zeroV, b, subp) := matchSub dSub rewriter.ctx | return rewriter
+  let some zc := matchConstantIntVal zeroV rewriter.ctx | return rewriter
+  if zc.value ≠ 0 then return rewriter
+  let (rewriter, newShl) ← rewriter.createOp (.llvm .shl) #[b.getType! rewriter.ctx.raw] #[b, c]
+    #[] #[] shp (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .sub) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (newShl.getResult 0)]
+    #[] #[] subp (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- A + shl(0 - B, C) → A - shl(B, C)   (add operands commuted)
+set_option warn.sorry false in
+def add_shift_commute (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (shlNeg, a, _ap) := matchAdd op rewriter.ctx | return rewriter
+  let some dShl := getDefiningOp shlNeg rewriter.ctx | return rewriter
+  let some (negB, c, shp) := matchShl dShl rewriter.ctx | return rewriter
+  let some dSub := getDefiningOp negB rewriter.ctx | return rewriter
+  let some (zeroV, b, subp) := matchSub dSub rewriter.ctx | return rewriter
+  let some zc := matchConstantIntVal zeroV rewriter.ctx | return rewriter
+  if zc.value ≠ 0 then return rewriter
+  let (rewriter, newShl) ← rewriter.createOp (.llvm .shl) #[b.getType! rewriter.ctx.raw] #[b, c]
+    #[] #[] shp (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .sub) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (newShl.getResult 0)]
+    #[] #[] subp (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+/-! ### redundant_binop_in_equality
+
+  ((X op Y) cmp X) → (Y cmp 0)  for op ∈ {+, -, ^}, cmp ∈ {==, !=}.
+-/
+
+set_option warn.sorry false in
+def redundant_binop_in_equality_XPlusYEqX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
+  let .eq := ip.predicate | return rewriter
+  let some dAdd := getDefiningOp lhsV rewriter.ctx | return rewriter
+  let some (x, y, _ap) := matchAdd dAdd rewriter.ctx | return rewriter
+  if x != xval then return rewriter
+  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
+    #[] #[] z (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
+    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def redundant_binop_in_equality_XPlusYNeX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
+  let .ne := ip.predicate | return rewriter
+  let some dAdd := getDefiningOp lhsV rewriter.ctx | return rewriter
+  let some (x, y, _ap) := matchAdd dAdd rewriter.ctx | return rewriter
+  if x != xval then return rewriter
+  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
+    #[] #[] z (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
+    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def redundant_binop_in_equality_XMinusYEqX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
+  let .eq := ip.predicate | return rewriter
+  let some dSub := getDefiningOp lhsV rewriter.ctx | return rewriter
+  let some (x, y, _sp) := matchSub dSub rewriter.ctx | return rewriter
+  if x != xval then return rewriter
+  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
+    #[] #[] z (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
+    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def redundant_binop_in_equality_XMinusYNeX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
+  let .ne := ip.predicate | return rewriter
+  let some dSub := getDefiningOp lhsV rewriter.ctx | return rewriter
+  let some (x, y, _sp) := matchSub dSub rewriter.ctx | return rewriter
+  if x != xval then return rewriter
+  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
+    #[] #[] z (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
+    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def redundant_binop_in_equality_XXorYEqX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
+  let .eq := ip.predicate | return rewriter
+  let some dXor := getDefiningOp lhsV rewriter.ctx | return rewriter
+  let some (x, y, _xp) := matchXor dXor rewriter.ctx | return rewriter
+  if x != xval then return rewriter
+  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
+    #[] #[] z (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
+    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def redundant_binop_in_equality_XXorYNeX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
+  let .ne := ip.predicate | return rewriter
+  let some dXor := getDefiningOp lhsV rewriter.ctx | return rewriter
+  let some (x, y, _xp) := matchXor dXor rewriter.ctx | return rewriter
+  if x != xval then return rewriter
+  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
+  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
+    #[] #[] z (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
+    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+/-! ### match_selects -/
+
+-- select c, 1, 0 → zext c
+set_option warn.sorry false in
+def select_1_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some ct := matchConstantIntVal tv rewriter.ctx | return rewriter
+  if ct.value ≠ 1 then return rewriter
+  let some cf := matchConstantIntVal fv rewriter.ctx | return rewriter
+  if cf.value ≠ 0 then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[cond]
+    #[] #[] { nneg := false } (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- select c, -1, 0 → sext c
+set_option warn.sorry false in
+def select_neg1_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some ct := matchConstantIntVal tv rewriter.ctx | return rewriter
+  if ct.value ≠ -1 then return rewriter
+  let some cf := matchConstantIntVal fv rewriter.ctx | return rewriter
+  if cf.value ≠ 0 then return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[cond]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- select c, 0, 1 → zext (not c)
+set_option warn.sorry false in
+def select_0_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some ct := matchConstantIntVal tv rewriter.ctx | return rewriter
+  if ct.value ≠ 0 then return rewriter
+  let some cf := matchConstantIntVal fv rewriter.ctx | return rewriter
+  if cf.value ≠ 1 then return rewriter
+  let .integerType cty := (cond.getType! rewriter.ctx.raw).val | return rewriter
+  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) cty))
+  let (rewriter, c1) ← rewriter.createOp (.llvm .mlir__constant) #[cond.getType! rewriter.ctx.raw] #[]
+    #[] #[] m1 (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, ncond) ← rewriter.createOp (.llvm .xor) #[cond.getType! rewriter.ctx.raw] #[cond, (c1.getResult 0)]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(ncond.getResult 0)]
+    #[] #[] { nneg := false } (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- select c, 0, -1 → sext (not c)
+set_option warn.sorry false in
+def select_0_neg1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
+  let some ct := matchConstantIntVal tv rewriter.ctx | return rewriter
+  if ct.value ≠ 0 then return rewriter
+  let some cf := matchConstantIntVal fv rewriter.ctx | return rewriter
+  if cf.value ≠ -1 then return rewriter
+  let .integerType cty := (cond.getType! rewriter.ctx.raw).val | return rewriter
+  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) cty))
+  let (rewriter, c1) ← rewriter.createOp (.llvm .mlir__constant) #[cond.getType! rewriter.ctx.raw] #[]
+    #[] #[] m1 (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, ncond) ← rewriter.createOp (.llvm .xor) #[cond.getType! rewriter.ctx.raw] #[cond, (c1.getResult 0)]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(ncond.getResult 0)]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+/-! ### not_cmp_fold :  (icmp pred X Y) ^ -1 → (icmp invPred X Y) -/
+
+set_option warn.sorry false in
+def not_cmp_fold_eq (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
+  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
+  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .eq := ip.predicate | return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
+    #[] #[] (IcmpProperties.mk .ne) (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def not_cmp_fold_ne (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
+  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
+  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .ne := ip.predicate | return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
+    #[] #[] (IcmpProperties.mk .eq) (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def not_cmp_fold_ugt (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
+  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
+  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .ugt := ip.predicate | return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
+    #[] #[] (IcmpProperties.mk .ule) (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def not_cmp_fold_uge (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
+  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
+  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .uge := ip.predicate | return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
+    #[] #[] (IcmpProperties.mk .ult) (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def not_cmp_fold_sgt (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
+  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
+  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .sgt := ip.predicate | return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
+    #[] #[] (IcmpProperties.mk .sle) (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+set_option warn.sorry false in
+def not_cmp_fold_sge (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
+  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
+  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
+  let .sge := ip.predicate | return rewriter
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
+    #[] #[] (IcmpProperties.mk .slt) (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+/-! ### double_icmp_zero_combine -/
+
+-- (X == 0 & Y == 0) → (X | Y) == 0
+set_option warn.sorry false in
+def double_icmp_zero_and_combine (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (v0, v1, _andprops) := matchAnd op rewriter.ctx | return rewriter
+  let some dL := getDefiningOp v0 rewriter.ctx | return rewriter
+  let some (x, cx, ip0) := matchIcmp dL rewriter.ctx | return rewriter
+  let .eq := ip0.predicate | return rewriter
+  let some cxv := matchConstantIntVal cx rewriter.ctx | return rewriter
+  if cxv.value ≠ 0 then return rewriter
+  let some dR := getDefiningOp v1 rewriter.ctx | return rewriter
+  let some (y, cy, ip1) := matchIcmp dR rewriter.ctx | return rewriter
+  let .eq := ip1.predicate | return rewriter
+  let some cyv := matchConstantIntVal cy rewriter.ctx | return rewriter
+  if cyv.value ≠ 0 then return rewriter
+  let .integerType xty := (x.getType! rewriter.ctx.raw).val | return rewriter
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) xty))
+  let (rewriter, orOp) ← rewriter.createOp (.llvm .or) #[x.getType! rewriter.ctx.raw] #[x, y]
+    #[] #[] { disjoint := false } (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
+    #[] #[] z (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(orOp.getResult 0), (c0.getResult 0)]
+    #[] #[] ip0 (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+-- (X != 0 | Y != 0) → (X | Y) != 0
+set_option warn.sorry false in
+def double_icmp_zero_or_combine (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (v0, v1, oprops) := matchOr op rewriter.ctx | return rewriter
+  let some dL := getDefiningOp v0 rewriter.ctx | return rewriter
+  let some (x, cx, ip0) := matchIcmp dL rewriter.ctx | return rewriter
+  let .ne := ip0.predicate | return rewriter
+  let some cxv := matchConstantIntVal cx rewriter.ctx | return rewriter
+  if cxv.value ≠ 0 then return rewriter
+  let some dR := getDefiningOp v1 rewriter.ctx | return rewriter
+  let some (y, cy, ip1) := matchIcmp dR rewriter.ctx | return rewriter
+  let .ne := ip1.predicate | return rewriter
+  let some cyv := matchConstantIntVal cy rewriter.ctx | return rewriter
+  if cyv.value ≠ 0 then return rewriter
+  let .integerType xty := (x.getType! rewriter.ctx.raw).val | return rewriter
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) xty))
+  let (rewriter, orOp) ← rewriter.createOp (.llvm .or) #[x.getType! rewriter.ctx.raw] #[x, y]
+    #[] #[] oprops (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
+    #[] #[] z (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(orOp.getResult 0), (c0.getResult 0)]
+    #[] #[] ip0 (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+/-! ### NotAPlusNegOne :  (not (add X, -1)) → (sub 0, X) -/
+
+set_option warn.sorry false in
+def NotAPlusNegOne_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some addVal := matchNot (op.getResult 0) rewriter.ctx | return rewriter
+  let some dAdd := getDefiningOp addVal rewriter.ctx | return rewriter
+  let some (x, cm1, ap) := matchAdd dAdd rewriter.ctx | return rewriter
+  let some cst := matchConstantIntVal cm1 rewriter.ctx | return rewriter
+  if cst.value ≠ -1 then return rewriter
+  let .integerType xty := (x.getType! rewriter.ctx.raw).val | return rewriter
+  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) xty))
+  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
+    #[] #[] z (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .sub) #[x.getType! rewriter.ctx.raw] #[(c0.getResult 0), x]
+    #[] #[] ap (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
+/-! ### sub_one_from_sub :  (A - B) - 1 → add (xor B, -1), A -/
+
+set_option warn.sorry false in
+def sub_one_from_sub_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (subVal, c1v, sp) := matchSub op rewriter.ctx | return rewriter
+  let some cst1 := matchConstantIntVal c1v rewriter.ctx | return rewriter
+  if cst1.value ≠ 1 then return rewriter
+  let some dSub := getDefiningOp subVal rewriter.ctx | return rewriter
+  let some (x, y, _sp2) := matchSub dSub rewriter.ctx | return rewriter
+  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
+  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) yty))
+  let (rewriter, cm1) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
+    #[] #[] m1 (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, xorOp) ← rewriter.createOp (.llvm .xor) #[y.getType! rewriter.ctx.raw] #[y, (cm1.getResult 0)]
+    #[] #[] () (some $ .before op) sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(xorOp.getResult 0), x]
+    #[] #[] sp (some $ .before op) sorry sorry sorry sorry
+  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+
 set_option warn.sorry false in
 /-- `srlDst (width - 1) (sraDst _ x) -> srlDst (width - 1) x`, where `(srlDst,
     sraDst)` is `(riscv.srli, riscv.srai)` at `width = 64` and `(riscv.srliw,
@@ -1039,7 +1574,40 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , sub_add_reg_x_sub_y_add_x
      , sub_add_reg_x_sub_x_add_y
      , xor_of_and_with_same_reg
-     ,
+     , select_to_iminmax_ugt
+     , select_to_iminmax_uge
+     , select_to_iminmax_sgt
+     , select_to_iminmax_sge
+     , select_to_iminmax_ult
+     , select_to_iminmax_ule
+     , select_to_iminmax_slt
+     , select_to_iminmax_sle
+     , trunc_of_zext
+     , select_of_zext_rw
+     , select_of_truncate_rw
+     , mulo_by_2_unsigned_signed
+     , add_shift
+     , add_shift_commute
+     , redundant_binop_in_equality_XPlusYEqX
+     , redundant_binop_in_equality_XPlusYNeX
+     , redundant_binop_in_equality_XMinusYEqX
+     , redundant_binop_in_equality_XMinusYNeX
+     , redundant_binop_in_equality_XXorYEqX
+     , redundant_binop_in_equality_XXorYNeX
+     , select_1_0
+     , select_neg1_0
+     , select_0_1
+     , select_0_neg1
+     , not_cmp_fold_eq
+     , not_cmp_fold_ne
+     , not_cmp_fold_ugt
+     , not_cmp_fold_uge
+     , not_cmp_fold_sgt
+     , not_cmp_fold_sge
+     , double_icmp_zero_and_combine
+     , double_icmp_zero_or_combine
+     , NotAPlusNegOne_rw
+     , sub_one_from_sub_rw
      ]
   let pattern := RewritePattern.GreedyRewritePattern patterns
   match RewritePattern.applyInContext pattern ctx with
