@@ -800,6 +800,26 @@ theorem sext_mono {w₁ w₂ : Nat} (x₁ x₂ : Int w₁) (h : w₁ < w₂)
     sext x₁ w₂ h ⊒ sext x₂ w₂ h := by
   grind
 
+theorem umax_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+    (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
+    umax x₁ x₂ ⊒ umax y₁ y₂ := by
+  grind
+
+theorem umin_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+    (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
+    umin x₁ x₂ ⊒ umin y₁ y₂ := by
+  grind
+
+theorem smax_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+    (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
+    smax x₁ x₂ ⊒ smax y₁ y₂ := by
+  grind
+
+theorem smin_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+    (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
+    smin x₁ x₂ ⊒ smin y₁ y₂ := by
+  grind
+
 theorem icmp_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (p : IntPred)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
     icmp x₁ x₂ p ⊒ icmp y₁ y₂ p := by
