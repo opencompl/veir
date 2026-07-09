@@ -11,10 +11,12 @@ public section
 @[expose, properties_of]
 def Arith.propertiesOf (op : Arith) : Type :=
 match op with
-| .constant => ArithConstantProperties
-| .addi => NswNuwProperties
+-- TODO: Temporarily removed this as properties aren't supported in buffed yet, so we encode properties
+-- with attributes
+-- | .constant => ArithConstantProperties
+-- | .addi => NswNuwProperties
 | .subi => NswNuwProperties
-| .muli => NswNuwProperties
+-- | .muli => NswNuwProperties
 | .divsi => ExactProperties
 | .divui => ExactProperties
 | .cmpi => IcmpProperties

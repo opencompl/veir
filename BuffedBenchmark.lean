@@ -9,6 +9,61 @@ open Attribute
 set_option maxHeartbeats 100000000
 set_option warn.sorry false
 
+namespace Custom
+
+abbrev Pattern := (Sim.IRContext OpCode) → Sim.OperationPtr → Option (Sim.IRContext OpCode)
+
+-- buffed (def_lemma := false)
+def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+  if op.getOpType ctx sorry ≠ .arith .addi then
+    return ctx
+
+  -- Get the lhs and check that it is a constant
+  let lhsValuePtr := op.getOperandPtr ctx 0 sorry
+  let lhsValue := lhsValuePtr.getValue ctx sorry
+  -- Unsafe...
+  let lhsOpResultPtr : Sim.OpResultPtr := ⟨lhsValue.impl, sorry⟩
+  let lhsOpPtr := lhsOpResultPtr.getOwner ctx sorry
+
+  if lhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
+    return ctx
+
+  -- Get the rhs and check that it is a constant
+  let rhsValuePtr := op.getOperandPtr ctx 1 sorry
+  let rhsValue := rhsValuePtr.getValue ctx sorry
+  -- Unsafe...
+  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, sorry⟩
+  let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
+
+  if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
+    return ctx
+
+  -- Get the lhs value
+  let lhsAttrs := lhsOpPtr.getAttributes ctx sorry
+  let some (attrName, Attribute.integerAttr lhsConstValue) := lhsAttrs.entries[0]? | return ctx
+  if lhsConstValue.value ≠ 0 ∨ attrName ≠ "value".toByteArray then
+    return ctx
+
+  -- Get the rhs value
+  let rhsAttrs := rhsOpPtr.getAttributes ctx sorry
+  let some (attrName, Attribute.integerAttr rhsConstValue) := rhsAttrs.entries[0]? | return ctx
+  if rhsConstValue.value ≠ 0 ∨ attrName ≠ "value".toByteArray then
+    return ctx
+
+  -- Compute the sum
+  let sumValue := IntegerAttr.mk (rhsConstValue.value + lhsConstValue.value) (IntegerType.mk 32)
+  let insertPoint := InsertPoint.before ⟨op.impl.toNat⟩
+  let (ctx, newOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let ctx ← newOp.setAttributes ctx (.fromArray #[("value".toByteArray, sumValue)]) sorry
+
+  let mut ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
+
+  if (lhsOpResultPtr.getFirstUse ctx sorry).toOption.isNone then
+    ctx ← Rewriter.eraseOp ctx lhsOpPtr sorry sorry sorry sorry
+  if (rhsOpResultPtr.getFirstUse ctx sorry).toOption.isNone then
+    ctx ← Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry
+  return ctx
+
 -- buffed (def_lemma := false)
 def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpType ctx sorry ≠ .arith .addi then
@@ -24,9 +79,11 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
   if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
     return ctx
 
-  -- TODO: Check that value is 0
-  -- if (rhsOp.getProperties! ctx.raw (.arith .constant)).value.value ≠ 0 then
-  --   return ctx
+  -- We store a constant value as an integer attribute "value"
+  let rhsAttrs := rhsOpPtr.getAttributes ctx sorry
+  let some (attrName, Attribute.integerAttr rhsConstValue) := rhsAttrs.entries[0]? | return ctx
+  if rhsConstValue.value ≠ 0 ∨ attrName ≠ "value".toByteArray then
+    return ctx
 
   -- Get the lhs value
   let lhsValuePtr := op.getOperandPtr ctx 0 sorry
@@ -42,6 +99,42 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
     return Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry
 
   return ctx
+
+-- buffed (def_lemma := false)
+def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+  if op.getOpType ctx sorry ≠ .arith .muli then
+    return ctx
+
+  -- Get the rhs and check that it is the constant 2
+  let rhsValuePtr := op.getOperandPtr ctx 1 sorry
+  let rhsValue := rhsValuePtr.getValue ctx sorry
+  -- Unsafe...
+  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, sorry⟩
+  let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
+
+  if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
+    return ctx
+
+  -- We store a constant value as an integer attribute "value"
+  let rhsAttrs := rhsOpPtr.getAttributes ctx sorry
+  let some (attrName, Attribute.integerAttr rhsConstValue) := rhsAttrs.entries[0]? | return ctx
+  if rhsConstValue.value ≠ 2 ∨ attrName ≠ "value".toByteArray then
+    return ctx
+
+  -- Get the lhs value
+  let lhsValuePtr := op.getOperandPtr ctx 0 sorry
+  let lhsValue := lhsValuePtr.getValue ctx sorry
+
+  let insertPoint := InsertPoint.before ⟨op.impl.toNat⟩
+  let (ctx, newOp) ← Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[lhsValue, lhsValue] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
+
+  if (rhsOpResultPtr.getFirstUse ctx sorry).toOption.isNone then
+    return Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry
+
+  return ctx
+
+end Custom
 
 #exit
 

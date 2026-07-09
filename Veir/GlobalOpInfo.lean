@@ -141,10 +141,10 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
     all_goals exact (Except.ok ())
   case arith op =>
     cases op
-    case constant => exact (ArithConstantProperties.fromAttrDict attrDict)
-    case addi => exact (NswNuwProperties.fromAttrDict attrDict)
+    -- case constant => exact (ArithConstantProperties.fromAttrDict attrDict)
+    -- case addi => exact (NswNuwProperties.fromAttrDict attrDict)
     case subi => exact (NswNuwProperties.fromAttrDict attrDict)
-    case muli => exact (NswNuwProperties.fromAttrDict attrDict)
+    -- case muli => exact (NswNuwProperties.fromAttrDict attrDict)
     case divsi => exact (ExactProperties.fromAttrDict attrDict)
     case divui => exact (ExactProperties.fromAttrDict attrDict)
     case cmpi => exact (IcmpProperties.fromAttrDictFor "arith.cmpi" attrDict)
@@ -172,15 +172,16 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
 def Properties.toAttrDict (opCode : OpCode) (props : propertiesOf opCode) :
     Std.HashMap ByteArray Attribute :=
   match opCode with
-  | .arith .constant =>
-    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
+  -- | .arith .constant =>
+  --   (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 (Attribute.integerAttr props.value)
   | .llvm .mlir__constant =>
     match props.value with
     | .integer intAttr =>
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.integerAttr intAttr)
     | .float floatAttr =>
       (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (Attribute.floatAttr floatAttr)
-  | .arith .addi | .arith .subi | .arith .muli | .arith .shli | .arith .trunci
+  -- | .arith .addi | arith.muli
+  | .arith .subi | .arith .shli | .arith .trunci
   | .llvm .add | .llvm .sub | .llvm .mul | .llvm .shl | .llvm .trunc => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
 
