@@ -1109,6 +1109,55 @@ private theorem OperationPtr.Verified.integerBinop {op : OperationPtr} {opInBoun
     op.IsVerifiedIntegerBinop ctx :=
   op.verifyIntegerBinop_eq_ok <| op.verifyIntegerBinop_ok_of_Verified opVerify armReduces
 
+/--
+  Structural facts guaranteed by a successful `verifyLLVMShift` check. Unlike `IsVerifiedIntegerBinop`
+  it does *not* pin the two operands to the same type: `verifyLLVMShift` only requires the shift
+  amount (operand 1) to be an integer, and the result to match operand 0 (which may be an integer or
+  a byte). The equality of the two operand widths is a *dynamic* fact recovered from a successful
+  interpretation, not a static one.
+-/
+def OperationPtr.IsVerifiedLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 2 ∧
+  ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ∧
+  ∃ intType, ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .integerType intType
+
+private theorem OperationPtr.verifyLLVMShift_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMShift ctx opInBounds = .ok ()) :
+    op.IsVerifiedLLVMShift ctx := by
+  simp only [IsVerifiedLLVMShift] at ⊢
+  simp [verifyLLVMShift, verifyPlainOpCounts, verifyResultTypeMatches,
+    TypeAttr.verifyIntegerType, TypeAttr.verifyIntegerOrByteType, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure] at h
+  grind [getNumOperands!_eq_getNumOperands, getNumResults!_eq_getNumResults]
+
+private theorem OperationPtr.verifyLLVMShift_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyLLVMShift ctx opInBounds >>= fun _ => pure ())) :
+    op.verifyLLVMShift ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  cases hb : op.verifyLLVMShift ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+private theorem OperationPtr.Verified.llvmShift {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyLLVMShift ctx opInBounds >>= fun _ => pure ())) :
+    op.IsVerifiedLLVMShift ctx :=
+  op.verifyLLVMShift_eq_ok <| op.verifyLLVMShift_ok_of_Verified opVerify armReduces
+
+theorem OperationPtr.Verified.llvm_shl {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .shl) :
+    op.IsVerifiedLLVMShift ctx := OperationPtr.Verified.llvmShift opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_lshr {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .lshr) :
+    op.IsVerifiedLLVMShift ctx := OperationPtr.Verified.llvmShift opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
 theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .addi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
