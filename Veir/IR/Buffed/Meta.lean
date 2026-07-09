@@ -659,7 +659,7 @@ projections of `<name>Sim`); a recursive bare-`IRContext` result has its `sim` p
 `<name>_impl` lemma (`rebuildIRContextWithProvenSim`), while `Option (IRContext …)` results still leave
 it as `sorry`. Runs in `TermElabM` so the `sim` proof can be discharged by a tactic.
 -/
-meta def buildBuffedBase (declName : Name) (recursive : Bool) :
+meta def buildBuffedBase (declName : Name) (recursive : Bool) (defLemma : Bool := true) :
     Lean.Elab.TermElabM (Name × Expr × Expr × List Name) := do
   let info ← getConstInfo declName
   let baseName := mkBaseName declName
@@ -689,8 +689,14 @@ meta def buildBuffedBase (declName : Name) (recursive : Bool) :
         if recursive then
           -- For a recursive def `<name>Impl`/`<name>Spec` are independent functions, no longer defeq
           -- to projections of `<name>Sim`. We prove the `sim` proof relating them from the `<name>_impl`
-          -- lemma (which must already be emitted) — see `rebuildIRContextWithProvenSim`.
-          rebuildIRContextWithProvenSim declName us xs callTy implBody specBody
+          -- lemma (which must already be emitted) — see `rebuildIRContextWithProvenSim`. With
+          -- `def_lemma := false` there is no `<name>_impl` lemma (and the point of the flag is to skip
+          -- these proofs), so fill the `sim` field with `sorry` directly instead of letting the proven
+          -- path fail and warn.
+          if defLemma then
+            rebuildIRContextWithProvenSim declName us xs callTy implBody specBody
+          else
+            rebuildIRContextWithSorrySim callTy implBody specBody
         else
           let simProof := mkProj ``Veir.Sim.IRContext 2 call
           mkAppM ``Veir.Sim.IRContext.mk #[implBody, specBody, simProof]
@@ -722,8 +728,10 @@ meta def buildBuffedBase (declName : Name) (recursive : Bool) :
         -- lemma exists. For a recursive def, `<name>_impl` is emitted just before the base *only when*
         -- `def_lemma := true` (see the `buffed` command); with `def_lemma := false` there is no
         -- `<name>_impl`, so we fall back to the plain `Option.map` with a `sorry` `sim`
-        -- (`rebuildIRContextWithSorrySim`). A non-recursive def always has `<name>_impl` available.
-        if recursive && !(← getEnv).contains (mkImplLemmaName declName) then
+        -- (`rebuildIRContextWithSorrySim`). A non-recursive def always has `<name>_impl` available,
+        -- but `def_lemma := false` opts out of the proven `sim` there too: its
+        -- `cases … <;> grind` proof scales badly with the def's branch count.
+        if !defLemma || (recursive && !(← getEnv).contains (mkImplLemmaName declName)) then
           mapSomeOverImpl fun x specGet => rebuildIRContextWithSorrySim innerTy x specGet
         else
           mkOptionIRContextMatchBody declName us xs innerTy implBody specBody
@@ -737,9 +745,10 @@ meta def buildBuffedBase (declName : Name) (recursive : Bool) :
           -- instead and *prove* every leaf `sim` from the `<name>_impl` lemma (see
           -- `mkOptionOtherMatchBody`) — the same technique as `mkOptionIRContextMatchBody`, which the
           -- plain `Option.map` lambda cannot use (it severs the connection to `<name>Sim`). Falls back to
-          -- the `Option.map` combine when there is no `IRContext` leaf (no `sorry` to eliminate) or the
-          -- `<name>_impl` lemma is absent (recursive def with `def_lemma := false`).
-          if (← splitShapeHasIRContext innerSimTy) && (← getEnv).contains (mkImplLemmaName declName) then
+          -- the `Option.map` combine when there is no `IRContext` leaf (no `sorry` to eliminate), the
+          -- `<name>_impl` lemma is absent (recursive def with `def_lemma := false`), or
+          -- `def_lemma := false` opted out of the (potentially slow) proven-`sim` proofs.
+          if defLemma && (← splitShapeHasIRContext innerSimTy) && (← getEnv).contains (mkImplLemmaName declName) then
             mkOptionOtherMatchBody declName us xs innerSimTy implBody specBody
           else
             mapSomeOverImpl fun x specGet => mkBuffedCombine innerSimTy x specGet
@@ -1303,7 +1312,7 @@ Generate the `<name>Spec` ghost projection and the non-suffixed base wrapper fro
 unconditionally derived from the elaborated `funcSim` term (`buildBuffedSpec`/`buildBuffedBase`) and
 are unaffected by whether `funcSim` is recursive — only `<name>Impl` differs in the recursive case.
 -/
-private meta def generateBuffedSpecAndBase (decl : Name) (recursive : Bool) : AttrM Unit := do
+private meta def generateBuffedSpecAndBase (decl : Name) (recursive : Bool) (defLemma : Bool := true) : AttrM Unit := do
   let specName := Veir.Buffed.mkSpecName decl
   unless (← getEnv).contains specName do
     trace[Buffed.ghosting] "Generating {specName} for {decl}"
@@ -1315,7 +1324,7 @@ private meta def generateBuffedSpecAndBase (decl : Name) (recursive : Bool) : At
   let baseName := Veir.Buffed.mkBaseName decl
   unless (← getEnv).contains baseName do
     trace[Buffed.ghosting] "Generating {baseName} for {decl}"
-    let (baseName, baseType, baseValue, baseLevelParams) ← MetaM.run' (Veir.Buffed.buildBuffedBase decl recursive).run'
+    let (baseName, baseType, baseValue, baseLevelParams) ← MetaM.run' (Veir.Buffed.buildBuffedBase decl recursive defLemma).run'
     addBuffedDecl baseName baseType baseValue baseLevelParams (inline? := true)
   Lean.enableRealizationsForConst baseName
 
@@ -1339,7 +1348,7 @@ meta def generateBuffed (decl : Name) (inline : Bool) (defLemma : Bool := true) 
   -- Emit the `<name>_impl` lemma `(funcSim args).impl = funcImpl (projected args)`. Non-recursive: the
   -- two sides are defeq but the proof is left as `sorry` for now.
   generateBuffedImplLemma decl (recursive := false)
-  generateBuffedSpecAndBase decl (recursive := false)
+  generateBuffedSpecAndBase decl (recursive := false) (defLemma := defLemma)
   -- Emit the `<name>_def` lemma relating the base wrapper to `funcSim` (e.g.
   -- `getFirstUse ctx ptr ib = getFirstUseSim ctx ptr ib`). Defeq shapes get a `rfl` proof; the
   -- `Option`-returning shapes a `simp [<base>, <name>Sim]; grind` proof.
@@ -1693,8 +1702,11 @@ attribute. Two optional flags may be placed right after `buffed`, in order:
 - `(inline := false)` — keep the generated `<name>Impl` out of line (matches the attribute's flag);
   defaults to `true`.
 - `(def_lemma := false)` — skip generating the `<name>_def` lemma relating the base wrapper to
-  `<name>Sim`; defaults to `true`. Useful for definitions whose `_def` proof recipe does not apply
-  (e.g. a `partial_fixpoint` recursion, where `fun_induction <name>Sim` has no induction principle).
+  `<name>Sim`, and fill the base wrapper's `sim` field with `sorry` instead of proving it; defaults
+  to `true`. Useful for definitions whose `_def` proof recipe does not apply (e.g. a
+  `partial_fixpoint` recursion, where `fun_induction <name>Sim` has no induction principle), or
+  where the proven-`sim` `cases … <;> grind` is prohibitively slow (its cost grows with the def's
+  branch count).
 
 Each flag's leading `(<kw>` is `atomic`, so the optional groups backtrack cleanly: writing only
 `(def_lemma := …)` doesn't trip the `(inline := …)` group on the shared `(`.
@@ -1812,7 +1824,7 @@ elab_rules : command
       -- `rebuildIRContextWithProvenSim`) then degrades gracefully to a `sorry` `sim` proof.
       if defLemma then
         liftCoreM <| generateBuffedImplLemma declName (recursive := true)
-      liftCoreM <| generateBuffedSpecAndBase declName (recursive := true)
+      liftCoreM <| generateBuffedSpecAndBase declName (recursive := true) (defLemma := defLemma)
       -- Emit the `<name>_def` lemma `<base> args = <name>Sim args` by induction along `<name>Sim`,
       -- e.g. the hand-written `Rewriter.detachOperands.loop_def`. Skipped when `(def_lemma := false)`,
       -- e.g. a `partial_fixpoint` def where `fun_induction <name>Sim` has no induction principle.
