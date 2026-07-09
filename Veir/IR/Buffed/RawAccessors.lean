@@ -594,35 +594,16 @@ theorem OperationMPtr.readParent_eq_readParent! {ptr : OperationMPtr} {h} :
   simp [OperationMPtr.readParent, OperationMPtr.readParent!]
 
 @[inline]
-def OperationMPtr.readOpTypeDbg (ptr : OperationMPtr)
-    (h : (ptr + Operation.Offsets.opType).toInt + Operation.Sizes.opType.toInt ≤ bctx.size) : UInt32 :=
-  let val := bctx.mem.read32 (ptr + Operation.Offsets.opType) (by grind)
-  dbg_trace s!"Reading op type at ptr {ptr} offset {Operation.Offsets.opType} value {val}"
-  val
-
-@[inline, implemented_by OperationMPtr.readOpTypeDbg]
 def OperationMPtr.readOpType (ptr : OperationMPtr)
     (h : (ptr + Operation.Offsets.opType).toInt + Operation.Sizes.opType.toInt ≤ bctx.size) : UInt32 :=
   bctx.mem.read32 (ptr + Operation.Offsets.opType) (by grind)
 
 @[inline]
-def OperationMPtr.writeOpTypeDbg (ptr : OperationMPtr) (val : UInt32)
-    (h : (ptr + Operation.Offsets.opType).toInt + Operation.Sizes.opType.toInt ≤ bctx.size) : IRBufContext OpInfo :=
-  dbg_trace s!"Writing op type at ptr {ptr} offset {Operation.Offsets.opType} value {val}"
-  { bctx with mem := bctx.mem.blit32 (ptr + Operation.Offsets.opType) val (by grind) }
-
-@[inline, implemented_by OperationMPtr.writeOpTypeDbg]
 def OperationMPtr.writeOpType (ptr : OperationMPtr) (val : UInt32)
     (h : (ptr + Operation.Offsets.opType).toInt + Operation.Sizes.opType.toInt ≤ bctx.size) : IRBufContext OpInfo :=
   { bctx with mem := bctx.mem.blit32 (ptr + Operation.Offsets.opType) val (by grind) }
 
 @[inline]
-def OperationMPtr.readOpType!Dbg (ptr : OperationMPtr) : UInt32 :=
-  let val := bctx.mem.read32! (ptr + Operation.Offsets.opType)
-  dbg_trace s!"Reading op type! at ptr {ptr} offset {Operation.Offsets.opType} value {val}"
-  val
-
-@[inline, implemented_by OperationMPtr.readOpType!Dbg]
 def OperationMPtr.readOpType! (ptr : OperationMPtr) : UInt32 :=
   bctx.mem.read32! (ptr + Operation.Offsets.opType)
 
@@ -998,35 +979,16 @@ theorem BlockMPtr.readPrev_eq_readPrev! {ptr : BlockMPtr} {h} :
   simp [BlockMPtr.readPrev, BlockMPtr.readPrev!]
 
 @[inline]
-def BlockMPtr.readNextDbg (ptr : BlockMPtr)
-    (h : (ptr + Block.Offsets.next).toInt + Block.Sizes.next.toInt ≤ bctx.size) : BlockOPtr :=
-  let val := bctx.mem.read64 (ptr + Block.Offsets.next) (by grind)
-  dbg_trace s!"Reading block next at ptr {ptr} offset {Block.Offsets.next} value {val}"
-  val
-
-@[inline, implemented_by readNextDbg]
 def BlockMPtr.readNext (ptr : BlockMPtr)
     (h : (ptr + Block.Offsets.next).toInt + Block.Sizes.next.toInt ≤ bctx.size) : BlockOPtr :=
   bctx.mem.read64 (ptr + Block.Offsets.next) (by grind)
 
 @[inline]
-def BlockMPtr.writeNextDbg (ptr : BlockMPtr) (val : BlockOPtr)
-    (h : (ptr + Block.Offsets.next).toInt + Block.Sizes.next.toInt ≤ bctx.size) : IRBufContext OpInfo :=
-  dbg_trace s!"Writing block next at ptr {ptr} offset {Block.Offsets.next} value {val}"
-  { bctx with mem := bctx.mem.blit64 (ptr + Block.Offsets.next) val (by grind) }
-
-@[inline, implemented_by writeNextDbg]
 def BlockMPtr.writeNext (ptr : BlockMPtr) (val : BlockOPtr)
     (h : (ptr + Block.Offsets.next).toInt + Block.Sizes.next.toInt ≤ bctx.size) : IRBufContext OpInfo :=
   { bctx with mem := bctx.mem.blit64 (ptr + Block.Offsets.next) val (by grind) }
 
 @[inline]
-def BlockMPtr.readNext!Dbg (ptr : BlockMPtr) : BlockOPtr :=
-  let val := bctx.mem.read64! (ptr + Block.Offsets.next)
-  dbg_trace s!"Reading block next! at ptr {ptr} offset {Block.Offsets.next} value {val}"
-  val
-
-@[inline, implemented_by readNext!Dbg]
 def BlockMPtr.readNext! (ptr : BlockMPtr) : BlockOPtr :=
   bctx.mem.read64! (ptr + Block.Offsets.next)
 
@@ -1144,35 +1106,16 @@ theorem BlockMPtr.getArgumentPtr_eq_getArgumentPtr! {ptr : BlockMPtr} {idx : UIn
 /-! ## Raw accessors for `Region` -/
 
 @[inline]
-def RegionMPtr.readFirstBlockDbg (ptr : RegionMPtr)
-    (h : (ptr + Region.Offsets.firstBlock).toInt + Region.Sizes.firstBlock.toInt ≤ bctx.size) : BlockOPtr :=
-  let val := bctx.mem.read64 (ptr + Region.Offsets.firstBlock) (by grind)
-  dbg_trace s!"Reading region first block at ptr {ptr} offset {Region.Offsets.firstBlock} value {val}"
-  val
-
-@[inline, implemented_by readFirstBlockDbg]
 def RegionMPtr.readFirstBlock (ptr : RegionMPtr)
     (h : (ptr + Region.Offsets.firstBlock).toInt + Region.Sizes.firstBlock.toInt ≤ bctx.size) : BlockOPtr :=
   bctx.mem.read64 (ptr + Region.Offsets.firstBlock) (by grind)
 
 @[inline]
-def RegionMPtr.writeFirstBlockDbg (ptr : RegionMPtr) (val : BlockOPtr)
-    (h : (ptr + Region.Offsets.firstBlock).toInt + Region.Sizes.firstBlock.toInt ≤ bctx.size) : IRBufContext OpInfo :=
-  dbg_trace s!"Writing region first block at ptr {ptr} offset {Region.Offsets.firstBlock} value {val}"
-  { bctx with mem := bctx.mem.blit64 (ptr + Region.Offsets.firstBlock) val (by grind) }
-
-@[inline, implemented_by writeFirstBlockDbg]
 def RegionMPtr.writeFirstBlock (ptr : RegionMPtr) (val : BlockOPtr)
     (h : (ptr + Region.Offsets.firstBlock).toInt + Region.Sizes.firstBlock.toInt ≤ bctx.size) : IRBufContext OpInfo :=
   { bctx with mem := bctx.mem.blit64 (ptr + Region.Offsets.firstBlock) val (by grind) }
 
 @[inline]
-def RegionMPtr.readFirstBlock!Dbg (ptr : RegionMPtr) : BlockOPtr :=
-  let val := bctx.mem.read64! (ptr + Region.Offsets.firstBlock)
-  dbg_trace s!"Reading region first block! at ptr {ptr} offset {Region.Offsets.firstBlock} value {val}"
-  val
-
-@[inline, implemented_by readFirstBlock!Dbg]
 def RegionMPtr.readFirstBlock! (ptr : RegionMPtr) : BlockOPtr :=
   bctx.mem.read64! (ptr + Region.Offsets.firstBlock)
 

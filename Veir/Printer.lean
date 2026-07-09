@@ -130,17 +130,17 @@ partial def printOpList (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) (inde
 partial def printBlock (ctx: Sim.IRContext OpCode) (block: Sim.BlockPtr) (indent: Nat := 0) : IO Unit := do
   printIndent indent
   IO.print s!"^{block.impl}("
-  -- for i in 0...(block.getNumArguments! ctx) do
-  --   let arg := block.getArgumentPtr! ctx i
-  --   IO.print s!"{arg.impl}"
-  --   if i + 1 < block.getNumArguments! ctx then
-  --     IO.print ", "
+  for i in 0...(block.getNumArguments! ctx) do
+    let arg := block.getArgumentPtr! ctx i
+    IO.print s!"{arg.impl}"
+    if i + 1 < block.getNumArguments! ctx then
+      IO.print ", "
   IO.println s!"):"
-  -- match _ : (block.getFirstOp! ctx).toOption with
-  -- | some firstOp =>
-  --   printOpList ctx firstOp (indent + 1)
-  -- | none =>
-  --   pure ()
+  match _ : (block.getFirstOp! ctx).toOption with
+  | some firstOp =>
+    printOpList ctx firstOp (indent + 1)
+  | none =>
+    pure ()
 
 partial def printBlockList (ctx: Sim.IRContext OpCode) (block: Sim.BlockPtr) (indent: Nat := 0) : IO Unit := do
   printBlock ctx block indent
@@ -184,9 +184,9 @@ partial def printOperation (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) (i
   if op.getNumRegions! ctx > 0 then
     IO.print " "
     printRegions ctx op indent
-  -- printOpAttrDict ctx op
+  printOpAttrDict ctx op
   -- -- printOperationType ctx op
-  -- IO.println ""
+  IO.println ""
 end
 
 partial def printModule (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) : IO Unit := do

@@ -293,7 +293,7 @@ def blockLengthSim (ctx : Sim.IRContext OpCode) (block : Sim.BlockPtr) : UInt64 
 -/
 
 def main : IO Unit := do
-  (Program.constFoldTree (.arith .addi) () 1 100 42 1) |> print
+  (Program.constFoldTree (.arith .addi) () 10 100 42 1) |> print
   -- let N := 10_000_000
   -- let startTime ← IO.monoNanosNow
   -- if let some result := createManyOps N then
