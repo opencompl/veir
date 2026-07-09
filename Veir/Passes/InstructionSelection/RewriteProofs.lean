@@ -4,11 +4,14 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerBexti
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBinaryReg
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBinaryW
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBinopNot
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerBitreverse
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBswap
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBitwiseReg
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerByteBinaryW
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerConst
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerExt
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerFshlConst
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerIcmp
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerFshrConst
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerLoad
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerRoriw
