@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783621576574,
+  "lastUpdate": 1783623366897,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -82386,6 +82386,184 @@ window.BENCHMARK_DATA = {
             "range": "± 27537",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=30 median=0.000799500s stddev=0.000027537s cv=3.3981%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tobias@grosser.es",
+            "name": "Tobias Christian Grosser",
+            "username": "tobiasgrosser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f8a832855752ddf5394f1ae05837e91c435f9287",
+          "message": "build: wire all isel correctness proofs into CI (#1041)\n\nThe `RewriteProofs` aggregator (which `Veir.lean` imports, and is the\nonly thing that makes CI build the lowering-correctness proofs) imported\nonly a subset of the `Lower*.lean` files. The rest were never built by\n`lake build` / CI — they compiled only when requested by explicit\ntarget, so they could silently bit-rot (this PR already caught one such\ndrift).\n\n## Changes\n\n**Wire everything in.** The aggregator now imports all 30 lowering proof\nfiles. Verified that `lake build` (the CI path) now compiles and checks\neach one, warning-clean.\n\n**Fix the co-import clashes.** Lean realises a matcher's `match_n.eq_k`\n/ `match_n.congr_eq_k._sparseCasesOn_m` auxiliaries lazily, in whichever\nmodule first needs them, and bakes a private copy into that olean. Two\nsibling proof modules that case on the same matcher then clash when\nco-imported (`environment already contains …`). `CommonMatchEqns`\nalready solved this for `RISCV64`'s matchers; this PR extends it to also\npre-generate the auxiliaries of `RISCV64Sdag` (the SelectionDAG\nlowerings) and the interpreter (`Arith`/`Llvm`/`Riscv.interpretOp'`),\nand imports it wherever a proof would otherwise bake its own copy.\n\n**Remove superseded duplicates.** `LowerSelectCzero` and `LowerFshConst`\nare dead duplicate code — their theorems\n(`selectCzeroeqz`/`selectCzeronez`, `fshlConst`/`fshrConst`) are\nre-proved by `LowerSelect` and `LowerFshlConst`/`LowerFshrConst`\n(#1038). Deleted; both were unreferenced.\n\n**Fix a drifted axiom pin.** `LowerSextOne`'s `#guard_msgs` expected\n`srai_slli_63_val._native.bv_decide.ax_1_7`; the bv_decide native axiom\nis now `ax_1_5`. This drifted unnoticed precisely because the file\nwasn't being built.",
+          "timestamp": "2026-07-09T18:16:58Z",
+          "tree_id": "262f2eec688708743a8ae8eeaabe2a7420d4a921",
+          "url": "https://github.com/opencompl/veir/commit/f8a832855752ddf5394f1ae05837e91c435f9287"
+        },
+        "date": 1783623349918,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 1902000,
+            "range": "± 37819",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001902s stddev=0.000037819s cv=1.9784%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3099000,
+            "range": "± 123598",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003099s stddev=0.000123598s cv=4.0511%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 1852500,
+            "range": "± 91554",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=14 median=0.001852500s stddev=0.000091554s cv=4.9600%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2569500,
+            "range": "± 105078",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=14 median=0.002569500s stddev=0.000105078s cv=4.1037%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 1923000,
+            "range": "± 27862",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001923s stddev=0.000027862s cv=1.4575%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2073000,
+            "range": "± 68530",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002073s stddev=0.000068530s cv=3.3603%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1485000,
+            "range": "± 72159",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=8 median=0.001485000s stddev=0.000072159s cv=4.8074%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1711500,
+            "range": "± 77111",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=8 median=0.001711500s stddev=0.000077111s cv=4.5203%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 1872000,
+            "range": "± 70638",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001872s stddev=0.000070638s cv=3.7738%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 4279000,
+            "range": "± 173802",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.004279s stddev=0.000173802s cv=4.0756%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 1820000,
+            "range": "± 84406",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001820s stddev=0.000084406s cv=4.6063%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2442000,
+            "range": "± 115163",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002442s stddev=0.000115163s cv=4.8429%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 1839000,
+            "range": "± 85596",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=7 median=0.001839s stddev=0.000085596s cv=4.6545%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1517000,
+            "range": "± 73261",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=7 median=0.001517s stddev=0.000073261s cv=4.7230%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1513500,
+            "range": "± 82668",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001513500s stddev=0.000082668s cv=5.4925%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1318500,
+            "range": "± 52504",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001318500s stddev=0.000052504s cv=4.0331%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 1934000,
+            "range": "± 63717",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001934s stddev=0.000063717s cv=3.3072%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 2856000,
+            "range": "± 140499",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002856s stddev=0.000140499s cv=4.9805%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1502500,
+            "range": "± 76826",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001502500s stddev=0.000076826s cv=5.0891%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 11000,
+            "range": "± 3629",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000011000s stddev=0.000003629s cv=29.5834%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1475000,
+            "range": "± 45924",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001475s stddev=0.000045924s cv=3.1072%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 672000,
+            "range": "± 27295",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.000672s stddev=0.000027295s cv=4.0557%"
           }
         ]
       }
