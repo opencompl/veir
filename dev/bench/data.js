@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783604297629,
+  "lastUpdate": 1783605774080,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -80784,6 +80784,184 @@ window.BENCHMARK_DATA = {
             "range": "± 34414",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=5 median=0.000802s stddev=0.000034414s cv=4.2676%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tobias@grosser.es",
+            "name": "Tobias Christian Grosser",
+            "username": "tobiasgrosser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a12cbdcaea9adff7ab5789b6c5fc2dd533f7eeaf",
+          "message": "feat: prove correctness of GlobalISel constant word-rotate instruction selection (#1032)\n\nProves the two GlobalISel constant word-rotate lowerings, `fshrConst`\nand `fshlConst`, each covering both i64 and i32: `llvm.fshr/fshl a a\n(const amt)` lowers to `riscv.rori` (i64) or `riscv.roriw` (i32) with\nthe normalized rotate amount (negated for `fshl`, which has no\nrotate-left instruction).\n\nA shared combinator, `fshConstLike_preservesSemantics`, reuses the\nternary + `a = b` handling and the immediate-emit single-cast tail, but\nadds a **bitwidth branch** after the shared cast: it emits `rori` (6-bit\nimmediate, i64) or `roriw` (5-bit, i32) and refines with the matching\ndata lemma. The constant amount is pinned via the `matchConstantIntVal`\ngraph lemma; each of the four `mod`-normalizations (`fshr`/`fshl` ×\n64/32) is bridged to the low bits of the full-width constant\n(`ofInt_{5,6}_rot{r,l}`, proved via `toNat`/`omega`), after which the\nround trip closes with `veir_bv_decide`. All modules build warning-clean\nand sorry-free with `#guard_msgs` axiom pins. Off main; independent of\nthe open PRs (the i32 rotate data lemmas are re-proved here rather than\nshared with the SDAG `roriw`/`roliw` in #1031).",
+          "timestamp": "2026-07-09T13:57:06Z",
+          "tree_id": "4a301aa0756602a4de6a96424e746a16320eed96",
+          "url": "https://github.com/opencompl/veir/commit/a12cbdcaea9adff7ab5789b6c5fc2dd533f7eeaf"
+        },
+        "date": 1783605756900,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2187000,
+            "range": "± 106096",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=15 median=0.002187s stddev=0.000106096s cv=4.8337%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3967000,
+            "range": "± 45528",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=15 median=0.003967s stddev=0.000045528s cv=1.1512%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2254000,
+            "range": "± 98619",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002254s stddev=0.000098619s cv=4.3429%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3323000,
+            "range": "± 99231",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003323s stddev=0.000099231s cv=2.9528%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2249000,
+            "range": "± 26801",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002249s stddev=0.000026801s cv=1.1904%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2545000,
+            "range": "± 19537",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002545s stddev=0.000019537s cv=0.7701%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1824000,
+            "range": "± 85695",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=7 median=0.001824s stddev=0.000085695s cv=4.6835%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 2105000,
+            "range": "± 35415",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=7 median=0.002105s stddev=0.000035415s cv=1.6700%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2155000,
+            "range": "± 73459",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002155s stddev=0.000073459s cv=3.4212%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5610000,
+            "range": "± 90853",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.005610s stddev=0.000090853s cv=1.6197%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2235000,
+            "range": "± 63561",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002235s stddev=0.000063561s cv=2.8657%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3011000,
+            "range": "± 34964",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003011s stddev=0.000034964s cv=1.1690%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2214000,
+            "range": "± 37554",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002214s stddev=0.000037554s cv=1.6852%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1932000,
+            "range": "± 16471",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001932s stddev=0.000016471s cv=0.8505%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1889000,
+            "range": "± 41686",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001889s stddev=0.000041686s cv=2.1972%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1538000,
+            "range": "± 14100",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001538s stddev=0.000014100s cv=0.9171%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2230000,
+            "range": "± 100485",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002230s stddev=0.000100485s cv=4.5329%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3712000,
+            "range": "± 43540",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003712s stddev=0.000043540s cv=1.1776%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1803000,
+            "range": "± 89711",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=6 median=0.001803000s stddev=0.000089711s cv=4.9455%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "range": "± 0",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=6 median=0.000008000s stddev=0.000000000s cv=0.0000%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1848000,
+            "range": "± 72184",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001848s stddev=0.000072184s cv=3.8934%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 784000,
+            "range": "± 34828",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.000784s stddev=0.000034828s cv=4.3699%"
           }
         ]
       }
