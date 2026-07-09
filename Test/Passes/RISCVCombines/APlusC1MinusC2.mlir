@@ -1,0 +1,51 @@
+// RUN: veir-opt %s -p=riscv-combine | filecheck %s
+
+// (A + C1) - C2 → A + (C1 - C2): when both offsets are constants, the two
+// constant adjustments to A collapse into a single add of their difference.
+
+"builtin.module"() ({
+  "func.func"() <{function_type = (i64) -> i64}> ({
+  ^bb0(%a: i64):
+    %c1 = "llvm.mlir.constant"() <{value = 10 : i64}> : () -> i64
+    %c2 = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
+    %add = "llvm.add"(%a, %c1) : (i64, i64) -> i64
+    %r = "llvm.sub"(%add, %c2) : (i64, i64) -> i64
+    "func.return"(%r) : (i64) -> ()
+  }) : () -> ()
+
+  // Negative case: the subtracted operand is not a constant, so no fold.
+  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  ^bb0(%a: i64, %y: i64):
+    %c1 = "llvm.mlir.constant"() <{value = 10 : i64}> : () -> i64
+    %add = "llvm.add"(%a, %c1) : (i64, i64) -> i64
+    %r = "llvm.sub"(%add, %y) : (i64, i64) -> i64
+    "func.return"(%r) : (i64) -> ()
+  }) : () -> ()
+
+  // Negative case: the added operand is not a constant, so no fold.
+  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  ^bb0(%a: i64, %x: i64):
+    %c2 = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
+    %add = "llvm.add"(%a, %x) : (i64, i64) -> i64
+    %r = "llvm.sub"(%add, %c2) : (i64, i64) -> i64
+    "func.return"(%r) : (i64) -> ()
+  }) : () -> ()
+}) : () -> ()
+
+// Folds to A + (10 - 3) = A + 7.
+// CHECK:      ^{{.*}}(%[[A:.*]] : i64):
+// CHECK:      %[[C:.*]] = "llvm.mlir.constant"(){{.*}}value{{.*}}= 7 : i64{{.*}} : () -> i64
+// CHECK:      %[[R:.*]] = "llvm.add"(%[[A]], %[[C]]) : (i64, i64) -> i64
+// CHECK:      "func.return"(%[[R]]) : (i64) -> ()
+
+// Non-constant subtrahend: the pattern does not fire.
+// CHECK:      ^{{.*}}(%[[NA:.*]] : i64, %[[NY:.*]] : i64):
+// CHECK:      %[[NADD:.*]] = "llvm.add"(%[[NA]], %{{.*}}) : (i64, i64) -> i64
+// CHECK:      %[[NR:.*]] = "llvm.sub"(%[[NADD]], %[[NY]]) : (i64, i64) -> i64
+// CHECK:      "func.return"(%[[NR]]) : (i64) -> ()
+
+// Non-constant addend: the pattern does not fire.
+// CHECK:      ^{{.*}}(%[[MA:.*]] : i64, %[[MX:.*]] : i64):
+// CHECK:      %[[MADD:.*]] = "llvm.add"(%[[MA]], %[[MX]]) : (i64, i64) -> i64
+// CHECK:      %[[MR:.*]] = "llvm.sub"(%[[MADD]], %{{.*}}) : (i64, i64) -> i64
+// CHECK:      "func.return"(%[[MR]]) : (i64) -> ()
