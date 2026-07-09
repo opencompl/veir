@@ -12,6 +12,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonForwardInterpret
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonGraphLemmas
+import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelectBinopImm
 
 namespace Veir
