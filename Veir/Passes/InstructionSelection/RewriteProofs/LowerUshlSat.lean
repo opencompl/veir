@@ -112,28 +112,7 @@ theorem ushlSat_isRefinedBy_toInt {x y xt yt : Data.LLVM.Int 64}
                 (Data.RISCV.srl (LLVM.Int.toReg yt)
                   (Data.RISCV.sll (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)))
                 (LLVM.Int.toReg xt))))) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_ushlSat] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_ushlSat] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  -- The shift amount is `< 64` in the non-poison case, so the RISC-V shift-amount masking (to 6
-  -- bits) agrees with LLVM's full-width shift.
-  have hyb : ¬ (y.getValueD ≥ (64 : BitVec 64)) := by
-    have hh := hnp
-    rw [Data.LLVM.Int.isPoison_ushlSat] at hh
-    simp only [hxnp, hynp, or_self, Bool.false_eq_true, dite_false, decide_eq_false_iff_not,
-      Data.LLVM.Int.getValue_eq_getValueD] at hh
-    exact hh
-  simp only [Data.RISCV.or, Data.RISCV.sll, Data.RISCV.srl, Data.RISCV.xor, Data.RISCV.sltiu,
-    Data.RISCV.addi]
+  revert h₁ h₂
   veir_bv_decide
 
 set_option maxHeartbeats 2000000 in

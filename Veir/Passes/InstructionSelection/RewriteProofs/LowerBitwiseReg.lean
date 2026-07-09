@@ -6,6 +6,7 @@ import Veir.Rewriter.WfRewriter
 import Veir.PatternRewriter.Semantics
 import Veir.Verifier
 import Veir.Data.LLVM.Int.Lemmas
+import Veir.Data.RISCV.Reg.Lemmas
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
@@ -277,20 +278,9 @@ theorem and_isRefinedBy_toInt_and {bw : Nat}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.and x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.and (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) bw := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_and] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_and] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.and]
-  rcases hbw with h | h | h | h <;> subst h <;> veir_bv_decide
+  revert h₁ h₂
+  rcases hbw with ⟨hA, hB, hC, hD⟩ | hbw | hbw | hbw
+  <;> try subst hbw; veir_bv_decide
 
 theorem and_local_preservesSemantics :
     LocalRewritePattern.PreservesSemantics and_local h h₂ h₃ h₄ :=
@@ -312,20 +302,9 @@ theorem or_isRefinedBy_toInt_or {bw : Nat}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.or x y disjoint
       ⊒ RISCV.Reg.toInt (Data.RISCV.or (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) bw := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_or] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_or] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.or]
-  rcases hbw with h | h | h | h <;> subst h <;> veir_bv_decide
+  revert h₁ h₂
+  rcases hbw with ⟨hA, hB, hC, hD⟩ | hbw | hbw | hbw
+  <;> try subst hbw; veir_bv_decide
 
 theorem or_local_preservesSemantics :
     LocalRewritePattern.PreservesSemantics or_local h h₂ h₃ h₄ :=

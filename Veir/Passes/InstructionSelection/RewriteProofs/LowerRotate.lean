@@ -589,19 +589,7 @@ theorem fshl_isRefinedBy_toInt_rol {x c xt ct : Data.LLVM.Int 64}
     (h₁ : x ⊒ xt) (h₂ : c ⊒ ct) :
     Data.LLVM.Int.fshl x x c
       ⊒ RISCV.Reg.toInt (Data.RISCV.rol (LLVM.Int.toReg ct) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_fshl] at hnp; grind
-  have hcnp : c.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_fshl] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : c.getValueD = ct.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.rol]
+  revert h₁ h₂
   veir_bv_decide
 
 /-- Correctness of the `riscv.rolw` lowering of a 32-bit rotate-left (`fshl x x c`). -/
@@ -609,19 +597,7 @@ theorem fshl_isRefinedBy_toInt_rolw {x c xt ct : Data.LLVM.Int 32}
     (h₁ : x ⊒ xt) (h₂ : c ⊒ ct) :
     Data.LLVM.Int.fshl x x c
       ⊒ RISCV.Reg.toInt (Data.RISCV.rolw (LLVM.Int.toReg ct) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_fshl] at hnp; grind
-  have hcnp : c.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_fshl] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : c.getValueD = ct.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.rolw]
+  revert h₁ h₂
   veir_bv_decide
 
 theorem fshl_local_preservesSemantics :
@@ -644,19 +620,7 @@ theorem fshr_isRefinedBy_toInt_ror {x c xt ct : Data.LLVM.Int 64}
     (h₁ : x ⊒ xt) (h₂ : c ⊒ ct) :
     Data.LLVM.Int.fshr x x c
       ⊒ RISCV.Reg.toInt (Data.RISCV.ror (LLVM.Int.toReg ct) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_fshr] at hnp; grind
-  have hcnp : c.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_fshr] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : c.getValueD = ct.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.ror]
+  revert h₁ h₂
   veir_bv_decide
 
 /-- Correctness of the `riscv.rorw` lowering of a 32-bit rotate-right (`fshr x x c`). -/
@@ -664,19 +628,7 @@ theorem fshr_isRefinedBy_toInt_rorw {x c xt ct : Data.LLVM.Int 32}
     (h₁ : x ⊒ xt) (h₂ : c ⊒ ct) :
     Data.LLVM.Int.fshr x x c
       ⊒ RISCV.Reg.toInt (Data.RISCV.rorw (LLVM.Int.toReg ct) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_fshr] at hnp; grind
-  have hcnp : c.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_fshr] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : c.getValueD = ct.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.rorw]
+  revert h₁ h₂
   veir_bv_decide
 
 theorem fshr_local_preservesSemantics :

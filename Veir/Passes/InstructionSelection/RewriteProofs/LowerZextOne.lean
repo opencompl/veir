@@ -37,8 +37,7 @@ characterisation below is new.
 theorem andi_one_val (r : Data.RISCV.Reg) :
     (Data.RISCV.andi (BitVec.ofInt 12 1) r).val
       = BitVec.setWidth 64 (BitVec.setWidth 1 r.val) := by
-  simp only [Data.RISCV.andi]
-  bv_decide
+  veir_bv_decide
 
 /-- Correctness of the `riscv.andi _, 1` lowering of an `llvm.zext` from `i1` to `i64`: the round
     trip `i1 → reg → andi 1 → i64` refines `llvm.zext`. (`xt` is the possibly-more-defined

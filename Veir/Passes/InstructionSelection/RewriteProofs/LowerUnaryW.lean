@@ -6,6 +6,7 @@ import Veir.Rewriter.WfRewriter
 import Veir.PatternRewriter.Semantics
 import Veir.Verifier
 import Veir.Data.LLVM.Int.Lemmas
+import Veir.Data.RISCV.Reg.Lemmas
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
@@ -346,30 +347,13 @@ lemmas below are `ctlz`-specific.
     of the operand.) -/
 theorem ctlz_isRefinedBy_toInt_clz {x xt : Data.LLVM.Int 64} (pf : Bool) (h : x ⊒ xt) :
     Data.LLVM.Int.ctlz x pf ⊒ RISCV.Reg.toInt (Data.RISCV.clz (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h ⊢
-  obtain ⟨hp, hv⟩ := h
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_ctlz] at hnp; grind
-  have hvd : x.getValueD = xt.getValueD := by
-    rw [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq, dif_pos hxnp, dif_pos (hp hxnp)]
-    exact hv hxnp (hp hxnp)
-  rw [Data.LLVM.Int.getValue_ctlz _ hnp, toInt_getValue]
-  simp only [Data.RISCV.clz, val_toReg, Data.LLVM.Int.getValue_eq_getValueD,
-    dif_neg (show ¬xt.isPoison = true by simp [hp hxnp])]
-  rw [hvd]
-  bv_decide
+  revert h
+  veir_bv_decide
 
 /-- Correctness of the `riscv.clzw` lowering of a 32-bit `llvm.intr.ctlz`. -/
 theorem ctlz_isRefinedBy_toInt_clzw {x xt : Data.LLVM.Int 32} (pf : Bool) (h : x ⊒ xt) :
     Data.LLVM.Int.ctlz x pf ⊒ RISCV.Reg.toInt (Data.RISCV.clzw (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h ⊢
-  obtain ⟨hp, hv⟩ := h
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by grind
-  have hvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.clzw]
+  revert h
   veir_bv_decide
 
 theorem ctlz_local_preservesSemantics :
@@ -401,30 +385,13 @@ data-level refinement lemmas below are `ctpop`-specific.
     value of the operand.) -/
 theorem ctpop_isRefinedBy_toInt_cpop {x xt : Data.LLVM.Int 64} (h : x ⊒ xt) :
     Data.LLVM.Int.ctpop x ⊒ RISCV.Reg.toInt (Data.RISCV.cpop (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h ⊢
-  obtain ⟨hp, hv⟩ := h
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_ctpop] at hnp; exact hnp
-  have hvd : x.getValueD = xt.getValueD := by
-    rw [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq, dif_pos hxnp, dif_pos (hp hxnp)]
-    exact hv hxnp (hp hxnp)
-  rw [Data.LLVM.Int.getValue_ctpop _ hnp, toInt_getValue]
-  simp only [Data.RISCV.cpop, val_toReg, Data.LLVM.Int.getValue_eq_getValueD,
-    dif_neg (show ¬xt.isPoison = true by simp [hp hxnp])]
-  rw [hvd]
-  bv_decide
+  revert h
+  veir_bv_decide
 
 /-- Correctness of the `riscv.cpopw` lowering of a 32-bit `llvm.intr.ctpop`. -/
 theorem ctpop_isRefinedBy_toInt_cpopw {x xt : Data.LLVM.Int 32} (h : x ⊒ xt) :
     Data.LLVM.Int.ctpop x ⊒ RISCV.Reg.toInt (Data.RISCV.cpopw (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h ⊢
-  obtain ⟨hp, hv⟩ := h
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by grind
-  have hvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.cpopw]
+  revert h
   veir_bv_decide
 
 theorem ctpop_local_preservesSemantics :
@@ -456,30 +423,13 @@ data-level refinement lemmas below are `cttz`-specific.
     of the operand.) -/
 theorem cttz_isRefinedBy_toInt_ctz {x xt : Data.LLVM.Int 64} (pf : Bool) (h : x ⊒ xt) :
     Data.LLVM.Int.cttz x pf ⊒ RISCV.Reg.toInt (Data.RISCV.ctz (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h ⊢
-  obtain ⟨hp, hv⟩ := h
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_cttz] at hnp; grind
-  have hvd : x.getValueD = xt.getValueD := by
-    rw [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq, dif_pos hxnp, dif_pos (hp hxnp)]
-    exact hv hxnp (hp hxnp)
-  rw [Data.LLVM.Int.getValue_cttz _ hnp, toInt_getValue]
-  simp only [Data.RISCV.ctz, val_toReg, Data.LLVM.Int.getValue_eq_getValueD,
-    dif_neg (show ¬xt.isPoison = true by simp [hp hxnp])]
-  rw [hvd]
-  bv_decide
+  revert h
+  veir_bv_decide
 
 /-- Correctness of the `riscv.ctzw` lowering of a 32-bit `llvm.intr.cttz`. -/
 theorem cttz_isRefinedBy_toInt_ctzw {x xt : Data.LLVM.Int 32} (pf : Bool) (h : x ⊒ xt) :
     Data.LLVM.Int.cttz x pf ⊒ RISCV.Reg.toInt (Data.RISCV.ctzw (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h ⊢
-  obtain ⟨hp, hv⟩ := h
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by grind
-  have hvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.ctzw]
+  revert h
   veir_bv_decide
 
 theorem cttz_local_preservesSemantics :
