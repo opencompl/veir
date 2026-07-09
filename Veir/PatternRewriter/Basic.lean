@@ -349,7 +349,6 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
         failure
       return rewriter
 
-set_option warn.sorry false in
 /--
   Greedy pattern application: transforms a list of patterns into a single pattern that applies
   them repeatedly in order.

@@ -5987,4 +5987,128 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
     · -- `.ub` (source undefined behaviour): refinement trivial.
       simp only [Interp.isRefinedBy]
 
+/-! ### Greedy pattern application
+
+`RewritePattern.GreedyRewritePattern` runs an array of patterns in order on the matched operation,
+stopping at the first one that fires. Soundness is a property of the *individual* patterns, so the
+statement is factored through `RewritePattern.Sound`: a predicate on an arbitrary `RewritePattern`
+that is (a) established for `fromLocalRewrite` of a `Valid` local pattern by
+`RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite`, and (b) closed under `GreedyRewritePattern`.
+
+`Sound` bundles module refinement together with preservation of `Dom` and `Verified`. The latter two
+are not decoration: the greedy loop feeds each pattern the context produced by the previous one, and
+`isModuleRefinedBy_of_fromLocalRewrite` demands a dominance-wellformed, verified source. They are
+exactly the loop invariant that makes the chain of refinements composable via
+`OperationPtr.isModuleRefinedBy_trans`. -/
+
+/--
+A `RewritePattern` is *sound* when every successful application to a dominance-wellformed, verified
+context yields a dominance-wellformed, verified context in which every module of the source context
+is refined by the same module of the result.
+-/
+def RewritePattern.Sound (pattern : RewritePattern OpCode) : Prop :=
+  ∀ (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) (rewriter' : PatternRewriter OpCode),
+    pattern rewriter op opInBounds = some rewriter' →
+    rewriter.ctx.Dom → rewriter.ctx.Verified →
+    rewriter'.ctx.Dom ∧ rewriter'.ctx.Verified ∧
+      ∀ moduleOp : OperationPtr, moduleOp.isModuleRefinedBy rewriter.ctx moduleOp rewriter'.ctx
+
+/-- The driver applied to a `Valid` local rewrite is a sound `RewritePattern`. The three components
+are precisely `Valid.rewritePreservesDom`, `Valid.rewritePreservesVerified` and the headline
+`RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite`. -/
+theorem RewritePattern.Sound.fromLocalRewrite {pattern : LocalRewritePattern OpCode}
+    (hValid : pattern.Valid) : (RewritePattern.fromLocalRewrite pattern).Sound := fun
+  _rewriter _op _opInBounds _rewriter' hdriver hDom hVerif =>
+    ⟨hValid.rewritePreservesDom _ _ _ _ hdriver hDom,
+     hValid.rewritePreservesVerified _ _ _ _ hdriver hVerif,
+     fun _moduleOp => RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite hValid hDom hVerif hdriver⟩
+
+/--
+The invariant carried across the greedy loop, whose state is the pair of the early-return slot and
+the current rewriter. The first conjunct is soundness of the run so far; the second records that the
+early-return slot, when set, holds exactly the current rewriter — which is what lets the final `match`
+read the result context off the accumulator in *both* exit branches.
+-/
+private def GreedyRel (s s' : Option (PatternRewriter OpCode) × PatternRewriter OpCode) : Prop :=
+  (s.2.ctx.Dom → s.2.ctx.Verified →
+    s'.2.ctx.Dom ∧ s'.2.ctx.Verified ∧
+      ∀ moduleOp : OperationPtr, moduleOp.isModuleRefinedBy s.2.ctx moduleOp s'.2.ctx) ∧
+  ((s.1 = none ∨ s.1 = some s.2) → (s'.1 = none ∨ s'.1 = some s'.2))
+
+/-- Soundness is closed under greedy composition: running sound patterns in order, stopping at the
+first that fires, is itself sound. -/
+theorem RewritePattern.Sound.greedy {patterns : Array (RewritePattern OpCode)}
+    (hSound : ∀ p ∈ patterns, p.Sound) :
+    (RewritePattern.GreedyRewritePattern patterns).Sound := by
+  intro rewriter op opInBounds rewriter' hgreedy hDom hVerif
+  simp only [RewritePattern.GreedyRewritePattern] at hgreedy
+  obtain ⟨s, hloop, hfinal⟩ := Option.bind_eq_some_iff.mp hgreedy
+  rw [← Array.forIn_toList] at hloop
+  have hstep : GreedyRel (none, ⟨rewriter.ctx, false, rewriter.worklist⟩) s := by
+    refine ForLean.List.forIn_option_rel GreedyRel ?refl ?trans _ _ ?body _ _ hloop
+    case refl =>
+      -- A verified, dominance-wellformed context refines itself (interpreter monotonicity).
+      intro s
+      exact ⟨fun d v => ⟨d, v, fun mod => OperationPtr.isModuleRefinedBy_refl v d mod⟩, id⟩
+    case trans =>
+      rintro a b c ⟨hab, hab'⟩ ⟨hbc, hbc'⟩
+      refine ⟨fun d v => ?_, hbc' ∘ hab'⟩
+      obtain ⟨bd, bv, bref⟩ := hab d v
+      obtain ⟨cd, cv, cref⟩ := hbc bd bv
+      exact ⟨cd, cv, fun mod => OperationPtr.isModuleRefinedBy_trans (bref mod) (cref mod)⟩
+    case body =>
+      intro pattern hmem s step hf
+      rw [Array.mem_toList_iff] at hmem
+      by_cases hin : op.InBounds s.2.ctx.raw
+      · rw [dif_pos hin] at hf
+        rcases hpat : pattern s.2 op hin with _ | newRewriter
+        · -- A failing pattern aborts the whole loop, so this body step never succeeds.
+          simp only [hpat] at hf; exact absurd hf (by simp [failure])
+        · simp only [hpat] at hf
+          have hs := hSound pattern hmem s.2 op hin newRewriter hpat
+          -- Both the early-return (`done`) and the continue (`yield`) branch carry `newRewriter`.
+          have key : step.value.2 = newRewriter ∧
+              (step.value.1 = none ∨ step.value.1 = some newRewriter) := by
+            split at hf <;> (replace hf := Option.some.inj hf; subst hf) <;>
+              exact ⟨rfl, by simp [ForInStep.value]⟩
+          exact ⟨fun d v => key.1 ▸ hs d v, fun _ => key.1 ▸ key.2⟩
+      · -- An out-of-bounds `op` aborts the whole loop.
+        rw [dif_neg hin] at hf; exact absurd hf (by simp [failure])
+  obtain ⟨hrel, hinv⟩ := hstep
+  obtain ⟨hd, hv, href⟩ := hrel hDom hVerif
+  -- Whether the loop exited early (`s.fst = some s.snd`) or ran to completion (`s.fst = none`, where
+  -- the driver only restores the incoming `hasDoneAction`), the returned rewriter carries the
+  -- accumulator's context.
+  have hctx : rewriter'.ctx = s.2.ctx := by
+    rcases hinv (Or.inl rfl) with h1 | h1 <;> rw [h1] at hfinal <;> simp at hfinal <;>
+      simp [← hfinal]
+  exact ⟨hctx ▸ hd, hctx ▸ hv, fun mod => hctx ▸ href mod⟩
+
+/-- Greedy composition of the drivers of `Valid` local rewrite patterns is a sound `RewritePattern`. -/
+theorem RewritePattern.Sound.greedy_fromLocalRewrite
+    {patterns : Array (LocalRewritePattern OpCode)} (hValid : ∀ p ∈ patterns, p.Valid) :
+    (RewritePattern.GreedyRewritePattern
+      (patterns.map RewritePattern.fromLocalRewrite)).Sound := by
+  refine RewritePattern.Sound.greedy fun p hp => ?_
+  obtain ⟨q, hq, rfl⟩ := Array.mem_map.mp hp
+  exact RewritePattern.Sound.fromLocalRewrite (hValid q hq)
+
+/--
+**Greedy application of valid local rewrites preserves module semantics.** Running
+`GreedyRewritePattern` over the drivers of `Valid` local rewrite patterns, on an in-bounds operation
+of a dominance-wellformed, verified context, leaves every module of the source refined by the same
+module of the result.
+-/
+theorem RewritePattern.isModuleRefinedBy_greedy_fromLocalRewrite
+    {patterns : Array (LocalRewritePattern OpCode)} (hValid : ∀ p ∈ patterns, p.Valid)
+    {rewriter rewriter' : PatternRewriter OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds rewriter.ctx.raw}
+    (hDom : rewriter.ctx.Dom) (hVerif : rewriter.ctx.Verified)
+    (hgreedy : RewritePattern.GreedyRewritePattern (patterns.map RewritePattern.fromLocalRewrite)
+      rewriter op opInBounds = some rewriter')
+    (moduleOp : OperationPtr) :
+    moduleOp.isModuleRefinedBy rewriter.ctx moduleOp rewriter'.ctx :=
+  (RewritePattern.Sound.greedy_fromLocalRewrite hValid _ _ _ _ hgreedy hDom hVerif).2.2 moduleOp
+
 end Veir
