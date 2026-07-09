@@ -164,6 +164,31 @@ structural proof is done **once per combinator**. Currently:
   the immediate-op forward lemma `interpretOp_riscv_unaryReg_imm_forward`. It is the first proof of a
   lowering that emits an immediate-form riscv op — the template for the `selectBinopImmLocal` family
   (which additionally needs a `matchConstantIntVal` DAG-matching Layer-3 lemma).
+- `selectBinopImmLocal match? dst h width lo hi` (`RISCV64Sdag.lean`) — the *immediate-form binop*
+  combinator: match `OP x (const imm)` with `imm ∈ [lo, hi]` and the result of width `width`, then
+  emit `castToRegLocal x` → an immediate-form `riscv` op `dst` carrying `imm` → `replaceWithRegLocal`.
+  Its shared correctness proof is `selectBinopImmLocal_preservesSemantics`
+  (`RewriteProofs/LowerSelectBinopImm.lean`), instantiated for `addi`/`ori`/`andi`/`xori` (`i64`,
+  `imm12`), `srai` (`i64`, `uimm6`), `addiw` (`i32`, `imm12`) and `sraiw` (`i32`, `uimm5`). It *fuses*
+  the two earlier shapes: the binary-source, match-through-a-defining-op handling of
+  `lowerBinopNotLocal` (the source op is binary and one operand is matched through its defining op)
+  with the single-operand immediate-emit chain of `zext_1_local`. The right-hand *constant* operand is
+  *folded* into the emitted op's immediate rather than cast, so — unlike `lowerBinopNotLocal` — only
+  the *left* operand is cast (a three-op chain), and the matched constant's runtime value is pinned
+  with the new graph lemma `matchConstantIntVal_getVar?_of_EquationLemmaAt` (`CommonGraphLemmas.lean`),
+  the constant analogue of `matchNot_getVar?_of_EquationLemmaAt`. Because `width` is a *parameter* (one
+  instance per width), there is *no* bitwidth branch. The data-refinement lemmas confront the symbolic
+  immediate: the emitted op *sign-extends* a 12-bit field (or truncates a 5-/6-bit shift amount) while
+  the LLVM constant is full-width. The trick is to *bridge* the encodings — `signExtend_ofInt_12_64`
+  (for `c ∈ [-2048, 2047]`, `signExtend 64 (ofInt 12 c) = ofInt 64 c`) and `setWidth_ofInt_{5,6}_64`
+  (`setWidth k (ofInt 64 c) = ofInt k c`) — then `generalize BitVec.ofInt 64 c = v` so both sides are
+  a *single* abstract 64-bit vector `v`, and `veir_bv_decide` closes the rest (the shift lemmas need
+  *no* range bound because LLVM's shift-past-width poison makes the refinement trivial there). The
+  matched-property equation is *not* needed (the combinator reads `getProperties!` directly). The
+  four `shl`/`lshr` immediate instances (`slli`/`srli`/`slliw`/`srliw`) do *not* fit yet: `llvm.shl`
+  and `llvm.lshr` verify via `verifyLLVMShift` (which permits a byte or *different-width* shift
+  operand), so they yield no `IsVerifiedIntegerBinop` and the combinator's `hVerified` does not apply
+  — they need the operand-width equality derived from the successful source interpretation instead.
 - `trunc_local` (`RISCV64.lean`) — `llvm.trunc` on integer *and* byte operands: two
   `unrealized_conversion_cast`s (`operand → reg`, then `reg → result-type`) that keep only the low
   `resBw` bits. Not a combinator: a *standalone* proof (`trunc_local_preservesSemantics`,
@@ -527,9 +552,10 @@ per lowering as above.
 | `RewriteProofs/LowerAshr.lean` | `ashr_local_preservesSemantics` (standalone `i8`/`i32`/`i64` `ashr`; three width branches, `i8` adds a `sextb`), `ashr_isRefinedBy_toInt_sra`/`_sraw`/`_sra_sextb` (shift-refinement data lemmas: `ctlz`-style `getValue`→`getValueD` + `isPoison_ashr` `y<w` bound), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerSextOne.lean` | `sext_1_local_preservesSemantics` (standalone `i1 → i64`/`i32` sext ⟶ `srai (slli _ 63) 63`; four-op chain, no bitwidth branch, first immediate-emitting proof), `srai_slli_63_val` + `sext1_isRefinedBy_toInt_srai_slli` (reusing `matchExtOp_interpretOp_unfold` / `sextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerZextOne.lean` | `zext_1_local_preservesSemantics` (standalone `i1 → i64` zext ⟶ `andi 1`; first immediate-emitting proof), `andi_one_val` + `zext1_isRefinedBy_toInt_andi` (reusing `matchExtOp_interpretOp_unfold` / `zextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
-| `RewriteProofs/LowerTrunc.lean` | `trunc_local_preservesSemantics` (standalone `llvm.trunc` over integer *and* byte operands, widths `{8,16,32,64}`; two raw-`createOp!` casts, operand-value case split with symmetric int/byte branches), `trunc_isRefinedBy_toInt`/`_toByte` (concrete-width round-trip data lemmas via `revert; veir_bv_decide`), `conforms_int_type`/`conforms_byte_type`, `#guard_msgs` axiom pin | — (one-off; first byte-typed proof) |
-| `RewriteProofs/CommonGraphLemmas.lean` | `matchBinaryOp_interpretOp_unfold` (shared by the binary combinator proofs) + Layer 3: `OperationPtr.Pure.llvm_*`, `constantOp_interpretOp_unfold`, `matchNot_getVar?_of_EquationLemmaAt` | one packaged lemma per new *matcher* used on defining ops |
+| `RewriteProofs/LowerSelectBinopImm.lean` | `selectBinopImmLocal_preservesSemantics` (immediate-form binop combinator: cast-lhs → `dst(imm)` → cast-back, constant RHS folded into the immediate; single width, no bitwidth branch) + instantiations (`addi`/`ori`/`andi`/`xori`/`srai`/`addiw`/`sraiw`), the `signExtend_ofInt_12_64` / `setWidth_ofInt_{5,6}_64` immediate-encoding bridges, per-op `*_isRefinedBy` data lemmas, `#guard_msgs` axiom pins | one data lemma + one instantiation per immediate op that verifies as `IsVerifiedIntegerBinop` |
+| `RewriteProofs/CommonGraphLemmas.lean` | `matchBinaryOp_interpretOp_unfold` (shared by the binary combinator proofs) + Layer 3: `OperationPtr.Pure.llvm_*`, `constantOp_interpretOp_unfold`, `matchNot_getVar?_of_EquationLemmaAt`, `matchConstantIntVal_getVar?_of_EquationLemmaAt` | one packaged lemma per new *matcher* used on defining ops |
 | `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + byte casts `interpretOp_castToReg_byte_forward`/`interpretOp_castBack_byte_forward` + generic unary/binary reg-to-reg riscv ops + `interpretOp_riscv_unaryReg_imm_forward` for immediate-form unary ops) | one lemma per new emitted-op *shape* |
+| `RewriteProofs/LowerTrunc.lean` | `trunc_local_preservesSemantics` (standalone `llvm.trunc` over integer *and* byte operands, widths `{8,16,32,64}`; two raw-`createOp!` casts, operand-value case split with symmetric int/byte branches), `trunc_isRefinedBy_toInt`/`_toByte` (concrete-width round-trip data lemmas via `revert; veir_bv_decide`), `conforms_int_type`/`conforms_byte_type`, `#guard_msgs` axiom pin | — (one-off; first byte-typed proof) |
 | `RewriteProofs/CommonTactics.lean` | `peel*` macros (incl. the two-dominance `peel*₂` variants), `cleanupHpattern` | rarely |
 | `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `exists_refined_byte_getVar?`, `not_mem_getResults!_of_inBounds_of_not_inBounds`, `createOp!` reduction, properties/dominance transport | rarely |
 | `RewriteProofs/CommonMatchLemmas.lean` | ctlz-specific unfold/peel lemmas — currently unused (superseded by the generic `matchUnaryOp_interpretOp_unfold`); candidate for deletion | — |
