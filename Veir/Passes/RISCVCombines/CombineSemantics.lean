@@ -25,8 +25,10 @@ import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
     `replaceValue`/`eraseOp`. `interpretOpList [] state'` is then just `state'`, so the
     proof reduces to transporting the matched operands' refinement through the data lemma.
 
-  * `mulo_by_2_unsigned_signed` and the six `not_cmp_fold` combines create one operation,
-    and so additionally have to replay that operation forward in the target state.
+  * `mulo_by_2_unsigned_signed`, the six `not_cmp_fold` combines, and the two `match_selects`
+    combines create one operation, and so additionally have to replay that operation forward in
+    the target state. `match_selects` (`select c C1 0 → {zext,sext} c`) emits a *width-changing*
+    extension of the `select`'s `i1` condition, replayed with `interpretOp_llvm_unaryInt_forward`.
     `not_cmp_fold` is the op-creating *and* DAG-matching exemplar: `op` is the `xor _, -1`
     (matched with `matchNot` on its own result), its non-constant operand is the result of a
     defining `icmp`, and it emits an `icmp` with the inverted predicate on the *inner*
@@ -1500,5 +1502,188 @@ theorem not_cmp_fold_sge_local_preservesSemantics
     {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
       (notCmpFoldLocal .sge .slt) h h₂ h₃ h₄ :=
   notCmpFoldLocal_preservesSemantics (fun hw _ _ => Data.LLVM.Int.not_cmp_fold_sge hw)
+
+/-! ### match_selects
+
+  `select c C1 0 → ext c`, with `(C1, ext) ∈ {(1, zext), (-1, sext)}`. The condition `c` is an
+  operand of the `select`, so — unlike `not_cmp_fold` — the emitted op's operand needs no graph
+  lemma; its facts come straight from `Dom.operand_dominates_op`. The two dropped arms are
+  constants, whose runtime values are pinned to `C1`/`0` with `matchConstantIntVal`. The emitted
+  extension changes width (`i1 → i{w}`), replayed with `interpretOp_llvm_unaryInt_forward`.
+-/
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness proof for the two `match_selects` combines. Parameterized over the required
+    true-arm constant `tvVal`, the emitted extension `dst` with its properties `dprops`, the
+    width-changing data-level function `f` (`hSemDst`), its monotonicity (`hMono`), and the
+    value-refinement lemma (`hRefine`). -/
+theorem matchSelectExtLocal_preservesSemantics
+    {tvVal : Int} {dst : Llvm} {dprops : propertiesOf (.llvm dst)}
+    {f : ∀ {w : Nat}, (1 < w) → Data.LLVM.Int 1 → Data.LLVM.Int w}
+    (hSemDst : ∀ (rt : IntegerType) (hw : 1 < rt.bitwidth) (c : Data.LLVM.Int 1) (hIsTy)
+        (blockOperands : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' dst dprops #[⟨.integerType rt, hIsTy⟩] #[.int 1 c] blockOperands mem
+          = some (.ok (#[.int rt.bitwidth (f hw c)], mem, none)))
+    (hMono : ∀ {w : Nat} (hlt : 1 < w) (c₁ c₂ : Data.LLVM.Int 1), c₁ ⊒ c₂ → f hlt c₁ ⊒ f hlt c₂)
+    (hRefine : ∀ {w : Nat} (_hw : w = 64 ∨ w = 32) (hlt : 1 < w) (c : Data.LLVM.Int 1),
+        Data.LLVM.Int.select c (Data.LLVM.Int.constant w tvVal) (Data.LLVM.Int.constant w 0)
+          ⊒ f hlt c)
+    {h : LocalRewritePattern.ReturnOps (matchSelectExtLocal tvVal dst dprops)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (matchSelectExtLocal tvVal dst dprops)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (matchSelectExtLocal tvVal dst dprops)}
+    {h₄ : LocalRewritePattern.ReturnValues (matchSelectExtLocal tvVal dst dprops)} :
+    LocalRewritePattern.PreservesSemantics (matchSelectExtLocal tvVal dst dprops) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, matchSelectExtLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel `matchSelect`.
+  have hMatchSome : (matchSelect op ctx.raw).isSome := by
+    cases hM : matchSelect op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨cond, tval, fval⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands⟩ := matchSelect_implies hMatch
+  -- Establish `op`'s single result equation now, while `hpattern` is small.
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  have opVerif : op.Verified ctx opInBounds := by grind
+  obtain ⟨hNRes, hNOper, ⟨condIt, hCondTy, hCondBw⟩, hResEqT, hResEqF⟩ :=
+    OperationPtr.Verified.llvm_select opVerif hOpType
+  have hCondEq : cond = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  have hTvEq : tval = (op.getOperands! ctx.raw)[1]! := by rw [hOperands]; rfl
+  have hFvEq : fval = (op.getOperands! ctx.raw)[2]! := by rw [hOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = cond := by
+    rw [hCondEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = tval := by
+    rw [hTvEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand2 : op.getOperand! ctx.raw 2 = fval := by
+    rw [hFvEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  -- Result-type and bitwidth guards.
+  obtain ⟨intType, hResType⟩ :
+      ∃ intType, ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType intType := by
+    cases hr : ((op.getResult 0).get! ctx.raw).type.val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hResType] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isTrue => simp at hpattern
+  rename_i hWidthRaw
+  have hWidth : intType.bitwidth = 64 ∨ intType.bitwidth = 32 := by omega
+  have hLt : 1 < intType.bitwidth := by omega
+  have hCondType : (cond.getType! ctx.raw).val = Attribute.integerType ⟨1⟩ := by
+    obtain ⟨w⟩ := condIt; simp only at hCondBw; subst hCondBw; rw [← hOperand0, hCondTy]
+  have hTvType : (tval.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hOperand1, ← hResEqT, hResType]
+  have hFvType : (fval.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hOperand2, ← hResEqF, hResType]
+  -- Peel the two constant matches and their value guards.
+  have hCtSome : (matchConstantIntVal tval ctx.raw).isSome := by
+    cases hM : matchConstantIntVal tval ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨ctAttr, hCtMatch⟩ := Option.isSome_iff_exists.mp hCtSome
+  rw [hCtMatch] at hpattern
+  simp only [] at hpattern
+  have hCtVal : ctAttr.value = tvVal := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hCtVal] at hpattern
+  have hCfSome : (matchConstantIntVal fval ctx.raw).isSome := by
+    cases hM : matchConstantIntVal fval ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨cfAttr, hCfMatch⟩ := Option.isSome_iff_exists.mp hCfSome
+  rw [hCfMatch] at hpattern
+  simp only [] at hpattern
+  have hCfVal : cfAttr.value = 0 := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hCfVal] at hpattern
+  -- Unfold the matched `select`'s interpretation.
+  obtain ⟨cv, tvv, fvv, hcVal, htVal, hfVal, hMem, hRes, hCf⟩ :=
+    matchSelectOp_interpretOp_unfold opInBounds hOpType hNumResults hOperands
+      hCondType hTvType hFvType hinterp
+  subst hCf
+  -- Pin the two constant arms.
+  have htConst := matchConstantIntVal_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds
+    stateWf hCtMatch (by rw [hOperands]; simp) hTvType
+  obtain rfl : tvv = Data.LLVM.Int.constant intType.bitwidth ctAttr.value := by
+    have := htVal.symm.trans htConst; simpa using this
+  have hfConst := matchConstantIntVal_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds
+    stateWf hCfMatch (by rw [hOperands]; simp) hFvType
+  obtain rfl : fvv = Data.LLVM.Int.constant intType.bitwidth cfAttr.value := by
+    have := hfVal.symm.trans hfConst; simpa using this
+  -- Dominance / freshness for the condition operand.
+  have hDomC : cond.dominatesIp (InsertPoint.before op) ctx := by
+    grind [WfIRContext.Dom.operand_dominates_op]
+  have hCIn : cond.InBounds ctx.raw := by grind
+  have cNotOp : ¬ cond ∈ op.getResults! ctx.raw := by
+    grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- Peel the single extension creation.
+  peelOpCreation! hpattern ctx₁ newOp hNew hDomC hDomC₁
+  cleanupHpattern hpattern
+  have hNewType : newOp.getOpType! ctx₁.raw = .llvm dst := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewOperands : newOp.getOperands! ctx₁.raw = #[cond] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewProps : newOp.getProperties! ctx₁.raw (.llvm dst) = dprops := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewResTypes : newOp.getResultTypes! ctx₁.raw
+      = #[(⟨Attribute.integerType intType, by grind⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hNew (operation := newOp)
+    rw [if_pos rfl] at hT
+    rw [hT]
+    exact congrArg (fun t => #[t]) (Subtype.ext hResType)
+  -- Read the refined condition value in the target state.
+  obtain ⟨ct, hCVal', hcRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hCIn hcVal
+      hDomC hDomC₁ cNotOp
+  -- Replay the created extension forward.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, -⟩ :=
+    interpretOp_llvm_unaryInt_forward (state := state') (inBounds := by grind)
+      (srcType := ⟨1⟩) (resType := intType) (f := fun c => f hLt c)
+      (by intro blockOperands mem; exact hSemDst intType hLt ct _ blockOperands mem)
+      hNewType hNewProps hNewOperands hNewResTypes hCVal'
+  refine ⟨s₁, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int intType.bitwidth (f hLt ct)],
+    by simp [hRes₁, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Assemble: `select cv (constant tvVal) (constant 0) ⊒ f ct`.
+  simp only [Data.LLVM.Int.cast_self]
+  rw [hCtVal, hCfVal]
+  exact isRefinedBy_trans (hRefine hWidth hLt cv) (hMono hLt cv ct hcRef)
+
+theorem select_1_0_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (matchSelectExtLocal 1 .zext { nneg := false }) h h₂ h₃ h₄ :=
+  matchSelectExtLocal_preservesSemantics
+    (f := fun {w} hlt c => Data.LLVM.Int.zext c w false hlt)
+    (fun rt hw c hIsTy bo mem => zext_interpretOp' 1 rt hw c { nneg := false } hIsTy bo mem)
+    (fun hlt c₁ c₂ h => Data.LLVM.Int.zext_mono c₁ c₂ hlt h)
+    (fun hw hlt _c => Data.LLVM.Int.select_1_0 hw hlt)
+
+theorem select_neg1_0_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (matchSelectExtLocal (-1) .sext ()) h h₂ h₃ h₄ :=
+  matchSelectExtLocal_preservesSemantics
+    (f := fun {w} hlt c => Data.LLVM.Int.sext c w hlt)
+    (fun rt hw c hIsTy bo mem => sext_interpretOp' 1 rt hw c () hIsTy bo mem)
+    (fun hlt c₁ c₂ h => Data.LLVM.Int.sext_mono c₁ c₂ hlt h)
+    (fun hw hlt _c => Data.LLVM.Int.select_neg1_0 hw hlt)
 
 end Veir.RISCV

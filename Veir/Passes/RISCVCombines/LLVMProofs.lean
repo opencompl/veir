@@ -365,15 +365,16 @@ theorem redundant_binop_in_equality_XXorYNeX {x y : Int 64} :
 
 /-! ### match_selects -/
 
-/-- `select c, 1, 0 → zext c`. -/
-theorem select_1_0 {c : Int 1} :
-    select c (constant 64 1) (constant 64 0) ⊒ zext c 64 false h1_64 := by
-  veir_bv_decide
+/-- `select c, 1, 0 → zext c`. Stated at both widths the guarded pattern admits, since the
+    graph-level proof needs `i32` too. -/
+theorem select_1_0 {w : Nat} (hw : w = 64 ∨ w = 32) {c : Int 1} (hlt : 1 < w) :
+    select c (constant w 1) (constant w 0) ⊒ zext c w false hlt := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `select c, -1, 0 → sext c`. -/
-theorem select_neg1_0 {c : Int 1} :
-    select c (constant 64 (-1)) (constant 64 0) ⊒ sext c 64 h1_64 := by
-  veir_bv_decide
+theorem select_neg1_0 {w : Nat} (hw : w = 64 ∨ w = 32) {c : Int 1} (hlt : 1 < w) :
+    select c (constant w (-1)) (constant w 0) ⊒ sext c w hlt := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `select c, 0, 1 → zext (not c)`. -/
 theorem select_0_1 {c : Int 1} :
