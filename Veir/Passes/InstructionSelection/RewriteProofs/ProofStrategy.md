@@ -116,6 +116,23 @@ structural proof is done **once per combinator**. Currently:
   (`RewriteProofs/LowerBinopNot.lean`). This is the first *DAG-matching* proof: it recovers the
   runtime value of the matched `not` from the `EquationLemmaAt` hypothesis (see
   "Matched-subgraph semantics" below).
+- `ashr_local` (`RISCV64.lean`) — `llvm.ashr` on `i8`/`i32`/`i64`: two `unrealized_conversion_cast`s
+  (operands → registers) → an arithmetic-shift-right riscv op → `unrealized_conversion_cast`. The
+  riscv op is width-dependent: `riscv.sra` (`i64`), `riscv.sraw` (`i32`, word arithmetic shift), and
+  `riscv.sra` on a `riscv.sextb`-sign-extended value (`i8`, since `castToRegLocal` holds the operand
+  *zero*-extended). Standalone proof `ashr_local_preservesSemantics`
+  (`RewriteProofs/LowerAshr.lean`); it verifies via `verifyIntegerBinop` (so `Verified.llvm_ashr`
+  gives `IsVerifiedIntegerBinop` — both operands and the result share `intType`, no width-derivation
+  needed) and its interpreter arm is `.int`-only, so — unlike `shl`/`lshr`, which moved to the
+  byte-aware `lowerByteBinaryWLocal` — there is no byte case. Three width branches: `i32`/`i64` are
+  4-op chains (like `LowerBinaryW`), `i8` is a 5-op chain threading an extra
+  `interpretOp_riscv_unaryReg_forward` step for the `sextb` (like `LowerSignedMinMax`'s `sextw`), with
+  the `getOpType!`/`getOperands!`/`getResultTypes!` transports seeded explicitly (4–5 creations deep).
+  The three data lemmas (`ashr_isRefinedBy_toInt_sra`/`_sraw`/`_sra_sextb`) are the shift-refinement
+  core: the RISC-V op masks the shift amount to the low 5/6 bits while `llvm.ashr` is poison for
+  `y ≥ w`, so the proof follows the `ctlz` template (manual `getValue_ashr`/`getValue_eq_getValueD`
+  rewrites so `bv_decide` unifies `getValue`/`getValueD`) *and* expands `hnp` via `isPoison_ashr` into
+  `getValueD` form to hand `bv_decide` the `y < w` bound it needs for the masked-shift equality.
 - `sext_1_local` (`RISCV64Sdag.lean`) — the concrete `llvm.sext %x : i1 to i64` (or `to i32`) ⟶
   `unrealized_conversion_cast` → `riscv.slli _, 63` → `riscv.srai _, 63` →
   `unrealized_conversion_cast` lowering (shifting the low bit to the top and arithmetic-shifting it
@@ -485,6 +502,7 @@ per lowering as above.
 | `RewriteProofs/LowerSignedMinMax.lean` | `lowerSignedMinMaxLocal_preservesSemantics` (signed min/max; `i64` = 4 ops, `i32` = 6 ops with two extra `riscv.sextw`) + `_64`/`_32` data lemmas + instantiations (`smax`, `smin`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerRotate.lean` | `matchTernaryOp_interpretOp_unfold` (ternary source unfold) + `lowerRotateLocal_preservesSemantics` (rotate; ternary source with `a = b`, result-type guard, `W`-variant bitwidth branch) + `_64`/`_32` data lemmas + instantiations (`fshl`, `fshr`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerBinopNot.lean` | `lowerBinopNotLocal_preservesSemantics` (the DAG-matching template proof), per-lowering Layer-0 lemmas + instantiations (`andn`/`orn`/`xnor`), `#guard_msgs` axiom pins | two data lemmas + one instantiation (binop-with-not) |
+| `RewriteProofs/LowerAshr.lean` | `ashr_local_preservesSemantics` (standalone `i8`/`i32`/`i64` `ashr`; three width branches, `i8` adds a `sextb`), `ashr_isRefinedBy_toInt_sra`/`_sraw`/`_sra_sextb` (shift-refinement data lemmas: `ctlz`-style `getValue`→`getValueD` + `isPoison_ashr` `y<w` bound), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerSextOne.lean` | `sext_1_local_preservesSemantics` (standalone `i1 → i64`/`i32` sext ⟶ `srai (slli _ 63) 63`; four-op chain, no bitwidth branch, first immediate-emitting proof), `srai_slli_63_val` + `sext1_isRefinedBy_toInt_srai_slli` (reusing `matchExtOp_interpretOp_unfold` / `sextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerZextOne.lean` | `zext_1_local_preservesSemantics` (standalone `i1 → i64` zext ⟶ `andi 1`; first immediate-emitting proof), `andi_one_val` + `zext1_isRefinedBy_toInt_andi` (reusing `matchExtOp_interpretOp_unfold` / `zextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/CommonGraphLemmas.lean` | `matchBinaryOp_interpretOp_unfold` (shared by the binary combinator proofs) + Layer 3: `OperationPtr.Pure.llvm_*`, `constantOp_interpretOp_unfold`, `matchNot_getVar?_of_EquationLemmaAt` | one packaged lemma per new *matcher* used on defining ops |
