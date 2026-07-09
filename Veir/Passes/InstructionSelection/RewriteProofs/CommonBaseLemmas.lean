@@ -115,6 +115,35 @@ theorem WfRewriter.createOp!_none_eq {wfCtx : WfIRContext OpInfo} {opType : OpIn
           hoper hblock hreg := by
   simp only [WfRewriter.createOp!, dif_pos hoper, dif_pos hblock, dif_pos hreg]
 
+/-- Invert a successful `WfRewriter.createOp!` at a `none` insertion point: since every failing
+    side condition makes `createOp!` panic (i.e. return `none`), a `some` result recovers the
+    in-bounds side conditions together with the plain `createOp` equation.
+
+    Prefer this over `createOp!_none_eq` when peeling a creation chain: it binds the side-condition
+    proofs to local hypotheses rather than inlining them into the type of the creation hypothesis.
+    Inlined proofs are copied into the *implicit* arguments of every downstream lemma applied to
+    that hypothesis (`createOp_inBounds_mono`, `dominatesIp_before_WfRewriter_createOp`, …), and
+    those copies are in turn inlined into the next creation hypothesis, so a chain of `n` creations
+    builds a proof term of size exponential in `n`. -/
+theorem WfRewriter.createOp!_none_some {wfCtx : WfIRContext OpInfo} {opType : OpInfo}
+    {resultTypes operands blockOperands regions} {properties : HasOpInfo.propertiesOf opType}
+    {ctx' : WfIRContext OpInfo} {newOp : OperationPtr}
+    (h : WfRewriter.createOp! wfCtx opType resultTypes operands blockOperands regions properties none
+      = some (ctx', newOp)) :
+    ∃ (hoper : ∀ oper, oper ∈ operands → oper.InBounds wfCtx.raw)
+      (hblock : ∀ oper, oper ∈ blockOperands → oper.InBounds wfCtx.raw)
+      (hreg : ∀ reg, reg ∈ regions → reg.InBounds wfCtx.raw),
+      WfRewriter.createOp wfCtx opType resultTypes operands blockOperands regions properties none
+        hoper hblock hreg = some (ctx', newOp) := by
+  unfold WfRewriter.createOp! at h
+  split at h
+  · split at h
+    · split at h
+      · exact ⟨_, _, _, h⟩
+      · simp [panicWithPosWithDecl, panic, panicCore] at h
+    · simp [panicWithPosWithDecl, panic, panicCore] at h
+  · simp [panicWithPosWithDecl, panic, panicCore] at h
+
 /-- Creating an operation at a `none` insertion point preserves dominance of a value at the program
     point before any *other* operation `op'`: a freshly created (detached) operation `newOp ≠ op'`
     cannot change whether `value` dominates `before op'`.

@@ -747,27 +747,8 @@ theorem selectGeneral_local_preservesSemantics :
   -- `nezOp`: operands `#[fCast.getResult 0, condCast.getResult 0]`, both in bounds in `ctx₄`.
   have ⟨⟨ctx₅, nezOp⟩, hNez, pat'⟩ := hpattern
   clear hpattern; have hpattern := pat'; clear pat'
-  rw [WfRewriter.createOp!_none_eq
-    (by clear hpattern; intro oper ho
-        simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at ho
-        rcases ho with rfl | rfl
-        · have hIn : fCastOp.InBounds ctx₄.raw :=
-            WfRewriter.createOp_inBounds_mono (ptr := .operation fCastOp) hEqz
-              (WfRewriter.createOp_inBounds_mono (ptr := .operation fCastOp) hCCast
-                (WfRewriter.createOp_new_inBounds fCastOp hFCast))
-          have hNum : fCastOp.getNumResults! ctx₄.raw = 1 := by
-            grind [OperationPtr.getNumResults!_WfRewriter_createOp hFCast (operation := fCastOp),
-              OperationPtr.getNumResults!_WfRewriter_createOp hCCast (operation := fCastOp),
-              OperationPtr.getNumResults!_WfRewriter_createOp hEqz (operation := fCastOp)]
-          grind
-        · have hIn : condCastOp.InBounds ctx₄.raw :=
-            WfRewriter.createOp_inBounds_mono (ptr := .operation condCastOp) hEqz
-              (WfRewriter.createOp_new_inBounds condCastOp hCCast)
-          have hNum : condCastOp.getNumResults! ctx₄.raw = 1 := by
-            grind [OperationPtr.getNumResults!_WfRewriter_createOp hCCast (operation := condCastOp),
-              OperationPtr.getNumResults!_WfRewriter_createOp hEqz (operation := condCastOp)]
-          grind)
-    (by clear hpattern; simp) (by clear hpattern; simp)] at hNez
+  replace hNez := WfRewriter.createOp!_none_some hNez
+  obtain ⟨_, _, _, hNez⟩ := hNez
   have hOpNeNez : op ≠ nezOp := fun heq =>
     WfRewriter.createOp_new_not_inBounds nezOp hNez (heq ▸ hOpIn₄)
   have hDomT₅ := (ValuePtr.dominatesIp_before_WfRewriter_createOp hNez hOpIn₄ hOpNeNez).mpr hDomT₄
@@ -779,22 +760,8 @@ theorem selectGeneral_local_preservesSemantics :
   -- `orOp`: operands `#[eqz.getResult 0, nez.getResult 0]`, both in bounds in `ctx₅`.
   have ⟨⟨ctx₆, orOp⟩, hOr, pat'⟩ := hpattern
   clear hpattern; have hpattern := pat'; clear pat'
-  rw [WfRewriter.createOp!_none_eq
-    (by clear hpattern; intro oper ho
-        simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at ho
-        rcases ho with rfl | rfl
-        · have hIn : eqzOp.InBounds ctx₅.raw :=
-            WfRewriter.createOp_inBounds_mono (ptr := .operation eqzOp) hNez
-              (WfRewriter.createOp_new_inBounds eqzOp hEqz)
-          have hNum : eqzOp.getNumResults! ctx₅.raw = 1 := by
-            grind [OperationPtr.getNumResults!_WfRewriter_createOp hEqz (operation := eqzOp),
-              OperationPtr.getNumResults!_WfRewriter_createOp hNez (operation := eqzOp)]
-          grind
-        · have hIn : nezOp.InBounds ctx₅.raw := WfRewriter.createOp_new_inBounds nezOp hNez
-          have hNum : nezOp.getNumResults! ctx₅.raw = 1 := by
-            grind [OperationPtr.getNumResults!_WfRewriter_createOp hNez (operation := nezOp)]
-          grind)
-    (by clear hpattern; simp) (by clear hpattern; simp)] at hOr
+  replace hOr := WfRewriter.createOp!_none_some hOr
+  obtain ⟨_, _, _, hOr⟩ := hOr
   have hOpNeOr : op ≠ orOp := fun heq =>
     WfRewriter.createOp_new_not_inBounds orOp hOr (heq ▸ hOpIn₅)
   have hDomT₆ := (ValuePtr.dominatesIp_before_WfRewriter_createOp hOr hOpIn₅ hOpNeOr).mpr hDomT₅
@@ -807,15 +774,8 @@ theorem selectGeneral_local_preservesSemantics :
   have ⟨⟨ctx₇, castBackOp⟩, hCastBack, pat'⟩ := hpattern
   clear hpattern; have hpattern := pat'; clear pat'
   simp only [replaceWithRegLocal] at hCastBack
-  rw [WfRewriter.createOp!_none_eq
-    (by clear hpattern; intro oper ho
-        simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at ho
-        rcases ho with rfl
-        have hIn : orOp.InBounds ctx₆.raw := WfRewriter.createOp_new_inBounds orOp hOr
-        have hNum : orOp.getNumResults! ctx₆.raw = 1 := by
-          grind [OperationPtr.getNumResults!_WfRewriter_createOp hOr (operation := orOp)]
-        grind)
-    (by clear hpattern; simp) (by clear hpattern; simp)] at hCastBack
+  replace hCastBack := WfRewriter.createOp!_none_some hCastBack
+  obtain ⟨_, _, _, hCastBack⟩ := hCastBack
   have hOpNeCB : op ≠ castBackOp := fun heq =>
     WfRewriter.createOp_new_not_inBounds castBackOp hCastBack (heq ▸ hOpIn₆)
   have hDomT₇ := (ValuePtr.dominatesIp_before_WfRewriter_createOp hCastBack hOpIn₆ hOpNeCB).mpr hDomT₆
