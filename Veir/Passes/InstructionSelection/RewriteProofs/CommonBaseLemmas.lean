@@ -45,6 +45,30 @@ theorem LocalRewritePattern.exists_refined_int_getVar?
     grind [LocalRewritePattern.mapping, valueRefinement v]
   grind [RuntimeValue.int_of_isRefinedBy hRef]
 
+/-- Byte analogue of `exists_refined_int_getVar?`: read the target-side value of a `byte`-typed
+operand that refines the source-side one. -/
+theorem LocalRewritePattern.exists_refined_byte_getVar?
+    {ctx : WfIRContext OpCode}
+    {ipIn : ip.InBounds ctx.raw}
+    {pattern : LocalRewritePattern OpCode}
+    {hpattern : pattern ctx op = some (newCtx, some (newOps, newValues))}
+    {hreturn : pattern.ReturnValuesInBounds} {hreturn₂ : pattern.ReturnValues}
+    {hreturn₃ : pattern.ReturnCtxChanges}
+    {state : InterpreterState ctx} {state' : InterpreterState newCtx}
+    (valueRefinement : state.variables.isRefinedByAt state'.variables
+      (LocalRewritePattern.mapping hpattern hreturn hreturn₂ hreturn₃) (.at ip) (.at ip) ipIn ipIn')
+    (state'Dom : state'.DefinesDominating ip ipIn')
+    (vIn : v.InBounds ctx.raw)
+    (hxVal : state.variables.getVar? v = some (RuntimeValue.byte bw x))
+    (hDomCtx : v.dominatesIp ip ctx) (hDom' : v.dominatesIp ip newCtx)
+    (hNotRes : v ∉ op.getResults! ctx.raw) :
+    ∃ xt, state'.variables.getVar? v = some (RuntimeValue.byte bw xt) ∧ x ⊒ xt := by
+  have ⟨tv, hTv⟩ := InterpreterState.DefinesDominating.exists_getVar_of_dominatesIp state'Dom
+      (hreturn₃.valuePtr_inBounds hpattern vIn) hDom'
+  have hRef : RuntimeValue.byte bw x ⊒ tv := by
+    grind [LocalRewritePattern.mapping, valueRefinement v]
+  grind [RuntimeValue.byte_of_isRefinedBy hRef]
+
 /-- A value that exists in a context `ctx` is never a result of an operation that is *not* in
 bounds of `ctx` (e.g. a freshly created op), in any context `ctx'`: result membership pins the
 value's operation pointer, and an in-bounds `opResult` value forces its operation in bounds.
