@@ -25,6 +25,50 @@ abbrev _root_.UInt32.toInt64 (x : UInt32) : Int64 := .ofUInt64 x.toUInt64
 attribute [grind =] UInt32.toNat_toUInt64 UInt64.toNat_sub_of_le UInt64.ofNat_toNat
 attribute [local grind! .] UInt64.toNat_lt
 
+/- Decomposition of mixed `UInt64 + Int64` pointer arithmetic: as long as the result is
+nonnegative and the base pointer is below `2^63`, the addition does not wrap, so `.toInt`
+distributes. Lives here (rather than `SimDefs`) so the raw accessors can discharge their
+own field-bound obligations. -/
+@[grind =]
+theorem UInt64.uint64_add_int64_toInt_lt {a : UInt64} {b : Int64}
+  (hnneg : 0 ≤ a.toNat + b.toInt)
+  (hxx : a.toNat < Int64.maxValue.toInt) :
+    ((a + b).toInt = a.toNat + b.toInt) := by
+  rcases b with ⟨b⟩
+  have : a.toNat < 2^64 := UInt64.toNat_lt a
+  have : b.toNat < 2^64 := UInt64.toNat_lt b
+  rw [UInt64.add_int64_r_def]
+  rw [Int64.toUInt64_add]
+  simp
+  simp only [Int64.toInt]
+  rw [Int64.toBitVec]
+  simp only
+  rw [UInt64.toInt]
+  rw [UInt64.toNat]
+  simp
+  by_cases hlt : ↑a.toNat + ↑b.toNat < 2 ^ 64
+  · simp_all
+    rw [Int.emod_eq_of_lt]
+    · congr
+      rw [UInt64.toNat]
+      rw [Int64.toInt] at *
+      rw [Int64.toBitVec] at *
+      simp at *
+      rw [BitVec.toInt_eq_toNat_cond]
+      split
+      · rfl
+      · grind [UInt64.toNat]
+    · grind
+    · grind
+  · rw [← Int.sub_emod_right]
+    rw [Int.emod_eq_of_lt]
+    · rw [BitVec.toInt_eq_toNat_cond]
+      have : b.toBitVec.toNat = b.toNat := by rfl
+      grind
+    · grind
+    · have : b.toBitVec.toNat = b.toNat := by rfl
+      grind
+
 namespace Veir.Buffed
 
 /-! ## Low-level pointers.
@@ -134,8 +178,20 @@ theorem IRBufContext.insertAttrs_size {bctx bctx' : IRBufContext OpInfo} {attrs 
 
 @[inline]
 def IRBufContext.alloc (bctx : IRBufContext OpInfo) (size : UInt64) : Option (IRBufContext OpInfo) :=
-  if _ : noOverflowsAdd bctx.usize size then
-    let mem := bctx.mem.extend size admitted_bounds
+  -- The second conjunct keeps the grown buffer below `Int64.maxNatValue` (`2^63 - 1`), which
+  -- is exactly the capacity `ExArray.extend` requires; `noOverflowsAdd` makes the `UInt64`
+  -- comparison meaningful (no wraparound in `bctx.usize + size`).
+  if h : noOverflowsAdd bctx.usize size ∧ bctx.usize + size < Int64.maxValue.toUInt64 then
+    let mem := bctx.mem.extend size (by
+      obtain ⟨h₁, h₂⟩ := h
+      simp only [noOverflowsAdd, decide_eq_true_eq, IRBufContext.usize] at h₁ h₂
+      rw [UInt64.le_iff_toNat_le, UInt64.toNat_add] at h₁
+      rw [UInt64.lt_iff_toNat_lt, UInt64.toNat_add] at h₂
+      have hu := ExArray.usize_size_toNat bctx.mem
+      have hs := UInt64.toNat_lt size
+      have hm := UInt64.toNat_lt bctx.mem.usize
+      have hmax : Int64.maxValue.toUInt64.toNat = Int64.maxNatValue := by decide
+      omega)
     some { bctx with mem }
   else
     none
@@ -799,15 +855,26 @@ theorem OperationMPtr.getResultPtr_eq_getResultPtr! {ptr : OperationMPtr} {idx :
     ptr.getResultPtr bctx idx h = ptr.getResultPtr! bctx idx := by
   simp [OperationMPtr.getResultPtr, OperationMPtr.getResultPtr!]
 
+/-- Bounds for reading any fixed-header field of an operation, given that the whole fixed
+header `[ptr, ptr + sizeBase)` is in bounds. The `toNat` hypothesis is wrap-free (unlike a
+`(ptr + off).toInt` bound for a *single* field, it rules out address wraparound for all the
+lower fields at once, since `fits_in_memory` keeps the buffer below `2^63`), so each field's
+checked-read obligation follows by linear arithmetic. The offset side conditions are
+auto-discharged by `decide` at the call site. -/
+theorem OperationMPtr.header_field_bound {ptr : OperationMPtr} {off : Int64} {sz : UInt64}
+    (h : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size)
+    (hoff : 0 ≤ off.toInt := by decide)
+    (hfield : off.toInt + sz.toNat ≤ Operation.sizeBaseNat := by decide) :
+    (ptr + off).toInt + sz.toInt ≤ bctx.size := by
+  have hfits := bctx.mem.fits_in_memory
+  have hdec := UInt64.uint64_add_int64_toInt_lt (a := ptr) (b := off) (by grind) (by grind)
+  grind
+
 @[inline]
 def OperationMPtr.computeBlockOperandsOffset (ptr : OperationMPtr)
-    (h : (ptr + Operation.Offsets.numOperands).toInt + Operation.Sizes.numOperands.toInt ≤ bctx.size) : Int64 :=
-  have : (Operation.Offsets.opType).toInt + Operation.Sizes.opType.toInt ≤
-    (Operation.Offsets.numOperands).toInt + Operation.Sizes.numOperands.toInt := by cbv; constructor
-  have : (ptr + Operation.Offsets.opType).toInt + Operation.Sizes.opType.toInt ≤
-    (ptr + Operation.Offsets.numOperands).toInt + Operation.Sizes.numOperands.toInt := admitted_bounds
-  let offset := ptr.computeOperandsOffset bctx (by grind)
-  let count := ptr.readNumOperands bctx (by grind)
+    (h : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size) : Int64 :=
+  let offset := ptr.computeOperandsOffset bctx (OperationMPtr.header_field_bound bctx h)
+  let count := ptr.readNumOperands bctx (OperationMPtr.header_field_bound bctx h)
   offset + (OpOperand.size * count)
 
 @[inline]
@@ -823,7 +890,7 @@ theorem OperationMPtr.computeBlockOperandsOffset_eq_computeBlockOperandsOffset! 
 
 @[inline]
 def OperationMPtr.computeBlockOperandOffset (ptr : OperationMPtr) (idx : UInt64)
-    (h : (ptr + Operation.Offsets.numOperands).toInt + Operation.Sizes.numOperands.toInt ≤ bctx.size) : Int64 :=
+    (h : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size) : Int64 :=
   let offset := ptr.computeBlockOperandsOffset bctx h
   offset + (BlockOperand.size * idx)
 
@@ -886,7 +953,7 @@ theorem OperationMPtr.computeOperationSize_toNat
 
 @[inline]
 def OperationMPtr.readNthBlockOperand (ptr : OperationMPtr) (idx : UInt64)
-    (h : (ptr + Operation.Offsets.numOperands).toInt + Operation.Sizes.numOperands.toInt ≤ bctx.size) : BlockOperandMPtr :=
+    (h : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size) : BlockOperandMPtr :=
   ptr + ptr.computeBlockOperandOffset bctx idx h
 
 @[inline]
@@ -900,10 +967,9 @@ theorem OperationMPtr.readNthBlockOperand_eq_readNthBlockOperand! {ptr : Operati
 
 @[inline]
 def OperationMPtr.computeRegionsOffset (ptr : OperationMPtr)
-    (h : (ptr + Operation.Offsets.numOperands).toInt +
-      Operation.Sizes.numOperands.toInt ≤ bctx.size) : Int64 :=
-  let offset := ptr.computeBlockOperandsOffset bctx (by grind)
-  let count := ptr.readNumBlockOperands bctx admitted_bounds
+    (h : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size) : Int64 :=
+  let offset := ptr.computeBlockOperandsOffset bctx h
+  let count := ptr.readNumBlockOperands bctx (OperationMPtr.header_field_bound bctx h)
   offset + (BlockOperand.size * count)
 
 @[inline]
@@ -919,8 +985,7 @@ theorem OperationMPtr.computeRegionsOffset_eq_computeRegionsOffset! {ptr : Opera
 
 @[inline]
 def OperationMPtr.computeRegionOffset (ptr : OperationMPtr) (idx : UInt64)
-    (h : (ptr + Operation.Offsets.numOperands).toInt +
-      Operation.Sizes.numOperands.toInt ≤ bctx.size) : Int64 :=
+    (h : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size) : Int64 :=
   let offset := ptr.computeRegionsOffset bctx h
   offset + (ptrSize * idx)
 
@@ -936,15 +1001,13 @@ theorem OperationMPtr.computeRegionOffset_eq_computeRegionOffset! {ptr : Operati
 
 @[inline]
 def OperationMPtr.readNthRegion (ptr : OperationMPtr) (idx : UInt64)
-    (h₁ : (ptr + Operation.Offsets.numOperands).toInt +
-      Operation.Sizes.numOperands.toInt ≤ bctx.size)
+    (h₁ : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size)
     (h₂ : (ptr + ptr.computeRegionOffset bctx idx h₁).toInt + ptrSize.toInt ≤ bctx.size) : RegionMPtr :=
   bctx.mem.read64 (ptr + ptr.computeRegionOffset bctx idx h₁) (by grind)
 
 @[inline]
 def OperationMPtr.writeNthRegion (ptr : OperationMPtr) (idx : UInt64) (val : RegionMPtr)
-    (h₁ : (ptr + Operation.Offsets.numOperands).toInt +
-      Operation.Sizes.numOperands.toInt ≤ bctx.size)
+    (h₁ : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size)
     (h₂ : (ptr + ptr.computeRegionOffset bctx idx h₁).toInt + ptrSize.toInt ≤ bctx.size) : IRBufContext OpInfo :=
   { bctx with mem := bctx.mem.blit64 (ptr + ptr.computeRegionOffset bctx idx h₁) val (by grind) }
 
@@ -1237,75 +1300,75 @@ def printO (ptr : UInt64) : String :=
 
 def OperationMPtr.dump (ptr : OperationMPtr) (bctx : IRBufContext OpInfo) : String := Id.run do
   let memSize := bctx.mem.size
-  let opType := ptr.readOpType bctx admitted_bounds
-  let prev := ptr.readPrev bctx admitted_bounds
-  let next := ptr.readNext bctx admitted_bounds
-  let parent := ptr.readParent bctx admitted_bounds
-  let numResults := ptr.readNumResults bctx admitted_bounds
-  let numOperands := ptr.readNumOperands bctx admitted_bounds
-  let numBlockOperands := ptr.readNumBlockOperands bctx admitted_bounds
-  let numRegions := ptr.readNumRegions bctx admitted_bounds
+  let opType := ptr.readOpType! bctx
+  let prev := ptr.readPrev! bctx
+  let next := ptr.readNext! bctx
+  let parent := ptr.readParent! bctx
+  let numResults := ptr.readNumResults! bctx
+  let numOperands := ptr.readNumOperands! bctx
+  let numBlockOperands := ptr.readNumBlockOperands! bctx
+  let numRegions := ptr.readNumRegions! bctx
   let size := Buffed.OperationMPtr.computeOperationSize numResults numOperands numBlockOperands numRegions (Operation.propertySize (OpInfo := OpInfo) (SerializableOpInfo.decode opType))
   let mut regions := ""
   for i in [0: numRegions.toNat] do
-    let region := ptr.readNthRegion bctx i.toUInt64 admitted_bounds admitted_bounds
+    let region := ptr.readNthRegion! bctx i.toUInt64
     regions := regions ++ s!"{i} = {printO region}, "
-  s!"Operation(opType={opType}, next={printO next}, prev={printO prev}, parent={printO parent}, numResults={numResults}, numOperands={numOperands}, numBlockOperands={numBlockOperands}, numRegions={numRegions}[{regions}]) [Note: addr={ptr}, size={size}, memSize={memSize}, regionsOffset={ptr.computeRegionsOffset bctx admitted_bounds}, blockOperandsOffset={ptr.computeBlockOperandsOffset bctx admitted_bounds}, operandsOffset={ptr.computeOperandsOffset bctx admitted_bounds}]"
+  s!"Operation(opType={opType}, next={printO next}, prev={printO prev}, parent={printO parent}, numResults={numResults}, numOperands={numOperands}, numBlockOperands={numBlockOperands}, numRegions={numRegions}[{regions}]) [Note: addr={ptr}, size={size}, memSize={memSize}, regionsOffset={ptr.computeRegionsOffset! bctx}, blockOperandsOffset={ptr.computeBlockOperandsOffset! bctx}, operandsOffset={ptr.computeOperandsOffset! bctx}]"
 
 def RegionMPtr.dump (ptr : RegionMPtr) (bctx : IRBufContext OpInfo) : String :=
   let memSize := bctx.mem.size
-  let firstBlock := ptr.readFirstBlock bctx admitted_bounds
-  let lastBlock := ptr.readLastBlock bctx admitted_bounds
-  let parent := ptr.readParent bctx admitted_bounds
+  let firstBlock := ptr.readFirstBlock! bctx
+  let lastBlock := ptr.readLastBlock! bctx
+  let parent := ptr.readParent! bctx
   s!"Region(firstBlock={printO firstBlock}, lastBlock={printO lastBlock}, parent={printO parent}) [Note: addr={ptr}, memSize={memSize}]"
 
 def BlockMPtr.dump (ptr : BlockMPtr) (bctx : IRBufContext OpInfo) : String :=
   let memSize := bctx.mem.size
-  let firstUse := ptr.readFirstUse bctx admitted_bounds
-  let prev := ptr.readPrev bctx admitted_bounds
-  let next := ptr.readNext bctx admitted_bounds
-  let parent := ptr.readParent bctx admitted_bounds
-  let firstOp := ptr.readFirstOp bctx admitted_bounds
-  let lastOp := ptr.readLastOp bctx admitted_bounds
-  let numArguments := ptr.readNumArguments bctx admitted_bounds
+  let firstUse := ptr.readFirstUse! bctx
+  let prev := ptr.readPrev! bctx
+  let next := ptr.readNext! bctx
+  let parent := ptr.readParent! bctx
+  let firstOp := ptr.readFirstOp! bctx
+  let lastOp := ptr.readLastOp! bctx
+  let numArguments := ptr.readNumArguments! bctx
   s!"Block(firstUse={printO firstUse}, prev={printO prev}, next={printO next}, parent={printO parent}, firstOp={printO firstOp}, lastOp={printO lastOp}, numArguments={numArguments}) [Note: addr={ptr}, memSize={memSize}]"
 
 def ValueImplMPtr.dump (ptr : ValueImplMPtr) (bctx : IRBufContext OpInfo) : String :=
   let memSize := bctx.mem.size
-  let type := ptr.readType bctx admitted_bounds
-  let firstUse := ptr.readFirstUse bctx admitted_bounds
+  let type := ptr.readType! bctx
+  let firstUse := ptr.readFirstUse! bctx
   s!"ValueImpl(type={type}, firstUse={printO firstUse}) [Note: addr={ptr}, memSize={memSize}]"
 
 def OpResultMPtr.dump (ptr : OpResultMPtr) (bctx : IRBufContext OpInfo) : String :=
   let memSize := bctx.mem.size
-  let type := ptr.readType bctx admitted_bounds
-  let firstUse := ptr.readFirstUse bctx admitted_bounds
-  let index := ptr.readIndex bctx admitted_bounds
-  let owner := ptr.readOwner bctx admitted_bounds
+  let type := ptr.readType! bctx
+  let firstUse := ptr.readFirstUse! bctx
+  let index := ptr.readIndex! bctx
+  let owner := ptr.readOwner! bctx
   s!"OpResult(type={type}, firstUse={printO firstUse}, index={index}, owner={printO owner}) [Note: addr={ptr}, memSize={memSize}]"
 
 def BlockArgumentMPtr.dump (ptr : BlockArgumentMPtr) (bctx : IRBufContext OpInfo) : String :=
   let memSize := bctx.mem.size
-  let type := ptr.readType bctx admitted_bounds
-  let firstUse := ptr.readFirstUse bctx admitted_bounds
-  let index := ptr.readIndex bctx admitted_bounds
-  let owner := ptr.readOwner bctx admitted_bounds
+  let type := ptr.readType! bctx
+  let firstUse := ptr.readFirstUse! bctx
+  let index := ptr.readIndex! bctx
+  let owner := ptr.readOwner! bctx
   s!"BlockArgument(type={type}, firstUse={printO firstUse}, index={index}, owner={printO owner}) [Note: addr={ptr}, memSize={memSize}]"
 
 def OpOperandMPtr.dump (ptr : OpOperandMPtr) (bctx : IRBufContext OpInfo) : String :=
   let memSize := bctx.mem.size
-  let nextUse := ptr.readNextUse bctx admitted_bounds
-  let back := ptr.readBack bctx admitted_bounds
-  let owner := ptr.readOwner bctx admitted_bounds
-  let value := ptr.readValue bctx admitted_bounds
+  let nextUse := ptr.readNextUse! bctx
+  let back := ptr.readBack! bctx
+  let owner := ptr.readOwner! bctx
+  let value := ptr.readValue! bctx
   s!"OpOperand(nextUse={printO nextUse}, back={printO back}, owner={printO owner}, value={printO value}) [Note: addr={ptr}, memSize={memSize}]"
 
 def BlockOperandMPtr.dump (ptr : BlockOperandMPtr) (bctx : IRBufContext OpInfo) : String :=
   let memSize := bctx.mem.size
-  let nextUse := ptr.readNextUse bctx admitted_bounds
-  let back := ptr.readBack bctx admitted_bounds
-  let owner := ptr.readOwner bctx admitted_bounds
-  let value := ptr.readValue bctx admitted_bounds
+  let nextUse := ptr.readNextUse! bctx
+  let back := ptr.readBack! bctx
+  let owner := ptr.readOwner! bctx
+  let value := ptr.readValue! bctx
   s!"BlockOperand(nextUse={printO nextUse}, back={printO back}, owner={printO owner}, value={printO value}) [Note: addr={ptr}, memSize={memSize}]"
 
 /-- Dump a nullable `OPtr`, printing `null` for the sentinel and otherwise the underlying object.
@@ -1375,36 +1438,43 @@ theorem OperationMPtr.debugPrint_eq (pref : String) (ptr : OperationMPtr) (bctx 
     ptr.debugPrint pref bctx = bctx := by
   simp only [OperationMPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem RegionMPtr.debugPrint_eq (pref : String) (ptr : RegionMPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by
   simp only [RegionMPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem BlockMPtr.debugPrint_eq (pref : String) (ptr : BlockMPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by
   simp only [BlockMPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem ValueImplMPtr.debugPrint_eq (pref : String) (ptr : ValueImplMPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by
   simp only [ValueImplMPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem OpResultMPtr.debugPrint_eq (pref : String) (ptr : OpResultMPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by
   simp only [OpResultMPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem BlockArgumentMPtr.debugPrint_eq (pref : String) (ptr : BlockArgumentMPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by
   simp only [BlockArgumentMPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem OpOperandMPtr.debugPrint_eq (pref : String) (ptr : OpOperandMPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by
   simp only [OpOperandMPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem BlockOperandMPtr.debugPrint_eq (pref : String) (ptr : BlockOperandMPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by
@@ -1415,21 +1485,25 @@ theorem OperationOPtr.debugPrint_eq (pref : String) (ptr : OperationOPtr) (bctx 
     ptr.debugPrint pref bctx = bctx := by
   simp only [OperationOPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem BlockOPtr.debugPrint_eq (pref : String) (ptr : BlockOPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by
   simp only [BlockOPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem RegionOPtr.debugPrint_eq (pref : String) (ptr : RegionOPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by
   simp only [RegionOPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem OpOperandOPtr.debugPrint_eq (pref : String) (ptr : OpOperandOPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by
   simp only [OpOperandOPtr.debugPrint]; rfl
 
+omit [SerializableOpInfo OpInfo] in
 @[simp, grind =]
 theorem BlockOperandOPtr.debugPrint_eq (pref : String) (ptr : BlockOperandOPtr) (bctx : IRBufContext OpInfo) :
     ptr.debugPrint pref bctx = bctx := by

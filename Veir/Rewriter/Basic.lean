@@ -707,7 +707,7 @@ protected def Rewriter.setOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffe
 
 @[inline]
 protected def Rewriter.setBlockOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
-    (hnum : (opPtr + Buffed.Operation.Offsets.numOperands).toInt + Buffed.Operation.Sizes.numOperands.toInt ≤ ctx₀.size)
+    (hnum : opPtr.toNat + Buffed.Operation.sizeBaseNat ≤ ctx₀.size)
     (hslot : (opPtr + opPtr.computeBlockOperandOffset ctx₀ idx hnum).toNat + Buffed.BlockOperand.size.toNat ≤ ctx₀.size)
     (value : Buffed.BlockMPtr) : Buffed.IRBufContext OpInfo :=
   let oper : Buffed.BlockOperandMPtr := opPtr + opPtr.computeBlockOperandOffset ctx₀ idx hnum
@@ -721,7 +721,7 @@ protected def Rewriter.setBlockOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : 
 protected def Rewriter.setRegion (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
     (region : Buffed.RegionMPtr)
     (hregion : (region + Buffed.Region.Offsets.parent).toInt + Buffed.Region.Sizes.parent.toInt ≤ ctx₀.size)
-    (hnum : (opPtr + Buffed.Operation.Offsets.numOperands).toInt + Buffed.Operation.Sizes.numOperands.toInt ≤ ctx₀.size)
+    (hnum : opPtr.toNat + Buffed.Operation.sizeBaseNat ≤ ctx₀.size)
     (hslot : (opPtr + opPtr.computeRegionOffset ctx₀ idx hnum).toNat + Buffed.ptrSize.toNat ≤ ctx₀.size) :
     Buffed.IRBufContext OpInfo :=
   -- Compute the region slot from `ctx₀` (the region-`writeParent` below touches the region, not

@@ -858,45 +858,8 @@ theorem Int64.add_toInt_lt' {a : Int64} {b : UInt64} (h : b.toNat < Int64.maxNat
     grind
   grind [add_toInt_lt]
 
-@[grind =]
-theorem UInt64.uint64_add_int64_toInt_lt {a : UInt64} {b : Int64}
-  (hnneg : 0 ≤ a.toNat + b.toInt)
-  (hxx : a.toNat < Int64.maxValue.toInt) :
-    ((a + b).toInt = a.toNat + b.toInt) := by
-  rcases b with ⟨b⟩
-  have : a.toNat < 2^64 := UInt64.toNat_lt a
-  have : b.toNat < 2^64 := UInt64.toNat_lt b
-  rw [UInt64.add_int64_r_def]
-  rw [Int64.toUInt64_add]
-  simp
-  simp only [Int64.toInt]
-  rw [Int64.toBitVec]
-  simp only
-  rw [UInt64.toInt]
-  rw [UInt64.toNat]
-  simp
-  by_cases hlt : ↑a.toNat + ↑b.toNat < 2 ^ 64
-  · simp_all
-    rw [Int.emod_eq_of_lt]
-    · congr
-      rw [UInt64.toNat]
-      rw [Int64.toInt] at *
-      rw [Int64.toBitVec] at *
-      simp at *
-      rw [BitVec.toInt_eq_toNat_cond]
-      split
-      · rfl
-      · grind [UInt64.toNat]
-    · grind
-    · grind
-  · rw [← Int.sub_emod_right]
-    rw [Int.emod_eq_of_lt]
-    · rw [BitVec.toInt_eq_toNat_cond]
-      have : b.toBitVec.toNat = b.toNat := by rfl
-      grind
-    · grind
-    · have : b.toBitVec.toNat = b.toNat := by rfl
-      grind
+-- `UInt64.uint64_add_int64_toInt_lt` moved to `RawAccessors.lean` so the raw accessors can
+-- discharge their own field-bound obligations; it remains visible here through the import.
 
 @[grind =]
 theorem UInt64.uint64_add_int64_toNat_lt {a : UInt64} {b : Int64}
@@ -1087,7 +1050,7 @@ theorem OperationPtr.computeResultsOffset!_ideal (ctx : Sim.IRContext OpInfo) (o
 @[layout_simp, layout_grind =]
 theorem OperationPtr.computeBlockOperandsOffset!_ideal (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim)
-    (h : (op.impl + Operation.Offsets.numOperands).toInt + Operation.Sizes.numOperands.toInt ≤ ctx.buf.size) :
+    (h : op.impl.toNat + Operation.sizeBaseNat ≤ ctx.buf.size) :
     (op.impl.computeBlockOperandsOffset! ctx.buf).toInt = Operation.Offsets.blockOperandsInt op.spec ctx.spec := by
   rw [← OperationMPtr.computeBlockOperandsOffset_eq_computeBlockOperandsOffset! (h := h)]
   exact OperationPtr.computeBlockOperandsOffset_ideal ctx op hib hsim h
@@ -1095,7 +1058,7 @@ theorem OperationPtr.computeBlockOperandsOffset!_ideal (ctx : Sim.IRContext OpIn
 @[layout_simp, layout_grind =]
 theorem OperationPtr.computeRegionsOffset!_ideal (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim)
-    (h : (op.impl + Operation.Offsets.numOperands).toInt + Operation.Sizes.numOperands.toInt ≤ ctx.buf.size) :
+    (h : op.impl.toNat + Operation.sizeBaseNat ≤ ctx.buf.size) :
     (op.impl.computeRegionsOffset! ctx.buf).toInt = Operation.Offsets.regionsInt op.spec ctx.spec := by
   rw [← OperationMPtr.computeRegionsOffset_eq_computeRegionsOffset! (h := h)]
   exact OperationPtr.computeRegionsOffset_ideal ctx op hib hsim h
