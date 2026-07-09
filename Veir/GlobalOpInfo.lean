@@ -45,14 +45,18 @@ instance : SerializableOpInfo OpCode where
   | .arith .addi => 1
   | .arith .muli => 2
   | .arith .constant => 3
-  | .test .test => 4
+  | .arith .andi => 4
+  | .test .test => 5
+  | .builtin .module => 6
   | _ => 0
 
   decode : UInt32 -> OpCode
   | 1 => .arith .addi
   | 2 => .arith .muli
   | 3 => .arith .constant
-  | 4 => .test .test
+  | 4 => .arith .andi
+  | 5 => .test .test
+  | 6 => .builtin .module
   | _ => .builtin .unregistered
 
 def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray Attribute) :

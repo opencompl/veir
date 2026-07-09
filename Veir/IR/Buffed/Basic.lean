@@ -245,7 +245,7 @@ macro "prove_allocBoundsOp" ctx₀:ident : tactic => `(tactic|
      Buffed.OperationMPtr.writeNumResults_size, Buffed.OperationMPtr.writeNumOperands_size,
      Buffed.OperationMPtr.writeNumBlockOperands_size, Buffed.OperationMPtr.writeNumRegions_size,
      Buffed.OperationMPtr.writeParent_size, Buffed.OperationMPtr.writeNext_size,
-     Buffed.OperationMPtr.writePrev_size]))
+     Buffed.OperationMPtr.writePrev_size, Buffed.OperationMPtr.writeOpType_size]))
 
 /- Bounds proof for the field `write*` calls inside the raw `Rewriter.set{Result,Operand,
 BlockOperand}` setters. These write into a slot pointer (an `OpResult`/`OpOperand`/`BlockOperand`

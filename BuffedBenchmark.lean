@@ -136,8 +136,62 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
 
 end Custom
 
-#exit
+namespace Program
 
+buffed (def_lemma := false)
+def emptySim : Option (Sim.IRContext OpCode × Sim.OperationPtr × InsertPoint) := do
+  let (ctx, topLevelOp) ← IRContext.create OpCode
+  let region := topLevelOp.getRegionPtr! ctx 0
+  let block := region.getFirstBlock! ctx
+  let insertPoint := InsertPoint.atEnd ⟨block.impl.toNat⟩
+  (ctx, topLevelOp, insertPoint)
+
+-- Create a program that looks like:
+-- func @main() -> u64 {
+--   %0 = arith.constant [root] : u64
+--   %1 = arith.constant [inc] : u64
+--   %2 = [opcode] %0, %1 : u64
+--   %3 = arith.constant [inc] : u64
+--   %4 = [opcode] %2, %3 : u64
+--   ...
+buffed (def_lemma := false)
+def constFoldTreeSim (opcode : OpCode) (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode × Sim.OperationPtr) := do
+  let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
+  let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
+  let (gctx, topOp, insertPoint) ← empty
+  (gctx, topOp)
+
+  -- let mut (gctx, gacc) ← Rewriter.createOp gctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  -- gctx ← gacc.setAttributes gctx rootAttr sorry
+
+  -- for i in [0:size] do
+  --   let ⟨thisOp, prop⟩ : (op : OpCode) × propertiesOf op := if (i % 100 < pc) then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
+  --   let (ctx, acc) := (gctx, gacc)
+  --   -- Create rhs const
+  --   let (ctx, rhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  --   let ctx ← rhsOp.setAttributes ctx incAttr sorry
+
+  --   let lhsValPtr := acc.getResultPtr ctx 0 sorry
+  --   let lhsVal : Sim.ValuePtr := ⟨lhsValPtr.impl, sorry⟩
+  --   let rhsValPtr := rhsOp.getResultPtr ctx 0 sorry
+  --   let rhsVal : Sim.ValuePtr := ⟨rhsValPtr.impl, sorry⟩
+
+  --   let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[lhsVal, rhsVal] #[] #[] prop insertPoint sorry sorry sorry sorry sorry
+  --   (gctx, gacc) := (ctx, acc)
+
+  -- let accResPtr := gacc.getResultPtr gctx 0 sorry
+  -- let accRes : Sim.ValuePtr := ⟨accResPtr.impl, sorry⟩
+  -- let (ctx, op) ← Rewriter.createOp gctx (.test .test) #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  -- (ctx, topOp)
+
+end Program
+
+buffed (def_lemma := false)
+def printSim (program : Option (Sim.IRContext OpCode × Sim.OperationPtr)) : IO Unit := do
+  if let some (ctx, topOp) := program then
+    Printer.printModule ctx topOp
+
+/-
 -- TODO: the array is bad... We need our own array type or not use arrays
 buffed (def_lemma := false)
 def createManyOpsLoopSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint)
@@ -236,33 +290,35 @@ buffed (def_lemma := false)
 def blockLengthSim (ctx : Sim.IRContext OpCode) (block : Sim.BlockPtr) : UInt64 := Id.run do
   let first := block.getFirstOp ctx (by sorry) |>.toOption.get sorry
   blockLength.loop ctx first 0
+-/
 
 def main : IO Unit := do
-  let N := 10_000_000
-  let startTime ← IO.monoNanosNow
-  if let some result := createManyOps N then
-    let r := result.1
-    let endTime ← IO.monoNanosNow
-    let elapsed := endTime - startTime |>.toFloat
-    let perOp := elapsed / N.toFloat
-    let perOpUs := perOp / 1_000
-    IO.println s!"Created operation with result: {result.1.impl}, took {perOpUs} μs per operation."
-    IO.println s!"Before replacing: {blockLength result.2 r}"
-    IO.sleep 100
-    let startTime ← IO.monoNanosNow
-    if let some result2 := replaceOps result.2 r then
-      let endTime ← IO.monoNanosNow
-      let elapsed := endTime - startTime |>.toFloat
-      IO.sleep 100
-      let perOp := elapsed / N.toFloat
-      let perOpUs := perOp / 1_000
-      IO.println s!"block : {r.impl}"
-      IO.println s!"block first: {r.getFirstOp result2 (by sorry) |>.impl}"
-      IO.println s!"block last: {r.getLastOp result2 (by sorry) |>.impl}"
-      let ctx := dumpOp (r.getFirstOp result2 (by sorry) |>.toOption.get sorry) result2 "first op after replace"
-      IO.println s!"Replaced operation with result, took {perOpUs} μs per operation. len {blockLength ctx r}"
-  else
-    IO.println "Failed to create operations."
+  (Program.constFoldTree (.arith .addi) () 1 100 42 1) |> print
+  -- let N := 10_000_000
+  -- let startTime ← IO.monoNanosNow
+  -- if let some result := createManyOps N then
+  --   let r := result.1
+  --   let endTime ← IO.monoNanosNow
+  --   let elapsed := endTime - startTime |>.toFloat
+  --   let perOp := elapsed / N.toFloat
+  --   let perOpUs := perOp / 1_000
+  --   IO.println s!"Created operation with result: {result.1.impl}, took {perOpUs} μs per operation."
+  --   IO.println s!"Before replacing: {blockLength result.2 r}"
+  --   IO.sleep 100
+  --   let startTime ← IO.monoNanosNow
+  --   if let some result2 := replaceOps result.2 r then
+  --     let endTime ← IO.monoNanosNow
+  --     let elapsed := endTime - startTime |>.toFloat
+  --     IO.sleep 100
+  --     let perOp := elapsed / N.toFloat
+  --     let perOpUs := perOp / 1_000
+  --     IO.println s!"block : {r.impl}"
+  --     IO.println s!"block first: {r.getFirstOp result2 (by sorry) |>.impl}"
+  --     IO.println s!"block last: {r.getLastOp result2 (by sorry) |>.impl}"
+  --     let ctx := dumpOp (r.getFirstOp result2 (by sorry) |>.toOption.get sorry) result2 "first op after replace"
+  --     IO.println s!"Replaced operation with result, took {perOpUs} μs per operation. len {blockLength ctx r}"
+  -- else
+  --   IO.println "Failed to create operations."
 
 -- def printManyOps (n : Nat) : IO Unit := do
 --   if let some (ctx, topOp) := createManyOps n then

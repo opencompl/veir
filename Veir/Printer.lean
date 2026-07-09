@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.Basic
+public import Veir.IR.Buffed.Sim
 public import Veir.Properties
 public import Veir.GlobalOpInfo
 
@@ -13,6 +14,8 @@ open Veir
 public section
 
 namespace Veir.Printer
+
+set_option warn.sorry false
 
 def opName (opType: Nat) : String :=
   match opType with
@@ -33,33 +36,27 @@ def printIndent (identFactor: Nat) : IO Unit :=
     IO.print ("  ")
     printIndent identFactor'
 
-def printValue (ctx : IRContext OpCode) (value : ValuePtr) : IO Unit := do
-  match value with
-  | ValuePtr.opResult opResultPtr =>
-    let opResult := opResultPtr.get! ctx
-    let opStruct := opResult.owner.get! ctx
-    if opStruct.results.size = 1 then
-      IO.print s!"%{opResult.owner.id}"
-    else
-      IO.print s!"%{opResult.owner.id}#{opResult.index}"
-  | ValuePtr.blockArgument blockArgPtr =>
-    let blockArg := blockArgPtr.get! ctx
-    IO.print s!"%arg{blockArg.owner.id}_{blockArg.index}"
+buffed (def_lemma := false)
+def printValueSim (_ctx : Sim.IRContext OpCode) (value : Sim.ValuePtr) : IO Unit := do
+  -- TODO: This just uses the raw address as index
+  IO.print s!"%{value.impl}"
 
-def printOpResults (ctx: IRContext OpCode) (op: OperationPtr) : IO Unit := do
+buffed (def_lemma := false)
+def printOpResultsSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
   if op.getNumResults! ctx ≠ 0 then
-    IO.print s!"%{op.id}"
+    IO.print s!"%{op.impl}"
     if op.getNumResults! ctx > 1 then
       IO.print s!":{op.getNumResults! ctx}"
     IO.print " = "
 
-def printOpOperands (ctx: IRContext OpCode) (op: OperationPtr) : IO Unit := do
+buffed (def_lemma := false)
+def printOpOperandsSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
   IO.print "("
   if op.getNumOperands! ctx ≠ 0 then
-    printValue ctx (op.getOperand! ctx 0)
+    printValue ctx ⟨(op.getOperandPtr! ctx 0).impl, sorry⟩
     for index in 1...(op.getNumOperands! ctx) do
       IO.print ", "
-      printValue ctx (op.getOperand! ctx index)
+      printValue ctx ⟨(op.getOperandPtr! ctx index).impl, sorry⟩
   IO.print ")"
 
 def printOperationType (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
@@ -105,11 +102,12 @@ def printAttrDictEntry (key : String) (value : Attribute) : IO Unit := do
   else
     IO.print s!"\"{key}\" = {value}"
 
-def printOpAttrDict (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
-  let attrs := (op.get! ctx).attrs
+buffed (def_lemma := false)
+def printOpAttrDictSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
+  let attrs := op.getAttributes! ctx
   if attrs.entries.size = 0 then return
   IO.print " "
-  IO.print (op.get! ctx).attrs
+  IO.print attrs
 
 def printOpProperties (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   let opType := (op.get! ctx).opType
@@ -121,40 +119,40 @@ def printOpProperties (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := 
   IO.print ">"
 
 mutual
-partial def printOpList (ctx: IRContext OpCode) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
+partial def printOpList (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) (indent: Nat := 0) : IO Unit := do
   printOperation ctx op indent
-  match _ : (op.get! ctx).next with
+  match _ : (op.getNextOp! ctx).toOption with
   | some nextOp =>
     printOpList ctx nextOp indent
   | none =>
     pure ()
 
-partial def printBlock (ctx: IRContext OpCode) (block: BlockPtr) (indent: Nat := 0) : IO Unit := do
+partial def printBlock (ctx: Sim.IRContext OpCode) (block: Sim.BlockPtr) (indent: Nat := 0) : IO Unit := do
   printIndent indent
-  IO.print s!"^{block.id}("
-  for i in 0...(block.getNumArguments! ctx) do
-    let arg := block.getArgument i
-    IO.print s!"%arg{block.id}_{i} : {(arg.get! ctx).type}"
-    if i + 1 < block.getNumArguments! ctx then
-      IO.print ", "
+  IO.print s!"^{block.impl}("
+  -- for i in 0...(block.getNumArguments! ctx) do
+  --   let arg := block.getArgumentPtr! ctx i
+  --   IO.print s!"{arg.impl}"
+  --   if i + 1 < block.getNumArguments! ctx then
+  --     IO.print ", "
   IO.println s!"):"
-  match _ : (block.get! ctx).firstOp with
-  | some firstOp =>
-    printOpList ctx firstOp (indent + 1)
-  | none =>
-    pure ()
+  -- match _ : (block.getFirstOp! ctx).toOption with
+  -- | some firstOp =>
+  --   printOpList ctx firstOp (indent + 1)
+  -- | none =>
+  --   pure ()
 
-partial def printBlockList (ctx: IRContext OpCode) (block: BlockPtr) (indent: Nat := 0) : IO Unit := do
+partial def printBlockList (ctx: Sim.IRContext OpCode) (block: Sim.BlockPtr) (indent: Nat := 0) : IO Unit := do
   printBlock ctx block indent
-  match _ : (block.get! ctx).next with
+  match _ : (block.getNextBlock! ctx).toOption with
   | some nextBlock =>
     printBlockList ctx nextBlock indent
   | none =>
     pure ()
 
-partial def printRegion (ctx: IRContext OpCode) (region: Region) (indent: Nat := 0) : IO Unit := do
+partial def printRegion (ctx: Sim.IRContext OpCode) (region: Sim.RegionPtr) (indent: Nat := 0) : IO Unit := do
   IO.print "{"
-  match region.firstBlock with
+  match (region.getFirstBlock! ctx).toOption with
   | none =>
     printIndent indent
     IO.print "}"
@@ -164,37 +162,32 @@ partial def printRegion (ctx: IRContext OpCode) (region: Region) (indent: Nat :=
     printIndent indent
     IO.print "}"
 
-partial def printRegions (ctx: IRContext OpCode) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
+partial def printRegions (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) (indent: Nat := 0) : IO Unit := do
   if op.getNumRegions! ctx = 0 then return
   IO.print "("
   for i in 0...((op.getNumRegions! ctx) - 1) do
-    let region := (op.getRegion! ctx i).get! ctx
+    let region := (op.getRegionPtr! ctx i)
     printRegion ctx region indent
     IO.print ", "
-  printRegion ctx ((op.getRegion! ctx (op.getNumRegions! ctx - 1)).get! ctx) indent
+  printRegion ctx (op.getRegionPtr! ctx (op.getNumRegions! ctx - 1)) indent
   IO.print ")"
 
-partial def printOperation (ctx: IRContext OpCode) (op: OperationPtr) (indent: Nat := 0) : IO Unit := do
-  let opStruct := op.get! ctx
+partial def printOperation (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) (indent: Nat := 0) : IO Unit := do
   printIndent indent
   printOpResults ctx op
   /- Unregistered operations store their original operation name in the properties. -/
-  let nameBytes : ByteArray :=
-    match opStruct.opType with
-    | .builtin .unregistered =>
-      (op.getProperties! ctx (.builtin .unregistered)).opName
-    | _ => opStruct.opType.name
+  let nameBytes : ByteArray := (op.getOpType! ctx).name
   IO.print s!"\"{String.fromUTF8! nameBytes}\""
   printOpOperands ctx op
-  printBlockOperands ctx op
-  printOpProperties ctx op
+  -- -- printBlockOperands ctx op
+  -- -- printOpProperties ctx op
   if op.getNumRegions! ctx > 0 then
     IO.print " "
     printRegions ctx op indent
-  printOpAttrDict ctx op
-  printOperationType ctx op
-  IO.println ""
+  -- printOpAttrDict ctx op
+  -- -- printOperationType ctx op
+  -- IO.println ""
 end
 
-partial def printModule (ctx: IRContext OpCode) (op: OperationPtr) : IO Unit := do
+partial def printModule (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) : IO Unit := do
   printOperation ctx op

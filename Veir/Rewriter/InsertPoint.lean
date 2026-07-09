@@ -25,7 +25,7 @@ section InsertPoint
 inductive InsertPoint where
   | before (op: OperationPtr)
   | atEnd (block: BlockPtr)
-deriving DecidableEq, BEq, Hashable
+deriving DecidableEq, BEq, Hashable, Inhabited
 
 @[grind]
 def InsertPoint.InBounds (ip : InsertPoint) (ctx : IRContext OpInfo) : Prop :=
