@@ -133,6 +133,18 @@ def constFoldTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (o
 
   constFoldTreeGo size ctx insertPoint opcode prop pc inc accVal
 
+buffed (def_lemma := false)
+def addZeroTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTree ctx ip (.arith .addi) () size pc 42 0
+
+buffed (def_lemma := false)
+def addOneTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTree ctx ip (.arith .addi) () size pc 42 1
+
+buffed (def_lemma := false)
+def multwoTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTree ctx ip (.arith .muli) () size pc 42 2
+
 end Program
 
 namespace Custom
