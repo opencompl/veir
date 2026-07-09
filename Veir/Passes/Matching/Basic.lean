@@ -213,6 +213,10 @@ def matchSub (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × 
   let (op, properties) ← matchOp op ctx (.llvm .sub) 2
   return (op[0]!, op[1]!, properties)
 
+def matchBitcast (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (.llvm .bitcast)) := do
+  let (op, properties) ← matchOp op ctx (.llvm .bitcast) 1
+  return (op[0]!, properties)
+
 def matchLoad (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf (.llvm .load)) := do
   let (op, properties) ← matchOp op ctx (.llvm .load) 1
   return (op[0]!, properties)

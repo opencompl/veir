@@ -697,6 +697,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .llvm .bitcast => do
     op.verifyPlainOpCounts ctx opIn 1 1
+    if Attribute.bitwidthOfType ((op.getOperand! ctx.raw 0).getType! ctx.raw) ≠ Attribute.bitwidthOfType (op.getResultTypes! ctx.raw)[0]! then
+      throw "llvm.bitcast: Expected types of the same bitwidth"
     pure ()
   /- MOD_ARITH -/
   | .mod_arith .add | .mod_arith .mul | .mod_arith .sub => do
