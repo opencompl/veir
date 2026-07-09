@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <lean/lean.h>
 #include <lean/lean_gmp.h>
+#include <inttypes.h>
 
 typedef size_t usize;
 typedef uint8_t uint8;
@@ -191,7 +192,7 @@ lean_obj_res buffed_ex_array_blit64(lean_obj_arg a, size_t offset, uint64_t x) {
     return r;
 }
 
-lean_obj_res buffed_ex_array_read(b_lean_obj_arg buf, uint64_t n, uint64_t len) {
+lean_obj_res buffed_ex_array_read(b_lean_obj_arg _w, b_lean_obj_arg buf, uint64_t n, uint64_t len) {
     if (len < 8) { // scalar
       uint64_t res = *(uint64_t *)(buffed_ex_array_cptr(buf) + n);
       res = res & ~((uint64_t)(-1) << (len * 8));
