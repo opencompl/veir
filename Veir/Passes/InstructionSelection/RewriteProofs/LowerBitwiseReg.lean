@@ -280,7 +280,13 @@ theorem and_isRefinedBy_toInt_and {bw : Nat}
       ⊒ RISCV.Reg.toInt (Data.RISCV.and (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) bw := by
   revert h₁ h₂
   rcases hbw with ⟨hA, hB, hC, hD⟩ | hbw | hbw | hbw
-  <;> try subst hbw; veir_bv_decide
+  · veir_bv_decide
+  · subst hbw
+    veir_bv_decide
+  · subst hbw
+    veir_bv_decide
+  · subst hbw
+    veir_bv_decide
 
 theorem and_local_preservesSemantics :
     LocalRewritePattern.PreservesSemantics and_local h h₂ h₃ h₄ :=
@@ -304,7 +310,13 @@ theorem or_isRefinedBy_toInt_or {bw : Nat}
       ⊒ RISCV.Reg.toInt (Data.RISCV.or (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) bw := by
   revert h₁ h₂
   rcases hbw with ⟨hA, hB, hC, hD⟩ | hbw | hbw | hbw
-  <;> try subst hbw; veir_bv_decide
+  · veir_bv_decide
+  · subst hbw
+    veir_bv_decide
+  · subst hbw
+    veir_bv_decide
+  · subst hbw
+    veir_bv_decide
 
 theorem or_local_preservesSemantics :
     LocalRewritePattern.PreservesSemantics or_local h h₂ h₃ h₄ :=
