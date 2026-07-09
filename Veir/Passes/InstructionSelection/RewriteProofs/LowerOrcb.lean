@@ -230,8 +230,80 @@ theorem and_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
       hInterpAnd hO0Type hO1Type
   exact ⟨o0v, o1v, hO0Val, hO1Val, by rw [hmEq]; exact hMResVal⟩
 
+/-! ## Layer-2 matcher lemmas for the two `Option`-shaped orcb guards -/
+
+theorem matchOrcbRight_implies {b m : ValuePtr} {y : Nat} {ctx : IRContext OpCode}
+    {e : propertiesOf (.llvm .lshr)} (h : matchOrcbRight b m y ctx = some e) :
+    (y = 0 ∧ b = m ∧ e.exact = false) ∨
+    (y ≠ 0 ∧ ∃ bOp yShamt yc, getDefiningOp b ctx = some bOp ∧
+      matchLshr bOp ctx = some (m, yShamt, e) ∧
+      matchConstantIntVal yShamt ctx = some yc ∧ yc.value = (y : Int)) := by
+  unfold matchOrcbRight at h
+  split at h
+  · rename_i hy0
+    split at h
+    · rename_i hbm
+      refine Or.inl ⟨hy0, hbm, ?_⟩
+      simp only [Option.some.injEq] at h
+      subst h
+      rfl
+    · simp at h
+  · rename_i hy
+    refine Or.inr ⟨hy, ?_⟩
+    cases hbOp : getDefiningOp b ctx with
+    | none => simp [hbOp] at h
+    | some bOp =>
+      cases hL : matchLshr bOp ctx with
+      | none => simp [hbOp, hL] at h
+      | some triple =>
+        obtain ⟨m', yShamt, lp⟩ := triple
+        cases hyc : matchConstantIntVal yShamt ctx with
+        | none => simp [hbOp, hL, hyc] at h
+        | some yc =>
+          simp only [hbOp, hL, hyc] at h
+          split at h
+          · rename_i hcond
+            obtain ⟨hy1, rfl⟩ := hcond
+            exact ⟨bOp, yShamt, yc, by grind, by grind, by grind, hy1⟩
+          · simp at h
+
+theorem matchOrcbMask_implies {mo0 mo1 : ValuePtr} {y : Nat} {ctx : IRContext OpCode}
+    {z : ValuePtr} {attr : IntegerAttr} (h : matchOrcbMask mo0 mo1 y ctx = some (z, attr)) :
+    BitVec.ofInt 64 attr.value = orcbMaskBV y ∧
+    ((z = mo0 ∧ matchConstantIntVal mo1 ctx = some attr) ∨
+     (z = mo1 ∧ matchConstantIntVal mo0 ctx = some attr)) := by
+  unfold matchOrcbMask at h
+  split at h
+  · rename_i attr1 h1
+    split at h
+    · rename_i hm1
+      simp at h
+      obtain ⟨rfl, rfl⟩ := h
+      exact ⟨hm1, Or.inl ⟨rfl, h1⟩⟩
+    · split at h
+      · rename_i attr0 h0
+        split at h
+        · rename_i hm0
+          simp at h
+          obtain ⟨rfl, rfl⟩ := h
+          exact ⟨hm0, Or.inr ⟨rfl, h0⟩⟩
+        · simp at h
+      · simp at h
+  · split at h
+    · rename_i attr0 h0
+      split at h
+      · rename_i hm0
+        simp at h
+        obtain ⟨rfl, rfl⟩ := h
+        exact ⟨hm0, Or.inr ⟨rfl, h0⟩⟩
+      · simp at h
+    · simp at h
+
 /-- The masked byte-indicator value: `0x0101…01 <<< Y`, whose only set bit in each byte is bit `Y`. -/
 def orcbMask (Y : Nat) : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< Y
+
+/-- The proof-side mask and the pattern-side mask (`RISCV64Sdag.orcbMaskBV`) agree. -/
+theorem orcbMask_eq (y : Nat) : orcbMask y = orcbMaskBV y := rfl
 
 /-- Core refinement: when `M = Z &&& (0x0101…01 <<< Y)` (each byte is `0` or `2^Y`), the LLVM idiom
     `sub (shl M (8-Y)) (lshr M Y)` computes exactly `riscv.orcb M` (`0xFF` per nonzero byte). Proved
@@ -334,74 +406,320 @@ theorem matchConstantIntVal_getVar?_of_strictlyDominates {ctx : WfIRContext OpCo
       hInterpCst
   rw [hCstEq]; exact hCstResVal
 
-/-
-The structural correctness proof `orcb_local_preservesSemantics` is still a work in progress.
-Everything it needs is now in place above, and all of it builds and is axiom-clean:
+/-! ## The structural correctness proof -/
 
-  * the core bitvector identity and the `orcb_isRefinedBy` data lemma (all `Y ∈ {0,…,7}` and all
-    shift/sub flag combinations);
-  * `shl_getVar?` / `and_getVar?` — the DAG graph lemmas for the matched `shl` and `and`;
-  * `matchConstantIntVal_getVar?_of_strictlyDominates` — the constant graph lemma generalized to a
-    constant that is an operand of an op *two levels* below the matched `sub` (the mask);
-  * `getDefiningOp!_of_getDefiningOp` — needed to build the dominance chain `andOp ⊐ shlOp ⊐ op`
-    that `and_getVar?` and the constant lemma take as input;
-  * `lshr_constant_zero_64`, which collapses the `Y = 0` case (whose right operand is `M` itself,
-    with no `lshr`) onto the same `orcb_isRefinedBy` instance as `Y > 0`, so the two cases share
-    one data lemma rather than needing two;
-  * `llvm_and_comm`, for the soundness gate accepting the mask on either `and` operand.
-
-What remains is the final assembly, following the `bexti_local_preservesSemantics` template
-(`LowerBexti.lean`) — the same three-op `castToRegLocal → orcb → replaceWithRegLocal` emit chain:
-
-  1. Peel `matchSub`, the result-type/width guards, `getDefiningOp a`, `matchShl`,
-    `matchConstantIntVal shamt`, and the `1 ≤ shc.value ≤ 8` range guard. (Drafted and building.)
-  2. Peel the `rightMatches` guard. After the initial `simp … at hpattern` this is an *`ite` whose
-    condition is itself an `ite`*, so a bare `split at hpattern` splits the inner condition
-    (`8 - shc.value ≤ 0`), not the outer one. Trying to discharge the outer guard without
-    branching does not work: both `rw [if_pos …]` and `simp only [if_pos …]` fail to fire against
-    a hand-written copy of the condition, because the elaborated `Decidable` instance does not
-    match. So split on the inner condition and handle the two cases. In the resulting inner
-    `split`, `isTrue` is the *bail* case (`¬ b = m`), not the continuing one.
-  2a. In the `Y > 0` case, peeling the guard is the open blocker, and the cause is now pinned
-    down. `orcb_local` writes `rightMatches` as an inline **`Bool`-valued `match`** consumed by
-    `if !rightMatches`. After `simp` that condition ends up *inside the `ite`'s `Decidable`
-    instance*, and consequently:
-      * `rw [hLshr] at hpattern` fails with `motive is not type correct`;
-      * `simp only [hLshr] at hpattern` makes no progress;
-      * `split at hpattern` fails with `failed to generalize discriminant(s)` — it cannot
-        abstract the match without breaking the instance;
-      * `cases hRM : <the Bool expression>` *does* succeed and yields `hRM`, but rewriting `hRM`
-        back into `hpattern` then fails to find the occurrence (the `Int.toNat` / `max _ 0`
-        normal form and the instance do not match syntactically).
-    Every *other* guard in this pattern peels with a plain `rw` because each is `Option`-shaped
-    (`let some … := … | return (ctx, none)`), which is the idiom the rest of the codebase uses.
-
-    The fix is therefore to restructure the pattern rather than to out-tactic it: lift
-    `rightMatches` into its own `Option`-returning matcher, e.g.
-
-        def matchOrcbRight (b m : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
-            Option (propertiesOf (.llvm .lshr))
-
-    returning `some lshrProps` when `y = 0 ∧ b = m`, or when `b` is `lshr m y`; then
-    `orcb_local` becomes `let some lshrProps := matchOrcbRight b m y ctx | return (ctx, none)`
-    and peels like every other guard. Add the corresponding `matchOrcbRight_implies`
-    (Layer 2, `Matching/Lemmas.lean`). This changes `RISCV64Sdag.lean`, so it must be checked
-    behaviour-preserving against the `isel-sdag-riscv64` tests.
-
-  3. In the `Y = 0` case the guard yields `b = m`; rewrite `b`'s value with
-    `lshr_constant_zero_64`. In the `Y > 0` case, recover `b`'s value with
-    `lshrConst_getVar?_of_EquationLemmaAt` (`LowerBexti.lean`). Both then establish
-    `∃ e, bv = lshr mv (constant 64 Y) e`, after which the tail is shared: `obtain ⟨e, rfl⟩`
-    substitutes `bv` and keeps `mv`. (Deriving these as an existential, rather than `obtain rfl`
-    on `bv = mv`, matters: the latter eliminates `mv`, which the rest of the proof needs.)
-  4. Peel the soundness gate (`getDefiningOp m`, `matchAnd`, the mask check), pin the mask operand
-    with `matchConstantIntVal_getVar?_of_strictlyDominates`, and commute it into second position
-    with `llvm_and_comm` when it matched on the left.
-  5. Peel the three creations with `peelCastToRegLocal` / `peelOpCreation!` /
-    `peelReplaceWithRegLocal`, discharge the `getOpType!`/`getOperands!`/`getResultTypes!`
-    transports (seed them explicitly per creation, as in `LowerBexti.lean`), replay the chain with
-    `interpretOp_castToReg_forward` / `interpretOp_riscv_unaryReg_forward` /
-    `interpretOp_castBack_forward`, and close with `orcb_isRefinedBy Y`.
--/
+set_option maxHeartbeats 4000000 in
+/-- `orcb_local` preserves semantics: `sub (shl M (8-Y)) (lshr M Y)` lowered to
+    `riscv.orcb M` refines the source, given the soundness gate `M = and Z (0x0101…01 <<< Y)`.
+    The `Y = 0` case (whose right operand is `M` itself) collapses onto the same
+    `orcb_isRefinedBy` instance via `lshr_constant_zero_64`, so both cases share one tail. -/
+theorem orcb_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps orcb_local}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges orcb_local}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds orcb_local}
+    {h₄ : LocalRewritePattern.ReturnValues orcb_local} :
+    LocalRewritePattern.PreservesSemantics orcb_local h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, orcb_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [Option.bind_eq_bind, pure, Option.bind_eq_bind] at hpattern
+  have hMatchSome : (matchSub op ctx.raw).isSome := by
+    cases hM : matchSub op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨a, b, subProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  obtain ⟨hOpType, hNumResults, hOperands, hSubProps⟩ := matchSub_implies hMatch
+  -- Establish this before peeling: with the emit chain in `hpattern`, `grind` blows up.
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  have opVerif : op.Verified ctx opInBounds := by grind
+  have ⟨hNRes, hNOper, hNSucc, hNReg, intType, hResType, hOp0Type, hOp1Type⟩ :=
+    OperationPtr.Verified.llvm_sub opVerif hOpType
+  have hAEq : a = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  have hBEq : b = (op.getOperands! ctx.raw)[1]! := by rw [hOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = a := by
+    rw [hAEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = b := by
+    rw [hBEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hAType : (a.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hOperand0, hOp0Type]
+  have hBType : (b.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hOperand1, hOp1Type]
+  have hResTypeVal : ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType intType := by
+    rw [hResType]
+  rw [hResTypeVal] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isFalse hne => simp at hpattern
+  rename_i hW64
+  have hDefASome : (getDefiningOp a ctx.raw).isSome := by
+    cases hM : getDefiningOp a ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨aOp, hDefA⟩ := Option.isSome_iff_exists.mp hDefASome
+  rw [hDefA] at hpattern
+  simp only [] at hpattern
+  have hShlSome : (matchShl aOp ctx.raw).isSome := by
+    cases hM : matchShl aOp ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨m, shamt, shlProps⟩, hShl⟩ := Option.isSome_iff_exists.mp hShlSome
+  rw [hShl] at hpattern
+  simp only [] at hpattern
+  have hShcSome : (matchConstantIntVal shamt ctx.raw).isSome := by
+    cases hM : matchConstantIntVal shamt ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨shc, hShcMatch⟩ := Option.isSome_iff_exists.mp hShcSome
+  rw [hShcMatch] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isTrue hrange => simp at hpattern
+  rename_i hRange
+  have hShcLo : 1 ≤ shc.value := by simp at hRange; omega
+  have hShcHi : shc.value ≤ 8 := by simp at hRange; omega
+  obtain ⟨hShlOpType, hShlNumResults, hShlOperands, hShlPropsEq⟩ := matchShl_implies hShl
+  -- Source interpretation of the matched `sub`.
+  obtain ⟨av, bv, haVal, hbVal, hMem, hRes, hCf⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := .sub)
+      (srcFn := fun x y p => Data.LLVM.Int.sub x y p.nsw p.nuw)
+      (props := op.getProperties! ctx.raw (.llvm .sub))
+      opInBounds hOpType hNumResults hOperands rfl
+      (by intro bw x y props resultTypes blockOperands mem res hh
+          simp only [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp] at hh
+          grind)
+      hinterp hAType hBType
+  subst hCf
+  -- `a`'s value, via the `shl` graph lemma.
+  obtain ⟨mv, hmVal, haShl, hmType, hmDom, hmIn, hmNotRes⟩ :=
+    shl_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds stateWf hDefA hShl hShcMatch
+      (by rw [hOperands]; simp) hAType
+  obtain rfl : av = Data.LLVM.Int.shl mv
+      (Data.LLVM.Int.constant intType.bitwidth shc.value) shlProps.nsw shlProps.nuw := by
+    have := haVal.symm.trans haShl; simpa using this
+  -- Collapse the bitwidth to the literal 64.
+  obtain ⟨bw⟩ := intType
+  simp only at hW64 hmType hmVal hbVal hRes hAType hBType hResTypeVal ⊢
+  subst hW64
+  -- The right-operand guard is now `Option`-shaped and peels with a plain `rw`.
+  have hRightSome : (matchOrcbRight b m ((8 - shc.value).toNat) ctx.raw).isSome := by
+    cases hM : matchOrcbRight b m ((8 - shc.value).toNat) ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨lshrProps, hRight⟩ := Option.isSome_iff_exists.mp hRightSome
+  rw [hRight] at hpattern
+  simp only [] at hpattern
+  -- Soundness gate.
+  have hDefMSome : (getDefiningOp m ctx.raw).isSome := by
+    cases hM : getDefiningOp m ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨mOp, hDefM⟩ := Option.isSome_iff_exists.mp hDefMSome
+  rw [hDefM] at hpattern
+  simp only [] at hpattern
+  have hAndSome : (matchAnd mOp ctx.raw).isSome := by
+    cases hM : matchAnd mOp ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨mo0, mo1, andProps⟩, hAnd⟩ := Option.isSome_iff_exists.mp hAndSome
+  rw [hAnd] at hpattern
+  simp only [] at hpattern
+  have hMaskSome : (matchOrcbMask mo0 mo1 ((8 - shc.value).toNat) ctx.raw).isSome := by
+    cases hM : matchOrcbMask mo0 mo1 ((8 - shc.value).toNat) ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨zVal, maskAttr⟩, hMask⟩ := Option.isSome_iff_exists.mp hMaskSome
+  rw [hMask] at hpattern
+  simp only [] at hpattern
+  -- `b`'s value: `lshr m Y` (the `Y = 0` case collapses onto it via `lshr_constant_zero_64`).
+  have hY7 : (8 - shc.value).toNat ≤ 7 := by omega
+  obtain ⟨e, hbvEq⟩ : ∃ e : Bool, bv = Data.LLVM.Int.lshr mv
+      (Data.LLVM.Int.constant 64 (((8 - shc.value).toNat : Nat) : Int)) e := by
+    rcases matchOrcbRight_implies hRight with ⟨hy0, hbm, hex⟩ |
+      ⟨hy, bOp, yShamt, yc, hDefB, hLshr, hYc, hYcVal⟩
+    · refine ⟨false, ?_⟩
+      have hbvm : bv = mv := by
+        have := (hbm ▸ hbVal).symm.trans hmVal; simpa using this
+      have hz : (((8 - shc.value).toNat : Nat) : Int) = 0 := by omega
+      simp only [hbvm, hz]
+      exact (lshr_constant_zero_64 mv false).symm
+    · refine ⟨lshrProps.exact, ?_⟩
+      obtain ⟨mv', hmVal', hbLshr, -, -, -, -⟩ :=
+        lshrConst_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds stateWf hDefB hLshr hYc
+          (by rw [hOperands]; simp) hBType
+      have hmv' : mv' = mv := by
+        have := hmVal'.symm.trans hmVal; simpa using this
+      rw [hmv'] at hbLshr
+      have hb : bv = Data.LLVM.Int.lshr mv
+          (Data.LLVM.Int.constant 64 yc.value) lshrProps.exact := by
+        have := hbVal.symm.trans hbLshr; simpa using this
+      rw [hb, hYcVal]
+  subst hbvEq
+  -- Dominance chain `mOp ⊐ aOp ⊐ op`.
+  obtain ⟨hShlOpType', hShlNumResults', hShlOperands', -⟩ := matchShl_implies hShl
+  obtain ⟨hAndOpType, hAndNumResults, hAndOperands, hAndPropsEq⟩ := matchAnd_implies hAnd
+  have hAIn : a.InBounds ctx.raw := by grind
+  have hADefines := getDefiningOp!_of_getDefiningOp hAIn hDefA hShlNumResults'
+  have hAOpSDom : aOp.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hADefines
+      (by rw [hOperands]; simp)
+  have hMDefines := getDefiningOp!_of_getDefiningOp hmIn hDefM hAndNumResults
+  have hMOpSDomA : mOp.strictlyDominates aOp ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hMDefines
+      (by rw [hShlOperands']; simp)
+  have hMOpSDom : mOp.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_trans hMOpSDomA hAOpSDom
+  have hMOpIn : mOp.InBounds ctx.raw := by
+    obtain ⟨mPtr, hmp, hmo⟩ := getDefiningOp_implies hDefM
+    subst hmo; rw [hmp] at hmIn; grind [OpResultPtr.InBounds]
+  -- `m = and o0v o1v`.
+  obtain ⟨o0v, o1v, hO0Val, hO1Val, hmAnd⟩ :=
+    and_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds stateWf hDefM hAnd hMOpSDom hmIn
+      hmType
+  have hmvAnd : mv = Data.LLVM.Int.and o0v o1v := by
+    have := hmVal.symm.trans hmAnd; simpa using this
+  -- Operand types of the `and`.
+  have hAndVerified : mOp.Verified ctx hMOpIn := by grind
+  obtain ⟨-, -, -, -, andIntTy, hAndResType, hAndOp0Type, hAndOp1Type⟩ :=
+    OperationPtr.Verified.llvm_and hAndVerified hAndOpType
+  have hmResTy : ((mOp.getResult 0).get! ctx.raw).type.val = Attribute.integerType andIntTy := by
+    rw [hAndResType]
+  have hmIsRes : m = ValuePtr.opResult (mOp.getResult 0) := by
+    obtain ⟨mPtr, hmp, hmo⟩ := getDefiningOp_implies hDefM
+    subst hmo
+    have hIdx : mPtr.index < mPtr.op.getNumResults! ctx.raw := by
+      rw [hmp] at hmIn; grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+    have hidx0 : mPtr.index = 0 := by omega
+    rw [hmp]; cases mPtr
+    simp only [OperationPtr.getResult] at *
+    grind
+  have hAndIntTy : andIntTy = ⟨64⟩ := by
+    rw [hmIsRes] at hmType
+    have : (ValuePtr.opResult (mOp.getResult 0)).getType! ctx.raw
+        = ((mOp.getResult 0).get! ctx.raw).type := rfl
+    rw [this, hmResTy] at hmType; grind
+  subst hAndIntTy
+  have hO0Eq : mo0 = (mOp.getOperands! ctx.raw)[0]! := by rw [hAndOperands]; rfl
+  have hO1Eq : mo1 = (mOp.getOperands! ctx.raw)[1]! := by rw [hAndOperands]; rfl
+  have hO0Op : mOp.getOperand! ctx.raw 0 = mo0 := by
+    rw [hO0Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hO1Op : mOp.getOperand! ctx.raw 1 = mo1 := by
+    rw [hO1Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hO0Type : (mo0.getType! ctx.raw).val = Attribute.integerType ⟨64⟩ := by
+    rw [← hO0Op, hAndOp0Type]
+  have hO1Type : (mo1.getType! ctx.raw).val = Attribute.integerType ⟨64⟩ := by
+    rw [← hO1Op, hAndOp1Type]
+  -- Pin the mask operand and rewrite `m` as `and Z (val mask)`.
+  obtain ⟨hMaskVal, hSide⟩ := matchOrcbMask_implies hMask
+  have hMaskConst : ∀ (v : ValuePtr) (attr : IntegerAttr),
+      matchConstantIntVal v ctx.raw = some attr → v ∈ mOp.getOperands! ctx.raw →
+      (v.getType! ctx.raw).val = Attribute.integerType ⟨64⟩ →
+      state.variables.getVar? v = some (RuntimeValue.int 64
+        (Data.LLVM.Int.constant 64 attr.value)) := by
+    intro v attr hv hvin hvty
+    exact matchConstantIntVal_getVar?_of_strictlyDominates ctxDom ctxVerif opInBounds stateWf
+      hv hMOpIn hvin hMOpSDom hvty
+  have hMaskIsVal : Data.LLVM.Int.constant 64 maskAttr.value
+      = Data.LLVM.Int.val (orcbMask ((8 - shc.value).toNat)) := by
+    simp only [Data.LLVM.Int.constant, orcbMask_eq, hMaskVal]
+  obtain ⟨Z, hmvZ⟩ : ∃ Z, mv = Data.LLVM.Int.and Z
+      (Data.LLVM.Int.val (orcbMask ((8 - shc.value).toNat))) := by
+    rcases hSide with ⟨rfl, hc1⟩ | ⟨rfl, hc0⟩
+    · refine ⟨o0v, ?_⟩
+      have := hMaskConst mo1 maskAttr hc1 (by rw [hAndOperands]; simp) hO1Type
+      have ho1 : o1v = Data.LLVM.Int.constant 64 maskAttr.value := by
+        have := hO1Val.symm.trans this; simpa using this
+      rw [hmvAnd, ho1, hMaskIsVal]
+    · refine ⟨o1v, ?_⟩
+      have := hMaskConst mo0 maskAttr hc0 (by rw [hAndOperands]; simp) hO0Type
+      have ho0 : o0v = Data.LLVM.Int.constant 64 maskAttr.value := by
+        have := hO0Val.symm.trans this; simpa using this
+      rw [hmvAnd, ho0, hMaskIsVal, llvm_and_comm]
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- Shrink the context before peeling: `grind` inside the `peel*` macros is non-monotonic in
+  -- context size (see `ProofStrategy.md`), and these facts have all been consumed.
+  clear hRight hMask hSide hMaskConst hMaskIsVal hO0Val hO1Val hmAnd hmvAnd
+  clear hAndResType hAndOp0Type hAndOp1Type hO0Eq hO1Eq hO0Op hO1Op hO0Type hO1Type hmResTy hmIsRes
+  clear hAndOperands hAndOpType hAndNumResults hAndPropsEq hMDefines hMOpSDomA hMOpSDom
+  clear hADefines hAOpSDom hAIn hShlOpType' hShlNumResults' hShlOperands'
+  clear hMOpIn hDefM hAnd hAndVerified hDefA hShl hShcMatch hMatchSome hRes hbVal haVal
+  -- Peel the three creations.
+  peelCastToRegLocal hpattern ctx₁ mCastOp hMCast hmDom hmDom₁
+  peelOpCreation! hpattern ctx₂ orcbOp hOrcb hmDom₁ hmDom₂
+  peelReplaceWithRegLocal hpattern ctx₃ castBackOp hCastBack hmDom₂ hmDom₃
+  cleanupHpattern hpattern
+  obtain ⟨mt, hMVal', hmtRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hmIn hmVal
+      hmDom hmDom₃ hmNotRes
+  have hMCastType : mCastOp.getOpType! ctx₃.raw = .builtin .unrealized_conversion_cast := by grind
+  have hOrcbType : orcbOp.getOpType! ctx₃.raw = .riscv .orcb := by grind
+  have hCastBackType : castBackOp.getOpType! ctx₃.raw = .builtin .unrealized_conversion_cast := by
+    grind
+  have hMCastOperands : mCastOp.getOperands! ctx₃.raw = #[m] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hMCast (operation := mCastOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hOrcb (operation := mCastOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hCastBack (operation := mCastOp)]
+  have hOrcbOperands :
+      orcbOp.getOperands! ctx₃.raw = #[ValuePtr.opResult (mCastOp.getResult 0)] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hOrcb (operation := orcbOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hCastBack (operation := orcbOp)]
+  have hCastBackOperands :
+      castBackOp.getOperands! ctx₃.raw = #[ValuePtr.opResult (orcbOp.getResult 0)] := by grind
+  have hCBType : ((op.getResult 0).get! ctx₂.raw).type
+      = (⟨Attribute.integerType { bitwidth := 64 }, by grind⟩ : TypeAttr) := by
+    have h1 : (ValuePtr.opResult (op.getResult 0)).getType! ctx₂.raw
+        = (ValuePtr.opResult (op.getResult 0)).getType! ctx.raw := by
+      grind [ValuePtr.getType!_WfRewriter_createOp hOrcb
+          (value := ValuePtr.opResult (op.getResult 0)),
+        ValuePtr.getType!_WfRewriter_createOp hMCast
+          (value := ValuePtr.opResult (op.getResult 0))]
+    rw [ValuePtr.getType!_opResult, ValuePtr.getType!_opResult] at h1
+    rw [h1]; exact Subtype.ext hResTypeVal
+  have hMCastResTypes :
+      mCastOp.getResultTypes! ctx₃.raw = #[⟨Attribute.registerType ⟨none⟩, rfl⟩] := by
+    grind [OperationPtr.getResultTypes!_WfRewriter_createOp hMCast (operation := mCastOp),
+      OperationPtr.getResultTypes!_WfRewriter_createOp hOrcb (operation := mCastOp),
+      OperationPtr.getResultTypes!_WfRewriter_createOp hCastBack (operation := mCastOp)]
+  have hOrcbResTypes :
+      orcbOp.getResultTypes! ctx₃.raw = #[⟨Attribute.registerType ⟨none⟩, rfl⟩] := by
+    grind [OperationPtr.getResultTypes!_WfRewriter_createOp hOrcb (operation := orcbOp),
+      OperationPtr.getResultTypes!_WfRewriter_createOp hCastBack (operation := orcbOp)]
+  have hCastBackResTypes : castBackOp.getResultTypes! ctx₃.raw
+      = #[⟨Attribute.integerType { bitwidth := 64 }, by grind⟩] := by grind
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, -⟩ :=
+    interpretOp_castToReg_forward (state := state') (inBounds := by grind)
+      hMCastType hMCastOperands hMCastResTypes hMVal'
+  obtain ⟨s₂, hI₂, hMem₂, hRes₂, -⟩ :=
+    interpretOp_riscv_unaryReg_forward (state := s₁) (inBounds := by grind)
+      (f := Data.RISCV.orcb) (fun _ _ _ _ => rfl)
+      hOrcbType hOrcbOperands hOrcbResTypes hRes₁
+  obtain ⟨s₃, hI₃, hMem₃, hRes₃, -⟩ :=
+    interpretOp_castBack_forward (state := s₂) (inBounds := by grind)
+      hCastBackType hCastBackOperands hCastBackResTypes hRes₂
+  refine ⟨s₃, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, hI₂, hI₃, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int 64
+      (RISCV.Reg.toInt (Data.RISCV.orcb (LLVM.Int.toReg mt)) 64)],
+    by simp [hRes₃, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Discharge with the core data lemma.
+  have hZref : Data.LLVM.Int.and Z
+      (Data.LLVM.Int.val (orcbMask ((8 - shc.value).toNat))) ⊒ mt := by
+    rw [← hmvZ]; exact hmtRef
+  have hlem := orcb_isRefinedBy ((8 - shc.value).toNat) hY7
+    subProps.nsw subProps.nuw shlProps.nsw shlProps.nuw e hZref
+  have hshl : ((8 - (8 - shc.value).toNat : Nat) : Int) = shc.value := by omega
+  rw [hshl] at hlem
+  rw [hmvZ, ← hSubProps]
+  simpa using hlem
 
 end Veir

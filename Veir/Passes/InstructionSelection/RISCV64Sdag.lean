@@ -88,6 +88,50 @@ def xnor (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite xnor_local rewriter op opInBounds
 
+/-- The mask `orcb_local`'s soundness gate looks for: `0x0101_0101_0101_0101 <<< Y`, whose only
+    set bit in each byte is bit `Y`. -/
+def orcbMaskBV (y : Nat) : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
+
+/-- Right-operand matcher for `orcb_local`: the `sub`'s right operand `b` must be `M` itself
+    (when `Y = 0`) or `lshr M Y`. Returns the `lshr`'s properties (`{ exact := false }` in the
+    `Y = 0` case, where there is no `lshr`).
+
+    This is deliberately an `Option`-returning matcher rather than the inline `Bool`-valued
+    `match` it replaces: a `Bool` condition ends up inside the `ite`'s `Decidable` instance, where
+    neither `rw`, `simp only`, `split`, nor `cases` can peel it out of a `PreservesSemantics`
+    proof's `hpattern`. Every other guard in this pattern is `Option`-shaped for the same reason. -/
+def matchOrcbRight (b m : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
+    Option (propertiesOf (.llvm .lshr)) :=
+  if y = 0 then
+    if b = m then some { exact := false } else none
+  else
+    match getDefiningOp b ctx with
+    | none => none
+    | some bOp =>
+      match matchLshr bOp ctx with
+      | none => none
+      | some (m', yShamt, lshrProps) =>
+        match matchConstantIntVal yShamt ctx with
+        | none => none
+        | some yc => if yc.value = (y : Int) ∧ m' = m then some lshrProps else none
+
+/-- Soundness-gate matcher for `orcb_local`: one of the `and`'s two operands must be the constant
+    mask `orcbMaskBV y`. Returns the *other* operand (the `Z` of `M = and Z mask`) together with
+    the mask's attribute. `Option`-shaped for the same reason as `matchOrcbRight`. -/
+def matchOrcbMask (mo0 mo1 : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
+    Option (ValuePtr × IntegerAttr) :=
+  match matchConstantIntVal mo1 ctx with
+  | some attr1 =>
+    if BitVec.ofInt 64 attr1.value = orcbMaskBV y then some (mo0, attr1)
+    else
+      match matchConstantIntVal mo0 ctx with
+      | some attr0 => if BitVec.ofInt 64 attr0.value = orcbMaskBV y then some (mo1, attr0) else none
+      | none => none
+  | none =>
+    match matchConstantIntVal mo0 ctx with
+    | some attr0 => if BitVec.ofInt 64 attr0.value = orcbMaskBV y then some (mo1, attr0) else none
+    | none => none
+
 /--
   `sub (shl M (8 - Y)) (lshr M Y)` -> `riscv.orcb M`,
   where `M = and Z (0x0101_0101_0101_0101 <<< Y)`
@@ -104,29 +148,11 @@ def orcb_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   if shc.value < 1 || 8 < shc.value then return (ctx, none)
   let y : Nat := (8 - shc.value).toNat
   /- right operand must be `M` itself (when `Y = 0`) or `lshr M Y` -/
-  let rightMatches : Bool :=
-    if y == 0 then
-      decide (b = m)
-    else
-      match getDefiningOp b ctx with
-      | none => false
-      | some bOp =>
-        match matchLshr bOp ctx with
-        | none => false
-        | some (m', yShamt, _) =>
-          match matchConstantIntVal yShamt ctx with
-          | none => false
-          | some yc => yc.value == (y : Int) && decide (m' = m)
-  if !rightMatches then return (ctx, none)
+  let some _lshrProps := matchOrcbRight b m y ctx | return (ctx, none)
   /- soundness gate: `M = and Z (0x0101_0101_0101_0101 <<< Y)` -/
   let some mOp := getDefiningOp m ctx | return (ctx, none)
   let some (mo0, mo1, _) := matchAnd mOp ctx | return (ctx, none)
-  let maskBV : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
-  let isMask : ValuePtr → Bool := fun v =>
-    match matchConstantIntVal v ctx with
-    | some attr => BitVec.ofInt 64 attr.value == maskBV
-    | none => false
-  if !(isMask mo0 || isMask mo1) then return (ctx, none)
+  let some _zAttr := matchOrcbMask mo0 mo1 y ctx | return (ctx, none)
   let (ctx, mCastOp) ← castToRegLocal ctx m
   /- actual `riscv.orcb` -/
   let (ctx, orcbOp) ← WfRewriter.createOp! ctx (.riscv .orcb) #[RegisterType.mk] #[mCastOp.getResult 0]
