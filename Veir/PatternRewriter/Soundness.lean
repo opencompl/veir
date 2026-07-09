@@ -5332,6 +5332,360 @@ theorem InterpreterState.EquationHolds.sameData_transport {ctxA ctxB : WfIRConte
     simp_all
   rwa [hst] at hB
 
+/-! ### Self-refinement: a verified context refines itself
+
+The no-match branch of `RewritePattern.fromLocalRewrite` hands back the *input* context unchanged
+(`LocalRewritePattern.Valid.returnsCtxNoChanges`), so driver soundness on that branch reduces to
+`moduleOp.isModuleRefinedBy ctx moduleOp ctx`. That is **not** `rfl`: `isRefinedByAsFunction`
+quantifies over *refined* argument arrays, so it asks that `interpretFunction` be monotone in its
+arguments at a fixed context.
+
+The cross-context monotonicity lemmas (`interpretOpList_monoAt`, `interpretTerminatedOpList_monoAt`)
+already prove the hard, per-operation half of this; instantiating them at `ctx' := ctx` with the
+identity renaming `ValueMapping.idMap` gives the block-level statement. What remains is to redo the
+`interpretBlockCFG` fixpoint induction and the `interpretRegion`/`interpretFunction` wrappers for the
+identity mapping, which is what this section does. Only `Verified` and `Dom` on the single context are
+needed, and — unlike the rewrite case — no `EquationLemmaAt` invariant: that invariant exists to
+justify the *rewritten* block's op-step simulation, and here every block is an "other block".
+-/
+
+/-- The identity value renaming of a context onto itself. -/
+def ValueMapping.idMap (ctx : WfIRContext OpInfo) : ValueMapping ctx ctx := fun v => v
+
+@[simp] theorem ValueMapping.idMap_apply {ctx : WfIRContext OpInfo}
+    (v : {v : ValuePtr // v.InBounds ctx.raw}) : ValueMapping.idMap ctx v = v := rfl
+
+@[simp] theorem ValueMapping.applyToArray_idMap {ctx : WfIRContext OpInfo} (vals : Array ValuePtr)
+    (valsIn : ∀ v ∈ vals, v.InBounds ctx.raw) :
+    (ValueMapping.idMap ctx).applyToArray vals valsIn = vals := by
+  simp [ValueMapping.applyToArray, ValueMapping.idMap]
+
+/-- Every operation is preserved by the identity renaming: all six of its data fields are literally
+unchanged, and the only value the identity sends onto `op`'s `i`-th result is that result itself. -/
+theorem ValueMapping.idMap_preservesOperation {ctx : WfIRContext OpInfo} (op : OperationPtr)
+    (opIn : op.InBounds ctx.raw) :
+    (ValueMapping.idMap ctx).PreservesOperation op op opIn opIn where
+  opType := rfl
+  props := rfl
+  resultTypes := rfl
+  successors := rfl
+  operands := (ValueMapping.applyToArray_idMap _ _).symm
+  results := (ValueMapping.applyToArray_idMap _ _).symm
+  reflect := fun _val _valIn _i _hdom h => h
+
+/-- **Cross-edge transport of the scoped entry relation, identity mapping.** The single-context
+counterpart of `RewrittenAt.transport_succ_entry`, with the same proof: pure scope-weakening, since a
+value in `succ`'s incoming-edge scope that is not one of `succ`'s arguments already dominated `b`'s
+exit. -/
+theorem InterpreterState.isRefinedByAt.transport_succ_entry_id {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) {b succ : BlockPtr} (bIn : b.InBounds ctx.raw)
+    (succIn : succ.InBounds ctx.raw) {s s' : InterpreterState ctx}
+    (hsucc : succ ∈ b.getSuccessors! ctx.raw)
+    (h : s.isRefinedByAt s' (ValueMapping.idMap ctx) (InsertPoint.atEnd b) (InsertPoint.atEnd b)
+      bIn bIn) :
+    s.isRefinedByAt s' (ValueMapping.idMap ctx) (.blockEntry succ) (.blockEntry succ) succIn succIn :=
+  h.weaken
+    (fun _val hsc =>
+      (WfIRContext.Dom.value_dominatesIp_successor_entry ctxDom bIn hsucc hsc.1).resolve_right hsc.2)
+    (fun _val hsc =>
+      (WfIRContext.Dom.value_dominatesIp_successor_entry ctxDom bIn hsucc hsc.1).resolve_right hsc.2)
+
+/-- **Self-monotonicity of `interpretBlock`.** Running a block on refined block-argument values from a
+scoped-refined entry state yields a scoped-refined exit state and a refined control-flow action. This
+is the "other block" branch of `RewrittenAt.interpretBlock_refinement` with `σ := idMap`: the block's
+operation list is the same on both sides, so `interpretTerminatedOpList_monoAt` applies directly. -/
+theorem interpretBlock_monoAt_id {ctx : WfIRContext OpCode} (ctxVerif : ctx.Verified)
+    (ctxDom : ctx.Dom) {b : BlockPtr} (bIn : b.InBounds ctx.raw)
+    {values values' : Array RuntimeValue} {state state' : InterpreterState ctx}
+    (hState : state.isRefinedByAt state' (ValueMapping.idMap ctx)
+      (.blockEntry b) (.blockEntry b) bIn bIn)
+    (hVals : values ⊒ values')
+    (hTgtInv : ∀ newVars', state'.variables.setArgumentValues? b values' bIn = some newVars' →
+        (InterpreterState.mk newVars' state'.memory).DefinesDominating
+          (InsertPoint.atStart! b ctx.raw)
+          ((InsertPoint.inBounds_atStart! ctx.wellFormed bIn).mpr bIn)) :
+    Interp.isRefinedBy
+      (fun (r₁ r₂ : InterpreterState ctx × ControlFlowAction) =>
+        r₁.1.isRefinedByAt r₂.1 (ValueMapping.idMap ctx)
+          (InsertPoint.atEnd b) (InsertPoint.atEnd b) bIn bIn ∧ r₁.2.isRefinedBy r₂.2)
+      (interpretBlock b values state bIn)
+      (interpretBlock b values' state' bIn) := by
+  -- Proof-irrelevant `interpretOpList` list-congruence (used to relabel `dropLast`/`front`).
+  have iopl_congr : ∀ {l l' : List OperationPtr} (s : InterpreterState ctx)
+      (hl : ∀ o ∈ l, o.InBounds ctx.raw) (hl' : ∀ o ∈ l', o.InBounds ctx.raw),
+      l = l' → interpretOpList l s hl = interpretOpList l' s hl' := by
+    intro l l' s hl hl' h; subst h; rfl
+  rw [interpretBlock_eq_setArgumentValues?_interpretTerminatedOpList bIn,
+      interpretBlock_eq_setArgumentValues?_interpretTerminatedOpList bIn]
+  rcases hsa : state.variables.setArgumentValues? b values bIn with _ | newVars
+  · simp [Interp.isRefinedBy]
+  · -- The source set its block arguments, so they conform; refinement (`hVals`) carries the
+    -- conformance to the target arguments (the argument types are literally the same here).
+    have tgtConforms : ∀ j, j < b.getNumArguments! ctx.raw →
+        (values'[j]!).Conforms ((b.getArguments! ctx.raw)[j]!.getType! ctx.raw) := by
+      intro j hj
+      rw [BlockPtr.getArguments!.getElem!_eq_getArgument hj]
+      have hPt : values[j]! ⊒ values'[j]! := by
+        obtain ⟨hsize, hpt⟩ := hVals
+        by_cases h : j < values.size
+        · exact hpt j h
+        · rw [getElem!_neg values j h, getElem!_neg values' j (hsize ▸ h)]
+          exact RuntimeValue.isRefinedBy_refl _
+      exact RuntimeValue.Conforms_of_isRefinedBy hPt
+        ((VariableState.setArgumentValues?_isSome_iff_conforms state.variables).mpr ⟨newVars, hsa⟩ j
+          hj)
+    obtain ⟨newVars', hsa', hpsRefVar⟩ := VariableState.setArgumentValues?_isRefinedByAt
+      bIn bIn hState.2 hVals (ValueMapping.applyToArray_idMap _ _).symm
+      (fun _val valIn _hNotArg _hdom => by simpa using _hNotArg)
+      tgtConforms hsa
+    have hpsRef : (InterpreterState.mk newVars state.memory).isRefinedByAt
+        ⟨newVars', state'.memory⟩ (ValueMapping.idMap ctx)
+        (InsertPoint.atStart! b ctx.raw) (InsertPoint.atStart! b ctx.raw) := ⟨hState.1, hpsRefVar⟩
+    have hTgtDD := hTgtInv newVars' hsa'
+    simp only [hsa', Option.bind_some]
+    -- Running `b`'s whole operation list from the entry lands at `atEnd b`.
+    have hSp : InsertPoint.afterLast (b.operationList ctx.raw ctx.wellFormed bIn).toList ctx.raw
+        (InsertPoint.atStart! b ctx.raw) = InsertPoint.atEnd b :=
+      afterLast_operationList_atStart!_eq_atEnd bIn
+    have chain := BlockPtr.operationListWF ctx.raw b bIn ctx.wellFormed
+    have opsIn : ∀ o ∈ (b.operationList ctx.raw ctx.wellFormed bIn).toList,
+        o.InBounds ctx.raw := fun o ho => chain.arrayInBounds (by simpa using ho)
+    have hFrame : ∀ o, (_h : o ∈ (b.operationList ctx.raw ctx.wellFormed bIn).toList) →
+        (ValueMapping.idMap ctx).PreservesOperation o o :=
+      fun o h => ValueMapping.idMap_preservesOperation o (opsIn o h)
+    obtain ⟨front, term, frontIn, _termIn, harr, hno⟩ := ctxVerif.operationList_split b bIn
+    have hdrop : (b.operationList ctx.raw ctx.wellFormed bIn).toList.dropLast = front := by
+      rw [harr, List.dropLast_concat]
+    have hPH : ∀ (h : (b.operationList ctx.raw ctx.wellFormed bIn).toList ≠ []),
+        InsertPoint.atStart! b ctx.raw
+          = .before ((b.operationList ctx.raw ctx.wellFormed bIn).toList.head h) ∧
+        InsertPoint.atStart! b ctx.raw
+          = .before ((b.operationList ctx.raw ctx.wellFormed bIn).toList.head h) :=
+      fun h => ⟨atStart!_eq_before_head bIn h, atStart!_eq_before_head bIn h⟩
+    have hInitNoCf : ∀ (s2 : InterpreterState ctx) (cf : ControlFlowAction),
+        interpretOpList (b.operationList ctx.raw ctx.wellFormed bIn).toList.dropLast
+          ⟨newVars, state.memory⟩
+          (fun o ho => opsIn o (List.dropLast_subset _ ho)) ≠ some (.ok (s2, some cf)) := by
+      intro s2 cf hcontra
+      apply hno ⟨newVars, state.memory⟩ s2 cf
+      rw [← iopl_congr ⟨newVars, state.memory⟩
+        (fun o ho => opsIn o (List.dropLast_subset _ ho)) frontIn hdrop]
+      exact hcontra
+    have hmono := interpretTerminatedOpList_monoAt ctxVerif ctxDom ctxDom
+      opsIn opsIn chain.opChainSlice chain.opChainSlice
+      (p := InsertPoint.atStart! b ctx.raw) (p' := InsertPoint.atStart! b ctx.raw)
+      (by grind) (by grind) hpsRef hTgtDD hFrame hPH hInitNoCf
+    simp only [hSp] at hmono
+    exact hmono
+
+/-- **Self-monotonicity of `interpretBlockCFG`.** The CFG walk from any in-bounds block is monotone in
+the block-argument values and the entry state. The `partial_fixpoint` induction mirrors
+`RewrittenAt.interpretBlockCFG_refinement`, but the motive carries only the scoped entry relation, the
+value refinement, and the target `DefinesDominating` invariant — the latter re-established across each
+CFG edge by `interpretBlock_branch_definesDominating_succ_atStart`. -/
+theorem interpretBlockCFG_monoAt_id {ctx : WfIRContext OpCode} (ctxVerif : ctx.Verified)
+    (ctxDom : ctx.Dom) {b : BlockPtr} (bIn : b.InBounds ctx.raw)
+    {values values' : Array RuntimeValue} {state state' : InterpreterState ctx}
+    (hState : state.isRefinedByAt state' (ValueMapping.idMap ctx)
+      (.blockEntry b) (.blockEntry b) bIn bIn)
+    (hVals : values ⊒ values')
+    (hTgtInv : ∀ newVars', state'.variables.setArgumentValues? b values' bIn = some newVars' →
+        (InterpreterState.mk newVars' state'.memory).DefinesDominating
+          (InsertPoint.atStart! b ctx.raw)
+          ((InsertPoint.inBounds_atStart! ctx.wellFormed bIn).mpr bIn)) :
+    Interp.isRefinedBy
+      (fun (r₁ r₂ : InterpreterState ctx × Array RuntimeValue) =>
+        r₁.1.memory = r₂.1.memory ∧ r₁.2 ⊒ r₂.2)
+      (interpretBlockCFG b values state bIn)
+      (interpretBlockCFG b values' state' bIn) := by
+  refine interpretBlockCFG.fixpoint_induct
+    (motive := fun g => ∀ (b : BlockPtr) (bIn : b.InBounds ctx.raw)
+      (values values' : Array RuntimeValue) (state state' : InterpreterState ctx),
+      state.isRefinedByAt state' (ValueMapping.idMap ctx)
+        (.blockEntry b) (.blockEntry b) bIn bIn → values ⊒ values' →
+      (∀ newVars', state'.variables.setArgumentValues? b values' bIn = some newVars' →
+        (InterpreterState.mk newVars' state'.memory).DefinesDominating
+          (InsertPoint.atStart! b ctx.raw)
+          ((InsertPoint.inBounds_atStart! ctx.wellFormed bIn).mpr bIn)) →
+      Interp.isRefinedBy
+        (fun (r₁ r₂ : InterpreterState ctx × Array RuntimeValue) =>
+          r₁.1.memory = r₂.1.memory ∧ r₁.2 ⊒ r₂.2)
+        (g b values state bIn)
+        (interpretBlockCFG b values' state' bIn))
+    ?admissible ?step b bIn values values' state state' hState hVals hTgtInv
+  case admissible =>
+    apply Lean.Order.admissible_pi_apply
+      (P := fun (b : BlockPtr) (gb : Array RuntimeValue → InterpreterState ctx →
+              b.InBounds ctx.raw → Interp (InterpreterState ctx × Array RuntimeValue)) =>
+        ∀ (bIn : b.InBounds ctx.raw) (values values' : Array RuntimeValue)
+          (state state' : InterpreterState ctx),
+          state.isRefinedByAt state' (ValueMapping.idMap ctx)
+            (.blockEntry b) (.blockEntry b) bIn bIn → values ⊒ values' →
+          (∀ newVars', state'.variables.setArgumentValues? b values' bIn = some newVars' →
+            (InterpreterState.mk newVars' state'.memory).DefinesDominating
+              (InsertPoint.atStart! b ctx.raw)
+              ((InsertPoint.inBounds_atStart! ctx.wellFormed bIn).mpr bIn)) →
+          Interp.isRefinedBy
+            (fun (r₁ r₂ : InterpreterState ctx × Array RuntimeValue) =>
+              r₁.1.memory = r₂.1.memory ∧ r₁.2 ⊒ r₂.2)
+            (gb values state bIn)
+            (interpretBlockCFG b values' state' bIn))
+    intro b
+    apply Lean.Order.admissible_pi; intro bIn
+    apply Lean.Order.admissible_pi; intro values
+    apply Lean.Order.admissible_pi; intro values'
+    apply Lean.Order.admissible_pi; intro state
+    apply Lean.Order.admissible_pi; intro state'
+    apply Lean.Order.admissible_pi; intro hState
+    apply Lean.Order.admissible_pi; intro hVals
+    apply Lean.Order.admissible_pi; intro hTgtInv
+    apply Lean.Order.admissible_apply
+      (P := fun (_v : Array RuntimeValue) (gv : InterpreterState ctx → b.InBounds ctx.raw →
+              Interp (InterpreterState ctx × Array RuntimeValue)) =>
+        Interp.isRefinedBy
+          (fun (r₁ r₂ : InterpreterState ctx × Array RuntimeValue) =>
+            r₁.1.memory = r₂.1.memory ∧ r₁.2 ⊒ r₂.2)
+          (gv state bIn) (interpretBlockCFG b values' state' bIn))
+      (x := values)
+    apply Lean.Order.admissible_apply
+      (P := fun (_s : InterpreterState ctx) (gs : b.InBounds ctx.raw →
+              Interp (InterpreterState ctx × Array RuntimeValue)) =>
+        Interp.isRefinedBy
+          (fun (r₁ r₂ : InterpreterState ctx × Array RuntimeValue) =>
+            r₁.1.memory = r₂.1.memory ∧ r₁.2 ⊒ r₂.2)
+          (gs bIn) (interpretBlockCFG b values' state' bIn))
+      (x := state)
+    apply Lean.Order.admissible_apply
+      (P := fun (_h : b.InBounds ctx.raw) (gh : Interp (InterpreterState ctx × Array RuntimeValue)) =>
+        Interp.isRefinedBy
+          (fun (r₁ r₂ : InterpreterState ctx × Array RuntimeValue) =>
+            r₁.1.memory = r₂.1.memory ∧ r₁.2 ⊒ r₂.2)
+          gh (interpretBlockCFG b values' state' bIn))
+      (x := bIn)
+    exact Lean.Order.admissible_flatOrder _ trivial
+  case step =>
+    intro g IH b bIn values values' state state' hState hVals hTgtInv
+    have hBlk := interpretBlock_monoAt_id ctxVerif ctxDom bIn hState hVals hTgtInv
+    rw [interpretBlockCFG]
+    rcases hsrc : interpretBlock b values state bIn with _ | (⟨s, act⟩ | _)
+    · simp only [hsrc, Interp.isRefinedBy_none_target]
+    · rw [hsrc] at hBlk
+      simp only [Interp.isRefinedBy_ok_target_iff] at hBlk
+      obtain ⟨⟨s', act'⟩, htgt, hsRef, hactRef⟩ := hBlk
+      cases act with
+      | «return» r =>
+        obtain ⟨r', hact', hr⟩ : ∃ r', act' = .return r' ∧ r ⊒ r' := by
+          cases act' <;> simp_all [ControlFlowAction.isRefinedBy]
+        subst hact'
+        simp only [hsrc, htgt, Interp.isRefinedBy]
+        exact ⟨hsRef.1, hr⟩
+      | branch r succ =>
+        obtain ⟨r', hact', hr⟩ : ∃ r', act' = .branch r' succ ∧ r ⊒ r' := by
+          cases act' <;> simp_all [ControlFlowAction.isRefinedBy]
+        subst hact'
+        by_cases hsuccIn : succ.InBounds ctx.raw
+        · obtain ⟨front, term, frontIn, termIn, harr, hFrontNoCf⟩ := ctxVerif.operationList_split b bIn
+          have hsucc : succ ∈ b.getSuccessors! ctx.raw :=
+            interpretBlock_branch_mem_getSuccessors! bIn frontIn termIn harr hFrontNoCf hsrc
+          have hStateSucc :=
+            InterpreterState.isRefinedByAt.transport_succ_entry_id ctxDom bIn hsuccIn hsucc hsRef
+          have hTgtInvSucc := interpretBlock_branch_definesDominating_succ_atStart ctxDom
+            bIn hsuccIn frontIn termIn harr hFrontNoCf hTgtInv htgt
+          simp only [hsrc, htgt, dif_pos hsuccIn]
+          exact IH succ hsuccIn r r' s s' hStateSucc hr hTgtInvSucc
+        · simp only [hsrc, dif_neg hsuccIn, Interp.isRefinedBy_none_target]
+    · simp only [hsrc, Interp.ub, Interp.isRefinedBy_ub_target]
+
+/-- **Self-monotonicity of `interpretRegion`.** Both runs enter the same entry block, so this is
+`interpretBlockCFG_monoAt_id` at that block. -/
+theorem interpretRegion_monoAt_id {ctx : WfIRContext OpCode} (ctxVerif : ctx.Verified)
+    (ctxDom : ctx.Dom) {r : RegionPtr} (rIn : r.InBounds ctx.raw)
+    {values values' : Array RuntimeValue} {state state' : InterpreterState ctx}
+    (hState : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw),
+      state.isRefinedByAt state' (ValueMapping.idMap ctx)
+        (.blockEntry entryBlock) (.blockEntry entryBlock) entryIn entryIn)
+    (hVals : values ⊒ values')
+    (hTgtInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw),
+        (r.get! ctx.raw).firstBlock = some entryBlock →
+        ∀ newVars', state'.variables.setArgumentValues? entryBlock values' entryIn = some newVars' →
+        (InterpreterState.mk newVars' state'.memory).DefinesDominating
+          (InsertPoint.atStart! entryBlock ctx.raw)
+          ((InsertPoint.inBounds_atStart! ctx.wellFormed entryIn).mpr entryIn)) :
+    Interp.isRefinedBy
+      (fun (r₁ r₂ : InterpreterState ctx × Array RuntimeValue) =>
+        r₁.1.memory = r₂.1.memory ∧ r₁.2 ⊒ r₂.2)
+      (interpretRegion r values state rIn)
+      (interpretRegion r values' state' rIn) := by
+  unfold interpretRegion
+  split
+  · -- Empty region: both runs are `none`.
+    exact Interp.isRefinedBy_none_target
+  · rename_i entryBlock heq
+    have entryIn : entryBlock.InBounds ctx.raw := by
+      have hmaybe := RegionPtr.firstBlock!_inBounds ctx.wellFormed.inBounds rIn
+      rw [Option.maybe_def] at hmaybe
+      exact hmaybe entryBlock (by rw [RegionPtr.get!_eq_get rIn]; exact heq)
+    have hentry! : (r.get! ctx.raw).firstBlock = some entryBlock := by
+      rw [RegionPtr.get!_eq_get rIn]; exact heq
+    exact interpretBlockCFG_monoAt_id ctxVerif ctxDom entryIn (hState entryBlock entryIn) hVals
+      (hTgtInv entryBlock entryIn hentry!)
+
+/-- **Self-monotonicity of `interpretFunction`.** Interpreting a `func.func` on refined arguments from
+the same memory is refined by interpreting it on the originals. The fresh empty entry state is
+trivially self-refined; the target `DefinesDominating` invariant on it is the verified-context axiom
+`entry_definesDominating`, applicable because `funcOp` is a `func.func`. -/
+theorem interpretFunction_monotone_id {ctx : WfIRContext OpCode} (ctxVerif : ctx.Verified)
+    (ctxDom : ctx.Dom) {funcOp : OperationPtr} (funcOpIn : funcOp.InBounds ctx.raw)
+    (hFunc : funcOp.getOpType! ctx.raw = OpCode.func Func.func)
+    {values values' : Array RuntimeValue} {mem : MemoryState} (hVals : values ⊒ values') :
+    Interp.isRefinedBy FunctionResult.isRefinedBy
+      (interpretFunction funcOp values mem funcOpIn)
+      (interpretFunction funcOp values' mem funcOpIn) := by
+  unfold interpretFunction
+  by_cases hNum : funcOp.getNumRegions ctx.raw funcOpIn = 1
+  · -- Both sides proceed: the `≠ 1` guard is false, and the two `dite`s differ only in `values`.
+    rw [dif_neg (by rw [hNum]; simp), dif_neg (by rw [hNum]; simp)]
+    have hi : (0 : Nat) < funcOp.getNumRegions ctx.raw funcOpIn := by rw [hNum]; omega
+    have rIn : (funcOp.getRegion ctx.raw 0 funcOpIn hi).InBounds ctx.raw := by
+      rw [← OperationPtr.getRegion!_eq_getRegion hi]
+      exact OperationPtr.getRegions!_inBounds ctx.wellFormed.inBounds funcOpIn (by grind)
+    have hregRef := interpretRegion_monoAt_id ctxVerif ctxDom rIn
+      (state := ⟨.empty ctx, mem⟩) (state' := ⟨.empty ctx, mem⟩)
+      (fun entryBlock entryIn => InterpreterState.empty_isRefinedByAt (ValueMapping.idMap ctx) mem
+        (.blockEntry entryBlock) (.blockEntry entryBlock) entryIn entryIn)
+      hVals
+      (fun entryBlock entryIn hEntry newVars' h =>
+        WfIRContext.Verified.entry_definesDominating ctxVerif funcOp funcOpIn hFunc values' mem
+          entryBlock entryIn (by rw [OperationPtr.getRegion!_eq_getRegion hi]; exact hEntry)
+          newVars' h)
+    show Interp.isRefinedBy FunctionResult.isRefinedBy
+      ((interpretRegion (funcOp.getRegion ctx.raw 0 funcOpIn hi) values ⟨.empty ctx, mem⟩ rIn)
+        >>= fun x => pure (x.1.memory, x.2))
+      ((interpretRegion (funcOp.getRegion ctx.raw 0 funcOpIn hi) values' ⟨.empty ctx, mem⟩ rIn)
+        >>= fun x => pure (x.1.memory, x.2))
+    exact Interp.isRefinedBy_functionResult_of_region hregRef
+  · -- `funcOp` is not a function: the source run is `none`.
+    rw [dif_pos (by simpa using hNum)]
+    exact Interp.isRefinedBy_none_target
+
+/-- A `func.func` in a verified, dominance-wellformed context refines itself as a function. -/
+theorem OperationPtr.isRefinedByAsFunction_refl {ctx : WfIRContext OpCode} (ctxVerif : ctx.Verified)
+    (ctxDom : ctx.Dom) {funcOp : OperationPtr} (funcOpIn : funcOp.InBounds ctx.raw)
+    (hFunc : funcOp.getOpType! ctx.raw = OpCode.func Func.func) :
+    funcOp.isRefinedByAsFunction ctx funcOp ctx funcOpIn funcOpIn :=
+  fun _valuesSource _valuesTarget _mem hVals =>
+    interpretFunction_monotone_id ctxVerif ctxDom funcOpIn hFunc hVals
+
+/-- **A module refines itself.** Each top-level `func.func` is matched by itself, and refines itself
+by `isRefinedByAsFunction_refl`. Note this is *not* reflexivity of a preorder-style relation on
+syntactically equal arguments: it is the argument-monotonicity of the interpreter. -/
+theorem OperationPtr.isModuleRefinedBy_refl {ctx : WfIRContext OpCode} (ctxVerif : ctx.Verified)
+    (ctxDom : ctx.Dom) (moduleOp : OperationPtr) :
+    moduleOp.isModuleRefinedBy ctx moduleOp ctx :=
+  fun func₁ func₁In _name hTop =>
+    ⟨func₁, func₁In, hTop,
+      OperationPtr.isRefinedByAsFunction_refl ctxVerif ctxDom func₁In hTop.isFunc⟩
+
 /-! ### PR 9, final bridge: the driver refines every module
 
 Composing the two endpoints — `RewrittenAt.of_fromLocalRewrite` (the driver's net edit *is* a
@@ -5349,20 +5703,40 @@ transport (`InterpreterState.EquationHolds.sameData_transport`) — is discharge
 `hSrcSplit`/`hTgtSplit`/`hSrcInv`/`hTgtInv`/`hTgtEqInv` structural side-conditions follow from the two
 contexts being `Verified` (the axioms of *Structural consequences of `Verified`*), so the statement is
 closed: a valid pattern applied by the driver to a verified, dominance-wellformed context refines every
-module, with no leftover obligations. -/
+module, with no leftover obligations.
+
+The driver run is *not* assumed to be a match: `fromLocalRewrite` also succeeds when the pattern
+declines to fire, returning the input context (`returnsCtxNoChanges`). That branch is closed by
+`OperationPtr.isModuleRefinedBy_refl`. -/
 theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
     {pattern : LocalRewritePattern OpCode}
     (hValid : pattern.Valid)
     (hSrcDom : rewriter.ctx.Dom)
     (hSrcVerif : rewriter.ctx.Verified)
-    (hpat : pattern rewriter.ctx op = some (newCtxPat, some (newOps, newValues)))
     (hdriver : RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter')
     {moduleOp : OperationPtr} :
     moduleOp.isModuleRefinedBy rewriter.ctx moduleOp rewriter'.ctx := by
+  -- Case on what the pattern returned; only the `some (_, some _)` match case does a rewrite.
+  rcases hres : pattern rewriter.ctx op with _ | ⟨newCtxPat, res⟩
+  · -- The pattern errored: the driver returns `none`, contradicting `hdriver`.
+    simp [RewritePattern.fromLocalRewrite, hres] at hdriver
+  cases res with
+  | none =>
+    -- No match: the driver hands back the input context untouched, and a verified context refines
+    -- itself (this is interpreter argument-monotonicity, not `rfl`).
+    have hctx : rewriter.ctx = newCtxPat := hValid.returnsCtxNoChanges _ _ _ hres
+    have hctx' : rewriter'.ctx = rewriter.ctx := by
+      simp only [RewritePattern.fromLocalRewrite, hres, pure, Option.some.injEq] at hdriver
+      rw [← hdriver]
+      exact hctx.symm
+    rw [hctx']
+    exact OperationPtr.isModuleRefinedBy_refl hSrcVerif hSrcDom moduleOp
+  | some newOpsValues =>
+  obtain ⟨newOps, newValues⟩ := newOpsValues
   -- The driver's net edit is a `RewrittenAt` instance.
   obtain ⟨block, pre, post, blockIn, blockIn', hOpParent, hRW, hFrameBounds, hFrameType,
       hNewOpsFrame, hSurvFrame⟩ :=
-    RewrittenAt.of_fromLocalRewrite hValid hSrcDom hSrcVerif hpat hdriver
+    RewrittenAt.of_fromLocalRewrite hValid hSrcDom hSrcVerif hres hdriver
   -- The target context is verified: the pattern's `rewritePreservesVerified` obligation propagates
   -- source verification across the driver run.
   have newCtxVerif : rewriter'.ctx.Verified :=
@@ -5408,7 +5782,7 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
       have hsPatData : sPat.SameData s' := ⟨rfl, rfl⟩
       -- `op` survives into the pattern's create-only context (it is only erased by the *driver*).
       have opInPat : op.InBounds newCtxPat.raw := by
-        have := (hValid.returnCtxChanges rewriter.ctx op newCtxPat newOps newValues hpat).inBounds_mono
+        have := (hValid.returnCtxChanges rewriter.ctx op newCtxPat newOps newValues hres).inBounds_mono
           (GenericPtr.operation op) (by grind)
         grind
       -- (C) The successful source step defines all of `op`'s results, so `sourceValues` exists.
@@ -5433,7 +5807,7 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
             (OperationPtr.strictlyDominates_def.mp (OperationPtr.dominatesIp_before.mp hDom')).2
         -- Reflect `op'` back to the source context (created ops are detached, dominate nothing).
         have hCreated : WfIRContext.WithCreatedOps rewriter.ctx newCtxPat :=
-          hValid.returnCtxChanges rewriter.ctx op newCtxPat newOps newValues hpat
+          hValid.returnCtxChanges rewriter.ctx op newCtxPat newOps newValues hres
         obtain ⟨op'Src, hDomSrc⟩ := hCreated.op_dominatesIp_before_reflect hDom'
         have op'In' : op'.InBounds rewriter'.ctx.raw := hRW.survives op' op'Src hne
         -- `op'` dominates `op`, so its operands are defined before `op` — never one of `op`'s results.
@@ -5473,7 +5847,7 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
       have hSPatDefDom : sPat.DefinesDominating (InsertPoint.before op) (by grind) := by
         intro val valIn hdom
         have hCreated : WfIRContext.WithCreatedOps rewriter.ctx newCtxPat :=
-          hValid.returnCtxChanges rewriter.ctx op newCtxPat newOps newValues hpat
+          hValid.returnCtxChanges rewriter.ctx op newCtxPat newOps newValues hres
         obtain ⟨valSrc, hdomSrc⟩ := hCreated.value_dominatesIp_before_reflect hdom
         have hnotres : val ∉ op.getResults! rewriter.ctx.raw := fun hres =>
           WfIRContext.Dom.opResult_not_dominatesIp_before_self hSrcDom hres hdomSrc
@@ -5489,34 +5863,34 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
       -- (`mapping_val_eq_rewriteMapping_val`); `sPat` shares `s'`'s data; the target scope moves from
       -- `p'` to the create-only `.before op` (the point image of the rewrite).
       have hRefInput : s.isRefinedByAt sPat
-          (LocalRewritePattern.mapping hpat hValid.returnValuesInBounds hValid.returnValues
+          (LocalRewritePattern.mapping hres hValid.returnValuesInBounds hValid.returnValues
             hValid.returnCtxChanges) (.at (.before op)) (.at (.before op)) := by
         refine ⟨hRef.1, ?_⟩
         intro val valIn hSrc _hTgt sv tv hsv htv
         -- `mapping` and `hRW.σ` send `val` to the same value pointer.
-        have hval_eq : ((LocalRewritePattern.mapping hpat hValid.returnValuesInBounds
+        have hval_eq : ((LocalRewritePattern.mapping hres hValid.returnValuesInBounds
             hValid.returnValues hValid.returnCtxChanges) ⟨val, valIn⟩).val
             = (hRW.σ ⟨val, valIn⟩).val :=
-          mapping_val_eq_rewriteMapping_val hpat hValid.returnValuesInBounds hValid.returnValues
+          mapping_val_eq_rewriteMapping_val hres hValid.returnValuesInBounds hValid.returnValues
             hValid.returnCtxChanges valIn valIn
         -- Invoke `hRef` at `val`: source scope `hSrc`; target scope at `p'` from `hCouple`.
         refine hRef.2 val valIn hSrc (hCouple val valIn hSrc) sv tv hsv ?_
         -- `sPat` shares `s'`'s variable map, and both mappings agree on `.val`, so the lookups match.
         have hkey : s'.variables.getVar? (hRW.σ ⟨val, valIn⟩)
-            = sPat.variables.getVar? ((LocalRewritePattern.mapping hpat hValid.returnValuesInBounds
+            = sPat.variables.getVar? ((LocalRewritePattern.mapping hres hValid.returnValuesInBounds
                 hValid.returnValues hValid.returnCtxChanges) ⟨val, valIn⟩) := by
           simp only [VariableState.getVar?, hsPatData.1, hval_eq]
         rw [hkey]; exact htv
       -- (D) Apply the pattern's `PreservesSemantics` in the create-only context.
       obtain ⟨newState', hRunPat, hMemEq, targetValues, hTargetValues, hValRef⟩ :=
         hValid.preservesSemantics rewriter.ctx hSrcDom hSrcVerif op opInBounds
-          newCtxPat newOps newValues hpat s hEqLem newState cf hsrc sourceValues hSourceValues
+          newCtxPat newOps newValues hres s hEqLem newState cf hsrc sourceValues hSourceValues
           sPat hSPatEqLem hSPatDefDom hRefInput
       -- (E) Transport the create-only `newOps` run to the driver context via the redirect data-frame.
       obtain ⟨sTgt, hRunTgt, hSameRes⟩ :=
         interpretOpList_sameData_transport_redirect
           (ctxA := newCtxPat) (ctxB := rewriter'.ctx) (ops := newOps.toList)
-          (fun o ho => ((hValid.returnOps rewriter.ctx op newCtxPat newOps newValues hpat o).mp
+          (fun o ho => ((hValid.returnOps rewriter.ctx op newCtxPat newOps newValues hres o).mp
             (by simpa using ho)).1) hRW.newOpsInBounds'
           (fun o ho => (hNewOpsFrame o ho).2)
           (fun o ho hop => OpDataEq.of_sameIntrinsic (hNewOpsFrame o ho).1 hop)
