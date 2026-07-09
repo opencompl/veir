@@ -132,7 +132,7 @@ def addOneTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat
   constFoldTree ctx ip (.arith .addi) () size pc 42 1
 
 buffed (def_lemma := false)
-def multwoTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+def mulTwoTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTree ctx ip (.arith .muli) () size pc 42 2
 
 buffed (def_lemma := false)
@@ -197,7 +197,7 @@ def addOneTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc
   constFoldTreeSparse ctx ip (.arith .addi) () size pc 42 1
 
 buffed (def_lemma := false)
-def multwoTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+def mulTwoTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTreeSparse ctx ip (.arith .muli) () size pc 42 2
 
 end Program
@@ -485,24 +485,71 @@ def blockLengthSim (ctx : Sim.IRContext OpCode) (block : Sim.BlockPtr) : UInt64 
   let first := block.getFirstOp ctx (by sorry) |>.toOption.get sorry
   blockLength.loop ctx first 0
 
--- set_option trace.Compiler.reduceArity2 true in
-def main : IO Unit := do
-  let ctx := Program.empty
-  IO.println "Created empty"
-  match ctx with
-  | none => return
-  | some (ctx, topOp, ip) =>
-    let res := Program.multwoTree ctx ip 300_000 100
-    match res with
-    | none => return -- IO.println "err"
-    | some ctx =>
-      -- IO.println "Constructed"
-      let startTime ← IO.monoNanosNow
-      if let some ctx := Custom.rewriteForwardsMulITwoReduce ctx topOp then
-        let endTime ← IO.monoNanosNow
-        IO.println s!"ok: {ctx.buf.size}"
-        let time := (endTime - startTime).toFloat / 1_000_000_000
-        IO.println s!"time : {time} s"
+@[always_inline]
+def ignoreSpec (ctx : Option (Sim.IRContext OpCode)) : Option (Sim.IRContext OpCode) := do
+  let ctx ← ctx
+  return ⟨ctx.buf, default, sorry⟩
+
+@[always_inline]
+def time {α : Type} (name: String) (f: Unit → IO α) : IO α := do
+  let startTime ← IO.monoNanosNow
+  let res ← f ()
+  let endTime ← IO.monoNanosNow
+  let elapsedTime := endTime - startTime
+  IO.println s!"{name} time (s): {elapsedTime.toFloat / 1000000000}"
+  return res
+
+@[always_inline]
+def run (size pc : Nat)
+    (create : Sim.IRContext OpCode → InsertPoint → Nat → Nat → Option (Sim.IRContext OpCode))
+    (rewrite : Sim.IRContext OpCode → Sim.OperationPtr → Option (Sim.IRContext OpCode)) :
+    OptionT IO Unit := do
+  let some (ctx, topOp, ip) := Program.empty | return
+  let ctx ← time "create" (fun () => return ignoreSpec (create ctx ip size pc))
+  let ctx ← time "rewrite" (fun () => return ignoreSpec (rewrite ctx topOp))
+  let _ctx := ctx
+
+def runBenchmark (benchmark : String) (n pc : Nat) : OptionT IO Unit :=
+  open Program in
+  open Custom in
+
+  match benchmark with
+  | "add-fold-forwards" =>        run n pc addOneTree        rewriteForwardsAddIConstFolding
+  | "add-zero-forwards" =>        run n pc addZeroTree       rewriteForwardsAddIZeroFolding
+  | "mul-two-forwards" =>         run n pc mulTwoTree        rewriteForwardsMulITwoReduce
+
+  | "add-fold-forwards-sparse" => run n pc addOneTreeSparse  rewriteForwardsAddIConstFolding
+  | "add-zero-forwards-sparse" => run n pc addZeroTreeSparse rewriteForwardsAddIZeroFolding
+  | "mul-two-forwards-sparse" =>  run n pc mulTwoTreeSparse  rewriteForwardsMulITwoReduce
+
+  | _ => panic! "Unsupported benchmark"
+
+def count := 50_000
+
+def getCountFrom (c : Option String) :=
+  match c with
+  | none => count
+  | some s =>
+    match s.toNat? with
+    | none => count
+    | some n => n
+
+def getPCFrom (c : Option String) :=
+  match c with
+  | none => 100
+  | some s =>
+    match s.toNat? with
+    | none => 100
+    | some n => n
+
+def main (args : List String) : IO Unit := do
+  IO.println s!"Benchmark ({args})"
+  let count := getCountFrom args[1]?
+  if let some bench := args[0]? then
+    let _ ← runBenchmark bench count (getPCFrom args[2]?)
+  else
+    IO.eprintln "Please provide a benchmark name"
+    IO.Process.exit 2
 
   -- let N := 10_000_000
   -- let startTime ← IO.monoNanosNow
