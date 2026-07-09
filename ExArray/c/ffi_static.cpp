@@ -11,7 +11,7 @@ extern "C" {
 
 __attribute__((always_inline))
 lean_object * buffed_zalloc_object(size_t sz) {
-    void * r = mi_zalloc(sz);
+    void * r = malloc(sz);
     if (r == nullptr) lean_internal_panic_out_of_memory();
     lean_object * o = (lean_object*)r;
     // not a small object
@@ -131,6 +131,8 @@ lean_obj_res buffed_ex_array_extend(lean_obj_arg a, size_t len) {
     size_t sz = buffed_sarray_size(a);
     lean_object * r1 = buffed_ex_array_ensure_capacity(a, sz + len, false);
     lean_object * r = buffed_ex_array_ensure_exclusive(r1);
+    uint8 *start = buffed_ex_array_cptr(r);
+    memset(start + sz, 0, len);
     buffed_to_ex_array(r)->m_size = sz + len;
     return r;
 }
