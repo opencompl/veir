@@ -322,4 +322,66 @@ theorem matchNot_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
       (OperationPtr.dominates_of_strictlyDominates hXorSDom) y
       (by grind [OperationPtr.getOperands!])
 
+/-! ## The packaged graph lemma for `matchConstantIntVal` -/
+
+set_option maxHeartbeats 1000000 in
+/-- Semantic content of a successful `matchConstantIntVal v = some intAttr` at a program point
+    dominated by `v` (an operand of `op`): in any source state satisfying `EquationLemmaAt` before
+    `op`, the runtime value of `v` is the never-poison constant `intAttr.value`. This is the
+    constant analogue of `matchNot_getVar?_of_EquationLemmaAt`; it is what a `PreservesSemantics`
+    proof of a `selectBinopImmLocal`-style pattern needs to pin the value of the matched immediate
+    operand (which is folded into the emitted op rather than cast, so no target-side facts are
+    returned). -/
+theorem matchConstantIntVal_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    {v : ValuePtr} {intAttr : IntegerAttr} {intType : IntegerType}
+    (hMatch : matchConstantIntVal v ctx.raw = some intAttr)
+    (hOperand : v ∈ op.getOperands! ctx.raw)
+    (hVType : (v.getType! ctx.raw).val = Attribute.integerType intType) :
+    state.variables.getVar? v = some (RuntimeValue.int intType.bitwidth
+      (Data.LLVM.Int.constant intType.bitwidth intAttr.value)) := by
+  -- Syntactic facts from the match.
+  obtain ⟨cstPtr, rfl, hCstOp⟩ := matchConstantIntVal_implies hMatch
+  obtain ⟨hCstType, hCstProps⟩ := matchConstantIntOp_implies hCstOp
+  -- The constant's structural facts.
+  have hCstIn : (ValuePtr.opResult cstPtr).InBounds ctx.raw := by grind
+  have hCstOpIn : cstPtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hCstVerified : cstPtr.op.Verified ctx hCstOpIn := by grind
+  obtain ⟨hCstNumResults, -, -, -⟩ :=
+    OperationPtr.Verified.llvm_mlir__constant hCstVerified hCstType
+  have hCstIdx : cstPtr.index < cstPtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hCstEq : cstPtr = cstPtr.op.getResult 0 := by
+    have hidx : cstPtr.index = 0 := by omega
+    cases cstPtr
+    simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]
+    exact ⟨trivial, hidx⟩
+  have hCstResType : ((cstPtr.op.getResult 0).get! ctx.raw).type
+      = ⟨.integerType intType, by grind⟩ := by
+    have heq : ((ValuePtr.opResult cstPtr).getType! ctx.raw)
+        = ((cstPtr.op.getResult 0).get! ctx.raw).type := by
+      rw [hCstEq]; rfl
+    apply Subtype.ext
+    rw [← heq]; exact hVType
+  -- Dominance: the constant strictly dominates `op`, so it has been interpreted into `state`.
+  have hCstDefines : (ValuePtr.opResult cstPtr).getDefiningOp! ctx.raw = some cstPtr.op := by
+    have hOwner := (ctx.wellFormed.operations cstPtr.op hCstOpIn).result_owner 0
+      (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hCstSDom : cstPtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom
+      hCstDefines hOperand
+  have hCstDomIp : cstPtr.op.dominatesIp (InsertPoint.before op) ctx := by
+    grind
+  have hCstPure : cstPtr.op.Pure ctx.raw := OperationPtr.Pure.llvm_mlir__constant hCstType
+  obtain ⟨cfC, hInterpCst⟩ := stateWf cstPtr.op hCstOpIn hCstPure hCstDomIp
+  -- Unfold the constant's interpretation: its result is the non-poison constant value.
+  have hCstResVal :=
+    constantOp_interpretOp_unfold hCstOpIn hCstType hCstNumResults hCstProps hCstResType
+      hInterpCst
+  rw [hCstEq]; exact hCstResVal
+
 end Veir
