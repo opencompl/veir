@@ -1146,6 +1146,42 @@ theorem OperationPtr.Verified.llvm_select {op : OperationPtr} {opInBounds}
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /--
+  Structural facts guaranteed by a successful `verifyLLVMICmp` check: two operands of equal type,
+  and an `i1` result. (The operands are integer-or-pointer; the caller pins them to integer
+  separately when it needs the width.)
+-/
+def OperationPtr.IsVerifiedICmp (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 2 ∧
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = ((op.getOperand! ctx.raw 1).getType! ctx.raw).val ∧
+  (∃ it, ((op.getResult 0).get! ctx.raw).type.val = .integerType it ∧ it.bitwidth = 1)
+
+private theorem OperationPtr.verifyLLVMICmp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMICmp ctx opInBounds = .ok ()) :
+    op.IsVerifiedICmp ctx := by
+  simp only [IsVerifiedICmp] at ⊢
+  simp [verifyLLVMICmp, verifyPlainOpCounts, verifyOperandTypesMatch,
+    TypeAttr.verifyI1, TypeAttr.verifyIntegerOrPointerType, bind, Except.bind, throw, throwThe,
+    MonadExceptOf.throw, pure, Except.pure] at h
+  grind [getNumOperands!_eq_getNumOperands, getNumResults!_eq_getNumResults]
+
+private theorem OperationPtr.verifyLLVMICmp_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyLLVMICmp ctx opInBounds >>= fun _ => pure ())) :
+    op.verifyLLVMICmp ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  cases hb : op.verifyLLVMICmp ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+theorem OperationPtr.Verified.llvm_icmp {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .icmp) :
+    op.IsVerifiedICmp ctx :=
+  op.verifyLLVMICmp_eq_ok <| op.verifyLLVMICmp_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+/--
   Structural facts guaranteed by a successful `verifyLLVMShift` check. Unlike `IsVerifiedIntegerBinop`
   it does *not* pin the two operands to the same type: `verifyLLVMShift` only requires the shift
   amount (operand 1) to be an integer, and the result to match operand 0 (which may be an integer or

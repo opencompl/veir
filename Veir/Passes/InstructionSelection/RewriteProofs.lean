@@ -8,6 +8,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerExt
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerLoad
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerRotate
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSignedMinMax
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerSlti
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUaddSat
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUnaryW
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUshlSat
