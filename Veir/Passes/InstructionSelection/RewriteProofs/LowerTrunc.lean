@@ -10,6 +10,7 @@ import Veir.Data.LLVM.Byte.Lemmas
 import Veir.Data.RISCV.Reg.Lemmas
 import Veir.Data.Casting
 import Veir.Passes.InstructionSelection.RISCV64
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerConst
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
