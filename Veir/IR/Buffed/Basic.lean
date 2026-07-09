@@ -14,6 +14,9 @@ import Veir.IR.Buffed.RawReadWriteLemmas
 import all Veir.IR.Buffed.RawAccessors
 import all Veir.IR.Buffed.SimDefs
 import all Veir.IR.Buffed.Sim
+-- Exposes the body of `dbgTrace` so the `dump*` printers (which use `dbg_trace`)
+-- can be proved to leave the context unchanged (`dbgTrace s (fun _ => x)` reduces to `x`).
+import all Init.Util
 
 
 public section
@@ -271,7 +274,7 @@ macro "prove_setSlotBounds" ctx₀:ident : tactic => `(tactic|
 
 
 /-! ## Debugging printers -/
-
+/-
 @[inline]
 def dumpOp (_op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
 
@@ -312,62 +315,126 @@ def dumpOptionOpOperand (_operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext
 
 @[inline]
 def dumpOptionBlockOperand (_operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
+-/
 
-/-
 @[inline]
 def dumpOp (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨op.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨op.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OperationMPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpOp_eq (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpOp op ctx pref = ctx := by
+  simp only [dumpOp, Buffed.OperationMPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpRegion (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨region.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨region.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.RegionMPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpRegion_eq (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpRegion region ctx pref = ctx := by
+  simp only [dumpRegion, Buffed.RegionMPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpBlock (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨block.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨block.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.BlockMPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpBlock_eq (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpBlock block ctx pref = ctx := by
+  simp only [dumpBlock, Buffed.BlockMPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpValue (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨value.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨value.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.ValueImplMPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpValue_eq (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpValue value ctx pref = ctx := by
+  simp only [dumpValue, Buffed.ValueImplMPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpOpResult (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨result.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨result.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OpResultMPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpOpResult_eq (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpOpResult result ctx pref = ctx := by
+  simp only [dumpOpResult, Buffed.OpResultMPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpBlockArgument (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨arg.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨arg.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.BlockArgumentMPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpBlockArgument_eq (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpBlockArgument arg ctx pref = ctx := by
+  simp only [dumpBlockArgument, Buffed.BlockArgumentMPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpOpOperand (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OpOperandMPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpOpOperand_eq (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpOpOperand operand ctx pref = ctx := by
+  simp only [dumpOpOperand, Buffed.OpOperandMPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpBlockOperand (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.BlockOperandMPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpBlockOperand_eq (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpBlockOperand operand ctx pref = ctx := by
+  simp only [dumpBlockOperand, Buffed.BlockOperandMPtr.debugPrint]; congr 1
 
 /-! ### Nullable (`Option*Ptr`) dumpers — print `null` for the sentinel. -/
 
 @[inline]
 def dumpOptionOp (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨op.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨op.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OperationOPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpOptionOp_eq (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpOptionOp op ctx pref = ctx := by
+  simp only [dumpOptionOp, Buffed.OperationOPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpOptionBlock (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨block.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨block.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.BlockOPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpOptionBlock_eq (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpOptionBlock block ctx pref = ctx := by
+  simp only [dumpOptionBlock, Buffed.BlockOPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpOptionRegion (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨region.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨region.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.RegionOPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpOptionRegion_eq (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpOptionRegion region ctx pref = ctx := by
+  simp only [dumpOptionRegion, Buffed.RegionOPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpOptionOpOperand (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
+  ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OpOperandOPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpOptionOpOperand_eq (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpOptionOpOperand operand ctx pref = ctx := by
+  simp only [dumpOptionOpOperand, Buffed.OpOperandOPtr.debugPrint]; congr 1
 
 @[inline]
 def dumpOptionBlockOperand (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
-  ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, sorry⟩
--/
+  ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.BlockOperandOPtr.debugPrint_eq]; exact ctx.sim⟩
+
+@[simp, grind =]
+theorem dumpOptionBlockOperand_eq (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
+    dumpOptionBlockOperand operand ctx pref = ctx := by
+  simp only [dumpOptionBlockOperand, Buffed.BlockOperandOPtr.debugPrint]; congr 1
 
 
 /-! ## Setters and getters -/

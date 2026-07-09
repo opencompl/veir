@@ -3,6 +3,9 @@ module
 public import ExArray.Basic
 public import Std.Data.HashMap
 public import Veir.IR.Buffed.Layout
+-- Exposes the body of `dbgTrace` so the `*.debugPrint` printers (which use `dbg_trace`)
+-- can be proved to return the buffer context unchanged.
+import all Init.Util
 
 open Std (HashMap)
 
@@ -1362,3 +1365,72 @@ def OpOperandOPtr.debugPrint (pref : String) (ptr : OpOperandOPtr) (bctx : IRBuf
 
 @[noinline, nospecialize]
 def BlockOperandOPtr.debugPrint (pref : String) (ptr : BlockOperandOPtr) (bctx : IRBufContext OpInfo) := dbg_trace "{pref}: {ptr.dump bctx}"; bctx
+
+/-! The `*.debugPrint` printers only emit a `dbg_trace` side effect and return the buffer
+context unchanged; these lemmas expose that so callers can prove the surrounding context
+is preserved. -/
+
+@[simp, grind =]
+theorem OperationMPtr.debugPrint_eq (pref : String) (ptr : OperationMPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [OperationMPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem RegionMPtr.debugPrint_eq (pref : String) (ptr : RegionMPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [RegionMPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem BlockMPtr.debugPrint_eq (pref : String) (ptr : BlockMPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [BlockMPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem ValueImplMPtr.debugPrint_eq (pref : String) (ptr : ValueImplMPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [ValueImplMPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem OpResultMPtr.debugPrint_eq (pref : String) (ptr : OpResultMPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [OpResultMPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem BlockArgumentMPtr.debugPrint_eq (pref : String) (ptr : BlockArgumentMPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [BlockArgumentMPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem OpOperandMPtr.debugPrint_eq (pref : String) (ptr : OpOperandMPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [OpOperandMPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem BlockOperandMPtr.debugPrint_eq (pref : String) (ptr : BlockOperandMPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [BlockOperandMPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem OperationOPtr.debugPrint_eq (pref : String) (ptr : OperationOPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [OperationOPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem BlockOPtr.debugPrint_eq (pref : String) (ptr : BlockOPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [BlockOPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem RegionOPtr.debugPrint_eq (pref : String) (ptr : RegionOPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [RegionOPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem OpOperandOPtr.debugPrint_eq (pref : String) (ptr : OpOperandOPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [OpOperandOPtr.debugPrint]; rfl
+
+@[simp, grind =]
+theorem BlockOperandOPtr.debugPrint_eq (pref : String) (ptr : BlockOperandOPtr) (bctx : IRBufContext OpInfo) :
+    ptr.debugPrint pref bctx = bctx := by
+  simp only [BlockOperandOPtr.debugPrint]; rfl
