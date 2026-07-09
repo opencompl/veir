@@ -397,6 +397,20 @@ def constant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite constant_local rewriter op opInBounds
 
+/-- `llvm.xor x x` -> `llvm.mlir.constant 0`: xoring a value with itself is always zero (and if
+  the operand is poison, the result poison is refined by the concrete constant). This is the
+  `LocalRewritePattern` restatement of the `same_val_zero_1` MIR combine. -/
+def same_val_zero_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (x, x1, _props) := matchXor op ctx | return (ctx, none)
+  if x != x1 then return (ctx, none)
+  let type := ((op.getResult 0).get! ctx.raw).type
+  let .integerType type' := type.val | return (ctx, none)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type'))
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[type] #[]
+      #[] #[] cstProp none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
 /-- llvm.add -> riscv.add (riscv.addw for i32, keeps the result sign-extended) -/
 def add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
