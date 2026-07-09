@@ -185,10 +185,15 @@ structural proof is done **once per combinator**. Currently:
   a *single* abstract 64-bit vector `v`, and `veir_bv_decide` closes the rest (the shift lemmas need
   *no* range bound because LLVM's shift-past-width poison makes the refinement trivial there). The
   matched-property equation is *not* needed (the combinator reads `getProperties!` directly). The
-  four `shl`/`lshr` immediate instances (`slli`/`srli`/`slliw`/`srliw`) do *not* fit yet: `llvm.shl`
-  and `llvm.lshr` verify via `verifyLLVMShift` (which permits a byte or *different-width* shift
-  operand), so they yield no `IsVerifiedIntegerBinop` and the combinator's `hVerified` does not apply
-  — they need the operand-width equality derived from the successful source interpretation instead.
+  four `shl`/`lshr` immediate instances (`slli`/`srli`/`slliw`/`srliw`) need a *second* combinator
+  proof, `selectBinopImmLocal_shift_preservesSemantics`: `llvm.shl`/`llvm.lshr` verify via
+  `verifyLLVMShift` (which permits a byte or *different-width* shift operand), so they yield the
+  weaker `IsVerifiedLLVMShift` (`Verifier.lean`) rather than `IsVerifiedIntegerBinop` — it pins only
+  the result-vs-operand-0 type match and that operand 1 is *some* integer. The operand-width equality
+  is instead recovered *dynamically*: `matchShiftOp_interpretOp_unfold` reads the interpreter's own
+  width guard out of the successful source interpretation, and `subst`ing it collapses the proof to
+  the binop shape (so the same three-op tail and refinement lemmas apply). The `shl`/`lshr` `hSemSrc`
+  is discharged by `shl_shiftSem`/`lshr_shiftSem`, which case-split the interpreter's `if bw' ≠ bw`.
 - `trunc_local` (`RISCV64.lean`) — `llvm.trunc` on integer *and* byte operands: two
   `unrealized_conversion_cast`s (`operand → reg`, then `reg → result-type`) that keep only the low
   `resBw` bits. Not a combinator: a *standalone* proof (`trunc_local_preservesSemantics`,
@@ -553,7 +558,7 @@ per lowering as above.
 | `RewriteProofs/LowerAshr.lean` | `ashr_local_preservesSemantics` (standalone `i8`/`i32`/`i64` `ashr`; three width branches, `i8` adds a `sextb`), `ashr_isRefinedBy_toInt_sra`/`_sraw`/`_sra_sextb` (shift-refinement data lemmas: `ctlz`-style `getValue`→`getValueD` + `isPoison_ashr` `y<w` bound), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerSextOne.lean` | `sext_1_local_preservesSemantics` (standalone `i1 → i64`/`i32` sext ⟶ `srai (slli _ 63) 63`; four-op chain, no bitwidth branch, first immediate-emitting proof), `srai_slli_63_val` + `sext1_isRefinedBy_toInt_srai_slli` (reusing `matchExtOp_interpretOp_unfold` / `sextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerZextOne.lean` | `zext_1_local_preservesSemantics` (standalone `i1 → i64` zext ⟶ `andi 1`; first immediate-emitting proof), `andi_one_val` + `zext1_isRefinedBy_toInt_andi` (reusing `matchExtOp_interpretOp_unfold` / `zextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
-| `RewriteProofs/LowerSelectBinopImm.lean` | `selectBinopImmLocal_preservesSemantics` (immediate-form binop combinator: cast-lhs → `dst(imm)` → cast-back, constant RHS folded into the immediate; single width, no bitwidth branch) + instantiations (`addi`/`ori`/`andi`/`xori`/`srai`/`addiw`/`sraiw`), the `signExtend_ofInt_12_64` / `setWidth_ofInt_{5,6}_64` immediate-encoding bridges, per-op `*_isRefinedBy` data lemmas, `#guard_msgs` axiom pins | one data lemma + one instantiation per immediate op that verifies as `IsVerifiedIntegerBinop` |
+| `RewriteProofs/LowerSelectBinopImm.lean` | `selectBinopImmLocal_preservesSemantics` (immediate-form binop combinator: cast-lhs → `dst(imm)` → cast-back, constant RHS folded into the immediate; single width, no bitwidth branch) + the shift variant `selectBinopImmLocal_shift_preservesSemantics` (+ `matchShiftOp_interpretOp_unfold`, `shl_shiftSem`/`lshr_shiftSem`) + instantiations (`addi`/`ori`/`andi`/`xori`/`srai`/`addiw`/`sraiw` and `slli`/`srli`/`slliw`/`srliw`), the `signExtend_ofInt_12_64` / `setWidth_ofInt_{5,6}_64` immediate-encoding bridges, per-op `*_isRefinedBy` data lemmas, `#guard_msgs` axiom pins | one data lemma + one instantiation per immediate op |
 | `RewriteProofs/CommonGraphLemmas.lean` | `matchBinaryOp_interpretOp_unfold` (shared by the binary combinator proofs) + Layer 3: `OperationPtr.Pure.llvm_*`, `constantOp_interpretOp_unfold`, `matchNot_getVar?_of_EquationLemmaAt`, `matchConstantIntVal_getVar?_of_EquationLemmaAt` | one packaged lemma per new *matcher* used on defining ops |
 | `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + byte casts `interpretOp_castToReg_byte_forward`/`interpretOp_castBack_byte_forward` + generic unary/binary reg-to-reg riscv ops + `interpretOp_riscv_unaryReg_imm_forward` for immediate-form unary ops) | one lemma per new emitted-op *shape* |
 | `RewriteProofs/LowerTrunc.lean` | `trunc_local_preservesSemantics` (standalone `llvm.trunc` over integer *and* byte operands, widths `{8,16,32,64}`; two raw-`createOp!` casts, operand-value case split with symmetric int/byte branches), `trunc_isRefinedBy_toInt`/`_toByte` (concrete-width round-trip data lemmas via `revert; veir_bv_decide`), `conforms_int_type`/`conforms_byte_type`, `#guard_msgs` axiom pin | — (one-off; first byte-typed proof) |
@@ -562,7 +567,7 @@ per lowering as above.
 | `RewriteProofs/CommonMatchLemmas.lean` | ctlz-specific unfold/peel lemmas — currently unused (superseded by the generic `matchUnaryOp_interpretOp_unfold`); candidate for deletion | — |
 | `Veir/Passes/InstructionSelection/RISCV64.lean` | the GlobalISel lowering combinators (`lowerUnaryWLocal`, `lowerBinaryWLocal`, …) and their instances | one `def` (or a new combinator) |
 | `Veir/Passes/InstructionSelection/RISCV64Sdag.lean` | the SelectionDAG lowering combinators (`lowerBinopNotLocal`, `selectBinopImmLocal`, …) and their instances | one `def` (or a new combinator) |
-| `Veir/Verifier.lean` | `IsVerified*` bundles (`…IntegerUnop`/`Binop`/`Ternop`/`Select`) + `Verified.llvm_*` extractors (Layer 1; incl. `Verified.llvm_mlir__constant`, `Verified.llvm_select`) | one 3-line lemma (unop/binop/ternop/select) |
+| `Veir/Verifier.lean` | `IsVerified*` bundles (`…IntegerUnop`/`Binop`/`Ternop`/`LLVMShift`/`Select`) + `Verified.llvm_*` extractors (Layer 1; incl. `Verified.llvm_mlir__constant`, `Verified.llvm_shl`/`llvm_lshr`, `Verified.llvm_select`) | one 3-line lemma (unop/binop/ternop/shift/select) |
 | `Veir/Passes/Matching/Lemmas.lean` | `match*_implies` (Layer 2) | usually nothing |
 | `Veir/Interpreter/Lemmas.lean` | generic `interpretOp_forward`, `interpretOpList_cons` | nothing |
 | `Veir/Interpreter/EquationLemma.lean` | `Pure`, `EquationHolds`, `EquationLemmaAt` (the Layer-3 invariant) | nothing |
