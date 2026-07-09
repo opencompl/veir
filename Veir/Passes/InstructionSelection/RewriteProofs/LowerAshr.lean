@@ -38,54 +38,16 @@ theorem ashr_isRefinedBy_toInt_sra {x y xt yt : Data.LLVM.Int 64} (exact : Bool)
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.ashr x y exact
       ⊒ RISCV.Reg.toInt (Data.RISCV.sra (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by rw [Data.LLVM.Int.isPoison_ashr] at hnp; grind
-  have hynp : y.isPoison = false := by rw [Data.LLVM.Int.isPoison_ashr] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    rw [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq, dif_pos hxnp, dif_pos (hp₁ hxnp)]
-    exact hv₁ hxnp (hp₁ hxnp)
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    rw [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq, dif_pos hynp, dif_pos (hp₂ hynp)]
-    exact hv₂ hynp (hp₂ hynp)
-  have hc := hnp
-  rw [Data.LLVM.Int.isPoison_ashr, dif_neg (by simp [hxnp, hynp])] at hc
-  simp only [Data.LLVM.Int.getValue_eq_getValueD, hvd₁, hvd₂] at hc
-  rw [Data.LLVM.Int.getValue_ashr _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.sra, val_toReg, Data.LLVM.Int.getValue_eq_getValueD,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp])]
-  rw [hvd₁, hvd₂]
-  bv_decide
+  revert h₁ h₂
+  veir_bv_decide
 
 /-- Correctness of the `riscv.sraw` lowering of a 32-bit `llvm.ashr`. -/
 theorem ashr_isRefinedBy_toInt_sraw {x y xt yt : Data.LLVM.Int 32} (exact : Bool)
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.ashr x y exact
       ⊒ RISCV.Reg.toInt (Data.RISCV.sraw (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by rw [Data.LLVM.Int.isPoison_ashr] at hnp; grind
-  have hynp : y.isPoison = false := by rw [Data.LLVM.Int.isPoison_ashr] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    rw [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq, dif_pos hxnp, dif_pos (hp₁ hxnp)]
-    exact hv₁ hxnp (hp₁ hxnp)
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    rw [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq, dif_pos hynp, dif_pos (hp₂ hynp)]
-    exact hv₂ hynp (hp₂ hynp)
-  have hc := hnp
-  rw [Data.LLVM.Int.isPoison_ashr, dif_neg (by simp [hxnp, hynp])] at hc
-  simp only [Data.LLVM.Int.getValue_eq_getValueD, hvd₁, hvd₂] at hc
-  rw [Data.LLVM.Int.getValue_ashr _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.sraw, val_toReg, Data.LLVM.Int.getValue_eq_getValueD,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp])]
-  rw [hvd₁, hvd₂]
-  bv_decide
+  revert h₁ h₂
+  veir_bv_decide
 
 /-- Correctness of the `riscv.sra (riscv.sextb ·)` lowering of an 8-bit `llvm.ashr`: the operand is
     held zero-extended in the register, so it is sign-extended (`sextb`) to 64 bits before the
@@ -95,27 +57,8 @@ theorem ashr_isRefinedBy_toInt_sra_sextb {x y xt yt : Data.LLVM.Int 8} (exact : 
     Data.LLVM.Int.ashr x y exact
       ⊒ RISCV.Reg.toInt
           (Data.RISCV.sra (LLVM.Int.toReg yt) (Data.RISCV.sextb (LLVM.Int.toReg xt))) 8 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by rw [Data.LLVM.Int.isPoison_ashr] at hnp; grind
-  have hynp : y.isPoison = false := by rw [Data.LLVM.Int.isPoison_ashr] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    rw [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq, dif_pos hxnp, dif_pos (hp₁ hxnp)]
-    exact hv₁ hxnp (hp₁ hxnp)
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    rw [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq, dif_pos hynp, dif_pos (hp₂ hynp)]
-    exact hv₂ hynp (hp₂ hynp)
-  have hc := hnp
-  rw [Data.LLVM.Int.isPoison_ashr, dif_neg (by simp [hxnp, hynp])] at hc
-  simp only [Data.LLVM.Int.getValue_eq_getValueD, hvd₁, hvd₂] at hc
-  rw [Data.LLVM.Int.getValue_ashr _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.sra, Data.RISCV.sextb, val_toReg, Data.LLVM.Int.getValue_eq_getValueD,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp])]
-  rw [hvd₁, hvd₂]
-  bv_decide
+  revert h₁ h₂
+  veir_bv_decide
 
 set_option maxHeartbeats 4000000 in
 theorem ashr_local_preservesSemantics
@@ -576,9 +519,9 @@ info: 'Veir.ashr_local_preservesSemantics' depends on axioms: [propext,
  ValuePtr.dominatesIp,
  ValuePtr.dominatesIp_before_WfRewriter_createOp,
  IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates,
- ashr_isRefinedBy_toInt_sra._native.bv_decide.ax_1_12,
- ashr_isRefinedBy_toInt_sra_sextb._native.bv_decide.ax_1_13,
- ashr_isRefinedBy_toInt_sraw._native.bv_decide.ax_1_12,
+ ashr_isRefinedBy_toInt_sra._native.bv_decide.ax_1_5,
+ ashr_isRefinedBy_toInt_sra_sextb._native.bv_decide.ax_1_5,
+ ashr_isRefinedBy_toInt_sraw._native.bv_decide.ax_1_5,
  MemoryState.llvmLoad._native.bv_decide.ax_8]
 -/
 #guard_msgs in
