@@ -11,7 +11,7 @@ extern "C" {
 
 __attribute__((always_inline))
 lean_object * buffed_zalloc_object(size_t sz) {
-    void * r = malloc(sz);
+    void * r = mi_malloc(sz);
     if (r == nullptr) lean_internal_panic_out_of_memory();
     lean_object * o = (lean_object*)r;
     // not a small object
