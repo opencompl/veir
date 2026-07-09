@@ -1194,7 +1194,7 @@ case (see `mkRecursiveImplLemmaProof`), mirroring the hand-written `…_impl` le
 `<name>Impl` as the field-0 projection of `<name>Sim`, so the two sides are defeq and the proof is
 `Eq.refl` (cf. the hand-written `Rewriter.pushOperandAt_impl_exmaple := by rfl`).
 -/
-meta def buildBuffedImplLemma (declName : Name) (recursive : Bool) :
+meta def buildBuffedImplLemma (declName : Name) (recursive : Bool) (defLemma : Bool := true) :
     Lean.Elab.TermElabM (Name × Expr × Expr × List Name) := do
   let info ← getConstInfo declName
   let implLemmaName := mkImplLemmaName declName
@@ -1217,13 +1217,19 @@ meta def buildBuffedImplLemma (declName : Name) (recursive : Bool) :
       if recursive then
         mkRecursiveImplLemmaProof implName declName implForall
       else
-        -- `Option`-returning shapes get the `unfold <name>Impl; grind` template proof. Every other
-        -- non-recursive shape (`irContext`, `bareSplit`, `Prod`/`Sigma`) defines `<name>Impl` as the
-        -- field-0 projection of `<name>Sim` (`buildBuffedImpl`), so the LHS `(funcSim …).buf`/`.impl`
-        -- and the RHS `<name>Impl (projected …)` are *definitionally equal* and `Eq.refl` discharges
+        -- `Option`-returning shapes get the `unfold <name>Impl; grind` template proof — unless
+        -- `def_lemma := false`, which opts out of all generated `grind` proofs; the lemma is then
+        -- emitted with a `sorry` proof. Every other non-recursive shape (`irContext`, `bareSplit`,
+        -- `Prod`/`Sigma`) defines `<name>Impl` as the field-0 projection of `<name>Sim`
+        -- (`buildBuffedImpl`), so the LHS `(funcSim …).buf`/`.impl` and the RHS
+        -- `<name>Impl (projected …)` are *definitionally equal* and `Eq.refl` discharges
         -- the lemma (cf. the hand-written `Rewriter.pushOperandAt_impl_exmaple := by rfl`).
         match shape with
-        | .optionSplit _ | .optionIRContext _ => mkOptionImplLemmaProof implName implForall
+        | .optionSplit _ | .optionIRContext _ =>
+          if defLemma then
+            mkOptionImplLemmaProof implName implForall
+          else
+            mkSorry implForall (synthetic := false)
         | _ => mkLambdaFVars xs (← mkEqRefl lhs)
     pure (implLemmaName, implForall, proof, info.levelParams)
 
@@ -1299,11 +1305,11 @@ Emit the `<name>_impl` lemma `(funcSim args).impl = funcImpl (projected args)` (
 `buildBuffedImplLemma`), unless it already exists. Shared by the recursive and non-recursive `buffed`
 paths: recursive defs get a `fun_induction` proof, non-recursive ones a `sorry` placeholder.
 -/
-private meta def generateBuffedImplLemma (decl : Name) (recursive : Bool) : AttrM Unit := do
+private meta def generateBuffedImplLemma (decl : Name) (recursive : Bool) (defLemma : Bool := true) : AttrM Unit := do
   let implLemmaName := Veir.Buffed.mkImplLemmaName decl
   unless (← getEnv).contains implLemmaName do
     let (implLemmaName, implType, implValue, implLevelParams) ←
-      MetaM.run' (Veir.Buffed.buildBuffedImplLemma decl recursive).run'
+      MetaM.run' (Veir.Buffed.buildBuffedImplLemma decl recursive defLemma).run'
     trace[Buffed.ghosting] "Generating {implLemmaName} for {decl}"
     addBuffedThm implLemmaName implType implValue implLevelParams
 
@@ -1345,9 +1351,10 @@ meta def generateBuffed (decl : Name) (inline : Bool) (defLemma : Bool := true) 
     let (implName, implType, implValue, levelParams) ← MetaM.run' (Veir.Buffed.buildBuffedImpl decl)
     addBuffedDecl implName implType implValue levelParams (inline? := inline)
   Lean.enableRealizationsForConst implName
-  -- Emit the `<name>_impl` lemma `(funcSim args).impl = funcImpl (projected args)`. Non-recursive: the
-  -- two sides are defeq but the proof is left as `sorry` for now.
-  generateBuffedImplLemma decl (recursive := false)
+  -- Emit the `<name>_impl` lemma `(funcSim args).impl = funcImpl (projected args)`. Non-recursive:
+  -- defeq shapes get a `rfl` proof; `Option`-returning shapes an `unfold <name>Impl; grind` proof,
+  -- or `sorry` when `def_lemma := false` opts out of the generated `grind` proofs.
+  generateBuffedImplLemma decl (recursive := false) (defLemma := defLemma)
   generateBuffedSpecAndBase decl (recursive := false) (defLemma := defLemma)
   -- Emit the `<name>_def` lemma relating the base wrapper to `funcSim` (e.g.
   -- `getFirstUse ctx ptr ib = getFirstUseSim ctx ptr ib`). Defeq shapes get a `rfl` proof; the
