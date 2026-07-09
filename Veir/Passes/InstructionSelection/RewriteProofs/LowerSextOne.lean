@@ -11,6 +11,7 @@ import Veir.Passes.InstructionSelection.RISCV64Sdag
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonForwardInterpret
+import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerExt
 
 namespace Veir
@@ -250,7 +251,7 @@ info: 'Veir.sext_1_local_preservesSemantics' depends on axioms: [propext,
  ValuePtr.dominatesIp,
  ValuePtr.dominatesIp_before_WfRewriter_createOp,
  IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates,
- srai_slli_63_val._native.bv_decide.ax_1_7,
+ srai_slli_63_val._native.bv_decide.ax_1_5,
  MemoryState.llvmLoad._native.bv_decide.ax_8]
 -/
 #guard_msgs in
