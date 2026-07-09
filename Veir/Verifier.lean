@@ -1456,6 +1456,16 @@ private theorem OperationPtr.verifyIntegerUnop_ok_of_Verified {op : OperationPtr
   | ok ty => exact ⟨ty, rfl⟩
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
 
+/-- Structural facts from the verifier for a verified `llvm.intr.bitreverse`. Its verifier arm is
+    the shared `verifyIntegerUnop >>= pure` shape, so it reduces like `ctlz`/`cttz`/`ctpop`. -/
+theorem OperationPtr.Verified.llvm_intr__bitreverse {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__bitreverse) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
 /-- Structural facts from the verifier for a verified `llvm.intr.ctlz`. -/
 theorem OperationPtr.Verified.llvm_intr__ctlz {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__ctlz) :
