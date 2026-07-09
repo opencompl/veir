@@ -164,6 +164,28 @@ structural proof is done **once per combinator**. Currently:
   the immediate-op forward lemma `interpretOp_riscv_unaryReg_imm_forward`. It is the first proof of a
   lowering that emits an immediate-form riscv op — the template for the `selectBinopImmLocal` family
   (which additionally needs a `matchConstantIntVal` DAG-matching Layer-3 lemma).
+- `trunc_local` (`RISCV64.lean`) — `llvm.trunc` on integer *and* byte operands: two
+  `unrealized_conversion_cast`s (`operand → reg`, then `reg → result-type`) that keep only the low
+  `resBw` bits. Not a combinator: a *standalone* proof (`trunc_local_preservesSemantics`,
+  `RewriteProofs/LowerTrunc.lean`). It is the first proof to cover `llvm.byte`-typed values, so it
+  adds a whole byte layer paralleling the integer one: the forward lemmas
+  `interpretOp_castToReg_byte_forward` / `interpretOp_castBack_byte_forward`
+  (`CommonForwardInterpret.lean`) and the refined-operand reader
+  `LocalRewritePattern.exists_refined_byte_getVar?` (`CommonBaseLemmas.lean`), plus the
+  `conforms_int_type` / `conforms_byte_type` helpers that pin a runtime value's declared type. The
+  proof matches on the operand runtime value (`.int` vs `.byte`) and runs the two branches
+  symmetrically, each ending in the round-trip refinement data lemma (`trunc_isRefinedBy_toInt` /
+  `trunc_isRefinedBy_toByte`). Two notable points: (a) `trunc_local` was *width-limited* to
+  `{8, 16, 32, 64}` — the round trip through a 64-bit register is only sound for register-representable
+  widths (the width-generic version is genuinely unsound for a result wider than 64 bits), and the
+  restriction also makes the widths *concrete* so the data lemmas discharge by `rcases`-ing on the four
+  widths and `revert h; veir_bv_decide` at each (the byte lemma additionally `simp only [RISCV.Reg.toByte,
+  LLVM.Byte.toReg]` first, since those projections aren't `@[veir_bv_normalize]`); (b) `trunc_local`
+  emits the two casts with *raw* `WfRewriter.createOp!` (not the `castToRegLocal`/`replaceWithRegLocal`
+  helpers), so the casts peel with `peelOpCreation!` and the type/width guards are resolved by folding
+  the type-equality rewrites *into* the `getIntByteTypeBitwidth` unfold
+  (`simp only [getIntByteTypeBitwidth, hOperandType, hResInt]`) so both the operand- and result-side
+  bitwidth matches reduce before the manual guard splits.
 
 The generic theorem is parameterized over everything opcode-specific:
 
@@ -505,10 +527,11 @@ per lowering as above.
 | `RewriteProofs/LowerAshr.lean` | `ashr_local_preservesSemantics` (standalone `i8`/`i32`/`i64` `ashr`; three width branches, `i8` adds a `sextb`), `ashr_isRefinedBy_toInt_sra`/`_sraw`/`_sra_sextb` (shift-refinement data lemmas: `ctlz`-style `getValue`→`getValueD` + `isPoison_ashr` `y<w` bound), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerSextOne.lean` | `sext_1_local_preservesSemantics` (standalone `i1 → i64`/`i32` sext ⟶ `srai (slli _ 63) 63`; four-op chain, no bitwidth branch, first immediate-emitting proof), `srai_slli_63_val` + `sext1_isRefinedBy_toInt_srai_slli` (reusing `matchExtOp_interpretOp_unfold` / `sextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerZextOne.lean` | `zext_1_local_preservesSemantics` (standalone `i1 → i64` zext ⟶ `andi 1`; first immediate-emitting proof), `andi_one_val` + `zext1_isRefinedBy_toInt_andi` (reusing `matchExtOp_interpretOp_unfold` / `zextLike_isRefinedBy_toInt` from `LowerExt.lean`), `#guard_msgs` axiom pin | — (one-off) |
+| `RewriteProofs/LowerTrunc.lean` | `trunc_local_preservesSemantics` (standalone `llvm.trunc` over integer *and* byte operands, widths `{8,16,32,64}`; two raw-`createOp!` casts, operand-value case split with symmetric int/byte branches), `trunc_isRefinedBy_toInt`/`_toByte` (concrete-width round-trip data lemmas via `revert; veir_bv_decide`), `conforms_int_type`/`conforms_byte_type`, `#guard_msgs` axiom pin | — (one-off; first byte-typed proof) |
 | `RewriteProofs/CommonGraphLemmas.lean` | `matchBinaryOp_interpretOp_unfold` (shared by the binary combinator proofs) + Layer 3: `OperationPtr.Pure.llvm_*`, `constantOp_interpretOp_unfold`, `matchNot_getVar?_of_EquationLemmaAt` | one packaged lemma per new *matcher* used on defining ops |
-| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + generic unary/binary reg-to-reg riscv ops + `interpretOp_riscv_unaryReg_imm_forward` for immediate-form unary ops) | one lemma per new emitted-op *shape* |
+| `RewriteProofs/CommonForwardInterpret.lean` | forward lemmas (casts + byte casts `interpretOp_castToReg_byte_forward`/`interpretOp_castBack_byte_forward` + generic unary/binary reg-to-reg riscv ops + `interpretOp_riscv_unaryReg_imm_forward` for immediate-form unary ops) | one lemma per new emitted-op *shape* |
 | `RewriteProofs/CommonTactics.lean` | `peel*` macros (incl. the two-dominance `peel*₂` variants), `cleanupHpattern` | rarely |
-| `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `not_mem_getResults!_of_inBounds_of_not_inBounds`, `createOp!` reduction, properties/dominance transport | rarely |
+| `RewriteProofs/CommonBaseLemmas.lean` | `exists_refined_int_getVar?`, `exists_refined_byte_getVar?`, `not_mem_getResults!_of_inBounds_of_not_inBounds`, `createOp!` reduction, properties/dominance transport | rarely |
 | `RewriteProofs/CommonMatchLemmas.lean` | ctlz-specific unfold/peel lemmas — currently unused (superseded by the generic `matchUnaryOp_interpretOp_unfold`); candidate for deletion | — |
 | `Veir/Passes/InstructionSelection/RISCV64.lean` | the GlobalISel lowering combinators (`lowerUnaryWLocal`, `lowerBinaryWLocal`, …) and their instances | one `def` (or a new combinator) |
 | `Veir/Passes/InstructionSelection/RISCV64Sdag.lean` | the SelectionDAG lowering combinators (`lowerBinopNotLocal`, `selectBinopImmLocal`, …) and their instances | one `def` (or a new combinator) |
