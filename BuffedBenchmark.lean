@@ -115,14 +115,18 @@ def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) 
     let ctx ← (Rewriter.eraseOp ctx lhsOpPtr sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
     (Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
 
+
 buffed (def_lemma := false)
-def rewriteForwardsAddIConstFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Option Sim.OperationPtr) : Option (Sim.IRContext OpCode) :=
-  match maybeOp with
+def rewriteForwardsAddIConstFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
+  match maybeOp.toOption with
   | none => ctx
   | some op =>
     let next := op.getNextOp! ctx
-    let ctx := addIConstantFolding ctx op |>.get!
-    rewriteForwardsAddIConstFoldingGoSim ctx next.toOption
+    let ctx ← addIConstantFolding ctx op
+    rewriteForwardsAddIConstFoldingGoSim ctx next
+partial_fixpoint
+
+#exit
 
 buffed (def_lemma := false)
 def rewriteForwardsAddIConstFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) :=
