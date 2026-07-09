@@ -251,16 +251,128 @@ theorem orcb_isRefinedBy (Y : Nat) (hY : Y ≤ 7) (subNsw subNuw shlNsw shlNuw e
       | exact absurd hY (by omega)
 
 
+/-- `lshr x 0` is the identity. Lets the `Y = 0` case of `orcb_local` (whose right operand is `M`
+    itself, with no `lshr`) reuse the *same* `orcb_isRefinedBy` instance as `Y > 0`, instead of
+    needing a separate data lemma. -/
+theorem lshr_constant_zero_64 (x : Data.LLVM.Int 64) (e : Bool) :
+    Data.LLVM.Int.lshr x (Data.LLVM.Int.constant 64 0) e = x := by
+  cases e <;> veir_bv_decide
+
+/-- `orcb_local`'s soundness gate accepts the mask on *either* operand of the `and`, while
+    `orcb_isRefinedBy` fixes it as the second; this commutes them. -/
+theorem llvm_and_comm {w : Nat} (x y : Data.LLVM.Int w) :
+    Data.LLVM.Int.and x y = Data.LLVM.Int.and y x := by
+  cases x <;> cases y <;> simp [Data.LLVM.Int.and, Id.run, BitVec.and_comm]
+
+/-- Bridge the matcher's `getDefiningOp` to the dominance API's `getDefiningOp!`, for a defining
+    op with a single result. -/
+theorem getDefiningOp!_of_getDefiningOp {ctx : WfIRContext OpCode} {v : ValuePtr}
+    {o : OperationPtr} (hIn : v.InBounds ctx.raw) (h : getDefiningOp v ctx.raw = some o)
+    (hNum : o.getNumResults! ctx.raw = 1) :
+    v.getDefiningOp! ctx.raw = some o := by
+  obtain ⟨p, rfl, rfl⟩ := getDefiningOp_implies h
+  have hOpIn : p.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hIdx : p.index < p.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hidx0 : p.index = 0 := by omega
+  have hEq : p = p.op.getResult 0 := by
+    cases p; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx0⟩
+  have hOwner := (ctx.wellFormed.operations p.op hOpIn).result_owner 0 (by grind)
+  grind [ValuePtr.getDefiningOp!]
+
+set_option maxHeartbeats 1000000 in
+/-- `matchConstantIntVal_getVar?_of_EquationLemmaAt`, generalized so the constant may be an operand
+    of an intermediate op `midOp` that strictly dominates `op`, rather than of `op` itself.
+    `orcb_local` needs this: the mask constant is an operand of the `and`, which is two levels
+    below the matched `sub`. -/
+theorem matchConstantIntVal_getVar?_of_strictlyDominates {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    {midOp : OperationPtr} {v : ValuePtr} {intAttr : IntegerAttr} {intType : IntegerType}
+    (hMatch : matchConstantIntVal v ctx.raw = some intAttr)
+    (hMidIn : midOp.InBounds ctx.raw)
+    (hOperand : v ∈ midOp.getOperands! ctx.raw)
+    (hMidSDom : midOp.strictlyDominates op ctx)
+    (hVType : (v.getType! ctx.raw).val = Attribute.integerType intType) :
+    state.variables.getVar? v = some (RuntimeValue.int intType.bitwidth
+      (Data.LLVM.Int.constant intType.bitwidth intAttr.value)) := by
+  obtain ⟨cstPtr, rfl, hCstOp⟩ := matchConstantIntVal_implies hMatch
+  obtain ⟨hCstType, hCstProps⟩ := matchConstantIntOp_implies hCstOp
+  have hCstIn : (ValuePtr.opResult cstPtr).InBounds ctx.raw := by grind
+  have hCstOpIn : cstPtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hCstVerified : cstPtr.op.Verified ctx hCstOpIn := by grind
+  obtain ⟨hCstNumResults, -, -, -⟩ :=
+    OperationPtr.Verified.llvm_mlir__constant hCstVerified hCstType
+  have hCstIdx : cstPtr.index < cstPtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hCstEq : cstPtr = cstPtr.op.getResult 0 := by
+    have hidx : cstPtr.index = 0 := by omega
+    cases cstPtr
+    simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]
+    exact ⟨trivial, hidx⟩
+  have hCstResType : ((cstPtr.op.getResult 0).get! ctx.raw).type
+      = ⟨.integerType intType, by grind⟩ := by
+    have heq : ((ValuePtr.opResult cstPtr).getType! ctx.raw)
+        = ((cstPtr.op.getResult 0).get! ctx.raw).type := by rw [hCstEq]; rfl
+    apply Subtype.ext
+    rw [← heq]; exact hVType
+  have hCstDefines : (ValuePtr.opResult cstPtr).getDefiningOp! ctx.raw = some cstPtr.op := by
+    have hOwner := (ctx.wellFormed.operations cstPtr.op hCstOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hCstSDomMid : cstPtr.op.strictlyDominates midOp ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom
+      hCstDefines hOperand
+  have hCstSDom : cstPtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_trans hCstSDomMid hMidSDom
+  have hCstDomIp : cstPtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hCstPure : cstPtr.op.Pure ctx.raw := OperationPtr.Pure.llvm_mlir__constant hCstType
+  obtain ⟨cfC, hInterpCst⟩ := stateWf cstPtr.op hCstOpIn hCstPure hCstDomIp
+  have hCstResVal :=
+    constantOp_interpretOp_unfold hCstOpIn hCstType hCstNumResults hCstProps hCstResType
+      hInterpCst
+  rw [hCstEq]; exact hCstResVal
+
 /-
-The structural correctness proof `orcb_local_preservesSemantics` is a work in progress.
-All the reusable pieces above build and are axiom-clean: the core `orcb` bitvector identity,
-the `orcb_isRefinedBy` data lemma (all `Y ∈ {0,…,7}` × shift/sub flag combinations), and the
-`shl_getVar?`/`and_getVar?` DAG graph lemmas. What remains is the final assembly, whose
-matching + `sub` interpret-unfold + `shl`-graph-lemma stages are drafted in
-`scratchpad/LowerOrcb.wip.lean`: the `Y = 0 / Y > 0` conditional split, the deep-operand
-dominance plumbing (`mOp ⊐ aOp ⊐ op`, needed because `m` is a two-level-deep operand), the
-soundness-gate peel, the `castToReg → orcb → castBack` emit peel, and the `orcb_isRefinedBy`
-discharge.
+The structural correctness proof `orcb_local_preservesSemantics` is still a work in progress.
+Everything it needs is now in place above, and all of it builds and is axiom-clean:
+
+  * the core bitvector identity and the `orcb_isRefinedBy` data lemma (all `Y ∈ {0,…,7}` and all
+    shift/sub flag combinations);
+  * `shl_getVar?` / `and_getVar?` — the DAG graph lemmas for the matched `shl` and `and`;
+  * `matchConstantIntVal_getVar?_of_strictlyDominates` — the constant graph lemma generalized to a
+    constant that is an operand of an op *two levels* below the matched `sub` (the mask);
+  * `getDefiningOp!_of_getDefiningOp` — needed to build the dominance chain `andOp ⊐ shlOp ⊐ op`
+    that `and_getVar?` and the constant lemma take as input;
+  * `lshr_constant_zero_64`, which collapses the `Y = 0` case (whose right operand is `M` itself,
+    with no `lshr`) onto the same `orcb_isRefinedBy` instance as `Y > 0`, so the two cases share
+    one data lemma rather than needing two;
+  * `llvm_and_comm`, for the soundness gate accepting the mask on either `and` operand.
+
+What remains is the final assembly, following the `bexti_local_preservesSemantics` template
+(`LowerBexti.lean`) — the same three-op `castToRegLocal → orcb → replaceWithRegLocal` emit chain:
+
+  1. Peel `matchSub`, the result-type/width guards, `getDefiningOp a`, `matchShl`,
+    `matchConstantIntVal shamt`, and the `1 ≤ shc.value ≤ 8` range guard. (Drafted and building.)
+  2. Peel the `rightMatches` guard. Note: after the initial `simp … at hpattern` this is an
+    *`ite` whose condition is itself an `ite`*, so a bare `split at hpattern` splits the inner
+    condition (`8 - shc.value ≤ 0`), not the outer one, and both `rw [if_pos …]` and
+    `simp only [if_pos …]` fail to fire against a hand-written copy of the condition — the
+    elaborated `Decidable` instance does not match. Splitting on the inner condition and handling
+    the two cases separately is the route that works.
+  3. In the `Y = 0` case the guard yields `b = m`; rewrite `b`'s value with
+    `lshr_constant_zero_64`. In the `Y > 0` case, recover `b`'s value with
+    `lshrConst_getVar?_of_EquationLemmaAt` (`LowerBexti.lean`). Both then agree on
+    `bv = lshr mv (constant 64 Y) e`, so the tail is shared.
+  4. Peel the soundness gate (`getDefiningOp m`, `matchAnd`, the mask check), pin the mask operand
+    with `matchConstantIntVal_getVar?_of_strictlyDominates`, and commute it into second position
+    with `llvm_and_comm` when it matched on the left.
+  5. Peel the three creations with `peelCastToRegLocal` / `peelOpCreation!` /
+    `peelReplaceWithRegLocal`, discharge the `getOpType!`/`getOperands!`/`getResultTypes!`
+    transports (seed them explicitly per creation, as in `LowerBexti.lean`), replay the chain with
+    `interpretOp_castToReg_forward` / `interpretOp_riscv_unaryReg_forward` /
+    `interpretOp_castBack_forward`, and close with `orcb_isRefinedBy Y`.
 -/
 
 end Veir
