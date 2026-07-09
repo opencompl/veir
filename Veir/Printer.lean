@@ -44,19 +44,19 @@ def printValueSim (_ctx : Sim.IRContext OpCode) (value : Sim.ValuePtr) : IO Unit
 buffed (def_lemma := false)
 def printOpResultsSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
   if op.getNumResults! ctx ≠ 0 then
-    IO.print s!"%{op.impl}"
-    if op.getNumResults! ctx > 1 then
-      IO.print s!":{op.getNumResults! ctx}"
+    IO.print s!"%{op.getResultPtr! ctx 0 |>.impl}"
+    for i in 1...(op.getNumResults! ctx) do
+      IO.print s!", %{op.getResultPtr! ctx i |>.impl}"
     IO.print " = "
 
 buffed (def_lemma := false)
 def printOpOperandsSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
   IO.print "("
   if op.getNumOperands! ctx ≠ 0 then
-    printValue ctx ⟨(op.getOperandPtr! ctx 0).impl, sorry⟩
+    printValue ctx ((op.getOperandPtr! ctx 0).getValue! ctx)
     for index in 1...(op.getNumOperands! ctx) do
       IO.print ", "
-      printValue ctx ⟨(op.getOperandPtr! ctx index).impl, sorry⟩
+      printValue ctx ((op.getOperandPtr! ctx index).getValue! ctx)
   IO.print ")"
 
 def printOperationType (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
