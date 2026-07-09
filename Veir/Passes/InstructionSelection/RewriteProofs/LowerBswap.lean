@@ -6,7 +6,7 @@ import Veir.Rewriter.WfRewriter
 import Veir.PatternRewriter.Semantics
 import Veir.Verifier
 import Veir.Data.LLVM.Int.Lemmas
-import Veir.Passes.InstructionSelection.RISCV64
+import Veir.Data.RISCV.Reg.Lemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
@@ -66,14 +66,7 @@ theorem interpretOp_riscv_srli_forward
     of the operand.) -/
 theorem bswap_isRefinedBy_toInt_rev8 {x xt : Data.LLVM.Int 64} (h : x ⊒ xt) :
     Data.LLVM.Int.bswap x ⊒ RISCV.Reg.toInt (Data.RISCV.rev8 (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h ⊢
-  obtain ⟨hp, hv⟩ := h
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_bswap] at hnp; exact hnp
-  have hvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.rev8]
+  revert h
   veir_bv_decide
 
 /-- Correctness of the `riscv.srli 32 (rev8 ·)` lowering of a 32-bit `llvm.intr.bswap`: `rev8`
@@ -83,14 +76,7 @@ theorem bswap_isRefinedBy_toInt_srli_rev8 {x xt : Data.LLVM.Int 32} (h : x ⊒ x
     Data.LLVM.Int.bswap x ⊒
       RISCV.Reg.toInt (Data.RISCV.srli (BitVec.ofInt 6 32) (Data.RISCV.rev8 (LLVM.Int.toReg xt)))
         32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h ⊢
-  obtain ⟨hp, hv⟩ := h
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_bswap] at hnp; exact hnp
-  have hvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.rev8, Data.RISCV.srli]
+  revert h
   veir_bv_decide
 
 set_option maxHeartbeats 1000000 in

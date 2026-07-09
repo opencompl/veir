@@ -6,6 +6,7 @@ import Veir.Rewriter.WfRewriter
 import Veir.PatternRewriter.Semantics
 import Veir.Verifier
 import Veir.Data.LLVM.Int.Lemmas
+import Veir.Data.RISCV.Reg.Lemmas
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
@@ -403,19 +404,7 @@ theorem add_isRefinedBy_toInt_add {x y xt yt : Data.LLVM.Int 64} (nsw nuw : Bool
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.add x y nsw nuw
       ⊒ RISCV.Reg.toInt (Data.RISCV.add (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_add] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_add] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.add]
+  revert h₁ h₂
   veir_bv_decide
 
 /-- Correctness of the `riscv.addw` lowering of a 32-bit `llvm.add`. -/
@@ -423,19 +412,7 @@ theorem add_isRefinedBy_toInt_addw {x y xt yt : Data.LLVM.Int 32} (nsw nuw : Boo
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.add x y nsw nuw
       ⊒ RISCV.Reg.toInt (Data.RISCV.addw (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_add] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_add] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.addw]
+  revert h₁ h₂
   veir_bv_decide
 
 theorem add_local_preservesSemantics :
@@ -467,19 +444,7 @@ theorem xor_isRefinedBy_toInt_xor {x y xt yt : Data.LLVM.Int 64}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.xor x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.xor (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_xor] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_xor] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.xor]
+  revert h₁ h₂
   veir_bv_decide
 
 /-- Correctness of the `riscv.xor` lowering of a 32-bit `llvm.xor`. -/
@@ -487,19 +452,7 @@ theorem xor_isRefinedBy_toInt_xor_32 {x y xt yt : Data.LLVM.Int 32}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.xor x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.xor (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_xor] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_xor] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.xor]
+  revert h₁ h₂
   veir_bv_decide
 
 theorem xor_local_preservesSemantics :
@@ -530,19 +483,7 @@ theorem sub_isRefinedBy_toInt_sub {x y xt yt : Data.LLVM.Int 64} (nsw nuw : Bool
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.sub x y nsw nuw
       ⊒ RISCV.Reg.toInt (Data.RISCV.sub (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_sub] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_sub] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.sub]
+  revert h₁ h₂
   veir_bv_decide
 
 /-- Correctness of the `riscv.subw` lowering of a 32-bit `llvm.sub`. -/
@@ -550,19 +491,7 @@ theorem sub_isRefinedBy_toInt_subw {x y xt yt : Data.LLVM.Int 32} (nsw nuw : Boo
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.sub x y nsw nuw
       ⊒ RISCV.Reg.toInt (Data.RISCV.subw (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_sub] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_sub] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.subw]
+  revert h₁ h₂
   veir_bv_decide
 
 theorem sub_local_preservesSemantics :
@@ -593,51 +522,16 @@ theorem mul_isRefinedBy_toInt_mul {x y xt yt : Data.LLVM.Int 64} (nsw nuw : Bool
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.mul x y nsw nuw
       ⊒ RISCV.Reg.toInt (Data.RISCV.mul (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_mul] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_mul] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  -- Avoid bitblasting the 64-bit multiplier: rewrite both sides to the same product instead.
-  rw [Data.LLVM.Int.getValue_mul _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.mul, val_toReg, Data.LLVM.Int.getValue_eq_getValueD,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp]),
-    BitVec.truncate_eq_setWidth, BitVec.setWidth_eq]
-  rw [hvd₁, hvd₂]
+  revert h₁ h₂
+  veir_bv_decide
 
 /-- Correctness of the `riscv.mulw` lowering of a 32-bit `llvm.mul`. -/
 theorem mul_isRefinedBy_toInt_mulw {x y xt yt : Data.LLVM.Int 32} (nsw nuw : Bool)
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.mul x y nsw nuw
       ⊒ RISCV.Reg.toInt (Data.RISCV.mulw (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_mul] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_mul] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  -- Rewrite both sides to the same 32-bit product first, so `bv_decide` sees two structurally
-  -- identical multipliers instead of proving a 64-bit multiplier equivalence.
-  rw [Data.LLVM.Int.getValue_mul _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.mulw, val_toReg, Data.LLVM.Int.getValue_eq_getValueD,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp])]
-  rw [hvd₁, hvd₂]
-  bv_decide
+  revert h₁ h₂
+  veir_bv_decide
 
 theorem mul_local_preservesSemantics :
     LocalRewritePattern.PreservesSemantics mul_local h h₂ h₃ h₄ :=
@@ -669,51 +563,16 @@ theorem udiv_isRefinedBy_toInt_divu {x y xt yt : Data.LLVM.Int 64} (exact : Bool
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.udiv x y exact
       ⊒ RISCV.Reg.toInt (Data.RISCV.divu (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_udiv] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_udiv] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hyne : y.getValueD ≠ 0 := by
-    rw [Data.LLVM.Int.isPoison_udiv] at hnp
-    rw [Data.LLVM.Int.getValueD_eq, dif_pos hynp]; grind
-  rw [Data.LLVM.Int.getValue_udiv _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.divu, val_toReg,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp]),
-    Data.LLVM.Int.getValue_eq_getValueD]
-  rw [← hvd₁, ← hvd₂]
-  simp only [BitVec.setWidth_eq]
-  rw [if_neg (show ¬ y.getValueD = 0#64 from hyne)]
+  revert h₁ h₂
+  veir_bv_decide
 
 /-- Correctness of the `riscv.divuw` lowering of a 32-bit `llvm.udiv`. -/
 theorem udiv_isRefinedBy_toInt_divuw {x y xt yt : Data.LLVM.Int 32} (exact : Bool)
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.udiv x y exact
       ⊒ RISCV.Reg.toInt (Data.RISCV.divuw (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by rw [Data.LLVM.Int.isPoison_udiv] at hnp; grind
-  have hynp : y.isPoison = false := by rw [Data.LLVM.Int.isPoison_udiv] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hyne : y.getValueD ≠ 0 := by
-    rw [Data.LLVM.Int.isPoison_udiv] at hnp
-    rw [Data.LLVM.Int.getValueD_eq, dif_pos hynp]; grind
-  rw [Data.LLVM.Int.getValue_udiv _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.divuw, val_toReg,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp]),
-    Data.LLVM.Int.getValue_eq_getValueD]
-  rw [← hvd₁, ← hvd₂]
-  bv_decide
+  revert h₁ h₂
+  veir_bv_decide
 
 theorem udiv_local_preservesSemantics :
     LocalRewritePattern.PreservesSemantics udiv_local h h₂ h₃ h₄ :=
@@ -751,49 +610,16 @@ theorem sdiv_isRefinedBy_toInt_div {x y xt yt : Data.LLVM.Int 64} (exact : Bool)
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.sdiv x y exact
       ⊒ RISCV.Reg.toInt (Data.RISCV.div (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by rw [Data.LLVM.Int.isPoison_sdiv] at hnp; grind
-  have hynp : y.isPoison = false := by rw [Data.LLVM.Int.isPoison_sdiv] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hyne : y.getValueD ≠ 0 := by
-    rw [Data.LLVM.Int.isPoison_sdiv] at hnp
-    rw [Data.LLVM.Int.getValueD_eq, dif_pos hynp]; grind
-  rw [Data.LLVM.Int.getValue_sdiv _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.div, val_toReg,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp]),
-    Data.LLVM.Int.getValue_eq_getValueD]
-  rw [← hvd₁, ← hvd₂]
-  simp only [BitVec.setWidth_eq]
-  rw [if_neg (show ¬ y.getValueD = 0#64 from hyne)]
+  revert h₁ h₂
+  veir_bv_decide
 
 /-- Correctness of the `riscv.divw` lowering of a 32-bit `llvm.sdiv`. -/
 theorem sdiv_isRefinedBy_toInt_divw {x y xt yt : Data.LLVM.Int 32} (exact : Bool)
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.sdiv x y exact
       ⊒ RISCV.Reg.toInt (Data.RISCV.divw (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by rw [Data.LLVM.Int.isPoison_sdiv] at hnp; grind
-  have hynp : y.isPoison = false := by rw [Data.LLVM.Int.isPoison_sdiv] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hyne : y.getValueD ≠ 0 := by
-    rw [Data.LLVM.Int.isPoison_sdiv] at hnp
-    rw [Data.LLVM.Int.getValueD_eq, dif_pos hynp]; grind
-  rw [Data.LLVM.Int.getValue_sdiv _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.divw, val_toReg,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp]),
-    Data.LLVM.Int.getValue_eq_getValueD]
-  rw [← hvd₁, ← hvd₂]
-  bv_decide
+  revert h₁ h₂
+  veir_bv_decide
 
 theorem sdiv_local_preservesSemantics :
     LocalRewritePattern.PreservesSemantics sdiv_local h h₂ h₃ h₄ :=
@@ -828,42 +654,16 @@ theorem urem_isRefinedBy_toInt_remu {x y xt yt : Data.LLVM.Int 64}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.urem x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.remu (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by rw [Data.LLVM.Int.isPoison_urem] at hnp; grind
-  have hynp : y.isPoison = false := by rw [Data.LLVM.Int.isPoison_urem] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  rw [Data.LLVM.Int.getValue_urem _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.remu, val_toReg,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp]),
-    Data.LLVM.Int.getValue_eq_getValueD]
-  rw [← hvd₁, ← hvd₂]
-  simp only [BitVec.setWidth_eq]
+  revert h₁ h₂
+  veir_bv_decide
 
 /-- Correctness of the `riscv.remuw` lowering of a 32-bit `llvm.urem`. -/
 theorem urem_isRefinedBy_toInt_remuw {x y xt yt : Data.LLVM.Int 32}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.urem x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.remuw (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by rw [Data.LLVM.Int.isPoison_urem] at hnp; grind
-  have hynp : y.isPoison = false := by rw [Data.LLVM.Int.isPoison_urem] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  rw [Data.LLVM.Int.getValue_urem _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.remuw, val_toReg,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp]),
-    Data.LLVM.Int.getValue_eq_getValueD]
-  rw [← hvd₁, ← hvd₂]
-  bv_decide
+  revert h₁ h₂
+  veir_bv_decide
 
 theorem urem_local_preservesSemantics :
     LocalRewritePattern.PreservesSemantics urem_local h h₂ h₃ h₄ :=
@@ -898,42 +698,16 @@ theorem srem_isRefinedBy_toInt_rem {x y xt yt : Data.LLVM.Int 64}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.srem x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.rem (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by rw [Data.LLVM.Int.isPoison_srem] at hnp; grind
-  have hynp : y.isPoison = false := by rw [Data.LLVM.Int.isPoison_srem] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  rw [Data.LLVM.Int.getValue_srem _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.rem, val_toReg,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp]),
-    Data.LLVM.Int.getValue_eq_getValueD]
-  rw [← hvd₁, ← hvd₂]
-  simp only [BitVec.setWidth_eq]
+  revert h₁ h₂
+  veir_bv_decide
 
 /-- Correctness of the `riscv.remw` lowering of a 32-bit `llvm.srem`. -/
 theorem srem_isRefinedBy_toInt_remw {x y xt yt : Data.LLVM.Int 32}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.srem x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.remw (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by rw [Data.LLVM.Int.isPoison_srem] at hnp; grind
-  have hynp : y.isPoison = false := by rw [Data.LLVM.Int.isPoison_srem] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by grind [Data.LLVM.Int.getValueD_eq]
-  rw [Data.LLVM.Int.getValue_srem _ _ hnp, toInt_getValue]
-  simp only [Data.RISCV.remw, val_toReg,
-    dif_neg (show ¬xt.isPoison = true by simp [hp₁ hxnp]),
-    dif_neg (show ¬yt.isPoison = true by simp [hp₂ hynp]),
-    Data.LLVM.Int.getValue_eq_getValueD]
-  rw [← hvd₁, ← hvd₂]
-  bv_decide
+  revert h₁ h₂
+  veir_bv_decide
 
 theorem srem_local_preservesSemantics :
     LocalRewritePattern.PreservesSemantics srem_local h h₂ h₃ h₄ :=

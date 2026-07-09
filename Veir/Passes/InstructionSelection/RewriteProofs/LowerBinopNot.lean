@@ -6,6 +6,7 @@ import Veir.Rewriter.WfRewriter
 import Veir.PatternRewriter.Semantics
 import Veir.Verifier
 import Veir.Data.LLVM.Int.Lemmas
+import Veir.Data.RISCV.Reg.Lemmas
 import Veir.Passes.InstructionSelection.RISCV64Sdag
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
@@ -415,17 +416,7 @@ theorem and_not_isRefinedBy_toInt_andn {x y xt yt : Data.LLVM.Int 64}
     (hx : x ⊒ xt) (hy : y ⊒ yt) :
     Data.LLVM.Int.and x (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1)))
       ⊒ RISCV.Reg.toInt (Data.RISCV.andn (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
-  obtain ⟨hxp, hxv⟩ := hx
-  obtain ⟨hyp, hyv⟩ := hy
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by grind
-  have hynp : y.isPoison = false := by grind
-  have hxvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  have hyvd : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.andn]
+  revert hx hy
   veir_bv_decide
 
 /-- Correctness of the `riscv.andn` lowering of `and (not y) x` (the `not` on the left). -/
@@ -433,17 +424,7 @@ theorem not_and_isRefinedBy_toInt_andn {x y xt yt : Data.LLVM.Int 64}
     (hx : x ⊒ xt) (hy : y ⊒ yt) :
     Data.LLVM.Int.and (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1))) x
       ⊒ RISCV.Reg.toInt (Data.RISCV.andn (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
-  obtain ⟨hxp, hxv⟩ := hx
-  obtain ⟨hyp, hyv⟩ := hy
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by grind
-  have hynp : y.isPoison = false := by grind
-  have hxvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  have hyvd : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.andn]
+  revert hx hy
   veir_bv_decide
 
 theorem andn_local_preservesSemantics :
@@ -475,8 +456,8 @@ info: 'Veir.andn_local_preservesSemantics' depends on axioms: [propext,
  ValuePtr.dominatesIp_before_WfRewriter_createOp,
  ValuePtr.dominatesIp_before_of_strictlyDominates,
  IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates,
- and_not_isRefinedBy_toInt_andn._native.bv_decide.ax_1_13,
- not_and_isRefinedBy_toInt_andn._native.bv_decide.ax_1_13,
+ and_not_isRefinedBy_toInt_andn._native.bv_decide.ax_1_5,
+ not_and_isRefinedBy_toInt_andn._native.bv_decide.ax_1_5,
  MemoryState.llvmLoad._native.bv_decide.ax_8]
 -/
 #guard_msgs in
@@ -490,17 +471,7 @@ theorem or_not_isRefinedBy_toInt_orn {x y xt yt : Data.LLVM.Int 64} (disjoint : 
     (hx : x ⊒ xt) (hy : y ⊒ yt) :
     Data.LLVM.Int.or x (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1))) disjoint
       ⊒ RISCV.Reg.toInt (Data.RISCV.orn (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
-  obtain ⟨hxp, hxv⟩ := hx
-  obtain ⟨hyp, hyv⟩ := hy
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by grind
-  have hynp : y.isPoison = false := by grind
-  have hxvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  have hyvd : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.orn]
+  revert hx hy
   veir_bv_decide
 
 /-- Correctness of the `riscv.orn` lowering of `or (not y) x` (the `not` on the left). -/
@@ -508,17 +479,7 @@ theorem not_or_isRefinedBy_toInt_orn {x y xt yt : Data.LLVM.Int 64} (disjoint : 
     (hx : x ⊒ xt) (hy : y ⊒ yt) :
     Data.LLVM.Int.or (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1))) x disjoint
       ⊒ RISCV.Reg.toInt (Data.RISCV.orn (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
-  obtain ⟨hxp, hxv⟩ := hx
-  obtain ⟨hyp, hyv⟩ := hy
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by grind
-  have hynp : y.isPoison = false := by grind
-  have hxvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  have hyvd : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.orn]
+  revert hx hy
   veir_bv_decide
 
 theorem orn_local_preservesSemantics :
@@ -550,8 +511,8 @@ info: 'Veir.orn_local_preservesSemantics' depends on axioms: [propext,
  ValuePtr.dominatesIp_before_WfRewriter_createOp,
  ValuePtr.dominatesIp_before_of_strictlyDominates,
  IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates,
- not_or_isRefinedBy_toInt_orn._native.bv_decide.ax_1_15,
- or_not_isRefinedBy_toInt_orn._native.bv_decide.ax_1_15,
+ not_or_isRefinedBy_toInt_orn._native.bv_decide.ax_1_5,
+ or_not_isRefinedBy_toInt_orn._native.bv_decide.ax_1_5,
  MemoryState.llvmLoad._native.bv_decide.ax_8]
 -/
 #guard_msgs in
@@ -565,17 +526,7 @@ theorem xor_not_isRefinedBy_toInt_xnor {x y xt yt : Data.LLVM.Int 64}
     (hx : x ⊒ xt) (hy : y ⊒ yt) :
     Data.LLVM.Int.xor x (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1)))
       ⊒ RISCV.Reg.toInt (Data.RISCV.xnor (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
-  obtain ⟨hxp, hxv⟩ := hx
-  obtain ⟨hyp, hyv⟩ := hy
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by grind
-  have hynp : y.isPoison = false := by grind
-  have hxvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  have hyvd : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.xnor]
+  revert hx hy
   veir_bv_decide
 
 /-- Correctness of the `riscv.xnor` lowering of `xor (not y) x` (the `not` on the left). -/
@@ -583,17 +534,7 @@ theorem not_xor_isRefinedBy_toInt_xnor {x y xt yt : Data.LLVM.Int 64}
     (hx : x ⊒ xt) (hy : y ⊒ yt) :
     Data.LLVM.Int.xor (Data.LLVM.Int.xor y (Data.LLVM.Int.constant 64 (-1))) x
       ⊒ RISCV.Reg.toInt (Data.RISCV.xnor (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at hx hy ⊢
-  obtain ⟨hxp, hxv⟩ := hx
-  obtain ⟨hyp, hyv⟩ := hy
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by grind
-  have hynp : y.isPoison = false := by grind
-  have hxvd : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  have hyvd : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq, Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.xnor]
+  revert hx hy
   veir_bv_decide
 
 theorem xnor_local_preservesSemantics :
@@ -625,8 +566,8 @@ info: 'Veir.xnor_local_preservesSemantics' depends on axioms: [propext,
  ValuePtr.dominatesIp_before_WfRewriter_createOp,
  ValuePtr.dominatesIp_before_of_strictlyDominates,
  IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates,
- not_xor_isRefinedBy_toInt_xnor._native.bv_decide.ax_1_13,
- xor_not_isRefinedBy_toInt_xnor._native.bv_decide.ax_1_13,
+ not_xor_isRefinedBy_toInt_xnor._native.bv_decide.ax_1_5,
+ xor_not_isRefinedBy_toInt_xnor._native.bv_decide.ax_1_5,
  MemoryState.llvmLoad._native.bv_decide.ax_8]
 -/
 #guard_msgs in

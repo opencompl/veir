@@ -509,38 +509,32 @@ theorem zextLike_isRefinedBy_toInt {opW retW : Nat} (hlt : opW < retW) (hle : re
 /-- `riscv.sextb` sign-extends the low byte. -/
 theorem sextb_val (r : Data.RISCV.Reg) :
     (Data.RISCV.sextb r).val = BitVec.signExtend 64 (BitVec.setWidth 8 r.val) := by
-  simp only [Data.RISCV.val_sextb]
-  bv_decide
+  veir_bv_decide
 
 /-- `riscv.sexth` sign-extends the low halfword. -/
 theorem sexth_val (r : Data.RISCV.Reg) :
     (Data.RISCV.sexth r).val = BitVec.signExtend 64 (BitVec.setWidth 16 r.val) := by
-  simp only [Data.RISCV.val_sexth]
-  bv_decide
+  veir_bv_decide
 
 /-- `riscv.sextw` sign-extends the low word. -/
 theorem sextw_val (r : Data.RISCV.Reg) :
     (Data.RISCV.sextw r).val = BitVec.signExtend 64 (BitVec.setWidth 32 r.val) := by
-  simp only [Data.RISCV.val_sextw, Data.RISCV.addiw]
-  bv_decide
+  veir_bv_decide
 
 /-- `riscv.zextb` zero-extends the low byte. -/
 theorem zextb_val (r : Data.RISCV.Reg) :
     (Data.RISCV.zextb r).val = BitVec.setWidth 64 (BitVec.setWidth 8 r.val) := by
-  simp only [Data.RISCV.val_zextb, Data.RISCV.andi]
-  bv_decide
+  veir_bv_decide
 
 /-- `riscv.zexth` zero-extends the low halfword. -/
 theorem zexth_val (r : Data.RISCV.Reg) :
     (Data.RISCV.zexth r).val = BitVec.setWidth 64 (BitVec.setWidth 16 r.val) := by
-  simp only [Data.RISCV.val_zexth]
-  bv_decide
+  veir_bv_decide
 
 /-- `riscv.zextw` zero-extends the low word. -/
 theorem zextw_val (r : Data.RISCV.Reg) :
     (Data.RISCV.zextw r).val = BitVec.setWidth 64 (BitVec.setWidth 32 r.val) := by
-  simp only [Data.RISCV.val_zextw, Data.RISCV.adduw, Data.RISCV.li]
-  bv_decide
+  veir_bv_decide
 
 /-!
 ## RISC-V lowering of `llvm.sext`

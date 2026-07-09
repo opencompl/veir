@@ -6,6 +6,7 @@ import Veir.Rewriter.WfRewriter
 import Veir.PatternRewriter.Semantics
 import Veir.Verifier
 import Veir.Data.LLVM.Int.Lemmas
+import Veir.Data.RISCV.Reg.Lemmas
 import Veir.Passes.InstructionSelection.RISCV64
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
@@ -277,19 +278,7 @@ theorem umax_isRefinedBy_toInt_maxu {x y xt yt : Data.LLVM.Int 64}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.umax x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.maxu (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_umax] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_umax] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.maxu]
+  revert h₁ h₂
   veir_bv_decide
 
 /-- Correctness of the `riscv.maxu` lowering of a 32-bit `llvm.intr.umax`. -/
@@ -297,19 +286,7 @@ theorem umax_isRefinedBy_toInt_maxu_32 {x y xt yt : Data.LLVM.Int 32}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.umax x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.maxu (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_umax] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_umax] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.maxu]
+  revert h₁ h₂
   veir_bv_decide
 
 theorem umax_local_preservesSemantics :
@@ -330,19 +307,7 @@ theorem umin_isRefinedBy_toInt_minu {x y xt yt : Data.LLVM.Int 64}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.umin x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.minu (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 64 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_umin] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_umin] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.minu]
+  revert h₁ h₂
   veir_bv_decide
 
 /-- Correctness of the `riscv.minu` lowering of a 32-bit `llvm.intr.umin`. -/
@@ -350,19 +315,7 @@ theorem umin_isRefinedBy_toInt_minu_32 {x y xt yt : Data.LLVM.Int 32}
     (h₁ : x ⊒ xt) (h₂ : y ⊒ yt) :
     Data.LLVM.Int.umin x y
       ⊒ RISCV.Reg.toInt (Data.RISCV.minu (LLVM.Int.toReg yt) (LLVM.Int.toReg xt)) 32 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff] at h₁ h₂ ⊢
-  obtain ⟨hp₁, hv₁⟩ := h₁
-  obtain ⟨hp₂, hv₂⟩ := h₂
-  refine ⟨fun _ => toInt_isPoison, fun hnp _ => ?_⟩
-  have hxnp : x.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_umin] at hnp; grind
-  have hynp : y.isPoison = false := by
-    rw [Data.LLVM.Int.isPoison_umin] at hnp; grind
-  have hvd₁ : x.getValueD = xt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  have hvd₂ : y.getValueD = yt.getValueD := by
-    grind [Data.LLVM.Int.getValueD_eq]
-  simp only [Data.RISCV.minu]
+  revert h₁ h₂
   veir_bv_decide
 
 theorem umin_local_preservesSemantics :

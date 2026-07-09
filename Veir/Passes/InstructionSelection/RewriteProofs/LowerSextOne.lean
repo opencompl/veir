@@ -41,8 +41,7 @@ value characterisation below is new.
 theorem srai_slli_63_val (r : Data.RISCV.Reg) :
     (Data.RISCV.srai (BitVec.ofInt 6 63) (Data.RISCV.slli (BitVec.ofInt 6 63) r)).val
       = BitVec.signExtend 64 (BitVec.setWidth 1 r.val) := by
-  simp only [Data.RISCV.srai, Data.RISCV.slli]
-  bv_decide
+  veir_bv_decide
 
 /-- Correctness of the `srai (slli _ 63) 63` lowering of an `llvm.sext` from `i1` to `i{retW}`
     (`retW ∈ {32, 64}`): the round trip `i1 → reg → slli 63 → srai 63 → i{retW}` refines
