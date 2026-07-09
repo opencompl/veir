@@ -7,7 +7,7 @@ import Veir.Passes.Matching
 namespace Veir.RISCV
 
 def sub_minus_one (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (lhs, op1, _props) := matchSub op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal lhs rewriter.ctx | return rewriter
   if cst.value ≠ -1 then return rewriter
@@ -108,7 +108,7 @@ def binop_same_val_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   rewriter.eraseOp op sorry sorry sorry
 
 def same_val_zero_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (x, x1, _props) := matchSub op rewriter.ctx | return rewriter
   if x != x1 then return rewriter
   let .integerType type := (x.getType! rewriter.ctx.raw).val | return rewriter
@@ -147,7 +147,7 @@ def binop_right_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   rewriter.eraseOp op sorry sorry sorry
 
 def mul_by_neg_one (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (x, rhs, _props) := matchMul op rewriter.ctx | return rewriter
   let some cst := matchConstantIntVal rhs rewriter.ctx | return rewriter
   if cst.value ≠ -1 then return rewriter
@@ -160,7 +160,7 @@ def mul_by_neg_one (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   return rewriter.replaceOp! op newOp
 
 def or_and_xor_to_or (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (and, y, _props) := matchOr op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp and rewriter.ctx | return rewriter
   let some (x, not, _) := matchAnd defOp rewriter.ctx | return rewriter
@@ -174,7 +174,7 @@ def or_and_xor_to_or (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   return rewriter.replaceOp! op newOp
 
 def and_xor_or_to_and (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (or, y, _) := matchAnd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp or rewriter.ctx | return rewriter
   let some (x, not, _props) := matchOr defOp rewriter.ctx | return rewriter
@@ -208,7 +208,7 @@ def add_sub_reg_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   rewriter.eraseOp op sorry sorry sorry
 
 def APlusBMinusCMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (add1, B, _props) := matchSub op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp add1 rewriter.ctx | return rewriter
   let some (A, sub1, _props1) := matchAdd defOp rewriter.ctx | return rewriter
@@ -220,7 +220,7 @@ def APlusBMinusCMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   return rewriter.replaceOp! op newOp
 
 def AMinusBMinusCMinusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (sub2, C, _props) := matchSub op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp sub2 rewriter.ctx | return rewriter
   let some (A, sub1, _props1) := matchSub defOp rewriter.ctx | return rewriter
@@ -232,7 +232,7 @@ def AMinusBMinusCMinusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   return rewriter.replaceOp! op newOp
 
 def ZeroMinusAPlusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (sub, B, _props) := matchAdd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp sub rewriter.ctx | return rewriter
   let some (lhs, A, _props1) := matchSub defOp rewriter.ctx | return rewriter
@@ -243,7 +243,7 @@ def ZeroMinusAPlusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   return rewriter.replaceOp! op newOp
 
 def APlusZeroMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (A, sub, _props) := matchAdd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp sub rewriter.ctx | return rewriter
   let some (lhs, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
@@ -274,7 +274,7 @@ def BMinusAPlusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   rewriter.eraseOp op sorry sorry sorry
 
 def AMinusBPlusCMinusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (sub1, sub2, _props) := matchAdd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp sub1 rewriter.ctx | return rewriter
   let some (A, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
@@ -286,7 +286,7 @@ def AMinusBPlusCMinusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   return rewriter.replaceOp! op newOp
 
 def AMinusBPlusBMinusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (sub1, sub2, _props) := matchAdd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp sub1 rewriter.ctx | return rewriter
   let some (A, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
@@ -298,7 +298,7 @@ def AMinusBPlusBMinusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   return rewriter.replaceOp! op newOp
 
 def APlusBMinusAplusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (A, sub1, _props) := matchAdd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp sub1 rewriter.ctx | return rewriter
   let some (B, add1, _props1) := matchSub defOp rewriter.ctx | return rewriter
@@ -310,7 +310,7 @@ def APlusBMinusAplusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   return rewriter.replaceOp! op newOp
 
 def APlusBMinusCPlusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (A, sub1, _props) := matchAdd op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp sub1 rewriter.ctx | return rewriter
   let some (B, add1, _props1) := matchSub defOp rewriter.ctx | return rewriter
@@ -322,7 +322,7 @@ def APlusBMinusCPlusA (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   return rewriter.replaceOp! op newOp
 
 def AMinusZeroMinusB (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (A, sub1, _props) := matchSub op rewriter.ctx | return rewriter
   let some defOp := getDefiningOp sub1 rewriter.ctx | return rewriter
   let some (lhs, B, _props1) := matchSub defOp rewriter.ctx | return rewriter
