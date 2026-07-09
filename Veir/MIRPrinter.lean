@@ -375,10 +375,17 @@ def emitBlock (ctx : IRContext OpCode) (blocks : Array BlockPtr)
     let np := b.getNumArguments! ctx
     if np != 0 then
       let plist := preds[bi]!
+      -- A block with no predecessors is the entry block, so its arguments are
+      -- the function arguments: bind them to the RISC-V integer argument
+      -- registers (a0-a7 = x10-x17) per the standard calling convention, so
+      -- the allocated code is actually callable from ABI-conforming code.
+      if plist.size == 0 then
+        let regs := (List.range np).map (fun i => s!"$x{10 + i}")
+        IO.println s!"    liveins: {String.intercalate ", " regs}"
       for ai in 0...np do
         let name := s!"%arg{b.id}_{ai}"
         if plist.size == 0 then
-          IO.println s!"    {name}:gpr = IMPLICIT_DEF"
+          IO.println s!"    {name}:gpr = COPY $x{10 + ai}"
         else if plist.size == 1 then
           let (_, vals) := plist[0]!
           IO.println s!"    {name}:gpr = COPY {vreg ctx (vals[ai]!)}"
@@ -404,8 +411,15 @@ def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
     else reachable ctx allBlocks [(allBlocks[0]!).id]
   let blocks := allBlocks.filter (fun b => reach.contains b.id)
   let plan := planEdges ctx blocks
+  -- Entry-block arguments are the function arguments; they live in the RISC-V
+  -- integer argument registers a0-a7 (x10-x17). Declare them on the stub IR
+  -- signature and as MIR liveins so the register allocator keeps them there.
+  let nargs := match blocks[0]? with
+    | some b => b.getNumArguments! ctx
+    | none => 0
+  let params := String.intercalate ", " ((List.range nargs).map (fun i => s!"i64 %a{i}"))
   IO.println "--- |"
-  IO.println "  define i64 @main() #0 {"
+  IO.println s!"  define i64 @main({params}) #0 \{"
   IO.println "    ret i64 0"
   IO.println "  }"
   IO.println "  attributes #0 = { \"target-features\"=\"+m,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond\" }"
@@ -413,6 +427,10 @@ def printMIR (ctx : IRContext OpCode) (funcOp : OperationPtr) : IO Unit := do
   IO.println "---"
   IO.println "name:            main"
   IO.println "tracksRegLiveness: true"
+  if nargs != 0 then
+    IO.println "liveins:"
+    for i in 0...nargs do
+      IO.println s!"  - \{ reg: '$x{10 + i}' }"
   IO.println "body:             |"
   for bi in 0...blocks.size do
     if bi != 0 then IO.println ""
