@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783608539555,
+  "lastUpdate": 1783610018185,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -81318,6 +81318,184 @@ window.BENCHMARK_DATA = {
             "range": "± 29275",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=5 median=0.000780s stddev=0.000029275s cv=3.7532%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tobias@grosser.es",
+            "name": "Tobias Christian Grosser",
+            "username": "tobiasgrosser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2a0575e1f5280d22433f5e4d155c1790101fc52f",
+          "message": "feat: prove correctness of bexti single-bit-extract instruction selection (#1033)\n\nProves `bexti_local`: `llvm.and (lshr x n) 1` on i64 (extract bit `n` of\n`x`) lowers to `riscv.bexti x n`.\n\nThis is the first **two-level DAG match** to be verified. The key new\ninfrastructure is `lshrConst_getVar?_of_EquationLemmaAt` — an\n`lshr`-defining-op graph lemma, the analogue of\n`matchNot_getVar?_of_EquationLemmaAt`: in a source state satisfying\n`EquationLemmaAt`, it pins the `and`'s left operand (defined by an\n`lshr` with a constant shift) to `lshr xv (constant n)` and recovers the\nshifted value `x`'s facts (value/type/dominance/in-bounds/not-a-result).\nUnlike `matchNot` (whose inner `xor` is an integer binop), `lshr`\nverifies as `LLVMShift`, so the operand-width equality isn't static —\nit's recovered dynamically via `matchShiftOp_interpretOp_unfold`, then\n`subst`'d away. Also adds `Pure.llvm_lshr` and the `bexti` data lemma\n(discharged with `veir_bv_decide`, the symbolic shift bridged to the low\n6 bits; shift-past-width poison makes the out-of-range cases trivial).\n\nThe graph lemma is reusable — it's exactly what `slliuw` (a\n`zext`-defining-op version) will need. All modules build warning-clean\nand sorry-free with a `#guard_msgs` axiom pin. Off main; independent of\nthe open PRs.",
+          "timestamp": "2026-07-09T15:07:25Z",
+          "tree_id": "5201cf01b4c5bd36a614b34dde03bea9bc86b180",
+          "url": "https://github.com/opencompl/veir/commit/2a0575e1f5280d22433f5e4d155c1790101fc52f"
+        },
+        "date": 1783610000132,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2016000,
+            "range": "± 19982",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002016s stddev=0.000019982s cv=0.9943%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3228000,
+            "range": "± 14307",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003228s stddev=0.000014307s cv=0.4432%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2026000,
+            "range": "± 21088",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002026s stddev=0.000021088s cv=1.0444%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 2799000,
+            "range": "± 21776",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002799s stddev=0.000021776s cv=0.7764%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2051000,
+            "range": "± 23352",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002051s stddev=0.000023352s cv=1.1371%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2176000,
+            "range": "± 11000",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002176s stddev=0.000011000s cv=0.5055%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1649000,
+            "range": "± 16634",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001649s stddev=0.000016634s cv=1.0095%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 1902000,
+            "range": "± 12029",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001902s stddev=0.000012029s cv=0.6324%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2028000,
+            "range": "± 25801",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002028s stddev=0.000025801s cv=1.2717%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 4660000,
+            "range": "± 20873",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.004660s stddev=0.000020873s cv=0.4486%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2018000,
+            "range": "± 14011",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002018s stddev=0.000014011s cv=0.6928%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 2558000,
+            "range": "± 11798",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002558s stddev=0.000011798s cv=0.4621%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2042000,
+            "range": "± 31749",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002042s stddev=0.000031749s cv=1.5679%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1714000,
+            "range": "± 32639",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001714s stddev=0.000032639s cv=1.9025%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1673000,
+            "range": "± 26931",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001673s stddev=0.000026931s cv=1.6130%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1398000,
+            "range": "± 32764",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001398s stddev=0.000032764s cv=2.3286%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2021000,
+            "range": "± 26659",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002021s stddev=0.000026659s cv=1.3114%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3045000,
+            "range": "± 26913",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003045s stddev=0.000026913s cv=0.8820%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1659000,
+            "range": "± 20320",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001659000s stddev=0.000020320s cv=1.2288%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 12000,
+            "range": "± 2079",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000012000s stddev=0.000002079s cv=16.2842%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1639000,
+            "range": "± 33414",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.001639s stddev=0.000033414s cv=2.0312%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 713000,
+            "range": "± 8456",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.000713s stddev=0.000008456s cv=1.1794%"
           }
         ]
       }
