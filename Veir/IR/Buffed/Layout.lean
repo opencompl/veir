@@ -19,6 +19,8 @@ abbrev ptrCard : Nat := UInt64.size
 abbrev countCard : Nat := UInt32.size
 
 namespace ValueImpl
+abbrev kindArgument : UInt64 := 0
+abbrev kindResult : UInt64 := 1
 namespace Sizes
 abbrev type : UInt64 := ptrSize
 abbrev typeNat := ptrSizeNat

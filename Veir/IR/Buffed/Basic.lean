@@ -95,6 +95,8 @@ macro "prove_setLinkSim" ctx:ident w:Lean.Parser.Tactic.grindParam : tactic => `
        · intros res resIb heq
          have := ctx.sim.encoding_op op (by grind) |>.results res (by grind) (by grind)
          constructor
+         · have := this.kind
+           grind [layout_grind]
          · have := this.typee -- todo lol
            grind [layout_grind, $w]
          · have := this.firstUse
@@ -113,6 +115,8 @@ macro "prove_setLinkSim" ctx:ident w:Lean.Parser.Tactic.grindParam : tactic => `
        · intros arg argIn heq
          have := this.arguments arg (by grind) (by grind)
          constructor
+         · have := this.kind
+           grind [layout_grind]
          · have := this.type
            grind [layout_grind, $w]
          · have := this.firstUse
@@ -377,7 +381,8 @@ buffed
 def Sim.OperationPtr.setNextOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (next : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (nextIb : next.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeNext ctx.buf next.impl (by prove_setLinkBoundsOp ctx ptr),
-    ptr.spec.setNextOp ctx.spec next.spec (by grind), by prove_setLinkSim ctx Buffed.OperationMPtr.writeNext⟩
+    ptr.spec.setNextOp ctx.spec next.spec (by grind), by
+    prove_setLinkSim ctx Buffed.OperationMPtr.writeNext⟩
 
 open Classical in
 noncomputable def Sim.OperationPtr.setNextOp! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (next : Sim.OptionOperationPtr) : Sim.IRContext OpInfo :=
@@ -659,6 +664,8 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
          have := ctx.sim.encoding_op op (by grind) |>.results res (by grind) (by grind)
          have hrange := @OpResultPtr.range_included_op_range
          constructor
+         · have := this.kind
+           grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.ValueImplMPtr.readType!]
          · have := this.typee
            grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.OpResultMPtr.readType!]
          · have := this.firstUse
@@ -693,6 +700,8 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
          have := this.arguments arg (by grind) (by grind)
          have hrange := @BlockArgumentPtr.range_included_block_range
          constructor
+         · have := this.kind
+           grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.ValueImplMPtr.readType!]
          · have := this.type
            grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.BlockArgumentMPtr.readType!]
          · have := this.firstUse
