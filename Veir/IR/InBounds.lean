@@ -739,6 +739,32 @@ theorem RegionPtr.allocEmpty_topLevelPtr_mono (ptr : TopLevelPtr) (heq : allocEm
     ptr.InBounds ctx → ptr.InBounds ctx' := by
   grind
 
+@[grind =>]
+theorem RegionPtr.allocEmptyAt_genericPtr_iff (ptr : GenericPtr) (heq : allocEmptyAt ctx addr = some (ctx', ptr')) :
+    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .region ptr') := by
+  constructor <;> cases ptr <;> simp <;>
+    try grind [BlockOperandPtr.InBounds, BlockArgumentPtr.InBounds, OpOperandPtr.InBounds, BlockPtr.InBounds,
+           ValuePtr.InBounds, OpOperandPtrPtr.InBounds, OpResultPtr.InBounds]
+
+@[grind .]
+theorem RegionPtr.allocEmptyAt_newBlock_inBounds (heq : allocEmptyAt ctx addr = some (ctx', ptr)) :
+    ptr.InBounds ctx' := by
+  grind [allocEmpty]
+
+@[grind ->]
+theorem RegionPtr.allocEmptyAt_newBlock_not_inBounds (heq : allocEmptyAt ctx addr = some (ctx', ptr)) :
+    ¬ ptr.InBounds ctx := by
+  grind [allocEmpty]
+
+@[grind .]
+theorem RegionPtr.allocEmptyAt_genericPtr_mono (ptr : GenericPtr) (heq : allocEmptyAt ctx addr = some (ctx', ptr')) :
+    ptr.InBounds ctx → ptr.InBounds ctx' := by
+  grind
+@[grind .]
+theorem RegionPtr.allocEmptyAt_topLevelPtr_mono (ptr : TopLevelPtr) (heq : allocEmptyAt ctx addr = some (ctx', ptr')) :
+    ptr.InBounds ctx → ptr.InBounds ctx' := by
+  grind
+
 end region
 
 section operandptr

@@ -111,15 +111,15 @@ def InsertPoint.blockSim (insertionPoint : InsertPoint) (ctx : Sim.IRContext OpI
     (hIn : insertionPoint.InBounds ctx.spec := by grind)
     (_hRepr : insertionPoint.IsRepr := by grind) : Sim.OptionBlockPtr :=
   match insertionPoint with
-  | before op => op.toSim.getParent ctx (by sorry)
+  | before op => op.toSim.getParent ctx (by grind)
   | atEnd b => b.toSim.toO
 
 @[grind _=_]
 theorem InsertPoint.block!_eq_block (insertionPoint : InsertPoint) (ctx : Sim.IRContext OpInfo)
     (hIn : insertionPoint.InBounds ctx.spec) hRepr :
     insertionPoint.block! ctx.spec = (insertionPoint.block ctx hIn hRepr).spec := by
-  -- cases insertionPoint <;> grind [InsertPoint.block!, InsertPoint.block]
-  sorry
+  cases insertionPoint <;>
+    grind [InsertPoint.block!, InsertPoint.block_def, InsertPoint.blockSim]
 
 @[grind .]
 theorem InsertPoint.block_InBounds {insertionPoint : InsertPoint} {ctx : Sim.IRContext OpInfo}
@@ -143,8 +143,8 @@ theorem InsertPoint.block!_atEnd_eq :
 buffed
 def InsertPoint.prevSim (ip : InsertPoint) (ctx : Sim.IRContext OpInfo) (inBounds : ip.InBounds ctx.spec) : Sim.OptionOperationPtr :=
   match ip with
-  | before op => op.toSim.getPrevOp ctx (by sorry)
-  | atEnd block => block.toSim.getLastOp ctx (by sorry)
+  | before op => op.toSim.getPrevOp ctx (by grind)
+  | atEnd block => block.toSim.getLastOp ctx (by grind)
 
 def InsertPoint.prev! (ip : InsertPoint) (ctx : IRContext OpInfo) : Option OperationPtr :=
   match ip with
@@ -161,8 +161,7 @@ theorem InsertPoint.prev_inBounds {ip : InsertPoint} {ctx : Sim.IRContext OpInfo
 theorem InsertPoint.prev!_eq_prev {ip : InsertPoint} {ctx : Sim.IRContext OpInfo}
     (hIn : ip.InBounds ctx.spec) :
     ip.prev! ctx.spec = (ip.prev ctx hIn).spec := by
-  -- cases ip <;> grind [InsertPoint.prev!, InsertPoint.prev]
-  sorry
+  cases ip <;> grind [InsertPoint.prev!, InsertPoint.prev_def, InsertPoint.prevSim]
 
 @[simp, grind =]
 theorem InsertPoint.prev!_before_eq :
@@ -197,11 +196,12 @@ theorem InsertPoint.next_inBounds {ctx : Sim.IRContext OpInfo} {ipInBounds : Ins
   · grind
   · split at ipInBounds
     · grind
-    · sorry
+    · exact Sim.OptionOperationPtr.none_inBounds
 
 @[simp, grind =]
 theorem InsertPoint.next_before_eq :
-    (InsertPoint.next (before op)).spec = some op := by sorry
+    (InsertPoint.next (before op)).spec = some op := by
+  simp only [InsertPoint.next_def, InsertPoint.nextSim, Sim.OperationPtr.toO, OperationPtr.toSim]
 
 @[simp, grind =]
 theorem InsertPoint.next_atEnd_eq :
@@ -210,7 +210,28 @@ theorem InsertPoint.next_atEnd_eq :
 @[grind =]
 theorem InsertPoint.next_eq_none_iff_eq_atEnd {ip : InsertPoint} :
     ip.next.spec = none ↔ ∃ block, ip = .atEnd block := by
-  cases ip <;> sorry
+  cases ip <;>
+    grind [InsertPoint.next_def, InsertPoint.nextSim, Sim.OperationPtr.toO,
+      Sim.OptionOperationPtr.none]
+
+/-
+Implementation without sorry, but with new arguments:
+
+@[grind =]
+theorem InsertPoint.next_eq_some_iff_eq_before {ip : InsertPoint} (hRepr : ip.IsRepr)
+    (hSim : nextOp.Sim) :
+    ip.next.toOption = some nextOp ↔ ip = .before nextOp.spec := by
+  have key : ∀ p : OperationPtr, p.IsRepr → p.toM ≠ Buffed.OperationOPtr.none := by
+    intro p hp h
+    have h2 := congrArg UInt64.toNat h
+    simp [OperationPtr.toM, OperationPtr.IsRepr] at hp h2
+    omega
+  obtain ⟨nextImpl, nextSpec⟩ := nextOp
+  cases ip <;>
+    simp_all [InsertPoint.next_def, InsertPoint.nextSim, Sim.OperationPtr.toO,
+      Sim.OptionOperationPtr.none, Sim.OptionOperationPtr.toOption, Sim.OperationPtr.Sim,
+      OperationPtr.toSim, Option.specGet!, InsertPoint.IsRepr]
+-/
 
 @[grind =]
 theorem InsertPoint.next_eq_some_iff_eq_before {ip : InsertPoint} :
@@ -230,7 +251,7 @@ theorem InsertPoint.next.maybe₁_parent_of_opChain :
     BlockPtr.OpChain blockPtr ctx array →
     InsertPoint.block! ip ctx = some blockPtr →
     ip.next.spec.maybe₁ (fun op => (op.get! ctx).parent = some blockPtr) := by
-  cases ip <;> sorry
+  cases ip <;> grind [Option.maybe₁_def]
 
 theorem InsertPoint.next.maybe₁_parent :
     ctx.WellFormed →
@@ -257,7 +278,7 @@ theorem InsertPoint.prev.maybe₁_parent :
     ip.prev! ctx = some prevOp →
     (prevOp.get! ctx).parent = some blockPtr := by
   intro ctxWf ipInBounds hblock hprev
-  have ⟨array, harray⟩ := ctxWf.opChain blockPtr (by sorry)
+  have ⟨array, harray⟩ := ctxWf.opChain blockPtr (by cases ip <;> grind)
   have := InsertPoint.prev.maybe₁_parent_of_opChain harray ipInBounds hblock
   grind [Option.maybe₁_def]
 
@@ -321,13 +342,12 @@ theorem InsertPoint.idxIn.getElem?  {ctx : IRContext OpInfo} {repr} {ctxWf} {inB
     have := this.allOpsInChain
     grind
   case atEnd bl =>
-    -- grind
-    sorry
+    simp [next_atEnd_eq, Sim.OptionOperationPtr.none]
 
 theorem InsertPoint.idxIn_InsertPoint_prev_none {ctx : IRContext OpInfo} {repr} {ctxWf} {inBounds} {blockIsParent} :
     (InsertPoint.prev! ip ctx = none ↔
     InsertPoint.idxIn ip ctx blockPtr inBounds repr blockIsParent ctxWf = 0) := by
-  have ⟨array, harray⟩ := ctxWf.opChain blockPtr (by sorry)
+  have ⟨array, harray⟩ := ctxWf.opChain blockPtr (by cases ip <;> grind)
   grind [BlockPtr.OpChain, cases InsertPoint]
 
 
@@ -344,7 +364,7 @@ theorem InsertPoint.idxIn_eq_iff_getElem?
     x < array.size →
     InsertPoint.idxIn ip ctx blockPtr inBounds repr blockIsParent ctxWf = x →
     array[x]? = ip.next.spec := by
-  sorry
+  grind [BlockPtr.OpChain]
 
 theorem InsertPoint.prev!_eq_none_iff_firstOp!_eq_next
     (hctx : ctx.WellFormed)
@@ -352,11 +372,10 @@ theorem InsertPoint.prev!_eq_none_iff_firstOp!_eq_next
     (hblock : ip.block! ctx = some blockPtr) :
     (InsertPoint.prev! ip ctx = none ↔
     (blockPtr.get! ctx).firstOp = ip.next.spec) := by
-  have ⟨array, harray⟩ := hctx.opChain blockPtr (by sorry)
+  have ⟨array, harray⟩ := hctx.opChain blockPtr (by cases ip <;> grind)
   cases ip
   · grind [BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self]
-  · sorry
-  -- · grind [BlockPtr.OpChain.firstOp_eq_none_iff_lastOp_eq_none]
+  · grind [BlockPtr.OpChain.firstOp_eq_none_iff_lastOp_eq_none, Sim.OptionOperationPtr.none]
 
 theorem InsertPoint.next_ne_firstOp
     (hWF : ctx.WellFormed) (ipInBounds : ip.InBounds ctx) :
@@ -365,8 +384,7 @@ theorem InsertPoint.next_ne_firstOp
     (InsertPoint.next ip).toOption.map (·.spec) ≠ some firstOp := by -- TODO: better statement
   intro hFirst hPrev
   have ⟨array, harray⟩ := hWF.opChain blockPtr blockInBounds
-  sorry
-  -- grind [InsertPoint.prev!_eq_none_iff_firstOp!_eq_next]
+  grind [InsertPoint.prev!_eq_none_iff_firstOp!_eq_next]
 
 theorem InsertPoint.idxIn_eq_size_operationList_iff_eq_atEnd
     {ctx : IRContext OpInfo} {repr} {ctxWf} {inBounds} {blockInBounds} {blockIsParent} :
@@ -460,8 +478,7 @@ def prevSim (ip : BlockInsertPoint) (ctx : Sim.IRContext OpInfo)
 theorem prev!_eq_prev {ip : BlockInsertPoint} {ctx : Sim.IRContext OpInfo}
     (hIn : ip.InBounds ctx.spec) :
     ip.prev! ctx.spec = (ip.prev ctx hIn).spec := by
-  -- cases ip <;> grind [prev!, prev]
-  sorry
+  cases ip <;> grind [prev!, prev_def, prevSim]
 
 @[simp, grind =]
 theorem prev!_before :
@@ -497,7 +514,8 @@ def nextSim (ip : BlockInsertPoint) : Sim.OptionBlockPtr :=
 
 @[simp, grind =]
 theorem next_before :
-    (BlockInsertPoint.next (before blockPtr)).spec = some blockPtr := by sorry
+    (BlockInsertPoint.next (before blockPtr)).spec = some blockPtr := by
+  simp only [BlockInsertPoint.next_def, BlockInsertPoint.nextSim, Sim.BlockPtr.toO, BlockPtr.toSim]
 
 @[simp, grind =]
 theorem next_atEnd :
@@ -526,15 +544,14 @@ def regionSim (ip : BlockInsertPoint) (ctx : Sim.IRContext OpInfo)
     (hIn : ip.InBounds ctx.spec := by grind)
     (_hRepr : ip.IsRepr := by grind) : Sim.OptionRegionPtr :=
   match ip with
-  | before bl => bl.toSim.getParent ctx (by sorry)
+  | before bl => bl.toSim.getParent ctx (by grind)
   | atEnd rg => rg.toSim.toO
 
 @[grind _=_]
 theorem region!_eq_region (ip : BlockInsertPoint) (ctx : Sim.IRContext OpInfo)
     (hIn : ip.InBounds ctx.spec) hRepr :
     ip.region! ctx.spec = (ip.region ctx hIn hRepr).spec := by
-  -- cases ip <;> grind [region!, region]
-  sorry
+  cases ip <;> grind [region!, region_def, regionSim]
 
 @[simp, grind =]
 theorem region!_before :
@@ -551,7 +568,7 @@ theorem region_InBounds {ip : BlockInsertPoint} {ctx : Sim.IRContext OpInfo}
     regionPtr.InBounds ctx := by
   simp only [region_def, regionSim]
   split
-  · sorry
+  · intro h _; exact Sim.RegionPtr.inBounds_of_optionPtr_inBounds _ (by grind) _ h
   · grind
 
 grind_pattern region_InBounds =>
@@ -561,8 +578,7 @@ grind_pattern region_InBounds =>
 theorem BlockPtr_parent!_of_next_eq_some {ip : BlockInsertPoint} :
   ip.next.toOption.map (·.spec) = some block →
   (block.get! ctx).parent = ip.region! ctx := by
-  -- cases ip <;> grind
-  sorry
+  cases ip <;> grind
 
 @[grind =>]
 theorem BlockPtr_parent!_of_prev_eq_some {ip : BlockInsertPoint}
@@ -593,8 +609,7 @@ theorem prev_next {ip : BlockInsertPoint}
     ip.prev! ctx = some prevOp →
     ip.next.toOption.map (·.spec) = some nextOp →
     (nextOp.get! ctx).prev = some prevOp := by
-  -- cases ip <;> grind
-  sorry
+  cases ip <;> grind
 
 grind_pattern prev_next =>
   ip.InBounds ctx, ip.prev! ctx, some prevOp, ip.next.toOption.map (·.spec), some nextOp,
@@ -606,8 +621,7 @@ theorem next_prev {ip : BlockInsertPoint} :
   ip.prev! ctx = some prevOp →
   ip.next.toOption.map (·.spec) = some nextOp →
   (prevOp.get! ctx).next = some nextOp := by
-  -- cases ip <;> grind
-  sorry
+  cases ip <;> grind
 
 grind_pattern next_prev =>
   ctx.WellFormed, ip.InBounds ctx, ip.prev! ctx, some prevOp, ip.next.toOption.map (·.spec), some nextOp
@@ -671,13 +685,12 @@ theorem idxIn.getElem? :
     have := this.allBlocksInChain
     grind
   case atEnd r =>
-    -- grind
-    sorry
+    simp [next_atEnd, Sim.OptionBlockPtr.none]
 
 theorem idxIn_BlockInsertPoint_prev_none:
     prev! ip ctx = none ↔
     idxIn ip ctx regionPtr inBounds hRepr regionIsParent ctxWf = 0 := by
-  have ⟨array, harray⟩ := ctxWf.blockChain regionPtr (by sorry)
+  have ⟨array, harray⟩ := ctxWf.blockChain regionPtr (by cases ip <;> grind)
   grind [RegionPtr.BlockChain, cases BlockInsertPoint]
 
 grind_pattern idxIn_BlockInsertPoint_prev_none =>
@@ -687,9 +700,7 @@ theorem next_eq_none_iff_idxIn_eq_size_array
     (hCtx : RegionPtr.BlockChain regionPtr ctx array) :
     ip.next = .none ↔
     idxIn ip ctx regionPtr inBounds hRepr regionIsParent ctxWf = array.size := by
-  have ⟨array, harray⟩ := ctxWf.blockChain regionPtr (by sorry)
-  -- grind [RegionPtr.BlockChain, cases BlockInsertPoint]
-  sorry
+  grind [RegionPtr.BlockChain, cases BlockInsertPoint, Sim.OptionBlockPtr.none]
 
 grind_pattern next_eq_none_iff_idxIn_eq_size_array =>
   RegionPtr.BlockChain regionPtr ctx array, ip.next,
@@ -699,7 +710,7 @@ theorem idxIn_eq_iff_getElem?
     (hctx : RegionPtr.BlockChain regionPtr ctx array) :
     idxIn ip ctx regionPtr inBounds hRepr regionIsParent ctxWf < array.size →
     array[idxIn ip ctx regionPtr inBounds hRepr regionIsParent ctxWf]? = ip.next.spec := by
-  sorry
+  grind [RegionPtr.BlockChain]
 
 theorem idxIn_eq_size_blockList_iff_eq_atEnd
     (hregion : ip.region! ctx = some regionPtr) :

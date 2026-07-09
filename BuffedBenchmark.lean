@@ -278,7 +278,7 @@ def check (ctx : Sim.IRContext OpCode) (block : Sim.BlockPtr) : UInt64 := Id.run
   first.impl
   -- (first.getPrevOp ctx (by sorry)).impl
 
-buffed
+buffed (def_lemma := false)
 def blockLength.loopSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) (count : UInt64 := 0) : UInt64 :=
   let ctx := dumpOp op ctx "blockLength.loopSim"
   match op.getNextOp ctx (by sorry) |>.toOption with

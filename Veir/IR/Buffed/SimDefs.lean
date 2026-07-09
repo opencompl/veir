@@ -643,6 +643,7 @@ def Sim.OptionGenericPtr.Sim (ptr : Sim.OptionGenericPtr) (ctx : Sim.RawIRContex
 /-! ## Refinement predicate. -/
 
 structure OpResultPtr.Matches (ctx : Sim.RawIRContext OpInfo) (res : OpResultPtr) (ib : res.InBounds ctx.spec) where
+  kind : ValueImplMPtr.readType! ctx.buf ((ValuePtr.opResult res).toM ctx.spec) = Buffed.ValueImpl.kindResult
   typee : ctx.buf.attributes[(res.toM ctx.spec).readType! ctx.buf |>.toNat]? = some (res.get! ctx.spec).type
   firstUse : Sim.OptionOpOperandPtr.Sim ⟨(res.toM ctx.spec).readFirstUse! ctx.buf, (res.get! ctx.spec).firstUse⟩ ctx
   index : (res.get! ctx.spec).index = ((res.toM ctx.spec).readIndex! ctx.buf).toNat
@@ -655,6 +656,7 @@ structure BlockOperandPtr.Matches (ctx : Sim.RawIRContext OpInfo) (oper : BlockO
   value : Sim.BlockPtr.Sim ⟨BlockOperandMPtr.readValue! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).value⟩
 
 structure BlockArgumentPtr.Matches (ctx : Sim.RawIRContext OpInfo) (arg : BlockArgumentPtr) (ib : arg.InBounds ctx.spec) where
+  kind : ValueImplMPtr.readType! ctx.buf ((ValuePtr.blockArgument arg).toM ctx.spec) = Buffed.ValueImpl.kindResult
   type : ctx.buf.attributes[arg.toM.readType! ctx.buf |>.toNat]? = some (arg.get! ctx.spec).type
   firstUse : Sim.OptionOpOperandPtr.Sim ⟨arg.toM.readFirstUse! ctx.buf, (arg.get! ctx.spec).firstUse⟩ ctx
   index : (arg.get! ctx.spec).index = (arg.toM.readIndex! ctx.buf).toNat
