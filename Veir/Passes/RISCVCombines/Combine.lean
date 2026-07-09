@@ -878,71 +878,51 @@ def select_0_neg1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 
 /-! ### not_cmp_fold :  (icmp pred X Y) ^ -1 → (icmp invPred X Y) -/
 
-set_option warn.sorry false in
+/-- The shared shape of the six `not_cmp_fold` combines: match `(icmp pred X Y) ^ -1`
+    (`op` is the `xor _, -1`, reached with `matchNot`, whose operand is the `icmp`'s result)
+    and emit the comparison with the inverted predicate `invPred`.
+
+    The `.integerType`/bitwidth guard on the comparison operand type is what the correctness
+    proof needs to reach the `veir_bv_decide` data lemmas, so the rewrite is restricted to
+    `i32`/`i64` comparisons. Its shared correctness proof is
+    `notCmpFoldLocal_preservesSemantics`. -/
+def notCmpFoldLocal (pred invPred : Data.LLVM.IntPred)
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some icmpV := matchNot (op.getResult 0) ctx | return (ctx, none)
+  let some dI := getDefiningOp icmpV ctx | return (ctx, none)
+  let some (x, y, ip) := matchIcmp dI ctx | return (ctx, none)
+  if ip.predicate != pred then return (ctx, none)
+  let .integerType t := (x.getType! ctx.raw).val | return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .icmp)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, y] #[] #[]
+    (IcmpProperties.mk invPred) none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
 def not_cmp_fold_eq (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
-  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
-  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .eq := ip.predicate | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] (IcmpProperties.mk .ne) (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (notCmpFoldLocal .eq .ne) rewriter op opInBounds
 
-set_option warn.sorry false in
 def not_cmp_fold_ne (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
-  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
-  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .ne := ip.predicate | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] (IcmpProperties.mk .eq) (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (notCmpFoldLocal .ne .eq) rewriter op opInBounds
 
-set_option warn.sorry false in
 def not_cmp_fold_ugt (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
-  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
-  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .ugt := ip.predicate | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] (IcmpProperties.mk .ule) (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (notCmpFoldLocal .ugt .ule) rewriter op opInBounds
 
-set_option warn.sorry false in
 def not_cmp_fold_uge (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
-  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
-  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .uge := ip.predicate | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] (IcmpProperties.mk .ult) (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (notCmpFoldLocal .uge .ult) rewriter op opInBounds
 
-set_option warn.sorry false in
 def not_cmp_fold_sgt (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
-  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
-  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .sgt := ip.predicate | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] (IcmpProperties.mk .sle) (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (notCmpFoldLocal .sgt .sle) rewriter op opInBounds
 
-set_option warn.sorry false in
 def not_cmp_fold_sge (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some icmpV := matchNot (op.getResult 0) rewriter.ctx | return rewriter
-  let some dI := getDefiningOp icmpV rewriter.ctx | return rewriter
-  let some (x, y, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .sge := ip.predicate | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] (IcmpProperties.mk .slt) (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (notCmpFoldLocal .sge .slt) rewriter op opInBounds
 
 /-! ### double_icmp_zero_combine -/
 

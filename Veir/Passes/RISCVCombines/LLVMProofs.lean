@@ -390,35 +390,36 @@ theorem select_0_neg1 {c : Int 1} :
   `(icmp pred X Y) ^ -1 → (icmp invPred X Y)`, at the `i1` result of the comparison.
 -/
 
-/-- `not (X == Y) → X != Y`. -/
-theorem not_cmp_fold_eq {x y : Int 64} :
+/-- `not (X == Y) → X != Y`. Stated at both widths the guarded pattern admits, since the
+    graph-level proof needs `i32` too. -/
+theorem not_cmp_fold_eq {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
     xor (icmp x y .eq) (constant 1 (-1)) ⊒ icmp x y .ne := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `not (X != Y) → X == Y`. -/
-theorem not_cmp_fold_ne {x y : Int 64} :
+theorem not_cmp_fold_ne {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
     xor (icmp x y .ne) (constant 1 (-1)) ⊒ icmp x y .eq := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `not (X >u Y) → X ≤u Y`. -/
-theorem not_cmp_fold_ugt {x y : Int 64} :
+theorem not_cmp_fold_ugt {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
     xor (icmp x y .ugt) (constant 1 (-1)) ⊒ icmp x y .ule := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `not (X ≥u Y) → X <u Y`. -/
-theorem not_cmp_fold_uge {x y : Int 64} :
+theorem not_cmp_fold_uge {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
     xor (icmp x y .uge) (constant 1 (-1)) ⊒ icmp x y .ult := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `not (X >s Y) → X ≤s Y`. -/
-theorem not_cmp_fold_sgt {x y : Int 64} :
+theorem not_cmp_fold_sgt {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
     xor (icmp x y .sgt) (constant 1 (-1)) ⊒ icmp x y .sle := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `not (X ≥s Y) → X <s Y`. -/
-theorem not_cmp_fold_sge {x y : Int 64} :
+theorem not_cmp_fold_sge {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
     xor (icmp x y .sge) (constant 1 (-1)) ⊒ icmp x y .slt := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### double_icmp_zero_combine -/
 

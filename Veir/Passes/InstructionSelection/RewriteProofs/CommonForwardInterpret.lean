@@ -158,6 +158,47 @@ theorem interpretOp_llvm_binaryInt_forward
       (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
   grind
 
+/-- Comparison `llvm.icmp` specialization of `interpretOp_forward`: `theOp` is an `llvm.icmp`
+whose two `i{bw}` operands map to a single `i1` result `f x y` (hypothesis `hSem`). Unlike
+`interpretOp_llvm_binaryInt_forward`, the operand width `it` and the result width (`1`) differ,
+so this is the mixed-width analogue needed by the `not_cmp_fold` combine, which emits an
+`llvm.icmp`. -/
+theorem interpretOp_llvm_icmp_forward
+    {ctx : WfIRContext OpCode} {theOp : OperationPtr} {state : InterpreterState ctx}
+    {inBounds : theOp.InBounds ctx.raw} {v₁ v₂ : ValuePtr} {it i1t : IntegerType} {hIsTy}
+    {props : propertiesOf (.llvm .icmp)}
+    {x y : Data.LLVM.Int it.bitwidth}
+    {f : Data.LLVM.Int it.bitwidth → Data.LLVM.Int it.bitwidth → Data.LLVM.Int 1}
+    (hi1 : i1t.bitwidth = 1)
+    (hSem : ∀ (resultTypes : Array TypeAttr) (blockOperands : Array BlockPtr)
+        (mem : MemoryState),
+        Llvm.interpretOp' .icmp props resultTypes
+            #[.int it.bitwidth x, .int it.bitwidth y] blockOperands mem
+          = some (.ok (#[.int 1 (f x y)], mem, none)))
+    (hType : theOp.getOpType! ctx.raw = .llvm .icmp)
+    (hProps : theOp.getProperties! ctx.raw (.llvm .icmp) = props)
+    (hOperands : theOp.getOperands! ctx.raw = #[v₁, v₂])
+    (hResTypes : theOp.getResultTypes! ctx.raw = #[⟨.integerType i1t, hIsTy⟩])
+    (hVal₁ : state.variables.getVar? v₁ = some (.int it.bitwidth x))
+    (hVal₂ : state.variables.getVar? v₂ = some (.int it.bitwidth y)) :
+    ∃ state', interpretOp theOp state inBounds = some (.ok (state', none)) ∧
+      state'.memory = state.memory ∧
+      state'.variables.getVar? (ValuePtr.opResult (theOp.getResult 0))
+        = some (.int 1 (f x y)) ∧
+      (∀ v', v' ∉ theOp.getResults! ctx.raw →
+        state'.variables.getVar? v' = state.variables.getVar? v') := by
+  obtain ⟨state', hI, hMem, hVal⟩ :=
+    interpretOp_forward (op := theOp) (state := state) (inBounds := inBounds)
+      (vals := #[.int it.bitwidth x, .int it.bitwidth y])
+      (results := #[.int 1 (f x y)]) (mem' := state.memory)
+      (by simp [VariableState.getOperandValues, hOperands, hVal₁, hVal₂])
+      (by simp only [OperationPtr.interpret]
+          rw [hType]
+          simp only [interpretOp', hProps]
+          simp [hSem, Interp])
+      (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms, hi1])
+  grind
+
 /-- Unary register-to-register `riscv` op specialization of `interpretOp_forward`: `theOp` is any
 `riscv` op `rop` whose interpretation maps a single register operand `r` to `f r` (hypothesis
 `hSem`, discharged by `rfl` at each concrete opcode), with a single `!riscv.reg` result.
