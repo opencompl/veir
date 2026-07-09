@@ -172,22 +172,8 @@ theorem lowerSignedMinMaxLocal_preservesSemantics {srcOp : Llvm}
     -- and result-count facts as direct seeds) — and clear the `op.InBounds` facts before continuing.
     have ⟨⟨ctx₅, mOp⟩, hM, pat'⟩ := hpattern
     clear hpattern; have hpattern := pat'; clear pat'
-    rw [WfRewriter.createOp!_none_eq
-      (by clear hpattern; intro oper ho
-          simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at ho
-          rcases ho with rfl | rfl
-          · have hIn : lsOp.InBounds ctx₄.raw :=
-              WfRewriter.createOp_inBounds_mono (ptr := .operation lsOp) hRs
-                (WfRewriter.createOp_new_inBounds lsOp hLs)
-            have hNum : lsOp.getNumResults! ctx₄.raw = 1 :=
-              by grind [OperationPtr.getNumResults!_WfRewriter_createOp hLs (operation := lsOp),
-                OperationPtr.getNumResults!_WfRewriter_createOp hRs (operation := lsOp)]
-            grind
-          · have hIn : rsOp.InBounds ctx₄.raw := WfRewriter.createOp_new_inBounds rsOp hRs
-            have hNum : rsOp.getNumResults! ctx₄.raw = 1 :=
-              by grind [OperationPtr.getNumResults!_WfRewriter_createOp hRs (operation := rsOp)]
-            grind)
-      (by clear hpattern; simp) (by clear hpattern; simp)] at hM
+    replace hM := WfRewriter.createOp!_none_some hM
+    obtain ⟨_, _, _, hM⟩ := hM
     have hOpInM : op.InBounds ctx₄.raw :=
       WfRewriter.createOp_inBounds_mono (ptr := .operation op) hRs
         (WfRewriter.createOp_inBounds_mono (ptr := .operation op) hLs
@@ -203,15 +189,8 @@ theorem lowerSignedMinMaxLocal_preservesSemantics {srcOp : Llvm}
     have ⟨⟨ctx₆, castBackOp⟩, hCastBack, pat'⟩ := hpattern
     clear hpattern; have hpattern := pat'; clear pat'
     simp only [replaceWithRegLocal] at hCastBack
-    rw [WfRewriter.createOp!_none_eq
-      (by clear hpattern; intro oper ho
-          simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at ho
-          rcases ho with rfl
-          have hIn : mOp.InBounds ctx₅.raw := WfRewriter.createOp_new_inBounds mOp hM
-          have hNum : mOp.getNumResults! ctx₅.raw = 1 :=
-            by grind [OperationPtr.getNumResults!_WfRewriter_createOp hM (operation := mOp)]
-          grind)
-      (by clear hpattern; simp) (by clear hpattern; simp)] at hCastBack
+    replace hCastBack := WfRewriter.createOp!_none_some hCastBack
+    obtain ⟨_, _, _, hCastBack⟩ := hCastBack
     have hOpNeCB : op ≠ castBackOp := fun heq =>
       WfRewriter.createOp_new_not_inBounds castBackOp hCastBack (heq ▸ hOpInCB)
     have hDomL₆ :=

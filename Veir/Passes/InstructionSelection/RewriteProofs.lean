@@ -24,6 +24,9 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerSlti
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerTrunc
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUaddSat
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUdivPow2
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerSaddSat
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerSignedMinMax
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerUaddSat
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUnaryW
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUshlSat
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUsubSat

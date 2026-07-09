@@ -217,15 +217,8 @@ theorem ushlSat_local_preservesSemantics :
   -- `sltiu 1`
   have ⟨⟨ctx₆, sltiuOp⟩, hSltiu, pat'⟩ := hpattern
   clear hpattern; have hpattern := pat'; clear pat'
-  rw [WfRewriter.createOp!_none_eq
-    (by clear hpattern; intro oper ho
-        simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at ho
-        rcases ho with rfl
-        have hIn : xorOp.InBounds ctx₅.raw := WfRewriter.createOp_new_inBounds xorOp hXor
-        have hNum : xorOp.getNumResults! ctx₅.raw = 1 :=
-          by grind [OperationPtr.getNumResults!_WfRewriter_createOp hXor (operation := xorOp)]
-        grind)
-    (by clear hpattern; simp) (by clear hpattern; simp)] at hSltiu
+  replace hSltiu := WfRewriter.createOp!_none_some hSltiu
+  obtain ⟨_, _, _, hSltiu⟩ := hSltiu
   have hOpIn₅ : op.InBounds ctx₅.raw :=
     WfRewriter.createOp_inBounds_mono (ptr := .operation op) hXor
       (WfRewriter.createOp_inBounds_mono (ptr := .operation op) hSrl
@@ -244,15 +237,8 @@ theorem ushlSat_local_preservesSemantics :
   -- `addi -1`
   have ⟨⟨ctx₇, addiOp⟩, hAddi, pat'⟩ := hpattern
   clear hpattern; have hpattern := pat'; clear pat'
-  rw [WfRewriter.createOp!_none_eq
-    (by clear hpattern; intro oper ho
-        simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at ho
-        rcases ho with rfl
-        have hIn : sltiuOp.InBounds ctx₆.raw := WfRewriter.createOp_new_inBounds sltiuOp hSltiu
-        have hNum : sltiuOp.getNumResults! ctx₆.raw = 1 :=
-          by grind [OperationPtr.getNumResults!_WfRewriter_createOp hSltiu (operation := sltiuOp)]
-        grind)
-    (by clear hpattern; simp) (by clear hpattern; simp)] at hAddi
+  replace hAddi := WfRewriter.createOp!_none_some hAddi
+  obtain ⟨_, _, _, hAddi⟩ := hAddi
   have hOpNeAddi : op ≠ addiOp := fun heq =>
     WfRewriter.createOp_new_not_inBounds addiOp hAddi (heq ▸ hOpIn₆)
   have hDomL₇ := (ValuePtr.dominatesIp_before_WfRewriter_createOp hAddi hOpIn₆ hOpNeAddi).mpr hDomL₆
@@ -263,32 +249,8 @@ theorem ushlSat_local_preservesSemantics :
   -- `or`
   have ⟨⟨ctx₈, orOp⟩, hOr, pat'⟩ := hpattern
   clear hpattern; have hpattern := pat'; clear pat'
-  rw [WfRewriter.createOp!_none_eq
-    (by clear hpattern; intro oper ho
-        simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at ho
-        rcases ho with rfl | rfl
-        · have hIn : addiOp.InBounds ctx₇.raw := WfRewriter.createOp_new_inBounds addiOp hAddi
-          have hNum : addiOp.getNumResults! ctx₇.raw = 1 :=
-            by grind [OperationPtr.getNumResults!_WfRewriter_createOp hAddi (operation := addiOp)]
-          rw [ValuePtr.inBounds_opResult]
-          exact OperationPtr.getResult_inBounds addiOp hIn 0
-            (by rw [← OperationPtr.getNumResults!_eq_getNumResults hIn, hNum]; decide)
-        · have hIn : sllOp.InBounds ctx₇.raw :=
-            WfRewriter.createOp_inBounds_mono (ptr := .operation sllOp) hAddi
-              (WfRewriter.createOp_inBounds_mono (ptr := .operation sllOp) hSltiu
-                (WfRewriter.createOp_inBounds_mono (ptr := .operation sllOp) hXor
-                  (WfRewriter.createOp_inBounds_mono (ptr := .operation sllOp) hSrl
-                    (WfRewriter.createOp_new_inBounds sllOp hSll))))
-          have hNum : sllOp.getNumResults! ctx₇.raw = 1 :=
-            by grind [OperationPtr.getNumResults!_WfRewriter_createOp hSll (operation := sllOp),
-              OperationPtr.getNumResults!_WfRewriter_createOp hSrl (operation := sllOp),
-              OperationPtr.getNumResults!_WfRewriter_createOp hXor (operation := sllOp),
-              OperationPtr.getNumResults!_WfRewriter_createOp hSltiu (operation := sllOp),
-              OperationPtr.getNumResults!_WfRewriter_createOp hAddi (operation := sllOp)]
-          rw [ValuePtr.inBounds_opResult]
-          exact OperationPtr.getResult_inBounds sllOp hIn 0
-            (by rw [← OperationPtr.getNumResults!_eq_getNumResults hIn, hNum]; decide))
-    (by clear hpattern; simp) (by clear hpattern; simp)] at hOr
+  replace hOr := WfRewriter.createOp!_none_some hOr
+  obtain ⟨_, _, _, hOr⟩ := hOr
   have hOpNeOr : op ≠ orOp := fun heq =>
     WfRewriter.createOp_new_not_inBounds orOp hOr (heq ▸ hOpIn₇)
   have hDomL₈ := (ValuePtr.dominatesIp_before_WfRewriter_createOp hOr hOpIn₇ hOpNeOr).mpr hDomL₇
@@ -300,17 +262,8 @@ theorem ushlSat_local_preservesSemantics :
   have ⟨⟨ctx₉, castBackOp⟩, hCastBack, pat'⟩ := hpattern
   clear hpattern; have hpattern := pat'; clear pat'
   simp only [replaceWithRegLocal] at hCastBack
-  rw [WfRewriter.createOp!_none_eq
-    (by clear hpattern; intro oper ho
-        simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at ho
-        rcases ho with rfl
-        have hIn : orOp.InBounds ctx₈.raw := WfRewriter.createOp_new_inBounds orOp hOr
-        have hNum : orOp.getNumResults! ctx₈.raw = 1 := by
-          simpa using OperationPtr.getNumResults!_WfRewriter_createOp hOr (operation := orOp)
-        rw [ValuePtr.inBounds_opResult]
-        exact OperationPtr.getResult_inBounds orOp hIn 0
-          (by rw [← OperationPtr.getNumResults!_eq_getNumResults hIn, hNum]; decide))
-    (by clear hpattern; simp) (by clear hpattern; simp)] at hCastBack
+  replace hCastBack := WfRewriter.createOp!_none_some hCastBack
+  obtain ⟨_, _, _, hCastBack⟩ := hCastBack
   have hOpNeCB : op ≠ castBackOp := fun heq =>
     WfRewriter.createOp_new_not_inBounds castBackOp hCastBack (heq ▸ hOpIn₈)
   have hDomL₉ :=

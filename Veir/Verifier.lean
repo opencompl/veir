@@ -1401,6 +1401,12 @@ theorem OperationPtr.Verified.llvm_intr__uadd__sat {op : OperationPtr} {opInBoun
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
+theorem OperationPtr.Verified.llvm_intr__sadd__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__sadd__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
 theorem OperationPtr.Verified.llvm_intr__ushl__sat {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .intr__ushl__sat) :

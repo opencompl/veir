@@ -272,6 +272,16 @@ theorem matchUaddSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs r
   simp only [matchUaddSat, bind, Option.bind, pure] at hmatch
   grind
 
+/-- What matching `llvm.intr.sadd.sat` (via `matchSaddSat`) syntactically guarantees. -/
+theorem matchSaddSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
+    matchSaddSat op ctx = some (lhs, rhs) →
+    op.getOpType! ctx = .llvm .intr__sadd__sat ∧
+    op.getNumResults! ctx = 1 ∧
+    op.getOperands! ctx = #[lhs, rhs] := by
+  intro hmatch
+  simp only [matchSaddSat, bind, Option.bind, pure] at hmatch
+  grind
+
 /-- What matching `llvm.intr.fshl` (via `matchFshl`) syntactically guarantees. -/
 theorem matchFshl_implies {op : OperationPtr} {ctx : IRContext OpCode} {a b amt} :
     matchFshl op ctx = some (a, b, amt) →
