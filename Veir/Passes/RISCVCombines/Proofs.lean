@@ -3,6 +3,11 @@ import Veir.Data.RISCV.Reg.Lemmas
 
 import Veir.Meta.BVDecide
 
+-- `PreservesSemantics` proofs for the MIR (`llvm` → `llvm`) combines in `MIRCombinesVeir.lean`.
+-- Imported here so the `Veir.lean` → `Proofs.lean` path pulls them into the CI build.
+import Veir.Passes.RISCVCombines.RewriterProofs.MIRSameValZeroXor
+import Veir.Passes.RISCVCombines.RewriterProofs.MIRSameValZeroSub
+
 /-!
   Correctness proofs for the RISC-V combines in `Combine.lean`.
 -/

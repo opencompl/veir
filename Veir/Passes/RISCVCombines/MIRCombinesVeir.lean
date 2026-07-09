@@ -107,20 +107,30 @@ def binop_same_val_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
   rewriter.eraseOp op sorry sorry sorry
 
+/-- `llvm.sub x x` -> `llvm.mlir.constant 0` (64-bit only): subtracting a value from itself is
+  always zero (and if the operand is poison, the result poison is refined by the concrete constant).
+  This is the `LocalRewritePattern` restatement of the `same_val_zero_0` MIR combine, proven correct
+  in `RewriterProofs/MIRSameValZeroSub.lean`. -/
+def same_val_zero_0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (x, x1, _props) := matchSub op ctx | return (ctx, none)
+  if x != x1 then return (ctx, none)
+  let type := ((op.getResult 0).get! ctx.raw).type
+  let .integerType type' := type.val | return (ctx, none)
+  if type'.bitwidth ≠ 64 then return (ctx, none)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type'))
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[type] #[]
+      #[] #[] cstProp none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
 def same_val_zero_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (x, x1, _props) := matchSub op rewriter.ctx | return rewriter
-  if x != x1 then return rewriter
-  let .integerType type := (x.getType! rewriter.ctx.raw).val | return rewriter
-  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) type))
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
-    #[] #[] cstProp (some $ .before op)
-  return rewriter.replaceOp! op newOp
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite same_val_zero_0_local rewriter op opInBounds
 
 /-- `llvm.xor x x` -> `llvm.mlir.constant 0` (64-bit only): xoring a value with itself is always
   zero (and if the operand is poison, the result poison is refined by the concrete constant). This
   is the `LocalRewritePattern` restatement of the `same_val_zero_1` MIR combine, proven correct in
-  `RewriterProofs/MIRSameValZero.lean`. -/
+  `RewriterProofs/MIRSameValZeroXor.lean`. -/
 def same_val_zero_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (x, x1, _props) := matchXor op ctx | return (ctx, none)
