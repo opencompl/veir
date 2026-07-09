@@ -1609,8 +1609,7 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , double_icmp_zero_or_combine
      , NotAPlusNegOne_rw
      , sub_one_from_sub_rw
-     , same_val_zero_1
-     ]
+     ] ++ mir_pattern_combines
   let pattern := RewritePattern.GreedyRewritePattern patterns
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
