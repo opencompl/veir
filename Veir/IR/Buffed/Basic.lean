@@ -190,6 +190,81 @@ macro "prove_setLinkBoundsRegionSlot" ctx:ident ptr:ident index:ident : tactic =
    grind [layout_grind, OperationPtr.range, OperationPtr.toM, OperationPtr.toFlat,
      Buffed.OperationMPtr.computeRegionOffset, IsIncludedI, IsIncludedIN]))
 
+/- Bounds proofs for writing the `$index`-th result/operand/block-operand slot of an operation
+(the `hslot` argument of `Rewriter.set{Result,Operand,BlockOperand}`), and the `$index`-th
+argument slot of a block (`Rewriter.setBlockArgument`'s `hslot`). Each follows the
+`prove_setLinkBoundsRegionSlot` recipe: the slot lies inside the owner's byte range
+(`nth*_range_included_*_range`, capacity-based), which lies in the buffer (`sim.in_bounds`).
+Expects `hcap : ($index).toNat < (($ptr).spec.get! ($ctx).spec).cap<Kind>` (or enough for
+`grind` to derive it) in scope — at the `Rewriter.push*At` sites this is the threaded
+capacity precondition. -/
+set_option hygiene false in
+macro "prove_setLinkBoundsResultSlot" ctx:ident ptr:ident index:ident : tactic => `(tactic|
+  (have hcap : ($index).toNat < (($ptr).spec.get! ($ctx).spec).capResults := by grind
+   have hincl := OperationPtr.nthResult_range_included_op_range $ctx ($ptr).spec $index hcap (by grind)
+   have hin := ($ctx).sim.in_bounds (.operation ($ptr).spec) (by grind)
+   have : ($ctx).buf.mem.size < 2^63 := by grind
+   -- Pin the nonlinear pieces grind won't derive itself: the ideal form of the base offset,
+   -- `idx < 2^32` (via `ReprIndices`), and the `UInt64` multiplication in `Nat` form.
+   have hoff := OperationPtr.computeResultsOffset!_ideal $ctx $ptr (by grind) (by grind)
+     (by prove_setLinkBoundsOp $ctx $ptr)
+   have hidxlt : ($index).toNat < 4294967296 := by
+     have := ($ctx).isRepr.operations_indices ($ptr).spec (by grind) |>.capResults
+     grind
+   have hmul : (Buffed.OpResult.size * $index).toNat = Buffed.OpResult.sizeNat * ($index).toNat := by
+     rw [UInt64.toNat_mul]
+     grind
+   grind [layout_grind, OperationPtr.range, OperationPtr.toM, OperationPtr.toFlat,
+     Buffed.OperationMPtr.getResultPtr, Buffed.OperationMPtr.getResultPtr!,
+     Buffed.OperationMPtr.computeResultOffset, Buffed.OperationMPtr.computeResultOffset!,
+     IsIncludedI, IsIncludedIN]))
+
+set_option hygiene false in
+macro "prove_setLinkBoundsOperandSlot" ctx:ident ptr:ident index:ident : tactic => `(tactic|
+  (have hcap : ($index).toNat < (($ptr).spec.get! ($ctx).spec).capOperands := by grind
+   have hincl := OperationPtr.nthOperand_range_included_op_range $ctx ($ptr).spec $index hcap (by grind)
+   have hin := ($ctx).sim.in_bounds (.operation ($ptr).spec) (by grind)
+   have : ($ctx).buf.mem.size < 2^63 := by grind
+   have hoff := OperationPtr.computeOperandsOffset!_ideal $ctx $ptr (by grind) (by grind)
+     (by prove_setLinkBoundsOp $ctx $ptr)
+   have hidxlt : ($index).toNat < 4294967296 := by
+     have := ($ctx).isRepr.operations_indices ($ptr).spec (by grind) |>.capOperands
+     grind
+   have hmul : (Buffed.OpOperand.size * $index).toNat = Buffed.OpOperand.sizeNat * ($index).toNat := by
+     rw [UInt64.toNat_mul]
+     grind
+   grind [layout_grind, OperationPtr.range, OperationPtr.toM, OperationPtr.toFlat,
+     Buffed.OperationMPtr.computeOperandOffset, Buffed.OperationMPtr.computeOperandOffset!,
+     IsIncludedI, IsIncludedIN]))
+
+set_option hygiene false in
+macro "prove_setLinkBoundsBlockOperandSlot" ctx:ident ptr:ident index:ident : tactic => `(tactic|
+  (have hcap : ($index).toNat < (($ptr).spec.get! ($ctx).spec).capBlockOperands := by grind
+   have hincl := OperationPtr.nthBlockOperand_range_included_op_range $ctx ($ptr).spec $index hcap (by grind)
+   have hin := ($ctx).sim.in_bounds (.operation ($ptr).spec) (by grind)
+   have : ($ctx).buf.mem.size < 2^63 := by grind
+   have hoff := OperationPtr.computeBlockOperandsOffset!_ideal $ctx $ptr (by grind) (by grind)
+     (by prove_setLinkBoundsOp $ctx $ptr)
+   have hidxlt : ($index).toNat < 4294967296 := by
+     have := ($ctx).isRepr.operations_indices ($ptr).spec (by grind) |>.capBlockOperands
+     grind
+   have hmul : (Buffed.BlockOperand.size * $index).toNat = Buffed.BlockOperand.sizeNat * ($index).toNat := by
+     rw [UInt64.toNat_mul]
+     grind
+   grind [layout_grind, OperationPtr.range, OperationPtr.toM, OperationPtr.toFlat,
+     Buffed.OperationMPtr.computeBlockOperandOffset, Buffed.OperationMPtr.computeBlockOperandOffset!,
+     IsIncludedI, IsIncludedIN]))
+
+set_option hygiene false in
+macro "prove_setLinkBoundsArgumentSlot" ctx:ident ptr:ident index:ident : tactic => `(tactic|
+  (have hcap : ($index).toNat < (($ptr).spec.get! ($ctx).spec).capArguments := by grind
+   have hincl := BlockPtr.nthArgument_range_included_block_range $ctx ($ptr).spec $index hcap (by grind)
+   have hoff := BlockPtr.computeArgumentOffset_ideal $ctx $ptr $index (by grind) hcap
+   have hin := ($ctx).sim.in_bounds (.block ($ptr).spec) (by grind)
+   have : ($ctx).buf.mem.size < 2^63 := by grind
+   grind [layout_grind, BlockPtr.range, BlockPtr.toM, BlockPtr.toFlat,
+     Buffed.BlockMPtr.getArgumentPtr, IsIncludedI, IsIncludedIN]))
+
 set_option hygiene false in
 macro "prove_setLinkBoundsValue" : tactic => `(tactic|
   (have : ctx.buf.mem.size < 2^63 := by grind

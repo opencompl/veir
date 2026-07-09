@@ -1286,4 +1286,85 @@ theorem OperationPtr.nthRegion_range_included_op_range (ctx : Sim.IRContext OpIn
     Operation.Sizes.regionsNat, add_nat_range_def, IsIncludedI]
   refine ⟨?_, ?_⟩ <;> grind
 
+/-- The byte range of the `idx`-th result slot lies inside `op`'s byte range, provided
+    `idx < capResults`. Results are back-allocated at negative offsets, so the slot sits in
+    `[resultsInt, 0)` relative to the operation pointer. Analogue of
+    `nthRegion_range_included_op_range` for the `Rewriter.setResult` slot bound. -/
+theorem OperationPtr.nthResult_range_included_op_range (ctx : Sim.IRContext OpInfo) (op : OperationPtr)
+    (idx : UInt64) (hidx : idx.toNat < (op.get! ctx.spec).capResults) (ib : op.InBounds ctx.spec) :
+    IsIncludedI
+      ((op.toM.toNat + (Operation.Offsets.resultsInt op ctx.spec + OpResult.sizeNat * idx.toNat))
+        ...(op.toM.toNat + (Operation.Offsets.resultsInt op ctx.spec + OpResult.sizeNat * idx.toNat) + OpResult.sizeNat))
+      (op.rangeInt ctx.spec) := by
+  have hin := ctx.sim.in_bounds (.operation op) (by grind)
+  have htoM : (op.toM.toNat : Int) = op.id := by
+    simp only [OperationPtr.toM, OperationPtr.toFlat]
+    have : (op.id : Nat) < 2 ^ 63 := by grind [OperationPtr.range]
+    grind [UInt64.toNat_ofNat]
+  simp only [OperationPtr.rangeInt, Operation.rangeInt, OperationPtr.toFlat,
+    Operation.Offsets.afterInt, Operation.Offsets.resultsInt,
+    Operation.Sizes.resultsNat, add_nat_range_def, IsIncludedI]
+  refine ⟨?_, ?_⟩ <;> grind
+
+/-- The byte range of the `idx`-th operand slot lies inside `op`'s byte range, provided
+    `idx < capOperands`. Analogue of `nthRegion_range_included_op_range` for the
+    `Rewriter.setOperand` slot bound. -/
+theorem OperationPtr.nthOperand_range_included_op_range (ctx : Sim.IRContext OpInfo) (op : OperationPtr)
+    (idx : UInt64) (hidx : idx.toNat < (op.get! ctx.spec).capOperands) (ib : op.InBounds ctx.spec) :
+    IsIncludedI
+      ((op.toM.toNat + (Operation.Offsets.operandsInt op ctx.spec + OpOperand.sizeNat * idx.toNat))
+        ...(op.toM.toNat + (Operation.Offsets.operandsInt op ctx.spec + OpOperand.sizeNat * idx.toNat) + OpOperand.sizeNat))
+      (op.rangeInt ctx.spec) := by
+  have hin := ctx.sim.in_bounds (.operation op) (by grind)
+  have htoM : (op.toM.toNat : Int) = op.id := by
+    simp only [OperationPtr.toM, OperationPtr.toFlat]
+    have : (op.id : Nat) < 2 ^ 63 := by grind [OperationPtr.range]
+    grind [UInt64.toNat_ofNat]
+  simp only [OperationPtr.rangeInt, Operation.rangeInt, OperationPtr.toFlat,
+    Operation.Offsets.afterInt, Operation.Offsets.regionsInt, Operation.Offsets.blockOperandsInt,
+    Operation.Offsets.operandsInt, Operation.Offsets.resultsInt,
+    Operation.Sizes.operandsNat, Operation.Sizes.blockOperandsNat, Operation.Sizes.regionsNat,
+    add_nat_range_def, IsIncludedI]
+  refine ⟨?_, ?_⟩ <;> grind
+
+/-- The byte range of the `idx`-th block-operand slot lies inside `op`'s byte range, provided
+    `idx < capBlockOperands`. Analogue of `nthRegion_range_included_op_range` for the
+    `Rewriter.setBlockOperand` slot bound. -/
+theorem OperationPtr.nthBlockOperand_range_included_op_range (ctx : Sim.IRContext OpInfo) (op : OperationPtr)
+    (idx : UInt64) (hidx : idx.toNat < (op.get! ctx.spec).capBlockOperands) (ib : op.InBounds ctx.spec) :
+    IsIncludedI
+      ((op.toM.toNat + (Operation.Offsets.blockOperandsInt op ctx.spec + BlockOperand.sizeNat * idx.toNat))
+        ...(op.toM.toNat + (Operation.Offsets.blockOperandsInt op ctx.spec + BlockOperand.sizeNat * idx.toNat) + BlockOperand.sizeNat))
+      (op.rangeInt ctx.spec) := by
+  have hin := ctx.sim.in_bounds (.operation op) (by grind)
+  have htoM : (op.toM.toNat : Int) = op.id := by
+    simp only [OperationPtr.toM, OperationPtr.toFlat]
+    have : (op.id : Nat) < 2 ^ 63 := by grind [OperationPtr.range]
+    grind [UInt64.toNat_ofNat]
+  simp only [OperationPtr.rangeInt, Operation.rangeInt, OperationPtr.toFlat,
+    Operation.Offsets.afterInt, Operation.Offsets.regionsInt, Operation.Offsets.blockOperandsInt,
+    Operation.Offsets.resultsInt,
+    Operation.Sizes.blockOperandsNat, Operation.Sizes.regionsNat,
+    add_nat_range_def, IsIncludedI]
+  refine ⟨?_, ?_⟩ <;> grind
+
+/-- The byte range of the `idx`-th argument slot lies inside `bl`'s byte range, provided
+    `idx < capArguments`. Analogue of `nthRegion_range_included_op_range` for the
+    `Rewriter.setBlockArgument` slot bound. -/
+theorem BlockPtr.nthArgument_range_included_block_range (ctx : Sim.IRContext OpInfo) (bl : BlockPtr)
+    (idx : UInt64) (hidx : idx.toNat < (bl.get! ctx.spec).capArguments) (ib : bl.InBounds ctx.spec) :
+    IsIncludedI
+      ((bl.toM.toNat + (Block.Offsets.argumentsInt + BlockArgument.sizeNat * idx.toNat))
+        ...(bl.toM.toNat + (Block.Offsets.argumentsInt + BlockArgument.sizeNat * idx.toNat) + BlockArgument.sizeNat))
+      (bl.rangeInt ctx.spec) := by
+  have hin := ctx.sim.in_bounds (.block bl) (by grind)
+  have htoM : (bl.toM.toNat : Int) = bl.id := by
+    simp only [BlockPtr.toM, BlockPtr.toFlat]
+    have : (bl.id : Nat) < 2 ^ 63 := by grind [BlockPtr.range]
+    grind [UInt64.toNat_ofNat]
+  simp only [BlockPtr.rangeInt, Block.rangeInt, BlockPtr.toFlat,
+    Block.Offsets.afterInt, Block.Offsets.argumentsInt,
+    Block.Sizes.argumentsNat, add_nat_range_def, IsIncludedI]
+  refine ⟨?_, ?_⟩ <;> grind
+
 end Veir
