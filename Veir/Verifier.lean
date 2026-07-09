@@ -1109,6 +1109,42 @@ private theorem OperationPtr.Verified.integerBinop {op : OperationPtr} {opInBoun
     op.IsVerifiedIntegerBinop ctx :=
   op.verifyIntegerBinop_eq_ok <| op.verifyIntegerBinop_ok_of_Verified opVerify armReduces
 
+/--
+  Structural facts guaranteed by a successful `verifySelectTypes` check: the condition (operand 0)
+  is `i1`, and the two value operands (1 and 2) and the result share a type.
+-/
+def OperationPtr.IsVerifiedSelect (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 3 ∧
+  (∃ it, ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType it ∧ it.bitwidth = 1) ∧
+  ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 1).getType! ctx.raw).val ∧
+  ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 2).getType! ctx.raw).val
+
+private theorem OperationPtr.verifySelectTypes_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (h : op.verifySelectTypes ctx opInBounds = .ok ()) :
+    op.IsVerifiedSelect ctx := by
+  simp only [IsVerifiedSelect] at ⊢
+  simp [verifySelectTypes, verifyPlainOpCounts, verifyOperandTypesMatch, verifyResultTypeMatches,
+    TypeAttr.verifyI1, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
+    at h
+  grind [getNumOperands!_eq_getNumOperands, getNumResults!_eq_getNumResults]
+
+private theorem OperationPtr.verifySelectTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifySelectTypes ctx opInBounds >>= fun _ => pure ())) :
+    op.verifySelectTypes ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  cases hb : op.verifySelectTypes ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+theorem OperationPtr.Verified.llvm_select {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .select) :
+    op.IsVerifiedSelect ctx :=
+  op.verifySelectTypes_eq_ok <| op.verifySelectTypes_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
 theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .addi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
