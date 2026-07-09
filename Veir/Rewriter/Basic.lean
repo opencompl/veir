@@ -374,6 +374,7 @@ theorem Rewriter.insertBlock?_inBounds (ptr : Sim.GenericPtr)
   simp only [insertBlock?_def, insertBlock?Sim] at heq
   grind
 
+set_option linter.unusedVariables false in -- bug
 @[grind .]
 theorem Rewriter.insertBlock?_fieldsInBounds_mono
     (heq : insertBlock? ctx newBlock ip h₁ h₂ h₃ h₄ = some newCtx) :
@@ -604,6 +605,7 @@ protected def Rewriter.setBlockArgument (blockPtr : Buffed.BlockMPtr) (ctx₀ : 
   let arg := blockPtr.getArgumentPtr idx
   rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
   have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
+  let ctx := Buffed.ValueImplMPtr.writeType ctx arg Buffed.ValueImpl.kindArgument (by prove_setSlotBounds ctx₀)
   let ctx := arg.writeType ctx typeIdx (by prove_setSlotBounds ctx₀)
   let ctx := arg.writeFirstUse ctx .none (by prove_setSlotBounds ctx₀)
   let ctx := arg.writeIndex ctx idx (by prove_setSlotBounds ctx₀)
@@ -662,6 +664,7 @@ theorem Rewriter.pushBlockArgumentAt_veir_inBounds {ptr : Veir.GenericPtr} {bloc
     | _ => ptr.InBounds ctx.spec := by
   grind [pushBlockArgumentAt_spec heq]
 
+set_option linter.unusedVariables false in -- bug
 @[grind .]
 theorem Rewriter.pushBlockArgumentAt_fieldsInBounds {blockPtr : Sim.BlockPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {ib} {hidx}
@@ -683,6 +686,7 @@ protected def Rewriter.setResult (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed
   let res := opPtr.getResultPtr ctx₀ idx hnum
   rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
   have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
+  let ctx := Buffed.ValueImplMPtr.writeType ctx res Buffed.ValueImpl.kindResult (by prove_setSlotBounds ctx₀)
   let ctx := res.writeType ctx typeIdx (by prove_setSlotBounds ctx₀)
   let ctx := res.writeFirstUse ctx .none (by prove_setSlotBounds ctx₀)
   let ctx := res.writeIndex ctx idx (by prove_setSlotBounds ctx₀)
