@@ -273,14 +273,14 @@ def rewriteForwardsAddIConstFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp :
     rewriteForwardsAddIConstFoldingGoSim ctx next
 partial_fixpoint
 
-buffed (inline := false) (def_lemma := false)
+buffed (def_lemma := false)
 def rewriteForwardsAddIConstFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   let region := topOp.getRegionPtr! ctx 0
   let block ← (region.getFirstBlock! ctx).toOption
   let maybeOp := (block.getFirstOp! ctx)
   rewriteForwardsAddIConstFoldingGo ctx maybeOp
 
--- buffed (def_lemma := false)
+buffed (def_lemma := false)
 def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpType ctx sorry ≠ .arith .addi then
     return ctx
@@ -289,7 +289,7 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
   let rhsValuePtr := op.getOperandPtr ctx 1 sorry
   let rhsValue := rhsValuePtr.getValue ctx sorry
   -- Unsafe...
-  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, sorry⟩
+  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec.asOpResultPtr⟩
   let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
 
   if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
@@ -306,7 +306,7 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
   let lhsValue := lhsValuePtr.getValue ctx sorry
 
   let oldValuePtr := op.getResultPtr ctx 0 sorry
-  let oldValue : Sim.ValuePtr := ⟨oldValuePtr.impl, sorry⟩
+  let oldValue : Sim.ValuePtr := ⟨oldValuePtr.impl, default⟩
   let ctx ← Rewriter.replaceValue? ctx oldValue lhsValue sorry sorry
 
   let ctx ← Rewriter.eraseOp ctx op sorry sorry sorry sorry
@@ -315,6 +315,23 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
     return Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry
 
   return ctx
+
+buffed (def_lemma := false)
+def rewriteForwardsAddIZeroFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
+  match maybeOp.toOption with
+  | none => ctx
+  | some op =>
+    let next := op.getNextOp ctx sorry
+    let ctx ← addIZeroFolding ctx op
+    rewriteForwardsAddIZeroFoldingGoSim ctx next
+partial_fixpoint
+
+buffed (def_lemma := false)
+def rewriteForwardsAddIZeroFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+  let region := topOp.getRegionPtr! ctx 0
+  let block ← (region.getFirstBlock! ctx).toOption
+  let maybeOp := (block.getFirstOp! ctx)
+  rewriteForwardsAddIZeroFoldingGo ctx maybeOp
 
 -- buffed (def_lemma := false)
 def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
@@ -458,13 +475,13 @@ def main : IO Unit := do
   match ctx with
   | none => return
   | some (ctx, topOp, ip) =>
-    let res := Program.addOneTreeSparse ctx ip 300_000 100
+    let res := Program.addZeroTree ctx ip 300_000 100
     match res with
     | none => return -- IO.println "err"
     | some ctx =>
       -- IO.println "Constructed"
       let startTime ← IO.monoNanosNow
-      if let some ctx := Custom.rewriteForwardsAddIConstFolding ctx topOp then
+      if let some ctx := Custom.rewriteForwardsAddIZeroFolding ctx topOp then
         let endTime ← IO.monoNanosNow
         IO.println s!"ok: {ctx.buf.size}"
         let time := (endTime - startTime).toFloat / 1_000_000_000
