@@ -197,15 +197,16 @@ theorem XorAndAnd {x y z : Int 64} :
 
 /-! ### sub_add_reg -/
 
-/-- `(x + y) - y → x`. The source's flags only add poison, so they stay free. -/
-theorem sub_add_reg_x_add_y_sub_y {as au ss su : Bool} {x y : Int 64} :
-    sub (add x y as au) y ss su ⊒ x := by
-  veir_bv_decide
+/-- `(x + y) - y → x`. The source's flags only add poison, so they stay free. Stated at both
+    widths the guarded pattern admits, since the graph-level proof needs `i32` too. -/
+theorem sub_add_reg_x_add_y_sub_y {w : Nat} (hw : w = 64 ∨ w = 32) {as au ss su : Bool}
+    {x y : Int w} : sub (add x y as au) y ss su ⊒ x := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(x + y) - x → y`. -/
-theorem sub_add_reg_x_add_y_sub_x {as au ss su : Bool} {x y : Int 64} :
-    sub (add x y as au) x ss su ⊒ y := by
-  veir_bv_decide
+theorem sub_add_reg_x_add_y_sub_x {w : Nat} (hw : w = 64 ∨ w = 32) {as au ss su : Bool}
+    {x y : Int w} : sub (add x y as au) x ss su ⊒ y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `x - (y + x) → 0 - y`. The created `sub` must clear `nsw`/`nuw` rather than inherit the
     matched `sub`'s: `0 - y` has a different poison condition.
@@ -294,9 +295,9 @@ theorem select_of_truncate_rw {s u : Bool} {c : Int 1} {x y : Int 64} :
 
 /-- `x * 2 → x + x`, with the `mul`'s overflow flags carried onto the `add`. Sound: the
     two ops have exactly the same overflow condition at the constant `2`. -/
-theorem mulo_by_2_unsigned_signed {s u : Bool} {x : Int 64} :
-    mul x (constant 64 2) s u ⊒ add x x s u := by
-  veir_bv_decide
+theorem mulo_by_2_unsigned_signed {w : Nat} (hw : w = 64 ∨ w = 32) {s u : Bool} {x : Int w} :
+    mul x (constant w 2) s u ⊒ add x x s u := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### add_shift -/
 
@@ -451,15 +452,18 @@ theorem sub_one_from_sub_rw {s2 u2 s u : Bool} {x y : Int 64} :
 /-! ### trivial selects -/
 
 /-- `select c, x, x → x`. -/
-theorem select_same_val_self {c : Int 1} {x : Int 64} : select c x x ⊒ x := by
-  veir_bv_decide
+theorem select_same_val_self {w : Nat} (hw : w = 64 ∨ w = 32) {c : Int 1} {x : Int w} :
+    select c x x ⊒ x := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `select 1, x, y → x`. -/
-theorem select_constant_cmp_true {x y : Int 64} : select (constant 1 1) x y ⊒ x := by
-  veir_bv_decide
+theorem select_constant_cmp_true {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    select (constant 1 1) x y ⊒ x := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `select 0, x, y → y`. -/
-theorem select_constant_cmp_false {x y : Int 64} : select (constant 1 0) x y ⊒ y := by
-  veir_bv_decide
+theorem select_constant_cmp_false {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    select (constant 1 0) x y ⊒ y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 end Veir.Data.LLVM.Int

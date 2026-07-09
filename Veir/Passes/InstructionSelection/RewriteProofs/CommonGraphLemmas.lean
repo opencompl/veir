@@ -40,6 +40,17 @@ theorem OperationPtr.Pure.llvm_xor {op : OperationPtr} {ctx : IRContext OpCode}
   · split <;> simp [Interp.map, Option.map, UBOr.map, pure]
   · simp [Interp.map, Option.map]
 
+/-- `llvm.add` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_add {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .add) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  split
+  · split <;> simp [Interp.map, Option.map, UBOr.map, pure]
+  · simp [Interp.map, Option.map]
+
 /-- `llvm.mlir.constant` is pure: its interpretation neither reads nor writes memory. -/
 theorem OperationPtr.Pure.llvm_mlir__constant {op : OperationPtr} {ctx : IRContext OpCode}
     (hType : op.getOpType! ctx = .llvm .mlir__constant) : op.Pure ctx := by
@@ -320,6 +331,109 @@ theorem matchNot_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
   · grind [OperationPtr.getOperands!]
   · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
       (OperationPtr.dominates_of_strictlyDominates hXorSDom) y
+      (by grind [OperationPtr.getOperands!])
+
+/-! ## The packaged graph lemma for a defining `llvm.add` -/
+
+set_option maxHeartbeats 1000000 in
+/-- Semantic content of a successful `matchAdd` on the *defining op* of an operand `base` of
+    `op`: in any source state satisfying `EquationLemmaAt` before `op`, `base`'s runtime value
+    is `Data.LLVM.Int.add xv yv nsw nuw`, where `xv`/`yv` are the `add`'s operands' values.
+    The `add` analogue of `matchNot_getVar?_of_EquationLemmaAt`, used by the `sub_add_reg`
+    combines, which match `(x + y) - y` through the `add`'s defining op. -/
+theorem matchAdd_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    {base x y : ValuePtr} {addOp : OperationPtr} {aProps : propertiesOf (.llvm .add)}
+    {intType : IntegerType}
+    (hDef : getDefiningOp base ctx.raw = some addOp)
+    (hAdd : matchAdd addOp ctx.raw = some (x, y, aProps))
+    (hOperand : base ∈ op.getOperands! ctx.raw)
+    (hBaseType : (base.getType! ctx.raw).val = Attribute.integerType intType) :
+    ∃ (xv yv : Data.LLVM.Int intType.bitwidth),
+      state.variables.getVar? x = some (RuntimeValue.int intType.bitwidth xv) ∧
+      state.variables.getVar? y = some (RuntimeValue.int intType.bitwidth yv) ∧
+      state.variables.getVar? base = some (RuntimeValue.int intType.bitwidth
+        (Data.LLVM.Int.add xv yv aProps.nsw aProps.nuw)) ∧
+      (x.getType! ctx.raw).val = Attribute.integerType intType ∧
+      (y.getType! ctx.raw).val = Attribute.integerType intType ∧
+      x.dominatesIp (InsertPoint.before op) ctx ∧
+      y.dominatesIp (InsertPoint.before op) ctx ∧
+      x.InBounds ctx.raw ∧ y.InBounds ctx.raw ∧
+      x ∉ op.getResults! ctx.raw ∧ y ∉ op.getResults! ctx.raw := by
+  -- Syntactic facts from the match.
+  obtain ⟨hAddType, hAddNumResults, hAddOperands, hAddProps⟩ := matchAdd_implies hAdd
+  -- `base` is the unique result of the matched `add`.
+  obtain ⟨basePtr, rfl⟩ : ∃ p, base = ValuePtr.opResult p := by
+    cases base with
+    | opResult p => exact ⟨p, rfl⟩
+    | _ => simp [getDefiningOp] at hDef
+  have hAddOpEq : basePtr.op = addOp := by simp [getDefiningOp] at hDef; grind
+  subst hAddOpEq
+  have hBaseIn : (ValuePtr.opResult basePtr).InBounds ctx.raw := by grind
+  have hAddOpIn : basePtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hIdx : basePtr.index < basePtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hBaseEq : basePtr = basePtr.op.getResult 0 := by
+    have hidx : basePtr.index = 0 := by omega
+    cases basePtr
+    simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]
+    exact ⟨trivial, hidx⟩
+  -- Verifier facts for the matched `add`.
+  have hAddVerified : basePtr.op.Verified ctx hAddOpIn := by grind
+  obtain ⟨-, -, -, -, addIntType, hAddResType, hAddOperand0Type, hAddOperand1Type⟩ :=
+    OperationPtr.Verified.llvm_add hAddVerified hAddType
+  have hBaseTypeEq : (ValuePtr.opResult basePtr).getType! ctx.raw
+      = ((basePtr.op.getResult 0).get! ctx.raw).type := by rw [hBaseEq]; rfl
+  have hIntTypeEq : intType = addIntType := by
+    rw [hBaseTypeEq, hAddResType] at hBaseType; grind
+  subst hIntTypeEq
+  -- Operand access.
+  have hxIdxEq : x = (basePtr.op.getOperands! ctx.raw)[0]! := by rw [hAddOperands]; rfl
+  have hyIdxEq : y = (basePtr.op.getOperands! ctx.raw)[1]! := by rw [hAddOperands]; rfl
+  have hAddOperand0 : basePtr.op.getOperand! ctx.raw 0 = x := by
+    rw [hxIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hAddOperand1 : basePtr.op.getOperand! ctx.raw 1 = y := by
+    rw [hyIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hxType : (x.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hAddOperand0, hAddOperand0Type]
+  have hyType : (y.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hAddOperand1, hAddOperand1Type]
+  -- Dominance: the `add` strictly dominates `op`, so it has been interpreted into `state`.
+  have hAddDefines : (ValuePtr.opResult basePtr).getDefiningOp! ctx.raw = some basePtr.op := by
+    have hOwner := (ctx.wellFormed.operations basePtr.op hAddOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hAddSDom : basePtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom
+      hAddDefines hOperand
+  have hAddDomIp : basePtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hAddPure : basePtr.op.Pure ctx.raw := OperationPtr.Pure.llvm_add hAddType
+  obtain ⟨cfA, hInterpAdd⟩ := stateWf basePtr.op hAddOpIn hAddPure hAddDomIp
+  -- Unfold the `add`'s interpretation (`newState := state`).
+  obtain ⟨xv, yv, hxVal, hyVal, -, hAddResVal, -⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := .add)
+      (srcFn := fun a b p => Data.LLVM.Int.add a b p.nsw p.nuw)
+      (props := basePtr.op.getProperties! ctx.raw (.llvm .add))
+      hAddOpIn hAddType hAddNumResults hAddOperands rfl
+      (by intro bw a b props resultTypes blockOperands mem res h
+          simp only [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp] at h
+          grind)
+      hInterpAdd hxType hyType
+  refine ⟨xv, yv, hxVal, hyVal, ?_, hxType, hyType, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hBaseEq, hAddResVal, hAddProps]
+  · exact ValuePtr.dominatesIp_before_of_strictlyDominates
+      (ctxDom.operand_dominates_op hAddOpIn (by grind [OperationPtr.getOperands!])) hAddSDom
+  · exact ValuePtr.dominatesIp_before_of_strictlyDominates
+      (ctxDom.operand_dominates_op hAddOpIn (by grind [OperationPtr.getOperands!])) hAddSDom
+  · grind [OperationPtr.getOperands!]
+  · grind [OperationPtr.getOperands!]
+  · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hAddSDom) x
+      (by grind [OperationPtr.getOperands!])
+  · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hAddSDom) y
       (by grind [OperationPtr.getOperands!])
 
 /-! ## The packaged graph lemma for `matchConstantIntVal` -/
