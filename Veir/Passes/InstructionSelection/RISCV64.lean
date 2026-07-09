@@ -797,6 +797,38 @@ def lshr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite lshr_local rewriter op opInBounds
 
+def checkBitcastType (t : TypeAttr) : Bool :=
+  match t.val with
+  | .llvmPointerType _
+  | .integerType _
+  | .byteType _ => true
+  | _ => false
+
+/--
+  llvm.bitcast t1 %x to t2 -> builtin_unrealized_conversion_cast
+  Integers, bytes, and pointers are all lowered to !riscv.reg, making this basically a no-op.
+-/
+def bitcast_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operand, _) := matchBitcast op ctx | return (ctx, none)
+  let opType := operand.getType! ctx.raw
+  let resType := ((op.getResult 0).get! ctx.raw).type
+  if ¬ checkBitcastType opType ∨ ¬ checkBitcastType resType then return (ctx, none)
+  let some opBw := Attribute.bitwidthOfType opType | return (ctx, none)
+  let some resBw := Attribute.bitwidthOfType resType | return (ctx, none)
+  if opBw ∉ [8, 16, 32, 64] ∨ resBw ∉ [8, 16, 32, 64] then return (ctx, none)
+  /- First, cast the operand to registers -/
+  let (ctx, opCastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[operand]
+      #[] #[] () none
+  /- Then, cast register to expected output type. -/
+  let (ctx, castOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[resType] #[opCastOp.getResult 0]
+      #[] #[] () none
+  some (ctx, some (#[opCastOp, castOp], #[castOp.getResult 0]))
+
+def bitcast (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite bitcast_local rewriter op opInBounds
+
 /-- llvm.load -> riscv.ld (i64) / riscv.lw (i32) / riscv.lb (i8) -/
 def load_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -1588,7 +1620,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
      per-op lowerings consume their operands. -/
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral, ctlz, cttz, ctpop, bswap, bitreverse, constant, add, and, ashr, icmp, or, xor, mul,
-    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, load, getelementptr, store,
+    sdiv, udiv, srem, urem, sext, zext, trunc, shl, lshr, sub, bitcast, load, getelementptr, store,
     smax, smin, umax, umin, saddSat, ssubSat, uaddSat, usubSat, sshlSat, ushlSat, abs,
     fshlConst, fshrConst, fshl, fshr, fshlGeneral, fshrGeneral, poisonConst, freeze]
   match RewritePattern.applyInContext pattern ctx with

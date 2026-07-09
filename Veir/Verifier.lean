@@ -697,6 +697,8 @@ def OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext Op
     pure ()
   | .llvm .bitcast => do
     op.verifyPlainOpCounts ctx opIn 1 1
+    if Attribute.bitwidthOfType ((op.getOperand! ctx.raw 0).getType! ctx.raw) ≠ Attribute.bitwidthOfType (op.getResultTypes! ctx.raw)[0]! then
+      throw "llvm.bitcast: Expected types of the same bitwidth"
     pure ()
   /- MOD_ARITH -/
   | .mod_arith .add | .mod_arith .mul | .mod_arith .sub => do
@@ -1097,6 +1099,48 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
     split at opVerify <;> simp_all [reduceCtorEq]
 
 /--
+  The structural facts shared by every verified `llvm.icmp`: exactly 2 operands and 1 result, no
+  regions or successors, an `i1` result, and the two operands share a single type. Unlike
+  `IsVerifiedIntegerBinop`, the operands need not be integers (`llvm.icmp` also compares pointers),
+  so only their mutual equality is recorded.
+-/
+def OperationPtr.IsVerifiedIcmp (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 2 ∧
+  op.getNumSuccessors! ctx.raw = 0 ∧
+  op.getNumRegions! ctx.raw = 0 ∧
+  (∃ i1ty : IntegerType,
+    ((op.getResult 0).get! ctx.raw).type.val = .integerType i1ty ∧ i1ty.bitwidth = 1) ∧
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+    = ((op.getOperand! ctx.raw 1).getType! ctx.raw).val
+
+/-- Structural facts extracted from a successful `verifyLLVMICmp` check. -/
+private theorem OperationPtr.verifyLLVMICmp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMICmp ctx opInBounds = .ok ()) :
+    op.IsVerifiedIcmp ctx := by
+  simp only [IsVerifiedIcmp, verifyLLVMICmp, verifyPlainOpCounts, verifyOperandTypesMatch,
+    TypeAttr.verifyIntegerOrPointerType, TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  split at h <;> (try split at h) <;> (try split at h) <;> (try split at h) <;> grind
+
+private theorem OperationPtr.verifyLLVMICmp_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyLLVMICmp ctx opInBounds >>= fun _ => pure ())) :
+    op.verifyLLVMICmp ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  cases hb : op.verifyLLVMICmp ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/-- Structural facts from the verifier for a verified `llvm.icmp`. -/
+theorem OperationPtr.Verified.llvm_icmp {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .icmp) :
+    op.IsVerifiedIcmp ctx :=
+  op.verifyLLVMICmp_eq_ok <| op.verifyLLVMICmp_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+/--
   Every integer binary operation's `Verified.*` lemma: given that the operation is verified and
   has the given binary-operation opcode, it satisfies `IsVerifiedIntegerBinop`. Each is a thin
   wrapper that reduces `op.Verified` to a successful `verifyIntegerBinop` and applies the
@@ -1108,6 +1152,42 @@ private theorem OperationPtr.Verified.integerBinop {op : OperationPtr} {opInBoun
       = (op.verifyIntegerBinop ctx opInBounds >>= fun _ => pure ())) :
     op.IsVerifiedIntegerBinop ctx :=
   op.verifyIntegerBinop_eq_ok <| op.verifyIntegerBinop_ok_of_Verified opVerify armReduces
+
+/--
+  Structural facts guaranteed by a successful `verifySelectTypes` check: the condition (operand 0)
+  is `i1`, and the two value operands (1 and 2) and the result share a type.
+-/
+def OperationPtr.IsVerifiedSelect (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 3 ∧
+  (∃ it, ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType it ∧ it.bitwidth = 1) ∧
+  ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 1).getType! ctx.raw).val ∧
+  ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 2).getType! ctx.raw).val
+
+private theorem OperationPtr.verifySelectTypes_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (h : op.verifySelectTypes ctx opInBounds = .ok ()) :
+    op.IsVerifiedSelect ctx := by
+  simp only [IsVerifiedSelect] at ⊢
+  simp [verifySelectTypes, verifyPlainOpCounts, verifyOperandTypesMatch, verifyResultTypeMatches,
+    TypeAttr.verifyI1, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
+    at h
+  grind [getNumOperands!_eq_getNumOperands, getNumResults!_eq_getNumResults]
+
+private theorem OperationPtr.verifySelectTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifySelectTypes ctx opInBounds >>= fun _ => pure ())) :
+    op.verifySelectTypes ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  cases hb : op.verifySelectTypes ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+theorem OperationPtr.Verified.llvm_select {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .select) :
+    op.IsVerifiedSelect ctx :=
+  op.verifySelectTypes_eq_ok <| op.verifySelectTypes_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /--
   Structural facts guaranteed by a successful `verifyLLVMShift` check. Unlike `IsVerifiedIntegerBinop`

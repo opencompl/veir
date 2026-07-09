@@ -1,6 +1,7 @@
 import Veir.Pass
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
+import Veir.Passes.RISCVCombines.MIRCombinesVeir
 
 namespace Veir.RISCV
 
@@ -2410,7 +2411,7 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , funnel_shift_or_shift_to_funnel_shift_right
      , constant_fold_binop
      ,
-     ]
+     ] ++ mir_pattern_combines
   let pattern := RewritePattern.GreedyRewritePattern patterns
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"

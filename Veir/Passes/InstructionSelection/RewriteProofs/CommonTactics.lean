@@ -139,3 +139,39 @@ macro "peelReplaceWithRegLocal₂" hpattern:ident newCtx:ident newOp:ident hCast
       have $newDom₂:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hCastBack:ident
         (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom₂:ident
      ))
+
+open Lean in
+/-- Like `peelCastToRegLocal₂`, but transports *three* dominance hypotheses (one per matched
+    operand of a ternary lowering) through the creation step. -/
+macro "peelCastToRegLocal₃" hpattern:ident newCtx:ident newOp:ident hCast:ident
+    oldDom₁:ident newDom₁:ident oldDom₂:ident newDom₂:ident oldDom₃:ident newDom₃:ident : tactic =>
+  `(tactic| (
+      peelCastToRegLocal₂ $hpattern:ident $newCtx:ident $newOp:ident $hCast:ident
+        $oldDom₁:ident $newDom₁:ident $oldDom₂:ident $newDom₂:ident
+      have $newDom₃:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hCast:ident
+        (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom₃:ident
+     ))
+
+open Lean in
+/-- Like `peelOpCreation!₂`, but transports *three* dominance hypotheses (one per matched operand
+    of a ternary lowering) through the creation step. -/
+macro "peelOpCreation!₃" hpattern:ident newCtx:ident newOp:ident hNewCtx:ident
+    oldDom₁:ident newDom₁:ident oldDom₂:ident newDom₂:ident oldDom₃:ident newDom₃:ident : tactic =>
+  `(tactic| (
+      peelOpCreation!₂ $hpattern:ident $newCtx:ident $newOp:ident $hNewCtx:ident
+        $oldDom₁:ident $newDom₁:ident $oldDom₂:ident $newDom₂:ident
+      have $newDom₃:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hNewCtx:ident
+        (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom₃:ident
+     ))
+
+open Lean in
+/-- Like `peelReplaceWithRegLocal₂`, but transports *three* dominance hypotheses (one per matched
+    operand of a ternary lowering) through the creation step. -/
+macro "peelReplaceWithRegLocal₃" hpattern:ident newCtx:ident newOp:ident hCastBack:ident
+    oldDom₁:ident newDom₁:ident oldDom₂:ident newDom₂:ident oldDom₃:ident newDom₃:ident : tactic =>
+  `(tactic| (
+      peelReplaceWithRegLocal₂ $hpattern:ident $newCtx:ident $newOp:ident $hCastBack:ident
+        $oldDom₁:ident $newDom₁:ident $oldDom₂:ident $newDom₂:ident
+      have $newDom₃:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hCastBack:ident
+        (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom₃:ident
+     ))
