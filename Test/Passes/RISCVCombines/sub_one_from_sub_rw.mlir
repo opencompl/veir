@@ -29,8 +29,10 @@
 // CHECK:      %[[R:.*]] = "llvm.add"(%[[NB]], %[[A]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[R]]) : (i64) -> ()
 
-// Subtracting 2: the pattern does not fire.
+// Subtracting 2: `sub_one_from_sub_rw` does not fire (it needs a 1), but the
+// generic `sub_to_add` rewrites `(A - B) - 2` into `(A - B) + (-2)`.
 // CHECK:      ^{{.*}}(%[[NA:.*]] : i64, %[[NB2:.*]] : i64):
 // CHECK:      %[[NSUB:.*]] = "llvm.sub"(%[[NA]], %[[NB2]]) : (i64, i64) -> i64
-// CHECK:      %[[NR:.*]] = "llvm.sub"(%[[NSUB]],
+// CHECK:      %[[NC:.*]] = "llvm.mlir.constant"() <{"value" = -2 : i64}> : () -> i64
+// CHECK:      %[[NR:.*]] = "llvm.add"(%[[NSUB]], %[[NC]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()

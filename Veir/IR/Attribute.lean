@@ -1094,6 +1094,15 @@ def isType (attr : Attribute) : Bool :=
   | .hwModuleType _ => true
 
 /--
+  Returns the size, in bits, that an LLVM type would use if stored to memory.
+-/
+def bitwidthOfType (type : Attribute) : Option Nat :=
+  match type with
+  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .llvmPointerType _ => some 64
+  | _ => none
+
+/--
   Returns the size, in bytes, that an LLVM type would use if stored to memory.
 -/
 def sizeOfType (type : Attribute) : Option Nat :=

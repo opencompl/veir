@@ -1,6 +1,7 @@
 import Veir.Pass
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
+import Veir.Passes.RISCVCombines.MIRCombinesVeir
 import Veir.Passes.RISCVCombines.Combine_1
 import Veir.Passes.RISCVCombines.Combine_2
 import Veir.Passes.RISCVCombines.Combine_3
@@ -11,6 +12,10 @@ import Veir.Passes.RISCVCombines.Combine_7
 import Veir.Passes.RISCVCombines.Combine_8
 import Veir.Passes.RISCVCombines.Combine_9
 import Veir.Passes.RISCVCombines.Combine_10
+import Veir.Passes.RISCVCombines.Combine_11
+import Veir.Passes.RISCVCombines.Combine_12
+import Veir.Passes.RISCVCombines.Combine_13
+import Veir.Passes.RISCVCombines.Combine_14
 
 namespace Veir.RISCV
 
@@ -155,7 +160,54 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , double_icmp_zero_or_combine
      , NotAPlusNegOne_rw
      , sub_one_from_sub_rw
-     ]
+     , APlusC1MinusC2
+     , C2MinusAPlusC1
+     , AMinusC1MinusC2
+     , C1MinusAMinusC2
+     , AMinusC1PlusC2
+     , or_and_xor_to_xor_or
+     , and_xor_or_to_xor_and
+     , combine_or_of_and_l
+     , combine_or_of_and_r
+     , AMinusBMinusC
+     , shl_left_to_zero
+     , lshr_left_to_zero
+     , ashr_left_to_zero
+     , mul_left_to_zero
+     , SubSmaxSub
+     , SubUmaxSub
+     , narrow_binop_add
+     , narrow_binop_sub
+     , narrow_binop_mul
+     , truncate_of_sext
+     , zext_of_zext
+     , sext_of_sext
+     , sub_to_add
+     , sub_of_mul_const
+     , select_not
+     , commute_const_add
+     , commute_const_mul
+     , commute_const_and
+     , commute_const_or
+     , commute_const_xor
+     , SubSminSub
+     , SubUminSub
+     , lshr_of_trunc_of_lshr
+     , funnel_shift_right_zero
+     , funnel_shift_left_zero
+     , canonicalize_icmp
+     , bitreverse_shl
+     , bitreverse_lshr
+     , udiv_by_pow2
+     , mul_to_shl
+     , urem_pow2_to_mask
+     , funnel_shift_overshift_l
+     , funnel_shift_overshift_r
+     , funnel_shift_or_shift_to_funnel_shift_left
+     , funnel_shift_or_shift_to_funnel_shift_right
+     , constant_fold_binop
+     ,
+     ] ++ mir_pattern_combines
   let pattern := RewritePattern.GreedyRewritePattern patterns
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"

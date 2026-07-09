@@ -70,7 +70,8 @@ macro "peelCastToRegLocal" hpattern:ident newCtx:ident newOp:ident hCast:ident
   `(tactic| (
       peelOpCreation $hpattern:ident $newCtx:ident $newOp:ident $hCast:ident
       simp only [castToRegLocal] at $hCast:ident
-      rw [WfRewriter.createOp!_none_eq (by grind) (by simp) (by simp)] at $hCast:ident
+      replace $hCast:ident := WfRewriter.createOp!_none_some $hCast:ident
+      obtain ⟨_, _, _, $hCast:ident⟩ := $hCast:ident
       have $newDom:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hCast:ident
         (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom:ident
      ))
@@ -83,8 +84,8 @@ macro "peelOpCreation!" hpattern:ident newCtx:ident newOp:ident hNewCtx:ident
     oldDom:ident newDom:ident : tactic =>
   `(tactic| (
       peelOpCreation $hpattern:ident $newCtx:ident $newOp:ident $hNewCtx:ident
-      rw [WfRewriter.createOp!_none_eq (by clear $hpattern:ident; grind)
-        (by clear $hpattern:ident; simp) (by clear $hpattern:ident; simp)] at $hNewCtx:ident
+      replace $hNewCtx:ident := WfRewriter.createOp!_none_some $hNewCtx:ident
+      obtain ⟨_, _, _, $hNewCtx:ident⟩ := $hNewCtx:ident
       have $newDom:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hNewCtx:ident
         (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom:ident
      ))
@@ -98,8 +99,8 @@ macro "peelReplaceWithRegLocal" hpattern:ident newCtx:ident newOp:ident hCastBac
   `(tactic| (
       peelOpCreation $hpattern:ident $newCtx:ident $newOp:ident $hCastBack:ident
       simp only [replaceWithRegLocal] at $hCastBack:ident
-      rw [WfRewriter.createOp!_none_eq (by clear $hpattern:ident; grind)
-        (by clear $hpattern:ident; simp) (by clear $hpattern:ident; simp)] at $hCastBack:ident
+      replace $hCastBack:ident := WfRewriter.createOp!_none_some $hCastBack:ident
+      obtain ⟨_, _, _, $hCastBack:ident⟩ := $hCastBack:ident
       have $newDom:ident := (ValuePtr.dominatesIp_before_WfRewriter_createOp $hCastBack:ident
         (by clear $hpattern:ident; grind) (by clear $hpattern:ident; grind)).mpr $oldDom:ident
      ))

@@ -142,11 +142,11 @@ theorem constant_local_preservesSemantics :
   subst sourceValues
   -- Peel the two created ops: the `riscv.li` and the cast-back.
   peelOpCreation hpattern ctx₁ liOp hLi
-  rw [WfRewriter.createOp!_none_eq (by clear hpattern; grind) (by clear hpattern; simp)
-    (by clear hpattern; simp)] at hLi
+  replace hLi := WfRewriter.createOp!_none_some hLi
+  obtain ⟨_, _, _, hLi⟩ := hLi
   peelOpCreation hpattern ctx₂ castOp hCast
-  rw [WfRewriter.createOp!_none_eq (by clear hpattern; grind) (by clear hpattern; simp)
-    (by clear hpattern; simp)] at hCast
+  replace hCast := WfRewriter.createOp!_none_some hCast
+  obtain ⟨_, _, _, hCast⟩ := hCast
   cleanupHpattern hpattern
   -- Structural facts about the two created ops in the final context `ctx₂`.
   have hLiType : liOp.getOpType! ctx₂.raw = .riscv .li := by grind
@@ -254,12 +254,12 @@ theorem poisonConst_local_preservesSemantics :
   subst sourceValues
   -- Peel the two created ops: `riscv.li` and the `replaceWithRegLocal` cast-back.
   peelOpCreation hpattern ctx₁ liOp hLi
-  rw [WfRewriter.createOp!_none_eq (by clear hpattern; grind) (by clear hpattern; simp)
-    (by clear hpattern; simp)] at hLi
+  replace hLi := WfRewriter.createOp!_none_some hLi
+  obtain ⟨_, _, _, hLi⟩ := hLi
   peelOpCreation hpattern ctx₂ castOp hCast
   simp only [replaceWithRegLocal] at hCast
-  rw [WfRewriter.createOp!_none_eq (by clear hpattern; grind) (by clear hpattern; simp)
-    (by clear hpattern; simp)] at hCast
+  replace hCast := WfRewriter.createOp!_none_some hCast
+  obtain ⟨_, _, _, hCast⟩ := hCast
   cleanupHpattern hpattern
   have hLiType : liOp.getOpType! ctx₂.raw = .riscv .li := by grind
   have hCastType : castOp.getOpType! ctx₂.raw = .builtin .unrealized_conversion_cast := by grind
