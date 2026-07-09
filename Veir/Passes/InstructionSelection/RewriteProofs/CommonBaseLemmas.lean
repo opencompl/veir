@@ -82,27 +82,6 @@ theorem ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds
   obtain ⟨i, -, rfl⟩ := (OperationPtr.getResults!.mem_iff_exists_index).mp hmem
   exact hop (by grind [ValuePtr.InBounds, OpResultPtr.InBounds, OperationPtr.getResult])
 
-/-- `createEmptyOp` leaves a pre-existing operation's properties (at every op code) untouched: it only
-`set`s the fresh `newOp`'s record. The shipped `getProperties!_createEmptyOp` is code-specific. -/
-theorem OperationPtr.getProperties!_createEmptyOp_ne
-    (h : Rewriter.createEmptyOp rawCtx opType properties = some (rawCtx', newOp))
-    (hne : operation ≠ newOp) :
-    operation.getProperties! rawCtx' oc = operation.getProperties! rawCtx oc := by
-  simp only [Rewriter.createEmptyOp, OperationPtr.allocEmpty] at h
-  grind [OperationPtr.getProperties!, OperationPtr.set, OperationPtr.get!]
-
-/-- A `WfRewriter.createOp` leaves a pre-existing operation's properties (at every op code) untouched:
-only the fresh `newOp` gets properties, and the init steps touch only results/regions/operands. The
-code-specific `getProperties!_WfRewriter_createOp` covers only the created op's own type. -/
-theorem OperationPtr.getProperties!_WfRewriter_createOp_ne
-    (h : WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
-      none h₁ h₂ h₃ h₄ = some (ctx', newOp))
-    (hne : operation ≠ newOp) :
-    operation.getProperties! ctx'.raw oc = operation.getProperties! ctx.raw oc := by
-  simp only [WfRewriter.createOp] at h
-  grind [Rewriter.createOp, OperationPtr.getProperties!_createEmptyOp_ne,
-    OperationPtr.getProperties!_initOpRegions]
-
 /-- Reducing `WfRewriter.createOp!` at a `none` insertion point (the local-rewrite case): when all
     the operand/block-operand/region in-bounds side conditions hold, it is just `createOp`. -/
 theorem WfRewriter.createOp!_none_eq {wfCtx : WfIRContext OpInfo} {opType : OpInfo}

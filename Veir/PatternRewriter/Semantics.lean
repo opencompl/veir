@@ -8,6 +8,31 @@ namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 
+/-- `createEmptyOp` leaves a pre-existing operation's properties (at every op code) untouched: it only
+`set`s the fresh `newOp`'s record. The shipped `getProperties!_createEmptyOp` is code-specific. -/
+theorem OperationPtr.getProperties!_createEmptyOp_ne {rawCtx rawCtx' : IRContext OpInfo}
+    {opType oc : OpInfo} {properties : HasOpInfo.propertiesOf opType}
+    {newOp operation : OperationPtr}
+    (h : Rewriter.createEmptyOp rawCtx opType properties = some (rawCtx', newOp))
+    (hne : operation ≠ newOp) :
+    operation.getProperties! rawCtx' oc = operation.getProperties! rawCtx oc := by
+  simp only [Rewriter.createEmptyOp, OperationPtr.allocEmpty] at h
+  grind [OperationPtr.getProperties!, OperationPtr.set, OperationPtr.get!]
+
+/-- A `WfRewriter.createOp` leaves a pre-existing operation's properties (at every op code) untouched:
+only the fresh `newOp` gets properties, and the init steps touch only results/regions/operands. The
+code-specific `getProperties!_WfRewriter_createOp` covers only the created op's own type. -/
+theorem OperationPtr.getProperties!_WfRewriter_createOp_ne {ctx ctx' : WfIRContext OpInfo}
+    {opType oc : OpInfo} {resultTypes operands blockOperands regions properties h₁ h₂ h₃ h₄}
+    {newOp operation : OperationPtr}
+    (h : WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+      none h₁ h₂ h₃ h₄ = some (ctx', newOp))
+    (hne : operation ≠ newOp) :
+    operation.getProperties! ctx'.raw oc = operation.getProperties! ctx.raw oc := by
+  simp only [WfRewriter.createOp] at h
+  grind [Rewriter.createOp, OperationPtr.getProperties!_createEmptyOp_ne,
+    OperationPtr.getProperties!_initOpRegions]
+
 /--
 Asserts that the pattern returns the input context whenever there are no errors and no match.
 -/

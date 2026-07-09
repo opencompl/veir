@@ -2434,22 +2434,25 @@ theorem RewrittenAt.interpretRegion_refinement
         state.isRefinedByAt state' hRW.σ (.blockEntry entryBlock) (.blockEntry entryBlock)
           entryIn (hRW.blocksInBounds entryBlock entryIn))
     (hVals : values ⊒ values')
-    (hSrcInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
-        (newVars : VariableState ctx),
+    (hSrcInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw),
+        (r.get! ctx.raw).firstBlock = some entryBlock →
+        ∀ (newVars : VariableState ctx),
         state.variables.setArgumentValues? entryBlock values entryIn = some newVars →
         ∀ fst (hfst : (entryBlock.get! ctx.raw).firstOp = some fst),
           (InterpreterState.mk newVars state.memory).EquationLemmaAt (.before fst)
             (by have := ctx.wellFormed.inBounds; grind))
-    (hTgtInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
-        (newVars' : VariableState newCtx),
+    (hTgtInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw),
+        (r.get! ctx.raw).firstBlock = some entryBlock →
+        ∀ (newVars' : VariableState newCtx),
         state'.variables.setArgumentValues? entryBlock values'
           (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
         (InterpreterState.mk newVars' state'.memory).DefinesDominating
           (InsertPoint.atStart! entryBlock newCtx.raw)
           ((InsertPoint.inBounds_atStart! newCtx.wellFormed
             (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn)))
-    (hTgtEqInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
-        (newVars' : VariableState newCtx),
+    (hTgtEqInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw),
+        (r.get! ctx.raw).firstBlock = some entryBlock →
+        ∀ (newVars' : VariableState newCtx),
         state'.variables.setArgumentValues? entryBlock values'
           (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
         (InterpreterState.mk newVars' state'.memory).EquationLemmaAt
@@ -2491,19 +2494,99 @@ theorem RewrittenAt.interpretRegion_refinement
         rw [hfb, hentry] at h1
         simpa using h1.symm
       subst entryBlock'
+      -- The entry block is the region's first block: this is what the entry invariants are stated for.
+      have hentry! : (r'.get! ctx.raw).firstBlock = some entryBlock := by
+        rw [RegionPtr.get!_eq_get rIn]; exact hentry
       exact hRW.interpretBlockCFG_refinement newCtxVerif hCtxDom hOpSim hSrcSplit hTgtSplit entryIn
         (hState entryBlock entryIn) hVals
-        (fun newVars h fst hfst => hSrcInv entryBlock entryIn newVars h fst hfst)
-        (fun newVars' h => hTgtInv entryBlock entryIn newVars' h)
-        (fun newVars' h => hTgtEqInv entryBlock entryIn newVars' h)
+        (fun newVars h fst hfst => hSrcInv entryBlock entryIn hentry! newVars h fst hfst)
+        (fun newVars' h => hTgtInv entryBlock entryIn hentry! newVars' h)
+        (fun newVars' h => hTgtEqInv entryBlock entryIn hentry! newVars' h)
+
+/-! ### Structural consequences of `Verified`
+
+The structural side-conditions threaded through Stages C–E (`hSrcSplit`/`hTgtSplit`, `hSrcInv`,
+`hTgtInv`, `hTgtEqInv`) are facts about *any* verified context, not about the rewrite. They are stated
+here as axioms, in the style of `Veir/Dominance.lean`, pending a proof from the verifier. Stage E
+consumes them directly, so they are no longer hypotheses of the headline refinement theorems.
+-/
+
+/-- **Block-shape axiom.** In a verified context every block's operation list is non-empty and ends in
+a terminator, and no operation of the `front` prefix (the non-terminator operations) raises a control
+flow action: `verifyTerminator` checks exactly that the last operation of an SSACFG block is a
+terminator, and `verifyLocalInvariants` checks that no other operation is. This is the whole-list
+non-branching statement `hSrcSplit`/`hTgtSplit` consume. -/
+axiom WfIRContext.Verified.operationList_split {ctx : WfIRContext OpCode} (ctxVerif : ctx.Verified)
+    (b : BlockPtr) (bIn : b.InBounds ctx.raw) :
+    ∃ (front : List OperationPtr) (term : OperationPtr)
+      (frontIn : ∀ o ∈ front, o.InBounds ctx.raw) (_termIn : term.InBounds ctx.raw),
+      (b.operationList ctx.raw ctx.wellFormed bIn).toList = front ++ [term] ∧
+      (∀ (s s' : InterpreterState ctx) (cf : ControlFlowAction),
+          interpretOpList front s frontIn ≠ some (.ok (s', some cf)))
+
+/-- **Entry SSA-invariant axiom.** The fresh state of a function entry — the empty variable map extended
+with the entry block's argument values — satisfies the equation lemma at the start of the entry block.
+As for `entry_definesDominating`, `entryBlock` must be the entry block of a *function* region
+(`hFunc`/`hEntry`): a function region is isolated from above and its entry block has no dominating
+predecessor, so no operation dominates that point and the invariant is vacuous. For a general block, an
+operation of a dominating block would dominate the point and its equation would not hold in the fresh
+state. This is `hTgtEqInv`; `entry_equationLemmaAt_before_firstOp` derives `hSrcInv` from it. -/
+axiom WfIRContext.Verified.entry_equationLemmaAt_atStart {ctx : WfIRContext OpCode}
+    (ctxVerif : ctx.Verified) (funcOp : OperationPtr) (funcIn : funcOp.InBounds ctx.raw)
+    (hFunc : funcOp.getOpType! ctx.raw = OpCode.func Func.func)
+    (values : Array RuntimeValue) (mem : MemoryState)
+    (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
+    (hEntry : ((funcOp.getRegion! ctx.raw 0).get! ctx.raw).firstBlock = some entryBlock)
+    (newVars : VariableState ctx)
+    (hVars : (VariableState.empty ctx).setArgumentValues? entryBlock values entryIn = some newVars) :
+    (InterpreterState.mk newVars mem).EquationLemmaAt
+      (InsertPoint.atStart! entryBlock ctx.raw)
+      ((InsertPoint.inBounds_atStart! ctx.wellFormed entryIn).mpr entryIn)
+
+/-- The `before firstOp` form of `entry_equationLemmaAt_atStart`: on a non-empty entry block,
+`atStart!` *is* `before firstOp` by definition, so this is the same fact restated at the point the
+block walk starts from. This is `hSrcInv`. -/
+theorem WfIRContext.Verified.entry_equationLemmaAt_before_firstOp {ctx : WfIRContext OpCode}
+    (ctxVerif : ctx.Verified) (funcOp : OperationPtr) (funcIn : funcOp.InBounds ctx.raw)
+    (hFunc : funcOp.getOpType! ctx.raw = OpCode.func Func.func)
+    (values : Array RuntimeValue) (mem : MemoryState)
+    (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
+    (hEntry : ((funcOp.getRegion! ctx.raw 0).get! ctx.raw).firstBlock = some entryBlock)
+    (newVars : VariableState ctx)
+    (hVars : (VariableState.empty ctx).setArgumentValues? entryBlock values entryIn = some newVars)
+    (fst : OperationPtr) (hfst : (entryBlock.get! ctx.raw).firstOp = some fst) :
+    (InterpreterState.mk newVars mem).EquationLemmaAt (.before fst)
+      (by have := ctx.wellFormed.inBounds; grind) := by
+  have h := WfIRContext.Verified.entry_equationLemmaAt_atStart ctxVerif funcOp funcIn hFunc values mem
+    entryBlock entryIn hEntry newVars hVars
+  simpa only [InsertPoint.atStart!, hfst] using h
+
+/-- **Entry `DefinesDominating` axiom.** The fresh entry state defines every value dominating the start
+of the entry block. As above, `entryBlock` must be the entry block of a *function* region
+(`hFunc`/`hEntry`): a function region is isolated from above and its entry block has no dominating
+predecessor, so the only values dominating `atStart! entryBlock` are that block's own arguments —
+exactly the ones `setArgumentValues?` writes. For a general block, values defined in a dominating block
+would also dominate the point and the statement would be false. This is `hTgtInv`. -/
+axiom WfIRContext.Verified.entry_definesDominating {ctx : WfIRContext OpCode}
+    (ctxVerif : ctx.Verified) (funcOp : OperationPtr) (funcIn : funcOp.InBounds ctx.raw)
+    (hFunc : funcOp.getOpType! ctx.raw = OpCode.func Func.func)
+    (values : Array RuntimeValue) (mem : MemoryState)
+    (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
+    (hEntry : ((funcOp.getRegion! ctx.raw 0).get! ctx.raw).firstBlock = some entryBlock)
+    (newVars : VariableState ctx)
+    (hVars : (VariableState.empty ctx).setArgumentValues? entryBlock values entryIn = some newVars) :
+    (InterpreterState.mk newVars mem).DefinesDominating
+      (InsertPoint.atStart! entryBlock ctx.raw)
+      ((InsertPoint.inBounds_atStart! ctx.wellFormed entryIn).mpr entryIn)
 
 /--
 **Stage E — `interpretFunction` refinement (monotonicity).** Interpreting a function operation
 `funcOp` on refined arguments in the source context is refined by interpreting it in the target
 context, under the rewrite renaming `σ`. `funcOp` survives the rewrite because it is a function (one
 region) while the matched op `op` is not (clause 9 / `opNotFunction`), so the single region — and with
-it the entry CFG walk — is preserved. The empty entry state is `σ`-refined; the source-entry SSA
-invariant on it (`hSrcInv`) is supplied by the caller.
+it the entry CFG walk — is preserved. The empty entry state is `σ`-refined; the three entry invariants
+on it are the verified-context axioms, applicable because `funcOp` is a `func.func` (`hFunc`) and the
+walk starts at its region's first block.
 -/
 theorem RewrittenAt.interpretFunction_refinement
     (hRW : RewrittenAt ctx op newOps newValues newCtx opIn block pre post blockIn blockIn')
@@ -2522,32 +2605,12 @@ theorem RewrittenAt.interpretFunction_refinement
         (b.operationList newCtx.raw newCtx.wellFormed bIn').toList = front ++ [term] ∧
         (∀ (s s' : InterpreterState newCtx) (cf : ControlFlowAction),
             interpretOpList front s frontIn ≠ some (.ok (s', some cf))))
+    (ctxVerif : ctx.Verified)
     {funcOp : OperationPtr} (funcOpIn : funcOp.InBounds ctx.raw)
     (funcOpIn' : funcOp.InBounds newCtx.raw)
+    (hFunc : funcOp.getOpType! ctx.raw = OpCode.func Func.func)
     {values values' : Array RuntimeValue} {mem : MemoryState}
-    (hVals : values ⊒ values')
-    (hSrcInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
-        (newVars : VariableState ctx),
-        (VariableState.empty ctx).setArgumentValues? entryBlock values entryIn = some newVars →
-        ∀ fst (hfst : (entryBlock.get! ctx.raw).firstOp = some fst),
-          (InterpreterState.mk newVars mem).EquationLemmaAt (.before fst)
-            (by have := ctx.wellFormed.inBounds; grind))
-    (hTgtInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
-        (newVars' : VariableState newCtx),
-        (VariableState.empty newCtx).setArgumentValues? entryBlock values'
-          (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
-        (InterpreterState.mk newVars' mem).DefinesDominating
-          (InsertPoint.atStart! entryBlock newCtx.raw)
-          ((InsertPoint.inBounds_atStart! newCtx.wellFormed
-            (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn)))
-    (hTgtEqInv : ∀ (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw)
-        (newVars' : VariableState newCtx),
-        (VariableState.empty newCtx).setArgumentValues? entryBlock values'
-          (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
-        (InterpreterState.mk newVars' mem).EquationLemmaAt
-          (InsertPoint.atStart! entryBlock newCtx.raw)
-          ((InsertPoint.inBounds_atStart! newCtx.wellFormed
-            (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn))) :
+    (hVals : values ⊒ values') :
     Interp.isRefinedBy FunctionResult.isRefinedBy
       (interpretFunction funcOp values mem funcOpIn)
       (interpretFunction funcOp values' mem funcOpIn') := by
@@ -2575,16 +2638,37 @@ theorem RewrittenAt.interpretFunction_refinement
       rw [← OperationPtr.getRegion!_eq_getRegion hi']
       exact OperationPtr.getRegions!_inBounds newCtx.wellFormed.inBounds funcOpIn'
         (by rw [OperationPtr.getNumRegions!_eq_getNumRegions funcOpIn']; exact hi')
-    -- The single region is preserved, so its interpretation refines (Stage E region lemma).
+    -- `funcOp` is still a `func.func` in the target context (its op type is framed).
+    have hFunc' : funcOp.getOpType! newCtx.raw = OpCode.func Func.func := by
+      rw [(hRW.frame_of_ne funcOpIn hNe).opType]; exact hFunc
+    -- The entry block of the target region is the entry block of the source region (clause 8).
+    have hEntry' : ∀ (entryBlock : BlockPtr),
+        ((funcOp.getRegion ctx.raw 0 funcOpIn hi).get! ctx.raw).firstBlock = some entryBlock →
+        ((funcOp.getRegion! newCtx.raw 0).get! newCtx.raw).firstBlock = some entryBlock := by
+      intro entryBlock hEntry
+      rw [OperationPtr.getRegion!_eq_getRegion (hin' := funcOpIn') hi', hReg,
+        hRW.regionFirstBlockPreserved _ rIn]
+      exact hEntry
+    -- The single region is preserved, so its interpretation refines (Stage E region lemma). The three
+    -- entry invariants are the verified-context axioms, at this function's entry block.
     have hregRef := hRW.interpretRegion_refinement newCtxVerif hCtxDom hOpSim hSrcSplit hTgtSplit
       rIn rIn' hReg (state := ⟨.empty ctx, mem⟩) (state' := ⟨.empty newCtx, mem⟩)
       (fun entryBlock entryIn => InterpreterState.empty_isRefinedByAt hRW.σ mem
         (.blockEntry entryBlock) (.blockEntry entryBlock)
         entryIn (hRW.blocksInBounds entryBlock entryIn))
       hVals
-      (fun entryBlock entryIn newVars h fst hfst => hSrcInv entryBlock entryIn newVars h fst hfst)
-      (fun entryBlock entryIn newVars' h => hTgtInv entryBlock entryIn newVars' h)
-      (fun entryBlock entryIn newVars' h => hTgtEqInv entryBlock entryIn newVars' h)
+      (fun entryBlock entryIn hEntry newVars h fst hfst =>
+        WfIRContext.Verified.entry_equationLemmaAt_before_firstOp ctxVerif funcOp funcOpIn hFunc
+          values mem entryBlock entryIn
+          (by rw [OperationPtr.getRegion!_eq_getRegion hi]; exact hEntry) newVars h fst hfst)
+      (fun entryBlock entryIn hEntry newVars' h =>
+        WfIRContext.Verified.entry_definesDominating newCtxVerif funcOp funcOpIn' hFunc'
+          values' mem entryBlock (hRW.blocksInBounds entryBlock entryIn)
+          (hEntry' entryBlock hEntry) newVars' h)
+      (fun entryBlock entryIn hEntry newVars' h =>
+        WfIRContext.Verified.entry_equationLemmaAt_atStart newCtxVerif funcOp funcOpIn' hFunc'
+          values' mem entryBlock (hRW.blocksInBounds entryBlock entryIn)
+          (hEntry' entryBlock hEntry) newVars' h)
     -- The function result keeps only the final memory and returned values of the region run.
     show Interp.isRefinedBy FunctionResult.isRefinedBy
       ((interpretRegion (funcOp.getRegion ctx.raw 0 funcOpIn hi) values ⟨.empty ctx, mem⟩ rIn)
@@ -2679,9 +2763,9 @@ theorem RewrittenAt.interpretModule_refinement
         MemoryState.empty (.blockEntry entryBlock) (.blockEntry entryBlock)
         entryIn (hRW.blocksInBounds entryBlock entryIn))
       (RuntimeValue.arrayIsRefinedBy_refl #[])
-      (fun entryBlock entryIn newVars h fst hfst => hSrcInv entryBlock entryIn newVars h fst hfst)
-      (fun entryBlock entryIn newVars' h => hTgtInv entryBlock entryIn newVars' h)
-      (fun entryBlock entryIn newVars' h => hTgtEqInv entryBlock entryIn newVars' h)
+      (fun entryBlock entryIn _ newVars h fst hfst => hSrcInv entryBlock entryIn newVars h fst hfst)
+      (fun entryBlock entryIn _ newVars' h => hTgtInv entryBlock entryIn newVars' h)
+      (fun entryBlock entryIn _ newVars' h => hTgtEqInv entryBlock entryIn newVars' h)
     -- The module result keeps only the returned values of the region run.
     show Interp.isRefinedBy RuntimeValue.arrayIsRefinedBy
       ((interpretRegion (moduleOp.getRegion ctx.raw 0 moduleOpIn hi) #[] (InterpreterState.empty ctx) rIn)
@@ -2707,42 +2791,11 @@ theorem RewrittenAt.isModuleRefinedBy
     (newCtxVerif : newCtx.Verified)
     (hCtxDom : ctx.Dom)
     (hOpSim : OpStepSimulation op newOps hRW.σ opIn hRW.newOpsInBounds')
-    (hSrcSplit : ∀ (b : BlockPtr) (bIn : b.InBounds ctx.raw),
-      ∃ (front : List OperationPtr) (term : OperationPtr)
-        (frontIn : ∀ o ∈ front, o.InBounds ctx.raw) (_termIn : term.InBounds ctx.raw),
-        (b.operationList ctx.raw ctx.wellFormed bIn).toList = front ++ [term] ∧
-        (∀ (s s' : InterpreterState ctx) (cf : ControlFlowAction),
-            interpretOpList front s frontIn ≠ some (.ok (s', some cf))))
-    (hTgtSplit : ∀ (b : BlockPtr) (bIn' : b.InBounds newCtx.raw),
-      ∃ (front : List OperationPtr) (term : OperationPtr)
-        (frontIn : ∀ o ∈ front, o.InBounds newCtx.raw) (_termIn : term.InBounds newCtx.raw),
-        (b.operationList newCtx.raw newCtx.wellFormed bIn').toList = front ++ [term] ∧
-        (∀ (s s' : InterpreterState newCtx) (cf : ControlFlowAction),
-            interpretOpList front s frontIn ≠ some (.ok (s', some cf))))
-    (hSrcInv : ∀ (_funcOp : OperationPtr) (values : Array RuntimeValue) (mem : MemoryState)
-        (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw) (newVars : VariableState ctx),
-        (VariableState.empty ctx).setArgumentValues? entryBlock values entryIn = some newVars →
-        ∀ fst (hfst : (entryBlock.get! ctx.raw).firstOp = some fst),
-          (InterpreterState.mk newVars mem).EquationLemmaAt (.before fst)
-            (by have := ctx.wellFormed.inBounds; grind))
-    (hTgtInv : ∀ (_funcOp : OperationPtr) (values' : Array RuntimeValue) (mem : MemoryState)
-        (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw) (newVars' : VariableState newCtx),
-        (VariableState.empty newCtx).setArgumentValues? entryBlock values'
-          (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
-        (InterpreterState.mk newVars' mem).DefinesDominating
-          (InsertPoint.atStart! entryBlock newCtx.raw)
-          ((InsertPoint.inBounds_atStart! newCtx.wellFormed
-            (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn)))
-    (hTgtEqInv : ∀ (_funcOp : OperationPtr) (values' : Array RuntimeValue) (mem : MemoryState)
-        (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds ctx.raw) (newVars' : VariableState newCtx),
-        (VariableState.empty newCtx).setArgumentValues? entryBlock values'
-          (hRW.blocksInBounds entryBlock entryIn) = some newVars' →
-        (InterpreterState.mk newVars' mem).EquationLemmaAt
-          (InsertPoint.atStart! entryBlock newCtx.raw)
-          ((InsertPoint.inBounds_atStart! newCtx.wellFormed
-            (hRW.blocksInBounds entryBlock entryIn)).mpr (hRW.blocksInBounds entryBlock entryIn)))
     {moduleOp : OperationPtr} :
     moduleOp.isModuleRefinedBy ctx moduleOp newCtx := by
+  -- Both contexts are verified, so every block splits as `front ++ [term]` with `front` non-branching.
+  have hSrcSplit := ctxVerif.operationList_split
+  have hTgtSplit := newCtxVerif.operationList_split
   intro func₁ func₁In name hTop
   -- A verified `func.func` has one region, while `op` has none, so the function survives.
   have hfuncVerif : func₁.Verified ctx func₁In :=
@@ -2761,20 +2814,14 @@ theorem RewrittenAt.isModuleRefinedBy
     have hp : func₁.getProperties! newCtx.raw (func₁.getOpType! newCtx.raw)
             = hOT ▸ func₁.getProperties! ctx.raw (func₁.getOpType! ctx.raw) := hframe.props
     have hF : func₁.getOpType! ctx.raw = OpCode.func Func.func := hTop.isFunc
-    clear hSrcInv hTgtInv hSrcSplit hTgtSplit hOpSim hframe hTop
+    clear hSrcSplit hTgtSplit hOpSim hframe hTop
     grind
   · -- The enclosing operation `moduleOp` is preserved.
     exact hRW.getParentOpPreserved func₁ moduleOp func₁In hne hTop.isTopLevel
   · -- The per-function refinement is Stage E.
     intro values valuesTarget mem hVals
-    exact hRW.interpretFunction_refinement newCtxVerif hCtxDom hOpSim hSrcSplit hTgtSplit
-      func₁In func₁In' hVals
-      (fun entryBlock entryIn newVars h fst hfst =>
-        hSrcInv func₁ values mem entryBlock entryIn newVars h fst hfst)
-      (fun entryBlock entryIn newVars' h =>
-        hTgtInv func₁ valuesTarget mem entryBlock entryIn newVars' h)
-      (fun entryBlock entryIn newVars' h =>
-        hTgtEqInv func₁ valuesTarget mem entryBlock entryIn newVars' h)
+    exact hRW.interpretFunction_refinement newCtxVerif hCtxDom hOpSim hSrcSplit hTgtSplit ctxVerif
+      func₁In func₁In' hTop.isFunc hVals
 
 /-! ## PR 9: connecting the concrete driver `fromLocalRewrite` to `RewrittenAt`
 
@@ -3218,31 +3265,6 @@ These discharge the `frame` field of `RewrittenAt.of_fromLocalRewrite`. For an o
 driver leaves its op type, properties, result count, successors and result types untouched at every
 stage (created ops, insert fold, replace fold, erase); only its operands are rewritten, and exactly by
 the result→`newValues` redirect, which equals the value renaming `σ`. -/
-
-/-- `createEmptyOp` leaves a pre-existing operation's properties (at every op code) untouched: it only
-`set`s the fresh `newOp`'s record. The shipped `getProperties!_createEmptyOp` is code-specific. -/
-theorem OperationPtr.getProperties!_createEmptyOp_ne {ctx ctx' : IRContext OpCode}
-    {opType : OpCode} {properties : HasOpInfo.propertiesOf opType} {newOp operation : OperationPtr}
-    {oc : OpCode}
-    (h : Rewriter.createEmptyOp ctx opType properties = some (ctx', newOp))
-    (hne : operation ≠ newOp) :
-    operation.getProperties! ctx' oc = operation.getProperties! ctx oc := by
-  simp only [Rewriter.createEmptyOp, OperationPtr.allocEmpty] at h
-  grind [OperationPtr.getProperties!, OperationPtr.set, OperationPtr.get!]
-
-/-- A `WfRewriter.createOp` leaves a pre-existing operation's properties (at every op code) untouched:
-only the fresh `newOp` gets properties, and the init steps touch only results/regions/operands. The
-code-specific `getProperties!_WfRewriter_createOp` covers only the created op's own type. -/
-theorem OperationPtr.getProperties!_WfRewriter_createOp_ne {ctx ctx' : WfIRContext OpCode}
-    {opType : OpCode} {resultTypes operands blockOperands regions properties h₁ h₂ h₃ h₄}
-    {newOp operation : OperationPtr} {oc : OpCode}
-    (h : WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
-      none h₁ h₂ h₃ h₄ = some (ctx', newOp))
-    (hne : operation ≠ newOp) :
-    operation.getProperties! ctx'.raw oc = operation.getProperties! ctx.raw oc := by
-  simp only [WfRewriter.createOp] at h
-  grind [Rewriter.createOp, OperationPtr.getProperties!_createEmptyOp_ne,
-    OperationPtr.getProperties!_initOpRegions]
 
 /-- Intrinsic operation data the rewrite driver leaves untouched for a *surviving* operation `o`: its
 op type, properties (at every op code), result count, successors and result types. Operands are
@@ -5324,8 +5346,10 @@ This is the **composition**: the easy side-conditions of `isModuleRefinedBy` are
 pattern's value-level `PreservesSemantics` to the scoped `OpStepSimulation` on `hRW.σ`, via the
 data-equality frame (`interpretOpList_sameData_transport_redirect`) and the `EquationLemmaAt`
 transport (`InterpreterState.EquationHolds.sameData_transport`) — is discharged in full. The
-`hSrcSplit`/`hTgtSplit`/`hSrcInv`/`hTgtInv`/`hTgtEqInv` structural side-conditions remain hypotheses of
-this theorem (deferred obligations on the verified-block shape and the function-entry base case). -/
+`hSrcSplit`/`hTgtSplit`/`hSrcInv`/`hTgtInv`/`hTgtEqInv` structural side-conditions follow from the two
+contexts being `Verified` (the axioms of *Structural consequences of `Verified`*), so the statement is
+closed: a valid pattern applied by the driver to a verified, dominance-wellformed context refines every
+module, with no leftover obligations. -/
 theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
     {pattern : LocalRewritePattern OpCode}
     (hValid : pattern.Valid)
@@ -5333,39 +5357,6 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
     (hSrcVerif : rewriter.ctx.Verified)
     (hpat : pattern rewriter.ctx op = some (newCtxPat, some (newOps, newValues)))
     (hdriver : RewritePattern.fromLocalRewrite pattern rewriter op opInBounds = some rewriter')
-    (hSrcSplit : ∀ (b : BlockPtr) (bIn : b.InBounds rewriter.ctx.raw),
-      ∃ (front : List OperationPtr) (term : OperationPtr)
-        (frontIn : ∀ o ∈ front, o.InBounds rewriter.ctx.raw) (_termIn : term.InBounds rewriter.ctx.raw),
-        (b.operationList rewriter.ctx.raw rewriter.ctx.wellFormed bIn).toList = front ++ [term] ∧
-        (∀ (s s' : InterpreterState rewriter.ctx) (cf : ControlFlowAction),
-            interpretOpList front s frontIn ≠ some (.ok (s', some cf))))
-    (hTgtSplit : ∀ (b : BlockPtr) (bIn' : b.InBounds rewriter'.ctx.raw),
-      ∃ (front : List OperationPtr) (term : OperationPtr)
-        (frontIn : ∀ o ∈ front, o.InBounds rewriter'.ctx.raw) (_termIn : term.InBounds rewriter'.ctx.raw),
-        (b.operationList rewriter'.ctx.raw rewriter'.ctx.wellFormed bIn').toList = front ++ [term] ∧
-        (∀ (s s' : InterpreterState rewriter'.ctx) (cf : ControlFlowAction),
-            interpretOpList front s frontIn ≠ some (.ok (s', some cf))))
-    (hSrcInv : ∀ (_funcOp : OperationPtr) (values : Array RuntimeValue) (mem : MemoryState)
-        (entryBlock : BlockPtr) (entryIn : entryBlock.InBounds rewriter.ctx.raw)
-        (newVars : VariableState rewriter.ctx),
-        (VariableState.empty rewriter.ctx).setArgumentValues? entryBlock values entryIn = some newVars →
-        ∀ fst (hfst : (entryBlock.get! rewriter.ctx.raw).firstOp = some fst),
-          (InterpreterState.mk newVars mem).EquationLemmaAt (.before fst)
-            (by have := rewriter.ctx.wellFormed.inBounds; grind))
-    (hTgtInv : ∀ (_funcOp : OperationPtr) (values' : Array RuntimeValue) (mem : MemoryState)
-        (entryBlock : BlockPtr) (entryIn' : entryBlock.InBounds rewriter'.ctx.raw)
-        (newVars' : VariableState rewriter'.ctx),
-        (VariableState.empty rewriter'.ctx).setArgumentValues? entryBlock values' entryIn' = some newVars' →
-        (InterpreterState.mk newVars' mem).DefinesDominating
-          (InsertPoint.atStart! entryBlock rewriter'.ctx.raw)
-          ((InsertPoint.inBounds_atStart! rewriter'.ctx.wellFormed entryIn').mpr entryIn'))
-    (hTgtEqInv : ∀ (_funcOp : OperationPtr) (values' : Array RuntimeValue) (mem : MemoryState)
-        (entryBlock : BlockPtr) (entryIn' : entryBlock.InBounds rewriter'.ctx.raw)
-        (newVars' : VariableState rewriter'.ctx),
-        (VariableState.empty rewriter'.ctx).setArgumentValues? entryBlock values' entryIn' = some newVars' →
-        (InterpreterState.mk newVars' mem).EquationLemmaAt
-          (InsertPoint.atStart! entryBlock rewriter'.ctx.raw)
-          ((InsertPoint.inBounds_atStart! rewriter'.ctx.wellFormed entryIn').mpr entryIn'))
     {moduleOp : OperationPtr} :
     moduleOp.isModuleRefinedBy rewriter.ctx moduleOp rewriter'.ctx := by
   -- The driver's net edit is a `RewrittenAt` instance.
@@ -5376,18 +5367,10 @@ theorem RewrittenAt.isModuleRefinedBy_of_fromLocalRewrite
   -- source verification across the driver run.
   have newCtxVerif : rewriter'.ctx.Verified :=
     hValid.rewritePreservesVerified rewriter op opInBounds rewriter' hdriver hSrcVerif
-  -- `RewrittenAt.isModuleRefinedBy` consumes the instance; the easy well-formedness side-conditions
-  -- are discharged here, the four semantic bridges remain.
-  -- `hSrcSplit`/`hTgtSplit`/`hSrcInv` discharge positionally; `hTgtInv` is restated with a target
-  -- in-bounds binder, so reroute the source binder through `hRW.blocksInBounds`.
-  refine hRW.isModuleRefinedBy hSrcVerif newCtxVerif hSrcDom ?hOpSim hSrcSplit hTgtSplit hSrcInv
-    ?hTgtInv ?hTgtEqInv
-  case hTgtInv =>
-    intro _funcOp values' mem entryBlock entryIn newVars' h
-    exact hTgtInv _funcOp values' mem entryBlock (hRW.blocksInBounds entryBlock entryIn) newVars' h
-  case hTgtEqInv =>
-    intro _funcOp values' mem entryBlock entryIn newVars' h
-    exact hTgtEqInv _funcOp values' mem entryBlock (hRW.blocksInBounds entryBlock entryIn) newVars' h
+  -- `RewrittenAt.isModuleRefinedBy` consumes the instance; the well-formedness side-conditions and the
+  -- structural block/entry invariants follow from the two `Verified` hypotheses, so only the `hOpSim`
+  -- semantic bridge remains.
+  refine hRW.isModuleRefinedBy hSrcVerif newCtxVerif hSrcDom ?hOpSim
   case hOpSim =>
     -- === PR 8, step 3: bridge `pattern.PreservesSemantics` to `OpStepSimulation op newOps hRW.σ`. ===
     -- `hValid.preservesSemantics` (at `ctx := rewriter.ctx`) supplies the *source* side exactly:
