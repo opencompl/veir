@@ -237,36 +237,44 @@ theorem xor_of_and_with_same_reg {x y : Int 64} :
 -/
 
 /-- `(X >u Y) ? X : Y → umax X Y`. -/
-theorem select_to_iminmax_ugt {x y : Int 64} : select (icmp x y .ugt) x y ⊒ umax x y := by
-  veir_bv_decide
+theorem select_to_iminmax_ugt {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    select (icmp x y .ugt) x y ⊒ umax x y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X ≥u Y) ? X : Y → umax X Y`. -/
-theorem select_to_iminmax_uge {x y : Int 64} : select (icmp x y .uge) x y ⊒ umax x y := by
-  veir_bv_decide
+theorem select_to_iminmax_uge {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    select (icmp x y .uge) x y ⊒ umax x y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X >s Y) ? X : Y → smax X Y`. -/
-theorem select_to_iminmax_sgt {x y : Int 64} : select (icmp x y .sgt) x y ⊒ smax x y := by
-  veir_bv_decide
+theorem select_to_iminmax_sgt {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    select (icmp x y .sgt) x y ⊒ smax x y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X ≥s Y) ? X : Y → smax X Y`. -/
-theorem select_to_iminmax_sge {x y : Int 64} : select (icmp x y .sge) x y ⊒ smax x y := by
-  veir_bv_decide
+theorem select_to_iminmax_sge {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    select (icmp x y .sge) x y ⊒ smax x y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X <u Y) ? X : Y → umin X Y`. -/
-theorem select_to_iminmax_ult {x y : Int 64} : select (icmp x y .ult) x y ⊒ umin x y := by
-  veir_bv_decide
+theorem select_to_iminmax_ult {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    select (icmp x y .ult) x y ⊒ umin x y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X ≤u Y) ? X : Y → umin X Y`. -/
-theorem select_to_iminmax_ule {x y : Int 64} : select (icmp x y .ule) x y ⊒ umin x y := by
-  veir_bv_decide
+theorem select_to_iminmax_ule {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    select (icmp x y .ule) x y ⊒ umin x y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X <s Y) ? X : Y → smin X Y`. -/
-theorem select_to_iminmax_slt {x y : Int 64} : select (icmp x y .slt) x y ⊒ smin x y := by
-  veir_bv_decide
+theorem select_to_iminmax_slt {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    select (icmp x y .slt) x y ⊒ smin x y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X ≤s Y) ? X : Y → smin X Y`. -/
-theorem select_to_iminmax_sle {x y : Int 64} : select (icmp x y .sle) x y ⊒ smin x y := by
-  veir_bv_decide
+theorem select_to_iminmax_sle {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    select (icmp x y .sle) x y ⊒ smin x y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### cast_of_cast_combines -/
 

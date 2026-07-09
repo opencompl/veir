@@ -519,117 +519,83 @@ def xor_of_and_with_same_reg (rewriter: PatternRewriter OpCode) (op: OperationPt
   (icmp pred X Y) ? X : Y → {u,s}{max,min} X Y
 -/
 
+/-- The shared shape of the eight `select_to_iminmax` combines: match
+    `(icmp pred X Y) ? X : Y` and emit the corresponding LLVM min/max intrinsic `dst`.
+
+    The `.integerType`/bitwidth guards are what the correctness proof needs to reach the
+    `veir_bv_decide` data lemmas, so the rewrite is restricted to `i32`/`i64`. Its shared
+    correctness proof is `selectToIMinMaxLocal_preservesSemantics`. -/
+def selectToIMinMaxLocal (pred : Data.LLVM.IntPred) (dst : Llvm)
+    (dprops : propertiesOf (.llvm dst))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
+  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  let some dI := getDefiningOp cond ctx | return (ctx, none)
+  let some (il, ir, ip) := matchIcmp dI ctx | return (ctx, none)
+  if ip.predicate != pred then return (ctx, none)
+  if il != tv then return (ctx, none)
+  if ir != fv then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm dst)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[tv, fv] #[] #[] dprops none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
 -- ugt → umax
-set_option warn.sorry false in
-def select_to_iminmax_ugt (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
-  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .ugt := ip.predicate | return rewriter
-  if il != tv then return rewriter
-  if ir != fv then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__umax) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+def select_to_iminmax_ugt (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (selectToIMinMaxLocal .ugt .intr__umax ()) rewriter op opInBounds
 
 -- uge → umax
-set_option warn.sorry false in
-def select_to_iminmax_uge (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
-  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .uge := ip.predicate | return rewriter
-  if il != tv then return rewriter
-  if ir != fv then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__umax) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+def select_to_iminmax_uge (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (selectToIMinMaxLocal .uge .intr__umax ()) rewriter op opInBounds
 
 -- sgt → smax
-set_option warn.sorry false in
-def select_to_iminmax_sgt (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
-  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .sgt := ip.predicate | return rewriter
-  if il != tv then return rewriter
-  if ir != fv then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__smax) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+def select_to_iminmax_sgt (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (selectToIMinMaxLocal .sgt .intr__smax ()) rewriter op opInBounds
 
--- sge → smax.
-set_option warn.sorry false in
-def select_to_iminmax_sge (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
-  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .sge := ip.predicate | return rewriter
-  if il != tv then return rewriter
-  if ir != fv then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__smax) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+-- sge → smax
+def select_to_iminmax_sge (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (selectToIMinMaxLocal .sge .intr__smax ()) rewriter op opInBounds
 
 -- ult → umin
-set_option warn.sorry false in
-def select_to_iminmax_ult (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
-  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .ult := ip.predicate | return rewriter
-  if il != tv then return rewriter
-  if ir != fv then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__umin) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+def select_to_iminmax_ult (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (selectToIMinMaxLocal .ult .intr__umin ()) rewriter op opInBounds
 
 -- ule → umin
-set_option warn.sorry false in
-def select_to_iminmax_ule (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
-  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .ule := ip.predicate | return rewriter
-  if il != tv then return rewriter
-  if ir != fv then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__umin) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+def select_to_iminmax_ule (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (selectToIMinMaxLocal .ule .intr__umin ()) rewriter op opInBounds
 
 -- slt → smin
-set_option warn.sorry false in
-def select_to_iminmax_slt (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
-  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .slt := ip.predicate | return rewriter
-  if il != tv then return rewriter
-  if ir != fv then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__smin) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+def select_to_iminmax_slt (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (selectToIMinMaxLocal .slt .intr__smin ()) rewriter op opInBounds
 
 -- sle → smin
-set_option warn.sorry false in
-def select_to_iminmax_sle (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some dI := getDefiningOp cond rewriter.ctx | return rewriter
-  let some (il, ir, ip) := matchIcmp dI rewriter.ctx | return rewriter
-  let .sle := ip.predicate | return rewriter
-  if il != tv then return rewriter
-  if ir != fv then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .intr__smin) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[tv, fv]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+def select_to_iminmax_sle (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (selectToIMinMaxLocal .sle .intr__smin ()) rewriter op opInBounds
+
+-- ugt → umax
+
+-- uge → umax
+
+-- sgt → smax
+
+-- sge → smax.
+
+-- ult → umin
+
+-- ule → umin
+
+-- slt → smin
+
+-- sle → smin
 
 /-! ### cast_of_cast_combines -/
 

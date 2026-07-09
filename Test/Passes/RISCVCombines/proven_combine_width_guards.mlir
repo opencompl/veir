@@ -61,6 +61,22 @@
     %t = "llvm.trunc"(%z) : (i16) -> i8
     "func.return"(%t) : (i8) -> ()
   }) : () -> ()
+
+  // select_to_iminmax_ugt at i64: fires (predicate 8 = ugt).
+  "func.func"() <{function_type = (i64, i64) -> i64}> ({
+  ^bb0(%x: i64, %y: i64):
+    %c = "llvm.icmp"(%x, %y) <{predicate = 8 : i64}> : (i64, i64) -> i1
+    %r = "llvm.select"(%c, %x, %y) : (i1, i64, i64) -> i64
+    "func.return"(%r) : (i64) -> ()
+  }) : () -> ()
+
+  // select_to_iminmax_ugt at i8: guarded off.
+  "func.func"() <{function_type = (i8, i8) -> i8}> ({
+  ^bb0(%x: i8, %y: i8):
+    %c = "llvm.icmp"(%x, %y) <{predicate = 8 : i64}> : (i8, i8) -> i1
+    %r = "llvm.select"(%c, %x, %y) : (i1, i8, i8) -> i8
+    "func.return"(%r) : (i8) -> ()
+  }) : () -> ()
 }) : () -> ()
 
 // select_same_val_self, i64: the select is gone, %x is returned directly.
@@ -98,3 +114,13 @@
 // CHECK:      %[[TZ:.*]] = "llvm.zext"(%[[TX]]) : (i8) -> i16
 // CHECK:      %[[TT:.*]] = "llvm.trunc"(%[[TZ]]) : (i16) -> i8
 // CHECK:      "func.return"(%[[TT]]) : (i8) -> ()
+
+// select_to_iminmax_ugt, i64: rewritten to the umax intrinsic.
+// CHECK:      ^{{.*}}(%[[IX:.*]] : i64, %[[IY:.*]] : i64):
+// CHECK:      %[[IR:.*]] = "llvm.intr.umax"(%[[IX]], %[[IY]]) : (i64, i64) -> i64
+// CHECK:      "func.return"(%[[IR]]) : (i64) -> ()
+
+// select_to_iminmax_ugt, i8: the select survives.
+// CHECK:      ^{{.*}}(%[[JX:.*]] : i8, %[[JY:.*]] : i8):
+// CHECK:      %[[JR:.*]] = "llvm.select"(%{{.*}}, %[[JX]], %[[JY]]) : (i1, i8, i8) -> i8
+// CHECK:      "func.return"(%[[JR]]) : (i8) -> ()

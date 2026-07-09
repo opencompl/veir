@@ -4,6 +4,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonGraphLemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelect
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerExt
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerSlti
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonForwardInterpret
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 
@@ -880,5 +881,320 @@ theorem trunc_of_zext_local_preservesSemantics
   have hLem := Data.LLVM.Int.trunc_of_zext (n := zProps.nneg) (s := tProps.nsw)
     (u := tProps.nuw) (x := xv)
   exact isRefinedBy_trans (by simpa using hLem) hxRef
+
+/-! ### select_to_iminmax
+
+  `(icmp pred X Y) ? X : Y -> {u,s}{max,min} X Y`, eight instances of one shape. The `icmp`
+  is reached through the `select`'s condition operand, so its runtime value comes from a
+  Layer-3 graph lemma; the emitted intrinsic is replayed with the LLVM forward lemma.
+-/
+
+set_option maxHeartbeats 1000000 in
+/-- Semantic content of a successful `matchIcmp` on the *defining op* of `cond`, an operand of
+    `op`: in a source state satisfying `EquationLemmaAt` before `op`, `cond`'s runtime value is
+    `Data.LLVM.Int.icmp xv yv pred`. The `icmp` analogue of
+    `matchAdd_getVar?_of_EquationLemmaAt`; the comparison's operand type is supplied by the
+    caller (for `select_to_iminmax` it is the `select`'s value type). -/
+private theorem matchIcmp_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    {cond il ir : ValuePtr} {icmpOp : OperationPtr} {iProps : propertiesOf (.llvm .icmp)}
+    {intType : IntegerType}
+    (hDef : getDefiningOp cond ctx.raw = some icmpOp)
+    (hIcmp : matchIcmp icmpOp ctx.raw = some (il, ir, iProps))
+    (hOperand : cond ∈ op.getOperands! ctx.raw)
+    (hIlType : (il.getType! ctx.raw).val = Attribute.integerType intType) :
+    ∃ (xv yv : Data.LLVM.Int intType.bitwidth),
+      state.variables.getVar? il = some (RuntimeValue.int intType.bitwidth xv) ∧
+      state.variables.getVar? ir = some (RuntimeValue.int intType.bitwidth yv) ∧
+      state.variables.getVar? cond = some (RuntimeValue.int 1
+        (Data.LLVM.Int.icmp xv yv iProps.predicate)) := by
+  obtain ⟨hIcmpType, hIcmpNumResults, hIcmpOperands, hIcmpProps⟩ := matchIcmp_implies hIcmp
+  obtain ⟨condPtr, rfl⟩ : ∃ p, cond = ValuePtr.opResult p := by
+    cases cond with
+    | opResult p => exact ⟨p, rfl⟩
+    | _ => simp [getDefiningOp] at hDef
+  have hIcmpOpEq : condPtr.op = icmpOp := by simp [getDefiningOp] at hDef; grind
+  subst hIcmpOpEq
+  have hCondIn : (ValuePtr.opResult condPtr).InBounds ctx.raw := by grind
+  have hIcmpOpIn : condPtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hIdx : condPtr.index < condPtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hCondEq : condPtr = condPtr.op.getResult 0 := by
+    have hidx : condPtr.index = 0 := by omega
+    cases condPtr
+    simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]
+    exact ⟨trivial, hidx⟩
+  -- Verifier facts: the two comparison operands share a type.
+  have hIcmpVerified : condPtr.op.Verified ctx hIcmpOpIn := by grind
+  obtain ⟨-, -, -, -, -, hOperandTypesEq⟩ :=
+    OperationPtr.Verified.llvm_icmp hIcmpVerified hIcmpType
+  have hilEq : il = (condPtr.op.getOperands! ctx.raw)[0]! := by rw [hIcmpOperands]; rfl
+  have hirEq : ir = (condPtr.op.getOperands! ctx.raw)[1]! := by rw [hIcmpOperands]; rfl
+  have hIcmpOperand0 : condPtr.op.getOperand! ctx.raw 0 = il := by
+    rw [hilEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hIcmpOperand1 : condPtr.op.getOperand! ctx.raw 1 = ir := by
+    rw [hirEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hIrType : (ir.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hIcmpOperand1, ← hOperandTypesEq, hIcmpOperand0, hIlType]
+  -- Dominance and purity: the `icmp` has already been interpreted into `state`.
+  have hIcmpDefines : (ValuePtr.opResult condPtr).getDefiningOp! ctx.raw = some condPtr.op := by
+    have hOwner := (ctx.wellFormed.operations condPtr.op hIcmpOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hIcmpSDom : condPtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom
+      hIcmpDefines hOperand
+  have hIcmpDomIp : condPtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hIcmpPure : condPtr.op.Pure ctx.raw := OperationPtr.Pure.llvm_icmp hIcmpType
+  obtain ⟨cfI, hInterpIcmp⟩ := stateWf condPtr.op hIcmpOpIn hIcmpPure hIcmpDomIp
+  -- Unfold the `icmp`'s interpretation (`newState := state`).
+  obtain ⟨xv, yv, hxVal, hyVal, -, hCondResVal, -⟩ :=
+    matchIcmp_interpretOp_unfold hIcmpOpIn hIcmpType hIcmpNumResults hIcmpOperands rfl
+      hInterpIcmp hIlType hIrType
+  refine ⟨xv, yv, hxVal, hyVal, ?_⟩
+  rw [hCondEq, hCondResVal, hIcmpProps]
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness proof for the eight `select_to_iminmax` combines. Parameterized over the
+    matched predicate `pred`, the emitted intrinsic `dst` with its (unit) properties `dprops`,
+    the data-level function `f` that `dst` computes (`hSemDst`), the monotonicity of `f`
+    (`hMono`), and the value-refinement lemma (`hRefine`). -/
+theorem selectToIMinMaxLocal_preservesSemantics
+    {pred : Data.LLVM.IntPred} {dst : Llvm} {dprops : propertiesOf (.llvm dst)}
+    {f : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → Data.LLVM.Int bw}
+    (hSemDst : ∀ (bw : Nat) (x y : Data.LLVM.Int bw) (resultTypes : Array TypeAttr)
+        (blockOperands : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' dst dprops resultTypes #[.int bw x, .int bw y] blockOperands mem
+          = some (.ok (#[.int bw (f x y)], mem, none)))
+    (hMono : ∀ {bw : Nat} (x₁ x₂ y₁ y₂ : Data.LLVM.Int bw), x₁ ⊒ y₁ → x₂ ⊒ y₂ →
+        f x₁ x₂ ⊒ f y₁ y₂)
+    (hRefine : ∀ {bw : Nat}, (bw = 64 ∨ bw = 32) → ∀ (x y : Data.LLVM.Int bw),
+        Data.LLVM.Int.select (Data.LLVM.Int.icmp x y pred) x y ⊒ f x y)
+    {h : LocalRewritePattern.ReturnOps (selectToIMinMaxLocal pred dst dprops)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (selectToIMinMaxLocal pred dst dprops)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (selectToIMinMaxLocal pred dst dprops)}
+    {h₄ : LocalRewritePattern.ReturnValues (selectToIMinMaxLocal pred dst dprops)} :
+    LocalRewritePattern.PreservesSemantics (selectToIMinMaxLocal pred dst dprops) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, selectToIMinMaxLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel `matchSelect`.
+  have hMatchSome : (matchSelect op ctx.raw).isSome := by
+    cases hM : matchSelect op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨cond, tv, fv⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands⟩ := matchSelect_implies hMatch
+  -- Establish this before peeling, while `hpattern` is still small: with the createOp bind and
+  -- three equality guards in scope, `grind` blows up (see `ProofStrategy.md`).
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  have opVerif : op.Verified ctx opInBounds := by grind
+  obtain ⟨hNRes, hNOper, ⟨condIt, hCondTy, hCondBw⟩, hResEqT, hResEqF⟩ :=
+    OperationPtr.Verified.llvm_select opVerif hOpType
+  have hCondEq : cond = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  have hTvEq : tv = (op.getOperands! ctx.raw)[1]! := by rw [hOperands]; rfl
+  have hFvEq : fv = (op.getOperands! ctx.raw)[2]! := by rw [hOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = cond := by
+    rw [hCondEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = tv := by
+    rw [hTvEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand2 : op.getOperand! ctx.raw 2 = fv := by
+    rw [hFvEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  -- Result-type and bitwidth guards.
+  obtain ⟨intType, hResType⟩ :
+      ∃ intType, ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType intType := by
+    cases hr : ((op.getResult 0).get! ctx.raw).type.val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hResType] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isTrue => simp at hpattern
+  rename_i hWidthRaw
+  have hWidth : intType.bitwidth = 64 ∨ intType.bitwidth = 32 := by omega
+  have hCondType : (cond.getType! ctx.raw).val = Attribute.integerType ⟨1⟩ := by
+    obtain ⟨w⟩ := condIt; simp only at hCondBw; subst hCondBw; rw [← hOperand0, hCondTy]
+  have hTvType : (tv.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hOperand1, ← hResEqT, hResType]
+  have hFvType : (fv.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hOperand2, ← hResEqF, hResType]
+  -- Peel the defining `icmp` and the three equality guards.
+  have hDefSome : (getDefiningOp cond ctx.raw).isSome := by
+    cases hM : getDefiningOp cond ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨icmpOp, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+  rw [hDef] at hpattern
+  simp only [] at hpattern
+  have hIcmpSome : (matchIcmp icmpOp ctx.raw).isSome := by
+    cases hM : matchIcmp icmpOp ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨il, ir, ip⟩, hIcmp⟩ := Option.isSome_iff_exists.mp hIcmpSome
+  rw [hIcmp] at hpattern
+  simp only [] at hpattern
+  have hPred : ip.predicate = pred := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hPred] at hpattern
+  have hIlTv : il = tv := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hIlTv] at hpattern
+  have hIrFv : ir = fv := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hIrFv] at hpattern
+  -- Unfold the matched `select`'s interpretation.
+  obtain ⟨cv, tvv, fvv, hcVal, htVal, hfVal, hMem, hRes, hCf⟩ :=
+    matchSelectOp_interpretOp_unfold opInBounds hOpType hNumResults hOperands
+      hCondType hTvType hFvType hinterp
+  subst hCf
+  -- Recover the condition's value from the defining `icmp`.
+  obtain ⟨xv, yv, hxVal, hyVal, hCondVal⟩ :=
+    matchIcmp_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds stateWf hDef hIcmp
+      (by rw [hOperands]; simp) (by rw [hIlTv]; exact hTvType)
+  obtain rfl : xv = tvv := by
+    have := (hIlTv ▸ hxVal).symm.trans htVal; simpa using this
+  obtain rfl : yv = fvv := by
+    have := (hIrFv ▸ hyVal).symm.trans hfVal; simpa using this
+  obtain rfl : cv = Data.LLVM.Int.icmp xv yv ip.predicate := by
+    have := hcVal.symm.trans hCondVal; simpa using this
+  -- Dominance / freshness for the two value operands.
+  have hDomT : tv.dominatesIp (InsertPoint.before op) ctx := by
+    grind [WfIRContext.Dom.operand_dominates_op]
+  have hDomF : fv.dominatesIp (InsertPoint.before op) ctx := by
+    grind [WfIRContext.Dom.operand_dominates_op]
+  have hTIn : tv.InBounds ctx.raw := by grind
+  have hFIn : fv.InBounds ctx.raw := by grind
+  have tNotOp : ¬ tv ∈ op.getResults! ctx.raw := by
+    grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+  have fNotOp : ¬ fv ∈ op.getResults! ctx.raw := by
+    grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- Peel the single intrinsic creation.
+  peelOpCreation! hpattern ctx₁ newOp hNew hDomT hDomT₁
+  cleanupHpattern hpattern
+  have hNewType : newOp.getOpType! ctx₁.raw = .llvm dst := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewOperands : newOp.getOperands! ctx₁.raw = #[tv, fv] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewProps : newOp.getProperties! ctx₁.raw (.llvm dst) = dprops := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hNew (operation := newOp)]
+  have hOpResTypeAttr : ((op.getResult 0).get! ctx.raw).type
+      = (⟨Attribute.integerType intType,
+          hResType ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr) := Subtype.ext hResType
+  have hNewResTypes : newOp.getResultTypes! ctx₁.raw
+      = #[(⟨Attribute.integerType intType,
+          hResType ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hNew (operation := newOp)
+    rw [if_pos rfl] at hT
+    rw [hT]
+    exact congrArg (fun t => #[t]) hOpResTypeAttr
+  have hDomF₁ : fv.dominatesIp (InsertPoint.before op) ctx₁ :=
+    (ValuePtr.dominatesIp_before_WfRewriter_createOp hNew
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind) (by clear valueRefinement state'Dom state'Wf hpattern; grind)).mpr hDomF
+  -- Read both refined operands in the target state.
+  obtain ⟨tt, hTVal', htRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hTIn htVal
+      hDomT hDomT₁ tNotOp
+  obtain ⟨ft, hFVal', hfRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hFIn hfVal
+      hDomF hDomF₁ fNotOp
+  -- Replay the created intrinsic forward.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, -⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := state') (inBounds := by grind)
+      (f := fun a b => f a b)
+      (by intro resultTypes blockOperands mem; exact hSemDst _ _ _ _ _ _)
+      hNewType hNewProps hNewOperands hNewResTypes hTVal' hFVal'
+  refine ⟨s₁, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int intType.bitwidth (f tt ft)],
+    by simp [hRes₁, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  rw [hPred]
+  exact isRefinedBy_trans (by simpa using hRefine hWidth xv yv) (hMono xv yv tt ft htRef hfRef)
+
+/-! The eight instantiations. -/
+
+theorem select_to_iminmax_ugt_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (selectToIMinMaxLocal .ugt .intr__umax ()) h h₂ h₃ h₄ :=
+  selectToIMinMaxLocal_preservesSemantics (f := fun a b => Data.LLVM.Int.umax a b)
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun x₁ x₂ y₁ y₂ h₁ h₂ => Data.LLVM.Int.umax_mono x₁ x₂ y₁ y₂ h₁ h₂)
+    (fun hw x y => Data.LLVM.Int.select_to_iminmax_ugt hw)
+
+theorem select_to_iminmax_uge_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (selectToIMinMaxLocal .uge .intr__umax ()) h h₂ h₃ h₄ :=
+  selectToIMinMaxLocal_preservesSemantics (f := fun a b => Data.LLVM.Int.umax a b)
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun x₁ x₂ y₁ y₂ h₁ h₂ => Data.LLVM.Int.umax_mono x₁ x₂ y₁ y₂ h₁ h₂)
+    (fun hw x y => Data.LLVM.Int.select_to_iminmax_uge hw)
+
+theorem select_to_iminmax_sgt_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (selectToIMinMaxLocal .sgt .intr__smax ()) h h₂ h₃ h₄ :=
+  selectToIMinMaxLocal_preservesSemantics (f := fun a b => Data.LLVM.Int.smax a b)
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun x₁ x₂ y₁ y₂ h₁ h₂ => Data.LLVM.Int.smax_mono x₁ x₂ y₁ y₂ h₁ h₂)
+    (fun hw x y => Data.LLVM.Int.select_to_iminmax_sgt hw)
+
+theorem select_to_iminmax_sge_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (selectToIMinMaxLocal .sge .intr__smax ()) h h₂ h₃ h₄ :=
+  selectToIMinMaxLocal_preservesSemantics (f := fun a b => Data.LLVM.Int.smax a b)
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun x₁ x₂ y₁ y₂ h₁ h₂ => Data.LLVM.Int.smax_mono x₁ x₂ y₁ y₂ h₁ h₂)
+    (fun hw x y => Data.LLVM.Int.select_to_iminmax_sge hw)
+
+theorem select_to_iminmax_ult_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (selectToIMinMaxLocal .ult .intr__umin ()) h h₂ h₃ h₄ :=
+  selectToIMinMaxLocal_preservesSemantics (f := fun a b => Data.LLVM.Int.umin a b)
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun x₁ x₂ y₁ y₂ h₁ h₂ => Data.LLVM.Int.umin_mono x₁ x₂ y₁ y₂ h₁ h₂)
+    (fun hw x y => Data.LLVM.Int.select_to_iminmax_ult hw)
+
+theorem select_to_iminmax_ule_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (selectToIMinMaxLocal .ule .intr__umin ()) h h₂ h₃ h₄ :=
+  selectToIMinMaxLocal_preservesSemantics (f := fun a b => Data.LLVM.Int.umin a b)
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun x₁ x₂ y₁ y₂ h₁ h₂ => Data.LLVM.Int.umin_mono x₁ x₂ y₁ y₂ h₁ h₂)
+    (fun hw x y => Data.LLVM.Int.select_to_iminmax_ule hw)
+
+theorem select_to_iminmax_slt_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (selectToIMinMaxLocal .slt .intr__smin ()) h h₂ h₃ h₄ :=
+  selectToIMinMaxLocal_preservesSemantics (f := fun a b => Data.LLVM.Int.smin a b)
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun x₁ x₂ y₁ y₂ h₁ h₂ => Data.LLVM.Int.smin_mono x₁ x₂ y₁ y₂ h₁ h₂)
+    (fun hw x y => Data.LLVM.Int.select_to_iminmax_slt hw)
+
+theorem select_to_iminmax_sle_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (selectToIMinMaxLocal .sle .intr__smin ()) h h₂ h₃ h₄ :=
+  selectToIMinMaxLocal_preservesSemantics (f := fun a b => Data.LLVM.Int.smin a b)
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun x₁ x₂ y₁ y₂ h₁ h₂ => Data.LLVM.Int.smin_mono x₁ x₂ y₁ y₂ h₁ h₂)
+    (fun hw x y => Data.LLVM.Int.select_to_iminmax_sle hw)
 
 end Veir.RISCV
