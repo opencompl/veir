@@ -14,6 +14,74 @@ set_option warn.sorry false
 
 namespace Program
 
+structure Xoshiro256PP where
+  s0 : UInt64
+  s1 : UInt64
+  s2 : UInt64
+  s3 : UInt64
+
+namespace Xoshiro256PP
+
+@[always_inline]
+def rol64 (x : UInt64) (k : UInt64) :=
+  (x <<< k) ||| (x >>> (64 - k))
+
+@[always_inline]
+def step (self : Xoshiro256PP) : UInt64 × Xoshiro256PP :=
+  let (s0, s1, s2, s3) := (self.s0, self.s1, self.s2, self.s3)
+
+  let result := rol64 (s0 + s3) 23 + s0
+  let t := s1 <<< 17
+
+  let s2 := s2 ^^^ s0
+  let s3 := s3 ^^^ s1
+  let s1 := s1 ^^^ s2
+  let s0 := s0 ^^^ s3
+
+  let s2 := s2 ^^^ t
+  let s3 := rol64 s3 45
+
+  (result, { s0, s1, s2, s3 })
+
+@[always_inline]
+def new (seed : Nat) : Xoshiro256PP :=
+  let state := {
+    s0 := 0xa88f8a3be644a802,
+    s1 := 0x7f9ce0f5c6c0e39e,
+    s2 := 0x9fecbfa76b135110,
+    s3 := 0x6bcf817f7dd191dc ^^^ seed.toUInt64
+  }
+
+  step state |>.snd
+
+@[always_inline]
+def run {m : Type -> Type} [Functor m] {α : Type} (action : StateT Xoshiro256PP m α) (seed : Nat := 42) : m α :=
+  StateT.run' action (new seed)
+
+end Xoshiro256PP
+
+section Xoshiro256PPMonadic
+
+variable {m : Type -> Type} [MonadStateOf Xoshiro256PP m] [Bind m] [Pure m]
+
+@[always_inline]
+def randU64 : m UInt64 :=
+  modifyGetThe Xoshiro256PP Xoshiro256PP.step
+
+@[always_inline]
+def randNat63 : m Nat :=
+  return ((←randU64) &&& 0x7FFF_FFFF_FFFF_FFFF).toNat
+
+@[always_inline]
+def randBool (pc : Nat := 50) : m Bool :=
+  return (←randNat63) % 100 < pc
+
+@[always_inline]
+def randIdx {α : Type} (arr : Array α) : m (Option α) :=
+  return arr[(←randNat63) % arr.size]?
+
+end Xoshiro256PPMonadic
+
 buffed (def_lemma := false)
 def emptySim : Option (Sim.IRContext OpCode × Sim.OperationPtr × InsertPoint) := do
   let (ctx, topLevelOp) ← IRContext.create OpCode
