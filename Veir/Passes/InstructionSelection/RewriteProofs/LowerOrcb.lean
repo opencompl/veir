@@ -362,12 +362,32 @@ What remains is the final assembly, following the `bexti_local_preservesSemantic
     a hand-written copy of the condition, because the elaborated `Decidable` instance does not
     match. So split on the inner condition and handle the two cases. In the resulting inner
     `split`, `isTrue` is the *bail* case (`¬ b = m`), not the continuing one.
-  2a. In the `Y > 0` case, peeling `matchLshr` out of `hpattern` is the open problem:
-    `rw [hLshr] at hpattern` fails with `motive is not type correct` and `simp only [hLshr] at
-    hpattern` makes no progress. The match on `matchLshr bOp ctx.raw` sits inside a *`Bool`-valued*
-    `match` (`| none => false | some (m', …) => … decide (m' = m)`) under `if _ = false`, unlike the
-    `Option`-valued matches elsewhere in the pattern, which `rw` peels fine. The `Y = 0` case peels
-    and derives its `bv` fact without trouble.
+  2a. In the `Y > 0` case, peeling the guard is the open blocker, and the cause is now pinned
+    down. `orcb_local` writes `rightMatches` as an inline **`Bool`-valued `match`** consumed by
+    `if !rightMatches`. After `simp` that condition ends up *inside the `ite`'s `Decidable`
+    instance*, and consequently:
+      * `rw [hLshr] at hpattern` fails with `motive is not type correct`;
+      * `simp only [hLshr] at hpattern` makes no progress;
+      * `split at hpattern` fails with `failed to generalize discriminant(s)` — it cannot
+        abstract the match without breaking the instance;
+      * `cases hRM : <the Bool expression>` *does* succeed and yields `hRM`, but rewriting `hRM`
+        back into `hpattern` then fails to find the occurrence (the `Int.toNat` / `max _ 0`
+        normal form and the instance do not match syntactically).
+    Every *other* guard in this pattern peels with a plain `rw` because each is `Option`-shaped
+    (`let some … := … | return (ctx, none)`), which is the idiom the rest of the codebase uses.
+
+    The fix is therefore to restructure the pattern rather than to out-tactic it: lift
+    `rightMatches` into its own `Option`-returning matcher, e.g.
+
+        def matchOrcbRight (b m : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
+            Option (propertiesOf (.llvm .lshr))
+
+    returning `some lshrProps` when `y = 0 ∧ b = m`, or when `b` is `lshr m y`; then
+    `orcb_local` becomes `let some lshrProps := matchOrcbRight b m y ctx | return (ctx, none)`
+    and peels like every other guard. Add the corresponding `matchOrcbRight_implies`
+    (Layer 2, `Matching/Lemmas.lean`). This changes `RISCV64Sdag.lean`, so it must be checked
+    behaviour-preserving against the `isel-sdag-riscv64` tests.
+
   3. In the `Y = 0` case the guard yields `b = m`; rewrite `b`'s value with
     `lshr_constant_zero_64`. In the `Y > 0` case, recover `b`'s value with
     `lshrConst_getVar?_of_EquationLemmaAt` (`LowerBexti.lean`). Both then establish
