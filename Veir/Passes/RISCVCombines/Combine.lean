@@ -999,7 +999,7 @@ def sub_one_from_sub_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 /-! ### or_and_xor_to_xor_or :  (X & Y) | ~Y  →  X | ~Y -/
 set_option warn.sorry false in
 def or_and_xor_to_xor_or (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (andV, notV, oprops) := matchOr op rewriter.ctx | return rewriter
   let some dAnd := getDefiningOp andV rewriter.ctx | return rewriter
   let some (x, y, _aprops) := matchAnd dAnd rewriter.ctx | return rewriter
@@ -1015,7 +1015,7 @@ def or_and_xor_to_xor_or (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 /-! ### and_xor_or_to_xor_and :  (X | Y) & ~Y  →  X & ~Y -/
 set_option warn.sorry false in
 def and_xor_or_to_xor_and (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (orV, notV, _aprops) := matchAnd op rewriter.ctx | return rewriter
   let some dOr := getDefiningOp orV rewriter.ctx | return rewriter
   let some (x, y, _oprops) := matchOr dOr rewriter.ctx | return rewriter
@@ -1055,7 +1055,7 @@ def combine_or_of_and_r (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 /-! ### AMinusBMinusC :  A - (B - C)  →  A + (C - B) -/
 set_option warn.sorry false in
 def AMinusBMinusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (A, sub1, sprops) := matchSub op rewriter.ctx | return rewriter
   let some dSub := getDefiningOp sub1 rewriter.ctx | return rewriter
   let some (B, C, _sprops1) := matchSub dSub rewriter.ctx | return rewriter
