@@ -159,30 +159,29 @@ def constFoldTreeSim (opcode : OpCode) (prop : propertiesOf opcode) (size pc : N
   let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
   let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
   let (gctx, topOp, insertPoint) ← empty
-  (gctx, topOp)
 
-  -- let mut (gctx, gacc) ← Rewriter.createOp gctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
-  -- gctx ← gacc.setAttributes gctx rootAttr sorry
+  let mut (gctx, gacc) ← Rewriter.createOp gctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  gctx ← gacc.setAttributes gctx rootAttr sorry
 
-  -- for i in [0:size] do
-  --   let ⟨thisOp, prop⟩ : (op : OpCode) × propertiesOf op := if (i % 100 < pc) then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
-  --   let (ctx, acc) := (gctx, gacc)
-  --   -- Create rhs const
-  --   let (ctx, rhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
-  --   let ctx ← rhsOp.setAttributes ctx incAttr sorry
+  for i in [0:size] do
+    let ⟨thisOp, prop⟩ : (op : OpCode) × propertiesOf op := if (i % 100 < pc) then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
+    let (ctx, acc) := (gctx, gacc)
+    -- Create rhs const
+    let (ctx, rhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+    let ctx ← rhsOp.setAttributes ctx incAttr sorry
 
-  --   let lhsValPtr := acc.getResultPtr ctx 0 sorry
-  --   let lhsVal : Sim.ValuePtr := ⟨lhsValPtr.impl, sorry⟩
-  --   let rhsValPtr := rhsOp.getResultPtr ctx 0 sorry
-  --   let rhsVal : Sim.ValuePtr := ⟨rhsValPtr.impl, sorry⟩
+    let lhsValPtr := acc.getResultPtr ctx 0 sorry
+    let lhsVal : Sim.ValuePtr := ⟨lhsValPtr.impl, sorry⟩
+    let rhsValPtr := rhsOp.getResultPtr ctx 0 sorry
+    let rhsVal : Sim.ValuePtr := ⟨rhsValPtr.impl, sorry⟩
 
-  --   let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[lhsVal, rhsVal] #[] #[] prop insertPoint sorry sorry sorry sorry sorry
-  --   (gctx, gacc) := (ctx, acc)
+    let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[lhsVal, rhsVal] #[] #[] prop insertPoint sorry sorry sorry sorry sorry
+    (gctx, gacc) := (ctx, acc)
 
-  -- let accResPtr := gacc.getResultPtr gctx 0 sorry
-  -- let accRes : Sim.ValuePtr := ⟨accResPtr.impl, sorry⟩
-  -- let (ctx, op) ← Rewriter.createOp gctx (.test .test) #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry sorry
-  -- (ctx, topOp)
+  let accResPtr := gacc.getResultPtr gctx 0 sorry
+  let accRes : Sim.ValuePtr := ⟨accResPtr.impl, sorry⟩
+  let (ctx, op) ← Rewriter.createOp gctx (.test .test) #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  (ctx, topOp)
 
 end Program
 
