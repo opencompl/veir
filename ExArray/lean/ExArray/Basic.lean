@@ -636,3 +636,36 @@ theorem read32!_extend (buf : ExArray) (n : UInt64) (extLen: UInt64) h
     (h'' : IsIncluded (n.toNat...(n.toNat + 4)) buf.range) :
     (buf.extend extLen h).read32! n = buf.read32! n := by
   grind [read32!]
+
+theorem range_def (a : ExArray) : a.range = 0...a.size := by
+  simp only [range]
+
+theorem uget_extendNat (buf : ExArray) (len : Nat) (m : UInt64) h h' :
+    (buf.extendNat len h).uget m h' =
+    if hlt : m.toNat < buf.size then buf.uget m hlt else 0 := by
+  induction len generalizing buf
+  case zero => grind [extendNat]
+  case succ len ih =>
+    simp only [extendNat]
+    rw [ih]
+    grind [uget_push, push_size]
+
+/-- Reading inside the freshly extended region yields zeroes (`extendNat` appends zeroes). -/
+theorem readRec_extendNat_new (w : Nat) (buf : ExArray) (n : UInt64) (len len' : Nat) h h'
+    (hge : buf.size ≤ n.toNat) :
+    (buf.extendNat len h).readRec (w := w) n len' h' = 0 := by
+  induction len' generalizing n
+  case zero => simp only [readRec]
+  case succ len' ih =>
+    rw [readRec_succ, uget_extendNat, ih]
+    · rw [dif_neg (by omega)]
+      simp
+    · grind [extendNat_size, IsIncluded]
+
+/-- 64-bit read entirely inside the freshly extended (zero-filled) region. -/
+theorem read64!_extend_new (buf : ExArray) (n : UInt64) (extLen : UInt64) h
+    (hge : buf.size ≤ n.toNat) (hlt : n.toNat + 8 ≤ buf.size + extLen.toNat) :
+    (buf.extend extLen h).read64! n = 0 := by
+  simp only [extend, read64!, read!]
+  rw [dif_pos (by grind [extendNat_size, IsIncluded])]
+  rw [read, readRec_extendNat_new] <;> first | rfl | grind

@@ -94,7 +94,14 @@ abbrev GenericOPtr.none : GenericOPtr := -1
 structure IRBufContext OpInfo [HasOpInfo OpInfo] where
   mem : ExArray
   attributes : Array Attribute
-deriving Inhabited
+
+/-- The default context reserves attribute-table slot 0 for the empty dictionary attribute:
+freshly allocated operations leave their (zero-initialized) `attrs` field pointing at it. -/
+instance [HasOpInfo OpInfo] : Inhabited (IRBufContext OpInfo) where
+  default := ⟨default, #[.dictionaryAttr DictionaryAttr.empty]⟩
+
+theorem IRBufContext.default_def [HasOpInfo OpInfo] :
+    (default : IRBufContext OpInfo) = ⟨default, #[.dictionaryAttr DictionaryAttr.empty]⟩ := rfl
 
 /-! ## Raw accessors -/
 

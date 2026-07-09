@@ -293,6 +293,73 @@ theorem OperationPtr.allocEmpty_newBlock_inBounds
     ptr.InBounds ctx' := by
   grind
 
+/-! `allocEmptyAt` variants of the `allocEmpty` lemmas above. -/
+
+@[grind .]
+theorem OpResultPtr.allocEmptyAt_no_results {opResult : OpResultPtr}
+    (heq : OperationPtr.allocEmptyAt ctx ty properties capResults capBlockOperands capRegions capOperands addr = some (ctx', op')) :
+    opResult.op = op' → ¬ opResult.InBounds ctx' := by
+  grind
+
+@[grind .]
+theorem OpOperandPtr.allocEmptyAt_no_operands {opOperand : OpOperandPtr}
+    (heq : OperationPtr.allocEmptyAt ctx ty properties capResults capBlockOperands capRegions capOperands addr = some (ctx', op')) :
+    opOperand.op = op' → ¬ opOperand.InBounds ctx' := by
+  grind
+
+@[grind .]
+theorem BlockOperandPtr.allocEmptyAt_no_operands {blockOperand : BlockOperandPtr}
+    (heq : OperationPtr.allocEmptyAt ctx ty properties capResults capBlockOperands capRegions capOperands addr = some (ctx', op')) :
+    blockOperand.op = op' → ¬ blockOperand.InBounds ctx' := by
+  grind
+
+@[grind =>]
+theorem OperationPtr.allocEmptyAt_genericPtr_iff (ptr : GenericPtr)
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr')) :
+    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
+  grind
+
+theorem OperationPtr.allocEmptyAt_operationPtr_iff (ptr : OperationPtr)
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr')) :
+    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = ptr') := by
+  grind
+
+@[grind =>]
+theorem OperationPtr.allocEmptyAt_topLevelPtr_iff (ptr : TopLevelPtr)
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr')) :
+    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
+  cases ptr <;> grind
+
+@[grind .]
+theorem OperationPtr.allocEmptyAt_genericPtr_mono (ptr : GenericPtr)
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr')) :
+    ptr.InBounds ctx → ptr.InBounds ctx' := by
+  grind
+
+@[grind .]
+theorem OperationPtr.allocEmptyAt_topLevelPtr_mono (ptr : TopLevelPtr)
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr')) :
+    ptr.InBounds ctx → ptr.InBounds ctx' := by
+  grind
+
+@[grind .]
+theorem OperationPtr.allocEmptyAt_new_inBounds
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr)) :
+    ptr.InBounds ctx' := by
+  grind
+
+@[grind →]
+theorem OperationPtr.allocEmptyAt_ptr_eq
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr')) :
+    ptr' = ⟨addr⟩ := by
+  grind
+
+@[grind →]
+theorem OperationPtr.allocEmptyAt_not_inBounds
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr')) :
+    ¬ ptr'.InBounds ctx := by
+  grind
+
 
 @[grind →]
 theorem OpResultPtr.dealloc.inBounds_genericPtr_of_inBounds_dealloc {ptr : GenericPtr} :
