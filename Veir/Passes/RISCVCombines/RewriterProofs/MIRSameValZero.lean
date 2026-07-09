@@ -7,7 +7,7 @@ import Veir.PatternRewriter.Semantics
 import Veir.Verifier
 import Veir.Data.LLVM.Int.Lemmas
 import Veir.Data.Casting
-import Veir.Passes.InstructionSelection.RISCV64
+import Veir.Passes.RISCVCombines.MIRCombinesVeir
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonMatchEqns
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
@@ -18,8 +18,8 @@ namespace Veir
 
 /-! ## Correctness of `same_val_zero_1_local` (`llvm.xor x x` → `llvm.mlir.constant 0`)
 
-The MIR combine `same_val_zero_1` rewrites `llvm.xor x x` to a constant zero. This is the
-`LocalRewritePattern` restatement (`same_val_zero_1_local`, `RISCV64.lean`) and its
+The MIR combine `same_val_zero_1` rewrites `llvm.xor x x` (64-bit) to a constant zero. This is the
+`LocalRewritePattern` restatement (`RISCV.same_val_zero_1_local`, `MIRCombinesVeir.lean`) and its
 `PreservesSemantics` proof. It reads the (equal) operands of the matched `xor` with the
 binary-source unfolder, then emits a single `llvm.mlir.constant 0` — so the structure is a
 binop *match* (as in `LowerBinaryW`) followed by a single constant *creation* (as in
@@ -59,22 +59,19 @@ theorem interpretOp_llvm_constant_forward
     rw [← OperationPtr.getResultTypes!.size_eq_getNumResults!, hResTypes]; simp
   grind
 
-/-- The Layer-0 data refinement: `xor x x` (poison when `x` is poison, else `0`) is refined by the
-constant `0`. When `x` is poison the source poison is refined by any value; otherwise both sides are
-`0`. -/
-theorem xor_self_isRefinedBy_constant_zero {w : Nat} (x : Data.LLVM.Int w) :
-    Data.LLVM.Int.xor x x ⊒ Data.LLVM.Int.constant w 0 := by
-  rw [Data.LLVM.Int.isRefinedBy_iff]
-  refine ⟨fun _ => Data.LLVM.Int.isPoison_constant _, fun hnp _ => ?_⟩
-  rw [Data.LLVM.Int.getValue_xor _ _ hnp, Data.LLVM.Int.getValue_constant]
-  simp
+/-- The Layer-0 data refinement (at the `i64` width the combine fires on): `xor x x` (poison when
+`x` is poison, else `0`) is refined by the constant `0`. When `x` is poison the source poison is
+refined by any value; otherwise both sides are `0`. -/
+theorem xor_self_isRefinedBy_constant_zero (x : Data.LLVM.Int 64) :
+    Data.LLVM.Int.xor x x ⊒ Data.LLVM.Int.constant 64 0 := by
+  veir_bv_decide
 
 set_option maxHeartbeats 1000000 in
-/-- Correctness of the `same_val_zero_1_local` lowering: `llvm.xor x x` lowers to a single
-`llvm.mlir.constant 0` of the (integer) result type, which refines the `xor`. -/
+/-- Correctness of the `same_val_zero_1_local` lowering: a 64-bit `llvm.xor x x` lowers to a single
+`llvm.mlir.constant 0` of the `i64` result type, which refines the `xor`. -/
 theorem same_val_zero_1_local_preservesSemantics :
-    LocalRewritePattern.PreservesSemantics same_val_zero_1_local h h₂ h₃ h₄ := by
-  simp only [LocalRewritePattern.PreservesSemantics, same_val_zero_1_local]
+    LocalRewritePattern.PreservesSemantics RISCV.same_val_zero_1_local h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, RISCV.same_val_zero_1_local]
   intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
     newState cf hinterp
   rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
@@ -105,6 +102,13 @@ theorem same_val_zero_1_local_preservesSemantics :
   -- Resolve the result-type destructuring match: the result type is `integerType intType`.
   rw [hResTyVal] at hpattern
   simp only [] at hpattern
+  -- The `bitwidth ≠ 64` guard is false, so the result width is 64.
+  have hBw64 : intType.bitwidth = 64 := by
+    rcases Decidable.em (intType.bitwidth = 64) with hbw | hbw
+    · exact hbw
+    · rw [if_neg hbw] at hpattern
+      exact absurd hpattern (by simp)
+  rw [if_pos hBw64] at hpattern
   -- The operands have integer type `intType`, feeding the source-interpretation unfolder.
   have hx0 : op.getOperand! ctx.raw 0 = x := by
     have : (op.getOperands! ctx.raw)[0]! = x := by rw [hOperands]; rfl
@@ -161,8 +165,13 @@ theorem same_val_zero_1_local_preservesSemantics :
   · refine ⟨#[RuntimeValue.int intType.bitwidth
         (Data.LLVM.Int.constant intType.bitwidth (IntegerAttr.mk 0 intType).value)], ?_, ?_⟩
     · simp [hRes₁, Option.bind, Option.map]
-    · exact RuntimeValue.arrayIsRefinedBy_singleton.mpr
-        ⟨rfl, by simpa using xor_self_isRefinedBy_constant_zero xv⟩
+    · refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+      -- The result width is 64, so the concrete-width data lemma applies.
+      clear hxVal hx1Val hResVal
+      revert xv
+      rw [hBw64]
+      intro xv
+      simpa using xor_self_isRefinedBy_constant_zero xv
 
 /-- info: 'Veir.same_val_zero_1_local_preservesSemantics' depends on axioms: [propext,
  Classical.choice,
