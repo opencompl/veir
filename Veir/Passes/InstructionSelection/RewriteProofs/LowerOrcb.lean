@@ -355,16 +355,25 @@ What remains is the final assembly, following the `bexti_local_preservesSemantic
 
   1. Peel `matchSub`, the result-type/width guards, `getDefiningOp a`, `matchShl`,
     `matchConstantIntVal shamt`, and the `1 ≤ shc.value ≤ 8` range guard. (Drafted and building.)
-  2. Peel the `rightMatches` guard. Note: after the initial `simp … at hpattern` this is an
-    *`ite` whose condition is itself an `ite`*, so a bare `split at hpattern` splits the inner
-    condition (`8 - shc.value ≤ 0`), not the outer one, and both `rw [if_pos …]` and
-    `simp only [if_pos …]` fail to fire against a hand-written copy of the condition — the
-    elaborated `Decidable` instance does not match. Splitting on the inner condition and handling
-    the two cases separately is the route that works.
+  2. Peel the `rightMatches` guard. After the initial `simp … at hpattern` this is an *`ite` whose
+    condition is itself an `ite`*, so a bare `split at hpattern` splits the inner condition
+    (`8 - shc.value ≤ 0`), not the outer one. Trying to discharge the outer guard without
+    branching does not work: both `rw [if_pos …]` and `simp only [if_pos …]` fail to fire against
+    a hand-written copy of the condition, because the elaborated `Decidable` instance does not
+    match. So split on the inner condition and handle the two cases. In the resulting inner
+    `split`, `isTrue` is the *bail* case (`¬ b = m`), not the continuing one.
+  2a. In the `Y > 0` case, peeling `matchLshr` out of `hpattern` is the open problem:
+    `rw [hLshr] at hpattern` fails with `motive is not type correct` and `simp only [hLshr] at
+    hpattern` makes no progress. The match on `matchLshr bOp ctx.raw` sits inside a *`Bool`-valued*
+    `match` (`| none => false | some (m', …) => … decide (m' = m)`) under `if _ = false`, unlike the
+    `Option`-valued matches elsewhere in the pattern, which `rw` peels fine. The `Y = 0` case peels
+    and derives its `bv` fact without trouble.
   3. In the `Y = 0` case the guard yields `b = m`; rewrite `b`'s value with
     `lshr_constant_zero_64`. In the `Y > 0` case, recover `b`'s value with
-    `lshrConst_getVar?_of_EquationLemmaAt` (`LowerBexti.lean`). Both then agree on
-    `bv = lshr mv (constant 64 Y) e`, so the tail is shared.
+    `lshrConst_getVar?_of_EquationLemmaAt` (`LowerBexti.lean`). Both then establish
+    `∃ e, bv = lshr mv (constant 64 Y) e`, after which the tail is shared: `obtain ⟨e, rfl⟩`
+    substitutes `bv` and keeps `mv`. (Deriving these as an existential, rather than `obtain rfl`
+    on `bv = mv`, matters: the latter eliminates `mv`, which the rest of the proof needs.)
   4. Peel the soundness gate (`getDefiningOp m`, `matchAnd`, the mask check), pin the mask operand
     with `matchConstantIntVal_getVar?_of_strictlyDominates`, and commute it into second position
     with `llvm_and_comm` when it matched on the left.
