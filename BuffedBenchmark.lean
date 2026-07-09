@@ -333,7 +333,7 @@ def rewriteForwardsAddIZeroFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.
   let maybeOp := (block.getFirstOp! ctx)
   rewriteForwardsAddIZeroFoldingGo ctx maybeOp
 
--- buffed (def_lemma := false)
+buffed (def_lemma := false)
 def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpType ctx sorry ≠ .arith .muli then
     return ctx
@@ -342,7 +342,7 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
   let rhsValuePtr := op.getOperandPtr ctx 1 sorry
   let rhsValue := rhsValuePtr.getValue ctx sorry
   -- Unsafe...
-  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, sorry⟩
+  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec.asOpResultPtr⟩
   let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
 
   if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
@@ -359,13 +359,30 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
   let lhsValue := lhsValuePtr.getValue ctx sorry
 
   let insertPoint := InsertPoint.before ⟨op.impl.toNat⟩
-  let (ctx, newOp) ← Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[lhsValue, lhsValue] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[⟨lhsValue.impl, default⟩, ⟨lhsValue.impl, default⟩] #[] #[] () insertPoint sorry sorry sorry sorry sorry
   let ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
 
   if (rhsOpResultPtr.getFirstUse ctx sorry).toOption.isNone then
     return Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry
 
   return ctx
+
+buffed (def_lemma := false)
+def rewriteForwardsMulITwoReduceGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
+  match maybeOp.toOption with
+  | none => ctx
+  | some op =>
+    let next := op.getNextOp ctx sorry
+    let ctx ← mulITwoReduce ctx op
+    rewriteForwardsMulITwoReduceGoSim ctx next
+partial_fixpoint
+
+buffed (def_lemma := false)
+def rewriteForwardsMulITwoReduceSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+  let region := topOp.getRegionPtr! ctx 0
+  let block ← (region.getFirstBlock! ctx).toOption
+  let maybeOp := (block.getFirstOp! ctx)
+  rewriteForwardsMulITwoReduceGo ctx maybeOp
 
 end Custom
 
@@ -475,13 +492,13 @@ def main : IO Unit := do
   match ctx with
   | none => return
   | some (ctx, topOp, ip) =>
-    let res := Program.addZeroTree ctx ip 300_000 100
+    let res := Program.multwoTree ctx ip 300_000 100
     match res with
     | none => return -- IO.println "err"
     | some ctx =>
       -- IO.println "Constructed"
       let startTime ← IO.monoNanosNow
-      if let some ctx := Custom.rewriteForwardsAddIZeroFolding ctx topOp then
+      if let some ctx := Custom.rewriteForwardsMulITwoReduce ctx topOp then
         let endTime ← IO.monoNanosNow
         IO.println s!"ok: {ctx.buf.size}"
         let time := (endTime - startTime).toFloat / 1_000_000_000
