@@ -171,15 +171,15 @@ def constFoldTreeSim (opcode : OpCode) (prop : propertiesOf opcode) (size pc : N
     let ctx ← rhsOp.setAttributes ctx incAttr sorry
 
     let lhsValPtr := acc.getResultPtr ctx 0 sorry
-    let lhsVal : Sim.ValuePtr := ⟨lhsValPtr.impl, sorry⟩
+    let lhsVal : Sim.ValuePtr := ⟨lhsValPtr.impl, lhsValPtr.spec⟩
     let rhsValPtr := rhsOp.getResultPtr ctx 0 sorry
-    let rhsVal : Sim.ValuePtr := ⟨rhsValPtr.impl, sorry⟩
+    let rhsVal : Sim.ValuePtr := ⟨rhsValPtr.impl, lhsValPtr.spec⟩
 
     let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[lhsVal, rhsVal] #[] #[] prop insertPoint sorry sorry sorry sorry sorry
     (gctx, gacc) := (ctx, acc)
 
   let accResPtr := gacc.getResultPtr gctx 0 sorry
-  let accRes : Sim.ValuePtr := ⟨accResPtr.impl, sorry⟩
+  let accRes : Sim.ValuePtr := ⟨accResPtr.impl, accResPtr.spec⟩
   let (ctx, op) ← Rewriter.createOp gctx (.test .test) #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry sorry
   (ctx, topOp)
 
