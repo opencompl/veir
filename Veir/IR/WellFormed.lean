@@ -674,6 +674,11 @@ structure OperationPtr.WellFormed (ctx : IRContext OpInfo) (opPtr : OperationPtr
     (region.get! ctx).parent = some opPtr
   opChain_of_parent_none : (opPtr.get! ctx).parent = none →
     (opPtr.get! ctx).prev = none ∧ (opPtr.get! ctx).next = none
+  -- A well-formed operation is fully constructed: every array is filled up to its capacity.
+  capResults_eq : (opPtr.get! ctx).capResults = opPtr.getNumResults! ctx
+  capOperands_eq : (opPtr.get! ctx).capOperands = opPtr.getNumOperands! ctx
+  capBlockOperands_eq : (opPtr.get! ctx).capBlockOperands = opPtr.getNumSuccessors! ctx
+  capRegions_eq : (opPtr.get! ctx).capRegions = opPtr.getNumRegions! ctx
 
 structure BlockPtr.WellFormed (ctx : IRContext OpInfo) (blockPtr : BlockPtr) hbl : Prop where
   inBounds : Block.FieldsInBounds blockPtr ctx hbl
@@ -833,7 +838,11 @@ theorem OperationPtr.WellFormed_unchanged
     (hSameNumRegions :
       opPtr.getNumRegions! ctx = opPtr.getNumRegions! ctx')
     (hSameRegions :
-      ∀ i, i < opPtr.getNumRegions! ctx → opPtr.getRegion! ctx i = opPtr.getRegion! ctx' i) :
+      ∀ i, i < opPtr.getNumRegions! ctx → opPtr.getRegion! ctx i = opPtr.getRegion! ctx' i)
+    (hSameCapResults : (opPtr.get! ctx).capResults = (opPtr.get! ctx').capResults)
+    (hSameCapOperands : (opPtr.get! ctx).capOperands = (opPtr.get! ctx').capOperands)
+    (hSameCapBlockOperands : (opPtr.get! ctx).capBlockOperands = (opPtr.get! ctx').capBlockOperands)
+    (hSameCapRegions : (opPtr.get! ctx).capRegions = (opPtr.get! ctx').capRegions) :
     opPtr.WellFormed ctx' opPtrInBounds' := by
   constructor <;> grind [OperationPtr.WellFormed, Operation.FieldsInBounds]
 
@@ -1426,25 +1435,25 @@ theorem OperationPtr.WellFormed.region_parent.unchanged
   simp only [h_getRegion, h_numRegions, h_parent, h_wf]
 
 theorem OperationPtr.WellFormed.numOperands_eq_capOperands {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capOperands = opPtr.getNumOperands! ctx := by
-  sorry
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capOperands = opPtr.getNumOperands! ctx :=
+  fun wf => wf.capOperands_eq
 grind_pattern OperationPtr.WellFormed.numOperands_eq_capOperands => opPtr.WellFormed ctx, (opPtr.get! ctx).capOperands
 
 theorem OperationPtr.WellFormed.numSuccessors_eq_capBlockOperands {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capBlockOperands = opPtr.getNumSuccessors! ctx := by
-  sorry
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capBlockOperands = opPtr.getNumSuccessors! ctx :=
+  fun wf => wf.capBlockOperands_eq
 grind_pattern OperationPtr.WellFormed.numSuccessors_eq_capBlockOperands => opPtr.WellFormed ctx, (opPtr.get! ctx).capBlockOperands
 
 @[grind =]
 theorem OperationPtr.WellFormed.numRegions_eq_capRegions {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capRegions = opPtr.getNumRegions! ctx := by
-  sorry
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capRegions = opPtr.getNumRegions! ctx :=
+  fun wf => wf.capRegions_eq
 grind_pattern OperationPtr.WellFormed.numRegions_eq_capRegions => opPtr.WellFormed ctx ib, (opPtr.get! ctx).capRegions
 
 @[grind =]
 theorem OperationPtr.WellFormed.numResults_eq_capResults {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capResults = opPtr.getNumResults! ctx := by
-  sorry
+    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capResults = opPtr.getNumResults! ctx :=
+  fun wf => wf.capResults_eq
 grind_pattern OperationPtr.WellFormed.numResults_eq_capResults => opPtr.WellFormed ctx ib, (opPtr.get! ctx).capResults
 
 /--

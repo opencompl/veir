@@ -786,8 +786,14 @@ theorem Sim.IRContext.fieldsInBounds (ctx : IRContext OpInfo) : ctx.spec.FieldsI
 
 axiom Operation.propertySize_lt (oi : OpInfo) : (Operation.propertySize oi).toNat < UInt32.size
 
-@[grind .] theorem Operation.propertySize_pos  (oi : OpInfo) : 0 ≤ (Operation.propertySize oi).toInt64.toInt := by sorry
-@[grind .] theorem Operation.propertySize_lt_Int (oi : OpInfo) : (Operation.propertySize oi).toInt64.toInt < 4294967296 := by sorry
+@[grind .] theorem Operation.propertySize_pos  (oi : OpInfo) : 0 ≤ (Operation.propertySize oi).toInt64.toInt := by
+  have := Operation.propertySize_lt oi
+  simp only [UInt64.toInt64, Int64.toInt, Int64.toBitVec, BitVec.toInt_eq_toNat_cond]
+  grind [UInt64.toNat]
+@[grind .] theorem Operation.propertySize_lt_Int (oi : OpInfo) : (Operation.propertySize oi).toInt64.toInt < 4294967296 := by
+  have := Operation.propertySize_lt oi
+  simp only [UInt64.toInt64, Int64.toInt, Int64.toBitVec, BitVec.toInt_eq_toNat_cond]
+  grind [UInt64.toNat]
 
 theorem _root_.UInt64.toNat_add_of_le_size (x y : UInt64) (hle : x.toNat + y.toNat < UInt64.size) : (x + y).toNat = x.toNat + y.toNat := by
   exact UInt64.add_toNat_lt hle

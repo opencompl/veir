@@ -896,9 +896,7 @@ theorem Rewriter.createRegion_new_inBounds (h : createRegion ctx = some (ctx', r
   simp [createRegion_def, createRegionSim] at h
   split at h
   · grind [Option.bind]
-  · constructor
-    · sorry -- need a lemma
-    · grind [generic_ptr_grind]
+  · grind
 
 @[grind .]
 theorem Rewriter.createRegion_new_not_inBounds (h : createRegion ctx = some (ctx', reg)) :
@@ -1486,40 +1484,48 @@ def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
     (hins : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by grind)
     (hrep : insertionPoint.maybe₁ InsertPoint.IsRepr := by grind)
     (hx : ctx.spec.FieldsInBounds := by grind) : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
-  rlet ⟨newOpPtr, ctx⟩ ← Sim.OperationPtr.allocEmpty ctx opType properties
-    resultTypes.usize.toUInt64 operands.usize.toUInt64 blockOperands.usize.toUInt64 regions.usize.toUInt64
-    sorry sorry sorry sorry
-  have : newOpPtr.spec.getNumOperands! ctx.spec = 0 := by grind
-  have : newOpPtr.spec.getNumSuccessors! ctx.spec = 0 := by grind
-  have : newOpPtr.spec.getNumRegions! ctx.spec = 0 := by grind
-  have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
-    grind [cases InsertPoint, Option.maybe_def]
-  rlet ctx ← Rewriter.initOpResults newOpPtr ctx resultTypes 0 (by grind) (by grind)
-  have : newOpPtr.spec.getNumOperands! ctx.spec = 0 := by grind
-  have : newOpPtr.spec.getNumSuccessors! ctx.spec = 0 := by grind
-  have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
-    grind [cases InsertPoint, Option.maybe_def, generic_ptr_grind,
-      _=_ Veir.OperationPtr.toSim_inBounds_iff_inBounds, _=_ Veir.BlockPtr.toSim_inBounds_iff_inBounds]
-  rlet ctx ← Rewriter.initOpRegions newOpPtr ctx regions 0 (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind]) (by grind) (by grind)
-  have : newOpPtr.spec.getNumSuccessors! ctx.spec = 0 := by grind
-  have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
-    grind [cases InsertPoint, Option.maybe_def, generic_ptr_grind,
-      _=_ Veir.OperationPtr.toSim_inBounds_iff_inBounds, _=_ Veir.BlockPtr.toSim_inBounds_iff_inBounds]
-  rlet ctx := Rewriter.initOpOperands newOpPtr ctx (by grind [generic_ptr_grind]) operands (by grind [generic_ptr_grind]) 0 (by grind)
-  have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
-    grind [cases InsertPoint, Option.maybe_def, generic_ptr_grind,
-      _=_ Veir.OperationPtr.toSim_inBounds_iff_inBounds, _=_ Veir.BlockPtr.toSim_inBounds_iff_inBounds]
-  have : newOpPtr.spec.getNumSuccessors! ctx.spec = 0 := by grind
-  rlet ctx := Rewriter.initBlockOperands newOpPtr ctx blockOperands 0 (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind]) (by grind)
-  have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
-    grind (instances := 2000) [cases InsertPoint, Option.maybe_def, generic_ptr_grind,
-      _=_ Veir.OperationPtr.toSim_inBounds_iff_inBounds, _=_ Veir.BlockPtr.toSim_inBounds_iff_inBounds]
-  match _ : insertionPoint with
-  | some insertionPoint => do
-    let ctx ← Rewriter.insertOp? ctx newOpPtr insertionPoint (by grind [generic_ptr_grind]) (by grind) (by grind) (by grind)
-    some (ctx, newOpPtr)
-  | none =>
-    some (ctx, newOpPtr)
+  -- An operation whose arrays exceed `countCard` (`2^32`) cannot be laid out without its size
+  -- overflowing, so it is not creatable; reject it here, which also supplies the size bounds
+  -- needed by `allocEmpty` (mirroring the guard in `Sim.BlockPtr.allocEmpty`).
+  if hsz : resultTypes.size ≤ Buffed.countCard ∧ operands.size ≤ Buffed.countCard
+      ∧ blockOperands.size ≤ Buffed.countCard ∧ regions.size ≤ Buffed.countCard then
+    rlet ⟨newOpPtr, ctx⟩ ← Sim.OperationPtr.allocEmpty ctx opType properties
+      resultTypes.usize.toUInt64 operands.usize.toUInt64 blockOperands.usize.toUInt64 regions.usize.toUInt64
+      (by grind [Array.usize_size]) (by grind [Array.usize_size])
+      (by grind [Array.usize_size]) (by grind [Array.usize_size])
+    have : newOpPtr.spec.getNumOperands! ctx.spec = 0 := by grind
+    have : newOpPtr.spec.getNumSuccessors! ctx.spec = 0 := by grind
+    have : newOpPtr.spec.getNumRegions! ctx.spec = 0 := by grind
+    have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
+      grind [cases InsertPoint, Option.maybe_def]
+    rlet ctx ← Rewriter.initOpResults newOpPtr ctx resultTypes 0 (by grind) (by grind)
+    have : newOpPtr.spec.getNumOperands! ctx.spec = 0 := by grind
+    have : newOpPtr.spec.getNumSuccessors! ctx.spec = 0 := by grind
+    have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
+      grind [cases InsertPoint, Option.maybe_def, generic_ptr_grind,
+        _=_ Veir.OperationPtr.toSim_inBounds_iff_inBounds, _=_ Veir.BlockPtr.toSim_inBounds_iff_inBounds]
+    rlet ctx ← Rewriter.initOpRegions newOpPtr ctx regions 0 (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind]) (by grind) (by grind)
+    have : newOpPtr.spec.getNumSuccessors! ctx.spec = 0 := by grind
+    have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
+      grind [cases InsertPoint, Option.maybe_def, generic_ptr_grind,
+        _=_ Veir.OperationPtr.toSim_inBounds_iff_inBounds, _=_ Veir.BlockPtr.toSim_inBounds_iff_inBounds]
+    rlet ctx := Rewriter.initOpOperands newOpPtr ctx (by grind [generic_ptr_grind]) operands (by grind [generic_ptr_grind]) 0 (by grind)
+    have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
+      grind [cases InsertPoint, Option.maybe_def, generic_ptr_grind,
+        _=_ Veir.OperationPtr.toSim_inBounds_iff_inBounds, _=_ Veir.BlockPtr.toSim_inBounds_iff_inBounds]
+    have : newOpPtr.spec.getNumSuccessors! ctx.spec = 0 := by grind
+    rlet ctx := Rewriter.initBlockOperands newOpPtr ctx blockOperands 0 (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind]) (by grind)
+    have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
+      grind (instances := 2000) [cases InsertPoint, Option.maybe_def, generic_ptr_grind,
+        _=_ Veir.OperationPtr.toSim_inBounds_iff_inBounds, _=_ Veir.BlockPtr.toSim_inBounds_iff_inBounds]
+    match _ : insertionPoint with
+    | some insertionPoint => do
+      let ctx ← Rewriter.insertOp? ctx newOpPtr insertionPoint (by grind [generic_ptr_grind]) (by grind) (by grind) (by grind)
+      some (ctx, newOpPtr)
+    | none =>
+      some (ctx, newOpPtr)
+  else
+    none
 
 
 @[grind .]
@@ -1529,18 +1535,20 @@ theorem Rewriter.createOp_inBounds_mono (ptr : GenericPtr)
   intro hp
   simp only [createOp_def, createOpSim] at heq
   split at heq
-  · grind
-  · rename_i newOpPtr ctx1 hAlloc
-    split at heq
+  · split at heq
     · grind
-    · rename_i ctx2 hRes
+    · rename_i newOpPtr ctx1 hAlloc
       split at heq
       · grind
-      · rename_i ctx3 hReg
+      · rename_i ctx2 hRes
         split at heq
-        · simp only [Option.bind_eq_bind, Option.bind] at heq
-          grind
         · grind
+        · rename_i ctx3 hReg
+          split at heq
+          · simp only [Option.bind_eq_bind, Option.bind] at heq
+            grind
+          · grind
+  · exact absurd heq (by simp)
 
 @[grind .]
 theorem Rewriter.createOp_new_inBounds (ptr : Sim.OperationPtr)
@@ -1548,15 +1556,17 @@ theorem Rewriter.createOp_new_inBounds (ptr : Sim.OperationPtr)
     ptr.InBounds newCtx := by
   simp only [createOp_def, createOpSim] at heq
   split at heq
-  · grind
   · split at heq
     · grind
     · split at heq
       · grind
       · split at heq
-        · simp only [Option.bind_eq_bind, Option.bind] at heq
-          split at heq <;> grind
         · grind
+        · split at heq
+          · simp only [Option.bind_eq_bind, Option.bind] at heq
+            split at heq <;> grind
+          · grind
+  · exact absurd heq (by simp)
 
 @[grind .]
 theorem Rewriter.createOp_new_not_inBounds (ptr : Sim.OperationPtr)
@@ -1564,16 +1574,18 @@ theorem Rewriter.createOp_new_not_inBounds (ptr : Sim.OperationPtr)
     ¬ ptr.spec.InBounds ctx.spec := by
   simp only [createOp_def, createOpSim] at heq
   split at heq
-  · grind
-  · rename_i newOpPtr ctx1 hAlloc
-    split at heq
+  · split at heq
     · grind
-    · split at heq
+    · rename_i newOpPtr ctx1 hAlloc
+      split at heq
       · grind
       · split at heq
-        · simp only [Option.bind_eq_bind, Option.bind] at heq
-          grind
         · grind
+        · split at heq
+          · simp only [Option.bind_eq_bind, Option.bind] at heq
+            grind
+          · grind
+  · exact absurd heq (by simp)
 
 @[grind .]
 theorem Rewriter.createOp_fieldsInBounds

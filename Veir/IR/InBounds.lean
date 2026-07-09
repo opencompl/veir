@@ -260,6 +260,25 @@ theorem BlockOperandPtr.allocEmpty_no_operands {blockOperand : BlockOperandPtr}
   grind
 
 @[grind =>]
+theorem OperationPtr.allocEmptyAt_genericPtr_iff (ptr : GenericPtr)
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr')) :
+    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
+  grind
+
+@[grind .]
+theorem OperationPtr.allocEmptyAt_not_inBounds
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr')) :
+    ¬ ptr'.InBounds ctx := by
+  grind
+
+/-- `allocEmptyAt` returns the pointer at the requested address. -/
+@[grind .]
+theorem OperationPtr.allocEmptyAt_ptr
+    (heq : allocEmptyAt ctx type properties capResults capBlockOperands capRegions capOperands addr = some (ctx', ptr')) :
+    ptr' = ⟨addr⟩ := by
+  grind
+
+@[grind =>]
 theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
     (heq : allocEmpty ctx type properties capResults capBlockOperands capRegions capOperands = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .operation ptr') := by
@@ -651,6 +670,37 @@ theorem BlockPtr.pushResult_genericPtr_mono_impl (ptr : GenericPtr) :
   grind
 
 @[grind =>]
+theorem BlockPtr.allocEmptyAtAddress_genericPtr_iff (ptr : GenericPtr)
+    (heq : allocEmptyAtAddress ctx capArguments address = some (ctx', ptr')) :
+    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .block ptr' ∨ ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse ptr')) := by
+  grind
+
+@[grind .]
+theorem BlockPtr.allocEmptyAtAddress_not_inBounds
+    (heq : allocEmptyAtAddress ctx capArguments address = some (ctx', ptr')) :
+    ¬ ptr'.InBounds ctx := by
+  grind
+
+/-- `allocEmptyAtAddress` returns the pointer at the requested address. -/
+@[grind .]
+theorem BlockPtr.allocEmptyAtAddress_ptr
+    (heq : allocEmptyAtAddress ctx capArguments address = some (ctx', ptr')) :
+    ptr' = ⟨address⟩ := by
+  grind
+
+@[grind .]
+theorem BlockPtr.allocEmptyAtAddress_genericPtr_mono (ptr : GenericPtr)
+    (heq : allocEmptyAtAddress ctx capArguments address = some (ctx', ptr')) :
+    ptr.InBounds ctx → ptr.InBounds ctx' := by
+  grind
+
+@[grind .]
+theorem BlockPtr.allocEmptyAtAddress_topLevelPtr_mono (ptr : TopLevelPtr)
+    (heq : allocEmptyAtAddress ctx capArguments address = some (ctx', ptr')) :
+    ptr.InBounds ctx → ptr.InBounds ctx' := by
+  grind
+
+@[grind =>]
 theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx capArguments = some (ctx', ptr')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .block ptr' ∨ ptr = .blockOperandPtr (BlockOperandPtrPtr.blockFirstUse ptr')) := by
   grind
@@ -755,6 +805,12 @@ theorem RegionPtr.allocEmptyAt_newBlock_inBounds (heq : allocEmptyAt ctx addr = 
 theorem RegionPtr.allocEmptyAt_newBlock_not_inBounds (heq : allocEmptyAt ctx addr = some (ctx', ptr)) :
     ¬ ptr.InBounds ctx := by
   grind [allocEmpty]
+
+/-- `allocEmptyAt` returns the pointer at the requested address. -/
+@[grind .]
+theorem RegionPtr.allocEmptyAt_ptr (heq : allocEmptyAt ctx addr = some (ctx', ptr')) :
+    ptr' = ⟨addr⟩ := by
+  grind
 
 @[grind .]
 theorem RegionPtr.allocEmptyAt_genericPtr_mono (ptr : GenericPtr) (heq : allocEmptyAt ctx addr = some (ctx', ptr')) :

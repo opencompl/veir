@@ -1946,18 +1946,6 @@ def Sim.BlockPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo) (numArgs :
 def Sim.BlockPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (capArguments : Nat) (address : UInt64) : Option (Veir.IRContext OpInfo × Veir.BlockPtr) :=
   BlockPtr.allocEmptyAtAddress ctx capArguments address.toNat
 
-@[inline]
-def Sim.BlockPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (numArgs : UInt64) : Option (Sim.BlockPtr × Sim.IRContext OpInfo) :=
-  -- `numArgs` bound needed by `allocEmptyImpl`.
-  if hnumArgs : numArgs.toNat ≤ Buffed.countCard then
-    match allocEmptyImpl ctx.buf numArgs hnumArgs with
-    | none => none
-    | some (ctxBuf, ptrImpl) =>
-      let ⟨ctxSpec, ptrSpec⟩ := (allocEmptySpec ctx.spec numArgs.toNat ptrImpl).specGet!
-      some ⟨⟨ptrImpl, ptrSpec⟩, ⟨ctxBuf, ctxSpec, admitted_sim ()⟩⟩
-  else
-    none
-
 theorem Sim.BlockPtr.slot_free (ctx : Sim.IRContext OpInfo) :
     ¬ (⟨ctx.buf.mem.size⟩ : Veir.BlockPtr).InBounds ctx.spec := by
   intro hin
@@ -1965,28 +1953,817 @@ theorem Sim.BlockPtr.slot_free (ctx : Sim.IRContext OpInfo) :
   simp only [TopLevelPtr.range, Veir.BlockPtr.range, Veir.BlockPtr.toFlat, IsIncludedIN] at this
   grind
 
-@[grind! .]
-theorem Sim.BlockPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} numArgs :
+set_option maxHeartbeats 8000000 in
+/-- The `Sim` relation survives an empty-block allocation. -/
+theorem Sim.BlockPtr.allocEmptySim (ctx : Sim.IRContext OpInfo) (numArgs : UInt64)
+    (hnumArgs : numArgs.toNat ≤ Buffed.countCard)
+    {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.BlockMPtr}
+    (heq : Sim.BlockPtr.allocEmptyImpl ctx.buf numArgs hnumArgs = some (ctxBuf, ptrImpl))
+    {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.BlockPtr}
+    (hspec : Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptrImpl.toNat = some (ctxSpec, ptrSpec)) :
+    Veir.Sim (OpInfo := OpInfo) ⟨ctxBuf, ctxSpec⟩ := by
+  simp only [Sim.BlockPtr.allocEmptyImpl] at heq
+  split at heq
+  · exact absurd heq (by simp)
+  · rename_i buf halloc
+    simp only [Option.some.injEq, Prod.mk.injEq] at heq
+    -- Keep `ctxBuf` abstract (do NOT substitute the giant 7-write tower): bind the tower to
+    -- `hctxBuf` so `prove_allocBounds` is elaborated ONCE here, not re-run per read-bridge.
+    obtain ⟨hctxBuf, rfl⟩ := heq
+    -- Size bookkeeping: the buffer grows by `computeBlockSize numArgs = 56 + numArgs*32` bytes.
+    have hu := ctx.buf.usize_toNat
+    have hs := ctx.buf.size_def
+    have hgrow := ctx.buf.alloc_size halloc
+    have hfits := buf.mem.fits_in_memory
+    have hbsize := Buffed.BlockMPtr.computeBlockSize_toNat numArgs hnumArgs
+    have hsize : ctx.buf.mem.size < 2 ^ 63 := by
+      simp only [Buffed.IRBufContext.size_def, Int64.maxNatValue] at *; omega
+    -- Spec characterization: the new block is at the old buffer end.
+    have hptr := Veir.BlockPtr.allocEmptyAtAddress_ptr hspec
+    have hlay := Veir.BlockPtr.allocEmptyAtAddress_preservesLayout hspec
+    -- Uniform preservation: reads entirely below the old buffer end are unchanged.
+    have hsizeAlloc : buf.size = ctx.buf.size + (Buffed.BlockMPtr.computeBlockSize numArgs).toUInt64.toNat := hgrow
+    have hread : ∀ (a : UInt64), a.toNat + 8 ≤ ctx.buf.mem.size →
+        ctxBuf.mem.read64! a
+        = ctx.buf.mem.read64! a := by
+      intro a ha
+      rw [← hctxBuf]; clear hctxBuf
+      -- Every blit is at `usize + off` (off ≥ 0) ≥ old buffer end, so disjoint from `[a, a+8) ⊆ [0, mem.size)`.
+      have hab : a.toNat + 8 ≤ ctx.buf.usize.toNat := by grind
+      simp only [Buffed.IRBufContext.alloc] at halloc
+      split at halloc
+      · simp only [Option.some.injEq] at halloc
+        subst halloc
+        simp only [Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp,
+          Buffed.BlockMPtr.writeParent, Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev,
+          Buffed.BlockMPtr.writeFirstUse, Buffed.BlockMPtr.writeNumArguments]
+        rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; grind),
+          ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; grind),
+          ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; grind),
+          ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; grind),
+          ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; grind),
+          ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; grind),
+          ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; grind),
+          ExArray.read64!_extend]
+        grind
+      · exact absurd halloc (by simp)
+    have hread32 : ∀ (a : UInt64), a.toNat + 4 ≤ ctx.buf.mem.size →
+        ctxBuf.mem.read32! a
+        = ctx.buf.mem.read32! a := by
+      intro a ha
+      rw [← hctxBuf]; clear hctxBuf
+      have hab : a.toNat + 4 ≤ ctx.buf.usize.toNat := by grind
+      have husz63 : ctx.buf.usize.toNat < 2 ^ 63 := by grind
+      -- `.toNat` of every write address `usize + off` (off an Int64 in [0,48], no wraparound).
+      have ek : ∀ (off : Int64), 0 ≤ off.toInt → off.toInt ≤ 48 →
+          a.toNat + 4 ≤ (ctx.buf.usize + off).toNat := by
+        intro off h0 h48
+        rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+      have hincl : IsIncluded (a.toNat...(a.toNat + 4)) ctx.buf.mem.range := by
+        simp only [IsIncluded]; grind [ExArray.range_lower, ExArray.range_upper]
+      simp only [Buffed.IRBufContext.alloc] at halloc
+      split at halloc
+      · simp only [Option.some.injEq] at halloc
+        subst halloc
+        simp only [Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp,
+          Buffed.BlockMPtr.writeParent, Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev,
+          Buffed.BlockMPtr.writeFirstUse, Buffed.BlockMPtr.writeNumArguments]
+        rw [ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have := ek Buffed.Block.Offsets.lastOp (by decide) (by decide); omega),
+          ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have := ek Buffed.Block.Offsets.firstOp (by decide) (by decide); omega),
+          ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have := ek Buffed.Block.Offsets.parent (by decide) (by decide); omega),
+          ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have := ek Buffed.Block.Offsets.next (by decide) (by decide); omega),
+          ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have := ek Buffed.Block.Offsets.prev (by decide) (by decide); omega),
+          ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have := ek Buffed.Block.Offsets.firstUse (by decide) (by decide); omega),
+          ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have := ek Buffed.Block.Offsets.numArguments (by decide) (by decide); omega),
+          ExArray.read32!_extend _ _ _ _ hincl]
+      · exact absurd halloc (by simp)
+    have hattr : ctxBuf.attributes
+        = ctx.buf.attributes := by
+      rw [← hctxBuf]; clear hctxBuf
+      simp only [Buffed.IRBufContext.alloc] at halloc
+      split at halloc
+      · simp only [Option.some.injEq] at halloc
+        subst halloc
+        simp only [Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp,
+          Buffed.BlockMPtr.writeParent, Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev,
+          Buffed.BlockMPtr.writeFirstUse, Buffed.BlockMPtr.writeNumArguments]
+      · exact absurd halloc (by simp)
+    -- `ctxSpec.IsRepr`: the pre-context is representable and inserting an empty block preserves it.
+    -- Proven once here so that `in_bounds` (new-block case) can reuse it via `after_ideal`.
+    -- The new block's own `IsRepr` (`toFlat ≤ maxNatValue`): its address is the old buffer end.
+    have hptrrepr : ptrSpec.IsRepr := by
+      simp only [Veir.BlockPtr.IsRepr, Veir.BlockPtr.toFlat, hptr, Int64.maxNatValue] at *
+      omega
+    have hnewrepr : ctxSpec.IsRepr :=
+      BlockPtr.allocEmptyAtAddress_fieldsIsRepr hspec (by simpa using hnumArgs) hptrrepr ctx.sim.repr
+    constructor
+    · -- fieldsInBounds (spec only)
+      exact Veir.BlockPtr.allocEmptyAtAddress_fieldsInBounds hspec ctx.sim.fieldsInBounds
+    · -- repr (spec only)
+      exact hnewrepr
+    · -- in_bounds
+      intro ptr hib
+      rw [← hctxBuf]; clear hctxBuf
+      simp only [Buffed.BlockMPtr.writeLastOp_range, Buffed.BlockMPtr.writeFirstOp_range,
+        Buffed.BlockMPtr.writeParent_range, Buffed.BlockMPtr.writeNext_range,
+        Buffed.BlockMPtr.writePrev_range, Buffed.BlockMPtr.writeFirstUse_range,
+        Buffed.BlockMPtr.writeNumArguments_range]
+      have hbufrange : buf.mem.range = 0...(ctx.buf.mem.size + (Buffed.BlockMPtr.computeBlockSize numArgs).toUInt64.toNat) := by
+        simp only [Buffed.IRBufContext.alloc] at halloc
+        split at halloc
+        · simp only [Option.some.injEq] at halloc
+          subst halloc
+          simp only [ExArray.extend_range]
+        · exact absurd halloc (by simp)
+      rw [hbufrange]
+      cases ptr with
+      | operation op =>
+        have holdib : op.InBounds ctx.spec := by
+          have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.operation op) hspec).mp (by simpa using hib)
+          grind
+        have hin := ctx.sim.in_bounds (.operation op) (by simpa using holdib)
+        have hrange : op.range ctxSpec = op.range ctx.spec :=
+          (LayoutPreserved.same_operationPtr_range op holdib hlay).symm
+        simp only [TopLevelPtr.range, IsIncludedIN, hrange] at hin ⊢
+        grind
+      | block bl =>
+        rcases (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.block bl) hspec).mp (by simpa using hib)
+          with hold | hnew | hfu
+        · have holdib : bl.InBounds ctx.spec := by simpa using hold
+          have hin := ctx.sim.in_bounds (.block bl) (by simpa using holdib)
+          have hrange : bl.range ctxSpec = bl.range ctx.spec :=
+            (LayoutPreserved.same_blockPtr_range bl holdib hlay).symm
+          simp only [TopLevelPtr.range, IsIncludedIN, hrange] at hin ⊢
+          grind
+        · -- new block = ptrSpec at [usize, usize + Block.after) ⊆ [0, size + computeBlockSize).
+          simp only [GenericPtr.block.injEq] at hnew
+          subst bl
+          -- The new block is in bounds in the new context, and is `Block.empty numArgs.toNat`,
+          -- so its `after` offset equals `computeBlockSize numArgs = 56 + numArgs*32`.
+          have hnewib : ptrSpec.InBounds ctxSpec := by
+            have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.block ptrSpec) hspec).mpr
+              (Or.inr (Or.inl rfl))
+            simpa using this
+          have hget : ptrSpec.get! ctxSpec = Block.empty numArgs.toNat := by
+            have := BlockPtr.get!_BlockPtr_allocEmptyAtAddress (block := ptrSpec) hspec
+            simpa using this
+          have hcap : (ptrSpec.get! ctxSpec).capArguments = numArgs.toNat := by
+            simp only [hget, Veir.Block.empty]
+          -- `afterInt = argumentsInt(=56) + capArguments*32 = 56 + numArgs*32 = computeBlockSize`.
+          have hargInt : (Buffed.Block.Offsets.argumentsInt : Int) = 56 := by decide
+          have hbaseNat : Buffed.Block.sizeBaseNat = 56 := by decide
+          have hszNat : Buffed.BlockArgument.sizeNat = 32 := by decide
+          have hargNat : Buffed.Block.Sizes.argumentsNat ptrSpec ctxSpec = numArgs.toNat * 32 := by
+            simp only [Buffed.Block.Sizes.argumentsNat, hcap, hszNat]
+          have hafterInt : Buffed.Block.Offsets.afterInt ptrSpec ctxSpec
+              = ((Buffed.BlockMPtr.computeBlockSize numArgs).toUInt64.toNat : Int) := by
+            rw [hbsize, hbaseNat, hszNat,
+              show Buffed.Block.Offsets.afterInt ptrSpec ctxSpec
+                = (Buffed.Block.Offsets.argumentsInt : Int) + (Buffed.Block.Sizes.argumentsNat ptrSpec ctxSpec : Int)
+                from rfl,
+              hargInt, hargNat]
+            omega
+          -- The new block's ideal upper bound: usize + (56 + numArgs*32) = usize + computeBlockSize.
+          -- Rewrite `afterInt` (via hafterInt) BEFORE unfolding `ptrSpec` (hptr), else the LHS won't match.
+          have hupper : (ptrSpec.rangeInt ctxSpec).upper
+              = (ctx.buf.mem.size : Int) + (Buffed.BlockMPtr.computeBlockSize numArgs).toUInt64.toNat := by
+            simp only [Veir.BlockPtr.rangeInt, Veir.BlockPtr.toFlat, Buffed.Block.rangeInt,
+              add_nat_range_def, hafterInt]
+            simp only [hptr]
+            omega
+          have hlower : (ptrSpec.rangeInt ctxSpec).lower = (ctx.buf.mem.size : Int) := by
+            simp only [Veir.BlockPtr.rangeInt, Veir.BlockPtr.toFlat, Buffed.Block.rangeInt,
+              add_nat_range_def, hptr]
+            omega
+          have hrangeInt : ptrSpec.range ctxSpec = ptrSpec.rangeInt ctxSpec :=
+            BlockPtr.range_ideal hnewrepr hnewib
+          simp only [TopLevelPtr.range, hrangeInt, IsIncludedIN, hlower, hupper]
+          refine ⟨by omega, by omega⟩
+        · exact absurd hfu (by simp)
+      | region rg =>
+        have holdib : rg.InBounds ctx.spec := by
+          have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.region rg) hspec).mp (by simpa using hib)
+          grind
+        have hin := ctx.sim.in_bounds (.region rg) (by simpa using holdib)
+        simp only [TopLevelPtr.range, RegionPtr.range, RegionPtr.toFlat, IsIncludedIN] at hin ⊢
+        grind
+    · -- disjoint_allocs
+      clear hctxBuf
+      -- Old ptrs keep their ranges (LayoutPreserved) and sit in `[0, size)`; the new block
+      -- sits at `[size, size + computeBlockSize)`, hence disjoint from every old range.
+      have hrange : ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
+          p.range ctxSpec = p.range ctx.spec := by
+        intro p hp
+        cases p with
+        | operation op => exact LayoutPreserved.same_operationPtr_range op (by simpa using hp) hlay |>.symm
+        | block bl => exact LayoutPreserved.same_blockPtr_range bl (by simpa using hp) hlay |>.symm
+        | region rg => rfl
+      have hupper : ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
+          (p.range ctxSpec).upper ≤ ctx.buf.mem.size := by
+        intro p hp
+        have hin := ctx.sim.in_bounds p hp
+        rw [hrange p hp]
+        simp only [IsIncludedIN] at hin
+        simp only [ExArray.range_lower, ExArray.range_upper] at hin
+        omega
+      -- Membership in the new context: an old top-level ptr, or the fresh block.
+      have hmem : ∀ (p : TopLevelPtr), p.InBounds ctxSpec →
+          p.InBounds ctx.spec ∨ p = .block ptrSpec := by
+        intro p hp
+        cases p with
+        | operation op =>
+          rcases (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.operation op) hspec).mp (by simpa using hp)
+            with h | h | h
+          · exact Or.inl (by simpa using h)
+          · exact absurd h (by simp)
+          · exact absurd h (by simp)
+        | block bl =>
+          rcases (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.block bl) hspec).mp (by simpa using hp)
+            with h | h | h
+          · exact Or.inl (by simpa using h)
+          · exact Or.inr (by simp only [GenericPtr.block.injEq] at h; grind)
+          · exact absurd h (by simp)
+        | region rg =>
+          rcases (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.region rg) hspec).mp (by simpa using hp)
+            with h | h | h
+          · exact Or.inl (by simpa using h)
+          · exact absurd h (by simp)
+          · exact absurd h (by simp)
+      -- The fresh block's range lower bound is `usize.toNat = size`.
+      have hnewlow : (Veir.BlockPtr.range ptrSpec ctxSpec).lower = (ctx.buf.mem.size : Int) := by
+        simp only [Veir.BlockPtr.range, Veir.BlockPtr.toFlat, Buffed.Block.range, hptr,
+          add_nat_range_def]
+        grind
+      intro p1 p2 hib1 hib2 hne
+      simp only [IsDisjointI]
+      rcases hmem p1 hib1 with ho1 | hn1 <;> rcases hmem p2 hib2 with ho2 | hn2
+      · have hdis := ctx.sim.disjoint_allocs p1 p2 ho1 ho2 hne
+        simp only [IsDisjointI, hrange p1 ho1, hrange p2 ho2] at hdis ⊢
+        exact hdis
+      · subst hn2
+        have hu := hupper p1 ho1
+        left
+        simp only [TopLevelPtr.range] at hnewlow ⊢
+        rw [hnewlow]
+        exact_mod_cast hu
+      · subst hn1
+        have hu := hupper p2 ho2
+        right
+        simp only [TopLevelPtr.range] at hnewlow ⊢
+        rw [hnewlow]
+        exact_mod_cast hu
+      · subst hn1; subst hn2
+        exact absurd rfl hne
+    · -- encoding_op
+      clear hctxBuf
+      intro op opIb
+      have holdib : op.InBounds ctx.spec := by
+        have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.operation op) hspec).mp (by simpa using opIb)
+        grind
+      have henc := ctx.sim.encoding_op op holdib
+      have hinb := ctx.sim.in_bounds (.operation op) (by simpa using holdib)
+      simp only [TopLevelPtr.range, Veir.OperationPtr.range, IsIncludedIN, ExArray.range_upper] at hinb
+      have hopM : op.toM.toNat = op.toFlat := by
+        simp only [Veir.OperationPtr.toM]
+        grind [Nat.toUInt64_eq, UInt64.toNat_ofNat']
+      have hro8 : ∀ (off : Int64), 0 ≤ off.toInt →
+          op.toFlat + off.toInt + 8 ≤ (op.toFlat + Buffed.Operation.range op ctx.spec).upper →
+          ctxBuf.mem.read64!
+            (op.toM + off)
+          = ctx.buf.mem.read64! (op.toM + off) := by
+        intro off hoff hoff2
+        apply hread
+        rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+      have hro4 : ∀ (off : Int64), 0 ≤ off.toInt →
+          op.toFlat + off.toInt + 4 ≤ (op.toFlat + Buffed.Operation.range op ctx.spec).upper →
+          ctxBuf.mem.read32!
+            (op.toM + off)
+          = ctx.buf.mem.read32! (op.toM + off) := by
+        intro off hoff hoff2
+        apply hread32
+        rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+      have hget : Veir.OperationPtr.get! op ctxSpec = Veir.OperationPtr.get! op ctx.spec := by grind
+      constructor
+      · -- MatchesBase
+        constructor
+        · have := henc.prev
+          simp only [Buffed.OperationMPtr.readPrev!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.prev (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.next
+          simp only [Buffed.OperationMPtr.readNext!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.next (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.parent
+          simp only [Buffed.OperationMPtr.readParent!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.parent (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.opType
+          simp only [Buffed.OperationMPtr.readOpType!] at this ⊢
+          rw [hro4 Buffed.Operation.Offsets.opType (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.attrs
+          simp only [Buffed.OperationMPtr.readAttrs!, hattr] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.attrs (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+      · -- MatchesBlockOperands
+        constructor
+        · have := henc.numBlockOperands
+          simp only [Buffed.OperationMPtr.readNumBlockOperands!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.numBlockOperands (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · intro bo boIb heq
+          have boIb' : bo.InBounds ctx.spec := by
+            have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.blockOperand bo) hspec).mp (by simpa using boIb)
+            grind
+          have := henc.blockOperands bo boIb' heq
+          have hboMeq : bo.toM ctxSpec = bo.toM ctx.spec := by
+            simp only [Veir.BlockOperandPtr.toM, Veir.BlockOperandPtr.toFlat]
+            grind [layout_grind]
+          have hbogeteq : bo.get! ctxSpec = bo.get! ctx.spec := by grind
+          have haft := Sim.BlockOperandPtr.after_lt_ctx (ctx := ctx) bo boIb'
+          have hboM : (bo.toM ctx.spec).toNat = bo.toFlat ctx.spec := by
+            simp only [Veir.BlockOperandPtr.toM]
+            grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.BlockOperandPtr.toFlat]
+          have hbo : ∀ (off : Int64), 0 ≤ off.toInt →
+              off.toInt + 8 ≤ Buffed.BlockOperand.Offsets.afterInt →
+              ctxBuf.mem.read64!
+                ((bo.toM ctx.spec) + off)
+              = ctx.buf.mem.read64! ((bo.toM ctx.spec) + off) := by
+            intro off hoff hoff2
+            apply hread
+            rw [UInt64.uint64_add_int64_toNat_lt] <;>
+              simp only [Buffed.IRBufContext.size_def] at haft <;> grind
+          constructor
+          · have := this.nextUse
+            simp only [Buffed.BlockOperandMPtr.readNextUse!, hboMeq, hbogeteq] at this ⊢
+            rw [hbo Buffed.BlockOperand.Offsets.nextUse (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.back
+            simp only [Buffed.BlockOperandMPtr.readBack!, hboMeq, hbogeteq] at this ⊢
+            rw [hbo Buffed.BlockOperand.Offsets.back (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.owner
+            simp only [Buffed.BlockOperandMPtr.readOwner!, hboMeq, hbogeteq] at this ⊢
+            rw [hbo Buffed.BlockOperand.Offsets.owner (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.value
+            simp only [Buffed.BlockOperandMPtr.readValue!, hboMeq, hbogeteq] at this ⊢
+            rw [hbo Buffed.BlockOperand.Offsets.value (by decide) (by decide)]
+            grind [layout_grind]
+      · -- MatchesRegions
+        have hoff8n : Buffed.OperationMPtr.readNumOperands!
+            ctxBuf op.toM
+            = Buffed.OperationMPtr.readNumOperands! ctx.buf op.toM := by
+          simp only [Buffed.OperationMPtr.readNumOperands!]
+          rw [hro8 Buffed.Operation.Offsets.numOperands (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+        have hoff8b : Buffed.OperationMPtr.readNumBlockOperands!
+            ctxBuf op.toM
+            = Buffed.OperationMPtr.readNumBlockOperands! ctx.buf op.toM := by
+          simp only [Buffed.OperationMPtr.readNumBlockOperands!]
+          rw [hro8 Buffed.Operation.Offsets.numBlockOperands (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+        have hoff4t : Buffed.OperationMPtr.readOpType!
+            ctxBuf op.toM
+            = Buffed.OperationMPtr.readOpType! ctx.buf op.toM := by
+          simp only [Buffed.OperationMPtr.readOpType!]
+          rw [hro4 Buffed.Operation.Offsets.opType (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+        have hcro : Buffed.OperationMPtr.computeRegionsOffset!
+            ctxBuf op.toM
+            = Buffed.OperationMPtr.computeRegionsOffset! ctx.buf op.toM := by
+          simp only [Buffed.OperationMPtr.computeRegionsOffset!,
+            Buffed.OperationMPtr.computeBlockOperandsOffset!, Buffed.OperationMPtr.computeOperandsOffset!,
+            hoff8n, hoff8b, hoff4t]
+        constructor
+        · have := henc.numRegions
+          simp only [Buffed.OperationMPtr.readNumRegions!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.numRegions (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · intro idx idxIn
+          have := henc.regions idx (by grind)
+          have hgetreg : op.getRegion! ctxSpec idx = op.getRegion! ctx.spec idx := by grind
+          have hnth : Buffed.OperationMPtr.readNthRegion!
+              ctxBuf op.toM idx.toUInt64
+              = Buffed.OperationMPtr.readNthRegion! ctx.buf op.toM idx.toUInt64 := by
+            simp only [Buffed.OperationMPtr.readNthRegion!, Buffed.OperationMPtr.computeRegionOffset!, hcro]
+            have hii := ctx.sim.repr.operations_indices op holdib |>.capRegions
+            have hlt := Sim.OperationPtr.after_lt_ctx (ctx := ctx) op holdib
+            apply hread
+            rw [UInt64.uint64_add_int64_toNat_lt] <;>
+              grind [layout_grind, OperationPtr.computeRegionsOffset!_ideal, UInt64.toNat_mul]
+          rw [hnth, hgetreg]
+          exact this
+      · -- MatchesOperands
+        constructor
+        · have := henc.numOperands
+          simp only [Buffed.OperationMPtr.readNumOperands!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.numOperands (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · intro oper operIb heq
+          have operIb' : oper.InBounds ctx.spec := by
+            have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.opOperand oper) hspec).mp (by simpa using operIb)
+            grind
+          have := henc.operands oper operIb' heq
+          have hoMeq : oper.toM ctxSpec = oper.toM ctx.spec := by
+            simp only [Veir.OpOperandPtr.toM, Veir.OpOperandPtr.toFlat]; grind [layout_grind]
+          have hogeteq : oper.get! ctxSpec = oper.get! ctx.spec := by grind
+          have haft := Sim.OpOperandPtr.after_lt_ctx (ctx := ctx) oper operIb'
+          have hoM : (oper.toM ctx.spec).toNat = oper.toFlat ctx.spec := by
+            simp only [Veir.OpOperandPtr.toM]
+            grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.OpOperandPtr.toFlat]
+          have ho : ∀ (off : Int64), 0 ≤ off.toInt →
+              off.toInt + 8 ≤ Buffed.OpOperand.Offsets.afterInt →
+              ctxBuf.mem.read64!
+                ((oper.toM ctx.spec) + off)
+              = ctx.buf.mem.read64! ((oper.toM ctx.spec) + off) := by
+            intro off hoff hoff2
+            apply hread
+            rw [UInt64.uint64_add_int64_toNat_lt] <;>
+              simp only [Buffed.IRBufContext.size_def] at haft <;> grind
+          constructor
+          · have := this.nextUse
+            simp only [Buffed.OpOperandMPtr.readNextUse!, hoMeq, hogeteq] at this ⊢
+            rw [ho Buffed.OpOperand.Offsets.nextUse (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.back
+            simp only [Buffed.OpOperandMPtr.readBack!, hoMeq, hogeteq] at this ⊢
+            rw [ho Buffed.OpOperand.Offsets.back (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.owner
+            simp only [Buffed.OpOperandMPtr.readOwner!, hoMeq, hogeteq] at this ⊢
+            rw [ho Buffed.OpOperand.Offsets.owner (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.value
+            simp only [Buffed.OpOperandMPtr.readValue!, hoMeq, hogeteq] at this ⊢
+            rw [ho Buffed.OpOperand.Offsets.value (by decide) (by decide)]
+            grind [layout_grind]
+      · -- MatchesResults
+        constructor
+        · have := henc.numResults
+          simp only [Buffed.OperationMPtr.readNumResults!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.numResults (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · intro res resIb heq
+          have resIb' : res.InBounds ctx.spec := by
+            have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.opResult res) hspec).mp (by simpa using resIb)
+            grind
+          have := henc.results res resIb' heq
+          have hrMeq : res.toM ctxSpec = res.toM ctx.spec := by
+            simp only [Veir.OpResultPtr.toM, Veir.OpResultPtr.toFlat]; grind [layout_grind]
+          have hrgeteq : res.get! ctxSpec = res.get! ctx.spec := by grind
+          have haft := Sim.OpResultPtr.after_lt_ctx (ctx := ctx) res resIb'
+          have hrM : (res.toM ctx.spec).toNat = res.toFlat ctx.spec := by
+            simp only [Veir.OpResultPtr.toM]
+            grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.OpResultPtr.toFlat]
+          have hr : ∀ (off : Int64), 0 ≤ off.toInt →
+              off.toInt + 8 ≤ Buffed.OpResult.Offsets.afterInt →
+              ctxBuf.mem.read64!
+                ((res.toM ctx.spec) + off)
+              = ctx.buf.mem.read64! ((res.toM ctx.spec) + off) := by
+            intro off hoff hoff2
+            apply hread
+            rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+          have hr0 : ctxBuf.mem.read64!
+                (res.toM ctx.spec)
+              = ctx.buf.mem.read64! (res.toM ctx.spec) := by
+            have := hr 0 (by decide) (by decide)
+            simpa using this
+          constructor
+          · have := this.kind
+            simp only [Veir.ValuePtr.toM_opResult, Buffed.ValueImplMPtr.readType!, hrMeq] at this ⊢
+            rw [hr0]; exact this
+          · have := this.typee
+            simp only [Buffed.OpResultMPtr.readType!, hrMeq, hrgeteq, hattr] at this ⊢
+            rw [hr0]; exact this
+          · have := this.firstUse
+            simp only [Buffed.OpResultMPtr.readFirstUse!, hrMeq, hrgeteq] at this ⊢
+            rw [hr Buffed.ValueImpl.Offsets.firstUse (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.index
+            simp only [Buffed.OpResultMPtr.readIndex!, hrMeq, hrgeteq] at this ⊢
+            rw [hr Buffed.OpResult.Offsets.index (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.owner
+            simp only [Buffed.OpResultMPtr.readOwner!, hrMeq, hrgeteq] at this ⊢
+            rw [hr Buffed.OpResult.Offsets.owner (by decide) (by decide)]
+            grind [layout_grind]
+    · -- encoding_block
+      intro blk blkIb
+      rcases (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.block blk) hspec).mp (by simpa using blkIb)
+        with hold | hnew | hfu
+      · -- Old block: reads unchanged (hread) and get! preserved.
+        clear hctxBuf
+        have holdib : blk.InBounds ctx.spec := by simpa using hold
+        have henc := ctx.sim.encoding_block blk holdib
+        have hblkgeteq : blk.get! ctxSpec = blk.get! ctx.spec := by grind
+        have haft := Sim.BlockPtr.after_lt_ctx (ctx := ctx) blk holdib
+        have hblkM : blk.toM.toNat = blk.toFlat := by
+          simp only [Veir.BlockPtr.toM]
+          grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.BlockPtr.toFlat]
+        have hb : ∀ (off : Int64), 0 ≤ off.toInt →
+            blk.toFlat + off.toInt + 8 ≤ blk.id + Buffed.Block.Offsets.afterInt blk ctx.spec →
+            ctxBuf.mem.read64!
+              (blk.toM + off)
+            = ctx.buf.mem.read64! (blk.toM + off) := by
+          intro off hoff hoff2
+          apply hread
+          rw [UInt64.uint64_add_int64_toNat_lt] <;>
+            simp only [Buffed.IRBufContext.size_def] at haft <;>
+            simp only [Veir.BlockPtr.toFlat] at * <;> grind
+        constructor
+        · -- MatchesBase
+          constructor
+          · have := henc.firstUse
+            simp only [Buffed.BlockMPtr.readFirstUse!, hblkgeteq] at this ⊢
+            rw [hb Buffed.Block.Offsets.firstUse (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+            grind [layout_grind]
+          · have := henc.prev
+            simp only [Buffed.BlockMPtr.readPrev!, hblkgeteq] at this ⊢
+            rw [hb Buffed.Block.Offsets.prev (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+            grind [layout_grind]
+          · have := henc.next
+            simp only [Buffed.BlockMPtr.readNext!, hblkgeteq] at this ⊢
+            rw [hb Buffed.Block.Offsets.next (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+            grind [layout_grind]
+          · have := henc.parent
+            simp only [Buffed.BlockMPtr.readParent!, hblkgeteq] at this ⊢
+            rw [hb Buffed.Block.Offsets.parent (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+            grind [layout_grind]
+          · have := henc.firstOp
+            simp only [Buffed.BlockMPtr.readFirstOp!, hblkgeteq] at this ⊢
+            rw [hb Buffed.Block.Offsets.firstOp (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+            grind [layout_grind]
+          · have := henc.lastOp
+            simp only [Buffed.BlockMPtr.readLastOp!, hblkgeteq] at this ⊢
+            rw [hb Buffed.Block.Offsets.lastOp (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+            grind [layout_grind]
+        · -- MatchesArguments
+          constructor
+          · have := henc.numArguments
+            simp only [Buffed.BlockMPtr.readNumArguments!, hblkgeteq] at this ⊢
+            rw [hb Buffed.Block.Offsets.numArguments (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+            grind [layout_grind]
+          · intro arg argIn heq
+            have argIb' : arg.InBounds ctx.spec := by
+              have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.blockArgument arg) hspec).mp (by simpa using argIn)
+              grind
+            have := henc.arguments arg argIb' heq
+            have hageteq : arg.get! ctxSpec = arg.get! ctx.spec := by grind
+            have haaft := Sim.BlockArgumentPtr.after_lt_ctx (ctx := ctx) arg argIb'
+            have haM : arg.toM.toNat = arg.toFlat := by
+              simp only [Veir.BlockArgumentPtr.toM]
+              grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.BlockArgumentPtr.toFlat]
+            have ha : ∀ (off : Int64), 0 ≤ off.toInt →
+                off.toInt + 8 ≤ Buffed.BlockArgument.Offsets.afterInt →
+                ctxBuf.mem.read64!
+                  (arg.toM + off)
+                = ctx.buf.mem.read64! (arg.toM + off) := by
+              intro off hoff hoff2
+              apply hread
+              rw [UInt64.uint64_add_int64_toNat_lt] <;>
+                simp only [Buffed.IRBufContext.size_def] at haaft <;> grind
+            have ha0 : ctxBuf.mem.read64!
+                  arg.toM
+                = ctx.buf.mem.read64! arg.toM := by
+              have := ha 0 (by decide) (by decide)
+              simpa using this
+            constructor
+            · have := this.kind
+              simp only [Veir.ValuePtr.toM_blockArgument, Buffed.ValueImplMPtr.readType!] at this ⊢
+              rw [ha0]; exact this
+            · have := this.type
+              simp only [Buffed.BlockArgumentMPtr.readType!, hageteq, hattr] at this ⊢
+              rw [ha0]; exact this
+            · have := this.firstUse
+              simp only [Buffed.BlockArgumentMPtr.readFirstUse!, hageteq] at this ⊢
+              rw [ha Buffed.ValueImpl.Offsets.firstUse (by decide) (by decide)]
+              grind [layout_grind]
+            · have := this.index
+              simp only [Buffed.BlockArgumentMPtr.readIndex!, hageteq] at this ⊢
+              rw [ha Buffed.BlockArgument.Offsets.index (by decide) (by decide)]
+              grind [layout_grind]
+            · have := this.owner
+              simp only [Buffed.BlockArgumentMPtr.readOwner!, hageteq] at this ⊢
+              rw [ha Buffed.BlockArgument.Offsets.owner (by decide) (by decide)]
+              grind [layout_grind]
+      · -- New block = ptrSpec: all 7 fields read the fresh writes (each returning `none`/numArgs).
+        simp only [GenericPtr.block.injEq] at hnew
+        subst blk
+        have hget : Veir.BlockPtr.get! ptrSpec ctxSpec = Block.empty numArgs.toNat := by
+          have := BlockPtr.get!_BlockPtr_allocEmptyAtAddress (block := ptrSpec) hspec
+          simpa using this
+        have htoM : ptrSpec.toM = ctx.buf.usize := by
+          simp only [hptr, BlockPtr.toM, BlockPtr.toFlat]; clear hctxBuf; grind
+        -- Write offsets: firstUse=0, prev=8, next=16, parent=24, firstOp=32, lastOp=40, numArguments=48.
+        have husz : ctx.buf.usize.toNat < 2 ^ 63 := by clear hctxBuf; grind
+        have hmax : (Int64.maxValue.toInt : Int) = 2 ^ 63 - 1 := by decide
+        have a0 : (ctx.buf.usize + Buffed.Block.Offsets.firstUse).toNat = ctx.buf.usize.toNat := by
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> (clear hctxBuf; grind)
+        have a8 : (ctx.buf.usize + Buffed.Block.Offsets.prev).toNat = ctx.buf.usize.toNat + 8 := by
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> (clear hctxBuf; grind)
+        have a16 : (ctx.buf.usize + Buffed.Block.Offsets.next).toNat = ctx.buf.usize.toNat + 16 := by
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> (clear hctxBuf; grind)
+        have a24 : (ctx.buf.usize + Buffed.Block.Offsets.parent).toNat = ctx.buf.usize.toNat + 24 := by
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> (clear hctxBuf; grind)
+        have a32 : (ctx.buf.usize + Buffed.Block.Offsets.firstOp).toNat = ctx.buf.usize.toNat + 32 := by
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> (clear hctxBuf; grind)
+        have a40 : (ctx.buf.usize + Buffed.Block.Offsets.lastOp).toNat = ctx.buf.usize.toNat + 40 := by
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> (clear hctxBuf; grind)
+        have a48 : (ctx.buf.usize + Buffed.Block.Offsets.numArguments).toNat = ctx.buf.usize.toNat + 48 := by
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> (clear hctxBuf; grind)
+        constructor
+        · -- MatchesBase: firstUse/prev/next/parent/firstOp/lastOp all read `none`.
+          constructor
+          · -- firstUse: read at usize+0, hits writeFirstUse (passing writeNumArguments; the tower is
+            -- writeLastOp(...(writeFirstUse(writeNumArguments ...)))), so firstUse is the 2nd-innermost.
+            simp only [← hctxBuf, Sim.OptionBlockOperandPtr.Sim, hget, Block.empty, Buffed.BlockMPtr.readFirstUse!,
+              Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp, Buffed.BlockMPtr.writeParent,
+              Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev, Buffed.BlockMPtr.writeFirstUse,
+              Buffed.BlockMPtr.writeNumArguments, htoM]
+            rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_self]
+            rfl
+          · -- prev: read at usize+8, hits writePrev.
+            simp only [← hctxBuf, Sim.OptionBlockPtr.Sim, hget, Block.empty, Buffed.BlockMPtr.readPrev!,
+              Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp, Buffed.BlockMPtr.writeParent,
+              Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev, Buffed.BlockMPtr.writeFirstUse,
+              Buffed.BlockMPtr.writeNumArguments, htoM]
+            rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_self]
+            rfl
+          · -- next: read at usize+16, hits writeNext.
+            simp only [← hctxBuf, Sim.OptionBlockPtr.Sim, hget, Block.empty, Buffed.BlockMPtr.readNext!,
+              Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp, Buffed.BlockMPtr.writeParent,
+              Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev, Buffed.BlockMPtr.writeFirstUse,
+              Buffed.BlockMPtr.writeNumArguments, htoM]
+            rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_self]
+            rfl
+          · -- parent: read at usize+24, hits writeParent (a region pointer).
+            simp only [← hctxBuf, Sim.OptionRegionPtr.Sim, hget, Block.empty, Buffed.BlockMPtr.readParent!,
+              Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp, Buffed.BlockMPtr.writeParent,
+              Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev, Buffed.BlockMPtr.writeFirstUse,
+              Buffed.BlockMPtr.writeNumArguments, htoM]
+            rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_self]
+            rfl
+          · -- firstOp: read at usize+32, hits writeFirstOp.
+            simp only [← hctxBuf, Sim.OptionOperationPtr.Sim, hget, Block.empty, Buffed.BlockMPtr.readFirstOp!,
+              Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp, Buffed.BlockMPtr.writeParent,
+              Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev, Buffed.BlockMPtr.writeFirstUse,
+              Buffed.BlockMPtr.writeNumArguments, htoM]
+            rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_self]
+            rfl
+          · -- lastOp: read at usize+40, hits writeLastOp (outermost).
+            simp only [← hctxBuf, Sim.OptionOperationPtr.Sim, hget, Block.empty, Buffed.BlockMPtr.readLastOp!,
+              Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp, Buffed.BlockMPtr.writeParent,
+              Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev, Buffed.BlockMPtr.writeFirstUse,
+              Buffed.BlockMPtr.writeNumArguments, htoM]
+            rw [ExArray.read64!_blit64_self]
+            rfl
+        · -- MatchesArguments: numArguments reads numArgs; the arguments loop is vacuous (empty block).
+          constructor
+          · -- numArguments: read at usize+48, hits writeNumArguments (innermost).
+            simp only [← hctxBuf, hget, Block.empty, Buffed.BlockMPtr.readNumArguments!,
+              Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp, Buffed.BlockMPtr.writeParent,
+              Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev, Buffed.BlockMPtr.writeFirstUse,
+              Buffed.BlockMPtr.writeNumArguments, htoM]
+            -- The stored value is `numArgs`; the spec's numArguments = capArguments = numArgs.toNat.
+            rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+              ExArray.read64!_blit64_self]
+          · -- arguments loop: no in-bounds argument exists in an empty block.
+            intro arg argIn heq
+            exfalso
+            -- `arg.InBounds ctxSpec` forces `arg.InBounds ctx.spec` (the insert adds no arguments), but
+            -- `arg.block = ptrSpec` is the fresh block, absent from `ctx.spec` — contradiction.
+            have hold : arg.InBounds ctx.spec := by
+              rcases (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.blockArgument arg) hspec).mp
+                (by simpa using argIn) with h | h | h
+              · simpa using h
+              · exact absurd h (by simp)
+              · exact absurd h (by simp)
+            -- `arg.block ∈ ctx.spec.blocks` (from `arg.InBounds ctx.spec`), but `arg.block = ptrSpec` fresh.
+            rw [Veir.BlockArgumentPtr.inBounds_def] at hold
+            obtain ⟨hbib, _⟩ := hold
+            rw [heq] at hbib
+            -- `ptrSpec = ⟨usize.toNat⟩ = ⟨mem.size⟩`, contradicting `slot_free`.
+            have hpeq : ptrSpec = (⟨ctx.buf.mem.size⟩ : Veir.BlockPtr) := by
+              rw [hptr]; grind
+            rw [hpeq] at hbib
+            exact (Sim.BlockPtr.slot_free ctx) hbib
+      · exact absurd hfu (by simp)
+    · -- encoding_region
+      clear hctxBuf
+      intro rg rgIb
+      have holdib : rg.InBounds ctx.spec := by
+        have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.region rg) hspec).mp (by simpa using rgIb)
+        grind
+      have hgetp : Veir.RegionPtr.get! rg ctxSpec = Veir.RegionPtr.get! rg ctx.spec := by grind
+      have henc := ctx.sim.encoding_region rg holdib
+      have hinb := ctx.sim.in_bounds (.region rg) (by simpa using holdib)
+      simp only [TopLevelPtr.range, Veir.RegionPtr.range, Veir.RegionPtr.toFlat,
+        IsIncludedIN, ExArray.range_upper, Buffed.Region.range] at hinb
+      have hrgM : rg.toM.toNat = rg.id := by
+        simp only [Veir.RegionPtr.toM, Veir.RegionPtr.toFlat]
+        grind [Nat.toUInt64_eq, UInt64.toNat_ofNat']
+      have hafter : (Buffed.Region.Offsets.after.toInt : Int) = 24 := by decide
+      have hrf : ∀ (off : Int64), 0 ≤ off.toInt → off.toInt + 8 ≤ 24 →
+          ctxBuf.mem.read64!
+            (rg.toM + off)
+          = ctx.buf.mem.read64! (rg.toM + off) := by
+        intro off hoff hoff2
+        apply hread
+        rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+      constructor
+      · have := henc.firstBlock
+        simp only [Buffed.RegionMPtr.readFirstBlock!, hgetp]
+        rw [hrf Buffed.Region.Offsets.firstBlock (by decide) (by decide)] at *
+        simpa [Buffed.RegionMPtr.readFirstBlock!] using this
+      · have := henc.lastBlock
+        simp only [Buffed.RegionMPtr.readLastBlock!, hgetp]
+        rw [hrf Buffed.Region.Offsets.lastBlock (by decide) (by decide)] at *
+        simpa [Buffed.RegionMPtr.readLastBlock!] using this
+      · have := henc.parent
+        simp only [Buffed.RegionMPtr.readParent!, hgetp]
+        rw [hrf Buffed.Region.Offsets.parent (by decide) (by decide)] at *
+        simpa [Buffed.RegionMPtr.readParent!] using this
+
+@[inline]
+def Sim.BlockPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (numArgs : UInt64) : Option (Sim.BlockPtr × Sim.IRContext OpInfo) :=
+  -- `numArgs` bound needed by `allocEmptyImpl`.
+  if hnumArgs : numArgs.toNat ≤ Buffed.countCard then
+    match himpl : allocEmptyImpl ctx.buf numArgs hnumArgs with
+    | none => none
+    | some (ctxBuf, ptrImpl) =>
+      -- The spec allocation is always defined here (the target address is fresh), so we extract
+      -- its value without branching on `ctx.spec` — keeping the definition erasable — and recover
+      -- the `= some …` equation from freshness to feed `allocEmptySim`.
+      let specRes := (Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptrImpl.toNat).specGet!
+      have hspec : Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptrImpl.toNat = some specRes := by
+        have hptr : ptrImpl = ctx.buf.usize := by
+          simp only [allocEmptyImpl] at himpl
+          split at himpl <;> grind
+        have hfree := Sim.BlockPtr.slot_free ctx
+        simp only [Veir.BlockPtr.inBounds_def] at hfree
+        have husz := ctx.buf.usize_toNat
+        have hs := ctx.buf.size_def
+        have hsome := Veir.BlockPtr.allocEmptyAtAddress_isSome_of_not_mem
+          (ctx := ctx.spec) (capArguments := numArgs.toNat) (address := ptrImpl.toNat) (by grind)
+        simp only [specRes, Option.specGet!]
+        exact (Option.some_get! _ hsome).symm
+      some ⟨⟨ptrImpl, specRes.2⟩, ⟨ctxBuf, specRes.1, allocEmptySim ctx numArgs hnumArgs himpl hspec⟩⟩
+  else
+    none
+
+/-- Strengthening of `allocEmpty_spec`: the spec-level block is allocated exactly at the
+address of the returned impl pointer. -/
+theorem Sim.BlockPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} numArgs :
     allocEmpty ctx numArgs = some ⟨ptr, ctx'⟩ →
-    ∃ addr, Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:= by
-  have hfree := Sim.BlockPtr.slot_free ctx
-  simp only [Veir.BlockPtr.inBounds_def] at hfree
-  refine fun h => ⟨ctx.buf.mem.size, ?_⟩
-  have hu := ctx.buf.usize_toNat
-  have hs := ctx.buf.size_def
-  simp only [allocEmpty, allocEmptyImpl, allocEmptySpec] at h
+    Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptr.impl.toNat = some ⟨ctx'.spec, ptr.spec⟩ := by
+  intro h
+  simp only [allocEmpty] at h
   split at h
   · rename_i hnumArgs
     split at h
     · exact absurd h (by simp)
-    · rename_i heq
-      split at heq <;> simp_all only [reduceCtorEq, Option.some.injEq, Prod.mk.injEq]
+    · rename_i ctxBuf ptrImpl himpl
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := h
-      obtain ⟨rfl, rfl⟩ := heq
+      -- The remaining goal is `allocEmptyAtAddress … = some (specGet!.fst, specGet!.snd)`.
+      have hptr : ptrImpl = ctx.buf.usize := by
+        simp only [allocEmptyImpl] at himpl
+        split at himpl <;> grind
+      have hfree := Sim.BlockPtr.slot_free ctx
+      simp only [Veir.BlockPtr.inBounds_def] at hfree
+      have husz := ctx.buf.usize_toNat
+      have hs := ctx.buf.size_def
       have hsome := Veir.BlockPtr.allocEmptyAtAddress_isSome_of_not_mem
-        (capArguments := numArgs.toNat) hfree
-      grind
+        (ctx := ctx.spec) (capArguments := numArgs.toNat) (address := ptrImpl.toNat) (by grind)
+      simp only [Option.specGet!]
+      rw [← Option.some_get! _ hsome]
+      simp
   · exact absurd h (by simp)
+
+@[grind! .]
+theorem Sim.BlockPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} numArgs :
+    allocEmpty ctx numArgs = some ⟨ptr, ctx'⟩ →
+    ∃ addr, Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:=
+  fun h => ⟨ptr.impl.toNat, Sim.BlockPtr.allocEmpty_spec' numArgs h⟩
 
 buffed
 def Sim.BlockPtr.setParentSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
@@ -2831,14 +3608,6 @@ def Sim.RegionPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo) : Option 
 def Sim.RegionPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (addr : UInt64) : Option (Veir.IRContext OpInfo × Veir.RegionPtr) :=
   RegionPtr.allocEmptyAt ctx addr.toNat
 
-@[inline]
-def Sim.RegionPtr.allocEmpty (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPtr × Sim.IRContext OpInfo) := do
-  match allocEmptyImpl ctx.buf with
-  | none => none
-  | some (ctxBuf, ptrImpl) =>
-    let ⟨ctxSpec, ptrSpec⟩ := (allocEmptySpec ctx.spec ptrImpl).specGet!
-    some ⟨⟨ptrImpl, ptrSpec⟩, ⟨ctxBuf, ctxSpec, admitted_sim ()⟩⟩
-
 /-- The address at the end of the buffer is free in the spec: a region there would have its
 range escape the buffer, contradicting `in_bounds`. -/
 theorem Sim.RegionPtr.slot_free (ctx : Sim.IRContext OpInfo) :
@@ -2848,25 +3617,748 @@ theorem Sim.RegionPtr.slot_free (ctx : Sim.IRContext OpInfo) :
   simp only [TopLevelPtr.range, Veir.RegionPtr.range, Veir.RegionPtr.toFlat, IsIncludedIN] at this
   grind
 
+set_option maxHeartbeats 4000000 in
+/-- The `Sim` relation survives an empty-region allocation: given that `allocEmptyImpl`
+produced `ctxBuf`/`ptrImpl` and the spec allocated the matching region at `ptrImpl.toNat`,
+the resulting buffer and spec still simulate each other. Discharges the `admitted_sim` that
+`Sim.RegionPtr.allocEmpty` previously used. -/
+theorem Sim.RegionPtr.allocEmptySim (ctx : Sim.IRContext OpInfo)
+    {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.RegionMPtr}
+    (heq : Sim.RegionPtr.allocEmptyImpl ctx.buf = some (ctxBuf, ptrImpl))
+    {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.RegionPtr}
+    (hspec : Veir.RegionPtr.allocEmptyAt ctx.spec ptrImpl.toNat = some (ctxSpec, ptrSpec)) :
+    Veir.Sim (OpInfo := OpInfo) ⟨ctxBuf, ctxSpec⟩ := by
+  -- Extract the impl shape: ctxBuf = 3 writes on the extended buffer, ptrImpl = old usize.
+  simp only [Sim.RegionPtr.allocEmptyImpl] at heq
+  split at heq
+  · exact absurd heq (by simp)
+  · rename_i buf halloc
+    simp only [Option.some.injEq, Prod.mk.injEq] at heq
+    obtain ⟨rfl, rfl⟩ := heq
+    -- Size bookkeeping: the buffer grows by exactly `Region.size = 24` bytes.
+    have hu := ctx.buf.usize_toNat
+    have hs := ctx.buf.size_def
+    have hgrow := ctx.buf.alloc_size halloc
+    have hfits := buf.mem.fits_in_memory
+    have hsize : ctx.buf.mem.size < 2 ^ 63 := by
+      simp only [Buffed.IRBufContext.size_def, Int64.maxNatValue] at *; omega
+    -- Spec characterization: the new region is at the old buffer end, `Region.empty`.
+    have hptr := Veir.RegionPtr.allocEmptyAt_ptr hspec
+    have hlay := (Veir.RegionPtr.allocEmptyAt_preservesLayout hspec).preserves
+    -- Uniform preservation: reads entirely below the old buffer end are unchanged.
+    have hread : ∀ (a : UInt64), a.toNat + 8 ≤ ctx.buf.mem.size →
+        (Buffed.RegionMPtr.writeLastBlock
+          (Buffed.RegionMPtr.writeFirstBlock
+            (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+            ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+          ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64! a
+        = ctx.buf.mem.read64! a := by
+      intro a ha
+      -- Expose `buf.mem = ctx.buf.mem.extend 24`, then the three blits are disjoint from `[a, a+8)`.
+      simp only [Buffed.IRBufContext.alloc] at halloc
+      split at halloc
+      · simp only [Option.some.injEq] at halloc
+        subst halloc
+        simp only [Buffed.RegionMPtr.writeLastBlock, Buffed.RegionMPtr.writeFirstBlock,
+          Buffed.RegionMPtr.writeParent]
+        grind [IsDisjoint, IsIncluded]
+      · exact absurd halloc (by simp)
+    -- read32! preservation: same argument as `hread` but for 4-byte reads (`readOpType!`).
+    have hread32 : ∀ (a : UInt64), a.toNat + 4 ≤ ctx.buf.mem.size →
+        (Buffed.RegionMPtr.writeLastBlock
+          (Buffed.RegionMPtr.writeFirstBlock
+            (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+            ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+          ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read32! a
+        = ctx.buf.mem.read32! a := by
+      intro a ha
+      simp only [Buffed.IRBufContext.alloc] at halloc
+      split at halloc
+      · simp only [Option.some.injEq] at halloc
+        subst halloc
+        simp only [Buffed.RegionMPtr.writeLastBlock, Buffed.RegionMPtr.writeFirstBlock,
+          Buffed.RegionMPtr.writeParent]
+        grind [IsDisjoint, IsIncluded]
+      · exact absurd halloc (by simp)
+    -- The region writes only touch `mem`, never `attributes`.
+    have hattr : (Buffed.RegionMPtr.writeLastBlock
+          (Buffed.RegionMPtr.writeFirstBlock
+            (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+            ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+          ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).attributes
+        = ctx.buf.attributes := by
+      simp only [Buffed.IRBufContext.alloc] at halloc
+      split at halloc
+      · simp only [Option.some.injEq] at halloc
+        subst halloc
+        simp only [Buffed.RegionMPtr.writeLastBlock, Buffed.RegionMPtr.writeFirstBlock,
+          Buffed.RegionMPtr.writeParent]
+      · exact absurd halloc (by simp)
+    constructor
+    · -- fieldsInBounds (spec only)
+      exact Veir.RegionPtr.allocEmptyAt_fieldsInBounds hspec ctx.sim.fieldsInBounds
+    · -- repr (spec only)
+      have hrepr := ctx.sim.repr
+      constructor
+      · intro op hin
+        grind
+      · intro op hin
+        grind
+      · intro blk hin
+        grind
+      · intro blk hin
+        grind
+      · intro rg hin
+        grind
+    · -- in_bounds
+      intro ptr hib
+      simp only [Buffed.RegionMPtr.writeLastBlock_range, Buffed.RegionMPtr.writeFirstBlock_range,
+        Buffed.RegionMPtr.writeParent_range] at hib ⊢
+      -- Goal: IsIncludedIN (ptr.range ctxSpec) buf.mem.range, with buf = ctx.buf extended by 24.
+      have hbufrange : buf.mem.range = 0...(ctx.buf.mem.size + Buffed.Region.size.toNat) := by
+        simp only [Buffed.IRBufContext.alloc] at halloc
+        split at halloc
+        · simp only [Option.some.injEq] at halloc
+          subst halloc
+          simp only [ExArray.extend_range]
+        · exact absurd halloc (by simp)
+      rw [hbufrange]
+      cases ptr with
+      | operation op =>
+        -- Operations are unaffected by a region insert; range preserved, buffer only grew.
+        have holdib : op.InBounds ctx.spec := by
+          have := (RegionPtr.allocEmptyAt_genericPtr_iff (.operation op) hspec).mp (by simpa using hib)
+          grind
+        have hin := ctx.sim.in_bounds (.operation op) (by simpa using holdib)
+        have hrange : op.range ctxSpec = op.range ctx.spec :=
+          (LayoutPreserved.same_operationPtr_range op holdib hlay).symm
+        simp only [TopLevelPtr.range, IsIncludedIN, hrange] at hin ⊢
+        grind
+      | block bl =>
+        have holdib : bl.InBounds ctx.spec := by
+          have := (RegionPtr.allocEmptyAt_genericPtr_iff (.block bl) hspec).mp (by simpa using hib)
+          grind
+        have hin := ctx.sim.in_bounds (.block bl) (by simpa using holdib)
+        have hrange : bl.range ctxSpec = bl.range ctx.spec :=
+          (LayoutPreserved.same_blockPtr_range bl holdib hlay).symm
+        simp only [TopLevelPtr.range, IsIncludedIN, hrange] at hin ⊢
+        grind
+      | region rg =>
+        -- Either an old region (unchanged range) or the freshly allocated one at [size, size+24).
+        rcases (RegionPtr.allocEmptyAt_genericPtr_iff (.region rg) hspec).mp (by simpa using hib)
+          with hold | hnew
+        · have hin := ctx.sim.in_bounds (.region rg) (by simpa using hold)
+          simp only [TopLevelPtr.range, RegionPtr.range, RegionPtr.toFlat, IsIncludedIN] at hin ⊢
+          grind
+        · simp only [GenericPtr.region.injEq] at hnew
+          subst hnew
+          simp only [TopLevelPtr.range, RegionPtr.range, RegionPtr.toFlat, IsIncludedIN, hptr]
+          grind
+    · -- disjoint_allocs
+      -- Range of any top-level ptr is `buf`-independent, so the write-tower drops out.
+      -- Old ptrs keep their ranges (LayoutPreserved) and sit in `[0, size)`; the new region
+      -- sits at `[size, size+24)`, hence disjoint from every old range.
+      have hrange : ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
+          p.range ctxSpec = p.range ctx.spec := by
+        intro p hp
+        cases p with
+        | operation op => exact LayoutPreserved.same_operationPtr_range op (by simpa using hp) hlay |>.symm
+        | block bl => exact LayoutPreserved.same_blockPtr_range bl (by simpa using hp) hlay |>.symm
+        | region rg => rfl
+      -- Every old range's upper bound is at most the old buffer size = the new region's lower.
+      have hupper : ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
+          (p.range ctxSpec).upper ≤ ctx.buf.mem.size := by
+        intro p hp
+        have hin := ctx.sim.in_bounds p hp
+        rw [hrange p hp]
+        simp only [IsIncludedIN] at hin
+        simp only [ExArray.range_lower, ExArray.range_upper] at hin
+        omega
+      -- Membership in the new context: an old top-level ptr, or the fresh region.
+      have hmem : ∀ (p : TopLevelPtr), p.InBounds ctxSpec →
+          p.InBounds ctx.spec ∨ p = .region ptrSpec := by
+        intro p hp
+        cases p with
+        | operation op =>
+          have := (RegionPtr.allocEmptyAt_genericPtr_iff (.operation op) hspec).mp (by simpa using hp)
+          rcases this with h | h
+          · exact Or.inl (by simpa using h)
+          · exact absurd h (by simp)
+        | block bl =>
+          have := (RegionPtr.allocEmptyAt_genericPtr_iff (.block bl) hspec).mp (by simpa using hp)
+          rcases this with h | h
+          · exact Or.inl (by simpa using h)
+          · exact absurd h (by simp)
+        | region rg =>
+          have := (RegionPtr.allocEmptyAt_genericPtr_iff (.region rg) hspec).mp (by simpa using hp)
+          rcases this with h | h
+          · exact Or.inl (by simpa using h)
+          · exact Or.inr (by simp only [GenericPtr.region.injEq] at h; grind)
+      -- The fresh region's range is `[size, size+24)`.
+      have hnewrange : ∀ (rg : Veir.RegionPtr), rg = ptrSpec →
+          (rg.range).lower = (ctx.buf.mem.size : Int) ∧
+          (rg.range).upper = (ctx.buf.mem.size : Int) + Buffed.Region.size.toNat := by
+        intro rg hrg
+        subst hrg
+        simp only [RegionPtr.range, RegionPtr.toFlat, hptr]
+        refine ⟨by grind, by grind⟩
+      intro p1 p2 hib1 hib2 hne
+      simp only [IsDisjointI]
+      rcases hmem p1 hib1 with ho1 | hn1 <;> rcases hmem p2 hib2 with ho2 | hn2
+      · -- both old: use the old disjointness, transported along range preservation
+        have hdis := ctx.sim.disjoint_allocs p1 p2 ho1 ho2 hne
+        simp only [IsDisjointI, hrange p1 ho1, hrange p2 ho2] at hdis ⊢
+        exact hdis
+      · -- p1 old, p2 = new region: old upper ≤ size = new lower
+        subst hn2
+        have hu := hupper p1 ho1
+        have hnl := (hnewrange ptrSpec rfl).1
+        left
+        simp only [TopLevelPtr.range] at hnl ⊢
+        rw [hnl]
+        exact_mod_cast hu
+      · -- p1 = new region, p2 old
+        subst hn1
+        have hu := hupper p2 ho2
+        have hnl := (hnewrange ptrSpec rfl).1
+        right
+        simp only [TopLevelPtr.range] at hnl ⊢
+        rw [hnl]
+        exact_mod_cast hu
+      · -- both = new region: contradicts p1 ≠ p2
+        subst hn1; subst hn2
+        exact absurd rfl hne
+    · -- encoding_op
+      intro op opIb
+      have holdib : op.InBounds ctx.spec := by
+        have := (RegionPtr.allocEmptyAt_genericPtr_iff (.operation op) hspec).mp (by simpa using opIb)
+        grind
+      have henc := ctx.sim.encoding_op op holdib
+      -- op.range ⊆ [0, mem.size): every op field read lands below the old buffer end.
+      have hinb := ctx.sim.in_bounds (.operation op) (by simpa using holdib)
+      simp only [TopLevelPtr.range, Veir.OperationPtr.range, IsIncludedIN, ExArray.range_upper] at hinb
+      -- `op.toM` is `op.id` as a UInt64 (id below buffer size, no truncation).
+      have hopM : op.toM.toNat = op.toFlat := by
+        simp only [Veir.OperationPtr.toM]
+        grind [Nat.toUInt64_eq, UInt64.toNat_ofNat']
+      -- Read bridges specialised to this op: any 8-/4-byte field within `op.range` is preserved.
+      have hro8 : ∀ (off : Int64), 0 ≤ off.toInt →
+          op.toFlat + off.toInt + 8 ≤ (op.toFlat + Buffed.Operation.range op ctx.spec).upper →
+          (Buffed.RegionMPtr.writeLastBlock
+            (Buffed.RegionMPtr.writeFirstBlock
+              (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+              ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+            ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64!
+            (op.toM + off)
+          = ctx.buf.mem.read64! (op.toM + off) := by
+        intro off hoff hoff2
+        apply hread
+        rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+      have hro4 : ∀ (off : Int64), 0 ≤ off.toInt →
+          op.toFlat + off.toInt + 4 ≤ (op.toFlat + Buffed.Operation.range op ctx.spec).upper →
+          (Buffed.RegionMPtr.writeLastBlock
+            (Buffed.RegionMPtr.writeFirstBlock
+              (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+              ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+            ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read32!
+            (op.toM + off)
+          = ctx.buf.mem.read32! (op.toM + off) := by
+        intro off hoff hoff2
+        apply hread32
+        rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+      have hget : Veir.OperationPtr.get! op ctxSpec = Veir.OperationPtr.get! op ctx.spec := by grind
+      constructor
+      · -- MatchesBase
+        constructor
+        · have := henc.prev
+          simp only [Buffed.OperationMPtr.readPrev!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.prev (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.next
+          simp only [Buffed.OperationMPtr.readNext!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.next (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.parent
+          simp only [Buffed.OperationMPtr.readParent!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.parent (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.opType
+          simp only [Buffed.OperationMPtr.readOpType!] at this ⊢
+          rw [hro4 Buffed.Operation.Offsets.opType (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.attrs
+          simp only [Buffed.OperationMPtr.readAttrs!, hattr] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.attrs (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+      · -- MatchesBlockOperands
+        constructor
+        · have := henc.numBlockOperands
+          simp only [Buffed.OperationMPtr.readNumBlockOperands!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.numBlockOperands (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · intro bo boIb heq
+          have boIb' : bo.InBounds ctx.spec := by
+            have := (RegionPtr.allocEmptyAt_genericPtr_iff (.blockOperand bo) hspec).mp (by simpa using boIb)
+            grind
+          have := henc.blockOperands bo boIb' heq
+          -- `bo`'s flat address and stored value are unchanged by the region insert (layout preserved).
+          have hboMeq : bo.toM ctxSpec = bo.toM ctx.spec := by
+            simp only [Veir.BlockOperandPtr.toM, Veir.BlockOperandPtr.toFlat]
+            grind [layout_grind]
+          have hbogeteq : bo.get! ctxSpec = bo.get! ctx.spec := by grind
+          -- Address bound for `bo`: `bo.toFlat + BlockOperand.after ≤ mem.size` (Sim helper).
+          have haft := Sim.BlockOperandPtr.after_lt_ctx (ctx := ctx) bo boIb'
+          have hboM : (bo.toM ctx.spec).toNat = bo.toFlat ctx.spec := by
+            simp only [Veir.BlockOperandPtr.toM]
+            grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.BlockOperandPtr.toFlat]
+          have hbo : ∀ (off : Int64), 0 ≤ off.toInt →
+              off.toInt + 8 ≤ Buffed.BlockOperand.Offsets.afterInt →
+              (Buffed.RegionMPtr.writeLastBlock
+                (Buffed.RegionMPtr.writeFirstBlock
+                  (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                  ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64!
+                ((bo.toM ctx.spec) + off)
+              = ctx.buf.mem.read64! ((bo.toM ctx.spec) + off) := by
+            intro off hoff hoff2
+            apply hread
+            rw [UInt64.uint64_add_int64_toNat_lt] <;>
+              simp only [Buffed.IRBufContext.size_def] at haft <;> grind
+          constructor
+          · have := this.nextUse
+            simp only [Buffed.BlockOperandMPtr.readNextUse!, hboMeq, hbogeteq] at this ⊢
+            rw [hbo Buffed.BlockOperand.Offsets.nextUse (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.back
+            simp only [Buffed.BlockOperandMPtr.readBack!, hboMeq, hbogeteq] at this ⊢
+            rw [hbo Buffed.BlockOperand.Offsets.back (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.owner
+            simp only [Buffed.BlockOperandMPtr.readOwner!, hboMeq, hbogeteq] at this ⊢
+            rw [hbo Buffed.BlockOperand.Offsets.owner (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.value
+            simp only [Buffed.BlockOperandMPtr.readValue!, hboMeq, hbogeteq] at this ⊢
+            rw [hbo Buffed.BlockOperand.Offsets.value (by decide) (by decide)]
+            grind [layout_grind]
+      · -- MatchesRegions
+        -- The regions offset reads numOperands/numBlockOperands/opType, all preserved by hro8/hro4,
+        -- so the whole computed offset — and thus every Nth-region read — is unchanged.
+        have hoff8n : Buffed.OperationMPtr.readNumOperands!
+            (Buffed.RegionMPtr.writeLastBlock
+              (Buffed.RegionMPtr.writeFirstBlock
+                (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+              ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])) op.toM
+            = Buffed.OperationMPtr.readNumOperands! ctx.buf op.toM := by
+          simp only [Buffed.OperationMPtr.readNumOperands!]
+          rw [hro8 Buffed.Operation.Offsets.numOperands (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+        have hoff8b : Buffed.OperationMPtr.readNumBlockOperands!
+            (Buffed.RegionMPtr.writeLastBlock
+              (Buffed.RegionMPtr.writeFirstBlock
+                (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+              ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])) op.toM
+            = Buffed.OperationMPtr.readNumBlockOperands! ctx.buf op.toM := by
+          simp only [Buffed.OperationMPtr.readNumBlockOperands!]
+          rw [hro8 Buffed.Operation.Offsets.numBlockOperands (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+        have hoff4t : Buffed.OperationMPtr.readOpType!
+            (Buffed.RegionMPtr.writeLastBlock
+              (Buffed.RegionMPtr.writeFirstBlock
+                (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+              ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])) op.toM
+            = Buffed.OperationMPtr.readOpType! ctx.buf op.toM := by
+          simp only [Buffed.OperationMPtr.readOpType!]
+          rw [hro4 Buffed.Operation.Offsets.opType (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+        have hcro : Buffed.OperationMPtr.computeRegionsOffset!
+            (Buffed.RegionMPtr.writeLastBlock
+              (Buffed.RegionMPtr.writeFirstBlock
+                (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+              ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])) op.toM
+            = Buffed.OperationMPtr.computeRegionsOffset! ctx.buf op.toM := by
+          simp only [Buffed.OperationMPtr.computeRegionsOffset!,
+            Buffed.OperationMPtr.computeBlockOperandsOffset!, Buffed.OperationMPtr.computeOperandsOffset!,
+            hoff8n, hoff8b, hoff4t]
+        constructor
+        · have := henc.numRegions
+          simp only [Buffed.OperationMPtr.readNumRegions!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.numRegions (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · intro idx idxIn
+          have := henc.regions idx (by grind)
+          have hgetreg : op.getRegion! ctxSpec idx = op.getRegion! ctx.spec idx := by grind
+          -- The Nth-region read commutes: the offset is unchanged (hcro) and the read is below mem.size.
+          have hnth : Buffed.OperationMPtr.readNthRegion!
+              (Buffed.RegionMPtr.writeLastBlock
+                (Buffed.RegionMPtr.writeFirstBlock
+                  (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                  ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])) op.toM idx.toUInt64
+              = Buffed.OperationMPtr.readNthRegion! ctx.buf op.toM idx.toUInt64 := by
+            simp only [Buffed.OperationMPtr.readNthRegion!, Buffed.OperationMPtr.computeRegionOffset!, hcro]
+            have hii := ctx.sim.repr.operations_indices op holdib |>.capRegions
+            have hlt := Sim.OperationPtr.after_lt_ctx (ctx := ctx) op holdib
+            apply hread
+            rw [UInt64.uint64_add_int64_toNat_lt] <;>
+              grind [layout_grind, OperationPtr.computeRegionsOffset!_ideal, UInt64.toNat_mul]
+          rw [hnth, hgetreg]
+          exact this
+      · -- MatchesOperands
+        constructor
+        · have := henc.numOperands
+          simp only [Buffed.OperationMPtr.readNumOperands!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.numOperands (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · intro oper operIb heq
+          have operIb' : oper.InBounds ctx.spec := by
+            have := (RegionPtr.allocEmptyAt_genericPtr_iff (.opOperand oper) hspec).mp (by simpa using operIb)
+            grind
+          have := henc.operands oper operIb' heq
+          have hoMeq : oper.toM ctxSpec = oper.toM ctx.spec := by
+            simp only [Veir.OpOperandPtr.toM, Veir.OpOperandPtr.toFlat]; grind [layout_grind]
+          have hogeteq : oper.get! ctxSpec = oper.get! ctx.spec := by grind
+          have haft := Sim.OpOperandPtr.after_lt_ctx (ctx := ctx) oper operIb'
+          have hoM : (oper.toM ctx.spec).toNat = oper.toFlat ctx.spec := by
+            simp only [Veir.OpOperandPtr.toM]
+            grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.OpOperandPtr.toFlat]
+          have ho : ∀ (off : Int64), 0 ≤ off.toInt →
+              off.toInt + 8 ≤ Buffed.OpOperand.Offsets.afterInt →
+              (Buffed.RegionMPtr.writeLastBlock
+                (Buffed.RegionMPtr.writeFirstBlock
+                  (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                  ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64!
+                ((oper.toM ctx.spec) + off)
+              = ctx.buf.mem.read64! ((oper.toM ctx.spec) + off) := by
+            intro off hoff hoff2
+            apply hread
+            rw [UInt64.uint64_add_int64_toNat_lt] <;>
+              simp only [Buffed.IRBufContext.size_def] at haft <;> grind
+          constructor
+          · have := this.nextUse
+            simp only [Buffed.OpOperandMPtr.readNextUse!, hoMeq, hogeteq] at this ⊢
+            rw [ho Buffed.OpOperand.Offsets.nextUse (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.back
+            simp only [Buffed.OpOperandMPtr.readBack!, hoMeq, hogeteq] at this ⊢
+            rw [ho Buffed.OpOperand.Offsets.back (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.owner
+            simp only [Buffed.OpOperandMPtr.readOwner!, hoMeq, hogeteq] at this ⊢
+            rw [ho Buffed.OpOperand.Offsets.owner (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.value
+            simp only [Buffed.OpOperandMPtr.readValue!, hoMeq, hogeteq] at this ⊢
+            rw [ho Buffed.OpOperand.Offsets.value (by decide) (by decide)]
+            grind [layout_grind]
+      · -- MatchesResults
+        constructor
+        · have := henc.numResults
+          simp only [Buffed.OperationMPtr.readNumResults!] at this ⊢
+          rw [hro8 Buffed.Operation.Offsets.numResults (by decide) (by simp only [Buffed.Operation.range]; grind [layout_grind])]
+          grind [layout_grind]
+        · intro res resIb heq
+          have resIb' : res.InBounds ctx.spec := by
+            have := (RegionPtr.allocEmptyAt_genericPtr_iff (.opResult res) hspec).mp (by simpa using resIb)
+            grind
+          have := henc.results res resIb' heq
+          have hrMeq : res.toM ctxSpec = res.toM ctx.spec := by
+            simp only [Veir.OpResultPtr.toM, Veir.OpResultPtr.toFlat]; grind [layout_grind]
+          have hrgeteq : res.get! ctxSpec = res.get! ctx.spec := by grind
+          have haft := Sim.OpResultPtr.after_lt_ctx (ctx := ctx) res resIb'
+          have hrM : (res.toM ctx.spec).toNat = res.toFlat ctx.spec := by
+            simp only [Veir.OpResultPtr.toM]
+            grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.OpResultPtr.toFlat]
+          have hr : ∀ (off : Int64), 0 ≤ off.toInt →
+              off.toInt + 8 ≤ Buffed.OpResult.Offsets.afterInt →
+              (Buffed.RegionMPtr.writeLastBlock
+                (Buffed.RegionMPtr.writeFirstBlock
+                  (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                  ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64!
+                ((res.toM ctx.spec) + off)
+              = ctx.buf.mem.read64! ((res.toM ctx.spec) + off) := by
+            intro off hoff hoff2
+            apply hread
+            rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+          -- The type read sits at offset 0 (`res.toM` itself); need it as `res.toM + 0`.
+          have hr0 : (Buffed.RegionMPtr.writeLastBlock
+                (Buffed.RegionMPtr.writeFirstBlock
+                  (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                  ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64!
+                (res.toM ctx.spec)
+              = ctx.buf.mem.read64! (res.toM ctx.spec) := by
+            have := hr 0 (by decide) (by decide)
+            simpa using this
+          constructor
+          · have := this.kind
+            simp only [Veir.ValuePtr.toM_opResult, Buffed.ValueImplMPtr.readType!, hrMeq] at this ⊢
+            rw [hr0]; exact this
+          · have := this.typee
+            simp only [Buffed.OpResultMPtr.readType!, hrMeq, hrgeteq, hattr] at this ⊢
+            rw [hr0]; exact this
+          · have := this.firstUse
+            simp only [Buffed.OpResultMPtr.readFirstUse!, hrMeq, hrgeteq] at this ⊢
+            rw [hr Buffed.ValueImpl.Offsets.firstUse (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.index
+            simp only [Buffed.OpResultMPtr.readIndex!, hrMeq, hrgeteq] at this ⊢
+            rw [hr Buffed.OpResult.Offsets.index (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.owner
+            simp only [Buffed.OpResultMPtr.readOwner!, hrMeq, hrgeteq] at this ⊢
+            rw [hr Buffed.OpResult.Offsets.owner (by decide) (by decide)]
+            grind [layout_grind]
+    · -- encoding_block
+      intro blk blkIb
+      have holdib : blk.InBounds ctx.spec := by
+        have := (RegionPtr.allocEmptyAt_genericPtr_iff (.block blk) hspec).mp (by simpa using blkIb)
+        grind
+      have henc := ctx.sim.encoding_block blk holdib
+      have hblkgeteq : blk.get! ctxSpec = blk.get! ctx.spec := by grind
+      have haft := Sim.BlockPtr.after_lt_ctx (ctx := ctx) blk holdib
+      have hblkM : blk.toM.toNat = blk.toFlat := by
+        simp only [Veir.BlockPtr.toM]
+        grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.BlockPtr.toFlat]
+      -- Read bridge for the block's own fields (all within `[blk.id, blk.id + Block.after)`).
+      have hb : ∀ (off : Int64), 0 ≤ off.toInt →
+          blk.toFlat + off.toInt + 8 ≤ blk.id + Buffed.Block.Offsets.afterInt blk ctx.spec →
+          (Buffed.RegionMPtr.writeLastBlock
+            (Buffed.RegionMPtr.writeFirstBlock
+              (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+              ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+            ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64!
+            (blk.toM + off)
+          = ctx.buf.mem.read64! (blk.toM + off) := by
+        intro off hoff hoff2
+        apply hread
+        rw [UInt64.uint64_add_int64_toNat_lt] <;>
+          simp only [Buffed.IRBufContext.size_def] at haft <;>
+          simp only [Veir.BlockPtr.toFlat] at * <;> grind
+      constructor
+      · -- MatchesBase
+        constructor
+        · have := henc.firstUse
+          simp only [Buffed.BlockMPtr.readFirstUse!, hblkgeteq] at this ⊢
+          rw [hb Buffed.Block.Offsets.firstUse (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.prev
+          simp only [Buffed.BlockMPtr.readPrev!, hblkgeteq] at this ⊢
+          rw [hb Buffed.Block.Offsets.prev (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.next
+          simp only [Buffed.BlockMPtr.readNext!, hblkgeteq] at this ⊢
+          rw [hb Buffed.Block.Offsets.next (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.parent
+          simp only [Buffed.BlockMPtr.readParent!, hblkgeteq] at this ⊢
+          rw [hb Buffed.Block.Offsets.parent (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.firstOp
+          simp only [Buffed.BlockMPtr.readFirstOp!, hblkgeteq] at this ⊢
+          rw [hb Buffed.Block.Offsets.firstOp (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+          grind [layout_grind]
+        · have := henc.lastOp
+          simp only [Buffed.BlockMPtr.readLastOp!, hblkgeteq] at this ⊢
+          rw [hb Buffed.Block.Offsets.lastOp (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+          grind [layout_grind]
+      · -- MatchesArguments
+        constructor
+        · have := henc.numArguments
+          simp only [Buffed.BlockMPtr.readNumArguments!, hblkgeteq] at this ⊢
+          rw [hb Buffed.Block.Offsets.numArguments (by decide) (by simp only [Veir.BlockPtr.toFlat]; grind [layout_grind])]
+          grind [layout_grind]
+        · intro arg argIn heq
+          have argIb' : arg.InBounds ctx.spec := by
+            have := (RegionPtr.allocEmptyAt_genericPtr_iff (.blockArgument arg) hspec).mp (by simpa using argIn)
+            grind
+          have := henc.arguments arg argIb' heq
+          have hageteq : arg.get! ctxSpec = arg.get! ctx.spec := by grind
+          have haaft := Sim.BlockArgumentPtr.after_lt_ctx (ctx := ctx) arg argIb'
+          have haM : arg.toM.toNat = arg.toFlat := by
+            simp only [Veir.BlockArgumentPtr.toM]
+            grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.BlockArgumentPtr.toFlat]
+          have ha : ∀ (off : Int64), 0 ≤ off.toInt →
+              off.toInt + 8 ≤ Buffed.BlockArgument.Offsets.afterInt →
+              (Buffed.RegionMPtr.writeLastBlock
+                (Buffed.RegionMPtr.writeFirstBlock
+                  (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                  ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64!
+                (arg.toM + off)
+              = ctx.buf.mem.read64! (arg.toM + off) := by
+            intro off hoff hoff2
+            apply hread
+            rw [UInt64.uint64_add_int64_toNat_lt] <;>
+              simp only [Buffed.IRBufContext.size_def] at haaft <;> grind
+          have ha0 : (Buffed.RegionMPtr.writeLastBlock
+                (Buffed.RegionMPtr.writeFirstBlock
+                  (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                  ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64!
+                arg.toM
+              = ctx.buf.mem.read64! arg.toM := by
+            have := ha 0 (by decide) (by decide)
+            simpa using this
+          constructor
+          · have := this.kind
+            simp only [Veir.ValuePtr.toM_blockArgument, Buffed.ValueImplMPtr.readType!] at this ⊢
+            rw [ha0]; exact this
+          · have := this.type
+            simp only [Buffed.BlockArgumentMPtr.readType!, hageteq, hattr] at this ⊢
+            rw [ha0]; exact this
+          · have := this.firstUse
+            simp only [Buffed.BlockArgumentMPtr.readFirstUse!, hageteq] at this ⊢
+            rw [ha Buffed.ValueImpl.Offsets.firstUse (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.index
+            simp only [Buffed.BlockArgumentMPtr.readIndex!, hageteq] at this ⊢
+            rw [ha Buffed.BlockArgument.Offsets.index (by decide) (by decide)]
+            grind [layout_grind]
+          · have := this.owner
+            simp only [Buffed.BlockArgumentMPtr.readOwner!, hageteq] at this ⊢
+            rw [ha Buffed.BlockArgument.Offsets.owner (by decide) (by decide)]
+            grind [layout_grind]
+    · -- encoding_region
+      intro rg rgIb
+      rcases (RegionPtr.allocEmptyAt_genericPtr_iff (.region rg) hspec).mp (by simpa using rgIb)
+        with hold | hnew
+      · -- Old region: reads unchanged (hread) and get! preserved by the insert.
+        have holdib : rg.InBounds ctx.spec := by simpa using hold
+        have hgetp : Veir.RegionPtr.get! rg ctxSpec = Veir.RegionPtr.get! rg ctx.spec := by grind
+        have henc := ctx.sim.encoding_region rg holdib
+        -- The region's three fields sit in `[rg.toFlat, rg.toFlat+24) ⊆ [0, ctx.buf.mem.size)`.
+        have hinb := ctx.sim.in_bounds (.region rg) (by simpa using holdib)
+        simp only [TopLevelPtr.range, Veir.RegionPtr.range, Veir.RegionPtr.toFlat,
+          IsIncludedIN, ExArray.range_upper, Buffed.Region.range] at hinb
+        -- `rg.toM` is `rg.id` as a UInt64 (id is below the buffer size, so no truncation).
+        have hrgM : rg.toM.toNat = rg.id := by
+          simp only [Veir.RegionPtr.toM, Veir.RegionPtr.toFlat]
+          grind [Nat.toUInt64_eq, UInt64.toNat_ofNat']
+        -- The region's `after` offset is 24 bytes.
+        have hafter : (Buffed.Region.Offsets.after.toInt : Int) = 24 := by decide
+        -- Read preservation for all three region fields.
+        have hrf : ∀ (off : Int64), 0 ≤ off.toInt → off.toInt + 8 ≤ 24 →
+            (Buffed.RegionMPtr.writeLastBlock
+              (Buffed.RegionMPtr.writeFirstBlock
+                (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
+                ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def]))
+              ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64!
+              (rg.toM + off)
+            = ctx.buf.mem.read64! (rg.toM + off) := by
+          intro off hoff hoff2
+          apply hread
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+        constructor
+        · have := henc.firstBlock
+          simp only [Buffed.RegionMPtr.readFirstBlock!, hgetp]
+          rw [hrf Buffed.Region.Offsets.firstBlock (by decide) (by decide)] at *
+          simpa [Buffed.RegionMPtr.readFirstBlock!] using this
+        · have := henc.lastBlock
+          simp only [Buffed.RegionMPtr.readLastBlock!, hgetp]
+          rw [hrf Buffed.Region.Offsets.lastBlock (by decide) (by decide)] at *
+          simpa [Buffed.RegionMPtr.readLastBlock!] using this
+        · have := henc.parent
+          simp only [Buffed.RegionMPtr.readParent!, hgetp]
+          rw [hrf Buffed.Region.Offsets.parent (by decide) (by decide)] at *
+          simpa [Buffed.RegionMPtr.readParent!] using this
+      · -- New region = ptrSpec: reads at fresh address return the written `none`s.
+        simp only [GenericPtr.region.injEq] at hnew
+        subst hnew
+        have hget : Veir.RegionPtr.get! rg ctxSpec = Region.empty := by grind
+        have htoM : rg.toM = ctx.buf.usize := by
+          simp only [hptr, RegionPtr.toM, RegionPtr.toFlat]; grind
+        -- The three write offsets (firstBlock=0, lastBlock=8, parent=16) are pairwise disjoint,
+        -- so each read lands on exactly the slot it wrote, returning `none`.
+        -- The three write offsets: firstBlock=0, lastBlock=8, parent=16 (each 8 bytes wide).
+        have husz : ctx.buf.usize.toNat < 2 ^ 63 := by grind
+        have hmax : (Int64.maxValue.toInt : Int) = 2 ^ 63 - 1 := by decide
+        have a0 : (ctx.buf.usize + Buffed.Region.Offsets.firstBlock).toNat = ctx.buf.usize.toNat := by
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+        have a8 : (ctx.buf.usize + Buffed.Region.Offsets.lastBlock).toNat = ctx.buf.usize.toNat + 8 := by
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+        have a16 : (ctx.buf.usize + Buffed.Region.Offsets.parent).toNat = ctx.buf.usize.toNat + 16 := by
+          rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+        constructor
+        · -- firstBlock: read at usize+0 hits writeFirstBlock
+          simp only [Sim.OptionBlockPtr.Sim, hget, Region.empty, Buffed.RegionMPtr.readFirstBlock!,
+            Buffed.RegionMPtr.writeLastBlock, Buffed.RegionMPtr.writeFirstBlock,
+            Buffed.RegionMPtr.writeParent, htoM]
+          rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+            ExArray.read64!_blit64_self]
+          rfl
+        · -- lastBlock: read at usize+8 hits writeLastBlock (passing writeFirstBlock at +0)
+          simp only [Sim.OptionBlockPtr.Sim, hget, Region.empty, Buffed.RegionMPtr.readLastBlock!,
+            Buffed.RegionMPtr.writeLastBlock, Buffed.RegionMPtr.writeFirstBlock,
+            Buffed.RegionMPtr.writeParent, htoM]
+          rw [ExArray.read64!_blit64_self]
+          rfl
+        · -- parent: read at usize+16 hits writeParent (passing the two block writes)
+          simp only [Sim.OptionOperationPtr.Sim, hget, Region.empty, Buffed.RegionMPtr.readParent!,
+            Buffed.RegionMPtr.writeLastBlock, Buffed.RegionMPtr.writeFirstBlock,
+            Buffed.RegionMPtr.writeParent, htoM]
+          rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+            ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
+            ExArray.read64!_blit64_self]
+          rfl
+
+@[inline]
+def Sim.RegionPtr.allocEmpty (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPtr × Sim.IRContext OpInfo) :=
+  match himpl : allocEmptyImpl ctx.buf with
+  | none => none
+  | some (ctxBuf, ptrImpl) =>
+    -- The spec allocation is always defined here (the target address is fresh), so we extract
+    -- its value without branching on `ctx.spec` — keeping the definition erasable — and recover
+    -- the `= some …` equation from freshness to feed `allocEmptySim`.
+    let specRes := (Veir.RegionPtr.allocEmptyAt ctx.spec ptrImpl.toNat).specGet!
+    have hspec : Veir.RegionPtr.allocEmptyAt ctx.spec ptrImpl.toNat = some specRes := by
+      have hptr : ptrImpl = ctx.buf.usize := by
+        simp only [allocEmptyImpl] at himpl
+        split at himpl <;> grind
+      have hfree := Sim.RegionPtr.slot_free ctx
+      simp only [Veir.RegionPtr.inBounds_def] at hfree
+      have husz := ctx.buf.usize_toNat
+      have hs := ctx.buf.size_def
+      have hsome := Veir.RegionPtr.allocEmptyAt_isSome_of_not_mem
+        (ctx := ctx.spec) (addr := ptrImpl.toNat) (by grind)
+      simp only [specRes, Option.specGet!]
+      exact (Option.some_get! _ hsome).symm
+    some ⟨⟨ptrImpl, specRes.2⟩, ⟨ctxBuf, specRes.1, allocEmptySim ctx himpl hspec⟩⟩
+
+/-- Strengthening of `allocEmpty_spec`: the spec-level region is allocated exactly at the
+address of the returned impl pointer. -/
+theorem Sim.RegionPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} :
+    allocEmpty ctx = some ⟨ptr, ctx'⟩ →
+    Veir.RegionPtr.allocEmptyAt ctx.spec ptr.impl.toNat = some ⟨ctx'.spec, ptr.spec⟩ := by
+  intro h
+  simp only [allocEmpty] at h
+  split at h
+  · exact absurd h (by simp)
+  · rename_i ctxBuf ptrImpl himpl
+    simp only [Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := h
+    -- The remaining goal is `allocEmptyAt … = some (specGet!.fst, specGet!.snd)`, i.e. `= some specGet!`.
+    have hptr : ptrImpl = ctx.buf.usize := by
+      simp only [allocEmptyImpl] at himpl
+      split at himpl <;> grind
+    have hfree := Sim.RegionPtr.slot_free ctx
+    simp only [Veir.RegionPtr.inBounds_def] at hfree
+    have husz := ctx.buf.usize_toNat
+    have hs := ctx.buf.size_def
+    have hsome := Veir.RegionPtr.allocEmptyAt_isSome_of_not_mem
+      (ctx := ctx.spec) (addr := ptrImpl.toNat) (by grind)
+    simp only [Option.specGet!]
+    rw [← Option.some_get! _ hsome]
+    simp
+
 @[grind! .]
 theorem Sim.RegionPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
     allocEmpty ctx = some ⟨ptr, ctx'⟩ →
-    ∃ addr, Veir.RegionPtr.allocEmptyAt ctx.spec addr = some ⟨ctx'.spec, ptr.spec⟩:= by
-  have hfree := Sim.RegionPtr.slot_free ctx
-  simp only [Veir.RegionPtr.inBounds_def] at hfree
-  refine fun h => ⟨ctx.buf.mem.size, ?_⟩
-  have hu := ctx.buf.usize_toNat
-  have hs := ctx.buf.size_def
-  simp only [allocEmpty, allocEmptyImpl, allocEmptySpec] at h
-  split at h
-  · exact absurd h (by simp)
-  · rename_i heq
-    split at heq <;> simp_all only [reduceCtorEq, Option.some.injEq, Prod.mk.injEq]
-    obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := h
-    obtain ⟨rfl, rfl⟩ := heq
-    have hsome := Veir.RegionPtr.allocEmptyAt_isSome_of_not_mem hfree
-    simp only [Option.specGet!]
-    grind
+    ∃ addr, Veir.RegionPtr.allocEmptyAt ctx.spec addr = some ⟨ctx'.spec, ptr.spec⟩:=
+  fun h => ⟨ptr.impl.toNat, Sim.RegionPtr.allocEmpty_spec' h⟩
 
 set_option maxHeartbeats 10000000 in
 @[inline]
@@ -2961,15 +4453,16 @@ theorem Sim.OperationPtr.slot_free (ctx : Sim.IRContext OpInfo) {a : Nat} (ha : 
     grind
   grind
 
-@[grind! .]
-theorem Sim.OperationPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
+/-- Strengthening of `allocEmpty_spec`: the spec-level operation is allocated exactly at the
+address of the returned impl pointer. -/
+theorem Sim.OperationPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} :
     allocEmpty ctx opType props c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some ⟨ptr, ctx'⟩ →
-    ∃ addr, Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₃.toNat c₄.toNat c₂.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:= by
+    Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₃.toNat c₄.toNat c₂.toNat ptr.impl.toNat = some ⟨ctx'.spec, ptr.spec⟩ := by
   unfold Sim.OperationPtr.allocEmpty allocEmptySpec
   split
   · intro h; exact absurd h (by simp)
   · rename_i ptrImpl heqImpl
-    refine fun h => ⟨ptrImpl.toNat, ?_⟩
+    intro h
     -- `ptrImpl` lies at/past the buffer end, so the spec slot is free.
     have hge := Sim.OperationPtr.allocEmptyImpl_ptr_ge heqImpl
     have hfree := Sim.OperationPtr.slot_free ctx hge
@@ -2981,6 +4474,12 @@ theorem Sim.OperationPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
     obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := h
     simp only [Option.specGet!]
     grind
+
+@[grind! .]
+theorem Sim.OperationPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
+    allocEmpty ctx opType props c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some ⟨ptr, ctx'⟩ →
+    ∃ addr, Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₃.toNat c₄.toNat c₂.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:=
+  fun h => ⟨ptr.impl.toNat, Sim.OperationPtr.allocEmpty_spec' h⟩
 
 -- theorem Veir.Sim.BlockPtr.getParent_impl2 {OpInfo : Type} [inst : HasOpInfo OpInfo] (ctx : Sim.IRContext OpInfo)
 --   (ptr : Sim.BlockPtr) (ib : ptr.InBounds ctx) :

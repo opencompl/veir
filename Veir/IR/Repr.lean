@@ -170,6 +170,14 @@ theorem BlockPtr.allocEmpty_fieldsIsRepr (heq : allocEmpty ctx capArguments = so
     ptr'.IsRepr → ctx.IsRepr → ctx'.IsRepr := by
   grind
 
+attribute [local grind] Block.empty in
+@[grind .]
+theorem BlockPtr.allocEmptyAtAddress_fieldsIsRepr
+    (heq : allocEmptyAtAddress ctx capArguments address = some (ctx', ptr'))
+    (hcapArguments : capArguments ≤ countCard) :
+    ptr'.IsRepr → ctx.IsRepr → ctx'.IsRepr := by
+  grind
+
 attribute [local grind →] Array.getElem_mem in
 attribute [local grind] Block.empty in
 @[grind .]

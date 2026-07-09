@@ -809,6 +809,12 @@ theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx capArguments = 
     ctx.FieldsInBounds → ctx'.FieldsInBounds := by
   prove_fieldsInBounds
 
+attribute [local grind] Block.empty in
+@[grind .]
+theorem BlockPtr.allocEmptyAtAddress_fieldsInBounds (heq : allocEmptyAtAddress ctx capArguments addr = some (ctx', ptr')) :
+    ctx.FieldsInBounds → ctx'.FieldsInBounds := by
+  prove_fieldsInBounds
+
 attribute [local grind →] Array.getElem_mem in
 attribute [local grind] Block.empty in
 attribute [local grind =] BlockArgumentPtr.inBounds_def in
@@ -882,6 +888,12 @@ theorem RegionPtr.setFirstBlock_fieldsInBounds (hnew : newFirstBlock.maybe Block
 theorem RegionPtr.setLastBlock_fieldsInBounds (hnew : newLastBlock.maybe BlockPtr.InBounds ctx) :
     ctx.FieldsInBounds → (setLastBlock region ctx newLastBlock h).FieldsInBounds := by
   prove_fieldsInBounds_region ctx
+
+attribute [local grind] Region.empty in
+@[grind .]
+theorem RegionPtr.allocEmptyAt_fieldsInBounds (heq : allocEmptyAt ctx addr = some (ctx', rg')) :
+    ctx.FieldsInBounds → ctx'.FieldsInBounds := by
+  prove_fieldsInBounds
 
 attribute [local grind] Region.empty in
 @[grind .]

@@ -214,9 +214,6 @@ theorem InsertPoint.next_eq_none_iff_eq_atEnd {ip : InsertPoint} :
     grind [InsertPoint.next_def, InsertPoint.nextSim, Sim.OperationPtr.toO,
       Sim.OptionOperationPtr.none]
 
-/-
-Implementation without sorry, but with new arguments:
-
 @[grind =]
 theorem InsertPoint.next_eq_some_iff_eq_before {ip : InsertPoint} (hRepr : ip.IsRepr)
     (hSim : nextOp.Sim) :
@@ -231,12 +228,6 @@ theorem InsertPoint.next_eq_some_iff_eq_before {ip : InsertPoint} (hRepr : ip.Is
     simp_all [InsertPoint.next_def, InsertPoint.nextSim, Sim.OperationPtr.toO,
       Sim.OptionOperationPtr.none, Sim.OptionOperationPtr.toOption, Sim.OperationPtr.Sim,
       OperationPtr.toSim, Option.specGet!, InsertPoint.IsRepr]
--/
-
-@[grind =]
-theorem InsertPoint.next_eq_some_iff_eq_before {ip : InsertPoint} :
-    ip.next.toOption = some nextOp ↔ ip = .before nextOp.spec := by
-  cases ip <;> sorry
 
 @[simp, grind .]
 theorem InsertPoint.block!_eq_of_prev!_eq_some

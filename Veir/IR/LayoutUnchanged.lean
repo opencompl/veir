@@ -110,6 +110,12 @@ theorem OperationPtr.pushRegion_preservesLayout :
   grind
 
 @[grind .]
+theorem OperationPtr.allocEmptyAt_preservesLayout
+    (heq : OperationPtr.allocEmptyAt ctx ty properties capResults capBlockOperands capRegions capOperands addr = some (ctx', op')) :
+    ctx.LayoutPreserved ctx' := by
+  grind [Std.HashMap.mem_iff_contains]
+
+@[grind .]
 theorem OperationPtr.allocEmpty_preservesLayout
     (heq : OperationPtr.allocEmpty ctx ty properties capResults capBlockOperands capRegions capOperands = some (ctx', op')) :
     ctx.LayoutPreserved ctx' := by
@@ -279,6 +285,12 @@ theorem BlockPtr.pushBlockArgument_preservesLayout :
   grind
 
 @[grind .]
+theorem BlockPtr.allocEmptyAtAddress_preservesLayout
+    (heq : allocEmptyAtAddress ctx capArguments address = some (ctx', ptr')) :
+    ctx.LayoutPreserved ctx' := by
+  grind [Std.HashMap.mem_iff_contains]
+
+@[grind .]
 theorem BlockPtr.allocEmpty_preservesLayout (heq : allocEmpty ctx capArguments = some (ctx', ptr')) :
     ctx.LayoutPreserved ctx' := by
   grind
@@ -304,6 +316,11 @@ theorem RegionPtr.setFirstBlock_preservesLayout {ctx : IRContext OpInfo}
 theorem RegionPtr.setLastBlock_preservesLayout {ctx : IRContext OpInfo}
     (h : region.InBounds ctx) :
     ctx.LayoutUnchanged (setLastBlock region ctx newLastBlock h) := by
+  grind
+
+@[grind .]
+theorem RegionPtr.allocEmptyAt_preservesLayout (heq : allocEmptyAt ctx addr = some (ctx', ptr')) :
+    ctx.LayoutUnchanged ctx' := by
   grind
 
 @[grind .]
