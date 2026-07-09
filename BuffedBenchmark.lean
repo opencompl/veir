@@ -1,6 +1,3 @@
-
-
-
 import Veir.Prelude
 import Veir.IR.Basic
 import Veir.Rewriter.Basic
@@ -27,7 +24,7 @@ def rol64 (x : UInt64) (k : UInt64) :=
   (x <<< k) ||| (x >>> (64 - k))
 
 @[always_inline]
-def step (self : Xoshiro256PP) : UInt64 × Xoshiro256PP :=
+def step (self : Xoshiro256PP) : Xoshiro256PP × UInt64:=
   let (s0, s1, s2, s3) := (self.s0, self.s1, self.s2, self.s3)
 
   let result := rol64 (s0 + s3) 23 + s0
@@ -41,10 +38,10 @@ def step (self : Xoshiro256PP) : UInt64 × Xoshiro256PP :=
   let s2 := s2 ^^^ t
   let s3 := rol64 s3 45
 
-  (result, { s0, s1, s2, s3 })
+  ({ s0, s1, s2, s3 }, result)
 
 @[always_inline]
-def new (seed : Nat) : Xoshiro256PP :=
+def new (seed : Nat := 42) : Xoshiro256PP :=
   let state := {
     s0 := 0xa88f8a3be644a802,
     s1 := 0x7f9ce0f5c6c0e39e,
@@ -52,35 +49,28 @@ def new (seed : Nat) : Xoshiro256PP :=
     s3 := 0x6bcf817f7dd191dc ^^^ seed.toUInt64
   }
 
-  step state |>.snd
+  step state |>.fst
 
 @[always_inline]
-def run {m : Type -> Type} [Functor m] {α : Type} (action : StateT Xoshiro256PP m α) (seed : Nat := 42) : m α :=
-  StateT.run' action (new seed)
+def randU64 (rng : Xoshiro256PP) : Xoshiro256PP × UInt64 :=
+  rng.step
+
+@[always_inline]
+def randNat63 (rng : Xoshiro256PP) : Xoshiro256PP × Nat :=
+  let (rng, val) := rng.randU64
+  (rng, (val &&& 0x7FFF_FFFF_FFFF_FFFF).toNat)
+
+@[always_inline]
+def randBool (rng : Xoshiro256PP) (pc : Nat := 50) : Xoshiro256PP × Bool :=
+  let (rng, val) := rng.randNat63
+  (rng, val % 100 < pc)
+
+@[always_inline]
+def randIdx {α : Type} (rng : Xoshiro256PP) (arr : Array α) : Xoshiro256PP × Option α :=
+  let (rng, val) := rng.randNat63
+  (rng, arr[val % arr.size]?)
 
 end Xoshiro256PP
-
-section Xoshiro256PPMonadic
-
-variable {m : Type -> Type} [MonadStateOf Xoshiro256PP m] [Bind m] [Pure m]
-
-@[always_inline]
-def randU64 : m UInt64 :=
-  modifyGetThe Xoshiro256PP Xoshiro256PP.step
-
-@[always_inline]
-def randNat63 : m Nat :=
-  return ((←randU64) &&& 0x7FFF_FFFF_FFFF_FFFF).toNat
-
-@[always_inline]
-def randBool (pc : Nat := 50) : m Bool :=
-  return (←randNat63) % 100 < pc
-
-@[always_inline]
-def randIdx {α : Type} (arr : Array α) : m (Option α) :=
-  return arr[(←randNat63) % arr.size]?
-
-end Xoshiro256PPMonadic
 
 buffed (def_lemma := false)
 def emptySim : Option (Sim.IRContext OpCode × Sim.OperationPtr × InsertPoint) := do
@@ -144,6 +134,71 @@ def addOneTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat
 buffed (def_lemma := false)
 def multwoTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTree ctx ip (.arith .muli) () size pc 42 2
+
+buffed (def_lemma := false)
+def constFoldTreeSparseGoSim (ctx : Sim.IRContext OpCode) (rng : Xoshiro256PP) (insertPoint : InsertPoint) (opcode : OpCode)
+    (prop : propertiesOf opcode) (size pc : Nat) (inc : Int) (constants runningTotals : Array Buffed.ValueImplMPtr) : Option (Sim.IRContext OpCode) := do
+  if runningTotals.size ≥ size then
+    let back := runningTotals.back!
+    let (ctx, op) ← Rewriter.createOp ctx (.test .test) #[] #[⟨back, default⟩] #[] #[] () insertPoint sorry sorry sorry sorry sorry sorry
+    ctx
+  else
+    let (rng, const) := rng.randBool 20
+
+    if const then
+      let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
+      let (ctx, op) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry sorry
+      let ctx ← op.setAttributes ctx incAttr sorry
+      let constResultPtr := op.getResultPtr ctx 0 sorry
+      let constants := constants.push constResultPtr.impl
+      constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
+
+    else
+      let (rng, lhs) := rng.randIdx runningTotals
+      if let some lhs := lhs then
+        let (rng, rhs) := rng.randIdx constants
+        if let some rhs := rhs then
+          let (rng, b) := rng.randBool pc
+          let ⟨thisOp, thisProp⟩ : (op : OpCode) × propertiesOf op := if b then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
+
+          let (ctx, op) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[⟨lhs, default⟩, ⟨rhs, default⟩] #[] #[] thisProp insertPoint sorry sorry sorry sorry sorry sorry
+          let result := op.getResultPtr ctx 0 sorry
+          let runningTotals := runningTotals.push result.impl
+          constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
+        else
+          constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
+      else
+        constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
+
+partial_fixpoint
+
+-- Create a program that looks like constFoldTree but with randomly selected constants as rhs and
+-- randomly selected previous ops as lhs
+buffed (def_lemma := false)
+def constFoldTreeSparseSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
+    (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
+  let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
+  let (ctx, root) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let ctx ← root.setAttributes ctx rootAttr sorry
+  let  rootResult := root.getResultPtr ctx 0 sorry
+
+  let runningTotals := #[rootResult.impl]
+  let constants := #[]
+  let rng := .new
+
+  constFoldTreeSparseGo ctx rng insertPoint opcode prop size pc inc constants runningTotals
+
+buffed (def_lemma := false)
+def addZeroTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTreeSparse ctx ip (.arith .addi) () size pc 42 0
+
+buffed (def_lemma := false)
+def addOneTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTreeSparse ctx ip (.arith .addi) () size pc 42 1
+
+buffed (def_lemma := false)
+def multwoTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTreeSparse ctx ip (.arith .muli) () size pc 42 2
 
 end Program
 
@@ -403,7 +458,7 @@ def main : IO Unit := do
   match ctx with
   | none => return
   | some (ctx, topOp, ip) =>
-    let res := Program.constFoldTree ctx ip (.arith .addi) () 300_000 100 42 1
+    let res := Program.addOneTreeSparse ctx ip 300_000 100
     match res with
     | none => return -- IO.println "err"
     | some ctx =>
