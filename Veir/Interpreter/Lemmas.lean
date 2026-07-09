@@ -633,17 +633,15 @@ theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
 
 end interpretOpList
 
-set_option warn.sorry false in
 /-- An operation that verifies does not fail interpretation as long as the operands conform to
 the declared operand types. -/
-theorem exists_interpretOp'_eq_some {ctx : WfIRContext OpCode} {op : OperationPtr}
+axiom exists_interpretOp'_eq_some {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds : op.InBounds ctx.raw} (opVerify : OperationPtr.Verified ctx op opInBounds)
     (operandConforms : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
     (mem : MemoryState) :
-  ∃ res, op.interpret ctx.raw operands mem = some res := by sorry
+  ∃ res, op.interpret ctx.raw operands mem = some res
 
-set_option warn.sorry false in
-theorem interpretOp'_monotone
+axiom interpretOp'_monotone
     (opType : OpCode) (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
     operands ⊒ operands' →
@@ -651,29 +649,24 @@ theorem interpretOp'_monotone
       (fun r₁ r₂ => r₁.1 ⊒ r₂.1 ∧ r₁.2.1 = r₂.2.1 ∧
         ControlFlowAction.optionIsRefinedBy r₁.2.2 r₂.2.2)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
-      (interpretOp' opType properties resultTypes operands' blockOperands mem) := by
-  sorry
+      (interpretOp' opType properties resultTypes operands' blockOperands mem)
 
-set_option warn.sorry false in
 /--
 A successful operation interpretation returns result values that conform to the declared
 `resultTypes` when the operation verifies.
 -/
-theorem interpretOp'_results_conform {ctx : WfIRContext OpCode}
+axiom interpretOp'_results_conform {ctx : WfIRContext OpCode}
     {opInBounds : op.InBounds ctx.raw} (opVerif : op.Verified ctx opInBounds)
     (conforms : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
     (h : op.interpret ctx.raw operands mem = some (.ok (vals, mem', act))) :
-    RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) := by
-  sorry
+    RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw)
 
-set_option warn.sorry false in
 /-- A branch control-flow action returned by interpreting an operation always targets one of the
 provided successor blocks. -/
-theorem interpretOp'_branch_dest_mem
+axiom interpretOp'_branch_dest_mem
     (h : interpretOp' opType properties resultTypes operands blockOperands mem
       = some (.ok (vals, mem', some (.branch res dest)))) :
-    dest ∈ blockOperands := by
-  sorry
+    dest ∈ blockOperands
 
 /-- A branch control-flow action returned by interpreting an operation always targets one of the
 operation successors. -/

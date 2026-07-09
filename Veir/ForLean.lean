@@ -243,6 +243,32 @@ theorem getElem_idxOf [DecidableEq α] {l : List α} (h : l.idxOf x < l.length) 
     l[l.idxOf x] = x := by
   induction l <;> grind
 
+/--
+Transfer a reflexive, transitive relation `P` across a `forIn` loop in the `Option` monad: if every
+successful step of the body relates its input state to its output state, then a successful run of the
+whole loop relates the initial state to the final one. Early exit (`ForInStep.done`) is covered
+because `ForInStep.value` reads the carried state in both branches.
+-/
+theorem forIn_option_rel {α σ : Type} (P : σ → σ → Prop)
+    (hrefl : ∀ s, P s s) (htrans : ∀ a b c, P a b → P b c → P a c)
+    (l : List α) (f : α → σ → Option (ForInStep σ))
+    (hf : ∀ a ∈ l, ∀ s step, f a s = some step → P s step.value) :
+    ∀ s s', forIn l s f = some s' → P s s' := by
+  induction l with
+  | nil => intro s s' h; simp at h; grind
+  | cons a as ih =>
+    intro s s' h
+    simp only [List.forIn_cons] at h
+    rcases hstep : f a s with _ | step
+    · rw [hstep] at h; simp at h
+    · rw [hstep] at h
+      have hP := hf a (by simp) s step hstep
+      cases step with
+      | done b => simp at h; subst h; exact hP
+      | yield b =>
+        simp only [bind] at h
+        exact htrans _ _ _ hP (ih (fun a ha => hf a (by simp [ha])) b s' (by simpa using h))
+
 end ForLean.List
 
 section
