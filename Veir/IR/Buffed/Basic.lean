@@ -640,8 +640,20 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
          have := ctx.sim.encoding_op op (by grind) |>.regions idx (by grind)
          simp only [RegionPtr.Sim, RegionPtr.toM, RegionPtr.toFlat,
            OperationPtr.getRegion!_OperationPtr_setAttributes, Nat.toUInt64_eq]
-         --grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.OperationMPtr.readNthRegion!]
-         sorry -- TODO: lemmas computeOffset_ideal
+         have hcap := ctx.sim.repr.operations_indices op (by grind) |>.capRegions
+         have hmem : ctxBuf.mem = ctx.buf.mem := by grind [Buffed.IRBufContext.insertAttrs]
+         have hcong : ∀ (a : UInt64) h h',
+             Buffed.OperationMPtr.readNthRegion!
+               (Buffed.OperationMPtr.writeAttrs ctxBuf ptr.impl a h) op.toM (UInt64.ofNat idx)
+             = Buffed.OperationMPtr.readNthRegion!
+               (Buffed.OperationMPtr.writeAttrs ctx.buf ptr.impl a h') op.toM (UInt64.ofNat idx) := by
+           intro a h h'
+           simp only [Buffed.OperationMPtr.readNthRegion!, Buffed.OperationMPtr.computeRegionOffset!,
+             Buffed.OperationMPtr.computeRegionsOffset!, Buffed.OperationMPtr.computeBlockOperandsOffset!,
+             Buffed.OperationMPtr.computeOperandsOffset!, Buffed.OperationMPtr.readNumBlockOperands!,
+             Buffed.OperationMPtr.readNumOperands!, Buffed.OperationMPtr.readOpType!,
+             Buffed.OperationMPtr.writeAttrs, hmem]
+         grind [layout_grind]
      · constructor
        · have := this.numOperands
          grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.OperationMPtr.readNumOperands!]
