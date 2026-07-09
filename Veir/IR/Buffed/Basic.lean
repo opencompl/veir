@@ -1851,12 +1851,10 @@ def Sim.BlockPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo) (numArgs :
 
 @[noinline]
 def Sim.BlockPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (capArguments : Nat) (address : UInt64) : Option (Veir.IRContext OpInfo × Veir.BlockPtr) :=
-  BlockPtr.allocEmptyAtAddress ctx address.toNat capArguments
+  BlockPtr.allocEmptyAtAddress ctx capArguments address.toNat
 
 @[inline]
 def Sim.BlockPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (numArgs : UInt64) : Option (Sim.BlockPtr × Sim.IRContext OpInfo) :=
-  -- A block whose argument count exceeds `countCard` (`2^32`) cannot be laid out without its
-  -- size overflowing, so it is not allocatable; reject it here, which also supplies the
   -- `numArgs` bound needed by `allocEmptyImpl`.
   if hnumArgs : numArgs.toNat ≤ Buffed.countCard then
     match allocEmptyImpl ctx.buf numArgs hnumArgs with
@@ -1867,11 +1865,35 @@ def Sim.BlockPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (numArgs : UInt64) : Op
   else
     none
 
+theorem Sim.BlockPtr.slot_free (ctx : Sim.IRContext OpInfo) :
+    ¬ (⟨ctx.buf.mem.size⟩ : Veir.BlockPtr).InBounds ctx.spec := by
+  intro hin
+  have := ctx.sim.in_bounds (.block ⟨ctx.buf.mem.size⟩) (by grind)
+  simp only [TopLevelPtr.range, Veir.BlockPtr.range, Veir.BlockPtr.toFlat, IsIncludedIN] at this
+  grind
+
 @[grind! .]
 theorem Sim.BlockPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} numArgs :
     allocEmpty ctx numArgs = some ⟨ptr, ctx'⟩ →
     ∃ addr, Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:= by
-  sorry
+  have hfree := Sim.BlockPtr.slot_free ctx
+  simp only [Veir.BlockPtr.inBounds_def] at hfree
+  refine fun h => ⟨ctx.buf.mem.size, ?_⟩
+  have hu := ctx.buf.usize_toNat
+  have hs := ctx.buf.size_def
+  simp only [allocEmpty, allocEmptyImpl, allocEmptySpec] at h
+  split at h
+  · rename_i hnumArgs
+    split at h
+    · exact absurd h (by simp)
+    · rename_i heq
+      split at heq <;> simp_all only [reduceCtorEq, Option.some.injEq, Prod.mk.injEq]
+      obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := h
+      obtain ⟨rfl, rfl⟩ := heq
+      have hsome := Veir.BlockPtr.allocEmptyAtAddress_isSome_of_not_mem
+        (capArguments := numArgs.toNat) hfree
+      grind
+  · exact absurd h (by simp)
 
 buffed
 def Sim.BlockPtr.setParentSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
@@ -2724,11 +2746,34 @@ def Sim.RegionPtr.allocEmpty (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPt
     let ⟨ctxSpec, ptrSpec⟩ := (allocEmptySpec ctx.spec ptrImpl).specGet!
     some ⟨⟨ptrImpl, ptrSpec⟩, ⟨ctxBuf, ctxSpec, admitted_sim ()⟩⟩
 
+/-- The address at the end of the buffer is free in the spec: a region there would have its
+range escape the buffer, contradicting `in_bounds`. -/
+theorem Sim.RegionPtr.slot_free (ctx : Sim.IRContext OpInfo) :
+    ¬ (⟨ctx.buf.mem.size⟩ : Veir.RegionPtr).InBounds ctx.spec := by
+  intro hin
+  have := ctx.sim.in_bounds (.region ⟨ctx.buf.mem.size⟩) (by grind)
+  simp only [TopLevelPtr.range, Veir.RegionPtr.range, Veir.RegionPtr.toFlat, IsIncludedIN] at this
+  grind
+
 @[grind! .]
 theorem Sim.RegionPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
     allocEmpty ctx = some ⟨ptr, ctx'⟩ →
     ∃ addr, Veir.RegionPtr.allocEmptyAt ctx.spec addr = some ⟨ctx'.spec, ptr.spec⟩:= by
-  sorry
+  have hfree := Sim.RegionPtr.slot_free ctx
+  simp only [Veir.RegionPtr.inBounds_def] at hfree
+  refine fun h => ⟨ctx.buf.mem.size, ?_⟩
+  have hu := ctx.buf.usize_toNat
+  have hs := ctx.buf.size_def
+  simp only [allocEmpty, allocEmptyImpl, allocEmptySpec] at h
+  split at h
+  · exact absurd h (by simp)
+  · rename_i heq
+    split at heq <;> simp_all only [reduceCtorEq, Option.some.injEq, Prod.mk.injEq]
+    obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := h
+    obtain ⟨rfl, rfl⟩ := heq
+    have hsome := Veir.RegionPtr.allocEmptyAt_isSome_of_not_mem hfree
+    simp only [Option.specGet!]
+    grind
 
 @[inline]
 def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo)
@@ -2747,23 +2792,11 @@ def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo)
       numResults.toNat * Buffed.OpResult.size.toNat + numOperands.toNat * Buffed.OpOperand.size.toNat +
       numBlockOperands.toNat * Buffed.BlockOperand.size.toNat + numRegions.toNat * Buffed.ptrSize.toNat :=
     Buffed.OperationMPtr.computeOperationSize_toNat _ _ _ _ _ hr ho hbo hreg hp
-  -- `ptr` points into the freshly allocated region: since the `OpResult.size * numResults` prefix
-  -- is part of `size`, the pointer's address does not wrap, and its `toNat` is the old buffer
-  -- size plus that prefix. `hptr` gives the closed form and `hptrlt` the `< 2^63` bound the
-  -- pointer-arithmetic decomposition needs.
-  have hprefix : ctx₀.size + numResults.toNat * Buffed.OpResult.size.toNat ≤ ctx.size := by
-    have := ctx.mem.fits_in_memory
-    simp only [Buffed.IRBufContext.size_def] at *
-    omega
+  have hprefix : ctx₀.size + numResults.toNat * Buffed.OpResult.size.toNat ≤ ctx.size := by grind
   have hcs : ctx.size < 2 ^ 63 := by
     have := ctx.mem.fits_in_memory
-    simp only [Buffed.IRBufContext.size_def, Int64.maxNatValue] at *; omega
-  have hptr : ptr.toNat = ctx₀.size + numResults.toNat * Buffed.OpResult.size.toNat := by
-    show (ctx₀.usize + Buffed.OpResult.size * numResults).toNat = _
-    have hu := ctx₀.usize_toNat
-    rw [UInt64.toNat_add, UInt64.toNat_mul]
-    simp only [Buffed.IRBufContext.size_def, show Buffed.OpResult.size.toNat = 32 from rfl] at *
-    omega
+    grind
+  have hptr : ptr.toNat = ctx₀.size + numResults.toNat * Buffed.OpResult.size.toNat := by grind [UInt64.toNat_mul]
   have hptrlt : ptr.toNat < 2 ^ 63 := by omega
   let ctx := ptr.writeNumOperands ctx numOperands (by prove_allocBoundsOp ctx₀)
   let ctx := ptr.writeNumResults ctx numResults (by prove_allocBoundsOp ctx₀)
@@ -2774,10 +2807,34 @@ def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo)
   let ctx := ptr.writePrev ctx .none (by prove_allocBoundsOp ctx₀)
   some (ctx, ptr)
 
+/-- The operation pointer produced by `allocEmptyImpl` lies at or past the end of the buffer:
+its address is the old buffer size plus the back-allocated results prefix. -/
+theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {ctx₀ : Buffed.IRBufContext OpInfo}
+    {numResults numOperands numBlockOperands numRegions propSize : UInt64}
+    {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
+    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize
+      hr ho hbo hreg hp = some (ctxBuf, ptrImpl)) :
+    ctx₀.mem.size ≤ ptrImpl.toNat := by
+  simp only [allocEmptyImpl] at h
+  split at h
+  · exact absurd h (by simp)
+  · rename_i buf halloc
+    have hu := ctx₀.usize_toNat
+    obtain ⟨_, rfl⟩ := Option.some.injEq _ _ ▸ h
+    have hfits := buf.mem.fits_in_memory
+    have hsz := Buffed.OperationMPtr.computeOperationSize_toNat numResults numOperands
+      numBlockOperands numRegions propSize hr ho hbo hreg hp
+    have halsz := ctx₀.alloc_size halloc
+    have hnr := UInt64.toNat_lt numResults
+    rw [UInt64.toNat_add, UInt64.toNat_mul]
+    simp only [Buffed.IRBufContext.size_def, show Buffed.OpResult.size.toNat = 32 from rfl,
+      Int64.maxNatValue, Buffed.ptrSize] at *
+    omega
+
 def Sim.OperationPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (addr : Nat) (opType : OpInfo)
     (properties : HasOpInfo.propertiesOf opType) (capResults capBlockOperands capRegions capOperands : Nat)
     : Option (Veir.IRContext OpInfo × Veir.OperationPtr) :=
-  OperationPtr.allocEmptyAt ctx opType properties addr capResults capBlockOperands capRegions capOperands
+  OperationPtr.allocEmptyAt ctx opType properties capResults capBlockOperands capRegions capOperands addr
 
 @[inline]
 def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
@@ -2786,10 +2843,6 @@ def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
     (h₁ : numResults.toNat ≤ countCard) (h₂ : numOperands.toNat ≤ countCard)
     (h₃ : numBlockOperands.toNat ≤ countCard) (h₄ : numRegions.toNat ≤ countCard) :
     Option (Sim.OperationPtr × Sim.IRContext OpInfo) :=
-  -- An operation whose arrays exceed `countCard` (`2^32`) cannot be laid out without its size
-  -- overflowing, so it is not allocatable; reject it here, which also supplies the size bounds
-  -- needed by `allocEmptyImpl`. `propertySize_lt` bounds the property size (`< UInt32.size =
-  -- countCard`), so it too is always in range.
   match allocEmptyImpl ctx.buf numResults numOperands numBlockOperands numRegions
         (Buffed.Operation.propertySize opType)
         h₁ h₂ h₃ h₄ (Nat.le_of_lt (Operation.propertySize_lt opType)) with
@@ -2799,13 +2852,39 @@ def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
         numResults.toNat numBlockOperands.toNat numRegions.toNat numOperands.toNat).specGet!
       some ⟨⟨ptrImpl, ptrSpec⟩, ⟨ctxBuf, ctxSpec, admitted_sim ()⟩⟩
 
+/-- Any address at or beyond the end of the buffer is free in the spec: an operation there
+would have its range escape the buffer, contradicting `in_bounds`. -/
+theorem Sim.OperationPtr.slot_free (ctx : Sim.IRContext OpInfo) {a : Nat} (ha : ctx.buf.mem.size ≤ a) :
+    ¬ (⟨a⟩ : Veir.OperationPtr).InBounds ctx.spec := by
+  intro hin
+  have hlt := Sim.OperationPtr.after_lt_ctx (ctx := ctx) ⟨a⟩ hin
+  -- `afterInt` is the (positive) tail of the operation past its pointer.
+  have : (0 : Int) < Buffed.Operation.Offsets.afterInt (⟨a⟩ : Veir.OperationPtr) ctx.spec := by
+    simp only [Buffed.Operation.Offsets.afterInt, Buffed.Operation.Offsets.regionsInt,
+      Buffed.Operation.Offsets.blockOperandsInt, Buffed.Operation.Offsets.operandsInt]
+    grind
+  grind
+
 @[grind! .]
 theorem Sim.OperationPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
     allocEmpty ctx opType props c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some ⟨ptr, ctx'⟩ →
-    ∃ addr, Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₂.toNat c₃.toNat c₄.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:= by
-  unfold Sim.OperationPtr.allocEmpty
-  -- TODO: we need to get from ctx.sim that the slot in the spec is free.
-  sorry
+    ∃ addr, Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₃.toNat c₄.toNat c₂.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:= by
+  unfold Sim.OperationPtr.allocEmpty allocEmptySpec
+  split
+  · intro h; exact absurd h (by simp)
+  · rename_i ptrImpl heqImpl
+    refine fun h => ⟨ptrImpl.toNat, ?_⟩
+    -- `ptrImpl` lies at/past the buffer end, so the spec slot is free.
+    have hge := Sim.OperationPtr.allocEmptyImpl_ptr_ge heqImpl
+    have hfree := Sim.OperationPtr.slot_free ctx hge
+    simp only [Veir.OperationPtr.inBounds_def] at hfree
+    have hsome := Veir.OperationPtr.allocEmptyAt_isSome_of_not_mem
+      (opType := opType) (properties := props) (capResults := c₁.toNat)
+      (capBlockOperands := c₃.toNat) (capRegions := c₄.toNat) (capOperands := c₂.toNat) hfree
+    simp_all only [Option.some.injEq, Prod.mk.injEq]
+    obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := h
+    simp only [Option.specGet!]
+    grind
 
 -- theorem Veir.Sim.BlockPtr.getParent_impl2 {OpInfo : Type} [inst : HasOpInfo OpInfo] (ctx : Sim.IRContext OpInfo)
 --   (ptr : Sim.BlockPtr) (ib : ptr.InBounds ctx) :

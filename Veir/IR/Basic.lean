@@ -1083,6 +1083,14 @@ def allocEmpty (ctx : IRContext OpInfo) (opType : OpInfo) (properties : HasOpInf
   (capResults capBlockOperands capRegions capOperands : Nat) : Option (IRContext OpInfo × OperationPtr) :=
   allocEmptyAt ctx opType properties capResults capBlockOperands capRegions capOperands ctx.nextID
 
+/-- `allocEmptyAt` succeeds whenever the target address is free (not already an operation). -/
+theorem allocEmptyAt_isSome_of_not_mem {ctx : IRContext OpInfo} {opType : OpInfo}
+    {properties : HasOpInfo.propertiesOf opType} {capResults capBlockOperands capRegions capOperands addr : Nat}
+    (h : (⟨addr⟩ : OperationPtr) ∉ ctx.operations) :
+    (allocEmptyAt ctx opType properties capResults capBlockOperands capRegions capOperands addr).isSome := by
+  simp only [allocEmptyAt]
+  grind
+
 -- `inBounds` is unused as ExtHashMap does not require proof of key presence for `erase`.
 -- We still keep it as an API consistency.
 set_option linter.unusedVariables false in
@@ -1599,6 +1607,13 @@ def allocEmptyAtAddress (ctx : IRContext OpInfo) (capArguments : Nat) (address :
 
 def allocEmpty (ctx : IRContext OpInfo) (capArguments : Nat) : Option (IRContext OpInfo × BlockPtr) :=
   allocEmptyAtAddress ctx capArguments ctx.nextID
+
+/-- `allocEmptyAtAddress` succeeds whenever the target address is free (not already a block). -/
+theorem allocEmptyAtAddress_isSome_of_not_mem {ctx : IRContext OpInfo} {capArguments address : Nat}
+    (h : (⟨address⟩ : BlockPtr) ∉ ctx.blocks) :
+    (allocEmptyAtAddress ctx capArguments address).isSome := by
+  simp only [allocEmptyAtAddress]
+  grind
 
 theorem allocEmpty_def (heq : allocEmpty ctx capArguments = some (ctx', ptr')) :
     ctx' = set ⟨ctx.nextID⟩ {ctx with nextID := ctx.nextID + 1} (Block.empty capArguments)  := by
@@ -2341,6 +2356,12 @@ def allocEmptyAt (ctx : IRContext OpInfo) (addr : Nat) : Option (IRContext OpInf
 
 def allocEmpty (ctx : IRContext OpInfo) : Option (IRContext OpInfo × RegionPtr) :=
   allocEmptyAt ctx ctx.nextID
+
+/-- `allocEmptyAt` succeeds whenever the target address is free (not already a region). -/
+theorem allocEmptyAt_isSome_of_not_mem {ctx : IRContext OpInfo} {addr : Nat}
+    (h : (⟨addr⟩ : RegionPtr) ∉ ctx.regions) : (allocEmptyAt ctx addr).isSome := by
+  simp only [allocEmptyAt]
+  grind
 
 end RegionPtr
 
