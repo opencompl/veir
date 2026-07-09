@@ -169,6 +169,23 @@ macro "prove_setLinkBoundsRegion" ctx:ident ptr:ident : tactic => `(tactic|
    have : ctx.buf.mem.size < 2^63 := by grind
    grind [layout_grind]))
 
+/- Bounds proof for reading the `$index`-th region *slot* of an operation
+(`readNthRegion`'s `h₂`): the slot lies inside the op's byte range
+(`nthRegion_range_included_op_range`), which in turn lies in the buffer
+(`sim.in_bounds`). Expects `hindex : ($index).toNat < ($ptr).spec.getNumRegions! ($ctx).spec`
+(or enough for `grind` to derive it) in scope; `capRegions` bounds `getNumRegions!`
+via `ReprIndices`. -/
+set_option hygiene false in
+macro "prove_setLinkBoundsRegionSlot" ctx:ident ptr:ident index:ident : tactic => `(tactic|
+  (have hcap : ($index).toNat < (($ptr).spec.get! ($ctx).spec).capRegions := by
+     have := ($ctx).isRepr.operations_indices ($ptr).spec (by grind) |>.capRegions
+     grind
+   have hincl := OperationPtr.nthRegion_range_included_op_range $ctx ($ptr).spec $index hcap (by grind)
+   have hin := ($ctx).sim.in_bounds (.operation ($ptr).spec) (by grind)
+   have : ($ctx).buf.mem.size < 2^63 := by grind
+   grind [layout_grind, OperationPtr.range, OperationPtr.toM, OperationPtr.toFlat,
+     Buffed.OperationMPtr.computeRegionOffset, IsIncludedI, IsIncludedIN]))
+
 set_option hygiene false in
 macro "prove_setLinkBoundsValue" : tactic => `(tactic|
   (have : ctx.buf.mem.size < 2^63 := by grind
@@ -856,13 +873,13 @@ theorem Sim.OperationPtr.getResultPtr_eq_getResultPtr! (ctx : IRContext OpInfo) 
 buffed
 def Sim.OperationPtr.getRegionPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) (hindex : index.toNat < ptr.spec.getNumRegions! ctx.spec) : Sim.RegionPtr :=
-  ⟨ptr.impl + ptr.impl.computeRegionOffset ctx.buf index (by prove_setLinkBoundsOp ctx ptr),
+  ⟨ptr.impl.readNthRegion ctx.buf index (by prove_setLinkBoundsOp ctx ptr) (by prove_setLinkBoundsRegionSlot ctx ptr index),
    ptr.spec.getRegion ctx.spec index.toNat (by grind) (by grind)⟩
 
 buffed
 def Sim.OperationPtr.getRegionPtr!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) : Sim.RegionPtr :=
-  ⟨ptr.impl + ptr.impl.computeRegionOffset! ctx.buf index,
+  ⟨ptr.impl.readNthRegion! ctx.buf index,
    ptr.spec.getRegion! ctx.spec index.toNat⟩
 
 @[eq_bang, grind _=_]
