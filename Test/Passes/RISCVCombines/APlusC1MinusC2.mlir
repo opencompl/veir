@@ -44,8 +44,11 @@
 // CHECK:      %[[NR:.*]] = "llvm.sub"(%[[NADD]], %[[NY]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()
 
-// Non-constant addend: the pattern does not fire.
+// Non-constant addend: `APlusC1MinusC2` does not fire (the add's second operand
+// is not constant), but the generic `sub_to_add` rewrites `(A + X) - 3` into
+// `(A + X) + (-3)`.
 // CHECK:      ^{{.*}}(%[[MA:.*]] : i64, %[[MX:.*]] : i64):
 // CHECK:      %[[MADD:.*]] = "llvm.add"(%[[MA]], %[[MX]]) : (i64, i64) -> i64
-// CHECK:      %[[MR:.*]] = "llvm.sub"(%[[MADD]], %{{.*}}) : (i64, i64) -> i64
+// CHECK:      %[[MC:.*]] = "llvm.mlir.constant"() <{"value" = -3 : i64}> : () -> i64
+// CHECK:      %[[MR:.*]] = "llvm.add"(%[[MADD]], %[[MC]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[MR]]) : (i64) -> ()
