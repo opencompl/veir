@@ -632,43 +632,38 @@ def select_of_truncate_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 
 /-! ### add_shift :  A + shl(0 - B, C) → A - shl(B, C) -/
 
--- The created `shl` drops the matched `shl`'s `nsw`/`nuw` (it now shifts `B` rather than
--- `0 - B`, which overflows differently), and the created `sub` drops the inner `sub`'s
--- `nsw`/`nuw` (those described `0 - B`, not `A - shl(B, C)`). See `add_shift` in
--- `LLVMProofs.lean`.
-set_option warn.sorry false in
+/-- The shared shape of `add_shift`/`add_shift_commute`: match `A + shl(0 - B, C)` (with the
+    `shl(0-B,C)` in the first add operand when `keepFirst = false`, second when `true`), reached
+    through a defining `shl`, a defining `sub (const 0) B`, and a `constant 0`, and emit
+    `A - shl(B, C)`. The created `shl` and `sub` clear their flags. `i32`/`i64` guard.
+    Its correctness proof is `addShiftLocal_preservesSemantics`. -/
+def addShiftLocal (keepFirst : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (o0, o1, _ap) := matchAdd op ctx | return (ctx, none)
+  let (a, shlNeg) := if keepFirst then (o1, o0) else (o0, o1)
+  let .integerType rty := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if rty.bitwidth ≠ 64 ∧ rty.bitwidth ≠ 32 then return (ctx, none)
+  let some dShl := getDefiningOp shlNeg ctx | return (ctx, none)
+  let some (negB, c, _shp) := matchShl dShl ctx | return (ctx, none)
+  let some dSub := getDefiningOp negB ctx | return (ctx, none)
+  let some (zeroV, b, _subp) := matchSub dSub ctx | return (ctx, none)
+  let some zc := matchConstantIntVal zeroV ctx | return (ctx, none)
+  if zc.value ≠ 0 then return (ctx, none)
+  let (ctx, newShl) ← WfRewriter.createOp! ctx (.llvm .shl) #[b.getType! ctx.raw] #[b, c]
+    #[] #[] { nsw := false, nuw := false } none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, newShl.getResult 0] #[] #[]
+    { nsw := false, nuw := false } none
+  some (ctx, some (#[newShl, newOp], #[newOp.getResult 0]))
+
 def add_shift (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (a, shlNeg, _ap) := matchAdd op rewriter.ctx | return rewriter
-  let some dShl := getDefiningOp shlNeg rewriter.ctx | return rewriter
-  let some (negB, c, _shp) := matchShl dShl rewriter.ctx | return rewriter
-  let some dSub := getDefiningOp negB rewriter.ctx | return rewriter
-  let some (zeroV, b, _subp) := matchSub dSub rewriter.ctx | return rewriter
-  let some zc := matchConstantIntVal zeroV rewriter.ctx | return rewriter
-  if zc.value ≠ 0 then return rewriter
-  let (rewriter, newShl) ← rewriter.createOp (.llvm .shl) #[b.getType! rewriter.ctx.raw] #[b, c]
-    #[] #[] { nsw := false, nuw := false } (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sub) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (newShl.getResult 0)]
-    #[] #[] { nsw := false, nuw := false } (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (addShiftLocal false) rewriter op opInBounds
 
 -- A + shl(0 - B, C) → A - shl(B, C)   (add operands commuted)
--- The created `shl` and `sub` drop their flags, as in `add_shift`.
-set_option warn.sorry false in
 def add_shift_commute (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (shlNeg, a, _ap) := matchAdd op rewriter.ctx | return rewriter
-  let some dShl := getDefiningOp shlNeg rewriter.ctx | return rewriter
-  let some (negB, c, _shp) := matchShl dShl rewriter.ctx | return rewriter
-  let some dSub := getDefiningOp negB rewriter.ctx | return rewriter
-  let some (zeroV, b, _subp) := matchSub dSub rewriter.ctx | return rewriter
-  let some zc := matchConstantIntVal zeroV rewriter.ctx | return rewriter
-  if zc.value ≠ 0 then return rewriter
-  let (rewriter, newShl) ← rewriter.createOp (.llvm .shl) #[b.getType! rewriter.ctx.raw] #[b, c]
-    #[] #[] { nsw := false, nuw := false } (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sub) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (newShl.getResult 0)]
-    #[] #[] { nsw := false, nuw := false } (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (addShiftLocal true) rewriter op opInBounds
 
 /-! ### redundant_binop_in_equality
 

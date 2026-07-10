@@ -310,17 +310,17 @@ theorem select_of_truncate_rw {s u : Bool} {c : Int 1} {x y : Int 64} :
 
     Keeping `nsw` on the `shl` would be unsound: `A = 0`, `B = 2^62`, `C = 1`.
     `shl nsw (0 - B) 1` is fine, but `shl nsw B 1` is poison. -/
-theorem add_shift {as au ns nu ss su : Bool} {a b c : Int 64} :
-    add a (shl (sub (constant 64 0) b ss su) c ns nu) as au
+theorem add_shift {w : Nat} (hw : w = 64 ∨ w = 32) {as au ns nu ss su : Bool} {a b c : Int w} :
+    add a (shl (sub (constant w 0) b ss su) c ns nu) as au
       ⊒ sub a (shl b c false false) false false := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `shl(0 - B, C) + A → A - shl(B, C)` (operands commuted). Both created ops clear their
     flags, as in `add_shift`. -/
-theorem add_shift_commute {as au ns nu ss su : Bool} {a b c : Int 64} :
-    add (shl (sub (constant 64 0) b ss su) c ns nu) a as au
+theorem add_shift_commute {w : Nat} (hw : w = 64 ∨ w = 32) {as au ns nu ss su : Bool} {a b c : Int w} :
+    add (shl (sub (constant w 0) b ss su) c ns nu) a as au
       ⊒ sub a (shl b c false false) false false := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### redundant_binop_in_equality
 
