@@ -515,4 +515,31 @@ theorem mul_zero_left {w : Nat} {nsw nuw : Bool} {y : Int w} :
   rw [getValue_mul, getValue_constant]
   simp
 
+/-! ### narrow_binop :  `trunc (binop X C) → binop (trunc X) (trunc C)`
+
+  Pushing an `i64 → i32` truncation onto both operands of an add/sub/mul is bit-for-bit correct on
+  the low 32 bits (add/sub/mul only propagate carries *upward*). The created operand `trunc`s and
+  the narrowed binop clear all overflow flags: the source keeps the outer trunc's `s`/`u` and the
+  matched binop's `nsw`/`nuw` as free variables, all of which only *add* poison, so the refinement
+  holds regardless. Reusing those flags on the created ops would be unsound — e.g. `X = 2^40`,
+  `C = -2^40`: `trunc nuw (X + C)` is fine (`X + C = 0`) but `trunc nuw X` is poison. -/
+
+/-- `trunc (add X C) → add (trunc X) (trunc C)`. -/
+theorem NarrowBinopAdd {s u nsw nuw : Bool} {x c : Int 64} :
+    trunc (add x c nsw nuw) 32 s u h64_32
+      ⊒ add (trunc x 32 false false h64_32) (trunc c 32 false false h64_32) := by
+  veir_bv_decide
+
+/-- `trunc (sub X C) → sub (trunc X) (trunc C)`. -/
+theorem NarrowBinopSub {s u nsw nuw : Bool} {x c : Int 64} :
+    trunc (sub x c nsw nuw) 32 s u h64_32
+      ⊒ sub (trunc x 32 false false h64_32) (trunc c 32 false false h64_32) := by
+  veir_bv_decide
+
+/-- `trunc (mul X C) → mul (trunc X) (trunc C)`. -/
+theorem NarrowBinopMul {s u nsw nuw : Bool} {x c : Int 64} :
+    trunc (mul x c nsw nuw) 32 s u h64_32
+      ⊒ mul (trunc x 32 false false h64_32) (trunc c 32 false false h64_32) := by
+  veir_bv_decide
+
 end Veir.Data.LLVM.Int

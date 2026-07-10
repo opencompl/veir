@@ -7404,4 +7404,360 @@ theorem mul_left_to_zero_local_preservesSemantics
     mul_zeroLeftSem
     (fun _y props => Data.LLVM.Int.mul_zero_left (nsw := props.nsw) (nuw := props.nuw))
 
+/-! ### narrow_binop (`narrow_binop_{add,sub,mul}`)
+
+  `trunc (binop X C) → binop (trunc X) (trunc C)` for `binop ∈ {add, sub, mul}`, at `i64 → i32`,
+  when the binop's second operand `C` is a matched integer constant. `op` is the outer `trunc`; its
+  operand is a defining `binop X C` (recovered via `matchBinop_getVar?_of_EquationLemmaAt`). Create
+  `tx = trunc X`, `tc = trunc C` (`i32`), then `binop tx tc` (`i32`). All three created ops clear
+  their overflow flags. The `matchConstantIntVal C` guard is only a firing heuristic — the rewrite is
+  bit-for-bit correct regardless of whether `C` is constant — so the proof merely peels it and reads
+  the binop's second operand generically.
+-/
+
+/-- `llvm.mul` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_mul {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .mul) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  repeat' split
+  all_goals first
+    | rfl
+    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness proof for `narrow_binop_add`/`narrow_binop_sub`/`narrow_binop_mul`.
+    Parameterized over the binop opcode `srcOp`/function `srcFn` (matcher-verifier-purity facts), the
+    emitted binop `dst`/`dfn` (`hSemDst`/`hMono`, flags cleared) and the data-refinement lemma
+    `hRefine` (`trunc (srcFn X C) ⊒ dfn (trunc X) (trunc C)`). -/
+theorem narrowBinopLocal_preservesSemantics {srcOp dst : Llvm}
+    {srcFn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → propertiesOf (.llvm srcOp) →
+      Data.LLVM.Int bw}
+    {dprops : propertiesOf (.llvm dst)}
+    {dfn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → Data.LLVM.Int bw}
+    {match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr)}
+    (hMatchImplies : ∀ {opp : OperationPtr} {c : IRContext OpCode} {l r},
+        match? opp c = some (l, r) →
+        opp.getOpType! c = .llvm srcOp ∧ opp.getNumResults! c = 1 ∧ opp.getOperands! c = #[l, r])
+    (hVerified : ∀ {c : WfIRContext OpCode} {opp : OperationPtr} {oib : opp.InBounds c.raw},
+        opp.Verified c oib → opp.getOpType! c.raw = .llvm srcOp → opp.IsVerifiedIntegerBinop c)
+    (hPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .llvm srcOp → opp.Pure c)
+    (hSemSrc : ∀ (bw : Nat) (a b : Data.LLVM.Int bw) (props : propertiesOf (.llvm srcOp))
+        (rt : Array TypeAttr) (bo : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' srcOp props rt #[.int bw a, .int bw b] bo mem
+          = some (.ok (#[.int bw (srcFn a b props)], mem, none)))
+    (hSemDst : ∀ (bw : Nat) (a b : Data.LLVM.Int bw) (rt : Array TypeAttr) (bo : Array BlockPtr)
+        (mem : MemoryState),
+        Llvm.interpretOp' dst dprops rt #[.int bw a, .int bw b] bo mem
+          = some (.ok (#[.int bw (dfn a b)], mem, none)))
+    (hMono : ∀ {bw : Nat} (a₁ a₂ b₁ b₂ : Data.LLVM.Int bw), a₁ ⊒ a₂ → b₁ ⊒ b₂ →
+        dfn a₁ b₁ ⊒ dfn a₂ b₂)
+    (hRefine : ∀ (tnsw tnuw : Bool) (x c : Data.LLVM.Int 64) (po : propertiesOf (.llvm srcOp))
+        (hgt : (32 : Nat) < 64),
+        Data.LLVM.Int.trunc (srcFn x c po) 32 tnsw tnuw hgt
+          ⊒ dfn (Data.LLVM.Int.trunc x 32 false false hgt) (Data.LLVM.Int.trunc c 32 false false hgt))
+    {h : LocalRewritePattern.ReturnOps (narrowBinopLocal match? dst dprops)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (narrowBinopLocal match? dst dprops)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (narrowBinopLocal match? dst dprops)}
+    {h₄ : LocalRewritePattern.ReturnValues (narrowBinopLocal match? dst dprops)} :
+    LocalRewritePattern.PreservesSemantics (narrowBinopLocal match? dst dprops) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, narrowBinopLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel the outer `matchTrunc` (`op` is the trunc).
+  have hMatchSome : (matchTrunc op ctx.raw).isSome := by
+    cases hM : matchTrunc op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨v0, tp⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands, hProps⟩ := matchTrunc_implies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Peel the defining `binop`.
+  have hDefSome : (getDefiningOp v0 ctx.raw).isSome := by
+    cases hM : getDefiningOp v0 ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨dBin, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+  rw [hDef] at hpattern
+  simp only [] at hpattern
+  have hBinSome : (match? dBin ctx.raw).isSome := by
+    cases hM : match? dBin ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨x, cst⟩, hBinMatch⟩ := Option.isSome_iff_exists.mp hBinSome
+  rw [hBinMatch] at hpattern
+  simp only [] at hpattern
+  -- Peel the `matchConstantIntVal` guard (its value is not needed).
+  have hCstSome : (matchConstantIntVal cst ctx.raw).isSome := by
+    cases hM : matchConstantIntVal cst ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨cstAttr, hCstMatch⟩ := Option.isSome_iff_exists.mp hCstSome
+  rw [hCstMatch] at hpattern
+  simp only [] at hpattern
+  -- `v0`'s type is an integer type.
+  obtain ⟨vty, hvTypeVal⟩ :
+      ∃ t, (v0.getType! ctx.raw).val = Attribute.integerType t := by
+    cases hr : (v0.getType! ctx.raw).val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hvTypeVal] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isFalse =>
+    change some (ctx, none) = _ at hpattern
+    injection hpattern with hp; injection hp with _ hp2; exact absurd hp2 (by simp)
+  rename_i hVW
+  -- `op`'s result type is an integer type.
+  obtain ⟨rty, hrTypeVal⟩ :
+      ∃ t, ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType t := by
+    cases hr : ((op.getResult 0).get! ctx.raw).type.val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hrTypeVal] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isFalse =>
+    change some (ctx, none) = _ at hpattern
+    injection hpattern with hp; injection hp with _ hp2; exact absurd hp2 (by simp)
+  rename_i hRW
+  -- Collapse the widths to literals `64`/`32`.
+  obtain ⟨vw⟩ := vty; simp only at hVW; subst hVW
+  obtain ⟨rw'⟩ := rty; simp only at hRW; subst hRW
+  have hw : (32 : Nat) < 64 := by omega
+  -- The trunc's single result type, as read by the interpreter.
+  have hResTypes0 : op.getResultTypes! ctx.raw = #[((op.getResult 0).get! ctx.raw).type] := by
+    apply Array.ext
+    · simp [OperationPtr.getResultTypes!.size_eq_getNumResults!, hNumResults]
+    · intro i h1 h2
+      simp only [OperationPtr.getResultTypes!.size_eq_getNumResults!, hNumResults] at h1
+      obtain rfl : i = 0 := by omega
+      have := OperationPtr.getResultTypes!.getElem!_eq (op := op) (ctx := ctx.raw) (index := 0)
+        (by omega)
+      grind
+  have hResTypes : op.getResultTypes! ctx.raw
+      = #[(⟨Attribute.integerType ⟨32⟩, hrTypeVal ▸ ((op.getResult 0).get! ctx.raw).type.2⟩
+          : TypeAttr)] := by
+    rw [hResTypes0]; exact congrArg (fun t => #[t]) (Subtype.ext hrTypeVal)
+  -- Unfold the matched `trunc`'s interpretation.
+  obtain ⟨v0v, hv0Val, hMem, hRes, hCf⟩ :=
+    matchTruncOp_interpretOp_unfold (opType := ⟨64⟩) (resType := ⟨32⟩)
+      opInBounds hOpType hNumResults hOperands hProps hResTypes hw
+      (by intro w₁ resTy hw' xx pp hIsTy bo mem
+          simp [Llvm.interpretOp', ge_iff_le, Nat.not_le.mpr hw', pure, Interp])
+      hinterp hvTypeVal
+  subst hCf
+  -- Recover the defining `binop`'s value and both operands' facts.
+  obtain ⟨xv, cv, hxVal, hcVal, hv0BinIs, hxType, hcType, hDomX, hDomC, hxIn, hcIn,
+      xNotOp, cNotOp⟩ :=
+    matchBinop_getVar?_of_EquationLemmaAt (srcOp := srcOp) (srcFn := srcFn)
+      hMatchImplies hVerified hPure hSemSrc ctxDom ctxVerif opInBounds stateWf hDef hBinMatch
+      (by rw [hOperands]; simp) hvTypeVal
+  -- Pin `v0v` to `srcFn xv cv props`.
+  obtain rfl : v0v = srcFn xv cv (dBin.getProperties! ctx.raw (.llvm srcOp)) := by
+    have := hv0Val.symm.trans hv0BinIs; simpa using this
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- Type attrs for `x`/`cst` (`i64`) and the result (`i32`).
+  have hXTypeAttr : x.getType! ctx.raw
+      = (⟨Attribute.integerType ⟨64⟩, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr) :=
+    Subtype.ext hxType
+  have hCTypeAttr : cst.getType! ctx.raw
+      = (⟨Attribute.integerType ⟨64⟩, hcType ▸ (cst.getType! ctx.raw).2⟩ : TypeAttr) :=
+    Subtype.ext hcType
+  have hOpResTypeVal : (ValuePtr.opResult (op.getResult 0)).getType! ctx.raw
+      = (⟨Attribute.integerType ⟨32⟩, hrTypeVal ▸ ((op.getResult 0).get! ctx.raw).type.2⟩
+          : TypeAttr) := by
+    rw [ValuePtr.getType!_opResult]; exact Subtype.ext hrTypeVal
+  have hOpRes0In : (ValuePtr.opResult (op.getResult 0)).InBounds ctx.raw := by
+    have hnr : op.getNumResults! ctx.raw = 1 := hNumResults
+    clear valueRefinement state'Dom state'Wf hpattern hRes
+    rw [ValuePtr.inBounds_opResult]
+    refine ⟨opInBounds, ?_⟩
+    simp only [OperationPtr.getResult]; grind [OperationPtr.getNumResults!, OperationPtr.get!]
+  -- Peel the three creations (`trunc x`, `trunc cst`, `binop`).
+  peelOpCreation!₂ hpattern ctx₁ txOp hTx hDomX hDomX₁ hDomC hDomC₁
+  peelOpCreation!₂ hpattern ctx₂ tcOp hTc hDomX₁ hDomX₂ hDomC₁ hDomC₂
+  peelOpCreation!₂ hpattern ctx₃ binNewOp hBinNew hDomX₂ hDomX₃ hDomC₂ hDomC₃
+  cleanupHpattern hpattern
+  have hTxNeTc : txOp ≠ tcOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  have hTxNeBin : txOp ≠ binNewOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  have hTcNeBin : tcOp ≠ binNewOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  -- Structural facts: `trunc x`.
+  have hTxType : txOp.getOpType! ctx₃.raw = .llvm .trunc := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hTx (operation := txOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hTc (operation := txOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hBinNew (operation := txOp)]
+  have hTxOperands : txOp.getOperands! ctx₃.raw = #[x] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hTx (operation := txOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hTc (operation := txOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hBinNew (operation := txOp)]
+  have hTxProps : txOp.getProperties! ctx₃.raw (.llvm .trunc) = NswNuwProperties.mk false false := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hTx (operation := txOp),
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hTc hTxNeTc,
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hBinNew hTxNeBin]
+  have hTxResTypes : txOp.getResultTypes! ctx₃.raw
+      = #[(⟨Attribute.integerType ⟨32⟩, by grind⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hTx (operation := txOp)
+    rw [if_pos rfl] at hT
+    have hT2 := OperationPtr.getResultTypes!_WfRewriter_createOp hTc (operation := txOp)
+    rw [if_neg hTxNeTc] at hT2
+    have hT3 := OperationPtr.getResultTypes!_WfRewriter_createOp hBinNew (operation := txOp)
+    rw [if_neg hTxNeBin] at hT3
+    rw [hT3, hT2, hT]
+    exact congrArg (fun t => #[t]) hOpResTypeVal
+  -- Structural facts: `trunc cst`.
+  have hTcType : tcOp.getOpType! ctx₃.raw = .llvm .trunc := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hTc (operation := tcOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hBinNew (operation := tcOp)]
+  have hTcOperands : tcOp.getOperands! ctx₃.raw = #[cst] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hTc (operation := tcOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hBinNew (operation := tcOp)]
+  have hTcProps : tcOp.getProperties! ctx₃.raw (.llvm .trunc) = NswNuwProperties.mk false false := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hTc (operation := tcOp),
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hBinNew hTcNeBin]
+  have hTcResTypes : tcOp.getResultTypes! ctx₃.raw
+      = #[(⟨Attribute.integerType ⟨32⟩, by grind⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hTc (operation := tcOp)
+    rw [if_pos rfl] at hT
+    have hT3 := OperationPtr.getResultTypes!_WfRewriter_createOp hBinNew (operation := tcOp)
+    rw [if_neg hTcNeBin] at hT3
+    rw [hT3, hT]
+    exact congrArg (fun t => #[t]) hOpResTypeVal
+  -- Structural facts: the narrowed `binop`.
+  have hBinNewType : binNewOp.getOpType! ctx₃.raw = .llvm dst := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hBinNew (operation := binNewOp)]
+  have hBinNewOperands : binNewOp.getOperands! ctx₃.raw
+      = #[ValuePtr.opResult (txOp.getResult 0), ValuePtr.opResult (tcOp.getResult 0)] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hBinNew (operation := binNewOp)]
+  have hBinNewProps : binNewOp.getProperties! ctx₃.raw (.llvm dst) = dprops := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hBinNew (operation := binNewOp)]
+  have hBinNewResTypes : binNewOp.getResultTypes! ctx₃.raw
+      = #[(⟨Attribute.integerType ⟨32⟩, by grind⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hBinNew (operation := binNewOp)
+    rw [if_pos rfl] at hT
+    rw [hT]
+    exact congrArg (fun t => #[t]) hOpResTypeVal
+  -- Read refined `x`/`cst` in the target state.
+  obtain ⟨xt, hXVal', hxRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hxIn hxVal
+      hDomX hDomX₃ xNotOp
+  obtain ⟨ct, hCVal', hcRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hcIn hcVal
+      hDomC hDomC₃ cNotOp
+  -- Replay `trunc x`, then `trunc cst`, then the `binop`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, hFrame₁⟩ :=
+    interpretOp_llvm_unaryInt_forward (state := state')
+      (inBounds := WfRewriter.createOp_inBounds_mono (ptr := .operation txOp) hBinNew
+        (WfRewriter.createOp_inBounds_mono (ptr := .operation txOp) hTc
+          (WfRewriter.createOp_new_inBounds txOp hTx)))
+      (srcType := ⟨64⟩) (resType := ⟨32⟩)
+      (f := fun c => Data.LLVM.Int.trunc c 32 false false (by omega))
+      (by intro blockOperands mem
+          exact trunc_interpretOp' 64 ⟨32⟩ (by omega) _ (NswNuwProperties.mk false false) _
+            blockOperands mem)
+      hTxType hTxProps hTxOperands hTxResTypes hXVal'
+  have hCVal₁ : s₁.variables.getVar? cst = some (RuntimeValue.int 64 ct) := by
+    rw [hFrame₁ cst (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hcIn
+      (WfRewriter.createOp_new_not_inBounds txOp hTx))]
+    exact hCVal'
+  obtain ⟨s₂, hI₂, hMem₂, hRes₂, hFrame₂⟩ :=
+    interpretOp_llvm_unaryInt_forward (state := s₁)
+      (inBounds := WfRewriter.createOp_inBounds_mono (ptr := .operation tcOp) hBinNew
+        (WfRewriter.createOp_new_inBounds tcOp hTc))
+      (srcType := ⟨64⟩) (resType := ⟨32⟩)
+      (f := fun c => Data.LLVM.Int.trunc c 32 false false (by omega))
+      (by intro blockOperands mem
+          exact trunc_interpretOp' 64 ⟨32⟩ (by omega) _ (NswNuwProperties.mk false false) _
+            blockOperands mem)
+      hTcType hTcProps hTcOperands hTcResTypes hCVal₁
+  have hTxResIn₁ : (ValuePtr.opResult (txOp.getResult 0)).InBounds ctx₁.raw := by
+    have hnr : txOp.getNumResults! ctx₁.raw = 1 := by
+      grind [OperationPtr.getNumResults!_WfRewriter_createOp hTx (operation := txOp)]
+    clear valueRefinement state'Dom state'Wf hpattern
+    rw [ValuePtr.inBounds_opResult]
+    refine ⟨WfRewriter.createOp_new_inBounds txOp hTx, ?_⟩
+    simp only [OperationPtr.getResult]
+    grind [OperationPtr.getNumResults!, OperationPtr.get!]
+  have hTxRes₂ : s₂.variables.getVar? (ValuePtr.opResult (txOp.getResult 0))
+      = some (RuntimeValue.int 32 (Data.LLVM.Int.trunc xt 32 false false (by omega))) := by
+    rw [hFrame₂ _ (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hTxResIn₁
+      (WfRewriter.createOp_new_not_inBounds tcOp hTc))]
+    exact hRes₁
+  obtain ⟨s₃, hI₃, hMem₃, hRes₃, -⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := s₂)
+      (inBounds := WfRewriter.createOp_new_inBounds binNewOp hBinNew)
+      (it := ⟨32⟩) (f := fun a b => dfn a b)
+      (by intro resultTypes blockOperands mem; exact hSemDst _ _ _ _ _ _)
+      hBinNewType hBinNewProps hBinNewOperands hBinNewResTypes hTxRes₂ hRes₂
+  refine ⟨s₃, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, hI₂, hI₃, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int 32 (dfn (Data.LLVM.Int.trunc xt 32 false false (by omega))
+      (Data.LLVM.Int.trunc ct 32 false false (by omega)))],
+    by simp [hRes₃, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Assemble: `trunc (srcFn xv cv) ⊒ dfn (trunc xv) (trunc cv) ⊒ dfn (trunc xt) (trunc ct)`.
+  simp only [Data.LLVM.Int.cast_self]
+  exact isRefinedBy_trans (hRefine tp.nsw tp.nuw xv cv _ hw)
+    (hMono _ _ _ _ (Data.LLVM.Int.trunc_mono xv xt (by omega) hxRef)
+      (Data.LLVM.Int.trunc_mono cv ct (by omega) hcRef))
+
+theorem narrow_binop_add_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (narrowBinopLocal (matchBinopNoProps matchAdd) .add (NswNuwProperties.mk false false))
+      h h₂ h₃ h₄ :=
+  narrowBinopLocal_preservesSemantics (srcOp := .add) (dst := .add)
+    (srcFn := fun a b p => Data.LLVM.Int.add a b p.nsw p.nuw)
+    (dfn := fun a b => Data.LLVM.Int.add a b)
+    (matchBinopNoProps_implies matchAdd_implies) OperationPtr.Verified.llvm_add
+    (fun h => OperationPtr.Pure.llvm_add h)
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.add_mono a₁ b₁ a₂ b₂ h₁ h₂ false false)
+    (fun tnsw tnuw x c po _ => by
+      simpa using Data.LLVM.Int.NarrowBinopAdd (s := tnsw) (u := tnuw) (nsw := po.nsw) (nuw := po.nuw))
+
+theorem narrow_binop_sub_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (narrowBinopLocal (matchBinopNoProps matchSub) .sub (NswNuwProperties.mk false false))
+      h h₂ h₃ h₄ :=
+  narrowBinopLocal_preservesSemantics (srcOp := .sub) (dst := .sub)
+    (srcFn := fun a b p => Data.LLVM.Int.sub a b p.nsw p.nuw)
+    (dfn := fun a b => Data.LLVM.Int.sub a b)
+    (matchBinopNoProps_implies matchSub_implies) OperationPtr.Verified.llvm_sub
+    (fun h => OperationPtr.Pure.llvm_sub h)
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.sub_mono a₁ b₁ a₂ b₂ h₁ h₂ false false)
+    (fun tnsw tnuw x c po _ => by
+      simpa using Data.LLVM.Int.NarrowBinopSub (s := tnsw) (u := tnuw) (nsw := po.nsw) (nuw := po.nuw))
+
+theorem narrow_binop_mul_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (narrowBinopLocal (matchBinopNoProps matchMul) .mul (NswNuwProperties.mk false false))
+      h h₂ h₃ h₄ :=
+  narrowBinopLocal_preservesSemantics (srcOp := .mul) (dst := .mul)
+    (srcFn := fun a b p => Data.LLVM.Int.mul a b p.nsw p.nuw)
+    (dfn := fun a b => Data.LLVM.Int.mul a b)
+    (matchBinopNoProps_implies matchMul_implies) OperationPtr.Verified.llvm_mul
+    (fun h => OperationPtr.Pure.llvm_mul h)
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.mul_mono a₁ b₁ a₂ b₂ h₁ h₂ false false)
+    (fun tnsw tnuw x c po _ => by
+      simpa using Data.LLVM.Int.NarrowBinopMul (s := tnsw) (u := tnuw) (nsw := po.nsw) (nuw := po.nuw))
+
 end Veir.RISCV

@@ -1738,59 +1738,61 @@ def SubUmaxSub (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 /-! ### narrow_binop :  trunc (binop X, C) → binop (trunc X, trunc C)
 
   A binop matched on a constant second operand is narrowed by pushing the outer
-  `trunc` onto each operand and redoing the binop at the trunc's width. The outer
-  trunc's own `nsw`/`nuw` flags are reused for the operand truncations. -/
+  `trunc` onto each operand and redoing the binop at the trunc's width. -/
+
+/-- The shared shape of `narrow_binop_add`/`narrow_binop_sub`/`narrow_binop_mul`: match a `trunc`
+    (`op`) whose operand is a defining `binop X C` (`outer ∈ {add, sub, mul}`, matched by `match?`)
+    with `C` a matched integer constant, and emit `binop (trunc X) (trunc C)` at the narrow width.
+    `op` is the trunc; `dst`/`dprops` is the emitted binop.
+
+    All three created ops clear their overflow flags. In particular the two operand `trunc`s clear
+    `nsw`/`nuw` rather than reusing the outer trunc's: truncating `X` (or `C`) alone has a *different*
+    poison condition than truncating `X binop C`, so transplanting the outer trunc's flags onto the
+    operand truncations would be unsound (see the `NarrowBinop*` data lemmas in `LLVMProofs.lean`).
+    The created `binop` likewise clears `nsw`/`nuw`. The `i64 → i32` width guards are what the
+    correctness proof needs to reach the `veir_bv_decide` data lemmas. Its shared correctness proof
+    is `narrowBinopLocal_preservesSemantics`. -/
+def narrowBinopLocal
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
+    (dst : Llvm) (dprops : propertiesOf (.llvm dst)) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (v0, _tp) := matchTrunc op ctx | return (ctx, none)
+  let some dBin := getDefiningOp v0 ctx | return (ctx, none)
+  let some (x, cst) := match? dBin ctx | return (ctx, none)
+  let some _ := matchConstantIntVal cst ctx | return (ctx, none)
+  let .integerType vty := (v0.getType! ctx.raw).val | return (ctx, none)
+  if vty.bitwidth ≠ 64 then return (ctx, none)
+  let .integerType rty := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if rty.bitwidth ≠ 32 then return (ctx, none)
+  let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
+  let (ctx, tx) ← WfRewriter.createOp! ctx (.llvm .trunc) #[outTy] #[x] #[] #[]
+    (NswNuwProperties.mk false false) none
+  let (ctx, tc) ← WfRewriter.createOp! ctx (.llvm .trunc) #[outTy] #[cst] #[] #[]
+    (NswNuwProperties.mk false false) none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm dst)
+    #[outTy] #[tx.getResult 0, tc.getResult 0] #[] #[] dprops none
+  some (ctx, some (#[tx, tc, newOp], #[newOp.getResult 0]))
 
 -- trunc (add X, C) → add (trunc X, trunc C)
-set_option warn.sorry false in
 def narrow_binop_add (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, tp) := matchTrunc op rewriter.ctx | return rewriter
-  let some dAdd := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, cst, _ap) := matchAdd dAdd rewriter.ctx | return rewriter
-  let some _ := matchConstantIntVal cst rewriter.ctx | return rewriter
-  let outTy := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
-  let (rewriter, tx) ← rewriter.createOp! (.llvm .trunc) #[outTy] #[x]
-    #[] #[] tp (some $ .before op)
-  let (rewriter, tc) ← rewriter.createOp! (.llvm .trunc) #[outTy] #[cst]
-    #[] #[] tp (some $ .before op)
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .add) #[outTy] #[(tx.getResult 0), (tc.getResult 0)]
-    #[] #[] (NswNuwProperties.mk false false) (some $ .before op)
-  return rewriter.replaceOp! op newOp
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (narrowBinopLocal (matchBinopNoProps matchAdd) .add (NswNuwProperties.mk false false))
+    rewriter op opInBounds
 
 -- trunc (sub X, C) → sub (trunc X, trunc C)
-set_option warn.sorry false in
 def narrow_binop_sub (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, tp) := matchTrunc op rewriter.ctx | return rewriter
-  let some dSub := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, cst, _sp) := matchSub dSub rewriter.ctx | return rewriter
-  let some _ := matchConstantIntVal cst rewriter.ctx | return rewriter
-  let outTy := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
-  let (rewriter, tx) ← rewriter.createOp! (.llvm .trunc) #[outTy] #[x]
-    #[] #[] tp (some $ .before op)
-  let (rewriter, tc) ← rewriter.createOp! (.llvm .trunc) #[outTy] #[cst]
-    #[] #[] tp (some $ .before op)
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .sub) #[outTy] #[(tx.getResult 0), (tc.getResult 0)]
-    #[] #[] (NswNuwProperties.mk false false) (some $ .before op)
-  return rewriter.replaceOp! op newOp
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (narrowBinopLocal (matchBinopNoProps matchSub) .sub (NswNuwProperties.mk false false))
+    rewriter op opInBounds
 
 -- trunc (mul X, C) → mul (trunc X, trunc C)
-set_option warn.sorry false in
 def narrow_binop_mul (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, tp) := matchTrunc op rewriter.ctx | return rewriter
-  let some dMul := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, cst, _mp) := matchMul dMul rewriter.ctx | return rewriter
-  let some _ := matchConstantIntVal cst rewriter.ctx | return rewriter
-  let outTy := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
-  let (rewriter, tx) ← rewriter.createOp! (.llvm .trunc) #[outTy] #[x]
-    #[] #[] tp (some $ .before op)
-  let (rewriter, tc) ← rewriter.createOp! (.llvm .trunc) #[outTy] #[cst]
-    #[] #[] tp (some $ .before op)
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .mul) #[outTy] #[(tx.getResult 0), (tc.getResult 0)]
-    #[] #[] (NswNuwProperties.mk false false) (some $ .before op)
-  return rewriter.replaceOp! op newOp
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (narrowBinopLocal (matchBinopNoProps matchMul) .mul (NswNuwProperties.mk false false))
+    rewriter op opInBounds
 
 /-! ### truncate_of_sext :  trunc (sext x) where trunc result type = x's type → x -/
 
