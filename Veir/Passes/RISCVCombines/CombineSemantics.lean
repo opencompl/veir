@@ -14200,5 +14200,328 @@ theorem drop_sextw_addw_local_preservesSemantics
     (fun _ r₀ r₁ _ _ => by simp [Riscv.interpretOp', pure, Interp])
     (fun a b => Data.RISCV.drop_sextw_addw_rs1)
     (fun a b => Data.RISCV.drop_sextw_addw_rs2)
+private theorem matchSelect_baseType_eq_tvType {ctx : WfIRContext OpCode} (_ctxDom : ctx.Dom)
+    (ctxVerif : ctx.Verified) {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {base cond tv fv : ValuePtr} {selOp : OperationPtr}
+    (hDef : getDefiningOp base ctx.raw = some selOp)
+    (hSel : matchSelect selOp ctx.raw = some (cond, tv, fv))
+    (hOperand : base ∈ op.getOperands! ctx.raw) :
+    (base.getType! ctx.raw).val = (tv.getType! ctx.raw).val := by
+  obtain ⟨hSelType, hSelNumResults, hSelOperands⟩ := matchSelect_implies hSel
+  obtain ⟨basePtr, rfl⟩ : ∃ p, base = ValuePtr.opResult p := by
+    cases base with
+    | opResult p => exact ⟨p, rfl⟩
+    | _ => simp [getDefiningOp] at hDef
+  have hSelOpEq : basePtr.op = selOp := by simp [getDefiningOp] at hDef; grind
+  subst hSelOpEq
+  have hBaseIn : (ValuePtr.opResult basePtr).InBounds ctx.raw := by grind
+  have hSelOpIn : basePtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hIdx : basePtr.index < basePtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hBaseEq : basePtr = basePtr.op.getResult 0 := by
+    have hidx : basePtr.index = 0 := by omega
+    cases basePtr; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+  have hSelVerified : basePtr.op.Verified ctx hSelOpIn := by grind
+  obtain ⟨-, -, -, hResEqT, -⟩ := OperationPtr.Verified.llvm_select hSelVerified hSelType
+  have hTvEq : tv = (basePtr.op.getOperands! ctx.raw)[1]! := by rw [hSelOperands]; rfl
+  have hOperand1 : basePtr.op.getOperand! ctx.raw 1 = tv := by
+    rw [hTvEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hBaseTypeEq : (ValuePtr.opResult basePtr).getType! ctx.raw
+      = ((basePtr.op.getResult 0).get! ctx.raw).type := by rw [hBaseEq]; rfl
+  rw [hBaseTypeEq, hResEqT, hOperand1]
+
+/-! ### select_of_truncate
+
+  `trunc (select c t f) → select c (trunc t) (trunc f)`. `op` is the `trunc`, whose operand is a
+  defining `select c t f`. Mirrors `select_of_zext` but narrowing (`i64 → i32`); since `llvm.trunc`
+  has no `Verified` bundle, `v0`'s type is transferred from the `select`'s arm via
+  `matchSelect_baseType_eq_tvType`, and the emitted `trunc`s only *refine* `Int.trunc`.
+-/
+
+set_option maxHeartbeats 1000000 in
+theorem select_of_truncate_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps select_of_truncate_local}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges select_of_truncate_local}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds select_of_truncate_local}
+    {h₄ : LocalRewritePattern.ReturnValues select_of_truncate_local} :
+    LocalRewritePattern.PreservesSemantics select_of_truncate_local h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, select_of_truncate_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel `matchTrunc` (op is the zext).
+  have hMatchSome : (matchTrunc op ctx.raw).isSome := by
+    cases hM : matchTrunc op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨v0, tp⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands, hTProps⟩ := matchTrunc_implies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  have hv0Eq : v0 = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = v0 := by
+    rw [hv0Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hv0In : v0 ∈ op.getOperands! ctx.raw := by rw [hOperands]; simp
+  -- Peel the defining `select`.
+  have hDefSome : (getDefiningOp v0 ctx.raw).isSome := by
+    cases hM : getDefiningOp v0 ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨dS, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+  rw [hDef] at hpattern
+  simp only [] at hpattern
+  have hSelSome : (matchSelect dS ctx.raw).isSome := by
+    cases hM : matchSelect dS ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨cond, tv, fv⟩, hSel⟩ := Option.isSome_iff_exists.mp hSelSome
+  rw [hSel] at hpattern
+  simp only [] at hpattern
+  -- `v0`'s declared type equals `tv`'s (the `select`'s arm), and the pattern guards force both
+  -- to be `i64`, the `op` result to be `i32`. `llvm.trunc` has no `Verified` bundle.
+  have hBaseTvType := matchSelect_baseType_eq_tvType ctxDom ctxVerif opInBounds hDef hSel hv0In
+  -- `tv`'s type is an integer type (guarded in the pattern).
+  obtain ⟨tvty, hTvTypeVal⟩ : ∃ t, (tv.getType! ctx.raw).val = Attribute.integerType t := by
+    cases hr : (tv.getType! ctx.raw).val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  have hV0Type : (v0.getType! ctx.raw).val = Attribute.integerType tvty := by
+    rw [hBaseTvType, hTvTypeVal]
+  -- `op`'s result type is an integer type (guarded in the pattern).
+  obtain ⟨retty, hResType⟩ : ∃ t, ((op.getResult 0).get! ctx.raw).type.val
+      = Attribute.integerType t := by
+    cases hr : ((op.getResult 0).get! ctx.raw).type.val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hTvTypeVal, hr] at hpattern; simp at hpattern
+  -- Recover the `select`'s value and `t`/`f`'s facts.
+  obtain ⟨cv, tvv, fvv, hcVal, htVal, hfVal, hv0SelIs, hCondType, hTvType, hFvType, hDomC, hDomT,
+      hDomF, hCIn, hTIn, hFIn, cNotOp, tNotOp, fNotOp⟩ :=
+    matchSelect_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds stateWf hDef hSel
+      (by rw [hOperands]; simp) hV0Type
+  -- Width guards: `tv`/`v0` are `i64`, `op`'s result is `i32`. Collapse them now so the unfold's
+  -- narrowing side-condition (`retType < opType`) and the widths align.
+  rw [hTvTypeVal, hResType] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isFalse =>
+    change some (ctx, none) = _ at hpattern
+    injection hpattern with hp; injection hp with _ hp2; exact absurd hp2 (by simp)
+  rename_i hOW
+  split at hpattern
+  case isFalse =>
+    change some (ctx, none) = _ at hpattern
+    injection hpattern with hp; injection hp with _ hp2; exact absurd hp2 (by simp)
+  rename_i hRW
+  obtain ⟨ow⟩ := tvty; simp only at hOW hTvTypeVal hV0Type; subst hOW
+  obtain ⟨rw'⟩ := retty; simp only at hRW hResType; subst hRW
+  -- Unfold `op` (the trunc), giving `op`'s result = `trunc v0v`.
+  have hwTR : (IntegerType.mk 32).bitwidth < (IntegerType.mk 64).bitwidth := by decide
+  obtain ⟨v0v, hv0Val, hMem, hOpResVal, hCf⟩ :=
+    matchTruncOp_interpretOp_unfold (props := tp)
+      opInBounds hOpType hNumResults hOperands hTProps
+      (show op.getResultTypes! ctx.raw
+          = #[⟨.integerType ⟨32⟩, hResType ▸ ((op.getResult 0).get! ctx.raw).type.2⟩] by
+        have hResTypeAttr : ((op.getResult 0).get! ctx.raw).type
+            = (⟨.integerType ⟨32⟩, hResType ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr) :=
+          Subtype.ext hResType
+        apply Array.ext
+        · simp [OperationPtr.getResultTypes!.size_eq_getNumResults!, hNumResults]
+        · intro i h1 h2
+          simp only [OperationPtr.getResultTypes!.size_eq_getNumResults!, hNumResults] at h1
+          obtain rfl : i = 0 := by omega
+          have := OperationPtr.getResultTypes!.getElem!_eq (op := op) (ctx := ctx.raw)
+            (index := 0) (by omega)
+          grind)
+      hwTR (by intro w₁ resTy hw' xx pp hIsTy bo mem
+               simp [Llvm.interpretOp', ge_iff_le, Nat.not_le.mpr hw', pure, Interp])
+      hinterp hV0Type
+  subst hCf
+  -- Pin `v0v = select cv tvv fvv` (both readings of `v0`'s value).
+  obtain rfl : v0v = Data.LLVM.Int.select cv tvv fvv := by
+    have := hv0Val.symm.trans hv0SelIs; simpa using this
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hOpResVal] at hsourceValues
+  subst sourceValues
+  -- Type attrs.
+  have hOutTyAttr : (ValuePtr.opResult (op.getResult 0)).getType! ctx.raw
+      = (⟨Attribute.integerType ⟨32⟩, hResType ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr) := by
+    rw [ValuePtr.getType!_opResult]; exact Subtype.ext hResType
+  have hOpRes0In : (ValuePtr.opResult (op.getResult 0)).InBounds ctx.raw := by
+    have hnr : op.getNumResults! ctx.raw = 1 := hNumResults
+    clear valueRefinement state'Dom state'Wf hpattern hOpResVal
+    rw [ValuePtr.inBounds_opResult]
+    refine ⟨opInBounds, ?_⟩
+    simp only [OperationPtr.getResult]; grind [OperationPtr.getNumResults!, OperationPtr.get!]
+  have hTvTypeAttr : tv.getType! ctx.raw
+      = (⟨Attribute.integerType ⟨64⟩, hTvType ▸ (tv.getType! ctx.raw).2⟩ : TypeAttr) :=
+    Subtype.ext hTvType
+  have hCondTypeAttr : cond.getType! ctx.raw
+      = (⟨Attribute.integerType ⟨1⟩, hCondType ▸ (cond.getType! ctx.raw).2⟩ : TypeAttr) :=
+    Subtype.ext hCondType
+  -- Peel the three creations (`zext tv`, `zext fv`, `select cond zt zf`).
+  peelOpCreation!₂ hpattern ctx₁ trtOp hTrt hDomT hDomT₁ hDomF hDomF₁
+  have hDomC₁ : cond.dominatesIp (InsertPoint.before op) ctx₁ :=
+    (ValuePtr.dominatesIp_before_WfRewriter_createOp hTrt
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)).mpr hDomC
+  peelOpCreation!₂ hpattern ctx₂ trfOp hTrf hDomF₁ hDomF₂ hDomC₁ hDomC₂
+  have hDomT₂ : tv.dominatesIp (InsertPoint.before op) ctx₂ :=
+    (ValuePtr.dominatesIp_before_WfRewriter_createOp hTrf
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)).mpr hDomT₁
+  peelOpCreation!₂ hpattern ctx₃ selNewOp hSelNew hDomC₂ hDomC₃ hDomF₂ hDomF₃
+  have hDomT₃ : tv.dominatesIp (InsertPoint.before op) ctx₃ :=
+    (ValuePtr.dominatesIp_before_WfRewriter_createOp hSelNew
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)).mpr hDomT₂
+  cleanupHpattern hpattern
+  have hTrtNeTrf : trtOp ≠ trfOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  have hTrtNeSel : trtOp ≠ selNewOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  have hTrfNeSel : trfOp ≠ selNewOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  -- Transports.
+  have hOutTyAttr₁ : (ValuePtr.opResult (op.getResult 0)).getType! ctx₁.raw
+      = (⟨Attribute.integerType ⟨32⟩, by grind⟩ : TypeAttr) := by
+    rw [ValuePtr.getType!_WfRewriter_createOp_of_inBounds hTrt hOpRes0In]; exact hOutTyAttr
+  have hOutTyAttr₂ : (ValuePtr.opResult (op.getResult 0)).getType! ctx₂.raw
+      = (⟨Attribute.integerType ⟨32⟩, by grind⟩ : TypeAttr) := by
+    rw [ValuePtr.getType!_WfRewriter_createOp_of_inBounds hTrf
+        (WfRewriter.createOp_inBounds_mono (ptr := .value _) hTrt hOpRes0In)]
+    exact hOutTyAttr₁
+  -- Structural facts for `zext tv`.
+  have hTrtType : trtOp.getOpType! ctx₃.raw = .llvm .trunc := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hTrt (operation := trtOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hTrf (operation := trtOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hSelNew (operation := trtOp)]
+  have hTrtOperands : trtOp.getOperands! ctx₃.raw = #[tv] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hTrt (operation := trtOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hTrf (operation := trtOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hSelNew (operation := trtOp)]
+  have hTrtProps : trtOp.getProperties! ctx₃.raw (.llvm .trunc) = tp := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hTrt (operation := trtOp),
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hTrf hTrtNeTrf,
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hSelNew hTrtNeSel]
+  have hTrtResTypes : trtOp.getResultTypes! ctx₃.raw
+      = #[(⟨Attribute.integerType ⟨32⟩, hResType ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hTrt (operation := trtOp)
+    rw [if_pos rfl] at hT
+    have hT2 := OperationPtr.getResultTypes!_WfRewriter_createOp hTrf (operation := trtOp)
+    rw [if_neg hTrtNeTrf] at hT2
+    have hT3 := OperationPtr.getResultTypes!_WfRewriter_createOp hSelNew (operation := trtOp)
+    rw [if_neg hTrtNeSel] at hT3
+    rw [hT3, hT2, hT]
+    exact congrArg (fun t => #[t]) hOutTyAttr
+  -- Structural facts for `zext fv`.
+  have hTrfType : trfOp.getOpType! ctx₃.raw = .llvm .trunc := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hTrf (operation := trfOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hSelNew (operation := trfOp)]
+  have hTrfOperands : trfOp.getOperands! ctx₃.raw = #[fv] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hTrf (operation := trfOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hSelNew (operation := trfOp)]
+  have hTrfProps : trfOp.getProperties! ctx₃.raw (.llvm .trunc) = tp := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hTrf (operation := trfOp),
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hSelNew hTrfNeSel]
+  have hTrfResTypes : trfOp.getResultTypes! ctx₃.raw
+      = #[(⟨Attribute.integerType ⟨32⟩, hResType ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hTrf (operation := trfOp)
+    rw [if_pos rfl] at hT
+    have hT3 := OperationPtr.getResultTypes!_WfRewriter_createOp hSelNew (operation := trfOp)
+    rw [if_neg hTrfNeSel] at hT3
+    rw [hT3, hT]
+    exact congrArg (fun t => #[t]) hOutTyAttr
+  -- Structural facts for the `select`.
+  have hSelNewType : selNewOp.getOpType! ctx₃.raw = .llvm .select := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hSelNew (operation := selNewOp)]
+  have hSelNewOperands : selNewOp.getOperands! ctx₃.raw
+      = #[cond, ValuePtr.opResult (trtOp.getResult 0), ValuePtr.opResult (trfOp.getResult 0)] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hSelNew (operation := selNewOp)]
+  have hSelNewNumResults : selNewOp.getNumResults! ctx₃.raw = 1 := by
+    grind [OperationPtr.getNumResults!_WfRewriter_createOp hSelNew (operation := selNewOp)]
+  have hSelNewCondType : cond.getType! ctx₃.raw
+      = (⟨Attribute.integerType ⟨1⟩, hCondType ▸ (cond.getType! ctx.raw).2⟩ : TypeAttr) := by
+    rw [ValuePtr.getType!_WfRewriter_createOp_of_inBounds hSelNew
+        (WfRewriter.createOp_inBounds_mono (ptr := .value _) hTrf
+          (WfRewriter.createOp_inBounds_mono (ptr := .value _) hTrt hCIn)),
+      ValuePtr.getType!_WfRewriter_createOp_of_inBounds hTrf
+        (WfRewriter.createOp_inBounds_mono (ptr := .value _) hTrt hCIn),
+      ValuePtr.getType!_WfRewriter_createOp_of_inBounds hTrt hCIn]
+    exact hCondTypeAttr
+  -- Read refined `cond`/`tv`/`fv`.
+  obtain ⟨ct, hCVal', hcRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hCIn hcVal
+      hDomC hDomC₃ cNotOp
+  obtain ⟨tt, hTVal', htRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hTIn htVal
+      hDomT hDomT₃ tNotOp
+  obtain ⟨ft, hFVal', hfRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hFIn hfVal
+      hDomF hDomF₃ fNotOp
+  -- Replay the two `zext`s, then the `select`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, hFrame₁⟩ :=
+    interpretOp_llvm_unaryInt_forward (state := state') (inBounds := by grind)
+      (srcType := ⟨64⟩) (resType := ⟨32⟩)
+      (f := fun c => Data.LLVM.Int.trunc c 32 tp.nsw tp.nuw (by omega))
+      (by intro blockOperands mem
+          simp [Llvm.interpretOp', pure, Interp])
+      hTrtType hTrtProps hTrtOperands hTrtResTypes hTVal'
+  have hFVal₁ : s₁.variables.getVar? fv = some (RuntimeValue.int 64 ft) := by
+    rw [hFrame₁ fv (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hFIn
+      (WfRewriter.createOp_new_not_inBounds trtOp hTrt))]
+    exact hFVal'
+  have hCVal₁ : s₁.variables.getVar? cond = some (RuntimeValue.int 1 ct) := by
+    rw [hFrame₁ cond (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hCIn
+      (WfRewriter.createOp_new_not_inBounds trtOp hTrt))]
+    exact hCVal'
+  obtain ⟨s₂, hI₂, hMem₂, hRes₂, hFrame₂⟩ :=
+    interpretOp_llvm_unaryInt_forward (state := s₁) (inBounds := by grind)
+      (srcType := ⟨64⟩) (resType := ⟨32⟩)
+      (f := fun c => Data.LLVM.Int.trunc c 32 tp.nsw tp.nuw (by omega))
+      (by intro blockOperands mem
+          simp [Llvm.interpretOp', pure, Interp])
+      hTrfType hTrfProps hTrfOperands hTrfResTypes hFVal₁
+  have hTrtResIn₁ : (ValuePtr.opResult (trtOp.getResult 0)).InBounds ctx₁.raw := by
+    have hnr : trtOp.getNumResults! ctx₁.raw = 1 := by
+      grind [OperationPtr.getNumResults!_WfRewriter_createOp hTrt (operation := trtOp)]
+    clear valueRefinement state'Dom state'Wf hpattern
+    rw [ValuePtr.inBounds_opResult]
+    refine ⟨WfRewriter.createOp_new_inBounds trtOp hTrt, ?_⟩
+    simp only [OperationPtr.getResult]
+    grind [OperationPtr.getNumResults!, OperationPtr.get!]
+  have hTrtRes₂ : s₂.variables.getVar? (ValuePtr.opResult (trtOp.getResult 0))
+      = some (RuntimeValue.int 32 (Data.LLVM.Int.trunc tt 32 tp.nsw tp.nuw (by omega))) := by
+    rw [hFrame₂ _ (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hTrtResIn₁
+      (WfRewriter.createOp_new_not_inBounds trfOp hTrf))]
+    exact hRes₁
+  have hCVal₂ : s₂.variables.getVar? cond = some (RuntimeValue.int 1 ct) := by
+    rw [hFrame₂ cond (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds
+      (WfRewriter.createOp_inBounds_mono (ptr := .value cond) hTrt hCIn)
+      (WfRewriter.createOp_new_not_inBounds trfOp hTrf))]
+    exact hCVal₁
+  obtain ⟨s₃, hI₃, hMem₃, hRes₃, -⟩ :=
+    interpretOp_llvm_select_forward (state := s₂) (inBounds := by grind)
+      (it := ⟨32⟩) hSelNewType hSelNewOperands
+      (show selNewOp.getResultTypes! ctx₃.raw
+          = #[(⟨Attribute.integerType ⟨32⟩, hResType ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr)] by
+        have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hSelNew (operation := selNewOp)
+        rw [if_pos rfl] at hT; rw [hT]; exact congrArg (fun t => #[t]) hOutTyAttr)
+      hCVal₂ hTrtRes₂ hRes₂
+  refine ⟨s₃, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, hI₂, hI₃, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int 32 (Data.LLVM.Int.select ct
+      (Data.LLVM.Int.trunc tt 32 tp.nsw tp.nuw (by omega)) (Data.LLVM.Int.trunc ft 32 tp.nsw tp.nuw (by omega)))],
+    by simp [hRes₃, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Assemble: `zext (select cv tvv fvv) ⊒ select cv (zext tvv) (zext fvv) ⊒ select ct (zext tt) (zext ft)`.
+  simp only [Data.LLVM.Int.cast_self]
+  exact isRefinedBy_trans (Data.LLVM.Int.select_of_truncate_rw (s := tp.nsw) (u := tp.nuw))
+    (Data.LLVM.Int.select_mono _ _ _ _ _ _
+      (Data.LLVM.Int.trunc_mono tvv tt (by omega) htRef)
+      (Data.LLVM.Int.trunc_mono fvv ft (by omega) hfRef) hcRef)
 
 end Veir.RISCV
