@@ -344,56 +344,54 @@ def XorLshrLshr (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     #[] #[] { exact := false } (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
+/-- The shared shape of `AndAshrAshr`/`OrAshrAshr`/`XorAshrAshr`: match `(X >>a Z) outer (Y >>a Z)`
+    where `outer ∈ {and, or, xor}` (matched by `match?`) and both operands are the result of a
+    defining `ashr _ Z` sharing the second (shift-amount) operand `Z`, and emit
+    `(X outer Y) >>a Z` where the inner op is `dst`/`dprops`. The created `ashr` keeps `exact` only
+    when `useSndExact` (then it reuses the second `ashr`'s `exact`; otherwise it clears it). The
+    `.integerType`/bitwidth-64 guard keeps the rewrite to `i64`, where the correctness proof reaches
+    the `veir_bv_decide` data lemmas. Its shared correctness proof is
+    `hoistAshrLocal_preservesSemantics`. -/
+def hoistAshrLocal
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
+    (dst : Llvm) (dprops : propertiesOf (.llvm dst)) (useSndExact : Bool)
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (v0, v1) := match? op ctx | return (ctx, none)
+  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some (x, z0, _p0) := matchAshr dX ctx | return (ctx, none)
+  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some (y, z1, p1) := matchAshr dY ctx | return (ctx, none)
+  if z0 != z1 then return (ctx, none)
+  let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
+  if xty.bitwidth ≠ 64 then return (ctx, none)
+  let (ctx, inner) ← WfRewriter.createOp! ctx (.llvm dst)
+    #[x.getType! ctx.raw] #[x, y] #[] #[] dprops none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .ashr)
+    #[x.getType! ctx.raw] #[inner.getResult 0, z0] #[] #[]
+    { exact := if useSndExact then p1.exact else false } none
+  some (ctx, some (#[inner, newOp], #[newOp.getResult 0]))
+
 -- (X >> Z) & (Y >> Z) → (X & Y) >> Z   (arithmetic)
-set_option warn.sorry false in
+-- Sound with both `exact` flags free; the created `ashr` reuses the second one's `exact`.
 def AndAshrAshr (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, _) := matchAnd op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, z0, _p0) := matchAshr dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, z1, p1) := matchAshr dY rewriter.ctx | return rewriter
-  if z0 != z1 then return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .and) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .ashr) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0), z0]
-    #[] #[] p1 (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (hoistAshrLocal (matchBinopNoProps matchAnd) .and () true)
+    rewriter op opInBounds
 
 -- (X >> Z) | (Y >> Z) → (X | Y) >> Z   (arithmetic)
--- The created `ashr` drops `exact` and the created `or` drops `disjoint`, as in
--- `OrLshrLshr`.
-set_option warn.sorry false in
+-- The created `ashr` drops `exact` and the created `or` drops `disjoint`, as in `OrLshrLshr`.
 def OrAshrAshr (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, _oprops) := matchOr op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, z0, _p0) := matchAshr dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, z1, _p1) := matchAshr dY rewriter.ctx | return rewriter
-  if z0 != z1 then return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .or) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] { disjoint := false } (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .ashr) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0), z0]
-    #[] #[] { exact := false } (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (hoistAshrLocal (matchBinopNoProps matchOr) .or { disjoint := false } false) rewriter op opInBounds
 
 -- (X >> Z) ^ (Y >> Z) → (X ^ Y) >> Z   (arithmetic)
 -- The created `ashr` drops `exact`, as in `XorLshrLshr`.
-set_option warn.sorry false in
 def XorAshrAshr (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, xprops) := matchXor op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, z0, _p0) := matchAshr dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, z1, _p1) := matchAshr dY rewriter.ctx | return rewriter
-  if z0 != z1 then return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .xor) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] xprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .ashr) #[x.getType! rewriter.ctx.raw] #[(inner.getResult 0), z0]
-    #[] #[] { exact := false } (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (hoistAshrLocal (matchBinopNoProps matchXor) .xor () false)
+    rewriter op opInBounds
 
 -- (X & Z) & (Y & Z) → (X & Y) & Z
 set_option warn.sorry false in
