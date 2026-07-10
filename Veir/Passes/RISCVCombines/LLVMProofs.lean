@@ -473,4 +473,46 @@ theorem select_constant_cmp_false {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int 
     select (constant 1 0) x y ⊒ y := by
   rcases hw with rfl | rfl <;> veir_bv_decide
 
+/-! ### binop_left_to_zero
+
+  `0 op X → 0` for `op ∈ {shl, lshr, ashr, mul}`. The source is `0` for every `X` (and, for the
+  shifts, poison when `X ≥ bitwidth`); the target is the constant `0`. Since `0 op X` is either `0`
+  or poison and `poison ⊒ 0`, the refinement holds *width-generically* — no bitwidth guard is
+  needed. Each is discharged directly from `isRefinedBy_iff` (the constant target is never poison,
+  so only the never-poison value equality `0 op X = 0` remains). The shift flags (`nsw`/`nuw`,
+  `exact`) only add poison to the source, so they stay free variables. -/
+
+/-- `0 << X → 0`. -/
+theorem shl_zero_left {w : Nat} {nsw nuw : Bool} {y : Int w} :
+    shl (constant w 0) y nsw nuw ⊒ constant w 0 := by
+  rw [isRefinedBy_iff]
+  refine ⟨fun _ => isPoison_constant 0, fun hp _ => ?_⟩
+  rw [getValue_shl, getValue_constant]
+  simp
+
+/-- `0 >>l X → 0` (logical). -/
+theorem lshr_zero_left {w : Nat} {exact : Bool} {y : Int w} :
+    lshr (constant w 0) y exact ⊒ constant w 0 := by
+  rw [isRefinedBy_iff]
+  refine ⟨fun _ => isPoison_constant 0, fun hp _ => ?_⟩
+  rw [getValue_lshr, getValue_constant]
+  simp
+
+/-- `0 >>a X → 0` (arithmetic). -/
+theorem ashr_zero_left {w : Nat} {exact : Bool} {y : Int w} :
+    ashr (constant w 0) y exact ⊒ constant w 0 := by
+  rw [isRefinedBy_iff]
+  refine ⟨fun _ => isPoison_constant 0, fun hp _ => ?_⟩
+  rw [getValue_ashr, getValue_constant]
+  simp
+
+/-- `0 * X → 0`. `mul 0 X` is `0` for every `X`, and `nsw`/`nuw` never trigger on a zero product,
+    so this is in fact an equality. -/
+theorem mul_zero_left {w : Nat} {nsw nuw : Bool} {y : Int w} :
+    mul (constant w 0) y nsw nuw ⊒ constant w 0 := by
+  rw [isRefinedBy_iff]
+  refine ⟨fun _ => isPoison_constant 0, fun hp _ => ?_⟩
+  rw [getValue_mul, getValue_constant]
+  simp
+
 end Veir.Data.LLVM.Int

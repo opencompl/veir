@@ -1171,41 +1171,37 @@ def AMinusBMinusC (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 
 /-! ### binop_left_to_zero :  (0 op x)  →  0   for op ∈ {shl, lshr, ashr, mul} -/
 
-set_option warn.sorry false in
+/-- Shared shape of the four `*_left_to_zero` combines: match `OP (const 0) X` (via `matchPair`,
+    the op's own binary matcher) whose left operand is a constant `0` and whose result is an
+    integer, and replace the result with that constant-zero operand itself — creating no
+    operations. Sound because `0 op X` is `0`, or (for the shifts, when `X ≥ bitwidth`) poison,
+    and `poison ⊒ 0`. Width-generic: no bitwidth guard is needed. Its shared correctness proof is
+    `binopZeroLeftLocal_preservesSemantics`. -/
+def binopZeroLeftLocal {α}
+    (matchPair : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × α))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (zero, _rhs, _) := matchPair op ctx | return (ctx, none)
+  let .integerType _ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  let some cst := matchConstantIntVal zero ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[zero]))
+
 def shl_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (zero, _rhs, _props) := matchShl op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal zero rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) zero sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (binopZeroLeftLocal matchShl) rewriter op opInBounds
 
-set_option warn.sorry false in
 def lshr_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (zero, _rhs, _props) := matchLshr op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal zero rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) zero sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (binopZeroLeftLocal matchLshr) rewriter op opInBounds
 
-set_option warn.sorry false in
 def ashr_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (zero, _rhs, _props) := matchAshr op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal zero rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) zero sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (binopZeroLeftLocal matchAshr) rewriter op opInBounds
 
-set_option warn.sorry false in
 def mul_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (zero, _rhs, _props) := matchMul op rewriter.ctx | return rewriter
-  let some cst := matchConstantIntVal zero rewriter.ctx | return rewriter
-  if cst.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) zero sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (binopZeroLeftLocal matchMul) rewriter op opInBounds
 
 set_option warn.sorry false in
 /-- `srlDst (width - 1) (sraDst _ x) -> srlDst (width - 1) x`, where `(srlDst,
