@@ -22,6 +22,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelect
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelectBinopImm
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelectSingleBit
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSdivExact
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerSdivPow2
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSextOne
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSignedMinMax
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSlliuw
@@ -30,6 +31,8 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerTrunc
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUaddSat
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUdivPow2
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSaddSat
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerSsubSat
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerSshlSat
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSignedMinMax
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUnaryW
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerUshlSat
