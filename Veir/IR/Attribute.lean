@@ -252,6 +252,13 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 structure PointerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/--
+ A byte type with a given bitwidth.
+-/
+structure ByteType where
+  bitwidth : Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 end LLVM
 
 /-!
@@ -407,6 +414,8 @@ inductive Attribute
 | modArithType (type : ModArithType)
 /-- LLVM void type -/
 | llvmVoidType (type : LLVM.VoidType)
+/-- LLVM byte type -/
+| byteType (type : LLVM.ByteType)
 /-- LLVM pointer type -/
 | llvmPointerType (type : LLVM.PointerType)
 /-- LLVM array type -/
@@ -532,6 +541,10 @@ def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
   case floatType.floatType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case byteType.byteType type1 type2 =>
     exact (match decEq type1 type2 with
       | isTrue hEq => isTrue (by grind)
       | isFalse hEq => isFalse (by grind))
@@ -676,6 +689,9 @@ instance : ToString IntegerType where
 
 instance : ToString FloatType where
   toString type := s!"f{type.bitwidth}"
+
+instance : ToString LLVM.ByteType where
+  toString type := s!"!llvm.byte<{type.bitwidth}>"
 
 instance : ToString FastMathFlagsAttr where
   toString type := Id.run do
@@ -878,6 +894,7 @@ def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
   | .floatType type => ToString.toString type
+  | .byteType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
   | .arithIntegerOverflowFlagsAttr attr => ToString.toString attr
   | .cconvAttr attr => ToString.toString attr
@@ -938,6 +955,9 @@ instance : Coe IntegerType Attribute where
 
 instance : Coe FloatType Attribute where
   coe type := .floatType type
+
+instance : Coe LLVM.ByteType Attribute where
+  coe type := .byteType type
 
 instance : Coe FastMathFlagsAttr Attribute where
   coe flags := .fastMathFlagsAttr flags
@@ -1040,6 +1060,7 @@ def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
   | .floatType _ => true
+  | .byteType _ => true
   | .fastMathFlagsAttr _ => false
   | .arithIntegerOverflowFlagsAttr _ => false
   | .cconvAttr _ => false
@@ -1073,11 +1094,20 @@ def isType (attr : Attribute) : Bool :=
   | .hwModuleType _ => true
 
 /--
+  Returns the size, in bits, that an LLVM type would use if stored to memory.
+-/
+def bitwidthOfType (type : Attribute) : Option Nat :=
+  match type with
+  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some bitwidth
+  | .llvmPointerType _ => some 64
+  | _ => none
+
+/--
   Returns the size, in bytes, that an LLVM type would use if stored to memory.
 -/
 def sizeOfType (type : Attribute) : Option Nat :=
   match type with
-  | .integerType { bitwidth } | .floatType { bitwidth } => some ((bitwidth + 7) / 8)
+  | .integerType { bitwidth } | .floatType { bitwidth } | .byteType { bitwidth } => some ((bitwidth + 7) / 8)
   | .llvmPointerType _ => some 8
   | .llvmArrayType { size, type } => do
       let inner ← sizeOfType type
@@ -1088,6 +1118,8 @@ def sizeOfType (type : Attribute) : Option Nat :=
 theorem isType_integerType type : (integerType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_floatType type : (floatType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_byteType type : (byteType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_fastMathFlags flags : (fastMathFlagsAttr flags).isType = false := by rfl
 @[simp, grind =]
@@ -1169,6 +1201,9 @@ instance : Coe IntegerType TypeAttr where
 
 instance : Coe FloatType TypeAttr where
   coe type := ⟨.floatType type, by rfl⟩
+
+instance : Coe LLVM.ByteType TypeAttr where
+  coe type := ⟨.byteType type, by rfl⟩
 
 instance : Coe FunctionType TypeAttr where
   coe type := ⟨.functionType type, by rfl⟩
