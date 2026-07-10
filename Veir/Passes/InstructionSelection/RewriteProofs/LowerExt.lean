@@ -748,6 +748,229 @@ theorem zext_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
       (OperationPtr.dominates_of_strictlyDominates hZextSDom) x
       (by grind [OperationPtr.getOperands!])
 
+/-- `llvm.trunc` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_trunc {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .trunc) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  repeat' split
+  all_goals first
+    | rfl
+    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- Narrowing analog of `matchExtOp_interpretOp_unfold` for `llvm.trunc` on an integer operand:
+    reads the operand's `i{opType}` value and binds the result to `Int.trunc`. -/
+theorem matchTruncOp_interpretOp_unfold {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {operand : ValuePtr} {props : propertiesOf (.llvm .trunc)}
+    {opType resType : IntegerType} {hIsTy}
+    {state : InterpreterState ctx} {newState cf} (opInBounds : op.InBounds ctx.raw)
+    (hOpType : op.getOpType! ctx.raw = .llvm .trunc)
+    (hNumResults : op.getNumResults! ctx.raw = 1)
+    (hOperands : op.getOperands! ctx.raw = #[operand])
+    (hProps : props = op.getProperties! ctx.raw (.llvm .trunc))
+    (hResTypes : op.getResultTypes! ctx.raw = #[⟨.integerType resType, hIsTy⟩])
+    (hw : resType.bitwidth < opType.bitwidth)
+    (hSemSrc : ∀ (w₁ : Nat) (resTy : IntegerType) (hw : resTy.bitwidth < w₁)
+        (x : Data.LLVM.Int w₁) (props : propertiesOf (.llvm .trunc)) (hIsTy)
+        (blockOperands : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' .trunc props #[⟨.integerType resTy, hIsTy⟩] #[.int w₁ x] blockOperands mem
+          = some (.ok (#[.int resTy.bitwidth
+              (Data.LLVM.Int.trunc x resTy.bitwidth props.nsw props.nuw hw)], mem, none)))
+    (hinterp : interpretOp op state opInBounds = some (newState, cf))
+    (hOperandType : (operand.getType! ctx.raw).val = Attribute.integerType opType) :
+    ∃ xv, state.variables.getVar? operand = some (RuntimeValue.int opType.bitwidth xv) ∧
+      state.memory = newState.memory ∧
+      newState.variables.getVar? (op.getResult 0) =
+        some (RuntimeValue.int resType.bitwidth
+          (Data.LLVM.Int.trunc xv resType.bitwidth props.nsw props.nuw hw)) ∧
+      cf = none := by
+  have hNumOperands : op.getNumOperands! ctx.raw = 1 := by
+    simp [← OperationPtr.getOperands!.size_eq_getNumOperands!, hOperands]
+  have hOperandEq : operand = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  simp only [liftM, monadLift, MonadLift.monadLift] at hinterp
+  obtain ⟨operandValues, _, _, _, hOperandValues, _⟩ := interpretOp_some_iff.mp hinterp
+  simp only [VariableState.getOperandValues] at hOperandValues
+  have hsize : 0 < (op.getOperands! ctx.raw).size := by
+    rw [OperationPtr.getOperands!.size_eq_getNumOperands!]; omega
+  obtain ⟨val, hval⟩ :=
+    Array.exists_mapM_option_eq_some_iff.mp ⟨operandValues, hOperandValues⟩ 0 hsize
+  have hgetVar : state.variables.getVar? operand = some val := by
+    rw [hOperandEq, show (op.getOperands! ctx.raw)[0]! = (op.getOperands! ctx.raw)[0] from by grind]
+    exact hval
+  have hconf := VariableState.getVar?_conforms hgetVar
+  rw [show operand.getType! ctx.raw
+        = ⟨.integerType opType, hOperandType ▸ (operand.getType! ctx.raw).2⟩
+      from Subtype.ext hOperandType] at hconf
+  obtain ⟨xv, rfl⟩ := RuntimeValue.Conforms.integerType hconf
+  refine ⟨xv, hgetVar, ?_⟩
+  have hOperand0 : op.getOperand! ctx.raw 0 = operand := by
+    rw [hOperandEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOpVals : state.variables.getOperandValues op
+      = some #[RuntimeValue.int opType.bitwidth xv] := by
+    rw [VariableState.getOperandValues_eq_some_iff]
+    refine ⟨by simp [hNumOperands], fun i hi => ?_⟩
+    rw [hNumOperands] at hi
+    obtain rfl : i = 0 := by omega
+    simpa [hOperand0] using hgetVar
+  rw [interpretOp_some_iff] at hinterp
+  obtain ⟨operandValues', resValues, mem', varState', hOV, hInterp', hSet, hNew⟩ := hinterp
+  rw [hOpVals, Option.some.injEq] at hOV
+  subst hOV
+  simp only [OperationPtr.interpret] at hInterp'
+  rw [hOpType] at hInterp'
+  simp only [← hProps, interpretOp'] at hInterp'
+  rw [hResTypes] at hInterp'
+  rw [hSemSrc _ _ hw] at hInterp'
+  obtain ⟨rfl, rfl, rfl⟩ : resValues = #[RuntimeValue.int resType.bitwidth
+      (Data.LLVM.Int.trunc xv resType.bitwidth props.nsw props.nuw hw)] ∧
+      mem' = state.memory ∧ cf = none := by grind
+  subst hNew
+  refine ⟨rfl, ?_, rfl⟩
+  rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumResults]; omega) hSet]
+  simp
+
+set_option maxHeartbeats 1000000 in
+/-- The narrowing (`trunc`) analogue of `zext_getVar?_of_EquationLemmaAt`: for a value `base` defined
+    by an `llvm.trunc` reached through an operand of `op`, in a source state satisfying
+    `EquationLemmaAt` before `op`, `base`'s runtime value is `Int.trunc xv` and the truncated value
+    `x`'s facts are recovered. Since `llvm.trunc` has no `Verified` bundle, `x`'s (integer) type and
+    the width relation are recovered from `base`'s (integer, given) type and the interpretation. -/
+theorem trunc_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    {base x : ValuePtr} {truncOp : OperationPtr} {tProps : propertiesOf (.llvm .trunc)}
+    {retType : IntegerType}
+    (hDef : getDefiningOp base ctx.raw = some truncOp)
+    (hTrunc : matchTrunc truncOp ctx.raw = some (x, tProps))
+    (hOperand : base ∈ op.getOperands! ctx.raw)
+    (hBaseType : (base.getType! ctx.raw).val = Attribute.integerType retType) :
+    ∃ (opType : IntegerType) (hw : retType.bitwidth < opType.bitwidth)
+      (xv : Data.LLVM.Int opType.bitwidth),
+      state.variables.getVar? x = some (RuntimeValue.int opType.bitwidth xv) ∧
+      state.variables.getVar? base = some (RuntimeValue.int retType.bitwidth
+        (Data.LLVM.Int.trunc xv retType.bitwidth tProps.nsw tProps.nuw hw)) ∧
+      (x.getType! ctx.raw).val = Attribute.integerType opType ∧
+      x.dominatesIp (InsertPoint.before op) ctx ∧
+      x.InBounds ctx.raw ∧
+      x ∉ op.getResults! ctx.raw := by
+  obtain ⟨basePtr, rfl, rfl⟩ := getDefiningOp_implies hDef
+  obtain ⟨hTruncType, hTruncNumResults, hTruncOperands, hTProps⟩ := matchTrunc_implies hTrunc
+  have hBaseIn : (ValuePtr.opResult basePtr).InBounds ctx.raw := by grind
+  have hTruncOpIn : basePtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hbaseIdx : basePtr.index < basePtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hbaseEq : basePtr = basePtr.op.getResult 0 := by
+    have hidx : basePtr.index = 0 := by omega
+    cases basePtr; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+  -- `base`'s (integer) type, transported to the `getResult 0` reading.
+  have hBaseTypeEq : (ValuePtr.opResult basePtr).getType! ctx.raw
+      = ((basePtr.op.getResult 0).get! ctx.raw).type := by rw [hbaseEq]; rfl
+  have hResTypeVal : ((basePtr.op.getResult 0).get! ctx.raw).type.val
+      = Attribute.integerType retType := by
+    have := hBaseType; rw [hbaseEq] at this
+    rw [← hBaseTypeEq]; rw [hbaseEq]; exact this
+  have hResTypeAttr : ((basePtr.op.getResult 0).get! ctx.raw).type
+      = ⟨Attribute.integerType retType, hResTypeVal ▸ ((basePtr.op.getResult 0).get! ctx.raw).type.2⟩ :=
+    Subtype.ext hResTypeVal
+  have hResTypes : basePtr.op.getResultTypes! ctx.raw
+      = #[⟨Attribute.integerType retType, hResTypeVal ▸ ((basePtr.op.getResult 0).get! ctx.raw).type.2⟩] := by
+    apply Array.ext
+    · simp [OperationPtr.getResultTypes!.size_eq_getNumResults!, hTruncNumResults]
+    · intro i h1 h2
+      simp only [OperationPtr.getResultTypes!.size_eq_getNumResults!, hTruncNumResults] at h1
+      obtain rfl : i = 0 := by omega
+      have := OperationPtr.getResultTypes!.getElem!_eq (op := basePtr.op) (ctx := ctx.raw)
+        (index := 0) (by omega)
+      grind
+  have hxIdxEq : x = (basePtr.op.getOperands! ctx.raw)[0]! := by rw [hTruncOperands]; rfl
+  have hTruncOperand0 : basePtr.op.getOperand! ctx.raw 0 = x := by
+    rw [hxIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  -- Dominance and interpretation of the `trunc`.
+  have hTruncDefines : (ValuePtr.opResult basePtr).getDefiningOp! ctx.raw = some basePtr.op := by
+    have hOwner := (ctx.wellFormed.operations basePtr.op hTruncOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hTruncSDom : basePtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hTruncDefines hOperand
+  have hTruncDomIp : basePtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hTruncPure : basePtr.op.Pure ctx.raw := OperationPtr.Pure.llvm_trunc hTruncType
+  obtain ⟨cfT, hInterpTrunc⟩ := stateWf basePtr.op hTruncOpIn hTruncPure hTruncDomIp
+  -- Recover `x`'s value & (integer) type from the interpretation.
+  obtain ⟨operandValues, _, _, _, hOperandValues, _⟩ := interpretOp_some_iff.mp hInterpTrunc
+  simp only [VariableState.getOperandValues] at hOperandValues
+  have hsize : 0 < (basePtr.op.getOperands! ctx.raw).size := by
+    rw [OperationPtr.getOperands!.size_eq_getNumOperands!,
+      ← OperationPtr.getOperands!.size_eq_getNumOperands!]; simp [hTruncOperands]
+  obtain ⟨val, hval⟩ :=
+    Array.exists_mapM_option_eq_some_iff.mp ⟨operandValues, hOperandValues⟩ 0 hsize
+  have hxGetVar : state.variables.getVar? x = some val := by
+    rw [hxIdxEq, show (basePtr.op.getOperands! ctx.raw)[0]! = (basePtr.op.getOperands! ctx.raw)[0]
+        from by grind]
+    exact hval
+  -- The `trunc`'s success forces `val` to be an `.int` whose width `> retType`.
+  have hOpVals : state.variables.getOperandValues basePtr.op = some #[val] := by
+    rw [VariableState.getOperandValues_eq_some_iff]
+    refine ⟨by simp [← OperationPtr.getOperands!.size_eq_getNumOperands!, hTruncOperands], fun i hi => ?_⟩
+    rw [show basePtr.op.getNumOperands! ctx.raw = 1 from by
+      simp [← OperationPtr.getOperands!.size_eq_getNumOperands!, hTruncOperands]] at hi
+    obtain rfl : i = 0 := by omega
+    simpa [hTruncOperand0] using hxGetVar
+  rw [interpretOp_some_iff] at hInterpTrunc
+  obtain ⟨operandValues', resValues, mem', varState', hOV, hInterp', hSet, hNew⟩ := hInterpTrunc
+  rw [hOpVals, Option.some.injEq] at hOV
+  subst hOV
+  simp only [OperationPtr.interpret] at hInterp'
+  rw [hTruncType] at hInterp'
+  simp only [← hTProps, interpretOp', Llvm.interpretOp', hResTypes] at hInterp'
+  -- Case on `val`; only `.int` of a wider width survives with an integer result type.
+  match val with
+  | .int opBw xv =>
+    simp only [Array.toList] at hInterp'
+    rw [show (#[⟨Attribute.integerType retType,
+          hResTypeVal ▸ ((basePtr.op.getResult 0).get! ctx.raw).type.2⟩] : Array TypeAttr)[0]?
+        = some ⟨Attribute.integerType retType,
+          hResTypeVal ▸ ((basePtr.op.getResult 0).get! ctx.raw).type.2⟩ from rfl] at hInterp'
+    simp only [] at hInterp'
+    split at hInterp'
+    · exact absurd hInterp' (by simp)
+    rename_i hlt
+    have hw : retType.bitwidth < opBw := by omega
+    obtain ⟨rfl, -, -⟩ : resValues = #[RuntimeValue.int retType.bitwidth
+        (Data.LLVM.Int.trunc xv retType.bitwidth tProps.nsw tProps.nuw hw)] ∧
+        mem' = state.memory ∧ cfT = none := by
+      simp only [pure, Interp, Option.some.injEq, UBOr.ok.injEq] at hInterp'; grind
+    have hxTypeVal : (x.getType! ctx.raw).val = Attribute.integerType ⟨opBw⟩ := by
+      have hconf := VariableState.getVar?_conforms hxGetVar
+      rcases hxty : (x.getType! ctx.raw) with ⟨tyval, hIsTy⟩
+      rw [hxty] at hconf
+      cases tyval with
+      | integerType t => cases t; simp only [RuntimeValue.Conforms] at hconf; subst hconf; rfl
+      | _ => simp only [RuntimeValue.Conforms] at hconf
+    refine ⟨⟨opBw⟩, hw, xv, hxGetVar, ?_, hxTypeVal, ?_, ?_, ?_⟩
+    · rw [hbaseEq, hNew,
+        VariableState.getVar?_getResult_of_setResultValues? (by rw [hTruncNumResults]; omega) hSet]
+      simp
+    · exact ValuePtr.dominatesIp_before_of_strictlyDominates
+        (ctxDom.operand_dominates_op hTruncOpIn (by grind [OperationPtr.getOperands!])) hTruncSDom
+    · grind [OperationPtr.getOperands!]
+    · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+        (OperationPtr.dominates_of_strictlyDominates hTruncSDom) x
+        (by grind [OperationPtr.getOperands!])
+  | .byte opBw xv =>
+    exfalso
+    simp only [Array.toList] at hInterp'
+    rw [show (#[⟨Attribute.integerType retType,
+          hResTypeVal ▸ ((basePtr.op.getResult 0).get! ctx.raw).type.2⟩] : Array TypeAttr)[0]?
+        = some ⟨Attribute.integerType retType,
+          hResTypeVal ▸ ((basePtr.op.getResult 0).get! ctx.raw).type.2⟩ from rfl] at hInterp'
+    simp [] at hInterp'
+  | .float opBw xv => simp only [Array.toList] at hInterp'; simp at hInterp'
+  | .addr xv => simp only [Array.toList] at hInterp'; simp at hInterp'
+  | .reg xv => simp only [Array.toList] at hInterp'; simp at hInterp'
+
 /-- `llvm.sext` is pure: its interpretation neither reads nor writes memory. -/
 theorem OperationPtr.Pure.llvm_sext {op : OperationPtr} {ctx : IRContext OpCode}
     (hType : op.getOpType! ctx = .llvm .sext) : op.Pure ctx := by

@@ -185,56 +185,62 @@ def XorZextZext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   RewritePattern.fromLocalRewrite (hoistZextLocal (matchBinopNoProps matchXor) .xor () false)
     rewriter op opInBounds
 
+/-- The shared shape of `AndTruncTrunc`/`OrTruncTrunc`/`XorTruncTrunc`: match
+    `(trunc X) outer (trunc Y)` (`outer ∈ {and, or, xor}` via `match?`, both operands defining
+    `trunc`s) and emit `trunc (X outer Y)`, inner op `dst`/`dprops` at the wide width. The created
+    `trunc`'s flags are computed from the second `trunc`'s properties `yp` via `mkTruncProps`.
+    `i64 → i32`. Its shared correctness proof is `hoistTruncLocal_preservesSemantics`. -/
+def hoistTruncLocal
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
+    (dst : Llvm) (dprops : propertiesOf (.llvm dst))
+    (mkTruncProps : propertiesOf (.llvm .trunc) → propertiesOf (.llvm .trunc))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (v0, v1) := match? op ctx | return (ctx, none)
+  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some (x, _xp) := matchTrunc dX ctx | return (ctx, none)
+  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some (y, yp) := matchTrunc dY ctx | return (ctx, none)
+  let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
+  if xty.bitwidth ≠ 64 then return (ctx, none)
+  let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
+  if yty.bitwidth ≠ 64 then return (ctx, none)
+  let .integerType rty := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if rty.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, inner) ← WfRewriter.createOp! ctx (.llvm dst)
+    #[x.getType! ctx.raw] #[x, y] #[] #[] dprops none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .trunc)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[inner.getResult 0] #[] #[]
+    (mkTruncProps yp) none
+  some (ctx, some (#[inner, newOp], #[newOp.getResult 0]))
+
 -- (trunc X) & (trunc Y) → trunc (X & Y)
 -- The created `trunc` drops `nsw` (the bits `X & Y` discards need not agree with its sign
 -- bit even when `Y`'s do) but may keep `nuw`, since those bits are a subset of `Y`'s.
-set_option warn.sorry false in
 def AndTruncTrunc (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, _) := matchAnd op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _xp) := matchTrunc dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, yp) := matchTrunc dY rewriter.ctx | return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .and) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .trunc) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
-    #[] #[] { nsw := false, nuw := yp.nuw } (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (hoistTruncLocal (matchBinopNoProps matchAnd) .and () (fun yp => { nsw := false, nuw := yp.nuw }))
+    rewriter op opInBounds
 
 -- (trunc X) | (trunc Y) → trunc (X | Y)
 -- The created `trunc` drops both `nsw` and `nuw` (the discarded high bits of `X | Y` can
 -- come from `X` alone), and the created `or` drops `disjoint` (`X` and `Y` may overlap
 -- only in bits the truncation discards).
-set_option warn.sorry false in
 def OrTruncTrunc (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, _oprops) := matchOr op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _xp) := matchTrunc dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, _yp) := matchTrunc dY rewriter.ctx | return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .or) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] { disjoint := false } (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .trunc) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
-    #[] #[] { nsw := false, nuw := false } (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (hoistTruncLocal (matchBinopNoProps matchOr) .or { disjoint := false }
+      (fun _ => { nsw := false, nuw := false }))
+    rewriter op opInBounds
 
 -- (trunc X) ^ (trunc Y) → trunc (X ^ Y)
 -- The created `trunc` drops both `nsw` and `nuw`, as in `OrTruncTrunc`.
-set_option warn.sorry false in
 def XorTruncTrunc (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, xprops) := matchXor op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _xp) := matchTrunc dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, _yp) := matchTrunc dY rewriter.ctx | return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .xor) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] xprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .trunc) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
-    #[] #[] { nsw := false, nuw := false } (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (hoistTruncLocal (matchBinopNoProps matchXor) .xor () (fun _ => { nsw := false, nuw := false }))
+    rewriter op opInBounds
 
 -- (X << Z) & (Y << Z) → (X & Y) << Z
 -- The created `shl` drops `nsw` (`X & Y` can have a sign-changing bit pattern where `Y`
