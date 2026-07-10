@@ -745,14 +745,14 @@ def Rewriter.initBlockArgumentsLoopSim (blockPtr: Sim.BlockPtr) (ctx: Sim.IRCont
     (types : Array TypeAttr) (index : UInt64 := 0) (hblock : blockPtr.InBounds ctx := by grind)
     (hidx : index.toNat = blockPtr.spec.getNumArguments! ctx.spec := by grind)
     (hcap : types.size ≤ (blockPtr.spec.get! ctx.spec).capArguments := by grind)
-    (hsz : types.size < UInt64.size := by grind) : Option (Sim.IRContext OpInfo) := do
-  if h : index ≥ types.size.toUInt64 then
+    (hsz : types.size < UInt32.size := by grind) : Option (Sim.IRContext OpInfo) := do
+  if h : index ≥ types.usize.toUInt64 then
     ctx
   else
     rlet ctx ← Rewriter.pushBlockArgumentAt blockPtr ctx index
-      (types[index.toNat]'(by grind only [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le]))
+      (types[index.toNat]'(by grind only [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]))
       (by grind) (by grind)
-      (by grind [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le])
+      (by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     -- TODO: simplify...
     Rewriter.initBlockArgumentsLoopSim blockPtr ctx types (index + 1) (hidx := by
       rename_i heq
@@ -767,7 +767,7 @@ def Rewriter.initBlockArgumentsLoopSim (blockPtr: Sim.BlockPtr) (ctx: Sim.IRCont
         grind [Rewriter.pushBlockArgument])
   termination_by types.size - index.toNat
   decreasing_by
-    grind only [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le, UInt64.toNat_add,
+    grind only [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le, UInt64.toNat_add,
       UInt64.toNat_mod_size]
 
 buffed
@@ -775,7 +775,7 @@ def Rewriter.initBlockArgumentsSim (blockPtr: Sim.BlockPtr) (ctx: Sim.IRContext 
     (types : Array TypeAttr) (index : UInt64 := 0) (hblock : blockPtr.InBounds ctx := by grind)
     (hidx : index.toNat = blockPtr.spec.getNumArguments! ctx.spec := by grind)
     (hcap : types.size ≤ (blockPtr.spec.get! ctx.spec).capArguments := by grind)
-    (hsz : types.size < UInt64.size := by grind) : Option (Sim.IRContext OpInfo) := do
+    (hsz : types.size < UInt32.size := by grind) : Option (Sim.IRContext OpInfo) := do
    Rewriter.initBlockArgumentsLoop blockPtr ctx types index hblock hidx hcap hsz
 
 @[grind .]
@@ -812,7 +812,7 @@ theorem Rewriter.initBlockArguments_inBounds' (ptr : Veir.GenericPtr) {blockPtr 
   simp [initBlockArguments_def, initBlockArgumentsSim, initBlockArgumentsLoop_def] at heq
   revert heq
   fun_induction initBlockArgumentsLoopSim <;>
-    grind (gen := 20) (splits := 20) [BlockArgumentPtr.inBounds_def, → Array.size_le_toNat]
+    grind (gen := 20) (splits := 20) [BlockArgumentPtr.inBounds_def, → Array.usize_le_toNat]
 
 theorem Rewriter.initBlockArguments_inBounds (ptr : Veir.GenericPtr) {blockPtr : Sim.BlockPtr}
     {ctx : Sim.IRContext OpInfo} {types h₁ h₂ h₃ h₄}
@@ -856,11 +856,12 @@ def Rewriter.createBlockSim (ctx: Sim.IRContext OpInfo) (argTypes : Array TypeAt
     (hip : insertionPoint.maybe BlockInsertPoint.InBounds ctx.spec)
     (ipRepr : insertionPoint.maybe₁ BlockInsertPoint.IsRepr)
     : Option (Sim.IRContext OpInfo × Sim.BlockPtr) := do
-  -- A block whose argument array exceeds `countCard` (`2^32`) cannot be laid out without its size
+  -- A block whose argument array reaches `countCard` (`2^32`) cannot be laid out without its size
   -- overflowing, so it is not creatable; reject it here. This also supplies the size bound
-  -- (`argTypes.size ≤ countCard < UInt64.size`) needed to relate `argTypes.size.toUInt64` back to
-  -- `argTypes.size` when initializing the block arguments (mirroring the guard in `createOpSim`).
-  if hsz : argTypes.size ≤ Buffed.countCard then
+  -- (`argTypes.size < countCard`) needed to relate `argTypes.size.toUInt64` (and, in the argument
+  -- loop, `argTypes.usize`) back to `argTypes.size` (mirroring the guard in `createOpSim`); the
+  -- strict bound is what makes `usize` exact on a 32-bit platform, where `USize.size = countCard`.
+  if hsz : argTypes.size < Buffed.countCard then
   rlet ⟨newBlockPtr, ctx⟩ ← Sim.BlockPtr.allocEmpty ctx (numArgs := argTypes.size.toUInt64)
   have : newBlockPtr.InBounds ctx := by grind
   rlet ctx ← Rewriter.initBlockArguments newBlockPtr ctx argTypes 0 (by grind) (by
@@ -995,27 +996,27 @@ def Rewriter.initOpRegionsSim (opPtr: Sim.OperationPtr) (ctx: Sim.IRContext OpIn
     (hctx : ctx.spec.FieldsInBounds := by grind)
     (hn : index.toNat = opPtr.spec.getNumRegions! ctx.spec := by grind)
     (hcap : regions.size ≤ (opPtr.spec.get! ctx.spec).capRegions := by grind)
-    (hsz : regions.size < UInt64.size := by grind) :
+    (hsz : regions.size < UInt32.size := by grind) :
     Option (Sim.IRContext OpInfo) := do
-  if h: index >= regions.size.toUInt64 then
+  if h: index >= regions.usize.toUInt64 then
     some ctx
   else
-    let region := regions[index.toNat]'(by grind [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le])
+    let region := regions[index.toNat]'(by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     match hParent : (region.getParent ctx (by grind)).toOption with
     | none =>
       let ctx := Rewriter.pushRegionAt opPtr ctx index region (hregion := by grind) (hRegionParent := by grind)
-        (hcap := by grind [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le])
+        (hcap := by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
       Rewriter.initOpRegionsSim opPtr ctx regions (index + 1)
         (opPtrInBounds := by grind [generic_ptr_grind])
         (hregionInBounds := by grind [generic_ptr_grind])
         (hctx := by grind)
         (hn := by
-          have : (index + 1).toNat = index.toNat + 1 := by grind [Array.size_toUInt64_toNat]
+          have : (index + 1).toNat = index.toNat + 1 := by grind [Array.usize_toUInt64_toNat]
           grind [Rewriter.pushRegionAt_def, Rewriter.pushRegionAtSim])
         (hcap := by grind [Rewriter.pushRegionAt_def, Rewriter.pushRegionAtSim, Rewriter.pushRegion])
     | some _ => none
   termination_by regions.size - index.toNat
-  decreasing_by grind only [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le, UInt64.toNat_add,
+  decreasing_by grind only [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le, UInt64.toNat_add,
     UInt64.toNat_mod_size]
 
 @[grind .]
@@ -1144,22 +1145,22 @@ def Rewriter.initOpResultsSim (opPtr: Sim.OperationPtr) (ctx: Sim.IRContext OpIn
     (resultTypes: Array TypeAttr) (index: UInt64 := 0) (hop : opPtr.InBounds ctx := by grind)
     (hidx : index.toNat = opPtr.spec.getNumResults! ctx.spec := by grind)
     (hcap : resultTypes.size ≤ (opPtr.spec.get! ctx.spec).capResults := by grind)
-    (hsz : resultTypes.size < UInt64.size := by grind) :
+    (hsz : resultTypes.size < UInt32.size := by grind) :
     Option (Sim.IRContext OpInfo) := do
-  if h: index >= resultTypes.size.toUInt64 then
+  if h: index >= resultTypes.usize.toUInt64 then
     some ctx
   else
-    rlet ctx ← Rewriter.pushResultAt opPtr ctx index (resultTypes[index.toNat]'(by grind [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le])) (by grind) (by grind)
-      (by grind [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le])
+    rlet ctx ← Rewriter.pushResultAt opPtr ctx index (resultTypes[index.toNat]'(by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])) (by grind) (by grind)
+      (by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     Rewriter.initOpResultsSim opPtr ctx resultTypes (index + 1) (by grind [generic_ptr_grind]) (by
-      have : (index + 1).toNat = index.toNat + 1 := by grind [Array.size_toUInt64_toNat]
+      have : (index + 1).toNat = index.toNat + 1 := by grind [Array.usize_toUInt64_toNat]
       rw [Rewriter.pushResultAt_spec (by assumption)]
       grind [Rewriter.pushResult])
       (by
         rw [Rewriter.pushResultAt_spec (by assumption)]
         grind [Rewriter.pushResult])
   termination_by resultTypes.size - index.toNat
-  decreasing_by grind only [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le, UInt64.toNat_add,
+  decreasing_by grind only [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le, UInt64.toNat_add,
     UInt64.toNat_mod_size, = UInt64.add_toNat_lt]
 
 @[grind .]
@@ -1340,20 +1341,20 @@ def Rewriter.initOpOperandsSim (opPtr: Sim.OperationPtr) (ctx: Sim.IRContext OpI
     (hoperands : ∀ oper, oper ∈ operands → oper.InBounds ctx)
     (index : UInt64 := 0) (hidx : index.toNat = opPtr.spec.getNumOperands! ctx.spec := by grind)
     (hcap : operands.size ≤ (opPtr.spec.get! ctx.spec).capOperands := by grind)
-    (hsz : operands.size < UInt64.size := by grind) :
+    (hsz : operands.size < UInt32.size := by grind) :
     Sim.IRContext OpInfo :=
-  if h : index >= operands.size.toUInt64 then
+  if h : index >= operands.usize.toUInt64 then
     ctx
   else
-    let valuePtr := operands[index.toNat]'(by grind [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le])
+    let valuePtr := operands[index.toNat]'(by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     let ctx := Rewriter.pushOperandAt opPtr ctx index valuePtr
-      (hcap := by grind [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le])
+      (hcap := by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     Rewriter.initOpOperandsSim opPtr ctx (by grind [generic_ptr_grind]) operands (by grind [generic_ptr_grind]) (index + 1) (by
       grind [Rewriter.pushOperandAt_def, Rewriter.pushOperandAtSpec, Rewriter.pushOperandAtSim, Sim.IRContext.isRepr, Rewriter.pushOperand])
       (by
         grind [Rewriter.pushOperandAt_def, Rewriter.pushOperandAtSpec, Rewriter.pushOperandAtSim, Rewriter.pushOperand])
   termination_by operands.size - index.toNat
-  decreasing_by grind only [Array.size_toUInt64_toNat, unfold_pointers, UInt64.le_iff_toNat_le, UInt64.toNat_add, UInt64.toNat_mod_size]
+  decreasing_by grind only [Array.usize_toUInt64_toNat, unfold_pointers, UInt64.le_iff_toNat_le, UInt64.toNat_add, UInt64.toNat_mod_size]
 
 set_option linter.unusedVariables false in -- bug
 @[grind .]
@@ -1493,21 +1494,21 @@ def Rewriter.initBlockOperandsSim (opPtr: Sim.OperationPtr) (ctx: Sim.IRContext 
     (hoperands : ∀ oper, oper ∈ operands → oper.InBounds ctx := by grind)
     (hidx : index.toNat = opPtr.spec.getNumSuccessors! ctx.spec := by grind)
     (hcap : operands.size ≤ (opPtr.spec.get! ctx.spec).capBlockOperands := by grind)
-    (hsz : operands.size < UInt64.size := by grind) :
+    (hsz : operands.size < UInt32.size := by grind) :
     Sim.IRContext OpInfo :=
-  if h : index >= operands.size.toUInt64 then
+  if h : index >= operands.usize.toUInt64 then
     ctx
   else
-    let valuePtr := operands[index.toNat]'(by grind [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le])
+    let valuePtr := operands[index.toNat]'(by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     let ctx := Rewriter.pushBlockOperandAt opPtr ctx index valuePtr (by grind) (by grind) (by grind)
-      (by grind [Array.size_toUInt64_toNat, UInt64.le_iff_toNat_le])
+      (by grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le])
     Rewriter.initBlockOperandsSim opPtr ctx operands (index + 1) (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind]) (by
-      have : (index + 1).toNat = index.toNat + 1 := by grind [unfold_pointers, Array.size_toUInt64_toNat]
+      have : (index + 1).toNat = index.toNat + 1 := by grind [unfold_pointers, Array.usize_toUInt64_toNat]
       grind [Rewriter.pushBlockOperandAt_def, Rewriter.pushBlockOperandAtSim, Rewriter.pushBlockOperand])
       (by
         grind [Rewriter.pushBlockOperandAt_def, Rewriter.pushBlockOperandAtSim, Rewriter.pushBlockOperand])
   termination_by operands.size - index.toNat
-  decreasing_by grind [Array.size_toUInt64_toNat, unfold_pointers, UInt64.le_iff_toNat_le, UInt64.toNat_add, UInt64.toNat_inj, UInt64.toNat_mod_size]
+  decreasing_by grind [Array.usize_toUInt64_toNat, unfold_pointers, UInt64.le_iff_toNat_le, UInt64.toNat_add, UInt64.toNat_inj, UInt64.toNat_mod_size]
 
 @[grind .]
 theorem Rewriter.initBlockOperands_fieldsInBounds {opPtr : Sim.OperationPtr}
@@ -1591,11 +1592,13 @@ def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
     (hins : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by grind)
     (hrep : insertionPoint.maybe₁ InsertPoint.IsRepr := by grind)
     (hx : ctx.spec.FieldsInBounds := by grind) : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
-  -- An operation whose arrays exceed `countCard` (`2^32`) cannot be laid out without its size
+  -- An operation whose arrays reach `countCard` (`2^32`) cannot be laid out without its size
   -- overflowing, so it is not creatable; reject it here, which also supplies the size bounds
-  -- needed by `allocEmpty` (mirroring the guard in `Sim.BlockPtr.allocEmpty`).
-  if hsz : resultTypes.size ≤ Buffed.countCard ∧ operands.size ≤ Buffed.countCard
-      ∧ blockOperands.size ≤ Buffed.countCard ∧ regions.size ≤ Buffed.countCard then
+  -- needed by `allocEmpty` (mirroring the guard in `Sim.BlockPtr.allocEmpty`). The bound is
+  -- strict so the `init*` loops can guard on the O(1) `Array.usize` extern: `size < 2^32` makes
+  -- `usize` exact even on a 32-bit platform, where `USize.size = countCard`.
+  if hsz : resultTypes.size < Buffed.countCard ∧ operands.size < Buffed.countCard
+      ∧ blockOperands.size < Buffed.countCard ∧ regions.size < Buffed.countCard then
     -- Pass the sizes via `Array.sizeU64` (an opaque, `@[irreducible]` `size.toUInt64` alias) so
     -- `grind` treats them (and their `.toNat`) as atoms rather than e-matching the `init*` lemmas
     -- at each `UInt64.ofNat _`/`size % 2^64` size, which otherwise cross-multiplies into a

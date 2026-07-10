@@ -71,6 +71,28 @@ theorem Array.size_le_toNat {ar : Array α} {x : UInt64}
   rw [← this]
   grind [UInt64.le_iff_toNat_le]
 
+/-- When an array's size fits in a `UInt32` (in particular under the `countCard` guards of the
+rewriter's `create*` entry points), `usize.toUInt64` round-trips back to `size`. The `2^32` bound
+makes this platform-independent: `size < 2^32 ≤ USize.size` on both 32- and 64-bit platforms, so
+`Array.usize` (which truncates mod `USize.size`) is exact. This lets hot loops guard on the O(1)
+`usize` extern instead of `size.toUInt64`. -/
+theorem Array.usize_toUInt64_toNat (ar : Array α) (h : ar.size < UInt32.size) :
+    ar.usize.toUInt64.toNat = ar.size := by
+  have husize : ar.usize = USize.ofNat ar.size := rfl
+  rw [husize, USize.toNat_toUInt64, USize.toNat_ofNat_of_lt_32 h]
+
+theorem Array.usize_toUInt64_eq (ar : Array α) (h : ar.size < UInt32.size) :
+    ar.usize.toUInt64 = ar.size.toUInt64 := by
+  apply UInt64.toNat_inj.mp
+  rw [Array.usize_toUInt64_toNat ar h,
+    Array.size_toUInt64_toNat ar (Nat.lt_trans h (by decide))]
+
+theorem Array.usize_le_toNat {ar : Array α} {x : UInt64}
+    (hsz : ar.size < UInt32.size) (h : ar.usize.toUInt64 ≤ x) : ar.size ≤ x.toNat := by
+  have := Array.usize_toUInt64_toNat ar hsz
+  rw [← this]
+  grind [UInt64.le_iff_toNat_le]
+
 /-- An array's size as a `UInt64`. This is a deliberately opaque (`@[irreducible]`) alias for
 `size.toUInt64`, so it does not reduce to the `UInt64.ofNat _` shape nor further to `size % 2^64`.
 `grind` therefore treats `sizeU64`/`sizeU64.toNat` as atoms rather than e-matching candidates for
