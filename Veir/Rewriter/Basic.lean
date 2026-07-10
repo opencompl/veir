@@ -9,6 +9,7 @@ public import Veir.Rewriter.RewriterPushOperand
 public import Veir.Rewriter.RewriterPushBlockOperand
 public import Veir.Rewriter.RewriterPushResult
 public import Veir.Rewriter.RewriterPushBlockArgument
+public import Veir.Rewriter.RewriterPushRegion
 
 meta import Veir.IR.Buffed.Basic
 import Veir.IR.Buffed.RawAccessorsLemmas
@@ -19,6 +20,7 @@ import all Veir.Rewriter.RewriterPushOperand
 import all Veir.Rewriter.RewriterPushBlockOperand
 import all Veir.Rewriter.RewriterPushResult
 import all Veir.Rewriter.RewriterPushBlockArgument
+import all Veir.Rewriter.RewriterPushRegion
 import all Veir.Rewriter.LinkedList.Basic
 import all Veir.IR.Buffed.Basic
 import all Veir.IR.Buffed.RawAccessors
@@ -667,25 +669,6 @@ theorem Rewriter.pushBlockArgumentAt_fieldsInBounds {blockPtr : Sim.BlockPtr}
 Like `setBlockArgument`, these write a single entry into the (already allocated) result/operand/
 block-operand array of an operation, at a given index. They do not grow the array. -/
 
-@[inline]
-protected def Rewriter.setRegion (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
-    (region : Buffed.RegionMPtr)
-    (hregion : (region + Buffed.Region.Offsets.parent).toInt + Buffed.Region.Sizes.parent.toInt ≤ ctx₀.size)
-    (hnum : opPtr.toNat + Buffed.Operation.sizeBaseNat ≤ ctx₀.size)
-    (hslot : (opPtr + opPtr.computeRegionOffset ctx₀ idx hnum).toNat + Buffed.ptrSize.toNat ≤ ctx₀.size) :
-    Buffed.IRBufContext OpInfo :=
-  -- Compute the region slot from `ctx₀` (the region-`writeParent` below touches the region, not
-  -- the operation's count fields, so the offset is the same), then write the parent link and
-  -- blit the region pointer into the slot. `hregion` bounds the (independent) region pointer.
-  let slot := opPtr + opPtr.computeRegionOffset ctx₀ idx hnum
-  let ctx := region.writeParent ctx₀ opPtr hregion
-  let mem := ctx.mem.blit64 slot region (by
-    have hb := ctx₀.mem.fits_in_memory
-    simp only [Buffed.IRBufContext.size_def] at *
-    grind [UInt64.uint64_add_int64_toInt_lt, Buffed.RegionMPtr.writeParent_range,
-      Buffed.RegionMPtr.writeParent_size])
-  { ctx with mem := mem }
-
 buffed
 def Rewriter.initBlockArgumentsLoopSim (blockPtr: Sim.BlockPtr) (ctx: Sim.IRContext OpInfo)
     (types : Array TypeAttr) (index : UInt64 := 0) (hblock : blockPtr.InBounds ctx := by grind)
@@ -889,48 +872,42 @@ theorem Rewriter.createRegion_fieldsInBounds (h : createRegion ctx = some (ctx',
     ctx.spec.FieldsInBounds → ctx'.spec.FieldsInBounds := by
   grind [createRegion_def, createRegionSim]
 
-@[grind]
-def Rewriter.pushRegion (ctx : IRContext OpInfo) (op : OperationPtr) (region : RegionPtr)
-    (hop : op.InBounds ctx := by grind) (hregion : region.InBounds ctx := by grind)
-    (_hRegionParent : (region.get! ctx).parent = none := by grind) :
-    IRContext OpInfo :=
-  let ctx := region.setParent ctx op
-  op.pushRegion ctx region
-
 buffed
 def Rewriter.pushRegionAtSim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (region : Sim.RegionPtr)
     (hop : opPtr.InBounds ctx := by grind) (hregion : region.InBounds ctx := by grind)
     (hRegionParent : (region.spec.get! ctx.spec).parent = none := by grind)
+    (hidx : idx.toNat = opPtr.spec.getNumRegions! ctx.spec := by grind)
     (hcap : idx.toNat < (opPtr.spec.get! ctx.spec).capRegions := by grind) :
     Sim.IRContext OpInfo :=
   ⟨Rewriter.setRegion opPtr.impl ctx.buf idx region.impl (by prove_setLinkBoundsRegion ctx region)
       (by prove_setLinkBoundsOp ctx opPtr) (by prove_setLinkBoundsRegionSlot ctx opPtr idx),
-   Rewriter.pushRegion ctx.spec opPtr.spec region.spec (by grind) (by grind) (by grind), admitted_sim ctx⟩
+   Rewriter.pushRegion ctx.spec opPtr.spec region.spec (by grind) (by grind) (by grind),
+   Rewriter.setRegion_pushRegion_sim opPtr ctx idx region hop hregion hRegionParent hidx hcap _ _ _⟩
 
 @[simp, grind =]
 theorem Rewriter.pushRegionAt_inBounds_veir_mono (ptr : Veir.GenericPtr) {opPtr : Sim.OperationPtr}
-    {ctx : Sim.IRContext OpInfo} {idx region h₁ h₂ h₃ h₄} :
-    ptr.InBounds (pushRegionAt opPtr ctx idx region h₁ h₂ h₃ h₄).spec ↔ ptr.InBounds ctx.spec := by
+    {ctx : Sim.IRContext OpInfo} {idx region h₁ h₂ h₃ h₄ h₅} :
+    ptr.InBounds (pushRegionAt opPtr ctx idx region h₁ h₂ h₃ h₄ h₅).spec ↔ ptr.InBounds ctx.spec := by
   simp only [pushRegionAt_def, pushRegionAtSim] <;> grind
 
 @[grind .]
 theorem Rewriter.pushRegionAt_layoutUnchanged {opPtr : Sim.OperationPtr}
-    {ctx : Sim.IRContext OpInfo} {idx region h₁ h₂ h₃ h₄} :
-    ctx.spec.LayoutUnchanged (pushRegionAt opPtr ctx idx region h₁ h₂ h₃ h₄).spec := by
+    {ctx : Sim.IRContext OpInfo} {idx region h₁ h₂ h₃ h₄ h₅} :
+    ctx.spec.LayoutUnchanged (pushRegionAt opPtr ctx idx region h₁ h₂ h₃ h₄ h₅).spec := by
   simp only [pushRegionAt_def, pushRegionAtSim, pushRegion] <;>
   apply IRContext.LayoutUnchanged.trans (region.spec.setParent ctx.spec opPtr.spec (by grind)) <;> grind
 
 @[simp, grind =]
 theorem Rewriter.pushRegionAt_inBounds_mono (ptr : Sim.GenericPtr) {opPtr : Sim.OperationPtr}
-    {ctx : Sim.IRContext OpInfo} {idx region h₁ h₂ h₃ h₄} :
-    ptr.InBounds (pushRegionAt opPtr ctx idx region h₁ h₂ h₃ h₄) ↔ ptr.InBounds ctx := by
+    {ctx : Sim.IRContext OpInfo} {idx region h₁ h₂ h₃ h₄ h₅} :
+    ptr.InBounds (pushRegionAt opPtr ctx idx region h₁ h₂ h₃ h₄ h₅) ↔ ptr.InBounds ctx := by
   grind
 
 @[grind .]
 theorem Rewriter.pushRegion_fieldsInBounds {opPtr : Sim.OperationPtr}
-    {ctx : Sim.IRContext OpInfo} {idx region h₁ h₂ h₃ h₄} (hx : ctx.spec.FieldsInBounds) :
-    (pushRegionAt opPtr ctx idx region h₁ h₂ h₃ h₄).spec.FieldsInBounds := by
+    {ctx : Sim.IRContext OpInfo} {idx region h₁ h₂ h₃ h₄ h₅} (hx : ctx.spec.FieldsInBounds) :
+    (pushRegionAt opPtr ctx idx region h₁ h₂ h₃ h₄ h₅).spec.FieldsInBounds := by
   simp only [pushRegionAt]
   apply OperationPtr.pushRegion_fieldsInBounds <;> grind
 
