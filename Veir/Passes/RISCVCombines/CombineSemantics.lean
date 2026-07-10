@@ -4,6 +4,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.CommonBaseLemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonGraphLemmas
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelect
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerExt
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerBexti
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSlti
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonForwardInterpret
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
@@ -5705,5 +5706,384 @@ theorem XorAshrAshr_local_preservesSemantics
     (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
     (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.xor_mono a₁ b₁ a₂ b₂ h₁ h₂)
     (fun hw x y z e0 e1 _ => by subst hw; exact Data.LLVM.Int.XorAshrAshr)
+
+/-! ### hoist_logic_op (`*LshrLshr`)
+
+  `(X >>l Z) outer (Y >>l Z) → (X outer Y) >>l Z` for `outer ∈ {and, or, xor}` (logical shift). `op`
+  is the outer op; *both* its operands are defining `lshr _ Z` sharing the shift amount `Z`. Unlike
+  `*AndAnd`, the defining ops verify only as `LLVMShift`, so their runtime value is recovered with
+  the dedicated graph lemma `matchLshr_getVar?_of_EquationLemmaAt` (the arbitrary-shift-amount
+  generalization of `lshrConst_getVar?_of_EquationLemmaAt`). Create `inner = dst X Y` then
+  `lshr inner Z`.
+-/
+
+set_option maxHeartbeats 1000000 in
+/-- Graph lemma for a value `base` defined by a *logical* shift `lshr X Z` (arbitrary shift amount
+    `Z`, not necessarily constant). In a source state satisfying `EquationLemmaAt` before `op`,
+    `base`'s runtime value is `lshr xv (sv transported to `X`'s width) exact`, and both `X`'s and
+    the shift amount `Z`'s facts (value, type, dominance, in-bounds, not-a-result) are recovered.
+    The generalization of `lshrConst_getVar?_of_EquationLemmaAt` to an arbitrary shift `ValuePtr`:
+    the inner op verifies only as `LLVMShift`, so the operand-width equality is recovered
+    dynamically via `matchShiftOp_interpretOp_unfold`. -/
+theorem matchLshr_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    {base x shamt : ValuePtr} {shrOp : OperationPtr}
+    {shProps : propertiesOf (.llvm .lshr)} {intType : IntegerType}
+    (hDef : getDefiningOp base ctx.raw = some shrOp)
+    (hLshr : matchLshr shrOp ctx.raw = some (x, shamt, shProps))
+    (hOperand : base ∈ op.getOperands! ctx.raw)
+    (hBaseType : (base.getType! ctx.raw).val = Attribute.integerType intType) :
+    ∃ (shType : IntegerType) (xv : Data.LLVM.Int intType.bitwidth)
+      (sv : Data.LLVM.Int shType.bitwidth) (h' : shType.bitwidth = intType.bitwidth),
+      state.variables.getVar? x = some (RuntimeValue.int intType.bitwidth xv) ∧
+      state.variables.getVar? shamt = some (RuntimeValue.int shType.bitwidth sv) ∧
+      state.variables.getVar? base = some (RuntimeValue.int intType.bitwidth
+        (Data.LLVM.Int.lshr xv (h' ▸ sv) shProps.exact)) ∧
+      (x.getType! ctx.raw).val = Attribute.integerType intType ∧
+      (shamt.getType! ctx.raw).val = Attribute.integerType shType ∧
+      x.dominatesIp (InsertPoint.before op) ctx ∧
+      shamt.dominatesIp (InsertPoint.before op) ctx ∧
+      x.InBounds ctx.raw ∧ shamt.InBounds ctx.raw ∧
+      x ∉ op.getResults! ctx.raw ∧ shamt ∉ op.getResults! ctx.raw := by
+  obtain ⟨lhsPtr, rfl, rfl⟩ := getDefiningOp_implies hDef
+  obtain ⟨hShrType, hShrNumResults, hShrOperands, hShProps⟩ := matchLshr_implies hLshr
+  have hLhsIn : (ValuePtr.opResult lhsPtr).InBounds ctx.raw := by grind
+  have hShrOpIn : lhsPtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hlhsIdx : lhsPtr.index < lhsPtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hlhsEq : lhsPtr = lhsPtr.op.getResult 0 := by
+    have hidx : lhsPtr.index = 0 := by omega
+    cases lhsPtr; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+  have hShrVerified : lhsPtr.op.Verified ctx hShrOpIn := by grind
+  obtain ⟨-, -, hShrResEqOp0, shType, hShrOp1Type⟩ :=
+    OperationPtr.Verified.llvm_lshr hShrVerified hShrType
+  have hVTypeEq : (ValuePtr.opResult lhsPtr).getType! ctx.raw
+      = ((lhsPtr.op.getResult 0).get! ctx.raw).type := by rw [hlhsEq]; rfl
+  have hxIdxEq : x = (lhsPtr.op.getOperands! ctx.raw)[0]! := by rw [hShrOperands]; rfl
+  have hShamtIdxEq : shamt = (lhsPtr.op.getOperands! ctx.raw)[1]! := by rw [hShrOperands]; rfl
+  have hShrOperand0 : lhsPtr.op.getOperand! ctx.raw 0 = x := by
+    rw [hxIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hShrOperand1 : lhsPtr.op.getOperand! ctx.raw 1 = shamt := by
+    rw [hShamtIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hxType : (x.getType! ctx.raw).val = Attribute.integerType intType := by
+    have : ((lhsPtr.op.getResult 0).get! ctx.raw).type.val
+        = ((lhsPtr.op.getOperand! ctx.raw 0).getType! ctx.raw).val := hShrResEqOp0
+    rw [hShrOperand0] at this
+    rw [← this, ← hVTypeEq]; exact hBaseType
+  have hShamtType : (shamt.getType! ctx.raw).val = Attribute.integerType shType := by
+    rw [← hShrOperand1]; exact hShrOp1Type
+  have hShrDefines : (ValuePtr.opResult lhsPtr).getDefiningOp! ctx.raw = some lhsPtr.op := by
+    have hOwner := (ctx.wellFormed.operations lhsPtr.op hShrOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hShrSDom : lhsPtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hShrDefines hOperand
+  have hShrDomIp : lhsPtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hShrPure : lhsPtr.op.Pure ctx.raw := OperationPtr.Pure.llvm_lshr hShrType
+  obtain ⟨cfS, hInterpShr⟩ := stateWf lhsPtr.op hShrOpIn hShrPure hShrDomIp
+  obtain ⟨xv, sv, h', hxVal, hsVal, -, hShrResVal, -⟩ :=
+    matchShiftOp_interpretOp_unfold (srcOp := .lshr)
+      (shiftFn := fun a b props => Data.LLVM.Int.lshr a b props.exact)
+      (props := lhsPtr.op.getProperties! ctx.raw (.llvm .lshr))
+      hShrOpIn hShrType hShrNumResults hShrOperands rfl
+      (by intro bw bw' a b props resultTypes blockOperands mem res hh
+          simp only [Llvm.interpretOp'] at hh
+          split at hh
+          · exact absurd hh (by simp)
+          · rename_i hbw; obtain rfl : bw' = bw := by omega
+            refine ⟨rfl, ?_⟩
+            simp only [Data.LLVM.Int.cast_self, pure, Interp, Option.some.injEq, UBOr.ok.injEq] at hh
+            grind)
+      hInterpShr hxType hShamtType
+  refine ⟨shType, xv, sv, h', hxVal, hsVal, ?_, hxType, hShamtType, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hShProps, hlhsEq]; exact hShrResVal
+  · exact ValuePtr.dominatesIp_before_of_strictlyDominates
+      (ctxDom.operand_dominates_op hShrOpIn (by grind [OperationPtr.getOperands!])) hShrSDom
+  · exact ValuePtr.dominatesIp_before_of_strictlyDominates
+      (ctxDom.operand_dominates_op hShrOpIn (by grind [OperationPtr.getOperands!])) hShrSDom
+  · grind [OperationPtr.getOperands!]
+  · grind [OperationPtr.getOperands!]
+  · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hShrSDom) x
+      (by grind [OperationPtr.getOperands!])
+  · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hShrSDom) shamt
+      (by grind [OperationPtr.getOperands!])
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness proof for `AndLshrLshr`/`OrLshrLshr`/`XorLshrLshr`. Parameterized over the
+    outer op (`srcOp`/`srcFn`/matcher-verifier-purity), the inner emitted op `dst` computing `dfn`
+    (`hSemDst`/`hMono`), whether the created `lshr` keeps the second shift's `exact` (`useSndExact`),
+    and the data-refinement lemma `hRefine`. -/
+theorem hoistLshrLocal_preservesSemantics {srcOp dst : Llvm}
+    {srcFn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → propertiesOf (.llvm srcOp) →
+      Data.LLVM.Int bw}
+    {dprops : propertiesOf (.llvm dst)}
+    {dfn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → Data.LLVM.Int bw}
+    {match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr)} {useSndExact : Bool}
+    (hMatchImplies : ∀ {opp : OperationPtr} {c : IRContext OpCode} {l r},
+        match? opp c = some (l, r) →
+        opp.getOpType! c = .llvm srcOp ∧ opp.getNumResults! c = 1 ∧ opp.getOperands! c = #[l, r])
+    (hVerified : ∀ {c : WfIRContext OpCode} {opp : OperationPtr} {oib : opp.InBounds c.raw},
+        opp.Verified c oib → opp.getOpType! c.raw = .llvm srcOp → opp.IsVerifiedIntegerBinop c)
+    (hSemSrc : ∀ (bw : Nat) (a b : Data.LLVM.Int bw) (props : propertiesOf (.llvm srcOp))
+        (rt : Array TypeAttr) (bo : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' srcOp props rt #[.int bw a, .int bw b] bo mem
+          = some (.ok (#[.int bw (srcFn a b props)], mem, none)))
+    (hSemDst : ∀ (bw : Nat) (a b : Data.LLVM.Int bw) (rt : Array TypeAttr) (bo : Array BlockPtr)
+        (mem : MemoryState),
+        Llvm.interpretOp' dst dprops rt #[.int bw a, .int bw b] bo mem
+          = some (.ok (#[.int bw (dfn a b)], mem, none)))
+    (hMono : ∀ {bw : Nat} (a₁ a₂ b₁ b₂ : Data.LLVM.Int bw), a₁ ⊒ a₂ → b₁ ⊒ b₂ →
+        dfn a₁ b₁ ⊒ dfn a₂ b₂)
+    (hRefine : ∀ (xv yv zv : Data.LLVM.Int 64)
+        (px py : propertiesOf (.llvm .lshr)) (po : propertiesOf (.llvm srcOp)),
+        srcFn (Data.LLVM.Int.lshr xv zv px.exact) (Data.LLVM.Int.lshr yv zv py.exact) po
+          ⊒ Data.LLVM.Int.lshr (dfn xv yv) zv (if useSndExact then py.exact else false))
+    {h : LocalRewritePattern.ReturnOps (hoistLshrLocal match? dst dprops useSndExact)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (hoistLshrLocal match? dst dprops useSndExact)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (hoistLshrLocal match? dst dprops useSndExact)}
+    {h₄ : LocalRewritePattern.ReturnValues (hoistLshrLocal match? dst dprops useSndExact)} :
+    LocalRewritePattern.PreservesSemantics (hoistLshrLocal match? dst dprops useSndExact) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, hoistLshrLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel the outer `match?`.
+  have hMatchSome : (match? op ctx.raw).isSome := by
+    cases hM : match? op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨v0, v1⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands⟩ := hMatchImplies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  have opVerif : op.Verified ctx opInBounds := by grind
+  obtain ⟨-, -, -, -, opIntType, hOpResType, hOp0Type, hOp1Type⟩ := hVerified opVerif hOpType
+  have hv0Eq : v0 = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  have hv1Eq : v1 = (op.getOperands! ctx.raw)[1]! := by rw [hOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = v0 := by
+    rw [hv0Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = v1 := by
+    rw [hv1Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hv0Type : (v0.getType! ctx.raw).val = Attribute.integerType opIntType := by
+    rw [← hOperand0, hOp0Type]
+  have hv1Type : (v1.getType! ctx.raw).val = Attribute.integerType opIntType := by
+    rw [← hOperand1, hOp1Type]
+  -- Unfold the outer op's interpretation.
+  obtain ⟨v0v, v1v, hv0Val, hv1Val, hMem, hRes, hCf⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := srcOp) (srcFn := srcFn)
+      (props := op.getProperties! ctx.raw (.llvm srcOp))
+      opInBounds hOpType hNumResults hOperands rfl
+      (by intro bw a b props resultTypes blockOperands mem res hh
+          rw [hSemSrc bw a b props resultTypes blockOperands mem] at hh
+          injection hh with hh; injection hh with hh; exact hh.symm)
+      hinterp hv0Type hv1Type
+  subst hCf
+  -- Peel the two defining `lshr`s and the `z0 = z1` guard.
+  have hDefXSome : (getDefiningOp v0 ctx.raw).isSome := by
+    cases hM : getDefiningOp v0 ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨dX, hDefX⟩ := Option.isSome_iff_exists.mp hDefXSome
+  rw [hDefX] at hpattern
+  simp only [] at hpattern
+  have hLshrXSome : (matchLshr dX ctx.raw).isSome := by
+    cases hM : matchLshr dX ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨x, z0, xp⟩, hLshrX⟩ := Option.isSome_iff_exists.mp hLshrXSome
+  rw [hLshrX] at hpattern
+  simp only [] at hpattern
+  have hDefYSome : (getDefiningOp v1 ctx.raw).isSome := by
+    cases hM : getDefiningOp v1 ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨dY, hDefY⟩ := Option.isSome_iff_exists.mp hDefYSome
+  rw [hDefY] at hpattern
+  simp only [] at hpattern
+  have hLshrYSome : (matchLshr dY ctx.raw).isSome := by
+    cases hM : matchLshr dY ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨y, z1, yp⟩, hLshrY⟩ := Option.isSome_iff_exists.mp hLshrYSome
+  rw [hLshrY] at hpattern
+  simp only [] at hpattern
+  have hZEq : z0 = z1 := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hZEq] at hpattern
+  subst hZEq
+  -- Recover both defining `lshr`s.
+  obtain ⟨shTypeX, xv, z0v, h'X, hxVal, hz0Val, hv0LshrIs, hxType, hz0Type, hDomX, hDomZ0,
+      hxIn, hz0In, xNotOp, z0NotOp⟩ :=
+    matchLshr_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds stateWf hDefX hLshrX
+      (by rw [hOperands]; simp) hv0Type
+  obtain ⟨shTypeY, yv, z0v', h'Y, hyVal, hz0Val', hv1LshrIs, hyType, hz0Type', hDomY, hDomZ0',
+      hyIn, hz0In', yNotOp, z0NotOp'⟩ :=
+    matchLshr_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds stateWf hDefY hLshrY
+      (by rw [hOperands]; simp) hv1Type
+  -- Both defining shifts share `z0`, so their recovered shift types/values coincide.
+  obtain rfl : shTypeX = shTypeY := by
+    have := hz0Type.symm.trans hz0Type'; exact (Attribute.integerType.inj this)
+  obtain rfl : z0v = z0v' := by
+    have := hz0Val.symm.trans hz0Val'; simpa using this
+  -- Pin `v0v`/`v1v` to the two shifts.
+  obtain rfl : v0v = Data.LLVM.Int.lshr xv (h'X ▸ z0v) xp.exact := by
+    have := hv0Val.symm.trans hv0LshrIs; simpa using this
+  obtain rfl : v1v = Data.LLVM.Int.lshr yv (h'Y ▸ z0v) yp.exact := by
+    have := hv1Val.symm.trans hv1LshrIs; simpa using this
+  -- Width guards on `x`'s type and `z0`'s type.
+  rw [hxType] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isFalse hne => simp at hpattern
+  rename_i hXW
+  rw [hz0Type] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isFalse hne => simp at hpattern
+  rename_i hZW
+  -- Collapse both widths to the literal `64`.
+  obtain ⟨ow⟩ := opIntType; simp only at hXW; subst hXW
+  obtain ⟨sw⟩ := shTypeX; simp only at hZW; subst hZW
+  -- Source value (the `h' ▸` transports are now along `64 = 64`, definitionally the identity).
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- `x`'s type as `TypeAttr`.
+  have hXTypeAttr : x.getType! ctx.raw
+      = (⟨Attribute.integerType ⟨64⟩, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr) :=
+    Subtype.ext hxType
+  -- Peel the two creations (inner `dst x y`, then `lshr inner z0`), transporting `x`/`y`/`z0`.
+  peelOpCreation!₂ hpattern ctx₁ innerOp hInner hDomX hDomX₁ hDomY hDomY₁
+  have hDomZ0₁ : z0.dominatesIp (InsertPoint.before op) ctx₁ :=
+    (ValuePtr.dominatesIp_before_WfRewriter_createOp hInner
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)).mpr hDomZ0
+  peelOpCreation!₂ hpattern ctx₂ lshrNewOp hLshrNew hDomX₁ hDomX₂ hDomZ0₁ hDomZ0₂
+  cleanupHpattern hpattern
+  have hInnerNeLshr : innerOp ≠ lshrNewOp := by
+    clear hpattern state'Wf state'Dom valueRefinement; grind
+  have hXGet₁ : x.getType! ctx₁.raw = x.getType! ctx.raw :=
+    ValuePtr.getType!_WfRewriter_createOp_of_inBounds hInner hxIn
+  -- Structural facts: the inner `dst x y`.
+  have hInnerType : innerOp.getOpType! ctx₂.raw = .llvm dst := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hInner (operation := innerOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hLshrNew (operation := innerOp)]
+  have hInnerOperands : innerOp.getOperands! ctx₂.raw = #[x, y] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hInner (operation := innerOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hLshrNew (operation := innerOp)]
+  have hInnerProps : innerOp.getProperties! ctx₂.raw (.llvm dst) = dprops := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hInner (operation := innerOp),
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hLshrNew hInnerNeLshr]
+  have hInnerResTypes : innerOp.getResultTypes! ctx₂.raw
+      = #[(⟨Attribute.integerType ⟨64⟩, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hInner (operation := innerOp)
+    rw [if_pos rfl] at hT
+    have hT2 := OperationPtr.getResultTypes!_WfRewriter_createOp hLshrNew (operation := innerOp)
+    rw [if_neg hInnerNeLshr] at hT2
+    rw [hT2, hT]
+    exact congrArg (fun t => #[t]) hXTypeAttr
+  -- Structural facts: the outer `lshr inner z0`.
+  have hLshrNewType : lshrNewOp.getOpType! ctx₂.raw = .llvm .lshr := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hLshrNew (operation := lshrNewOp)]
+  have hLshrNewOperands : lshrNewOp.getOperands! ctx₂.raw
+      = #[ValuePtr.opResult (innerOp.getResult 0), z0] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hLshrNew (operation := lshrNewOp)]
+  have hLshrNewProps : lshrNewOp.getProperties! ctx₂.raw (.llvm .lshr)
+      = { exact := if useSndExact then yp.exact else false } := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hLshrNew (operation := lshrNewOp)]
+  have hLshrNewResTypes : lshrNewOp.getResultTypes! ctx₂.raw
+      = #[(⟨Attribute.integerType ⟨64⟩, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hLshrNew (operation := lshrNewOp)
+    rw [if_pos rfl] at hT
+    rw [hT, hXGet₁]
+    exact congrArg (fun t => #[t]) hXTypeAttr
+  -- Read refined `x`/`y`/`z0` in the target state.
+  obtain ⟨xt, hXVal', hxRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hxIn hxVal
+      hDomX hDomX₂ xNotOp
+  have hDomY₂ : y.dominatesIp (InsertPoint.before op) ctx₂ :=
+    (ValuePtr.dominatesIp_before_WfRewriter_createOp hLshrNew
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)).mpr hDomY₁
+  obtain ⟨yt, hYVal', hyRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hyIn hyVal
+      hDomY hDomY₂ yNotOp
+  obtain ⟨z0t, hZ0Val', hz0Ref⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hz0In hz0Val
+      hDomZ0 hDomZ0₂ z0NotOp
+  -- Replay the inner op, then the `lshr`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, hFrame₁⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := state') (inBounds := by grind)
+      (it := ⟨64⟩) (f := fun a b => dfn a b)
+      (by intro resultTypes blockOperands mem; exact hSemDst _ _ _ _ _ _)
+      hInnerType hInnerProps hInnerOperands hInnerResTypes hXVal' hYVal'
+  have hZ0Res₁ : s₁.variables.getVar? z0 = some (RuntimeValue.int 64 z0t) := by
+    rw [hFrame₁ z0 (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds
+      hz0In (WfRewriter.createOp_new_not_inBounds innerOp hInner))]
+    exact hZ0Val'
+  obtain ⟨s₂, hI₂, hMem₂, hRes₂, -⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := s₁) (inBounds := by grind)
+      (it := ⟨64⟩)
+      (f := fun a b => Data.LLVM.Int.lshr a b (if useSndExact then yp.exact else false))
+      (by intro resultTypes blockOperands mem
+          simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      hLshrNewType hLshrNewProps hLshrNewOperands hLshrNewResTypes hRes₁ hZ0Res₁
+  refine ⟨s₂, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, hI₂, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int 64
+      (Data.LLVM.Int.lshr (dfn xt yt) z0t (if useSndExact then yp.exact else false))],
+    by simp [hRes₂, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Assemble: `srcFn (lshr xv z0v e0) (lshr yv z0v e1) ⊒ lshr (dfn xv yv) z0v ⊒ lshr (dfn xt yt) z0t`.
+  simp only [Data.LLVM.Int.cast_self]
+  exact isRefinedBy_trans (hRefine xv yv z0v xp yp _)
+    (Data.LLVM.Int.lshr_mono _ _ _ _ (hMono xv xt yv yt hxRef hyRef) hz0Ref
+      (if useSndExact then yp.exact else false))
+
+theorem AndLshrLshr_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (hoistLshrLocal (matchBinopNoProps matchAnd) .and () true) h h₂ h₃ h₄ :=
+  hoistLshrLocal_preservesSemantics (srcOp := .and) (dst := .and)
+    (srcFn := fun a b _ => Data.LLVM.Int.and a b) (dfn := fun a b => Data.LLVM.Int.and a b)
+    (matchBinopNoProps_implies matchAnd_implies) OperationPtr.Verified.llvm_and
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.and_mono a₁ b₁ a₂ b₂ h₁ h₂)
+    (fun x y z px py _ => Data.LLVM.Int.AndLshrLshr)
+
+theorem OrLshrLshr_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (hoistLshrLocal (matchBinopNoProps matchOr) .or { disjoint := false } false) h h₂ h₃ h₄ :=
+  hoistLshrLocal_preservesSemantics (srcOp := .or) (dst := .or)
+    (srcFn := fun a b p => Data.LLVM.Int.or a b p.disjoint)
+    (dfn := fun a b => Data.LLVM.Int.or a b false)
+    (matchBinopNoProps_implies matchOr_implies) OperationPtr.Verified.llvm_or
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.or_mono a₁ b₁ a₂ b₂ false h₁ h₂)
+    (fun x y z px py po => Data.LLVM.Int.OrLshrLshr)
+
+theorem XorLshrLshr_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (hoistLshrLocal (matchBinopNoProps matchXor) .xor () false) h h₂ h₃ h₄ :=
+  hoistLshrLocal_preservesSemantics (srcOp := .xor) (dst := .xor)
+    (srcFn := fun a b _ => Data.LLVM.Int.xor a b) (dfn := fun a b => Data.LLVM.Int.xor a b)
+    (matchBinopNoProps_implies matchXor_implies) OperationPtr.Verified.llvm_xor
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.xor_mono a₁ b₁ a₂ b₂ h₁ h₂)
+    (fun x y z px py _ => Data.LLVM.Int.XorLshrLshr)
 
 end Veir.RISCV
