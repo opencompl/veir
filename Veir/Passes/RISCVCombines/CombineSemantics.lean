@@ -6567,17 +6567,7 @@ theorem XorLshrLshr_local_preservesSemantics
   interpretation via `matchShiftOp_interpretOp_unfold`, exactly as `lshrConst_getVar?_of_EquationLemmaAt`
   does for `lshr`. -/
 
-/-- `llvm.shl` is pure: its interpretation neither reads nor writes memory. -/
-theorem OperationPtr.Pure.llvm_shl {op : OperationPtr} {ctx : IRContext OpCode}
-    (hType : op.getOpType! ctx = .llvm .shl) : op.Pure ctx := by
-  unfold OperationPtr.Pure
-  rw [hType]
-  intro operands memory₁ memory₂
-  simp only [interpretOp', Llvm.interpretOp']
-  repeat' split
-  all_goals first
-    | rfl
-    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+-- `OperationPtr.Pure.llvm_shl` lives in `CommonGraphLemmas.lean`, beside the other purity facts.
 
 set_option maxHeartbeats 1000000 in
 /-- Graph lemma for an operand `base` of `op` defined by a `shl x z`: in a source state satisfying
