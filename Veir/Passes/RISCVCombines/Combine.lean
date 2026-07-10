@@ -2009,28 +2009,45 @@ def SubUminSub (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 
 /-! ### lshr_of_trunc_of_lshr :  (lshr (trunc (lshr x, C1)), C2) → trunc (lshr x, (C1 + C2))
 
-  C1, C2 constants. The two logical right shifts compose at x's full width, then a
-  single trunc narrows to the result type. -/
+  C1, C2 constants; `x : i64`, result `i32`. The two logical right shifts compose at x's full
+  width, then a single trunc narrows to the result type.
 
-set_option warn.sorry false in
+  SOUNDNESS — the transform is NOT unconditionally valid. It is guarded by
+  `w1 - C1 ≤ w2` (here `64 - C1 ≤ 32`, i.e. `32 ≤ C1`), so the truncation drops no *live* bit of
+  `x >>u C1`, together with `C1 + C2 < w1` (`< 64`), so the fused shift does not fall off `x`'s
+  width. Without the first guard the rewrite changes the value: e.g. `x = 2^37, C1 = 5, C2 = 3`
+  gives source `lshr (trunc (lshr x 5)) 3 = lshr (trunc 2^32) 3 = 0`, but the target
+  `trunc (lshr x 8) = trunc 2^29 = 2^29` — two distinct concrete values, so `source ⊒ target` fails.
+  The created inner `lshr` also *drops* the matched shifts' `exact` flags: the fused shift by
+  `C1 + C2` has a different poison condition than either original shift. -/
+
+def lshr_of_trunc_of_lshr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (truncV, c2v, _op2) := matchLshr op ctx | return (ctx, none)
+  let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
+  let some dTrunc := getDefiningOp truncV ctx | return (ctx, none)
+  let some (innerLshrV, _tp) := matchTrunc dTrunc ctx | return (ctx, none)
+  let some dInner := getDefiningOp innerLshrV ctx | return (ctx, none)
+  let some (x, c1v, _op1) := matchLshr dInner ctx | return (ctx, none)
+  let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
+  let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
+  if xty.bitwidth ≠ 64 then return (ctx, none)
+  let .integerType rty := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if rty.bitwidth ≠ 32 then return (ctx, none)
+  if ¬(32 ≤ c1.value ∧ 0 ≤ c2.value ∧ c1.value + c2.value < 64) then return (ctx, none)
+  let xTy := x.getType! ctx.raw
+  let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
+  let (ctx, cf) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[xTy] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value + c2.value) xty))) none
+  let (ctx, newLshr) ← WfRewriter.createOp! ctx (.llvm .lshr) #[xTy] #[x, cf.getResult 0] #[] #[]
+    { exact := false } none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .trunc) #[outTy] #[newLshr.getResult 0] #[] #[]
+    (NswNuwProperties.mk false false) none
+  some (ctx, some (#[cf, newLshr, newOp], #[newOp.getResult 0]))
+
 def lshr_of_trunc_of_lshr (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (truncV, c2v, _) := matchLshr op rewriter.ctx | return rewriter
-  let some c2 := matchConstantIntVal c2v rewriter.ctx | return rewriter
-  let some dTrunc := getDefiningOp truncV rewriter.ctx | return rewriter
-  let some (innerLshrV, _) := matchTrunc dTrunc rewriter.ctx | return rewriter
-  let some dInner := getDefiningOp innerLshrV rewriter.ctx | return rewriter
-  let some (x, c1v, ip) := matchLshr dInner rewriter.ctx | return rewriter
-  let some c1 := matchConstantIntVal c1v rewriter.ctx | return rewriter
-  let .integerType xty := (x.getType! rewriter.ctx.raw).val | return rewriter
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value + c2.value) xty))
-  let (rewriter, cf) ← rewriter.createOp (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
-    #[] #[] folded (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newLshr) ← rewriter.createOp (.llvm .lshr) #[x.getType! rewriter.ctx.raw] #[x, (cf.getResult 0)]
-    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .trunc) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(newLshr.getResult 0)]
-    #[] #[] (NswNuwProperties.mk false false) (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite lshr_of_trunc_of_lshr_local rewriter op opInBounds
 
 /-! ### funnel_shift_{right,left}_zero :  fshr x, y, 0 → y ,  fshl x, y, 0 → x -/
 
