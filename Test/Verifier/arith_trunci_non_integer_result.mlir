@@ -8,4 +8,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: arith.trunci: Expected integer result type
+// CHECK: arith.trunci: Expected 1 integer operand and 1 integer result

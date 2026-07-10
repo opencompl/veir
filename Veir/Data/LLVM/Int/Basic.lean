@@ -153,6 +153,97 @@ def sub {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) :
   val (x' - y')
 
 /--
+`llvm.sadd.sat`: signed saturating addition. The result is the mathematical sum
+of the operands clamped to the signed range of the bit width. Signed addition
+can only overflow when both operands share a sign, so on overflow the result
+saturates to the smallest signed value (`intMin`) when the operands are negative
+and to the largest signed value (`intMax`) when they are non-negative. If either
+operand is poison, the result is poison.
+-/
+def saddSat {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  if BitVec.saddOverflow x' y' then
+    return val (if x'.msb then BitVec.intMin w else BitVec.intMax w)
+  val (x' + y')
+
+/--
+`llvm.uadd.sat`: unsigned saturating addition. On unsigned overflow the result
+saturates to the largest unsigned value (all ones). Because this is an unsigned
+operation the result never saturates towards zero. If either operand is poison,
+the result is poison.
+-/
+def uaddSat {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  if BitVec.uaddOverflow x' y' then
+    return val (BitVec.allOnes w)
+  val (x' + y')
+
+/--
+`llvm.ssub.sat`: signed saturating subtraction. On signed overflow the result
+saturates to the smallest signed value (`intMin`) when the first operand is
+negative and to the largest signed value (`intMax`) when it is non-negative:
+subtraction only overflows when the operands differ in sign, and the overflow
+direction is then determined by the sign of the minuend. If either operand is
+poison, the result is poison.
+-/
+def ssubSat {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  if BitVec.ssubOverflow x' y' then
+    return val (if x'.msb then BitVec.intMin w else BitVec.intMax w)
+  val (x' - y')
+
+/--
+`llvm.usub.sat`: unsigned saturating subtraction. On unsigned borrow (the
+subtrahend exceeds the minuend) the result saturates to zero. Because this is an
+unsigned operation the result never saturates towards the maximum. If either
+operand is poison, the result is poison.
+-/
+def usubSat {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  if BitVec.usubOverflow x' y' then
+    return val (BitVec.ofNat w 0)
+  val (x' - y')
+
+/--
+`llvm.sshl.sat`: signed saturating left shift of `x` by `y`. If `y` is equal to
+or larger than the bit width the result is poison. Otherwise the result is
+`x <<< y`, saturated to the largest signed value (`intMax`) when `x` is
+non-negative and the smallest signed value (`intMin`) when `x` is negative,
+whenever the shift changes the value's arithmetic meaning (i.e. bits other than
+copies of the sign bit are shifted out). If `x` is poison, the result is poison.
+-/
+def sshlSat {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  if y' ≥ w then
+    return poison
+  let shifted := x' <<< y'
+  if shifted.sshiftRight' y' ≠ x' then
+    return val (if x'.msb then BitVec.intMin w else BitVec.intMax w)
+  val shifted
+
+/--
+`llvm.ushl.sat`: unsigned saturating left shift of `x` by `y`. If `y` is equal to
+or larger than the bit width the result is poison. Otherwise the result is
+`x <<< y`, saturated to the largest unsigned value (all ones) whenever any set
+bit is shifted out (i.e. the shift is not losslessly reversible). If `x` is
+poison, the result is poison.
+-/
+def ushlSat {w : Nat} (x y : Int w) : Int w := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  if y' ≥ w then
+    return poison
+  let shifted := x' <<< y'
+  if shifted >>> y' ≠ x' then
+    return val (BitVec.allOnes w)
+  val shifted
+
+/--
 The ‘mul’ instruction returns the product of its two operands.
 
 If the result of the multiplication has unsigned overflow, the result returned
@@ -565,6 +656,18 @@ def umin {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
   val (if x'.ule y' then x' else y')
+
+/--
+The `abs` intrinsic returns the magnitude (always non-negative) of its argument.
+Because `-intMin` is not representable, when the argument is `intMin` the result
+is `intMin` if `is_int_min_poison` is false and poison if it is true. If the
+argument is poison, the result is poison.
+-/
+def abs {w : Nat} (x : Int w) (is_int_min_poison : Bool) : Int w := Id.run do
+  let val x' := x | poison
+  if is_int_min_poison ∧ x' = BitVec.intMin w then
+    return poison
+  val (if x'.msb then -x' else x')
 
 /--
 The `trunc` instruction truncates the high order bits in value and converts the

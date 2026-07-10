@@ -371,6 +371,27 @@ theorem RuntimeValue.ArrayConforms_of_setResultValues?_eq_some
   rw [VariableState.setResultValues?_isSome_iff_conforms (inBounds := inBounds) (varState := varState)]
   grind
 
+/--
+Given that `OperationPtr.interpret` succeeds, that the operands are available in the interpreter
+state, and that the result values conform to the operation's result types, then `interpretOp`
+succeeds, and the variables in the resulting state are exactly the result values o
+`OperationPtr.interpret`.
+-/
+theorem interpretOp_forward
+    {ctx : WfIRContext OpCode} {op : OperationPtr} {state : InterpreterState ctx}
+    {inBounds : op.InBounds ctx.raw} {vals results : Array RuntimeValue} {mem' : MemoryState}
+    (hVals : state.variables.getOperandValues op = some vals)
+    (hInterp : op.interpret ctx vals state.memory = some (.ok (results, mem', none)))
+    (hConf : RuntimeValue.ArrayConforms results (op.getResultTypes! ctx.raw)) :
+    ∃ state', interpretOp op state inBounds = some (.ok (state', none)) ∧
+      state'.memory = mem' ∧
+      state.variables.setResultValues? op results = some state'.variables := by
+  obtain ⟨varState', hSet⟩ :=
+    (VariableState.setResultValues?_isSome_iff_conforms state.variables inBounds).mp hConf
+  have hsize : op.getNumResults! ctx.raw = results.size := by grind
+  exists ⟨varState', mem'⟩
+  grind [interpretOp_ok_iff_of_getOperandValues_eq_some]
+
 section interpretOpList
 
 variable {ctx : WfIRContext OpCode}

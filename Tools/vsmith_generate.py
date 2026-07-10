@@ -23,19 +23,25 @@ ICMP_PREDS = tuple(range(10))
 # type. `ctlz`/`cttz` additionally carry an `is_zero_poison` flag, and `bswap`
 # is only defined for the byte-swappable widths below.
 INTRINSIC_BINARY = ("llvm.intr.smax", "llvm.intr.smin", "llvm.intr.umax", "llvm.intr.umin")
-# Funnel shifts are only ever emitted in their rotate form (the first two
-# operands equal), since veir can't yet select the general funnel shift.
 INTRINSIC_TERNARY = ("llvm.intr.fshl", "llvm.intr.fshr")
 INTRINSIC_COUNT = ("llvm.intr.ctpop", "llvm.intr.bitreverse")
 INTRINSIC_ZERO_POISON = ("llvm.intr.ctlz", "llvm.intr.cttz")
+# Saturating arithmetic intrinsics: two operands sharing the result type, no
+# attributes. The `*shl.sat` shift-amount operand may be out of range (>= the
+# bit width), which yields poison, just like the ordinary shifts.
+INTRINSIC_SAT_BINARY = (
+    "llvm.intr.sadd.sat", "llvm.intr.uadd.sat",
+    "llvm.intr.ssub.sat", "llvm.intr.usub.sat",
+    "llvm.intr.sshl.sat", "llvm.intr.ushl.sat",
+)
 BSWAP_WIDTHS = (16, 32, 64)
 
 # Widths the RISC-V backend can compute on. In RISC-V mode, i1 appears only as
 # the result of an icmp, and that result may feed only a conditional branch or
-# the condition of an llvm.select: icmps always take i64 operands (never i1), and
-# i1 values are never consumed by arithmetic/bitwise/shift/cast operations or
-# further comparisons.
-RISCV_WIDTHS = (64,)
+# the condition of an llvm.select: icmps take i32 or i64 operands (never i1),
+# and i1 values are never consumed by arithmetic/bitwise/shift/cast operations
+# or further comparisons.
+RISCV_WIDTHS = (32, 64)
 
 
 def bitwidth(typ: str) -> int:
@@ -277,8 +283,29 @@ class Generator:
         """Emit a random integer intrinsic. All operands share the result type.
 
         `bswap` is restricted to widths it is defined on; in RISC-V mode every
-        intrinsic uses i64 (the only width `rand_type` yields there).
+        intrinsic uses i32 or i64 (the only widths `rand_type` yields there).
+
+        Note: the saturating arithmetic intrinsics and `llvm.intr.abs` are only
+        lowered at i64 in RISC-V mode (there is no i32 isel yet), so `--riscv`
+        mode pins them to i64 rather than letting `rand_type` also pick i32.
         """
+        if self.rng.random() < 0.30:
+            if self.rng.random() < 0.85:
+                op = self.rng.choice(INTRINSIC_SAT_BINARY)
+                typ = "i64" if self.riscv else self.rand_type()
+                width = bitwidth(typ)
+                lhs = self.random_dominating_value(width)
+                rhs = self.random_dominating_value(width)
+                self.add_operation(op, [lhs, rhs], [typ, typ], typ)
+            else:
+                # `abs` carries an `is_int_min_poison` i1 flag deciding whether
+                # abs(INT_MIN) is poison (true) or INT_MIN (false).
+                typ = "i64" if self.riscv else self.rand_type()
+                operand = self.random_dominating_value(bitwidth(typ))
+                poison = "true" if self.rng.random() < 0.5 else "false"
+                self.add_operation("llvm.intr.abs", [operand], [typ], typ,
+                                   f" <{{is_int_min_poison = {poison}}}>")
+            return
         r = self.rng.random()
         if r < 0.30:
             op = self.rng.choice(INTRINSIC_BINARY)
@@ -291,11 +318,12 @@ class Generator:
             op = self.rng.choice(INTRINSIC_TERNARY)
             typ = self.rand_type()
             width = bitwidth(typ)
-            # veir can't yet select the general funnel shift, only the rotate
-            # special case where the two shifted operands are equal.
-            value = self.random_dominating_value(width)
+            # General funnel shift: two independent data operands (when they
+            # happen to be equal this degenerates to the rotate special case).
+            hi = self.random_dominating_value(width)
+            lo = self.random_dominating_value(width)
             amount = self.random_dominating_value(width)
-            self.add_operation(op, [value, value, amount], [typ, typ, typ], typ)
+            self.add_operation(op, [hi, lo, amount], [typ, typ, typ], typ)
         elif r < 0.78:
             op = self.rng.choice(INTRINSIC_ZERO_POISON)
             typ = self.rand_type()
@@ -308,7 +336,7 @@ class Generator:
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation(op, [operand], [typ], typ)
         else:
-            typ = "i64" if self.riscv else f"i{self.rng.choice(BSWAP_WIDTHS)}"
+            typ = self.rand_type() if self.riscv else f"i{self.rng.choice(BSWAP_WIDTHS)}"
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation("llvm.intr.bswap", [operand], [typ], typ)
 
@@ -383,8 +411,8 @@ class Generator:
                 self.add_operation("llvm.trunc", [operand], [src], dst, props)
             elif choice < 0.90:
                 # icmp operands are ordinary integer values; in RISC-V mode that
-                # means i64 (rand_type never yields i1 there), so an icmp result
-                # is never fed back into another comparison.
+                # means i32 or i64 (rand_type never yields i1 there), so an icmp
+                # result is never fed back into another comparison.
                 typ = self.rand_type()
                 width = bitwidth(typ)
                 lhs = self.random_dominating_value(width)
@@ -515,7 +543,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("output", type=Path, help="path for the generated MLIR file")
     parser.add_argument("--seed", type=int, default=None, help="random seed; defaults to fresh system entropy")
     parser.add_argument("--riscv", action="store_true",
-                        help="restrict bitwidths to those the RISC-V backend supports (8, 16, 32, 64)")
+                        help="restrict bitwidths to those the RISC-V backend supports (32, 64)")
     args = parser.parse_args(argv)
     seed = args.seed if args.seed is not None else secrets.randbits(64)
     generate(args.output, random.Random(seed), args.riscv)
