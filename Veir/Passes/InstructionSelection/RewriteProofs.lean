@@ -4,6 +4,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerBexti
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBinaryReg
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBinaryW
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBinopNot
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerBitcast
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBitreverse
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBswap
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerBitwiseReg

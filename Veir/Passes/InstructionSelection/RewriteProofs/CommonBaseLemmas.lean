@@ -69,6 +69,59 @@ theorem LocalRewritePattern.exists_refined_byte_getVar?
     grind [LocalRewritePattern.mapping, valueRefinement v]
   grind [RuntimeValue.byte_of_isRefinedBy hRef]
 
+/-- Pointer analogue of `exists_refined_int_getVar?`: since an address refines only the identical
+address, the target state holds the same `.addr a`. -/
+theorem LocalRewritePattern.exists_refined_addr_getVar?
+    {ctx : WfIRContext OpCode}
+    {ipIn : ip.InBounds ctx.raw}
+    {pattern : LocalRewritePattern OpCode}
+    {hpattern : pattern ctx op = some (newCtx, some (newOps, newValues))}
+    {hreturn : pattern.ReturnValuesInBounds} {hreturn₂ : pattern.ReturnValues}
+    {hreturn₃ : pattern.ReturnCtxChanges}
+    {state : InterpreterState ctx} {state' : InterpreterState newCtx} {a : UInt64}
+    (valueRefinement : state.variables.isRefinedByAt state'.variables
+      (LocalRewritePattern.mapping hpattern hreturn hreturn₂ hreturn₃) (.at ip) (.at ip) ipIn ipIn')
+    (state'Dom : state'.DefinesDominating ip ipIn')
+    (vIn : v.InBounds ctx.raw)
+    (hxVal : state.variables.getVar? v = some (RuntimeValue.addr a))
+    (hDomCtx : v.dominatesIp ip ctx) (hDom' : v.dominatesIp ip newCtx)
+    (hNotRes : v ∉ op.getResults! ctx.raw) :
+    state'.variables.getVar? v = some (RuntimeValue.addr a) := by
+  have ⟨tv, hTv⟩ := InterpreterState.DefinesDominating.exists_getVar_of_dominatesIp state'Dom
+      (hreturn₃.valuePtr_inBounds hpattern vIn) hDom'
+  have hRef : RuntimeValue.addr a ⊒ tv := by
+    grind [LocalRewritePattern.mapping, valueRefinement v]
+  grind [RuntimeValue.addr_of_isRefinedBy hRef]
+
+/-! ## `Conforms` inversion
+
+A runtime value's constructor pins the declared type of the value it is bound to.
+-/
+
+/-- An `.int` runtime value pins its declared type to a matching `integerType`. -/
+theorem conforms_int_type {bw : Nat} {x : Data.LLVM.Int bw} {ty : TypeAttr}
+    (h : RuntimeValue.Conforms (.int bw x) ty) : ty.val = Attribute.integerType ⟨bw⟩ := by
+  rcases ty with ⟨tyval, hIsTy⟩
+  cases tyval with
+  | integerType it => cases it; simp_all [RuntimeValue.Conforms]
+  | _ => simp_all [RuntimeValue.Conforms]
+
+/-- A `.byte` runtime value pins its declared type to a matching `byteType`. -/
+theorem conforms_byte_type {bw : Nat} {x : Data.LLVM.Byte bw} {ty : TypeAttr}
+    (h : RuntimeValue.Conforms (.byte bw x) ty) : ty.val = Attribute.byteType ⟨bw⟩ := by
+  rcases ty with ⟨tyval, hIsTy⟩
+  cases tyval with
+  | byteType it => cases it; simp_all [RuntimeValue.Conforms]
+  | _ => simp_all [RuntimeValue.Conforms]
+
+/-- An `.addr` runtime value pins its declared type to an `llvmPointerType`. -/
+theorem conforms_addr_type {a : UInt64} {ty : TypeAttr}
+    (h : RuntimeValue.Conforms (.addr a) ty) : ∃ pt, ty.val = Attribute.llvmPointerType pt := by
+  rcases ty with ⟨tyval, hIsTy⟩
+  cases tyval with
+  | llvmPointerType pt => exact ⟨pt, rfl⟩
+  | _ => simp_all [RuntimeValue.Conforms]
+
 /-- A value that exists in a context `ctx` is never a result of an operation that is *not* in
 bounds of `ctx` (e.g. a freshly created op), in any context `ctx'`: result membership pins the
 value's operation pointer, and an in-bounds `opResult` value forces its operation in bounds.

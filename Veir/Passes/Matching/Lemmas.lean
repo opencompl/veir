@@ -391,6 +391,17 @@ theorem matchTrunc_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand
   simp only [matchTrunc, bind, Option.bind, pure] at hmatch
   grind
 
+/-- What matching `llvm.bitcast` (via `matchBitcast`) syntactically guarantees. -/
+theorem matchBitcast_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
+    matchBitcast op ctx = some (operand, props) →
+    op.getOpType! ctx = .llvm .bitcast ∧
+    op.getNumResults! ctx = 1 ∧
+    op.getOperands! ctx = #[operand] ∧
+    props = op.getProperties! ctx (.llvm .bitcast) := by
+  intro hmatch
+  simp only [matchBitcast, bind, Option.bind, pure] at hmatch
+  grind
+
 /-- What matching `llvm.zext` (via `matchZext`) syntactically guarantees. -/
 theorem matchZext_implies {op : OperationPtr} {ctx : IRContext OpCode} {operand props} :
     matchZext op ctx = some (operand, props) →
