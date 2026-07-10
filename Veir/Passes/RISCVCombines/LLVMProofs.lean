@@ -681,4 +681,35 @@ theorem fshr_zero_amt {w : Nat} {x y : Int w} :
     simp]
   rw [BitVec.setWidth_append_eq_right]
 
+/-! ### sub_of_mul_const :  a - x * C → a + x * (-C)   (C constant)
+
+  The created inner `mul` must clear `nsw`/`nuw`: negating the constant changes the overflow
+  condition, so `mul nsw x C` being defined does not imply `mul nsw x (-C)` is (`C = intMin`, or
+  any `C` where `x * C` fits but `x * (-C)` overflows). The created outer `add` clears its flags
+  too. Every matched op's flags (`mns`/`mnu` on the source `mul`, `sns`/`snu` on the source `sub`)
+  stay free; the created ops carry literal `false`, so dropping poison keeps the refinement sound.
+
+  The equality is the ring identity `a - x*C = a + x*(-C)`, which holds at every width, so no
+  bitwidth guard is needed. To avoid `bv_decide`'s multiplier blow-up on the two distinct products
+  `x*C` and `x*(-C)`, the proof rewrites `x * (-C)` to `-(x * C)` so both sides share the single
+  product `x * C` — a plain `rfl` after that, no SAT solver involved. -/
+theorem SubMulConst {w : Nat} {mns mnu sns snu : Bool}
+    {a x : Int w} {c : _root_.Int} :
+    sub a (mul x (constant w c) mns mnu) sns snu
+      ⊒ add a (mul x (constant w (-c)) false false) false false := by
+  rw [isRefinedBy_iff]
+  refine ⟨fun hsrc => ?_, fun hsrc _ => ?_⟩
+  · -- Poison propagation: the source is poison whenever `a` or `x` is, so the flag-free target
+    -- is poison at least as often.
+    simp only [isPoison_sub, isPoison_add, isPoison_mul, isPoison_constant] at hsrc ⊢
+    grind
+  · -- Value equality `a - x*C = a + x*(-C)`. Rewrite `x*(-C)` to `-(x*C)` so both sides share the
+    -- single product `x*C`, sidestepping `bv_decide`'s multiplier blow-up.
+    have hm1p : (mul x (constant w c) mns mnu).isPoison = false := by
+      simp only [isPoison_sub, isPoison_mul, isPoison_constant] at hsrc; grind
+    have hm2p : (mul x (constant w (-c)) false false).isPoison = false := by
+      simp only [isPoison_mul, isPoison_constant]; grind
+    simp only [getValue_sub, getValue_add, getValue_mul _ _ hm1p, getValue_mul _ _ hm2p,
+      getValue_constant, ofInt_neg_norm, BitVec.mul_neg, BitVec.sub_eq_add_neg]
+
 end Veir.Data.LLVM.Int

@@ -857,3 +857,10 @@ theorem ofInt_add_norm (w : Nat) (a b : _root_.Int) :
 theorem ofInt_sub_norm (w : Nat) (a b : _root_.Int) :
     BitVec.ofInt w (a - b) = BitVec.ofInt w a - BitVec.ofInt w b := by
   rw [Int.sub_eq_add_neg, BitVec.ofInt_add, BitVec.ofInt_neg, ← BitVec.sub_eq_add_neg]
+
+/-- `BitVec.ofInt` distributes over integer negation. See `ofInt_add_norm`; needed by
+    `sub_of_mul_const`, whose materialized constant is a negation `constant w (-c)`. -/
+@[veir_bv_normalize, grind =]
+theorem ofInt_neg_norm (w : Nat) (a : _root_.Int) :
+    BitVec.ofInt w (-a) = -(BitVec.ofInt w a) :=
+  BitVec.ofInt_neg

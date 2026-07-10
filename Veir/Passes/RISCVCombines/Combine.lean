@@ -1916,24 +1916,39 @@ def sub_to_add (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     #[] #[] (NswNuwProperties.mk false false) (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
-/-! ### sub_of_mul_const :  (sub a, (mul x, C)) → (add a, (mul x, -C))   (C constant) -/
+/-! ### sub_of_mul_const :  (sub a, (mul x, C)) → (add a, (mul x, -C))   (C constant)
 
-set_option warn.sorry false in
+  Match `sub a (mul x C)` where `C` is an integer constant and the `mul` is a defining op, then
+  materialize a *fresh* `llvm.mlir.constant (-C)` and emit `add a (mul x (-C))`.
+
+  **Flag threading (semantic change).** The created inner `mul` clears `nsw`/`nuw` rather than
+  inheriting the matched `mul`'s flags: negating the constant changes the overflow condition, so
+  `mul nsw x C` being defined does *not* imply `mul nsw x (-C)` is (e.g. `C = intMin`, or any `C`
+  where `x*C` fits but `x*(-C)` overflows). The created `add` also carries a literal
+  `{ nsw := false, nuw := false }`. Dropping a flag only removes poison, so the refinement holds.
+  The equality itself (`a - x*C = a + x*(-C)`) is a width-generic ring identity, so no bitwidth
+  guard is required. -/
+
+def sub_of_mul_const_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (a, mulV, _sp) := matchSub op ctx | return (ctx, none)
+  let some dMul := getDefiningOp mulV ctx | return (ctx, none)
+  let some (x, cval, _mp) := matchMul dMul ctx | return (ctx, none)
+  let some c := matchConstantIntVal cval ctx | return (ctx, none)
+  let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
+  let (ctx, cn) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[x.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-c.value) xty))) none
+  let (ctx, newMul) ← WfRewriter.createOp! ctx (.llvm .mul)
+    #[x.getType! ctx.raw] #[x, cn.getResult 0] #[] #[]
+    { nsw := false, nuw := false } none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .add)
+    #[x.getType! ctx.raw] #[a, newMul.getResult 0] #[] #[]
+    { nsw := false, nuw := false } none
+  some (ctx, some (#[cn, newMul, newOp], #[newOp.getResult 0]))
+
 def sub_of_mul_const (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (a, mulV, _sp) := matchSub op rewriter.ctx | return rewriter
-  let some dMul := getDefiningOp mulV rewriter.ctx | return rewriter
-  let some (x, cval, mp) := matchMul dMul rewriter.ctx | return rewriter
-  let some c := matchConstantIntVal cval rewriter.ctx | return rewriter
-  let .integerType xty := (x.getType! rewriter.ctx.raw).val | return rewriter
-  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-c.value) xty))
-  let (rewriter, cn) ← rewriter.createOp (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
-    #[] #[] negC (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newMul) ← rewriter.createOp (.llvm .mul) #[x.getType! rewriter.ctx.raw] #[x, (cn.getResult 0)]
-    #[] #[] mp (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (newMul.getResult 0)]
-    #[] #[] (NswNuwProperties.mk false false) (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite sub_of_mul_const_local rewriter op opInBounds
 
 /-! ### select_not :  select (not c), x, y → select c, y, x -/
 

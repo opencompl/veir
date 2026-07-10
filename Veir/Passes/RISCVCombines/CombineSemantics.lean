@@ -9928,4 +9928,258 @@ theorem funnel_shift_right_zero_local_preservesSemantics
     (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
     (fun x y => Data.LLVM.Int.fshr_zero_amt (x := x) (y := y))
 
+/-! ### sub_of_mul_const :  sub a (mul x C) → add a (mul x (-C))   (C constant)
+
+  A two-level DAG match (the outer `sub`'s second operand is a defining `mul` whose second operand
+  is a matched integer constant) that creates *three* ops: a fresh `llvm.mlir.constant (-C)`, a new
+  `mul x (-C)`, and an `add a (...)`. Combines the DAG-match/folded-constant machinery of the
+  constant-reassociation combines (`matchBinopSndConst_getVar?_of_EquationLemmaAt`,
+  `interpretOp_llvm_constant_forward`) with the three-creation replay of `narrowBinopLocal`. The
+  created `mul` and `add` both clear their `nsw`/`nuw` flags (see the flag note in `Combine.lean`
+  and the counterexample recorded on `Data.LLVM.Int.SubMulConst` in `LLVMProofs.lean`); the matched
+  ops' flags (`mProps` on the `mul`, `op`'s props on the `sub`) stay free. The width is generic —
+  the data lemma is a width-independent ring identity — so there is no bitwidth guard or split. -/
+set_option maxHeartbeats 1000000 in
+theorem sub_of_mul_const_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps sub_of_mul_const_local}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges sub_of_mul_const_local}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds sub_of_mul_const_local}
+    {h₄ : LocalRewritePattern.ReturnValues sub_of_mul_const_local} :
+    LocalRewritePattern.PreservesSemantics sub_of_mul_const_local h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, sub_of_mul_const_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel the outer `matchSub op`: operands `#[a, mulV]`.
+  have hMatchSome : (matchSub op ctx.raw).isSome := by
+    cases hM : matchSub op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨a, mulV, sProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hSubType, hSubNumResults, hSubOperands, -⟩ := matchSub_implies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Peel the defining `mul` of `mulV`, its operands `#[x, cval]`, and the constant `cval`.
+  have hDefSome : (getDefiningOp mulV ctx.raw).isSome := by
+    cases hM : getDefiningOp mulV ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨mulOp, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+  rw [hDef] at hpattern
+  simp only [] at hpattern
+  have hMulSome : (matchMul mulOp ctx.raw).isSome := by
+    cases hM : matchMul mulOp ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨x, cval, mProps⟩, hMul⟩ := Option.isSome_iff_exists.mp hMulSome
+  rw [hMul] at hpattern
+  simp only [] at hpattern
+  have hCSome : (matchConstantIntVal cval ctx.raw).isSome := by
+    cases hM : matchConstantIntVal cval ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨cAttr, hC⟩ := Option.isSome_iff_exists.mp hCSome
+  rw [hC] at hpattern
+  simp only [] at hpattern
+  -- Verifier facts for the outer `sub`: operands/result share type `subType`.
+  have opVerif : op.Verified ctx opInBounds := by grind
+  obtain ⟨-, -, -, -, subType, hSubResType, hSubOperand0Type, hSubOperand1Type⟩ :=
+    OperationPtr.Verified.llvm_sub opVerif hSubType
+  have hAEq : a = (op.getOperands! ctx.raw)[0]! := by rw [hSubOperands]; rfl
+  have hMulVEq : mulV = (op.getOperands! ctx.raw)[1]! := by rw [hSubOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = a := by
+    rw [hAEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = mulV := by
+    rw [hMulVEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have haType : (a.getType! ctx.raw).val = Attribute.integerType subType := by
+    rw [← hOperand0, hSubOperand0Type]
+  have hMulVType : (mulV.getType! ctx.raw).val = Attribute.integerType subType := by
+    rw [← hOperand1, hSubOperand1Type]
+  -- `a`'s facts: it is the outer op's operand 0, so it dominates `before op`, is in bounds, and is
+  -- not one of `op`'s results.
+  have haMem : a ∈ op.getOperands! ctx.raw := by rw [hSubOperands]; simp
+  have hDomA : a.dominatesIp (InsertPoint.before op) ctx :=
+    ctxDom.operand_dominates_op opInBounds haMem
+  have haIn : a.InBounds ctx.raw := by grind [OperationPtr.getOperands!]
+  have aNotRes : a ∉ op.getResults! ctx.raw :=
+    IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      OperationPtr.dominates_refl a haMem
+  -- Unfold the outer `sub`'s interpretation.
+  obtain ⟨aVal, mulVal, haValVal, hMulValVal, hMem, hRes, hCf⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := .sub)
+      (srcFn := fun p q pr => Data.LLVM.Int.sub p q pr.nsw pr.nuw)
+      (props := op.getProperties! ctx.raw (.llvm .sub))
+      opInBounds hSubType hSubNumResults hSubOperands rfl
+      (by intro bw p q props resultTypes blockOperands mem res hh
+          simp only [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp] at hh
+          grind)
+      hinterp haType hMulVType
+  subst hCf
+  -- Recover the defining `mul x (const c)`'s value (with `c` pinned), and `x`'s facts.
+  obtain ⟨xv, hxVal, hMulVIs, hxType, hDomX, hxIn, xNotOp⟩ :=
+    matchBinopSndConst_getVar?_of_EquationLemmaAt (srcOp := .mul)
+      (srcFn := fun p q pr => Data.LLVM.Int.mul p q pr.nsw pr.nuw)
+      (matchBinopNoProps_implies matchMul_implies)
+      OperationPtr.Verified.llvm_mul OperationPtr.Pure.llvm_mul
+      (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      ctxDom ctxVerif opInBounds stateWf hDef
+      (show matchBinopNoProps matchMul mulOp ctx.raw = some (x, cval) by
+        simp only [matchBinopNoProps, bind, Option.bind, hMul])
+      hC (by rw [hSubOperands]; simp) hMulVType
+  have hMpEq : mulOp.getProperties! ctx.raw (.llvm .mul) = mProps :=
+    ((matchMul_implies hMul).2.2.2).symm
+  rw [hMpEq] at hMulVIs
+  -- Pin `mulVal`.
+  obtain rfl : mulVal
+      = Data.LLVM.Int.mul xv (Data.LLVM.Int.constant subType.bitwidth cAttr.value)
+          mProps.nsw mProps.nuw := by
+    have := hMulValVal.symm.trans hMulVIs; simpa using this
+  -- Resolve the `.integerType xty` guard-let in `hpattern`.
+  rw [hxType] at hpattern
+  simp only [] at hpattern
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- Peel the three creations: `constant (-C)`, `mul x (-C)`, `add a (mul ..)`. Thread the
+  -- dominance of the two live operands `a` and `x` through each.
+  peelOpCreation!₂ hpattern ctx₁ cnOp hCn hDomA hDomA₁ hDomX hDomX₁
+  peelOpCreation!₂ hpattern ctx₂ mulNewOp hMulNew hDomA₁ hDomA₂ hDomX₁ hDomX₂
+  peelOpCreation!₂ hpattern ctx₃ addNewOp hAddNew hDomA₂ hDomA₃ hDomX₂ hDomX₃
+  cleanupHpattern hpattern
+  have hCnNeMul : cnOp ≠ mulNewOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  have hCnNeAdd : cnOp ≠ addNewOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  have hMulNeAdd : mulNewOp ≠ addNewOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  -- `x`'s type as a `TypeAttr`, transported to each creation context.
+  have hxTypeAttr : x.getType! ctx.raw
+      = (⟨Attribute.integerType subType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr) :=
+    Subtype.ext hxType
+  have hxTypeAttr₁ : x.getType! ctx₁.raw
+      = (⟨Attribute.integerType subType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr) := by
+    rw [ValuePtr.getType!_WfRewriter_createOp_of_inBounds hCn hxIn]; exact hxTypeAttr
+  have hxTypeAttr₂ : x.getType! ctx₂.raw
+      = (⟨Attribute.integerType subType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr) := by
+    rw [ValuePtr.getType!_WfRewriter_createOp_of_inBounds hMulNew
+      (WfRewriter.createOp_inBounds_mono (ptr := .value x) hCn hxIn)]
+    exact hxTypeAttr₁
+  -- Structural facts for the fresh constant.
+  have hCnType : cnOp.getOpType! ctx₃.raw = .llvm .mlir__constant := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hCn (operation := cnOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hMulNew (operation := cnOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hAddNew (operation := cnOp)]
+  have hCnOperands : cnOp.getOperands! ctx₃.raw = #[] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hCn (operation := cnOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hMulNew (operation := cnOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hAddNew (operation := cnOp)]
+  have hCnProps : (cnOp.getProperties! ctx₃.raw (.llvm .mlir__constant)).value
+      = .integer ⟨-cAttr.value, subType⟩ := by
+    have h1 := OperationPtr.getProperties!_WfRewriter_createOp hCn (operation := cnOp)
+      (opType := OpCode.llvm Llvm.mlir__constant)
+    rw [if_pos rfl] at h1
+    rw [OperationPtr.getProperties!_WfRewriter_createOp_ne hAddNew hCnNeAdd,
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hMulNew hCnNeMul, h1]
+  have hCnResTypes : cnOp.getResultTypes! ctx₃.raw
+      = #[(⟨Attribute.integerType subType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hCn (operation := cnOp)
+    rw [if_pos rfl] at hT
+    have hT2 := OperationPtr.getResultTypes!_WfRewriter_createOp hMulNew (operation := cnOp)
+    rw [if_neg hCnNeMul] at hT2
+    have hT3 := OperationPtr.getResultTypes!_WfRewriter_createOp hAddNew (operation := cnOp)
+    rw [if_neg hCnNeAdd] at hT3
+    rw [hT3, hT2, hT]
+    exact congrArg (fun t => #[t]) hxTypeAttr
+  -- Structural facts for the new `mul`.
+  have hMulNewType : mulNewOp.getOpType! ctx₃.raw = .llvm .mul := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hMulNew (operation := mulNewOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hAddNew (operation := mulNewOp)]
+  have hMulNewOperands : mulNewOp.getOperands! ctx₃.raw
+      = #[x, ValuePtr.opResult (cnOp.getResult 0)] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hMulNew (operation := mulNewOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hAddNew (operation := mulNewOp)]
+  have hMulNewProps : mulNewOp.getProperties! ctx₃.raw (.llvm .mul)
+      = { nsw := false, nuw := false } := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hMulNew (operation := mulNewOp),
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hAddNew hMulNeAdd]
+  have hMulNewResTypes : mulNewOp.getResultTypes! ctx₃.raw
+      = #[(⟨Attribute.integerType subType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hMulNew (operation := mulNewOp)
+    rw [if_pos rfl] at hT
+    have hT3 := OperationPtr.getResultTypes!_WfRewriter_createOp hAddNew (operation := mulNewOp)
+    rw [if_neg hMulNeAdd] at hT3
+    rw [hT3, hT]
+    exact congrArg (fun t => #[t]) hxTypeAttr₁
+  -- Structural facts for the new `add`.
+  have hAddNewType : addNewOp.getOpType! ctx₃.raw = .llvm .add := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hAddNew (operation := addNewOp)]
+  have hAddNewOperands : addNewOp.getOperands! ctx₃.raw
+      = #[a, ValuePtr.opResult (mulNewOp.getResult 0)] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hAddNew (operation := addNewOp)]
+  have hAddNewProps : addNewOp.getProperties! ctx₃.raw (.llvm .add)
+      = { nsw := false, nuw := false } := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hAddNew (operation := addNewOp)]
+  have hAddNewResTypes : addNewOp.getResultTypes! ctx₃.raw
+      = #[(⟨Attribute.integerType subType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hAddNew (operation := addNewOp)
+    rw [if_pos rfl] at hT
+    rw [hT]
+    exact congrArg (fun t => #[t]) hxTypeAttr₂
+  -- Read the refined `x` and `a` in the target state.
+  obtain ⟨xt, hXVal', hxRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hxIn hxVal
+      hDomX hDomX₃ xNotOp
+  obtain ⟨at', haVal', haRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom haIn haValVal
+      hDomA hDomA₃ aNotRes
+  -- Replay the constant, then the `mul`, then the `add`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, hFrame₁⟩ :=
+    interpretOp_llvm_constant_forward (state := state')
+      (inBounds := WfRewriter.createOp_inBounds_mono (ptr := .operation cnOp) hAddNew
+        (WfRewriter.createOp_inBounds_mono (ptr := .operation cnOp) hMulNew
+          (WfRewriter.createOp_new_inBounds cnOp hCn)))
+      hCnType hCnProps hCnOperands hCnResTypes
+  have hXVal₁ : s₁.variables.getVar? x = some (RuntimeValue.int subType.bitwidth xt) := by
+    rw [hFrame₁ x (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hxIn
+      (WfRewriter.createOp_new_not_inBounds cnOp hCn))]
+    exact hXVal'
+  obtain ⟨s₂, hI₂, hMem₂, hRes₂, hFrame₂⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := s₁)
+      (inBounds := WfRewriter.createOp_inBounds_mono (ptr := .operation mulNewOp) hAddNew
+        (WfRewriter.createOp_new_inBounds mulNewOp hMulNew))
+      (it := subType) (f := fun p q => Data.LLVM.Int.mul p q false false)
+      (by intro resultTypes blockOperands mem
+          simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      hMulNewType hMulNewProps hMulNewOperands hMulNewResTypes hXVal₁ hRes₁
+  have haVal₂ : s₂.variables.getVar? a = some (RuntimeValue.int subType.bitwidth at') := by
+    rw [hFrame₂ a (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds
+        (WfRewriter.createOp_inBounds_mono (ptr := .value a) hCn haIn)
+        (WfRewriter.createOp_new_not_inBounds mulNewOp hMulNew))]
+    rw [hFrame₁ a (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds haIn
+      (WfRewriter.createOp_new_not_inBounds cnOp hCn))]
+    exact haVal'
+  obtain ⟨s₃, hI₃, hMem₃, hRes₃, -⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := s₂)
+      (inBounds := WfRewriter.createOp_new_inBounds addNewOp hAddNew)
+      (it := subType) (f := fun p q => Data.LLVM.Int.add p q false false)
+      (by intro resultTypes blockOperands mem
+          simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      hAddNewType hAddNewProps hAddNewOperands hAddNewResTypes haVal₂ hRes₂
+  refine ⟨s₃, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, hI₂, hI₃, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int subType.bitwidth
+      (Data.LLVM.Int.add at' (Data.LLVM.Int.mul xt
+        (Data.LLVM.Int.constant subType.bitwidth (-cAttr.value)) false false) false false)],
+    by simp [hRes₃, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Assemble: `sub aVal (mul xv C ..) .. ⊒ add aVal (mul xv (-C) ..) .. ⊒ add at' (mul xt (-C) ..) ..`.
+  simp only [Data.LLVM.Int.cast_self]
+  exact isRefinedBy_trans Data.LLVM.Int.SubMulConst
+    (Data.LLVM.Int.add_mono _ _ _ _ haRef
+      (Data.LLVM.Int.mul_mono _ _ _ _ hxRef (isRefinedBy_refl _) false false) false false)
+
 end Veir.RISCV
