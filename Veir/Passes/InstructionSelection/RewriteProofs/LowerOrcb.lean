@@ -238,15 +238,12 @@ theorem matchOrcbRight_implies {b m : ValuePtr} {y : Nat} {ctx : IRContext OpCod
     (y ≠ 0 ∧ ∃ bOp yShamt yc, getDefiningOp b ctx = some bOp ∧
       matchLshr bOp ctx = some (m, yShamt, e) ∧
       matchConstantIntVal yShamt ctx = some yc ∧ yc.value = (y : Int)) := by
-  unfold matchOrcbRight at h
+  simp only [matchOrcbRight, bind, Option.bind, pure] at h
   split at h
   · rename_i hy0
     split at h
     · rename_i hbm
-      refine Or.inl ⟨hy0, hbm, ?_⟩
-      simp only [Option.some.injEq] at h
-      subst h
-      rfl
+      exact Or.inl ⟨hy0, hbm, by grind⟩
     · simp at h
   · rename_i hy
     refine Or.inr ⟨hy, ?_⟩
@@ -272,7 +269,7 @@ theorem matchOrcbMask_implies {mo0 mo1 : ValuePtr} {y : Nat} {ctx : IRContext Op
     BitVec.ofInt 64 attr.value = orcbMaskBV y ∧
     ((z = mo0 ∧ matchConstantIntVal mo1 ctx = some attr) ∨
      (z = mo1 ∧ matchConstantIntVal mo0 ctx = some attr)) := by
-  unfold matchOrcbMask at h
+  simp only [matchOrcbMask, pure] at h
   split at h
   · rename_i attr1 h1
     split at h

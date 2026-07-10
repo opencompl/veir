@@ -93,33 +93,21 @@ def xnor (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 def orcbMaskBV (y : Nat) : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
 
 def matchOrcbRight (b m : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
-    Option (propertiesOf (.llvm .lshr)) :=
+    Option (propertiesOf (.llvm .lshr)) := do
   if y = 0 then
-    if b = m then some { exact := false } else none
-  else
-    match getDefiningOp b ctx with
-    | none => none
-    | some bOp =>
-      match matchLshr bOp ctx with
-      | none => none
-      | some (m', yShamt, lshrProps) =>
-        match matchConstantIntVal yShamt ctx with
-        | none => none
-        | some yc => if yc.value = (y : Int) ∧ m' = m then some lshrProps else none
+    if b = m then return { exact := false } else none
+  let some bOp := getDefiningOp b ctx | none
+  let some (m', yShamt, lshrProps) := matchLshr bOp ctx | none
+  let some yc := matchConstantIntVal yShamt ctx | none
+  if yc.value = (y : Int) ∧ m' = m then return lshrProps else none
 
 def matchOrcbMask (mo0 mo1 : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
-    Option (ValuePtr × IntegerAttr) :=
-  match matchConstantIntVal mo1 ctx with
-  | some attr1 =>
-    if BitVec.ofInt 64 attr1.value = orcbMaskBV y then some (mo0, attr1)
-    else
-      match matchConstantIntVal mo0 ctx with
-      | some attr0 => if BitVec.ofInt 64 attr0.value = orcbMaskBV y then some (mo1, attr0) else none
-      | none => none
-  | none =>
-    match matchConstantIntVal mo0 ctx with
-    | some attr0 => if BitVec.ofInt 64 attr0.value = orcbMaskBV y then some (mo1, attr0) else none
-    | none => none
+    Option (ValuePtr × IntegerAttr) := do
+  if let some attr1 := matchConstantIntVal mo1 ctx then
+    if BitVec.ofInt 64 attr1.value = orcbMaskBV y then
+      return (mo0, attr1)
+  let some attr0 := matchConstantIntVal mo0 ctx | none
+  if BitVec.ofInt 64 attr0.value = orcbMaskBV y then return (mo1, attr0) else none
 
 /--
   `sub (shl M (8 - Y)) (lshr M Y)` -> `riscv.orcb M`,
