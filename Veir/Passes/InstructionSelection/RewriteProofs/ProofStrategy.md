@@ -195,6 +195,24 @@ structural proof is done **once per combinator**. Currently:
   `simp only [BitVec.reverse, BitVec.concat, BitVec.truncate_eq_setWidth]` unfolds it (simp's
   Nat-literal offset matching peels `64 = 63+1` all the way down) into a bitblastable form, after
   which `bv_decide` closes the three-stage SWAR identity.
+- `ssubSat_local` / `sshlSat_local` (`RISCV64.lean`) — `llvm.intr.ssub.sat`/`sshl.sat` on `i64`:
+  LLVM's RV64+Zicond signed-saturation sequences (wrapped op + overflow test + `(sign) ^ INT_MIN`/
+  `INT_MAX` endpoint + the branchless `or (czeronez wrapped ov) (czeroeqz sat ov)` select from
+  `signedSatSelectLocal`), fourteen/thirteen ops. Proven standalone
+  (`RewriteProofs/LowerSsubSat.lean` / `LowerSshlSat.lean`) as the siblings of `saddSat_local`
+  (`LowerSaddSat.lean`), but in the *linear* proof style: every creation is peeled with the plain
+  `peelOpCreation` + `createOp!_none_some` (no per-step dominance side goals), the `LowerIcmp`
+  `CtxExtends` bundles are composed once (`E₁…E₁₄`, suffix compositions `Fᵢ : ctxᵢ → final`), each
+  op's structural facts transport by a single `rw [Fᵢ.opType/operands/resultTypes/properties …];
+  grind`, operand dominance transports once at the end via `Ectx.dominates`, and every frame-clause
+  freshness condition is discharged by `not_mem_getResults!_of_inBounds_of_not_inBounds` at the
+  interfering op's creation base (value in-bounds lifted by `Eᵢ.valueInBounds`, first-result
+  witness by `opResult_getResult_inBounds_of_createOp`) — avoiding `LowerSaddSat`'s quadratic
+  in-bounds/distinctness bookkeeping (these files are ~½ its length at the same chain depth). The
+  nested `signedSatSelectLocal` block peels as in `LowerSaddSat`: one extra existential is opened
+  by hand and two `cleanupHpattern`s (inner block, then `hFinal`) discharge the return equations.
+  The single data lemma per op states the whole select tree in the interpreter's operand order
+  (`RISCV.op op2 op1`) and closes by `revert h₁ h₂; veir_bv_decide`.
 - `lowerBinopNotLocal match? dst props` (`RISCV64Sdag.lean`) — match a two-operand LLVM integer
   op on `i64` one of whose operands is a `not` (`xor _, -1`, via `matchNot`, on either side),
   then emit `castToRegLocal` ×2 → binary reg-reg `dst` → `replaceWithRegLocal`. Its shared
@@ -640,6 +658,8 @@ per lowering as above.
 | `RewriteProofs/LowerBitwiseReg.lean` | `lowerBitwiseRegLocal_preservesSemantics` (bitwise single-op binary over `i64`/`i32`/`i8`/`i1`; one width-generic refinement lemma, no bitwidth branch) + instantiations (`and`, `or`) | one width-generic data lemma + one instantiation |
 | `RewriteProofs/LowerSignedMinMax.lean` | `lowerSignedMinMaxLocal_preservesSemantics` (signed min/max; `i64` = 4 ops, `i32` = 6 ops with two extra `riscv.sextw`) + `_64`/`_32` data lemmas + instantiations (`smax`, `smin`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerIcmp.lean` | `CtxExtends` (context-extension bundle) + `icmpCastExtLocal_extends`/`_run` (shared prologue, proven once against an arbitrary final context) + one `icmpEmit*Local_sound` per comparison sequence (5) + `IcmpData` (the twelve data-level refinements at one width) + `icmpData_of_bitwidth` + `icmp_local_preservesSemantics` (twelve-arm dispatch) | twelve data lemmas per new width |
+| `RewriteProofs/LowerSsubSat.lean` | `ssubSat_local_preservesSemantics` (fourteen-op RV64+Zicond signed saturating-sub chain, `CtxExtends`-transported linear proof) + `ssubSat_isRefinedBy_toInt` + `opResult_getResult_inBounds_of_createOp` (first-result in-bounds helper, shared with `LowerSshlSat`) + `#guard_msgs` axiom pin | — (one-off; template for long linear chains) |
+| `RewriteProofs/LowerSshlSat.lean` | `sshlSat_local_preservesSemantics` (thirteen-op RV64+Zicond signed saturating-shl chain, same style) + `sshlSat_isRefinedBy_toInt` + `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerRotate.lean` | `matchTernaryOp_interpretOp_unfold` (ternary source unfold) + `lowerRotateLocal_preservesSemantics` (rotate; ternary source with `a = b`, result-type guard, `W`-variant bitwidth branch) + `_64`/`_32` data lemmas + instantiations (`fshl`, `fshr`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerRoriw.lean` | `roriwLike_preservesSemantics` (constant word-rotate combinator: `fshl`/`fshr a a (const)` on `i32` → `riscv.roriw` with the normalized/negated 5-bit amount; ternary source with `a = b`, immediate-emit single-cast tail, constant amount pinned via the graph lemma) + instantiations (`roriw`/`roliw`), the `ofInt_5_rotr_mod`/`ofInt_5_rotl_mod` mod-32 immediate bridges + `roriw`/`roliw_isRefinedBy` data lemmas + `#guard_msgs` axiom pins | — (one-off pair) |
 | `RewriteProofs/LowerFshConst.lean` | `fshConstLike_preservesSemantics` (GlobalISel constant word-rotate combinator: `fshl`/`fshr a a (const)` on `i64`/`i32` → `riscv.rori`/`roriw` with the normalized/negated 5-/6-bit amount; ternary `a = b`, constant amount pinned via the graph lemma, immediate-emit single-cast head with a bitwidth branch over the emitted rotate op) + instantiations (`fshrConst`/`fshlConst`), `ofInt_{5,6}_rot{r,l}` mod bridges + `fsh{r,l}_{roriw_32,rori_64}` data lemmas + `#guard_msgs` axiom pins | — (one-off pair) |
