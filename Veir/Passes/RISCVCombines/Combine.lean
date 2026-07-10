@@ -1612,8 +1612,7 @@ def drop_sexth_sh := drop_ext_store .sexth .sh
 def drop_zextb_sb := drop_ext_store .zextb .sb
 def drop_sextb_sb := drop_ext_store .sextb .sb
 
-set_option warn.sorry false in
-/-- riscv.li 0 -> rv64.get_register (x0)
+/-- riscv.li 0 -> rv64.get_register (x0), as a `LocalRewritePattern`.
 
     Every consumer of a materialized zero uses it as a source register, and on
     RV64 the hard-wired zero register `x0` reads as 0 in any source position, so
@@ -1621,19 +1620,29 @@ set_option warn.sorry false in
     the materialization. This removes the `li 0` wherever the constant is only fed
     into ops that can take `x0` directly (slt, sltu, branch-arg inits, ...).
 
+    A `rv64.get_register` with a `!riscv.reg<x0>` result is created and `op`'s
+    result is replaced by it. The `if !op.hasUses!` guard avoids materializing a
+    dead `x0` for a dead `li 0` (left for DCE). Correctness: `li 0` interprets to
+    `RISCV.li (BitVec.ofInt 64 0) = ⟨0⟩` and `get_register x0` reads `⟨0⟩` — an
+    exact equality, since registers carry no poison. See
+    `li_zero_to_x0_local_preservesSemantics`.
+
     LLVM does this during isel: an `ISD::Constant` of 0 selects to a copy from
     the `X0` register rather than being materialized (commit d9906882fc61).
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelDAGToDAG.cpp#L1119-L1126 -/
-def li_zero_to_x0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (_, cst) := matchOp op rewriter.ctx (.riscv .li) 0 | return rewriter
-  if cst.value.value ≠ 0 then return rewriter
+def li_zero_to_x0_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (_, cst) := matchOp op ctx (.riscv .li) 0 | return (ctx, none)
+  if cst.value.value ≠ 0 then return (ctx, none)
   /- Nothing to do for a dead `li 0`; leave it for DCE and avoid creating a dead x0. -/
-  if !op.hasUses! rewriter.ctx.raw then return rewriter
-  let (rewriter, x0Op) ← rewriter.createOp! (.rv64 .get_register)
-    #[(RegisterType.mk (some 0) : TypeAttr)] #[] #[] #[] () (some $ .before op)
-  let rewriter := rewriter.replaceValue (op.getResult 0) (x0Op.getResult 0) sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  if !op.hasUses! ctx.raw then return (ctx, none)
+  let (ctx, x0Op) ← WfRewriter.createOp! ctx (.rv64 .get_register)
+    #[(RegisterType.mk (some 0) : TypeAttr)] #[] #[] #[] () none
+  some (ctx, some (#[x0Op], #[x0Op.getResult 0]))
+
+def li_zero_to_x0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite li_zero_to_x0_local rewriter op opInBounds
 
 set_option warn.sorry false in
 /-- `riscv.<ext>` (`zextw`/`sextw`) of the hard-wired zero register `x0` is a

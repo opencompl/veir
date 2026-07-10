@@ -426,3 +426,41 @@ theorem interpretOp_castBack_byte_forward
           simp [hResTypes, interpretOp', pure, Interp])
       (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
   grind
+
+/-- `rv64.get_register` specialization of `interpretOp_forward`: `theOp` is an `rv64.get_register`
+with no operands and a single `!riscv.reg<x0>` result (`rt.index = some 0`). Interpreting it always
+succeeds, leaves memory untouched, binds the result to the hard-wired zero register `.reg ⟨0⟩`, and
+leaves every non-result value unchanged. Needed by the `li 0 → get_register x0` combine
+(`li_zero_to_x0`), which materializes a reference to `x0`. -/
+theorem interpretOp_rv64_get_register_forward
+    {ctx : WfIRContext OpCode} {theOp : OperationPtr} {state : InterpreterState ctx}
+    {inBounds : theOp.InBounds ctx.raw} {rt : RegisterType} {hIsTy}
+    (hType : theOp.getOpType! ctx.raw = .rv64 .get_register)
+    (hOperands : theOp.getOperands! ctx.raw = #[])
+    (hResTypes : theOp.getResultTypes! ctx.raw = #[⟨.registerType rt, hIsTy⟩])
+    (hIdx : rt.index = some 0) :
+    ∃ state', interpretOp theOp state inBounds = some (.ok (state', none)) ∧
+      state'.memory = state.memory ∧
+      state'.variables.getVar? (ValuePtr.opResult (theOp.getResult 0))
+        = some (.reg ⟨0⟩) ∧
+      (∀ v', v' ∉ theOp.getResults! ctx.raw →
+        state'.variables.getVar? v' = state.variables.getVar? v') := by
+  obtain ⟨state', hI, hMem, hVal⟩ :=
+    interpretOp_forward (op := theOp) (state := state) (inBounds := inBounds)
+      (vals := #[])
+      (results := #[.reg ⟨0⟩])
+      (mem' := state.memory)
+      (by simp [VariableState.getOperandValues, hOperands])
+      (by simp only [OperationPtr.interpret]
+          rw [hType]
+          simp [interpretOp', Rv64.interpretOp', hResTypes, hIdx, pure, Interp, liftM,
+            monadLift, MonadLift.monadLift]
+          rfl)
+      (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
+  have hNumRes : theOp.getNumResults! ctx.raw = 1 := by
+    rw [← OperationPtr.getResultTypes!.size_eq_getNumResults!, hResTypes]; rfl
+  refine ⟨state', hI, hMem, ?_, ?_⟩
+  · rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumRes]; omega) hVal]
+    simp
+  · intro v' hv'
+    rw [VariableState.getVar?_setResultValues?_of_notMem_getResults! hv' hVal]

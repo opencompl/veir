@@ -542,4 +542,14 @@ theorem sextw_li_ofInt {v : Int} (h0 : -2147483648 ≤ v) (h1 : v < 2147483648) 
   simp only [Int.bmod]
   omega
 
+/-- Correctness of the `li_zero_to_x0` combine at the data level: materializing `0`
+    with `riscv.li 0` yields exactly what the hard-wired zero register `x0` reads
+    (`⟨0⟩`). `Data.RISCV.li (BitVec.ofInt 64 0) = ⟨BitVec.ofInt 64 0⟩` and
+    `BitVec.ofInt 64 0 = 0#64`. Needed by `li_zero_to_x0_local_preservesSemantics`
+    in `CombineSemantics.lean`. (The `0#64`-phrased mirror `li_zero_eq_x0` lives in
+    `Veir/Passes/InstructionSelection/Proofs.lean`.) -/
+theorem li_ofInt_zero_eq_x0 : Data.RISCV.li (BitVec.ofInt 64 0) = ⟨0⟩ := by
+  simp only [Data.RISCV.li, Reg.mk.injEq]
+  bv_decide
+
 end Veir.Data.RISCV

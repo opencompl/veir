@@ -12076,4 +12076,91 @@ theorem sextw_li_low32_local_preservesSemantics
       · exact absurd h (by simp))
     (fun _ h0 h1 => Veir.Data.RISCV.sextw_li_ofInt h0 h1)
 
+/-! ### li_zero_to_x0 :  riscv.li 0 → rv64.get_register x0
+
+  Matches `riscv.li 0` and, when it has uses, creates an `rv64.get_register` with a `!riscv.reg<x0>`
+  result and forwards the `li`'s result to it. Unlike the other create-and-replay combines this one
+  materializes a *nullary* op: `rv64.get_register` reads the hard-wired zero register `x0` as `⟨0⟩`
+  (`interpretOp_rv64_get_register_forward`), which matches what `riscv.li 0` materializes,
+  `RISCV.li (BitVec.ofInt 64 0) = ⟨0⟩` (`li_zero_eq_x0`). Register refinement is equality (no poison),
+  so the obligation is that exact equality. The `!op.hasUses!` guard is peeled but plays no role in
+  the semantic argument. -/
+
+set_option maxHeartbeats 1000000 in
+theorem li_zero_to_x0_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps li_zero_to_x0_local}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges li_zero_to_x0_local}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds li_zero_to_x0_local}
+    {h₄ : LocalRewritePattern.ReturnValues li_zero_to_x0_local} :
+    LocalRewritePattern.PreservesSemantics li_zero_to_x0_local h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, li_zero_to_x0_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp only [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel `matchOp op (.riscv .li) 0`.
+  have hMatchSome : (matchOp op ctx.raw (.riscv .li) 0).isSome := by
+    cases hM : matchOp op ctx.raw (.riscv .li) 0 with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨liOperands, cst⟩, hLiMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hLiType, -, hLiNumResults, -, hLiProps⟩ := matchOp_implies hLiMatch
+  rw [hLiMatch] at hpattern
+  simp only [] at hpattern
+  -- The `cst.value.value ≠ 0` guard.
+  have hCst0 : cst.value.value = 0 := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hCst0] at hpattern
+  have hCstVal0 : (op.getProperties! ctx.raw (.riscv .li)).value.value = 0 := by
+    rw [hLiProps] at hCst0; exact hCst0
+  -- The `!op.hasUses!` guard (semantically irrelevant; keep only the live branch).
+  have hUsesFalse : ¬ (op.hasUses! ctx.raw = false) := by
+    intro hf; rw [if_pos hf] at hpattern; simp at hpattern
+  rw [if_neg hUsesFalse] at hpattern
+  -- The `li`'s runtime value.
+  have hLiVal := riscvLiOp_interpretOp_unfold opInBounds hLiType hLiNumResults hinterp
+  -- `cf = none` and memory is unchanged by the `li`.
+  obtain ⟨hCfNone, hMemNew⟩ : cf = none ∧ newState.memory = state.memory := by
+    rw [interpretOp_some_iff] at hinterp
+    obtain ⟨_, resValues, mem', varState', _, hInterp', _, hNew⟩ := hinterp
+    simp only [OperationPtr.interpret] at hInterp'
+    rw [hLiType] at hInterp'
+    simp only [interpretOp', Riscv.interpretOp', pure, Interp] at hInterp'
+    subst hNew; grind
+  subst hCfNone
+  -- Source value: the dropped `li 0` result.
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hLiVal] at hsourceValues
+  subst sourceValues
+  -- Peel the single `rv64.get_register` creation.
+  peelOpCreation hpattern ctx₁ x0Op hCreate
+  cleanupHpattern hpattern
+  replace hCreate := WfRewriter.createOp!_none_some hCreate
+  obtain ⟨_, _, _, hCreate⟩ := hCreate
+  -- Structural facts for the created `get_register`.
+  have hX0Type : x0Op.getOpType! ctx₁.raw = .rv64 .get_register := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hCreate (operation := x0Op)]
+  have hX0Operands : x0Op.getOperands! ctx₁.raw = #[] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hCreate (operation := x0Op)]
+  have hX0ResTypes : x0Op.getResultTypes! ctx₁.raw
+      = #[(RegisterType.mk (some 0) : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hCreate (operation := x0Op)
+    rw [if_pos rfl] at hT; exact hT
+  -- Replay the `get_register` in the target state.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, -⟩ :=
+    interpretOp_rv64_get_register_forward (state := state') (inBounds := by grind)
+      hX0Type hX0Operands hX0ResTypes rfl
+  refine ⟨s₁, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.reg ⟨0⟩], by simp [hRes₁, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ?_
+  simp only [RuntimeValue.isRefinedBy]
+  rw [hCstVal0]
+  first | exact Data.RISCV.li_ofInt_zero_eq_x0 | exact Data.RISCV.li_ofInt_zero_eq_x0.symm
+
 end Veir.RISCV
