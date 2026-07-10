@@ -22,6 +22,7 @@ import all Veir.Rewriter.RewriterPushResult
 import all Veir.Rewriter.RewriterPushBlockArgument
 import all Veir.Rewriter.RewriterPushRegion
 import all Veir.Rewriter.LinkedList.Basic
+import all Veir.Rewriter.LinkedList.WellFormed
 import all Veir.IR.Buffed.Basic
 import all Veir.IR.Buffed.RawAccessors
 import all Veir.IR.Buffed.SimDefs
