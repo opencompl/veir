@@ -4,6 +4,7 @@ import Veir.ForLean
 import Veir.IR.WellFormed
 import Veir.Data.Comb.Basic
 import Veir.Data.LLVM.Int.Basic
+import Veir.Data.LLVM.Byte.Basic
 import Veir.Data.RISCV.Reg.Basic
 import Veir.Data.HW.Basic
 import Veir.Data.Casting
@@ -35,6 +36,7 @@ variable {ctx : WfIRContext OpInfo}
 -/
 inductive RuntimeValue where
 | int (bitwidth : Nat) (value : LLVM.Int bitwidth)
+| byte (bitwidth : Nat) (value : LLVM.Byte bitwidth)
 | float (bitwidth : Nat) (value : Float)
 | addr (value : UInt64)
 | reg (value : RISCV.Reg)
@@ -43,6 +45,7 @@ deriving Inhabited
 instance : ToString (RuntimeValue) where
   toString
     | .int _ val => ToString.toString val
+    | .byte _ val => ToString.toString val
     | .float _ val => ToString.toString val
     | .addr val => ToString.toString val
     | .reg val => ToString.toString val
@@ -58,6 +61,7 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   match val, ty with
   | .int bw _, ⟨.integerType intType, _⟩ => intType.bitwidth = bw
   | .float bw _, ⟨.floatType floatType, _⟩ => floatType.bitwidth = bw
+  | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
   | .reg _, ⟨.registerType _, _⟩ => True
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | _, _ => False
@@ -74,6 +78,18 @@ theorem Conforms.integerType :
   cases runtimeValue
   case int bw val =>
     simp only [int.injEq, exists_and_left]
+    intro _; subst bw
+    grind
+  all_goals grind
+
+@[grind <=]
+theorem Conforms.byteType {runtimeValue byteType h} :
+    Conforms runtimeValue ⟨.byteType byteType, h⟩ →
+    ∃ val, runtimeValue = .byte byteType.bitwidth val := by
+  simp only [Conforms]
+  cases runtimeValue
+  case byte bw val =>
+    simp only [byte.injEq, exists_and_left]
     intro _; subst bw
     grind
   all_goals grind
@@ -343,17 +359,16 @@ def MemoryState.alloc (state : MemoryState) (size : UInt64)
 
 /--
   Store raw bytes to the given address in memory,
-  and unset the corresponding poison bits.
+  and set the corresponding poison bits as requested (by default, unset).
   Yields UB if the access is out of bounds.
 -/
 def MemoryState.store (state : MemoryState) (addr : UInt64) (val : ByteArray)
+  (poison : ByteArray := ByteArray.replicate val.size 0) (h : poison.size = val.size := by grind)
     : Interp MemoryState :=
   if addr.toNat + val.size ≤ state.contents.size then
-    let poison := ByteArray.replicate val.size 0
     return ⟨val.copySlice 0 state.contents addr.toNat val.size false,
       poison.copySlice 0 state.poisonMask addr.toNat val.size false,
       by
-        have h : poison.size = val.size := by grind
         simp [ByteArray.copySlice_eq_append, state.consistentSize, h]
       ⟩
   else
@@ -383,12 +398,15 @@ def MemoryState.empoison (state : MemoryState) (addr : UInt64) (n : Nat)
   Store an LLVM value to memory.
   Yields UB if the access is out of bounds or the address is 0.
 -/
-def MemoryState.storeValue (state : MemoryState) (addr : UInt64) (val : RuntimeValue)
+def MemoryState.llvmStore (state : MemoryState) (addr : UInt64) (val : RuntimeValue)
     : Interp MemoryState :=
   if addr.toNat == 0 then Interp.ub else
   match val with
   | .int 8 (.val v) => state.store addr (ByteArray.empty.push (UInt8.ofBitVec v))
+  | .int 16 (.val v) => state.store addr (UInt16.ofBitVec v).toByteArrayLE
+  | .int 32 (.val v) => state.store addr (UInt32.ofBitVec v).toByteArrayLE
   | .int 64 (.val v) => state.store addr (UInt64.ofBitVec v).toByteArrayLE
+  | .byte 64 v => state.store addr (UInt64.ofBitVec v.val).toByteArrayLE (UInt64.ofBitVec v.poison).toByteArrayLE (by simp)
   | .int n .poison => state.empoison addr (n / 8)
   | .addr v => state.store addr v.toByteArrayLE
   | _ => none
@@ -405,26 +423,36 @@ def MemoryState.load (state : MemoryState) (addr size : UInt64)
     Interp.ub
 
 /--
-  Check if any of the `size` bytes at the given memory address `addr` is poison.
+  Load bitwise poison status of the given memory address.
   Yields UB if the access is out of bounds.
 -/
-def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
-    : Interp Bool :=
-  if addr.toNat + size.toNat <= state.contents.size then do
-    let mut poison := false
-    for b in state.poisonMask.extract addr.toNat (addr + size).toNat do
-      if b ≠ 0 then
-        poison := true
-        break
-    return poison
+def MemoryState.loadPoison (state : MemoryState) (addr size : UInt64)
+    : Interp ByteArray :=
+  if addr.toNat + size.toNat <= state.poisonMask.size then
+    return state.poisonMask.extract addr.toNat (addr + size).toNat
   else
     Interp.ub
 
 /--
+  Check if any of the `size` bytes at the given memory address `addr` is poison.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.hasPoison (state : MemoryState) (addr size : UInt64)
+    : Interp Bool := do
+  let poisonMask ← state.loadPoison addr size
+  let mut poison := false
+  for b in poisonMask do
+    if b ≠ 0 then
+      poison := true
+      break
+  return poison
+
+set_option warn.sorry false in
+/--
   Load an LLVM value from the given memory address.
   Yields UB if access is out of bounds or the address is 0.
 -/
-def MemoryState.loadValue (state : MemoryState) (addr : UInt64) (type : TypeAttr)
+def MemoryState.llvmLoad (state : MemoryState) (addr : UInt64) (type : TypeAttr)
     : Interp RuntimeValue := do
   if addr == 0 then Interp.ub else
   match type.val with
@@ -432,10 +460,23 @@ def MemoryState.loadValue (state : MemoryState) (addr : UInt64) (type : TypeAttr
       let ba ← state.load addr 1
       if ← state.hasPoison addr 1 then return .int 8 .poison
       return .int 8 (.val ba[0]!.toNat)
+  | Attribute.integerType { bitwidth := 16 } =>
+      let ba ← state.load addr 2
+      if ← state.hasPoison addr 2 then return .int 16 .poison
+      return .int 16 (.val (ba.toBitVecLE 2))
+  | Attribute.integerType { bitwidth := 32 } =>
+      let ba ← state.load addr 4
+      if ← state.hasPoison addr 4 then return .int 32 .poison
+      return .int 32 (.val (ba.toBitVecLE 4))
   | Attribute.integerType { bitwidth := 64 } =>
       let ba ← state.load addr 8
       if ← state.hasPoison addr 8 then return .int 64 .poison
       return .int 64 (.val (BitVec.ofNat 64 ba.toUInt64LE!.toNat))
+  | Attribute.byteType { bitwidth := 64 } =>
+      let ba ← state.load addr 8
+      let baPoison ← state.loadPoison addr 8
+      let poison := baPoison.toUInt64LE!.toBitVec
+      return .byte 64 ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
   | Attribute.llvmPointerType _ =>
       let ba ← state.load addr 8
       -- FIXME poison address
@@ -597,6 +638,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
       if bw.bitwidth ≠ 64 then
         none
       return (#[.float 64 floatAttr.value], mem, none)
+    | .dense denseAttr =>
+      none
   | .mlir__poison => do
     let some resType := resultTypes[0]? | none
     let .integerType bw := resType.val | none
@@ -667,15 +710,30 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
       if v' = 0 then Interp.ub
       else return (#[.int bw (LLVM.Int.urem lhs rhs)], mem, none)
   | .shl => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.shl lhs rhs properties.nsw properties.nuw)], mem, none)
+    let [lhs, .int bw' rhs] := operands.toList | none
+    match lhs with
+    | .int bw lhs =>
+      if h: bw' ≠ bw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (LLVM.Int.shl lhs rhs properties.nsw properties.nuw)], mem, none)
+    | .byte bw lhs =>
+      if h: bw' ≠ bw then none else
+      if properties.nsw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      return (#[.byte bw (LLVM.Byte.shl lhs rhs properties.nuw)], mem, none)
+    | _ => none
   | .lshr => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.lshr lhs rhs properties.exact)], mem, none)
+    let [lhs, .int bw' rhs] := operands.toList | none
+    match lhs with
+    | .int bw lhs =>
+      if h: bw' ≠ bw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      return (#[.int bw (LLVM.Int.lshr lhs rhs properties.exact)], mem, none)
+    | .byte bw lhs =>
+      if h: bw' ≠ bw then none else
+      let rhs := rhs.cast (by simp at h; exact h)
+      return (#[.byte bw (LLVM.Byte.lshr lhs rhs properties.exact)], mem, none)
+    | _ => none
   | .ashr => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
@@ -745,12 +803,52 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.umin lhs rhs)], mem, none)
+  | .intr__abs => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (LLVM.Int.abs x properties.is_int_min_poison)], mem, none)
+  | .intr__sadd__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.saddSat lhs rhs)], mem, none)
+  | .intr__uadd__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.uaddSat lhs rhs)], mem, none)
+  | .intr__ssub__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.ssubSat lhs rhs)], mem, none)
+  | .intr__usub__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.usubSat lhs rhs)], mem, none)
+  | .intr__sshl__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.sshlSat lhs rhs)], mem, none)
+  | .intr__ushl__sat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (LLVM.Int.ushlSat lhs rhs)], mem, none)
   | .trunc => do
-    let [.int w val] := operands.toList | none
+    let [val] := operands.toList | none
     let some resType := resultTypes[0]? | none
-    let .integerType resBw := resType.val | none
-    if h: resBw.bitwidth >= w then none else
-    return (#[.int resBw.bitwidth (LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], mem, none)
+    match val with
+    | .int w val =>
+        let .integerType resBw := resType.val | none
+        if h: resBw.bitwidth >= w then none else
+        return (#[.int resBw.bitwidth (LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], mem, none)
+    | .byte w val =>
+        let .byteType resBw := resType.val | none
+        if h: resBw.bitwidth >= w then none else
+        return (#[.byte resBw.bitwidth (LLVM.Byte.trunc val resBw.bitwidth)], mem, none)
+    | _ => none
   | .zext => do
     let [.int w val] := operands.toList | none
     let some resType := resultTypes[0]? | none
@@ -805,11 +903,11 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
   | .load => do
     let [.addr addr] := operands.toList | none
     let [type] := resultTypes.toList | none
-    let val ← mem.loadValue addr type
+    let val ← mem.llvmLoad addr type
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | none
-    let mem ← mem.storeValue addr val
+    let mem ← mem.llvmStore addr val
     return (#[], mem, none)
   | .getelementptr => do
     /- only supports exactly one dynamic index for now -/
@@ -819,8 +917,32 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : HasDialectOpInfo.proper
     | .val idx => return (#[.addr (ptr.toNat + idx.toNat * size).toUInt64], mem, none)
     | .poison => Interp.ub
   | .freeze => do
-    let [RuntimeValue.int w val] := operands.toList | none
-    return (#[RuntimeValue.int w (LLVM.Int.freeze val)], mem, none)
+    let [val] := operands.toList | none
+    match val with
+    | .int w val =>
+        return (#[.int w val.freeze], mem, none)
+    | .byte w val =>
+        return (#[.byte w val.freeze], mem, none)
+    | _ => none
+  | .bitcast => do
+    let [val] := operands.toList | none
+    let [⟨type, _⟩] := resultTypes.toList | none
+    let result ← do match val, type with
+      | .int bw1 val', .integerType ⟨bw2⟩ =>
+          if bw1 ≠ bw2 then none else some (.ok val)
+      | .int bw1 val', .byteType ⟨bw2⟩ =>
+          if bw1 ≠ bw2 then none else some (.ok (.byte bw1 $ LLVM.Byte.fromInt val'))
+      | .byte bw1 val', .byteType ⟨bw2⟩ =>
+          if bw1 ≠ bw2 then none else some (.ok val)
+      | .byte bw1 val', .integerType ⟨bw2⟩ =>
+          if bw1 ≠ bw2 then none else some (.ok (.int bw1 $ val'.toInt))
+      | .byte bw val', .llvmPointerType _ =>
+          if h : bw = 64 then some (.ok (.addr (val'.cast h).toUInt64)) else none
+      | .addr val', .llvmPointerType _ => some (.ok val)
+      | .addr val', .byteType ⟨bw⟩ =>
+          if h : bw = 64 then some (.ok (.byte 64 $ LLVM.Byte.fromUInt64 val')) else none
+      | _, _ => none
+    return (#[result], mem, none)
   | _ => none
 
 /-- Effective address of a RISC-V load/store: the base register value plus the
@@ -832,12 +954,6 @@ def riscvEffectiveAddr (base : BitVec 64) (offset : Int) : BitVec 64 :=
 inductive LoadExtension
   | signExt
   | zeroExt
-
-/-- Interpret the first `bytes` bytes of a little-endian `ByteArray`
-    as a `BitVec (8 * bytes)` (byte 0 is the least significant). -/
-def _root_.ByteArray.toBitVecLE (ba : ByteArray) (bytes : Nat) : BitVec (8 * bytes) :=
-  -- NB ByteArray does not define its own foldr
-  ba.toList.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth (8 * bytes)) 0
 
 /-- Read `bytes` of little-endian data from memory starting at
     `eaddr` and extend it to 64 bits according to `ext`. Memory is
@@ -1214,27 +1330,27 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : HasDialectOpInfo.prop
     let (val, mem) ← riscvLoad mem eaddr 1 .zeroExt
     return (#[.reg $ .mk val], mem, none)
   | .sd => do
-    let [.reg addr, .reg { val }] := operands.toList | none
+    let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
     let mem := mem.ensureSize (eaddr.toNat + 8)
     let mem ← mem.store eaddr.toNat.toUInt64 (UInt64.ofBitVec val).toByteArrayLE
     return (#[], mem, none)
   | .sw => do
-    let [.reg addr, .reg { val }] := operands.toList | none
+    let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
     let mem := mem.ensureSize (eaddr.toNat + 4)
     -- store only the low 4 bytes of the register
     let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 4)
     return (#[], mem, none)
   | .sh => do
-    let [.reg addr, .reg { val }] := operands.toList | none
+    let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
     let mem := mem.ensureSize (eaddr.toNat + 2)
     -- store only the low 2 bytes of the register
     let mem ← mem.store eaddr.toNat.toUInt64 ((UInt64.ofBitVec val).toByteArrayLE.extract 0 2)
     return (#[], mem, none)
   | .sb => do
-    let [.reg addr, .reg { val }] := operands.toList | none
+    let [.reg { val }, .reg addr] := operands.toList | none
     let eaddr := riscvEffectiveAddr addr.val properties.value.value
     let mem := mem.ensureSize (eaddr.toNat + 1)
     -- store only the low byte of the register
@@ -1441,10 +1557,19 @@ def interpretOp' (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     let some resType := resultTypes[0]? | none
     match resType.val, operands.toList with
     | .registerType _, [.int _bw val] =>
-      return (#[.reg (LLVM.Int.toReg val )], mem, none)
+      return (#[.reg (LLVM.Int.toReg val)], mem, none)
+    | .registerType _, [.byte _bw val] =>
+      return (#[.reg (LLVM.Byte.toReg val)], mem, none)
+    | .registerType _, [.addr val] =>
+      return (#[.reg ⟨val.toNat⟩], mem, none)
     | .integerType _bw, [.reg val] =>
       let .integerType resBw := resType.val | none
       return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)
+    | .byteType _bw, [.reg val] =>
+      let .byteType resBw := resType.val | none
+      return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
+    | .llvmPointerType _, [.reg val] =>
+      return (#[.addr ⟨val.val⟩], mem, none)
     | _ , _ => none
   | _ => none
 

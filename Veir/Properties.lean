@@ -160,6 +160,32 @@ def ZeroPoisonProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
     Except String ZeroPoisonProperties :=
   ZeroPoisonProperties.fromAttrDictFor "llvm.intr.ctlz" attrDict
 
+/--
+  Properties of the `llvm.intr.abs` intrinsic. In LLVM IR, the second intrinsic
+  argument is an immediate `i1` named `is_int_min_poison` indicating whether the
+  result is poison when the operand is `INT_MIN`.
+-/
+structure IntMinPoisonProperties where
+  is_int_min_poison : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def IntMinPoisonProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String IntMinPoisonProperties := do
+  if attrDict.size > 1 then
+    throw s!"llvm.intr.abs: expected only 'is_int_min_poison' property, but got {attrDict.size} properties"
+  let some attr := attrDict["is_int_min_poison".toUTF8]?
+    | throw "llvm.intr.abs: missing 'is_int_min_poison' property"
+  let .integerAttr intAttr := attr
+    | throw s!"llvm.intr.abs: expected 'is_int_min_poison' to be an i1 integer attribute, but got {attr}"
+  if intAttr.type.bitwidth ≠ 1 then
+    throw s!"llvm.intr.abs: expected 'is_int_min_poison' to be an i1 integer attribute, but got i{intAttr.type.bitwidth}"
+  if intAttr.value = 0 then
+    return { is_int_min_poison := false }
+  else if intAttr.value = 1 then
+    return { is_int_min_poison := true }
+  else
+    throw s!"llvm.intr.abs: expected 'is_int_min_poison' to be 0 or 1, but got {intAttr.value}"
+
 structure FastMathFlagsProperties where
   attr : FastMathFlagsAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -177,11 +203,12 @@ def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
   return ⟨value⟩
 
 /--
-The two types of constants an LLVM constant can store.
+The types of constants an LLVM constant can store.
 -/
 inductive LLVMConstantValue where
 | integer (value : IntegerAttr)
 | float (value : FloatAttr)
+| dense (value : DenseElementsAttr)
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 /--
@@ -202,8 +229,10 @@ def LLVMConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     return { value := .integer intAttr }
   | .floatAttr floatAttr =>
     return { value := .float floatAttr }
+  | .denseElementsAttr denseAttr =>
+    return { value := .dense denseAttr }
   | _ =>
-    throw s!"llvm.constant: expected 'value' to be an integer or float attribute, but got {attr}"
+    throw s!"llvm.constant: expected 'value' to be an integer, float, or dense elements attribute, but got {attr}"
 
 /-- Properties of integer comparison operations in the LLVM and arith dialects. -/
 structure IcmpProperties where

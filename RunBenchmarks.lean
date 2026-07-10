@@ -1,4 +1,5 @@
 import Veir
+import Veir.Panic
 
 def count := 50_000
 
@@ -27,6 +28,7 @@ def bench (f: IO Unit) (count : Nat) : IO Unit := do
   IO.println s!"ns per op : {(elapsedTime * 1000 * 1000) / count}"
 
 def main (args : List String) : IO Unit := do
+  Veir.enableExitOnPanic
   IO.println s!"Benchmark ({args})"
   let count := getCountFrom args[1]?
   if let some bench := args[0]? then
