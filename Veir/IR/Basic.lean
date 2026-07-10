@@ -1057,6 +1057,17 @@ theorem nextBlockOperand!_eq_nextBlockOperand {op : OperationPtr} (hin : op.InBo
     op.nextBlockOperand! ctx = op.nextBlockOperand ctx hin := by
   grind [nextBlockOperand, nextBlockOperand!]
 
+/- Projections of `nextBlockOperand`, exposed for downstream files where its body is not. -/
+@[simp, grind =]
+theorem nextBlockOperand_op {op : OperationPtr} {hin : op.InBounds ctx} :
+    (op.nextBlockOperand ctx hin).op = op := by
+  grind [nextBlockOperand]
+
+@[simp, grind =]
+theorem nextBlockOperand_index {op : OperationPtr} {hin : op.InBounds ctx} :
+    (op.nextBlockOperand ctx hin).index = op.getNumSuccessors! ctx := by
+  grind [nextBlockOperand]
+
 @[grind =]
 theorem nextBlockOperand!_eq_getBlockOperand {op : OperationPtr} :
     op.nextBlockOperand! ctx = op.getBlockOperand (op.getNumSuccessors! ctx) := by
@@ -1073,6 +1084,17 @@ def nextResult! (op : OperationPtr) (ctx : IRContext OpInfo) : OpResultPtr :=
 theorem nextResult!_eq_nextResult {op : OperationPtr} (hin : op.InBounds ctx) :
     op.nextResult! ctx = op.nextResult ctx hin := by
   grind [nextResult, nextResult!]
+
+/- Projections of `nextResult`, exposed for downstream files where its body is not. -/
+@[simp, grind =]
+theorem nextResult_op {op : OperationPtr} {hin : op.InBounds ctx} :
+    (op.nextResult ctx hin).op = op := by
+  grind [nextResult]
+
+@[simp, grind =]
+theorem nextResult_index {op : OperationPtr} {hin : op.InBounds ctx} :
+    (op.nextResult ctx hin).index = op.getNumResults! ctx := by
+  grind [nextResult]
 
 @[grind =]
 theorem nextResult!_eq_getResult {op : OperationPtr} :

@@ -926,6 +926,16 @@ def Attribute.asDict (attr : Attribute) (isDict : attr.isDict := by grind) : Dic
   | some dict => dict
   | none => by cases attr <;> grind [isDict, asDict?]
 
+@[simp, grind =]
+theorem Attribute.isDict_dictionaryAttr (dict : DictionaryAttr) :
+    (Attribute.dictionaryAttr dict).isDict := by
+  simp [Attribute.isDict]
+
+@[simp, grind =]
+theorem Attribute.asDict_dictionaryAttr (dict : DictionaryAttr) (isDict) :
+    (Attribute.dictionaryAttr dict).asDict isDict = dict := by
+  simp [Attribute.asDict, Attribute.asDict?]
+
 /-!
   ## Coercion instances to TypeAttr
 

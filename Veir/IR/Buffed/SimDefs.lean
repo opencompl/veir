@@ -656,7 +656,7 @@ structure BlockOperandPtr.Matches (ctx : Sim.RawIRContext OpInfo) (oper : BlockO
   value : Sim.BlockPtr.Sim ⟨BlockOperandMPtr.readValue! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).value⟩
 
 structure BlockArgumentPtr.Matches (ctx : Sim.RawIRContext OpInfo) (arg : BlockArgumentPtr) (ib : arg.InBounds ctx.spec) where
-  kind : arg.toM.readKind! ctx.buf = Buffed.ValueImpl.kindResult
+  kind : arg.toM.readKind! ctx.buf = Buffed.ValueImpl.kindArgument
   type : ctx.buf.attributes[arg.toM.readType! ctx.buf |>.toNat]? = some (arg.get! ctx.spec).type
   firstUse : Sim.OptionOpOperandPtr.Sim ⟨arg.toM.readFirstUse! ctx.buf, (arg.get! ctx.spec).firstUse⟩ ctx
   index : (arg.get! ctx.spec).index = (arg.toM.readIndex! ctx.buf).toNat
@@ -752,6 +752,9 @@ structure Sim (ctx : Sim.RawIRContext OpInfo) where
   /-- The buffer contains the encodings of all the regions. -/
   encoding_region (rg : RegionPtr) (ib : rg.InBounds ctx.spec) :
     rg.Matches ctx ib
+  /-- Attribute-table slot 0 canonically holds the empty dictionary, so the zero-initialized
+  `attrs` field of a freshly allocated operation denotes the empty dictionary. -/
+  attr_empty : ctx.buf.attributes[0]? = some (.dictionaryAttr DictionaryAttr.empty)
 
 variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] in
 structure Sim.IRContext where
@@ -768,6 +771,7 @@ instance : Inhabited (Sim.IRContext OpInfo) where
     constructor <;> simp
     · grind
     · simp only [IRContext.default_def]; grind
+    case attr_empty => simp [IRBufContext.default_def]
     all_goals
     · simp only [IRContext.default_def]
       intros ptr

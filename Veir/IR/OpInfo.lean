@@ -69,6 +69,7 @@ instance [HasOpInfo opCode] : DecidableEq opCode :=
 class SerializableOpInfo (opCode : Type) where
   encode : opCode -> UInt32
   decode : UInt32 -> opCode
+  decode_encode : ∀ op, decode (encode op) = op
 
 end -- public section
 

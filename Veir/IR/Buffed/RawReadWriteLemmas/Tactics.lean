@@ -789,8 +789,8 @@ ones the public `rw_*` forwarders (further down) delegate to.
     committing.
 -/
 
-open scoped RwReal
--- open scoped RwStub
+-- open scoped RwReal
+open scoped RwStub
 
 /-!
 ### Public `rw_*` entry points
