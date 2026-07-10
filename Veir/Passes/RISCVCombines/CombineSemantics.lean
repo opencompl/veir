@@ -4563,7 +4563,7 @@ theorem AndLshrLshr_local_preservesSemantics
   hoistShiftLocal_preservesSemantics (srcOp := .and) (dst := .and) (shiftOp := .lshr)
     (srcFn := fun a b _ => Data.LLVM.Int.and a b) (dfn := fun a b => Data.LLVM.Int.and a b)
     (shiftFn := fun a b p => Data.LLVM.Int.lshr a b p.exact) (mkShiftProps := fun p1 => { exact := p1.exact })
-    matchLshr_implies OperationPtr.Verified.llvm_lshr OperationPtr.Pure.llvm_lshr' lshrSemSrc lshrSemMismatch
+    matchLshr_implies OperationPtr.Verified.llvm_lshr OperationPtr.Pure.llvm_lshr lshrSemSrc lshrSemMismatch
     (fun a₁ a₂ z₁ z₂ p h₁ h₂ => Data.LLVM.Int.lshr_mono a₁ z₁ a₂ z₂ h₁ h₂ p.exact)
     (matchBinopNoProps_implies matchAnd_implies) OperationPtr.Verified.llvm_and
     (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
@@ -4608,7 +4608,7 @@ theorem OrLshrLshr_local_preservesSemantics
   hoistShiftLocal_preservesSemantics (srcOp := .or) (dst := .or) (shiftOp := .lshr)
     (srcFn := fun a b p => Data.LLVM.Int.or a b p.disjoint) (dfn := fun a b => Data.LLVM.Int.or a b false)
     (shiftFn := fun a b p => Data.LLVM.Int.lshr a b p.exact) (mkShiftProps := fun _ => { exact := false })
-    matchLshr_implies OperationPtr.Verified.llvm_lshr OperationPtr.Pure.llvm_lshr' lshrSemSrc lshrSemMismatch
+    matchLshr_implies OperationPtr.Verified.llvm_lshr OperationPtr.Pure.llvm_lshr lshrSemSrc lshrSemMismatch
     (fun a₁ a₂ z₁ z₂ p h₁ h₂ => Data.LLVM.Int.lshr_mono a₁ z₁ a₂ z₂ h₁ h₂ p.exact)
     (matchBinopNoProps_implies matchOr_implies) OperationPtr.Verified.llvm_or
     (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
@@ -4653,7 +4653,7 @@ theorem XorLshrLshr_local_preservesSemantics
   hoistShiftLocal_preservesSemantics (srcOp := .xor) (dst := .xor) (shiftOp := .lshr)
     (srcFn := fun a b _ => Data.LLVM.Int.xor a b) (dfn := fun a b => Data.LLVM.Int.xor a b)
     (shiftFn := fun a b p => Data.LLVM.Int.lshr a b p.exact) (mkShiftProps := fun _ => { exact := false })
-    matchLshr_implies OperationPtr.Verified.llvm_lshr OperationPtr.Pure.llvm_lshr' lshrSemSrc lshrSemMismatch
+    matchLshr_implies OperationPtr.Verified.llvm_lshr OperationPtr.Pure.llvm_lshr lshrSemSrc lshrSemMismatch
     (fun a₁ a₂ z₁ z₂ p h₁ h₂ => Data.LLVM.Int.lshr_mono a₁ z₁ a₂ z₂ h₁ h₂ p.exact)
     (matchBinopNoProps_implies matchXor_implies) OperationPtr.Verified.llvm_xor
     (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])

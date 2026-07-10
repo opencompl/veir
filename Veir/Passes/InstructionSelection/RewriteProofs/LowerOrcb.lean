@@ -17,30 +17,6 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerBexti
 
 namespace Veir
 
-/-- `llvm.shl` is pure. -/
-theorem OperationPtr.Pure.llvm_shl {op : OperationPtr} {ctx : IRContext OpCode}
-    (hType : op.getOpType! ctx = .llvm .shl) : op.Pure ctx := by
-  unfold OperationPtr.Pure
-  rw [hType]
-  intro operands memory₁ memory₂
-  simp only [interpretOp', Llvm.interpretOp']
-  repeat' split
-  all_goals first
-    | rfl
-    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
-
-/-- `llvm.and` is pure. -/
-theorem OperationPtr.Pure.llvm_and {op : OperationPtr} {ctx : IRContext OpCode}
-    (hType : op.getOpType! ctx = .llvm .and) : op.Pure ctx := by
-  unfold OperationPtr.Pure
-  rw [hType]
-  intro operands memory₁ memory₂
-  simp only [interpretOp', Llvm.interpretOp']
-  repeat' split
-  all_goals first
-    | rfl
-    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
-
 theorem shl_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
     (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
     {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)

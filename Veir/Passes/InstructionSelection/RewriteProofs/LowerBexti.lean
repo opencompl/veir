@@ -17,18 +17,6 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelectBinopImm
 
 namespace Veir
 
-/-- `llvm.lshr` is pure: its interpretation neither reads nor writes memory. -/
-theorem OperationPtr.Pure.llvm_lshr {op : OperationPtr} {ctx : IRContext OpCode}
-    (hType : op.getOpType! ctx = .llvm .lshr) : op.Pure ctx := by
-  unfold OperationPtr.Pure
-  rw [hType]
-  intro operands memory₁ memory₂
-  simp only [interpretOp', Llvm.interpretOp']
-  repeat' split
-  all_goals first
-    | rfl
-    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
-
 theorem setWidth_ofInt_6_64' (c : Int) :
     BitVec.setWidth 6 (BitVec.ofInt 64 c) = BitVec.ofInt 6 c := by
   rw [← BitVec.toNat_inj]; simp only [BitVec.toNat_setWidth, BitVec.toNat_ofInt, Nat.reducePow]; omega
