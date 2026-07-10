@@ -69,6 +69,32 @@ theorem LocalRewritePattern.exists_refined_byte_getVar?
     grind [LocalRewritePattern.mapping, valueRefinement v]
   grind [RuntimeValue.byte_of_isRefinedBy hRef]
 
+/-- Register analogue of `exists_refined_int_getVar?`: read the target-side value of a `!riscv.reg`
+typed operand that refines the source-side one. Since register refinement is plain equality
+(`RuntimeValue.reg`), the target value is *identical* to the source one — hence the conclusion is a
+bare equality with no existential. This is the key reader for register-dialect combine proofs. -/
+theorem LocalRewritePattern.exists_refined_reg_getVar?
+    {ctx : WfIRContext OpCode}
+    {ipIn : ip.InBounds ctx.raw}
+    {pattern : LocalRewritePattern OpCode}
+    {hpattern : pattern ctx op = some (newCtx, some (newOps, newValues))}
+    {hreturn : pattern.ReturnValuesInBounds} {hreturn₂ : pattern.ReturnValues}
+    {hreturn₃ : pattern.ReturnCtxChanges}
+    {state : InterpreterState ctx} {state' : InterpreterState newCtx}
+    (valueRefinement : state.variables.isRefinedByAt state'.variables
+      (LocalRewritePattern.mapping hpattern hreturn hreturn₂ hreturn₃) (.at ip) (.at ip) ipIn ipIn')
+    (state'Dom : state'.DefinesDominating ip ipIn')
+    (vIn : v.InBounds ctx.raw)
+    (hxVal : state.variables.getVar? v = some (RuntimeValue.reg x))
+    (hDomCtx : v.dominatesIp ip ctx) (hDom' : v.dominatesIp ip newCtx)
+    (hNotRes : v ∉ op.getResults! ctx.raw) :
+    state'.variables.getVar? v = some (RuntimeValue.reg x) := by
+  have ⟨tv, hTv⟩ := InterpreterState.DefinesDominating.exists_getVar_of_dominatesIp state'Dom
+      (hreturn₃.valuePtr_inBounds hpattern vIn) hDom'
+  have hRef : RuntimeValue.reg x ⊒ tv := by
+    grind [LocalRewritePattern.mapping, valueRefinement v]
+  grind [RuntimeValue.reg_of_isRefinedBy hRef]
+
 /-- A value that exists in a context `ctx` is never a result of an operation that is *not* in
 bounds of `ctx` (e.g. a freshly created op), in any context `ctx'`: result membership pins the
 value's operation pointer, and an in-bounds `opResult` value forces its operation in bounds.

@@ -1322,40 +1322,41 @@ def drop_slli_srli_sltz := drop_slli_srli_boolGen .sltz 1
 /-- `riscv.sgtz` produces exactly 0 or 1. -/
 def drop_slli_srli_sgtz := drop_slli_srli_boolGen .sgtz 1
 
-set_option warn.sorry false in
-/-- `riscv.<ext> (riscv.<ext> x) -> riscv.<ext> x` for an idempotent width
-    extension `ext` (`zextw` or `sextw`): the inner op already establishes the
-    high-bit pattern (bits 63:32 clear, or a copy of bit 31) that the outer one
-    would, so the outer is redundant and its result forwards to the inner op.
+/-- `riscv.<ext> (riscv.<ext> x) -> riscv.<ext> x` for an idempotent width extension `ext`: the
+    inner op already establishes the high-bit pattern (bits 63:32 clear, or a copy of the sign bit)
+    that the outer one would, so the outer is redundant and its result forwards to the inner op.
 
-    LLVM: `zext.w` is `add.uw rd, rs, x0` and `sext.w` is `addiw rd, rs, 0`;
-    either way a redundant re-extension of an already-extended value is folded
-    away generically (by `SimplifyDemandedBits`, or by sext.w removal --
-    `hasAllNBitUsers` treats an outer `sext.w` as a low-32-bit user).
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
-private def drop_redundant_ext (ext : Riscv) (rewriter : PatternRewriter OpCode)
-    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
-    Option (PatternRewriter OpCode) := do
-  let some (operands, _) := matchOp op rewriter.ctx (.riscv ext) 1 | return rewriter
+    LLVM: `zext.w` is `add.uw rd, rs, x0` and `sext.w` is `addiw rd, rs, 0`; either way a redundant
+    re-extension of an already-extended value is folded away generically (by `SimplifyDemandedBits`,
+    or by sext.w removal -- `hasAllNBitUsers` treats an outer `sext.w` as a low-32-bit user).
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120
+
+    `riscv.<ext> (riscv.<ext> x) -> riscv.<ext> x`, as a `LocalRewritePattern`: no operations are
+    created, `op`'s result is simply forwarded to `outerSrc` (the operand of the outer `<ext>`,
+    which is the result of the inner `<ext>`). The inner-op match is what the correctness proof
+    uses to learn that `outerSrc` is already in the image of `<ext>`, so the outer one is
+    redundant. See `drop_redundant_ext_local_preservesSemantics`. -/
+def drop_redundant_ext_local (ext : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, _) := matchOp op ctx (.riscv ext) 1 | return (ctx, none)
   let outerSrc := operands[0]!
-  let some innerOp := getDefiningOp outerSrc rewriter.ctx | return rewriter
-  let some (_, _) := matchOp innerOp rewriter.ctx (.riscv ext) 1 | return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) outerSrc sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let some innerOp := getDefiningOp outerSrc ctx | return (ctx, none)
+  let some (_, _) := matchOp innerOp ctx (.riscv ext) 1 | return (ctx, none)
+  some (ctx, some (#[], #[outerSrc]))
 
 /-- `riscv.zextw (riscv.zextw x) -> riscv.zextw x`. -/
-def zextw_zextw := drop_redundant_ext .zextw
+def zextw_zextw := RewritePattern.fromLocalRewrite (drop_redundant_ext_local .zextw)
 
 /-- `riscv.sextw (riscv.sextw x) -> riscv.sextw x`. -/
-def sextw_sextw := drop_redundant_ext .sextw
+def sextw_sextw := RewritePattern.fromLocalRewrite (drop_redundant_ext_local .sextw)
 
 /-- Byte- and half-word mirrors of `zextw_zextw`/`sextw_sextw`. Each extension is
     idempotent (`ext (ext x) = ext x`) regardless of width, since the inner op
     already establishes exactly the high-bit pattern the outer one would. -/
-def zextb_zextb := drop_redundant_ext .zextb
-def zexth_zexth := drop_redundant_ext .zexth
-def sextb_sextb := drop_redundant_ext .sextb
-def sexth_sexth := drop_redundant_ext .sexth
+def zextb_zextb := RewritePattern.fromLocalRewrite (drop_redundant_ext_local .zextb)
+def zexth_zexth := RewritePattern.fromLocalRewrite (drop_redundant_ext_local .zexth)
+def sextb_sextb := RewritePattern.fromLocalRewrite (drop_redundant_ext_local .sextb)
+def sexth_sexth := RewritePattern.fromLocalRewrite (drop_redundant_ext_local .sexth)
 
 /-- If `val` is defined by a `riscv.<ext>` op (`ext` being `zextw`/`sextw`),
     return its source operand and `true`; otherwise `val` unchanged and `false`. -/

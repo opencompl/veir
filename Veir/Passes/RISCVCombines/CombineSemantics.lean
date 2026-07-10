@@ -10,6 +10,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerSlti
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonForwardInterpret
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerRotate
+import Veir.Passes.RISCVCombines.Proofs
 
 /-!
   Graph-level semantics preservation for the LLVM-dialect combines.
@@ -10474,5 +10475,212 @@ theorem selectNotLocal_preservesSemantics
   simp only [Data.LLVM.Int.cast_self]
   rw [Data.LLVM.Int.select_not_swap cvVal tvv fvv]
   exact Data.LLVM.Int.select_mono fvv tvv fvt tvt cvVal cvt hfRef htRef hcRef
+
+/-! ## RISC-V-dialect idempotent-extension folds (`riscv.<ext> (riscv.<ext> x) -> riscv.<ext> x`)
+
+  These combines rewrite *already-selected* RISC-V ops. Because `Data.RISCV.Reg` is total (no
+  poison), refinement on `RuntimeValue.reg` is plain equality, so the data-level obligation is the
+  ordinary idempotence `f (f x) = f x` (already proven in `Veir/Passes/RISCVCombines/Proofs.lean`).
+  The shared proof `drop_redundant_ext_local_preservesSemantics` is instantiated per width extension;
+  the register-dialect scaffolding it relies on lives in `CommonBaseLemmas.lean`
+  (`exists_refined_reg_getVar?`) and `CommonGraphLemmas.lean`
+  (`matchRiscvUnaryReg_interpretOp_unfold`, `riscv_unaryReg_getVar?_of_EquationLemmaAt`, and the
+  `OperationPtr.Pure.riscv_*` purity facts). -/
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness for the idempotent-extension fold `riscv.<ext> (riscv.<ext> x) ->
+    riscv.<ext> x`, over any unary reg-to-reg `riscv` op `ext` whose data-level action `f` is
+    idempotent (`hIdem`). No ops are created; `op`'s result is forwarded to its operand `outerSrc`.
+    The graph lemma shows `outerSrc` is `f w` for some register `w`, so the dropped outer result
+    `f (f w) = f w = outerSrc` matches — an exact equality, since registers carry no poison. -/
+theorem drop_redundant_ext_local_preservesSemantics {ext : Riscv}
+    {f : Data.RISCV.Reg → Data.RISCV.Reg}
+    (hPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .riscv ext → opp.Pure c)
+    (hSem : ∀ (props : HasDialectOpInfo.propertiesOf ext) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' ext props rt ops bo mem = some (.ok res) →
+        ∃ r, ops = #[.reg r] ∧ res = (#[.reg (f r)], mem, none))
+    (hIdem : ∀ x, f (f x) = f x)
+    {h : LocalRewritePattern.ReturnOps (drop_redundant_ext_local ext)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_redundant_ext_local ext)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_redundant_ext_local ext)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_redundant_ext_local ext)} :
+    LocalRewritePattern.PreservesSemantics (drop_redundant_ext_local ext) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, drop_redundant_ext_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp only [pure] at hpattern
+  -- Peel the outer `matchOp`.
+  have hMatchSome : (matchOp op ctx.raw (.riscv ext) 1).isSome := by
+    cases hM : matchOp op ctx.raw (.riscv ext) 1 with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨operands, oProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Peel `getDefiningOp`.
+  have hDefSome : (getDefiningOp operands[0]! ctx.raw).isSome := by
+    cases hD : getDefiningOp operands[0]! ctx.raw with
+    | some y => rfl
+    | none => rw [hD] at hpattern; simp at hpattern
+  obtain ⟨innerOp, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+  rw [hDef] at hpattern
+  simp only [] at hpattern
+  -- Peel the inner `matchOp`.
+  have hInnerMatchSome : (matchOp innerOp ctx.raw (.riscv ext) 1).isSome := by
+    cases hIM : matchOp innerOp ctx.raw (.riscv ext) 1 with
+    | some y => rfl
+    | none => rw [hIM] at hpattern; simp at hpattern
+  obtain ⟨⟨iOperands, iProps⟩, hInnerMatch⟩ := Option.isSome_iff_exists.mp hInnerMatchSome
+  rw [hInnerMatch] at hpattern
+  simp only [] at hpattern
+  -- Read off the pattern outputs: nothing is created, the result forwards to `operands[0]!`.
+  obtain ⟨rfl, rfl, rfl⟩ : ctx = newCtx ∧ newOps = #[] ∧ newValues = #[operands[0]!] := by
+    simp at hpattern; grind
+  obtain ⟨hOpType, hNumOperands, hNumResults, hOperandsEq, -⟩ := matchOp_implies hMatch
+  have hOperands : op.getOperands! ctx.raw = #[operands[0]!] := by
+    have hsz : operands.size = 1 := by
+      rw [hOperandsEq, OperationPtr.getOperands!.size_eq_getNumOperands!, hNumOperands]
+    rw [← hOperandsEq]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  -- Unfold the outer op's interpretation.
+  obtain ⟨v, hOuterSrcVal, hMem, hResVal, hCf⟩ :=
+    matchRiscvUnaryReg_interpretOp_unfold (rop := ext) (f := f) opInBounds hOpType hNumResults
+      hOperands hSem hinterp
+  subst hCf
+  -- The forwarded operand dominates the match point and is not one of `op`'s results.
+  have hDomOuter : (operands[0]!).dominatesIp (InsertPoint.before op) ctx := by
+    grind [WfIRContext.Dom.operand_dominates_op]
+  have hOuterNotOp : ¬ operands[0]! ∈ op.getResults! ctx.raw := by
+    grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+  -- The graph lemma pins the operand's value to `f w`, so the dropped `f` is idempotent on it.
+  obtain ⟨w, hGraphVal⟩ :=
+    riscv_unaryReg_getVar?_of_EquationLemmaAt (rop := ext) (f := f) ctxDom ctxVerif opInBounds
+      stateWf hPure hSem hDef hInnerMatch (by simp [hOperands])
+  obtain rfl : v = f w := by
+    have := hOuterSrcVal.symm.trans hGraphVal; simpa using this
+  -- `sourceValues` is the single dropped result value `.reg (f (f w))`.
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hResVal] at hsourceValues
+  subst sourceValues
+  -- Read the forwarded operand's value in the target state (register refinement is equality).
+  have hOuterTgt :=
+    LocalRewritePattern.exists_refined_reg_getVar? valueRefinement state'Dom (by grind)
+      hOuterSrcVal hDomOuter hDomOuter hOuterNotOp
+  refine ⟨state', by
+    simp [interpretOpList, liftM, monadLift, MonadLift.monadLift, Interp, pure], by grind, ?_⟩
+  refine ⟨#[RuntimeValue.reg (f w)], by simp [hOuterTgt, Option.bind, Option.map], ?_⟩
+  exact RuntimeValue.arrayIsRefinedBy_singleton.mpr (hIdem w)
+
+theorem sexth_sexth_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_redundant_ext_local .sexth)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_redundant_ext_local .sexth)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_redundant_ext_local .sexth)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_redundant_ext_local .sexth)} :
+    LocalRewritePattern.PreservesSemantics (drop_redundant_ext_local .sexth) h h₂ h₃ h₄ :=
+  drop_redundant_ext_local_preservesSemantics
+    (f := Data.RISCV.sexth)
+    (fun hType => OperationPtr.Pure.riscv_sexth hType)
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun x => Veir.Data.RISCV.sexth_sexth (x := x))
+
+theorem sextb_sextb_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_redundant_ext_local .sextb)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_redundant_ext_local .sextb)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_redundant_ext_local .sextb)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_redundant_ext_local .sextb)} :
+    LocalRewritePattern.PreservesSemantics (drop_redundant_ext_local .sextb) h h₂ h₃ h₄ :=
+  drop_redundant_ext_local_preservesSemantics
+    (f := Data.RISCV.sextb)
+    (fun hType => OperationPtr.Pure.riscv_sextb hType)
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun x => Veir.Data.RISCV.sextb_sextb (x := x))
+
+theorem zexth_zexth_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_redundant_ext_local .zexth)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_redundant_ext_local .zexth)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_redundant_ext_local .zexth)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_redundant_ext_local .zexth)} :
+    LocalRewritePattern.PreservesSemantics (drop_redundant_ext_local .zexth) h h₂ h₃ h₄ :=
+  drop_redundant_ext_local_preservesSemantics
+    (f := Data.RISCV.zexth)
+    (fun hType => OperationPtr.Pure.riscv_zexth hType)
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun x => Veir.Data.RISCV.zexth_zexth (x := x))
+
+theorem zextb_zextb_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_redundant_ext_local .zextb)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_redundant_ext_local .zextb)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_redundant_ext_local .zextb)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_redundant_ext_local .zextb)} :
+    LocalRewritePattern.PreservesSemantics (drop_redundant_ext_local .zextb) h h₂ h₃ h₄ :=
+  drop_redundant_ext_local_preservesSemantics
+    (f := Data.RISCV.zextb)
+    (fun hType => OperationPtr.Pure.riscv_zextb hType)
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun x => Veir.Data.RISCV.zextb_zextb (x := x))
+
+theorem sextw_sextw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_redundant_ext_local .sextw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_redundant_ext_local .sextw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_redundant_ext_local .sextw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_redundant_ext_local .sextw)} :
+    LocalRewritePattern.PreservesSemantics (drop_redundant_ext_local .sextw) h h₂ h₃ h₄ :=
+  drop_redundant_ext_local_preservesSemantics
+    (f := Data.RISCV.sextw)
+    (fun hType => OperationPtr.Pure.riscv_sextw hType)
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun x => Veir.Data.RISCV.sextw_sextw (x := x))
+
+theorem zextw_zextw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_redundant_ext_local .zextw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_redundant_ext_local .zextw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_redundant_ext_local .zextw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_redundant_ext_local .zextw)} :
+    LocalRewritePattern.PreservesSemantics (drop_redundant_ext_local .zextw) h h₂ h₃ h₄ :=
+  drop_redundant_ext_local_preservesSemantics
+    (f := Data.RISCV.zextw)
+    (fun hType => OperationPtr.Pure.riscv_zextw hType)
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun x => Veir.Data.RISCV.zextw_zextw (x := x))
 
 end Veir.RISCV
