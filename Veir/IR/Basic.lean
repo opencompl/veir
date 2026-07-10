@@ -1029,6 +1029,17 @@ theorem nextOperand!_eq_nextOperand {op : OperationPtr} (hin : op.InBounds ctx) 
     op.nextOperand! ctx = op.nextOperand ctx hin := by
   grind [nextOperand, nextOperand!]
 
+/- Projections of `nextOperand`, exposed for downstream files where its body is not. -/
+@[simp, grind =]
+theorem nextOperand_op {op : OperationPtr} {hin : op.InBounds ctx} :
+    (op.nextOperand ctx hin).op = op := by
+  grind [nextOperand]
+
+@[simp, grind =]
+theorem nextOperand_index {op : OperationPtr} {hin : op.InBounds ctx} :
+    (op.nextOperand ctx hin).index = op.getNumOperands! ctx := by
+  grind [nextOperand]
+
 @[grind =]
 theorem nextOperand!_eq_getOpOperand {op : OperationPtr} :
     op.nextOperand! ctx = op.getOpOperand (op.getNumOperands! ctx) := by
