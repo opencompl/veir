@@ -2303,7 +2303,7 @@ theorem OperationMPtr.readNthRegion!_operationMPtr_writePrev (op : Veir.Operatio
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, writePrev, layout_grind]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, writePrev, layout_grind]
+  grind (splits := 20) [readOpType!, readNumOperands!, writePrev, layout_grind]
 
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_operationMPtr_writeNext (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64)
@@ -2330,7 +2330,7 @@ theorem OperationMPtr.readNthRegion!_operationMPtr_writeNext (op : Veir.Operatio
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, writeNext, layout_grind]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, writeNext, layout_grind]
+  grind (splits := 20) [readOpType!, readNumOperands!, writeNext, layout_grind]
 
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_operationMPtr_writeParent (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64)
@@ -2357,7 +2357,7 @@ theorem OperationMPtr.readNthRegion!_operationMPtr_writeParent (op : Veir.Operat
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, writeParent, layout_grind]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, writeParent, layout_grind]
+  grind (splits := 20) [readOpType!, readNumOperands!, writeParent, layout_grind]
 
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_operationMPtr_writeNumBlockOperands (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64)
@@ -2385,7 +2385,7 @@ theorem OperationMPtr.readNthRegion!_operationMPtr_writeNumBlockOperands (op : V
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, writeNumBlockOperands, layout_grind]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, writeNumBlockOperands, layout_grind]
+  grind (splits := 20) [readOpType!, readNumOperands!, writeNumBlockOperands, layout_grind]
 
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_operationMPtr_writeNumRegions (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64)
@@ -2412,7 +2412,7 @@ theorem OperationMPtr.readNthRegion!_operationMPtr_writeNumRegions (op : Veir.Op
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, writeNumRegions, layout_grind]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, writeNumRegions, layout_grind]
+  grind (splits := 20) [readOpType!, readNumOperands!, writeNumRegions, layout_grind]
 
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_operationMPtr_writeAttrs (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64)
@@ -2439,7 +2439,7 @@ theorem OperationMPtr.readNthRegion!_operationMPtr_writeAttrs (op : Veir.Operati
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, writeAttrs, layout_grind]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, writeAttrs, layout_grind]
+  grind (splits := 20) [readOpType!, readNumOperands!, writeAttrs, layout_grind]
 
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_operationMPtr_writeOpType (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64) (hne : op ≠ ptr.spec)
@@ -2469,7 +2469,7 @@ theorem OperationMPtr.readNthRegion!_operationMPtr_writeOpType (op : Veir.Operat
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, writeOpType, layout_grind]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, writeOpType, layout_grind]
+  grind (splits := 20) [readOpType!, readNumOperands!, writeOpType, layout_grind]
 
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_operationMPtr_writeNumOperands (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64) (hne : op ≠ ptr.spec)
@@ -2499,7 +2499,7 @@ theorem OperationMPtr.readNthRegion!_operationMPtr_writeNumOperands (op : Veir.O
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, writeNumOperands, layout_grind]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, writeNumOperands, layout_grind]
+  grind (splits := 20) [readOpType!, readNumOperands!, writeNumOperands, layout_grind]
 
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_opOperandMPtr_writeNextUse (op : Veir.OperationPtr) (oper : Sim.OpOperandPtr) (idx : UInt64)
@@ -2992,7 +2992,7 @@ theorem OperationMPtr.readNthRegion!_opResultMPtr_writeType (op : Veir.Operation
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, OpResultMPtr.writeType, layout_grind, OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, OpResultMPtr.writeType, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, OpResultMPtr.writeType, layout_grind,
     OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, IsIncludedI]
 
 @[layout_simp, layout_grind =]
@@ -3026,7 +3026,7 @@ theorem OperationMPtr.readNthRegion!_opResultMPtr_writeFirstUse (op : Veir.Opera
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, OpResultMPtr.writeFirstUse, layout_grind, OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, OpResultMPtr.writeFirstUse, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, OpResultMPtr.writeFirstUse, layout_grind,
     OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, IsIncludedI]
 
 @[layout_simp, layout_grind =]
@@ -3060,7 +3060,7 @@ theorem OperationMPtr.readNthRegion!_opResultMPtr_writeIndex (op : Veir.Operatio
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, OpResultMPtr.writeIndex, layout_grind, OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, OpResultMPtr.writeIndex, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, OpResultMPtr.writeIndex, layout_grind,
     OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, IsIncludedI]
 
 @[layout_simp, layout_grind =]
@@ -3094,7 +3094,7 @@ theorem OperationMPtr.readNthRegion!_opResultMPtr_writeOwner (op : Veir.Operatio
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, OpResultMPtr.writeOwner, layout_grind, OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, OpResultMPtr.writeOwner, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, OpResultMPtr.writeOwner, layout_grind,
     OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, IsIncludedI]
 
 @[layout_simp, layout_grind =]
@@ -3200,7 +3200,7 @@ theorem OperationMPtr.readNthRegion!_valueImplMPtr_writeType (op : Veir.Operatio
       simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
       grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, ValueImplMPtr.writeType, layout_grind, OpResultPtr.range, OpResultPtr.toFlat]
     rw [hoff]
-    grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, ValueImplMPtr.writeType, layout_grind,
+    grind (splits := 20) [readOpType!, readNumOperands!, ValueImplMPtr.writeType, layout_grind,
       OpResultPtr.range, OpResultPtr.toFlat, IsIncludedI, IsDisjoint]
   · have hdisj := ctx.sim.disjoint_allocs (.block arg.block) (.operation op) (by grind) (by grind)
     have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg (by grind)
@@ -3210,7 +3210,7 @@ theorem OperationMPtr.readNthRegion!_valueImplMPtr_writeType (op : Veir.Operatio
       simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
       grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, ValueImplMPtr.writeType, layout_grind, BlockArgumentPtr.range, BlockArgumentPtr.toFlat]
     rw [hoff]
-    grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, ValueImplMPtr.writeType, layout_grind,
+    grind (splits := 20) [readOpType!, readNumOperands!, ValueImplMPtr.writeType, layout_grind,
       BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3245,7 +3245,7 @@ theorem OperationMPtr.readNthRegion!_valueImplMPtr_writeFirstUse (op : Veir.Oper
       simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
       grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, ValueImplMPtr.writeFirstUse, layout_grind, OpResultPtr.range, OpResultPtr.toFlat]
     rw [hoff]
-    grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, ValueImplMPtr.writeFirstUse, layout_grind,
+    grind (splits := 20) [readOpType!, readNumOperands!, ValueImplMPtr.writeFirstUse, layout_grind,
       OpResultPtr.range, OpResultPtr.toFlat, IsIncludedI, IsDisjoint]
   · have hdisj := ctx.sim.disjoint_allocs (.block arg.block) (.operation op) (by grind) (by grind)
     have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg (by grind)
@@ -3255,7 +3255,7 @@ theorem OperationMPtr.readNthRegion!_valueImplMPtr_writeFirstUse (op : Veir.Oper
       simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
       grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, ValueImplMPtr.writeFirstUse, layout_grind, BlockArgumentPtr.range, BlockArgumentPtr.toFlat]
     rw [hoff]
-    grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, ValueImplMPtr.writeFirstUse, layout_grind,
+    grind (splits := 20) [readOpType!, readNumOperands!, ValueImplMPtr.writeFirstUse, layout_grind,
       BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3390,7 +3390,7 @@ theorem OperationMPtr.readNthRegion!_blockMPtr_writeFirstUse (op : Veir.Operatio
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockMPtr.writeFirstUse, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockMPtr.writeFirstUse, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockMPtr.writeFirstUse, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3420,7 +3420,7 @@ theorem OperationMPtr.readNthRegion!_blockMPtr_writePrev (op : Veir.OperationPtr
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockMPtr.writePrev, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockMPtr.writePrev, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockMPtr.writePrev, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3450,7 +3450,7 @@ theorem OperationMPtr.readNthRegion!_blockMPtr_writeNext (op : Veir.OperationPtr
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockMPtr.writeNext, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockMPtr.writeNext, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockMPtr.writeNext, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3480,7 +3480,7 @@ theorem OperationMPtr.readNthRegion!_blockMPtr_writeParent (op : Veir.OperationP
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockMPtr.writeParent, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockMPtr.writeParent, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockMPtr.writeParent, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3510,7 +3510,7 @@ theorem OperationMPtr.readNthRegion!_blockMPtr_writeFirstOp (op : Veir.Operation
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockMPtr.writeFirstOp, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockMPtr.writeFirstOp, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockMPtr.writeFirstOp, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3540,7 +3540,7 @@ theorem OperationMPtr.readNthRegion!_blockMPtr_writeLastOp (op : Veir.OperationP
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockMPtr.writeLastOp, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockMPtr.writeLastOp, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockMPtr.writeLastOp, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3570,7 +3570,7 @@ theorem OperationMPtr.readNthRegion!_blockMPtr_writeNumArguments (op : Veir.Oper
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockMPtr.writeNumArguments, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockMPtr.writeNumArguments, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockMPtr.writeNumArguments, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockPtr.range, BlockPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3598,7 +3598,7 @@ theorem OperationMPtr.readNthRegion!_regionMPtr_writeFirstBlock (op : Veir.Opera
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, RegionMPtr.writeFirstBlock, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, RegionPtr.range, RegionPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, RegionMPtr.writeFirstBlock, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, RegionMPtr.writeFirstBlock, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, RegionPtr.range, RegionPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3626,7 +3626,7 @@ theorem OperationMPtr.readNthRegion!_regionMPtr_writeLastBlock (op : Veir.Operat
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, RegionMPtr.writeLastBlock, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, RegionPtr.range, RegionPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, RegionMPtr.writeLastBlock, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, RegionMPtr.writeLastBlock, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, RegionPtr.range, RegionPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3654,7 +3654,7 @@ theorem OperationMPtr.readNthRegion!_regionMPtr_writeParent (op : Veir.Operation
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, RegionMPtr.writeParent, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, RegionPtr.range, RegionPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, RegionMPtr.writeParent, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, RegionMPtr.writeParent, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, RegionPtr.range, RegionPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3684,7 +3684,7 @@ theorem OperationMPtr.readNthRegion!_blockArgumentMPtr_writeType (op : Veir.Oper
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockArgumentMPtr.writeType, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockArgumentMPtr.writeType, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockArgumentMPtr.writeType, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3714,7 +3714,7 @@ theorem OperationMPtr.readNthRegion!_blockArgumentMPtr_writeFirstUse (op : Veir.
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockArgumentMPtr.writeFirstUse, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockArgumentMPtr.writeFirstUse, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockArgumentMPtr.writeFirstUse, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3744,7 +3744,7 @@ theorem OperationMPtr.readNthRegion!_blockArgumentMPtr_writeIndex (op : Veir.Ope
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockArgumentMPtr.writeIndex, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockArgumentMPtr.writeIndex, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockArgumentMPtr.writeIndex, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI, IsDisjoint]
 
 @[layout_simp, layout_grind =]
@@ -3774,7 +3774,7 @@ theorem OperationMPtr.readNthRegion!_blockArgumentMPtr_writeOwner (op : Veir.Ope
     simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
     grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, BlockArgumentMPtr.writeOwner, layout_grind, OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat]
   rw [hoff]
-  grind (splits := 20) [ExArray.read64!_blit64_disjoint, readOpType!, readNumOperands!, BlockArgumentMPtr.writeOwner, layout_grind,
+  grind (splits := 20) [readOpType!, readNumOperands!, BlockArgumentMPtr.writeOwner, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI, IsDisjoint]
 
 
