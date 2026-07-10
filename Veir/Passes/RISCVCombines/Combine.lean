@@ -818,43 +818,43 @@ def select_neg1_0 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (matchSelectExtLocal (-1) .sext ()) rewriter op opInBounds
 
+/-- The shared shape of the two `select {c, 0, 1}`/`{c, 0, -1}` combines: match `select c 0 C1`
+    where the false arm `C1` is `fvVal` (`1` for `zext`, `-1` for `sext`), and emit the extension
+    `dst` of `~c` (`xor c (-1)`, i.e. `not c`). It creates a `constant -1` (`i1`), an `xor c (-1)`
+    (`i1`), and the extension to the result width.
+
+    The `.integerType`/bitwidth guard on the *result* type keeps the rewrite to `i32`/`i64`. Its
+    shared correctness proof is `matchSelectNotExtLocal_preservesSemantics`. -/
+def matchSelectNotExtLocal (fvVal : Int) (dst : Llvm) (dprops : propertiesOf (.llvm dst))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
+  let .integerType rt := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if rt.bitwidth ≠ 64 ∧ rt.bitwidth ≠ 32 then return (ctx, none)
+  let some ct := matchConstantIntVal tv ctx | return (ctx, none)
+  if ct.value ≠ 0 then return (ctx, none)
+  let some cf := matchConstantIntVal fv ctx | return (ctx, none)
+  if cf.value ≠ fvVal then return (ctx, none)
+  let .integerType cty := (cond.getType! ctx.raw).val | return (ctx, none)
+  let (ctx, c1) ← WfRewriter.createOp! ctx (.llvm .mlir__constant)
+    #[cond.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) cty))) none
+  let (ctx, ncond) ← WfRewriter.createOp! ctx (.llvm .xor)
+    #[cond.getType! ctx.raw] #[cond, c1.getResult 0] #[] #[] () none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm dst)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[ncond.getResult 0] #[] #[] dprops none
+  some (ctx, some (#[c1, ncond, newOp], #[newOp.getResult 0]))
+
 -- select c, 0, 1 → zext (not c)
-set_option warn.sorry false in
 def select_0_1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some ct := matchConstantIntVal tv rewriter.ctx | return rewriter
-  if ct.value ≠ 0 then return rewriter
-  let some cf := matchConstantIntVal fv rewriter.ctx | return rewriter
-  if cf.value ≠ 1 then return rewriter
-  let .integerType cty := (cond.getType! rewriter.ctx.raw).val | return rewriter
-  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) cty))
-  let (rewriter, c1) ← rewriter.createOp (.llvm .mlir__constant) #[cond.getType! rewriter.ctx.raw] #[]
-    #[] #[] m1 (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, ncond) ← rewriter.createOp (.llvm .xor) #[cond.getType! rewriter.ctx.raw] #[cond, (c1.getResult 0)]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(ncond.getResult 0)]
-    #[] #[] { nneg := false } (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (matchSelectNotExtLocal 1 .zext { nneg := false })
+    rewriter op opInBounds
 
 -- select c, 0, -1 → sext (not c)
-set_option warn.sorry false in
 def select_0_neg1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some ct := matchConstantIntVal tv rewriter.ctx | return rewriter
-  if ct.value ≠ 0 then return rewriter
-  let some cf := matchConstantIntVal fv rewriter.ctx | return rewriter
-  if cf.value ≠ -1 then return rewriter
-  let .integerType cty := (cond.getType! rewriter.ctx.raw).val | return rewriter
-  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) cty))
-  let (rewriter, c1) ← rewriter.createOp (.llvm .mlir__constant) #[cond.getType! rewriter.ctx.raw] #[]
-    #[] #[] m1 (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, ncond) ← rewriter.createOp (.llvm .xor) #[cond.getType! rewriter.ctx.raw] #[cond, (c1.getResult 0)]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(ncond.getResult 0)]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (matchSelectNotExtLocal (-1) .sext ()) rewriter op opInBounds
 
 /-! ### not_cmp_fold :  (icmp pred X Y) ^ -1 → (icmp invPred X Y) -/
 

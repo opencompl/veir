@@ -371,15 +371,16 @@ theorem select_neg1_0 {w : Nat} (hw : w = 64 ∨ w = 32) {c : Int 1} (hlt : 1 < 
     select c (constant w (-1)) (constant w 0) ⊒ sext c w hlt := by
   rcases hw with rfl | rfl <;> veir_bv_decide
 
-/-- `select c, 0, 1 → zext (not c)`. -/
-theorem select_0_1 {c : Int 1} :
-    select c (constant 64 0) (constant 64 1) ⊒ zext (xor c (constant 1 (-1))) 64 false h1_64 := by
-  veir_bv_decide
+/-- `select c, 0, 1 → zext (not c)`. Stated at both widths the guarded pattern admits, since the
+    graph-level proof needs `i32` too. -/
+theorem select_0_1 {w : Nat} (hw : w = 64 ∨ w = 32) {c : Int 1} (hlt : 1 < w) :
+    select c (constant w 0) (constant w 1) ⊒ zext (xor c (constant 1 (-1))) w false hlt := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `select c, 0, -1 → sext (not c)`. -/
-theorem select_0_neg1 {c : Int 1} :
-    select c (constant 64 0) (constant 64 (-1)) ⊒ sext (xor c (constant 1 (-1))) 64 h1_64 := by
-  veir_bv_decide
+theorem select_0_neg1 {w : Nat} (hw : w = 64 ∨ w = 32) {c : Int 1} (hlt : 1 < w) :
+    select c (constant w 0) (constant w (-1)) ⊒ sext (xor c (constant 1 (-1))) w hlt := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### not_cmp_fold
 
