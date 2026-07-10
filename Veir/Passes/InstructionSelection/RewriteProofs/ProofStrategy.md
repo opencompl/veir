@@ -395,6 +395,14 @@ These exist for the unops and binops proven or planned so far. Ops with a differ
 shape (e.g. `icmp`, `select`, `load`/`store`) need their own `IsVerified*` bundle, built the
 same way.
 
+When an opcode's verifier accepts *more* than the integer shape, state the bundle
+**conditionally** rather than as a disjunction. `llvm.trunc` (`verifyTruncTypes … allowByte := true`)
+also admits a `byte`-typed operand/result pair, so `IsVerifiedTruncop` reads "…*and if the result is
+an `integerType resultType`*, then the operand is an `integerType operandType` strictly wider than it".
+A caller who already knows the result is an integer (e.g. from the surrounding op's own verifier)
+recovers exactly the `IsVerifiedIntegerExtop` facts, and the byte arm never has to be mentioned —
+much cheaper than carrying a disjunction through every downstream proof.
+
 ### Layer 2 — Matcher facts (per LLVM opcode, mostly exist already)
 
 `matchFoo_implies` in `Veir/Passes/Matching/Lemmas.lean`: what a successful `matchFoo` says
@@ -624,6 +632,17 @@ per lowering as above.
   (`grind` won't chain `createOp_new_inBounds` + `inBounds_mono` + `getResult_inBounds` on its own).
   Also seed the `getOpType!` transport per creation when two emitted ops share an opcode (the two
   `sextw`s), or `grind` conflates them.
+- **`grind` can emit kernel-rejected `noConfusion` terms**: when `grind` closes a vacuous branch by
+  distinguishing two `Attribute` constructors (e.g. `integerType _ = byteType _`), it may produce a
+  `noConfusion_of_Nat Attribute.ctorIdx` proof that *elaborates* but that the **kernel rejects** with
+  "(kernel) application type mismatch". The failure surfaces only after the tactic block appears to
+  succeed. Close such branches with `exfalso; simp_all` instead. Beware that
+  `first | (exfalso; simp_all) | grind` does **not** back off to `grind` on the good branch —
+  `simp_all` "succeeds" while leaving a goal — so write `first | (exfalso; simp_all; done) | grind`.
+- **`by grind` cannot invent a `TypeAttr` membership proof**: `⟨.integerType t, by grind⟩` only works
+  when a *`TypeAttr`-level* equation is in context. Given just a `.val` equation, build the subtype
+  element by transport (`hVal ▸ (v.getType! ctx).2`) and the array equation with
+  `congrArg (fun t => #[t]) (Subtype.ext hVal)`.
 - **`maxHeartbeats`**: the combinator theorem needs `set_option maxHeartbeats 1000000` (many
   `grind` calls over a large context).
 - **Expected axioms**: `#print axioms` will list the dominance axioms

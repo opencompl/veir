@@ -800,6 +800,26 @@ theorem sext_mono {w₁ w₂ : Nat} (x₁ x₂ : Int w₁) (h : w₁ < w₂)
     sext x₁ w₂ h ⊒ sext x₂ w₂ h := by
   grind
 
+theorem umax_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+    (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
+    umax x₁ x₂ ⊒ umax y₁ y₂ := by
+  grind
+
+theorem umin_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+    (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
+    umin x₁ x₂ ⊒ umin y₁ y₂ := by
+  grind
+
+theorem smax_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+    (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
+    smax x₁ x₂ ⊒ smax y₁ y₂ := by
+  grind
+
+theorem smin_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w)
+    (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
+    smin x₁ x₂ ⊒ smin y₁ y₂ := by
+  grind
+
 theorem icmp_mono {w : Nat} (x₁ x₂ y₁ y₂ : Int w) (p : IntPred)
     (h₁ : x₁ ⊒ y₁) (h₂ : x₂ ⊒ y₂) :
     icmp x₁ x₂ p ⊒ icmp y₁ y₂ p := by
@@ -821,3 +841,26 @@ theorem getValue_freeze {w : Nat} (x : Int w) :
     (freeze x).getValue = if h : x.isPoison then 0#w else x.getValue := by
   simp [freeze, Id.run]
   grind
+
+/-- `BitVec.ofInt` distributes over integer addition. Registered with `veir_bv_normalize` so that
+    a folded constant `constant w (c₁ + c₂)` bitblasts to `ofInt w c₁ + ofInt w c₂`, letting
+    `veir_bv_decide` relate a materialized fold to the two source constants. Needed by the
+    constant-reassociation combines (`AMinusC1MinusC2` etc.). -/
+@[veir_bv_normalize, grind =]
+theorem ofInt_add_norm (w : Nat) (a b : _root_.Int) :
+    BitVec.ofInt w (a + b) = BitVec.ofInt w a + BitVec.ofInt w b :=
+  BitVec.ofInt_add a b
+
+/-- `BitVec.ofInt` distributes over integer subtraction. See `ofInt_add_norm`; needed by the
+    constant-reassociation combines whose fold is a difference (`APlusC1MinusC2` etc.). -/
+@[veir_bv_normalize, grind =]
+theorem ofInt_sub_norm (w : Nat) (a b : _root_.Int) :
+    BitVec.ofInt w (a - b) = BitVec.ofInt w a - BitVec.ofInt w b := by
+  rw [Int.sub_eq_add_neg, BitVec.ofInt_add, BitVec.ofInt_neg, ← BitVec.sub_eq_add_neg]
+
+/-- `BitVec.ofInt` distributes over integer negation. See `ofInt_add_norm`; needed by
+    `sub_of_mul_const`, whose materialized constant is a negation `constant w (-c)`. -/
+@[veir_bv_normalize, grind =]
+theorem ofInt_neg_norm (w : Nat) (a : _root_.Int) :
+    BitVec.ofInt w (-a) = -(BitVec.ofInt w a) :=
+  BitVec.ofInt_neg

@@ -1599,6 +1599,69 @@ theorem OperationPtr.Verified.llvm_intr__fshr {op : OperationPtr} {opInBounds}
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
 /--
+  Structural facts guaranteed by the verifier for `llvm.trunc`: one result, one operand, no
+  successors or regions, and — *whenever the result is an integer type* — the operand is an
+  integer type too, strictly wider than the result.
+
+  The width-shrinking cousin of `IsVerifiedIntegerExtop`. Unlike the extension ops,
+  `verifyTruncTypes` also admits a `byte`-typed operand/result pair, so the type facts are
+  stated conditionally on the result being an integer rather than unconditionally: a caller who
+  already knows the result type is an integer (e.g. from the surrounding op's own verifier)
+  recovers exactly the extension-op facts, and the byte case never has to be mentioned.
+-/
+def OperationPtr.IsVerifiedTruncop (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 1 ∧
+  op.getNumSuccessors! ctx.raw = 0 ∧
+  op.getNumRegions! ctx.raw = 0 ∧
+  ∀ resultType : IntegerType,
+    ((op.getResult 0).get! ctx.raw).type.val = .integerType resultType →
+    ∃ operandType : IntegerType,
+      ((op.getOperand! ctx.raw 0).getType! ctx.raw).val = .integerType operandType ∧
+      resultType.bitwidth < operandType.bitwidth
+
+/--
+  Structural facts extracted from a successful `verifyTruncTypes` check (in the `allowByte := true`
+  configuration used by `llvm.trunc`).
+-/
+private theorem OperationPtr.verifyTruncTypes_eq_ok {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {opInBounds : op.InBounds ctx.raw}
+    (h : op.verifyTruncTypes ctx opInBounds true = .ok ()) :
+    op.IsVerifiedTruncop ctx := by
+  simp only [IsVerifiedTruncop, verifyTruncTypes, verifyPlainOpCounts, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  refine ⟨by grind, by grind, by grind, by grind, ?_⟩
+  intro resultType hRes
+  rw [hRes] at h
+  -- Peel the `verifyPlainOpCounts` bind, then the type `match`. `grind` proves the `byte` arm
+  -- vacuous via an `Attribute.noConfusion` term the kernel rejects, so close that arm (and the
+  -- catch-all) with `simp_all` first, leaving `grind` only the genuine `integerType` arm.
+  split at h
+  · exact absurd h (by simp)
+  · split at h <;> first | (exfalso; simp_all; done) | grind
+
+/--
+  Reduce a verified `llvm.trunc` to a successful `verifyTruncTypes` check. `armReduces` says the
+  operation's local-invariant check is exactly the `verifyTruncTypes` arm.
+-/
+private theorem OperationPtr.verifyTruncTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyTruncTypes ctx opInBounds true >>= fun _ => pure ())) :
+    op.verifyTruncTypes ctx opInBounds true = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  cases hb : op.verifyTruncTypes ctx opInBounds true with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/-- Structural facts from the verifier for a verified `llvm.trunc`. -/
+theorem OperationPtr.Verified.llvm_trunc {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .trunc) :
+    op.IsVerifiedTruncop ctx :=
+  op.verifyTruncTypes_eq_ok <| op.verifyTruncTypes_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+/--
   Structural facts guaranteed by the verifier for an integer extension operation
   (`llvm.sext`/`llvm.zext`): one result, one operand, no successors or regions, and both the
   operand and the result have integer types, with the operand's strictly narrower than the
