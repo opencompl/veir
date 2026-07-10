@@ -11,6 +11,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerByteBinaryW
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerConst
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerExt
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerFshlConst
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerFshGeneral
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerIcmp
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerFshrConst
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerLoad

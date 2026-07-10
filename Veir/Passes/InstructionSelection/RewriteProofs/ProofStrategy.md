@@ -134,6 +134,28 @@ structural proof is done **once per combinator**. Currently:
   `createOp_new_not_inBounds`), `clear` the in-bounds hypotheses (they break `grind` by
   non-monotonicity), and pass the in-bounds witnesses explicitly to the forward lemmas — after which
   bare `grind` closes each structural fact by e-matching without touching `hpattern`.
+- `fshlGeneral_local` / `fshrGeneral_local` (`RISCV64.lean`) — the *general* (distinct-operand)
+  funnel shifts on `i64`/`i32`, mirroring LLVM's `expandFunnelShift`:
+  `fshl x y z = (x << z) | ((y >> 1) >> ~z)` and `fshr x y z = ((x << 1) << ~z) | (y >> z)`.
+  Nine-op chains: three `castToRegLocal`s (all three operands) → `xori _, -1` (the inverse shift
+  amount; the hardware masks it modulo the width) → an immediate pre-shift (`srli`/`srliw 1` on `y`
+  for `fshl`, `slli`/`slliw 1` on `x` for `fshr`) → two variable shifts (`W`-suffixed on `i32`) →
+  `riscv.or` → `replaceWithRegLocal`. Proven standalone (`RewriteProofs/LowerFshGeneral.lean`),
+  reusing `matchTernaryOp_interpretOp_unfold` from `LowerRotate` (no `a = b` collapse — all three
+  operands stay distinct). As the deepest *linear* chains proven (nine creations), they do **not**
+  use the per-fact `grind`-seeding of `LowerSelect` (seven creations, near the E-matching limit):
+  instead every creation is peeled with the plain `peelOpCreation` + `createOp!_none_some` (no
+  per-step dominance side goals), the `LowerIcmp` `CtxExtends` bundles are composed once
+  (`E₁…E₉`, suffix compositions `Fᵢ : ctxᵢ → ctx₉`), and each op's structural facts transport by a
+  single `rw [Fᵢ.opType/operands/resultTypes/properties …]; grind` — operand dominance transports
+  once at the end via `Ectx.dominates` rather than once per creation. Frame-clause freshness is
+  discharged uniformly by `not_mem_getResults!_of_inBounds_of_not_inBounds` at the interfering
+  op's creation base, with the value's in-bounds witness lifted by `Eᵢ.valueInBounds` and the
+  first-result witness by the new `opResult_getResult_inBounds_of_createOp` (the inline `grind`
+  equivalent dies in the large context). The four data lemmas restate
+  `fshlGeneral_refinement`/… (`InstructionSelection/Proofs.lean`) with *refined* operands and in
+  the interpreter's exact operand order (`RISCV.op op2 op1`, so the final `or` takes `shy` first);
+  all four close by `revert h₁ h₂ h₃; veir_bv_decide`.
 - `icmpCastExtLocal` + the five `icmpEmit*Local` arms (`RISCV64.lean`) — `llvm.icmp` on
   `i64`/`i32`/`i8`. Every arm shares a prologue (cast both operands into registers, plus a
   `riscv.sextw`/`sextb` on each for the narrow widths) and an epilogue (cast the `i1` result back);
@@ -621,6 +643,7 @@ per lowering as above.
 | `RewriteProofs/LowerRotate.lean` | `matchTernaryOp_interpretOp_unfold` (ternary source unfold) + `lowerRotateLocal_preservesSemantics` (rotate; ternary source with `a = b`, result-type guard, `W`-variant bitwidth branch) + `_64`/`_32` data lemmas + instantiations (`fshl`, `fshr`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerRoriw.lean` | `roriwLike_preservesSemantics` (constant word-rotate combinator: `fshl`/`fshr a a (const)` on `i32` → `riscv.roriw` with the normalized/negated 5-bit amount; ternary source with `a = b`, immediate-emit single-cast tail, constant amount pinned via the graph lemma) + instantiations (`roriw`/`roliw`), the `ofInt_5_rotr_mod`/`ofInt_5_rotl_mod` mod-32 immediate bridges + `roriw`/`roliw_isRefinedBy` data lemmas + `#guard_msgs` axiom pins | — (one-off pair) |
 | `RewriteProofs/LowerFshConst.lean` | `fshConstLike_preservesSemantics` (GlobalISel constant word-rotate combinator: `fshl`/`fshr a a (const)` on `i64`/`i32` → `riscv.rori`/`roriw` with the normalized/negated 5-/6-bit amount; ternary `a = b`, constant amount pinned via the graph lemma, immediate-emit single-cast head with a bitwidth branch over the emitted rotate op) + instantiations (`fshrConst`/`fshlConst`), `ofInt_{5,6}_rot{r,l}` mod bridges + `fsh{r,l}_{roriw_32,rori_64}` data lemmas + `#guard_msgs` axiom pins | — (one-off pair) |
+| `RewriteProofs/LowerFshGeneral.lean` | `fshlGeneral_local_preservesSemantics` / `fshrGeneral_local_preservesSemantics` (general distinct-operand funnel shifts, `expandFunnelShift` shape; nine-op chains with a `W`-variant bitwidth branch, transported via the `LowerIcmp` `CtxExtends` bundles) + `opResult_getResult_inBounds_of_createOp` + four `fsh{l,r}General_isRefinedBy_toInt_{64,32}` data lemmas + `#guard_msgs` axiom pins | — (one-off pair; template for long linear chains) |
 | `RewriteProofs/LowerBinopNot.lean` | `lowerBinopNotLocal_preservesSemantics` (the DAG-matching template proof), per-lowering Layer-0 lemmas + instantiations (`andn`/`orn`/`xnor`), `#guard_msgs` axiom pins | two data lemmas + one instantiation (binop-with-not) |
 | `RewriteProofs/LowerBitreverse.lean` | `bitreverse_local_preservesSemantics` (standalone `i64`/`i32` bitreverse; 21/22-op chain factored through the reusable stage lemmas `bitreverseStageLocal_extends`/`_inBounds`/`_run`), `bitreverseStageReg` + the two SWAR data lemmas (concrete-width `BitVec.reverse` unfolding), `#guard_msgs` axiom pin | — (one-off; template for factoring any repeated emitted segment) |
 | `RewriteProofs/LowerSlliuw.lean` | `slliuw_local_preservesSemantics` (`shl (zext i32→i64 x) const` → `riscv.slliuw x const`; a two-level DAG match, outer `shl` via `matchShiftOp`, inner `zext` via a graph lemma) + `zext_getVar?_of_EquationLemmaAt` (the `zext`-defining-op graph lemma, unary/width-crossing, via `matchExtOp_interpretOp_unfold`) + `Pure.llvm_zext` + `slliuw_isRefinedBy` data lemma + `#guard_msgs` axiom pin | — (one-off) |
