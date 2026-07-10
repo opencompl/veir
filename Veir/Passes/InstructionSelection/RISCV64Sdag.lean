@@ -92,14 +92,6 @@ def xnor (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     set bit in each byte is bit `Y`. -/
 def orcbMaskBV (y : Nat) : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
 
-/-- Right-operand matcher for `orcb_local`: the `sub`'s right operand `b` must be `M` itself
-    (when `Y = 0`) or `lshr M Y`. Returns the `lshr`'s properties (`{ exact := false }` in the
-    `Y = 0` case, where there is no `lshr`).
-
-    This is deliberately an `Option`-returning matcher rather than the inline `Bool`-valued
-    `match` it replaces: a `Bool` condition ends up inside the `ite`'s `Decidable` instance, where
-    neither `rw`, `simp only`, `split`, nor `cases` can peel it out of a `PreservesSemantics`
-    proof's `hpattern`. Every other guard in this pattern is `Option`-shaped for the same reason. -/
 def matchOrcbRight (b m : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
     Option (propertiesOf (.llvm .lshr)) :=
   if y = 0 then
@@ -115,9 +107,6 @@ def matchOrcbRight (b m : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
         | none => none
         | some yc => if yc.value = (y : Int) ∧ m' = m then some lshrProps else none
 
-/-- Soundness-gate matcher for `orcb_local`: one of the `and`'s two operands must be the constant
-    mask `orcbMaskBV y`. Returns the *other* operand (the `Z` of `M = and Z mask`) together with
-    the mask's attribute. `Option`-shaped for the same reason as `matchOrcbRight`. -/
 def matchOrcbMask (mo0 mo1 : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
     Option (ValuePtr × IntegerAttr) :=
   match matchConstantIntVal mo1 ctx with
