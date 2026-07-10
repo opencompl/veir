@@ -15,6 +15,15 @@ section range
 variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {bctx : IRBufContext OpInfo}
 
 @[simp, grind =]
+theorem ValueImplMPtr.writeKind_range :
+    (ValueImplMPtr.writeKind bctx ptr val h).mem.range = bctx.mem.range := by
+  simp [writeKind]
+@[simp, grind =]
+theorem ValueImplMPtr.writeKind_size :
+    (ValueImplMPtr.writeKind bctx ptr val h).mem.size = bctx.mem.size := by
+  simp [writeKind]
+
+@[simp, grind =]
 theorem ValueImplMPtr.writeType_range :
     (ValueImplMPtr.writeType bctx ptr val h).mem.range = bctx.mem.range := by
   simp [writeType]

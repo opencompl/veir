@@ -643,7 +643,7 @@ def Sim.OptionGenericPtr.Sim (ptr : Sim.OptionGenericPtr) (ctx : Sim.RawIRContex
 /-! ## Refinement predicate. -/
 
 structure OpResultPtr.Matches (ctx : Sim.RawIRContext OpInfo) (res : OpResultPtr) (ib : res.InBounds ctx.spec) where
-  kind : ValueImplMPtr.readType! ctx.buf ((ValuePtr.opResult res).toM ctx.spec) = Buffed.ValueImpl.kindResult
+  kind : (res.toM ctx.spec).readKind! ctx.buf = Buffed.ValueImpl.kindResult
   typee : ctx.buf.attributes[(res.toM ctx.spec).readType! ctx.buf |>.toNat]? = some (res.get! ctx.spec).type
   firstUse : Sim.OptionOpOperandPtr.Sim ⟨(res.toM ctx.spec).readFirstUse! ctx.buf, (res.get! ctx.spec).firstUse⟩ ctx
   index : (res.get! ctx.spec).index = ((res.toM ctx.spec).readIndex! ctx.buf).toNat
@@ -656,7 +656,7 @@ structure BlockOperandPtr.Matches (ctx : Sim.RawIRContext OpInfo) (oper : BlockO
   value : Sim.BlockPtr.Sim ⟨BlockOperandMPtr.readValue! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).value⟩
 
 structure BlockArgumentPtr.Matches (ctx : Sim.RawIRContext OpInfo) (arg : BlockArgumentPtr) (ib : arg.InBounds ctx.spec) where
-  kind : ValueImplMPtr.readType! ctx.buf ((ValuePtr.blockArgument arg).toM ctx.spec) = Buffed.ValueImpl.kindArgument
+  kind : arg.toM.readKind! ctx.buf = Buffed.ValueImpl.kindResult
   type : ctx.buf.attributes[arg.toM.readType! ctx.buf |>.toNat]? = some (arg.get! ctx.spec).type
   firstUse : Sim.OptionOpOperandPtr.Sim ⟨arg.toM.readFirstUse! ctx.buf, (arg.get! ctx.spec).firstUse⟩ ctx
   index : (arg.get! ctx.spec).index = (arg.toM.readIndex! ctx.buf).toNat
@@ -1074,8 +1074,8 @@ theorem BlockPtr.computeArgumentOffset_ideal (ctx : Sim.IRContext OpInfo) (bl : 
   have hcap := ctx.isRepr.blocks_indices bl.spec (by grind) |>.arguments
   have hidx' : idx.toNat < 4294967296 := by simp only [countCard, UInt32.size] at hcap; omega
   have hmul : (BlockArgument.size * idx).toNat = BlockArgument.sizeNat * idx.toNat := by
-    rw [UInt64.toNat_mul, show BlockArgument.size.toNat = 32 from rfl,
-      show BlockArgument.sizeNat = 32 from rfl, Nat.mod_eq_of_lt (by omega)]
+    rw [UInt64.toNat_mul, show BlockArgument.size.toNat = 40 from rfl,
+      show BlockArgument.sizeNat = 40 from rfl, Nat.mod_eq_of_lt (by omega)]
   rw [BlockPtr.computeArgumentOffset_eq]
   unfold Block.Offsets.arguments Block.Offsets.argumentsInt
   rw [Int64.add_toInt_lt'] <;> grind

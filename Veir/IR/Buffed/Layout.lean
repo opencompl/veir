@@ -22,13 +22,15 @@ namespace ValueImpl
 abbrev kindResult : UInt64 := 0
 abbrev kindArgument : UInt64 := 1
 namespace Sizes
+abbrev kind : UInt64 := countSize
+abbrev kindNat := countSizeNat
 abbrev type : UInt64 := ptrSize
 abbrev typeNat := ptrSizeNat
 abbrev firstUse : UInt64 := ptrSize
 abbrev firstUseNat := ptrSizeNat
 end Sizes
-abbrev size : UInt64 := ValueImpl.Sizes.type + ValueImpl.Sizes.firstUse
-abbrev sizeNat := ValueImpl.Sizes.typeNat + ValueImpl.Sizes.firstUseNat
+abbrev size : UInt64 := ValueImpl.Sizes.kind + ValueImpl.Sizes.type + ValueImpl.Sizes.firstUse
+abbrev sizeNat := ValueImpl.Sizes.kindNat + ValueImpl.Sizes.typeNat + ValueImpl.Sizes.firstUseNat
 end ValueImpl
 
 namespace OpResult
@@ -194,8 +196,10 @@ end Region
 
 namespace ValueImpl
 namespace Offsets
-abbrev type : Int64 := 0
-abbrev typeInt : Int := 0
+abbrev kind : Int64 := 0
+abbrev kindInt : Int := 0
+abbrev type : Int64 := (0 : Int64) + Sizes.kind
+abbrev typeInt : Int := (0 : Int) + Sizes.kindNat
 abbrev firstUse : Int64 := type + Sizes.type
 abbrev firstUseInt : Int := typeInt + Sizes.typeNat
 abbrev after : Int64 := firstUse + Sizes.firstUse

@@ -611,7 +611,7 @@ protected def Rewriter.setBlockArgument (blockPtr : Buffed.BlockMPtr) (ctx₀ : 
   let arg := blockPtr.getArgumentPtr idx
   rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
   have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
-  let ctx := Buffed.ValueImplMPtr.writeType ctx arg Buffed.ValueImpl.kindArgument (by prove_setSlotBounds ctx₀)
+  let ctx := Buffed.ValueImplMPtr.writeKind ctx arg Buffed.ValueImpl.kindArgument (by prove_setSlotBounds ctx₀)
   let ctx := arg.writeType ctx typeIdx (by prove_setSlotBounds ctx₀)
   let ctx := arg.writeFirstUse ctx .none (by prove_setSlotBounds ctx₀)
   let ctx := arg.writeIndex ctx idx (by prove_setSlotBounds ctx₀)
@@ -690,7 +690,7 @@ protected def Rewriter.setResult (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed
   let res := opPtr.getResultPtr ctx₀ idx hnum
   rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
   have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
-  let ctx := Buffed.ValueImplMPtr.writeType ctx res Buffed.ValueImpl.kindResult (by prove_setSlotBounds ctx₀)
+  let ctx := Buffed.ValueImplMPtr.writeKind ctx res Buffed.ValueImpl.kindResult (by prove_setSlotBounds ctx₀)
   let ctx := res.writeType ctx typeIdx (by prove_setSlotBounds ctx₀)
   let ctx := res.writeFirstUse ctx .none (by prove_setSlotBounds ctx₀)
   let ctx := res.writeIndex ctx idx (by prove_setSlotBounds ctx₀)

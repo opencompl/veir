@@ -1818,6 +1818,458 @@ theorem OpResultMPtr.readOwner!_opOperandPtrMPtr_write (res : Veir.OpResultPtr) 
         BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
         ValuePtr.toFlat, IsIncludedI, IsDisjointI]
 
+
+/-! # readKind! interaction lemmas (ValueImpl kind field, offset 0) -/
+
+/-! ## OpResultMPtr.readKind! after OpResultMPtr.writeType -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_opResultMPtr_writeType (res : Veir.OpResultPtr) (ptr : Sim.OpResultPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (ptrIb : ptr.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OpResultMPtr.writeType ctx.buf ptr.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_or readKind!, OpResultMPtr.writeType, res, ptr
+
+/-! ## OpResultMPtr.readKind! after OpResultMPtr.writeFirstUse -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_opResultMPtr_writeFirstUse (res : Veir.OpResultPtr) (ptr : Sim.OpResultPtr)
+    (val : Sim.OptionOpOperandPtr) h (resIb : res.InBounds ctx.spec) (ptrIb : ptr.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OpResultMPtr.writeFirstUse ctx.buf ptr.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_or readKind!, OpResultMPtr.writeFirstUse, res, ptr
+
+/-! ## OpResultMPtr.readKind! after OpResultMPtr.writeIndex -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_opResultMPtr_writeIndex (res : Veir.OpResultPtr) (ptr : Sim.OpResultPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (ptrIb : ptr.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OpResultMPtr.writeIndex ctx.buf ptr.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_or readKind!, OpResultMPtr.writeIndex, res, ptr
+
+/-! ## OpResultMPtr.readKind! after OpResultMPtr.writeOwner -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_opResultMPtr_writeOwner (res : Veir.OpResultPtr) (ptr : Sim.OpResultPtr)
+    (val : Sim.OperationPtr) h (resIb : res.InBounds ctx.spec) (ptrIb : ptr.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OpResultMPtr.writeOwner ctx.buf ptr.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_or readKind!, OpResultMPtr.writeOwner, res, ptr
+
+/-! ## OpResultMPtr.readKind! after BlockOperandPtrMPtr.write -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockOperandPtrMPtr_write (res : Veir.OpResultPtr) (ptr : Sim.BlockOperandPtrPtr)
+    (val : Sim.OptionBlockOperandPtr) h (resIb : res.InBounds ctx.spec) (ptrIb : ptr.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockOperandPtrMPtr.write ctx.buf ptr.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  have := @Sim.OpResultPtr.after_lt_ctx
+  have : ctx.buf.mem.size < 2^63 - 1 := by grind
+  have hbridge := Sim.BlockOperandPtrPtr.toFlat_eq_impl_toNat ptrIb
+  have hib := ptrIb.ib
+  have hinclr := OpResultPtr.range_included_op_range (ctx := ctx) res (by grind)
+  rcases hcase : ptr.spec with bo | bl
+  · have hdisj := ctx.sim.disjoint_allocs (.operation bo.op) (.operation res.op) (by grind) (by grind)
+    have hincl := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) bo (by grind)
+    have hbo := ctx.sim.in_bounds (.operation bo.op) (by grind)
+    grind (splits := 20) [readKind!, BlockOperandPtrMPtr.write, layout_grind,
+        OpResultPtr.range, OpResultPtr.toFlat, BlockOperandPtr.range, BlockOperandPtr.toFlat,
+        IsIncludedI, IsDisjointI]
+  · have hdisj := ctx.sim.disjoint_allocs (.block bl) (.operation res.op) (by grind) (by grind)
+    have hincl := BlockPtr.range_ideal (ctx := ctx.spec) (by grind) (bl := bl) (by grind)
+    grind (splits := 20) [readKind!, BlockOperandPtrMPtr.write, layout_grind,
+      OpResultPtr.range, OpResultPtr.toFlat, BlockPtr.range, BlockPtr.toFlat,
+      IsIncludedI, IsDisjointI]
+
+/-! ## OpResultMPtr.readKind! after OperationMPtr.writeNext -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_operationMPtr_writeNext (res : Veir.OpResultPtr) (op2 : Sim.OperationPtr)
+    (val : Sim.OptionOperationPtr) h (resIb : res.InBounds ctx.spec) (op2Ib : op2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OperationMPtr.writeNext ctx.buf op2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opScalar readKind!, OperationMPtr.writeNext, res, op2
+
+/-! ## OpResultMPtr.readKind! after OperationMPtr.writeNumResults -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_operationMPtr_writeNumResults (res : Veir.OpResultPtr) (op2 : Sim.OperationPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (op2Ib : op2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OperationMPtr.writeNumResults ctx.buf op2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opScalar readKind!, OperationMPtr.writeNumResults, res, op2
+
+/-! ## OpResultMPtr.readKind! after OperationMPtr.writeNumBlockOperands -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_operationMPtr_writeNumBlockOperands (res : Veir.OpResultPtr) (op2 : Sim.OperationPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (op2Ib : op2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OperationMPtr.writeNumBlockOperands ctx.buf op2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opScalar readKind!, OperationMPtr.writeNumBlockOperands, res, op2
+
+/-! ## OpResultMPtr.readKind! after OperationMPtr.writeNumRegions -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_operationMPtr_writeNumRegions (res : Veir.OpResultPtr) (op2 : Sim.OperationPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (op2Ib : op2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OperationMPtr.writeNumRegions ctx.buf op2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opScalar readKind!, OperationMPtr.writeNumRegions, res, op2
+
+/-! ## OpResultMPtr.readKind! after OperationMPtr.writeNumOperands -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_operationMPtr_writeNumOperands (res : Veir.OpResultPtr) (op2 : Sim.OperationPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (op2Ib : op2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OperationMPtr.writeNumOperands ctx.buf op2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opScalar readKind!, OperationMPtr.writeNumOperands, res, op2
+
+/-! ## OpResultMPtr.readKind! after OperationMPtr.writeAttrs -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_operationMPtr_writeAttrs (res : Veir.OpResultPtr) (op2 : Sim.OperationPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (op2Ib : op2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OperationMPtr.writeAttrs ctx.buf op2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opScalar readKind!, OperationMPtr.writeAttrs, res, op2
+
+/-! ## OpResultMPtr.readKind! after OperationMPtr.writeOpType -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_operationMPtr_writeOpType (res : Veir.OpResultPtr) (op2 : Sim.OperationPtr)
+    (val : UInt32) h (resIb : res.InBounds ctx.spec) (op2Ib : op2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OperationMPtr.writeOpType ctx.buf op2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opScalar readKind!, OperationMPtr.writeOpType, res, op2
+
+/-! ## OpResultMPtr.readKind! after OperationMPtr.writePrev -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_operationMPtr_writePrev (res : Veir.OpResultPtr) (op2 : Sim.OperationPtr)
+    (val : Sim.OptionOperationPtr) h (resIb : res.InBounds ctx.spec) (op2Ib : op2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OperationMPtr.writePrev ctx.buf op2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opScalar readKind!, OperationMPtr.writePrev, res, op2
+
+/-! ## OpResultMPtr.readKind! after OperationMPtr.writeParent -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_operationMPtr_writeParent (res : Veir.OpResultPtr) (op2 : Sim.OperationPtr)
+    (val : Sim.OptionBlockPtr) h (resIb : res.InBounds ctx.spec) (op2Ib : op2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OperationMPtr.writeParent ctx.buf op2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opScalar readKind!, OperationMPtr.writeParent, res, op2
+
+/-! ## OpResultMPtr.readKind! after BlockMPtr.writeFirstUse -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockMPtr_writeFirstUse (res : Veir.OpResultPtr) (w2 : Sim.BlockPtr)
+    (val : Sim.OptionBlockOperandPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockMPtr.writeFirstUse ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_block readKind!, BlockMPtr.writeFirstUse, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after BlockMPtr.writePrev -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockMPtr_writePrev (res : Veir.OpResultPtr) (w2 : Sim.BlockPtr)
+    (val : Sim.OptionBlockPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockMPtr.writePrev ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_block readKind!, BlockMPtr.writePrev, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after BlockMPtr.writeNext -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockMPtr_writeNext (res : Veir.OpResultPtr) (w2 : Sim.BlockPtr)
+    (val : Sim.OptionBlockPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockMPtr.writeNext ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_block readKind!, BlockMPtr.writeNext, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after BlockMPtr.writeParent -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockMPtr_writeParent (res : Veir.OpResultPtr) (w2 : Sim.BlockPtr)
+    (val : Sim.OptionRegionPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockMPtr.writeParent ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_block readKind!, BlockMPtr.writeParent, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after BlockMPtr.writeFirstOp -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockMPtr_writeFirstOp (res : Veir.OpResultPtr) (w2 : Sim.BlockPtr)
+    (val : Sim.OptionOperationPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockMPtr.writeFirstOp ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_block readKind!, BlockMPtr.writeFirstOp, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after BlockMPtr.writeLastOp -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockMPtr_writeLastOp (res : Veir.OpResultPtr) (w2 : Sim.BlockPtr)
+    (val : Sim.OptionOperationPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockMPtr.writeLastOp ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_block readKind!, BlockMPtr.writeLastOp, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after BlockMPtr.writeNumArguments -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockMPtr_writeNumArguments (res : Veir.OpResultPtr) (w2 : Sim.BlockPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockMPtr.writeNumArguments ctx.buf w2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_block readKind!, BlockMPtr.writeNumArguments, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after RegionMPtr.writeFirstBlock -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_regionMPtr_writeFirstBlock (res : Veir.OpResultPtr) (w2 : Sim.RegionPtr)
+    (val : Sim.OptionBlockPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.RegionMPtr.writeFirstBlock ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_region readKind!, RegionMPtr.writeFirstBlock, res, w2
+
+/-! ## OpResultMPtr.readKind! after RegionMPtr.writeLastBlock -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_regionMPtr_writeLastBlock (res : Veir.OpResultPtr) (w2 : Sim.RegionPtr)
+    (val : Sim.OptionBlockPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.RegionMPtr.writeLastBlock ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_region readKind!, RegionMPtr.writeLastBlock, res, w2
+
+/-! ## OpResultMPtr.readKind! after RegionMPtr.writeParent -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_regionMPtr_writeParent (res : Veir.OpResultPtr) (w2 : Sim.RegionPtr)
+    (val : Sim.OptionOperationPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.RegionMPtr.writeParent ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_region readKind!, RegionMPtr.writeParent, res, w2
+
+/-! ## OpResultMPtr.readKind! after BlockArgumentMPtr.writeType -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockArgumentMPtr_writeType (res : Veir.OpResultPtr) (w2 : Sim.BlockArgumentPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockArgumentMPtr.writeType ctx.buf w2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_blockArg readKind!, BlockArgumentMPtr.writeType, res, w2
+
+/-! ## OpResultMPtr.readKind! after BlockArgumentMPtr.writeFirstUse -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockArgumentMPtr_writeFirstUse (res : Veir.OpResultPtr) (w2 : Sim.BlockArgumentPtr)
+    (val : Sim.OptionOpOperandPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockArgumentMPtr.writeFirstUse ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_blockArg readKind!, BlockArgumentMPtr.writeFirstUse, res, w2
+
+/-! ## OpResultMPtr.readKind! after BlockArgumentMPtr.writeIndex -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockArgumentMPtr_writeIndex (res : Veir.OpResultPtr) (w2 : Sim.BlockArgumentPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockArgumentMPtr.writeIndex ctx.buf w2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_blockArg readKind!, BlockArgumentMPtr.writeIndex, res, w2
+
+/-! ## OpResultMPtr.readKind! after BlockArgumentMPtr.writeOwner -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockArgumentMPtr_writeOwner (res : Veir.OpResultPtr) (w2 : Sim.BlockArgumentPtr)
+    (val : Sim.BlockPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockArgumentMPtr.writeOwner ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_blockArg readKind!, BlockArgumentMPtr.writeOwner, res, w2
+
+/-! ## OpResultMPtr.readKind! after OpOperandMPtr.writeNextUse -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_opOperandMPtr_writeNextUse (res : Veir.OpResultPtr) (w2 : Sim.OpOperandPtr)
+    (val : Sim.OptionOpOperandPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OpOperandMPtr.writeNextUse ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opOperand readKind!, OpOperandMPtr.writeNextUse, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after OpOperandMPtr.writeBack -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_opOperandMPtr_writeBack (res : Veir.OpResultPtr) (w2 : Sim.OpOperandPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OpOperandMPtr.writeBack ctx.buf w2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opOperand readKind!, OpOperandMPtr.writeBack, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after OpOperandMPtr.writeOwner -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_opOperandMPtr_writeOwner (res : Veir.OpResultPtr) (w2 : Sim.OpOperandPtr)
+    (val : Sim.OperationPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OpOperandMPtr.writeOwner ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opOperand readKind!, OpOperandMPtr.writeOwner, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after OpOperandMPtr.writeValue -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_opOperandMPtr_writeValue (res : Veir.OpResultPtr) (w2 : Sim.OpOperandPtr)
+    (val : Sim.ValuePtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OpOperandMPtr.writeValue ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_opOperand readKind!, OpOperandMPtr.writeValue, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after BlockOperandMPtr.writeNextUse -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockOperandMPtr_writeNextUse (res : Veir.OpResultPtr) (w2 : Sim.BlockOperandPtr)
+    (val : Sim.OptionBlockOperandPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockOperandMPtr.writeNextUse ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_blockOperand readKind!, BlockOperandMPtr.writeNextUse, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after BlockOperandMPtr.writeBack -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockOperandMPtr_writeBack (res : Veir.OpResultPtr) (w2 : Sim.BlockOperandPtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockOperandMPtr.writeBack ctx.buf w2.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_blockOperand readKind!, BlockOperandMPtr.writeBack, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after BlockOperandMPtr.writeOwner -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockOperandMPtr_writeOwner (res : Veir.OpResultPtr) (w2 : Sim.BlockOperandPtr)
+    (val : Sim.OperationPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockOperandMPtr.writeOwner ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_blockOperand readKind!, BlockOperandMPtr.writeOwner, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after BlockOperandMPtr.writeValue -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_blockOperandMPtr_writeValue (res : Veir.OpResultPtr) (w2 : Sim.BlockOperandPtr)
+    (val : Sim.BlockPtr) h (resIb : res.InBounds ctx.spec) (w2Ib : w2.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.BlockOperandMPtr.writeValue ctx.buf w2.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  rw_or_blockOperand readKind!, BlockOperandMPtr.writeValue, res, w2, w2Ib
+
+/-! ## OpResultMPtr.readKind! after ValueImplMPtr.writeType -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_valueImplMPtr_writeType (res : Veir.OpResultPtr) (vptr : Sim.ValuePtr)
+    (val : UInt64) h (resIb : res.InBounds ctx.spec) (vptrIb : vptr.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.ValueImplMPtr.writeType ctx.buf vptr.impl val h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  have := @Sim.OpResultPtr.after_lt_ctx
+  have : ctx.buf.mem.size < 2^63 - 1 := by grind
+  have hbridge := Sim.ValuePtr.toFlat_eq_impl_toNat vptrIb
+  have hib := vptrIb.ib
+  have hinclr := OpResultPtr.range_included_op_range (ctx := ctx) res (by grind)
+  have hres := ctx.sim.in_bounds (.operation res.op) (by grind)
+  have : res.index < (res.op.getNumResults! ctx.spec) := by grind [OpResultPtr.inBounds_def]
+  rcases hcase : vptr.spec with res2 | arg
+  ·
+    have hdisj := ctx.sim.disjoint_allocs (.operation res2.op) (.operation res.op) (by grind) (by grind)
+    have hincl := OpResultPtr.range_included_op_range (ctx := ctx) res2 (by grind)
+    have hres2 := ctx.sim.in_bounds (.operation res2.op) (by grind)
+    have : res2.index < (res2.op.getNumResults! ctx.spec) := by grind [OpResultPtr.inBounds_def]
+    have hri := ctx.sim.repr.operations_indices res.op (by grind)
+    grind (splits := 20) [readKind!, ValueImplMPtr.writeType, layout_grind,
+      OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, OpResultPtr.rangeInt, OpResultPtr.toFlatNat,
+      ValuePtr.toFlat, Operation.ReprIndices, IsIncludedI, IsDisjointI]
+  ·
+    have hdisj := ctx.sim.disjoint_allocs (.block arg.block) (.operation res.op) (by grind) (by grind)
+    have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg (by grind)
+    have harg := ctx.sim.in_bounds (.block arg.block) (by grind)
+    grind (splits := 20) [readKind!, ValueImplMPtr.writeType, layout_grind,
+      OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat,
+      BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
+      ValuePtr.toFlat, IsIncludedI, IsDisjointI]
+
+/-! ## OpResultMPtr.readKind! after ValueImplMPtr.writeFirstUse -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_valueImplMPtr_writeFirstUse (res : Veir.OpResultPtr) (vptr : Sim.ValuePtr)
+    (val : Sim.OptionOpOperandPtr) h (resIb : res.InBounds ctx.spec) (vptrIb : vptr.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.ValueImplMPtr.writeFirstUse ctx.buf vptr.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  have := @Sim.OpResultPtr.after_lt_ctx
+  have : ctx.buf.mem.size < 2^63 - 1 := by grind
+  have hbridge := Sim.ValuePtr.toFlat_eq_impl_toNat vptrIb
+  have hib := vptrIb.ib
+  have hinclr := OpResultPtr.range_included_op_range (ctx := ctx) res (by grind)
+  have hres := ctx.sim.in_bounds (.operation res.op) (by grind)
+  have : res.index < (res.op.getNumResults! ctx.spec) := by grind [OpResultPtr.inBounds_def]
+  rcases hcase : vptr.spec with res2 | arg
+  ·
+    have hdisj := ctx.sim.disjoint_allocs (.operation res2.op) (.operation res.op) (by grind) (by grind)
+    have hincl := OpResultPtr.range_included_op_range (ctx := ctx) res2 (by grind)
+    have hres2 := ctx.sim.in_bounds (.operation res2.op) (by grind)
+    have : res2.index < (res2.op.getNumResults! ctx.spec) := by grind [OpResultPtr.inBounds_def]
+    have hri := ctx.sim.repr.operations_indices res.op (by grind)
+    grind (splits := 20) [readKind!, ValueImplMPtr.writeFirstUse, layout_grind,
+      OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, OpResultPtr.rangeInt, OpResultPtr.toFlatNat,
+      ValuePtr.toFlat, Operation.ReprIndices, IsIncludedI, IsDisjointI]
+  ·
+    have hdisj := ctx.sim.disjoint_allocs (.block arg.block) (.operation res.op) (by grind) (by grind)
+    have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg (by grind)
+    have harg := ctx.sim.in_bounds (.block arg.block) (by grind)
+    grind (splits := 20) [readKind!, ValueImplMPtr.writeFirstUse, layout_grind,
+      OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat,
+      BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
+      ValuePtr.toFlat, IsIncludedI, IsDisjointI]
+
+/-! ## OpResultMPtr.readKind! after OpOperandPtrMPtr.write -/
+
+@[layout_simp, layout_grind =]
+theorem OpResultMPtr.readKind!_opOperandPtrMPtr_write (res : Veir.OpResultPtr) (ptr : Sim.OpOperandPtrPtr)
+    (val : Sim.OptionOpOperandPtr) h (resIb : res.InBounds ctx.spec) (ptrIb : ptr.InBounds ctx) :
+    Buffed.OpResultMPtr.readKind! (Buffed.OpOperandPtrMPtr.write ctx.buf ptr.impl val.impl h) (res.toM ctx.spec) =
+    Buffed.OpResultMPtr.readKind! ctx.buf (res.toM ctx.spec) := by
+  have := @Sim.OpResultPtr.after_lt_ctx
+  have : ctx.buf.mem.size < 2^63 - 1 := by grind
+  have hbridge := Sim.OpOperandPtrPtr.toFlat_eq_impl_toNat ptrIb
+  have hib := ptrIb.ib
+  have hinclr := OpResultPtr.range_included_op_range (ctx := ctx) res (by grind)
+  have hres := ctx.sim.in_bounds (.operation res.op) (by grind)
+  have : res.index < (res.op.getNumResults! ctx.spec) := by grind [OpResultPtr.inBounds_def]
+  rcases hcase : ptr.spec with opr | v
+  ·
+    have hdisj := ctx.sim.disjoint_allocs (.operation opr.op) (.operation res.op) (by grind) (by grind)
+    have hincl := OpOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) opr (by grind)
+    have hopr := ctx.sim.in_bounds (.operation opr.op) (by grind)
+    have := @Sim.OpOperandPtr.after_lt_ctx
+    grind (splits := 20) [readKind!, OpOperandPtrMPtr.write, layout_grind,
+      OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat,
+      OpOperandPtr.range, OpOperandPtr.toFlat,
+      ValuePtr.toFlat, IsIncludedI, IsDisjointI]
+  · rcases hvcase : v with res2 | arg
+    ·
+      have hdisj := ctx.sim.disjoint_allocs (.operation res2.op) (.operation res.op) (by grind) (by grind)
+      have hincl := OpResultPtr.range_included_op_range (ctx := ctx) res2 (by grind)
+      have hres2 := ctx.sim.in_bounds (.operation res2.op) (by grind)
+      have : res2.index < (res2.op.getNumResults! ctx.spec) := by grind [OpResultPtr.inBounds_def]
+      have hri := ctx.sim.repr.operations_indices res.op (by grind)
+      grind (splits := 20) [readKind!, OpOperandPtrMPtr.write, layout_grind,
+        OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat, OpResultPtr.rangeInt, OpResultPtr.toFlatNat,
+        ValuePtr.toFlat, Operation.ReprIndices, IsIncludedI, IsDisjointI]
+    ·
+      have hdisj := ctx.sim.disjoint_allocs (.block arg.block) (.operation res.op) (by grind) (by grind)
+      have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg (by grind)
+      have harg := ctx.sim.in_bounds (.block arg.block) (by grind)
+      grind (splits := 20) [readKind!, OpOperandPtrMPtr.write, layout_grind,
+        OpResultPtr.toM, OpResultPtr.range, OpResultPtr.toFlat,
+        BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
+        ValuePtr.toFlat, IsIncludedI, IsDisjointI]
+
 end read_write
 
 end Veir.Buffed
