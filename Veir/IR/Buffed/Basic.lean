@@ -849,16 +849,23 @@ def Sim.OperationPtr.getAttributes (ctx : Sim.IRContext OpInfo) (ptr : Sim.Opera
   -- attribute table (`attributes[readAttrs!]? = some _`), which is exactly the array bound.
   (ctx.buf.attributes[idx.toNat]'(by
     have hattr := ctx.sim.encoding_op ptr.spec (by grind) |>.attrs
-    grind)).asDict (admitted_sim ())
+    grind)).asDict (by
+    have hattr := ctx.sim.encoding_op ptr.spec (by grind) |>.attrs
+    grind)
 
 @[inline]
 def Sim.OperationPtr.getAttributes! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : DictionaryAttr :=
   let idx := ptr.impl.readAttrs! ctx.buf
-  (ctx.buf.attributes[idx.toNat]!).asDict (admitted_sim ())
+  -- Without an `InBounds` hypothesis nothing guarantees the read index lands on a
+  -- dictionary in the attribute table, so fall back to `.empty` on garbage input.
+  match ctx.buf.attributes[idx.toNat]! with
+  | .dictionaryAttr dict => dict
+  | _ => .empty
 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getAttributes_eq_getAttributes! (ctx : IRContext OpInfo) ptr ib :
     getAttributes ctx ptr ib = getAttributes! ctx ptr := by
+  have hattr := ctx.sim.encoding_op ptr.spec (by grind) |>.attrs
   simp [getAttributes, getAttributes!]
   grind
 
