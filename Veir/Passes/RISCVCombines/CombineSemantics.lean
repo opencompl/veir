@@ -2092,7 +2092,7 @@ private theorem matchShift_getVar?_of_EquationLemmaAt {srcOp : Llvm}
   rw [hSemSrc _ xv zv0 _ _ _ _] at hInterp'
   obtain rfl : resValues = #[RuntimeValue.int _
       (srcFn xv zv0 (basePtr.op.getProperties! ctx.raw (.llvm srcOp)))] := by
-    simp only [pure, Interp, Option.some.injEq, UBOr.ok.injEq] at hInterp'; grind
+    simp only [Interp, Option.some.injEq, UBOr.ok.injEq] at hInterp'; grind
   refine ⟨xv, zv0, hxGetVar, hzGetVar, ?_, hxType, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [hBaseEq, hNew,
       VariableState.getVar?_getResult_of_setResultValues? (by rw [hShNumResults]; omega) hSet]
@@ -5182,7 +5182,7 @@ theorem hoistTruncLocal_preservesSemantics {srcOp dst : Llvm}
       (srcType := ⟨64⟩) (resType := ⟨32⟩)
       (f := fun c => Data.LLVM.Int.trunc c 32 (mkTruncProps yp).nsw (mkTruncProps yp).nuw (by omega))
       (by intro blockOperands mem
-          simp [Llvm.interpretOp', dif_neg (show ¬(64:Nat) ≤ 32 by omega), pure, Interp])
+          simp [Llvm.interpretOp', pure, Interp])
       hTruncNewType hTruncNewProps hTruncNewOperands hTruncNewResTypes hRes₁
   refine ⟨s₂, ?_, by grind, ?_⟩
   · simp [interpretOpList_cons, hI₁, hI₂, liftM, monadLift, MonadLift.monadLift, Interp]
@@ -5613,7 +5613,7 @@ private theorem matchSelect_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode
     `tv` (both equal the `select`'s result type). Lets a caller transfer an integer-type fact from
     `tv` (available from a width guard) to `base` when there is no verifier bundle for `op` itself
     (e.g. `op` is an `llvm.trunc`). -/
-private theorem matchSelect_baseType_eq_tvType {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom)
+private theorem matchSelect_baseType_eq_tvType {ctx : WfIRContext OpCode} (_ctxDom : ctx.Dom)
     (ctxVerif : ctx.Verified) {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
     {base cond tv fv : ValuePtr} {selOp : OperationPtr}
     (hDef : getDefiningOp base ctx.raw = some selOp)
@@ -5735,7 +5735,6 @@ theorem select_of_zext_local_preservesSemantics
   -- Collapse widths.
   obtain ⟨ow⟩ := opType; simp only at hOW; subst hOW
   obtain ⟨rw'⟩ := retType; simp only at hRW; subst hRW
-  simp only [IntegerType.bitwidth] at hwV
   -- Source value.
   rw [hResultsEq] at hsourceValues
   simp at hsourceValues
@@ -6152,7 +6151,7 @@ theorem select_of_truncate_local_preservesSemantics
       (srcType := ⟨64⟩) (resType := ⟨32⟩)
       (f := fun c => Data.LLVM.Int.trunc c 32 tp.nsw tp.nuw (by omega))
       (by intro blockOperands mem
-          simp [Llvm.interpretOp', dif_neg (show ¬(64:Nat) ≤ 32 by omega), pure, Interp])
+          simp [Llvm.interpretOp', pure, Interp])
       hTrtType hTrtProps hTrtOperands hTrtResTypes hTVal'
   have hFVal₁ : s₁.variables.getVar? fv = some (RuntimeValue.int 64 ft) := by
     rw [hFrame₁ fv (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hFIn
@@ -6167,7 +6166,7 @@ theorem select_of_truncate_local_preservesSemantics
       (srcType := ⟨64⟩) (resType := ⟨32⟩)
       (f := fun c => Data.LLVM.Int.trunc c 32 tp.nsw tp.nuw (by omega))
       (by intro blockOperands mem
-          simp [Llvm.interpretOp', dif_neg (show ¬(64:Nat) ≤ 32 by omega), pure, Interp])
+          simp [Llvm.interpretOp', pure, Interp])
       hTrfType hTrfProps hTrfOperands hTrfResTypes hFVal₁
   have hTrtResIn₁ : (ValuePtr.opResult (trtOp.getResult 0)).InBounds ctx₁.raw := by
     have hnr : trtOp.getNumResults! ctx₁.raw = 1 := by

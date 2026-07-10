@@ -838,7 +838,7 @@ set_option maxHeartbeats 1000000 in
     `x`'s facts are recovered. Since `llvm.trunc` has no `Verified` bundle, `x`'s (integer) type and
     the width relation are recovered from `base`'s (integer, given) type and the interpretation. -/
 theorem trunc_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
-    (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    (ctxDom : ctx.Dom) (_ctxVerif : ctx.Verified)
     {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
     {state : InterpreterState ctx}
     (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
@@ -928,7 +928,6 @@ theorem trunc_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
   -- Case on `val`; only `.int` of a wider width survives with an integer result type.
   match val with
   | .int opBw xv =>
-    simp only [Array.toList] at hInterp'
     rw [show (#[⟨Attribute.integerType retType,
           hResTypeVal ▸ ((basePtr.op.getResult 0).get! ctx.raw).type.2⟩] : Array TypeAttr)[0]?
         = some ⟨Attribute.integerType retType,
@@ -961,15 +960,14 @@ theorem trunc_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
         (by grind [OperationPtr.getOperands!])
   | .byte opBw xv =>
     exfalso
-    simp only [Array.toList] at hInterp'
     rw [show (#[⟨Attribute.integerType retType,
           hResTypeVal ▸ ((basePtr.op.getResult 0).get! ctx.raw).type.2⟩] : Array TypeAttr)[0]?
         = some ⟨Attribute.integerType retType,
           hResTypeVal ▸ ((basePtr.op.getResult 0).get! ctx.raw).type.2⟩ from rfl] at hInterp'
     simp [] at hInterp'
-  | .float opBw xv => simp only [Array.toList] at hInterp'; simp at hInterp'
-  | .addr xv => simp only [Array.toList] at hInterp'; simp at hInterp'
-  | .reg xv => simp only [Array.toList] at hInterp'; simp at hInterp'
+  | .float opBw xv => simp at hInterp'
+  | .addr xv => simp at hInterp'
+  | .reg xv => simp at hInterp'
 
 /-- `llvm.sext` is pure: its interpretation neither reads nor writes memory. -/
 theorem OperationPtr.Pure.llvm_sext {op : OperationPtr} {ctx : IRContext OpCode}
