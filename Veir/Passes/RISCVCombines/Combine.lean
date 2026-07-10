@@ -100,50 +100,45 @@ def matchBinopNoProps {llvmOp : Llvm}
 
 /-! ### hoist_logic_op_with_same_opcode_hands-/
 
--- (sext X) & (sext Y) → sext (X & Y)
-set_option warn.sorry false in
+/-- The shared shape of `AndSextSext`/`OrSextSext`/`XorSextSext`: match `(sext X) outer (sext Y)`
+    (`outer ∈ {and, or, xor}` via `match?`, both operands defining `sext`s) and emit
+    `sext (X outer Y)`, inner op `dst`/`dprops`. `i32 → i64`. Its shared correctness proof is
+    `hoistSextLocal_preservesSemantics`. -/
+def hoistSextLocal
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
+    (dst : Llvm) (dprops : propertiesOf (.llvm dst)) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (v0, v1) := match? op ctx | return (ctx, none)
+  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some (x, _xp) := matchSext dX ctx | return (ctx, none)
+  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some (y, _yp) := matchSext dY ctx | return (ctx, none)
+  let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
+  if xty.bitwidth ≠ 32 then return (ctx, none)
+  let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
+  if yty.bitwidth ≠ 32 then return (ctx, none)
+  let .integerType rty := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if rty.bitwidth ≠ 64 then return (ctx, none)
+  let (ctx, inner) ← WfRewriter.createOp! ctx (.llvm dst)
+    #[x.getType! ctx.raw] #[x, y] #[] #[] dprops none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sext)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[inner.getResult 0] #[] #[] () none
+  some (ctx, some (#[inner, newOp], #[newOp.getResult 0]))
+
 def AndSextSext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, _) := matchAnd op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _xp) := matchSext dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, yp) := matchSext dY rewriter.ctx | return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .and) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
-    #[] #[] yp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (hoistSextLocal (matchBinopNoProps matchAnd) .and ())
+    rewriter op opInBounds
 
--- (sext X) | (sext Y) → sext (X | Y)
-set_option warn.sorry false in
 def OrSextSext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, oprops) := matchOr op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _xp) := matchSext dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, yp) := matchSext dY rewriter.ctx | return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .or) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] oprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
-    #[] #[] yp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (hoistSextLocal (matchBinopNoProps matchOr) .or { disjoint := false }) rewriter op opInBounds
 
--- (sext X) ^ (sext Y) → sext (X ^ Y)
-set_option warn.sorry false in
 def XorSextSext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, xprops) := matchXor op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _xp) := matchSext dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, yp) := matchSext dY rewriter.ctx | return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .xor) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] xprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
-    #[] #[] yp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (hoistSextLocal (matchBinopNoProps matchXor) .xor ())
+    rewriter op opInBounds
 
 /-- The shared shape of `AndZextZext`/`OrZextZext`/`XorZextZext`: match `(zext X) outer (zext Y)`
     where `outer ∈ {and, or, xor}` (via `match?`) and both operands are defining `zext`s, and emit

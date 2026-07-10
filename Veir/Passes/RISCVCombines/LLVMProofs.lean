@@ -56,7 +56,7 @@ theorem AndSextSext {x y : Int 32} :
 /-- `(sext X) | (sext Y) → sext (X | Y)`. Sound even with `disjoint`: `sext` neither
     creates nor destroys overlapping set bits, so the two `or`s are poison together. -/
 theorem OrSextSext {d : Bool} {x y : Int 32} :
-    or (sext x 64 h32_64) (sext y 64 h32_64) d ⊒ sext (or x y d) 64 h32_64 := by
+    or (sext x 64 h32_64) (sext y 64 h32_64) d ⊒ sext (or x y false) 64 h32_64 := by
   veir_bv_decide
 
 /-- `(sext X) ^ (sext Y) → sext (X ^ Y)`. -/

@@ -748,4 +748,97 @@ theorem zext_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
       (OperationPtr.dominates_of_strictlyDominates hZextSDom) x
       (by grind [OperationPtr.getOperands!])
 
+/-- `llvm.sext` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_sext {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .sext) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  repeat' split
+  all_goals first
+    | rfl
+    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+set_option maxHeartbeats 1000000 in
+/-- The `sext` analogue of `zext_getVar?_of_EquationLemmaAt`: recovers a defining `sext`'s value
+    `sext xv` and the extended value `x`'s facts. -/
+theorem sext_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    {base x : ValuePtr} {sextOp : OperationPtr} {sProps : propertiesOf (.llvm .sext)}
+    {retType : IntegerType}
+    (hDef : getDefiningOp base ctx.raw = some sextOp)
+    (hSext : matchSext sextOp ctx.raw = some (x, sProps))
+    (hOperand : base ∈ op.getOperands! ctx.raw)
+    (hBaseType : (base.getType! ctx.raw).val = Attribute.integerType retType) :
+    ∃ (opType : IntegerType) (hw : opType.bitwidth < retType.bitwidth)
+      (xv : Data.LLVM.Int opType.bitwidth),
+      state.variables.getVar? x = some (RuntimeValue.int opType.bitwidth xv) ∧
+      state.variables.getVar? base = some (RuntimeValue.int retType.bitwidth
+        (Data.LLVM.Int.sext xv retType.bitwidth hw)) ∧
+      (x.getType! ctx.raw).val = Attribute.integerType opType ∧
+      x.dominatesIp (InsertPoint.before op) ctx ∧
+      x.InBounds ctx.raw ∧
+      x ∉ op.getResults! ctx.raw := by
+  obtain ⟨basePtr, rfl, rfl⟩ := getDefiningOp_implies hDef
+  obtain ⟨hSextType, hSextNumResults, hSextOperands, hSProps⟩ := matchSext_implies hSext
+  have hBaseIn : (ValuePtr.opResult basePtr).InBounds ctx.raw := by grind
+  have hSextOpIn : basePtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hbaseIdx : basePtr.index < basePtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hbaseEq : basePtr = basePtr.op.getResult 0 := by
+    have hidx : basePtr.index = 0 := by omega
+    cases basePtr; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+  have hSextVerified : basePtr.op.Verified ctx hSextOpIn := by grind
+  obtain ⟨-, -, -, -, opType, retType', hxTypeV, hBaseResTypeV, hwV⟩ :=
+    OperationPtr.Verified.llvm_sext hSextVerified hSextType
+  have hVTypeEq : (ValuePtr.opResult basePtr).getType! ctx.raw
+      = ((basePtr.op.getResult 0).get! ctx.raw).type := by rw [hbaseEq]; rfl
+  have hRetEq : retType = retType' := by
+    have h := hBaseResTypeV
+    rw [← hVTypeEq] at h
+    rw [hbaseEq] at hBaseType
+    grind
+  subst hRetEq
+  have hxIdxEq : x = (basePtr.op.getOperands! ctx.raw)[0]! := by rw [hSextOperands]; rfl
+  have hSextOperand0 : basePtr.op.getOperand! ctx.raw 0 = x := by
+    rw [hxIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hxType : (x.getType! ctx.raw).val = Attribute.integerType opType := by
+    have := hxTypeV; rw [hSextOperand0] at this; rw [this]
+  have hResTypes : basePtr.op.getResultTypes! ctx.raw
+      = #[⟨Attribute.integerType retType, by grind⟩] := by
+    apply Array.ext
+    · simp [OperationPtr.getResultTypes!.size_eq_getNumResults!, hSextNumResults]
+    · intro i h1 h2
+      simp only [OperationPtr.getResultTypes!.size_eq_getNumResults!, hSextNumResults] at h1
+      obtain rfl : i = 0 := by omega
+      have := OperationPtr.getResultTypes!.getElem!_eq (op := basePtr.op) (ctx := ctx.raw)
+        (index := 0) (by omega)
+      grind
+  have hSextDefines : (ValuePtr.opResult basePtr).getDefiningOp! ctx.raw = some basePtr.op := by
+    have hOwner := (ctx.wellFormed.operations basePtr.op hSextOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hSextSDom : basePtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hSextDefines hOperand
+  have hSextDomIp : basePtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hSextPure : basePtr.op.Pure ctx.raw := OperationPtr.Pure.llvm_sext hSextType
+  obtain ⟨cfS, hInterpSext⟩ := stateWf basePtr.op hSextOpIn hSextPure hSextDomIp
+  obtain ⟨xv, hxVal, -, hBaseResVal, -⟩ :=
+    matchExtOp_interpretOp_unfold (srcOp := .sext)
+      (srcFn := fun a hw _ => Data.LLVM.Int.sext a _ hw)
+      (props := basePtr.op.getProperties! ctx.raw (.llvm .sext))
+      hSextOpIn hSextType hSextNumResults hSextOperands rfl hResTypes hwV sext_interpretOp'
+      hInterpSext hxType
+  refine ⟨opType, hwV, xv, hxVal, ?_, hxType, ?_, ?_, ?_⟩
+  · rw [hbaseEq, hBaseResVal]
+  · exact ValuePtr.dominatesIp_before_of_strictlyDominates
+      (ctxDom.operand_dominates_op hSextOpIn (by grind [OperationPtr.getOperands!])) hSextSDom
+  · grind [OperationPtr.getOperands!]
+  · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hSextSDom) x
+      (by grind [OperationPtr.getOperands!])
+
 end Veir
