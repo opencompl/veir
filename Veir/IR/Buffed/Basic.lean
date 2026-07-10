@@ -413,8 +413,8 @@ def dumpOptionOpOperand (_operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext
 def dumpOptionBlockOperand (_operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
 -/
 
-@[inline]
-def dumpOp (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpOpSim (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨op.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OperationMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -422,8 +422,8 @@ theorem dumpOp_eq (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : S
     dumpOp op ctx pref = ctx := by
   simp only [dumpOp, Buffed.OperationMPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpRegion (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpRegionSim (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨region.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.RegionMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -431,8 +431,8 @@ theorem dumpRegion_eq (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pre
     dumpRegion region ctx pref = ctx := by
   simp only [dumpRegion, Buffed.RegionMPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpBlock (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpBlockSim (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨block.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.BlockMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -440,8 +440,8 @@ theorem dumpBlock_eq (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref :
     dumpBlock block ctx pref = ctx := by
   simp only [dumpBlock, Buffed.BlockMPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpValue (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpValueSim (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨value.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.ValueImplMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -449,8 +449,8 @@ theorem dumpValue_eq (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref :
     dumpValue value ctx pref = ctx := by
   simp only [dumpValue, Buffed.ValueImplMPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpOpResult (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpOpResultSim (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨result.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OpResultMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -458,8 +458,8 @@ theorem dumpOpResult_eq (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) 
     dumpOpResult result ctx pref = ctx := by
   simp only [dumpOpResult, Buffed.OpResultMPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpBlockArgument (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpBlockArgumentSim (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨arg.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.BlockArgumentMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -467,8 +467,8 @@ theorem dumpBlockArgument_eq (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext O
     dumpBlockArgument arg ctx pref = ctx := by
   simp only [dumpBlockArgument, Buffed.BlockArgumentMPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpOpOperand (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpOpOperandSim (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OpOperandMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -476,8 +476,8 @@ theorem dumpOpOperand_eq (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInf
     dumpOpOperand operand ctx pref = ctx := by
   simp only [dumpOpOperand, Buffed.OpOperandMPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpBlockOperand (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpBlockOperandSim (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.BlockOperandMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -487,8 +487,8 @@ theorem dumpBlockOperand_eq (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext
 
 /-! ### Nullable (`Option*Ptr`) dumpers — print `null` for the sentinel. -/
 
-@[inline]
-def dumpOptionOp (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpOptionOpSim (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨op.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OperationOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -496,8 +496,8 @@ theorem dumpOptionOp_eq (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInf
     dumpOptionOp op ctx pref = ctx := by
   simp only [dumpOptionOp, Buffed.OperationOPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpOptionBlock (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpOptionBlockSim (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨block.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.BlockOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -505,8 +505,8 @@ theorem dumpOptionBlock_eq (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpI
     dumpOptionBlock block ctx pref = ctx := by
   simp only [dumpOptionBlock, Buffed.BlockOPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpOptionRegion (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpOptionRegionSim (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨region.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.RegionOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -514,8 +514,8 @@ theorem dumpOptionRegion_eq (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext 
     dumpOptionRegion region ctx pref = ctx := by
   simp only [dumpOptionRegion, Buffed.RegionOPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpOptionOpOperand (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpOptionOpOperandSim (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.OpOperandOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
@@ -523,8 +523,8 @@ theorem dumpOptionOpOperand_eq (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRC
     dumpOptionOpOperand operand ctx pref = ctx := by
   simp only [dumpOptionOpOperand, Buffed.OpOperandOPtr.debugPrint]; congr 1
 
-@[inline]
-def dumpOptionBlockOperand (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed
+def dumpOptionBlockOperandSim (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec, by rw [Buffed.BlockOperandOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]

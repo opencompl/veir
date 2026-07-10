@@ -333,7 +333,7 @@ theorem Rewriter.detachBlockOperands_fieldsInBounds :
     ctx.spec.FieldsInBounds → (detachBlockOperands ctx op hCtx hOp hCap).spec.FieldsInBounds := by
   grind [detachBlockOperands_def, detachBlockOperandsSim]
 
-buffed
+buffed (inline := false)
 def Rewriter.eraseOpSim (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hCtx : ctx.spec.FieldsInBounds := by grind)
     (hOp : op.InBounds ctx := by grind)
@@ -1713,7 +1713,7 @@ theorem Rewriter.createOp_fieldsInBounds
 
 buffed
 def Sim.IRContext.emptySim : Sim.IRContext OpInfo :=
-  ⟨⟨.emptyWithCapacity 1024, #[]⟩, IRContext.empty OpInfo, by constructor <;> grind [TopLevelPtr]⟩
+  ⟨⟨.emptyWithCapacity (256 * 1024 * 1024), #[DictionaryAttr.fromArray #[]]⟩, IRContext.empty OpInfo, by constructor <;> grind [TopLevelPtr]⟩
 
 buffed (inline := false)
 def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do

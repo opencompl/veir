@@ -44,19 +44,19 @@ def printValueSim (_ctx : Sim.IRContext OpCode) (value : Sim.ValuePtr) : IO Unit
 buffed (def_lemma := false)
 def printOpResultsSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
   if op.getNumResults! ctx ≠ 0 then
-    IO.print s!"%{op.impl}"
-    if op.getNumResults! ctx > 1 then
-      IO.print s!":{op.getNumResults! ctx}"
+    IO.print s!"%{op.getResultPtr! ctx 0 |>.impl}"
+    for i in 1...(op.getNumResults! ctx) do
+      IO.print s!", %{op.getResultPtr! ctx i |>.impl}"
     IO.print " = "
 
 buffed (def_lemma := false)
 def printOpOperandsSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
   IO.print "("
   if op.getNumOperands! ctx ≠ 0 then
-    printValue ctx ⟨(op.getOperandPtr! ctx 0).impl, sorry⟩
+    printValue ctx ((op.getOperandPtr! ctx 0).getValue! ctx)
     for index in 1...(op.getNumOperands! ctx) do
       IO.print ", "
-      printValue ctx ⟨(op.getOperandPtr! ctx index).impl, sorry⟩
+      printValue ctx ((op.getOperandPtr! ctx index).getValue! ctx)
   IO.print ")"
 
 def printOperationType (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
@@ -130,17 +130,17 @@ partial def printOpList (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) (inde
 partial def printBlock (ctx: Sim.IRContext OpCode) (block: Sim.BlockPtr) (indent: Nat := 0) : IO Unit := do
   printIndent indent
   IO.print s!"^{block.impl}("
-  -- for i in 0...(block.getNumArguments! ctx) do
-  --   let arg := block.getArgumentPtr! ctx i
-  --   IO.print s!"{arg.impl}"
-  --   if i + 1 < block.getNumArguments! ctx then
-  --     IO.print ", "
+  for i in 0...(block.getNumArguments! ctx) do
+    let arg := block.getArgumentPtr! ctx i
+    IO.print s!"{arg.impl}"
+    if i + 1 < block.getNumArguments! ctx then
+      IO.print ", "
   IO.println s!"):"
-  -- match _ : (block.getFirstOp! ctx).toOption with
-  -- | some firstOp =>
-  --   printOpList ctx firstOp (indent + 1)
-  -- | none =>
-  --   pure ()
+  match _ : (block.getFirstOp! ctx).toOption with
+  | some firstOp =>
+    printOpList ctx firstOp (indent + 1)
+  | none =>
+    pure ()
 
 partial def printBlockList (ctx: Sim.IRContext OpCode) (block: Sim.BlockPtr) (indent: Nat := 0) : IO Unit := do
   printBlock ctx block indent
@@ -184,9 +184,9 @@ partial def printOperation (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) (i
   if op.getNumRegions! ctx > 0 then
     IO.print " "
     printRegions ctx op indent
-  -- printOpAttrDict ctx op
+  printOpAttrDict ctx op
   -- -- printOperationType ctx op
-  -- IO.println ""
+  IO.println ""
 end
 
 partial def printModule (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) : IO Unit := do
