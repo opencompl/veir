@@ -32,17 +32,23 @@ def isConstantPowerOfTwo (v : ValuePtr) (ctx : IRContext OpCode) : Option Nat :=
     | fuel + 1 => if m ≤ 1 then 0 else 1 + log2Aux (m / 2) fuel
   return log2Aux n n
 
-set_option warn.sorry false in
-/-- riscv.add x 0 -> x -/
-def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (operands, _) := matchOp op rewriter.ctx (.riscv .add) 2 | return rewriter
+/-- `riscv.add x (riscv.li 0) → x`, as a `LocalRewritePattern`. A RISC-V-dialect combine: it
+    matches `riscv.add x y` where `y` is defined by a `riscv.li` with immediate `0`, and replaces
+    the add's result with `x` (no ops created). RISC-V register values are total (no poison), so the
+    correctness obligation is the plain equality `Data.RISCV.add x 0 = x` (`right_identity_zero_add`
+    in `Proofs.lean`). See `right_identity_zero_add_local_preservesSemantics`. -/
+def right_identity_zero_add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, _) := matchOp op ctx (.riscv .add) 2 | return (ctx, none)
   let lhs := operands[0]!
-  let some liOp := getDefiningOp operands[1]! rewriter.ctx | return rewriter
-  let some (_, cst) := matchOp liOp rewriter.ctx (.riscv .li) 0 | return rewriter
-  if cst.value.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) lhs sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let some liOp := getDefiningOp operands[1]! ctx | return (ctx, none)
+  let some (_, cst) := matchOp liOp ctx (.riscv .li) 0 | return (ctx, none)
+  if cst.value.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
+
+def right_identity_zero_add (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite right_identity_zero_add_local rewriter op opInBounds
 
 /-! ### select_same_val :  (c ? x : x) → x -/
 
@@ -1912,18 +1918,29 @@ def sext_of_sext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /-! ### sub_to_add :  (sub x, C) → (add x, -C)   (C constant) -/
 
-set_option warn.sorry false in
+/-- `sub x C → add x (-C)` when the second operand is an integer constant `C`, as a
+    `LocalRewritePattern`. Materializes a fresh `llvm.mlir.constant` holding `-C` and one `add`.
+    The created `add` *clears* `nsw`/`nuw` (see `Data.LLVM.Int.SubToAddNeg` and the flag-threading
+    note in `LLVMProofs.lean`): `x - C` and `x + (-C)` have different overflow conditions, so a
+    transplanted flag would poison the target where the source is defined. The `.integerType` and
+    `i32`/`i64` bitwidth guards are what the correctness proof's `veir_bv_decide` data lemma needs.
+    See `sub_to_add_local_preservesSemantics`. -/
+def sub_to_add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (x, cval, _sp) := matchSub op ctx | return (ctx, none)
+  let some c := matchConstantIntVal cval ctx | return (ctx, none)
+  let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
+  if xty.bitwidth ≠ 64 ∧ xty.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, cn) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[x.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-c.value) xty))) none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .add)
+    #[x.getType! ctx.raw] #[x, cn.getResult 0] #[] #[]
+    { nsw := false, nuw := false } none
+  some (ctx, some (#[cn, newOp], #[newOp.getResult 0]))
+
 def sub_to_add (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (x, cval, _sp) := matchSub op rewriter.ctx | return rewriter
-  let some c := matchConstantIntVal cval rewriter.ctx | return rewriter
-  let .integerType xty := (x.getType! rewriter.ctx.raw).val | return rewriter
-  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-c.value) xty))
-  let (rewriter, cn) ← rewriter.createOp (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
-    #[] #[] negC (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[x, (cn.getResult 0)]
-    #[] #[] (NswNuwProperties.mk false false) (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite sub_to_add_local rewriter op opInBounds
 
 /-! ### sub_of_mul_const :  (sub a, (mul x, C)) → (add a, (mul x, -C))   (C constant)
 

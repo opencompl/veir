@@ -455,4 +455,12 @@ theorem sexth_li_low16 {x : BitVec 64} (h : (x.extractLsb 15 0).signExtend 64 = 
     RISCV.sexth (Data.RISCV.li x) = Data.RISCV.li x := by
   veir_bv_decide
 
+/-- Operand-order variant of `right_identity_zero_add`: the RISC-V interpreter computes
+    `riscv.add x y` as `RISCV.add op2 op1` (operands reversed), so for `riscv.add x (riscv.li 0)`
+    the materialized result is `RISCV.add (li 0) x` with `li 0` as the *first* argument. Needed by
+    `right_identity_zero_add_local_preservesSemantics` in `CombineSemantics.lean`. -/
+theorem right_identity_zero_add_comm {lhs : Reg} :
+    RISCV.add (Data.RISCV.li (BitVec.ofInt 64 0)) lhs = lhs := by
+  veir_bv_decide
+
 end Veir.Data.RISCV

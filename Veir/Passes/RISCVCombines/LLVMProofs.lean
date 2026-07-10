@@ -774,4 +774,20 @@ theorem OrAndAbsorbR {w : Nat} {d : Bool} {x y : Int w} :
     or x (and x y) d ⊒ x := by
   rw [or_comm]; exact OrAndAbsorbL
 
+/-! ### sub_to_add :  sub x C → add x (-C)   (C constant)
+
+  The created `add` clears `nsw`/`nuw`: the matched `sub`'s overflow condition (`x - C`) differs
+  from the created `add`'s (`x + (-C)`), so keeping a flag could poison the target where the source
+  is defined. Counterexample for keeping `nuw` (with `C > 0`): `x = 5`, `C = 3`. The source
+  `sub nuw 5 3 = 2` does not unsigned-underflow, but the created `add nuw 5 (2^w - 3)` wraps
+  (`5 + (2^w - 3) ≥ 2^w`) — in fact `add nuw x (-C)` overflows exactly when `x ≥ C`, i.e. precisely
+  when the source is defined. So the matched sub's flags stay *free* variables and the created add
+  carries a literal `false`. -/
+
+/-- `sub x C → add x (-C)`. Stated at both widths the guarded pattern admits. -/
+theorem SubToAddNeg {w : Nat} (hw : w = 64 ∨ w = 32) {ss su : Bool}
+    {x : Int w} {c : _root_.Int} :
+    sub x (constant w c) ss su ⊒ add x (constant w (-c)) false false := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
+
 end Veir.Data.LLVM.Int

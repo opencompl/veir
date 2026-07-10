@@ -10919,4 +10919,406 @@ theorem combine_or_of_and_r_preservesSemantics
     LocalRewritePattern.PreservesSemantics (orOfAndLocal false) h h₂ h₃ h₄ :=
   orOfAndLocal_preservesSemantics false
 
+/-! ### right_identity_zero_add :  riscv.add x (riscv.li 0) → x
+
+  The first combine to match *RISC-V-dialect* ops as source. RISC-V register values are total (no
+  poison), so `.reg r ⊒ .reg r'` is plain equality and the obligation collapses to the register
+  identity `RISCV.add (li 0) x = x` (`Data.RISCV.right_identity_zero_add_comm` in `Proofs.lean` —
+  the interpreter computes `RISCV.add op2 op1`, so the materialized `li 0` lands as the *first*
+  argument). The scaffolding below (a `riscv.li` purity fact, `.riscv .add`/`.li` interpretation
+  unfolders that read the register operands straight off the interpreter's own `[.reg, .reg]`
+  pattern-match — the verifier does not pin register-typedness — and a register value-refinement
+  reader) parallels the LLVM Layer-1/Layer-3 pieces used by the constant combines. -/
+
+/-- `riscv.li` is pure: its interpretation neither reads nor writes memory. -/
+private theorem riscv_li_pure {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .li) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first
+    | rfl
+    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- Interpreting a `riscv.li` binds its result to `RISCV.li` of its immediate (a non-poison
+    register). Applied at `newState := state` this unfolds the `EquationHolds` fact of a matched
+    defining `li`. The register analogue of `constantOp_interpretOp_unfold`; note the `li`
+    interpreter ignores the result type, so no result-type hypothesis is needed. -/
+private theorem riscvLiOp_interpretOp_unfold {ctx : WfIRContext OpCode} {liOp : OperationPtr}
+    {state newState : InterpreterState ctx} {cf} (inBounds : liOp.InBounds ctx.raw)
+    (hOpType : liOp.getOpType! ctx.raw = .riscv .li)
+    (hNumResults : liOp.getNumResults! ctx.raw = 1)
+    (hinterp : interpretOp liOp state inBounds = some (.ok (newState, cf))) :
+    newState.variables.getVar? (liOp.getResult 0) =
+      some (RuntimeValue.reg (Data.RISCV.li (BitVec.ofInt 64
+        (liOp.getProperties! ctx.raw (.riscv .li)).value.value))) := by
+  rw [interpretOp_some_iff] at hinterp
+  obtain ⟨operandValues, resValues, mem', varState', hOV, hInterp', hSet, hNew⟩ := hinterp
+  simp only [OperationPtr.interpret] at hInterp'
+  rw [hOpType] at hInterp'
+  simp only [interpretOp', Riscv.interpretOp', pure, Interp] at hInterp'
+  obtain ⟨rfl, rfl, rfl⟩ :
+      resValues = #[RuntimeValue.reg (Data.RISCV.li (BitVec.ofInt 64
+        (liOp.getProperties! ctx.raw (.riscv .li)).value.value))] ∧
+      mem' = state.memory ∧ cf = none := by grind
+  subst hNew
+  rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumResults]; omega) hSet]
+  simp
+
+/-- Interpreting a matched `riscv.add` (whose right operand `rhs` is already known to be the
+    register `r₂`) reads its left *register* operand value `r₁` — the interpreter returns `none`
+    unless both operands are `.reg`, so `lhs`'s register-typedness is recovered from the interpreter's
+    own pattern-match rather than from the verifier — and binds its result to `RISCV.add r₂ r₁`
+    (the interpreter applies the operands reversed). The register analogue of
+    `matchBinaryOp_interpretOp_unfold`. -/
+private theorem riscvAddOp_interpretOp_unfold {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {lhs rhs : ValuePtr} {r₂ : Data.RISCV.Reg}
+    {state newState : InterpreterState ctx} {cf} (opInBounds : op.InBounds ctx.raw)
+    (hOpType : op.getOpType! ctx.raw = .riscv .add)
+    (hNumResults : op.getNumResults! ctx.raw = 1)
+    (hNumOperands : op.getNumOperands! ctx.raw = 2)
+    (hOperand0 : op.getOperand! ctx.raw 0 = lhs)
+    (hOperand1 : op.getOperand! ctx.raw 1 = rhs)
+    (hRhsVal : state.variables.getVar? rhs = some (RuntimeValue.reg r₂))
+    (hinterp : interpretOp op state opInBounds = some (.ok (newState, cf))) :
+    ∃ r₁, state.variables.getVar? lhs = some (RuntimeValue.reg r₁) ∧
+      state.memory = newState.memory ∧
+      newState.variables.getVar? (op.getResult 0) =
+        some (RuntimeValue.reg (Data.RISCV.add r₂ r₁)) ∧
+      cf = none := by
+  obtain ⟨operandValues, _, _, _, hOV, _⟩ := interpretOp_some_iff.mp hinterp
+  have ⟨hsz, hvals⟩ := VariableState.getOperandValues_eq_some_iff.mp hOV
+  rw [hNumOperands] at hsz hvals
+  have hlval := hvals 0 (by omega); rw [hOperand0] at hlval
+  have hOpVals : state.variables.getOperandValues op
+      = some #[operandValues[0]!, RuntimeValue.reg r₂] := by
+    rw [VariableState.getOperandValues_eq_some_iff]
+    refine ⟨by rw [hNumOperands]; simp, fun i hi => ?_⟩
+    rw [hNumOperands] at hi
+    match i, hi with
+    | 0, _ => rw [hOperand0]; simpa using hlval
+    | 1, _ => rw [hOperand1, hRhsVal]; simp
+  rw [interpretOp_ok_iff_of_getOperandValues_eq_some hOpVals] at hinterp
+  obtain ⟨resValues, hInterp', hSet⟩ := hinterp
+  simp only [OperationPtr.interpret] at hInterp'
+  rw [hOpType] at hInterp'
+  simp only [interpretOp'] at hInterp'
+  -- The interpreter's `[.reg op1, .reg op2]` match forces `lhs` to be a register.
+  cases hlv : operandValues[0]! with
+  | reg r₁ =>
+    rw [hlv] at hInterp'
+    simp only [Riscv.interpretOp', pure, Interp] at hInterp'
+    obtain ⟨rfl, hmem, rfl⟩ :
+        resValues = #[RuntimeValue.reg (Data.RISCV.add r₂ r₁)] ∧
+        newState.memory = state.memory ∧ cf = none := by grind
+    refine ⟨r₁, ?_, hmem.symm, ?_, rfl⟩
+    · rw [hlval, hlv]
+    · rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumResults]; omega) hSet]
+      simp
+  | int _ _ => rw [hlv] at hInterp'; simp [Riscv.interpretOp'] at hInterp'
+  | byte _ _ => rw [hlv] at hInterp'; simp [Riscv.interpretOp'] at hInterp'
+  | addr _ => rw [hlv] at hInterp'; simp [Riscv.interpretOp'] at hInterp'
+  | float _ _ => rw [hlv] at hInterp'; simp [Riscv.interpretOp'] at hInterp'
+
+-- The register analogue of `exists_refined_int_getVar?` lives in `CommonBaseLemmas.lean` as
+-- `LocalRewritePattern.exists_refined_reg_getVar?`, beside the int and byte readers.
+
+set_option maxHeartbeats 1000000 in
+theorem right_identity_zero_add_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps right_identity_zero_add_local}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges right_identity_zero_add_local}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds right_identity_zero_add_local}
+    {h₄ : LocalRewritePattern.ReturnValues right_identity_zero_add_local} :
+    LocalRewritePattern.PreservesSemantics right_identity_zero_add_local h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, right_identity_zero_add_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel `matchOp op (.riscv .add) 2`.
+  have hMatchSome : (matchOp op ctx.raw (.riscv .add) 2).isSome := by
+    cases hM : matchOp op ctx.raw (.riscv .add) 2 with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨operands, addProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumOperands, hNumResults, hOperandsEq, -⟩ := matchOp_implies hMatch
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Peel `getDefiningOp operands[1]!`.
+  have hDefSome : (getDefiningOp operands[1]! ctx.raw).isSome := by
+    cases hM : getDefiningOp operands[1]! ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨liOp, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+  rw [hDef] at hpattern
+  simp only [] at hpattern
+  -- Peel `matchOp liOp (.riscv .li) 0`.
+  have hLiSome : (matchOp liOp ctx.raw (.riscv .li) 0).isSome := by
+    cases hM : matchOp liOp ctx.raw (.riscv .li) 0 with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨liOperands, cst⟩, hLiMatch⟩ := Option.isSome_iff_exists.mp hLiSome
+  obtain ⟨hLiType, -, hLiNumResults, -, hLiProps⟩ := matchOp_implies hLiMatch
+  rw [hLiMatch] at hpattern
+  simp only [] at hpattern
+  -- The `cst.value.value = 0` guard (the initial `simp` swapped the negated `if`).
+  have hCst0 : cst.value.value = 0 := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hCst0] at hpattern
+  -- Structural facts. Recover the two-operand pair form.
+  have hOperandsArr : op.getOperands! ctx.raw = operands := hOperandsEq.symm
+  have hOpSz : operands.size = 2 := by
+    rw [← hOperandsArr, OperationPtr.getOperands!.size_eq_getNumOperands!]; exact hNumOperands
+  have hOperandsPair : op.getOperands! ctx.raw = #[operands[0]!, operands[1]!] := by
+    rw [hOperandsArr]
+    rcases operands with ⟨l⟩
+    rw [List.size_toArray] at hOpSz
+    match l, hOpSz with
+    | [a, b], _ => rfl
+  have hLhsEq : operands[0]! = (op.getOperands! ctx.raw)[0]! := by rw [hOperandsPair]; simp
+  have hRhsEq : operands[1]! = (op.getOperands! ctx.raw)[1]! := by rw [hOperandsPair]; simp
+  have hOperand0 : op.getOperand! ctx.raw 0 = operands[0]! := by
+    rw [hLhsEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = operands[1]! := by
+    rw [hRhsEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hRhsMem : operands[1]! ∈ op.getOperands! ctx.raw := by rw [hOperandsPair]; simp
+  have hLhsMem : operands[0]! ∈ op.getOperands! ctx.raw := by rw [hOperandsPair]; simp
+  -- `operands[1]!` is a result of `liOp`, hence dominates `op`.
+  obtain ⟨liPtr, hRhsPtr, hLiOpEq⟩ :
+      ∃ p, operands[1]! = ValuePtr.opResult p ∧ p.op = liOp := by
+    match hm : operands[1]! with
+    | .opResult p => exact ⟨p, rfl, by rw [hm] at hDef; simpa [getDefiningOp] using hDef⟩
+    | .blockArgument p => rw [hm] at hDef; simp [getDefiningOp] at hDef
+  subst hLiOpEq
+  have hRhsIn : operands[1]!.InBounds ctx.raw := by grind
+  have hLiOpIn : liPtr.op.InBounds ctx.raw := by
+    rw [hRhsPtr] at hRhsIn; grind [OpResultPtr.InBounds]
+  have hLiIdx : liPtr.index < liPtr.op.getNumResults! ctx.raw := by
+    rw [hRhsPtr] at hRhsIn
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!, OpResultPtr.InBounds]
+  have hLiEq : liPtr = liPtr.op.getResult 0 := by
+    have hidx : liPtr.index = 0 := by omega
+    cases liPtr
+    simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]
+    exact ⟨trivial, hidx⟩
+  have hLiDefines : (ValuePtr.opResult liPtr).getDefiningOp! ctx.raw = some liPtr.op := by
+    have hOwner := (ctx.wellFormed.operations liPtr.op hLiOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hLiSDom : liPtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom
+      hLiDefines (by rw [← hRhsPtr]; exact hRhsMem)
+  have hLiDomIp : liPtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hLiPure : liPtr.op.Pure ctx.raw := riscv_li_pure hLiType
+  obtain ⟨cfLi, hInterpLi⟩ := stateWf liPtr.op hLiOpIn hLiPure hLiDomIp
+  -- The `li`'s runtime value: `RISCV.li 0`.
+  have hLiVal := riscvLiOp_interpretOp_unfold hLiOpIn hLiType hLiNumResults hInterpLi
+  have hCstVal0 : (liPtr.op.getProperties! ctx.raw (.riscv .li)).value.value = 0 := by
+    rw [hLiProps] at hCst0; exact hCst0
+  rw [hCstVal0] at hLiVal
+  have hRhsVal : state.variables.getVar? operands[1]!
+      = some (RuntimeValue.reg (Data.RISCV.li (BitVec.ofInt 64 0))) := by
+    rw [hRhsPtr, hLiEq]; exact hLiVal
+  -- Unfold the `add`'s interpretation (its right operand is `li 0`).
+  obtain ⟨r₁, hLhsVal, hMem, hRes, hCf⟩ :=
+    riscvAddOp_interpretOp_unfold opInBounds hOpType hNumResults hNumOperands
+      hOperand0 hOperand1 hRhsVal hinterp
+  subst hCf
+  -- `operands[0]!` dominance / freshness facts (a direct operand of `op`).
+  have hDomLhs : operands[0]!.dominatesIp (InsertPoint.before op) ctx := by
+    grind [WfIRContext.Dom.operand_dominates_op]
+  have lhsNotOp : ¬ operands[0]! ∈ op.getResults! ctx.raw := by
+    grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+  have hLhsIn : operands[0]!.InBounds ctx.raw := by grind
+  -- Source value.
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- Nothing is created: `newCtx = ctx`, `newOps = #[]`, `newValues = #[operands[0]!]`.
+  obtain ⟨rfl, rfl, rfl⟩ : newCtx = ctx ∧ newOps = #[] ∧ newValues = #[operands[0]!] := by
+    simp only [Option.some.injEq, Prod.mk.injEq] at hpattern; grind
+  have hLhsVal' := LocalRewritePattern.exists_refined_reg_getVar? valueRefinement state'Dom hLhsIn hLhsVal
+    hDomLhs hDomLhs lhsNotOp
+  refine ⟨state', by
+    simp [interpretOpList, liftM, monadLift, MonadLift.monadLift, Interp, pure], by grind, ?_⟩
+  refine ⟨#[RuntimeValue.reg r₁], by simp [hLhsVal', Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ?_
+  -- `.reg (RISCV.add (li 0) r₁) ⊒ .reg r₁`  ⟺  `RISCV.add (li 0) r₁ = r₁`.
+  simp only [RuntimeValue.isRefinedBy]
+  exact Data.RISCV.right_identity_zero_add_comm
+
+/-! ### sub_to_add :  sub x C → add x (-C)   (C constant)
+
+  Matches `sub x C` where `C` is a matched integer constant (a *direct* operand — no defining op is
+  inspected), then creates a fresh `llvm.mlir.constant` holding `-C` and one `add x (-C)` whose
+  overflow flags are *cleared* (see the flag-threading note in `LLVMProofs.lean`). Simpler than the
+  constant-reassociation family: the left operand `x` is read directly off the outer `sub`, so no
+  `matchBinop*Const_getVar?` graph lemma is needed. Unfold the `sub`'s interpretation with
+  `matchBinaryOp_interpretOp_unfold`, pin its constant operand with `matchConstantIntVal_getVar?…`,
+  replay the created constant (`interpretOp_llvm_constant_forward`) and `add`
+  (`interpretOp_llvm_binaryInt_forward`), and close with `Data.LLVM.Int.SubToAddNeg`. -/
+
+set_option maxHeartbeats 1000000 in
+theorem sub_to_add_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps sub_to_add_local}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges sub_to_add_local}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds sub_to_add_local}
+    {h₄ : LocalRewritePattern.ReturnValues sub_to_add_local} :
+    LocalRewritePattern.PreservesSemantics sub_to_add_local h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, sub_to_add_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel the outer `matchSub op`: operands `#[x, cval]`.
+  have hMatchSome : (matchSub op ctx.raw).isSome := by
+    cases hM : matchSub op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨x, cval, sProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hSubType, hSubNumResults, hSubOperands, -⟩ := matchSub_implies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Peel the constant operand `cval`.
+  have hCSome : (matchConstantIntVal cval ctx.raw).isSome := by
+    cases hM : matchConstantIntVal cval ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨cAttr, hC⟩ := Option.isSome_iff_exists.mp hCSome
+  rw [hC] at hpattern
+  simp only [] at hpattern
+  -- Verifier facts for the `sub`: operands/result share type `subType`.
+  have opVerif : op.Verified ctx opInBounds := by grind
+  obtain ⟨-, -, -, -, subType, hSubResType, hSubOperand0Type, hSubOperand1Type⟩ :=
+    OperationPtr.Verified.llvm_sub opVerif hSubType
+  have hxEq : x = (op.getOperands! ctx.raw)[0]! := by rw [hSubOperands]; rfl
+  have hCvalEq : cval = (op.getOperands! ctx.raw)[1]! := by rw [hSubOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = x := by
+    rw [hxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = cval := by
+    rw [hCvalEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hxType : (x.getType! ctx.raw).val = Attribute.integerType subType := by
+    rw [← hOperand0, hSubOperand0Type]
+  have hCvalType : (cval.getType! ctx.raw).val = Attribute.integerType subType := by
+    rw [← hOperand1, hSubOperand1Type]
+  -- Unfold the `sub`'s interpretation: `x`'s value and the constant operand's value.
+  obtain ⟨xVal, cvalVal, hxVal, hCvalVal, hMem, hRes, hCf⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := .sub)
+      (srcFn := fun a b p => Data.LLVM.Int.sub a b p.nsw p.nuw)
+      (props := op.getProperties! ctx.raw (.llvm .sub))
+      opInBounds hSubType hSubNumResults hSubOperands rfl
+      (by intro bw a b props resultTypes blockOperands mem res hh
+          simp only [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp] at hh
+          grind)
+      hinterp hxType hCvalType
+  subst hCf
+  -- Pin the constant operand's value.
+  have hCvalConst := matchConstantIntVal_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds
+    stateWf hC (by rw [hSubOperands]; simp) hCvalType
+  obtain rfl : cvalVal = Data.LLVM.Int.constant subType.bitwidth cAttr.value := by
+    have := hCvalVal.symm.trans hCvalConst; simpa using this
+  -- `x`'s dominance / freshness facts (a direct operand of `op`).
+  have hDomX : x.dominatesIp (InsertPoint.before op) ctx := by
+    grind [WfIRContext.Dom.operand_dominates_op]
+  have xNotOp : ¬ x ∈ op.getResults! ctx.raw := by
+    grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+  have hxIn : x.InBounds ctx.raw := by grind
+  -- Width guard on `x`'s type.
+  rw [hxType] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isTrue => simp at hpattern
+  rename_i hWidthRaw
+  have hWidth : subType.bitwidth = 64 ∨ subType.bitwidth = 32 := by omega
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- Peel the two creations: the negated constant, then the `add`.
+  peelOpCreation! hpattern ctx₁ cnOp hCn hDomX hDomX₁
+  peelOpCreation! hpattern ctx₂ addNewOp hAddNew hDomX₁ hDomX₂
+  cleanupHpattern hpattern
+  have hCnNeAdd : cnOp ≠ addNewOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  -- `x`'s type as a `TypeAttr`, transported to `ctx₁`.
+  have hxTypeAttr : x.getType! ctx.raw
+      = (⟨Attribute.integerType subType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr) :=
+    Subtype.ext hxType
+  have hxTypeAttr₁ : x.getType! ctx₁.raw
+      = (⟨Attribute.integerType subType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr) := by
+    rw [ValuePtr.getType!_WfRewriter_createOp_of_inBounds hCn hxIn]; exact hxTypeAttr
+  -- Structural facts for the negated constant.
+  have hCnType : cnOp.getOpType! ctx₂.raw = .llvm .mlir__constant := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hCn (operation := cnOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hAddNew (operation := cnOp)]
+  have hCnOperands : cnOp.getOperands! ctx₂.raw = #[] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hCn (operation := cnOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hAddNew (operation := cnOp)]
+  have hCnProps : (cnOp.getProperties! ctx₂.raw (.llvm .mlir__constant)).value
+      = .integer ⟨-cAttr.value, subType⟩ := by
+    have h1 := OperationPtr.getProperties!_WfRewriter_createOp hCn (operation := cnOp)
+      (opType := OpCode.llvm Llvm.mlir__constant)
+    rw [if_pos rfl] at h1
+    rw [OperationPtr.getProperties!_WfRewriter_createOp_ne hAddNew hCnNeAdd, h1]
+  have hCnResTypes : cnOp.getResultTypes! ctx₂.raw
+      = #[(⟨Attribute.integerType subType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hCn (operation := cnOp)
+    rw [if_pos rfl] at hT
+    have hT2 := OperationPtr.getResultTypes!_WfRewriter_createOp hAddNew (operation := cnOp)
+    rw [if_neg hCnNeAdd] at hT2
+    rw [hT2, hT]
+    exact congrArg (fun t => #[t]) hxTypeAttr
+  -- Structural facts for the new `add`.
+  have hAddNewType : addNewOp.getOpType! ctx₂.raw = .llvm .add := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hAddNew (operation := addNewOp)]
+  have hAddNewOperands : addNewOp.getOperands! ctx₂.raw = #[x, ValuePtr.opResult (cnOp.getResult 0)] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hAddNew (operation := addNewOp)]
+  have hAddNewProps : addNewOp.getProperties! ctx₂.raw (.llvm .add) = { nsw := false, nuw := false } := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hAddNew (operation := addNewOp)]
+  have hAddNewResTypes : addNewOp.getResultTypes! ctx₂.raw
+      = #[(⟨Attribute.integerType subType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hAddNew (operation := addNewOp)
+    rw [if_pos rfl] at hT
+    rw [hT]
+    exact congrArg (fun t => #[t]) hxTypeAttr₁
+  -- Read the refined `x` in the target state.
+  obtain ⟨xt, hxVal', hxRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hxIn hxVal
+      hDomX hDomX₂ xNotOp
+  -- Replay the negated constant, then the `add`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, hFrame₁⟩ :=
+    interpretOp_llvm_constant_forward (state := state') (inBounds := by grind)
+      hCnType hCnProps hCnOperands hCnResTypes
+  have hxVal₁ : s₁.variables.getVar? x = some (RuntimeValue.int subType.bitwidth xt) := by
+    rw [hFrame₁ x (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hxIn
+      (WfRewriter.createOp_new_not_inBounds cnOp hCn))]
+    exact hxVal'
+  obtain ⟨s₂, hI₂, hMem₂, hRes₂, -⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := s₁) (inBounds := by grind)
+      (f := fun a b => Data.LLVM.Int.add a b false false)
+      (by intro resultTypes blockOperands mem
+          simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      hAddNewType hAddNewProps hAddNewOperands hAddNewResTypes hxVal₁ hRes₁
+  refine ⟨s₂, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, hI₂, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int subType.bitwidth
+      (Data.LLVM.Int.add xt (Data.LLVM.Int.constant subType.bitwidth
+        (-cAttr.value)) false false)],
+    by simp [hRes₂, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Assemble: `sub x (const C) .. ⊒ add x (const -C) .. ⊒ add xt (const -C) ..`.
+  simp only [Data.LLVM.Int.cast_self]
+  refine isRefinedBy_trans (Data.LLVM.Int.SubToAddNeg hWidth)
+    (Data.LLVM.Int.add_mono _ _ _ _ hxRef (isRefinedBy_refl _) false false)
+
 end Veir.RISCV
