@@ -634,16 +634,21 @@ theorem BlockMPtr.readFirstUse!_blockArgumentMPtr_writeType (bl : Veir.BlockPtr)
     Buffed.BlockMPtr.readFirstUse! (Buffed.BlockArgumentMPtr.writeType ctx.buf arg.impl val h) bl.toM =
     Buffed.BlockMPtr.readFirstUse! ctx.buf bl.toM := by
   have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) bl blIb
+  have := @Sim.BlockArgumentPtr.after_lt_ctx
   have disj := ctx.sim.disjoint_allocs (.block arg.spec.block) (.block bl)
   have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
   have := ctx.sim.encoding_block bl (by grind) |>.firstUse
-  have hincl := BlockArgumentPtr.range_included_block_range (by grind) arg.spec argIb.ib
+  have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg.spec argIb.ib
+  have hbridge := Sim.BlockArgumentPtr.toFlat_eq_impl_toNat argIb
   have hsim := argIb.sim
   have := ctx.sim.in_bounds (.block bl) (by grind)
+  have : arg.spec.index < (arg.spec.block.getNumArguments! ctx.spec) := by grind [BlockArgumentPtr.inBounds_def]
+  have hri := ctx.sim.repr.blocks_indices arg.spec.block (by grind)
   simp only [Sim.BlockArgumentPtr.Sim] at hsim
   grind (splits := 20) [readFirstUse!, BlockArgumentMPtr.writeType, layout_grind,
-    = Buffed.Block.Offsets.after_ideal, BlockPtr.range,
-    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI]
+    = Buffed.Block.Offsets.after_ideal, BlockPtr.range, BlockPtr.toFlat,
+    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
+    BlockArgumentPtr.rangeInt, BlockArgumentPtr.toFlatNat, Block.ReprIndices, IsIncludedI]
 
 @[layout_simp, layout_grind =]
 theorem BlockMPtr.readFirstUse!_blockArgumentMPtr_writeFirstUse (bl : Veir.BlockPtr) (arg : Sim.BlockArgumentPtr)
@@ -707,16 +712,21 @@ theorem BlockMPtr.readPrev!_blockArgumentMPtr_writeType (bl : Veir.BlockPtr) (ar
     Buffed.BlockMPtr.readPrev! (Buffed.BlockArgumentMPtr.writeType ctx.buf arg.impl val h) bl.toM =
     Buffed.BlockMPtr.readPrev! ctx.buf bl.toM := by
   have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) bl blIb
+  have := @Sim.BlockArgumentPtr.after_lt_ctx
   have disj := ctx.sim.disjoint_allocs (.block arg.spec.block) (.block bl)
   have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
   have := ctx.sim.encoding_block bl (by grind) |>.prev
-  have hincl := BlockArgumentPtr.range_included_block_range (by grind) arg.spec argIb.ib
+  have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg.spec argIb.ib
+  have hbridge := Sim.BlockArgumentPtr.toFlat_eq_impl_toNat argIb
   have hsim := argIb.sim
   have := ctx.sim.in_bounds (.block bl) (by grind)
+  have : arg.spec.index < (arg.spec.block.getNumArguments! ctx.spec) := by grind [BlockArgumentPtr.inBounds_def]
+  have hri := ctx.sim.repr.blocks_indices arg.spec.block (by grind)
   simp only [Sim.BlockArgumentPtr.Sim] at hsim
   grind (splits := 20) [readPrev!, BlockArgumentMPtr.writeType, layout_grind,
-    = Buffed.Block.Offsets.after_ideal, BlockPtr.range,
-    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI]
+    = Buffed.Block.Offsets.after_ideal, BlockPtr.range, BlockPtr.toFlat,
+    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
+    BlockArgumentPtr.rangeInt, BlockArgumentPtr.toFlatNat, Block.ReprIndices, IsIncludedI]
 
 @[layout_simp, layout_grind =]
 theorem BlockMPtr.readPrev!_blockArgumentMPtr_writeFirstUse (bl : Veir.BlockPtr) (arg : Sim.BlockArgumentPtr)
@@ -781,16 +791,21 @@ theorem BlockMPtr.readNext!_blockArgumentMPtr_writeType (bl : Veir.BlockPtr) (ar
     Buffed.BlockMPtr.readNext! (Buffed.BlockArgumentMPtr.writeType ctx.buf arg.impl val h) bl.toM =
     Buffed.BlockMPtr.readNext! ctx.buf bl.toM := by
   have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) bl blIb
+  have := @Sim.BlockArgumentPtr.after_lt_ctx
   have disj := ctx.sim.disjoint_allocs (.block arg.spec.block) (.block bl)
   have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
   have := ctx.sim.encoding_block bl (by grind) |>.next
-  have hincl := BlockArgumentPtr.range_included_block_range (by grind) arg.spec argIb.ib
+  have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg.spec argIb.ib
+  have hbridge := Sim.BlockArgumentPtr.toFlat_eq_impl_toNat argIb
   have hsim := argIb.sim
   have := ctx.sim.in_bounds (.block bl) (by grind)
+  have : arg.spec.index < (arg.spec.block.getNumArguments! ctx.spec) := by grind [BlockArgumentPtr.inBounds_def]
+  have hri := ctx.sim.repr.blocks_indices arg.spec.block (by grind)
   simp only [Sim.BlockArgumentPtr.Sim] at hsim
   grind (splits := 20) [readNext!, BlockArgumentMPtr.writeType, layout_grind,
-    = Buffed.Block.Offsets.after_ideal, BlockPtr.range,
-    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI]
+    = Buffed.Block.Offsets.after_ideal, BlockPtr.range, BlockPtr.toFlat,
+    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
+    BlockArgumentPtr.rangeInt, BlockArgumentPtr.toFlatNat, Block.ReprIndices, IsIncludedI]
 
 @[layout_simp, layout_grind =]
 theorem BlockMPtr.readNext!_blockArgumentMPtr_writeFirstUse (bl : Veir.BlockPtr) (arg : Sim.BlockArgumentPtr)
@@ -855,16 +870,21 @@ theorem BlockMPtr.readParent!_blockArgumentMPtr_writeType (bl : Veir.BlockPtr) (
     Buffed.BlockMPtr.readParent! (Buffed.BlockArgumentMPtr.writeType ctx.buf arg.impl val h) bl.toM =
     Buffed.BlockMPtr.readParent! ctx.buf bl.toM := by
   have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) bl blIb
+  have := @Sim.BlockArgumentPtr.after_lt_ctx
   have disj := ctx.sim.disjoint_allocs (.block arg.spec.block) (.block bl)
   have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
   have := ctx.sim.encoding_block bl (by grind) |>.parent
-  have hincl := BlockArgumentPtr.range_included_block_range (by grind) arg.spec argIb.ib
+  have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg.spec argIb.ib
+  have hbridge := Sim.BlockArgumentPtr.toFlat_eq_impl_toNat argIb
   have hsim := argIb.sim
   have := ctx.sim.in_bounds (.block bl) (by grind)
+  have : arg.spec.index < (arg.spec.block.getNumArguments! ctx.spec) := by grind [BlockArgumentPtr.inBounds_def]
+  have hri := ctx.sim.repr.blocks_indices arg.spec.block (by grind)
   simp only [Sim.BlockArgumentPtr.Sim] at hsim
   grind (splits := 20) [readParent!, BlockArgumentMPtr.writeType, layout_grind,
-    = Buffed.Block.Offsets.after_ideal, BlockPtr.range,
-    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI]
+    = Buffed.Block.Offsets.after_ideal, BlockPtr.range, BlockPtr.toFlat,
+    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
+    BlockArgumentPtr.rangeInt, BlockArgumentPtr.toFlatNat, Block.ReprIndices, IsIncludedI]
 
 @[layout_simp, layout_grind =]
 theorem BlockMPtr.readParent!_blockArgumentMPtr_writeFirstUse (bl : Veir.BlockPtr) (arg : Sim.BlockArgumentPtr)
@@ -929,16 +949,21 @@ theorem BlockMPtr.readFirstOp!_blockArgumentMPtr_writeType (bl : Veir.BlockPtr) 
     Buffed.BlockMPtr.readFirstOp! (Buffed.BlockArgumentMPtr.writeType ctx.buf arg.impl val h) bl.toM =
     Buffed.BlockMPtr.readFirstOp! ctx.buf bl.toM := by
   have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) bl blIb
+  have := @Sim.BlockArgumentPtr.after_lt_ctx
   have disj := ctx.sim.disjoint_allocs (.block arg.spec.block) (.block bl)
   have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
   have := ctx.sim.encoding_block bl (by grind) |>.firstOp
-  have hincl := BlockArgumentPtr.range_included_block_range (by grind) arg.spec argIb.ib
+  have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg.spec argIb.ib
+  have hbridge := Sim.BlockArgumentPtr.toFlat_eq_impl_toNat argIb
   have hsim := argIb.sim
   have := ctx.sim.in_bounds (.block bl) (by grind)
+  have : arg.spec.index < (arg.spec.block.getNumArguments! ctx.spec) := by grind [BlockArgumentPtr.inBounds_def]
+  have hri := ctx.sim.repr.blocks_indices arg.spec.block (by grind)
   simp only [Sim.BlockArgumentPtr.Sim] at hsim
   grind (splits := 20) [readFirstOp!, BlockArgumentMPtr.writeType, layout_grind,
-    = Buffed.Block.Offsets.after_ideal, BlockPtr.range,
-    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI]
+    = Buffed.Block.Offsets.after_ideal, BlockPtr.range, BlockPtr.toFlat,
+    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
+    BlockArgumentPtr.rangeInt, BlockArgumentPtr.toFlatNat, Block.ReprIndices, IsIncludedI]
 
 @[layout_simp, layout_grind =]
 theorem BlockMPtr.readFirstOp!_blockArgumentMPtr_writeFirstUse (bl : Veir.BlockPtr) (arg : Sim.BlockArgumentPtr)
@@ -1003,16 +1028,21 @@ theorem BlockMPtr.readLastOp!_blockArgumentMPtr_writeType (bl : Veir.BlockPtr) (
     Buffed.BlockMPtr.readLastOp! (Buffed.BlockArgumentMPtr.writeType ctx.buf arg.impl val h) bl.toM =
     Buffed.BlockMPtr.readLastOp! ctx.buf bl.toM := by
   have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) bl blIb
+  have := @Sim.BlockArgumentPtr.after_lt_ctx
   have disj := ctx.sim.disjoint_allocs (.block arg.spec.block) (.block bl)
   have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
   have := ctx.sim.encoding_block bl (by grind) |>.lastOp
-  have hincl := BlockArgumentPtr.range_included_block_range (by grind) arg.spec argIb.ib
+  have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg.spec argIb.ib
+  have hbridge := Sim.BlockArgumentPtr.toFlat_eq_impl_toNat argIb
   have hsim := argIb.sim
   have := ctx.sim.in_bounds (.block bl) (by grind)
+  have : arg.spec.index < (arg.spec.block.getNumArguments! ctx.spec) := by grind [BlockArgumentPtr.inBounds_def]
+  have hri := ctx.sim.repr.blocks_indices arg.spec.block (by grind)
   simp only [Sim.BlockArgumentPtr.Sim] at hsim
   grind (splits := 20) [readLastOp!, BlockArgumentMPtr.writeType, layout_grind,
-    = Buffed.Block.Offsets.after_ideal, BlockPtr.range,
-    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI]
+    = Buffed.Block.Offsets.after_ideal, BlockPtr.range, BlockPtr.toFlat,
+    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
+    BlockArgumentPtr.rangeInt, BlockArgumentPtr.toFlatNat, Block.ReprIndices, IsIncludedI]
 
 @[layout_simp, layout_grind =]
 theorem BlockMPtr.readLastOp!_blockArgumentMPtr_writeFirstUse (bl : Veir.BlockPtr) (arg : Sim.BlockArgumentPtr)
@@ -1077,16 +1107,21 @@ theorem BlockMPtr.readNumArguments!_blockArgumentMPtr_writeType (bl : Veir.Block
     Buffed.BlockMPtr.readNumArguments! (Buffed.BlockArgumentMPtr.writeType ctx.buf arg.impl val h) bl.toM =
     Buffed.BlockMPtr.readNumArguments! ctx.buf bl.toM := by
   have b1 := Sim.BlockPtr.after_lt_ctx (ctx := ctx) bl blIb
+  have := @Sim.BlockArgumentPtr.after_lt_ctx
   have disj := ctx.sim.disjoint_allocs (.block arg.spec.block) (.block bl)
   have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
   have := ctx.sim.encoding_block bl (by grind) |>.numArguments
-  have hincl := BlockArgumentPtr.range_included_block_range (by grind) arg.spec argIb.ib
+  have hincl := BlockArgumentPtr.range_included_block_range (ctx := ctx.spec) (by grind) arg.spec argIb.ib
+  have hbridge := Sim.BlockArgumentPtr.toFlat_eq_impl_toNat argIb
   have hsim := argIb.sim
   have := ctx.sim.in_bounds (.block bl) (by grind)
+  have : arg.spec.index < (arg.spec.block.getNumArguments! ctx.spec) := by grind [BlockArgumentPtr.inBounds_def]
+  have hri := ctx.sim.repr.blocks_indices arg.spec.block (by grind)
   simp only [Sim.BlockArgumentPtr.Sim] at hsim
   grind (splits := 20) [readNumArguments!, BlockArgumentMPtr.writeType, layout_grind,
-    = Buffed.Block.Offsets.after_ideal, BlockPtr.range,
-    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI]
+    = Buffed.Block.Offsets.after_ideal, BlockPtr.range, BlockPtr.toFlat,
+    BlockArgumentPtr.toM, BlockArgumentPtr.range, BlockArgumentPtr.toFlat,
+    BlockArgumentPtr.rangeInt, BlockArgumentPtr.toFlatNat, Block.ReprIndices, IsIncludedI]
 
 @[layout_simp, layout_grind =]
 theorem BlockMPtr.readNumArguments!_blockArgumentMPtr_writeFirstUse (bl : Veir.BlockPtr) (arg : Sim.BlockArgumentPtr)

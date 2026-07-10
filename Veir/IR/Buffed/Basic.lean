@@ -845,7 +845,7 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
          have hrange := @OpResultPtr.range_included_op_range
          constructor
          · have := this.kind
-           grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.ValueImplMPtr.readType!]
+           grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.OpResultMPtr.readKind!]
          · have := this.typee
            grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.OpResultMPtr.readType!]
          · have := this.firstUse
@@ -881,7 +881,7 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
          have hrange := @BlockArgumentPtr.range_included_block_range
          constructor
          · have := this.kind
-           grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.ValueImplMPtr.readType!]
+           grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.BlockArgumentMPtr.readKind!]
          · have := this.type
            grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.BlockArgumentMPtr.readType!]
          · have := this.firstUse
@@ -2184,11 +2184,11 @@ theorem Sim.BlockPtr.allocEmptySim (ctx : Sim.IRContext OpInfo) (numArgs : UInt6
             simpa using this
           have hcap : (ptrSpec.get! ctxSpec).capArguments = numArgs.toNat := by
             simp only [hget, Veir.Block.empty]
-          -- `afterInt = argumentsInt(=56) + capArguments*32 = 56 + numArgs*32 = computeBlockSize`.
+          -- `afterInt = argumentsInt(=56) + capArguments*40 = 56 + numArgs*40 = computeBlockSize`.
           have hargInt : (Buffed.Block.Offsets.argumentsInt : Int) = 56 := by decide
           have hbaseNat : Buffed.Block.sizeBaseNat = 56 := by decide
-          have hszNat : Buffed.BlockArgument.sizeNat = 32 := by decide
-          have hargNat : Buffed.Block.Sizes.argumentsNat ptrSpec ctxSpec = numArgs.toNat * 32 := by
+          have hszNat : Buffed.BlockArgument.sizeNat = 40 := by decide
+          have hargNat : Buffed.Block.Sizes.argumentsNat ptrSpec ctxSpec = numArgs.toNat * 40 := by
             simp only [Buffed.Block.Sizes.argumentsNat, hcap, hszNat]
           have hafterInt : Buffed.Block.Offsets.afterInt ptrSpec ctxSpec
               = ((Buffed.BlockMPtr.computeBlockSize numArgs).toUInt64.toNat : Int) := by
@@ -2504,11 +2504,11 @@ theorem Sim.BlockPtr.allocEmptySim (ctx : Sim.IRContext OpInfo) (numArgs : UInt6
             simpa using this
           constructor
           · have := this.kind
-            simp only [Veir.ValuePtr.toM_opResult, Buffed.ValueImplMPtr.readType!, hrMeq] at this ⊢
+            simp only [Buffed.OpResultMPtr.readKind!, hrMeq] at this ⊢
             rw [hr0]; exact this
           · have := this.typee
             simp only [Buffed.OpResultMPtr.readType!, hrMeq, hrgeteq, hattr] at this ⊢
-            rw [hr0]; exact this
+            rw [hr Buffed.ValueImpl.Offsets.type (by decide) (by decide)]; exact this
           · have := this.firstUse
             simp only [Buffed.OpResultMPtr.readFirstUse!, hrMeq, hrgeteq] at this ⊢
             rw [hr Buffed.ValueImpl.Offsets.firstUse (by decide) (by decide)]
@@ -2603,11 +2603,11 @@ theorem Sim.BlockPtr.allocEmptySim (ctx : Sim.IRContext OpInfo) (numArgs : UInt6
               simpa using this
             constructor
             · have := this.kind
-              simp only [Veir.ValuePtr.toM_blockArgument, Buffed.ValueImplMPtr.readType!] at this ⊢
+              simp only [Buffed.BlockArgumentMPtr.readKind!] at this ⊢
               rw [ha0]; exact this
             · have := this.type
               simp only [Buffed.BlockArgumentMPtr.readType!, hageteq, hattr] at this ⊢
-              rw [ha0]; exact this
+              rw [ha Buffed.ValueImpl.Offsets.type (by decide) (by decide)]; exact this
             · have := this.firstUse
               simp only [Buffed.BlockArgumentMPtr.readFirstUse!, hageteq] at this ⊢
               rw [ha Buffed.ValueImpl.Offsets.firstUse (by decide) (by decide)]
@@ -4170,11 +4170,11 @@ theorem Sim.RegionPtr.allocEmptySim (ctx : Sim.IRContext OpInfo)
             simpa using this
           constructor
           · have := this.kind
-            simp only [Veir.ValuePtr.toM_opResult, Buffed.ValueImplMPtr.readType!, hrMeq] at this ⊢
+            simp only [Buffed.OpResultMPtr.readKind!, hrMeq] at this ⊢
             rw [hr0]; exact this
           · have := this.typee
             simp only [Buffed.OpResultMPtr.readType!, hrMeq, hrgeteq, hattr] at this ⊢
-            rw [hr0]; exact this
+            rw [hr Buffed.ValueImpl.Offsets.type (by decide) (by decide)]; exact this
           · have := this.firstUse
             simp only [Buffed.OpResultMPtr.readFirstUse!, hrMeq, hrgeteq] at this ⊢
             rw [hr Buffed.ValueImpl.Offsets.firstUse (by decide) (by decide)]
@@ -4280,11 +4280,11 @@ theorem Sim.RegionPtr.allocEmptySim (ctx : Sim.IRContext OpInfo)
             simpa using this
           constructor
           · have := this.kind
-            simp only [Veir.ValuePtr.toM_blockArgument, Buffed.ValueImplMPtr.readType!] at this ⊢
+            simp only [Buffed.BlockArgumentMPtr.readKind!] at this ⊢
             rw [ha0]; exact this
           · have := this.type
             simp only [Buffed.BlockArgumentMPtr.readType!, hageteq, hattr] at this ⊢
-            rw [ha0]; exact this
+            rw [ha Buffed.ValueImpl.Offsets.type (by decide) (by decide)]; exact this
           · have := this.firstUse
             simp only [Buffed.BlockArgumentMPtr.readFirstUse!, hageteq] at this ⊢
             rw [ha Buffed.ValueImpl.Offsets.firstUse (by decide) (by decide)]
@@ -4490,7 +4490,7 @@ theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {ctx₀ : Buffed.IRBufContext OpI
     have halsz := ctx₀.alloc_size halloc
     have hnr := UInt64.toNat_lt numResults
     rw [UInt64.toNat_add, UInt64.toNat_mul]
-    simp only [Buffed.IRBufContext.size_def, show Buffed.OpResult.size.toNat = 32 from rfl,
+    simp only [Buffed.IRBufContext.size_def, show Buffed.OpResult.size.toNat = 40 from rfl,
       Int64.maxNatValue, Buffed.ptrSize] at *
     omega
 

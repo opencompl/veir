@@ -218,17 +218,32 @@ theorem IRBufContext.usize_toNat (bctx : IRBufContext OpInfo) :
 /-! ## Raw accessors for `ValueImpl` -/
 
 @[inline]
-def ValueImplMPtr.readType (ptr : ValueImplMPtr) (h : ptr.toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : UInt64 :=
+def ValueImplMPtr.readKind (ptr : ValueImplMPtr)
+    (h : ptr.toNat + ValueImpl.Sizes.kind.toNat ≤ bctx.size) : UInt64 :=
   bctx.mem.read64 ptr (by grind)
 
 @[inline]
-def ValueImplMPtr.writeType (ptr : ValueImplMPtr) (val : UInt64)
-    (h : ptr.toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : IRBufContext OpInfo :=
+def ValueImplMPtr.writeKind (ptr : ValueImplMPtr) (val : UInt64)
+    (h : ptr.toNat + ValueImpl.Sizes.kind.toNat ≤ bctx.size) : IRBufContext OpInfo :=
   { bctx with mem := bctx.mem.blit64 ptr val (by grind) }
 
 @[inline]
-def ValueImplMPtr.readType! (ptr : ValueImplMPtr) : UInt64 :=
+def ValueImplMPtr.readKind! (ptr : ValueImplMPtr) : UInt64 :=
   bctx.mem.read64! ptr
+
+@[inline]
+def ValueImplMPtr.readType (ptr : ValueImplMPtr)
+    (h : (ptr + ValueImpl.Offsets.type).toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : UInt64 :=
+  bctx.mem.read64 (ptr + ValueImpl.Offsets.type) (by grind)
+
+@[inline]
+def ValueImplMPtr.writeType (ptr : ValueImplMPtr) (val : UInt64)
+    (h : (ptr + ValueImpl.Offsets.type).toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : IRBufContext OpInfo :=
+  { bctx with mem := bctx.mem.blit64 (ptr + ValueImpl.Offsets.type) val (by grind) }
+
+@[inline]
+def ValueImplMPtr.readType! (ptr : ValueImplMPtr) : UInt64 :=
+  bctx.mem.read64! (ptr + ValueImpl.Offsets.type)
 
 @[simp, grind =]
 theorem ValueImplMPtr.readType_eq_readType! {ptr : ValueImplMPtr} {h} :
@@ -262,18 +277,32 @@ theorem ValueImplMPtr.readFirstUse_eq_readFirstUse! {ptr : ValueImplMPtr} {h} :
 /-! ## Raw accessors for `OpResult` -/
 
 @[inline]
-def OpResultMPtr.readType (ptr : OpResultMPtr)
-    (h : ptr.toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : UInt64 :=
+def OpResultMPtr.readKind (ptr : OpResultMPtr)
+    (h : ptr.toNat + ValueImpl.Sizes.kind.toNat ≤ bctx.size) : UInt64 :=
   bctx.mem.read64 ptr (by grind)
 
 @[inline]
-def OpResultMPtr.writeType (ptr : OpResultMPtr) (val : UInt64)
-    (h : ptr.toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : IRBufContext OpInfo :=
+def OpResultMPtr.writeKind (ptr : OpResultMPtr) (val : UInt64)
+    (h : ptr.toNat + ValueImpl.Sizes.kind.toNat ≤ bctx.size) : IRBufContext OpInfo :=
   { bctx with mem := bctx.mem.blit64 ptr val (by grind) }
 
 @[inline]
-def OpResultMPtr.readType! (ptr : OpResultMPtr) : UInt64 :=
+def OpResultMPtr.readKind! (ptr : OpResultMPtr) : UInt64 :=
   bctx.mem.read64! ptr
+
+@[inline]
+def OpResultMPtr.readType (ptr : OpResultMPtr)
+    (h : (ptr + ValueImpl.Offsets.type).toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : UInt64 :=
+  bctx.mem.read64 (ptr + ValueImpl.Offsets.type) (by grind)
+
+@[inline]
+def OpResultMPtr.writeType (ptr : OpResultMPtr) (val : UInt64)
+    (h : (ptr + ValueImpl.Offsets.type).toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : IRBufContext OpInfo :=
+  { bctx with mem := bctx.mem.blit64 (ptr + ValueImpl.Offsets.type) val (by grind) }
+
+@[inline]
+def OpResultMPtr.readType! (ptr : OpResultMPtr) : UInt64 :=
+  bctx.mem.read64! (ptr + ValueImpl.Offsets.type)
 
 @[simp, grind =]
 theorem OpResultMPtr.readType_eq_readType! {ptr : OpResultMPtr} {h} :
@@ -340,18 +369,32 @@ theorem OpResultMPtr.readOwner_eq_readOwner! {ptr : OpResultMPtr} {h} :
 /-! ## Raw accessors for `BlockArgument` -/
 
 @[inline]
-def BlockArgumentMPtr.readType (ptr : BlockArgumentMPtr)
-    (h : ptr.toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : UInt64 :=
+def BlockArgumentMPtr.readKind (ptr : BlockArgumentMPtr)
+    (h : ptr.toNat + ValueImpl.Sizes.kind.toNat ≤ bctx.size) : UInt64 :=
   bctx.mem.read64 ptr (by grind)
 
 @[inline]
-def BlockArgumentMPtr.writeType (ptr : BlockArgumentMPtr) (val : UInt64)
-    (h : ptr.toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : IRBufContext OpInfo :=
+def BlockArgumentMPtr.writeKind (ptr : BlockArgumentMPtr) (val : UInt64)
+    (h : ptr.toNat + ValueImpl.Sizes.kind.toNat ≤ bctx.size) : IRBufContext OpInfo :=
   { bctx with mem := bctx.mem.blit64 ptr val (by grind) }
 
 @[inline]
-def BlockArgumentMPtr.readType! (ptr : BlockArgumentMPtr) : UInt64 :=
+def BlockArgumentMPtr.readKind! (ptr : BlockArgumentMPtr) : UInt64 :=
   bctx.mem.read64! ptr
+
+@[inline]
+def BlockArgumentMPtr.readType (ptr : BlockArgumentMPtr)
+    (h : (ptr + ValueImpl.Offsets.type).toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : UInt64 :=
+  bctx.mem.read64 (ptr + ValueImpl.Offsets.type) (by grind)
+
+@[inline]
+def BlockArgumentMPtr.writeType (ptr : BlockArgumentMPtr) (val : UInt64)
+    (h : (ptr + ValueImpl.Offsets.type).toNat + ValueImpl.Sizes.type.toNat ≤ bctx.size) : IRBufContext OpInfo :=
+  { bctx with mem := bctx.mem.blit64 (ptr + ValueImpl.Offsets.type) val (by grind) }
+
+@[inline]
+def BlockArgumentMPtr.readType! (ptr : BlockArgumentMPtr) : UInt64 :=
+  bctx.mem.read64! (ptr + ValueImpl.Offsets.type)
 
 @[simp, grind =]
 theorem BlockArgumentMPtr.readType_eq_readType! {ptr : BlockArgumentMPtr} {h} :
@@ -796,7 +839,7 @@ theorem OperationMPtr.computeResultsOffset_eq_computeResultsOffset! {ptr : Opera
 def OperationMPtr.computeResultOffset (ptr : OperationMPtr) (idx : UInt64)
     (h : (ptr + Operation.Offsets.numResults).toInt + Operation.Sizes.numResults.toInt ≤ bctx.size) : Int64 :=
   let offset := ptr.computeResultsOffset bctx h
-  offset + (OpOperand.size * idx)
+  offset + (OpResult.size * idx)
 
 @[inline]
 def OperationMPtr.computeResultOffset! (ptr : OperationMPtr) (idx : UInt64) : Int64 :=
@@ -897,8 +940,8 @@ theorem BlockMPtr.computeBlockSize_toNat (numArgs : UInt64) (h : numArgs.toNat �
   have hlt : numArgs.toNat < 2 ^ 64 := UInt64.toNat_lt numArgs
   simp only [computeBlockSize, UInt64.toUInt64_toInt64, countCard, UInt32.size] at *
   rw [UInt64.toNat_add, UInt64.toNat_mul,
-    show Block.sizeBase.toNat = 56 from rfl, show BlockArgument.size.toNat = 32 from rfl,
-    show Block.sizeBaseNat = 56 from rfl, show BlockArgument.sizeNat = 32 from rfl]
+    show Block.sizeBase.toNat = 56 from rfl, show BlockArgument.size.toNat = 40 from rfl,
+    show Block.sizeBaseNat = 56 from rfl, show BlockArgument.sizeNat = 40 from rfl]
   omega
 
 /-- The number of bytes needed by an operation with the given array sizes and property size. -/
@@ -928,9 +971,9 @@ theorem OperationMPtr.computeOperationSize_toNat
   simp only [computeOperationSize, countCard, UInt32.size] at *
   rw [UInt64.toNat_add, UInt64.toNat_add, UInt64.toNat_add, UInt64.toNat_add, UInt64.toNat_add,
     UInt64.toNat_mul, UInt64.toNat_mul, UInt64.toNat_mul, UInt64.toNat_mul,
-    show Operation.sizeBase.toNat = 72 from rfl, show OpResult.size.toNat = 32 from rfl,
+    show Operation.sizeBase.toNat = 72 from rfl, show OpResult.size.toNat = 40 from rfl,
     show ptrSize.toNat = 8 from rfl]
-  omega
+  grind
 
 @[inline]
 def OperationMPtr.readNthBlockOperand (ptr : OperationMPtr) (idx : UInt64)
