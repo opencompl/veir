@@ -4931,7 +4931,6 @@ theorem select_of_zext_local_preservesSemantics
   -- Collapse widths.
   obtain ⟨ow⟩ := opType; simp only at hOW; subst hOW
   obtain ⟨rw'⟩ := retType; simp only at hRW; subst hRW
-  simp only [IntegerType.bitwidth] at hwV
   -- Source value.
   rw [hResultsEq] at hsourceValues
   simp at hsourceValues
