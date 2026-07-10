@@ -943,7 +943,12 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
         #[] #[] () none
       pure (ctx, #[addOp], addOp)
     | _ =>
-      if scale &&& (scale - 1) == 0 then
+      /- `0 < scale` excludes zero-sized element types (`i0`, `!llvm.array<0 x _>`), for which
+         `scale &&& (scale - 1) == 0` also holds but `Nat.log2 0 = 0` would emit `idx << 0`, i.e.
+         `ptr + idx` rather than `ptr`. `Nat.log2 scale < 64` excludes element sizes of `2^64` and
+         beyond, whose shift amount does not fit the 6-bit immediate. Both fall through to the
+         `li`/`mul` form below, which truncates modulo `2^64` exactly as the source does. -/
+      if 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64 then
         /- scale is a power of two: ptr + (idx << log2 scale) -/
         let k := RISCVImmediateProperties.mk (IntegerAttr.mk (Nat.log2 scale) (IntegerType.mk 64))
         let (ctx, slliOp) ← WfRewriter.createOp! ctx (.riscv .slli) #[RegisterType.mk] #[iReg]
