@@ -214,7 +214,7 @@ def constReuseTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (
   constReuseTreeGo size ctx insertPoint opcode prop pc inc accVal reuseVal
 
 buffed (def_lemma := false)
-def addZeroReuseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+def addZeroReuseTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constReuseTree ctx ip (.arith .addi) () size pc 42 0
 
 -- Create a program that looks like constFoldTree but with randomly selected constants as rhs and
@@ -377,6 +377,25 @@ def rewriteForwardsAddIZeroFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.
   let block ← (region.getFirstBlock! ctx).toOption
   let maybeOp := (block.getFirstOp! ctx)
   rewriteForwardsAddIZeroFoldingGo ctx maybeOp
+
+buffed (def_lemma := false)
+def rewriteFirstAddIZeroFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
+  match maybeOp.toOption with
+  | none => ctx
+  | some op =>
+    if op.getOpType ctx sorry = .arith .addi then
+      let ctx ← addIZeroFolding ctx op
+      ctx
+    else
+      rewriteFirstAddIZeroFoldingGoSim ctx (op.getNextOp ctx sorry)
+partial_fixpoint
+
+buffed (def_lemma := false)
+def rewriteFirstAddIZeroFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+  let region := topOp.getRegionPtr ctx 0 sorry sorry
+  let block ← (region.getFirstBlock ctx sorry).toOption
+  let maybeOp := (block.getFirstOp ctx sorry)
+  rewriteFirstAddIZeroFoldingGo ctx maybeOp
 
 buffed (def_lemma := false)
 def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
@@ -561,12 +580,14 @@ def runBenchmark (benchmark : String) (n pc : Nat) : OptionT IO Unit :=
   match benchmark with
   | "add-fold-forwards" =>        run n pc addOneTree        rewriteForwardsAddIConstFolding
   | "add-zero-forwards" =>        run n pc addZeroTree       rewriteForwardsAddIZeroFolding
-  | "add-zero-reuse-forwards" =>  run n pc addZeroReuse      rewriteForwardsAddIZeroFolding
+  | "add-zero-reuse-forwards" =>  run n pc addZeroReuseTree  rewriteForwardsAddIZeroFolding
   | "mul-two-forwards" =>         run n pc mulTwoTree        rewriteForwardsMulITwoReduce
 
   | "add-fold-forwards-sparse" => run n pc addOneTreeSparse  rewriteForwardsAddIConstFolding
   | "add-zero-forwards-sparse" => run n pc addZeroTreeSparse rewriteForwardsAddIZeroFolding
   | "mul-two-forwards-sparse" =>  run n pc mulTwoTreeSparse  rewriteForwardsMulITwoReduce
+
+  | "add-zero-reuse-first" =>     run n pc addZeroReuseTree  rewriteFirstAddIZeroFolding
 
   | _ => panic! "Unsupported benchmark"
 
