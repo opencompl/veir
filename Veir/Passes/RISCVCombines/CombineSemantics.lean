@@ -6938,4 +6938,205 @@ theorem XorShlShl_local_preservesSemantics
     (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.xor_mono a₁ b₁ a₂ b₂ h₁ h₂)
     (fun _ _ _ _ _ _ _ _ => by simpa using Data.LLVM.Int.XorShlShl)
 
+/-! ### commute_int_constant_to_rhs (`commute_const_*`)
+
+  `(C op x) → (x op C)` for `op ∈ {add, mul, and, or, xor}`, where `C` is an integer constant and
+  `x` is not, canonicalizing the constant to the right-hand side. `op` is a binop matched directly;
+  the emitted op is the *same* opcode with its two operands swapped, carrying the *same* properties
+  (each op — including its overflow/`disjoint` flags — is commutative, so nothing needs clearing).
+  Width-generic. -/
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness proof for the five `commute_const_*` combines. Parameterized over the binop
+    opcode `dst`/`match?`, its interpretation `srcFn` (`hSemSrc`), commutativity `hComm` (an
+    equality — the flags are symmetric under commutation), and monotonicity `hMono`. The two
+    constant guards on `lhs`/`rhs` are irrelevant to correctness (commuting is always sound); they
+    are only peeled. -/
+theorem commuteConstLocal_preservesSemantics {dst : Llvm}
+    {srcFn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → propertiesOf (.llvm dst) →
+      Data.LLVM.Int bw}
+    {match? : OperationPtr → IRContext OpCode →
+      Option (ValuePtr × ValuePtr × propertiesOf (.llvm dst))}
+    (hMatchImplies : ∀ {opp : OperationPtr} {c : IRContext OpCode} {l r p},
+        match? opp c = some (l, r, p) →
+        opp.getOpType! c = .llvm dst ∧ opp.getNumResults! c = 1 ∧
+          opp.getOperands! c = #[l, r] ∧ p = opp.getProperties! c (.llvm dst))
+    (hVerified : ∀ {c : WfIRContext OpCode} {opp : OperationPtr} {oib : opp.InBounds c.raw},
+        opp.Verified c oib → opp.getOpType! c.raw = .llvm dst → opp.IsVerifiedIntegerBinop c)
+    (hSemSrc : ∀ (bw : Nat) (a b : Data.LLVM.Int bw) (props : propertiesOf (.llvm dst))
+        (rt : Array TypeAttr) (bo : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' dst props rt #[.int bw a, .int bw b] bo mem
+          = some (.ok (#[.int bw (srcFn a b props)], mem, none)))
+    (hComm : ∀ {bw : Nat} (a b : Data.LLVM.Int bw) (p : propertiesOf (.llvm dst)),
+        srcFn a b p = srcFn b a p)
+    (hMono : ∀ {bw : Nat} (a₁ a₂ b₁ b₂ : Data.LLVM.Int bw) (p : propertiesOf (.llvm dst)),
+        a₁ ⊒ b₁ → a₂ ⊒ b₂ → srcFn a₁ a₂ p ⊒ srcFn b₁ b₂ p)
+    {h : LocalRewritePattern.ReturnOps (commuteConstLocal dst match?)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (commuteConstLocal dst match?)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (commuteConstLocal dst match?)}
+    {h₄ : LocalRewritePattern.ReturnValues (commuteConstLocal dst match?)} :
+    LocalRewritePattern.PreservesSemantics (commuteConstLocal dst match?) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, commuteConstLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel `match?`.
+  have hMatchSome : (match? op ctx.raw).isSome := by
+    cases hM : match? op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨lhs, rhs, props⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands, hProps⟩ := hMatchImplies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Peel the constant guards: `lhs` must be a constant, `rhs` must not.
+  have hCstLhsSome : (matchConstantIntVal lhs ctx.raw).isSome := by
+    cases hM : matchConstantIntVal lhs ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨clhs, hCstLhs⟩ := Option.isSome_iff_exists.mp hCstLhsSome
+  rw [hCstLhs] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isTrue => simp at hpattern
+  rename_i hCstRhs
+  -- Verifier facts for `op`.
+  have opVerif : op.Verified ctx opInBounds := by grind
+  obtain ⟨-, -, -, -, opIntType, hOpResType, hOp0Type, hOp1Type⟩ :=
+    hVerified opVerif hOpType
+  have hlhsEq : lhs = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  have hrhsEq : rhs = (op.getOperands! ctx.raw)[1]! := by rw [hOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = lhs := by
+    rw [hlhsEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = rhs := by
+    rw [hrhsEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hlhsType : (lhs.getType! ctx.raw).val = Attribute.integerType opIntType := by
+    rw [← hOperand0, hOp0Type]
+  have hrhsType : (rhs.getType! ctx.raw).val = Attribute.integerType opIntType := by
+    rw [← hOperand1, hOp1Type]
+  -- Unfold the source binop.
+  obtain ⟨lhsv, rhsv, hlhsVal, hrhsVal, hMem, hRes, hCf⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := dst) (srcFn := srcFn) (props := props)
+      opInBounds hOpType hNumResults hOperands hProps
+      (by intro bw a b props' resultTypes blockOperands mem res hh
+          rw [hSemSrc bw a b props' resultTypes blockOperands mem] at hh
+          injection hh with hh; injection hh with hh; exact hh.symm)
+      hinterp hlhsType hrhsType
+  subst hCf
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- Dominance / freshness for the two operands.
+  have hDomL : lhs.dominatesIp (InsertPoint.before op) ctx := by
+    grind [WfIRContext.Dom.operand_dominates_op]
+  have hDomR : rhs.dominatesIp (InsertPoint.before op) ctx := by
+    grind [WfIRContext.Dom.operand_dominates_op]
+  have hLIn : lhs.InBounds ctx.raw := by grind
+  have hRIn : rhs.InBounds ctx.raw := by grind
+  have lNotOp : ¬ lhs ∈ op.getResults! ctx.raw := by
+    grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+  have rNotOp : ¬ rhs ∈ op.getResults! ctx.raw := by
+    grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+  -- Peel the single op creation (`dst rhs lhs`), transporting `lhs`'s dominance.
+  peelOpCreation! hpattern ctx₁ newOp hNew hDomL hDomL₁
+  cleanupHpattern hpattern
+  have hNewType : newOp.getOpType! ctx₁.raw = .llvm dst := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewOperands : newOp.getOperands! ctx₁.raw = #[rhs, lhs] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewProps : newOp.getProperties! ctx₁.raw (.llvm dst) = props := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hNew (operation := newOp)]
+  have hOpResVal : ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType opIntType :=
+    congrArg Subtype.val hOpResType
+  have hNewResTypes : newOp.getResultTypes! ctx₁.raw
+      = #[(⟨Attribute.integerType opIntType,
+          hOpResVal ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hNew (operation := newOp)
+    rw [if_pos rfl] at hT
+    rw [hT]
+    exact congrArg (fun t => #[t]) (Subtype.ext hOpResVal)
+  have hDomR₁ : rhs.dominatesIp (InsertPoint.before op) ctx₁ :=
+    (ValuePtr.dominatesIp_before_WfRewriter_createOp hNew
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)).mpr hDomR
+  -- Read both refined operands in the target state.
+  obtain ⟨lt, hLVal', hlRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hLIn hlhsVal
+      hDomL hDomL₁ lNotOp
+  obtain ⟨rt, hRVal', hrRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hRIn hrhsVal
+      hDomR hDomR₁ rNotOp
+  -- Replay the created (swapped) op forward: operands `#[rhs, lhs]` give `srcFn rt lt props`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, -⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := state') (inBounds := by grind)
+      (f := fun a b => srcFn a b props)
+      (by intro resultTypes blockOperands mem; exact hSemSrc _ _ _ props _ _ _)
+      hNewType hNewProps hNewOperands hNewResTypes hRVal' hLVal'
+  refine ⟨s₁, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int opIntType.bitwidth (srcFn rt lt props)],
+    by simp [hRes₁, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- `srcFn lhsv rhsv props ⊒ srcFn rt lt props` by commutativity then monotonicity.
+  simp only [Data.LLVM.Int.cast_self]
+  rw [hComm lhsv rhsv props]
+  exact hMono rhsv lhsv rt lt props hrRef hlRef
+
+theorem commute_const_add_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (commuteConstLocal .add matchAdd) h h₂ h₃ h₄ :=
+  commuteConstLocal_preservesSemantics (dst := .add)
+    (srcFn := fun a b p => Data.LLVM.Int.add a b p.nsw p.nuw)
+    matchAdd_implies OperationPtr.Verified.llvm_add
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a b p => Data.LLVM.Int.add_comm_flags a b)
+    (fun a₁ a₂ b₁ b₂ p h₁ h₂ => Data.LLVM.Int.add_mono a₁ a₂ b₁ b₂ h₁ h₂ p.nsw p.nuw)
+
+theorem commute_const_mul_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (commuteConstLocal .mul matchMul) h h₂ h₃ h₄ :=
+  commuteConstLocal_preservesSemantics (dst := .mul)
+    (srcFn := fun a b p => Data.LLVM.Int.mul a b p.nsw p.nuw)
+    matchMul_implies OperationPtr.Verified.llvm_mul
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a b p => Data.LLVM.Int.mul_comm a b)
+    (fun a₁ a₂ b₁ b₂ p h₁ h₂ => Data.LLVM.Int.mul_mono a₁ a₂ b₁ b₂ h₁ h₂ p.nsw p.nuw)
+
+theorem commute_const_and_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (commuteConstLocal .and matchAnd) h h₂ h₃ h₄ :=
+  commuteConstLocal_preservesSemantics (dst := .and)
+    (srcFn := fun a b _ => Data.LLVM.Int.and a b)
+    matchAnd_implies OperationPtr.Verified.llvm_and
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a b _ => Data.LLVM.Int.and_comm a b)
+    (fun a₁ a₂ b₁ b₂ _ h₁ h₂ => Data.LLVM.Int.and_mono a₁ a₂ b₁ b₂ h₁ h₂)
+
+theorem commute_const_or_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (commuteConstLocal .or matchOr) h h₂ h₃ h₄ :=
+  commuteConstLocal_preservesSemantics (dst := .or)
+    (srcFn := fun a b p => Data.LLVM.Int.or a b p.disjoint)
+    matchOr_implies OperationPtr.Verified.llvm_or
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a b p => Data.LLVM.Int.or_comm a b)
+    (fun a₁ a₂ b₁ b₂ p h₁ h₂ => Data.LLVM.Int.or_mono a₁ a₂ b₁ b₂ p.disjoint h₁ h₂)
+
+theorem commute_const_xor_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (commuteConstLocal .xor matchXor) h h₂ h₃ h₄ :=
+  commuteConstLocal_preservesSemantics (dst := .xor)
+    (srcFn := fun a b _ => Data.LLVM.Int.xor a b)
+    matchXor_implies OperationPtr.Verified.llvm_xor
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a b _ => Data.LLVM.Int.xor_comm a b)
+    (fun a₁ a₂ b₁ b₂ _ h₁ h₂ => Data.LLVM.Int.xor_mono a₁ a₂ b₁ b₂ h₁ h₂)
+
 end Veir.RISCV

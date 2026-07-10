@@ -1884,55 +1884,45 @@ def select_not (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 
 /-! ### commute_int_constant_to_rhs :  (C op x) → (x op C)   (move constant to the right) -/
 
-set_option warn.sorry false in
+/-- The shared shape of the five `commute_const_*` combines: match a binary integer op `OP lhs rhs`
+    (via `match?`, keeping its properties `props`) where `lhs` IS an integer constant and `rhs` is
+    NOT, and emit `OP rhs lhs` carrying the *same* `props` — commuting the constant to the
+    right-hand side canonicalizes the operand order. `OP` (= `dst`) is one of
+    `add`/`mul`/`and`/`or`/`xor`, all of which commute *including* their overflow/`disjoint` flags
+    (the flags' poison conditions are symmetric under swapping the operands), so `props` passes
+    through unchanged. Width-generic — commutativity holds at every bitwidth. Its shared correctness
+    proof is `commuteConstLocal_preservesSemantics`. -/
+def commuteConstLocal (dst : Llvm)
+    (match? : OperationPtr → IRContext OpCode →
+      Option (ValuePtr × ValuePtr × propertiesOf (.llvm dst)))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, props) := match? op ctx | return (ctx, none)
+  let some _ := matchConstantIntVal lhs ctx | return (ctx, none)
+  if (matchConstantIntVal rhs ctx).isSome then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm dst)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[rhs, lhs] #[] #[] props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
 def commute_const_add (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, props) := matchAdd op rewriter.ctx | return rewriter
-  let some _ := matchConstantIntVal lhs rewriter.ctx | return rewriter
-  if (matchConstantIntVal rhs rewriter.ctx).isSome then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[rhs, lhs]
-    #[] #[] props (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (commuteConstLocal .add matchAdd) rewriter op opInBounds
 
-set_option warn.sorry false in
 def commute_const_mul (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, props) := matchMul op rewriter.ctx | return rewriter
-  let some _ := matchConstantIntVal lhs rewriter.ctx | return rewriter
-  if (matchConstantIntVal rhs rewriter.ctx).isSome then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .mul) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[rhs, lhs]
-    #[] #[] props (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (commuteConstLocal .mul matchMul) rewriter op opInBounds
 
-set_option warn.sorry false in
 def commute_const_and (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _) := matchAnd op rewriter.ctx | return rewriter
-  let some _ := matchConstantIntVal lhs rewriter.ctx | return rewriter
-  if (matchConstantIntVal rhs rewriter.ctx).isSome then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .and) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[rhs, lhs]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (commuteConstLocal .and matchAnd) rewriter op opInBounds
 
-set_option warn.sorry false in
 def commute_const_or (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, props) := matchOr op rewriter.ctx | return rewriter
-  let some _ := matchConstantIntVal lhs rewriter.ctx | return rewriter
-  if (matchConstantIntVal rhs rewriter.ctx).isSome then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .or) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[rhs, lhs]
-    #[] #[] props (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (commuteConstLocal .or matchOr) rewriter op opInBounds
 
-set_option warn.sorry false in
 def commute_const_xor (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, _) := matchXor op rewriter.ctx | return rewriter
-  let some _ := matchConstantIntVal lhs rewriter.ctx | return rewriter
-  if (matchConstantIntVal rhs rewriter.ctx).isSome then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .xor) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[rhs, lhs]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (commuteConstLocal .xor matchXor) rewriter op opInBounds
 
 /-! ### simplify_neg_minmax :  0 - (minmax a, (0 - a)) → oppositeMinMax a, (0 - a)
 

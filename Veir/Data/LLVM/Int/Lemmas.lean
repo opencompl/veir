@@ -56,4 +56,36 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
   cases x <;> cases y <;>
   simp [BitVec.mul_comm, BitVec.smulOverflow_comm, BitVec.umulOverflow_comm]
 
+/- # add / and / or / xor commutativity with flags -/
+
+/-- Commutativity of `add`, including its overflow flags: `x + y` overflows (signed or unsigned)
+    exactly when `y + x` does, so the poison behaviour is symmetric and `nsw`/`nuw` pass through
+    unchanged. Used by the `commute_const_add` combine. -/
+@[grind =]
+theorem add_comm_flags {w : Nat} {nsw nuw : Bool} (x y : Int w) :
+    add x y nsw nuw = add y x nsw nuw := by
+  simp only [add, Id.run]
+  cases x <;> cases y <;>
+    simp [BitVec.add_comm, BitVec.saddOverflow_comm, BitVec.uaddOverflow_comm]
+
+/-- Commutativity of `and`. Used by the `commute_const_and` combine. -/
+@[grind =]
+theorem and_comm {w : Nat} (x y : Int w) : and x y = and y x := by
+  simp only [and, Id.run]
+  cases x <;> cases y <;> simp [BitVec.and_comm]
+
+/-- Commutativity of `or`, including its `disjoint` flag (the disjointness poison condition
+    `x &&& y ≠ 0` is symmetric). Used by the `commute_const_or` combine. -/
+@[grind =]
+theorem or_comm {w : Nat} {disjoint : Bool} (x y : Int w) :
+    or x y disjoint = or y x disjoint := by
+  simp only [or, Id.run]
+  cases x <;> cases y <;> simp [BitVec.or_comm, BitVec.and_comm]
+
+/-- Commutativity of `xor`. Used by the `commute_const_xor` combine. -/
+@[grind =]
+theorem xor_comm {w : Nat} (x y : Int w) : xor x y = xor y x := by
+  simp only [xor, Id.run]
+  cases x <;> cases y <;> simp [BitVec.xor_comm]
+
 end Int
