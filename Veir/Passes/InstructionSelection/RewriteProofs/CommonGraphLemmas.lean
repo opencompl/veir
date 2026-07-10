@@ -73,6 +73,18 @@ theorem OperationPtr.Pure.llvm_sub {op : OperationPtr} {ctx : IRContext OpCode}
   · split <;> simp [Interp.map, Option.map, UBOr.map, pure]
   · simp [Interp.map, Option.map]
 
+/-- `llvm.shl` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_shl {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .shl) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  repeat' split
+  all_goals first
+    | rfl
+    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
 /-- `llvm.icmp` is pure: its interpretation neither reads nor writes memory. -/
 theorem OperationPtr.Pure.llvm_icmp {op : OperationPtr} {ctx : IRContext OpCode}
     (hType : op.getOpType! ctx = .llvm .icmp) : op.Pure ctx := by

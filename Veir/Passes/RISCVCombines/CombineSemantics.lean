@@ -1945,6 +1945,477 @@ theorem sub_add_reg_x_sub_x_add_y_local_preservesSemantics
     (fun hw a0v a1v as au ss su => by
       simpa using Data.LLVM.Int.sub_add_reg_x_sub_x_add_y (x := a0v) (y := a1v) hw)
 
+/-! ### add_shift : `A + shl(0 - B, C) → A - shl(B, C)`
+
+  A three-level DAG match: `op` is the `add`; one of its operands is a defining `shl`; that `shl`'s
+  first operand is a defining `sub`; that `sub`'s first operand is a defining `llvm.mlir.constant 0`.
+  `shlNegChain` walks the `shl → sub → constant` chain (below the `add`), recovering `B`/`C`'s runtime
+  values and target-side facts and pinning `shlNeg`'s value to `shl (sub (constant 0) B) C`. The
+  two `add_shift` / `add_shift_commute` proofs then unfold the `add` and re-emit `sub A (shl B C)`.
+-/
+
+set_option maxHeartbeats 1000000 in
+/-- The `shl (sub (constant 0) B) C` chain below the `add` in `add_shift`: `shlNeg` (an operand of
+    `op`, of type `i64`) is defined by a `shl` whose operand 0 is a defining `sub` whose operand 0 is
+    a defining `constant 0`. In a source state satisfying `EquationLemmaAt` before `op`, recover the
+    runtime values `bv`/`cv` of `B`/`C` (with their dominance/in-bounds/not-a-result facts, since they
+    are re-emitted) and pin `shlNeg`'s value to `shl (sub (constant 0) bv) cv`. -/
+private theorem shlNegChain {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    {shlNeg negB c b zeroV : ValuePtr} {dShl dSub : OperationPtr}
+    {shProps : propertiesOf (.llvm .shl)} {subProps : propertiesOf (.llvm .sub)}
+    {zc : IntegerAttr}
+    (hShlNegMem : shlNeg ∈ op.getOperands! ctx.raw)
+    (hShlNegType : (shlNeg.getType! ctx.raw).val = Attribute.integerType ⟨64⟩)
+    (hDefShl : getDefiningOp shlNeg ctx.raw = some dShl)
+    (hShl : matchShl dShl ctx.raw = some (negB, c, shProps))
+    (hCType : (c.getType! ctx.raw).val = Attribute.integerType ⟨64⟩)
+    (hDefSub : getDefiningOp negB ctx.raw = some dSub)
+    (hSub : matchSub dSub ctx.raw = some (zeroV, b, subProps))
+    (hZC : matchConstantIntVal zeroV ctx.raw = some zc)
+    (hZCval : zc.value = 0) :
+    ∃ (bv cv : Data.LLVM.Int 64),
+      state.variables.getVar? b = some (RuntimeValue.int 64 bv) ∧
+      state.variables.getVar? c = some (RuntimeValue.int 64 cv) ∧
+      state.variables.getVar? shlNeg = some (RuntimeValue.int 64
+        (Data.LLVM.Int.shl
+          (Data.LLVM.Int.sub (Data.LLVM.Int.constant 64 0) bv subProps.nsw subProps.nuw)
+          cv shProps.nsw shProps.nuw)) ∧
+      (b.getType! ctx.raw).val = Attribute.integerType ⟨64⟩ ∧
+      b.dominatesIp (InsertPoint.before op) ctx ∧ c.dominatesIp (InsertPoint.before op) ctx ∧
+      b.InBounds ctx.raw ∧ c.InBounds ctx.raw ∧
+      b ∉ op.getResults! ctx.raw ∧ c ∉ op.getResults! ctx.raw := by
+  -- ===== shl level =====
+  obtain ⟨shlNegPtr, rfl, rfl⟩ := getDefiningOp_implies hDefShl
+  obtain ⟨hShlType, hShlNumResults, hShlOperands, hShProps⟩ := matchShl_implies hShl
+  have hShlNegIn : (ValuePtr.opResult shlNegPtr).InBounds ctx.raw := by grind
+  have hShlOpIn : shlNegPtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hShlIdx : shlNegPtr.index < shlNegPtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hShlNegEq : shlNegPtr = shlNegPtr.op.getResult 0 := by
+    have hidx : shlNegPtr.index = 0 := by omega
+    cases shlNegPtr; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+  have hShlVerified : shlNegPtr.op.Verified ctx hShlOpIn := by grind
+  obtain ⟨-, -, hShlResEqOp0, ct2, hShlOp1Type⟩ :=
+    OperationPtr.Verified.llvm_shl hShlVerified hShlType
+  have hVTypeEq : (ValuePtr.opResult shlNegPtr).getType! ctx.raw
+      = ((shlNegPtr.op.getResult 0).get! ctx.raw).type := by rw [hShlNegEq]; rfl
+  have hnegBIdxEq : negB = (shlNegPtr.op.getOperands! ctx.raw)[0]! := by rw [hShlOperands]; rfl
+  have hShlOperand0 : shlNegPtr.op.getOperand! ctx.raw 0 = negB := by
+    rw [hnegBIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hnegBType : (negB.getType! ctx.raw).val = Attribute.integerType ⟨64⟩ := by
+    have hh : ((shlNegPtr.op.getResult 0).get! ctx.raw).type.val
+        = ((shlNegPtr.op.getOperand! ctx.raw 0).getType! ctx.raw).val := hShlResEqOp0
+    rw [hShlOperand0] at hh
+    rw [← hh, ← hVTypeEq]; exact hShlNegType
+  have hShlDefines : (ValuePtr.opResult shlNegPtr).getDefiningOp! ctx.raw = some shlNegPtr.op := by
+    have hOwner := (ctx.wellFormed.operations shlNegPtr.op hShlOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hShlSDom : shlNegPtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hShlDefines hShlNegMem
+  have hShlDomIp : shlNegPtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hShlPure : shlNegPtr.op.Pure ctx.raw := OperationPtr.Pure.llvm_shl hShlType
+  obtain ⟨cfShl, hInterpShl⟩ := stateWf shlNegPtr.op hShlOpIn hShlPure hShlDomIp
+  obtain ⟨negBv, cv, hnegBVal, hcVal, -, hShlResVal, -⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := .shl)
+      (srcFn := fun a b p => Data.LLVM.Int.shl a b p.nsw p.nuw)
+      (props := shlNegPtr.op.getProperties! ctx.raw (.llvm .shl))
+      hShlOpIn hShlType hShlNumResults hShlOperands rfl
+      (by intro bw x y props resultTypes blockOperands mem res hh
+          simp only [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp] at hh
+          grind)
+      hInterpShl hnegBType hCType
+  -- ===== sub level =====
+  obtain ⟨subPtr, rfl, rfl⟩ := getDefiningOp_implies hDefSub
+  obtain ⟨hSubType, hSubNumResults, hSubOperands, hSubProps⟩ := matchSub_implies hSub
+  have hnegBIn : (ValuePtr.opResult subPtr).InBounds ctx.raw := by grind [OperationPtr.getOperands!]
+  have hSubOpIn : subPtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hSubIdx : subPtr.index < subPtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hSubEq : subPtr = subPtr.op.getResult 0 := by
+    have hidx : subPtr.index = 0 := by omega
+    cases subPtr; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+  have hSubVerified : subPtr.op.Verified ctx hSubOpIn := by grind
+  obtain ⟨-, -, -, -, subIntType, hSubResType, hSubOp0Type, hSubOp1Type⟩ :=
+    OperationPtr.Verified.llvm_sub hSubVerified hSubType
+  have hVTypeEq2 : (ValuePtr.opResult subPtr).getType! ctx.raw
+      = ((subPtr.op.getResult 0).get! ctx.raw).type := by rw [hSubEq]; rfl
+  -- `negB`'s type is `i64`, so the `sub`'s result and operands are all `i64`.
+  have hnegBType2 : ((subPtr.op.getResult 0).get! ctx.raw).type.val = Attribute.integerType ⟨64⟩ := by
+    rw [← hVTypeEq2]; exact hnegBType
+  have hSubIntType64 : subIntType = ⟨64⟩ := by rw [hSubResType] at hnegBType2; grind
+  subst hSubIntType64
+  have hzeroVIdxEq : zeroV = (subPtr.op.getOperands! ctx.raw)[0]! := by rw [hSubOperands]; rfl
+  have hbIdxEq : b = (subPtr.op.getOperands! ctx.raw)[1]! := by rw [hSubOperands]; rfl
+  have hSubOperand0 : subPtr.op.getOperand! ctx.raw 0 = zeroV := by
+    rw [hzeroVIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hSubOperand1 : subPtr.op.getOperand! ctx.raw 1 = b := by
+    rw [hbIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hzeroVType : (zeroV.getType! ctx.raw).val = Attribute.integerType ⟨64⟩ := by
+    rw [← hSubOperand0, hSubOp0Type]
+  have hbType : (b.getType! ctx.raw).val = Attribute.integerType ⟨64⟩ := by
+    rw [← hSubOperand1, hSubOp1Type]
+  have hSubDefines : (ValuePtr.opResult subPtr).getDefiningOp! ctx.raw = some subPtr.op := by
+    have hOwner := (ctx.wellFormed.operations subPtr.op hSubOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hSubSDomShl : subPtr.op.strictlyDominates shlNegPtr.op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hSubDefines
+      (by rw [hShlOperands]; simp)
+  have hSubSDom : subPtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_trans hSubSDomShl hShlSDom
+  have hSubDomIp : subPtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hSubPure : subPtr.op.Pure ctx.raw := OperationPtr.Pure.llvm_sub hSubType
+  obtain ⟨cfSub, hInterpSub⟩ := stateWf subPtr.op hSubOpIn hSubPure hSubDomIp
+  obtain ⟨zeroVal, bv, hzeroVal, hbVal, -, hSubResVal, -⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := .sub)
+      (srcFn := fun a b p => Data.LLVM.Int.sub a b p.nsw p.nuw)
+      (props := subPtr.op.getProperties! ctx.raw (.llvm .sub))
+      hSubOpIn hSubType hSubNumResults hSubOperands rfl
+      (by intro bw x y props resultTypes blockOperands mem res hh
+          simp only [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp] at hh
+          grind)
+      hInterpSub hzeroVType hbType
+  -- `negB`'s two values agree: `negBv = sub zeroVal bv subProps`.
+  rw [← hSubProps] at hSubResVal
+  rw [hSubEq] at hnegBVal
+  obtain rfl : negBv = Data.LLVM.Int.sub zeroVal bv subProps.nsw subProps.nuw := by
+    have hEq := hnegBVal.symm.trans hSubResVal; simpa using hEq
+  -- ===== constant level =====
+  obtain ⟨cstPtr, rfl, hCstOp⟩ := matchConstantIntVal_implies hZC
+  obtain ⟨hCstType, hCstProps⟩ := matchConstantIntOp_implies hCstOp
+  have hCstIn : (ValuePtr.opResult cstPtr).InBounds ctx.raw := by grind [OperationPtr.getOperands!]
+  have hCstOpIn : cstPtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hCstVerified : cstPtr.op.Verified ctx hCstOpIn := by grind
+  obtain ⟨hCstNumResults, -, -, -⟩ :=
+    OperationPtr.Verified.llvm_mlir__constant hCstVerified hCstType
+  have hCstIdx : cstPtr.index < cstPtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hCstEq : cstPtr = cstPtr.op.getResult 0 := by
+    have hidx : cstPtr.index = 0 := by omega
+    cases cstPtr; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+  have hCstResType : ((cstPtr.op.getResult 0).get! ctx.raw).type
+      = ⟨.integerType ⟨64⟩, by grind⟩ := by
+    have heq : ((ValuePtr.opResult cstPtr).getType! ctx.raw)
+        = ((cstPtr.op.getResult 0).get! ctx.raw).type := by rw [hCstEq]; rfl
+    apply Subtype.ext; rw [← heq]; exact hzeroVType
+  have hCstDefines : (ValuePtr.opResult cstPtr).getDefiningOp! ctx.raw = some cstPtr.op := by
+    have hOwner := (ctx.wellFormed.operations cstPtr.op hCstOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hCstSDomSub : cstPtr.op.strictlyDominates subPtr.op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hCstDefines
+      (by rw [hSubOperands]; simp)
+  have hCstSDom : cstPtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_trans hCstSDomSub hSubSDom
+  have hCstDomIp : cstPtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hCstPure : cstPtr.op.Pure ctx.raw := OperationPtr.Pure.llvm_mlir__constant hCstType
+  obtain ⟨cfCst, hInterpCst⟩ := stateWf cstPtr.op hCstOpIn hCstPure hCstDomIp
+  have hCstResVal :=
+    constantOp_interpretOp_unfold hCstOpIn hCstType hCstNumResults hCstProps hCstResType hInterpCst
+  -- `zeroVal = constant 64 0`.
+  rw [hCstEq] at hzeroVal
+  obtain rfl : zeroVal = Data.LLVM.Int.constant 64 zc.value := by
+    have hEq := hzeroVal.symm.trans hCstResVal; simpa using hEq
+  rw [hZCval] at hShlResVal
+  -- Assemble.
+  refine ⟨bv, cv, hbVal, hcVal, ?_, hbType, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hShlNegEq, hShProps]; exact hShlResVal
+  · exact ValuePtr.dominatesIp_before_of_strictlyDominates
+      (ctxDom.operand_dominates_op hSubOpIn (by rw [hSubOperands]; simp)) hSubSDom
+  · exact ValuePtr.dominatesIp_before_of_strictlyDominates
+      (ctxDom.operand_dominates_op hShlOpIn (by rw [hShlOperands]; simp)) hShlSDom
+  · have hbMem : b ∈ subPtr.op.getOperands! ctx.raw := by rw [hSubOperands]; simp
+    grind [OperationPtr.getOperands!]
+  · have hcMem : c ∈ shlNegPtr.op.getOperands! ctx.raw := by rw [hShlOperands]; simp
+    grind [OperationPtr.getOperands!]
+  · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hSubSDom) b (by rw [hSubOperands]; simp)
+  · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hShlSDom) c (by rw [hShlOperands]; simp)
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness proof for `add_shift` / `add_shift_commute`. `commuted` selects which `add`
+    operand is the `shl`; the final `cases commuted` applies the matching data lemma
+    (`add_shift` / `add_shift_commute`). -/
+theorem addShiftLocal_preservesSemantics {commuted : Bool}
+    {h : LocalRewritePattern.ReturnOps (addShiftLocal commuted)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (addShiftLocal commuted)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (addShiftLocal commuted)}
+    {h₄ : LocalRewritePattern.ReturnValues (addShiftLocal commuted)} :
+    LocalRewritePattern.PreservesSemantics (addShiftLocal commuted) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, addShiftLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel matchAdd.
+  have hMatchSome : (matchAdd op ctx.raw).isSome := by
+    cases hM : matchAdd op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨o0, o1, aProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands, -⟩ := matchAdd_implies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- `op`'s verifier facts: the two `add` operands share the result type.
+  have opVerif : op.Verified ctx opInBounds := by grind
+  obtain ⟨-, -, -, -, addIntType, hAddResType, hAddOp0Type, hAddOp1Type⟩ :=
+    OperationPtr.Verified.llvm_add opVerif hOpType
+  have ho0Eq : o0 = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  have ho1Eq : o1 = (op.getOperands! ctx.raw)[1]! := by rw [hOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = o0 := by
+    rw [ho0Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = o1 := by
+    rw [ho1Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have ho0Type : (o0.getType! ctx.raw).val = Attribute.integerType addIntType := by
+    rw [← hOperand0, hAddOp0Type]
+  have ho1Type : (o1.getType! ctx.raw).val = Attribute.integerType addIntType := by
+    rw [← hOperand1, hAddOp1Type]
+  -- Peel the defining `shl` of `shlNeg := if commuted then o0 else o1`.
+  have hDefShlSome : (getDefiningOp (if commuted then o0 else o1) ctx.raw).isSome := by
+    cases hM : getDefiningOp (if commuted then o0 else o1) ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨dShl, hDefShl⟩ := Option.isSome_iff_exists.mp hDefShlSome
+  rw [hDefShl] at hpattern
+  simp only [] at hpattern
+  have hShlSome : (matchShl dShl ctx.raw).isSome := by
+    cases hM : matchShl dShl ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨negB, c, shProps⟩, hShl⟩ := Option.isSome_iff_exists.mp hShlSome
+  rw [hShl] at hpattern
+  simp only [] at hpattern
+  -- Peel the defining `sub` of `negB`.
+  have hDefSubSome : (getDefiningOp negB ctx.raw).isSome := by
+    cases hM : getDefiningOp negB ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨dSub, hDefSub⟩ := Option.isSome_iff_exists.mp hDefSubSome
+  rw [hDefSub] at hpattern
+  simp only [] at hpattern
+  have hSubSome : (matchSub dSub ctx.raw).isSome := by
+    cases hM : matchSub dSub ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨zeroV, b, subProps⟩, hSub⟩ := Option.isSome_iff_exists.mp hSubSome
+  rw [hSub] at hpattern
+  simp only [] at hpattern
+  -- Peel the constant match and its `= 0` guard.
+  have hZCSome : (matchConstantIntVal zeroV ctx.raw).isSome := by
+    cases hM : matchConstantIntVal zeroV ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨zc, hZC⟩ := Option.isSome_iff_exists.mp hZCSome
+  rw [hZC] at hpattern
+  simp only [] at hpattern
+  -- The initial `simp [pure]` flips the negated `if` guards, so the surviving condition is the
+  -- positive form and the bail branch is the `else`.
+  have hZCval : zc.value = 0 := by
+    rcases Decidable.em (zc.value = 0) with h0 | hne
+    · exact h0
+    · rw [if_neg hne] at hpattern; simp at hpattern
+  rw [if_pos hZCval] at hpattern
+  -- Peel the `c : i64` guard.
+  obtain ⟨ct, hCTypeVal⟩ : ∃ t, (c.getType! ctx.raw).val = Attribute.integerType t := by
+    cases hr : (c.getType! ctx.raw).val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hCTypeVal] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isFalse => simp at hpattern
+  rename_i hCbwRaw
+  -- Peel the result `i64` guard.
+  obtain ⟨rt, hRTypeVal⟩ :
+      ∃ t, ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType t := by
+    cases hr : ((op.getResult 0).get! ctx.raw).type.val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hRTypeVal] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isFalse => simp at hpattern
+  rename_i hRbwRaw
+  -- Collapse widths to `i64`.
+  obtain ⟨cbw⟩ := ct; obtain ⟨rbw⟩ := rt
+  simp only at hCbwRaw hRbwRaw hCTypeVal hRTypeVal
+  obtain rfl : cbw = 64 := by omega
+  obtain rfl : rbw = 64 := by omega
+  -- `addIntType = i64` (result type), so both `add` operands are `i64`.
+  have hAddIntType64 : addIntType = ⟨64⟩ := by rw [hAddResType] at hRTypeVal; grind
+  subst hAddIntType64
+  -- Walk the `shl (sub 0 B) C` chain.
+  have hShlNegMem : (if commuted then o0 else o1) ∈ op.getOperands! ctx.raw := by
+    rw [hOperands]; cases commuted <;> simp
+  have hShlNegType : ((if commuted then o0 else o1).getType! ctx.raw).val
+      = Attribute.integerType ⟨64⟩ := by
+    cases commuted with
+    | true => simpa using ho0Type
+    | false => simpa using ho1Type
+  obtain ⟨bv, cv, hbVal, hcVal, hShlNegVal, hbType, hDomB, hDomC, hbIn, hcIn, hbNotRes, hcNotRes⟩ :=
+    shlNegChain ctxDom ctxVerif opInBounds stateWf hShlNegMem hShlNegType hDefShl hShl hCTypeVal
+      hDefSub hSub hZC hZCval
+  -- Unfold the matched `add`'s interpretation.
+  obtain ⟨o0v, o1v, ho0Val, ho1Val, hMem, hAddRes, hCf⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := .add)
+      (srcFn := fun a b p => Data.LLVM.Int.add a b p.nsw p.nuw)
+      (props := op.getProperties! ctx.raw (.llvm .add))
+      opInBounds hOpType hNumResults hOperands rfl
+      (by intro bw x y props resultTypes blockOperands mem res hh
+          simp only [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp] at hh
+          grind)
+      hinterp ho0Type ho1Type
+  subst hCf
+  -- `shlNeg`'s value (`if commuted then o0v else o1v`) is the `shl (sub 0 B) C` chain.
+  have hSnvEq : (if commuted then o0v else o1v)
+      = Data.LLVM.Int.shl
+          (Data.LLVM.Int.sub (Data.LLVM.Int.constant 64 0) bv subProps.nsw subProps.nuw)
+          cv shProps.nsw shProps.nuw := by
+    have hh := hShlNegVal
+    cases commuted with
+    | true => simp only [if_true] at hh ⊢; have := ho0Val.symm.trans hh; simpa using this
+    | false =>
+      simp only [Bool.false_eq_true, if_false] at hh ⊢
+      have := ho1Val.symm.trans hh; simpa using this
+  -- `a := if commuted then o1 else o0`, the non-`shl` operand of `op`. Introduce it as a local via
+  -- `generalize` (both `set` and `by_contra` are unavailable in this project).
+  generalize haOpDef : (if commuted then o1 else o0) = aOp at hpattern
+  have haOpMem : aOp ∈ op.getOperands! ctx.raw := by
+    rw [hOperands, ← haOpDef]; cases commuted <;> simp
+  have hDomA : aOp.dominatesIp (InsertPoint.before op) ctx :=
+    ctxDom.operand_dominates_op opInBounds haOpMem
+  have hAIn : aOp.InBounds ctx.raw := by
+    rw [← haOpDef]; cases commuted <;> (simp only [Bool.false_eq_true, if_false, if_true]) <;>
+      grind [OperationPtr.getOperands!]
+  have hANotRes : aOp ∉ op.getResults! ctx.raw :=
+    IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      OperationPtr.dominates_refl aOp haOpMem
+  have hAVal : state.variables.getVar? aOp
+      = some (RuntimeValue.int 64 (if commuted then o1v else o0v)) := by
+    rw [← haOpDef]; cases commuted with
+    | true => simpa using ho1Val
+    | false => simpa using ho0Val
+  -- Source value: `add o0v o1v aProps`.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hAddRes] at hsourceValues
+  subst sourceValues
+  -- Peel the two created ops (`shl B C`, then `sub a shl`).
+  peelOpCreation!₃ hpattern ctx₁ newShl hNewShl hDomA hDomA₁ hDomB hDomB₁ hDomC hDomC₁
+  peelOpCreation!₃ hpattern ctx₂ newOp hNewOp hDomA₁ hDomA₂ hDomB₁ hDomB₂ hDomC₁ hDomC₂
+  cleanupHpattern hpattern
+  have hNewShlNeNewOp : newShl ≠ newOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  -- Structural facts: the created `shl B C`.
+  have hbTypeAttr : b.getType! ctx.raw
+      = (⟨Attribute.integerType ⟨64⟩, hbType ▸ (b.getType! ctx.raw).2⟩ : TypeAttr) :=
+    Subtype.ext hbType
+  have hNewShlType : newShl.getOpType! ctx₂.raw = .llvm .shl := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hNewShl (operation := newShl),
+      OperationPtr.getOpType!_WfRewriter_createOp hNewOp (operation := newShl)]
+  have hNewShlOperands : newShl.getOperands! ctx₂.raw = #[b, c] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hNewShl (operation := newShl),
+      OperationPtr.getOperands!_WfRewriter_createOp hNewOp (operation := newShl)]
+  have hNewShlProps : newShl.getProperties! ctx₂.raw (.llvm .shl) = { nsw := false, nuw := false } := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hNewShl (operation := newShl),
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hNewOp hNewShlNeNewOp]
+  have hNewShlResTypes : newShl.getResultTypes! ctx₂.raw
+      = #[(⟨Attribute.integerType ⟨64⟩, hbType ▸ (b.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hNewShl (operation := newShl)
+    rw [if_pos rfl] at hT
+    have hT2 := OperationPtr.getResultTypes!_WfRewriter_createOp hNewOp (operation := newShl)
+    rw [if_neg hNewShlNeNewOp] at hT2
+    rw [hT2, hT]
+    exact congrArg (fun t => #[t]) hbTypeAttr
+  -- Structural facts: the created `sub a shl`.
+  have hOpResTypeAttr : ((op.getResult 0).get! ctx.raw).type
+      = (⟨Attribute.integerType ⟨64⟩, hRTypeVal ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr) :=
+    Subtype.ext hRTypeVal
+  have hGetTypeEq : (ValuePtr.opResult (op.getResult 0)).getType! ctx.raw
+      = (⟨Attribute.integerType ⟨64⟩, hRTypeVal ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr) := by
+    rw [ValuePtr.getType!_opResult]; exact hOpResTypeAttr
+  have hGetTypeEq₁ : (ValuePtr.opResult (op.getResult 0)).getType! ctx₁.raw
+      = (⟨Attribute.integerType ⟨64⟩, hRTypeVal ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr) := by
+    rw [← hGetTypeEq]
+    grind [ValuePtr.getType!_WfRewriter_createOp hNewShl
+      (value := ValuePtr.opResult (op.getResult 0))]
+  have hNewOpType : newOp.getOpType! ctx₂.raw = .llvm .sub := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hNewOp (operation := newOp)]
+  have hNewOpOperands : newOp.getOperands! ctx₂.raw = #[aOp, ValuePtr.opResult (newShl.getResult 0)] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hNewOp (operation := newOp)]
+  have hNewOpProps : newOp.getProperties! ctx₂.raw (.llvm .sub) = { nsw := false, nuw := false } := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hNewOp (operation := newOp)]
+  have hNewOpResTypes : newOp.getResultTypes! ctx₂.raw
+      = #[(⟨Attribute.integerType ⟨64⟩, hRTypeVal ▸ ((op.getResult 0).get! ctx.raw).type.2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hNewOp (operation := newOp)
+    rw [if_pos rfl] at hT
+    rw [hT]
+    exact congrArg (fun t => #[t]) hGetTypeEq₁
+  -- Read the refined `a`/`b`/`c` in the target state.
+  obtain ⟨atv, hAVal', haRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hAIn hAVal
+      hDomA hDomA₂ hANotRes
+  obtain ⟨btv, hBVal', hbRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hbIn hbVal
+      hDomB hDomB₂ hbNotRes
+  obtain ⟨ctv, hCVal', hcRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hcIn hcVal
+      hDomC hDomC₂ hcNotRes
+  -- Replay the `shl`, then the `sub`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, hFrame₁⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := state') (inBounds := by grind)
+      (f := fun x y => Data.LLVM.Int.shl x y false false)
+      (by intro resultTypes blockOperands mem
+          simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      hNewShlType hNewShlProps hNewShlOperands hNewShlResTypes hBVal' hCVal'
+  have hAVal₁ : s₁.variables.getVar? aOp = some (RuntimeValue.int 64 atv) := by
+    rw [hFrame₁ aOp (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hAIn
+      (WfRewriter.createOp_new_not_inBounds newShl hNewShl))]
+    exact hAVal'
+  obtain ⟨s₂, hI₂, hMem₂, hRes₂, -⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := s₁) (inBounds := by grind)
+      (f := fun x y => Data.LLVM.Int.sub x y false false)
+      (by intro resultTypes blockOperands mem
+          simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      hNewOpType hNewOpProps hNewOpOperands hNewOpResTypes hAVal₁ hRes₁
+  refine ⟨s₂, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, hI₂, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int 64
+      (Data.LLVM.Int.sub atv (Data.LLVM.Int.shl btv ctv false false) false false)],
+    by simp [hRes₂, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Assemble: `add o0v o1v aProps ⊒ sub atv (shl btv ctv) `, via the data lemma + monotonicity.
+  simp only [Data.LLVM.Int.cast_self]
+  cases commuted with
+  | true =>
+    simp only [if_true] at hSnvEq haRef
+    rw [hSnvEq]
+    exact isRefinedBy_trans
+      (Data.LLVM.Int.add_shift_commute (a := o1v) (b := bv) (c := cv))
+      (Data.LLVM.Int.sub_mono o1v (Data.LLVM.Int.shl bv cv false false) atv
+        (Data.LLVM.Int.shl btv ctv false false) haRef
+        (Data.LLVM.Int.shl_mono bv cv btv ctv hbRef hcRef false false) false false)
+  | false =>
+    simp only [Bool.false_eq_true, if_false] at hSnvEq haRef
+    rw [hSnvEq]
+    exact isRefinedBy_trans
+      (Data.LLVM.Int.add_shift (a := o0v) (b := bv) (c := cv))
+      (Data.LLVM.Int.sub_mono o0v (Data.LLVM.Int.shl bv cv false false) atv
+        (Data.LLVM.Int.shl btv ctv false false) haRef
+        (Data.LLVM.Int.shl_mono bv cv btv ctv hbRef hcRef false false) false false)
+
+theorem add_shift_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics (addShiftLocal false) h h₂ h₃ h₄ :=
+  addShiftLocal_preservesSemantics
+
+theorem add_shift_commute_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics (addShiftLocal true) h h₂ h₃ h₄ :=
+  addShiftLocal_preservesSemantics
+
 /-! ### redundant_binop_in_equality
 
   `(binop X Y) cmp X → Y cmp 0` for `binop ∈ {add, sub, xor}`, `cmp ∈ {eq, ne}`. `op` is the
