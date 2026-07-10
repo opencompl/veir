@@ -618,4 +618,38 @@ theorem AMinusC1PlusC2 {w : Nat} (hw : w = 64 ∨ w = 32) {s2 u2 as au : Bool}
       ⊒ add a (constant w (c2 - c1)) false false := by
   rcases hw with rfl | rfl <;> veir_bv_decide
 
+/-! ### Sub{S,U}{max,min}Sub :  0 - minmax(a, 0 - a) → oppositeMinMax(a, 0 - a)
+
+  Negating the min/max of `a` and `-a` gives the opposite extremum of the same pair
+  (`-max(x,y) = min(-x,-y)`, and `min`/`max` of `a`,`-a` are commutative under the swap).
+  The created inner `sub 0 a` clears the flags: the matched outer `sub`'s `nsw`/`nuw`
+  constrain `0 - minmax(..)`, whose overflow condition differs from `0 - a`'s, so they
+  are dropped (`false false` on the created sub); the matched inner `sub`'s own flags
+  (`ins`/`inu`) stay free, as do the outer's (`ons`/`onu`). Dropping the created flag only
+  removes poison, so the refinement holds regardless of the free flags. -/
+
+/-- `0 - smax(a, 0 - a) → smin(a, 0 - a)`. -/
+theorem SubSmaxSub_rw {ins inu ons onu : Bool} {a : Int 64} :
+    sub (constant 64 0) (smax a (sub (constant 64 0) a ins inu)) ons onu
+      ⊒ smin a (sub (constant 64 0) a false false) := by
+  veir_bv_decide
+
+/-- `0 - umax(a, 0 - a) → umin(a, 0 - a)`. -/
+theorem SubUmaxSub_rw {ins inu ons onu : Bool} {a : Int 64} :
+    sub (constant 64 0) (umax a (sub (constant 64 0) a ins inu)) ons onu
+      ⊒ umin a (sub (constant 64 0) a false false) := by
+  veir_bv_decide
+
+/-- `0 - smin(a, 0 - a) → smax(a, 0 - a)`. -/
+theorem SubSminSub_rw {ins inu ons onu : Bool} {a : Int 64} :
+    sub (constant 64 0) (smin a (sub (constant 64 0) a ins inu)) ons onu
+      ⊒ smax a (sub (constant 64 0) a false false) := by
+  veir_bv_decide
+
+/-- `0 - umin(a, 0 - a) → umax(a, 0 - a)`. -/
+theorem SubUminSub_rw {ins inu ons onu : Bool} {a : Int 64} :
+    sub (constant 64 0) (umin a (sub (constant 64 0) a ins inu)) ons onu
+      ⊒ umax a (sub (constant 64 0) a false false) := by
+  veir_bv_decide
+
 end Veir.Data.LLVM.Int

@@ -1720,55 +1720,59 @@ def sextb_li_low8 := ext_li_range .sextb (-128) 128
 /-- `riscv.sexth (riscv.li v) -> riscv.li v` when `-2^15 ≤ v < 2^15`. -/
 def sexth_li_low16 := ext_li_range .sexth (-32768) 32768
 
-/-! ### SubSmaxSub / SubUmaxSub
+/-! ### SubSmaxSub / SubUmaxSub / SubSminSub / SubUminSub
 
-  `(sub 0, (max X, (sub 0, X)))` → `(min X, (sub 0, X))`, where `(max, min)` is
-  `(smax, smin)` in the signed case and `(umax, umin)` in the unsigned case.
+  `(sub 0, (minmax X, (sub 0, X)))` → `(oppositeMinMax X, (sub 0, X))`, where
+  `(minmax → oppositeMinMax)` follows `getInverseGMinMaxOpcode`: `smax → smin`,
+  `umax → umin`, `smin → smax`, `umin → umax`. Negating the min/max of a value
+  and its negation gives the opposite extremum of the same pair.
 
-  Matching LLVM's `SubSmaxSub` / `SubUmaxSub` GICombineRules, the inner
-  `sub 0, X` is rebuilt so the min can consume it directly. -/
+  Matching LLVM's `SubSmaxSub` / `SubUmaxSub` GICombineRules (`simplify_neg_minmax`,
+  rule #184), the inner `sub 0, X` is rebuilt so the created min/max consumes it
+  directly. The created `sub 0, X` clears the matched outer `sub`'s `nsw`/`nuw`: the
+  matched flags constrain `0 - minmax(..)`, whose overflow condition differs from
+  `0 - X`'s, so keeping them could poison the created op where the source did not.
+  Dropping a flag only removes poison and is always sound (see
+  `SubNegMinMax_*` in `LLVMProofs.lean`). The `.integerType`/bitwidth guard pins the
+  width to `i64` so the correctness proof reaches the `veir_bv_decide` data lemma.
+  Its shared correctness proof is `subNegMinMaxLocal_preservesSemantics`. -/
 
-set_option warn.sorry false in
+/-- Shared shape of the four `Sub{S,U}{max,min}Sub` combines: match
+    `sub 0 (minmax a (sub 0 a))`, where `matchMinMax` matches the inner min/max op, and
+    emit `oppositeMinMax a (sub 0 a)` with opcode `dst`. -/
+def subNegMinMaxLocal (matchMinMax : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
+    (dst : Llvm) (dprops : propertiesOf (.llvm dst))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (zeroOuter, mmV, _sprops) := matchSub op ctx | return (ctx, none)
+  let some _ := matchConstantZero zeroOuter ctx | return (ctx, none)
+  let some dMM := getDefiningOp mmV ctx | return (ctx, none)
+  let some (a, subV) := matchMinMax dMM ctx | return (ctx, none)
+  let some dSub := getDefiningOp subV ctx | return (ctx, none)
+  let some (zeroInner, a2, _) := matchSub dSub ctx | return (ctx, none)
+  let some _ := matchConstantZero zeroInner ctx | return (ctx, none)
+  if a2 != a then return (ctx, none)
+  let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
+  if aty.bitwidth ≠ 64 then return (ctx, none)
+  let (ctx, c0) ← WfRewriter.createOp! ctx (.llvm .mlir__constant)
+    #[a.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 aty))) none
+  let (ctx, sub1) ← WfRewriter.createOp! ctx (.llvm .sub)
+    #[a.getType! ctx.raw] #[c0.getResult 0, a] #[] #[]
+    { nsw := false, nuw := false } none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm dst)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[a, sub1.getResult 0] #[] #[] dprops none
+  some (ctx, some (#[c0, sub1, newOp], #[newOp.getResult 0]))
+
+-- 0 - smax(X, 0 - X) → smin(X, 0 - X)
 def SubSmaxSub (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (zeroOuter, maxV, sprops) := matchSub op rewriter.ctx | return rewriter
-  let some _ := matchConstantZero zeroOuter rewriter.ctx | return rewriter
-  let some dMax := getDefiningOp maxV rewriter.ctx | return rewriter
-  let some (a, subV) := matchSmax dMax rewriter.ctx | return rewriter
-  let some dSub := getDefiningOp subV rewriter.ctx | return rewriter
-  let some (zeroInner, a2, _) := matchSub dSub rewriter.ctx | return rewriter
-  let some _ := matchConstantZero zeroInner rewriter.ctx | return rewriter
-  if a2 != a then return rewriter
-  let .integerType aty := (a.getType! rewriter.ctx.raw).val | return rewriter
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 aty))
-  let (rewriter, c0) ← rewriter.createOp! (.llvm .mlir__constant) #[a.getType! rewriter.ctx.raw] #[]
-    #[] #[] z (some $ .before op)
-  let (rewriter, sub1) ← rewriter.createOp! (.llvm .sub) #[a.getType! rewriter.ctx.raw] #[(c0.getResult 0), a]
-    #[] #[] sprops (some $ .before op)
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .intr__smin) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (sub1.getResult 0)]
-    #[] #[] () (some $ .before op)
-  return rewriter.replaceOp! op newOp
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (subNegMinMaxLocal matchSmax .intr__smin ()) rewriter op opInBounds
 
-set_option warn.sorry false in
+-- 0 - umax(X, 0 - X) → umin(X, 0 - X)
 def SubUmaxSub (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (zeroOuter, maxV, sprops) := matchSub op rewriter.ctx | return rewriter
-  let some _ := matchConstantZero zeroOuter rewriter.ctx | return rewriter
-  let some dMax := getDefiningOp maxV rewriter.ctx | return rewriter
-  let some (a, subV) := matchUmax dMax rewriter.ctx | return rewriter
-  let some dSub := getDefiningOp subV rewriter.ctx | return rewriter
-  let some (zeroInner, a2, _) := matchSub dSub rewriter.ctx | return rewriter
-  let some _ := matchConstantZero zeroInner rewriter.ctx | return rewriter
-  if a2 != a then return rewriter
-  let .integerType aty := (a.getType! rewriter.ctx.raw).val | return rewriter
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 aty))
-  let (rewriter, c0) ← rewriter.createOp! (.llvm .mlir__constant) #[a.getType! rewriter.ctx.raw] #[]
-    #[] #[] z (some $ .before op)
-  let (rewriter, sub1) ← rewriter.createOp! (.llvm .sub) #[a.getType! rewriter.ctx.raw] #[(c0.getResult 0), a]
-    #[] #[] sprops (some $ .before op)
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .intr__umin) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (sub1.getResult 0)]
-    #[] #[] () (some $ .before op)
-  return rewriter.replaceOp! op newOp
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (subNegMinMaxLocal matchUmax .intr__umin ()) rewriter op opInBounds
 
 /-! ### narrow_binop :  trunc (binop X, C) → binop (trunc X, trunc C)
 
@@ -1987,53 +1991,21 @@ def commute_const_xor (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (commuteConstLocal .xor matchXor) rewriter op opInBounds
 
-/-! ### simplify_neg_minmax :  0 - (minmax a, (0 - a)) → oppositeMinMax a, (0 - a)
+/-! ### SubSminSub / SubUminSub :  0 - minmin(a, (0 - a)) → oppositeMinMax a, (0 - a)
 
   Completes the smin/umin input cases of LLVM's `simplify_neg_minmax` (rule #184);
   the smax/umax input cases are handled by `SubSmaxSub` / `SubUmaxSub`. Mirrors
-  `getInverseGMinMaxOpcode`: smin → smax, umin → umax. -/
+  `getInverseGMinMaxOpcode`: smin → smax, umin → umax. Shares `subNegMinMaxLocal`. -/
 
-set_option warn.sorry false in
+-- 0 - smin(X, 0 - X) → smax(X, 0 - X)
 def SubSminSub (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (zeroOuter, minV, sprops) := matchSub op rewriter.ctx | return rewriter
-  let some _ := matchConstantZero zeroOuter rewriter.ctx | return rewriter
-  let some dMin := getDefiningOp minV rewriter.ctx | return rewriter
-  let some (a, subV) := matchSmin dMin rewriter.ctx | return rewriter
-  let some dSub := getDefiningOp subV rewriter.ctx | return rewriter
-  let some (zeroInner, a2, _) := matchSub dSub rewriter.ctx | return rewriter
-  let some _ := matchConstantZero zeroInner rewriter.ctx | return rewriter
-  if a2 != a then return rewriter
-  let .integerType aty := (a.getType! rewriter.ctx.raw).val | return rewriter
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 aty))
-  let (rewriter, c0) ← rewriter.createOp! (.llvm .mlir__constant) #[a.getType! rewriter.ctx.raw] #[]
-    #[] #[] z (some $ .before op)
-  let (rewriter, sub1) ← rewriter.createOp! (.llvm .sub) #[a.getType! rewriter.ctx.raw] #[(c0.getResult 0), a]
-    #[] #[] sprops (some $ .before op)
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .intr__smax) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (sub1.getResult 0)]
-    #[] #[] () (some $ .before op)
-  return rewriter.replaceOp! op newOp
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (subNegMinMaxLocal matchSmin .intr__smax ()) rewriter op opInBounds
 
-set_option warn.sorry false in
+-- 0 - umin(X, 0 - X) → umax(X, 0 - X)
 def SubUminSub (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (zeroOuter, minV, sprops) := matchSub op rewriter.ctx | return rewriter
-  let some _ := matchConstantZero zeroOuter rewriter.ctx | return rewriter
-  let some dMin := getDefiningOp minV rewriter.ctx | return rewriter
-  let some (a, subV) := matchUmin dMin rewriter.ctx | return rewriter
-  let some dSub := getDefiningOp subV rewriter.ctx | return rewriter
-  let some (zeroInner, a2, _) := matchSub dSub rewriter.ctx | return rewriter
-  let some _ := matchConstantZero zeroInner rewriter.ctx | return rewriter
-  if a2 != a then return rewriter
-  let .integerType aty := (a.getType! rewriter.ctx.raw).val | return rewriter
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 aty))
-  let (rewriter, c0) ← rewriter.createOp! (.llvm .mlir__constant) #[a.getType! rewriter.ctx.raw] #[]
-    #[] #[] z (some $ .before op)
-  let (rewriter, sub1) ← rewriter.createOp! (.llvm .sub) #[a.getType! rewriter.ctx.raw] #[(c0.getResult 0), a]
-    #[] #[] sprops (some $ .before op)
-  let (rewriter, newOp) ← rewriter.createOp! (.llvm .intr__umax) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (sub1.getResult 0)]
-    #[] #[] () (some $ .before op)
-  return rewriter.replaceOp! op newOp
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (subNegMinMaxLocal matchUmin .intr__umax ()) rewriter op opInBounds
 
 /-! ### lshr_of_trunc_of_lshr :  (lshr (trunc (lshr x, C1)), C2) → trunc (lshr x, (C1 + C2))
 

@@ -119,6 +119,50 @@ theorem OperationPtr.Pure.llvm_mlir__constant {op : OperationPtr} {ctx : IRConte
     | rfl
     | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
 
+/-- `llvm.intr.smax` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_intr__smax {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .intr__smax) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  split
+  · split <;> simp [Interp.map, Option.map, UBOr.map, pure]
+  · simp [Interp.map, Option.map]
+
+/-- `llvm.intr.smin` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_intr__smin {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .intr__smin) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  split
+  · split <;> simp [Interp.map, Option.map, UBOr.map, pure]
+  · simp [Interp.map, Option.map]
+
+/-- `llvm.intr.umax` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_intr__umax {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .intr__umax) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  split
+  · split <;> simp [Interp.map, Option.map, UBOr.map, pure]
+  · simp [Interp.map, Option.map]
+
+/-- `llvm.intr.umin` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_intr__umin {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .intr__umin) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  split
+  · split <;> simp [Interp.map, Option.map, UBOr.map, pure]
+  · simp [Interp.map, Option.map]
+
 /-! ## Forward unfolding of one interpretation step -/
 
 /-- Interpreting a matched two-operand LLVM op (of opcode `srcOp`, interpreted by `srcFn` per
