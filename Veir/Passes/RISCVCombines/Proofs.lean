@@ -463,4 +463,83 @@ theorem right_identity_zero_add_comm {lhs : Reg} :
     RISCV.add (Data.RISCV.li (BitVec.ofInt 64 0)) lhs = lhs := by
   veir_bv_decide
 
+/-! ## `Int`-range forms of the `ext (li v)` folds.
+
+    The `ext_li_range`/`zextw_li_low32`/`sextw_li_low32` combines guard on the *integer* immediate
+    `v` (`lo ≤ v < hi`); their correctness obligation is the register equality
+    `ext (li (BitVec.ofInt 64 v)) = li (BitVec.ofInt 64 v)`. Each lemma below bridges the `Int` range
+    to the `BitVec` hypothesis of the corresponding `*_li_low*` lemma above: for a zero-extension the
+    high field of `BitVec.ofInt 64 v` is clear; for a sign-extension `BitVec.ofInt 64 v` equals the
+    sign-extension of its own low `width` bits. These are what
+    `ext_li_range_local_preservesSemantics` (and the `zextw`/`sextw` instances) consume. -/
+
+theorem zextb_li_ofInt {v : Int} (h0 : 0 ≤ v) (h1 : v < 256) :
+    RISCV.zextb (Data.RISCV.li (BitVec.ofInt 64 v)) = Data.RISCV.li (BitVec.ofInt 64 v) := by
+  apply zextb_li_low8
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.extractLsb, BitVec.extractLsb'_toNat, BitVec.toNat_ofInt,
+    BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow, Nat.reducePow]
+  omega
+
+theorem zexth_li_ofInt {v : Int} (h0 : 0 ≤ v) (h1 : v < 65536) :
+    RISCV.zexth (Data.RISCV.li (BitVec.ofInt 64 v)) = Data.RISCV.li (BitVec.ofInt 64 v) := by
+  apply zexth_li_low16
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.extractLsb, BitVec.extractLsb'_toNat, BitVec.toNat_ofInt,
+    BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow, Nat.reducePow]
+  omega
+
+theorem zextw_li_ofInt {v : Int} (h0 : 0 ≤ v) (h1 : v < 4294967296) :
+    RISCV.zextw (Data.RISCV.li (BitVec.ofInt 64 v)) = Data.RISCV.li (BitVec.ofInt 64 v) := by
+  apply zextw_li_low32
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.extractLsb, BitVec.extractLsb'_toNat, BitVec.toNat_ofInt,
+    BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow, Nat.reducePow]
+  omega
+
+theorem sextb_li_ofInt {v : Int} (h0 : -128 ≤ v) (h1 : v < 128) :
+    RISCV.sextb (Data.RISCV.li (BitVec.ofInt 64 v)) = Data.RISCV.li (BitVec.ofInt 64 v) := by
+  apply sextb_li_low8
+  have hA : (BitVec.ofInt 64 v).extractLsb 7 0 = BitVec.ofInt 8 v := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.extractLsb, BitVec.extractLsb'_toNat, BitVec.toNat_ofInt,
+      Nat.shiftRight_zero, Nat.reducePow]
+    omega
+  rw [hA]
+  apply BitVec.eq_of_toInt_eq
+  rw [BitVec.toInt_signExtend_of_le (by omega), BitVec.toInt_ofInt, BitVec.toInt_ofInt,
+    show (2 ^ 8 : Nat) = 256 from rfl, show (2 ^ 64 : Nat) = 18446744073709551616 from rfl]
+  simp only [Int.bmod]
+  omega
+
+theorem sexth_li_ofInt {v : Int} (h0 : -32768 ≤ v) (h1 : v < 32768) :
+    RISCV.sexth (Data.RISCV.li (BitVec.ofInt 64 v)) = Data.RISCV.li (BitVec.ofInt 64 v) := by
+  apply sexth_li_low16
+  have hA : (BitVec.ofInt 64 v).extractLsb 15 0 = BitVec.ofInt 16 v := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.extractLsb, BitVec.extractLsb'_toNat, BitVec.toNat_ofInt,
+      Nat.shiftRight_zero, Nat.reducePow]
+    omega
+  rw [hA]
+  apply BitVec.eq_of_toInt_eq
+  rw [BitVec.toInt_signExtend_of_le (by omega), BitVec.toInt_ofInt, BitVec.toInt_ofInt,
+    show (2 ^ 16 : Nat) = 65536 from rfl, show (2 ^ 64 : Nat) = 18446744073709551616 from rfl]
+  simp only [Int.bmod]
+  omega
+
+theorem sextw_li_ofInt {v : Int} (h0 : -2147483648 ≤ v) (h1 : v < 2147483648) :
+    RISCV.sextw (Data.RISCV.li (BitVec.ofInt 64 v)) = Data.RISCV.li (BitVec.ofInt 64 v) := by
+  apply sextw_li_low32
+  have hA : (BitVec.ofInt 64 v).extractLsb 31 0 = BitVec.ofInt 32 v := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.extractLsb, BitVec.extractLsb'_toNat, BitVec.toNat_ofInt,
+      Nat.shiftRight_zero, Nat.reducePow]
+    omega
+  rw [hA]
+  apply BitVec.eq_of_toInt_eq
+  rw [BitVec.toInt_signExtend_of_le (by omega), BitVec.toInt_ofInt, BitVec.toInt_ofInt,
+    show (2 ^ 32 : Nat) = 4294967296 from rfl, show (2 ^ 64 : Nat) = 18446744073709551616 from rfl]
+  simp only [Int.bmod]
+  omega
+
 end Veir.Data.RISCV

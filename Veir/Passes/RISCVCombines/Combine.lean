@@ -1665,63 +1665,48 @@ def zexth_x0 := ext_x0 .zexth
 def sextb_x0 := ext_x0 .sextb
 def sexth_x0 := ext_x0 .sexth
 
-set_option warn.sorry false in
-/-- `riscv.zextw (riscv.li v) -> riscv.li v` when `0 ≤ v < 2^32`: `li`'s
-    materialized 64-bit value (`BitVec.ofInt 64 v`) already has bits 63:32
-    clear in that range, so zero-extending it again is redundant.
-
-    LLVM: `zext.w` is `(and X, 0xffffffff)` (isel pattern in RISCVInstrInfoZb.td);
-    with `X` a constant whose bits 63:32 are already clear the mask folds away
-    via generic constant folding / known-bits.
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L759 -/
-def zextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (operands, _) := matchOp op rewriter.ctx (.riscv .zextw) 1 | return rewriter
+/-- Generic `riscv.<ext> (riscv.li v) -> riscv.li v` fold, as a `LocalRewritePattern`. Matches a
+    `riscv.<ext>` (with `ext` a unary register-to-register op) whose single operand is defined by a
+    `riscv.li v`, and replaces the extension's result with that `li` value (no ops created) when the
+    immediate `v` lies in `[lo, hi)` -- the range on which `ext` is the identity on the materialized
+    value `BitVec.ofInt 64 v`. For a zero-extension that is the *unsigned* range `[0, 2^width)` (bits
+    above `width` clear); for a sign-extension the *signed* range `[-2^(width-1), 2^(width-1))` (bits
+    above `width` all equal the sign bit). `ext`/`lo`/`hi` pick the op and its identity range.
+    RISC-V register values are total (no poison), so the correctness obligation is the plain equality
+    `f (Data.RISCV.li (BitVec.ofInt 64 v)) = Data.RISCV.li (BitVec.ofInt 64 v)` for `lo ≤ v < hi`
+    (`f` the data action of `ext`). See `ext_li_range_local_preservesSemantics`. -/
+def ext_li_range_local (ext : Riscv) (lo hi : Int) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, _) := matchOp op ctx (.riscv ext) 1 | return (ctx, none)
   let src := operands[0]!
-  let some srcOp := getDefiningOp src rewriter.ctx | return rewriter
-  let some (_, cst) := matchOp srcOp rewriter.ctx (.riscv .li) 0 | return rewriter
-  if cst.value.value < 0 ∨ cst.value.value ≥ 4294967296 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  let some srcOp := getDefiningOp src ctx | return (ctx, none)
+  let some (_, cst) := matchOp srcOp ctx (.riscv .li) 0 | return (ctx, none)
+  if cst.value.value < lo ∨ cst.value.value ≥ hi then return (ctx, none)
+  some (ctx, some (#[], #[src]))
 
-set_option warn.sorry false in
-/-- `riscv.sextw (riscv.li v) -> riscv.li v` when `-2^31 ≤ v < 2^31`: in that
-    (signed 32-bit) range `li`'s materialized value (`BitVec.ofInt 64 v`) is
-    already the sign-extension of its own low 32 bits, so `sextw` is redundant.
-    Note the guard differs from `zextw_li_low32`'s unsigned `[0, 2^32)`: sign
-    extension is a no-op exactly on the *signed* 32-bit range (which includes
-    negative immediates, e.g. `li -1`).
-
-    LLVM: constant folding / known-bits on `sext.w` of an already-sign-extended
-    32-bit constant.
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
-def sextw_li_low32 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (operands, _) := matchOp op rewriter.ctx (.riscv .sextw) 1 | return rewriter
-  let src := operands[0]!
-  let some srcOp := getDefiningOp src rewriter.ctx | return rewriter
-  let some (_, cst) := matchOp srcOp rewriter.ctx (.riscv .li) 0 | return rewriter
-  if cst.value.value < -2147483648 ∨ cst.value.value ≥ 2147483648 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
-
-set_option warn.sorry false in
-/-- Byte- and half-word mirrors of `zextw_li_low32`/`sextw_li_low32`: a `riscv.<ext>`
-    of a `riscv.li v` is redundant when `v`'s materialized value already carries
-    the extension's high-bit pattern. For a zero-extension that is the *unsigned*
-    range below `2^width` (bits above `width` clear); for a sign-extension the
-    *signed* range `[-2^(width-1), 2^(width-1))` (bits above `width` all equal the
-    sign bit). `ext`/`width` picks the op and its bit width. -/
-private def ext_li_range (ext : Riscv) (lo hi : Int) (rewriter : PatternRewriter OpCode)
+def ext_li_range (ext : Riscv) (lo hi : Int) (rewriter : PatternRewriter OpCode)
     (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
-    Option (PatternRewriter OpCode) := do
-  let some (operands, _) := matchOp op rewriter.ctx (.riscv ext) 1 | return rewriter
-  let src := operands[0]!
-  let some srcOp := getDefiningOp src rewriter.ctx | return rewriter
-  let some (_, cst) := matchOp srcOp rewriter.ctx (.riscv .li) 0 | return rewriter
-  if cst.value.value < lo ∨ cst.value.value ≥ hi then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) src sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+    Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (ext_li_range_local ext lo hi) rewriter op opInBounds
+
+/-- `riscv.zextw (riscv.li v) -> riscv.li v` when `0 ≤ v < 2^32`: `li`'s materialized 64-bit value
+    (`BitVec.ofInt 64 v`) already has bits 63:32 clear in that range, so zero-extending it again is
+    redundant.
+
+    LLVM: `zext.w` is `(and X, 0xffffffff)` (isel pattern in RISCVInstrInfoZb.td); with `X` a constant
+    whose bits 63:32 are already clear the mask folds away via generic constant folding / known-bits.
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L759 -/
+def zextw_li_low32 := ext_li_range .zextw 0 4294967296
+
+/-- `riscv.sextw (riscv.li v) -> riscv.li v` when `-2^31 ≤ v < 2^31`: in that (signed 32-bit) range
+    `li`'s materialized value (`BitVec.ofInt 64 v`) is already the sign-extension of its own low 32
+    bits, so `sextw` is redundant. Note the guard differs from `zextw_li_low32`'s unsigned `[0, 2^32)`:
+    sign extension is a no-op exactly on the *signed* 32-bit range (which includes negative
+    immediates, e.g. `li -1`).
+
+    LLVM: constant folding / known-bits on `sext.w` of an already-sign-extended 32-bit constant.
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
+def sextw_li_low32 := ext_li_range .sextw (-2147483648) 2147483648
 
 /-- `riscv.zextb (riscv.li v) -> riscv.li v` when `0 ≤ v < 2^8`. -/
 def zextb_li_low8 := ext_li_range .zextb 0 256
