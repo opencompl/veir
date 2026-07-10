@@ -811,9 +811,16 @@ def checkBitcastType (t : TypeAttr) : Bool :=
   | .byteType _ => true
   | _ => false
 
+/-- Is this a `byte -> ptr` bitcast? -/
+def isBitcastByteToPtr (opType resType : TypeAttr) : Bool :=
+  match opType.val, resType.val with
+  | .byteType _, .llvmPointerType _ => true
+  | _, _ => false
+
 /--
   llvm.bitcast t1 %x to t2 -> builtin_unrealized_conversion_cast
   Integers, bytes, and pointers are all lowered to !riscv.reg, making this basically a no-op.
+  The `byte -> ptr` case is excluded.
 -/
 def bitcast_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -821,6 +828,7 @@ def bitcast_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let opType := operand.getType! ctx.raw
   let resType := ((op.getResult 0).get! ctx.raw).type
   if ¬ checkBitcastType opType ∨ ¬ checkBitcastType resType then return (ctx, none)
+  if isBitcastByteToPtr opType resType then return (ctx, none)
   let some opBw := Attribute.bitwidthOfType opType | return (ctx, none)
   let some resBw := Attribute.bitwidthOfType resType | return (ctx, none)
   if opBw ∉ [8, 16, 32, 64] ∨ resBw ∉ [8, 16, 32, 64] then return (ctx, none)

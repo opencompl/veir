@@ -213,6 +213,59 @@ theorem interpretOp_castToReg_byte_forward
       (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
   grind
 
+/-- Pointer cast-to-register specialization of `interpretOp_forward`: `castOp` is a
+`builtin.unrealized_conversion_cast` with a single pointer operand `.addr a` and a `!riscv.reg`
+result, binding the result to `.reg ⟨ofNat 64 a.toNat⟩` (the address bits). -/
+theorem interpretOp_castAddrToReg_forward
+    {ctx : WfIRContext OpCode} {castOp : OperationPtr} {state : InterpreterState ctx}
+    {inBounds : castOp.InBounds ctx.raw} {v : ValuePtr} {rt : RegisterType} {hIsTy}
+    {a : UInt64}
+    (hType : castOp.getOpType! ctx.raw = .builtin .unrealized_conversion_cast)
+    (hOperands : castOp.getOperands! ctx.raw = #[v])
+    (hResTypes : castOp.getResultTypes! ctx.raw = #[⟨.registerType rt, hIsTy⟩])
+    (hVal : state.variables.getVar? v = some (.addr a)) :
+    ∃ state', interpretOp castOp state inBounds = some (.ok (state', none)) ∧
+      state'.memory = state.memory ∧
+      state'.variables.getVar? (ValuePtr.opResult (castOp.getResult 0))
+        = some (.reg ⟨BitVec.ofNat 64 a.toNat⟩) ∧
+      (∀ v', v' ∉ castOp.getResults! ctx.raw →
+        state'.variables.getVar? v' = state.variables.getVar? v') := by
+  obtain ⟨state', hI, hMem, hVar⟩ :=
+    interpretOp_forward (op := castOp) (state := state) (inBounds := inBounds)
+      (vals := #[.addr a]) (results := #[.reg ⟨BitVec.ofNat 64 a.toNat⟩]) (mem' := state.memory)
+      (by simp [VariableState.getOperandValues, hOperands, hVal])
+      (by simp only [OperationPtr.interpret]
+          rw [hType]
+          simp [hResTypes, interpretOp', pure, Interp])
+      (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
+  grind
+
+/-- Pointer cast-back specialization of `interpretOp_forward`: like `interpretOp_castBack_forward`
+but the result has *pointer* type, so the register `r` is cast to the address `.addr ⟨r.val⟩`. -/
+theorem interpretOp_castBack_ptr_forward
+    {ctx : WfIRContext OpCode} {castOp : OperationPtr} {state : InterpreterState ctx}
+    {inBounds : castOp.InBounds ctx.raw} {v : ValuePtr} {pt : LLVM.PointerType} {hIsTy}
+    {r : Data.RISCV.Reg}
+    (hType : castOp.getOpType! ctx.raw = .builtin .unrealized_conversion_cast)
+    (hOperands : castOp.getOperands! ctx.raw = #[v])
+    (hResTypes : castOp.getResultTypes! ctx.raw = #[⟨.llvmPointerType pt, hIsTy⟩])
+    (hVal : state.variables.getVar? v = some (.reg r)) :
+    ∃ state', interpretOp castOp state inBounds = some (.ok (state', none)) ∧
+      state'.memory = state.memory ∧
+      state'.variables.getVar? (ValuePtr.opResult (castOp.getResult 0))
+        = some (.addr ⟨r.val⟩) ∧
+      (∀ v', v' ∉ castOp.getResults! ctx.raw →
+        state'.variables.getVar? v' = state.variables.getVar? v') := by
+  obtain ⟨state', hI, hMem, hVar⟩ :=
+    interpretOp_forward (op := castOp) (state := state) (inBounds := inBounds)
+      (vals := #[.reg r]) (results := #[.addr ⟨r.val⟩]) (mem' := state.memory)
+      (by simp [VariableState.getOperandValues, hOperands, hVal])
+      (by simp only [OperationPtr.interpret]
+          rw [hType]
+          simp [hResTypes, interpretOp', pure, Interp])
+      (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
+  grind
+
 /-- Byte cast-back specialization of `interpretOp_forward`: like `interpretOp_castBack_forward` but
 the result has *byte* type, so the register `r` is cast to `.byte bw (RISCV.Reg.toByte r bw)`. -/
 theorem interpretOp_castBack_byte_forward
