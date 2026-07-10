@@ -282,6 +282,26 @@ theorem matchSaddSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs r
   simp only [matchSaddSat, bind, Option.bind, pure] at hmatch
   grind
 
+/-- What matching `llvm.intr.ssub.sat` (via `matchSsubSat`) syntactically guarantees. -/
+theorem matchSsubSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
+    matchSsubSat op ctx = some (lhs, rhs) →
+    op.getOpType! ctx = .llvm .intr__ssub__sat ∧
+    op.getNumResults! ctx = 1 ∧
+    op.getOperands! ctx = #[lhs, rhs] := by
+  intro hmatch
+  simp only [matchSsubSat, bind, Option.bind, pure] at hmatch
+  grind
+
+/-- What matching `llvm.intr.sshl.sat` (via `matchSshlSat`) syntactically guarantees. -/
+theorem matchSshlSat_implies {op : OperationPtr} {ctx : IRContext OpCode} {lhs rhs} :
+    matchSshlSat op ctx = some (lhs, rhs) →
+    op.getOpType! ctx = .llvm .intr__sshl__sat ∧
+    op.getNumResults! ctx = 1 ∧
+    op.getOperands! ctx = #[lhs, rhs] := by
+  intro hmatch
+  simp only [matchSshlSat, bind, Option.bind, pure] at hmatch
+  grind
+
 /-- What matching `llvm.intr.fshl` (via `matchFshl`) syntactically guarantees. -/
 theorem matchFshl_implies {op : OperationPtr} {ctx : IRContext OpCode} {a b amt} :
     matchFshl op ctx = some (a, b, amt) →
