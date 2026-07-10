@@ -226,10 +226,11 @@ theorem sub_add_reg_x_sub_x_add_y {w : Nat} (hw : w = 64 ∨ w = 32) {as au ss s
 
 /-! ### xor_of_and_with_same_reg -/
 
-/-- `(x & y) ^ y → (~x) & y`. -/
-theorem xor_of_and_with_same_reg {x y : Int 64} :
-    xor (and x y) y ⊒ and (xor x (constant 64 (-1))) y := by
-  veir_bv_decide
+/-- `(x & y) ^ y → (~x) & y`. Stated at both widths the guarded pattern admits, since the
+    graph-level proof needs `i32` too. -/
+theorem xor_of_and_with_same_reg {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    xor (and x y) y ⊒ and (xor x (constant w (-1))) y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### select_to_iminmax
 

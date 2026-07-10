@@ -516,22 +516,30 @@ def sub_add_reg_x_sub_x_add_y (rewriter: PatternRewriter OpCode) (op: OperationP
 
 /-! ### xor_of_and_with_same_reg :  (xor (and x, y), y) → (and (not x), y) -/
 
-set_option warn.sorry false in
+/-- `(x & y) ^ y → (~x) & y`, as a `LocalRewritePattern`. `op` is the `xor`, whose first operand
+    is the result of a defining `and x y` sharing the second operand `y`. It creates a
+    `constant -1`, an `xor x (-1)` (i.e. `~x`), and an `and (~x) y`. The `.integerType`/bitwidth
+    guard keeps the rewrite to `i32`/`i64`. See `xor_of_and_with_same_reg_local_preservesSemantics`. -/
+def xor_of_and_with_same_reg_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (andVal, yval, _xp) := matchXor op ctx | return (ctx, none)
+  let some dA := getDefiningOp andVal ctx | return (ctx, none)
+  let some (x, y2, _) := matchAnd dA ctx | return (ctx, none)
+  if y2 != yval then return (ctx, none)
+  let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
+  if xty.bitwidth ≠ 64 ∧ xty.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, c1) ← WfRewriter.createOp! ctx (.llvm .mlir__constant)
+    #[x.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) xty))) none
+  let (ctx, notx) ← WfRewriter.createOp! ctx (.llvm .xor)
+    #[x.getType! ctx.raw] #[x, c1.getResult 0] #[] #[] () none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .and)
+    #[x.getType! ctx.raw] #[notx.getResult 0, yval] #[] #[] () none
+  some (ctx, some (#[c1, notx, newOp], #[newOp.getResult 0]))
+
 def xor_of_and_with_same_reg (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (andVal, yval, _xp) := matchXor op rewriter.ctx | return rewriter
-  let some dA := getDefiningOp andVal rewriter.ctx | return rewriter
-  let some (x, y2, _) := matchAnd dA rewriter.ctx | return rewriter
-  if y2 != yval then return rewriter
-  let .integerType xty := (x.getType! rewriter.ctx.raw).val | return rewriter
-  let m1 := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) xty))
-  let (rewriter, c1) ← rewriter.createOp (.llvm .mlir__constant) #[x.getType! rewriter.ctx.raw] #[]
-    #[] #[] m1 (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, notx) ← rewriter.createOp (.llvm .xor) #[x.getType! rewriter.ctx.raw] #[x, (c1.getResult 0)]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .and) #[x.getType! rewriter.ctx.raw] #[(notx.getResult 0), yval]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite xor_of_and_with_same_reg_local rewriter op opInBounds
 
 /-! ### select_to_iminmax  (ported to LLVM min/max intrinsics — see assumption (D))
 
