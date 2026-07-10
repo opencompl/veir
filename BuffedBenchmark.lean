@@ -169,8 +169,53 @@ def constFoldTreeSparseGoSim (ctx : Sim.IRContext OpCode) (rng : Xoshiro256PP) (
           constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
       else
         constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
-
 partial_fixpoint
+
+buffed (def_lemma := false)
+def constReuseTreeGoSim (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
+    (prop : propertiesOf opcode) (pc : Nat) (inc : Int) (accVal reuseVal : Sim.ValuePtr) : Option (Sim.IRContext OpCode) := do
+  match i with
+  | 0 =>
+    let (ctx, op) ← Rewriter.createOp ctx (.test .test) #[] #[⟨accVal.impl, default⟩] #[] #[] () insertPoint sorry sorry sorry sorry sorry sorry
+    ctx
+  | i + 1 =>
+    let ⟨thisOp, thisProp⟩ : (op : OpCode) × propertiesOf op := if (i % 100 < pc) then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
+
+    let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[⟨accVal.impl, default⟩, ⟨reuseVal.impl, default⟩] #[] #[] thisProp insertPoint sorry sorry sorry sorry sorry sorry
+    let accResult := acc.getResultPtr ctx 0 sorry
+    let accVal : Sim.ValuePtr := ⟨accResult.impl, accResult.spec⟩
+    constReuseTreeGoSim i ctx insertPoint opcode prop pc inc accVal reuseVal
+
+-- Create a program that looks like:
+-- func @main() -> u64 {
+--   %0 = arith.constant [root] : u64
+--   %reuse = arith.constant [inc]: u64
+--   %2 = [opcode] %0, %reuse : u64
+--   %3 = [opcode] %2, %reuse : u64
+--   ...
+buffed (def_lemma := false)
+def constReuseTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
+    (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
+  let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
+  let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
+
+  let (ctx, acc) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let ctx ← acc.setAttributes ctx rootAttr sorry
+
+  let (ctx, reuse) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let ctx ← reuse.setAttributes ctx incAttr sorry
+
+  let accResult := acc.getResultPtr ctx 0 sorry
+  let accVal : Sim.ValuePtr := ⟨accResult.impl, accResult.spec⟩
+
+  let reuseResult := reuse.getResultPtr ctx 0 sorry
+  let reuseVal : Sim.ValuePtr := ⟨reuseResult.impl, reuseResult.spec⟩
+
+  constReuseTreeGo size ctx insertPoint opcode prop pc inc accVal reuseVal
+
+buffed (def_lemma := false)
+def addZeroReuseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constReuseTree ctx ip (.arith .addi) () size pc 42 0
 
 -- Create a program that looks like constFoldTree but with randomly selected constants as rhs and
 -- randomly selected previous ops as lhs
@@ -516,6 +561,7 @@ def runBenchmark (benchmark : String) (n pc : Nat) : OptionT IO Unit :=
   match benchmark with
   | "add-fold-forwards" =>        run n pc addOneTree        rewriteForwardsAddIConstFolding
   | "add-zero-forwards" =>        run n pc addZeroTree       rewriteForwardsAddIZeroFolding
+  | "add-zero-reuse-forwards" =>  run n pc addZeroReuse      rewriteForwardsAddIZeroFolding
   | "mul-two-forwards" =>         run n pc mulTwoTree        rewriteForwardsMulITwoReduce
 
   | "add-fold-forwards-sparse" => run n pc addOneTreeSparse  rewriteForwardsAddIConstFolding
