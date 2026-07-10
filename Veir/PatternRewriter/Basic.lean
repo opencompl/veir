@@ -240,22 +240,6 @@ def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     worklist
   }
 
-/--
-Erase an operation, panicking if the operation is out of bounds, has regions, or has uses.
--/
-def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
-    : PatternRewriter OpInfo :=
-  if hOp : op.InBounds rewriter.ctx.raw then
-    if opRegions : op.getNumRegions! rewriter.ctx.raw = 0 then
-      if opUses : !op.hasUses! rewriter.ctx.raw then
-        rewriter.eraseOp op opRegions opUses hOp
-      else
-        panic! "PatternRewriter.eraseOp! failed: operation has uses"
-    else
-      panic! "PatternRewriter.eraseOp! failed: operation has regions"
-  else
-    panic! "PatternRewriter.eraseOp! failed: operation is out of bounds"
-
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
     (hpar : (oldOp.get! rewriter.ctx.raw).parent.isSome = true := by grind)
