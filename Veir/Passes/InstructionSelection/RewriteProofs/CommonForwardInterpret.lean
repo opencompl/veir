@@ -236,6 +236,43 @@ theorem interpretOp_llvm_unaryInt_forward
       (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
   grind
 
+/-- Integer-constant `llvm.mlir.constant` specialization of `interpretOp_forward`: `theOp` is an
+`llvm.mlir.constant` with an integer attribute `v` and a single `i{it}` result. Interpreting it
+always succeeds, leaves memory untouched, binds the result to `.int it.bitwidth (constant _ v)`,
+and leaves every non-result value unchanged. Needed by combines that materialize a fresh constant
+(e.g. `sub_add_reg`'s `0 - y`, which creates an `llvm.mlir.constant 0`). -/
+theorem interpretOp_llvm_constant_forward
+    {ctx : WfIRContext OpCode} {theOp : OperationPtr} {state : InterpreterState ctx}
+    {inBounds : theOp.InBounds ctx.raw} {it : IntegerType} {v : Int} {hIsTy}
+    (hType : theOp.getOpType! ctx.raw = .llvm .mlir__constant)
+    (hProps : (theOp.getProperties! ctx.raw (.llvm .mlir__constant)).value = .integer ⟨v, it⟩)
+    (hOperands : theOp.getOperands! ctx.raw = #[])
+    (hResTypes : theOp.getResultTypes! ctx.raw = #[⟨.integerType it, hIsTy⟩]) :
+    ∃ state', interpretOp theOp state inBounds = some (.ok (state', none)) ∧
+      state'.memory = state.memory ∧
+      state'.variables.getVar? (ValuePtr.opResult (theOp.getResult 0))
+        = some (.int it.bitwidth (Data.LLVM.Int.constant it.bitwidth v)) ∧
+      (∀ v', v' ∉ theOp.getResults! ctx.raw →
+        state'.variables.getVar? v' = state.variables.getVar? v') := by
+  obtain ⟨state', hI, hMem, hVal⟩ :=
+    interpretOp_forward (op := theOp) (state := state) (inBounds := inBounds)
+      (vals := #[])
+      (results := #[.int it.bitwidth (Data.LLVM.Int.constant it.bitwidth v)])
+      (mem' := state.memory)
+      (by simp [VariableState.getOperandValues, hOperands])
+      (by simp only [OperationPtr.interpret]
+          rw [hType]
+          simp only [interpretOp', Llvm.interpretOp', hResTypes, hProps, pure, Interp]
+          simp)
+      (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
+  have hNumRes : theOp.getNumResults! ctx.raw = 1 := by
+    rw [← OperationPtr.getResultTypes!.size_eq_getNumResults!, hResTypes]; rfl
+  refine ⟨state', hI, hMem, ?_, ?_⟩
+  · rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumRes]; omega) hVal]
+    simp
+  · intro v' hv'
+    rw [VariableState.getVar?_setResultValues?_of_notMem_getResults! hv' hVal]
+
 /-- Unary register-to-register `riscv` op specialization of `interpretOp_forward`: `theOp` is any
 `riscv` op `rop` whose interpretation maps a single register operand `r` to `f r` (hypothesis
 `hSem`, discharged by `rfl` at each concrete opcode), with a single `!riscv.reg` result.

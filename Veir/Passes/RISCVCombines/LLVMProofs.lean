@@ -209,19 +209,20 @@ theorem sub_add_reg_x_add_y_sub_x {w : Nat} (hw : w = 64 ∨ w = 32) {as au ss s
   rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `x - (y + x) → 0 - y`. The created `sub` must clear `nsw`/`nuw` rather than inherit the
-    matched `sub`'s: `0 - y` has a different poison condition.
+    matched `sub`'s: `0 - y` has a different poison condition. Stated at both widths the guarded
+    pattern admits, since the graph-level proof needs `i32` too.
 
     Keeping `nuw` would be unsound: `x = -1`, `y = 1`. Then `y + x = 0` and `x - 0 = -1`
     does not unsigned-overflow, but `0 - y` does. -/
-theorem sub_add_reg_x_sub_y_add_x {as au ss su : Bool} {x y : Int 64} :
-    sub x (add y x as au) ss su ⊒ sub (constant 64 0) y false false := by
-  veir_bv_decide
+theorem sub_add_reg_x_sub_y_add_x {w : Nat} (hw : w = 64 ∨ w = 32) {as au ss su : Bool}
+    {x y : Int w} : sub x (add y x as au) ss su ⊒ sub (constant w 0) y false false := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `x - (x + y) → 0 - y`. The created `sub` must clear `nsw`/`nuw`, with the same
     counterexample as `sub_add_reg_x_sub_y_add_x`. -/
-theorem sub_add_reg_x_sub_x_add_y {as au ss su : Bool} {x y : Int 64} :
-    sub x (add x y as au) ss su ⊒ sub (constant 64 0) y false false := by
-  veir_bv_decide
+theorem sub_add_reg_x_sub_x_add_y {w : Nat} (hw : w = 64 ∨ w = 32) {as au ss su : Bool}
+    {x y : Int w} : sub x (add x y as au) ss su ⊒ sub (constant w 0) y false false := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### xor_of_and_with_same_reg -/
 
