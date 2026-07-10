@@ -145,54 +145,50 @@ def XorSextSext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     #[] #[] yp (some $ .before op) sorry sorry sorry sorry
   rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
--- (zext X) & (zext Y) → zext (X & Y)
-set_option warn.sorry false in
+/-- The shared shape of `AndZextZext`/`OrZextZext`/`XorZextZext`: match `(zext X) outer (zext Y)`
+    where `outer ∈ {and, or, xor}` (via `match?`) and both operands are defining `zext`s, and emit
+    `zext (X outer Y)`. The inner op is `dst`/`dprops`; the created `zext` keeps `nneg := nneg`
+    (`and` reuses the second `zext`'s `nneg`; `or`/`xor` clear it, passing `nneg := false`). The
+    narrow-width `{32}` and result-width `{64}` guards are what the correctness proof needs to reach
+    the `veir_bv_decide` data lemmas. Its shared correctness proof is
+    `hoistZextLocal_preservesSemantics`. -/
+def hoistZextLocal
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
+    (dst : Llvm) (dprops : propertiesOf (.llvm dst)) (useSndNneg : Bool)
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (v0, v1) := match? op ctx | return (ctx, none)
+  let some dX := getDefiningOp v0 ctx | return (ctx, none)
+  let some (x, _xp) := matchZext dX ctx | return (ctx, none)
+  let some dY := getDefiningOp v1 ctx | return (ctx, none)
+  let some (y, yp) := matchZext dY ctx | return (ctx, none)
+  let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
+  if xty.bitwidth ≠ 32 then return (ctx, none)
+  let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
+  if yty.bitwidth ≠ 32 then return (ctx, none)
+  let .integerType rty := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if rty.bitwidth ≠ 64 then return (ctx, none)
+  let (ctx, inner) ← WfRewriter.createOp! ctx (.llvm dst)
+    #[x.getType! ctx.raw] #[x, y] #[] #[] dprops none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .zext)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[inner.getResult 0] #[] #[]
+    { nneg := if useSndNneg then yp.nneg else false } none
+  some (ctx, some (#[inner, newOp], #[newOp.getResult 0]))
+
 def AndZextZext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, _) := matchAnd op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _xp) := matchZext dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, yp) := matchZext dY rewriter.ctx | return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .and) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
-    #[] #[] yp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (hoistZextLocal (matchBinopNoProps matchAnd) .and () true)
+    rewriter op opInBounds
 
--- (zext X) | (zext Y) → zext (X | Y)
--- The created `zext` drops `nneg`: `X | Y` can have its msb set because of `X` alone, so
--- keeping `Y`'s `nneg` would poison a result the source computes fine. See `OrZextZext`
--- in `LLVMProofs.lean`.
-set_option warn.sorry false in
 def OrZextZext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, oprops) := matchOr op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _xp) := matchZext dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, _yp) := matchZext dY rewriter.ctx | return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .or) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] oprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
-    #[] #[] { nneg := false } (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (hoistZextLocal (matchBinopNoProps matchOr) .or { disjoint := false } false) rewriter op opInBounds
 
--- (zext X) ^ (zext Y) → zext (X ^ Y)
--- The created `zext` drops `nneg`, for the same reason as `OrZextZext`.
-set_option warn.sorry false in
 def XorZextZext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, v1, xprops) := matchXor op rewriter.ctx | return rewriter
-  let some dX := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _xp) := matchZext dX rewriter.ctx | return rewriter
-  let some dY := getDefiningOp v1 rewriter.ctx | return rewriter
-  let some (y, _yp) := matchZext dY rewriter.ctx | return rewriter
-  let (rewriter, inner) ← rewriter.createOp (.llvm .xor) #[x.getType! rewriter.ctx.raw] #[x, y]
-    #[] #[] xprops (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(inner.getResult 0)]
-    #[] #[] { nneg := false } (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (hoistZextLocal (matchBinopNoProps matchXor) .xor () false)
+    rewriter op opInBounds
 
 -- (trunc X) & (trunc Y) → trunc (X & Y)
 -- The created `trunc` drops `nsw` (the bits `X & Y` discards need not agree with its sign

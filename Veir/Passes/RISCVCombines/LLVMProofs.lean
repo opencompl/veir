@@ -78,7 +78,7 @@ theorem AndZextZext {n0 n1 : Bool} {x y : Int 32} :
     `nneg` and `Y ≥ 0`), but `X | Y = -1` has its msb set, so a `zext nneg` of it would be
     poison. -/
 theorem OrZextZext {n0 n1 d : Bool} {x y : Int 32} :
-    or (zext x 64 n0 h32_64) (zext y 64 n1 h32_64) d ⊒ zext (or x y d) 64 false h32_64 := by
+    or (zext x 64 n0 h32_64) (zext y 64 n1 h32_64) d ⊒ zext (or x y false) 64 false h32_64 := by
   veir_bv_decide
 
 /-- `(zext X) ^ (zext Y) → zext (X ^ Y)`. The created `zext` must clear `nneg`, for the
