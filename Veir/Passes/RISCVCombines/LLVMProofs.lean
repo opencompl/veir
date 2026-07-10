@@ -571,4 +571,51 @@ theorem sext_of_sext {x : Int 8} :
     sext (sext x 32 h8_32) 64 h32_64 ⊒ sext x 64 h8_64 := by
   veir_bv_decide
 
+/-! ### constant reassociation
+
+  `(A ± C1) ± C2 → A ± fold(C1, C2)` and the `C2 - (A + C1)` / `C1 - A` variants, where `C1`, `C2`
+  are constants. Each created op must clear `nsw`/`nuw` rather than inherit a matched op's flags:
+  the folded constant changes the overflow condition, so a transplanted flag would poison the
+  target where the source is defined. Every matched op's flags therefore stay *free* variables and
+  the created op carries a literal `false`.
+
+  Counterexample for keeping `nuw` (identical shape for all five, illustrated on `APlusC1MinusC2`):
+  `A = 5`, `C1 = 0`, `C2 = 3`. The source `(5 + 0) - 3 = 2` does not unsigned-overflow, but the
+  created `add nuw 5 (0 - 3)` wraps (`5 + (2^w - 3) ≥ 2^w`). -/
+
+/-- `(A + C1) - C2 → A + (C1 - C2)`. Stated at both widths the guarded pattern admits. -/
+theorem APlusC1MinusC2 {w : Nat} (hw : w = 64 ∨ w = 32) {as au ss su : Bool}
+    {a : Int w} {c1 c2 : _root_.Int} :
+    sub (add a (constant w c1) as au) (constant w c2) ss su
+      ⊒ add a (constant w (c1 - c2)) false false := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
+
+/-- `C2 - (A + C1) → (C2 - C1) - A`. -/
+theorem C2MinusAPlusC1 {w : Nat} (hw : w = 64 ∨ w = 32) {as au ss su : Bool}
+    {a : Int w} {c1 c2 : _root_.Int} :
+    sub (constant w c2) (add a (constant w c1) as au) ss su
+      ⊒ sub (constant w (c2 - c1)) a false false := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
+
+/-- `(A - C1) - C2 → A - (C1 + C2)`. -/
+theorem AMinusC1MinusC2 {w : Nat} (hw : w = 64 ∨ w = 32) {s2 u2 ss su : Bool}
+    {a : Int w} {c1 c2 : _root_.Int} :
+    sub (sub a (constant w c1) s2 u2) (constant w c2) ss su
+      ⊒ sub a (constant w (c1 + c2)) false false := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
+
+/-- `(C1 - A) - C2 → (C1 - C2) - A`. -/
+theorem C1MinusAMinusC2 {w : Nat} (hw : w = 64 ∨ w = 32) {s2 u2 ss su : Bool}
+    {a : Int w} {c1 c2 : _root_.Int} :
+    sub (sub (constant w c1) a s2 u2) (constant w c2) ss su
+      ⊒ sub (constant w (c1 - c2)) a false false := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
+
+/-- `(A - C1) + C2 → A + (C2 - C1)`. -/
+theorem AMinusC1PlusC2 {w : Nat} (hw : w = 64 ∨ w = 32) {s2 u2 as au : Bool}
+    {a : Int w} {c1 c2 : _root_.Int} :
+    add (sub a (constant w c1) s2 u2) (constant w c2) as au
+      ⊒ add a (constant w (c2 - c1)) false false := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
+
 end Veir.Data.LLVM.Int

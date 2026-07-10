@@ -1010,95 +1010,130 @@ def sub_one_from_sub_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite sub_one_from_sub_local rewriter op opInBounds
 
+/-! ### Constant reassociation combines
+
+  `(A ± C1) ± C2 → A ± fold(C1, C2)` and the `C2 - (A + C1)` / `(C1 - A) - C2` variants, with
+  `C1`, `C2` integer constants. Each combine matches an outer binop (`sub`/`add`) whose one
+  operand is a constant and whose other operand is a defining binop with its own constant operand;
+  it materializes a *fresh* `llvm.mlir.constant` holding the folded value and one arithmetic op.
+
+  **Flag threading (semantic change).** These created ops clear `nsw`/`nuw`. The original raw
+  `PatternRewriter` versions transplanted the matched op's overflow flags onto the created op
+  (`ap`/`sp`), which is *unsound*: the folded constant changes the overflow condition, so the
+  created op could be poison where the source is defined (see the `nuw` counterexample `A = 5`,
+  `C1 = 0`, `C2 = 3` recorded in `LLVMProofs.lean`). The `_local` forms below carry a literal
+  `{ nsw := false, nuw := false }`. A bitwidth guard (`i32`/`i64`) is also added, as the
+  correctness proof's `veir_bv_decide` data lemmas need concrete widths. -/
+
 /-! ### APlusC1MinusC2 :  (A + C1) - C2 → A + (C1 - C2)   (C1, C2 constants) -/
 
-set_option warn.sorry false in
+def APlusC1MinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (addVal, c2v, _sp) := matchSub op ctx | return (ctx, none)
+  let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
+  let some dAdd := getDefiningOp addVal ctx | return (ctx, none)
+  let some (a, c1v, _ap) := matchAdd dAdd ctx | return (ctx, none)
+  let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
+  let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
+  if aty.bitwidth ≠ 64 ∧ aty.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, cf) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[a.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value - c2.value) aty))) none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .add)
+    #[a.getType! ctx.raw] #[a, cf.getResult 0] #[] #[]
+    { nsw := false, nuw := false } none
+  some (ctx, some (#[cf, newOp], #[newOp.getResult 0]))
+
 def APlusC1MinusC2 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (addVal, c2v, _sp) := matchSub op rewriter.ctx | return rewriter
-  let some c2 := matchConstantIntVal c2v rewriter.ctx | return rewriter
-  let some dAdd := getDefiningOp addVal rewriter.ctx | return rewriter
-  let some (a, c1v, ap) := matchAdd dAdd rewriter.ctx | return rewriter
-  let some c1 := matchConstantIntVal c1v rewriter.ctx | return rewriter
-  let .integerType aty := (a.getType! rewriter.ctx.raw).val | return rewriter
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value - c2.value) aty))
-  let (rewriter, cf) ← rewriter.createOp (.llvm .mlir__constant) #[a.getType! rewriter.ctx.raw] #[]
-    #[] #[] folded (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (cf.getResult 0)]
-    #[] #[] ap (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite APlusC1MinusC2_local rewriter op opInBounds
 
 /-! ### C2MinusAPlusC1 :  C2 - (A + C1) → (C2 - C1) - A   (C1, C2 constants) -/
 
-set_option warn.sorry false in
+def C2MinusAPlusC1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (c2v, addVal, _sp) := matchSub op ctx | return (ctx, none)
+  let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
+  let some dAdd := getDefiningOp addVal ctx | return (ctx, none)
+  let some (a, c1v, _ap) := matchAdd dAdd ctx | return (ctx, none)
+  let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
+  let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
+  if aty.bitwidth ≠ 64 ∧ aty.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, cf) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[a.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c2.value - c1.value) aty))) none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub)
+    #[a.getType! ctx.raw] #[cf.getResult 0, a] #[] #[]
+    { nsw := false, nuw := false } none
+  some (ctx, some (#[cf, newOp], #[newOp.getResult 0]))
+
 def C2MinusAPlusC1 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (c2v, addVal, sp) := matchSub op rewriter.ctx | return rewriter
-  let some c2 := matchConstantIntVal c2v rewriter.ctx | return rewriter
-  let some dAdd := getDefiningOp addVal rewriter.ctx | return rewriter
-  let some (a, c1v, _ap) := matchAdd dAdd rewriter.ctx | return rewriter
-  let some c1 := matchConstantIntVal c1v rewriter.ctx | return rewriter
-  let .integerType aty := (a.getType! rewriter.ctx.raw).val | return rewriter
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c2.value - c1.value) aty))
-  let (rewriter, cf) ← rewriter.createOp (.llvm .mlir__constant) #[a.getType! rewriter.ctx.raw] #[]
-    #[] #[] folded (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sub) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(cf.getResult 0), a]
-    #[] #[] sp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite C2MinusAPlusC1_local rewriter op opInBounds
 
 /-! ### AMinusC1MinusC2 :  (A - C1) - C2 → A - (C1 + C2)   (C1, C2 constants) -/
 
-set_option warn.sorry false in
+def AMinusC1MinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (subVal, c2v, _sp) := matchSub op ctx | return (ctx, none)
+  let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
+  let some dSub := getDefiningOp subVal ctx | return (ctx, none)
+  let some (a, c1v, _sp2) := matchSub dSub ctx | return (ctx, none)
+  let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
+  let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
+  if aty.bitwidth ≠ 64 ∧ aty.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, cf) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[a.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value + c2.value) aty))) none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub)
+    #[a.getType! ctx.raw] #[a, cf.getResult 0] #[] #[]
+    { nsw := false, nuw := false } none
+  some (ctx, some (#[cf, newOp], #[newOp.getResult 0]))
+
 def AMinusC1MinusC2 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (subVal, c2v, sp) := matchSub op rewriter.ctx | return rewriter
-  let some c2 := matchConstantIntVal c2v rewriter.ctx | return rewriter
-  let some dSub := getDefiningOp subVal rewriter.ctx | return rewriter
-  let some (a, c1v, _sp2) := matchSub dSub rewriter.ctx | return rewriter
-  let some c1 := matchConstantIntVal c1v rewriter.ctx | return rewriter
-  let .integerType aty := (a.getType! rewriter.ctx.raw).val | return rewriter
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value + c2.value) aty))
-  let (rewriter, cf) ← rewriter.createOp (.llvm .mlir__constant) #[a.getType! rewriter.ctx.raw] #[]
-    #[] #[] folded (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sub) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (cf.getResult 0)]
-    #[] #[] sp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite AMinusC1MinusC2_local rewriter op opInBounds
 
 /-! ### C1MinusAMinusC2 :  (C1 - A) - C2 → (C1 - C2) - A   (C1, C2 constants) -/
 
-set_option warn.sorry false in
+def C1MinusAMinusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (subVal, c2v, _sp) := matchSub op ctx | return (ctx, none)
+  let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
+  let some dSub := getDefiningOp subVal ctx | return (ctx, none)
+  let some (c1v, a, _sp2) := matchSub dSub ctx | return (ctx, none)
+  let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
+  let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
+  if aty.bitwidth ≠ 64 ∧ aty.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, cf) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[a.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value - c2.value) aty))) none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .sub)
+    #[a.getType! ctx.raw] #[cf.getResult 0, a] #[] #[]
+    { nsw := false, nuw := false } none
+  some (ctx, some (#[cf, newOp], #[newOp.getResult 0]))
+
 def C1MinusAMinusC2 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (subVal, c2v, sp) := matchSub op rewriter.ctx | return rewriter
-  let some c2 := matchConstantIntVal c2v rewriter.ctx | return rewriter
-  let some dSub := getDefiningOp subVal rewriter.ctx | return rewriter
-  let some (c1v, a, _sp2) := matchSub dSub rewriter.ctx | return rewriter
-  let some c1 := matchConstantIntVal c1v rewriter.ctx | return rewriter
-  let .integerType aty := (a.getType! rewriter.ctx.raw).val | return rewriter
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c1.value - c2.value) aty))
-  let (rewriter, cf) ← rewriter.createOp (.llvm .mlir__constant) #[a.getType! rewriter.ctx.raw] #[]
-    #[] #[] folded (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sub) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[(cf.getResult 0), a]
-    #[] #[] sp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite C1MinusAMinusC2_local rewriter op opInBounds
 
 /-! ### AMinusC1PlusC2 :  (A - C1) + C2 → A + (C2 - C1)   (C1, C2 constants) -/
 
-set_option warn.sorry false in
+def AMinusC1PlusC2_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (subVal, c2v, _ap) := matchAdd op ctx | return (ctx, none)
+  let some c2 := matchConstantIntVal c2v ctx | return (ctx, none)
+  let some dSub := getDefiningOp subVal ctx | return (ctx, none)
+  let some (a, c1v, _sp) := matchSub dSub ctx | return (ctx, none)
+  let some c1 := matchConstantIntVal c1v ctx | return (ctx, none)
+  let .integerType aty := (a.getType! ctx.raw).val | return (ctx, none)
+  if aty.bitwidth ≠ 64 ∧ aty.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, cf) ← WfRewriter.createOp! ctx (.llvm .mlir__constant) #[a.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c2.value - c1.value) aty))) none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .add)
+    #[a.getType! ctx.raw] #[a, cf.getResult 0] #[] #[]
+    { nsw := false, nuw := false } none
+  some (ctx, some (#[cf, newOp], #[newOp.getResult 0]))
+
 def AMinusC1PlusC2 (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (subVal, c2v, ap) := matchAdd op rewriter.ctx | return rewriter
-  let some c2 := matchConstantIntVal c2v rewriter.ctx | return rewriter
-  let some dSub := getDefiningOp subVal rewriter.ctx | return rewriter
-  let some (a, c1v, _sp) := matchSub dSub rewriter.ctx | return rewriter
-  let some c1 := matchConstantIntVal c1v rewriter.ctx | return rewriter
-  let .integerType aty := (a.getType! rewriter.ctx.raw).val | return rewriter
-  let folded := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (c2.value - c1.value) aty))
-  let (rewriter, cf) ← rewriter.createOp (.llvm .mlir__constant) #[a.getType! rewriter.ctx.raw] #[]
-    #[] #[] folded (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .add) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[a, (cf.getResult 0)]
-    #[] #[] ap (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite AMinusC1PlusC2_local rewriter op opInBounds
 
 /-! ### or_and_xor_to_xor_or :  (X & Y) | ~Y  →  X | ~Y -/
 set_option warn.sorry false in

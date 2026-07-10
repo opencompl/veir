@@ -841,3 +841,19 @@ theorem getValue_freeze {w : Nat} (x : Int w) :
     (freeze x).getValue = if h : x.isPoison then 0#w else x.getValue := by
   simp [freeze, Id.run]
   grind
+
+/-- `BitVec.ofInt` distributes over integer addition. Registered with `veir_bv_normalize` so that
+    a folded constant `constant w (c₁ + c₂)` bitblasts to `ofInt w c₁ + ofInt w c₂`, letting
+    `veir_bv_decide` relate a materialized fold to the two source constants. Needed by the
+    constant-reassociation combines (`AMinusC1MinusC2` etc.). -/
+@[veir_bv_normalize, grind =]
+theorem ofInt_add_norm (w : Nat) (a b : _root_.Int) :
+    BitVec.ofInt w (a + b) = BitVec.ofInt w a + BitVec.ofInt w b :=
+  BitVec.ofInt_add a b
+
+/-- `BitVec.ofInt` distributes over integer subtraction. See `ofInt_add_norm`; needed by the
+    constant-reassociation combines whose fold is a difference (`APlusC1MinusC2` etc.). -/
+@[veir_bv_normalize, grind =]
+theorem ofInt_sub_norm (w : Nat) (a b : _root_.Int) :
+    BitVec.ofInt w (a - b) = BitVec.ofInt w a - BitVec.ofInt w b := by
+  rw [Int.sub_eq_add_neg, BitVec.ofInt_add, BitVec.ofInt_neg, ← BitVec.sub_eq_add_neg]
