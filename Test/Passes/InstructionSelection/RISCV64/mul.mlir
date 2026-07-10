@@ -24,6 +24,10 @@
         // CHECK-NEXT: %{{.*}} = "riscv.mul"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
     
+        "test.test"(%mul) : (i64) -> ()
+        "test.test"(%mul_nsw) : (i64) -> ()
+        "test.test"(%mul_nuw) : (i64) -> ()
+        "test.test"(%mul_nuw_nsw) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     "func.func"()  <{function_type = (i32, i32) -> ()}> ({
@@ -33,6 +37,7 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.mulw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
+        "test.test"(%mul32) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

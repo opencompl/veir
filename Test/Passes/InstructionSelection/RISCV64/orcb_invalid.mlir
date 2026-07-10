@@ -19,6 +19,7 @@
         %sub = "llvm.sub"(%shl, %m) : (i64, i64) -> i64
         // CHECK: %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NOT: "riscv.orcb"
+        "test.test"(%sub) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // No `and` at all: the shifted value is a bare argument, so the soundness gate
@@ -30,6 +31,7 @@
         %sub = "llvm.sub"(%shl, %z) : (i64, i64) -> i64
         // CHECK: %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NOT: "riscv.orcb"
+        "test.test"(%sub) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // Shift-amount mismatch: mask is for Y=3 and `shl` is by 5 (Y=3), but `lshr`
@@ -45,6 +47,7 @@
         %sub = "llvm.sub"(%shl, %srl) : (i64, i64) -> i64
         // CHECK: %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NOT: "riscv.orcb"
+        "test.test"(%sub) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // Mask/shift inconsistency: shifts say Y=3 (`shl` 5, `lshr` 3) but the mask is
@@ -60,6 +63,7 @@
         %sub = "llvm.sub"(%shl, %srl) : (i64, i64) -> i64
         // CHECK: %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NOT: "riscv.orcb"
+        "test.test"(%sub) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // Different masked values: the `shl` operand and the right operand are distinct
@@ -74,6 +78,7 @@
         %sub = "llvm.sub"(%shl, %m2) : (i64, i64) -> i64
         // CHECK: %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NOT: "riscv.orcb"
+        "test.test"(%sub) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     // Out-of-range left shift: `shl` by 9 gives Y = 8 - 9 < 0, outside `0 ≤ Y < 8`.
@@ -86,6 +91,7 @@
         %sub = "llvm.sub"(%shl, %m) : (i64, i64) -> i64
         // CHECK: %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NOT: "riscv.orcb"
+        "test.test"(%sub) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

@@ -9,6 +9,7 @@
         // CHECK-NEXT: %{{.*}} = "riscv.rem"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
 
+        "test.test"(%srem) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     "func.func"()  <{function_type = (i32, i32) -> ()}> ({
@@ -18,6 +19,7 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.remw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
+        "test.test"(%srem32) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

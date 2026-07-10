@@ -49,6 +49,13 @@
         // CHECK-NEXT: %{{.*}} = "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.rev8"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        "test.test"(%ctpop) : (i64) -> ()
+        "test.test"(%bswap) : (i64) -> ()
+        "test.test"(%bitreverse) : (i64) -> ()
+        "test.test"(%ctlz) : (i64) -> ()
+        "test.test"(%ctlz_poison) : (i64) -> ()
+        "test.test"(%cttz) : (i64) -> ()
+        "test.test"(%cttz_poison) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     "func.func"()  <{function_type = (i32) -> ()}> ({
@@ -93,6 +100,11 @@
         // CHECK-NEXT: %{{.*}} = "riscv.rev8"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.srli"(%{{.*}}) <{{.*}}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
+        "test.test"(%ctpop32) : (i32) -> ()
+        "test.test"(%bswap32) : (i32) -> ()
+        "test.test"(%bitreverse32) : (i32) -> ()
+        "test.test"(%ctlz32) : (i32) -> ()
+        "test.test"(%cttz32) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

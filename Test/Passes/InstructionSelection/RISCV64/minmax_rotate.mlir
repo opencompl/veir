@@ -7,6 +7,7 @@
     ^bb0(%a: i64, %b: i64):
         %r = "llvm.intr.smax"(%a, %b) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.max"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -15,6 +16,7 @@
     ^bb0(%a: i64, %b: i64):
         %r = "llvm.intr.smin"(%a, %b) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.min"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -23,6 +25,7 @@
     ^bb0(%a: i64, %b: i64):
         %r = "llvm.intr.umax"(%a, %b) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.maxu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -31,6 +34,7 @@
     ^bb0(%a: i64, %b: i64):
         %r = "llvm.intr.umin"(%a, %b) : (i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.minu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -39,6 +43,7 @@
     ^bb0(%a: i64, %s: i64):
         %r = "llvm.intr.fshl"(%a, %a, %s) : (i64, i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.rol"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -47,6 +52,7 @@
     ^bb0(%a: i64, %s: i64):
         %r = "llvm.intr.fshr"(%a, %a, %s) : (i64, i64, i64) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.ror"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -57,6 +63,7 @@
         // CHECK-DAG: %{{.*}} = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.max"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -67,6 +74,7 @@
         // CHECK-DAG: %{{.*}} = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
         // CHECK-DAG: %{{.*}} = "riscv.min"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -75,6 +83,7 @@
     ^bb0(%a: i32, %b: i32):
         %r = "llvm.intr.umax"(%a, %b) : (i32, i32) -> i32
         // CHECK-DAG: %{{.*}} = "riscv.maxu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -83,6 +92,7 @@
     ^bb0(%a: i32, %b: i32):
         %r = "llvm.intr.umin"(%a, %b) : (i32, i32) -> i32
         // CHECK-DAG: %{{.*}} = "riscv.minu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -91,6 +101,7 @@
     ^bb0(%a: i32, %s: i32):
         %r = "llvm.intr.fshl"(%a, %a, %s) : (i32, i32, i32) -> i32
         // CHECK-DAG: %{{.*}} = "riscv.rolw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -99,6 +110,7 @@
     ^bb0(%a: i32, %s: i32):
         %r = "llvm.intr.fshr"(%a, %a, %s) : (i32, i32, i32) -> i32
         // CHECK-DAG: %{{.*}} = "riscv.rorw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 

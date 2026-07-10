@@ -7,6 +7,7 @@
         // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "riscv.ld"({{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!riscv.reg) -> i64
+        "test.test"(%val) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -17,6 +18,7 @@
         // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "riscv.lw"({{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!riscv.reg) -> i32
+        "test.test"(%val) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -27,6 +29,7 @@
         // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "riscv.lb"({{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!riscv.reg) -> i8
+        "test.test"(%val) : (i8) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 

@@ -6,6 +6,7 @@
         %add = "llvm.lshr"(%a, %b) : (i16, i16) -> i16
         // CHECK: %{{.*}} = "llvm.lshr"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 
+        "test.test"(%add) : (i16) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

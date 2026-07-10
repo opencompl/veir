@@ -7,6 +7,8 @@
         // CHECK:      %{{.*}} = "llvm.sext"(%{{.*}}) : (i128) -> i256
         %sextb = "llvm.sext"(%b) : (i42) -> i64
         // CHECK:      %{{.*}} = "llvm.sext"(%{{.*}}) : (i42) -> i64
+        "test.test"(%sexta) : (i256) -> ()
+        "test.test"(%sextb) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

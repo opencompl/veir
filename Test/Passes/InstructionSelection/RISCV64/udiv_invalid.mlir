@@ -6,6 +6,7 @@
         %udiv = "llvm.udiv"(%a, %b) : (i16, i16) -> i16
         // CHECK: %{{.*}} = "llvm.udiv"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 
+        "test.test"(%udiv) : (i16) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

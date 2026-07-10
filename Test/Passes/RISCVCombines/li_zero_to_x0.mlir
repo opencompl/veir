@@ -11,6 +11,7 @@
     ^bb0(%x: !riscv.reg):
         %z = "riscv.li"() <{value = 0 : i64}> : () -> !riscv.reg
         %s = "riscv.slt"(%z, %x) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%s) : (!riscv.reg) -> ()
         "riscv_cf.branch"(%z) [^bb1] : (!riscv.reg) -> ()
     ^bb1(%p: !riscv.reg):
         "func.return"() : () -> ()
@@ -21,6 +22,7 @@
     ^bb0(%x: !riscv.reg):
         %one = "riscv.li"() <{value = 1 : i64}> : () -> !riscv.reg
         %s = "riscv.slt"(%one, %x) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        "test.test"(%s) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

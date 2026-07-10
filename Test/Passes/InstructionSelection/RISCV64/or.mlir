@@ -13,6 +13,8 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        "test.test"(%add) : (i64) -> ()
+        "test.test"(%add_disjoint) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -23,6 +25,7 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
+        "test.test"(%or) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
         "func.func"()  <{function_type = (i8, i8) -> ()}> ({
@@ -32,6 +35,7 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i8
+        "test.test"(%and8) : (i8) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
     "func.func"()  <{function_type = (i1, i1) -> ()}> ({
@@ -41,6 +45,7 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i1) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i1
+        "test.test"(%and1) : (i1) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

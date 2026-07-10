@@ -20,7 +20,9 @@
       %ok = "llvm.add"(%x, %c) : (i32, i32) -> i32
       // CHECK-NEXT: "llvm.add"(%[[X]], %[[C]]) : (i32, i32) -> i32
 
+      "test.test"(%sub) : (i32) -> ()
+      "test.test"(%ok) : (i32) -> ()
       "func.return"(%add) : (i32) -> ()
-      // CHECK-NEXT: "func.return"(%[[ADD]]) : (i32) -> ()
+      // CHECK: "func.return"(%[[ADD]]) : (i32) -> ()
   }) : () -> ()
 }) : () -> ()

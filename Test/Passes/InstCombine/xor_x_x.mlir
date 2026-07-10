@@ -14,6 +14,7 @@
       "test.test"(%xor_self) : (i32) -> ()
       // CHECK-NEXT: %[[XOR_ZERO:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
       // CHECK-NEXT: "test.test"(%[[XOR_ZERO]]) : (i32) -> ()
+      "test.test"(%zero) : (i32) -> ()
       "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

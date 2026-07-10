@@ -24,6 +24,10 @@
         // CHECK-NEXT: %{{.*}} = "riscv.srl"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
 
+        "test.test"(%lshr) : (i64) -> ()
+        "test.test"(%lshr_nsw) : (i64) -> ()
+        "test.test"(%lshr_nuw) : (i64) -> ()
+        "test.test"(%lshr_nuw_nsw) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -35,6 +39,7 @@
         // CHECK-NEXT: %{{.*}} = "riscv.srl"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> !llvm.byte<64>
     
+        "test.test"(%lshr) : (!llvm.byte<64>) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
@@ -45,6 +50,7 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.srlw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
+        "test.test"(%lshr) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

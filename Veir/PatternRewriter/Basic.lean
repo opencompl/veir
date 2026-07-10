@@ -197,15 +197,47 @@ def insertOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertP
     worklist := rewriter.worklist.push op,
   }
 
+/--
+Walk a use chain and check that at most one operation besides `exceptOp` uses
+the value: uses owned by `exceptOp` are ignored, and multiple uses from a
+single other operation count as one user. Returns `false` when out of fuel.
+-/
+private def useChainHasAtMostOneUserBesides (ctx : IRContext OpInfo)
+    (useChain : Option OpOperandPtr) (exceptOp : OperationPtr)
+    (otherUser : Option OperationPtr) (maxIteration : Nat) : Bool :=
+  match maxIteration with
+  | maxIteration + 1 =>
+    match useChain with
+    | some use =>
+      let useStruct := use.get! ctx
+      let owner := useStruct.owner
+      if owner = exceptOp ∨ otherUser = some owner then
+        useChainHasAtMostOneUserBesides ctx useStruct.nextUse exceptOp otherUser maxIteration
+      else if otherUser.isNone then
+        useChainHasAtMostOneUserBesides ctx useStruct.nextUse exceptOp (some owner) maxIteration
+      else
+        false
+    | none => true
+  | 0 => false
+
 def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     (opRegions : op.getNumRegions! rewriter.ctx.raw = 0 := by grind)
     (opUses : !op.hasUses! rewriter.ctx.raw := by grind)
     (hOp : op.InBounds rewriter.ctx.raw := by grind)
-    : PatternRewriter OpInfo :=
-  { rewriter with
+    : PatternRewriter OpInfo := Id.run do
+  let ctx := rewriter.ctx.raw
+  -- Ops defining this op's operands may become dead or newly canonicalizable
+  -- once the uses from `op` disappear; re-enqueue those with at most one
+  -- remaining user, mirroring MLIR's `addOperandsToWorklist`.
+  let mut worklist := rewriter.worklist.remove op
+  for operand in op.getOperands ctx hOp do
+    let some defOp := operand.getDefiningOp! ctx | continue
+    if useChainHasAtMostOneUserBesides ctx (operand.getFirstUse! ctx) op none 1_000_000_000 then
+      worklist := worklist.push defOp
+  return { rewriter with
     ctx := WfRewriter.eraseOp rewriter.ctx op opRegions opUses hOp,
     hasDoneAction := true,
-    worklist := rewriter.worklist.remove op,
+    worklist
   }
 
 /--
@@ -213,12 +245,16 @@ Erase an operation, panicking if the operation is out of bounds, has regions, or
 -/
 def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     : PatternRewriter OpInfo :=
-  let newCtx := WfRewriter.eraseOp! rewriter.ctx op
-  { rewriter with
-    ctx := newCtx,
-    hasDoneAction := true,
-    worklist := rewriter.worklist.remove op,
-  }
+  if hOp : op.InBounds rewriter.ctx.raw then
+    if opRegions : op.getNumRegions! rewriter.ctx.raw = 0 then
+      if opUses : !op.hasUses! rewriter.ctx.raw then
+        rewriter.eraseOp op opRegions opUses hOp
+      else
+        panic! "PatternRewriter.eraseOp! failed: operation has uses"
+    else
+      panic! "PatternRewriter.eraseOp! failed: operation has regions"
+  else
+    panic! "PatternRewriter.eraseOp! failed: operation is out of bounds"
 
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
@@ -313,10 +349,7 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
       for newOp in newOps do
         rewriter ← rewriter.insertOp newOp (InsertPoint.before op) (by sorry) (by sorry)
       for (res, i) in newRes.zipIdx do
-        rewriter ← rewriter.replaceValue (op.getResult i) res (by sorry) (by sorry) (by sorry)
-      let mut operands : Array ValuePtr := #[]
-      for i in 0...op.getNumOperands rewriter.ctx.raw (by sorry) do
-        operands := operands.push (op.getOperand! rewriter.ctx.raw i)
+        rewriter := rewriter.replaceValue (op.getResult i) res (by sorry) (by sorry) (by sorry)
       rewriter := rewriter.eraseOp op (by sorry) (by sorry) (by sorry)
       return rewriter
 
@@ -355,8 +388,14 @@ private partial def RewritePattern.applyOnceInContext
     let (opOpt, newWorklist) := rewriter.worklist.pop
     let op := opOpt.get!
     rewriter := { rewriter with worklist := newWorklist }
-    if _ : op.InBounds rewriter.ctx.raw then
-      rewriter ← pattern rewriter op (by grind)
+    if hin : op.InBounds rewriter.ctx.raw then
+      -- Erase trivially dead operations directly, as in MLIR's greedy driver.
+      if hdead : op.getNumRegions! rewriter.ctx.raw = 0
+          ∧ !op.hasUses! rewriter.ctx.raw
+          ∧ !op.hasSideEffects rewriter.ctx.raw then
+        rewriter := rewriter.eraseOp op hdead.1 hdead.2.1 hin
+      else
+        rewriter ← pattern rewriter op (by grind)
     else
       failure
   pure (rewriter.hasDoneAction, rewriter.ctx)
