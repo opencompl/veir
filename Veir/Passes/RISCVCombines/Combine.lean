@@ -1952,17 +1952,23 @@ def sub_of_mul_const (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 
 /-! ### select_not :  select (not c), x, y → select c, y, x -/
 
-set_option warn.sorry false in
+/-- `select (not c) x y → select c y x`, as a `LocalRewritePattern`. `op` is the `select`, whose
+    condition operand is a defining `not` (`xor c (-1)`, matched with `matchNot`). It creates a
+    single `llvm.select` with the arms swapped and carrying the un-notted condition `c`. The
+    condition is `i1` and the arms are `iN`, so the rewrite is width-generic. Its correctness proof
+    is `selectNotLocal_preservesSemantics`. -/
+def selectNotLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (cond, tv, fv) := matchSelect op ctx | return (ctx, none)
+  let some c := matchNot cond ctx | return (ctx, none)
+  let .integerType _rt := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .select)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[c, fv, tv] #[] #[] () none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
 def select_not (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (cond, tv, fv) := matchSelect op rewriter.ctx | return rewriter
-  let some dC := getDefiningOp cond rewriter.ctx | return rewriter
-  let some (c, m1v, _) := matchXor dC rewriter.ctx | return rewriter
-  let some m1 := matchConstantIntVal m1v rewriter.ctx | return rewriter
-  if m1.value ≠ -1 then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .select) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[c, fv, tv]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite selectNotLocal rewriter op opInBounds
 
 /-! ### commute_int_constant_to_rhs :  (C op x) → (x op C)   (move constant to the right) -/
 
@@ -2108,19 +2114,28 @@ def funnel_shift_left_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   its swapped form. Mirrors LLVM's `matchCanonicalizeICmp`: fires only when the LHS
   is a constant and the RHS is not (so it does not oscillate). -/
 
-set_option warn.sorry false in
-def canonicalize_icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhs, rhs, ip) := matchIcmp op rewriter.ctx | return rewriter
-  let some _ := matchConstantIntVal lhs rewriter.ctx | return rewriter
-  if (matchConstantIntVal rhs rewriter.ctx).isSome then return rewriter
+/-- `icmp pred C x → icmp (swapped pred) x C`, as a `LocalRewritePattern`. Fires only when the LHS
+    is a constant and the RHS is not, so it cannot oscillate. It creates a single `llvm.icmp` with
+    the operands swapped and the predicate mapped to its swapped form (`slt↔sgt`, `sle↔sge`,
+    `ult↔ugt`, `ule↔uge`; `eq`/`ne`/others fixed). Width-generic. Its correctness proof is
+    `canonicalizeIcmpLocal_preservesSemantics`. -/
+def canonicalizeIcmpLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, ip) := matchIcmp op ctx | return (ctx, none)
+  let some _ := matchConstantIntVal lhs ctx | return (ctx, none)
+  if (matchConstantIntVal rhs ctx).isSome then return (ctx, none)
   let swapped : Data.LLVM.IntPred := match ip.predicate with
     | .slt => .sgt | .sgt => .slt | .sle => .sge | .sge => .sle
     | .ult => .ugt | .ugt => .ult | .ule => .uge | .uge => .ule
     | p => p
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[rhs, lhs]
-    #[] #[] (IcmpProperties.mk swapped) (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .icmp)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[rhs, lhs] #[] #[]
+    (IcmpProperties.mk swapped) none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def canonicalize_icmp (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite canonicalizeIcmpLocal rewriter op opInBounds
 
 /-! ### bitreverse_shl / bitreverse_lshr
 

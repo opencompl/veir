@@ -712,4 +712,38 @@ theorem SubMulConst {w : Nat} {mns mnu sns snu : Bool}
     simp only [getValue_sub, getValue_add, getValue_mul _ _ hm1p, getValue_mul _ _ hm2p,
       getValue_constant, ofInt_neg_norm, BitVec.mul_neg, BitVec.sub_eq_add_neg]
 
+/-! ### select_not
+
+  `select (not c) x y → select c y x`. `not c = xor c (-1)` at the `i1` condition width. Swapping
+  the condition's polarity is exactly cancelled by swapping the two arms, so source and target are
+  *equal* (poison and all). Width-generic: only the `i1` condition is bit-reasoned, the arms pass
+  through. -/
+
+/-- `select (not c) x y = select c y x`. Equal at every arm width `w`. -/
+theorem select_not_swap {w : Nat} (c : Int 1) (x y : Int w) :
+    select (xor c (constant 1 (-1))) x y = select c y x := by
+  rcases c with cb | _
+  · have h : cb = 0#1 ∨ cb = 1#1 := by revert cb; decide
+    rcases h with rfl | rfl <;> rfl
+  · rfl
+
+/-! ### canonicalize_icmp
+
+  `icmp pred C x → icmp (swapped pred) x C`. Swapping the operands of a comparison and swapping the
+  predicate (`slt↔sgt`, `sle↔sge`, `ult↔ugt`, `ule↔uge`; `eq`/`ne` fixed) leaves the result
+  unchanged, so source and target are *equal* at every width. -/
+
+/-- `icmp x y pred = icmp y x (swapped pred)`, the operand/predicate swap that
+    `canonicalize_icmp` performs. The `match` mirrors the combine's `swapped` map exactly. -/
+theorem icmp_swap {w : Nat} (x y : Int w) (p : IntPred) :
+    icmp x y p = icmp y x
+      (match p with
+        | .slt => .sgt | .sgt => .slt | .sle => .sge | .sge => .sle
+        | .ult => .ugt | .ugt => .ult | .ule => .uge | .uge => .ule
+        | q => q) := by
+  rcases x with x' | _ <;> rcases y with y' | _ <;> cases p <;>
+    first
+      | rfl
+      | (simp only [icmp, Id.run, IntPred.eval]; grind)
+
 end Veir.Data.LLVM.Int
