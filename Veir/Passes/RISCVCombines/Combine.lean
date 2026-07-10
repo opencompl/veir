@@ -2282,37 +2282,59 @@ def funnel_shift_overshift_r (rewriter: PatternRewriter OpCode) (op: OperationPt
   the existing funnel-shift value. G_OR is commutative: both operand orders are
   handled. -/
 
-set_option warn.sorry false in
-def funnel_shift_or_shift_to_funnel_shift_left (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (o0, o1, _) := matchOr op rewriter.ctx | return rewriter
-  -- Try (fshl = o0, shl = o1) then (fshl = o1, shl = o0).
-  let tryOrder (fshlV shlV : ValuePtr) : Option ValuePtr := do
-    let some dFshl := getDefiningOp fshlV rewriter.ctx | none
-    let some (fx, _fz, fy) := matchFshl dFshl rewriter.ctx | none
-    let some dShl := getDefiningOp shlV rewriter.ctx | none
-    let some (sx, sy, _) := matchShl dShl rewriter.ctx | none
-    guard (fx = sx ∧ fy = sy)
-    some fshlV
-  let some keep := (tryOrder o0 o1).orElse (fun _ => tryOrder o1 o0) | return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) keep sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+/-- Helper for `funnel_shift_or_shift_to_funnel_shift_left`: in the operand order `(fshlV, shlV)`,
+    recover a defining `fshl fx _ fy` for `fshlV` and a defining `shl sx sy` for `shlV`; when
+    `fx = sx ∧ fy = sy` the funnel shift already produces the OR's bits, so return `fshlV`. Lifted
+    to top level (rather than a local `let`) so the correctness proof can name it. -/
+def funnelOrShlTryOrder (ctx : WfIRContext OpCode) (fshlV shlV : ValuePtr) : Option ValuePtr := do
+  let some dFshl := getDefiningOp fshlV ctx | none
+  let some (fx, _fz, fy) := matchFshl dFshl ctx | none
+  let some dShl := getDefiningOp shlV ctx | none
+  let some (sx, sy, _) := matchShl dShl ctx | none
+  guard (fx = sx ∧ fy = sy)
+  some fshlV
 
-set_option warn.sorry false in
+/-- Mirror of `funnelOrShlTryOrder` for the right (`fshr`/`lshr`) combine. The funnel shift's data
+    operand is its *second* operand (`matchFshr` returns `(z, x, amt)`), matched against the `lshr`'s
+    base. -/
+def funnelOrLshrTryOrder (ctx : WfIRContext OpCode) (fshrV lshrV : ValuePtr) : Option ValuePtr := do
+  let some dFshr := getDefiningOp fshrV ctx | none
+  let some (_fz, fx, fy) := matchFshr dFshr ctx | none
+  let some dLshr := getDefiningOp lshrV ctx | none
+  let some (sx, sy, _) := matchLshr dLshr ctx | none
+  guard (fx = sx ∧ fy = sy)
+  some fshrV
+
+/-- `(fshl x, z, y) | (shl x, y) → fshl x, z, y`, as a `LocalRewritePattern`: no operations are
+    created, `op`'s result is replaced by the already-existing funnel-shift value `keep`. The
+    integer-type and bitwidth guards narrow the rewrite to the `i32`/`i64` widths the correctness
+    proof needs. See `funnel_shift_or_shift_to_funnel_shift_left_local_preservesSemantics`. -/
+def funnel_shift_or_shift_to_funnel_shift_left_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (o0, o1, _) := matchOr op ctx | return (ctx, none)
+  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  let some keep := (funnelOrShlTryOrder ctx o0 o1).orElse (fun _ => funnelOrShlTryOrder ctx o1 o0)
+    | return (ctx, none)
+  some (ctx, some (#[], #[keep]))
+
+def funnel_shift_or_shift_to_funnel_shift_left (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite funnel_shift_or_shift_to_funnel_shift_left_local rewriter op opInBounds
+
+/-- `(fshr z, x, y) | (lshr x, y) → fshr z, x, y`, mirror of the left version. -/
+def funnel_shift_or_shift_to_funnel_shift_right_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (o0, o1, _) := matchOr op ctx | return (ctx, none)
+  let .integerType t := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
+  let some keep := (funnelOrLshrTryOrder ctx o0 o1).orElse (fun _ => funnelOrLshrTryOrder ctx o1 o0)
+    | return (ctx, none)
+  some (ctx, some (#[], #[keep]))
+
 def funnel_shift_or_shift_to_funnel_shift_right (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (o0, o1, _) := matchOr op rewriter.ctx | return rewriter
-  -- Try (fshr = o0, lshr = o1) then (fshr = o1, lshr = o0).
-  let tryOrder (fshrV lshrV : ValuePtr) : Option ValuePtr := do
-    let some dFshr := getDefiningOp fshrV rewriter.ctx | none
-    let some (_fz, fx, fy) := matchFshr dFshr rewriter.ctx | none
-    let some dLshr := getDefiningOp lshrV rewriter.ctx | none
-    let some (sx, sy, _) := matchLshr dLshr rewriter.ctx | none
-    guard (fx = sx ∧ fy = sy)
-    some fshrV
-  let some keep := (tryOrder o0 o1).orElse (fun _ => tryOrder o1 o0) | return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) keep sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite funnel_shift_or_shift_to_funnel_shift_right_local rewriter op opInBounds
 
 /-! ### constant_fold_binop :  binop(C1, C2) → C
 

@@ -163,6 +163,30 @@ theorem OperationPtr.Pure.llvm_intr__umin {op : OperationPtr} {ctx : IRContext O
   · split <;> simp [Interp.map, Option.map, UBOr.map, pure]
   · simp [Interp.map, Option.map]
 
+/-- `llvm.intr.fshl` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_intr__fshl {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .intr__fshl) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  repeat' split
+  all_goals first
+    | rfl
+    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `llvm.intr.fshr` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_intr__fshr {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .intr__fshr) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  repeat' split
+  all_goals first
+    | rfl
+    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
 /-! ## Forward unfolding of one interpretation step -/
 
 /-- Interpreting a matched two-operand LLVM op (of opcode `srcOp`, interpreted by `srcFn` per

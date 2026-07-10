@@ -790,4 +790,37 @@ theorem SubToAddNeg {w : Nat} (hw : w = 64 ∨ w = 32) {ss su : Bool}
     sub x (constant w c) ss su ⊒ add x (constant w (-c)) false false := by
   rcases hw with rfl | rfl <;> veir_bv_decide
 
+/-! ### funnel_shift_or_shift_to_funnel_shift
+
+  `(fshl x z y) | (shl x y) → fshl x z y` and the mirror `(fshr z x y) | (lshr x y) → fshr z x y`.
+  When the plain shift produces a value (shift amount `< w`), its set bits are a subset of the
+  funnel shift's, so the `OR` contributes nothing and equals the funnel shift; when the plain shift
+  is poison the `OR` is poison too, which trivially refines. Both operand orders of the commutative
+  `OR` are covered by the `_comm` variants. The shift flags (`shl`'s `s`/`u`, `lshr`'s `exact`) and
+  the `OR`'s `disjoint` flag only ever add poison to the *source*, so they stay free. -/
+
+/-- `(fshl x z y) | (shl x y) → fshl x z y`. -/
+theorem funnel_shift_or_shl_left {w : Nat} (hw : w = 64 ∨ w = 32)
+    {d s u : Bool} {x z y : Int w} :
+    or (fshl x z y) (shl x y s u) d ⊒ fshl x z y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
+
+/-- Commuted: `(shl x y) | (fshl x z y) → fshl x z y`. -/
+theorem funnel_shift_or_shl_left_comm {w : Nat} (hw : w = 64 ∨ w = 32)
+    {d s u : Bool} {x z y : Int w} :
+    or (shl x y s u) (fshl x z y) d ⊒ fshl x z y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
+
+/-- `(fshr z x y) | (lshr x y) → fshr z x y`. -/
+theorem funnel_shift_or_lshr_right {w : Nat} (hw : w = 64 ∨ w = 32)
+    {d e : Bool} {x z y : Int w} :
+    or (fshr z x y) (lshr x y e) d ⊒ fshr z x y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
+
+/-- Commuted: `(lshr x y) | (fshr z x y) → fshr z x y`. -/
+theorem funnel_shift_or_lshr_right_comm {w : Nat} (hw : w = 64 ∨ w = 32)
+    {d e : Bool} {x z y : Int w} :
+    or (lshr x y e) (fshr z x y) d ⊒ fshr z x y := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
+
 end Veir.Data.LLVM.Int
