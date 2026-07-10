@@ -2043,7 +2043,7 @@ theorem Sim.BlockPtr.slot_free (ctx : Sim.IRContext OpInfo) :
 
 set_option maxHeartbeats 8000000 in
 /-- The `Sim` relation survives an empty-block allocation. -/
-theorem Sim.BlockPtr.allocEmptySim (ctx : Sim.IRContext OpInfo) (numArgs : UInt64)
+theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt64)
     (hnumArgs : numArgs.toNat ≤ Buffed.countCard)
     {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.BlockMPtr}
     (heq : Sim.BlockPtr.allocEmptyImpl ctx.buf numArgs hnumArgs = some (ctxBuf, ptrImpl))
@@ -2801,9 +2801,6 @@ def Sim.BlockPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (numArgs : UInt64) : Op
     match himpl : allocEmptyImpl ctx.buf numArgs hnumArgs with
     | none => none
     | some (ctxBuf, ptrImpl) =>
-      -- The spec allocation is always defined here (the target address is fresh), so we extract
-      -- its value without branching on `ctx.spec` — keeping the definition erasable — and recover
-      -- the `= some …` equation from freshness to feed `allocEmptySim`.
       let specRes := (Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptrImpl.toNat).specGet!
       have hspec : Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptrImpl.toNat = some specRes := by
         have hptr : ptrImpl = ctx.buf.usize := by
@@ -2817,7 +2814,7 @@ def Sim.BlockPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (numArgs : UInt64) : Op
           (ctx := ctx.spec) (capArguments := numArgs.toNat) (address := ptrImpl.toNat) (by grind)
         simp only [specRes, Option.specGet!]
         exact (Option.some_get! _ hsome).symm
-      some ⟨⟨ptrImpl, specRes.2⟩, ⟨ctxBuf, specRes.1, allocEmptySim ctx numArgs hnumArgs himpl hspec⟩⟩
+      some ⟨⟨ptrImpl, specRes.2⟩, ⟨ctxBuf, specRes.1, allocEmpty_sim ctx numArgs hnumArgs himpl hspec⟩⟩
   else
     none
 
@@ -3713,7 +3710,7 @@ set_option maxHeartbeats 4000000 in
 produced `ctxBuf`/`ptrImpl` and the spec allocated the matching region at `ptrImpl.toNat`,
 the resulting buffer and spec still simulate each other. Discharges the `admitted_sim` that
 `Sim.RegionPtr.allocEmpty` previously used. -/
-theorem Sim.RegionPtr.allocEmptySim (ctx : Sim.IRContext OpInfo)
+theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
     {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.RegionMPtr}
     (heq : Sim.RegionPtr.allocEmptyImpl ctx.buf = some (ctxBuf, ptrImpl))
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.RegionPtr}
@@ -4404,9 +4401,6 @@ def Sim.RegionPtr.allocEmpty (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPt
   match himpl : allocEmptyImpl ctx.buf with
   | none => none
   | some (ctxBuf, ptrImpl) =>
-    -- The spec allocation is always defined here (the target address is fresh), so we extract
-    -- its value without branching on `ctx.spec` — keeping the definition erasable — and recover
-    -- the `= some …` equation from freshness to feed `allocEmptySim`.
     let specRes := (Veir.RegionPtr.allocEmptyAt ctx.spec ptrImpl.toNat).specGet!
     have hspec : Veir.RegionPtr.allocEmptyAt ctx.spec ptrImpl.toNat = some specRes := by
       have hptr : ptrImpl = ctx.buf.usize := by
@@ -4420,7 +4414,7 @@ def Sim.RegionPtr.allocEmpty (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPt
         (ctx := ctx.spec) (addr := ptrImpl.toNat) (by grind)
       simp only [specRes, Option.specGet!]
       exact (Option.some_get! _ hsome).symm
-    some ⟨⟨ptrImpl, specRes.2⟩, ⟨ctxBuf, specRes.1, allocEmptySim ctx himpl hspec⟩⟩
+    some ⟨⟨ptrImpl, specRes.2⟩, ⟨ctxBuf, specRes.1, allocEmpty_sim ctx himpl hspec⟩⟩
 
 /-- Strengthening of `allocEmpty_spec`: the spec-level region is allocated exactly at the
 address of the returned impl pointer. -/

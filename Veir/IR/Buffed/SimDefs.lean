@@ -8,6 +8,9 @@ public import Veir.IR.Fields
 public import Veir.IR.LayoutUnchanged
 
 import all Veir.IR.Buffed.RawAccessors
+import all Veir.IR.Buffed.Layout
+
+set_option linter.unusedSectionVars false
 
 open Veir.Buffed
 
@@ -788,7 +791,9 @@ theorem Sim.IRContext.fieldsInBounds (ctx : IRContext OpInfo) : ctx.spec.FieldsI
 
 -- A bunch of lemmas, we should move them at some point.
 
-axiom Operation.propertySize_lt (oi : OpInfo) : (Operation.propertySize oi).toNat < UInt32.size
+theorem Operation.propertySize_lt (oi : OpInfo) : (Operation.propertySize oi).toNat < UInt32.size := by
+  unfold Operation.propertySize
+  grind
 
 @[grind .] theorem Operation.propertySize_pos  (oi : OpInfo) : 0 ≤ (Operation.propertySize oi).toInt64.toInt := by
   have := Operation.propertySize_lt oi

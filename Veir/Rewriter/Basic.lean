@@ -1443,41 +1443,6 @@ theorem Rewriter.initBlockOperands_inBounds_veir_mono (ptr : Veir.GenericPtr) {o
   simp only [Rewriter.initBlockOperands_def]
   fun_induction Rewriter.initBlockOperandsSim <;> grind
 
--- buffed
--- def Rewriter.createEmptyOpSim (ctx : Sim.IRContext OpInfo) (opType : OpInfo) (properties : HasOpInfo.propertiesOf opType)
---     (numResults numOperands numBlockOperands numRegions : UInt64) :
---     Option (Sim.OperationPtr × Sim.IRContext OpInfo) := do
---   let ⟨op, ctx⟩ ← Sim.OperationPtr.allocEmpty ctx opType properties numResults numOperands numBlockOperands numRegions
---   pure ⟨op, ctx⟩
-
--- theorem Rewriter.createEmptyOp_new_inBounds {op : Sim.OperationPtr}
---     {ctx' : Sim.IRContext OpInfo}
---     (h : createEmptyOp ctx opType properties nr no nb nrg = some ⟨op, ctx'⟩) :
---     op.InBounds ctx' := by
---   -- grind [createEmptyOp]
---   sorry
-
--- theorem Rewriter.createEmptyOp_new_not_inBounds {op : Sim.OperationPtr}
---     {ctx' : Sim.IRContext OpInfo}
---     (h : createEmptyOp ctx opType properties nr no nb nrg = some ⟨op, ctx'⟩) :
---     ¬ op.InBounds ctx := by
---   -- grind [createEmptyOp]
---   sorry
-
--- theorem Rewriter.createEmptyOp_genericPtr_mono (ptr : Sim.GenericPtr) {ptr' : Sim.OperationPtr}
---     {ctx' : Sim.IRContext OpInfo}
---     (heq : createEmptyOp ctx type properties nr no nb nrg = some ⟨ptr', ctx'⟩) :
---     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr.spec = .operation ptr'.spec) := by
---   -- grind [createEmptyOp]
---   sorry
-
--- theorem Rewriter.createEmptyOp_fieldsInBounds {op : Sim.OperationPtr}
---     {ctx' : Sim.IRContext OpInfo}
---     (h : createEmptyOp ctx opType properties nr no nb nrg = some ⟨op, ctx'⟩) :
---     ctx.spec.FieldsInBounds → ctx'.spec.FieldsInBounds := by
---   -- grind [createEmptyOp]
---   sorry
-
 -- The capacity (`hcap`) obligations threaded through the `initOp*` calls push elaboration of
 -- this definition past the default heartbeat budget.
 set_option maxHeartbeats 4000000 in

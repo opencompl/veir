@@ -14,6 +14,8 @@ import all Veir.IR.Buffed.RawAccessors
 
 open Veir.Buffed
 
+set_option linter.unusedSectionVars false
+
 public section
 
 namespace Veir

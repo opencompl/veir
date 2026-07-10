@@ -11,9 +11,6 @@ open Std (HashMap)
 
 public section
 
-axiom admitted_bounds : P
-axiom admitted_sim {α} (_ : α) : P
-
 @[grind =]
 theorem _root_UInt64.toNat_UInt64_ofNat_of_lt {n : Nat} (h : n < UInt64.size) : UInt64.toNat (UInt64.ofNat n) = n := by
   simp_all
