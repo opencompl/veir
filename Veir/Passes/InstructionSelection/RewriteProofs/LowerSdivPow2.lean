@@ -200,10 +200,8 @@ theorem sdivPow2_pos_isRefinedBy {x xt : Data.LLVM.Int 64} (c : BitVec 64) (k : 
             (Data.RISCV.add
               (Data.RISCV.srli (64 - k) (Data.RISCV.srai 63 (LLVM.Int.toReg xt)))
               (LLVM.Int.toReg xt))) 64 := by
-  subst hc
-  exact isRefinedBy_trans
-    (Data.LLVM.Int.sdiv_mono x _ xt _ h (isRefinedBy_refl _) false)
-    (Data.RISCV.sdivPow2_pos_refinement k hk0 hk63)
+  revert h hc
+  veir_bv_decide
 
 /-- `i64`, negative divisor: negate the biased-shift result. -/
 theorem sdivPow2_neg_isRefinedBy {x xt : Data.LLVM.Int 64} (c : BitVec 64) (k : BitVec 6)
@@ -215,10 +213,8 @@ theorem sdivPow2_neg_isRefinedBy {x xt : Data.LLVM.Int 64} (c : BitVec 64) (k : 
               (Data.RISCV.add
                 (Data.RISCV.srli (64 - k) (Data.RISCV.srai 63 (LLVM.Int.toReg xt)))
                 (LLVM.Int.toReg xt)))) 64 := by
-  subst hc
-  exact isRefinedBy_trans
-    (Data.LLVM.Int.sdiv_mono x _ xt _ h (isRefinedBy_refl _) false)
-    (Data.RISCV.sdivPow2_neg_refinement k hk0)
+  revert h hc
+  veir_bv_decide
 
 /-- `i32` analogue of `sdivPow2_pos_isRefinedBy` (`sraiw`/`srliw`/`addw`). -/
 theorem sdivwPow2_pos_isRefinedBy {x xt : Data.LLVM.Int 32} (c : BitVec 32) (k : BitVec 5)
@@ -229,10 +225,8 @@ theorem sdivwPow2_pos_isRefinedBy {x xt : Data.LLVM.Int 32} (c : BitVec 32) (k :
             (Data.RISCV.addw
               (Data.RISCV.srliw (32 - k) (Data.RISCV.sraiw 31 (LLVM.Int.toReg xt)))
               (LLVM.Int.toReg xt))) 32 := by
-  subst hc
-  exact isRefinedBy_trans
-    (Data.LLVM.Int.sdiv_mono x _ xt _ h (isRefinedBy_refl _) false)
-    (Data.RISCV.sdivwPow2_pos_refinement k hk0 hk31)
+  revert h hc
+  veir_bv_decide
 
 /-- `i32` analogue of `sdivPow2_neg_isRefinedBy` (`negw`). -/
 theorem sdivwPow2_neg_isRefinedBy {x xt : Data.LLVM.Int 32} (c : BitVec 32) (k : BitVec 5)
@@ -244,10 +238,8 @@ theorem sdivwPow2_neg_isRefinedBy {x xt : Data.LLVM.Int 32} (c : BitVec 32) (k :
               (Data.RISCV.addw
                 (Data.RISCV.srliw (32 - k) (Data.RISCV.sraiw 31 (LLVM.Int.toReg xt)))
                 (LLVM.Int.toReg xt)))) 32 := by
-  subst hc
-  exact isRefinedBy_trans
-    (Data.LLVM.Int.sdiv_mono x _ xt _ h (isRefinedBy_refl _) false)
-    (Data.RISCV.sdivwPow2_neg_refinement k hk0)
+  revert h hc hk0
+  veir_bv_decide
 
 /-! ### Shared correctness of `sdivPow2GenLocal` -/
 
