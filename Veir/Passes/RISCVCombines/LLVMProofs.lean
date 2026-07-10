@@ -176,24 +176,25 @@ theorem XorAshrAshr {e0 e1 : Bool} {x y z : Int 64} :
     xor (ashr x z e0) (ashr y z e1) ⊒ ashr (xor x y) z false := by
   veir_bv_decide
 
-/-- `(X & Z) & (Y & Z) → (X & Y) & Z`. No flags anywhere; unconditional. -/
-theorem AndAndAnd {x y z : Int 64} :
+/-- `(X & Z) & (Y & Z) → (X & Y) & Z`. No flags anywhere; unconditional. Stated at both widths
+    the guarded pattern admits, since the graph-level proof needs `i32` too. -/
+theorem AndAndAnd {w : Nat} (hw : w = 64 ∨ w = 32) {x y z : Int w} :
     and (and x z) (and y z) ⊒ and (and x y) z := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X & Z) | (Y & Z) → (X | Y) & Z`. The created `or` must clear `disjoint`.
 
     Keeping it would be unsound: `X = 1`, `Y = -1`, `Z = -2`. The two `and`s are `0` and
     `-2`, which are disjoint, so the source is `-2`; but `X | Y` overlaps in bit 0, so an
     `or disjoint` of them would be poison. -/
-theorem OrAndAnd {d : Bool} {x y z : Int 64} :
+theorem OrAndAnd {w : Nat} (hw : w = 64 ∨ w = 32) {d : Bool} {x y z : Int w} :
     or (and x z) (and y z) d ⊒ and (or x y false) z := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X & Z) ^ (Y & Z) → (X ^ Y) & Z`. `xor` carries no flags; unconditional. -/
-theorem XorAndAnd {x y z : Int 64} :
+theorem XorAndAnd {w : Nat} (hw : w = 64 ∨ w = 32) {x y z : Int w} :
     xor (and x z) (and y z) ⊒ and (xor x y) z := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### sub_add_reg -/
 

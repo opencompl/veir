@@ -3797,4 +3797,287 @@ theorem select_0_neg1_local_preservesSemantics
     (fun hlt c₁ c₂ h => Data.LLVM.Int.sext_mono c₁ c₂ hlt h)
     (fun hw hlt _c => Data.LLVM.Int.select_0_neg1 hw hlt)
 
+/-! ### hoist_logic_op (`*AndAnd`)
+
+  `(X & Z) outer (Y & Z) → (X outer Y) & Z` for `outer ∈ {and, or, xor}`. `op` is the outer op;
+  *both* its operands are the result of a defining `and _ Z` sharing `Z`. Recover both `and`s via
+  `matchBinop_getVar?_of_EquationLemmaAt`, then create `inner = dst X Y` and `and inner Z`.
+-/
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness proof for `AndAndAnd`/`OrAndAnd`/`XorAndAnd`. Parameterized over the outer
+    op (`srcOp`/`srcFn`/matcher-verifier-purity), the inner emitted op `dst` computing `dfn`
+    (`hSemDst`), and the data-refinement lemma `hRefine`. -/
+theorem hoistAndAndLocal_preservesSemantics {srcOp dst : Llvm}
+    {srcFn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → propertiesOf (.llvm srcOp) →
+      Data.LLVM.Int bw}
+    {dprops : propertiesOf (.llvm dst)}
+    {dfn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → Data.LLVM.Int bw}
+    {match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr)}
+    (hMatchImplies : ∀ {opp : OperationPtr} {c : IRContext OpCode} {l r},
+        match? opp c = some (l, r) →
+        opp.getOpType! c = .llvm srcOp ∧ opp.getNumResults! c = 1 ∧ opp.getOperands! c = #[l, r])
+    (hVerified : ∀ {c : WfIRContext OpCode} {opp : OperationPtr} {oib : opp.InBounds c.raw},
+        opp.Verified c oib → opp.getOpType! c.raw = .llvm srcOp → opp.IsVerifiedIntegerBinop c)
+    (hSemSrc : ∀ (bw : Nat) (a b : Data.LLVM.Int bw) (props : propertiesOf (.llvm srcOp))
+        (rt : Array TypeAttr) (bo : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' srcOp props rt #[.int bw a, .int bw b] bo mem
+          = some (.ok (#[.int bw (srcFn a b props)], mem, none)))
+    (hSemDst : ∀ (bw : Nat) (a b : Data.LLVM.Int bw) (rt : Array TypeAttr) (bo : Array BlockPtr)
+        (mem : MemoryState),
+        Llvm.interpretOp' dst dprops rt #[.int bw a, .int bw b] bo mem
+          = some (.ok (#[.int bw (dfn a b)], mem, none)))
+    (hMono : ∀ {bw : Nat} (a₁ a₂ b₁ b₂ : Data.LLVM.Int bw), a₁ ⊒ a₂ → b₁ ⊒ b₂ →
+        dfn a₁ b₁ ⊒ dfn a₂ b₂)
+    (hRefine : ∀ {w : Nat}, (w = 64 ∨ w = 32) → ∀ (xv yv zv : Data.LLVM.Int w)
+        (_px _py : propertiesOf (.llvm .and)) (po : propertiesOf (.llvm srcOp)),
+        srcFn (Data.LLVM.Int.and xv zv) (Data.LLVM.Int.and yv zv) po
+          ⊒ Data.LLVM.Int.and (dfn xv yv) zv)
+    {h : LocalRewritePattern.ReturnOps (hoistAndAndLocal match? dst dprops)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (hoistAndAndLocal match? dst dprops)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (hoistAndAndLocal match? dst dprops)}
+    {h₄ : LocalRewritePattern.ReturnValues (hoistAndAndLocal match? dst dprops)} :
+    LocalRewritePattern.PreservesSemantics (hoistAndAndLocal match? dst dprops) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, hoistAndAndLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel the outer `match?`.
+  have hMatchSome : (match? op ctx.raw).isSome := by
+    cases hM : match? op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨v0, v1⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands⟩ := hMatchImplies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Verifier facts for `op`.
+  have opVerif : op.Verified ctx opInBounds := by grind
+  obtain ⟨-, -, -, -, opIntType, hOpResType, hOp0Type, hOp1Type⟩ :=
+    hVerified opVerif hOpType
+  have hv0Eq : v0 = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  have hv1Eq : v1 = (op.getOperands! ctx.raw)[1]! := by rw [hOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = v0 := by
+    rw [hv0Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = v1 := by
+    rw [hv1Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hv0Type : (v0.getType! ctx.raw).val = Attribute.integerType opIntType := by
+    rw [← hOperand0, hOp0Type]
+  have hv1Type : (v1.getType! ctx.raw).val = Attribute.integerType opIntType := by
+    rw [← hOperand1, hOp1Type]
+  -- Unfold the outer op's interpretation.
+  obtain ⟨v0v, v1v, hv0Val, hv1Val, hMem, hRes, hCf⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := srcOp) (srcFn := srcFn)
+      (props := op.getProperties! ctx.raw (.llvm srcOp))
+      opInBounds hOpType hNumResults hOperands rfl
+      (by intro bw a b props resultTypes blockOperands mem res hh
+          rw [hSemSrc bw a b props resultTypes blockOperands mem] at hh
+          injection hh with hh; injection hh with hh; exact hh.symm)
+      hinterp hv0Type hv1Type
+  subst hCf
+  -- Peel the two defining `and`s and the `z0 = z1` guard.
+  have hDefXSome : (getDefiningOp v0 ctx.raw).isSome := by
+    cases hM : getDefiningOp v0 ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨dX, hDefX⟩ := Option.isSome_iff_exists.mp hDefXSome
+  rw [hDefX] at hpattern
+  simp only [] at hpattern
+  have hAndXSome : (matchAnd dX ctx.raw).isSome := by
+    cases hM : matchAnd dX ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨x, z0, xandp⟩, hAndX⟩ := Option.isSome_iff_exists.mp hAndXSome
+  rw [hAndX] at hpattern
+  simp only [] at hpattern
+  have hDefYSome : (getDefiningOp v1 ctx.raw).isSome := by
+    cases hM : getDefiningOp v1 ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨dY, hDefY⟩ := Option.isSome_iff_exists.mp hDefYSome
+  rw [hDefY] at hpattern
+  simp only [] at hpattern
+  have hAndYSome : (matchAnd dY ctx.raw).isSome := by
+    cases hM : matchAnd dY ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨y, z1, yandp⟩, hAndY⟩ := Option.isSome_iff_exists.mp hAndYSome
+  rw [hAndY] at hpattern
+  simp only [] at hpattern
+  have hZEq : z0 = z1 := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hZEq] at hpattern
+  -- Recover both defining `and`s.
+  obtain ⟨xv, z0v, hxVal, hz0Val, hv0AndIs, hxType, hz0Type, hDomX, hDomZ0, hxIn, hz0In,
+      xNotOp, z0NotOp⟩ :=
+    matchBinop_getVar?_of_EquationLemmaAt (srcOp := .and)
+      (srcFn := fun a b _ => Data.LLVM.Int.and a b)
+      (matchBinopNoProps_implies matchAnd_implies)
+      OperationPtr.Verified.llvm_and OperationPtr.Pure.llvm_and
+      (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      ctxDom ctxVerif opInBounds stateWf hDefX
+      (show matchBinopNoProps matchAnd dX ctx.raw = some (x, z0) by
+        simp only [matchBinopNoProps, bind, Option.bind, hAndX])
+      (by rw [hOperands]; simp) hv0Type
+  obtain ⟨yv, z1v, hyVal, hz1Val, hv1AndIs, hyType, hz1Type, hDomY, hDomZ1, hyIn, hz1In,
+      yNotOp, z1NotOp⟩ :=
+    matchBinop_getVar?_of_EquationLemmaAt (srcOp := .and)
+      (srcFn := fun a b _ => Data.LLVM.Int.and a b)
+      (matchBinopNoProps_implies matchAnd_implies)
+      OperationPtr.Verified.llvm_and OperationPtr.Pure.llvm_and
+      (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      ctxDom ctxVerif opInBounds stateWf hDefY
+      (show matchBinopNoProps matchAnd dY ctx.raw = some (y, z1) by
+        simp only [matchBinopNoProps, bind, Option.bind, hAndY])
+      (by rw [hOperands]; simp) hv1Type
+  -- `z0 = z1`, so `z0v = z1v`; pin `v0v`/`v1v`.
+  have hzvEq : z1v = z0v := by
+    have := hz1Val.symm.trans (hZEq ▸ hz0Val); simpa using this
+  obtain rfl : v0v = Data.LLVM.Int.and xv z0v := by
+    have := hv0Val.symm.trans hv0AndIs; simpa using this
+  obtain rfl : v1v = Data.LLVM.Int.and yv z1v := by
+    have := hv1Val.symm.trans hv1AndIs; simpa using this
+  rw [hzvEq] at hRes
+  -- Width guard on `x`'s type.
+  rw [hxType] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isTrue => simp at hpattern
+  rename_i hWidthRaw
+  have hWidth : opIntType.bitwidth = 64 ∨ opIntType.bitwidth = 32 := by omega
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- `x`'s type as `TypeAttr`, transported to `ctx₁`.
+  have hXTypeAttr : x.getType! ctx.raw
+      = (⟨Attribute.integerType opIntType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr) :=
+    Subtype.ext hxType
+  -- Peel the two creations (inner `dst x y`, then `and inner z0`), transporting `x`/`y`/`z0`.
+  peelOpCreation!₂ hpattern ctx₁ innerOp hInner hDomX hDomX₁ hDomY hDomY₁
+  -- `z0` dominance through the first creation.
+  have hDomZ0₁ : z0.dominatesIp (InsertPoint.before op) ctx₁ :=
+    (ValuePtr.dominatesIp_before_WfRewriter_createOp hInner
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)).mpr hDomZ0
+  peelOpCreation!₂ hpattern ctx₂ andNewOp hAndNew hDomX₁ hDomX₂ hDomZ0₁ hDomZ0₂
+  cleanupHpattern hpattern
+  have hInnerNeAnd : innerOp ≠ andNewOp := by
+    clear hpattern state'Wf state'Dom valueRefinement; grind
+  have hXGet₁ : x.getType! ctx₁.raw = x.getType! ctx.raw :=
+    ValuePtr.getType!_WfRewriter_createOp_of_inBounds hInner hxIn
+  -- Structural facts: the inner `dst x y`.
+  have hInnerType : innerOp.getOpType! ctx₂.raw = .llvm dst := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hInner (operation := innerOp),
+      OperationPtr.getOpType!_WfRewriter_createOp hAndNew (operation := innerOp)]
+  have hInnerOperands : innerOp.getOperands! ctx₂.raw = #[x, y] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hInner (operation := innerOp),
+      OperationPtr.getOperands!_WfRewriter_createOp hAndNew (operation := innerOp)]
+  have hInnerProps : innerOp.getProperties! ctx₂.raw (.llvm dst) = dprops := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hInner (operation := innerOp),
+      OperationPtr.getProperties!_WfRewriter_createOp_ne hAndNew hInnerNeAnd]
+  have hInnerResTypes : innerOp.getResultTypes! ctx₂.raw
+      = #[(⟨Attribute.integerType opIntType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hInner (operation := innerOp)
+    rw [if_pos rfl] at hT
+    have hT2 := OperationPtr.getResultTypes!_WfRewriter_createOp hAndNew (operation := innerOp)
+    rw [if_neg hInnerNeAnd] at hT2
+    rw [hT2, hT]
+    exact congrArg (fun t => #[t]) hXTypeAttr
+  -- Structural facts: the outer `and inner z0`.
+  have hAndNewType : andNewOp.getOpType! ctx₂.raw = .llvm .and := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hAndNew (operation := andNewOp)]
+  have hAndNewOperands : andNewOp.getOperands! ctx₂.raw
+      = #[ValuePtr.opResult (innerOp.getResult 0), z0] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hAndNew (operation := andNewOp)]
+  have hAndNewProps : andNewOp.getProperties! ctx₂.raw (.llvm .and) = () := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hAndNew (operation := andNewOp)]
+  have hAndNewResTypes : andNewOp.getResultTypes! ctx₂.raw
+      = #[(⟨Attribute.integerType opIntType, hxType ▸ (x.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hAndNew (operation := andNewOp)
+    rw [if_pos rfl] at hT
+    rw [hT, hXGet₁]
+    exact congrArg (fun t => #[t]) hXTypeAttr
+  -- Read refined `x`/`y`/`z0` in the target state.
+  obtain ⟨xt, hXVal', hxRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hxIn hxVal
+      hDomX hDomX₂ xNotOp
+  have hDomY₂ : y.dominatesIp (InsertPoint.before op) ctx₂ :=
+    (ValuePtr.dominatesIp_before_WfRewriter_createOp hAndNew
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)
+      (by clear valueRefinement state'Dom state'Wf hpattern; grind)).mpr hDomY₁
+  obtain ⟨yt, hYVal', hyRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hyIn hyVal
+      hDomY hDomY₂ yNotOp
+  obtain ⟨z0t, hZ0Val', hz0Ref⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hz0In hz0Val
+      hDomZ0 hDomZ0₂ z0NotOp
+  -- Replay the inner op, then the `and`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, hFrame₁⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := state') (inBounds := by grind)
+      (f := fun a b => dfn a b)
+      (by intro resultTypes blockOperands mem; exact hSemDst _ _ _ _ _ _)
+      hInnerType hInnerProps hInnerOperands hInnerResTypes hXVal' hYVal'
+  have hZ0Res₁ : s₁.variables.getVar? z0 = some (RuntimeValue.int opIntType.bitwidth z0t) := by
+    rw [hFrame₁ z0 (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds
+      hz0In (WfRewriter.createOp_new_not_inBounds innerOp hInner))]
+    exact hZ0Val'
+  obtain ⟨s₂, hI₂, hMem₂, hRes₂, -⟩ :=
+    interpretOp_llvm_binaryInt_forward (state := s₁) (inBounds := by grind)
+      (f := fun a b => Data.LLVM.Int.and a b)
+      (by intro resultTypes blockOperands mem
+          simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      hAndNewType hAndNewProps hAndNewOperands hAndNewResTypes hRes₁ hZ0Res₁
+  refine ⟨s₂, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, hI₂, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int opIntType.bitwidth (Data.LLVM.Int.and (dfn xt yt) z0t)],
+    by simp [hRes₂, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Assemble: `srcFn (and xv zv) (and yv zv) ⊒ and (dfn xv yv) zv ⊒ and (dfn xt yt) z0t`.
+  simp only [Data.LLVM.Int.cast_self]
+  exact isRefinedBy_trans (hRefine hWidth xv yv z0v xandp yandp _)
+    (Data.LLVM.Int.and_mono _ _ _ _ (hMono xv xt yv yt hxRef hyRef) hz0Ref)
+
+theorem AndAndAnd_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (hoistAndAndLocal (matchBinopNoProps matchAnd) .and ()) h h₂ h₃ h₄ :=
+  hoistAndAndLocal_preservesSemantics (srcOp := .and) (dst := .and)
+    (srcFn := fun a b _ => Data.LLVM.Int.and a b) (dfn := fun a b => Data.LLVM.Int.and a b)
+    (matchBinopNoProps_implies matchAnd_implies) OperationPtr.Verified.llvm_and
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.and_mono a₁ b₁ a₂ b₂ h₁ h₂)
+    (fun hw x y z _ _ _ => Data.LLVM.Int.AndAndAnd hw)
+
+theorem OrAndAnd_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (hoistAndAndLocal (matchBinopNoProps matchOr) .or { disjoint := false }) h h₂ h₃ h₄ :=
+  hoistAndAndLocal_preservesSemantics (srcOp := .or) (dst := .or)
+    (srcFn := fun a b p => Data.LLVM.Int.or a b p.disjoint)
+    (dfn := fun a b => Data.LLVM.Int.or a b false)
+    (matchBinopNoProps_implies matchOr_implies) OperationPtr.Verified.llvm_or
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.or_mono a₁ b₁ a₂ b₂ false h₁ h₂)
+    (fun hw x y z _ _ _ => Data.LLVM.Int.OrAndAnd hw)
+
+theorem XorAndAnd_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (hoistAndAndLocal (matchBinopNoProps matchXor) .xor ()) h h₂ h₃ h₄ :=
+  hoistAndAndLocal_preservesSemantics (srcOp := .xor) (dst := .xor)
+    (srcFn := fun a b _ => Data.LLVM.Int.xor a b) (dfn := fun a b => Data.LLVM.Int.xor a b)
+    (matchBinopNoProps_implies matchXor_implies) OperationPtr.Verified.llvm_xor
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun a₁ a₂ b₁ b₂ h₁ h₂ => Data.LLVM.Int.xor_mono a₁ b₁ a₂ b₂ h₁ h₂)
+    (fun hw x y z _ _ _ => Data.LLVM.Int.XorAndAnd hw)
+
 end Veir.RISCV
