@@ -236,6 +236,36 @@ theorem interpretOp_llvm_unaryInt_forward
       (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
   grind
 
+/-- `llvm.select` specialization of `interpretOp_forward`: `theOp` is an `llvm.select` with an `i1`
+condition `c` and two `i{it}` arms `t`/`f`, producing `.int it.bitwidth (select c t f)`. Needed by
+combines that emit an `llvm.select` (e.g. `select_of_zext`). -/
+theorem interpretOp_llvm_select_forward
+    {ctx : WfIRContext OpCode} {theOp : OperationPtr} {state : InterpreterState ctx}
+    {inBounds : theOp.InBounds ctx.raw} {vc vt vf : ValuePtr} {it : IntegerType} {hIsTy}
+    {c : Data.LLVM.Int 1} {t f : Data.LLVM.Int it.bitwidth}
+    (hType : theOp.getOpType! ctx.raw = .llvm .select)
+    (hOperands : theOp.getOperands! ctx.raw = #[vc, vt, vf])
+    (hResTypes : theOp.getResultTypes! ctx.raw = #[⟨.integerType it, hIsTy⟩])
+    (hValC : state.variables.getVar? vc = some (.int 1 c))
+    (hValT : state.variables.getVar? vt = some (.int it.bitwidth t))
+    (hValF : state.variables.getVar? vf = some (.int it.bitwidth f)) :
+    ∃ state', interpretOp theOp state inBounds = some (.ok (state', none)) ∧
+      state'.memory = state.memory ∧
+      state'.variables.getVar? (ValuePtr.opResult (theOp.getResult 0))
+        = some (.int it.bitwidth (Data.LLVM.Int.select c t f)) ∧
+      (∀ v', v' ∉ theOp.getResults! ctx.raw →
+        state'.variables.getVar? v' = state.variables.getVar? v') := by
+  obtain ⟨state', hI, hMem, hVal⟩ :=
+    interpretOp_forward (op := theOp) (state := state) (inBounds := inBounds)
+      (vals := #[.int 1 c, .int it.bitwidth t, .int it.bitwidth f])
+      (results := #[.int it.bitwidth (Data.LLVM.Int.select c t f)]) (mem' := state.memory)
+      (by simp [VariableState.getOperandValues, hOperands, hValC, hValT, hValF])
+      (by simp only [OperationPtr.interpret]
+          rw [hType, hResTypes]
+          simp [interpretOp', Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
+  grind
+
 /-- Integer-constant `llvm.mlir.constant` specialization of `interpretOp_forward`: `theOp` is an
 `llvm.mlir.constant` with an integer attribute `v` and a single `i{it}` result. Interpreting it
 always succeeds, leaves memory untouched, binds the result to `.int it.bitwidth (constant _ v)`,

@@ -637,19 +637,30 @@ def trunc_of_zext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 /-! ### select_of_{zext,truncate} : cast(select c,t,f) → select c, cast t, cast f -/
 
 set_option warn.sorry false in
+/-- `zext (select c t f) → select c (zext t) (zext f)`, as a `LocalRewritePattern`. `op` is the
+    `zext`, whose operand is a defining `select c t f`. It creates two `zext`s (of `t` and `f`,
+    both carrying the matched `zext`'s properties `zp`) and a `select` over them. The narrow-`{32}`
+    (operand) / result-`{64}` width guards keep the rewrite to `i32 → i64`. See
+    `select_of_zext_local_preservesSemantics`. -/
+def select_of_zext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (v0, zp) := matchZext op ctx | return (ctx, none)
+  let some dS := getDefiningOp v0 ctx | return (ctx, none)
+  let some (cond, tv, fv) := matchSelect dS ctx | return (ctx, none)
+  let .integerType tvty := (tv.getType! ctx.raw).val | return (ctx, none)
+  if tvty.bitwidth ≠ 32 then return (ctx, none)
+  let .integerType rty := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if rty.bitwidth ≠ 64 then return (ctx, none)
+  let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
+  let (ctx, zt) ← WfRewriter.createOp! ctx (.llvm .zext) #[outTy] #[tv] #[] #[] zp none
+  let (ctx, zf) ← WfRewriter.createOp! ctx (.llvm .zext) #[outTy] #[fv] #[] #[] zp none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .select)
+    #[outTy] #[cond, zt.getResult 0, zf.getResult 0] #[] #[] () none
+  some (ctx, some (#[zt, zf, newOp], #[newOp.getResult 0]))
+
 def select_of_zext_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, zp) := matchZext op rewriter.ctx | return rewriter
-  let some dS := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (cond, tv, fv) := matchSelect dS rewriter.ctx | return rewriter
-  let outTy := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
-  let (rewriter, zt) ← rewriter.createOp (.llvm .zext) #[outTy] #[tv]
-    #[] #[] zp (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, zf) ← rewriter.createOp (.llvm .zext) #[outTy] #[fv]
-    #[] #[] zp (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .select) #[outTy] #[cond, (zt.getResult 0), (zf.getResult 0)]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite select_of_zext_local rewriter op opInBounds
 
 set_option warn.sorry false in
 def select_of_truncate_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
