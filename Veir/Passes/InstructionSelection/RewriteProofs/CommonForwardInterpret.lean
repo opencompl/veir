@@ -122,7 +122,7 @@ theorem interpretOp_riscv_binaryReg_forward
 `hSem`), with a single `i{bw}` result. Interpreting it always succeeds, leaves memory untouched,
 binds the result, and leaves every non-result value unchanged. This is the LLVM-dialect analogue
 of `interpretOp_riscv_binaryReg_forward`, needed when a *combine* (rather than a lowering) emits
-an `llvm` operation — e.g. `mulo_by_2_unsigned_signed`, which emits `llvm.add`. -/
+an `llvm` operation. -/
 theorem interpretOp_llvm_binaryInt_forward
     {ctx : WfIRContext OpCode} {lop : Llvm} {theOp : OperationPtr} {state : InterpreterState ctx}
     {inBounds : theOp.InBounds ctx.raw} {v₁ v₂ : ValuePtr} {it : IntegerType} {hIsTy}

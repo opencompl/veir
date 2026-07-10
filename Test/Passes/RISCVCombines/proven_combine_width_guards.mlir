@@ -38,22 +38,6 @@
     "func.return"(%r) : (i8) -> ()
   }) : () -> ()
 
-  // mulo_by_2 at i32: fires (the op-creating exemplar).
-  "func.func"() <{function_type = (i32) -> i32}> ({
-  ^bb0(%x: i32):
-    %c2 = "llvm.mlir.constant"() <{value = 2 : i32}> : () -> i32
-    %r = "llvm.mul"(%x, %c2) : (i32, i32) -> i32
-    "func.return"(%r) : (i32) -> ()
-  }) : () -> ()
-
-  // mulo_by_2 at i8: guarded off.
-  "func.func"() <{function_type = (i8) -> i8}> ({
-  ^bb0(%x: i8):
-    %c2 = "llvm.mlir.constant"() <{value = 2 : i8}> : () -> i8
-    %r = "llvm.mul"(%x, %c2) : (i8, i8) -> i8
-    "func.return"(%r) : (i8) -> ()
-  }) : () -> ()
-
   // trunc_of_zext at i8 -> i16 -> i8: guarded off (only i32 -> i64 -> i32 is proven).
   "func.func"() <{function_type = (i8) -> i8}> ({
   ^bb0(%x: i8):
@@ -98,16 +82,6 @@
 // CHECK:      ^{{.*}}(%{{.*}} : i8, %[[BY:.*]] : i8):
 // CHECK:      %[[BR:.*]] = "llvm.sub"(%{{.*}}, %[[BY]]) : (i8, i8) -> i8
 // CHECK:      "func.return"(%[[BR]]) : (i8) -> ()
-
-// mulo_by_2, i32: rewritten to an add.
-// CHECK:      ^{{.*}}(%[[MX:.*]] : i32):
-// CHECK:      %[[MR:.*]] = "llvm.add"(%[[MX]], %[[MX]]) : (i32, i32) -> i32
-// CHECK:      "func.return"(%[[MR]]) : (i32) -> ()
-
-// mulo_by_2, i8: the mul survives.
-// CHECK:      ^{{.*}}(%[[NX:.*]] : i8):
-// CHECK:      %[[NR:.*]] = "llvm.mul"(%[[NX]],
-// CHECK:      "func.return"(%[[NR]]) : (i8) -> ()
 
 // trunc_of_zext, i8 -> i16 -> i8: both casts survive.
 // CHECK:      ^{{.*}}(%[[TX:.*]] : i8):

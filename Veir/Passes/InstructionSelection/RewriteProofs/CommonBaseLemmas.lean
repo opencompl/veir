@@ -144,6 +144,31 @@ theorem WfRewriter.createOp!_none_some {wfCtx : WfIRContext OpInfo} {opType : Op
     · simp [panicWithPosWithDecl, panic, panicCore] at h
   · simp [panicWithPosWithDecl, panic, panicCore] at h
 
+/-- An operand `value` that is in bounds *before* a `WfRewriter.createOp` keeps its type after the
+    creation: a value existing beforehand is never a result of the freshly created op, so its type
+    is read from the original context. -/
+theorem ValuePtr.getType!_WfRewriter_createOp_of_inBounds {OpInfo : Type} [HasOpInfo OpInfo]
+    {ctx ctx' : WfIRContext OpInfo} {opType : OpInfo}
+    {resultTypes operands blockOperands regions} {properties : HasOpInfo.propertiesOf opType}
+    {hoper hblock hreg} {insertionPoint} {hins} {newOp : OperationPtr} {value : ValuePtr}
+    (h : WfRewriter.createOp ctx opType resultTypes operands blockOperands regions properties
+          insertionPoint hoper hblock hreg hins = some (ctx', newOp))
+    (hIn : value.InBounds ctx.raw) :
+    value.getType! ctx'.raw = value.getType! ctx.raw := by
+  rw [ValuePtr.getType!_WfRewriter_createOp h (value := value)]
+  cases value with
+  | blockArgument _ => rfl
+  | opResult p =>
+    simp only
+    split
+    · rename_i hp
+      exfalso
+      have hpIn : p.op.InBounds ctx.raw := by
+        have := (ValuePtr.inBounds_opResult p ctx.raw).mp hIn
+        grind [OpResultPtr.InBounds]
+      exact (WfRewriter.createOp_new_not_inBounds newOp h) (hp.1 ▸ hpIn)
+    · rfl
+
 /-- Creating an operation at a `none` insertion point preserves dominance of a value at the program
     point before any *other* operation `op'`: a freshly created (detached) operation `newOp ≠ op'`
     cannot change whether `value` dominates `before op'`.

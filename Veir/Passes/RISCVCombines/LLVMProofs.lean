@@ -300,14 +300,6 @@ theorem select_of_truncate_rw {s u : Bool} {c : Int 1} {x y : Int 64} :
       ⊒ select c (trunc x 32 s u h64_32) (trunc y 32 s u h64_32) := by
   veir_bv_decide
 
-/-! ### matchMulOBy2 -/
-
-/-- `x * 2 → x + x`, with the `mul`'s overflow flags carried onto the `add`. Sound: the
-    two ops have exactly the same overflow condition at the constant `2`. -/
-theorem mulo_by_2_unsigned_signed {w : Nat} (hw : w = 64 ∨ w = 32) {s u : Bool} {x : Int w} :
-    mul x (constant w 2) s u ⊒ add x x s u := by
-  rcases hw with rfl | rfl <;> veir_bv_decide
-
 /-! ### add_shift -/
 
 /-- `A + shl(0 - B, C) → A - shl(B, C)`. Both created ops must clear their flags: the new
@@ -426,30 +418,30 @@ theorem not_cmp_fold_sge {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
 
 /-! ### double_icmp_zero_combine -/
 
-/-- `(X == 0) & (Y == 0) → (X | Y) == 0`. The created `or` is not `disjoint`. -/
-theorem double_icmp_zero_and_combine {x y : Int 64} :
-    and (icmp x (constant 64 0) .eq) (icmp y (constant 64 0) .eq)
-      ⊒ icmp (or x y false) (constant 64 0) .eq := by
-  veir_bv_decide
+/-- `(X == 0) & (Y == 0) → (X | Y) == 0`. The created `or` is not `disjoint`. Stated at both
+    widths the guarded pattern admits, since the graph-level proof needs `i32` too. -/
+theorem double_icmp_zero_and_combine {w : Nat} (hw : w = 64 ∨ w = 32) {x y : Int w} :
+    and (icmp x (constant w 0) .eq) (icmp y (constant w 0) .eq)
+      ⊒ icmp (or x y false) (constant w 0) .eq := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
-/-- `(X != 0) | (Y != 0) → (X | Y) != 0`. The rewrite reuses the outer `i1` `or`'s
-    `disjoint` flag on the created `i64` `or`; sound, because the two are poison together
-    (the `i1` operands overlap exactly when both `X` and `Y` are nonzero, which for the
-    `i64` `or` to be non-poison would require them to share no bit — impossible only when
-    one is zero, in which case neither `or` is poison). -/
-theorem double_icmp_zero_or_combine {d : Bool} {x y : Int 64} :
-    or (icmp x (constant 64 0) .ne) (icmp y (constant 64 0) .ne) d
-      ⊒ icmp (or x y d) (constant 64 0) .ne := by
-  veir_bv_decide
+/-- `(X != 0) | (Y != 0) → (X | Y) != 0`. The created `or` clears `disjoint` (the outer `i1`
+    `or`'s flag `d` is free); making the created `or` never-poison only *increases* the target's
+    definedness, so the refinement still holds. -/
+theorem double_icmp_zero_or_combine {w : Nat} (hw : w = 64 ∨ w = 32) {d : Bool} {x y : Int w} :
+    or (icmp x (constant w 0) .ne) (icmp y (constant w 0) .ne) d
+      ⊒ icmp (or x y false) (constant w 0) .ne := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### NotAPlusNegOne / sub_one_from_sub -/
 
 /-- `not (X + -1) → 0 - X`, with the `add`'s flags carried onto the `sub`. Sound: at the
     constant `-1` the two ops have the same signed and unsigned overflow conditions
-    (`X = intMin` and `X ≠ 0` respectively). -/
-theorem NotAPlusNegOne_rw {s u : Bool} {x : Int 64} :
-    xor (add x (constant 64 (-1)) s u) (constant 64 (-1)) ⊒ sub (constant 64 0) x s u := by
-  veir_bv_decide
+    (`X = intMin` and `X ≠ 0` respectively). Stated at both widths the guarded pattern admits,
+    since the graph-level proof needs `i32` too. -/
+theorem NotAPlusNegOne_rw {w : Nat} (hw : w = 64 ∨ w = 32) {s u : Bool} {x : Int w} :
+    xor (add x (constant w (-1)) s u) (constant w (-1)) ⊒ sub (constant w 0) x s u := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(A - B) - 1 → (~B) + A`. The created `add` must clear `nsw`/`nuw` rather than inherit
     the outer `sub`'s.
