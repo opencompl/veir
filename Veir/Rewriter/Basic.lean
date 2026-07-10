@@ -8,6 +8,7 @@ public import Veir.Rewriter.LinkedList.GetSet
 public import Veir.Rewriter.RewriterPushOperand
 public import Veir.Rewriter.RewriterPushBlockOperand
 public import Veir.Rewriter.RewriterPushResult
+public import Veir.Rewriter.RewriterPushBlockArgument
 
 meta import Veir.IR.Buffed.Basic
 import Veir.IR.Buffed.RawAccessorsLemmas
@@ -17,6 +18,7 @@ import Veir.Rewriter.LinkedList.LayoutUnchanged
 import all Veir.Rewriter.RewriterPushOperand
 import all Veir.Rewriter.RewriterPushBlockOperand
 import all Veir.Rewriter.RewriterPushResult
+import all Veir.Rewriter.RewriterPushBlockArgument
 import all Veir.Rewriter.LinkedList.Basic
 import all Veir.IR.Buffed.Basic
 import all Veir.IR.Buffed.RawAccessors
@@ -599,35 +601,14 @@ def Rewriter.replaceOp?Sim (ctx: Sim.IRContext OpInfo) (oldOp newOp: Sim.Operati
       have := replaceOpResults_preserves_numSuccessors oldOp (by grind) h
       grind)
 
--- TODO: for now `pushBlockArgument` only works in the specification world,
--- because the buffed implementation does not handle changing the size of the
--- argument array.
-protected def Rewriter.pushBlockArgument (ctx : IRContext OpInfo) (blockPtr : BlockPtr) (type : TypeAttr)
-    (blockPtrInBounds : blockPtr.InBounds ctx := by grind) : IRContext OpInfo :=
-  let index := blockPtr.getNumArguments ctx (by grind)
-  let argument := { type := type, firstUse := none, index := index, loc := (), owner := blockPtr : BlockArgument }
-  blockPtr.pushArgument ctx argument (by grind)
-
-@[inline]
-protected def Rewriter.setBlockArgument (blockPtr : Buffed.BlockMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
-    (hslot : (blockPtr.getArgumentPtr idx).toNat + Buffed.BlockArgument.size.toNat ≤ ctx₀.size)
-    (type : TypeAttr) : Option (Buffed.IRBufContext OpInfo) :=
-  let arg := blockPtr.getArgumentPtr idx
-  rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
-  have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
-  let ctx := Buffed.ValueImplMPtr.writeKind ctx arg Buffed.ValueImpl.kindArgument (by prove_setSlotBounds ctx₀)
-  let ctx := arg.writeType ctx typeIdx (by prove_setSlotBounds ctx₀)
-  let ctx := arg.writeFirstUse ctx .none (by prove_setSlotBounds ctx₀)
-  let ctx := arg.writeIndex ctx idx (by prove_setSlotBounds ctx₀)
-  let ctx := arg.writeOwner ctx blockPtr (by prove_setSlotBounds ctx₀)
-  some ctx
-
 protected buffed
 def Rewriter.pushBlockArgumentAtSim (blockPtr : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (type : TypeAttr) (ib : blockPtr.InBounds ctx) (hidx : idx.toNat = blockPtr.spec.getNumArguments! ctx.spec)
     (hcap : idx.toNat < (blockPtr.spec.get! ctx.spec).capArguments := by grind) :
-    Option (Sim.IRContext OpInfo) := do
-  some ⟨← Rewriter.setBlockArgument blockPtr.impl ctx.buf idx (by prove_setLinkBoundsArgumentSlot ctx blockPtr idx) type, Rewriter.pushBlockArgument ctx.spec blockPtr.spec type (by grind), admitted_sim ib⟩
+    Option (Sim.IRContext OpInfo) :=
+  rlet heq : newBuf ← Rewriter.setBlockArgument blockPtr.impl ctx.buf idx (by prove_setLinkBoundsArgumentSlot ctx blockPtr idx) type
+  have hsim := Rewriter.setBlockArgument_pushBlockArgument_sim blockPtr ctx idx type ib hidx hcap _ heq
+  some ⟨newBuf, Rewriter.pushBlockArgument ctx.spec blockPtr.spec type (by grind), hsim⟩
 
 @[grind .]
 theorem Rewriter.pushBlockArgumentAt_spec :

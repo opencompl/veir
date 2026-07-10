@@ -656,7 +656,7 @@ structure BlockOperandPtr.Matches (ctx : Sim.RawIRContext OpInfo) (oper : BlockO
   value : Sim.BlockPtr.Sim ⟨BlockOperandMPtr.readValue! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).value⟩
 
 structure BlockArgumentPtr.Matches (ctx : Sim.RawIRContext OpInfo) (arg : BlockArgumentPtr) (ib : arg.InBounds ctx.spec) where
-  kind : arg.toM.readKind! ctx.buf = Buffed.ValueImpl.kindResult
+  kind : arg.toM.readKind! ctx.buf = Buffed.ValueImpl.kindArgument
   type : ctx.buf.attributes[arg.toM.readType! ctx.buf |>.toNat]? = some (arg.get! ctx.spec).type
   firstUse : Sim.OptionOpOperandPtr.Sim ⟨arg.toM.readFirstUse! ctx.buf, (arg.get! ctx.spec).firstUse⟩ ctx
   index : (arg.get! ctx.spec).index = (arg.toM.readIndex! ctx.buf).toNat
