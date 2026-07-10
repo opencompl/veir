@@ -700,7 +700,9 @@ protected def Rewriter.setOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffe
     (value : Buffed.ValueImplMPtr) : Buffed.IRBufContext OpInfo :=
   let oper : Buffed.OpOperandMPtr := opPtr + opPtr.computeOperandOffset ctx₀ idx hnum
   let ctx := oper.writeNextUse ctx₀ .none (by prove_setSlotBounds ctx₀)
-  let ctx := oper.writeBack ctx 0 (by prove_setSlotBounds ctx₀)
+  -- `back` points at the value's `firstUse` slot, mirroring the spec's
+  -- `OpOperandPtrPtr.valueFirstUse` (the use-list insertion re-writes it with the same value).
+  let ctx := oper.writeBack ctx (value + Buffed.ValueImpl.Offsets.firstUse) (by prove_setSlotBounds ctx₀)
   let ctx := oper.writeOwner ctx opPtr (by prove_setSlotBounds ctx₀)
   let ctx := oper.writeValue ctx value (by prove_setSlotBounds ctx₀)
   ctx
@@ -712,7 +714,9 @@ protected def Rewriter.setBlockOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : 
     (value : Buffed.BlockMPtr) : Buffed.IRBufContext OpInfo :=
   let oper : Buffed.BlockOperandMPtr := opPtr + opPtr.computeBlockOperandOffset ctx₀ idx hnum
   let ctx := oper.writeNextUse ctx₀ .none (by prove_setSlotBounds ctx₀)
-  let ctx := oper.writeBack ctx 0 (by prove_setSlotBounds ctx₀)
+  -- `back` points at the block's `firstUse` slot (offset 0), mirroring the spec's
+  -- `BlockOperandPtrPtr.blockFirstUse` (the use-list insertion re-writes it with the same value).
+  let ctx := oper.writeBack ctx (value + Buffed.Block.Offsets.firstUse) (by prove_setSlotBounds ctx₀)
   let ctx := oper.writeOwner ctx opPtr (by prove_setSlotBounds ctx₀)
   let ctx := oper.writeValue ctx value (by prove_setSlotBounds ctx₀)
   ctx
