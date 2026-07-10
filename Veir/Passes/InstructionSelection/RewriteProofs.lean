@@ -20,6 +20,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelect
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelectBinopImm
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelectSingleBit
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSdivExact
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerSdivPow2
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSextOne
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSignedMinMax
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSlliuw
