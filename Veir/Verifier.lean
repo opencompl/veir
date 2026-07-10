@@ -1202,6 +1202,14 @@ def OperationPtr.IsVerifiedLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCo
   ((op.getResult 0).get! ctx.raw).type.val = ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ∧
   ∃ intType, ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .integerType intType
 
+/-- An `IsVerifiedIntegerBinop` (both operands and the result share one integer type) is in
+    particular an `IsVerifiedLLVMShift` (result matches operand 0, operand 1 is an integer). Lets the
+    shift-hoisting combinator accept `llvm.ashr`, whose verifier is the stricter integer-binop one. -/
+theorem OperationPtr.IsVerifiedIntegerBinop.toLLVMShift {op : OperationPtr} {ctx : WfIRContext OpCode}
+    (h : op.IsVerifiedIntegerBinop ctx) : op.IsVerifiedLLVMShift ctx := by
+  obtain ⟨hnr, hno, -, -, it, hres, hop0, hop1⟩ := h
+  exact ⟨hnr, hno, by rw [hres, hop0], it, by rw [hop1]⟩
+
 private theorem OperationPtr.verifyLLVMShift_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMShift ctx opInBounds = .ok ()) :
     op.IsVerifiedLLVMShift ctx := by

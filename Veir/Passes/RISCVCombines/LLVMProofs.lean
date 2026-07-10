@@ -122,59 +122,59 @@ theorem XorTruncTrunc {s0 u0 s1 u1 : Bool} {x y : Int 64} :
     Keeping `nsw` would be unsound: `X = 2^62`, `Y = -2^62`, `Z = 1`. `shl nsw Y 1` is
     fine (`Y`'s top two bits agree), the source is `2^63`, but `X & Y = X` and
     `shl nsw X 1` is poison. -/
-theorem AndShlShl {s0 u0 s1 u1 : Bool} {x y z : Int 64} :
+theorem AndShlShl {w : Nat} (hw : w = 64 ∨ w = 32) {s0 u0 s1 u1 : Bool} {x y z : Int w} :
     and (shl x z s0 u0) (shl y z s1 u1) ⊒ shl (and x y) z false u1 := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X << Z) | (Y << Z) → (X | Y) << Z`. The created `shl` must clear `nsw` and `nuw`,
     and the created `or` must clear `disjoint`. `X` alone can supply the bits that `X | Y`
     shifts out (breaking `nuw`/`nsw`), and `X`/`Y` can overlap only in bits that both
     shifts discard (breaking `disjoint`). -/
-theorem OrShlShl {s0 u0 s1 u1 d : Bool} {x y z : Int 64} :
+theorem OrShlShl {w : Nat} (hw : w = 64 ∨ w = 32) {s0 u0 s1 u1 d : Bool} {x y z : Int w} :
     or (shl x z s0 u0) (shl y z s1 u1) d ⊒ shl (or x y false) z false false := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X << Z) ^ (Y << Z) → (X ^ Y) << Z`. The created `shl` must clear `nsw` and `nuw`. -/
-theorem XorShlShl {s0 u0 s1 u1 : Bool} {x y z : Int 64} :
+theorem XorShlShl {w : Nat} (hw : w = 64 ∨ w = 32) {s0 u0 s1 u1 : Bool} {x y z : Int w} :
     xor (shl x z s0 u0) (shl y z s1 u1) ⊒ shl (xor x y) z false false := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X >> Z) & (Y >> Z) → (X & Y) >> Z` (logical). Sound with both `exact` flags free:
     the low bits `X & Y` discards are a subset of `Y`'s. -/
-theorem AndLshrLshr {e0 e1 : Bool} {x y z : Int 64} :
+theorem AndLshrLshr {w : Nat} (hw : w = 64 ∨ w = 32) {e0 e1 : Bool} {x y z : Int w} :
     and (lshr x z e0) (lshr y z e1) ⊒ lshr (and x y) z e1 := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X >> Z) | (Y >> Z) → (X | Y) >> Z` (logical). The created `lshr` must clear `exact`
     and the created `or` must clear `disjoint`: `X` alone can supply a nonzero discarded
     low bit, and `X`/`Y` can overlap only in the discarded low bits. -/
-theorem OrLshrLshr {e0 e1 d : Bool} {x y z : Int 64} :
+theorem OrLshrLshr {w : Nat} (hw : w = 64 ∨ w = 32) {e0 e1 d : Bool} {x y z : Int w} :
     or (lshr x z e0) (lshr y z e1) d ⊒ lshr (or x y false) z false := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X >> Z) ^ (Y >> Z) → (X ^ Y) >> Z` (logical). The created `lshr` must clear
     `exact`. -/
-theorem XorLshrLshr {e0 e1 : Bool} {x y z : Int 64} :
+theorem XorLshrLshr {w : Nat} (hw : w = 64 ∨ w = 32) {e0 e1 : Bool} {x y z : Int w} :
     xor (lshr x z e0) (lshr y z e1) ⊒ lshr (xor x y) z false := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X >> Z) & (Y >> Z) → (X & Y) >> Z` (arithmetic). Sound with both `exact` flags
     free. -/
-theorem AndAshrAshr {e0 e1 : Bool} {x y z : Int 64} :
+theorem AndAshrAshr {w : Nat} (hw : w = 64 ∨ w = 32) {e0 e1 : Bool} {x y z : Int w} :
     and (ashr x z e0) (ashr y z e1) ⊒ ashr (and x y) z e1 := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X >> Z) | (Y >> Z) → (X | Y) >> Z` (arithmetic). The created `ashr` must clear
     `exact` and the created `or` must clear `disjoint`. -/
-theorem OrAshrAshr {e0 e1 d : Bool} {x y z : Int 64} :
+theorem OrAshrAshr {w : Nat} (hw : w = 64 ∨ w = 32) {e0 e1 d : Bool} {x y z : Int w} :
     or (ashr x z e0) (ashr y z e1) d ⊒ ashr (or x y false) z false := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X >> Z) ^ (Y >> Z) → (X ^ Y) >> Z` (arithmetic). The created `ashr` must clear
     `exact`. -/
-theorem XorAshrAshr {e0 e1 : Bool} {x y z : Int 64} :
+theorem XorAshrAshr {w : Nat} (hw : w = 64 ∨ w = 32) {e0 e1 : Bool} {x y z : Int w} :
     xor (ashr x z e0) (ashr y z e1) ⊒ ashr (xor x y) z false := by
-  veir_bv_decide
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X & Z) & (Y & Z) → (X & Y) & Z`. No flags anywhere; unconditional. Stated at both widths
     the guarded pattern admits, since the graph-level proof needs `i32` too. -/

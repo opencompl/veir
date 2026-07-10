@@ -983,6 +983,42 @@ theorem OperationPtr.Pure.llvm_sext {op : OperationPtr} {ctx : IRContext OpCode}
     | rfl
     | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
 
+/-- `llvm.shl` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_shl {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .shl) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  repeat' split
+  all_goals first
+    | rfl
+    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `llvm.lshr` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_lshr' {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .lshr) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  repeat' split
+  all_goals first
+    | rfl
+    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `llvm.ashr` is pure: its interpretation neither reads nor writes memory. -/
+theorem OperationPtr.Pure.llvm_ashr {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .llvm .ashr) : op.Pure ctx := by
+  unfold OperationPtr.Pure
+  rw [hType]
+  intro operands memory₁ memory₂
+  simp only [interpretOp', Llvm.interpretOp']
+  repeat' split
+  all_goals first
+    | rfl
+    | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
 set_option maxHeartbeats 1000000 in
 /-- The `sext` analogue of `zext_getVar?_of_EquationLemmaAt`: recovers a defining `sext`'s value
     `sext xv` and the extended value `x`'s facts. -/
