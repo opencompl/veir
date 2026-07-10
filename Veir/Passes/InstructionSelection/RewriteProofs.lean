@@ -14,6 +14,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerFshlConst
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerIcmp
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerFshrConst
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerLoad
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerOrcb
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerRoriw
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerRotate
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSelect
