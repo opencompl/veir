@@ -57,19 +57,43 @@ theorem add_nat_range_def (n : Nat) (r : Std.Rco Int) : n + r = (n+r.lower)...(n
 
 attribute [grind norm] add_nat_range_def
 
-axiom Array.usize_size (ar : Array α) : ar.usize.toUInt64.toNat = ar.size
+/-- When an array's size fits in a `UInt64`, `size.toUInt64` round-trips back to `size`.
+Unlike `Array.usize` (which truncates mod the platform-dependent `USize.size`), this uses
+`size.toUInt64` and is bounded by the platform-independent `UInt64.size`. -/
+theorem Array.size_toUInt64_toNat (ar : Array α) (h : ar.size < UInt64.size) :
+    ar.size.toUInt64.toNat = ar.size := by
+  simp only [Nat.toUInt64_eq, UInt64.toNat_ofNat']
+  grind [Nat.mod_eq_of_lt]
 
-theorem Array.size_le_uint64_size (ar : Array α) : ar.size < UInt64.size := by
-  rw [← usize_size]
-  exact UInt64.toNat_lt_size ar.usize.toUInt64
-
-theorem Array.size_le_toNat {ar : Array α} {x : UInt64} (h : ar.usize.toUInt64 ≤ x) : ar.size ≤ x.toNat := by
-  have := Array.usize_size ar
+theorem Array.size_le_toNat {ar : Array α} {x : UInt64}
+    (hsz : ar.size < UInt64.size) (h : ar.size.toUInt64 ≤ x) : ar.size ≤ x.toNat := by
+  have := Array.size_toUInt64_toNat ar hsz
   rw [← this]
-  assumption
+  grind [UInt64.le_iff_toNat_le]
+
+/-- An array's size as a `UInt64`. This is a deliberately opaque (`@[irreducible]`) alias for
+`size.toUInt64`, so it does not reduce to the `UInt64.ofNat _` shape nor further to `size % 2^64`.
+`grind` therefore treats `sizeU64`/`sizeU64.toNat` as atoms rather than e-matching candidates for
+the `index`/`numArgs`-shaped `UInt64` parameters (and their `.toNat`) of the `init*`/`allocEmpty`
+lemmas — avoiding the combinatorial instantiation blow-up that a bare `size.toUInt64` triggers when
+several are in scope at once. Unfold to `size.toUInt64` via `Array.sizeU64_eq`. -/
+@[irreducible] def Array.sizeU64 (ar : Array α) : UInt64 := ar.size.toUInt64
+
+theorem Array.sizeU64_eq (ar : Array α) : ar.sizeU64 = ar.size.toUInt64 := by
+  unfold Array.sizeU64
+  rfl
+
+theorem Array.sizeU64_toNat (ar : Array α) (h : ar.size < UInt64.size) :
+    ar.sizeU64.toNat = ar.size := by
+  rw [sizeU64_eq]
+  exact ar.size_toUInt64_toNat h
 
 macro:50 "rlet" pat:term ":=" expr:term rest:term : term =>
   `(match _ : $expr:term with
+      | $pat => $rest)
+
+macro:50 "rlet" h:ident ":" pat:term ":=" expr:term rest:term : term =>
+  `(match $h:ident : $expr:term with
       | $pat => $rest)
 
 macro:50 "rlet" pat:term "←" expr:term  rest:term : term =>
