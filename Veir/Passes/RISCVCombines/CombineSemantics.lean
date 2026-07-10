@@ -13357,4 +13357,848 @@ theorem srlw_sraw_signbit_local_preservesSemantics
   simp only [hsv, hXo, hOpProps, h31]
   exact Data.RISCV.srlw_sraw_signbit
 
+/-! ## RISC-V-dialect low-word extension drops feeding a consumer that reads only bits 31:0
+
+  `riscv.<dst> (riscv.<ext> x) -> riscv.<dst> x` (unary immediate `dst`) and the binary analogue.
+  Since `Data.RISCV.Reg` is total (no poison), refinement on `RuntimeValue.reg` is equality, so the
+  data obligation is the ordinary low-word equality `dstFn (extFn x) = dstFn x` (proven in
+  `Veir/Passes/RISCVCombines/Proofs.lean`). One op is created (the `dst` with its extension operand(s)
+  stripped) and the matched op's result is forwarded to it. -/
+
+/-- Props-threaded analogue of `matchRiscvUnaryReg_interpretOp_unfold`: unfold one successful
+    interpretation of a unary reg-to-reg `riscv` op `rop` carrying the fixed property bundle `props`
+    (typically an immediate). The result function `g` may depend on `props`. -/
+theorem matchRiscvUnaryRegProps_interpretOp_unfold {rop : Riscv} {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {operand : ValuePtr} {g : Data.RISCV.Reg → Data.RISCV.Reg}
+    {props : HasDialectOpInfo.propertiesOf rop}
+    {state newState : InterpreterState ctx} {cf} (opInBounds : op.InBounds ctx.raw)
+    (hOpType : op.getOpType! ctx.raw = .riscv rop)
+    (hNumResults : op.getNumResults! ctx.raw = 1)
+    (hOperands : op.getOperands! ctx.raw = #[operand])
+    (hProps : op.getProperties! ctx.raw (.riscv rop) = props)
+    (hSem : ∀ (rt : Array TypeAttr) (ops : Array RuntimeValue) (bo : Array BlockPtr)
+        (mem : MemoryState) (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' rop props rt ops bo mem = some (.ok res) →
+        ∃ r, ops = #[.reg r] ∧ res = (#[.reg (g r)], mem, none))
+    (hinterp : interpretOp op state opInBounds = some (.ok (newState, cf))) :
+    ∃ r, state.variables.getVar? operand = some (RuntimeValue.reg r) ∧
+      state.memory = newState.memory ∧
+      newState.variables.getVar? (op.getResult 0) = some (RuntimeValue.reg (g r)) ∧
+      cf = none := by
+  have hNumOperands : op.getNumOperands! ctx.raw = 1 := by
+    simp [← OperationPtr.getOperands!.size_eq_getNumOperands!, hOperands]
+  have hOperandEq : operand = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  obtain ⟨operandValues, _, _, _, hOperandValues, _⟩ := interpretOp_some_iff.mp hinterp
+  simp only [VariableState.getOperandValues] at hOperandValues
+  have hsize : 0 < (op.getOperands! ctx.raw).size := by
+    rw [OperationPtr.getOperands!.size_eq_getNumOperands!]; omega
+  obtain ⟨val, hval⟩ :=
+    Array.exists_mapM_option_eq_some_iff.mp ⟨operandValues, hOperandValues⟩ 0 hsize
+  have hgetVar : state.variables.getVar? operand = some val := by
+    rw [hOperandEq, show (op.getOperands! ctx.raw)[0]! = (op.getOperands! ctx.raw)[0] from by grind]
+    exact hval
+  have hOperand0 : op.getOperand! ctx.raw 0 = operand := by
+    rw [hOperandEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOpVals : state.variables.getOperandValues op = some #[val] := by
+    rw [VariableState.getOperandValues_eq_some_iff]
+    refine ⟨by simp [hNumOperands], fun i hi => ?_⟩
+    rw [hNumOperands] at hi
+    obtain rfl : i = 0 := by omega
+    simpa [hOperand0] using hgetVar
+  rw [interpretOp_some_iff] at hinterp
+  obtain ⟨operandValues', resValues, mem', varState', hOV, hInterp', hSet, hNew⟩ := hinterp
+  rw [hOpVals, Option.some.injEq] at hOV
+  subst hOV
+  simp only [OperationPtr.interpret] at hInterp'
+  rw [hOpType] at hInterp'
+  simp only [interpretOp'] at hInterp'
+  rw [hProps] at hInterp'
+  obtain ⟨r, hopsEq, hresEq⟩ := hSem _ _ _ _ _ hInterp'
+  obtain rfl : val = RuntimeValue.reg r := by simpa using hopsEq
+  obtain ⟨rfl, rfl, rfl⟩ : resValues = #[RuntimeValue.reg (g r)] ∧
+      mem' = state.memory ∧ cf = none := by simpa using hresEq
+  subst hNew
+  refine ⟨r, hgetVar, rfl, ?_, rfl⟩
+  rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumResults]; omega) hSet]
+  simp
+
+/-- When `stripDefiningExt ext v ctx` reports a change, `v` is defined by a `riscv.<ext>` op and the
+    returned value is that op's (single) operand. -/
+theorem stripDefiningExt_eq_some {ext : Riscv} {v src : ValuePtr} {ctx : IRContext OpCode}
+    (h : stripDefiningExt ext v ctx = (src, true)) :
+    ∃ (innerOp : OperationPtr) (iOperands : Array ValuePtr)
+      (iProps : HasOpInfo.propertiesOf (OpCode.riscv ext)),
+      getDefiningOp v ctx = some innerOp ∧
+      matchOp innerOp ctx (.riscv ext) 1 = some (iOperands, iProps) ∧ src = iOperands[0]! := by
+  cases hd : getDefiningOp v ctx with
+  | none => simp [stripDefiningExt, hd] at h
+  | some innerOp =>
+    cases hm : matchOp innerOp ctx (.riscv ext) 1 with
+    | none => simp [stripDefiningExt, hd, hm] at h
+    | some pr =>
+      obtain ⟨iOperands, iProps⟩ := pr
+      refine ⟨innerOp, iOperands, iProps, rfl, hm, ?_⟩
+      simp only [stripDefiningExt, hd, hm] at h
+      injection h with h1 h2
+      exact h1.symm
+
+set_option maxHeartbeats 1000000 in
+/-- Ext-strip reader: a value `base` that is an operand of `op` and is defined by a unary
+    reg-to-reg `riscv` op `rop` (whose data action is `extFn`, characterised by `hSem`) reads, in a
+    source state satisfying `EquationLemmaAt` before `op`, as `.reg (extFn r)` for a register `r`
+    that is also the value of the extension's own operand `iOperands[0]!` — and that operand
+    dominates the point before `op` and is not a result of `op`. This is what a low-word combine
+    needs to replay the `dst` op with the extension stripped. -/
+theorem riscv_unaryReg_stripExt_getVar? {rop : Riscv}
+    {extFn : Data.RISCV.Reg → Data.RISCV.Reg} {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) (_ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    (hPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .riscv rop → opp.Pure c)
+    (hSem : ∀ (props : HasDialectOpInfo.propertiesOf rop) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' rop props rt ops bo mem = some (.ok res) →
+        ∃ r, ops = #[.reg r] ∧ res = (#[.reg (extFn r)], mem, none))
+    {base : ValuePtr} {innerOp : OperationPtr} {iOperands : Array ValuePtr}
+    {iProps : HasOpInfo.propertiesOf (OpCode.riscv rop)}
+    (hDef : getDefiningOp base ctx.raw = some innerOp)
+    (hMatch : matchOp innerOp ctx.raw (.riscv rop) 1 = some (iOperands, iProps))
+    (hOperand : base ∈ op.getOperands! ctx.raw) :
+    ∃ r : Data.RISCV.Reg,
+      state.variables.getVar? (iOperands[0]!) = some (RuntimeValue.reg r) ∧
+      state.variables.getVar? base = some (RuntimeValue.reg (extFn r)) ∧
+      (iOperands[0]!).dominatesIp (InsertPoint.before op) ctx ∧
+      (iOperands[0]!) ∉ op.getResults! ctx.raw ∧
+      (iOperands[0]!).InBounds ctx.raw := by
+  obtain ⟨basePtr, rfl, rfl⟩ := getDefiningOp_implies hDef
+  obtain ⟨hInnerType, hInnerNumOperands, hInnerNumResults, hInnerOperandsEq, -⟩ :=
+    matchOp_implies hMatch
+  have hInnerSingleton :
+      basePtr.op.getOperands! ctx.raw = #[(basePtr.op.getOperands! ctx.raw)[0]!] := by
+    have hsz : (basePtr.op.getOperands! ctx.raw).size = 1 := by
+      rw [OperationPtr.getOperands!.size_eq_getNumOperands!, hInnerNumOperands]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  have hBaseIn : (ValuePtr.opResult basePtr).InBounds ctx.raw := by grind
+  have hInnerOpIn : basePtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hbaseIdx : basePtr.index < basePtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hbaseEq : basePtr = basePtr.op.getResult 0 := by
+    have hidx : basePtr.index = 0 := by omega
+    cases basePtr; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+  have hInnerDefines : (ValuePtr.opResult basePtr).getDefiningOp! ctx.raw = some basePtr.op := by
+    have hOwner := (ctx.wellFormed.operations basePtr.op hInnerOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hInnerSDom : basePtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hInnerDefines hOperand
+  have hInnerDomIp : basePtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hInnerPure : basePtr.op.Pure ctx.raw := hPure hInnerType
+  obtain ⟨cfI, hInterpInner⟩ := stateWf basePtr.op hInnerOpIn hInnerPure hInnerDomIp
+  obtain ⟨r, hOperandVal, -, hResVal, -⟩ :=
+    matchRiscvUnaryReg_interpretOp_unfold (rop := rop) (f := extFn) hInnerOpIn hInnerType
+      hInnerNumResults hInnerSingleton hSem hInterpInner
+  -- `iOperands[0]! = (basePtr.op.getOperands!)[0]!`.
+  have hSrcEq : iOperands[0]! = (basePtr.op.getOperands! ctx.raw)[0]! := by rw [hInnerOperandsEq]
+  have hSrcMem : (basePtr.op.getOperands! ctx.raw)[0]! ∈ basePtr.op.getOperands! ctx.raw := by
+    rw [hInnerSingleton]; simp
+  refine ⟨r, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hSrcEq]; exact hOperandVal
+  · rw [hbaseEq]; exact hResVal
+  · rw [hSrcEq]
+    exact ValuePtr.dominatesIp_before_of_strictlyDominates
+      (ctxDom.operand_dominates_op hInnerOpIn hSrcMem) hInnerSDom
+  · rw [hSrcEq]
+    exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hInnerSDom) _ hSrcMem
+  · have hGetOperand : basePtr.op.getOperand! ctx.raw 0 = (basePtr.op.getOperands! ctx.raw)[0]! := by
+      grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+    rw [hSrcEq, ← hGetOperand]; grind
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness for `riscv.<dst> (riscv.<ext> x) -> riscv.<dst> x`, over any unary
+    immediate reg-to-reg consumer `dst` (data action `dstFn`, depending on its property bundle) that
+    reads only bits 31:0 of its operand, and any width extension `ext` (data action `extFn`) that
+    leaves bits 31:0 unchanged. The soundness fact is the low-word equality `hLowWord`. One `dst` op
+    is created with the extension stripped; the matched op's result forwards to it. Registers carry
+    no poison, so `hLowWord` (a plain equality) discharges the refinement exactly. -/
+theorem drop_ext_unary_imm_low_word_local_preservesSemantics {ext dst : Riscv}
+    {extFn : Data.RISCV.Reg → Data.RISCV.Reg}
+    {dstFn : HasDialectOpInfo.propertiesOf dst → Data.RISCV.Reg → Data.RISCV.Reg}
+    (hExtPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .riscv ext → opp.Pure c)
+    (hExtSem : ∀ (props : HasDialectOpInfo.propertiesOf ext) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' ext props rt ops bo mem = some (.ok res) →
+        ∃ r, ops = #[.reg r] ∧ res = (#[.reg (extFn r)], mem, none))
+    (hDstChar : ∀ (props : HasDialectOpInfo.propertiesOf dst) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' dst props rt ops bo mem = some (.ok res) →
+        ∃ r, ops = #[.reg r] ∧ res = (#[.reg (dstFn props r)], mem, none))
+    (hDstFwd : ∀ (props : HasDialectOpInfo.propertiesOf dst) (r : Data.RISCV.Reg)
+        (rt : Array TypeAttr) (bo : Array BlockPtr) (mem : MemoryState),
+        Riscv.interpretOp' dst props rt #[.reg r] bo mem
+          = some (.ok (#[.reg (dstFn props r)], mem, none)))
+    (hLowWord : ∀ (props : HasDialectOpInfo.propertiesOf dst) (r : Data.RISCV.Reg),
+        dstFn props (extFn r) = dstFn props r)
+    {h : LocalRewritePattern.ReturnOps (drop_ext_unary_imm_low_word_local ext dst)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_unary_imm_low_word_local ext dst)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_unary_imm_low_word_local ext dst)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_unary_imm_low_word_local ext dst)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_unary_imm_low_word_local ext dst) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, drop_ext_unary_imm_low_word_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp only [pure] at hpattern
+  -- Peel the outer `matchOp dst`.
+  have hMatchSome : (matchOp op ctx.raw (.riscv dst) 1).isSome := by
+    cases hM : matchOp op ctx.raw (.riscv dst) 1 with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨operands, oProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  obtain ⟨hOpType, hNumOperands, hNumResults, hOperandsEq, hPropsEq⟩ := matchOp_implies hMatch
+  have hOperands : op.getOperands! ctx.raw = #[operands[0]!] := by
+    have hsz : operands.size = 1 := by
+      rw [hOperandsEq, OperationPtr.getOperands!.size_eq_getNumOperands!, hNumOperands]
+    rw [← hOperandsEq]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  -- Peel `stripDefiningExt` and the `if !changed` guard.
+  rcases hstrip : stripDefiningExt ext operands[0]! ctx.raw with ⟨src, changed⟩
+  rw [hstrip] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  · simp at hpattern
+  rename_i hcond
+  obtain rfl : changed = true := by cases changed with | true => rfl | false => exact (hcond rfl).elim
+  obtain ⟨innerOp, extOperands, extProps, hDef, hExtMatch, rfl⟩ := stripDefiningExt_eq_some hstrip
+  -- Read the stripped operand `src = extOperands[0]!` and the ext result value.
+  have hOperandMem : operands[0]! ∈ op.getOperands! ctx.raw := by rw [hOperands]; simp
+  obtain ⟨w, hSrcVal, hBaseVal, hDomSrc, hSrcNotOp, hSrcIn⟩ :=
+    riscv_unaryReg_stripExt_getVar? (rop := ext) (extFn := extFn) ctxDom ctxVerif opInBounds
+      stateWf hExtPure hExtSem hDef hExtMatch hOperandMem
+  -- Unfold the matched `dst` op's interpretation (its operand value is `.reg (extFn w)`).
+  obtain ⟨a, hOpndVal, hMemEq, hResVal, hCf⟩ :=
+    matchRiscvUnaryRegProps_interpretOp_unfold (rop := dst) (g := dstFn oProps) (props := oProps)
+      opInBounds hOpType hNumResults hOperands hPropsEq.symm
+      (fun rt ops bo mem res hh => hDstChar oProps rt ops bo mem res hh) hinterp
+  subst hCf
+  obtain rfl : a = extFn w := by
+    have := hOpndVal.symm.trans hBaseVal; simpa using this
+  -- Source value: the single result `.reg (dstFn oProps (extFn w))`.
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hResVal] at hsourceValues
+  subst sourceValues
+  -- Peel the single op-creation and transport `src`'s dominance to the new context.
+  simp only [bind, Option.bind_eq_some_iff] at hpattern
+  peelOpCreation! hpattern ctx₁ newOp hNewCtx hDomSrc hDomSrc₁
+  obtain ⟨rfl, rfl, rfl⟩ :
+      ctx₁ = newCtx ∧ newOps = #[newOp] ∧
+        newValues = #[ValuePtr.opResult (newOp.getResult 0)] := by
+    simp at hpattern; grind
+  -- Read `src`'s refined value in the target state (register refinement is equality).
+  have hSrcVal' :=
+    LocalRewritePattern.exists_refined_reg_getVar? valueRefinement state'Dom hSrcIn hSrcVal
+      hDomSrc hDomSrc₁ hSrcNotOp
+  -- Structural facts about the created `dst` op.
+  have hNewType : newOp.getOpType! ctx₁.raw = .riscv dst := by grind
+  have hNewOperands : newOp.getOperands! ctx₁.raw = #[extOperands[0]!] := by grind
+  have hNewProps : newOp.getProperties! ctx₁.raw (.riscv dst) = oProps := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hNewCtx (operation := newOp)]
+  have hNewResTypes : newOp.getResultTypes! ctx₁.raw = #[⟨Attribute.registerType ⟨none⟩, rfl⟩] := by
+    grind [OperationPtr.getResultTypes!_WfRewriter_createOp hNewCtx (operation := newOp)]
+  -- Replay the created `dst` op in `state'`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, -⟩ :=
+    interpretOp_riscv_unaryReg_imm_forward (state := state') (inBounds := by grind)
+      (res := dstFn oProps w) (props := oProps)
+      (fun rt bo mem => hDstFwd oProps w rt bo mem)
+      hNewType hNewProps hNewOperands hNewResTypes hSrcVal'
+  refine ⟨s₁, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.reg (dstFn oProps w)], by simp [hRes₁, Option.bind, Option.map], ?_⟩
+  exact RuntimeValue.arrayIsRefinedBy_singleton.mpr (hLowWord oProps w)
+
+/-- Shared `hExtSem` discharge for a zero/sign width extension viewed as the *stripped* op: a
+    successful `riscv.<ext>` run reads one register `r` and returns `.reg (extFn r)`. -/
+private theorem riscv_ext_char {ext : Riscv} {extFn : Data.RISCV.Reg → Data.RISCV.Reg}
+    (hfwd : ∀ (props : HasDialectOpInfo.propertiesOf ext) (rt : Array TypeAttr)
+        (r : Data.RISCV.Reg) (bo : Array BlockPtr) (mem : MemoryState),
+        Riscv.interpretOp' ext props rt #[.reg r] bo mem
+          = some (.ok (#[.reg (extFn r)], mem, none)))
+    (hshape : ∀ (props : HasDialectOpInfo.propertiesOf ext) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' ext props rt ops bo mem = some (.ok res) →
+        ∃ r, ops = #[.reg r]) :
+    ∀ (props : HasDialectOpInfo.propertiesOf ext) (rt : Array TypeAttr)
+      (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+      (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+      Riscv.interpretOp' ext props rt ops bo mem = some (.ok res) →
+      ∃ r, ops = #[.reg r] ∧ res = (#[.reg (extFn r)], mem, none) := by
+  intro props rt ops bo mem res h
+  obtain ⟨r, rfl⟩ := hshape props rt ops bo mem res h
+  rw [hfwd props rt r bo mem] at h
+  exact ⟨r, rfl, by injection h with h; injection h with h; exact h.symm⟩
+
+/-! ### `drop_ext_unary_imm_low_word` instantiations (8 registered patterns) -/
+
+theorem drop_zextw_addiw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_unary_imm_low_word_local .zextw .addiw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_unary_imm_low_word_local .zextw .addiw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_unary_imm_low_word_local .zextw .addiw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_unary_imm_low_word_local .zextw .addiw)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_unary_imm_low_word_local .zextw .addiw)
+      h h₂ h₃ h₄ :=
+  drop_ext_unary_imm_low_word_local_preservesSemantics (ext := .zextw) (dst := .addiw)
+    (extFn := Data.RISCV.zextw)
+    (dstFn := fun (props : RISCVImmediateProperties) r =>
+      Data.RISCV.addiw (BitVec.ofInt 12 props.value.value) r)
+    (fun hType => OperationPtr.Pure.riscv_zextw hType)
+    (riscv_ext_char (extFn := Data.RISCV.zextw)
+      (fun _ _ r _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r heq; exact ⟨r, Array.toList_inj.mp heq⟩
+        · exact absurd h (by simp)))
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun _ r _ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+    (fun _ _ => Data.RISCV.drop_zextw_addiw)
+
+
+theorem drop_zextw_roriw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_unary_imm_low_word_local .zextw .roriw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_unary_imm_low_word_local .zextw .roriw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_unary_imm_low_word_local .zextw .roriw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_unary_imm_low_word_local .zextw .roriw)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_unary_imm_low_word_local .zextw .roriw)
+      h h₂ h₃ h₄ :=
+  drop_ext_unary_imm_low_word_local_preservesSemantics (ext := .zextw) (dst := .roriw)
+    (extFn := Data.RISCV.zextw)
+    (dstFn := fun (props : RISCVImmediateProperties) r =>
+      Data.RISCV.roriw (BitVec.ofInt 5 props.value.value) r)
+    (fun hType => OperationPtr.Pure.riscv_zextw hType)
+    (riscv_ext_char (extFn := Data.RISCV.zextw)
+      (fun _ _ r _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r heq; exact ⟨r, Array.toList_inj.mp heq⟩
+        · exact absurd h (by simp)))
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun _ r _ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+    (fun _ _ => Data.RISCV.drop_zextw_roriw)
+
+
+theorem drop_zextw_srliw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_unary_imm_low_word_local .zextw .srliw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_unary_imm_low_word_local .zextw .srliw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_unary_imm_low_word_local .zextw .srliw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_unary_imm_low_word_local .zextw .srliw)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_unary_imm_low_word_local .zextw .srliw)
+      h h₂ h₃ h₄ :=
+  drop_ext_unary_imm_low_word_local_preservesSemantics (ext := .zextw) (dst := .srliw)
+    (extFn := Data.RISCV.zextw)
+    (dstFn := fun (props : RISCVImmediateProperties) r =>
+      Data.RISCV.srliw (BitVec.ofInt 5 props.value.value) r)
+    (fun hType => OperationPtr.Pure.riscv_zextw hType)
+    (riscv_ext_char (extFn := Data.RISCV.zextw)
+      (fun _ _ r _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r heq; exact ⟨r, Array.toList_inj.mp heq⟩
+        · exact absurd h (by simp)))
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun _ r _ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+    (fun _ _ => Data.RISCV.drop_zextw_srliw)
+
+
+theorem drop_zextw_sextw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_unary_imm_low_word_local .zextw .sextw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_unary_imm_low_word_local .zextw .sextw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_unary_imm_low_word_local .zextw .sextw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_unary_imm_low_word_local .zextw .sextw)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_unary_imm_low_word_local .zextw .sextw)
+      h h₂ h₃ h₄ :=
+  drop_ext_unary_imm_low_word_local_preservesSemantics (ext := .zextw) (dst := .sextw)
+    (extFn := Data.RISCV.zextw)
+    (dstFn := fun (_ : Unit) r => Data.RISCV.sextw r)
+    (fun hType => OperationPtr.Pure.riscv_zextw hType)
+    (riscv_ext_char (extFn := Data.RISCV.zextw)
+      (fun _ _ r _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r heq; exact ⟨r, Array.toList_inj.mp heq⟩
+        · exact absurd h (by simp)))
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun _ r _ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+    (fun _ _ => Data.RISCV.drop_zextw_sextw)
+
+
+theorem drop_sextw_addiw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_unary_imm_low_word_local .sextw .addiw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_unary_imm_low_word_local .sextw .addiw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_unary_imm_low_word_local .sextw .addiw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_unary_imm_low_word_local .sextw .addiw)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_unary_imm_low_word_local .sextw .addiw)
+      h h₂ h₃ h₄ :=
+  drop_ext_unary_imm_low_word_local_preservesSemantics (ext := .sextw) (dst := .addiw)
+    (extFn := Data.RISCV.sextw)
+    (dstFn := fun (props : RISCVImmediateProperties) r =>
+      Data.RISCV.addiw (BitVec.ofInt 12 props.value.value) r)
+    (fun hType => OperationPtr.Pure.riscv_sextw hType)
+    (riscv_ext_char (extFn := Data.RISCV.sextw)
+      (fun _ _ r _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r heq; exact ⟨r, Array.toList_inj.mp heq⟩
+        · exact absurd h (by simp)))
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun _ r _ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+    (fun _ _ => Data.RISCV.drop_sextw_addiw)
+
+
+theorem drop_sextw_roriw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_unary_imm_low_word_local .sextw .roriw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_unary_imm_low_word_local .sextw .roriw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_unary_imm_low_word_local .sextw .roriw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_unary_imm_low_word_local .sextw .roriw)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_unary_imm_low_word_local .sextw .roriw)
+      h h₂ h₃ h₄ :=
+  drop_ext_unary_imm_low_word_local_preservesSemantics (ext := .sextw) (dst := .roriw)
+    (extFn := Data.RISCV.sextw)
+    (dstFn := fun (props : RISCVImmediateProperties) r =>
+      Data.RISCV.roriw (BitVec.ofInt 5 props.value.value) r)
+    (fun hType => OperationPtr.Pure.riscv_sextw hType)
+    (riscv_ext_char (extFn := Data.RISCV.sextw)
+      (fun _ _ r _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r heq; exact ⟨r, Array.toList_inj.mp heq⟩
+        · exact absurd h (by simp)))
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun _ r _ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+    (fun _ _ => Data.RISCV.drop_sextw_roriw)
+
+
+theorem drop_sextw_srliw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_unary_imm_low_word_local .sextw .srliw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_unary_imm_low_word_local .sextw .srliw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_unary_imm_low_word_local .sextw .srliw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_unary_imm_low_word_local .sextw .srliw)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_unary_imm_low_word_local .sextw .srliw)
+      h h₂ h₃ h₄ :=
+  drop_ext_unary_imm_low_word_local_preservesSemantics (ext := .sextw) (dst := .srliw)
+    (extFn := Data.RISCV.sextw)
+    (dstFn := fun (props : RISCVImmediateProperties) r =>
+      Data.RISCV.srliw (BitVec.ofInt 5 props.value.value) r)
+    (fun hType => OperationPtr.Pure.riscv_sextw hType)
+    (riscv_ext_char (extFn := Data.RISCV.sextw)
+      (fun _ _ r _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r heq; exact ⟨r, Array.toList_inj.mp heq⟩
+        · exact absurd h (by simp)))
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun _ r _ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+    (fun _ _ => Data.RISCV.drop_sextw_srliw)
+
+
+theorem drop_sextw_zextw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_unary_imm_low_word_local .sextw .zextw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_unary_imm_low_word_local .sextw .zextw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_unary_imm_low_word_local .sextw .zextw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_unary_imm_low_word_local .sextw .zextw)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_unary_imm_low_word_local .sextw .zextw)
+      h h₂ h₃ h₄ :=
+  drop_ext_unary_imm_low_word_local_preservesSemantics (ext := .sextw) (dst := .zextw)
+    (extFn := Data.RISCV.sextw)
+    (dstFn := fun (_ : Unit) r => Data.RISCV.zextw r)
+    (fun hType => OperationPtr.Pure.riscv_sextw hType)
+    (riscv_ext_char (extFn := Data.RISCV.sextw)
+      (fun _ _ r _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r heq; exact ⟨r, Array.toList_inj.mp heq⟩
+        · exact absurd h (by simp)))
+    (fun _ _ _ _ _ _ h => by
+      simp only [Riscv.interpretOp', pure, Interp] at h
+      split at h
+      · rename_i r heq
+        exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+      · exact absurd h (by simp))
+    (fun _ r _ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+    (fun _ _ => Data.RISCV.drop_sextw_zextw)
+
+
+/-! ### `drop_ext_binary_low_word` (backs `drop_zextw_addw`, `drop_sextw_addw`) -/
+
+/-- Binary analogue of `matchRiscvUnaryReg_interpretOp_unfold`: unfold one successful interpretation
+    of a binary reg-to-reg `riscv` op `rop` whose action is `f` (fully characterised by `hSem`). -/
+theorem matchRiscvBinaryReg_interpretOp_unfold {rop : Riscv} {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {o0 o1 : ValuePtr} {f : Data.RISCV.Reg → Data.RISCV.Reg → Data.RISCV.Reg}
+    {state newState : InterpreterState ctx} {cf} (opInBounds : op.InBounds ctx.raw)
+    (hOpType : op.getOpType! ctx.raw = .riscv rop)
+    (hNumResults : op.getNumResults! ctx.raw = 1)
+    (hOperands : op.getOperands! ctx.raw = #[o0, o1])
+    (hSem : ∀ (props : HasDialectOpInfo.propertiesOf rop) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' rop props rt ops bo mem = some (.ok res) →
+        ∃ r₀ r₁, ops = #[.reg r₀, .reg r₁] ∧ res = (#[.reg (f r₀ r₁)], mem, none))
+    (hinterp : interpretOp op state opInBounds = some (.ok (newState, cf))) :
+    ∃ r₀ r₁, state.variables.getVar? o0 = some (RuntimeValue.reg r₀) ∧
+      state.variables.getVar? o1 = some (RuntimeValue.reg r₁) ∧
+      state.memory = newState.memory ∧
+      newState.variables.getVar? (op.getResult 0) = some (RuntimeValue.reg (f r₀ r₁)) ∧
+      cf = none := by
+  have hNumOperands : op.getNumOperands! ctx.raw = 2 := by
+    simp [← OperationPtr.getOperands!.size_eq_getNumOperands!, hOperands]
+  have hO0Eq : o0 = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  have hO1Eq : o1 = (op.getOperands! ctx.raw)[1]! := by rw [hOperands]; rfl
+  obtain ⟨operandValues, _, _, _, hOperandValues, _⟩ := interpretOp_some_iff.mp hinterp
+  simp only [VariableState.getOperandValues] at hOperandValues
+  have hsize0 : 0 < (op.getOperands! ctx.raw).size := by
+    rw [OperationPtr.getOperands!.size_eq_getNumOperands!]; omega
+  have hsize1 : 1 < (op.getOperands! ctx.raw).size := by
+    rw [OperationPtr.getOperands!.size_eq_getNumOperands!]; omega
+  obtain ⟨v0, hv0⟩ := Array.exists_mapM_option_eq_some_iff.mp ⟨operandValues, hOperandValues⟩ 0 hsize0
+  obtain ⟨v1, hv1⟩ := Array.exists_mapM_option_eq_some_iff.mp ⟨operandValues, hOperandValues⟩ 1 hsize1
+  have hg0 : state.variables.getVar? o0 = some v0 := by
+    rw [hO0Eq, show (op.getOperands! ctx.raw)[0]! = (op.getOperands! ctx.raw)[0] from by grind]
+    exact hv0
+  have hg1 : state.variables.getVar? o1 = some v1 := by
+    rw [hO1Eq, show (op.getOperands! ctx.raw)[1]! = (op.getOperands! ctx.raw)[1] from by grind]
+    exact hv1
+  have hOperand0 : op.getOperand! ctx.raw 0 = o0 := by
+    rw [hO0Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = o1 := by
+    rw [hO1Eq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOpVals : state.variables.getOperandValues op = some #[v0, v1] := by
+    rw [VariableState.getOperandValues_eq_some_iff]
+    refine ⟨by simp [hNumOperands], fun i hi => ?_⟩
+    rw [hNumOperands] at hi
+    match i, hi with
+    | 0, _ => simpa [hOperand0] using hg0
+    | 1, _ => simpa [hOperand1] using hg1
+  rw [interpretOp_some_iff] at hinterp
+  obtain ⟨operandValues', resValues, mem', varState', hOV, hInterp', hSet, hNew⟩ := hinterp
+  rw [hOpVals, Option.some.injEq] at hOV
+  subst hOV
+  simp only [OperationPtr.interpret] at hInterp'
+  rw [hOpType] at hInterp'
+  simp only [interpretOp'] at hInterp'
+  obtain ⟨r₀, r₁, hopsEq, hresEq⟩ := hSem _ _ _ _ _ _ hInterp'
+  obtain ⟨rfl, rfl⟩ : v0 = RuntimeValue.reg r₀ ∧ v1 = RuntimeValue.reg r₁ := by
+    simpa using hopsEq
+  obtain ⟨rfl, rfl, rfl⟩ : resValues = #[RuntimeValue.reg (f r₀ r₁)] ∧
+      mem' = state.memory ∧ cf = none := by simpa using hresEq
+  subst hNew
+  refine ⟨r₀, r₁, hg0, hg1, rfl, ?_, rfl⟩
+  rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumResults]; omega) hSet]
+  simp
+
+/-- When `stripDefiningExt` reports *no* change, the returned value is the input unchanged. -/
+theorem stripDefiningExt_eq_false {ext : Riscv} {v s : ValuePtr} {ctx : IRContext OpCode}
+    (h : stripDefiningExt ext v ctx = (s, false)) : s = v := by
+  cases hd : getDefiningOp v ctx with
+  | none => simp only [stripDefiningExt, hd] at h; injection h with h1 _; exact h1.symm
+  | some innerOp =>
+    cases hm : matchOp innerOp ctx (.riscv ext) 1 with
+    | none => simp only [stripDefiningExt, hd, hm] at h; injection h with h1 _; exact h1.symm
+    | some pr =>
+      obtain ⟨iOperands, iProps⟩ := pr
+      simp only [stripDefiningExt, hd, hm] at h; injection h with _ h2; exact absurd h2 (by simp)
+
+/-- Unified reader for a `stripDefiningExt` result: whether or not the extension was stripped, the
+    returned value `s` reads as some register `sval` (equal to the *original* operand value when
+    unchanged, or the pre-extension value when stripped), dominates the point before `op`, is not a
+    result of `op`, and is in bounds. -/
+theorem stripDefiningExt_getVar? {rop : Riscv} {extFn : Data.RISCV.Reg → Data.RISCV.Reg}
+    {ctx : WfIRContext OpCode} (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    (hPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .riscv rop → opp.Pure c)
+    (hSem : ∀ (props : HasDialectOpInfo.propertiesOf rop) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' rop props rt ops bo mem = some (.ok res) →
+        ∃ r, ops = #[.reg r] ∧ res = (#[.reg (extFn r)], mem, none))
+    {v s : ValuePtr} {changed : Bool} {vval : Data.RISCV.Reg}
+    (hstrip : stripDefiningExt rop v ctx.raw = (s, changed))
+    (hv : v ∈ op.getOperands! ctx.raw)
+    (hvVal : state.variables.getVar? v = some (RuntimeValue.reg vval)) :
+    ∃ sval, state.variables.getVar? s = some (RuntimeValue.reg sval) ∧
+      vval = (if changed then extFn sval else sval) ∧
+      s.dominatesIp (InsertPoint.before op) ctx ∧
+      s ∉ op.getResults! ctx.raw ∧ s.InBounds ctx.raw := by
+  cases changed with
+  | false =>
+    obtain rfl := stripDefiningExt_eq_false hstrip
+    refine ⟨vval, hvVal, by simp, ?_, ?_, ?_⟩
+    · exact ctxDom.operand_dominates_op opInBounds hv
+    · grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+    · grind [WfIRContext.Dom.operand_dominates_op]
+  | true =>
+    obtain ⟨innerOp, extOperands, extProps, hDef, hExtMatch, rfl⟩ := stripDefiningExt_eq_some hstrip
+    obtain ⟨sval, hSrcVal, hBaseVal, hDomSrc, hSrcNotOp, hSrcIn⟩ :=
+      riscv_unaryReg_stripExt_getVar? (rop := rop) (extFn := extFn) ctxDom ctxVerif opInBounds
+        stateWf hPure hSem hDef hExtMatch hv
+    refine ⟨sval, hSrcVal, ?_, hDomSrc, hSrcNotOp, hSrcIn⟩
+    have := hvVal.symm.trans hBaseVal
+    simp only [if_true]; simpa using this
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness for `riscv.<dst> (riscv.<ext> x) y -> riscv.<dst> x y` (and symmetrically on
+    the second operand), over any binary reg-to-reg consumer `dst` (action `dstFn`) that reads only
+    bits 31:0 of *each* operand, and any extension `ext` (action `extFn`) leaving bits 31:0
+    unchanged. Either operand (or both) may carry the stripped extension; the soundness facts are the
+    per-operand low-word equalities `hLowL`/`hLowR`. -/
+theorem drop_ext_binary_low_word_local_preservesSemantics {ext dst : Riscv}
+    {extFn : Data.RISCV.Reg → Data.RISCV.Reg}
+    {dstFn : Data.RISCV.Reg → Data.RISCV.Reg → Data.RISCV.Reg}
+    (hExtPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .riscv ext → opp.Pure c)
+    (hExtSem : ∀ (props : HasDialectOpInfo.propertiesOf ext) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' ext props rt ops bo mem = some (.ok res) →
+        ∃ r, ops = #[.reg r] ∧ res = (#[.reg (extFn r)], mem, none))
+    (hDstChar : ∀ (props : HasDialectOpInfo.propertiesOf dst) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' dst props rt ops bo mem = some (.ok res) →
+        ∃ r₀ r₁, ops = #[.reg r₀, .reg r₁] ∧ res = (#[.reg (dstFn r₀ r₁)], mem, none))
+    (hDstFwd : ∀ (props : HasDialectOpInfo.propertiesOf dst) (r₀ r₁ : Data.RISCV.Reg)
+        (rt : Array TypeAttr) (bo : Array BlockPtr) (mem : MemoryState),
+        Riscv.interpretOp' dst props rt #[.reg r₀, .reg r₁] bo mem
+          = some (.ok (#[.reg (dstFn r₀ r₁)], mem, none)))
+    (hLowL : ∀ a b, dstFn (extFn a) b = dstFn a b)
+    (hLowR : ∀ a b, dstFn a (extFn b) = dstFn a b)
+    {h : LocalRewritePattern.ReturnOps (drop_ext_binary_low_word_local ext dst)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_binary_low_word_local ext dst)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_binary_low_word_local ext dst)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_binary_low_word_local ext dst)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_binary_low_word_local ext dst) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, drop_ext_binary_low_word_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp only [pure] at hpattern
+  -- Peel the outer `matchOp dst` (two operands).
+  have hMatchSome : (matchOp op ctx.raw (.riscv dst) 2).isSome := by
+    cases hM : matchOp op ctx.raw (.riscv dst) 2 with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨operands, oProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  obtain ⟨hOpType, hNumOperands, hNumResults, hOperandsEq, hPropsEq⟩ := matchOp_implies hMatch
+  have hOperands : op.getOperands! ctx.raw = #[operands[0]!, operands[1]!] := by
+    have hsz : operands.size = 2 := by
+      rw [hOperandsEq, OperationPtr.getOperands!.size_eq_getNumOperands!, hNumOperands]
+    rw [← hOperandsEq]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      have hi2 : i < 2 := by simpa using h2
+      match i, hi2 with
+      | 0, _ => simp [getElem!_pos, hsz]
+      | 1, _ => simp [getElem!_pos, hsz]
+  -- Peel both `stripDefiningExt`s and the `if !lhsChanged && !rhsChanged` guard.
+  rcases hstripL : stripDefiningExt ext operands[0]! ctx.raw with ⟨lhs, lhsChanged⟩
+  rcases hstripR : stripDefiningExt ext operands[1]! ctx.raw with ⟨rhs, rhsChanged⟩
+  rw [hstripL, hstripR] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  · simp at hpattern
+  -- Unfold the matched binary `dst` op's interpretation.
+  obtain ⟨r₀, r₁, hO0Val, hO1Val, hMemEq, hResVal, hCf⟩ :=
+    matchRiscvBinaryReg_interpretOp_unfold (rop := dst) (f := dstFn) opInBounds hOpType hNumResults
+      hOperands (fun props rt ops bo mem res hh => hDstChar props rt ops bo mem res hh) hinterp
+  subst hCf
+  -- Read both stripped operands.
+  have hMem0 : operands[0]! ∈ op.getOperands! ctx.raw := by rw [hOperands]; simp
+  have hMem1 : operands[1]! ∈ op.getOperands! ctx.raw := by rw [hOperands]; simp
+  obtain ⟨lval, hLVal, hLEq, hDomL, hLNotOp, hLIn⟩ :=
+    stripDefiningExt_getVar? (rop := ext) (extFn := extFn) ctxDom ctxVerif opInBounds stateWf
+      hExtPure hExtSem hstripL hMem0 hO0Val
+  obtain ⟨rval, hRVal, hREq, hDomR, hRNotOp, hRIn⟩ :=
+    stripDefiningExt_getVar? (rop := ext) (extFn := extFn) ctxDom ctxVerif opInBounds stateWf
+      hExtPure hExtSem hstripR hMem1 hO1Val
+  -- Source value: `.reg (dstFn r₀ r₁)`.
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hResVal] at hsourceValues
+  subst sourceValues
+  -- Peel the single op-creation and transport both dominances.
+  simp only [bind, Option.bind_eq_some_iff] at hpattern
+  peelOpCreation!₂ hpattern ctx₁ newOp hNewCtx hDomL hDomL₁ hDomR hDomR₁
+  obtain ⟨rfl, rfl, rfl⟩ :
+      ctx₁ = newCtx ∧ newOps = #[newOp] ∧
+        newValues = #[ValuePtr.opResult (newOp.getResult 0)] := by
+    simp at hpattern; grind
+  -- Read both operands' refined values in the target state.
+  have hLVal' :=
+    LocalRewritePattern.exists_refined_reg_getVar? valueRefinement state'Dom hLIn hLVal
+      hDomL hDomL₁ hLNotOp
+  have hRVal' :=
+    LocalRewritePattern.exists_refined_reg_getVar? valueRefinement state'Dom hRIn hRVal
+      hDomR hDomR₁ hRNotOp
+  -- Structural facts about the created `dst` op.
+  have hNewType : newOp.getOpType! ctx₁.raw = .riscv dst := by grind
+  have hNewOperands : newOp.getOperands! ctx₁.raw = #[lhs, rhs] := by grind
+  have hNewResTypes : newOp.getResultTypes! ctx₁.raw = #[⟨Attribute.registerType ⟨none⟩, rfl⟩] := by
+    grind [OperationPtr.getResultTypes!_WfRewriter_createOp hNewCtx (operation := newOp)]
+  -- Replay the created binary `dst` op in `state'`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, -⟩ :=
+    interpretOp_riscv_binaryReg_forward (state := state') (inBounds := by grind)
+      (r₁ := lval) (r₂ := rval) (f := dstFn)
+      (fun props rt bo mem => hDstFwd props lval rval rt bo mem)
+      hNewType hNewOperands hNewResTypes hLVal' hRVal'
+  refine ⟨s₁, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.reg (dstFn lval rval)], by simp [hRes₁, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ?_
+  -- `dstFn r₀ r₁ = dstFn lval rval` since stripping only rewrites bits `dstFn` ignores.
+  rw [hLEq, hREq]
+  cases lhsChanged <;> cases rhsChanged <;> simp [hLowL, hLowR]
+
+/-- Binary analogue of `riscv_ext_char`: build the full characterisation of a binary reg op from its
+    forward evaluation `hfwd` and the shape fact `hshape` that success forces `#[.reg _, .reg _]`. -/
+private theorem riscv_binaryReg_char {rop : Riscv}
+    {f : Data.RISCV.Reg → Data.RISCV.Reg → Data.RISCV.Reg}
+    (hfwd : ∀ (props : HasDialectOpInfo.propertiesOf rop) (rt : Array TypeAttr)
+        (r₀ r₁ : Data.RISCV.Reg) (bo : Array BlockPtr) (mem : MemoryState),
+        Riscv.interpretOp' rop props rt #[.reg r₀, .reg r₁] bo mem
+          = some (.ok (#[.reg (f r₀ r₁)], mem, none)))
+    (hshape : ∀ (props : HasDialectOpInfo.propertiesOf rop) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' rop props rt ops bo mem = some (.ok res) → ∃ r₀ r₁, ops = #[.reg r₀, .reg r₁]) :
+    ∀ (props : HasDialectOpInfo.propertiesOf rop) (rt : Array TypeAttr)
+      (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+      (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+      Riscv.interpretOp' rop props rt ops bo mem = some (.ok res) →
+      ∃ r₀ r₁, ops = #[.reg r₀, .reg r₁] ∧ res = (#[.reg (f r₀ r₁)], mem, none) := by
+  intro props rt ops bo mem res h
+  obtain ⟨r₀, r₁, rfl⟩ := hshape props rt ops bo mem res h
+  rw [hfwd props rt r₀ r₁ bo mem] at h
+  exact ⟨r₀, r₁, rfl, by injection h with h; injection h with h; exact h.symm⟩
+
+/-! ### `drop_ext_binary_low_word` instantiations (`drop_zextw_addw`, `drop_sextw_addw`) -/
+
+theorem drop_zextw_addw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_binary_low_word_local .zextw .addw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_binary_low_word_local .zextw .addw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_binary_low_word_local .zextw .addw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_binary_low_word_local .zextw .addw)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_binary_low_word_local .zextw .addw) h h₂ h₃ h₄ :=
+  drop_ext_binary_low_word_local_preservesSemantics (ext := .zextw) (dst := .addw)
+    (extFn := Data.RISCV.zextw) (dstFn := fun a b => Data.RISCV.addw b a)
+    (fun hType => OperationPtr.Pure.riscv_zextw hType)
+    (riscv_ext_char (extFn := Data.RISCV.zextw)
+      (fun _ _ r _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r heq; exact ⟨r, Array.toList_inj.mp heq⟩
+        · exact absurd h (by simp)))
+    (riscv_binaryReg_char (f := fun a b => Data.RISCV.addw b a)
+      (fun _ _ r₀ r₁ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r₀ r₁ heq; exact ⟨r₀, r₁, Array.toList_inj.mp heq⟩
+        all_goals exact absurd h (by simp)))
+    (fun _ r₀ r₁ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+    (fun a b => Data.RISCV.drop_zextw_addw_rs1)
+    (fun a b => Data.RISCV.drop_zextw_addw_rs2)
+
+theorem drop_sextw_addw_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_binary_low_word_local .sextw .addw)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_binary_low_word_local .sextw .addw)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_binary_low_word_local .sextw .addw)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_binary_low_word_local .sextw .addw)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_binary_low_word_local .sextw .addw) h h₂ h₃ h₄ :=
+  drop_ext_binary_low_word_local_preservesSemantics (ext := .sextw) (dst := .addw)
+    (extFn := Data.RISCV.sextw) (dstFn := fun a b => Data.RISCV.addw b a)
+    (fun hType => OperationPtr.Pure.riscv_sextw hType)
+    (riscv_ext_char (extFn := Data.RISCV.sextw)
+      (fun _ _ r _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r heq; exact ⟨r, Array.toList_inj.mp heq⟩
+        · exact absurd h (by simp)))
+    (riscv_binaryReg_char (f := fun a b => Data.RISCV.addw b a)
+      (fun _ _ r₀ r₁ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+      (fun _ _ _ _ _ _ h => by
+        simp only [Riscv.interpretOp', pure, Interp] at h
+        split at h
+        · rename_i r₀ r₁ heq; exact ⟨r₀, r₁, Array.toList_inj.mp heq⟩
+        all_goals exact absurd h (by simp)))
+    (fun _ r₀ r₁ _ _ => by simp [Riscv.interpretOp', pure, Interp])
+    (fun a b => Data.RISCV.drop_sextw_addw_rs1)
+    (fun a b => Data.RISCV.drop_sextw_addw_rs2)
+
 end Veir.RISCV

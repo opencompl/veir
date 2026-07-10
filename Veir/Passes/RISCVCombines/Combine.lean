@@ -1375,7 +1375,7 @@ def sexth_sexth := RewritePattern.fromLocalRewrite (drop_redundant_ext_local .se
 
 /-- If `val` is defined by a `riscv.<ext>` op (`ext` being `zextw`/`sextw`),
     return its source operand and `true`; otherwise `val` unchanged and `false`. -/
-private def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) :
+def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) :
     ValuePtr × Bool :=
   match getDefiningOp val ctx with
   | none => (val, false)
@@ -1391,97 +1391,98 @@ private def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpC
 def definedByExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) : Bool :=
   (do let d ← getDefiningOp val ctx; (matchOp d ctx (.riscv ext) 1).map Prod.fst).isSome
 
-set_option warn.sorry false in
 /-- Drop `riscv.<ext>` operands (`ext` = `zextw`/`sextw`) feeding a binary op
-    whose semantics use only operand bits 31:0. For these consumers the high 32
-    bits of each source are ignored, and both extensions leave bits 31:0
-    unchanged, so extending the source first is redundant.
+    whose semantics use only operand bits 31:0, as a `LocalRewritePattern`. For
+    these consumers the high 32 bits of each source are ignored, and both
+    extensions leave bits 31:0 unchanged, so extending the source first is
+    redundant. A single `riscv.<dst>` op is created (with the extension(s)
+    stripped) and `op`'s result forwarded to it.
 
     LLVM enumerates exactly which consumers demand only operand bits 31:0 in
     `hasAllNBitUsers` (RISCVOptWInstrs.cpp); for such a consumer a feeding
     `zext.w`/`sext.w` is redundant and drops out via `SimplifyDemandedBits` /
-    sext.w removal.
+    sext.w removal. See `drop_ext_binary_low_word_local_preservesSemantics`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
-private def drop_ext_binary_low_word (ext dst : Riscv) (rewriter : PatternRewriter OpCode)
-    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
-    Option (PatternRewriter OpCode) := do
-  let some (operands, props) := matchOp op rewriter.ctx (.riscv dst) 2 | return rewriter
-  let (lhs, lhsChanged) := stripDefiningExt ext operands[0]! rewriter.ctx
-  let (rhs, rhsChanged) := stripDefiningExt ext operands[1]! rewriter.ctx
-  if !lhsChanged && !rhsChanged then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[lhs, rhs]
-      #[] #[] props (some $ .before op)
-  let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def drop_ext_binary_low_word_local (ext dst : Riscv) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, props) := matchOp op ctx (.riscv dst) 2 | return (ctx, none)
+  let (lhs, lhsChanged) := stripDefiningExt ext operands[0]! ctx
+  let (rhs, rhsChanged) := stripDefiningExt ext operands[1]! ctx
+  if !lhsChanged && !rhsChanged then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk] #[lhs, rhs]
+      #[] #[] props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
-set_option warn.sorry false in
 /-- Drop a `riscv.<ext>` operand feeding a unary immediate op whose semantics use
-    only operand bits 31:0. Same reasoning (and same LLVM `hasAllNBitUsers`
-    enumeration) as `drop_ext_binary_low_word`. -/
-private def drop_ext_unary_imm_low_word (ext dst : Riscv) (rewriter : PatternRewriter OpCode)
-    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
-    Option (PatternRewriter OpCode) := do
-  let some (operands, props) := matchOp op rewriter.ctx (.riscv dst) 1 | return rewriter
-  let (src, changed) := stripDefiningExt ext operands[0]! rewriter.ctx
-  if !changed then return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.riscv dst) #[RegisterType.mk] #[src]
-      #[] #[] props (some $ .before op)
-  let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+    only operand bits 31:0, as a `LocalRewritePattern`. Same reasoning (and same
+    LLVM `hasAllNBitUsers` enumeration) as `drop_ext_binary_low_word_local`. A
+    single `riscv.<dst>` op is created (with the extension stripped) and `op`'s
+    result forwarded to it. See
+    `drop_ext_unary_imm_low_word_local_preservesSemantics`. -/
+def drop_ext_unary_imm_low_word_local (ext dst : Riscv) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, props) := matchOp op ctx (.riscv dst) 1 | return (ctx, none)
+  let (src, changed) := stripDefiningExt ext operands[0]! ctx
+  if !changed then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv dst) #[RegisterType.mk] #[src]
+      #[] #[] props none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 /-- `riscv.addw (riscv.zextw x), y -> riscv.addw x, y`, and symmetrically for
     the right operand. `addw` reads only the low 32 bits of each source.
     LLVM: `ADDW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L156 -/
-def drop_zextw_addw := drop_ext_binary_low_word .zextw .addw
+def drop_zextw_addw := RewritePattern.fromLocalRewrite (drop_ext_binary_low_word_local .zextw .addw)
 
 /-- `riscv.addiw (riscv.zextw x), imm -> riscv.addiw x, imm`.
     LLVM: `ADDIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L155 -/
-def drop_zextw_addiw := drop_ext_unary_imm_low_word .zextw .addiw
+def drop_zextw_addiw := RewritePattern.fromLocalRewrite (drop_ext_unary_imm_low_word_local .zextw .addiw)
 
 /-- `riscv.roriw (riscv.zextw x), imm -> riscv.roriw x, imm`.
     LLVM: `RORIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L170 -/
-def drop_zextw_roriw := drop_ext_unary_imm_low_word .zextw .roriw
+def drop_zextw_roriw := RewritePattern.fromLocalRewrite (drop_ext_unary_imm_low_word_local .zextw .roriw)
 
 /-- `riscv.srliw (riscv.zextw x), imm -> riscv.srliw x, imm`.
     LLVM: `SRLIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L165 -/
-def drop_zextw_srliw := drop_ext_unary_imm_low_word .zextw .srliw
+def drop_zextw_srliw := RewritePattern.fromLocalRewrite (drop_ext_unary_imm_low_word_local .zextw .srliw)
 
 /-- `riscv.sextw (riscv.zextw x) -> riscv.sextw x`. `sextw` is `addiw 0`
     (`Data.RISCV.sextw`), so like `addiw` it reads only bits 31:0 of its operand.
     LLVM: `SEXT_W` lowers to `ADDIW rd, rs, 0`, matched by the `ADDIW` case of
     `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L155 -/
-def drop_zextw_sextw := drop_ext_unary_imm_low_word .zextw .sextw
+def drop_zextw_sextw := RewritePattern.fromLocalRewrite (drop_ext_unary_imm_low_word_local .zextw .sextw)
 
 /-- Sext mirror of `drop_zextw_addw`: `riscv.addw (riscv.sextw x), y ->
     riscv.addw x, y`. `sextw` also leaves bits 31:0 unchanged, and `addw` reads
     only those bits. LLVM `RISCVOptWInstrs` is primarily the `sext.w` remover;
     this is its `ADDW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L156 -/
-def drop_sextw_addw := drop_ext_binary_low_word .sextw .addw
+def drop_sextw_addw := RewritePattern.fromLocalRewrite (drop_ext_binary_low_word_local .sextw .addw)
 
 /-- Sext mirror of `drop_zextw_addiw`. LLVM: `ADDIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L155 -/
-def drop_sextw_addiw := drop_ext_unary_imm_low_word .sextw .addiw
+def drop_sextw_addiw := RewritePattern.fromLocalRewrite (drop_ext_unary_imm_low_word_local .sextw .addiw)
 
 /-- Sext mirror of `drop_zextw_roriw`. LLVM: `RORIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L170 -/
-def drop_sextw_roriw := drop_ext_unary_imm_low_word .sextw .roriw
+def drop_sextw_roriw := RewritePattern.fromLocalRewrite (drop_ext_unary_imm_low_word_local .sextw .roriw)
 
 /-- Sext mirror of `drop_zextw_srliw`. LLVM: `SRLIW` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L165 -/
-def drop_sextw_srliw := drop_ext_unary_imm_low_word .sextw .srliw
+def drop_sextw_srliw := RewritePattern.fromLocalRewrite (drop_ext_unary_imm_low_word_local .sextw .srliw)
 
 /-- `riscv.zextw (riscv.sextw x) -> riscv.zextw x`. `zextw` keeps only bits 31:0,
     which `sextw` leaves unchanged, so the inner `sextw` is redundant. (The mirror
     of `drop_zextw_sextw`, with the roles of the two extensions swapped.)
     LLVM: `zext.w` is `and 0xffffffff`, a low-32-bit user of its operand.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
-def drop_sextw_zextw := drop_ext_unary_imm_low_word .sextw .zextw
+def drop_sextw_zextw := RewritePattern.fromLocalRewrite (drop_ext_unary_imm_low_word_local .sextw .zextw)
 
 /-- Drop a `riscv.<ext>` wrapping the result of a bitwise op (`and`/`or`/`xor`)
     when its operands already establish the extension's high-bit pattern (bits
@@ -1577,9 +1578,12 @@ def sexth_and := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sex
 def sexth_or := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sexth .or false)
 def sexth_xor := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sexth .xor false)
 
-/-- Match a `riscv.<store>` (`sw`/`sh`/`sb`), returning `(addr, val, properties)`.
-    These stores have no results, so they can't go through `matchOp` (which
-    requires exactly one). -/
+/-- Match a `riscv.<store>` (`sw`/`sh`/`sb`), returning `(val, addr, properties)`.
+    The store's operand order is *value first, address second* — the convention
+    fixed by isel (`RISCV64.lean` builds `riscv.sw`/`sh`/`sb` with operands
+    `#[value, pointer]`) and by the interpreter (`Interpreter.Basic`'s store cases
+    destructure `[.reg { val }, .reg addr]`). These stores have no results, so they
+    can't go through `matchOp` (which requires exactly one). -/
 private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext OpCode) :
     Option (ValuePtr × ValuePtr × propertiesOf (.riscv store)) := do
   guard (op.getOpType! ctx = .riscv store)
@@ -1588,41 +1592,41 @@ private def matchRiscvStore (store : Riscv) (op : OperationPtr) (ctx : IRContext
   let properties := op.getProperties! ctx (.riscv store)
   return (operands[0]!, operands[1]!, properties)
 
-set_option warn.sorry false in
 /-- Drop a `riscv.<ext>` from the value operand of a `riscv.<store>` whose width
-    matches the extension's: a word store (`sw`) writes only bits 31:0, a halfword
-    store (`sh`) only bits 15:0, and a byte store (`sb`) only bits 7:0 (see the
-    store cases of `Interpreter.Basic.exec`, which keep just the low 4/2/1 bytes).
-    An extension of the matching width leaves exactly those bits unchanged -- it
-    only rewrites higher bits -- so extending the stored value first is redundant.
-    The address operand is left untouched: it needs the full 64 bits.
+    matches the extension's, as a `LocalRewritePattern`: a word store (`sw`) writes
+    only bits 31:0, a halfword store (`sh`) only bits 15:0, and a byte store (`sb`)
+    only bits 7:0 (see the store cases of `Interpreter.Basic`, which keep just the
+    low 4/2/1 bytes). An extension of the matching width leaves exactly those bits
+    unchanged -- it only rewrites higher bits -- so extending the stored value first
+    is redundant. The *value* operand is operand index 0 (isel/interpreter
+    convention); the *address* operand (index 1) is left untouched: it needs the
+    full 64 bits.
 
     LLVM: the `SW`/`SH`/`SB` cases of `hasAllNBitUsers` demand only the low 32/16/8
-    bits of the store's value operand (operand index 0), and nothing of the address.
+    bits of the store's value operand, and nothing of the address.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L304-L311 -/
-private def drop_ext_store (ext store : Riscv) (rewriter : PatternRewriter OpCode)
-    (op : OperationPtr) (opInBounds : op.InBounds rewriter.ctx.raw) :
-    Option (PatternRewriter OpCode) := do
-  let some (addr, val, props) := matchRiscvStore store op rewriter.ctx | return rewriter
-  let (val, changed) := stripDefiningExt ext val rewriter.ctx
-  if !changed then return rewriter
-  let (rewriter, _newOp) ← rewriter.createOp! (.riscv store) #[] #[addr, val]
-      #[] #[] props (some $ .before op)
-  rewriter.eraseOp op sorry sorry sorry
+def drop_ext_store_local (ext store : Riscv) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (val, addr, props) := matchRiscvStore store op ctx | return (ctx, none)
+  let (val, changed) := stripDefiningExt ext val ctx
+  if !changed then return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv store) #[] #[val, addr]
+      #[] #[] props none
+  some (ctx, some (#[newOp], #[]))
 
-/-- `riscv.sw addr, (riscv.zextw val) -> riscv.sw addr, val`. -/
-def drop_zextw_sw := drop_ext_store .zextw .sw
+/-- `riscv.sw (riscv.zextw val), addr -> riscv.sw val, addr`. -/
+def drop_zextw_sw := RewritePattern.fromLocalRewrite (drop_ext_store_local .zextw .sw)
 
-/-- `riscv.sw addr, (riscv.sextw val) -> riscv.sw addr, val`. -/
-def drop_sextw_sw := drop_ext_store .sextw .sw
+/-- `riscv.sw (riscv.sextw val), addr -> riscv.sw val, addr`. -/
+def drop_sextw_sw := RewritePattern.fromLocalRewrite (drop_ext_store_local .sextw .sw)
 
 /-- Halfword- and byte-store mirrors of `drop_zextw_sw`/`drop_sextw_sw`: `sh` writes
     only bits 15:0 (matched by `zexth`/`sexth`) and `sb` only bits 7:0 (matched by
     `zextb`/`sextb`). -/
-def drop_zexth_sh := drop_ext_store .zexth .sh
-def drop_sexth_sh := drop_ext_store .sexth .sh
-def drop_zextb_sb := drop_ext_store .zextb .sb
-def drop_sextb_sb := drop_ext_store .sextb .sb
+def drop_zexth_sh := RewritePattern.fromLocalRewrite (drop_ext_store_local .zexth .sh)
+def drop_sexth_sh := RewritePattern.fromLocalRewrite (drop_ext_store_local .sexth .sh)
+def drop_zextb_sb := RewritePattern.fromLocalRewrite (drop_ext_store_local .zextb .sb)
+def drop_sextb_sb := RewritePattern.fromLocalRewrite (drop_ext_store_local .sextb .sb)
 
 /-- riscv.li 0 -> rv64.get_register (x0), as a `LocalRewritePattern`.
 
