@@ -6,6 +6,7 @@ public import Veir.Rewriter.InsertPoint
 public import Veir.Rewriter.LinkedList.Basic
 public import Veir.Rewriter.LinkedList.GetSet
 public import Veir.Rewriter.RewriterPushOperand
+public import Veir.Rewriter.RewriterPushBlockOperand
 
 meta import Veir.IR.Buffed.Basic
 import Veir.IR.Buffed.RawAccessorsLemmas
@@ -13,6 +14,7 @@ import Veir.IR.Buffed.Meta
 import Veir.IR.Buffed.InBounds
 import Veir.Rewriter.LinkedList.LayoutUnchanged
 import all Veir.Rewriter.RewriterPushOperand
+import all Veir.Rewriter.RewriterPushBlockOperand
 import all Veir.Rewriter.LinkedList.Basic
 import all Veir.IR.Buffed.Basic
 import all Veir.IR.Buffed.RawAccessors
@@ -698,20 +700,6 @@ protected def Rewriter.setResult (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed
   some ctx
 
 @[inline]
-protected def Rewriter.setBlockOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
-    (hnum : opPtr.toNat + Buffed.Operation.sizeBaseNat ≤ ctx₀.size)
-    (hslot : (opPtr + opPtr.computeBlockOperandOffset ctx₀ idx hnum).toNat + Buffed.BlockOperand.size.toNat ≤ ctx₀.size)
-    (value : Buffed.BlockMPtr) : Buffed.IRBufContext OpInfo :=
-  let oper : Buffed.BlockOperandMPtr := opPtr + opPtr.computeBlockOperandOffset ctx₀ idx hnum
-  let ctx := oper.writeNextUse ctx₀ .none (by prove_setSlotBounds ctx₀)
-  -- `back` points at the block's `firstUse` slot (offset 0), mirroring the spec's
-  -- `BlockOperandPtrPtr.blockFirstUse` (the use-list insertion re-writes it with the same value).
-  let ctx := oper.writeBack ctx (value + Buffed.Block.Offsets.firstUse) (by prove_setSlotBounds ctx₀)
-  let ctx := oper.writeOwner ctx opPtr (by prove_setSlotBounds ctx₀)
-  let ctx := oper.writeValue ctx value (by prove_setSlotBounds ctx₀)
-  ctx
-
-@[inline]
 protected def Rewriter.setRegion (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
     (region : Buffed.RegionMPtr)
     (hregion : (region + Buffed.Region.Offsets.parent).toInt + Buffed.Region.Sizes.parent.toInt ≤ ctx₀.size)
@@ -1372,17 +1360,6 @@ theorem Rewriter.initOpOperands_preserves_capBlockOperands (ptr : Veir.Operation
   simp only [Rewriter.initOpOperands_def]
   fun_induction initOpOperandsSim <;> grind [Rewriter.pushOperand_preserves_capBlockOperands]
 
-@[irreducible]
-protected def Rewriter.pushBlockOperand (ctx : IRContext OpInfo) (opPtr : OperationPtr) (blockPtr : BlockPtr)
-    (opPtrInBounds : opPtr.InBounds ctx := by grind) (blockInBounds : blockPtr.InBounds ctx := by grind)
-    : IRContext OpInfo :=
-  let op := (opPtr.get ctx (by grind))
-  let index := opPtr.getNumSuccessors ctx (by grind)
-  let operand := { value := blockPtr, owner := opPtr, back := BlockOperandPtrPtr.blockFirstUse blockPtr, nextUse := none : BlockOperand}
-  have : operand.FieldsInBounds ctx := by constructor <;> grind
-  let ctx := opPtr.pushBlockOperand ctx operand (by grind)
-  ctx
-
 protected buffed
 def Rewriter.pushBlockOperandAtUnattachedSim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (blockPtr : Sim.BlockPtr) (opPtrInBounds : opPtr.InBounds ctx := by grind)
@@ -1392,7 +1369,7 @@ def Rewriter.pushBlockOperandAtUnattachedSim (opPtr : Sim.OperationPtr) (ctx : S
     Sim.IRContext OpInfo :=
   ⟨Rewriter.setBlockOperand opPtr.impl ctx.buf idx (by prove_setLinkBoundsOp ctx opPtr) (by prove_setLinkBoundsBlockOperandSlot ctx opPtr idx) blockPtr.impl,
     Rewriter.pushBlockOperand ctx.spec opPtr.spec blockPtr.spec (by grind) (by grind),
-    admitted_sim hidx⟩
+    Rewriter.setBlockOperand_pushBlockOperand_sim opPtr ctx idx blockPtr opPtrInBounds blockInBounds hidx hcap _ _⟩
 
 @[grind .]
 theorem Rewriter.pushBlockOperandAtUnattached_spec {opPtr : Sim.OperationPtr}
