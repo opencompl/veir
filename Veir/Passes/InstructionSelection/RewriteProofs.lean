@@ -212,4 +212,106 @@ theorem ISelPass.impl_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode} {op : Op
     ISelPass.exists_valid_local_of_mem_patterns hDom hVerif
     (ISelPass.applyInContext_of_impl himpl)
 
+/-!
+## Soundness of the SelectionDAG instruction-selection pass
+
+`IselSDAG.impl` has the same shape as `ISelPass.impl`: it runs
+`RewritePattern.GreedyRewritePattern IselSDAG.patterns` to fixpoint, and every element of
+`IselSDAG.patterns` is `RewritePattern.fromLocalRewrite` of a local pattern whose
+`PreservesSemantics` is proven. The only open obligation is the shared
+`LocalRewritePattern.Valid.of_preservesSemantics` axiom above.
+-/
+
+/-- Every pattern the SelectionDAG pass runs is the driver of a `Valid` local pattern. -/
+theorem IselSDAG.exists_valid_local_of_mem_patterns :
+    ∀ p ∈ IselSDAG.patterns, ∃ q : LocalRewritePattern OpCode,
+      q.Valid ∧ p = RewritePattern.fromLocalRewrite q := by
+  intro p hp
+  simp only [IselSDAG.patterns, List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at hp
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl
+  · exact ⟨andn_local, .of_preservesSemantics fun _ _ _ _ => andn_local_preservesSemantics, rfl⟩
+  · exact ⟨orn_local, .of_preservesSemantics fun _ _ _ _ => orn_local_preservesSemantics, rfl⟩
+  · exact ⟨xnor_local, .of_preservesSemantics fun _ _ _ _ => xnor_local_preservesSemantics, rfl⟩
+  · exact ⟨orcb_local, .of_preservesSemantics fun _ _ _ _ => orcb_local_preservesSemantics, rfl⟩
+  · exact ⟨bexti_local, .of_preservesSemantics fun _ _ _ _ => bexti_local_preservesSemantics, rfl⟩
+  · exact ⟨selectSingleBitLocal matchOr .bseti rfl false,
+      .of_preservesSemantics fun _ _ _ _ => Example.bseti_local_preservesSemantics, rfl⟩
+  · exact ⟨selectSingleBitLocal matchAnd .bclri rfl true,
+      .of_preservesSemantics fun _ _ _ _ => Example.bclri_local_preservesSemantics, rfl⟩
+  · exact ⟨selectSingleBitLocal matchXor .binvi rfl false,
+      .of_preservesSemantics fun _ _ _ _ => Example.binvi_local_preservesSemantics, rfl⟩
+  · exact ⟨slliuw_local, .of_preservesSemantics fun _ _ _ _ => slliuw_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchAdd .addi rfl 64 (-2048) 2047,
+      .of_preservesSemantics fun _ _ _ _ => addi_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchOr .ori rfl 64 (-2048) 2047,
+      .of_preservesSemantics fun _ _ _ _ => ori_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchAnd .andi rfl 64 (-2048) 2047,
+      .of_preservesSemantics fun _ _ _ _ => andi_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchXor .xori rfl 64 (-2048) 2047,
+      .of_preservesSemantics fun _ _ _ _ => xori_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchShl .slli rfl 64 0 63,
+      .of_preservesSemantics fun _ _ _ _ => slli_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchLshr .srli rfl 64 0 63,
+      .of_preservesSemantics fun _ _ _ _ => srli_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchAshr .srai rfl 64 0 63,
+      .of_preservesSemantics fun _ _ _ _ => srai_local_preservesSemantics, rfl⟩
+  · exact ⟨slti_local, .of_preservesSemantics fun _ _ _ _ => slti_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchAdd .addiw rfl 32 (-2048) 2047,
+      .of_preservesSemantics fun _ _ _ _ => addiw_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchShl .slliw rfl 32 0 31,
+      .of_preservesSemantics fun _ _ _ _ => slliw_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchLshr .srliw rfl 32 0 31,
+      .of_preservesSemantics fun _ _ _ _ => srliw_local_preservesSemantics, rfl⟩
+  · exact ⟨selectBinopImmLocal matchAshr .sraiw rfl 32 0 31,
+      .of_preservesSemantics fun _ _ _ _ => sraiw_local_preservesSemantics, rfl⟩
+  · exact ⟨roriw_local, .of_preservesSemantics fun _ _ _ _ => roriw_local_preservesSemantics, rfl⟩
+  · exact ⟨roliw_local, .of_preservesSemantics fun _ _ _ _ => roliw_local_preservesSemantics, rfl⟩
+  · exact ⟨zext_1_local, .of_preservesSemantics fun _ _ _ _ => zext_1_local_preservesSemantics, rfl⟩
+  · exact ⟨sext_1_local, .of_preservesSemantics fun _ _ _ _ => sext_1_local_preservesSemantics, rfl⟩
+  · exact ⟨udivPow2GenLocal .srli rfl 64,
+      .of_preservesSemantics fun _ _ _ _ => Example.udivPow2_local_preservesSemantics, rfl⟩
+  · exact ⟨udivPow2GenLocal .srliw rfl 32,
+      .of_preservesSemantics fun _ _ _ _ => Example.udivwPow2_local_preservesSemantics, rfl⟩
+  · exact ⟨sdivPow2ExactGenLocal .srai rfl .sub rfl 64,
+      .of_preservesSemantics fun _ _ _ _ => Example.sdivPow2Exact_local_preservesSemantics, rfl⟩
+  · exact ⟨sdivPow2ExactGenLocal .sraiw rfl .subw rfl 32,
+      .of_preservesSemantics fun _ _ _ _ => Example.sdivwPow2Exact_local_preservesSemantics, rfl⟩
+  · exact ⟨sdivPow2GenLocal .srai rfl .srli rfl .add rfl .sub rfl 64,
+      .of_preservesSemantics fun _ _ _ _ => Example.sdivPow2_local_preservesSemantics, rfl⟩
+  · exact ⟨sdivPow2GenLocal .sraiw rfl .srliw rfl .addw rfl .subw rfl 32,
+      .of_preservesSemantics fun _ _ _ _ => Example.sdivwPow2_local_preservesSemantics, rfl⟩
+
+/-- A successful `IselSDAG.impl` run is exactly a successful fixpoint iteration of the greedy
+composition of `IselSDAG.patterns`: the pass throws on the failing branch. -/
+theorem IselSDAG.applyInContext_of_impl {ctx ctx' : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (himpl : IselSDAG.impl ctx op opInBounds = pure ctx') :
+    RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern IselSDAG.patterns) ctx
+      = some ctx' := by
+  have hworld : Void IO.RealWorld := Classical.choice Void.instNonempty
+  rw [IselSDAG.impl] at himpl
+  split at himpl
+  · exact absurd (congrFun himpl hworld) fun h => by injection h with h _; injection h
+  · rename_i c hc
+    have := congrFun himpl hworld
+    injection this with h _
+    injection h with h
+    exact h ▸ hc
+
+/--
+**The SelectionDAG instruction-selection pass preserves module semantics.** If `IselSDAG.impl`
+succeeds on a dominance-wellformed, verified context, the resulting context is again
+dominance-wellformed and verified, and every module of the source is refined by the same module of
+the result.
+-/
+theorem IselSDAG.impl_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (hDom : ctx.Dom) (hVerif : ctx.Verified)
+    (himpl : IselSDAG.impl ctx op opInBounds = pure ctx') :
+    ctx'.Dom ∧ ctx'.Verified ∧
+      ∀ moduleOp : OperationPtr, moduleOp.isModuleRefinedBy ctx moduleOp ctx' :=
+  RewritePattern.isModuleRefinedBy_applyInContext_greedy_fromLocalRewrite
+    IselSDAG.exists_valid_local_of_mem_patterns hDom hVerif
+    (IselSDAG.applyInContext_of_impl himpl)
+
 end Veir
