@@ -201,10 +201,9 @@ def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     (opRegions : op.getNumRegions! rewriter.ctx.raw = 0 := by grind)
     (opUses : !op.hasUses! rewriter.ctx.raw := by grind)
     (hOp : op.InBounds rewriter.ctx.raw := by grind)
-    : Option (PatternRewriter OpInfo) := do
-  let newCtx ← WfRewriter.eraseOp rewriter.ctx op opRegions opUses hOp
-  some { rewriter with
-    ctx := newCtx,
+    : PatternRewriter OpInfo :=
+  { rewriter with
+    ctx := WfRewriter.eraseOp rewriter.ctx op opRegions opUses hOp,
     hasDoneAction := true,
     worklist := rewriter.worklist.remove op,
   }
@@ -318,7 +317,7 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
       let mut operands : Array ValuePtr := #[]
       for i in 0...op.getNumOperands rewriter.ctx.raw (by sorry) do
         operands := operands.push (op.getOperand! rewriter.ctx.raw i)
-      rewriter ← rewriter.eraseOp op (by sorry) (by sorry) (by sorry)
+      rewriter := rewriter.eraseOp op (by sorry) (by sorry) (by sorry)
       return rewriter
 
 set_option warn.sorry false in
