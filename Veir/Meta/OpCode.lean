@@ -90,6 +90,38 @@ meta def emitName (ds : Array Dialect) : TermElabM Command := do
            | $(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op)) => $(Syntax.mkStrLit (d.mkOpName op)).toByteArray)
   `(def $(mkIdent `OpCode.name) (op : $(mkIdent `OpCode)) : ByteArray := match op with $alts:matchAlt* )
 
+/-- Assign each operation a distinct code, sequentially in declaration order starting at 1.
+Code 0 is reserved so that zero-initialized memory decodes to `builtin.unregistered`. -/
+meta def emitEncode (ds : Array Dialect) : TermElabM Command := do
+  let mut alts := #[]
+  let mut code : Nat := 1
+  for d in ds do
+    for op in d.operations do
+      alts := alts.push <| ←
+        `(Lean.Parser.Term.matchAltExpr |
+           | $(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op)) => $(quote code))
+      code := code + 1
+  `(def $(mkIdent `OpCode.encode) (op : $(mkIdent `OpCode)) : UInt32 := match op with $alts:matchAlt* )
+
+/-- Inverse of `OpCode.encode`; unassigned codes (including 0) decode to `builtin.unregistered`. -/
+meta def emitDecode (ds : Array Dialect) : TermElabM Command := do
+  let mut alts := #[]
+  let mut code : Nat := 1
+  for d in ds do
+    for op in d.operations do
+      alts := alts.push <| ←
+        `(Lean.Parser.Term.matchAltExpr |
+           | $(quote code) => $(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op)))
+      code := code + 1
+  alts := alts.push <| ←
+    `(Lean.Parser.Term.matchAltExpr | | _ => $(mkIdent `OpCode.builtin) $(mkIdent `Builtin.unregistered))
+  `(def $(mkIdent `OpCode.decode) (code : UInt32) : $(mkIdent `OpCode) := match code with $alts:matchAlt* )
+
+meta def emitDecodeEncode : TermElabM Command := do
+  `(theorem $(mkIdent `OpCode.decode_encode) (op : $(mkIdent `OpCode)) :
+      $(mkIdent `OpCode.decode) ($(mkIdent `OpCode.encode) op) = op := by
+    cases op <;> (rename_i o; cases o) <;> rfl)
+
 /--
 Generates the type `OpCodes`, and its functions `fromName` and `name`.
 It does so by gathering all inductive types annotated with `@[opcodes]`.
@@ -122,4 +154,7 @@ elab "#generate_op_codes" : command  => do
   elabCommand <| ← Command.liftTermElabM <| mkOpCodeInductive dialects
   elabCommand <| ← Command.liftTermElabM <| emitFromName dialects
   elabCommand <| ← Command.liftTermElabM <| emitName dialects
+  elabCommand <| ← Command.liftTermElabM <| emitEncode dialects
+  elabCommand <| ← Command.liftTermElabM <| emitDecode dialects
+  elabCommand <| ← Command.liftTermElabM <| emitDecodeEncode
   pure ()

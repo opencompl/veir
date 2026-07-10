@@ -1639,7 +1639,8 @@ theorem Rewriter.createOp_fieldsInBounds
 
 buffed
 def Sim.IRContext.emptySim : Sim.IRContext OpInfo :=
-  ⟨⟨.emptyWithCapacity (256 * 1024 * 1024), #[DictionaryAttr.fromArray #[]]⟩, IRContext.empty OpInfo, by constructor <;> grind [TopLevelPtr]⟩
+  -- Slot 0 of the attribute table is reserved for the empty dictionary (see `Sim.attr_empty`).
+  ⟨⟨.emptyWithCapacity (256 * 1024 * 1024), #[.dictionaryAttr DictionaryAttr.empty]⟩, IRContext.empty OpInfo, by constructor <;> grind [TopLevelPtr]⟩
 
 buffed (inline := false)
 def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do

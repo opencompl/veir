@@ -769,5 +769,9 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
       rw [hrg8 Buffed.Region.Offsets.parent 16 (by decide) (by decide)]
       clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt; (try clear hslot hnum)
       grind [layout_grind, Rewriter.pushOperand]
+  · -- attr_empty: the slot writes leave the attribute table untouched
+    (try dsimp only)
+    rw [hattr]
+    exact ctx.sim.attr_empty
 
 end Veir

@@ -839,5 +839,11 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
       rw [hrg8 Buffed.Region.Offsets.parent 16 (by decide) (by decide)]
       clear hread hread32 ek hoff hslotaddr husz hincl hmul hidxlt heq; (try clear hslotB hattrB hbsz hbrange hmem1 hattr1 htidx heqAttr); (try clear hslot hnum)
       grind [layout_grind, Rewriter.pushResult]
+  · -- attr_empty: the table only gained a new entry, slot 0 is untouched
+    (try dsimp only)
+    rw [hattrB]
+    have := ctx.sim.attr_empty
+    clear hread hread32 ek heq
+    grind [Array.getElem?_push]
 
 end Veir

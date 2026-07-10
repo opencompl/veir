@@ -225,7 +225,7 @@ theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
   -- The spec side is an `allocEmptyAt` at the impl address, which preserves the layout.
   have hspec := Sim.OperationPtr.allocEmpty_spec' heq
   have hlay := Veir.OperationPtr.allocEmptyAt_preservesLayout hspec
-  have hptr := Veir.OperationPtr.allocEmptyAt_ptr hspec
+  have hptr := Veir.OperationPtr.allocEmptyAt_ptr_eq hspec
   constructor
   · rintro ⟨sim', ib'⟩
     -- The spec-level pointer is either old or the freshly allocated operation.

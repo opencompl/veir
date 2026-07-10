@@ -761,6 +761,10 @@ theorem Rewriter.setBlockArgumentRaw_pushBlockArgument_sim (blockPtr : Sim.Block
       rw [hrg8 Buffed.Region.Offsets.parent 16 (by decide) (by decide)]
       clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt
       grind [layout_grind, Rewriter.pushBlockArgument, Veir.BlockPtr.pushArgument_def]
+  · -- attr_empty: the table only gained a new entry, slot 0 is untouched
+    (try dsimp only)
+    rw [hattr]
+    exact hattrget 0 _ ctx.sim.attr_empty
 
 /-- Option-level wrapper of `setBlockArgumentRaw_pushBlockArgument_sim`: destructures the
 `insertAttrs` success and hands the pieces to the raw theorem. Discharges the `admitted_sim`
