@@ -7760,4 +7760,335 @@ theorem narrow_binop_mul_local_preservesSemantics
     (fun tnsw tnuw x c po _ => by
       simpa using Data.LLVM.Int.NarrowBinopMul (s := tnsw) (u := tnuw) (nsw := po.nsw) (nuw := po.nuw))
 
+/-! ### cast-chain combines (`truncate_of_sext`, `{zext,sext}_of_{zext,sext}`)
+
+  `trunc (sext x) → x` (round-trip; mirror of `trunc_of_zext`), and `cast (cast x) → cast x`
+  for `cast ∈ {zext, sext}` (the shared `castOfCastLocal` combinator). All match an outer cast
+  whose operand is a defining cast of the same kind, recovered via the `*_getVar?_of_EquationLemmaAt`
+  graph lemmas, and reach the `veir_bv_decide` data lemmas in `LLVMProofs.lean`.
+-/
+
+set_option maxHeartbeats 1000000 in
+/-- `trunc (sext x) → x` when the `trunc` lands back on `x`'s type. The mirror of
+    `trunc_of_zext_local_preservesSemantics`, with the defining `sext` recovered via
+    `sext_getVar?_of_EquationLemmaAt` and the data lemma `Data.LLVM.Int.trunc_of_sext`. -/
+theorem truncate_of_sext_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps truncate_of_sext_local}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges truncate_of_sext_local}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds truncate_of_sext_local}
+    {h₄ : LocalRewritePattern.ReturnValues truncate_of_sext_local} :
+    LocalRewritePattern.PreservesSemantics truncate_of_sext_local h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, truncate_of_sext_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel `matchTrunc`.
+  have hMatchSome : (matchTrunc op ctx.raw).isSome := by
+    cases hM : matchTrunc op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨v0, tProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands, hProps⟩ := matchTrunc_implies hMatch
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Peel the defining `sext`.
+  have hDefSome : (getDefiningOp v0 ctx.raw).isSome := by
+    cases hM : getDefiningOp v0 ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨sextOp, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+  rw [hDef] at hpattern
+  simp only [] at hpattern
+  have hSextSome : (matchSext sextOp ctx.raw).isSome := by
+    cases hM : matchSext sextOp ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨x, sProps⟩, hSext⟩ := Option.isSome_iff_exists.mp hSextSome
+  rw [hSext] at hpattern
+  simp only [] at hpattern
+  -- Guard: the trunc lands back on `x`'s type.
+  have hTypeEq : ((op.getResult 0).get! ctx.raw).type = x.getType! ctx.raw := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hTypeEq] at hpattern
+  -- Guards: `x : i32` and `v0 : i64`.
+  obtain ⟨xt, hxTypeVal⟩ :
+      ∃ t, (x.getType! ctx.raw).val = Attribute.integerType t := by
+    cases hr : (x.getType! ctx.raw).val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hxTypeVal] at hpattern
+  simp only [] at hpattern
+  obtain ⟨zt, hzTypeVal⟩ :
+      ∃ t, (v0.getType! ctx.raw).val = Attribute.integerType t := by
+    cases hr : (v0.getType! ctx.raw).val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hzTypeVal] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isTrue => simp at hpattern
+  rename_i hWidthRaw
+  obtain ⟨bwx⟩ := xt
+  obtain ⟨bwz⟩ := zt
+  simp only at hWidthRaw hxTypeVal hzTypeVal hTypeEq
+  obtain ⟨rfl, rfl⟩ : bwx = 32 ∧ bwz = 64 := by omega
+  -- The op's single result type, as read by the interpreter.
+  have hResTypeVal : ((op.getResult 0).get! ctx.raw).type.val
+      = Attribute.integerType ⟨32⟩ := by rw [hTypeEq, hxTypeVal]
+  have hResTypes0 : op.getResultTypes! ctx.raw = #[((op.getResult 0).get! ctx.raw).type] := by
+    apply Array.ext
+    · simp [OperationPtr.getResultTypes!.size_eq_getNumResults!, hNumResults]
+    · intro i h1 h2
+      simp only [OperationPtr.getResultTypes!.size_eq_getNumResults!, hNumResults] at h1
+      obtain rfl : i = 0 := by omega
+      have := OperationPtr.getResultTypes!.getElem!_eq (op := op) (ctx := ctx.raw) (index := 0)
+        (by omega)
+      grind
+  have hTypeAttrEq : ((op.getResult 0).get! ctx.raw).type
+      = (⟨Attribute.integerType ⟨32⟩, hResTypeVal ▸ ((op.getResult 0).get! ctx.raw).type.2⟩
+          : TypeAttr) := Subtype.ext hResTypeVal
+  have hResTypes : op.getResultTypes! ctx.raw
+      = #[(⟨Attribute.integerType ⟨32⟩, hResTypeVal ▸ ((op.getResult 0).get! ctx.raw).type.2⟩
+          : TypeAttr)] := by
+    rw [hResTypes0]; exact congrArg (fun t => #[t]) hTypeAttrEq
+  have hw : (IntegerType.mk 32).bitwidth < (IntegerType.mk 64).bitwidth := by decide
+  -- Unfold the matched `trunc`'s interpretation.
+  obtain ⟨v0v, hv0Val, hMem, hRes, hCf⟩ :=
+    matchTruncOp_interpretOp_unfold opInBounds hOpType hNumResults hOperands hProps hResTypes
+      hw (by intro w₁ resTy hw' xx pp hIsTy bo mem
+             simp [Llvm.interpretOp', ge_iff_le, Nat.not_le.mpr hw', pure, Interp])
+      hinterp hzTypeVal
+  subst hCf
+  -- Recover the defining `sext`'s value.
+  obtain ⟨opType', hw', xv, hxVal, hv0SextVal, hxType', hDomX, hxIn, hxNotRes⟩ :=
+    sext_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds stateWf hDef hSext
+      (by rw [hOperands]; simp) hzTypeVal
+  obtain rfl : opType' = ⟨32⟩ := by rw [hxType'] at hxTypeVal; grind
+  obtain rfl : v0v = Data.LLVM.Int.sext xv 64 hw' := by
+    have := hv0Val.symm.trans hv0SextVal; simpa using this
+  -- Source value.
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  obtain ⟨rfl, rfl, rfl⟩ : newCtx = ctx ∧ newOps = #[] ∧ newValues = #[x] := by
+    simp at hpattern; grind
+  obtain ⟨xtv, hXVal', hxRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hxIn hxVal
+      hDomX hDomX hxNotRes
+  refine ⟨state', by
+    simp [interpretOpList, liftM, monadLift, MonadLift.monadLift, Interp, pure], by grind, ?_⟩
+  refine ⟨#[RuntimeValue.int 32 xtv], by simp [hXVal', Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- `trunc (sext x) ⊒ x` at the guarded widths, then transport along `x ⊒ xt`.
+  have hLem := Data.LLVM.Int.trunc_of_sext (s := tProps.nsw) (u := tProps.nuw) (x := xv)
+  exact isRefinedBy_trans (by simpa using hLem) hxRef
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness proof for `zext_of_zext`/`sext_of_sext`, both instances of
+    `castOfCastLocal`. `op` is the outer cast; its operand is a defining cast of the same kind
+    (recovered via the `*_getVar?_of_EquationLemmaAt` graph lemma passed as `hGraph`). Create a
+    single `cast` straight from the innermost value `x`. Parameterized over the cast opcode, its
+    matcher, the created op's properties `cprops`, the data function `srcFn` (`hSemSrc`), the graph
+    lemma (`hGraph`), its monotonicity (`hMono`), and the value-refinement lemma (`hRefine`). -/
+theorem castOfCastLocal_preservesSemantics {cast : Llvm}
+    {match? : OperationPtr → IRContext OpCode → Option (ValuePtr × propertiesOf (.llvm cast))}
+    {cprops : propertiesOf (.llvm cast)}
+    {srcFn : ∀ {w₁ w₂ : Nat}, Data.LLVM.Int w₁ → w₁ < w₂ → propertiesOf (.llvm cast) →
+      Data.LLVM.Int w₂}
+    (hMatchImplies : ∀ {opp : OperationPtr} {c : IRContext OpCode} {operand props},
+        match? opp c = some (operand, props) →
+        opp.getOpType! c = .llvm cast ∧ opp.getNumResults! c = 1 ∧
+        opp.getOperands! c = #[operand] ∧ props = opp.getProperties! c (.llvm cast))
+    (hSemSrc : ∀ (w₁ : Nat) (retTy : IntegerType) (hw : w₁ < retTy.bitwidth)
+        (x : Data.LLVM.Int w₁) (props : propertiesOf (.llvm cast)) (hIsTy)
+        (blockOperands : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' cast props #[⟨.integerType retTy, hIsTy⟩] #[.int w₁ x] blockOperands mem
+          = some (.ok (#[.int retTy.bitwidth (srcFn x hw props)], mem, none)))
+    (hGraph : ∀ {c : WfIRContext OpCode} (_cDom : c.Dom) (_cVerif : c.Verified)
+        {opp : OperationPtr} (oib : opp.InBounds c.raw)
+        {st : InterpreterState c}
+        (_stWf : st.EquationLemmaAt (InsertPoint.before opp) (by grind))
+        {base x : ValuePtr} {castOp : OperationPtr} {cP : propertiesOf (.llvm cast)}
+        {retType : IntegerType}
+        (_hDef : getDefiningOp base c.raw = some castOp)
+        (_hMatch : match? castOp c.raw = some (x, cP))
+        (_hOperand : base ∈ opp.getOperands! c.raw)
+        (_hBaseType : (base.getType! c.raw).val = Attribute.integerType retType),
+        ∃ (opType : IntegerType) (hw : opType.bitwidth < retType.bitwidth)
+          (xv : Data.LLVM.Int opType.bitwidth),
+          st.variables.getVar? x = some (RuntimeValue.int opType.bitwidth xv) ∧
+          st.variables.getVar? base = some (RuntimeValue.int retType.bitwidth (srcFn xv hw cP)) ∧
+          (x.getType! c.raw).val = Attribute.integerType opType ∧
+          x.dominatesIp (InsertPoint.before opp) c ∧
+          x.InBounds c.raw ∧
+          x ∉ opp.getResults! c.raw)
+    (hMono : ∀ {w₁ w₂ : Nat} (x₁ x₂ : Data.LLVM.Int w₁) (hw : w₁ < w₂)
+        (p : propertiesOf (.llvm cast)), x₁ ⊒ x₂ → srcFn x₁ hw p ⊒ srcFn x₂ hw p)
+    (hRefine : ∀ (p0 p1 : propertiesOf (.llvm cast)) (xv : Data.LLVM.Int 8)
+        (hwX : (8 : Nat) < 32) (hwO : (32 : Nat) < 64) (hwC : (8 : Nat) < 64),
+        srcFn (srcFn xv hwX p0) hwO p1 ⊒ srcFn xv hwC cprops)
+    {h : LocalRewritePattern.ReturnOps (castOfCastLocal cast match? cprops)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (castOfCastLocal cast match? cprops)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (castOfCastLocal cast match? cprops)}
+    {h₄ : LocalRewritePattern.ReturnValues (castOfCastLocal cast match? cprops)} :
+    LocalRewritePattern.PreservesSemantics (castOfCastLocal cast match? cprops) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, castOfCastLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel the outer cast.
+  have hMatchSome : (match? op ctx.raw).isSome := by
+    cases hM : match? op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨v0, outerProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands, hProps⟩ := hMatchImplies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Peel the defining cast.
+  have hDefSome : (getDefiningOp v0 ctx.raw).isSome := by
+    cases hM : getDefiningOp v0 ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨dC, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+  rw [hDef] at hpattern
+  simp only [] at hpattern
+  have hInnerSome : (match? dC ctx.raw).isSome := by
+    cases hM : match? dC ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨x, innerProps⟩, hInner⟩ := Option.isSome_iff_exists.mp hInnerSome
+  rw [hInner] at hpattern
+  simp only [] at hpattern
+  -- Peel the three type reads.
+  obtain ⟨xt, hxTypeVal⟩ :
+      ∃ t, (x.getType! ctx.raw).val = Attribute.integerType t := by
+    cases hr : (x.getType! ctx.raw).val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hxTypeVal] at hpattern
+  simp only [] at hpattern
+  obtain ⟨zt, hzTypeVal⟩ :
+      ∃ t, (v0.getType! ctx.raw).val = Attribute.integerType t := by
+    cases hr : (v0.getType! ctx.raw).val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hzTypeVal] at hpattern
+  simp only [] at hpattern
+  obtain ⟨rty, hrTypeVal⟩ :
+      ∃ t, ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType t := by
+    cases hr : ((op.getResult 0).get! ctx.raw).type.val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hrTypeVal] at hpattern
+  simp only [] at hpattern
+  -- Width guard: `x : i8`, `v0 : i32`, result `: i64`.
+  split at hpattern
+  case isTrue => simp at hpattern
+  rename_i hWidthRaw
+  obtain ⟨bwx⟩ := xt
+  obtain ⟨bwz⟩ := zt
+  obtain ⟨bwr⟩ := rty
+  simp only at hWidthRaw hxTypeVal hzTypeVal hrTypeVal
+  obtain ⟨rfl, rfl, rfl⟩ : bwx = 8 ∧ bwz = 32 ∧ bwr = 64 := by omega
+  -- The op's single result type (`i64`), as read by the interpreter.
+  have hResType : ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType ⟨64⟩ := hrTypeVal
+  have hResTypes0 : op.getResultTypes! ctx.raw = #[((op.getResult 0).get! ctx.raw).type] := by
+    apply Array.ext
+    · simp [OperationPtr.getResultTypes!.size_eq_getNumResults!, hNumResults]
+    · intro i h1 h2
+      simp only [OperationPtr.getResultTypes!.size_eq_getNumResults!, hNumResults] at h1
+      obtain rfl : i = 0 := by omega
+      have := OperationPtr.getResultTypes!.getElem!_eq (op := op) (ctx := ctx.raw) (index := 0)
+        (by omega)
+      grind
+  have hResTypes : op.getResultTypes! ctx.raw
+      = #[(⟨Attribute.integerType ⟨64⟩, hResType ▸ ((op.getResult 0).get! ctx.raw).type.2⟩
+          : TypeAttr)] := by
+    rw [hResTypes0]; exact congrArg (fun t => #[t]) (Subtype.ext hResType)
+  have hw3264 : (IntegerType.mk 32).bitwidth < (IntegerType.mk 64).bitwidth := by decide
+  have hwC : (8 : Nat) < 64 := by omega
+  -- Unfold the outer cast's interpretation.
+  obtain ⟨v0v, hv0Val, hMem, hResSrc, hCf⟩ :=
+    matchExtOp_interpretOp_unfold (srcOp := cast) (srcFn := srcFn) (props := outerProps)
+      opInBounds hOpType hNumResults hOperands hProps hResTypes hw3264 hSemSrc hinterp hzTypeVal
+  subst hCf
+  -- Recover the defining cast's value.
+  obtain ⟨opType', hw', xv, hxVal, hv0CastIs, hxType', hDomX, hxIn, hxNotRes⟩ :=
+    hGraph ctxDom ctxVerif opInBounds stateWf hDef hInner (by rw [hOperands]; simp) hzTypeVal
+  obtain rfl : opType' = ⟨8⟩ := by rw [hxType'] at hxTypeVal; grind
+  obtain rfl : v0v = srcFn xv hw' innerProps := by
+    have := hv0Val.symm.trans hv0CastIs; simpa using this
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hResSrc] at hsourceValues
+  subst sourceValues
+  -- Peel the single cast creation.
+  peelOpCreation! hpattern ctx₁ newOp hNew hDomX hDomX₁
+  cleanupHpattern hpattern
+  have hNewType : newOp.getOpType! ctx₁.raw = .llvm cast := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewOperands : newOp.getOperands! ctx₁.raw = #[x] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewProps : newOp.getProperties! ctx₁.raw (.llvm cast) = cprops := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewResTypes : newOp.getResultTypes! ctx₁.raw
+      = #[(⟨Attribute.integerType ⟨64⟩, hResType ▸ ((op.getResult 0).get! ctx.raw).type.2⟩
+          : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hNew (operation := newOp)
+    rw [if_pos rfl] at hT
+    rw [hT]
+    exact congrArg (fun t => #[t]) (Subtype.ext hResType)
+  -- Read the refined innermost value `x` in the target state.
+  obtain ⟨xtv, hXVal', hxRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hxIn hxVal
+      hDomX hDomX₁ hxNotRes
+  -- Replay the created cast forward.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, -⟩ :=
+    interpretOp_llvm_unaryInt_forward (state := state') (inBounds := by grind)
+      (srcType := ⟨8⟩) (resType := ⟨64⟩) (f := fun c => srcFn c hwC cprops)
+      (by intro blockOperands mem; exact hSemSrc 8 ⟨64⟩ hwC xtv cprops _ blockOperands mem)
+      hNewType hNewProps hNewOperands hNewResTypes hXVal'
+  refine ⟨s₁, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int 64 (srcFn xtv hwC cprops)],
+    by simp [hRes₁, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Assemble: `srcFn (srcFn xv ..) .. ⊒ srcFn xv .. cprops ⊒ srcFn xtv .. cprops`.
+  simp only [Data.LLVM.Int.cast_self]
+  exact isRefinedBy_trans (hRefine innerProps outerProps xv hw' hw3264 hwC)
+    (hMono xv xtv hwC cprops hxRef)
+
+theorem zext_of_zext_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics zext_of_zext_local h h₂ h₃ h₄ :=
+  castOfCastLocal_preservesSemantics (cast := .zext) (match? := matchZext)
+    (cprops := { nneg := false })
+    (srcFn := fun a hw p => Data.LLVM.Int.zext a _ p.nneg hw)
+    matchZext_implies zext_interpretOp'
+    zext_getVar?_of_EquationLemmaAt
+    (fun x₁ x₂ hw p hr => Data.LLVM.Int.zext_mono x₁ x₂ hw hr)
+    (fun p0 p1 xv _ _ _ => by
+       simpa using Data.LLVM.Int.zext_of_zext (n0 := p0.nneg) (n1 := p1.nneg) (x := xv))
+
+theorem sext_of_sext_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics sext_of_sext_local h h₂ h₃ h₄ :=
+  castOfCastLocal_preservesSemantics (cast := .sext) (match? := matchSext) (cprops := ())
+    (srcFn := fun a hw _ => Data.LLVM.Int.sext a _ hw)
+    matchSext_implies sext_interpretOp'
+    sext_getVar?_of_EquationLemmaAt
+    (fun x₁ x₂ hw _ hr => Data.LLVM.Int.sext_mono x₁ x₂ hw hr)
+    (fun _ _ xv _ _ _ => by simpa using Data.LLVM.Int.sext_of_sext (x := xv))
+
 end Veir.RISCV

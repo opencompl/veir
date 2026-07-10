@@ -1796,41 +1796,71 @@ def narrow_binop_mul (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 
 /-! ### truncate_of_sext :  trunc (sext x) where trunc result type = x's type → x -/
 
-set_option warn.sorry false in
-def truncate_of_sext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, _tp) := matchTrunc op rewriter.ctx | return rewriter
-  let some dS := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _sp) := matchSext dS rewriter.ctx | return rewriter
-  if (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw != x.getType! rewriter.ctx.raw then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+/-- `trunc (sext x) → x` when the `trunc` lands back on `x`'s type, as a `LocalRewritePattern`.
+    The mirror of `trunc_of_zext_local` (defining `sext` instead of `zext`): no ops are created,
+    `op`'s result is simply replaced by `x`. The `i32`/`i64` width guards are what the correctness
+    proof needs to reach the `veir_bv_decide` data lemma. See
+    `truncate_of_sext_local_preservesSemantics`. -/
+def truncate_of_sext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (v0, _tp) := matchTrunc op ctx | return (ctx, none)
+  let some dS := getDefiningOp v0 ctx | return (ctx, none)
+  let some (x, _sp) := matchSext dS ctx | return (ctx, none)
+  if (op.getResult 0 : ValuePtr).getType! ctx.raw != x.getType! ctx.raw then return (ctx, none)
+  let .integerType xt := (x.getType! ctx.raw).val | return (ctx, none)
+  let .integerType st := (v0.getType! ctx.raw).val | return (ctx, none)
+  if xt.bitwidth ≠ 32 ∨ st.bitwidth ≠ 64 then return (ctx, none)
+  some (ctx, some (#[], #[x]))
 
-/-! ### zext_of_zext :  zext (zext x) → zext x -/
+def truncate_of_sext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite truncate_of_sext_local rewriter op opInBounds
 
-set_option warn.sorry false in
-def zext_of_zext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, zp) := matchZext op rewriter.ctx | return rewriter
-  let some dZ := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _) := matchZext dZ rewriter.ctx | return rewriter
-  let outTy := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .zext) #[outTy] #[x]
-    #[] #[] zp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+/-! ### {zext,sext}_of_{zext,sext} :  cast (cast x) → cast x -/
 
-/-! ### sext_of_sext :  sext (sext x) → sext x -/
+/-- The shared shape of `zext_of_zext`/`sext_of_sext`: match an outer `cast` (`cast ∈ {zext, sext}`,
+    via `match?`) whose operand is a defining `cast` of the same kind, and emit a single `cast`
+    straight from the innermost value `x`, carrying the fixed properties `cprops`. Widths are pinned
+    to `i8 → i32 → i64`, which is what the correctness proof needs to reach the `veir_bv_decide` data
+    lemmas.
 
-set_option warn.sorry false in
-def sext_of_sext (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, sp) := matchSext op rewriter.ctx | return rewriter
-  let some dS := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (x, _) := matchSext dS rewriter.ctx | return rewriter
-  let outTy := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .sext) #[outTy] #[x]
-    #[] #[] sp (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    For `zext`, `cprops` clears `nneg`: the outer `zext`'s `nneg` inspects the *inner* `zext`'s
+    result, which is always non-negative (its high half is zero), so it never fires in the source;
+    transplanting it onto `cast x` — whose operand `x` *can* be negative — would add poison the
+    source never had. For `sext` (no flags) `cprops` is `()`. Its shared correctness proof is
+    `castOfCastLocal_preservesSemantics`. -/
+def castOfCastLocal (cast : Llvm)
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × propertiesOf (.llvm cast)))
+    (cprops : propertiesOf (.llvm cast)) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (v0, _op) := match? op ctx | return (ctx, none)
+  let some dC := getDefiningOp v0 ctx | return (ctx, none)
+  let some (x, _ip) := match? dC ctx | return (ctx, none)
+  let .integerType xt := (x.getType! ctx.raw).val | return (ctx, none)
+  let .integerType zt := (v0.getType! ctx.raw).val | return (ctx, none)
+  let .integerType rty := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if xt.bitwidth ≠ 8 ∨ zt.bitwidth ≠ 32 ∨ rty.bitwidth ≠ 64 then return (ctx, none)
+  let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm cast) #[outTy] #[x] #[] #[] cprops none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+/-- `zext (zext x) → zext x`. -/
+def zext_of_zext_local : WfIRContext OpCode → OperationPtr →
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  castOfCastLocal .zext matchZext { nneg := false }
+
+def zext_of_zext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite zext_of_zext_local rewriter op opInBounds
+
+/-- `sext (sext x) → sext x`. -/
+def sext_of_sext_local : WfIRContext OpCode → OperationPtr →
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  castOfCastLocal .sext matchSext ()
+
+def sext_of_sext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite sext_of_sext_local rewriter op opInBounds
 
 /-! ### sub_to_add :  (sub x, C) → (add x, -C)   (C constant) -/
 

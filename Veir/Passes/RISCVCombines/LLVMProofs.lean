@@ -542,4 +542,33 @@ theorem NarrowBinopMul {s u nsw nuw : Bool} {x c : Int 64} :
       ⊒ mul (trunc x 32 false false h64_32) (trunc c 32 false false h64_32) := by
   veir_bv_decide
 
+/-! ### cast-chain combines (`{trunc,zext,sext}_of_cast`) -/
+
+private theorem h8_32 : (8 : Nat) < 32 := by omega
+private theorem h8_64 : (8 : Nat) < 64 := by omega
+
+/-- `trunc (sext x) → x` when the `trunc` lands back on `x`'s type. Both the `sext` and the `trunc`
+    flags stay free: they can only poison the source, and `poison ⊒ x`. The mirror of
+    `trunc_of_zext`. -/
+theorem trunc_of_sext {s u : Bool} {x : Int 32} :
+    trunc (sext x 64 h32_64) 32 s u h64_32 ⊒ x := by
+  veir_bv_decide
+
+/-- `zext (zext x) → zext x`. The created `zext` must clear `nneg`.
+
+    The outer `zext`'s `nneg` (`n1`) inspects the inner `zext`'s result, which is always
+    non-negative (its high half is zero), so it never poisons the source. Transplanting it onto
+    `zext x` — whose operand `x` can be negative — would add poison: take `x = -1 : i8` with the
+    inner `zext` non-`nneg` and the outer `zext` `nneg`. The source is `0xff` (a value), but
+    `zext nneg` of `x = -1` is poison. So the created `zext` carries `false`. -/
+theorem zext_of_zext {n0 n1 : Bool} {x : Int 8} :
+    zext (zext x 32 n0 h8_32) 64 n1 h32_64 ⊒ zext x 64 false h8_64 := by
+  veir_bv_decide
+
+/-- `sext (sext x) → sext x`. `sext` carries no flags, and sign-extending twice equals
+    sign-extending once, so this holds unconditionally. -/
+theorem sext_of_sext {x : Int 8} :
+    sext (sext x 32 h8_32) 64 h32_64 ⊒ sext x 64 h8_64 := by
+  veir_bv_decide
+
 end Veir.Data.LLVM.Int
