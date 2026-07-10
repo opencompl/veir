@@ -1085,6 +1085,17 @@ theorem nextResult!_eq_nextResult {op : OperationPtr} (hin : op.InBounds ctx) :
     op.nextResult! ctx = op.nextResult ctx hin := by
   grind [nextResult, nextResult!]
 
+/- Projections of `nextResult`, exposed for downstream files where its body is not. -/
+@[simp, grind =]
+theorem nextResult_op {op : OperationPtr} {hin : op.InBounds ctx} :
+    (op.nextResult ctx hin).op = op := by
+  grind [nextResult]
+
+@[simp, grind =]
+theorem nextResult_index {op : OperationPtr} {hin : op.InBounds ctx} :
+    (op.nextResult ctx hin).index = op.getNumResults! ctx := by
+  grind [nextResult]
+
 @[grind =]
 theorem nextResult!_eq_getResult {op : OperationPtr} :
     op.nextResult! ctx = op.getResult (op.getNumResults! ctx) := by

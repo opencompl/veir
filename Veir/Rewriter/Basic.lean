@@ -7,6 +7,7 @@ public import Veir.Rewriter.LinkedList.Basic
 public import Veir.Rewriter.LinkedList.GetSet
 public import Veir.Rewriter.RewriterPushOperand
 public import Veir.Rewriter.RewriterPushBlockOperand
+public import Veir.Rewriter.RewriterPushResult
 
 meta import Veir.IR.Buffed.Basic
 import Veir.IR.Buffed.RawAccessorsLemmas
@@ -15,6 +16,7 @@ import Veir.IR.Buffed.InBounds
 import Veir.Rewriter.LinkedList.LayoutUnchanged
 import all Veir.Rewriter.RewriterPushOperand
 import all Veir.Rewriter.RewriterPushBlockOperand
+import all Veir.Rewriter.RewriterPushResult
 import all Veir.Rewriter.LinkedList.Basic
 import all Veir.IR.Buffed.Basic
 import all Veir.IR.Buffed.RawAccessors
@@ -685,21 +687,6 @@ Like `setBlockArgument`, these write a single entry into the (already allocated)
 block-operand array of an operation, at a given index. They do not grow the array. -/
 
 @[inline]
-protected def Rewriter.setResult (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
-    (hnum : (opPtr + Buffed.Operation.Offsets.numResults).toInt + Buffed.Operation.Sizes.numResults.toInt ≤ ctx₀.size)
-    (hslot : (opPtr.getResultPtr ctx₀ idx hnum).toNat + Buffed.OpResult.size.toNat ≤ ctx₀.size)
-    (type : TypeAttr) : Option (Buffed.IRBufContext OpInfo) :=
-  let res := opPtr.getResultPtr ctx₀ idx hnum
-  rlet hattr : (ctx, typeIdx) ← ctx₀.insertAttrs type
-  have hsz : ctx.size = ctx₀.size := ctx₀.insertAttrs_size hattr
-  let ctx := Buffed.ValueImplMPtr.writeKind ctx res Buffed.ValueImpl.kindResult (by prove_setSlotBounds ctx₀)
-  let ctx := res.writeType ctx typeIdx (by prove_setSlotBounds ctx₀)
-  let ctx := res.writeFirstUse ctx .none (by prove_setSlotBounds ctx₀)
-  let ctx := res.writeIndex ctx idx (by prove_setSlotBounds ctx₀)
-  let ctx := res.writeOwner ctx opPtr (by prove_setSlotBounds ctx₀)
-  some ctx
-
-@[inline]
 protected def Rewriter.setRegion (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed.IRBufContext OpInfo) (idx : UInt64)
     (region : Buffed.RegionMPtr)
     (hregion : (region + Buffed.Region.Offsets.parent).toInt + Buffed.Region.Sizes.parent.toInt ≤ ctx₀.size)
@@ -1042,20 +1029,15 @@ theorem Rewriter.initOpRegions_preserves_capBlockOperands (ptr : Veir.OperationP
   simp [initOpRegions_def] at heq
   fun_induction initOpRegionsSim <;> grind (gen := 20) [pushRegionAt_def, pushRegionAtSim]
 
-def Rewriter.pushResult (ctx : IRContext OpInfo) (op : OperationPtr) (type : TypeAttr)
-    (hop : op.InBounds ctx := by grind)
-    : IRContext OpInfo :=
-  let index := op.getNumResults! ctx
-  let result : OpResult := { type := type, firstUse := none, index := index, owner := op }
-  op.pushResult ctx result (by grind)
-
 buffed
 def Rewriter.pushResultAtSim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (type : TypeAttr) (hop : opPtr.InBounds ctx := by grind)
     (hidx : idx.toNat = opPtr.spec.getNumResults! ctx.spec := by grind)
     (hcap : idx.toNat < (opPtr.spec.get! ctx.spec).capResults := by grind) :
-    Option (Sim.IRContext OpInfo) := do
-  some ⟨← Rewriter.setResult opPtr.impl ctx.buf idx (by prove_setLinkBoundsOp ctx opPtr) (by prove_setLinkBoundsResultSlot ctx opPtr idx) type, Rewriter.pushResult ctx.spec opPtr.spec type (by grind), admitted_sim hidx⟩
+    Option (Sim.IRContext OpInfo) :=
+  rlet hres : bufctx ← Rewriter.setResult opPtr.impl ctx.buf idx (by prove_setLinkBoundsOp ctx opPtr) (by prove_setLinkBoundsResultSlot ctx opPtr idx) type
+  have simres := Rewriter.setResult_pushResult_sim opPtr ctx idx type hop hidx hcap _ _ hres
+  some ⟨bufctx, Rewriter.pushResult ctx.spec opPtr.spec type (by grind), simres⟩
 
 @[grind =>]
 theorem Rewriter.pushResultAt_spec {opPtr : Sim.OperationPtr}
