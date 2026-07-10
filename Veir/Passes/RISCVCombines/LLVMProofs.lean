@@ -449,10 +449,10 @@ theorem NotAPlusNegOne_rw {w : Nat} (hw : w = 64 ∨ w = 32) {s u : Bool} {x : I
 
     Keeping `nuw` would be unsound: `A = 5`, `B = 3`. `(5 - 3) - 1 = 1` does not
     unsigned-overflow, but `add nuw (~3) 5` wraps. -/
-theorem sub_one_from_sub_rw {s2 u2 s u : Bool} {x y : Int 64} :
-    sub (sub x y s2 u2) (constant 64 1) s u
-      ⊒ add (xor y (constant 64 (-1))) x false false := by
-  veir_bv_decide
+theorem sub_one_from_sub_rw {w : Nat} (hw : w = 64 ∨ w = 32) {s2 u2 s u : Bool} {x y : Int w} :
+    sub (sub x y s2 u2) (constant w 1) s u
+      ⊒ add (xor y (constant w (-1))) x false false := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### trivial selects -/
 
