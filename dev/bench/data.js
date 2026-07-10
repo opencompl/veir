@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783655771269,
+  "lastUpdate": 1783656189530,
   "repoUrl": "https://github.com/opencompl/veir",
   "entries": {
     "VeIR Benchmarks": [
@@ -83988,6 +83988,184 @@ window.BENCHMARK_DATA = {
             "range": "± 38428",
             "unit": "ns",
             "extra": "count=1000 pc=100 samples=30 median=0.000624000s stddev=0.000038428s cv=6.1891%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tobias@grosser.es",
+            "name": "Tobias Christian Grosser",
+            "username": "tobiasgrosser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c675a3f1bbf58480b473613fe861217b5aa981f3",
+          "message": "feat: prove correctness of the getelementptr lowering (#1054)\n\nProves `LocalRewritePattern.PreservesSemantics getelementptr_local`,\ncovering all six emitted sequences: `add` at scale 1,\n`sh1add`/`sh2add`/`sh3add` at scales 2, 4 and 8, `slli`+`add` for other\npowers of two below `2^64`, and `li`+`mul`+`add` for every remaining\nscale including 0. A successful source interpretation forces the base\noperand to hold an address and the `i64` index to be non-poison, since a\npoison index raises UB, and pins the result type to a pointer type\nthrough the conformance of its `.addr` result, which the verifier does\nnot constrain; each branch then chains `castAddrToReg`, `castToReg`, its\narithmetic ops and `castRegToAddr`, discharging the final refinement\nwith that branch's bridge lemma. As in `LowerSdivPow2` the field\ntransports are explicit rewrites rather than `grind`, because\n`PreservesSemantics` bakes `hpattern` into the types of\n`state'Wf`/`state'Dom`/`valueRefinement` so the unreduced pattern body\ncan never be cleared from the context. Stacked on #1053, which fixes the\nzero-sized-element-type miscompile this proof would otherwise be unable\nto close.",
+          "timestamp": "2026-07-10T03:54:23Z",
+          "tree_id": "c149764bb1383f94e2715aa4864b5fe67543ac91",
+          "url": "https://github.com/opencompl/veir/commit/c675a3f1bbf58480b473613fe861217b5aa981f3"
+        },
+        "date": 1783656171486,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "add-fold-worklist/create",
+            "value": 2319000,
+            "range": "± 150084",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002319000s stddev=0.000150084s cv=6.4112%"
+          },
+          {
+            "name": "add-fold-worklist/rewrite",
+            "value": 3968000,
+            "range": "± 99027",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.003968000s stddev=0.000099027s cv=2.4798%"
+          },
+          {
+            "name": "add-fold-worklist-local/create",
+            "value": 2420000,
+            "range": "± 51735",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002420s stddev=0.000051735s cv=2.1378%"
+          },
+          {
+            "name": "add-fold-worklist-local/rewrite",
+            "value": 3318000,
+            "range": "± 62392",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003318s stddev=0.000062392s cv=1.8786%"
+          },
+          {
+            "name": "add-zero-worklist/create",
+            "value": 2313500,
+            "range": "± 120951",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002313500s stddev=0.000120951s cv=5.2366%"
+          },
+          {
+            "name": "add-zero-worklist/rewrite",
+            "value": 2529000,
+            "range": "± 64630",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002529000s stddev=0.000064630s cv=2.5429%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/create",
+            "value": 1983500,
+            "range": "± 137654",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001983500s stddev=0.000137654s cv=7.0271%"
+          },
+          {
+            "name": "add-zero-reuse-worklist/rewrite",
+            "value": 2101000,
+            "range": "± 61356",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.002101000s stddev=0.000061356s cv=2.8973%"
+          },
+          {
+            "name": "mul-two-worklist/create",
+            "value": 2426000,
+            "range": "± 74798",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002426s stddev=0.000074798s cv=3.0540%"
+          },
+          {
+            "name": "mul-two-worklist/rewrite",
+            "value": 5572000,
+            "range": "± 123890",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.005572s stddev=0.000123890s cv=2.2012%"
+          },
+          {
+            "name": "add-fold-forwards/create",
+            "value": 2350000,
+            "range": "± 115576",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=8 median=0.002350000s stddev=0.000115576s cv=4.8602%"
+          },
+          {
+            "name": "add-fold-forwards/rewrite",
+            "value": 3002500,
+            "range": "± 29985",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=8 median=0.003002500s stddev=0.000029985s cv=0.9954%"
+          },
+          {
+            "name": "add-zero-forwards/create",
+            "value": 2343000,
+            "range": "± 113524",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=9 median=0.002343s stddev=0.000113524s cv=4.8402%"
+          },
+          {
+            "name": "add-zero-forwards/rewrite",
+            "value": 1978000,
+            "range": "± 25451",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=9 median=0.001978s stddev=0.000025451s cv=1.2922%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/create",
+            "value": 1940000,
+            "range": "± 100692",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001940000s stddev=0.000100692s cv=5.1487%"
+          },
+          {
+            "name": "add-zero-reuse-forwards/rewrite",
+            "value": 1569500,
+            "range": "± 30239",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001569500s stddev=0.000030239s cv=1.9197%"
+          },
+          {
+            "name": "mul-two-forwards/create",
+            "value": 2261000,
+            "range": "± 67226",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.002261s stddev=0.000067226s cv=2.9738%"
+          },
+          {
+            "name": "mul-two-forwards/rewrite",
+            "value": 3692000,
+            "range": "± 36677",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=5 median=0.003692s stddev=0.000036677s cv=0.9944%"
+          },
+          {
+            "name": "add-zero-reuse-first/create",
+            "value": 1923000,
+            "range": "± 110489",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001923000s stddev=0.000110489s cv=5.6673%"
+          },
+          {
+            "name": "add-zero-reuse-first/rewrite",
+            "value": 8000,
+            "range": "± 3044",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000008000s stddev=0.000003044s cv=31.4886%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/create",
+            "value": 1981500,
+            "range": "± 101158",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.001981500s stddev=0.000101158s cv=5.1595%"
+          },
+          {
+            "name": "add-zero-lots-of-reuse-first/rewrite",
+            "value": 795000,
+            "range": "± 27784",
+            "unit": "ns",
+            "extra": "count=1000 pc=100 samples=30 median=0.000795000s stddev=0.000027784s cv=3.4556%"
           }
         ]
       }
