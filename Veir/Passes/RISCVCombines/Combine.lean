@@ -662,20 +662,30 @@ def select_of_zext_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite select_of_zext_local rewriter op opInBounds
 
-set_option warn.sorry false in
+/-- `trunc (select c t f) → select c (trunc t) (trunc f)`, as a `LocalRewritePattern`. `op` is the
+    `trunc`, whose operand is a defining `select c t f`. It creates two `trunc`s (of `t` and `f`,
+    both carrying the matched `trunc`'s properties `tp`) and a `select` over them. The wide-`{64}`
+    (operand) / result-`{32}` width guards keep the rewrite to `i64 → i32`. See
+    `select_of_truncate_local_preservesSemantics`. -/
+def select_of_truncate_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (v0, tp) := matchTrunc op ctx | return (ctx, none)
+  let some dS := getDefiningOp v0 ctx | return (ctx, none)
+  let some (cond, tv, fv) := matchSelect dS ctx | return (ctx, none)
+  let .integerType tvty := (tv.getType! ctx.raw).val | return (ctx, none)
+  if tvty.bitwidth ≠ 64 then return (ctx, none)
+  let .integerType rty := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  if rty.bitwidth ≠ 32 then return (ctx, none)
+  let outTy := (op.getResult 0 : ValuePtr).getType! ctx.raw
+  let (ctx, tt) ← WfRewriter.createOp! ctx (.llvm .trunc) #[outTy] #[tv] #[] #[] tp none
+  let (ctx, tf) ← WfRewriter.createOp! ctx (.llvm .trunc) #[outTy] #[fv] #[] #[] tp none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .select)
+    #[outTy] #[cond, tt.getResult 0, tf.getResult 0] #[] #[] () none
+  some (ctx, some (#[tt, tf, newOp], #[newOp.getResult 0]))
+
 def select_of_truncate_rw (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (v0, tp) := matchTrunc op rewriter.ctx | return rewriter
-  let some dS := getDefiningOp v0 rewriter.ctx | return rewriter
-  let some (cond, tv, fv) := matchSelect dS rewriter.ctx | return rewriter
-  let outTy := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
-  let (rewriter, tt) ← rewriter.createOp (.llvm .trunc) #[outTy] #[tv]
-    #[] #[] tp (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, tf) ← rewriter.createOp (.llvm .trunc) #[outTy] #[fv]
-    #[] #[] tp (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .select) #[outTy] #[cond, (tt.getResult 0), (tf.getResult 0)]
-    #[] #[] () (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite select_of_truncate_local rewriter op opInBounds
 
 /-! ### add_shift :  A + shl(0 - B, C) → A - shl(B, C) -/
 
