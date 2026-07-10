@@ -10683,4 +10683,240 @@ theorem zextw_zextw_local_preservesSemantics
       · exact absurd h (by simp))
     (fun x => Veir.Data.RISCV.zextw_zextw (x := x))
 
+/-! ### combine_or_of_and :  `or (and x, y), x → x`
+
+  `op` is the `or`; one of its operands is the kept value `x`, the other is a defining `and` one of
+  whose operands is that same `x`. No operation is created: the `or`'s result is replaced by `x`.
+  The defining `and`'s value is recovered with `matchBinop_getVar?_of_EquationLemmaAt`, and the
+  obligation collapses to the width-generic absorption lemmas `OrAndAbsorbL`/`OrAndAbsorbR` (the
+  `and`'s matched operand may be on either side, normalised with `and_comm`). The `or`'s `disjoint`
+  flag stays a free variable -- a `disjoint` `or` that overlaps is merely poison, and `poison ⊒ x`.
+-/
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness proof for `combine_or_of_and_l` (`andOnLeft := true`) and
+    `combine_or_of_and_r` (`andOnLeft := false`). -/
+theorem orOfAndLocal_preservesSemantics (andOnLeft : Bool)
+    {h : LocalRewritePattern.ReturnOps (orOfAndLocal andOnLeft)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (orOfAndLocal andOnLeft)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (orOfAndLocal andOnLeft)}
+    {h₄ : LocalRewritePattern.ReturnValues (orOfAndLocal andOnLeft)} :
+    LocalRewritePattern.PreservesSemantics (orOfAndLocal andOnLeft) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, orOfAndLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel `matchOr`.
+  have hMatchSome : (matchOr op ctx.raw).isSome := by
+    cases hM : matchOr op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨m0, m1, oprops⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands, -⟩ := matchOr_implies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Verifier facts for `op` (the `or`).
+  have opVerif : op.Verified ctx opInBounds := by grind
+  obtain ⟨-, -, -, -, opIntType, hOpResType, hOp0Type, hOp1Type⟩ :=
+    OperationPtr.Verified.llvm_or opVerif hOpType
+  have hOperand0 : op.getOperand! ctx.raw 0 = m0 := by
+    rw [show m0 = (op.getOperands! ctx.raw)[0]! from by rw [hOperands]; rfl]
+    grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = m1 := by
+    rw [show m1 = (op.getOperands! ctx.raw)[1]! from by rw [hOperands]; rfl]
+    grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hM0Type : (m0.getType! ctx.raw).val = Attribute.integerType opIntType := by
+    rw [← hOperand0, hOp0Type]
+  have hM1Type : (m1.getType! ctx.raw).val = Attribute.integerType opIntType := by
+    rw [← hOperand1, hOp1Type]
+  -- Unfold the outer `or`'s interpretation: source value is `or m0v m1v disjoint`.
+  obtain ⟨m0v, m1v, hM0Val, hM1Val, hMem, hRes, hCf⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := .or)
+      (srcFn := fun a b props => Data.LLVM.Int.or a b props.disjoint)
+      (props := op.getProperties! ctx.raw (.llvm .or))
+      opInBounds hOpType hNumResults hOperands rfl
+      (by intro bw a b props resultTypes blockOperands mem res hh
+          simp only [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp] at hh
+          grind)
+      hinterp hM0Type hM1Type
+  subst hCf
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- Split on which side of the `or` carries the `and`.
+  cases andOnLeft with
+  | true =>
+    simp only [reduceIte] at hpattern
+    -- `andV = m0`, `x = m1`.
+    have hDefSome : (getDefiningOp m0 ctx.raw).isSome := by
+      cases hM : getDefiningOp m0 ctx.raw with
+      | some z => rfl
+      | none => rw [hM] at hpattern; simp at hpattern
+    obtain ⟨andOp, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+    rw [hDef] at hpattern
+    simp only [] at hpattern
+    have hAndSome : (matchAnd andOp ctx.raw).isSome := by
+      cases hM : matchAnd andOp ctx.raw with
+      | some z => rfl
+      | none => rw [hM] at hpattern; simp at hpattern
+    obtain ⟨⟨a0, a1, andP⟩, hAnd⟩ := Option.isSome_iff_exists.mp hAndSome
+    rw [hAnd] at hpattern
+    simp only [] at hpattern
+    split at hpattern
+    case isTrue => simp at hpattern
+    rename_i hGuard
+    have hax : a0 = m1 ∨ a1 = m1 := by
+      simp only [not_and, Decidable.not_not] at hGuard
+      rcases Decidable.em (a0 = m1) with hh | hh
+      · exact Or.inl hh
+      · exact Or.inr (hGuard hh)
+    obtain ⟨a0v, a1v, ha0Val, ha1Val, hAndValIs, -, -, ha0Dom, ha1Dom, ha0In, ha1In,
+        ha0NotOp, ha1NotOp⟩ :=
+      matchBinop_getVar?_of_EquationLemmaAt (srcOp := .and)
+        (srcFn := fun a b _ => Data.LLVM.Int.and a b)
+        (matchBinopNoProps_implies matchAnd_implies)
+        OperationPtr.Verified.llvm_and OperationPtr.Pure.llvm_and
+        (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+        ctxDom ctxVerif opInBounds stateWf hDef
+        (show matchBinopNoProps matchAnd andOp ctx.raw = some (a0, a1) by
+          simp only [matchBinopNoProps, bind, Option.bind, hAnd])
+        (by rw [hOperands]; simp) hM0Type
+    -- `m1` is the kept operand and equals `a0` or `a1`, so it inherits their source facts.
+    have hDomKeep : m1.dominatesIp (InsertPoint.before op) ctx := by
+      rcases hax with h | h
+      · exact h ▸ ha0Dom
+      · exact h ▸ ha1Dom
+    have hKeepIn : m1.InBounds ctx.raw := by
+      rcases hax with h | h
+      · exact h ▸ ha0In
+      · exact h ▸ ha1In
+    have keepNotOp : ¬ m1 ∈ op.getResults! ctx.raw := by
+      rcases hax with h | h
+      · exact h ▸ ha0NotOp
+      · exact h ▸ ha1NotOp
+    obtain ⟨rfl, rfl, rfl⟩ : newCtx = ctx ∧ newOps = #[] ∧ newValues = #[m1] := by
+      simp only [Option.some.injEq, Prod.mk.injEq] at hpattern; grind
+    obtain ⟨kt, hKeepVal', hktRef⟩ :=
+      LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hKeepIn hM1Val
+        hDomKeep hDomKeep keepNotOp
+    refine ⟨state', by
+      simp [interpretOpList, liftM, monadLift, MonadLift.monadLift, Interp, pure], by grind, ?_⟩
+    refine ⟨#[RuntimeValue.int opIntType.bitwidth kt], by simp [hKeepVal', Option.bind, Option.map],
+      ?_⟩
+    refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+    refine isRefinedBy_trans ?_ hktRef
+    -- Data: `or m0v m1v disjoint ⊒ m1v`, with `m0v = and a0v a1v` and `a0 = m1 ∨ a1 = m1`.
+    have hm0v : m0v = Data.LLVM.Int.and a0v a1v := by
+      have := hM0Val.symm.trans hAndValIs; simpa using this
+    subst hm0v
+    simp only [Data.LLVM.Int.cast_self]
+    rcases hax with ha | ha
+    · have hEq : a0v = m1v := by
+        have := (ha ▸ ha0Val).symm.trans hM1Val; simpa using this
+      subst hEq
+      exact Data.LLVM.Int.OrAndAbsorbL
+    · have hEq : a1v = m1v := by
+        have := (ha ▸ ha1Val).symm.trans hM1Val; simpa using this
+      subst hEq
+      rw [Data.LLVM.Int.and_comm]
+      exact Data.LLVM.Int.OrAndAbsorbL
+  | false =>
+    simp only [Bool.false_eq_true, reduceIte] at hpattern
+    -- `andV = m1`, `x = m0`.
+    have hDefSome : (getDefiningOp m1 ctx.raw).isSome := by
+      cases hM : getDefiningOp m1 ctx.raw with
+      | some z => rfl
+      | none => rw [hM] at hpattern; simp at hpattern
+    obtain ⟨andOp, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+    rw [hDef] at hpattern
+    simp only [] at hpattern
+    have hAndSome : (matchAnd andOp ctx.raw).isSome := by
+      cases hM : matchAnd andOp ctx.raw with
+      | some z => rfl
+      | none => rw [hM] at hpattern; simp at hpattern
+    obtain ⟨⟨a0, a1, andP⟩, hAnd⟩ := Option.isSome_iff_exists.mp hAndSome
+    rw [hAnd] at hpattern
+    simp only [] at hpattern
+    split at hpattern
+    case isTrue => simp at hpattern
+    rename_i hGuard
+    have hax : a0 = m0 ∨ a1 = m0 := by
+      simp only [not_and, Decidable.not_not] at hGuard
+      rcases Decidable.em (a0 = m0) with hh | hh
+      · exact Or.inl hh
+      · exact Or.inr (hGuard hh)
+    obtain ⟨a0v, a1v, ha0Val, ha1Val, hAndValIs, -, -, ha0Dom, ha1Dom, ha0In, ha1In,
+        ha0NotOp, ha1NotOp⟩ :=
+      matchBinop_getVar?_of_EquationLemmaAt (srcOp := .and)
+        (srcFn := fun a b _ => Data.LLVM.Int.and a b)
+        (matchBinopNoProps_implies matchAnd_implies)
+        OperationPtr.Verified.llvm_and OperationPtr.Pure.llvm_and
+        (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+        ctxDom ctxVerif opInBounds stateWf hDef
+        (show matchBinopNoProps matchAnd andOp ctx.raw = some (a0, a1) by
+          simp only [matchBinopNoProps, bind, Option.bind, hAnd])
+        (by rw [hOperands]; simp) hM1Type
+    -- `m0` is the kept operand and equals `a0` or `a1`, so it inherits their source facts.
+    have hDomKeep : m0.dominatesIp (InsertPoint.before op) ctx := by
+      rcases hax with h | h
+      · exact h ▸ ha0Dom
+      · exact h ▸ ha1Dom
+    have hKeepIn : m0.InBounds ctx.raw := by
+      rcases hax with h | h
+      · exact h ▸ ha0In
+      · exact h ▸ ha1In
+    have keepNotOp : ¬ m0 ∈ op.getResults! ctx.raw := by
+      rcases hax with h | h
+      · exact h ▸ ha0NotOp
+      · exact h ▸ ha1NotOp
+    obtain ⟨rfl, rfl, rfl⟩ : newCtx = ctx ∧ newOps = #[] ∧ newValues = #[m0] := by
+      simp only [Option.some.injEq, Prod.mk.injEq] at hpattern; grind
+    obtain ⟨kt, hKeepVal', hktRef⟩ :=
+      LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hKeepIn hM0Val
+        hDomKeep hDomKeep keepNotOp
+    refine ⟨state', by
+      simp [interpretOpList, liftM, monadLift, MonadLift.monadLift, Interp, pure], by grind, ?_⟩
+    refine ⟨#[RuntimeValue.int opIntType.bitwidth kt], by simp [hKeepVal', Option.bind, Option.map],
+      ?_⟩
+    refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+    refine isRefinedBy_trans ?_ hktRef
+    -- Data: `or m0v m1v disjoint ⊒ m0v`, with `m1v = and a0v a1v` and `a0 = m0 ∨ a1 = m0`.
+    have hm1v : m1v = Data.LLVM.Int.and a0v a1v := by
+      have := hM1Val.symm.trans hAndValIs; simpa using this
+    subst hm1v
+    simp only [Data.LLVM.Int.cast_self]
+    rcases hax with ha | ha
+    · have hEq : a0v = m0v := by
+        have := (ha ▸ ha0Val).symm.trans hM0Val; simpa using this
+      subst hEq
+      exact Data.LLVM.Int.OrAndAbsorbR
+    · have hEq : a1v = m0v := by
+        have := (ha ▸ ha1Val).symm.trans hM0Val; simpa using this
+      subst hEq
+      rw [Data.LLVM.Int.and_comm]
+      exact Data.LLVM.Int.OrAndAbsorbR
+
+theorem combine_or_of_and_l_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (orOfAndLocal true)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (orOfAndLocal true)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (orOfAndLocal true)}
+    {h₄ : LocalRewritePattern.ReturnValues (orOfAndLocal true)} :
+    LocalRewritePattern.PreservesSemantics (orOfAndLocal true) h h₂ h₃ h₄ :=
+  orOfAndLocal_preservesSemantics true
+
+theorem combine_or_of_and_r_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (orOfAndLocal false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (orOfAndLocal false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (orOfAndLocal false)}
+    {h₄ : LocalRewritePattern.ReturnValues (orOfAndLocal false)} :
+    LocalRewritePattern.PreservesSemantics (orOfAndLocal false) h h₂ h₃ h₄ :=
+  orOfAndLocal_preservesSemantics false
+
 end Veir.RISCV

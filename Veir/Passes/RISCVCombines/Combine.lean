@@ -1169,27 +1169,35 @@ def and_xor_or_to_xor_and (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 
 /-! ### combine_or_of_and :  or (and x, y), x  →  x -/
 
+/-- The shared shape of the two `or (and ..) x → x` absorption combines, as a
+    `LocalRewritePattern`. `op` is the `or`; one of its operands is `x`, and the other (`andV`) is
+    a defining `and` one of whose operands is that same `x`. `andOnLeft` selects which side the
+    `and` is on: for `or (and x y) x` (`andOnLeft := true`) the *first* `or` operand is the `and`
+    and the second is `x`; for `or x (and x y)` (`andOnLeft := false`) they are swapped. The `and`'s
+    matched operand `x` may be on either side (`a0 = x ∨ a1 = x`).
+
+    No operation is created: the `or`'s result is replaced by the operand `x` itself. Sound because
+    `(x & y) | x` absorbs to `x` -- and a `disjoint` `or` that overlaps is merely poison, and
+    `poison ⊒ x` -- so the source refines `x` for every `disjoint` setting. Width-generic (no
+    bitwidth guard). Its shared correctness proof is `orOfAndLocal_preservesSemantics`. -/
+def orOfAndLocal (andOnLeft : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (m0, m1, _oprops) := matchOr op ctx | return (ctx, none)
+  let (andV, x) := if andOnLeft then (m0, m1) else (m1, m0)
+  let some dAnd := getDefiningOp andV ctx | return (ctx, none)
+  let some (a0, a1, _aprops) := matchAnd dAnd ctx | return (ctx, none)
+  if a0 != x && a1 != x then return (ctx, none)
+  some (ctx, some (#[], #[x]))
+
 -- or (and x, y), x  →  x   (the `and` is the left OR operand)
-set_option warn.sorry false in
 def combine_or_of_and_l (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (andV, x, _oprops) := matchOr op rewriter.ctx | return rewriter
-  let some dAnd := getDefiningOp andV rewriter.ctx | return rewriter
-  let some (a0, a1, _aprops) := matchAnd dAnd rewriter.ctx | return rewriter
-  if a0 != x && a1 != x then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (orOfAndLocal true) rewriter op opInBounds
 
 -- or x, (and x, y)  →  x   (the `and` is the right OR operand)
-set_option warn.sorry false in
 def combine_or_of_and_r (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (x, andV, _oprops) := matchOr op rewriter.ctx | return rewriter
-  let some dAnd := getDefiningOp andV rewriter.ctx | return rewriter
-  let some (a0, a1, _aprops) := matchAnd dAnd rewriter.ctx | return rewriter
-  if a0 != x && a1 != x then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite (orOfAndLocal false) rewriter op opInBounds
 
 /-! ### AMinusBMinusC :  A - (B - C)  →  A + (C - B) -/
 set_option warn.sorry false in

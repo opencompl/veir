@@ -746,4 +746,32 @@ theorem icmp_swap {w : Nat} (x y : Int w) (p : IntPred) :
       | rfl
       | (simp only [icmp, Id.run, IntPred.eval]; grind)
 
+/-! ### combine_or_of_and :  `or (and x, y), x → x`
+
+  `(x & y) | x` absorbs to `x`: whenever the `or` is not poison its value is `(x & y) | x = x`,
+  and the `or` is poison whenever `x` is (its operand), so the source refines `x`. A `disjoint`
+  `or` is additionally poison when `(x & y) & x = x & y ≠ 0`, which only *adds* poison to the
+  source, so the `disjoint` flag stays a free variable (the rewrite is sound for every setting).
+  Absorption is bit-parallel, so these hold width-generically -- no bitwidth guard is needed.
+  Each is discharged directly from `isRefinedBy_iff`: the `or` inherits `x`'s poison, and the
+  never-poison value goal is the per-bit absorption `(a && b) || a = a`. Justify
+  `combine_or_of_and_l`/`combine_or_of_and_r`. -/
+
+/-- `(x & y) | x → x` (the `and` is the LEFT `or` operand). -/
+theorem OrAndAbsorbL {w : Nat} {d : Bool} {x y : Int w} :
+    or (and x y) x d ⊒ x := by
+  rw [isRefinedBy_iff]
+  refine ⟨fun hp => ?_, fun hpS hpX => ?_⟩
+  · simp only [isPoison_or, isPoison_and] at hp; grind
+  · rw [getValue_or, getValue_and]
+    apply BitVec.eq_of_getLsbD_eq_iff.mpr
+    intro i _
+    simp only [BitVec.getLsbD_or, BitVec.getLsbD_and]
+    cases x.getValue hpX |>.getLsbD i <;> simp
+
+/-- `x | (x & y) → x` (the `and` is the RIGHT `or` operand). -/
+theorem OrAndAbsorbR {w : Nat} {d : Bool} {x y : Int w} :
+    or x (and x y) d ⊒ x := by
+  rw [or_comm]; exact OrAndAbsorbL
+
 end Veir.Data.LLVM.Int
