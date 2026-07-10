@@ -87,4 +87,25 @@ theorem val_xor {w : Nat} (x y : Byte w) :
     (x ^^^ y).val = (x.val ^^^ y.val) &&& ~~~(x.poison ||| y.poison) := by
   simp [xor_eq]
 
+/- # shl -/
+
+/-- `Byte.shl` as a conditional chain. Unlike `Byte.lshr`, `Byte.shl` is defined as a `do`-block,
+which `bv_decide` cannot see through; this restates it in the same shape as `Byte.lshr` so that the
+normalization set can unfold it. -/
+@[veir_bv_normalize]
+theorem shl_eq {w : Nat} (x : Byte w) (y : Int w) (nuw : Bool) :
+    x.shl y nuw =
+      if y.isPoison || y.getValueD ≥ w then allPoison
+      else if nuw ∧ (x.val <<< y.getValueD) >>> y.getValueD ≠ x.val then allPoison
+      else if nuw ∧ (x.poison <<< y.getValueD) >>> y.getValueD ≠ x.poison then allPoison
+      else ⟨x.val <<< y.getValueD, x.poison <<< y.getValueD, by
+        simp [← BitVec.shiftLeft_and_distrib, x.h]⟩ := by
+  cases y with
+  | poison => simp [Byte.shl, Id.run, Int.isPoison_of_poison]
+  | val y' =>
+    simp only [Byte.shl, Id.run, Int.isPoison_of_val, Int.getValueD_val, Bool.false_or,
+      decide_eq_true_eq]
+    repeat' split
+    all_goals first | rfl | simp_all | (exfalso; bv_omega)
+
 end Veir.Data.LLVM.Byte

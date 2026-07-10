@@ -19,4 +19,14 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
         "func.return"() : () -> ()
     }) : () -> ()
+    "func.func"()  <{function_type = (i8, i8) -> ()}> ({
+    ^bb(%a: i8, %b: i8):
+        %ashr8 = "llvm.ashr"(%a, %b) : (i8, i8) -> i8
+        // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.sextb"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.sra"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i8
+        "func.return"() : () -> ()
+    }) : () -> ()
 }) : () -> ()

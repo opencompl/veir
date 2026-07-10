@@ -15,4 +15,4 @@
 }) : () -> ()
 
 // SRC:   Program output: #[0xfffffffd#32, 0x00000003#32]
-// CHECK: Program output: #[0xfffffffd#32, 0x00000003#32]
+// CHECK: Program output: #[0x00000000fffffffd#64, 0x0000000000000003#64]

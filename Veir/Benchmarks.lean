@@ -14,6 +14,74 @@ set_option warn.sorry false
 
 namespace Veir.Benchmarks
 
+structure Xoshiro256PP where
+  s0 : UInt64
+  s1 : UInt64
+  s2 : UInt64
+  s3 : UInt64
+
+namespace Xoshiro256PP
+
+@[always_inline]
+def rol64 (x : UInt64) (k : UInt64) :=
+  (x <<< k) ||| (x >>> (64 - k))
+
+@[always_inline]
+def step (self : Xoshiro256PP) : UInt64 × Xoshiro256PP :=
+  let (s0, s1, s2, s3) := (self.s0, self.s1, self.s2, self.s3)
+
+  let result := rol64 (s0 + s3) 23 + s0
+  let t := s1 <<< 17
+
+  let s2 := s2 ^^^ s0
+  let s3 := s3 ^^^ s1
+  let s1 := s1 ^^^ s2
+  let s0 := s0 ^^^ s3
+
+  let s2 := s2 ^^^ t
+  let s3 := rol64 s3 45
+
+  (result, { s0, s1, s2, s3 })
+
+@[always_inline]
+def new (seed : Nat) : Xoshiro256PP :=
+  let state := {
+    s0 := 0xa88f8a3be644a802,
+    s1 := 0x7f9ce0f5c6c0e39e,
+    s2 := 0x9fecbfa76b135110,
+    s3 := 0x6bcf817f7dd191dc ^^^ seed.toUInt64
+  }
+
+  step state |>.snd
+
+@[always_inline]
+def run {m : Type -> Type} [Functor m] {α : Type} (action : StateT Xoshiro256PP m α) (seed : Nat := 42) : m α :=
+  StateT.run' action (new seed)
+
+end Xoshiro256PP
+
+section Xoshiro256PPMonadic
+
+variable {m : Type -> Type} [MonadStateOf Xoshiro256PP m] [Bind m] [Pure m]
+
+@[always_inline]
+def randU64 : m UInt64 :=
+  modifyGetThe Xoshiro256PP Xoshiro256PP.step
+
+@[always_inline]
+def randNat63 : m Nat :=
+  return ((←randU64) &&& 0x7FFF_FFFF_FFFF_FFFF).toNat
+
+@[always_inline]
+def randBool (pc : Nat := 50) : m Bool :=
+  return (←randNat63) % 100 < pc
+
+@[always_inline]
+def randIdx {α : Type} (arr : Array α) : m (Option α) :=
+  return arr[(←randNat63) % arr.size]?
+
+end Xoshiro256PPMonadic
+
 namespace Pattern
 
 def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
@@ -307,6 +375,47 @@ def addOneTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
 def mulTwoTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
   constFoldTree (.arith .muli) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 2
 
+-- Create a program that looks like constFoldTree but with randomly selected constants as rhs and
+-- randomly selected previous ops as lhs
+def constFoldTreeSparse (opcode : OpCode) (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (WfIRContext OpCode × OperationPtr) :=
+  Xoshiro256PP.run do
+    let rootAttr := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.mk 32))
+    let incAttr := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.mk 32))
+    let (gctx, topOp, insertPoint) ← empty
+
+    let mut (gctx, root) ← WfRewriter.createOp gctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] rootAttr insertPoint sorry sorry sorry sorry
+    let mut runningTotals := #[root.getResult 0]
+    let mut constants := #[]
+
+    while runningTotals.size < size do
+      let ctx := gctx
+      -- Only create 20% constants to bias towards more reuse
+      let const ← randBool 20
+
+      if const then
+        let (ctx, op) ← WfRewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] incAttr insertPoint sorry sorry sorry sorry
+        constants := constants.push (op.getResult 0)
+        gctx := ctx
+
+      else
+        if let some lhs ← randIdx runningTotals then
+          if let some rhs ← randIdx constants then
+            let ⟨thisOp, prop⟩ : (op : OpCode) × propertiesOf op := if ←randBool pc then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
+            let (ctx, op) ← WfRewriter.createOp ctx thisOp #[IntegerType.mk 32] #[lhs, rhs] #[] #[] prop insertPoint sorry sorry sorry sorry
+            runningTotals := runningTotals.push (op.getResult 0)
+            gctx := ctx
+
+    let (ctx, op) ← WfRewriter.createOp gctx (.test .test) #[] #[runningTotals.back!] #[] #[] () insertPoint sorry sorry sorry sorry
+    return (ctx, topOp)
+
+def addZeroTreeSparse (size pc : Nat) : Option (WfIRContext OpCode × OperationPtr) :=
+  constFoldTreeSparse (.arith .addi) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 0
+
+def addOneTreeSparse (size pc : Nat) : Option (WfIRContext OpCode × OperationPtr) :=
+  constFoldTreeSparse (.arith .addi) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 1
+
+def mulTwoTreeSparse (size pc : Nat) : Option (WfIRContext OpCode × OperationPtr) :=
+  constFoldTreeSparse (.arith .muli) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 2
 
 -- Create a program that looks like:
 -- func @main() -> u64 {
@@ -423,6 +532,14 @@ def runBenchmarkWithResult (benchmark: String) (n pc: Nat) (quiet: Bool := false
   | "add-zero-reuse-forwards" =>      run n pc addZeroReuseTree        rewriteForwards  Custom.addIZeroFolding      print quiet
   | "mul-two-forwards" =>             run n pc mulTwoTree              rewriteForwards  Custom.mulITwoReduce        false quiet
 
+  | "add-fold-worklist-sparse" =>     run n pc addOneTreeSparse        rewriteWorklist  Pattern.addIConstantFolding false quiet
+  | "add-zero-worklist-sparse" =>     run n pc addZeroTreeSparse       rewriteWorklist  Pattern.addIZeroFolding     false quiet
+  | "mul-two-worklist-sparse" =>      run n pc mulTwoTreeSparse        rewriteWorklist  Pattern.mulITwoReduce       false quiet
+
+  | "add-fold-forwards-sparse" =>     run n pc addOneTreeSparse        rewriteForwards  Custom.addIConstantFolding  false quiet
+  | "add-zero-forwards-sparse" =>     run n pc addZeroTreeSparse       rewriteForwards  Custom.addIZeroFolding      false quiet
+  | "mul-two-forwards-sparse" =>      run n pc mulTwoTreeSparse        rewriteForwards  Custom.mulITwoReduce        false quiet
+
   | "add-zero-reuse-first" =>         run n pc addZeroReuseTree        rewriteFirstAddI Custom.addIZeroFolding      false quiet
   | "add-zero-lots-of-reuse-first" => run n pc addZeroLotsOfReuseTree  rewriteFirstAddI Custom.addIZeroFolding      false quiet
 
@@ -474,6 +591,33 @@ info: "builtin.module"() ({
 info: "builtin.module"() ({
   ^2():
     %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %4 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+    %5 = "arith.addi"(%3, %4) : (i32, i32) -> i32
+    %6 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+    %7 = "arith.addi"(%5, %4) : (i32, i32) -> i32
+    %8 = "arith.addi"(%3, %6) : (i32, i32) -> i32
+    %9 = "arith.addi"(%8, %4) : (i32, i32) -> i32
+    "test.test"(%9) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! Program.addOneTreeSparse 5 100 |> print
+
+/--
+info: "builtin.module"() ({
+  ^2():
+    %12 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
+    %14 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
+    "test.test"(%14) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testBench "add-fold-forwards-sparse" 5
+
+/--
+info: "builtin.module"() ({
+  ^2():
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
     "test.test"(%3) : (i32) -> ()
 }) : () -> ()
 -/
@@ -489,6 +633,16 @@ info: "builtin.module"() ({
 -/
 #guard_msgs in
 #eval! testBench "add-zero-forwards" 10
+
+/--
+info: "builtin.module"() ({
+  ^2():
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    "test.test"(%3) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testBench "add-zero-forwards-sparse" 10
 
 /--
 info: "builtin.module"() ({
@@ -529,6 +683,21 @@ info: "builtin.module"() ({
 -/
 #guard_msgs in
 #eval! testBench "mul-two-forwards" 10
+
+
+/--
+info: "builtin.module"() ({
+  ^2():
+    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %11 = "arith.addi"(%3, %3) : (i32, i32) -> i32
+    %12 = "arith.addi"(%11, %11) : (i32, i32) -> i32
+    %13 = "arith.addi"(%3, %3) : (i32, i32) -> i32
+    %14 = "arith.addi"(%13, %13) : (i32, i32) -> i32
+    "test.test"(%14) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! testBench "mul-two-forwards-sparse" 5
 
 /--
 info: "builtin.module"() ({
