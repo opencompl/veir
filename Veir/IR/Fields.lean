@@ -12,10 +12,7 @@ variable {ctx : IRContext OpInfo}
 
 public section
 
-/-
-  FieldsInBounds implementation.
-  These are the predicates that ensures that all pointers in a program are in bounds.
--/
+/- FieldsInBounds implementation. -/
 
 structure OpResult.FieldsInBounds (res : OpResult) (ctx : IRContext OpInfo) : Prop where
   firstUse_inBounds : res.firstUse.maybe OpOperandPtr.InBounds ctx
@@ -67,9 +64,7 @@ structure Region.FieldsInBounds (region : Region) (ctx : IRContext OpInfo) : Pro
   lastBlock_inBounds block : region.lastBlock = some block → block.InBounds ctx
   parent_inBounds parent : region.parent = some parent → parent.InBounds ctx
 
-/--
-    Ensures that all pointers referenced by any structure in the context are in bounds.
--/
+/-- Ensures that all pointers referenced by any structure in the context are in bounds. -/
 structure IRContext.FieldsInBounds (ctx : IRContext OpInfo) : Prop where
   operations_inBounds (op : OperationPtr) opIn : Operation.FieldsInBounds op ctx opIn
   blocks_inBounds (block : BlockPtr) blockIn : Block.FieldsInBounds block ctx blockIn
@@ -89,11 +84,7 @@ end default
 
 section get
 
-/-
-  Theorems combining `get` methods with `IRContext.fieldsInBounds`.
-  These should be the only theorems that unfolds the `FieldsInBounds
-  structures.
--/
+/- Theorems combining `get` methods with `IRContext.fieldsInBounds`. -/
 
 variable {ctx : IRContext OpInfo}
 

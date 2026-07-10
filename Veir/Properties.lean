@@ -14,11 +14,7 @@ namespace Veir
 
 public section
 
-/--
-  Properties of a `builtin.unregistered` operation. Holds the original (parsed) operation name
-  and the original `<{...}>` properties dictionary so that the operation can be printed back
-  with its source representation preserved.
--/
+/-- Properties of a `builtin.unregistered` operation. -/
 structure UnregisteredProperties where
   opName : ByteArray
   properties : DictionaryAttr
@@ -35,9 +31,7 @@ def getUnitAttr (key : String) (attrDict : Std.HashMap ByteArray Attribute) :
   | some attr => .error s!"expected '{key}' to be an optional unit attribute, but got {attr}"
   | none => .ok false
 
-/--
-  Properties of the `arith.constant` operation.
--/
+/-- Properties of the `arith.constant` operation. -/
 structure ArithConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -52,10 +46,7 @@ def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | throw s!"arith.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
-/--
-  Properties of operations that can have `nsw` and `nuw` flags, such as `arith.addi`, `arith.muli`,
-  `llvm.add`, or `llvm.mul`.
--/
+/-- Properties of operations that can have `nsw` and `nuw` flags, such as `arith.addi`, `arith.muli`, `llvm.add`, or `llvm.mul`. -/
 structure NswNuwProperties where
   nsw : Bool
   nuw : Bool
@@ -76,10 +67,7 @@ def NswNuwProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let nuw := (value.toNat &&& 2) ≠ 0
   return { nsw := nsw, nuw := nuw }
 
-/--
-  Properties of operations that can have the `exact` flags, such as
-  `llvm.udiv`, or `llvm.sdiv`.
--/
+/-- Properties of operations that can have the `exact` flags, such as `llvm.udiv`, or `llvm.sdiv`. -/
 structure ExactProperties where
   exact : Bool
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -89,10 +77,7 @@ def ExactProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let exact ← getUnitAttr "exact" attrDict
   return { exact := exact }
 
-/--
-  Properties of operations that can have the `disjoint` flags, such as
-  `llvm.or`.
--/
+/-- Properties of operations that can have the `disjoint` flags, such as `llvm.or`. -/
 structure DisjointProperties where
   disjoint : Bool
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -102,9 +87,7 @@ def DisjointProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
   let disjoint ← getUnitAttr "disjoint" attrDict
   return { disjoint := disjoint }
 
-/--
-  Properties of operations that can have the `nneg` flag, such as `llvm.zext`.
--/
+/-- Properties of operations that can have the `nneg` flag, such as `llvm.zext`. -/
 structure NnegProperties where
   nneg : Bool
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -130,17 +113,13 @@ def FastMathFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
 
   return ⟨value⟩
 
-/--
-The two types of constants an LLVM constant can store.
--/
+/-- The two types of constants an LLVM constant can store. -/
 inductive LLVMConstantValue where
 | integer (value : IntegerAttr)
 | float (value : FloatAttr)
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-/--
-  Properties of the `llvm.constant` operation.
--/
+/-- Properties of the `llvm.constant` operation. -/
 structure LLVMConstantProperties where
   value : LLVMConstantValue
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -182,9 +161,7 @@ def IcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     Except String IcmpProperties :=
   IcmpProperties.fromAttrDictFor "llvm.icmp" attrDict
 
-/--
-  Properties of the RISC-V immediate operations.
--/
+/-- Properties of the RISC-V immediate operations. -/
 structure RISCVImmediateProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -199,9 +176,7 @@ def RISCVImmediateProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attr
     | throw s!"RISC-V immediate operation: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
-/--
-  Properties of the RISC-V conditional branching operations.
--/
+/-- Properties of the RISC-V conditional branching operations. -/
 
 structure RISCVBrProperties where
   operandSegmentSizes : DenseArrayAttr
@@ -217,9 +192,7 @@ def RISCVBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) 
   let .denseArrayAttr sizesAttr := sizesAttr
     | throw s!"riscv_cf: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
   return { operandSegmentSizes := sizesAttr }
-/--
-  Properties of the `mod_arith.constant` operation.
--/
+/-- Properties of the `mod_arith.constant` operation. -/
 structure ModArithConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -234,9 +207,7 @@ def ModArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray At
     | throw s!"mod_arith.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
-/--
-  Properties of the `cond_br` operation.
--/
+/-- Properties of the `cond_br` operation. -/
 
 structure CondBrProperties where
   branch_weights : DenseArrayAttr
@@ -258,9 +229,7 @@ def CondBrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     | throw s!"cf.cond_br: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
   return { branch_weights := weightsAttr, operandSegmentSizes := sizesAttr }
 
-/--
-  Properties of LLVM memory operations.
--/
+/-- Properties of LLVM memory operations. -/
 
 structure AllocaProperties where
   alignment : IntegerAttr
@@ -363,9 +332,7 @@ def StoreProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
     | throw s!"store: expected 'tbaa' to be an array attribute, but got {tbaaAttr}"
   return { alignment := alignAttr, volatile_ := volatileAttr, nontemporal := nontemporalAttr, invariantGroup := invariantGroupAttr, syncscope := syncscopeAttr, access_groups := accessAttr, alias_scopes := aliasAttr, noalias_scopes := noaliasAttr, tbaa := tbaaAttr }
 
-/--
-  Properties of the `llvm.getelementptr` operation
--/
+/-- Properties of the `llvm.getelementptr` operation -/
 structure GetelementptrProperties where
   rawConstantIndices : DenseArrayAttr
   elem_type : TypeAttr
@@ -389,9 +356,7 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     throw "getelementptr: expected 'elem_type' to be a type attribute" else
   return {rawConstantIndices, elem_type := typeAttr.asType, noWrapFlags}
 
-/--
-  Properties of the `comb.extract` operation.
--/
+/-- Properties of the `comb.extract` operation. -/
 structure CombExtractProperties where
   lowBit : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -406,9 +371,7 @@ def CombExtractProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribu
     | throw s!"comb.extract: expected 'lowBit' to be an integer attribute, but got {attr}"
   return { lowBit := intAttr }
 
-/--
-  Properties of `comb.icmp` operation, describing predicates for integer comparison.
--/
+/-- Properties of `comb.icmp` operation, describing predicates for integer comparison. -/
 structure CombIcmpProperties where
   predicate : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -423,9 +386,7 @@ def CombIcmpProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
     | throw s!"comb.icmp: expected 'predicate' to be an integer attribute, but got {attr}"
   return { predicate := intAttr }
 
-/--
-  Properties of the `hw.constant` operation.
--/
+/-- Properties of the `hw.constant` operation. -/
 structure HWConstantProperties where
   value : IntegerAttr
 deriving Inhabited, Repr, Hashable, DecidableEq
@@ -440,10 +401,7 @@ def HWConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribut
     | throw s!"hw.constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
-/--
-  Properties of `func.func`. The `sym_name` attribute is modelled explicitly;
-  all other attributes are preserved verbatim in `extra`.
--/
+/-- Properties of `func.func`. -/
 structure FuncFuncProperties where
   sym_name : Option StringAttr
   extra : DictionaryAttr
@@ -459,11 +417,7 @@ def FuncFuncProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
     (attrDict.toArray.filter fun (k, _) => k ≠ "sym_name".toUTF8)
   return { sym_name := symName, extra }
 
-/--
-  Properties of `llvm.func`. The `sym_name` and `function_type` attributes are
-  modelled explicitly; all other attributes (e.g. `CConv`, `linkage`, `visibility_`)
-  are preserved verbatim in `extra`.
--/
+/-- Properties of `llvm.func`. -/
 structure LLVMFuncProperties where
   sym_name : Option StringAttr
   function_type : Option TypeAttr
@@ -498,9 +452,7 @@ def LLVMModuleFlagsProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Att
     | none => .error "llvm.module_flags: missing 'flags' property"
   return { flags := flagsAttr }
 
-/--
-  Properties of `hw.module`.
--/
+/-- Properties of `hw.module`. -/
 structure HWModuleProperties where
   module_type : HW.ModuleType
   sym_name : StringAttr

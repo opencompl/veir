@@ -56,9 +56,7 @@ local grind_pattern Sim.OpResultPtr.inBounds_of_optionPtr_inBounds =>
 local grind_pattern Sim.ValuePtr.inBounds_of_optionPtr_inBounds =>
   ptr.InBounds ctx, optr.toOption, some ptr
 
-/--
-- Insert an operation at a given location.
--/
+/-- Insert an operation at a given location. -/
 buffed
 def Rewriter.insertOp?Sim (ctx: Sim.IRContext OpInfo) (newOp: Sim.OperationPtr) (insertionPoint: InsertPoint)
     (newOpIn: newOp.InBounds ctx := by grind)
@@ -86,7 +84,6 @@ theorem Rewriter.insertOp?_inBounds_mono (ptr : Sim.GenericPtr)
 grind_pattern Rewriter.insertOp?_inBounds_mono =>
   Rewriter.insertOp? ctx newOp ip h₁ h₂ h₃, some newCtx, ptr.InBounds newCtx
 
--- Spec-level (`Veir.GenericPtr`) counterpart, needed to chain `createOp_inBounds_mono`.
 theorem Rewriter.insertOp?_inBounds_veir_mono (ptr : Veir.GenericPtr)
     (heq : insertOp? ctx newOp ip h₁ h₂ h₃ h₄ = some newCtx) :
     ptr.InBounds newCtx.spec ↔ ptr.InBounds ctx.spec := by
@@ -113,11 +110,7 @@ theorem Rewriter.insertOp?_fieldsInBounds_mono
   simp only [insertOp?_def, insertOp?Sim] at heq
   grind
 
-/--
-  Set the parent, previous, and next operation pointers of an operation to `none`.
-  This method should not be used from outside the rewriter, and is only used to
-  make proofs easier for grind.
--/
+/-- Set the parent, previous, and next operation pointers of an operation to `none`. -/
 buffed
 def Rewriter.unsetParentAndNeighborsSim (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr) (hIn : op.InBounds ctx) :=
   let ctx := op.setParent ctx .none (by grind) (by grind)
@@ -144,10 +137,7 @@ def Rewriter.detachOpSim (ctx: Sim.IRContext OpInfo) (op: Sim.OperationPtr) (hct
   let parent := (op.getParent ctx (by grind)).toOption.get hasParent
   let ctx := unsetParentAndNeighbors ctx op hIn
   have : parent.InBounds ctx := by grind [generic_ptr_grind]
-  -- I had to duplicate the continuation in each branch, I don't really
-  -- know why the proofs of the preconditions in, say, `setNextOp` were
-  -- metavariable... maybe somehow the execution of the tactics is slightly
-  -- delayed?
+  -- I had to duplicate the continuation in each branch, I don't really know why the proofs of the preconditions in, say, `setNextOp` were metavariable... maybe somehow the execution of the tactics is slightly delayed?
   match _ : prevOp.toOption with
     | some prevOp =>
       let ctx := prevOp.setNextOp ctx nextOp (by grind [generic_ptr_grind]) (by
@@ -198,10 +188,7 @@ theorem Rewriter.detachOp_preserves_capBlockOperands (hctx : ctx.spec.FieldsInBo
   simp [detachOp_def, detachOpSim]
   split <;> grind (instances := 2000) [unsetParentAndNeighbors_def, unsetParentAndNeighborsSim]
 
-/--
-  Detach an operation from its parent if it has one.
-  If it has no parent, return the context unchanged.
--/
+/-- Detach an operation from its parent if it has one. -/
 buffed
 def Rewriter.detachOpIfAttachedSim (ctx: Sim.IRContext OpInfo) (op: Sim.OperationPtr)
     (hctx : ctx.spec.FieldsInBounds := by grind)
@@ -358,18 +345,9 @@ def Rewriter.eraseOpSim (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
   ctx
   -- op.dealloc ctx
 
-/-
-Remark: the fact that `eraseOp` preserves `FieldsInBounds` relies on the fact
-that the context is well formed.  Indeed, it is true because the only pointers
-to the operands are in the doubly linked list that we patch.  I think in
-addition we need to know that the results of the operation we are removing are
-never used, which is ensured in the call to `eraseOp` in `replaceOp?` below for
-example.
--/
+/- Remark: the fact that `eraseOp` preserves `FieldsInBounds` relies on the fact that the context is well formed. -/
 
-/--
-- Insert a block at a given location.
--/
+/-- Insert a block at a given location. -/
 buffed
 def Rewriter.insertBlock?Sim (ctx: Sim.IRContext OpInfo) (newBlock: Sim.BlockPtr)
     (insertionPoint: BlockInsertPoint)
@@ -617,7 +595,7 @@ def Rewriter.pushBlockArgumentAtSim (blockPtr : Sim.BlockPtr) (ctx : Sim.IRConte
 theorem Rewriter.pushBlockArgumentAt_spec :
     (Rewriter.pushBlockArgumentAt blockPtr ctx idx type ib hidx hcap) = some ctx' →
     ctx'.spec = Rewriter.pushBlockArgument ctx.spec blockPtr.spec type (by grind) := by
-  simp [pushBlockArgumentAt_def, Rewriter.pushBlockArgumentAtSim, Option.bind]
+  simp [pushBlockArgumentAt_def, Rewriter.pushBlockArgumentAtSim]
   split <;> grind
 
 @[grind =]
@@ -665,10 +643,7 @@ theorem Rewriter.pushBlockArgumentAt_fieldsInBounds {blockPtr : Sim.BlockPtr}
   simp [Rewriter.pushBlockArgumentAt] at heq
   grind
 
-/-! ## Buffer helpers writing into the preallocated operation arrays.
-
-Like `setBlockArgument`, these write a single entry into the (already allocated) result/operand/
-block-operand array of an operation, at a given index. They do not grow the array. -/
+/-! Buffer helpers writing into the preallocated operation arrays. -/
 
 buffed
 def Rewriter.initBlockArgumentsLoopSim (blockPtr: Sim.BlockPtr) (ctx: Sim.IRContext OpInfo)
@@ -717,10 +692,7 @@ theorem Rewriter.initBlockArguments_fieldsInBounds {blockPtr : Sim.BlockPtr}
   revert heq
   fun_induction initBlockArgumentsLoopSim <;> grind
 
-/--
-This theorem is a more general version of `initBlockArguments_inBounds` that is needed for the
-induction step in the proof of that theorem.
--/
+/-- This theorem is a more general version of `initBlockArguments_inBounds` that is needed for the induction step in the proof of that theorem. -/
 theorem Rewriter.initBlockArguments_inBounds' (ptr : Veir.GenericPtr) {blockPtr : Sim.BlockPtr}
     {ctx : Sim.IRContext OpInfo} {types index h₁ h₂ h₃ h₄}
     (heq : initBlockArguments blockPtr ctx types index h₁ h₂ h₃ h₄ = some newCtx) :
@@ -730,11 +702,7 @@ theorem Rewriter.initBlockArguments_inBounds' (ptr : Veir.GenericPtr) {blockPtr 
     | .value (.blockArgument argPtr)
     | .opOperandPtr (.valueFirstUse (.blockArgument argPtr)) =>
       if argPtr.block = blockPtr.spec then
-        /-
-          We need `argPtr.index < blockPtr.getNumArguments! ctx` because of the case where we
-          call `initBlockArguments` on a block that already has a larger number of arguments as
-          `types.size`.
-        -/
+        /- We need `argPtr.index < blockPtr.getNumArguments! ctx` because of the case where we call `initBlockArguments` on a block that already has a larger number of arguments as `types.size`. -/
         argPtr.index < types.size ∨ argPtr.index < blockPtr.spec.getNumArguments! ctx.spec
       else
         argPtr.InBounds ctx.spec
@@ -786,11 +754,7 @@ def Rewriter.createBlockSim (ctx: Sim.IRContext OpInfo) (argTypes : Array TypeAt
     (hip : insertionPoint.maybe BlockInsertPoint.InBounds ctx.spec)
     (ipRepr : insertionPoint.maybe₁ BlockInsertPoint.IsRepr)
     : Option (Sim.IRContext OpInfo × Sim.BlockPtr) := do
-  -- A block whose argument array reaches `countCard` (`2^32`) cannot be laid out without its size
-  -- overflowing, so it is not creatable; reject it here. This also supplies the size bound
-  -- (`argTypes.size < countCard`) needed to relate `argTypes.size.toUInt64` (and, in the argument
-  -- loop, `argTypes.usize`) back to `argTypes.size` (mirroring the guard in `createOpSim`); the
-  -- strict bound is what makes `usize` exact on a 32-bit platform, where `USize.size = countCard`.
+  -- A block whose argument array reaches `countCard` (`2^32`) cannot be laid out without its size overflowing, so it is not creatable; reject it here.
   if hsz : argTypes.size < Buffed.countCard then
   rlet ⟨newBlockPtr, ctx⟩ ← Sim.BlockPtr.allocEmpty ctx (numArgs := argTypes.size.toUInt64)
   have : newBlockPtr.InBounds ctx := by grind
@@ -821,7 +785,6 @@ def Rewriter.createBlockSim (ctx: Sim.IRContext OpInfo) (argTypes : Array TypeAt
 theorem Rewriter.createBlock_inBounds_mono (ptr : Sim.GenericPtr) (heq : createBlock ctx types ip hip hrep = some ⟨newCtx, newPtr⟩) :
     ptr.InBounds ctx → ptr.InBounds newCtx := by
   simp only [createBlock_def, createBlockSim] at heq
-  -- Outer guard `if hsz : types.size ≤ countCard`; the `else` branch is `none = some …`.
   split at heq
   case isFalse => grind
   case isTrue =>
@@ -840,9 +803,9 @@ theorem Rewriter.createBlock_inBounds_mono (ptr : Sim.GenericPtr) (heq : createB
 
 @[grind .]
 theorem Rewriter.createBlock_fieldsInBounds_mono
-    (heq : createBlock ctx types ip hip hrep = some ⟨newCtx, newPtr⟩) :
+    (_heq : createBlock ctx types ip hip hrep = some ⟨newCtx, newPtr⟩) :
     ctx.spec.FieldsInBounds → newCtx.spec.FieldsInBounds := by
-  simp only [createBlock_def, createBlockSim] at heq
+  simp only [createBlock_def, createBlockSim] at _heq
   grind
 
 buffed
@@ -869,7 +832,7 @@ theorem Rewriter.createRegion_genericPtr_mono (ptr : GenericPtr) (heq : createRe
   grind [createRegion_def, createRegionSim]
 
 @[grind .]
-theorem Rewriter.createRegion_fieldsInBounds (h : createRegion ctx = some (ctx', rg)) :
+theorem Rewriter.createRegion_fieldsInBounds (_h : createRegion ctx = some (ctx', rg)) :
     ctx.spec.FieldsInBounds → ctx'.spec.FieldsInBounds := by
   grind [createRegion_def, createRegionSim]
 
@@ -961,7 +924,6 @@ theorem Rewriter.initOpRegions_inBounds_mono (ptr : Sim.GenericPtr) {opPtr : Sim
   simp [initOpRegions_def]
   fun_induction initOpRegionsSim <;> grind
 
--- Spec-level (`Veir.GenericPtr`) counterpart, needed to chain `createOp_inBounds_mono`.
 @[grind .]
 theorem Rewriter.initOpRegions_inBounds_veir_mono (ptr : Veir.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {regions n opPtrInBounds hregions hctx hn hcap hsz} :
@@ -987,8 +949,7 @@ theorem Rewriter.initOpRegions_preserves_numSuccessors (ptr : Veir.OperationPtr)
   simp [initOpRegions_def] at heq
   fun_induction initOpRegionsSim <;> grind (gen := 20) [pushRegionAt_def, pushRegionAtSim]
 
-/- Region pushes never touch the operand/block-operand capacities (cf. the `initOpResults`
-capacity-preservation lemmas above). -/
+/- Region pushes never touch the operand/block-operand capacities (cf. the `initOpResults` capacity-preservation lemmas above). -/
 theorem Rewriter.initOpRegions_preserves_capOperands (ptr : Veir.OperationPtr)
     {ctx ctx' : Sim.IRContext OpInfo} {index h₁ h₂ h₃ h₄ h₅}
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ h₆ = some ctx') :
@@ -1018,7 +979,7 @@ theorem Rewriter.pushResultAt_spec {opPtr : Sim.OperationPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {idx type hop hidx hcap}
     (heq : Rewriter.pushResultAt opPtr ctx idx type hop hidx hcap = some ctx') :
     ctx'.spec = Rewriter.pushResult ctx.spec opPtr.spec type (by grind) := by
-  simp only [pushResultAt_def, pushResultAtSim, Option.bind_eq_bind, Option.bind] at heq
+  simp only [pushResultAt_def, pushResultAtSim] at heq
   grind
 
 set_option linter.unusedVariables false in -- bug
@@ -1098,7 +1059,6 @@ theorem Rewriter.initOpResults_inBounds_mono (ptr : Sim.GenericPtr) {opPtr : Sim
   simp [initOpResults_def] at heq
   fun_induction initOpResultsSim <;> grind
 
--- Spec-level (`Veir.GenericPtr`) counterpart, needed to chain `createOp_inBounds_mono`.
 @[grind .]
 theorem Rewriter.initOpResults_inBounds_veir_mono (ptr : Veir.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄}
@@ -1131,8 +1091,7 @@ theorem Rewriter.initOpResults_preserves_numSuccessors (ptr : Veir.OperationPtr)
   simp [initOpResults_def] at heq
   fun_induction initOpResultsSim <;> grind [Rewriter.pushResult]
 
-/- Pushing results only grows the `results` array, so every capacity field survives the loop.
-These feed the `hcap` obligations of the later `initOp*` calls in `createOpSim`. -/
+/- Pushing results only grows the `results` array, so every capacity field survives the loop. -/
 theorem Rewriter.initOpResults_preserves_capRegions (ptr : Veir.OperationPtr)
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ = some ctx') :
@@ -1284,8 +1243,6 @@ theorem Rewriter.initOpOperands_inBounds_mono (ptr : Sim.GenericPtr) {opPtr : Si
   simp [Rewriter.initOpOperands_def] at heq
   fun_induction initOpOperandsSim <;> grind
 
--- `initOpOperands` returns an `IRContext` directly (not `Option`), so we also
--- provide the mono lemma on the bare value for chaining inside `createOpSim`.
 @[grind .]
 theorem Rewriter.initOpOperands_inBounds_mono' (ptr : Sim.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {h₁ operands h₂ index hidx hcap hsz} :
@@ -1293,7 +1250,6 @@ theorem Rewriter.initOpOperands_inBounds_mono' (ptr : Sim.GenericPtr) {opPtr : S
   simp only [Rewriter.initOpOperands_def]
   fun_induction initOpOperandsSim <;> grind
 
--- Spec-level (`Veir.GenericPtr`) counterpart, needed to chain `createOp_inBounds_mono`.
 @[grind .]
 theorem Rewriter.initOpOperands_inBounds_veir_mono (ptr : Veir.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {h₁ operands h₂ index hidx hcap hsz} :
@@ -1309,8 +1265,7 @@ theorem Rewriter.initOpOperands_preserves_numSuccessors! (ptr : Veir.OperationPt
   simp [Rewriter.initOpOperands_def] at heq
   fun_induction initOpOperandsSim <;> grind
 
-/- Operand pushes never touch the block-operand capacity (cf. the `initOpResults`
-capacity-preservation lemmas above). -/
+/- Operand pushes never touch the block-operand capacity (cf. the `initOpResults` capacity-preservation lemmas above). -/
 theorem Rewriter.initOpOperands_preserves_capBlockOperands (ptr : Veir.OperationPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {h₁ operands h₂ index hidx hcap hsz} :
     (ptr.get! (initOpOperands opPtr ctx h₁ operands h₂ index hidx hcap hsz).spec).capBlockOperands
@@ -1426,8 +1381,6 @@ theorem Rewriter.initBlockOperands_inBounds_mono (ptr : Sim.GenericPtr) {opPtr :
   simp [Rewriter.initBlockOperands_def] at heq
   fun_induction Rewriter.initBlockOperandsSim <;> grind
 
--- `initBlockOperands` returns an `IRContext` directly (not `Option`), so we also
--- provide the mono lemma on the bare value for chaining inside `createOpSim`.
 @[grind .]
 theorem Rewriter.initBlockOperands_inBounds_mono' (ptr : Sim.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {operands index h₁ h₂ h₃ h₄ h₅} :
@@ -1435,7 +1388,6 @@ theorem Rewriter.initBlockOperands_inBounds_mono' (ptr : Sim.GenericPtr) {opPtr 
   simp only [Rewriter.initBlockOperands_def]
   fun_induction Rewriter.initBlockOperandsSim <;> grind
 
--- Spec-level (`Veir.GenericPtr`) counterpart, needed to chain `createOp_inBounds_mono`.
 @[grind .]
 theorem Rewriter.initBlockOperands_inBounds_veir_mono (ptr : Veir.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {operands index h₁ h₂ h₃ h₄ h₅} :
@@ -1443,8 +1395,6 @@ theorem Rewriter.initBlockOperands_inBounds_veir_mono (ptr : Veir.GenericPtr) {o
   simp only [Rewriter.initBlockOperands_def]
   fun_induction Rewriter.initBlockOperandsSim <;> grind
 
--- The capacity (`hcap`) obligations threaded through the `initOp*` calls push elaboration of
--- this definition past the default heartbeat budget.
 set_option maxHeartbeats 4000000 in
 buffed (inline := false)
 def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
@@ -1456,19 +1406,11 @@ def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
     (hregions : ∀ reg, reg ∈ regions → reg.InBounds ctx := by grind)
     (hins : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by grind)
     (hrep : insertionPoint.maybe₁ InsertPoint.IsRepr := by grind)
-    (hx : ctx.spec.FieldsInBounds := by grind) : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
-  -- An operation whose arrays reach `countCard` (`2^32`) cannot be laid out without its size
-  -- overflowing, so it is not creatable; reject it here, which also supplies the size bounds
-  -- needed by `allocEmpty` (mirroring the guard in `Sim.BlockPtr.allocEmpty`). The bound is
-  -- strict so the `init*` loops can guard on the O(1) `Array.usize` extern: `size < 2^32` makes
-  -- `usize` exact even on a 32-bit platform, where `USize.size = countCard`.
+    (_hx : ctx.spec.FieldsInBounds := by grind) : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
+  -- An operation whose arrays reach `countCard` (`2^32`) cannot be laid out without its size overflowing, so it is not creatable; reject it here, which also supplies the size bounds needed by `allocEmpty` (mirroring the guard in `Sim.BlockPtr.allocEmpty`).
   if hsz : resultTypes.size < Buffed.countCard ∧ operands.size < Buffed.countCard
       ∧ blockOperands.size < Buffed.countCard ∧ regions.size < Buffed.countCard then
-    -- Pass the sizes via `Array.sizeU64` (an opaque, `@[irreducible]` `size.toUInt64` alias) so
-    -- `grind` treats them (and their `.toNat`) as atoms rather than e-matching the `init*` lemmas
-    -- at each `UInt64.ofNat _`/`size % 2^64` size, which otherwise cross-multiplies into a
-    -- step-budget blow-up in the `insertionPoint`/`hcap` obligations below. The round-trip to
-    -- `.size` is `Array.sizeU64_toNat`, supplied explicitly (not globally) and gated on the guard.
+    -- Pass the sizes via `Array.sizeU64` (an opaque, `@[irreducible]` `size.toUInt64` alias) so `grind` treats them (and their `.toNat`) as atoms rather than e-matching the `init*` lemmas at each `UInt64.ofNat _`/`size % 2^64` size, which otherwise cross-multiplies into a step-budget blow-up in the `insertionPoint`/`hcap` obligations below.
     rlet ⟨newOpPtr, ctx⟩ ← Sim.OperationPtr.allocEmpty ctx opType properties
       resultTypes.sizeU64 operands.sizeU64 blockOperands.sizeU64 regions.sizeU64
       (by grind [Array.sizeU64_toNat]) (by grind [Array.sizeU64_toNat])
@@ -1478,9 +1420,7 @@ def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
     have : newOpPtr.spec.getNumRegions! ctx.spec = 0 := by grind
     have : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
       grind [cases InsertPoint, Option.maybe_def]
-    -- The freshly allocated operation records each array's size as its capacity; these named
-    -- facts feed the `hcap` arguments of the `initOp*` calls below and are re-established (via
-    -- the `initOp*_preserves_cap*` lemmas) after each call.
+    -- The freshly allocated operation records each array's size as its capacity; these named facts feed the `hcap` arguments of the `initOp*` calls below and are re-established (via the `initOp*_preserves_cap*` lemmas) after each call.
     have hcapResults : resultTypes.size ≤ (newOpPtr.spec.get! ctx.spec).capResults := by
       grind [Array.sizeU64_toNat, Veir.Operation.empty]
     have hcapRegions : regions.size ≤ (newOpPtr.spec.get! ctx.spec).capRegions := by
@@ -1516,9 +1456,7 @@ def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
       have := Rewriter.initOpRegions_preserves_capBlockOperands newOpPtr.spec (heq := by assumption)
       grind
     rlet hOpOperands : ctx := Rewriter.initOpOperands newOpPtr ctx (by grind [generic_ptr_grind]) operands (by grind [generic_ptr_grind]) 0 (by grind) hcapOperands (by grind)
-    -- Carry the `insertionPoint` bounds forward via the `initOpOperands` monotonicity lemma rather
-    -- than re-deriving them, so `grind` does not re-explore the (now large) set of `@[grind]`
-    -- preservation lemmas across every intermediate context and blow its step budget.
+    -- Carry the `insertionPoint` bounds forward via the `initOpOperands` monotonicity lemma rather than re-deriving them, so `grind` does not re-explore the (now large) set of `@[grind]` preservation lemmas across every intermediate context and blow its step budget.
     have hins4 : insertionPoint.maybe InsertPoint.InBounds ctx.spec := by
       rw [Option.maybe_def]
       intro ip hip
@@ -1622,9 +1560,9 @@ theorem Rewriter.createOp_new_not_inBounds (ptr : Sim.OperationPtr)
 
 @[grind .]
 theorem Rewriter.createOp_fieldsInBounds
-    (heq : createOp ctx opType numResults operands blockOperands numRegions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
+    (_heq : createOp ctx opType numResults operands blockOperands numRegions props ip h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp)) :
     ctx.spec.FieldsInBounds → newCtx.spec.FieldsInBounds := by
-  simp only [createOp] at heq; grind (gen := 10)
+  simp only [createOp] at _heq; grind (gen := 10)
 
 buffed
 def Sim.IRContext.emptySim : Sim.IRContext OpInfo :=
@@ -1648,9 +1586,9 @@ def IRContext.createSim OpInfo [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] : 
   some (ctx, operation)
 
 @[grind →]
-theorem IRContext.create_fieldsInBounds {op: Sim.OperationPtr} (h : IRContext.create OpInfo = some (ctx, op)) :
+theorem IRContext.create_fieldsInBounds {op: Sim.OperationPtr} (_h : IRContext.create OpInfo = some (ctx, op)) :
     ctx.spec.FieldsInBounds := by
-  simp only [IRContext.create] at h; grind
+  simp only [IRContext.create] at _h; grind
 
 @[grind →]
 theorem IRContext.create_inBounds {op: Sim.OperationPtr} (h : IRContext.create OpInfo = some (ctx, op)) :
@@ -1666,3 +1604,9 @@ theorem IRContext.create_inBounds {op: Sim.OperationPtr} (h : IRContext.create O
       · rename_i hBlock
         have := Rewriter.createBlock_inBounds_mono (.fromOperation operation) hBlock
         grind [generic_ptr_grind]
+
+-- Only the base Lean axioms are used:
+#print axioms Rewriter.createOpSim
+#print axioms IRContext.create
+#print axioms Rewriter.replaceOp?
+#print axioms Rewriter.replaceValue?

@@ -14,32 +14,7 @@ section read_write
 
 variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] {ctx : Sim.IRContext OpInfo}
 
-/-!
-## Tactic macros for the read/write interaction lemmas
-
-Every `<ReadStruct>.readX!_<writeStructLowerCamel>_writeY` lemma in this directory has a proof of
-the shape: a fixed stack of `have`s establishing the standard bounds / disjointness / inclusion
-facts for the *category* of (reader, writer), followed by a single
-`grind (splits := 20) [readX!, writeY, layout_grind, <struct hints>]`.
-
-The macros below capture those shapes, one per (reader-category, writer-category), named
-`rw_<reader>_<writer>`.  Reader prefixes: `oo` = OpOperand, `or` = OpResult, `bo` = BlockOperand
-(all op sub-object readers, read via `toM ctx.spec`).  Writer categories:
-
-  `opScalar`  — the same/another operation, a scalar field write
-  `block` / `region` / `blockArg` — a top-level Block / Region / BlockArgument write
-  `<own>` (e.g. `rw_oo_oo`)  — the same sub-object struct, same op, possibly same slot
-  the two remaining op-sub structs — another op sub-object write in the same op (hardest case)
-
-Each macro takes the read accessor `$read`, the (qualified) write accessor `$write`, the reader
-variable `$r`, the writer variable `$w`, and — where the setup needs `.ib`/`.sim` — the writer's
-InBounds hypothesis `$wib`.  `$read`/`$write` are `grindParam`-typed so they splice into the closing
-`grind`.  The macros reference the ambient `ctx` and global lemma names, so they use
-`set_option hygiene false` (those must resolve at the use site).
-
-These macros are NOT used for the multi-branch `rcases` proofs (ValueImpl / PtrPtr writers).
--/
-
+/-! Tactic macros for the read/write interaction lemmas -/
 
 
 namespace RwReal
@@ -682,12 +657,7 @@ scoped macro "rw_bl_blockOperand_impl" read:grindParam ", " write:grindParam ", 
 
 end RwReal
 
-/-!
-### Stub implementations
-
-Same signatures as the `RwReal.*_impl` macros above, but each expands directly to `sorry`.  These skip
-the (very slow) `grind` calls so the files that *use* these tactics compile quickly while iterating.
--/
+/-! Stub implementations -/
 
 namespace RwStub
 
@@ -778,26 +748,12 @@ scoped macro "rw_bl_blockOperand_impl" read:grindParam ", " write:grindParam ", 
 
 end RwStub
 
-/-!
-### The switch
+/-! The switch -/
 
-`open`  **exactly one**  of the two namespaces below.  The `*_impl` macros it brings into scope are the
-ones the public `rw_*` forwarders (further down) delegate to.
+open scoped RwReal
+-- open scoped RwStub
 
-  * `RwReal` — the real proofs (default).
-  * `RwStub` — fast `sorry` stubs; flip to this while iterating on the consumer files, flip back before
-    committing.
--/
-
--- open scoped RwReal
-open scoped RwStub
-
-/-!
-### Public `rw_*` entry points
-
-Thin forwarders to whichever `*_impl` is currently opened.  Consumers keep using the bare `rw_*` names
-(via `open scoped Veir.Buffed`) and never see the split.
--/
+/-! Public `rw_*` entry points -/
 
 open Lean.Parser.Tactic in
 set_option hygiene false in

@@ -47,11 +47,6 @@ theorem OptionOperationPtr.none_inBounds : none.InBounds ctx := by
   · simp [Sim, Veir.OperationPtr.toO]
   · grind
 
--- @[grind =]
--- theorem OptionOperationPtr.inBounds (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (ptr' : Sim.GenericPtr)
---     (next : Sim.OptionOperationPtr) h₁ h₂ :
---     ptr'.InBounds (setNextOp ctx ptr next h₁ h₂) ↔ ptr'.InBounds ctx := by
---   grind
 
 @[grind =]
 theorem OperationPtr.setNextOp_inBounds (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (ptr' : Sim.GenericPtr)
@@ -96,8 +91,7 @@ theorem OperationPtr.getOpOperand_veir_inBounds (op : OperationPtr)
   have hib := hop.ib
   grind [Veir.OperationPtr.getOpOperand_def, Veir.OpOperandPtr.inBounds_def]
 
-/-- The buffer-side operand address computed by `getOperandPtr!` is exactly the buffed address
-of the spec-level operand pointer `op.spec.getOpOperand i`. -/
+/-- The buffer-side operand address computed by `getOperandPtr!` is exactly the buffed address of the spec-level operand pointer `op.spec.getOpOperand i`. -/
 theorem OperationPtr.getOpOperand_toM (op : OperationPtr)
     (hop : op.InBounds ctx) (i : UInt64) (h₂ : i.toNat < op.spec.getNumOperands! ctx.spec) :
     (op.spec.getOpOperand i.toNat).toM ctx.spec
@@ -109,7 +103,6 @@ theorem OperationPtr.getOpOperand_toM (op : OperationPtr)
   have hsize : ctx.buf.mem.size < 2^63 := by grind
   have hoib := OperationPtr.getOpOperand_veir_inBounds op hop i h₂
   have haop := Sim.OpOperandPtr.after_lt_ctx (ctx := ctx) (op.spec.getOpOperand i.toNat) hoib
-  -- The buffer-side offset agrees with the ideal layout offset of the `i`-th operand.
   have hplus : (Buffed.OperationMPtr.computeOperandOffset! ctx.buf op.impl i).toInt
       = Buffed.Operation.Offsets.operandsInt op.spec ctx.spec + Buffed.OpOperand.sizeNat * i.toNat := by
     simp only [Buffed.OperationMPtr.computeOperandOffset!]
@@ -118,7 +111,6 @@ theorem OperationPtr.getOpOperand_toM (op : OperationPtr)
   have haddr : ((op.impl + Buffed.OperationMPtr.computeOperandOffset! ctx.buf op.impl i).toNat : Int)
       = op.impl.toNat + (Buffed.Operation.Offsets.operandsInt op.spec ctx.spec + Buffed.OpOperand.sizeNat * i.toNat) := by
     rw [UInt64.uint64_add_int64_toNat_lt] <;> grind [layout_grind]
-  -- Compare the two addresses at the `Nat` level.
   rw [← UInt64.toNat_inj]
   have hflat := Veir.OpOperandPtr.toFlat_ideal (ctx := ctx.spec) (by grind) (op.spec.getOpOperand i.toNat) hoib
   simp only [Veir.OpOperandPtr.toM, hflat]
@@ -138,8 +130,7 @@ theorem OperationPtr.getBlockOperand_veir_inBounds (op : OperationPtr)
   have hib := hop.ib
   grind [Veir.OperationPtr.getBlockOperand_def, Veir.BlockOperandPtr.inBounds_def]
 
-/-- The buffer-side block operand address computed by `getBlockOperandPtr!` is exactly the
-buffed address of the spec-level pointer `op.spec.getBlockOperand i`. -/
+/-- The buffer-side block operand address computed by `getBlockOperandPtr!` is exactly the buffed address of the spec-level pointer `op.spec.getBlockOperand i`. -/
 theorem OperationPtr.getBlockOperand_toM (op : OperationPtr)
     (hop : op.InBounds ctx) (i : UInt64) (h₂ : i.toNat < op.spec.getNumSuccessors! ctx.spec) :
     (op.spec.getBlockOperand i.toNat).toM ctx.spec
@@ -151,7 +142,6 @@ theorem OperationPtr.getBlockOperand_toM (op : OperationPtr)
   have hsize : ctx.buf.mem.size < 2^63 := by grind
   have hoib := OperationPtr.getBlockOperand_veir_inBounds op hop i h₂
   have haop := Sim.BlockOperandPtr.after_lt_ctx (ctx := ctx) (op.spec.getBlockOperand i.toNat) hoib
-  -- The buffer-side offset agrees with the ideal layout offset of the `i`-th block operand.
   have hplus : (Buffed.OperationMPtr.computeBlockOperandOffset! ctx.buf op.impl i).toInt
       = Buffed.Operation.Offsets.blockOperandsInt op.spec ctx.spec + Buffed.BlockOperand.sizeNat * i.toNat := by
     simp only [Buffed.OperationMPtr.computeBlockOperandOffset!]
@@ -160,7 +150,6 @@ theorem OperationPtr.getBlockOperand_toM (op : OperationPtr)
   have haddr : ((op.impl + Buffed.OperationMPtr.computeBlockOperandOffset! ctx.buf op.impl i).toNat : Int)
       = op.impl.toNat + (Buffed.Operation.Offsets.blockOperandsInt op.spec ctx.spec + Buffed.BlockOperand.sizeNat * i.toNat) := by
     rw [UInt64.uint64_add_int64_toNat_lt] <;> grind [layout_grind]
-  -- Compare the two addresses at the `Nat` level.
   rw [← UInt64.toNat_inj]
   have hflat := Veir.BlockOperandPtr.toFlat_ideal (ctx := ctx.spec) (by grind) (op.spec.getBlockOperand i.toNat) hoib
   simp only [Veir.BlockOperandPtr.toM, hflat]
@@ -180,9 +169,7 @@ theorem OperationPtr.getResult_veir_inBounds (op : OperationPtr)
   have hib := hop.ib
   grind [Veir.OperationPtr.getResult_def, Veir.OpResultPtr.inBounds_def]
 
-/-- The buffer-side result address computed by `getResultPtr!` is exactly the buffed address
-of the spec-level result pointer `op.spec.getResult i`. Note that the results array lives at a
-negative offset from the operation pointer. -/
+/-- The buffer-side result address computed by `getResultPtr!` is exactly the buffed address of the spec-level result pointer `op.spec.getResult i`. -/
 theorem OperationPtr.getResult_toM (op : OperationPtr)
     (hop : op.InBounds ctx) (i : UInt64) (h₂ : i.toNat < op.spec.getNumResults! ctx.spec) :
     (op.spec.getResult i.toNat).toM ctx.spec
@@ -192,11 +179,9 @@ theorem OperationPtr.getResult_toM (op : OperationPtr)
   have hri := ctx.sim.repr.operations_indices op.spec hib
   have halt := Sim.OperationPtr.after_lt_ctx (ctx := ctx) op.spec hib
   have hsize : ctx.buf.mem.size < 2^63 := by grind
-  -- The results array sits at a negative offset, so we also need the operation's lower bound.
   have hinb := ctx.sim.in_bounds (.operation op.spec) (by grind)
   have hoib := OperationPtr.getResult_veir_inBounds op hop i h₂
   have haop := Sim.OpResultPtr.after_lt_ctx (ctx := ctx) (op.spec.getResult i.toNat) hoib
-  -- The buffer-side offset agrees with the ideal layout offset of the `i`-th result.
   have hplus : (Buffed.OperationMPtr.computeResultOffset! ctx.buf op.impl i).toInt
       = Buffed.Operation.Offsets.resultsInt op.spec ctx.spec + Buffed.OpResult.sizeNat * i.toNat := by
     simp only [Buffed.OperationMPtr.computeResultOffset!]
@@ -205,7 +190,6 @@ theorem OperationPtr.getResult_toM (op : OperationPtr)
   have haddr : ((op.impl + Buffed.OperationMPtr.computeResultOffset! ctx.buf op.impl i).toNat : Int)
       = op.impl.toNat + (Buffed.Operation.Offsets.resultsInt op.spec ctx.spec + Buffed.OpResult.sizeNat * i.toNat) := by
     rw [UInt64.uint64_add_int64_toNat_lt] <;> grind [layout_grind]
-  -- Compare the two addresses at the `Nat` level.
   rw [← UInt64.toNat_inj]
   have hflat := Veir.OpResultPtr.toFlat_ideal (ctx := ctx.spec) (by grind) (op.spec.getResult i.toNat) hoib
   simp only [Veir.OpResultPtr.toM, hflat]
@@ -222,13 +206,11 @@ theorem OperationPtr.getResult_inBounds (op : OperationPtr)
 theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
     (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .fromOperation ptr') := by
-  -- The spec side is an `allocEmptyAt` at the impl address, which preserves the layout.
   have hspec := Sim.OperationPtr.allocEmpty_spec' heq
   have hlay := Veir.OperationPtr.allocEmptyAt_preservesLayout hspec
   have hptr := Veir.OperationPtr.allocEmptyAt_ptr_eq hspec
   constructor
   · rintro ⟨sim', ib'⟩
-    -- The spec-level pointer is either old or the freshly allocated operation.
     rcases (Veir.OperationPtr.allocEmptyAt_genericPtr_iff ptr.spec hspec).mp ib' with hold | hnew
     · -- Old pointer: the layout is preserved, so the address is unchanged.
       refine .inl ⟨?_, hold⟩
@@ -276,22 +258,6 @@ theorem OperationPtr.allocEmpty_not_inBounds
     ¬ ptr'.spec.InBounds ctx.spec :=
   Veir.OperationPtr.allocEmptyAt_not_inBounds (Sim.OperationPtr.allocEmpty_spec' heq)
 
--- @[grind →]
--- theorem OpResultPtr.dealloc.inBounds_genericPtr_of_inBounds_dealloc {ptr : GenericPtr} :
---     ptr.InBounds (OperationPtr.dealloc op ctx inBounds) → ptr.InBounds ctx := by
---   grind
-
--- theorem OpResultPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc {opResult : OpResultPtr} :
---     opResult.InBounds (OperationPtr.dealloc op' ctx inBounds) → opResult.op ≠ op' := by
---   grind
-
--- theorem OpOperandPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc {opOperand : OpOperandPtr} :
---     opOperand.InBounds (OperationPtr.dealloc op' ctx inBounds) → opOperand.op ≠ op' := by
---   grind
-
--- theorem BlockOperandPtr.InBounds.op_ne_of_inBounds_OperationPtr_dealloc {blockOperand : BlockOperandPtr} :
---     blockOperand.InBounds (OperationPtr.dealloc op' ctx inBounds) → blockOperand.op ≠ op' := by
---   grind
 
 end operation
 
@@ -372,16 +338,6 @@ theorem OpOperandPtr.setValue_veir_inBounds (ctx : Sim.IRContext OpInfo) (ptr : 
     ptr'.InBounds (setValue ctx ptr value h₁ h₂).spec ↔ ptr'.InBounds ctx.spec := by
   grind
 
--- theorem OpOperandPtr.inBounds_if_operand_size_eq :
---     (OperationPtr.getNumOperands opPtr ctx opIn = OperationPtr.getNumOperands opPtr' ctx' op'In) ↔
---     (∀ index, (OpOperandPtr.mk opPtr index).InBounds ctx ↔ (OpOperandPtr.mk opPtr' index).InBounds ctx') := by
---   constructor
---   · grind
---   · intro hi
---     apply Nat.eq_iff_forall_lessthan
---     intros i
---     have := hi i
---     grind
 
 end opoperand
 
@@ -546,8 +502,7 @@ theorem BlockPtr.getArgument_veir_inBounds (block : BlockPtr)
   have hib := hblock.ib
   grind [Veir.BlockPtr.getArgument_def, Veir.BlockArgumentPtr.inBounds_def]
 
-/-- The buffer-side argument address computed by `getArgumentPtr!` is exactly the buffed
-address of the spec-level pointer `block.spec.getArgument i`. -/
+/-- The buffer-side argument address computed by `getArgumentPtr!` is exactly the buffed address of the spec-level pointer `block.spec.getArgument i`. -/
 theorem BlockPtr.getArgument_toM (block : BlockPtr)
     (hblock : block.InBounds ctx) (i : UInt64) (h₂ : i.toNat < block.spec.getNumArguments ctx.spec) :
     (block.spec.getArgument i.toNat).toM
@@ -559,7 +514,6 @@ theorem BlockPtr.getArgument_toM (block : BlockPtr)
   have hsize : ctx.buf.mem.size < 2^63 := by grind
   have hoib := BlockPtr.getArgument_veir_inBounds block hblock i h₂
   have haop := Sim.BlockArgumentPtr.after_lt_ctx (ctx := ctx) (block.spec.getArgument i.toNat) hoib
-  -- The argument offset agrees with the ideal layout offset of the `i`-th argument.
   have hplus : (Buffed.BlockMPtr.computeArgumentOffset! i).toInt
       = Buffed.Block.Offsets.argumentsInt + Buffed.BlockArgument.sizeNat * i.toNat := by
     rw [← Buffed.BlockMPtr.computeArgumentOffset_eq_computeArgumentOffset!]
@@ -567,7 +521,6 @@ theorem BlockPtr.getArgument_toM (block : BlockPtr)
   have haddr : ((block.impl + Buffed.BlockMPtr.computeArgumentOffset! i).toNat : Int)
       = block.impl.toNat + (Buffed.Block.Offsets.argumentsInt + Buffed.BlockArgument.sizeNat * i.toNat) := by
     rw [UInt64.uint64_add_int64_toNat_lt] <;> grind [layout_grind]
-  -- Compare the two addresses at the `Nat` level.
   rw [← UInt64.toNat_inj]
   have hflat := Veir.BlockArgumentPtr.toFlat_ideal (block.spec.getArgument i.toNat)
   simp only [Veir.BlockArgumentPtr.toM, hflat]
@@ -655,17 +608,14 @@ theorem BlockPtr.setPrevBlock_veir_inBounds (ctx : Sim.IRContext OpInfo) (ptr : 
 @[grind =>]
 theorem BlockPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx numArgs = some (ptr', ctx')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .fromBlock ptr' ∨ ptr = .fromBlockOperandPtr (ptr'.getBlockOperandPtrPtr)) := by
-  -- The spec side is an `allocEmptyAtAddress` at the impl address, which preserves the layout.
   have hspec := Sim.BlockPtr.allocEmpty_spec' numArgs heq
   have hlay := Veir.BlockPtr.allocEmptyAtAddress_preservesLayout hspec
   have hptr := Veir.BlockPtr.allocEmptyAtAddress_ptr hspec
-  -- The freshly allocated block is in bounds in the new context.
   have hnew : ptr'.InBounds ctx' := by
     have hib := (Veir.BlockPtr.allocEmptyAtAddress_genericPtr_iff (.block ptr'.spec) hspec).mpr
       (.inr (.inl rfl))
     refine ⟨?_, by grind⟩
     grind [Sim.BlockPtr.Sim, Veir.BlockPtr.toM]
-  -- ... and so is its `firstUse` slot pointer.
   have hslot := Sim.BlockPtr.getOpOperandPtrPtr_sim_of_sim (ctx := ctx') ptr' hnew
   constructor
   · rintro ⟨sim', ib'⟩
@@ -777,7 +727,6 @@ theorem RegionPtr.setLastBlock_veir_inBounds (ctx : Sim.IRContext OpInfo) (ptr :
 @[grind =>]
 theorem RegionPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr) (heq : allocEmpty ctx = some (ptr', ctx')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .fromRegion ptr') := by
-  -- The spec side is an `allocEmptyAt` at the impl address, which preserves the layout.
   have hspec := Sim.RegionPtr.allocEmpty_spec' heq
   have hlay := (Veir.RegionPtr.allocEmptyAt_preservesLayout hspec).preserves
   have hptr := Veir.RegionPtr.allocEmptyAt_ptr hspec

@@ -5,9 +5,7 @@ public import Std.Data.HashMap
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
 
-/--
-  We compare `ByteArray`s by with lexicographic ordering.
--/
+/-- We compare `ByteArray`s by with lexicographic ordering. -/
 instance : Ord ByteArray where
   compare ba1 ba2 := compare ba1.data ba2.data
 
@@ -48,9 +46,7 @@ def getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
 
 end ByteArray
 
-/--
-  Convert a hexadecimal digit character to its Nat value.
--/
+/-- Convert a hexadecimal digit character to its Nat value. -/
 def Char.hexValue? (c : Char) : Option Nat :=
   match c with
   | '0' => some 0
@@ -71,9 +67,7 @@ def Char.hexValue? (c : Char) : Option Nat :=
   | 'f' | 'F' => some 0xF
   | _ => none
 
-/--
-  Parse a sequence of hexadecimal digit characters into a Nat.
--/
+/-- Parse a sequence of hexadecimal digit characters into a Nat. -/
 def ByteArray.hexToNat? (str : ByteArray) : Option Nat := Id.run do
   let mut res := 0
   for h: i in 2...(str.size) do
@@ -209,22 +203,12 @@ theorem Std.ExtHashSet.insertMany_empty_eq_ofList [BEq α] [EquivBEq α] [Hashab
     (∅ : Std.ExtHashSet α).insertMany l = Std.ExtHashSet.ofList l := by
   ext; grind
 
-/--
-  A version of `Std.HashMap.keys.for` that also passes to the given function a proof
-  that the key exists in the map.
-  It is currently not as efficient as it could be, as we check dynamically that the key is
-  indeed in the map (although it should always be the case). This could be improved by
-  modifying the `Std.HashMap` implementation to pass such proof statically.
--/
+/-- A version of `Std.HashMap.keys.for` that also passes to the given function a proof that the key exists in the map. -/
 def Std.HashMap.forKeysDepM [BEq α] [Hashable α] {m : Type w → Type w'} [Monad m]
     (b : Std.HashMap α β) (f : ∀ (a : α), a ∈ b → m PUnit) : m PUnit :=
   b.forM (fun k v => do if h : k ∈ b then f k (by grind))
 
-/-!
-  This section adapts the standard library's `Array.isEqv` to also provide a proof
-  that the elements being related are members of their relative arrays. This
-  allows us to define `Attribute.instDecidableEq` in a somewhat compositional way.
--/
+/-! This section adapts the standard library's `Array.isEqv` to also provide a proof that the elements being related are members of their relative arrays. -/
 
 namespace Array
 

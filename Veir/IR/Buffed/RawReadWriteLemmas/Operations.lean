@@ -2273,10 +2273,7 @@ theorem OperationMPtr.readNthBlockOperand!_blockArgumentMPtr_writeOwner (op : Ve
   grind (splits := 20) [readOpType!, readNumOperands!, BlockArgumentMPtr.writeOwner, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI, IsDisjointI]
 
-/-! ## OperationMPtr.readNthRegion! against all remaining writers
-
-The `readNthRegion!_operationMPtr_writeNumResults` base case lives in `Sim.lean`
-(next to the `computeRegionsOffet!_plus_offset_eq_regionsInt` layout_grind lemma it relies on). -/
+/-! OperationMPtr.readNthRegion! against all remaining writers -/
 
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_operationMPtr_writePrev (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64)
@@ -2444,7 +2441,7 @@ theorem OperationMPtr.readNthRegion!_operationMPtr_writeAttrs (op : Veir.Operati
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_operationMPtr_writeOpType (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64) (hne : op ≠ ptr.spec)
     (hidx : idx.toNat < (op.get! ctx.spec).capRegions)
-    (hne : op ≠ ptr.spec)
+    (_hne : op ≠ ptr.spec)
     (val : UInt32) h (opIb : op.InBounds ctx.spec) (ptrIb : ptr.InBounds ctx) :
     Buffed.OperationMPtr.readNthRegion! (Buffed.OperationMPtr.writeOpType ctx.buf ptr.impl val h) op.toM idx =
     Buffed.OperationMPtr.readNthRegion! ctx.buf op.toM idx := by
@@ -2474,7 +2471,7 @@ theorem OperationMPtr.readNthRegion!_operationMPtr_writeOpType (op : Veir.Operat
 @[layout_simp, layout_grind =]
 theorem OperationMPtr.readNthRegion!_operationMPtr_writeNumOperands (op : Veir.OperationPtr) (ptr : Sim.OperationPtr) (idx : UInt64) (hne : op ≠ ptr.spec)
     (hidx : idx.toNat < (op.get! ctx.spec).capRegions)
-    (hne : op ≠ ptr.spec)
+    (_hne : op ≠ ptr.spec)
     (val : UInt64) h (opIb : op.InBounds ctx.spec) (ptrIb : ptr.InBounds ctx) :
     Buffed.OperationMPtr.readNthRegion! (Buffed.OperationMPtr.writeNumOperands ctx.buf ptr.impl val h) op.toM idx =
     Buffed.OperationMPtr.readNthRegion! ctx.buf op.toM idx := by
@@ -3776,8 +3773,6 @@ theorem OperationMPtr.readNthRegion!_blockArgumentMPtr_writeOwner (op : Veir.Ope
   rw [hoff]
   grind (splits := 20) [readOpType!, readNumOperands!, BlockArgumentMPtr.writeOwner, layout_grind,
     OperationPtr.toM, OperationPtr.range, OperationPtr.toFlat, BlockArgumentPtr.range, BlockArgumentPtr.toFlat, IsIncludedI, IsDisjoint]
-
-
 
 
 /-! ## OperationMPtr.readNumResults! after OpOperandMPtr writes -/
@@ -6432,7 +6427,6 @@ theorem OperationMPtr.readAttrs!_opOperandPtrMPtr_write (op : Veir.OperationPtr)
       have harg := ctx.sim.in_bounds (.block arg.block) (by grind)
       grind (splits := 20) [readAttrs!, OpOperandPtrMPtr.write, layout_grind,
         BlockArgumentPtr.range, BlockArgumentPtr.toFlat, ValuePtr.toFlat, IsIncludedI, IsDisjointI]
-
 
 
 /-! ## OperationMPtr.readAttrs! after BlockMPtr.writeFirstUse -/

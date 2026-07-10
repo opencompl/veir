@@ -755,8 +755,7 @@ structure Sim (ctx : Sim.RawIRContext OpInfo) where
   /-- The buffer contains the encodings of all the regions. -/
   encoding_region (rg : RegionPtr) (ib : rg.InBounds ctx.spec) :
     rg.Matches ctx ib
-  /-- Attribute-table slot 0 canonically holds the empty dictionary, so the zero-initialized
-  `attrs` field of a freshly allocated operation denotes the empty dictionary. -/
+  /-- Attribute-table slot 0 canonically holds the empty dictionary, so the zero-initialized `attrs` field of a freshly allocated operation denotes the empty dictionary. -/
   attr_empty : ctx.buf.attributes[0]? = some (.dictionaryAttr DictionaryAttr.empty)
 
 variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] in
@@ -789,7 +788,6 @@ theorem Sim.IRContext.isRepr (ctx : IRContext OpInfo) : ctx.spec.IsRepr := ctx.s
 @[grind! .]
 theorem Sim.IRContext.fieldsInBounds (ctx : IRContext OpInfo) : ctx.spec.FieldsInBounds := ctx.sim.fieldsInBounds
 
--- A bunch of lemmas, we should move them at some point.
 
 theorem Operation.propertySize_lt (oi : OpInfo) : (Operation.propertySize oi).toNat < UInt32.size := by
   unfold Operation.propertySize
@@ -867,8 +865,6 @@ theorem Int64.add_toInt_lt' {a : Int64} {b : UInt64} (h : b.toNat < Int64.maxNat
     grind
   grind [add_toInt_lt]
 
--- `UInt64.uint64_add_int64_toInt_lt` moved to `RawAccessors.lean` so the raw accessors can
--- discharge their own field-bound obligations; it remains visible here through the import.
 
 @[grind =]
 theorem UInt64.uint64_add_int64_toNat_lt {a : UInt64} {b : Int64}
@@ -972,7 +968,6 @@ theorem OperationPtr.computeOperationSize_ideal
     (BlockOperand.sizeNat * numBlockOperands.toNat) + (ptrSizeNat * numRegions.toNat) := by
   simp [Buffed.OperationMPtr.computeOperationSize]
   grind
--- TODO: BlockMPtr.computeBlockSize
 
 theorem OperationPtr.computeOperandOffset_eq (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
     (hib : op.spec.InBounds ctx.spec) (hsim : op.Sim) h :
@@ -1159,7 +1154,7 @@ theorem OperationPtr.range_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) {o
   · grind only [= Operation.Offsets.after_ideal]
 
 @[layout_simp, grind =]
-theorem OpOperandPtr.range_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) {op : OpOperandPtr} (ib : op.InBounds ctx) :
+theorem OpOperandPtr.range_ideal {ctx : IRContext OpInfo} (_repr : ctx.IsRepr) {op : OpOperandPtr} (_ib : op.InBounds ctx) :
     op.range ctx = op.rangeInt ctx := by
   unfold range rangeInt
   congr
@@ -1275,10 +1270,7 @@ theorem BlockArgumentPtr.range_included_block_range {ctx : Veir.IRContext OpInfo
     BlockPtr.toFlat, Block.rangeInt, add_nat_range_def]
   grind
 
-/-- The byte range of the `idx`-th region slot lies inside `op`'s byte range,
-    provided `idx < capRegions`. Stated as an `Int` interval so it can feed the
-    `read64!_blit64_disjoint` premise once `computeRegionsOffset!` has been rewritten
-    to its ideal (`regionsInt`) form. -/
+/-- The byte range of the `idx`-th region slot lies inside `op`'s byte range, provided `idx < capRegions`. -/
 theorem OperationPtr.nthRegion_range_included_op_range (ctx : Sim.IRContext OpInfo) (op : OperationPtr)
     (idx : UInt64) (hidx : idx.toNat < (op.get! ctx.spec).capRegions) (ib : op.InBounds ctx.spec) :
     IsIncludedI
@@ -1295,10 +1287,7 @@ theorem OperationPtr.nthRegion_range_included_op_range (ctx : Sim.IRContext OpIn
     Operation.Sizes.regionsNat, add_nat_range_def, IsIncludedI]
   refine ⟨?_, ?_⟩ <;> grind
 
-/-- The byte range of the `idx`-th result slot lies inside `op`'s byte range, provided
-    `idx < capResults`. Results are back-allocated at negative offsets, so the slot sits in
-    `[resultsInt, 0)` relative to the operation pointer. Analogue of
-    `nthRegion_range_included_op_range` for the `Rewriter.setResult` slot bound. -/
+/-- The byte range of the `idx`-th result slot lies inside `op`'s byte range, provided `idx < capResults`. -/
 theorem OperationPtr.nthResult_range_included_op_range (ctx : Sim.IRContext OpInfo) (op : OperationPtr)
     (idx : UInt64) (hidx : idx.toNat < (op.get! ctx.spec).capResults) (ib : op.InBounds ctx.spec) :
     IsIncludedI
@@ -1315,9 +1304,7 @@ theorem OperationPtr.nthResult_range_included_op_range (ctx : Sim.IRContext OpIn
     Operation.Sizes.resultsNat, add_nat_range_def, IsIncludedI]
   refine ⟨?_, ?_⟩ <;> grind
 
-/-- The byte range of the `idx`-th operand slot lies inside `op`'s byte range, provided
-    `idx < capOperands`. Analogue of `nthRegion_range_included_op_range` for the
-    `Rewriter.setOperand` slot bound. -/
+/-- The byte range of the `idx`-th operand slot lies inside `op`'s byte range, provided `idx < capOperands`. -/
 theorem OperationPtr.nthOperand_range_included_op_range (ctx : Sim.IRContext OpInfo) (op : OperationPtr)
     (idx : UInt64) (hidx : idx.toNat < (op.get! ctx.spec).capOperands) (ib : op.InBounds ctx.spec) :
     IsIncludedI
@@ -1336,9 +1323,7 @@ theorem OperationPtr.nthOperand_range_included_op_range (ctx : Sim.IRContext OpI
     add_nat_range_def, IsIncludedI]
   refine ⟨?_, ?_⟩ <;> grind
 
-/-- The byte range of the `idx`-th block-operand slot lies inside `op`'s byte range, provided
-    `idx < capBlockOperands`. Analogue of `nthRegion_range_included_op_range` for the
-    `Rewriter.setBlockOperand` slot bound. -/
+/-- The byte range of the `idx`-th block-operand slot lies inside `op`'s byte range, provided `idx < capBlockOperands`. -/
 theorem OperationPtr.nthBlockOperand_range_included_op_range (ctx : Sim.IRContext OpInfo) (op : OperationPtr)
     (idx : UInt64) (hidx : idx.toNat < (op.get! ctx.spec).capBlockOperands) (ib : op.InBounds ctx.spec) :
     IsIncludedI
@@ -1357,9 +1342,7 @@ theorem OperationPtr.nthBlockOperand_range_included_op_range (ctx : Sim.IRContex
     add_nat_range_def, IsIncludedI]
   refine ⟨?_, ?_⟩ <;> grind
 
-/-- The byte range of the `idx`-th argument slot lies inside `bl`'s byte range, provided
-    `idx < capArguments`. Analogue of `nthRegion_range_included_op_range` for the
-    `Rewriter.setBlockArgument` slot bound. -/
+/-- The byte range of the `idx`-th argument slot lies inside `bl`'s byte range, provided `idx < capArguments`. -/
 theorem BlockPtr.nthArgument_range_included_block_range (ctx : Sim.IRContext OpInfo) (bl : BlockPtr)
     (idx : UInt64) (hidx : idx.toNat < (bl.get! ctx.spec).capArguments) (ib : bl.InBounds ctx.spec) :
     IsIncludedI

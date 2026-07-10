@@ -12,47 +12,7 @@ public section
 
 setup_grind_with_get_set_definitions
 
-/-
- - The getters we consider are:
- - * BlockPtr.get! with optionally special cases for:
- -   * Block.firstUse
- -   * Block.prev
- -   * Block.next
- -   * Block.parent
- -   * Block.firstOp
- -   * Block.lastOp
- -   * Block.capArguments       (never modified by any setter)
- - * OperationPtr.get! with optionally special cases for:
- -   * Operation.prev
- -   * Operation.next
- -   * Operation.parent
- -   * Operation.attrs
- -   * Operation.capResults     (never modified by any setter)
- -   * Operation.capBlockOperands (never modified by any setter)
- -   * Operation.capRegions     (never modified by any setter)
- -   * Operation.capOperands    (never modified by any setter)
- - * OperationPtr.getOpType!
- - * OperationPtr.getProperties!
- - * OperationPtr.getNumResults!
- - * OpResultPtr.get!
- - * OperationPtr.getNumOperands!
- - * OpOperandPtr.get!
- - * OperationPtr.getOperands!
- - * OperationPtr.getNumSuccessors!
- - * BlockOperandPtr.get!
- - * OperationPtr.getNumRegions!
- - * OperationPtr.getRegion!
- - * BlockOperandPtrPtr.get!
- - * BlockPtr.getNumArguments!
- - * BlockArgumentPtr.get!
- - * RegionPtr.get! with optionally special cases for:
- -   * firstBlock
- -   * lastBlock
- -   * parent
- - * ValuePtr.getFirstUse!
- - * ValuePtr.getType!
- - * OpOperandPtrPtr.get!
- -/
+/- Transport lemmas: every getter against every setter of the buffed IR context. -/
 
 /- OperationPtr.allocEmpty -/
 
@@ -1639,9 +1599,7 @@ theorem OperationPtr.getProperties!_OperationPtr_setProperties {operation : Oper
       operation.getProperties! ctx opCode := by
   grind
 
-/- We probably do not want both this lemma and the previous one to be grind.
-  TODO: make a decision about this
--/
+/- We probably do not want both this lemma and the previous one to be grind. -/
 @[grind =]
 theorem OperationPtr.getProperties!_OperationPtr_setProperties_same_opCode {operation : OperationPtr} :
     operation.getProperties! (OperationPtr.setProperties (opCode := opCode) operation' ctx newProperties inBounds hprop) opCode =
@@ -6814,7 +6772,6 @@ theorem OpOperandPtrPtr.get!_ValuePtr_setFirstUse {opOperandPtr : OpOperandPtrPt
 
 /- OpOperandPtrPtr.set -/
 
--- TODO: the match is elaborated in a strange way, with two arguments. Is it a Lean bug?
 @[grind =]
 theorem BlockPtr.get!_OpOperandPtrPtr_set {block : BlockPtr} :
     block.get! (OpOperandPtrPtr.set ptr' ctx newPtr hptr') =
@@ -7075,7 +7032,6 @@ theorem OpOperandPtrPtr.get!_OpOperandPtrPtr_set {opOperandPtr : OpOperandPtrPtr
 
 /- BlockOperandPtrPtr.set -/
 
--- TODO: the match is elaborated in a strange way, with two arguments. Is it a Lean bug?
 @[grind =]
 theorem BlockPtr.get!_BlockOperandPtrPtr_set {block : BlockPtr} :
     block.get! (BlockOperandPtrPtr.set ptr' ctx newPtr hptr') =

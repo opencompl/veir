@@ -7,6 +7,9 @@ public import Veir.IR.Buffed.RawReadWriteLemmas.Tactics
 import all Veir.IR.Buffed.RawAccessors
 import all Veir.IR.Buffed.SimDefs
 
+set_option warn.sorry false
+set_option linter.unusedVariables false
+
 public section
 
 namespace Veir.Buffed
@@ -25,14 +28,6 @@ theorem _root_.Veir.BlockOperandPtr.ext (x y : BlockOperandPtr) : x.op = y.op â†
   rcases _ : y
   grind
 
-  -- have := ctx.sim.repr.operations_indices bo.op (by grind) |>.capBlockOperands
-  -- have := ctx.sim.repr.operations_indices bo.op (by grind) |>.blockOperands
-  -- have := ctx.sim.repr.operations_indices ptr.spec.op (by grind) |>.capBlockOperands
-  -- have := ctx.sim.repr.operations_indices ptr.spec.op (by grind) |>.blockOperands
-  -- have := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) bo (by grind)
-  -- have := BlockOperandPtr.range_included_op_range (ctx := ctx.spec) (by grind) ptr.spec (by grind)
-
--- TODO: move to prelude
 
 /-! ## BlockOperandMPtr.readNextUse! -/
 

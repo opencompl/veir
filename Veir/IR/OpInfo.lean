@@ -41,12 +41,7 @@ instance [HasDialectOpInfo opCode] {op : opCode} : DecidableEq (HasDialectOpInfo
 instance [HasDialectOpInfo opCode] : DecidableEq opCode :=
   HasDialectOpInfo.decideEq
 
-/--
-The `HasOpInfo` type class provides information about opcodes and their properties
-and how to hash, represent, and compare them for equality. It also
-provides a type family `propertyOf` that maps an operation code to the type of
-its properties
--/
+/-- The `HasOpInfo` type class provides information about opcodes and their properties and how to hash, represent, and compare them for equality. -/
 class HasOpInfo (opCode: Type)
     extends Hashable opCode, Repr opCode, Inhabited opCode, HasDialectOpInfo opCode where
   moduleOpCode: opCode

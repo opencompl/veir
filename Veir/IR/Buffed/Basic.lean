@@ -14,10 +14,11 @@ import Veir.IR.Buffed.RawReadWriteLemmas
 import all Veir.IR.Buffed.RawAccessors
 import all Veir.IR.Buffed.SimDefs
 import all Veir.IR.Buffed.Sim
--- Exposes the body of `dbgTrace` so the `dump*` printers (which use `dbg_trace`)
--- can be proved to leave the context unchanged (`dbgTrace s (fun _ => x)` reduces to `x`).
+-- Exposes the body of `dbgTrace` so the `dump*` printers (which use `dbg_trace`) can be proved to leave the context unchanged (`dbgTrace s (fun _ => x)` reduces to `x`).
 import all Init.Util
 
+
+set_option linter.unusedSectionVars false
 
 public section
 
@@ -27,12 +28,7 @@ open Buffed (countCard)
 
 variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 
-/- Shared `Sim` proof for `OperationPtr` setters that write a single link field
-(`setNextOpSim`, `setPrevOpSim`, …). The only thing that varies between them is the
-`Buffed.OperationMPtr.write*` lemma unfolded by `grind`, passed as `$w`.
-
-`hygiene false` so the global grind lemma-set name `layout_grind` (and the other
-lemma idents) resolve at the use site instead of being tagged with macro scopes. -/
+/- Shared `Sim` proof for `OperationPtr` setters that write a single link field (`setNextOpSim`, `setPrevOpSim`, …). -/
 set_option hygiene false in
 macro "prove_setLinkSim" ctx:ident w:Lean.Parser.Tactic.grindParam : tactic => `(tactic|
   (constructor
@@ -100,7 +96,7 @@ macro "prove_setLinkSim" ctx:ident w:Lean.Parser.Tactic.grindParam : tactic => `
          constructor
          · have := this.kind
            grind [layout_grind]
-         · have := this.typee -- todo lol
+         · have := this.typee
            grind [layout_grind, $w]
          · have := this.firstUse
            grind [layout_grind]
@@ -141,19 +137,7 @@ macro "prove_setLinkSim" ctx:ident w:Lean.Parser.Tactic.grindParam : tactic => `
    · have := ($ctx).sim.attr_empty
      grind [$w]))
 
-/- Shared bounds proofs passed to the `Buffed.*MPtr.write*` calls in the setters.
-Each discharges the goal `(ptr.impl + offset).toInt + size.toInt ≤ ↑ctx.buf.size`
-by establishing that the pointer's whole range lies in the buffer, then bounding the
-size. `$ctx` and `$ptr` are the setter's context and pointer.
-
-There is one macro per pointer type because the range-inclusion argument differs:
-top-level pointers (`OperationPtr`, `BlockPtr`, `RegionPtr`, `ValuePtr`) are
-directly `in_bounds`, while sub-pointers (`OpOperandPtr`, `OpResultPtr`,
-`BlockOperandPtr`, `BlockArgumentPtr`) chain through their containing op/block via
-the corresponding `range_included_*` lemma.
-
-`hygiene false` so `IsIncludedIN` and the `grind` lemma idents resolve at the use
-site (matches `prove_setLinkSim`). -/
+/- Shared bounds proofs passed to the `Buffed.*MPtr.write*` calls in the setters. -/
 set_option hygiene false in
 macro "prove_setLinkBoundsOp" ctx:ident ptr:ident : tactic => `(tactic|
   (have incl : IsIncludedIN (($ptr).spec.range ($ctx).spec) ($ctx).buf.mem.range := by
@@ -175,12 +159,7 @@ macro "prove_setLinkBoundsRegion" ctx:ident ptr:ident : tactic => `(tactic|
    have : ctx.buf.mem.size < 2^63 := by grind
    grind [layout_grind]))
 
-/- Bounds proof for reading the `$index`-th region *slot* of an operation
-(`readNthRegion`'s `h₂`): the slot lies inside the op's byte range
-(`nthRegion_range_included_op_range`), which in turn lies in the buffer
-(`sim.in_bounds`). Expects `hindex : ($index).toNat < ($ptr).spec.getNumRegions! ($ctx).spec`
-(or enough for `grind` to derive it) in scope; `capRegions` bounds `getNumRegions!`
-via `ReprIndices`. -/
+/- Bounds proof for reading the `$index`-th region *slot* of an operation (`readNthRegion`'s `h₂`): the slot lies inside the op's byte range (`nthRegion_range_included_op_range`), which in turn lies in the buffer (`sim.in_bounds`). -/
 set_option hygiene false in
 macro "prove_setLinkBoundsRegionSlot" ctx:ident ptr:ident index:ident : tactic => `(tactic|
   (have hcap : ($index).toNat < (($ptr).spec.get! ($ctx).spec).capRegions := by
@@ -192,22 +171,14 @@ macro "prove_setLinkBoundsRegionSlot" ctx:ident ptr:ident index:ident : tactic =
    grind [layout_grind, OperationPtr.range, OperationPtr.toM, OperationPtr.toFlat,
      Buffed.OperationMPtr.computeRegionOffset, IsIncludedI, IsIncludedIN]))
 
-/- Bounds proofs for writing the `$index`-th result/operand/block-operand slot of an operation
-(the `hslot` argument of `Rewriter.set{Result,Operand,BlockOperand}`), and the `$index`-th
-argument slot of a block (`Rewriter.setBlockArgument`'s `hslot`). Each follows the
-`prove_setLinkBoundsRegionSlot` recipe: the slot lies inside the owner's byte range
-(`nth*_range_included_*_range`, capacity-based), which lies in the buffer (`sim.in_bounds`).
-Expects `hcap : ($index).toNat < (($ptr).spec.get! ($ctx).spec).cap<Kind>` (or enough for
-`grind` to derive it) in scope — at the `Rewriter.push*At` sites this is the threaded
-capacity precondition. -/
+/- Bounds proofs for writing the `$index`-th result/operand/block-operand slot of an operation (the `hslot` argument of `Rewriter.set{Result,Operand,BlockOperand}`), and the `$index`-th argument slot of a block (`Rewriter.setBlockArgument`'s `hslot`). -/
 set_option hygiene false in
 macro "prove_setLinkBoundsResultSlot" ctx:ident ptr:ident index:ident : tactic => `(tactic|
   (have hcap : ($index).toNat < (($ptr).spec.get! ($ctx).spec).capResults := by grind
    have hincl := OperationPtr.nthResult_range_included_op_range $ctx ($ptr).spec $index hcap (by grind)
    have hin := ($ctx).sim.in_bounds (.operation ($ptr).spec) (by grind)
    have : ($ctx).buf.mem.size < 2^63 := by grind
-   -- Pin the nonlinear pieces grind won't derive itself: the ideal form of the base offset,
-   -- `idx < 2^32` (via `ReprIndices`), and the `UInt64` multiplication in `Nat` form.
+   -- Pin the nonlinear pieces grind won't derive itself: the ideal form of the base offset, `idx < 2^32` (via `ReprIndices`), and the `UInt64` multiplication in `Nat` form.
    have hoff := OperationPtr.computeResultsOffset!_ideal $ctx $ptr (by grind) (by grind)
      (by prove_setLinkBoundsOp $ctx $ptr)
    have hidxlt : ($index).toNat < 4294967296 := by
@@ -301,24 +272,12 @@ macro "prove_setLinkBoundsBlockArgument" ctx:ident ptr:ident : tactic => `(tacti
    have : ctx.buf.mem.size < 2^63 := by grind
    grind [layout_grind]))
 
-/- Bounds proof for the `Buffed.*MPtr.write*` calls inside the `allocEmptyImpl`
-functions. Unlike the setters above these operate on a raw `Buffed.IRBufContext`
-just after `$ctx₀.alloc size`, so there is no `Sim` structure to appeal to. Instead
-the field's `[offset, offset+size)` range fits because it lies inside the freshly
-allocated block: the goal is `(ptr + off).toInt + fsize.toInt ≤ ctx.size`, where the
-caller has a `hsize : ctx.size = ($ctx₀).size + size.toNat` in scope. The pointer is
-`($ctx₀).usize`, so `ptr.toNat = ($ctx₀).size` (`usize_toNat`), the buffer size is
-bounded by `fits_in_memory`, and the pointer-arithmetic decomposition
-`uint64_add_int64_toInt_lt` turns the goal into linear arithmetic that `grind`
-finishes once the field constants (all reducible) unfold. -/
+/- Bounds proof for the `Buffed.*MPtr.write*` calls inside the `allocEmptyImpl` functions. -/
 set_option hygiene false in
 macro "prove_allocBounds" ctx₀:ident : tactic => `(tactic|
   (have hb := ($ctx₀).mem.fits_in_memory
    have hu := ($ctx₀).usize_toNat
-   -- Collapse `.size` to `.mem.size` and use the `write*_size` lemmas to peel the chain of
-   -- writes down to the just-allocated buffer, exposing the `hsize`/`hbsize` size facts. The
-   -- pointer arithmetic (`uint64_add_int64_toInt_lt`) then reduces the goal to linear
-   -- arithmetic over `Nat`.
+   -- Collapse `.size` to `.mem.size` and use the `write*_size` lemmas to peel the chain of writes down to the just-allocated buffer, exposing the `hsize`/`hbsize` size facts.
    simp only [Buffed.IRBufContext.size_def] at *
    grind (instances := 4000) [UInt64.uint64_add_int64_toInt_lt, Buffed.BlockMPtr.writeNumArguments_size,
      Buffed.BlockMPtr.writeFirstUse_size, Buffed.BlockMPtr.writePrev_size, Buffed.BlockMPtr.writeNext_size,
@@ -328,19 +287,11 @@ macro "prove_allocBounds" ctx₀:ident : tactic => `(tactic|
      Buffed.OperationMPtr.writeNumBlockOperands_size, Buffed.OperationMPtr.writeNumRegions_size,
      Buffed.OperationMPtr.writeParent_size, Buffed.OperationMPtr.writeNext_size, Buffed.OperationMPtr.writePrev_size]))
 
-/- Variant of `prove_allocBounds` for `OperationPtr.allocEmptyImpl`. The operation pointer is
-`($ctx₀).usize + OpResult.size * numResults` (it points past the back-allocated results array),
-so the goal has an extra `UInt64` addition to unfold; `$nres` is `numResults`, and the caller
-has both `hsize` and the `computeOperationSize` decomposition `hopsize` in scope. The
-`OpResult.size * numResults` term in the pointer cancels against the same term in the size, so
-grind closes the resulting linear-arithmetic goal. -/
+/- Variant of `prove_allocBounds` for `OperationPtr.allocEmptyImpl`. -/
 set_option hygiene false in
 macro "prove_allocBoundsOp" ctx₀:ident : tactic => `(tactic|
   (have hb := ($ctx₀).mem.fits_in_memory
-   -- The caller established `hptr` (closed form of the operation pointer's address) and
-   -- `hptrlt` (its `< 2^63` bound); grind unfolds the `let`-bound pointer uniformly in both the
-   -- goal and these facts, so the pointer-arithmetic decomposition applies and the goal reduces
-   -- to linear arithmetic over the just-allocated size (`hsize`/`hopsize`/`hprefix`).
+   -- The caller established `hptr` (closed form of the operation pointer's address) and `hptrlt` (its `< 2^63` bound); grind unfolds the `let`-bound pointer uniformly in both the goal and these facts, so the pointer-arithmetic decomposition applies and the goal reduces to linear arithmetic over the just-allocated size (`hsize`/`hopsize`/`hprefix`).
    simp only [Buffed.IRBufContext.size_def] at *
    grind (instances := 4000) [UInt64.uint64_add_int64_toInt_lt,
      Buffed.OperationMPtr.writeNumResults_size, Buffed.OperationMPtr.writeNumOperands_size,
@@ -348,14 +299,7 @@ macro "prove_allocBoundsOp" ctx₀:ident : tactic => `(tactic|
      Buffed.OperationMPtr.writeParent_size, Buffed.OperationMPtr.writeNext_size,
      Buffed.OperationMPtr.writePrev_size, Buffed.OperationMPtr.writeOpType_size]))
 
-/- Bounds proof for the field `write*` calls inside the raw `Rewriter.set{Result,Operand,
-BlockOperand}` setters. These write into a slot pointer (an `OpResult`/`OpOperand`/`BlockOperand`
-`MPtr`) of an *existing* operation, built with the proof-free `!` offset so the caller supplies
-only `hslot` — the whole slot `[slot, slot + <slot>.size)` fits in the buffer — plus, in
-`setResult`, `hsz`, that the intervening `insertAttrs` left the size unchanged. Each field
-write's `(slot + off).toInt + fsize ≤ size` follows because the field lies inside the slot;
-`fits_in_memory` rules out address wrap and `uint64_add_int64_toInt_lt` decomposes the pointer
-arithmetic. The `write*_size` lemmas collapse `.size` through the chain of earlier writes. -/
+/- Bounds proof for the field `write*` calls inside the raw `Rewriter.set{Result,Operand, BlockOperand}` setters. -/
 set_option hygiene false in
 macro "prove_setSlotBounds" ctx₀:ident : tactic => `(tactic|
   (have hb := ($ctx₀).mem.fits_in_memory
@@ -372,48 +316,6 @@ macro "prove_setSlotBounds" ctx₀:ident : tactic => `(tactic|
 
 
 /-! ## Debugging printers -/
-/-
-@[inline]
-def dumpOp (_op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpRegion (_region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpBlock (_block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpValue (_value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpOpResult (_result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpBlockArgument (_arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpOpOperand (_operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpBlockOperand (_operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-/-! ### Nullable (`Option*Ptr`) dumpers — print `null` for the sentinel. -/
-
-@[inline]
-def dumpOptionOp (_op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpOptionBlock (_block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpOptionRegion (_region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpOptionOpOperand (_operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
-
-@[inline]
-def dumpOptionBlockOperand (_operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (_pref : String := "") : Sim.IRContext OpInfo := ctx
--/
 
 buffed
 def dumpOpSim (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -422,7 +324,7 @@ def dumpOpSim (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : Strin
 @[simp, grind =]
 theorem dumpOp_eq (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOp op ctx pref = ctx := by
-  simp only [dumpOp, Buffed.OperationMPtr.debugPrint]; congr 1
+  simp only [dumpOp]; congr 1
 
 buffed
 def dumpRegionSim (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -431,7 +333,7 @@ def dumpRegionSim (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pref : 
 @[simp, grind =]
 theorem dumpRegion_eq (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpRegion region ctx pref = ctx := by
-  simp only [dumpRegion, Buffed.RegionMPtr.debugPrint]; congr 1
+  simp only [dumpRegion]; congr 1
 
 buffed
 def dumpBlockSim (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -440,7 +342,7 @@ def dumpBlockSim (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref : Str
 @[simp, grind =]
 theorem dumpBlock_eq (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpBlock block ctx pref = ctx := by
-  simp only [dumpBlock, Buffed.BlockMPtr.debugPrint]; congr 1
+  simp only [dumpBlock]; congr 1
 
 buffed
 def dumpValueSim (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -449,7 +351,7 @@ def dumpValueSim (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref : Str
 @[simp, grind =]
 theorem dumpValue_eq (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpValue value ctx pref = ctx := by
-  simp only [dumpValue, Buffed.ValueImplMPtr.debugPrint]; congr 1
+  simp only [dumpValue]; congr 1
 
 buffed
 def dumpOpResultSim (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -458,7 +360,7 @@ def dumpOpResultSim (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (pre
 @[simp, grind =]
 theorem dumpOpResult_eq (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOpResult result ctx pref = ctx := by
-  simp only [dumpOpResult, Buffed.OpResultMPtr.debugPrint]; congr 1
+  simp only [dumpOpResult]; congr 1
 
 buffed
 def dumpBlockArgumentSim (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -467,7 +369,7 @@ def dumpBlockArgumentSim (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInf
 @[simp, grind =]
 theorem dumpBlockArgument_eq (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpBlockArgument arg ctx pref = ctx := by
-  simp only [dumpBlockArgument, Buffed.BlockArgumentMPtr.debugPrint]; congr 1
+  simp only [dumpBlockArgument]; congr 1
 
 buffed
 def dumpOpOperandSim (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -476,7 +378,7 @@ def dumpOpOperandSim (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (
 @[simp, grind =]
 theorem dumpOpOperand_eq (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOpOperand operand ctx pref = ctx := by
-  simp only [dumpOpOperand, Buffed.OpOperandMPtr.debugPrint]; congr 1
+  simp only [dumpOpOperand]; congr 1
 
 buffed
 def dumpBlockOperandSim (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -485,7 +387,7 @@ def dumpBlockOperandSim (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpI
 @[simp, grind =]
 theorem dumpBlockOperand_eq (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpBlockOperand operand ctx pref = ctx := by
-  simp only [dumpBlockOperand, Buffed.BlockOperandMPtr.debugPrint]; congr 1
+  simp only [dumpBlockOperand]; congr 1
 
 /-! ### Nullable (`Option*Ptr`) dumpers — print `null` for the sentinel. -/
 
@@ -496,7 +398,7 @@ def dumpOptionOpSim (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (
 @[simp, grind =]
 theorem dumpOptionOp_eq (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOptionOp op ctx pref = ctx := by
-  simp only [dumpOptionOp, Buffed.OperationOPtr.debugPrint]; congr 1
+  simp only [dumpOptionOp]; congr 1
 
 buffed
 def dumpOptionBlockSim (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -505,7 +407,7 @@ def dumpOptionBlockSim (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo)
 @[simp, grind =]
 theorem dumpOptionBlock_eq (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOptionBlock block ctx pref = ctx := by
-  simp only [dumpOptionBlock, Buffed.BlockOPtr.debugPrint]; congr 1
+  simp only [dumpOptionBlock]; congr 1
 
 buffed
 def dumpOptionRegionSim (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -514,7 +416,7 @@ def dumpOptionRegionSim (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpIn
 @[simp, grind =]
 theorem dumpOptionRegion_eq (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOptionRegion region ctx pref = ctx := by
-  simp only [dumpOptionRegion, Buffed.RegionOPtr.debugPrint]; congr 1
+  simp only [dumpOptionRegion]; congr 1
 
 buffed
 def dumpOptionOpOperandSim (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -523,7 +425,7 @@ def dumpOptionOpOperandSim (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRConte
 @[simp, grind =]
 theorem dumpOptionOpOperand_eq (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOptionOpOperand operand ctx pref = ctx := by
-  simp only [dumpOptionOpOperand, Buffed.OpOperandOPtr.debugPrint]; congr 1
+  simp only [dumpOptionOpOperand]; congr 1
 
 buffed
 def dumpOptionBlockOperandSim (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
@@ -532,7 +434,7 @@ def dumpOptionBlockOperandSim (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.I
 @[simp, grind =]
 theorem dumpOptionBlockOperand_eq (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOptionBlockOperand operand ctx pref = ctx := by
-  simp only [dumpOptionBlockOperand, Buffed.BlockOperandOPtr.debugPrint]; congr 1
+  simp only [dumpOptionBlockOperand]; congr 1
 
 
 /-! ## Setters and getters -/
@@ -904,8 +806,7 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
        grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.RegionMPtr.readLastBlock!]
      · have := this.parent
        grind [layout_grind, Buffed.OperationMPtr.writeAttrs, Buffed.RegionMPtr.readParent!]
-   · -- `insertAttrs` only pushes onto the attribute table, and slot 0 is occupied
-     -- (the old `attr_empty`), so the push leaves it unchanged.
+   · -- `insertAttrs` only pushes onto the attribute table and slot 0 is occupied, so the push leaves it unchanged.
      have := ctx.sim.attr_empty
      grind [Buffed.OperationMPtr.writeAttrs, Buffed.IRBufContext.insertAttrs]⟩
 
@@ -920,8 +821,7 @@ theorem Sim.OperationPtr.setAttributes_spec (ctx : Sim.IRContext OpInfo) (ptr : 
 def Sim.OperationPtr.getAttributes (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) : DictionaryAttr :=
   let idx := ptr.impl.readAttrs ctx.buf (by prove_setLinkBoundsOp ctx ptr)
-  -- The `Sim` encoding invariant `attrs` says the stored attribute index points into the
-  -- attribute table (`attributes[readAttrs!]? = some _`), which is exactly the array bound.
+  -- The `Sim` encoding invariant `attrs` says the stored attribute index points into the attribute table (`attributes[readAttrs!]? = some _`), which is exactly the array bound.
   (ctx.buf.attributes[idx.toNat]'(by
     have hattr := ctx.sim.encoding_op ptr.spec (by grind) |>.attrs
     grind)).asDict (by
@@ -931,8 +831,7 @@ def Sim.OperationPtr.getAttributes (ctx : Sim.IRContext OpInfo) (ptr : Sim.Opera
 @[inline]
 def Sim.OperationPtr.getAttributes! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : DictionaryAttr :=
   let idx := ptr.impl.readAttrs! ctx.buf
-  -- Without an `InBounds` hypothesis nothing guarantees the read index lands on a
-  -- dictionary in the attribute table, so fall back to `.empty` on garbage input.
+  -- Without an `InBounds` hypothesis nothing guarantees the read index lands on a dictionary in the attribute table, so fall back to `.empty` on garbage input.
   match ctx.buf.attributes[idx.toNat]! with
   | .dictionaryAttr dict => dict
   | _ => .empty
@@ -2055,10 +1954,7 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
   · exact absurd heq (by simp)
   · rename_i buf halloc
     simp only [Option.some.injEq, Prod.mk.injEq] at heq
-    -- Keep `ctxBuf` abstract (do NOT substitute the giant 7-write tower): bind the tower to
-    -- `hctxBuf` so `prove_allocBounds` is elaborated ONCE here, not re-run per read-bridge.
     obtain ⟨hctxBuf, rfl⟩ := heq
-    -- Size bookkeeping: the buffer grows by `computeBlockSize numArgs = 56 + numArgs*32` bytes.
     have hu := ctx.buf.usize_toNat
     have hs := ctx.buf.size_def
     have hgrow := ctx.buf.alloc_size halloc
@@ -2066,17 +1962,14 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
     have hbsize := Buffed.BlockMPtr.computeBlockSize_toNat numArgs hnumArgs
     have hsize : ctx.buf.mem.size < 2 ^ 63 := by
       simp only [Buffed.IRBufContext.size_def, Int64.maxNatValue] at *; omega
-    -- Spec characterization: the new block is at the old buffer end.
     have hptr := Veir.BlockPtr.allocEmptyAtAddress_ptr hspec
     have hlay := Veir.BlockPtr.allocEmptyAtAddress_preservesLayout hspec
-    -- Uniform preservation: reads entirely below the old buffer end are unchanged.
     have hsizeAlloc : buf.size = ctx.buf.size + (Buffed.BlockMPtr.computeBlockSize numArgs).toUInt64.toNat := hgrow
     have hread : ∀ (a : UInt64), a.toNat + 8 ≤ ctx.buf.mem.size →
         ctxBuf.mem.read64! a
         = ctx.buf.mem.read64! a := by
       intro a ha
       rw [← hctxBuf]; clear hctxBuf
-      -- Every blit is at `usize + off` (off ≥ 0) ≥ old buffer end, so disjoint from `[a, a+8) ⊆ [0, mem.size)`.
       have hab : a.toNat + 8 ≤ ctx.buf.usize.toNat := by grind
       simp only [Buffed.IRBufContext.alloc] at halloc
       split at halloc
@@ -2102,7 +1995,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
       rw [← hctxBuf]; clear hctxBuf
       have hab : a.toNat + 4 ≤ ctx.buf.usize.toNat := by grind
       have husz63 : ctx.buf.usize.toNat < 2 ^ 63 := by grind
-      -- `.toNat` of every write address `usize + off` (off an Int64 in [0,48], no wraparound).
       have ek : ∀ (off : Int64), 0 ≤ off.toInt → off.toInt ≤ 48 →
           a.toNat + 4 ≤ (ctx.buf.usize + off).toNat := by
         intro off h0 h48
@@ -2136,9 +2028,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
           Buffed.BlockMPtr.writeParent, Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev,
           Buffed.BlockMPtr.writeFirstUse, Buffed.BlockMPtr.writeNumArguments]
       · exact absurd halloc (by simp)
-    -- `ctxSpec.IsRepr`: the pre-context is representable and inserting an empty block preserves it.
-    -- Proven once here so that `in_bounds` (new-block case) can reuse it via `after_ideal`.
-    -- The new block's own `IsRepr` (`toFlat ≤ maxNatValue`): its address is the old buffer end.
     have hptrrepr : ptrSpec.IsRepr := by
       simp only [Veir.BlockPtr.IsRepr, Veir.BlockPtr.toFlat, hptr, Int64.maxNatValue] at *
       omega
@@ -2186,8 +2075,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
         · -- new block = ptrSpec at [usize, usize + Block.after) ⊆ [0, size + computeBlockSize).
           simp only [GenericPtr.block.injEq] at hnew
           subst bl
-          -- The new block is in bounds in the new context, and is `Block.empty numArgs.toNat`,
-          -- so its `after` offset equals `computeBlockSize numArgs = 56 + numArgs*32`.
           have hnewib : ptrSpec.InBounds ctxSpec := by
             have := (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.block ptrSpec) hspec).mpr
               (Or.inr (Or.inl rfl))
@@ -2197,7 +2084,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
             simpa using this
           have hcap : (ptrSpec.get! ctxSpec).capArguments = numArgs.toNat := by
             simp only [hget, Veir.Block.empty]
-          -- `afterInt = argumentsInt(=56) + capArguments*40 = 56 + numArgs*40 = computeBlockSize`.
           have hargInt : (Buffed.Block.Offsets.argumentsInt : Int) = 56 := by decide
           have hbaseNat : Buffed.Block.sizeBaseNat = 56 := by decide
           have hszNat : Buffed.BlockArgument.sizeNat = 40 := by decide
@@ -2211,8 +2097,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
                 from rfl,
               hargInt, hargNat]
             omega
-          -- The new block's ideal upper bound: usize + (56 + numArgs*32) = usize + computeBlockSize.
-          -- Rewrite `afterInt` (via hafterInt) BEFORE unfolding `ptrSpec` (hptr), else the LHS won't match.
           have hupper : (ptrSpec.rangeInt ctxSpec).upper
               = (ctx.buf.mem.size : Int) + (Buffed.BlockMPtr.computeBlockSize numArgs).toUInt64.toNat := by
             simp only [Veir.BlockPtr.rangeInt, Veir.BlockPtr.toFlat, Buffed.Block.rangeInt,
@@ -2237,8 +2121,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
         grind
     · -- disjoint_allocs
       clear hctxBuf
-      -- Old ptrs keep their ranges (LayoutPreserved) and sit in `[0, size)`; the new block
-      -- sits at `[size, size + computeBlockSize)`, hence disjoint from every old range.
       have hrange : ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
           p.range ctxSpec = p.range ctx.spec := by
         intro p hp
@@ -2254,7 +2136,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
         simp only [IsIncludedIN] at hin
         simp only [ExArray.range_lower, ExArray.range_upper] at hin
         omega
-      -- Membership in the new context: an old top-level ptr, or the fresh block.
       have hmem : ∀ (p : TopLevelPtr), p.InBounds ctxSpec →
           p.InBounds ctx.spec ∨ p = .block ptrSpec := by
         intro p hp
@@ -2277,7 +2158,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
           · exact Or.inl (by simpa using h)
           · exact absurd h (by simp)
           · exact absurd h (by simp)
-      -- The fresh block's range lower bound is `usize.toNat = size`.
       have hnewlow : (Veir.BlockPtr.range ptrSpec ctxSpec).lower = (ctx.buf.mem.size : Int) := by
         simp only [Veir.BlockPtr.range, Veir.BlockPtr.toFlat, Buffed.Block.range, hptr,
           add_nat_range_def]
@@ -2641,7 +2521,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
           simpa using this
         have htoM : ptrSpec.toM = ctx.buf.usize := by
           simp only [hptr, BlockPtr.toM, BlockPtr.toFlat]; clear hctxBuf; grind
-        -- Write offsets: firstUse=0, prev=8, next=16, parent=24, firstOp=32, lastOp=40, numArguments=48.
         have husz : ctx.buf.usize.toNat < 2 ^ 63 := by clear hctxBuf; grind
         have hmax : (Int64.maxValue.toInt : Int) = 2 ^ 63 - 1 := by decide
         have a0 : (ctx.buf.usize + Buffed.Block.Offsets.firstUse).toNat = ctx.buf.usize.toNat := by
@@ -2661,8 +2540,7 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
         constructor
         · -- MatchesBase: firstUse/prev/next/parent/firstOp/lastOp all read `none`.
           constructor
-          · -- firstUse: read at usize+0, hits writeFirstUse (passing writeNumArguments; the tower is
-            -- writeLastOp(...(writeFirstUse(writeNumArguments ...)))), so firstUse is the 2nd-innermost.
+          · -- firstUse: read at usize+0, hits writeFirstUse.
             simp only [← hctxBuf, Sim.OptionBlockOperandPtr.Sim, hget, Block.empty, Buffed.BlockMPtr.readFirstUse!,
               Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp, Buffed.BlockMPtr.writeParent,
               Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev, Buffed.BlockMPtr.writeFirstUse,
@@ -2726,7 +2604,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
               Buffed.BlockMPtr.writeLastOp, Buffed.BlockMPtr.writeFirstOp, Buffed.BlockMPtr.writeParent,
               Buffed.BlockMPtr.writeNext, Buffed.BlockMPtr.writePrev, Buffed.BlockMPtr.writeFirstUse,
               Buffed.BlockMPtr.writeNumArguments, htoM]
-            -- The stored value is `numArgs`; the spec's numArguments = capArguments = numArgs.toNat.
             rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
               ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
               ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
@@ -2737,19 +2614,15 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
           · -- arguments loop: no in-bounds argument exists in an empty block.
             intro arg argIn heq
             exfalso
-            -- `arg.InBounds ctxSpec` forces `arg.InBounds ctx.spec` (the insert adds no arguments), but
-            -- `arg.block = ptrSpec` is the fresh block, absent from `ctx.spec` — contradiction.
             have hold : arg.InBounds ctx.spec := by
               rcases (BlockPtr.allocEmptyAtAddress_genericPtr_iff (.blockArgument arg) hspec).mp
                 (by simpa using argIn) with h | h | h
               · simpa using h
               · exact absurd h (by simp)
               · exact absurd h (by simp)
-            -- `arg.block ∈ ctx.spec.blocks` (from `arg.InBounds ctx.spec`), but `arg.block = ptrSpec` fresh.
             rw [Veir.BlockArgumentPtr.inBounds_def] at hold
             obtain ⟨hbib, _⟩ := hold
             rw [heq] at hbib
-            -- `ptrSpec = ⟨usize.toNat⟩ = ⟨mem.size⟩`, contradicting `slot_free`.
             have hpeq : ptrSpec = (⟨ctx.buf.mem.size⟩ : Veir.BlockPtr) := by
               rw [hptr]; grind
             rw [hpeq] at hbib
@@ -2818,8 +2691,7 @@ def Sim.BlockPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (numArgs : UInt64) : Op
   else
     none
 
-/-- Strengthening of `allocEmpty_spec`: the spec-level block is allocated exactly at the
-address of the returned impl pointer. -/
+/-- Strengthening of `allocEmpty_spec`: the spec-level block is allocated exactly at the address of the returned impl pointer. -/
 theorem Sim.BlockPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} numArgs :
     allocEmpty ctx numArgs = some ⟨ptr, ctx'⟩ →
     Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptr.impl.toNat = some ⟨ctx'.spec, ptr.spec⟩ := by
@@ -2832,7 +2704,6 @@ theorem Sim.BlockPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} numArgs :
     · rename_i ctxBuf ptrImpl himpl
       simp only [Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := h
-      -- The remaining goal is `allocEmptyAtAddress … = some (specGet!.fst, specGet!.snd)`.
       have hptr : ptrImpl = ctx.buf.usize := by
         simp only [allocEmptyImpl] at himpl
         split at himpl <;> grind
@@ -3677,10 +3548,7 @@ theorem Sim.BlockOperandPtrPtr.setSim_spec (ctx : Sim.IRContext OpInfo) (ptr : S
     (set ctx ptr value ib valueIb).spec = ptr.spec.set ctx.spec value.spec := by
   rfl
 
-/-! ## Allocation of empty regions and operations.
-
-Like `Sim.BlockPtr.allocEmpty`, these reserve buffer space (with preallocated arrays for the
-operation) and allocate the corresponding pointer in the specification. -/
+/-! Allocation of empty regions and operations. -/
 
 @[inline]
 def Sim.RegionPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo) : Option (Buffed.IRBufContext OpInfo × Buffed.RegionMPtr) :=
@@ -3696,8 +3564,7 @@ def Sim.RegionPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo) : Option 
 def Sim.RegionPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (addr : UInt64) : Option (Veir.IRContext OpInfo × Veir.RegionPtr) :=
   RegionPtr.allocEmptyAt ctx addr.toNat
 
-/-- The address at the end of the buffer is free in the spec: a region there would have its
-range escape the buffer, contradicting `in_bounds`. -/
+/-- The address at the end of the buffer is free in the spec: a region there would have its range escape the buffer, contradicting `in_bounds`. -/
 theorem Sim.RegionPtr.slot_free (ctx : Sim.IRContext OpInfo) :
     ¬ (⟨ctx.buf.mem.size⟩ : Veir.RegionPtr).InBounds ctx.spec := by
   intro hin
@@ -3706,34 +3573,27 @@ theorem Sim.RegionPtr.slot_free (ctx : Sim.IRContext OpInfo) :
   grind
 
 set_option maxHeartbeats 4000000 in
-/-- The `Sim` relation survives an empty-region allocation: given that `allocEmptyImpl`
-produced `ctxBuf`/`ptrImpl` and the spec allocated the matching region at `ptrImpl.toNat`,
-the resulting buffer and spec still simulate each other. Discharges the `admitted_sim` that
-`Sim.RegionPtr.allocEmpty` previously used. -/
+/-- The `Sim` relation survives an empty-region allocation: given that `allocEmptyImpl` produced `ctxBuf`/`ptrImpl` and the spec allocated the matching region at `ptrImpl.toNat`, the resulting buffer and spec still simulate each other. -/
 theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
     {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.RegionMPtr}
     (heq : Sim.RegionPtr.allocEmptyImpl ctx.buf = some (ctxBuf, ptrImpl))
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.RegionPtr}
     (hspec : Veir.RegionPtr.allocEmptyAt ctx.spec ptrImpl.toNat = some (ctxSpec, ptrSpec)) :
     Veir.Sim (OpInfo := OpInfo) ⟨ctxBuf, ctxSpec⟩ := by
-  -- Extract the impl shape: ctxBuf = 3 writes on the extended buffer, ptrImpl = old usize.
   simp only [Sim.RegionPtr.allocEmptyImpl] at heq
   split at heq
   · exact absurd heq (by simp)
   · rename_i buf halloc
     simp only [Option.some.injEq, Prod.mk.injEq] at heq
     obtain ⟨rfl, rfl⟩ := heq
-    -- Size bookkeeping: the buffer grows by exactly `Region.size = 24` bytes.
     have hu := ctx.buf.usize_toNat
     have hs := ctx.buf.size_def
     have hgrow := ctx.buf.alloc_size halloc
     have hfits := buf.mem.fits_in_memory
     have hsize : ctx.buf.mem.size < 2 ^ 63 := by
       simp only [Buffed.IRBufContext.size_def, Int64.maxNatValue] at *; omega
-    -- Spec characterization: the new region is at the old buffer end, `Region.empty`.
     have hptr := Veir.RegionPtr.allocEmptyAt_ptr hspec
     have hlay := (Veir.RegionPtr.allocEmptyAt_preservesLayout hspec).preserves
-    -- Uniform preservation: reads entirely below the old buffer end are unchanged.
     have hread : ∀ (a : UInt64), a.toNat + 8 ≤ ctx.buf.mem.size →
         (Buffed.RegionMPtr.writeLastBlock
           (Buffed.RegionMPtr.writeFirstBlock
@@ -3742,7 +3602,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
           ctx.buf.usize Buffed.BlockOPtr.none (by grind [Buffed.IRBufContext.size_def])).mem.read64! a
         = ctx.buf.mem.read64! a := by
       intro a ha
-      -- Expose `buf.mem = ctx.buf.mem.extend 24`, then the three blits are disjoint from `[a, a+8)`.
       simp only [Buffed.IRBufContext.alloc] at halloc
       split at halloc
       · simp only [Option.some.injEq] at halloc
@@ -3751,7 +3610,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
           Buffed.RegionMPtr.writeParent]
         grind [IsDisjoint, IsIncluded]
       · exact absurd halloc (by simp)
-    -- read32! preservation: same argument as `hread` but for 4-byte reads (`readOpType!`).
     have hread32 : ∀ (a : UInt64), a.toNat + 4 ≤ ctx.buf.mem.size →
         (Buffed.RegionMPtr.writeLastBlock
           (Buffed.RegionMPtr.writeFirstBlock
@@ -3768,7 +3626,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
           Buffed.RegionMPtr.writeParent]
         grind [IsDisjoint, IsIncluded]
       · exact absurd halloc (by simp)
-    -- The region writes only touch `mem`, never `attributes`.
     have hattr : (Buffed.RegionMPtr.writeLastBlock
           (Buffed.RegionMPtr.writeFirstBlock
             (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
@@ -3802,7 +3659,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
       intro ptr hib
       simp only [Buffed.RegionMPtr.writeLastBlock_range, Buffed.RegionMPtr.writeFirstBlock_range,
         Buffed.RegionMPtr.writeParent_range] at hib ⊢
-      -- Goal: IsIncludedIN (ptr.range ctxSpec) buf.mem.range, with buf = ctx.buf extended by 24.
       have hbufrange : buf.mem.range = 0...(ctx.buf.mem.size + Buffed.Region.size.toNat) := by
         simp only [Buffed.IRBufContext.alloc] at halloc
         split at halloc
@@ -3813,7 +3669,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
       rw [hbufrange]
       cases ptr with
       | operation op =>
-        -- Operations are unaffected by a region insert; range preserved, buffer only grew.
         have holdib : op.InBounds ctx.spec := by
           have := (RegionPtr.allocEmptyAt_genericPtr_iff (.operation op) hspec).mp (by simpa using hib)
           grind
@@ -3832,7 +3687,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
         simp only [TopLevelPtr.range, IsIncludedIN, hrange] at hin ⊢
         grind
       | region rg =>
-        -- Either an old region (unchanged range) or the freshly allocated one at [size, size+24).
         rcases (RegionPtr.allocEmptyAt_genericPtr_iff (.region rg) hspec).mp (by simpa using hib)
           with hold | hnew
         · have hin := ctx.sim.in_bounds (.region rg) (by simpa using hold)
@@ -3843,9 +3697,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
           simp only [TopLevelPtr.range, RegionPtr.range, RegionPtr.toFlat, IsIncludedIN, hptr]
           grind
     · -- disjoint_allocs
-      -- Range of any top-level ptr is `buf`-independent, so the write-tower drops out.
-      -- Old ptrs keep their ranges (LayoutPreserved) and sit in `[0, size)`; the new region
-      -- sits at `[size, size+24)`, hence disjoint from every old range.
       have hrange : ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
           p.range ctxSpec = p.range ctx.spec := by
         intro p hp
@@ -3853,7 +3704,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
         | operation op => exact LayoutPreserved.same_operationPtr_range op (by simpa using hp) hlay |>.symm
         | block bl => exact LayoutPreserved.same_blockPtr_range bl (by simpa using hp) hlay |>.symm
         | region rg => rfl
-      -- Every old range's upper bound is at most the old buffer size = the new region's lower.
       have hupper : ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
           (p.range ctxSpec).upper ≤ ctx.buf.mem.size := by
         intro p hp
@@ -3862,7 +3712,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
         simp only [IsIncludedIN] at hin
         simp only [ExArray.range_lower, ExArray.range_upper] at hin
         omega
-      -- Membership in the new context: an old top-level ptr, or the fresh region.
       have hmem : ∀ (p : TopLevelPtr), p.InBounds ctxSpec →
           p.InBounds ctx.spec ∨ p = .region ptrSpec := by
         intro p hp
@@ -3882,7 +3731,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
           rcases this with h | h
           · exact Or.inl (by simpa using h)
           · exact Or.inr (by simp only [GenericPtr.region.injEq] at h; grind)
-      -- The fresh region's range is `[size, size+24)`.
       have hnewrange : ∀ (rg : Veir.RegionPtr), rg = ptrSpec →
           (rg.range).lower = (ctx.buf.mem.size : Int) ∧
           (rg.range).upper = (ctx.buf.mem.size : Int) + Buffed.Region.size.toNat := by
@@ -3922,14 +3770,11 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
         have := (RegionPtr.allocEmptyAt_genericPtr_iff (.operation op) hspec).mp (by simpa using opIb)
         grind
       have henc := ctx.sim.encoding_op op holdib
-      -- op.range ⊆ [0, mem.size): every op field read lands below the old buffer end.
       have hinb := ctx.sim.in_bounds (.operation op) (by simpa using holdib)
       simp only [TopLevelPtr.range, Veir.OperationPtr.range, IsIncludedIN, ExArray.range_upper] at hinb
-      -- `op.toM` is `op.id` as a UInt64 (id below buffer size, no truncation).
       have hopM : op.toM.toNat = op.toFlat := by
         simp only [Veir.OperationPtr.toM]
         grind [Nat.toUInt64_eq, UInt64.toNat_ofNat']
-      -- Read bridges specialised to this op: any 8-/4-byte field within `op.range` is preserved.
       have hro8 : ∀ (off : Int64), 0 ≤ off.toInt →
           op.toFlat + off.toInt + 8 ≤ (op.toFlat + Buffed.Operation.range op ctx.spec).upper →
           (Buffed.RegionMPtr.writeLastBlock
@@ -3989,12 +3834,10 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
             have := (RegionPtr.allocEmptyAt_genericPtr_iff (.blockOperand bo) hspec).mp (by simpa using boIb)
             grind
           have := henc.blockOperands bo boIb' heq
-          -- `bo`'s flat address and stored value are unchanged by the region insert (layout preserved).
           have hboMeq : bo.toM ctxSpec = bo.toM ctx.spec := by
             simp only [Veir.BlockOperandPtr.toM, Veir.BlockOperandPtr.toFlat]
             grind [layout_grind]
           have hbogeteq : bo.get! ctxSpec = bo.get! ctx.spec := by grind
-          -- Address bound for `bo`: `bo.toFlat + BlockOperand.after ≤ mem.size` (Sim helper).
           have haft := Sim.BlockOperandPtr.after_lt_ctx (ctx := ctx) bo boIb'
           have hboM : (bo.toM ctx.spec).toNat = bo.toFlat ctx.spec := by
             simp only [Veir.BlockOperandPtr.toM]
@@ -4030,8 +3873,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
             rw [hbo Buffed.BlockOperand.Offsets.value (by decide) (by decide)]
             grind [layout_grind]
       · -- MatchesRegions
-        -- The regions offset reads numOperands/numBlockOperands/opType, all preserved by hro8/hro4,
-        -- so the whole computed offset — and thus every Nth-region read — is unchanged.
         have hoff8n : Buffed.OperationMPtr.readNumOperands!
             (Buffed.RegionMPtr.writeLastBlock
               (Buffed.RegionMPtr.writeFirstBlock
@@ -4077,7 +3918,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
         · intro idx idxIn
           have := henc.regions idx (by grind)
           have hgetreg : op.getRegion! ctxSpec idx = op.getRegion! ctx.spec idx := by grind
-          -- The Nth-region read commutes: the offset is unchanged (hcro) and the read is below mem.size.
           have hnth : Buffed.OperationMPtr.readNthRegion!
               (Buffed.RegionMPtr.writeLastBlock
                 (Buffed.RegionMPtr.writeFirstBlock
@@ -4171,7 +4011,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
             intro off hoff hoff2
             apply hread
             rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
-          -- The type read sits at offset 0 (`res.toM` itself); need it as `res.toM + 0`.
           have hr0 : (Buffed.RegionMPtr.writeLastBlock
                 (Buffed.RegionMPtr.writeFirstBlock
                   (Buffed.RegionMPtr.writeParent buf ctx.buf.usize Buffed.OperationOPtr.none (by grind))
@@ -4211,7 +4050,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
       have hblkM : blk.toM.toNat = blk.toFlat := by
         simp only [Veir.BlockPtr.toM]
         grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', Veir.BlockPtr.toFlat]
-      -- Read bridge for the block's own fields (all within `[blk.id, blk.id + Block.after)`).
       have hb : ∀ (off : Int64), 0 ≤ off.toInt →
           blk.toFlat + off.toInt + 8 ≤ blk.id + Buffed.Block.Offsets.afterInt blk ctx.spec →
           (Buffed.RegionMPtr.writeLastBlock
@@ -4318,17 +4156,13 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
         have holdib : rg.InBounds ctx.spec := by simpa using hold
         have hgetp : Veir.RegionPtr.get! rg ctxSpec = Veir.RegionPtr.get! rg ctx.spec := by grind
         have henc := ctx.sim.encoding_region rg holdib
-        -- The region's three fields sit in `[rg.toFlat, rg.toFlat+24) ⊆ [0, ctx.buf.mem.size)`.
         have hinb := ctx.sim.in_bounds (.region rg) (by simpa using holdib)
         simp only [TopLevelPtr.range, Veir.RegionPtr.range, Veir.RegionPtr.toFlat,
           IsIncludedIN, ExArray.range_upper, Buffed.Region.range] at hinb
-        -- `rg.toM` is `rg.id` as a UInt64 (id is below the buffer size, so no truncation).
         have hrgM : rg.toM.toNat = rg.id := by
           simp only [Veir.RegionPtr.toM, Veir.RegionPtr.toFlat]
           grind [Nat.toUInt64_eq, UInt64.toNat_ofNat']
-        -- The region's `after` offset is 24 bytes.
         have hafter : (Buffed.Region.Offsets.after.toInt : Int) = 24 := by decide
-        -- Read preservation for all three region fields.
         have hrf : ∀ (off : Int64), 0 ≤ off.toInt → off.toInt + 8 ≤ 24 →
             (Buffed.RegionMPtr.writeLastBlock
               (Buffed.RegionMPtr.writeFirstBlock
@@ -4359,9 +4193,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
         have hget : Veir.RegionPtr.get! rg ctxSpec = Region.empty := by grind
         have htoM : rg.toM = ctx.buf.usize := by
           simp only [hptr, RegionPtr.toM, RegionPtr.toFlat]; grind
-        -- The three write offsets (firstBlock=0, lastBlock=8, parent=16) are pairwise disjoint,
-        -- so each read lands on exactly the slot it wrote, returning `none`.
-        -- The three write offsets: firstBlock=0, lastBlock=8, parent=16 (each 8 bytes wide).
         have husz : ctx.buf.usize.toNat < 2 ^ 63 := by grind
         have hmax : (Int64.maxValue.toInt : Int) = 2 ^ 63 - 1 := by decide
         have a0 : (ctx.buf.usize + Buffed.Region.Offsets.firstBlock).toNat = ctx.buf.usize.toNat := by
@@ -4416,8 +4247,7 @@ def Sim.RegionPtr.allocEmpty (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPt
       exact (Option.some_get! _ hsome).symm
     some ⟨⟨ptrImpl, specRes.2⟩, ⟨ctxBuf, specRes.1, allocEmpty_sim ctx himpl hspec⟩⟩
 
-/-- Strengthening of `allocEmpty_spec`: the spec-level region is allocated exactly at the
-address of the returned impl pointer. -/
+/-- Strengthening of `allocEmpty_spec`: the spec-level region is allocated exactly at the address of the returned impl pointer. -/
 theorem Sim.RegionPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} :
     allocEmpty ctx = some ⟨ptr, ctx'⟩ →
     Veir.RegionPtr.allocEmptyAt ctx.spec ptr.impl.toNat = some ⟨ctx'.spec, ptr.spec⟩ := by
@@ -4428,7 +4258,6 @@ theorem Sim.RegionPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} :
   · rename_i ctxBuf ptrImpl himpl
     simp only [Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := h
-    -- The remaining goal is `allocEmptyAt … = some (specGet!.fst, specGet!.snd)`, i.e. `= some specGet!`.
     have hptr : ptrImpl = ctx.buf.usize := by
       simp only [allocEmptyImpl] at himpl
       split at himpl <;> grind
@@ -4483,8 +4312,7 @@ def Sim.OperationPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext OpInfo)
   let ctx := ptr.writeOpType ctx opType (by prove_allocBoundsOp ctx₀)
   some (ctx, ptr)
 
-/-- The operation pointer produced by `allocEmptyImpl` lies at or past the end of the buffer:
-its address is the old buffer size plus the back-allocated results prefix. -/
+/-- The operation pointer produced by `allocEmptyImpl` lies at or past the end of the buffer: its address is the old buffer size plus the back-allocated results prefix. -/
 theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {ctx₀ : Buffed.IRBufContext OpInfo}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64}
     {hr ho hbo hreg hp hc} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
@@ -4507,8 +4335,7 @@ theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {ctx₀ : Buffed.IRBufContext OpI
       Int64.maxNatValue, Buffed.ptrSize] at *
     omega
 
-/-- Closed form of the operation pointer returned by `allocEmptyImpl`: the old buffer size
-plus the back-allocated results array. -/
+/-- Closed form of the operation pointer returned by `allocEmptyImpl`: the old buffer size plus the back-allocated results array. -/
 theorem Sim.OperationPtr.allocEmptyImpl_ptr_toNat {ctx₀ : Buffed.IRBufContext OpInfo}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
     {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
@@ -4570,8 +4397,7 @@ theorem Sim.OperationPtr.allocEmptyImpl_size {ctx₀ : Buffed.IRBufContext OpInf
       Buffed.OperationMPtr.writeParent_size, Buffed.OperationMPtr.writeNext_size,
       Buffed.OperationMPtr.writePrev_size, Buffed.OperationMPtr.writeOpType_size]
 
-/-- 64-bit reads that lie entirely inside the old buffer are unchanged by `allocEmptyImpl`:
-the fresh operation is written past the old buffer end. -/
+/-- 64-bit reads that lie entirely inside the old buffer are unchanged by `allocEmptyImpl`: the fresh operation is written past the old buffer end. -/
 theorem Sim.OperationPtr.allocEmptyImpl_read64_old {ctx₀ : Buffed.IRBufContext OpInfo}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
     {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
@@ -4600,7 +4426,6 @@ theorem Sim.OperationPtr.allocEmptyImpl_read64_old {ctx₀ : Buffed.IRBufContext
         show ((40 : UInt64)).toNat = 40 from rfl,
         show Buffed.Operation.sizeBase.toNat = 72 from rfl, Int64.maxNatValue] at *
       have hrange : ctx₀.mem.range = 0...ctx₀.mem.size := ExArray.range_def _
-      -- The written header fields all lie within 64 bytes past the fresh operation pointer.
       have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 64 →
           (ctx₀.usize + 40 * numResults + k).toNat
           = (ctx₀.usize + 40 * numResults).toNat + kn := by
@@ -4653,7 +4478,6 @@ theorem Sim.OperationPtr.allocEmptyImpl_read32_old {ctx₀ : Buffed.IRBufContext
         show ((40 : UInt64)).toNat = 40 from rfl,
         show Buffed.Operation.sizeBase.toNat = 72 from rfl, Int64.maxNatValue] at *
       have hrange : ctx₀.mem.range = 0...ctx₀.mem.size := ExArray.range_def _
-      -- The written header fields all lie within 64 bytes past the fresh operation pointer.
       have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 64 →
           (ctx₀.usize + 40 * numResults + k).toNat
           = (ctx₀.usize + 40 * numResults).toNat + kn := by
@@ -4677,9 +4501,7 @@ theorem Sim.OperationPtr.allocEmptyImpl_read32_old {ctx₀ : Buffed.IRBufContext
       grind (gen := 20) (splits := 30) [IsDisjoint, IsIncluded]
     · exact absurd halloc (by simp)
 
-/-- The header fields of the freshly allocated operation read back as written: the counts are
-the requested capacities, the links are `none`, the opType is the encoded opcode, and the
-`attrs` slot is still zero-initialized (pointing at the canonical empty dictionary). -/
+/-- The header fields of the freshly allocated operation read back as written: the counts are the requested capacities, the links are `none`, the opType is the encoded opcode, and the `attrs` slot is still zero-initialized (pointing at the canonical empty dictionary). -/
 theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {ctx₀ : Buffed.IRBufContext OpInfo}
     {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
     {hr ho hbo hreg hp} {ctxBuf : Buffed.IRBufContext OpInfo} {ptrImpl : Buffed.OperationMPtr}
@@ -4715,7 +4537,6 @@ theorem Sim.OperationPtr.allocEmptyImpl_new_op_reads {ctx₀ : Buffed.IRBufConte
         show ((40 : UInt64)).toNat = 40 from rfl,
         show Buffed.Operation.sizeBase.toNat = 72 from rfl, Int64.maxNatValue] at *
       have hrange : ctx₀.mem.range = 0...ctx₀.mem.size := ExArray.range_def _
-      -- The written header fields all lie within 64 bytes past the fresh operation pointer.
       have hstep : ∀ (k : UInt64) (kn : Nat), k.toNat = kn → kn ≤ 64 →
           (ctx₀.usize + 40 * numResults + k).toNat
           = (ctx₀.usize + 40 * numResults).toNat + kn := by
@@ -4750,9 +4571,7 @@ def Sim.OperationPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (addr : Nat) (
     : Option (Veir.IRContext OpInfo × Veir.OperationPtr) :=
   OperationPtr.allocEmptyAt ctx opType properties capResults capBlockOperands capRegions capOperands addr
 
-/-- `allocEmptyAt` preserves `FieldsInBounds`: existing objects keep their fields (whose
-`InBounds` facts transfer since allocation only grows the `InBounds` sets), and the fresh
-operation is empty, so its clauses are vacuous or trivial. -/
+/-- `allocEmptyAt` preserves `FieldsInBounds`: existing objects keep their fields (whose `InBounds` facts transfer since allocation only grows the `InBounds` sets), and the fresh operation is empty, so its clauses are vacuous or trivial. -/
 theorem IRContext.fieldsInBounds_OperationPtr_allocEmptyAt {ctx ctx' : IRContext OpInfo}
     {opType : OpInfo} {props : HasOpInfo.propertiesOf opType}
     {capResults capBlockOperands capRegions capOperands addr : Nat} {newOp : OperationPtr}
@@ -4855,8 +4674,7 @@ theorem IRContext.isRepr_OperationPtr_allocEmptyAt {ctx ctx' : IRContext OpInfo}
     have := hrepr.regions rg (by grind)
     grind
 
-/-- Existing operations keep their byte range across `allocEmptyAt` (their capacities are
-unchanged). -/
+/-- Existing operations keep their byte range across `allocEmptyAt` (their capacities are unchanged). -/
 theorem OperationPtr.range_OperationPtr_allocEmptyAt {ctx ctx' : IRContext OpInfo}
     {opType : OpInfo} {props : HasOpInfo.propertiesOf opType}
     {capResults capBlockOperands capRegions capOperands addr : Nat} {newOp op : OperationPtr}
@@ -4876,13 +4694,11 @@ theorem BlockPtr.range_OperationPtr_allocEmptyAt {ctx ctx' : IRContext OpInfo}
     bl.range ctx' = bl.range ctx := by
   grind [BlockPtr.range]
 
-/-- Any address at or beyond the end of the buffer is free in the spec: an operation there
-would have its range escape the buffer, contradicting `in_bounds`. -/
+/-- Any address at or beyond the end of the buffer is free in the spec: an operation there would have its range escape the buffer, contradicting `in_bounds`. -/
 theorem Sim.OperationPtr.slot_free (ctx : Sim.IRContext OpInfo) {a : Nat} (ha : ctx.buf.mem.size ≤ a) :
     ¬ (⟨a⟩ : Veir.OperationPtr).InBounds ctx.spec := by
   intro hin
   have hlt := Sim.OperationPtr.after_lt_ctx (ctx := ctx) ⟨a⟩ hin
-  -- `afterInt` is the (positive) tail of the operation past its pointer.
   have : (0 : Int) < Buffed.Operation.Offsets.afterInt (⟨a⟩ : Veir.OperationPtr) ctx.spec := by
     simp only [Buffed.Operation.Offsets.afterInt, Buffed.Operation.Offsets.regionsInt,
       Buffed.Operation.Offsets.blockOperandsInt, Buffed.Operation.Offsets.operandsInt]
@@ -4890,8 +4706,7 @@ theorem Sim.OperationPtr.slot_free (ctx : Sim.IRContext OpInfo) {a : Nat} (ha : 
   grind
 
 set_option maxHeartbeats 1000000000 in
-/-- Freshly allocating an empty operation — buffer side (`allocEmptyImpl`) and spec side
-(`allocEmptyAt`, at the same address) — preserves the simulation invariant. -/
+/-- Freshly allocating an empty operation — buffer side (`allocEmptyImpl`) and spec side (`allocEmptyAt`, at the same address) — preserves the simulation invariant. -/
 theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : OpInfo}
     {props : HasOpInfo.propertiesOf opType}
     {numResults numOperands numBlockOperands numRegions : UInt64}
@@ -4919,7 +4734,6 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
   subst hnew
   have hnewIb : (⟨ptrImpl.toNat⟩ : Veir.OperationPtr).InBounds ctxSpec :=
     Veir.OperationPtr.allocEmptyAt_new_inBounds heqSpec
-  -- The freshly allocated operation reads back as `Operation.empty` with the requested capacities.
   have hget : (⟨ptrImpl.toNat⟩ : Veir.OperationPtr).get! ctxSpec = Veir.Operation.empty opType props
       numResults.toNat numBlockOperands.toNat numRegions.toNat numOperands.toNat := by
     simpa using Veir.OperationPtr.get!_OperationPtr_allocEmptyAt
@@ -4927,7 +4741,6 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
   have hgetTy : (⟨ptrImpl.toNat⟩ : Veir.OperationPtr).getOpType! ctxSpec = opType := by
     simpa using Veir.OperationPtr.getOpType!_OperationPtr_allocEmptyAt
       (operation := (⟨ptrImpl.toNat⟩ : Veir.OperationPtr)) heqSpec
-  -- `Operation.empty` is not reducible, so spell the capacities out for `grind`.
   have hcapR : ((⟨ptrImpl.toNat⟩ : Veir.OperationPtr).get! ctxSpec).capResults = numResults.toNat := by
     rw [hget]; rfl
   have hcapO : ((⟨ptrImpl.toNat⟩ : Veir.OperationPtr).get! ctxSpec).capOperands = numOperands.toNat := by
@@ -4936,8 +4749,6 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
       = numBlockOperands.toNat := by rw [hget]; rfl
   have hcapRg : ((⟨ptrImpl.toNat⟩ : Veir.OperationPtr).get! ctxSpec).capRegions
       = numRegions.toNat := by rw [hget]; rfl
-  -- Allocating a fresh operation leaves every pre-existing object's layout untouched, which
-  -- transports `toFlat`/`toM` (hence every read address) from `ctx.spec` to `ctxSpec`.
   have hlp : ctx.spec.LayoutPreserved ctxSpec := by
     have hni := Veir.OperationPtr.allocEmptyAt_not_inBounds heqSpec
     constructor
@@ -4952,7 +4763,6 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
   have hfits₀ := ctx.buf.mem.fits_in_memory
   have hszdec := Buffed.OperationMPtr.computeOperationSize_toNat numResults numOperands
     numBlockOperands numRegions (Buffed.Operation.propertySize opType) h₁ h₂ h₃ h₄ hp
-  -- omega/cutsat choke on `UInt64.toNat 32`; state every size as a `Nat` literal.
   simp only [show Buffed.OpResult.size.toNat = 40 from rfl,
     show Buffed.ptrSize.toNat = 8 from rfl,
     show Buffed.Operation.sizeBase.toNat = 72 from rfl,
@@ -5003,8 +4813,6 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
         simpa [TopLevelPtr.range] using
           Veir.BlockPtr.range_OperationPtr_allocEmptyAt (bl := bl) heqSpec
       | region rg => rfl
-    -- Every old allocation lives strictly below the old buffer end; the new one starts at or
-    -- above it (`hge`/`hptn`), so the two are disjoint.
     have hnewRange : ∀ (q : TopLevelPtr), q.InBounds ctx.spec →
         IsDisjointI (q.range ctxSpec)
           ((TopLevelPtr.operation (⟨ptrImpl.toNat⟩ : Veir.OperationPtr)).range ctxSpec) := by
@@ -5077,8 +4885,6 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
           have hidxOld : idx < op.getNumRegions! ctx.spec := by
             grind [Veir.OperationPtr.getNumRegions!_OperationPtr_allocEmptyAt]
           have hreg := this.regions idx hidxOld
-          -- The offset of the region table is itself computed from buffer reads, all of which sit
-          -- below the old buffer end, so it is unchanged by the extension.
           have hoff : Buffed.OperationMPtr.computeRegionsOffset! ctxBuf op.toM
               = Buffed.OperationMPtr.computeRegionsOffset! ctx.buf op.toM := by
             simp only [Buffed.OperationMPtr.computeRegionsOffset!,
@@ -5229,8 +5035,7 @@ def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
         h₁ h₂ h₃ h₄ (Nat.le_of_lt (Operation.propertySize_lt opType)) with
     | none => none
     | some (ctxBuf, ptrImpl) =>
-      -- The spec-side allocation succeeds: the new pointer lies at/past the old buffer end,
-      -- so its address is free in the spec.
+      -- The spec-side allocation succeeds: the new pointer lies at/past the old buffer end, so its address is free in the spec.
       have hsome : (allocEmptySpec ctx.spec ptrImpl.toNat opType properties
           numResults.toNat numBlockOperands.toNat numRegions.toNat numOperands.toNat).isSome := by
         have hge := Sim.OperationPtr.allocEmptyImpl_ptr_ge heqImpl
@@ -5243,14 +5048,12 @@ def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)
         some ⟨⟨ptrImpl, ptrSpec⟩, ⟨ctxBuf, ctxSpec, by
           refine Sim.OperationPtr.allocEmpty_sim (props := properties) (ptrSpec := ptrSpec)
             heqImpl ?_
-          -- `allocEmptySpec` is a definitional wrapper around `allocEmptyAt`; `hsome` turns the
-          -- `specGet!` equation back into the `= some _` equation the lemma wants.
+          -- `allocEmptySpec` is a definitional wrapper around `allocEmptyAt`; `hsome` turns the `specGet!` equation back into the `= some _` equation the lemma wants.
           show allocEmptySpec ctx.spec ptrImpl.toNat opType properties numResults.toNat
             numBlockOperands.toNat numRegions.toNat numOperands.toNat = some (ctxSpec, ptrSpec)
           grind [Option.specGet!]⟩⟩
 
-/-- Strengthening of `allocEmpty_spec`: the spec-level operation is allocated exactly at the
-address of the returned impl pointer. -/
+/-- Strengthening of `allocEmpty_spec`: the spec-level operation is allocated exactly at the address of the returned impl pointer. -/
 theorem Sim.OperationPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} :
     allocEmpty ctx opType props c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some ⟨ptr, ctx'⟩ →
     Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₃.toNat c₄.toNat c₂.toNat ptr.impl.toNat = some ⟨ctx'.spec, ptr.spec⟩ := by
@@ -5259,7 +5062,6 @@ theorem Sim.OperationPtr.allocEmpty_spec' {ctx : Sim.IRContext OpInfo} :
   · intro h; exact absurd h (by simp)
   · rename_i ptrImpl heqImpl
     intro h
-    -- `ptrImpl` lies at/past the buffer end, so the spec slot is free.
     have hge := Sim.OperationPtr.allocEmptyImpl_ptr_ge heqImpl
     have hfree := Sim.OperationPtr.slot_free ctx hge
     simp only [Veir.OperationPtr.inBounds_def] at hfree
@@ -5277,11 +5079,4 @@ theorem Sim.OperationPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} :
     ∃ addr, Veir.OperationPtr.allocEmptyAt ctx.spec opType props c₁.toNat c₃.toNat c₄.toNat c₂.toNat addr = some ⟨ctx'.spec, ptr.spec⟩:=
   fun h => ⟨ptr.impl.toNat, Sim.OperationPtr.allocEmpty_spec' h⟩
 
--- theorem Veir.Sim.BlockPtr.getParent_impl2 {OpInfo : Type} [inst : HasOpInfo OpInfo] (ctx : Sim.IRContext OpInfo)
---   (ptr : Sim.BlockPtr) (ib : ptr.InBounds ctx) :
---   (Sim.BlockPtr.getParentSim ctx ptr ib).impl = Sim.BlockPtr.getParentImpl ctx.buf ctx.spec ⋯ ptr.impl ptr.spec ib := by
---   unfold Sim.BlockPtr.getParentImpl
---   unfold Sim.BlockPtr.getParentSim
---   grind [Sim.OpOperandPtr, Sim.IRContext, Sim.ValuePtr, Sim.BlockArgumentPtr, Sim.BlockPtr, Sim.OperationPtr, Sim.BlockOperandPtr, Sim.OpResultPtr, Sim.RegionPtr, Sim.OpOperandPtrPtr, Sim.BlockOperandPtrPtr]
 
--- TODO

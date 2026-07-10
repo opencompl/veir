@@ -35,9 +35,7 @@ attribute [local grind]
 variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
 variable {ctx : Sim.IRContext OpInfo}
 
-/-
-  Use def chain for operands.
--/
+/- Use def chain for operands. -/
 buffed
 def Sim.OpOperandPtr.removeFromCurrentSim (ctx: Sim.IRContext OpInfo) (operandPtr: Sim.OpOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind)
@@ -131,13 +129,8 @@ theorem Sim.OpOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
   simp [insertIntoCurrent_def, insertIntoCurrentSim]
   grind
 
-/-
-  Use def chain for operands.
--/
+/- Use def chain for operands. -/
 
--- `@[inline]` so callers (e.g. the buffed `detachBlockOperands.loopImpl`) inline this and can drop
--- the ghost `spec` fields it ignores; without it the ghost parameters fail to be eliminated. Mirrors
--- the `@[inline]` the `buffed` machinery puts on generated wrappers like `OpOperandPtr.removeFromCurrent`.
 buffed
 def Sim.BlockOperandPtr.removeFromCurrentSim (ctx: Sim.IRContext OpInfo) (operandPtr: Sim.BlockOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind)
@@ -234,9 +227,7 @@ theorem Sim.BlockOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
   simp [insertIntoCurrent_def, insertIntoCurrentSim]
   grind
 
-/-
-  Operation linked list.
--/
+/- Operation linked list. -/
 
 buffed
 def Sim.OperationPtr.linkBetweenSim (self: Sim.OperationPtr) (ctx: Sim.IRContext OpInfo)
@@ -292,16 +283,12 @@ theorem Sim.OperationPtr.linkBetween_veir_inBounds (ptr : Veir.GenericPtr) :
   grind
 
 @[grind .]
-theorem Sim.OperationPtr.linkBetween_fieldsInBounds (hx : ctx.spec.FieldsInBounds) :
+theorem Sim.OperationPtr.linkBetween_fieldsInBounds (_hx : ctx.spec.FieldsInBounds) :
     (linkBetween self ctx prevOp nextOp h₁ h₂ h₃).spec.FieldsInBounds := by
   simp [linkBetween_def, linkBetweenSim]
   grind (gen := 20)
 
-/--
-  Set `self` parent to be `parent`.
-  Checks that `self` does not already have a parent.
-  TODO: We should also check that `self` does not contain `parent`.
--/
+/-- Set `self` parent to be `parent`. -/
 buffed
 def Sim.OperationPtr.setParentWithCheckSim (self: Sim.OperationPtr) (ctx: Sim.IRContext OpInfo) (parent: Sim.BlockPtr)
     (selfIn: self.InBounds ctx := by grind) (parentSim : parent.InBounds ctx := by grind) : Option (Sim.IRContext OpInfo) :=
@@ -316,16 +303,6 @@ def Sim.OperationPtr.setParentWithCheck! (self : Sim.OperationPtr) (ctx : Sim.IR
   | some _ => none
   | none => self.setParent! ctx parent.toO
 
--- -- TODO: have this as the proof for option functions
--- def Veir.Sim.OperationPtr.setParentWithCheck! : {OpInfo : Type} →
---   [inst : HasOpInfo OpInfo] → Sim.OperationPtr → Sim.IRContext OpInfo → Sim.BlockPtr → Option (Sim.IRContext OpInfo) :=
--- fun {OpInfo} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] self ctx parent =>
---   (Sim.OperationPtr.setParentWithCheck!Impl self.1 self.2 ctx.1 ctx.2 ctx.3 parent.1 parent.2).attach.map fun x =>
---     { buf := x.val, spec := (self.setParentWithCheck!Spec ctx parent).specGet!, sim := (by
---       have := Sim.OperationPtr.setParentWithCheck!_impl self ctx parent
---       have := (self.setParentWithCheck!Sim ctx parent).specGet!.sim
---       cases _ : (self.setParentWithCheck!Sim ctx parent) <;> grind [Sim.OperationPtr.setParentWithCheck!Spec]
---     ) }
 
 @[grind _=_, eq_bang ←]
 theorem Sim.OperationPtr.setParentWithCheck!_eq_setParentWithCheck {self : Sim.OperationPtr} (selfIn : self.InBounds ctx) parentIb :
@@ -335,7 +312,7 @@ theorem Sim.OperationPtr.setParentWithCheck!_eq_setParentWithCheck {self : Sim.O
 
 @[grind .]
 theorem Sim.OperationPtr.setParentWithCheck_fieldsInBounds
-    (h₁ : ctx.spec.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
+    (_h₁ : ctx.spec.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
     (setParentWithCheck self ctx parent h₂).maybe₁ (·.spec.FieldsInBounds) := by
   simp [setParentWithCheck_def, setParentWithCheckSim]
   grind
@@ -343,9 +320,9 @@ theorem Sim.OperationPtr.setParentWithCheck_fieldsInBounds
 @[grind =>]
 theorem Sim.OperationPtr.setParentWithCheck_fieldsInBounds_some
     (h₁ : self.InBounds ctx) (h₃ : parent.InBounds ctx)
-    (heq : setParentWithCheck self ctx parent h₁ = some newCtx) :
+    (_heq : setParentWithCheck self ctx parent h₁ = some newCtx) :
     newCtx.spec.FieldsInBounds := by
-  simp [setParentWithCheck_def, setParentWithCheckSim] at heq ⊢
+  simp [setParentWithCheck_def, setParentWithCheckSim] at _heq ⊢
   grind
 
 @[grind =>]
@@ -422,15 +399,13 @@ theorem Sim.OperationPtr.linkBetweenWithParent_veir_inBounds (ptr : Veir.Generic
   grind [generic_ptr_grind]
 
 @[grind .]
-theorem Sim.OperationPtr.linkBetweenWithParent_fieldsInBounds (hx : ctx.spec.FieldsInBounds)
-    (heq : linkBetweenWithParent self ctx prevOp nextOp parent h₁ h₂ h₃ h₄ = some newCtx) :
+theorem Sim.OperationPtr.linkBetweenWithParent_fieldsInBounds (_hx : ctx.spec.FieldsInBounds)
+    (_heq : linkBetweenWithParent self ctx prevOp nextOp parent h₁ h₂ h₃ h₄ = some newCtx) :
     newCtx.spec.FieldsInBounds := by
-  simp [linkBetweenWithParent, linkBetweenWithParentSpec, linkBetweenWithParentSim] at heq ⊢
+  simp [linkBetweenWithParent, linkBetweenWithParentSpec, linkBetweenWithParentSim] at _heq ⊢
   grind
 
-/-
-  Block linked list.
--/
+/- Block linked list. -/
 buffed
 def Sim.BlockPtr.linkBetweenSim (self: BlockPtr) (ctx: IRContext OpInfo)
     (prevBlock: OptionBlockPtr) (nextBlock: OptionBlockPtr)
@@ -486,16 +461,12 @@ theorem Sim.BlockPtr.linkBetween_veir_inBounds (ptr : Veir.GenericPtr) :
   grind
 
 @[grind .]
-theorem Sim.BlockPtr.linkBetween_fieldsInBounds (hx : ctx.spec.FieldsInBounds) :
+theorem Sim.BlockPtr.linkBetween_fieldsInBounds (_hx : ctx.spec.FieldsInBounds) :
     (linkBetween self ctx prevBlock nextBlock h₁ h₂ h₃).spec.FieldsInBounds := by
   simp [linkBetween_def, linkBetweenSim]
   grind (gen := 20)
 
-/--
-  Set `self` parent to be `parent`.
-  Checks that `self` does not already have a parent.
-  TODO: We should also check that `self` does not contain `parent`.
--/
+/-- Set `self` parent to be `parent`. -/
 buffed
 def Sim.BlockPtr.setParentWithCheckSim (self: Sim.BlockPtr) (ctx: Sim.IRContext OpInfo) (parent: Sim.RegionPtr)
     (selfIn: self.InBounds ctx := by grind) (parentIb : parent.InBounds ctx := by grind) : Option (Sim.IRContext OpInfo) :=
@@ -518,17 +489,17 @@ theorem Sim.BlockPtr.setParentWithCheck!_eq_setParentWithCheck {self : Sim.Block
 
 @[grind .]
 theorem Sim.BlockPtr.setParentWithCheck_fieldsInBounds
-    (h₁ : ctx.spec.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
+    (_h₁ : ctx.spec.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
     (setParentWithCheck self ctx parent h₂ (by grind)).maybe₁ (·.spec.FieldsInBounds) := by
   simp [setParentWithCheck_def, setParentWithCheckSim]
   grind
 
 @[grind =>]
 theorem Sim.BlockPtr.setParentWithCheck_fieldsInBounds_some
-    (h₁ : ctx.spec.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx)
-    (heq : setParentWithCheck self ctx parent h₂ = some newCtx) :
+    (_h₁ : ctx.spec.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx)
+    (_heq : setParentWithCheck self ctx parent h₂ = some newCtx) :
     newCtx.spec.FieldsInBounds := by
-  simp [setParentWithCheck_def, setParentWithCheckSim] at heq ⊢
+  simp [setParentWithCheck_def, setParentWithCheckSim] at _heq ⊢
   grind
 
 @[grind =>]
@@ -611,8 +582,8 @@ theorem Sim.BlockPtr.linkBetweenWithParent_inBounds (ptr : GenericPtr)
   grind [generic_ptr_grind]
 
 @[grind .]
-theorem Sim.BlockPtr.linkBetweenWithParent_fieldsInBounds (hx : ctx.spec.FieldsInBounds)
-    (heq : linkBetweenWithParent self ctx prevBlock nextBlock parent h₁ h₂ h₃ h₄ = some newCtx) :
+theorem Sim.BlockPtr.linkBetweenWithParent_fieldsInBounds (_hx : ctx.spec.FieldsInBounds)
+    (_heq : linkBetweenWithParent self ctx prevBlock nextBlock parent h₁ h₂ h₃ h₄ = some newCtx) :
     newCtx.spec.FieldsInBounds := by
-  simp [linkBetweenWithParent_def, linkBetweenWithParentSim] at heq ⊢
+  simp [linkBetweenWithParent_def, linkBetweenWithParentSim] at _heq ⊢
   grind

@@ -91,7 +91,7 @@ namespace Operation
 variable [HasOpInfo OpInfo] (op : OperationPtr) (ctx : IRContext OpInfo)
 
 -- Add this info to the typeclasses
-def propertySize (opCode : OpInfo) : UInt64 := 8
+def propertySize (_opCode : OpInfo) : UInt64 := 8
 @[inline] abbrev opInfoSize : Nat := 8
 
 namespace Sizes

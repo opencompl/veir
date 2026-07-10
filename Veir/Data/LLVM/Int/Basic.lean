@@ -4,11 +4,7 @@ namespace Veir.Data.LLVM
 
 public section
 
-/--
-The `Int` type can have any bitwidth `w`. It is either a two's complement
-integer value of width `w` or a poison value indicating delayed undefined
-bahavior.
--/
+/-- The `Int` type can have any bitwidth `w`. -/
 inductive Int (w : Nat) where
 /-- A two's complement integer value of width `w`. -/
 | val : BitVec w → Int w
@@ -29,8 +25,7 @@ inductive IntPred where
   | sle
 deriving DecidableEq, Inhabited, Repr, Hashable
 
-/-- Mapped as in MLIR:
-  https://github.com/llvm/llvm-project/blob/d3417c8bf35852af88f41aa721a719ea756fdd8c/mlir/include/mlir/Dialect/LLVMIR/LLVMEnums.td#L571 -/
+/-- Mapped as in MLIR: https://github.com/llvm/llvm-project/blob/d3417c8bf35852af88f41aa721a719ea756fdd8c/mlir/include/mlir/Dialect/LLVMIR/LLVMEnums.td#L571 -/
 def IntPred.fromNat (s : Nat) : Option IntPred :=
   match s with
   | 0 => some .eq
@@ -58,8 +53,7 @@ def IntPred.toNat : IntPred → Nat
   | .ugt => 8
   | .uge => 9
 
-/-- Sanity check: A numeric code parses to a predicate exactly when it
-    is that predicate's MLIR code. -/
+/-- Sanity check: A numeric code parses to a predicate exactly when it is that predicate's MLIR code. -/
 theorem IntPred.fromNat_eq_some_iff {n : Nat} {p : IntPred} :
     IntPred.fromNat n = some p ↔ p.toNat = n := by
   cases p <;> simp only [IntPred.fromNat, IntPred.toNat] <;> grind
@@ -84,25 +78,10 @@ instance {w : Nat} : ToString (Int w) where
     | .val v => toString v
     | .poison => "poison"
 
-/--
-  We define the semantics of a `constant` operation.
-  The result of this operation is never poison.
--/
+/-- We define the semantics of a `constant` operation. -/
 def constant (w : Nat) (v : _root_.Int) : Int w := val (BitVec.ofInt w v)
 
-/--
-The ‘add’ instruction returns the sum of its two operands.
-
-If the sum has unsigned overflow, the result returned is the mathematical result
-modulo 2^n, where n is the bit width of the result.
-
-Because LLVM integers use a two’s complement representation, this instruction is
-appropriate for both signed and unsigned integers.
-
-`nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively.
-If the `nuw` and/or `nsw` arguments are true, the result value of the add is a
-poison value if unsigned and/or signed overflow, respectively, occurs.
--/
+/-- The ‘add’ instruction returns the sum of its two operands. -/
 def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -115,24 +94,7 @@ def add {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
 
   val (x' + y')
 
-/--
-The `sub` instruction returns the difference of its two operands.
-
-Note that the `sub` instruction is used to represent the `neg` instruction
-present in most other intermediate representations.
-
-The value produced is the integer difference of the two operands.
-
-If the difference has unsigned overflow, the result returned is the mathematical
-result modulo `2^w`, where `w` is the bit width of the result.
-
-Because LLVM integers use a two’s complement representation, this instruction is
-appropriate for both signed and unsigned integers.
-
-`nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively.
-If the `nuw` and/or `nsw` arguments are true, the result value of the sub is a
-poison value if unsigned and/or signed overflow, respectively, occurs.
--/
+/-- The `sub` instruction returns the difference of its two operands. -/
 def sub {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) :
     Int w := Id.run do
   let val x' := x | poison
@@ -146,22 +108,7 @@ def sub {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) :
 
   val (x' - y')
 
-/--
-The ‘mul’ instruction returns the product of its two operands.
-
-If the result of the multiplication has unsigned overflow, the result returned
-is the mathematical result modulo 2^n, where n is the bit width of the result.
-
-Because LLVM integers use a two’s complement representation, and the result is
-the same width as the operands, this instruction returns the correct result for
-both signed and unsigned integers. If a full product (e.g., i32 * i32 -> i64) is
-needed, the operands should be sign-extended or zero-extended as appropriate to
-the width of the full product.
-
-`nuw` and `nsw` stand for “No Unsigned Wrap” and “No Signed Wrap”, respectively. If
-the `nuw` and/or `nsw` arguments are true, the result value of the mul is a poison
-value if unsigned and/or signed overflow, respectively, occurs.
--/
+/-- The ‘mul’ instruction returns the product of its two operands. -/
 def mul {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -174,18 +121,7 @@ def mul {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
 
   val (x' * y')
 
-/--
-The ‘udiv’ instruction returns the unsigned integer quotient of its two operands.
-
-Note that unsigned integer division and signed integer division are distinct
-operations; for signed integer division, use ‘sdiv’.
-
-Division by zero is undefined behavior. For vectors, if any element of the
-divisor is zero, the operation has undefined behavior.
-
-If the `exact` argument is true, the result value of the udiv is a poison value
-if `x` is not a multiple of `y` (as such, “((a udiv exact b) mul b) == a”).
--/
+/-- The ‘udiv’ instruction returns the unsigned integer quotient of its two operands. -/
 def udiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -198,23 +134,7 @@ def udiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
 
   val (x' / y')
 
-/--
-The ‘sdiv’ instruction returns the quotient of its two operands.
-
-The value produced is the signed integer quotient of the two operands rounded
-towards zero.
-
-Note that signed integer division and unsigned integer division are distinct
-operations; for unsigned integer division, use ‘udiv’.
-
-Division by zero is undefined behavior. For vectors, if any element of the
-divisor is zero, the operation has undefined behavior. Overflow also leads to
-undefined behavior; this is a rare case, but can occur, for example, by doing a
-32-bit division of -2147483648 by -1.
-
-If the `exact` argument is true, the result value of the sdiv is a poison value
-if the result would be rounded.
--/
+/-- The ‘sdiv’ instruction returns the quotient of its two operands. -/
 def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -227,17 +147,7 @@ def sdiv {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
 
   val (x'.sdiv y')
 
-/--
-The ‘urem’ instruction returns the unsigned integer remainder from the
-unsigned division of its two arguments. This instruction always performs
-an unsigned division to get the remainder.
-
-Note that unsigned integer remainder and signed integer remainder are distinct
-operations; for signed integer remainder, use ‘srem’.
-
-Taking the remainder of a division by zero is undefined behavior. For vectors,
-if any element of the divisor is zero, the operation has undefined behavior.
--/
+/-- The ‘urem’ instruction returns the unsigned integer remainder from the unsigned division of its two arguments. -/
 def urem {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -247,25 +157,7 @@ def urem {w : Nat} (x y : Int w) : Int w := Id.run do
 
   val (x' % y')
 
-/--
-The ‘srem’ instruction returns the remainder from the signed division of its two
-operands.
-
-This instruction returns the remainder of a division (where the result is either
-zero or has the same sign as the dividend, `x`), not the modulo operator (where
-the result is either zero or has the same sign as the divisor, `y`) of a value.
-
-Note that signed integer remainder and unsigned integer remainder are distinct
-operations; for unsigned integer remainder, use ‘urem’.
-
-Taking the remainder of a division by zero is undefined behavior. For vectors,
-if any element of the divisor is zero, the operation has undefined behavior.
-Overflow also leads to undefined behavior; this is a rare case, but can occur,
-for example, by taking the remainder of a 32-bit division of -2147483648 by -1.
-(The remainder doesn’t actually overflow, but this rule lets srem be implemented
-using instructions that return both the result of the division and the
-remainder.)
--/
+/-- The ‘srem’ instruction returns the remainder from the signed division of its two operands. -/
 def srem {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -275,20 +167,7 @@ def srem {w : Nat} (x y : Int w) : Int w := Id.run do
 
   val (x'.srem y')
 
-/--
-The ‘shl’ instruction returns the first operand shifted to the left by a specified
-number of bits.
-
-The value produced is `x` * 2^`y` mod 2^n, where n is the width of the result.
-If `y` is (statically or dynamically) equal to or larger than the number of bits
-in `x`, this instruction returns a poison value. If the arguments are vectors,
-each vector element of `x` is shifted by the corresponding shift amount in `y`.
-
-If the `nuw` keyword is present, then the shift produces a poison value if it
-shifts out any non-zero bits. If the `nsw` keyword is present, then the shift
-produces a poison value if it shifts out any bits that disagree with the
-resultant sign bit.
--/
+/-- The ‘shl’ instruction returns the first operand shifted to the left by a specified number of bits. -/
 def shl {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -304,19 +183,7 @@ def shl {w : Nat} (x y : Int w) (nsw : Bool := false) (nuw : Bool := false) : In
 
   val (x' <<< y')
 
-/--
-The ‘lshr’ instruction (logical shift right) returns the first operand shifted
-to the right a specified number of bits with zero fill.
-
-This instruction always performs a logical shift right operation. The most
-significant bits of the result will be filled with zero bits after the shift. If
-`y` is (statically or dynamically) equal to or larger than the number of bits in
-`x`, this instruction returns a poison value. If the arguments are vectors, each
-vector element of `x` is shifted by the corresponding shift amount in `y`.
-
-If the `exact` argument is true, the result value of the lshr is a poison value
-if any of the bits shifted out are non-zero.
--/
+/-- The ‘lshr’ instruction (logical shift right) returns the first operand shifted to the right a specified number of bits with zero fill. -/
 def lshr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -329,19 +196,7 @@ def lshr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
 
   val (x' >>> y')
 
-/--
-The ‘ashr’ instruction (arithmetic shift right) returns the first operand
-shifted to the right a specified number of bits with sign extension.
-
-This instruction always performs an arithmetic shift right operation, The most
-significant bits of the result will be filled with the sign bit of `x`. If `y`
-is (statically or dynamically) equal to or larger than the number of bits in
-`x`, this instruction returns a poison value. If the arguments are vectors, each
-vector element of `x` is shifted by the corresponding shift amount in `y`.
-
-If the `exact` argument is true, the result value of the ashr is a poison value
-if any of the bits shifted out are non-zero.
--/
+/-- The ‘ashr’ instruction (arithmetic shift right) returns the first operand shifted to the right a specified number of bits with sign extension. -/
 def ashr {w : Nat} (x y : Int w) (exact : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -363,17 +218,7 @@ def cast {w₁ w₂ : Nat} (x : Int w₁) (h : w₁ = w₂) : Int w₂ :=
 theorem cast_self {w : Nat} (x : Int w) (h : w = w) : cast x h = x := by
   cases x <;> simp [cast]
 
-/--
-The ‘and’ instruction returns the bitwise logical and of its two operands.
-
-The truth table used for the ‘and’ instruction is:
-
-   In0 In1 Out
-    0   0   0
-    0   1   0
-    1   0   0
-    1   1   1
--/
+/-- The ‘and’ instruction returns the bitwise logical and of its two operands. -/
 def and {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -381,24 +226,7 @@ def and {w : Nat} (x y : Int w) : Int w := Id.run do
   val (x' &&& y')
 
 
-/--
-The ‘or’ instruction returns the bitwise logical inclusive or of its two operands.
-
-The truth table used for the ‘or’ instruction is:
-
-   In0 In1 Out
-    0   0   0
-    0   1   1
-    1   0   1
-    1   1   1
-
-`disjoint` means that for each bit, that bit is zero in at least one of the
-inputs. This allows the Or to be treated as an Add since no carry can occur from
-any bit. If the `disjoint` keyword is present, the result value of the or is a
-poison value if both inputs have a one in the same bit position. For vectors,
-any bit. If the `disjoint` argument is true, the result value of the or is a
-poison value if both inputs have a one in the same bit position. For vectors,
--/
+/-- The ‘or’ instruction returns the bitwise logical inclusive or of its two operands. -/
 def or {w : Nat} (x y : Int w) (disjoint : Bool := false) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
@@ -408,34 +236,13 @@ def or {w : Nat} (x y : Int w) (disjoint : Bool := false) : Int w := Id.run do
 
   val (x' ||| y')
 
-/--
-The `xor` instruction returns the bitwise logical exclusive or of its two
-operands. The xor is used to implement the "one's complement" operation, which
-is the "~" operator in C.
-
-The truth table used for the ‘xor’ instruction is:
-
-    In0 In1 Out
-      0   0   0
-      0   1   1
-      1   0   1
-      1   1   0
--/
+/-- The `xor` instruction returns the bitwise logical exclusive or of its two operands. -/
 def xor {w : Nat} (x y : Int w) : Int w := Id.run do
   let val x' := x | poison
   let val y' := y | poison
   val (x' ^^^ y')
 
-/--
-The `trunc` instruction truncates the high order bits in value and converts the
-remaining bits to `w₂`. Since the source size must be larger than the
-destination size, trunc cannot be a no-op cast. It will always truncate bits.
-
-If the `nuw` keyword is present, and any of the truncated bits are non-zero, the
-result is a poison value. If the `nsw` keyword is present, and any of the
-truncated bits are not the same as the top bit of the truncation result, the
-result is a poison value.
--/
+/-- The `trunc` instruction truncates the high order bits in value and converts the remaining bits to `w₂`. -/
 def trunc {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (nsw : Bool := false) (nuw : Bool := false) (_h : w₁ > w₂) : Int w₂ := Id.run do
   let val v := x | poison
 
@@ -447,17 +254,7 @@ def trunc {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (nsw : Bool := false) (nuw : 
 
   val (v.truncate w₂)
 
-/--
-The 'zext' instruction zero-extends its operand to the given type.
-
-The `zext` fills the high order bits of the value with zero bits until it reaches
-the size of the destination type, ty2.
-
-When `zero` extending from i1, the result will always be either 0 or 1.
-
-If the `nneg` flag is set, and the zext argument is negative, the result is a
-poison value.
--/
+/-- The 'zext' instruction zero-extends its operand to the given type. -/
 def zext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (nneg : Bool := false) (_h : w₁ < w₂) : Int w₂ := Id.run do
   let val v := x | poison
 
@@ -466,49 +263,19 @@ def zext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (nneg : Bool := false) (_h : w
 
   val (v.zeroExtend w₂)
 
-/--
-The `sext` instruction sign-extends its operand to the given type.
-
-The `sext` instruction performs a sign extension by copying the sign bit
-(highest order bit) of the value until it reaches the bit size of the type `w₂`.
-
-When sign extending from i1, the extension always results in -1 or 0.
--/
+/-- The `sext` instruction sign-extends its operand to the given type. -/
 def sext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (_h : w₁ < w₂) : Int w₂ := Id.run do
   let val v := x | poison
 
   val (v.signExtend w₂)
 
-/--
-The `icmp` instruction takes three operands.
-The first operand is the condition code indicating the kind of comparison to perform.
-It is not a value, just a keyword.
-The possible condition codes (of type `IntPred`)are:
-
-  - `eq`: equal
-  - `ne`: not equal
-  - `ugt`: unsigned greater than
-  - `uge`: unsigned greater or equal
-  - `ult`: unsigned less than
-  - `ule`: unsigned less or equal
-  - `sgt`: signed greater than
-  - `sge`: signed greater or equal
-  - `slt`: signed less than
-  - `sle`: signed less or equal
-
-The remaining two arguments must be integer. They must also be identical types.
--/
+/-- The `icmp` instruction takes three operands. -/
 def icmp {w : Nat} (x y : Int w) (p : IntPred) : Int 1 := Id.run do
   let val x' := x | poison
   let val y' := y | poison
   val (BitVec.ofBool (IntPred.eval p x' y'))
 
-/--
- If the condition is an i1 and it evaluates to 1, the instruction returns the first value argument; otherwise, it returns the second value argument.
-
- If the condition is poison, the result is poison. Poison on the *non-selected* arm
- does not propagate to the result.
--/
+/-- If the condition is an i1 and it evaluates to 1, the instruction returns the first value argument; otherwise, it returns the second value argument. -/
 def select {w : Nat} (c : Int 1) (x y : Int w) : Int w := Id.run do
   let val c' := c | poison
   if c' == 1#1 then x else y

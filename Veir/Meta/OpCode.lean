@@ -32,38 +32,21 @@ meta def getName (d : Dialect) : String :=
   -- TODO: should we add underscores to translate from CamelCase to snake_case?
   d.name.toLower
 
-/--
-The dialect name as a Lean `Name` in lowercase for the `OpCode` inductive.
--/
+/-- The dialect name as a Lean `Name` in lowercase for the `OpCode` inductive. -/
 meta def mkDialectCode (d : Dialect) : Name :=
   .mkSimple <| d.getName
 
-/--
-The dialect name as a Lean `Name`.
--/
+/-- The dialect name as a Lean `Name`. -/
 meta def mkDialectCodeSimple (d : Dialect) : Name :=
   .mkSimple <| d.name
 
-/--
-The name of an operation as a `String`. Used for `fromByteArray` and `fromName`.
--/
+/-- The name of an operation as a `String`. -/
 meta def mkOpName (d : Dialect) (op : String) : String :=
   d.getName ++ "." ++ (op.replace "__" ".") -- we replace "__" with "." to work around issues with '.' in constructor names.
 
 end Dialect
 
-/--
-Create the following inductive:
-
-inductive OpCode where
-| arith (op : Arith)
-| builtin (op : Builtin)
-| func (op : Func)
-| llvm (op : Llvm)
-| riscv (op : Riscv)
-| test (op : Test)
-deriving Inhabited, Repr, Hashable, DecidableEq
--/
+/-- Create the following inductive: inductive OpCode where -/
 meta def mkOpCodeInductive (ds : Array Dialect) : TermElabM Syntax := do
   let ctors := ds.map (fun d => (d.mkDialectCode, d.mkDialectCodeSimple))
   let ctors ← ctors.mapM mkCtorWithType
@@ -90,8 +73,7 @@ meta def emitName (ds : Array Dialect) : TermElabM Command := do
            | $(mkIdent d.mkDialectCode) $(mkIdent (.mkStr2 d.name op)) => $(Syntax.mkStrLit (d.mkOpName op)).toByteArray)
   `(def $(mkIdent `OpCode.name) (op : $(mkIdent `OpCode)) : ByteArray := match op with $alts:matchAlt* )
 
-/-- Assign each operation a distinct code, sequentially in declaration order starting at 1.
-Code 0 is reserved so that zero-initialized memory decodes to `builtin.unregistered`. -/
+/-- Assign each operation a distinct code, sequentially in declaration order starting at 1. -/
 meta def emitEncode (ds : Array Dialect) : TermElabM Command := do
   let mut alts := #[]
   let mut code : Nat := 1
@@ -122,26 +104,7 @@ meta def emitDecodeEncode : TermElabM Command := do
       $(mkIdent `OpCode.decode) ($(mkIdent `OpCode.encode) op) = op := by
     cases op <;> (rename_i o; cases o) <;> rfl)
 
-/--
-Generates the type `OpCodes`, and its functions `fromName` and `name`.
-It does so by gathering all inductive types annotated with `@[opcodes]`.
-
-Given an inductive type
-
-```
-@[opcodes]
-inductive Arith where
-| constant
-| addi
-| subi
-```
-the type `OpCodes` will contain the constructors
-```
-| arith_constant
-| arith_addi
-| arith_subi
-```
--/
+/-- Generates the type `OpCodes`, and its functions `fromName` and `name`. -/
 elab "#generate_op_codes" : command  => do
   let ts := opCodesExt.getEntries (← getEnv)
   let env ← getEnv

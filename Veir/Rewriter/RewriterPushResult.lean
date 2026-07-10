@@ -17,12 +17,7 @@ import all Veir.IR.Buffed.SimDefs
 
 set_option linter.unusedSectionVars false
 
-/-! # Rewriter simulation proofs: result push
-
-The raw result slot setter, its spec-level counterpart, and the proof that the `Sim` relation
-survives them. Clone of `Veir.Rewriter.RewriterPushOperand` for the result family. The setter is
-`Option`-valued (it interns the result type into the attribute table via `insertAttrs` first), so
-the theorem is conditioned on the setter succeeding. -/
+/-! Rewriter simulation proofs: result push -/
 
 public section
 namespace Veir
@@ -53,10 +48,7 @@ def Rewriter.pushResult (ctx : IRContext OpInfo) (op : OperationPtr) (type : Typ
   op.pushResult ctx result (by grind)
 
 set_option maxHeartbeats 1000000000 in
-/-- The `Sim` relation survives writing a fresh result into slot `idx` of `opPtr`'s
-(pre-allocated, back-allocated) result array while the spec pushes the corresponding `OpResult`.
-Conditioned on the buffer setter succeeding (it can fail only when the attribute table is full).
-Discharges the `admitted_sim` in `Rewriter.pushResultAtSim`. -/
+/-- The `Sim` relation survives writing a fresh result into slot `idx` of `opPtr`'s (pre-allocated, back-allocated) result array while the spec pushes the corresponding `OpResult`. -/
 theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (type : TypeAttr)
     (opPtrInBounds : opPtr.InBounds ctx)
@@ -100,8 +92,6 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
       = opPtr.spec.toFlat + (Buffed.Operation.Offsets.resultsInt opPtr.spec ctx.spec + Buffed.OpResult.sizeNat * idx.toNat) := by
     simp only [Buffed.OperationMPtr.getResultPtr!, Buffed.OperationMPtr.computeResultOffset!]
     grind [IsIncludedI, IsIncludedIN]
-  -- Read-preservation bridges over the five slot writes: any 8-/4-byte read disjoint from the
-  -- written slot `[res, res+40)` is unchanged, and the attribute table only gains a new entry.
   have husz : (Buffed.OperationMPtr.getResultPtr! ctx.buf opPtr.impl idx).toNat + 40 ≤ ctx.buf.mem.size := by
     grind
   have ek : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 40 →
@@ -198,7 +188,6 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     have hd := ctx.sim.disjoint_allocs (.operation op) (.operation opPtr.spec) (by grind) (by grind)
     have haft := Sim.OperationPtr.after_lt_ctx (ctx := ctx) op hopib
     have hri := ctx.sim.repr.operations_indices op (by grind)
-    -- the op's area layout, phrased over the same atoms `layout_grind` produces
     have hareaOP : Buffed.Operation.Offsets.operandsInt op ctx.spec
         = 72 + ((Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat : Int) := by rfl
     have hareaBO : Buffed.Operation.Offsets.blockOperandsInt op ctx.spec
@@ -218,7 +207,6 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     have hopM : (UInt64.toNat op.toM : Int) = op.toFlat := by
       simp only [OperationPtr.toM]
       grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', OperationPtr.toFlat, layout_grind]
-    -- reads inside `op`'s fixed header are disjoint from the freshly written result slot
     have hro8 : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 72 →
         bufctx.mem.read64! (op.toM + off) = ctx.buf.mem.read64! (op.toM + off) := by
       intro off n hn h72
@@ -271,7 +259,7 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
         simp only [Buffed.OperationMPtr.readAttrs!, hattrB] at this ⊢
         rw [hro8 Buffed.Operation.Offsets.attrs 64 (by decide) (by decide)]
         clear hread hread32 ek heq; (try clear hslotB hattrB hbsz hbrange hmem1 hattr1 htidx heqAttr)
-        grind [layout_grind, Rewriter.pushResult, Array.getElem?_push]
+        grind [layout_grind, Rewriter.pushResult]
     · constructor
       · have := henc.numBlockOperands
         simp only [Buffed.OperationMPtr.readNumBlockOperands!] at this ⊢
@@ -376,7 +364,6 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
             rw [UInt64.uint64_add_int64_toNat_lt] <;>
               grind [layout_grind, UInt64.toNat_mul]
           · have hdd := hd (by simp [hcase])
-            -- anchor the region slot: its range sits inside `op`'s range and its flat address
             have hincl2 := OperationPtr.nthRegion_range_included_op_range ctx op ridx.toUInt64
               (by clear hread hread32 ek hoff hslotaddr husz hincl hmul hidxlt hcro this hdd heq;
                   (try clear hro8 hro4); (try clear hslot); grind) hopib
@@ -543,7 +530,7 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
             (try dsimp only)
             clear hread hread32 ek heq
             (try clear hslotB hattrB hbsz hbrange hmem1 hattr1 heqAttr)
-            grind [Array.getElem?_push]
+            grind
           · -- firstUse
             simp only [Buffed.OpResultMPtr.readFirstUse!, hnMeq, hnget]
             rw [← heq]
@@ -641,7 +628,7 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
               grind [layout_grind]
           constructor
           · have := this.kind
-            simp only [Buffed.OpResultMPtr.readKind!, hresmeq, hresget] at this ⊢
+            simp only [Buffed.OpResultMPtr.readKind!, hresmeq] at this ⊢
             rw [hres0]
             clear hread hread32 ek hoff hslotaddr husz hincl hmul hidxlt heq; (try clear hslotB hattrB hbsz hbrange hmem1 hattr1 htidx heqAttr)
             grind [layout_grind, Rewriter.pushResult]
@@ -649,7 +636,7 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
             simp only [Buffed.OpResultMPtr.readType!, hattrB, hresmeq] at this ⊢
             rw [hres Buffed.ValueImpl.Offsets.type 8 (by decide) (by decide)]
             clear hread hread32 ek hoff hslotaddr husz hincl hmul hidxlt heq; (try clear hslotB hattrB hbsz hbrange hmem1 hattr1 htidx heqAttr)
-            grind [layout_grind, Rewriter.pushResult, Array.getElem?_push]
+            grind [layout_grind, Rewriter.pushResult]
           · have := this.firstUse
             simp only [Buffed.OpResultMPtr.readFirstUse!, hresmeq, hresget] at this ⊢
             rw [hres Buffed.ValueImpl.Offsets.firstUse 16 (by decide) (by decide)]
@@ -782,7 +769,7 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
           simp only [Buffed.BlockArgumentMPtr.readType!, hattrB, hargget] at this ⊢
           rw [harg Buffed.ValueImpl.Offsets.type 8 (by decide) (by decide)]
           clear hread hread32 ek hoff hslotaddr husz hincl hmul hidxlt heq; (try clear hslotB hattrB hbsz hbrange hmem1 hattr1 htidx heqAttr); (try clear hslot hnum)
-          grind [layout_grind, Rewriter.pushResult, Array.getElem?_push]
+          grind [layout_grind, Rewriter.pushResult]
         · have := this.firstUse
           simp only [Buffed.BlockArgumentMPtr.readFirstUse!, hargget] at this ⊢
           rw [harg Buffed.ValueImpl.Offsets.firstUse 16 (by decide) (by decide)]
@@ -844,6 +831,6 @@ theorem Rewriter.setResult_pushResult_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     rw [hattrB]
     have := ctx.sim.attr_empty
     clear hread hread32 ek heq
-    grind [Array.getElem?_push]
+    grind
 
 end Veir

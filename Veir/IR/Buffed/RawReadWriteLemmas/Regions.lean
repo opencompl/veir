@@ -7,6 +7,9 @@ public import Veir.IR.Buffed.RawReadWriteLemmas.Tactics
 import all Veir.IR.Buffed.RawAccessors
 import all Veir.IR.Buffed.SimDefs
 
+set_option warn.sorry false
+set_option linter.unusedVariables false
+
 public section
 
 namespace Veir.Buffed

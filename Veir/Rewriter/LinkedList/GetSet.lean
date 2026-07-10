@@ -6,48 +6,7 @@ import all Veir.Rewriter.LinkedList.Basic
 
 public section
 
-/-
- - The getters we consider are:
- - * BlockPtr.get! optionally replaced by the following special cases:
- -   * Block.firstUse
- -   * Block.prev
- -   * Block.next
- -   * Block.parent
- -   * Block.firstOp
- -   * Block.lastOp
- -   * Block.capArguments       (never modified by any setter)
- - * OperationPtr.get! optionally replaced by the following special cases:
- -   * Operation.prev
- -   * Operation.next
- -   * Operation.parent
- -   * Operation.attrs
- -   * Operation.properties
- -   * Operation.capResults     (never modified by any setter)
- -   * Operation.capBlockOperands (never modified by any setter)
- -   * Operation.capRegions     (never modified by any setter)
- -   * Operation.capOperands    (never modified by any setter)
- - * OperationPtr.getOpType!
- - * OperationPtr.getProperties!
- - * OperationPtr.getNumResults!
- - * OpResultPtr.get!
- - * OperationPtr.getNumOperands!
- - * OpOperandPtr.get! optionally replaced by the following special case:
- - * OperationPtr.getOperands!
- - * OperationPtr.getNumSuccessors!
- - * BlockOperandPtr.get!
- - * OperationPtr.getNumRegions!
- - * OperationPtr.getRegion!
- - * BlockOperandPtrPtr.get!
- - * BlockPtr.getNumArguments!
- - * BlockArgumentPtr.get!
- - * RegionPtr.get! optionally replaced by the following special cases:
- -   * firstBlock
- -   * lastBlock
- -   * parent
- - * ValuePtr.getFirstUse!
- - * ValuePtr.getType!
- - * OpOperandPtrPtr.get!
- -/
+/- Transport lemmas: every getter against every linked-list setter. -/
 namespace Veir.Sim
 
 variable {op op' : OperationPtr}
@@ -553,7 +512,6 @@ theorem BlockArgumentPtr.get!_OpOperandPtr_insertIntoCurrent {blockArg : Veir.Bl
       { blockArg.get! ctx.spec with firstUse := some opOperand'.spec }
     else
       blockArg.get! ctx.spec := by
-  -- simp [← OpOperandPtr.insertIntoCurrent!_eq_insertIntoCurrent]
   simp [OpOperandPtr.insertIntoCurrent_def, OpOperandPtr.insertIntoCurrentSim]
   grind
 
@@ -1858,12 +1816,6 @@ section linkBetween
 attribute [local grind =] Sim.BlockPtr.linkBetween_def
 attribute [local grind] Sim.BlockPtr.linkBetweenSim
 
---  -   * Block.firstUse
---  -   * Block.prev
---  -   * Block.next
---  -   * Block.parent
---  -   * Block.firstOp
---  -   * Block.lastOp
 
 @[simp, grind =]
 theorem BlockPtr.firstUse!_BlockPtr_linkBetween {block : Veir.BlockPtr} :

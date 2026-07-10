@@ -179,13 +179,10 @@ partial def printOperation (ctx: Sim.IRContext OpCode) (op: Sim.OperationPtr) (i
   let nameBytes : ByteArray := (op.getOpType! ctx).name
   IO.print s!"\"{String.fromUTF8! nameBytes}\""
   printOpOperands ctx op
-  -- -- printBlockOperands ctx op
-  -- -- printOpProperties ctx op
   if op.getNumRegions! ctx > 0 then
     IO.print " "
     printRegions ctx op indent
   printOpAttrDict ctx op
-  -- -- printOperationType ctx op
   IO.println ""
 end
 

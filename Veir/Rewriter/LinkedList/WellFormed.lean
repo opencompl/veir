@@ -155,10 +155,8 @@ theorem Sim.IRContext.wellFormed_OpOperandPtr_insertIntoCurrent
 theorem Sim.OpOperandPtr.back!_array_getElem_removeFromCurrent_eq_of_DefUse
     {use : Sim.OpOperandPtr} {value : Veir.ValuePtr} {array : Array Veir.OpOperandPtr}
     {useInBounds : use.InBounds ctx} {ctxInBounds}
-    -- (useOfValue : (use.spec.get! ctx.spec).value = value)
     (hWF : value.DefUse ctx.spec array missingUses) (useInArray: use.spec ∈ array)
     {i} (iPos : i > 0) (iInBounds : i < (array.erase use.spec).size)
-    -- (iInBounds' : (array.erase use.spec)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds).spec)
     :
     (((array.erase use.spec)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds).spec).back = Veir.OpOperandPtrPtr.operandNextUse (array.erase use.spec)[i - 1] := by
   simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
@@ -176,10 +174,8 @@ theorem Sim.OpOperandPtr.back!_array_getElem_removeFromCurrent_eq_of_DefUse
 theorem Sim.OpOperandPtr.nextUse!_array_getElem_removeFromCurrent_eq_of_DefUse
     {use : Sim.OpOperandPtr} {value : Veir.ValuePtr} {array : Array Veir.OpOperandPtr} {ctxInBounds}
     (useInBounds : Sim.OpOperandPtr.InBounds use ctx)
-    -- (useOfValue : (use.spec.get! ctx.spec).value = value)
     (hWF : value.DefUse ctx.spec array missingUses) (useInArray: use.spec ∈ array)
     {i} (iInBounds : i < (array.erase use.spec).size)
-    -- (iInBounds' : (array.erase use.spec)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds).spec)
     :
     (((array.erase use.spec)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds).spec).nextUse = (array.erase use.spec)[i + 1]? := by
   simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
@@ -358,7 +354,6 @@ theorem Sim.BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne
   have := BlockPtr.DefUse.getFirstUse_ne_of_value_ne useOfOtherValue hWF
   simp only [this, ↓reduceIte]
   have : use.spec ≠ use'.spec := by grind
-  -- TODO: grind suspiciously fails here
   simp [this]
 
 theorem Sim.BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self
@@ -510,10 +505,8 @@ attribute [local grind ext] BlockOperand
 theorem Sim.BlockOperandPtr.back!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse
     {use : Sim.BlockOperandPtr} {block : Veir.BlockPtr} {array : Array Veir.BlockOperandPtr}
     {useInBounds : use.InBounds ctx} {ctxInBounds}
-    -- (useOfBlock : (use.spec.get! ctx.spec).value = block)
     (hWF : block.DefUse ctx.spec array missingUses) (useInArray: use.spec ∈ array)
     {i} (iPos : i > 0) (iInBounds : i < (array.erase use.spec).size)
-    -- (iInBounds' : (array.erase use.spec)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds).spec)
     :
     (((array.erase use.spec)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds).spec).back =
     Veir.BlockOperandPtrPtr.blockOperandNextUse (array.erase use.spec)[i - 1] := by
@@ -531,10 +524,8 @@ theorem Sim.BlockOperandPtr.back!_array_getElem_BlockOperandPtr_removeFromCurren
 theorem Sim.BlockOperandPtr.nextUse!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse
     {use : Sim.BlockOperandPtr} {value : Veir.BlockPtr} {array : Array Veir.BlockOperandPtr} {ctxInBounds}
     (useInBounds : Sim.BlockOperandPtr.InBounds use ctx)
-    -- (useOfValue : (use.spec.get! ctx.spec).value = value)
     (hWF : value.DefUse ctx.spec array missingUses) (useInArray: use.spec ∈ array)
     {i} (iInBounds : i < (array.erase use.spec).size)
-    -- (iInBounds' : (array.erase use.spec)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds).spec) :
     :
     (((array.erase use.spec)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds).spec).nextUse = (array.erase use.spec)[i + 1]? := by
   simp only [BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
@@ -799,7 +790,6 @@ theorem Sim.RegionPtr.blockChain_OperationPtr_linkBetweenWithParent
 theorem Sim.Operation.wellFormed_OperationPtr_linkBetweenWithParent
     {parentBlock : Sim.BlockPtr} {parentIn : parentBlock.InBounds ctx}
     {opPtr : Veir.OperationPtr} {opInBounds : opPtr.InBounds ctx.spec}
-    -- (ctxInBounds: Veir.IRContext.FieldsInBounds ctx.spec)
     (prevOpParent : prevOp.spec.maybe₁ (fun prev => (prev.get! ctx.spec).parent = some parentBlock.spec))
     (nextOpParent : nextOp.spec.maybe₁ (fun next => (next.get! ctx.spec).parent = some parentBlock.spec))
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
@@ -815,7 +805,6 @@ theorem Sim.Operation.wellFormed_OperationPtr_linkBetweenWithParent
 theorem Sim.Block.wellFormed_OperationPtr_linkBetweenWithParent
     {parentBlock : Sim.BlockPtr} {parentIn : parentBlock.InBounds ctx}
     {blockPtr : Veir.BlockPtr} {blockInBounds : blockPtr.InBounds ctx.spec}
-    -- (ctxInBounds: Veir.IRContext.FieldsInBounds ctx.spec)
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
     Veir.BlockPtr.WellFormed ctx.spec blockPtr blockInBounds →
     Veir.BlockPtr.WellFormed newCtx.spec blockPtr (by grind) := by
@@ -825,7 +814,6 @@ theorem Sim.Block.wellFormed_OperationPtr_linkBetweenWithParent
 theorem Sim.Region.wellFormed_OperationPtr_linkBetweenWithParent
     {parentBlock : Sim.BlockPtr} {parentIn : parentBlock.InBounds ctx}
     {regionPtr : Veir.RegionPtr}
-    -- (ctxInBounds: Veir.IRContext.FieldsInBounds ctx.spec)
     (regionInBounds : regionPtr.InBounds ctx.spec)
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
     Veir.RegionPtr.WellFormed ctx.spec regionPtr →
@@ -998,7 +986,6 @@ theorem Sim.RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_other
 theorem Sim.Operation.wellFormed_BlockPtr_linkBetweenWithParent
     {parentRegion : Sim.RegionPtr} {parentIn : parentRegion.InBounds ctx}
     {opPtr : Veir.OperationPtr} {opInBounds : opPtr.InBounds ctx.spec}
-    -- (ctxInBounds: Veir.IRContext.FieldsInBounds ctx.spec)
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx) :
     Veir.OperationPtr.WellFormed ctx.spec opPtr opInBounds →
     Veir.OperationPtr.WellFormed newCtx.spec opPtr (by grind) := by
@@ -1018,7 +1005,6 @@ theorem Sim.Block.wellFormed_BlockPtr_linkBetweenWithParent
 
 theorem Sim.Region.wellFormed_BlockPtr_linkBetweenWithParent
     {parentRegion : Sim.RegionPtr} {parentIn : parentRegion.InBounds ctx} {region : Veir.RegionPtr}
-    -- (ctxWf : Veir.IRContext.WellFormed ctx.spec)
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
     (regionInBounds : region.InBounds ctx.spec)
     (hWF : RegionPtr.WellFormed ctx.spec region) :

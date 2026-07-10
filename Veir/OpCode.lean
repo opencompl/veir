@@ -1,12 +1,6 @@
 module
 
-/-
-# Operation Codes
-
-This file defines the `OpCode` inductive type, which represents the set of registered
-operation codes in the Veir intermediate representation (IR). Each `OpCode` corresponds
-to an operation definition.
--/
+/- Operation Codes -/
 
 import Std.Data.HashMap
 import Veir.Meta.OpCode
@@ -271,14 +265,8 @@ inductive Test where
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 
-/-
-A type class that defines an MLIR dialect and translates from `DialectCode` to
-the dialect type.
--/
-/-
-  An operation code (OpCode) identifies the type of an operation.
-  Each OpCode corresponds to a specific operation.
--/
+/- A type class that defines an MLIR dialect and translates from `DialectCode` to the dialect type. -/
+/- An operation code (OpCode) identifies the type of an operation. -/
 set_option maxRecDepth 100000
 #generate_op_codes
 

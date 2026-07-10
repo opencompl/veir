@@ -17,10 +17,7 @@ import all Veir.IR.Buffed.SimDefs
 
 set_option linter.unusedSectionVars false
 
-/-! # Rewriter simulation proofs
-
-The raw slot setters, their spec-level counterparts, and the (large) proofs that the `Sim`
-relation survives them. Split out of `Veir.Rewriter.Basic` to keep that file readable. -/
+/-! Rewriter simulation proofs -/
 
 public section
 namespace Veir
@@ -35,8 +32,7 @@ protected def Rewriter.setOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffe
     (value : Buffed.ValueImplMPtr) : Buffed.IRBufContext OpInfo :=
   let oper : Buffed.OpOperandMPtr := opPtr + opPtr.computeOperandOffset ctx₀ idx hnum
   let ctx := oper.writeNextUse ctx₀ .none (by prove_setSlotBounds ctx₀)
-  -- `back` points at the value's `firstUse` slot, mirroring the spec's
-  -- `OpOperandPtrPtr.valueFirstUse` (the use-list insertion re-writes it with the same value).
+  -- `back` points at the value's `firstUse` slot, mirroring the spec's `OpOperandPtrPtr.valueFirstUse` (the use-list insertion re-writes it with the same value).
   let ctx := oper.writeBack ctx (value + Buffed.ValueImpl.Offsets.firstUse) (by prove_setSlotBounds ctx₀)
   let ctx := oper.writeOwner ctx opPtr (by prove_setSlotBounds ctx₀)
   let ctx := oper.writeValue ctx value (by prove_setSlotBounds ctx₀)
@@ -52,9 +48,7 @@ protected def Rewriter.pushOperand (ctx : IRContext OpInfo) (opPtr : OperationPt
   opPtr.pushOperand ctx operand (by grind)
 
 set_option maxHeartbeats 1000000000 in
-/-- The `Sim` relation survives writing a fresh operand into slot `idx` of `opPtr`'s
-(pre-allocated) operand array while the spec pushes the corresponding `OpOperand`.
-Discharges the `admitted_sim` in `Rewriter.pushOperandAtUninsertedSim`. -/
+/-- The `Sim` relation survives writing a fresh operand into slot `idx` of `opPtr`'s (pre-allocated) operand array while the spec pushes the corresponding `OpOperand`. -/
 theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (valuePtr : Sim.ValuePtr)
     (opPtrInBounds : opPtr.InBounds ctx) (valueInBounds : valuePtr.InBounds ctx)
@@ -83,8 +77,6 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
     simp only [Buffed.OperationMPtr.computeOperandOffset,
       Buffed.OperationMPtr.computeOperandsOffset_eq_computeOperandsOffset!]
     grind [Buffed.OperationMPtr.computeOperandOffset, IsIncludedI, IsIncludedIN]
-  -- Read-preservation bridges over the four slot writes: any 8-/4-byte read disjoint from the
-  -- written slot `[oper, oper+32)` is unchanged, and the attribute table is untouched.
   have husz : (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset ctx.buf opPtr.impl idx hnum).toNat + 32 ≤ ctx.buf.mem.size := by
     grind
   have ek : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 32 →
@@ -155,7 +147,6 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
     have hd := ctx.sim.disjoint_allocs (.operation op) (.operation opPtr.spec) (by grind) (by grind)
     have haft := Sim.OperationPtr.after_lt_ctx (ctx := ctx) op hopib
     have hri := ctx.sim.repr.operations_indices op (by grind)
-    -- the op's area layout, phrased over the same atoms `layout_grind` produces
     have hareaOP : Buffed.Operation.Offsets.operandsInt op ctx.spec
         = 72 + ((Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat : Int) := by rfl
     have hareaBO : Buffed.Operation.Offsets.blockOperandsInt op ctx.spec
@@ -173,7 +164,6 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
     have hopM : (UInt64.toNat op.toM : Int) = op.toFlat := by
       simp only [OperationPtr.toM]
       grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', OperationPtr.toFlat, layout_grind]
-    -- reads inside `op`'s fixed header are disjoint from the freshly written operand slot
     have hro8 : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 72 →
         (Rewriter.setOperand opPtr.impl ctx.buf idx hnum hslot valuePtr.impl).mem.read64! (op.toM + off) = ctx.buf.mem.read64! (op.toM + off) := by
       intro off n hn h72
@@ -577,7 +567,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
             grind [layout_grind]
         constructor
         · have := this.kind
-          simp only [Buffed.OpResultMPtr.readKind!, hresmeq, hresget] at this ⊢
+          simp only [Buffed.OpResultMPtr.readKind!, hresmeq] at this ⊢
           rw [hres0]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt
           grind [layout_grind, Rewriter.pushOperand]

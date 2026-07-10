@@ -3,71 +3,38 @@ module
 import Veir.ForLean
 public import Std.Data.Iterators.Producers.Array
 
-/-!
-  # Attributes
-
-  This file defines the `Attribute` data structure, which is an inductive type
-  that can represent any compile-time information that can be stored in the IR.
-  Attributes are used either as type annotations for SSA values, or as extra
-  information stored in operations.
-
-  The `TypeAttr` definition is a subtype of `Attribute` that carries the additional
-  invariant that the attribute is a valid type annotation.
-
-  `TypeAttr` corresponds to `mlir::Type`, and `Attribute`s that are not
-  `TypeAttr`s correspond to an `mlir::Attribute` (as attributes and types are
-  completely disjoint in MLIR). The reason for this lack of separation in VeIR is
-  that merging both concepts into a single `Attribute` type allows to define
-  functions that can work with both types and attributes without needing to define
-  separate functions for each case. For instance, `mlir::AttrTypeWalker` can be
-  defined for both `TypeAttr` and `Attribute` without needing to define separate
-  walkers for each case. Similarly, `mlir::TypeAttr` is not needed, as we can
-  store any `TypeAttr` as an `Attribute`.
--/
+/-! Attributes -/
 
 namespace Veir
 public section
 
-/--
-  We print `ByteArray`s as UTF-8 strings, as all the `ByteArray`s we are manipulating are
-  UTF-8 encoded strings.
--/
+/-- We print `ByteArray`s as UTF-8 strings, as all the `ByteArray`s we are manipulating are UTF-8 encoded strings. -/
 private local instance : Repr ByteArray where
   reprPrec ba _ := repr (String.fromUTF8! ba)
 
 /-! ## Attribute definitions -/
 
-/--
-  A `!builtin.integer` is an integer type with a given bitwidth.
--/
+/-- A `!builtin.integer` is an integer type with a given bitwidth. -/
 structure IntegerType where
   bitwidth : Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
- A floating point type with a given bitwidth.
--/
+/-- A floating point type with a given bitwidth. -/
 structure FloatType where
   bitwidth : Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  A register type is an integer type with width 64.
--/
+/-- A register type is an integer type with width 64. -/
 structure RegisterType where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  An integer literal with an associated integer type.
--/
+/-- An integer literal with an associated integer type. -/
 structure IntegerAttr where
   value : Int
   type : IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
- Floating point fastmath flags attribute.
--/
+/-- Floating point fastmath flags attribute. -/
 structure FastMathFlagsAttr where
   nnan : Bool
   ninf : Bool
@@ -79,17 +46,13 @@ structure RegisterAttr where
   type : RegisterType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-A floating point attribute storing a Lean `Float` value with an associated float type.
--/
+/-- A floating point attribute storing a Lean `Float` value with an associated float type. -/
 structure FloatAttr where
   value : Float
   type : FloatType
 deriving Inhabited, Repr
 
-/--
-Temporary bridge lemma for deciding `FloatAttr` equality via `Float.toBits`.
--/
+/-- Temporary bridge lemma for deciding `FloatAttr` equality via `Float.toBits`. -/
 axiom floatEqOfToBitsEq {a b : Float} : a.toBits = b.toBits → a = b
 
 instance : DecidableEq FloatAttr
@@ -109,10 +72,7 @@ instance : DecidableEq FloatAttr
 instance : Hashable FloatAttr where
   hash a := mixHash (hash a.value.toBits) (hash a.type)
 
-/--
-  An attribute containing a string.
-  The string is stored as a `ByteArray` as unicode is not supported.
--/
+/-- An attribute containing a string. -/
 structure StringAttr where
   value : ByteArray
 deriving Inhabited, DecidableEq, Hashable
@@ -120,51 +80,33 @@ deriving Inhabited, DecidableEq, Hashable
 instance : Repr StringAttr where
   reprPrec attr _ := "StringAttr.mk " ++ repr (String.fromUTF8! attr.value)
 
-/--
-  A unit attribute that carries no information, but the information that it exists.
--/
+/-- A unit attribute that carries no information, but the information that it exists. -/
 structure UnitAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  A source location.
-  This currently stores the raw string of the MLIR location syntax body.
--/
+/-- A source location. -/
 structure LocationAttr where
   value : String
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  An array of integer attributes.
-  The values are stored as an array of integers, and an associated integer type.
-  Note that the integers are not necessarily in the range of the integer type.
--/
+/-- An array of integer attributes. -/
 structure DenseArrayAttr where
   elementType : IntegerType
   values : Array Int
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  An attribute from an unknown dialect.
-  It can be either a type attribute or a non-type attribute.
--/
+/-- An attribute from an unknown dialect. -/
 structure UnregisteredAttr where
   value : String
   isType : Bool
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  A flat symbol reference attribute, e.g., `@foo` or `@"my.func"`.
-  The value stores the raw text including the `@` prefix.
--/
+/-- A flat symbol reference attribute, e.g., `@foo` or `@"my.func"`. -/
 structure FlatSymbolRefAttr where
   value : String
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  The `!mod_arith.int` type from HEIR's modarith dialect.
-  The modulus type annotation is optional in syntax.
--/
+/-- The `!mod_arith.int` type from HEIR's modarith dialect. -/
 structure ModArithType where
   modulus : Int
   modulusType : Option IntegerType
@@ -180,16 +122,11 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 end LLVM
 
-/-!
-  # Cuda Tile types
--/
+/-! Cuda Tile types -/
 
 namespace CudaTile
 
-/--
-  An elemental pointer type represents a single location in global device memory.
-  Pointers are typed, i.e., they carry the type they point to.
--/
+/-- An elemental pointer type represents a single location in global device memory. -/
 
 structure PointerType where
   pointeeType : IntegerType
@@ -199,30 +136,21 @@ end CudaTile
 
 namespace HW
 
-/--
-  The `ModulePort::Direction` type from CIRCT's hw dialect.
-  This represents the direction of a module port.
--/
+/-- The `ModulePort::Direction` type from CIRCT's hw dialect. -/
 inductive ModulePort.Direction
 | input
 | output
 | inout
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  The `ModulePort` type from CIRCT's hw dialect.
-  This represents a port to a module with a direction, type and name.
--/
+/-- The `ModulePort` type from CIRCT's hw dialect. -/
 structure ModulePort where
   name : String
   type : IntegerType
   dir : ModulePort.Direction
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  The `!hw.modty` type from CIRCT's hw dialect.
-  This represents a list of ports to a module.
--/
+/-- The `!hw.modty` type from CIRCT's hw dialect. -/
 structure ModuleType where
   ports : Array ModulePort
 deriving Inhabited, Repr, DecidableEq, Hashable
@@ -231,51 +159,32 @@ end HW
 
 mutual
 
-/--
-  The signature of a function, consisting of an array of input attributes
-  and an array of output attributes.
--/
+/-- The signature of a function, consisting of an array of input attributes and an array of output attributes. -/
 structure FunctionType where
   inputs : Array Attribute
   outputs : Array Attribute
   isVarArg : Bool := false
 deriving Inhabited, Repr, Hashable
 
-/--
-  An attribute that holds a sequence of attributes.
--/
+/-- An attribute that holds a sequence of attributes. -/
 structure ArrayAttr where
   value : Array Attribute
 deriving Inhabited, Repr, Hashable
 
-/--
-  A dictionary attribute that maps byte array keys to attribute values.
--/
+/-- A dictionary attribute that maps byte array keys to attribute values. -/
 structure DictionaryAttr where
-  /--
-    Entries are encoded as an array to allow decidable equality and iteration, which is
-    not possible with either a `HashMap` or an `ExtHashMap`.
-    Entries are expected to be sorted by key and each key is unique, so that we can use a
-    binary search and have O(log(n)) lookup time. This invariant is not enforced proof-wise but
-    is expected to be maintained at all time.
-  -/
+  /-- Entries are encoded as an array to allow decidable equality and iteration, which is not possible with either a `HashMap` or an `ExtHashMap`. -/
   entries : Array (ByteArray × Attribute)
   /- TODO: figure out how to maintain a proof of sorted-ness and uniqueness. -/
 deriving Inhabited, Repr, Hashable
 
-/--
-  An attribute representing a fixed-sized array type
--/
+/-- An attribute representing a fixed-sized array type -/
 structure LLVM.ArrayType where
   size : Nat
   type : Attribute
 deriving Repr, Hashable
 
-/--
-  A data structure that represents compile-time information in the IR.
-  Attributes are used either as type annotations for SSA values, or
-  as extra information stored in operations.
--/
+/-- A data structure that represents compile-time information in the IR. -/
 inductive Attribute
 /-- Integer type -/
 | integerType (type : IntegerType)
@@ -332,10 +241,7 @@ instance : Inhabited LLVM.ArrayType where
 
 def ArrayAttr.empty : ArrayAttr := { value := #[] }
 
-/--
-  Construct a `DictionaryAttr` from an array of key-value pairs.
-  TODO: ensure that entries are unique.
--/
+/-- Construct a `DictionaryAttr` from an array of key-value pairs. -/
 def DictionaryAttr.fromArray (entries : Array (ByteArray × Attribute)) : DictionaryAttr :=
   { entries := entries.insertionSort (fun entry1 entry2 => (compare entry1.1 entry2.1).isLT) }
 
@@ -361,9 +267,7 @@ theorem LLVM.ArrayType.sizeOf_elems_type {t : ArrayType} :
     sizeOf t.type < sizeOf t := by
   grind [cases ArrayType]
 
-/-!
-  ## DecidableEq instances
--/
+/-! DecidableEq instances -/
 
 mutual
 def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
@@ -530,12 +434,7 @@ instance : DecidableEq FunctionType := FunctionType.decEq
 instance : DecidableEq ArrayAttr := ArrayAttr.decEq
 instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
 
-/-!
-  ## ToString implementation
-
-  `ToString` is used to convert attributes to their MLIR textual representation.
-  It is also the syntax used for printing attributes in the REPL and in error messages.
--/
+/-! ToString implementation -/
 
 instance : ToString IntegerType where
   toString type := s!"i{type.bitwidth}"
@@ -699,9 +598,7 @@ termination_by sizeOf type
 decreasing_by
   apply LLVM.ArrayType.sizeOf_elems_type
 
-/--
-  Convert an attribute to a string representation.
--/
+/-- Convert an attribute to a string representation. -/
 def Attribute.toString (attr : Attribute) : String :=
   match attr with
   | .integerType type => ToString.toString type
@@ -746,11 +643,7 @@ instance : ToString DictionaryAttr where
 instance : ToString LLVM.ArrayType where
   toString := LLVM.ArrayType.toString
 
-/-!
-  ## Coercion instances to Attribute
-
-  We define a coercion from each attribute structure to `Attribute`.
--/
+/-! Coercion instances to Attribute -/
 instance : Coe IntegerType Attribute where
   coe type := .integerType type
 
@@ -811,19 +704,11 @@ instance : Coe CudaTile.PointerType Attribute where
 instance : Coe HW.ModuleType Attribute where
   coe type := .hwModuleType type
 
-/-!
-  ## TypeAttr definition
-
-  `TypeAttr` is defined as a subtype of `Attribute` that carries the additional invariant
-  that the attribute is a valid type annotation (i.e., `isType` is true).
--/
+/-! TypeAttr definition -/
 
 namespace Attribute
 
-/--
-  Determine if an attribute can be used as a type annotation for SSA
-  values.
--/
+/-- Determine if an attribute can be used as a type annotation for SSA values. -/
 def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
@@ -880,9 +765,7 @@ theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
 
 end Attribute
 
-/--
-  An attribute that can be used as a type annotation for SSA values.
--/
+/-- An attribute that can be used as a type annotation for SSA values. -/
 @[expose]
 def TypeAttr := {attr // Attribute.isType attr}
 deriving Repr, Hashable, DecidableEq
@@ -901,9 +784,7 @@ theorem TypeAttr.inj {attr1 attr2 : TypeAttr} :
   unfold TypeAttr at *
   grind
 
-/--
-  Convert an attribute to a type attribute.
--/
+/-- Convert an attribute to a type attribute. -/
 def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : TypeAttr :=
   ⟨attr, isType⟩
 
@@ -912,9 +793,7 @@ def Attribute.isDict (attr : Attribute) : Bool :=
   | .dictionaryAttr _ => true
   | _ => false
 
-/--
-  Coerce an attribute to a dictionary attribute if it is a dictionary attribute.
--/
+/-- Coerce an attribute to a dictionary attribute if it is a dictionary attribute. -/
 def Attribute.asDict? (attr : Attribute) (isDict : attr.isDict := by grind) : Option DictionaryAttr :=
   match _ : attr with
   | .dictionaryAttr dict => some dict
@@ -936,12 +815,7 @@ theorem Attribute.asDict_dictionaryAttr (dict : DictionaryAttr) (isDict) :
     (Attribute.dictionaryAttr dict).asDict isDict = dict := by
   simp [Attribute.asDict, Attribute.asDict?]
 
-/-!
-  ## Coercion instances to TypeAttr
-
-  We define a coercion from each attribute structure to `TypeAttr` if the attribute
-  can be used as a type annotation.
--/
+/-! Coercion instances to TypeAttr -/
 
 instance : Coe IntegerType TypeAttr where
   coe type := ⟨.integerType type, by rfl⟩

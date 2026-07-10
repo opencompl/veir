@@ -18,15 +18,7 @@ import all Veir.IR.Buffed.SimDefs
 
 set_option linter.unusedSectionVars false
 
-/-! # Region push simulation proofs
-
-The raw region-slot setter, its spec-level counterpart, and the (large) proof that the `Sim`
-relation survives them. Split out of `Veir.Rewriter.Basic` to keep that file readable,
-mirroring `Veir.Rewriter.RewriterPushOperand`.
-
-Unlike the other slot setters, `Rewriter.setRegion` writes into *two* allocations: the region's
-`parent` link and the operation's region slot. Every read-preservation bridge therefore carries
-two disjointness obligations. -/
+/-! Region push simulation proofs -/
 
 public section
 namespace Veir
@@ -49,9 +41,7 @@ protected def Rewriter.setRegion (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed
     (hnum : opPtr.toNat + Buffed.Operation.sizeBaseNat ≤ ctx₀.size)
     (hslot : (opPtr + opPtr.computeRegionOffset ctx₀ idx hnum).toNat + Buffed.ptrSize.toNat ≤ ctx₀.size) :
     Buffed.IRBufContext OpInfo :=
-  -- Compute the region slot from `ctx₀` (the region-`writeParent` below touches the region, not
-  -- the operation's count fields, so the offset is the same), then write the parent link and
-  -- blit the region pointer into the slot. `hregion` bounds the (independent) region pointer.
+  -- Compute the region slot from `ctx₀` (the region-`writeParent` below touches the region, not the operation's count fields, so the offset is the same), then write the parent link and blit the region pointer into the slot.
   let slot := opPtr + opPtr.computeRegionOffset ctx₀ idx hnum
   let ctx := region.writeParent ctx₀ opPtr hregion
   let mem := ctx.mem.blit64 slot region (by
@@ -62,9 +52,7 @@ protected def Rewriter.setRegion (opPtr : Buffed.OperationMPtr) (ctx₀ : Buffed
   { ctx with mem := mem }
 
 set_option maxHeartbeats 1000000000 in
-/-- The `Sim` relation survives writing `region` into slot `idx` of `opPtr`'s (pre-allocated)
-region array and back-linking the region's `parent` to `opPtr`, while the spec performs the
-matching `Rewriter.pushRegion`. Discharges the `admitted_sim` in `Rewriter.pushRegionAtSim`. -/
+/-- The `Sim` relation survives writing `region` into slot `idx` of `opPtr`'s (pre-allocated) region array and back-linking the region's `parent` to `opPtr`, while the spec performs the matching `Rewriter.pushRegion`. -/
 theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (region : Sim.RegionPtr)
     (opPtrInBounds : opPtr.InBounds ctx) (regionInBounds : region.InBounds ctx)
@@ -104,12 +92,8 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
   have hparentaddr : ((region.impl + Buffed.Region.Offsets.parent).toNat : Int) = region.spec.toFlat + 16 := by
     rw [UInt64.uint64_add_int64_toNat_lt] <;>
       grind [RegionPtr.range, show Buffed.Region.Offsets.parent.toInt = 16 from rfl]
-  -- the region allocation is disjoint from the operation allocation
   have hdOR := ctx.sim.disjoint_allocs (.operation opPtr.spec) (.region region.spec)
     (by grind) (by grind) (by simp)
-  -- Read-preservation bridge over the two writes: any 8-/4-byte read disjoint from both the
-  -- region-`parent` slot `[region+16, region+24)` and the region slot `[slot, slot+8)` is
-  -- unchanged; the attribute table is untouched.
   have hread : ∀ (a : UInt64),
       (a.toNat + 8 ≤ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum).toNat
        ∨ (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum).toNat + 8 ≤ a.toNat) →
@@ -132,12 +116,10 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     simp only [Rewriter.setRegion, Buffed.RegionMPtr.writeParent]
     rw [ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega),
       ExArray.read32!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; omega)]
-  -- reading the freshly written region slot
   have hslotread : (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.read64!
       (opPtr.impl + Buffed.OperationMPtr.computeRegionOffset ctx.buf opPtr.impl idx hnum) = region.impl := by
     simp only [Rewriter.setRegion, Buffed.RegionMPtr.writeParent]
     rw [ExArray.read64!_blit64_self]
-  -- reading the freshly written region-parent link
   have hparentread : (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.read64!
       (region.impl + Buffed.Region.Offsets.parent) = opPtr.impl := by
     simp only [Rewriter.setRegion, Buffed.RegionMPtr.writeParent]
@@ -158,8 +140,6 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
   have hrange : (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.range
       = ctx.buf.mem.range := by
     simp only [Rewriter.setRegion, Buffed.RegionMPtr.writeParent, ExArray.range_blit64]
-  -- `pushRegion` is a two-step spec update (`setParent` then `pushRegion`); `grind` cannot chain
-  -- the two `LayoutUnchanged` facts on its own, so establish the composite up front.
   have hlu : ctx.spec.LayoutUnchanged
       (Rewriter.pushRegion ctx.spec opPtr.spec region.spec (by grind) (by grind) (by grind)) := by
     simp only [Rewriter.pushRegion]
@@ -203,7 +183,6 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     have hdr := ctx.sim.disjoint_allocs (.operation op) (.region region.spec) (by grind) (by grind) (by simp)
     have haft := Sim.OperationPtr.after_lt_ctx (ctx := ctx) op hopib
     have hri := ctx.sim.repr.operations_indices op (by grind)
-    -- the op's area layout, phrased over the same atoms `layout_grind` produces
     have hareaOP : Buffed.Operation.Offsets.operandsInt op ctx.spec
         = 72 + ((Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat : Int) := by rfl
     have hareaBO : Buffed.Operation.Offsets.blockOperandsInt op ctx.spec
@@ -221,13 +200,11 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     have hopMM : (UInt64.toNat op.toM : Int) = op.toFlat := by
       simp only [OperationPtr.toM]
       grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', OperationPtr.toFlat, layout_grind]
-    -- the two ranges, in `Int` form, that must be avoided
     have hri1 := OperationPtr.range_ideal (ctx := ctx.spec) ctx.sim.repr hopib
     have hri2 := OperationPtr.range_ideal (ctx := ctx.spec) ctx.sim.repr opPtrInBounds.ib
     have hdrI : IsDisjointI (op.rangeInt ctx.spec) (region.spec.rangeInt) := by
       simp only [TopLevelPtr.range, hri1, RegionPtr.range_ideal] at hdr
       exact hdr
-    -- any read inside `op`'s allocation is disjoint from the region's `parent` slot
     have hrgdisj : ∀ (b : Nat), op.toFlat + Buffed.Operation.Offsets.resultsInt op ctx.spec ≤ (b : Int) →
         (b : Int) + 8 ≤ op.toFlat + Buffed.Operation.Offsets.afterInt op ctx.spec →
         (b + 8 ≤ (region.impl + Buffed.Region.Offsets.parent).toNat
@@ -237,7 +214,6 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
         RegionPtr.rangeInt, Buffed.Region.rangeInt, add_nat_range_def] at hdrI
       have h24 : Buffed.Region.Offsets.afterInt = 24 := by decide
       grind [ExArray.range_lower, ExArray.range_upper]
-    -- reads inside `op`'s fixed header are disjoint from both written slots
     have hro8 : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 72 →
         (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.read64! (op.toM + off)
           = ctx.buf.mem.read64! (op.toM + off) := by
@@ -372,7 +348,6 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
         dsimp only at ridxIn
         have hcapr := ctx.sim.repr.operations_indices op (by grind) |>.capRegions
         have hcapr2 := ctx.sim.repr.operations_indices op (by grind) |>.regions
-        -- the regions offset is computed from header fields, which are preserved
         have hcro : Buffed.OperationMPtr.computeRegionsOffset!
               (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot) op.toM
             = Buffed.OperationMPtr.computeRegionsOffset! ctx.buf op.toM := by
@@ -392,7 +367,6 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
         have hcri : (Buffed.OperationMPtr.computeRegionsOffset! ctx.buf op.toM).toInt
             = Buffed.Operation.Offsets.regionsInt op ctx.spec :=
           Veir.OperationPtr.computeRegionsOffset!_ideal ctx ⟨op.toM, op⟩ (by grind) (by grind) hnumop
-        -- the address of `op`'s `j`-th region slot
         have hslotj : ∀ (j : Nat), j < (op.get! ctx.spec).capRegions →
             ((op.toM + Buffed.OperationMPtr.computeRegionOffset! ctx.buf op.toM j.toUInt64).toNat : Int)
               = op.toFlat + (Buffed.Operation.Offsets.regionsInt op ctx.spec + Buffed.ptrSizeNat * j) := by
@@ -438,7 +412,6 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
             grind [Rewriter.pushRegion]
           · -- a pre-existing slot
             have hridx' : ridx < idx.toNat := by omega
-            -- `ptrSizeNat` must be a literal or `omega` sees `ptrSizeNat * ridx` as an opaque atom
             have hp8 : Buffed.ptrSizeNat = 8 := rfl
             simp only [hp8] at hslotR hslotaddr
             have := henc.regions ridx (by grind)
@@ -614,7 +587,7 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
           simpa using this
         constructor
         · have := this.kind
-          simp only [Buffed.OpResultMPtr.readKind!, hresmeq, hresget] at this ⊢
+          simp only [Buffed.OpResultMPtr.readKind!, hresmeq] at this ⊢
           rw [hres0]
           clear hread hread32 hattr hslotread hparentread hrange hoff hslotaddr hparentaddr hincl hmul hidxlt hdOR hopM hrgM hin hrin hsz
           grind [layout_grind, Rewriter.pushRegion]
@@ -639,7 +612,6 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
           clear hread hread32 hattr hslotread hparentread hrange hoff hslotaddr hparentaddr hincl hmul hidxlt hdOR hopM hrgM hin hrin hsz
           grind [layout_grind, Rewriter.pushRegion]
   · -- encoding_block: a block's allocation is disjoint from both the operation's and the
-    -- region's, so every read is preserved.
     simp only
     intros blk blkIb
     have hblkib : blk.InBounds ctx.spec := by
@@ -814,8 +786,6 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
     simp only [TopLevelPtr.range, RegionPtr.range_ideal, hri2, IsDisjointI, RegionPtr.rangeInt,
       Buffed.Region.rangeInt, OperationPtr.rangeInt, Buffed.Operation.rangeInt, add_nat_range_def] at hdd
     have h24 : Buffed.Region.Offsets.afterInt = 24 := by decide
-    -- the `firstBlock`/`lastBlock` fields sit below the `parent` slot, so they are preserved
-    -- for *every* region (including the one being re-parented).
     have hrg8 : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 16 →
         (Rewriter.setRegion opPtr.impl ctx.buf idx region.impl hregion hnum hslot).mem.read64! (rg.toM + off)
           = ctx.buf.mem.read64! (rg.toM + off) := by
@@ -846,7 +816,6 @@ theorem Rewriter.setRegion_pushRegion_sim (opPtr : Sim.OperationPtr) (ctx : Sim.
       (try clear hslot hnum hregion)
       grind [layout_grind, Rewriter.pushRegion]
     · -- the `parent` field: the re-parented region reads back the freshly written link,
-      -- every other region is untouched.
       by_cases hcase : rg = region.spec
       · subst hcase
         have hrgeq : region.spec.toM = region.impl := regionInBounds.sim

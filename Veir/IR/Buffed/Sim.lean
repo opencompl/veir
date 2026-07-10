@@ -119,7 +119,6 @@ def Sim.OptionBlockPtr.toOption (ptr : Sim.OptionBlockPtr) : Option Sim.BlockPtr
     .none
 
 
-
 @[grind, inline]
 def BlockPtr.toSim (ptr : BlockPtr) : Sim.BlockPtr :=
   { impl := ptr.toM, spec := ptr }
@@ -936,8 +935,6 @@ theorem Sim.OpResultPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr :
   simp [Sim, Veir.OpResultPtr.toM] at sim
   have : ptr.spec.IsRepr ctx.spec := by grind only [isRepr_of_inBounds]
   grind
-
-#print axioms Sim.OpResultPtr.toFlat_eq_impl_toNat
 
 @[grind .]
 theorem Sim.OptionOpResultPtr.toFlat_eq_impl_toNat {ctx : Sim.IRContext OpInfo} {ptr : Sim.OptionOpResultPtr} (ib : ptr.InBounds ctx) :

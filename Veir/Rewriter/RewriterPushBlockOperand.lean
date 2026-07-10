@@ -17,11 +17,7 @@ import all Veir.IR.Buffed.SimDefs
 
 set_option linter.unusedSectionVars false
 
-/-! # Rewriter simulation proofs: block-operand push
-
-The raw block-operand slot setter, its spec-level counterpart, and the proof that the `Sim`
-relation survives them. Clone of `Veir.Rewriter.RewriterPushOperand` for the block-operand
-family. -/
+/-! Rewriter simulation proofs: block-operand push -/
 
 public section
 namespace Veir
@@ -36,8 +32,7 @@ protected def Rewriter.setBlockOperand (opPtr : Buffed.OperationMPtr) (ctx₀ : 
     (value : Buffed.BlockMPtr) : Buffed.IRBufContext OpInfo :=
   let oper : Buffed.BlockOperandMPtr := opPtr + opPtr.computeBlockOperandOffset ctx₀ idx hnum
   let ctx := oper.writeNextUse ctx₀ .none (by prove_setSlotBounds ctx₀)
-  -- `back` points at the block's `firstUse` slot (offset 0), mirroring the spec's
-  -- `BlockOperandPtrPtr.blockFirstUse` (the use-list insertion re-writes it with the same value).
+  -- `back` points at the block's `firstUse` slot (offset 0), mirroring the spec's `BlockOperandPtrPtr.blockFirstUse` (the use-list insertion re-writes it with the same value).
   let ctx := oper.writeBack ctx (value + Buffed.Block.Offsets.firstUse) (by prove_setSlotBounds ctx₀)
   let ctx := oper.writeOwner ctx opPtr (by prove_setSlotBounds ctx₀)
   let ctx := oper.writeValue ctx value (by prove_setSlotBounds ctx₀)
@@ -54,9 +49,7 @@ protected def Rewriter.pushBlockOperand (ctx : IRContext OpInfo) (opPtr : Operat
   opPtr.pushBlockOperand ctx operand (by grind)
 
 set_option maxHeartbeats 1000000000 in
-/-- The `Sim` relation survives writing a fresh block operand into slot `idx` of `opPtr`'s
-(pre-allocated) block-operand array while the spec pushes the corresponding `BlockOperand`.
-Discharges the `admitted_sim` in `Rewriter.pushBlockOperandAtUnattachedSim`. -/
+/-- The `Sim` relation survives writing a fresh block operand into slot `idx` of `opPtr`'s (pre-allocated) block-operand array while the spec pushes the corresponding `BlockOperand`. -/
 theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
     (idx : UInt64) (blockPtr : Sim.BlockPtr)
     (opPtrInBounds : opPtr.InBounds ctx) (blockInBounds : blockPtr.InBounds ctx)
@@ -85,8 +78,6 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
     simp only [Buffed.OperationMPtr.computeBlockOperandOffset,
       Buffed.OperationMPtr.computeBlockOperandsOffset_eq_computeBlockOperandsOffset!]
     grind [Buffed.OperationMPtr.computeBlockOperandOffset, IsIncludedI, IsIncludedIN]
-  -- Read-preservation bridges over the four slot writes: any 8-/4-byte read disjoint from the
-  -- written slot `[oper, oper+32)` is unchanged, and the attribute table is untouched.
   have husz : (opPtr.impl + Buffed.OperationMPtr.computeBlockOperandOffset ctx.buf opPtr.impl idx hnum).toNat + 32 ≤ ctx.buf.mem.size := by
     grind
   have ek : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 32 →
@@ -157,7 +148,6 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
     have hd := ctx.sim.disjoint_allocs (.operation op) (.operation opPtr.spec) (by grind) (by grind)
     have haft := Sim.OperationPtr.after_lt_ctx (ctx := ctx) op hopib
     have hri := ctx.sim.repr.operations_indices op (by grind)
-    -- the op's area layout, phrased over the same atoms `layout_grind` produces
     have hareaOP : Buffed.Operation.Offsets.operandsInt op ctx.spec
         = 72 + ((Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat : Int) := by rfl
     have hareaBO : Buffed.Operation.Offsets.blockOperandsInt op ctx.spec
@@ -177,7 +167,6 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
     have hopM : (UInt64.toNat op.toM : Int) = op.toFlat := by
       simp only [OperationPtr.toM]
       grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', OperationPtr.toFlat, layout_grind]
-    -- reads inside `op`'s fixed header are disjoint from the freshly written block-operand slot
     have hro8 : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 72 →
         (Rewriter.setBlockOperand opPtr.impl ctx.buf idx hnum hslot blockPtr.impl).mem.read64! (op.toM + off) = ctx.buf.mem.read64! (op.toM + off) := by
       intro off n hn h72
@@ -439,7 +428,6 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
             rw [UInt64.uint64_add_int64_toNat_lt] <;>
               grind [layout_grind, UInt64.toNat_mul]
           · have hdd := hd (by simp [hcase])
-            -- anchor the written slot's offset so grind does not wander on the opaque atom
             have hoffi : (Buffed.OperationMPtr.computeBlockOperandOffset ctx.buf opPtr.impl idx hnum).toInt
                 = Buffed.Operation.Offsets.blockOperandsInt opPtr.spec ctx.spec + (Buffed.BlockOperand.sizeNat * idx.toNat : Nat) := by
               clear hread hread32 hattr ek hslotaddr husz hincl hcro this
@@ -450,7 +438,6 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
                 Buffed.OperationMPtr.computeBlockOperandOffset!]
               rw [Int64.add_toInt_lt'] <;>
                 grind [layout_grind, UInt64.toNat_mul, OperationPtr.computeBlockOperandsOffset!_ideal]
-            -- anchor the region slot: its range sits inside `op`'s range and its flat address
             have hincl2 := OperationPtr.nthRegion_range_included_op_range ctx op ridx.toUInt64
               (by clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt hcro this hoffi hdd;
                   (try clear hro8 hro4); (try clear hslot); grind) hopib
@@ -590,7 +577,7 @@ theorem Rewriter.setBlockOperand_pushBlockOperand_sim (opPtr : Sim.OperationPtr)
             grind [layout_grind]
         constructor
         · have := this.kind
-          simp only [Buffed.OpResultMPtr.readKind!, hresmeq, hresget] at this ⊢
+          simp only [Buffed.OpResultMPtr.readKind!, hresmeq] at this ⊢
           rw [hres0]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt
           grind [layout_grind, Rewriter.pushBlockOperand]

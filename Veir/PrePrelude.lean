@@ -20,7 +20,5 @@ instance : HAdd UInt64 Int64 UInt64 where
 instance : HAdd Int64 UInt64 Int64 where
   hAdd x y := x + y.toInt64
 
--- @[grind =]
 theorem UInt64.add_int64_l_def (x : Int64) (y : UInt64) : x + y = x + y.toInt64 := rfl
--- @[grind =]
 theorem UInt64.add_int64_r_def (x : UInt64) (y : Int64) : x + y = (x.toInt64 + y).toUInt64 := rfl

@@ -3,11 +3,12 @@ module
 public import ExArray.Basic
 public import Std.Data.HashMap
 public import Veir.IR.Buffed.Layout
--- Exposes the body of `dbgTrace` so the `*.debugPrint` printers (which use `dbg_trace`)
--- can be proved to return the buffer context unchanged.
+-- Exposes the body of `dbgTrace` so the `*.debugPrint` printers (which use `dbg_trace`) can be proved to return the buffer context unchanged.
 import all Init.Util
 
 open Std (HashMap)
+
+set_option linter.unusedSectionVars false
 
 public section
 
@@ -15,17 +16,13 @@ public section
 theorem _root_UInt64.toNat_UInt64_ofNat_of_lt {n : Nat} (h : n < UInt64.size) : UInt64.toNat (UInt64.ofNat n) = n := by
   simp_all
 
--- TODO: move
 abbrev _root_.UInt64.toInt (x : UInt64) : Int := x.toNat
 abbrev _root_.UInt32.toInt64 (x : UInt32) : Int64 := .ofUInt64 x.toUInt64
 
 attribute [grind =] UInt32.toNat_toUInt64 UInt64.toNat_sub_of_le UInt64.ofNat_toNat
 attribute [local grind! .] UInt64.toNat_lt
 
-/- Decomposition of mixed `UInt64 + Int64` pointer arithmetic: as long as the result is
-nonnegative and the base pointer is below `2^63`, the addition does not wrap, so `.toInt`
-distributes. Lives here (rather than `SimDefs`) so the raw accessors can discharge their
-own field-bound obligations. -/
+/- Decomposition of mixed `UInt64 + Int64` pointer arithmetic: as long as the result is nonnegative and the base pointer is below `2^63`, the addition does not wrap, so `.toInt` distributes. -/
 @[grind =]
 theorem UInt64.uint64_add_int64_toInt_lt {a : UInt64} {b : Int64}
   (hnneg : 0 ≤ a.toNat + b.toInt)
@@ -68,8 +65,7 @@ theorem UInt64.uint64_add_int64_toInt_lt {a : UInt64} {b : Int64}
 
 namespace Veir.Buffed
 
-/-! ## Low-level pointers.
-The `MPtr` point to objects, whereas `OPtr` are nullable, with sentinel value `-1`. -/
+/-! Low-level pointers. -/
 
 abbrev ValueImplMPtr := UInt64
 abbrev ValueImplOPtr := UInt64
@@ -136,8 +132,7 @@ structure IRBufContext OpInfo [HasOpInfo OpInfo] where
   mem : ExArray
   attributes : Array Attribute
 
-/-- The default context reserves attribute-table slot 0 for the empty dictionary attribute:
-freshly allocated operations leave their (zero-initialized) `attrs` field pointing at it. -/
+/-- The default context reserves attribute-table slot 0 for the empty dictionary attribute: freshly allocated operations leave their (zero-initialized) `attrs` field pointing at it. -/
 instance [HasOpInfo OpInfo] : Inhabited (IRBufContext OpInfo) where
   default := ⟨default, #[.dictionaryAttr DictionaryAttr.empty]⟩
 
@@ -182,9 +177,7 @@ theorem IRBufContext.insertAttrs_size {bctx bctx' : IRBufContext OpInfo} {attrs 
 
 @[inline]
 def IRBufContext.alloc (bctx : IRBufContext OpInfo) (size : UInt64) : Option (IRBufContext OpInfo) :=
-  -- The second conjunct keeps the grown buffer below `Int64.maxNatValue` (`2^63 - 1`), which
-  -- is exactly the capacity `ExArray.extend` requires; `noOverflowsAdd` makes the `UInt64`
-  -- comparison meaningful (no wraparound in `bctx.usize + size`).
+  -- The second conjunct keeps the grown buffer below `Int64.maxNatValue` (`2^63 - 1`), which is exactly the capacity `ExArray.extend` requires; `noOverflowsAdd` makes the `UInt64` comparison meaningful (no wraparound in `bctx.usize + size`).
   if h : noOverflowsAdd bctx.usize size ∧ bctx.usize + size < Int64.maxValue.toUInt64 then
     let mem := bctx.mem.extend size (by
       obtain ⟨h₁, h₂⟩ := h
@@ -211,9 +204,7 @@ theorem IRBufContext.alloc_size {bctx bctx' : IRBufContext OpInfo} {size : UInt6
     simp [size_def, ExArray.extend_size]
   · exact absurd h (by simp)
 
-/-- The next allocation pointer `bctx.usize` has `toNat` equal to the current buffer size.
-This is the pointer an `alloc` hands back, so it lets alloc-time bounds proofs relate the
-pointer address to the buffer size. -/
+/-- The next allocation pointer `bctx.usize` has `toNat` equal to the current buffer size. -/
 @[grind =]
 theorem IRBufContext.usize_toNat (bctx : IRBufContext OpInfo) :
     bctx.usize.toNat = bctx.size := by
@@ -883,12 +874,7 @@ theorem OperationMPtr.getResultPtr_eq_getResultPtr! {ptr : OperationMPtr} {idx :
     ptr.getResultPtr bctx idx h = ptr.getResultPtr! bctx idx := by
   simp [OperationMPtr.getResultPtr, OperationMPtr.getResultPtr!]
 
-/-- Bounds for reading any fixed-header field of an operation, given that the whole fixed
-header `[ptr, ptr + sizeBase)` is in bounds. The `toNat` hypothesis is wrap-free (unlike a
-`(ptr + off).toInt` bound for a *single* field, it rules out address wraparound for all the
-lower fields at once, since `fits_in_memory` keeps the buffer below `2^63`), so each field's
-checked-read obligation follows by linear arithmetic. The offset side conditions are
-auto-discharged by `decide` at the call site. -/
+/-- Bounds for reading any fixed-header field of an operation, given that the whole fixed header `[ptr, ptr + sizeBase)` is in bounds. -/
 theorem OperationMPtr.header_field_bound {ptr : OperationMPtr} {off : Int64} {sz : UInt64}
     (h : ptr.toNat + Operation.sizeBaseNat ≤ bctx.size)
     (hoff : 0 ≤ off.toInt := by decide)
@@ -936,9 +922,7 @@ theorem OperationMPtr.computeBlockOperandOffset_eq_computeBlockOperandOffset! {p
 def BlockMPtr.computeBlockSize (numArgs : UInt64) : Int64 :=
   Block.sizeBase + (BlockArgument.size * numArgs) |>.toInt64
 
-/-- As long as `numArgs` fits in a `UInt32` (`countCard = 2^32`), the block size does not
-overflow, so its `Nat` value is exactly the base size plus the arguments array. In
-particular it is at least `Block.sizeBaseNat`, which is what the field-write bounds need. -/
+/-- As long as `numArgs` fits in a `UInt32` (`countCard = 2^32`), the block size does not overflow, so its `Nat` value is exactly the base size plus the arguments array. -/
 theorem BlockMPtr.computeBlockSize_toNat (numArgs : UInt64) (h : numArgs.toNat ≤ countCard) :
     (computeBlockSize numArgs).toUInt64.toNat = Block.sizeBaseNat + numArgs.toNat * BlockArgument.sizeNat := by
   have hlt : numArgs.toNat < 2 ^ 64 := UInt64.toNat_lt numArgs
@@ -955,9 +939,7 @@ def OperationMPtr.computeOperationSize (numResults numOperands numBlockOperands 
     (OpResult.size * numResults) + (OpOperand.size * numOperands) +
     (BlockOperand.size * numBlockOperands) + (ptrSize * numRegions)
 
-/-- As long as every count and the property size fit in a `UInt32` (`countCard = 2^32`), the
-operation size does not overflow, so its `Nat` value is exactly the sum of the base size, the
-property size and each array. This is the analogue of `computeBlockSize_toNat` for operations. -/
+/-- As long as every count and the property size fit in a `UInt32` (`countCard = 2^32`), the operation size does not overflow, so its `Nat` value is exactly the sum of the base size, the property size and each array. -/
 theorem OperationMPtr.computeOperationSize_toNat
     (numResults numOperands numBlockOperands numRegions propSize : UInt64)
     (hr : numResults.toNat ≤ countCard) (ho : numOperands.toNat ≤ countCard)
@@ -1183,10 +1165,6 @@ theorem BlockMPtr.readNumArguments_eq_readNumArguments! {ptr : BlockMPtr} {h} :
     ptr.readNumArguments bctx h = ptr.readNumArguments! bctx := by
   simp [BlockMPtr.readNumArguments, BlockMPtr.readNumArguments!]
 
--- The offset of the `idx`-th block argument depends only on `idx`, not on any bounds proof: a
--- block with `capArguments = 0` genuinely has no room past its base, so no in-bounds fact is
--- available (nor needed) here. Memory safety for an actual access is enforced when the returned
--- `BlockArgumentMPtr` is read/written.
 @[inline]
 def BlockMPtr.computeArgumentOffset (idx : UInt64) : Int64 :=
   Block.Offsets.arguments + (BlockArgument.size * idx)
@@ -1361,9 +1339,7 @@ def BlockOperandMPtr.dump (ptr : BlockOperandMPtr) (bctx : IRBufContext OpInfo) 
   let value := ptr.readValue! bctx
   s!"BlockOperand(nextUse={printO nextUse}, back={printO back}, owner={printO owner}, value={printO value}) [Note: addr={ptr}, memSize={memSize}]"
 
-/-- Dump a nullable `OPtr`, printing `null` for the sentinel and otherwise the underlying object.
-The `*MPtr.dump` is called by its full name since `MPtr`/`OPtr` are both `UInt64`, so dot notation
-on `ptr` would resolve back to this `OPtr.dump` and make it spuriously recursive. -/
+/-- Dump a nullable `OPtr`, printing `null` for the sentinel and otherwise the underlying object. -/
 def OperationOPtr.dump (ptr : OperationOPtr) (bctx : IRBufContext OpInfo) : String :=
   if ptr = .none then "null" else OperationMPtr.dump ptr bctx
 
@@ -1419,9 +1395,7 @@ def OpOperandOPtr.debugPrint (pref : String) (ptr : OpOperandOPtr) (bctx : IRBuf
 @[noinline, nospecialize]
 def BlockOperandOPtr.debugPrint (pref : String) (ptr : BlockOperandOPtr) (bctx : IRBufContext OpInfo) := dbg_trace "{pref}: {ptr.dump bctx}"; bctx
 
-/-! The `*.debugPrint` printers only emit a `dbg_trace` side effect and return the buffer
-context unchanged; these lemmas expose that so callers can prove the surrounding context
-is preserved. -/
+/-! The `*.debugPrint` printers only emit a `dbg_trace` side effect and return the buffer context unchanged; these lemmas expose that so callers can prove the surrounding context is preserved. -/
 
 @[simp, grind =]
 theorem OperationMPtr.debugPrint_eq (pref : String) (ptr : OperationMPtr) (bctx : IRBufContext OpInfo) :

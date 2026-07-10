@@ -17,14 +17,7 @@ open ForLean
 variable {OpInfo} [HasOpInfo OpInfo]
 variable {ctx ctx' : IRContext OpInfo}
 
-/--
-  A def-use chain for an SSA value.
-  The def-use chain is represented as an ordered array of operands, where
-  each operand corresponds to a use of the value. The first element of the
-  array is the first use of the value.
-  Each operand in the array points to the next use of the value, forming a
-  linked list.
--/
+/-- A def-use chain for an SSA value. -/
 structure ValuePtr.DefUse
     (value : ValuePtr) (ctx : IRContext OpInfo) (array : Array OpOperandPtr)
     (missingUses : Std.ExtHashSet OpOperandPtr := ∅) : Prop where
@@ -504,17 +497,7 @@ theorem BlockPtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
 
 end BlockPtr.DefUse
 
-/--
-  An operation chain owned by a block.
-  An operation chain is a doubly linked list of operations within a block, where each
-  operation points to the next and previous operations in the block. The block itself
-  points to the first and last operations in the chain.
-  The operation chain is represented as an ordered array of operation pointers, where
-  the first element of the array is the first operation in the block, and the last
-  element is the last operation in the block.
-  Each operation that has the block as its parent must be included in the operation chain,
-  unless it is included in the `missingOps` set.
--/
+/-- An operation chain owned by a block. -/
 structure BlockPtr.OpChain (block : BlockPtr) (ctx : IRContext OpInfo) (array : Array OperationPtr)
     (missingOps : Std.ExtHashSet OperationPtr := ∅) : Prop where
   blockInBounds : block.InBounds ctx
@@ -1305,10 +1288,7 @@ grind_pattern RegionPtr.lastBlock!_parent! =>
   ctx.WellFormed missingUses missingSuccessorUses, (reg.get! ctx).lastBlock, some lastBl,
   (lastBl.get! ctx).parent
 
-/--
-  Compute the index of an operation in its parent's operations list.
-  If the operation does not have a parent, return 0.
--/
+/-- Compute the index of an operation in its parent's operations list. -/
 noncomputable def OperationPtr.idxInParent (op : OperationPtr) (ctx : IRContext OpInfo)
     (hop : op.InBounds ctx := by grind)
     (hctx : ctx.WellFormed := by grind) : Nat :=
@@ -1354,14 +1334,7 @@ theorem OperationPtr.idxInParent_next_eq
 grind_pattern OperationPtr.idxInParent_next_eq =>
   nextOp.idxInParent ctx hnextOp hctx, (op.get! ctx).next, some nextOp
 
-/--
-  Compute the index of an operation in its parent's operations list from the tail
-  (i.e. the last operation has index 0).
-  If the operation does not have a parent, return 0.
-
-  This function is useful for proving termination of recursive functions that traverse
-  the operation list, as this function decreases when we move to the next operation in the list.
--/
+/-- Compute the index of an operation in its parent's operations list from the tail (i.e. the last operation has index 0). -/
 noncomputable def OperationPtr.idxInParentFromTail (op : OperationPtr) (ctx : IRContext OpInfo)
     (hop : op.InBounds ctx := by grind)
     (hctx : ctx.WellFormed := by grind) : Nat :=
@@ -1419,11 +1392,7 @@ theorem OperationPtr.idxInParentFromTail_next_lt_idxInParentFromTail
 grind_pattern OperationPtr.idxInParentFromTail_next_eq =>
   nextOp.idxInParentFromTail ctx hnextOp hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
 
-/--
-  Prove preservation of the `region_parent` field of `OperationPtr.WellFormed`, if
-  region parents, number of regions, and region pointers are unchanged in the
-  new context.
--/
+/-- Prove preservation of the `region_parent` field of `OperationPtr.WellFormed`, if region parents, number of regions, and region pointers are unchanged in the new context. -/
 theorem OperationPtr.WellFormed.region_parent.unchanged
     {opPtr : OperationPtr} {ctx ctx' : IRContext OpInfo}
     (h_getRegion : opPtr.getRegion! ctx' = opPtr.getRegion! ctx)
@@ -1458,11 +1427,7 @@ theorem OperationPtr.WellFormed.numResults_eq_capResults {opPtr : OperationPtr} 
   fun h => h.capResults_eq_numResults
 grind_pattern OperationPtr.WellFormed.numResults_eq_capResults => opPtr.WellFormed ctx ib, (opPtr.get! ctx).capResults
 
-/--
-  An IR context that also carries its well-formedness proof.
-  This is the type that users are expected to work with most of the time, unless they
-  need to explicitly break the well-formedness invariant during a transformation.
--/
+/-- An IR context that also carries its well-formedness proof. -/
 structure WfIRContext (OpInfo : Type) [HasOpInfo OpInfo] where
   raw : IRContext OpInfo
   wellFormed : raw.WellFormed

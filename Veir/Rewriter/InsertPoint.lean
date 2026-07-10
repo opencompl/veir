@@ -10,6 +10,8 @@ public import Veir.IR.Buffed.InBounds
 
 import all Veir.IR.Buffed.Sim
 
+set_option linter.unusedSectionVars false
+
 public section
 
 namespace Veir
@@ -19,9 +21,7 @@ variable {ctx ctx' : IRContext OpInfo}
 
 section InsertPoint
 
-/--
-- A position in the IR where we can insert an operation.
--/
+/-- A position in the IR where we can insert an operation. -/
 inductive InsertPoint where
   | before (op: OperationPtr)
   | atEnd (block: BlockPtr)
@@ -277,10 +277,7 @@ grind_pattern InsertPoint.prev.maybe₁_parent =>
   ctx.WellFormed, InsertPoint.InBounds ip ctx, InsertPoint.block! ip ctx, some blockPtr,
   ip.prev! ctx, some prevOp, (prevOp.get! ctx).parent
 
-/--
- - Get the index of the insertion point in the operation list of the block.
- - The index is where a new operation would be inserted.
- -/
+/-- Get the index in the block's operation list at which a new operation would be inserted. -/
 noncomputable def InsertPoint.idxIn
     (insertPoint : InsertPoint) (ctx : IRContext OpInfo)
     (blockPtr : BlockPtr) (inBounds : insertPoint.InBounds ctx := by grind) (hRepr : insertPoint.IsRepr := by grind)
@@ -421,9 +418,7 @@ theorem InsertPoint.idxIn_Before_lt_size
 
 end InsertPoint
 
-/--
-- A position in the IR where we can insert an operation.
--/
+/-- A position in the IR where we can insert a block. -/
 inductive BlockInsertPoint where
 | before (op: BlockPtr)
 | atEnd (block: RegionPtr)
@@ -617,10 +612,7 @@ theorem next_prev {ip : BlockInsertPoint} :
 grind_pattern next_prev =>
   ctx.WellFormed, ip.InBounds ctx, ip.prev! ctx, some prevOp, ip.next.toOption.map (·.spec), some nextOp
 
-/--
-Get the index of the insertion point in the block list of the region.
-The index is where a new block would be inserted.
--/
+/-- Get the index of the insertion point in the block list of the region. -/
 noncomputable def idxIn
     (insertPoint : BlockInsertPoint) (ctx : IRContext OpInfo)
     (regionPtr : RegionPtr) (inBounds : insertPoint.InBounds ctx := by grind) (hRepr : insertPoint.IsRepr := by grind)

@@ -1,7 +1,6 @@
 name = "VeIR"
 version = "0.1.0"
 defaultTargets = ["buffed-benchmark"]
-testRunner = "UnitTest"
 moreLeanArgs = ["--tstack=400000"]
 moreServerArgs = ["--tstack=400000"]
 moreLeancArgs = ["-flto=full"]
