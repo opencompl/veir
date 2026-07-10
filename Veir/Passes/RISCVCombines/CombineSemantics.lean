@@ -12163,4 +12163,534 @@ theorem li_zero_to_x0_local_preservesSemantics
   rw [hCstVal0]
   first | exact Data.RISCV.li_ofInt_zero_eq_x0 | exact Data.RISCV.li_ofInt_zero_eq_x0.symm
 
+/-! ### `drop_ext_of_bitwise` : drop `riscv.<ext>` wrapping a guarded bitwise op
+
+  `op` is a `riscv.<ext>` whose operand `inner` is defined by a bitwise `riscv.<dst>` (`and`/`or`/
+  `xor`). No operation is created: the `<ext>`'s result is replaced by `inner`. The inner op's two
+  operands are recovered with `riscv_binaryReg_getVar?_of_EquationLemmaAt`; when the `definedByExt`
+  guard reports an operand is itself defined by a `riscv.<ext>`, that operand's value is pinned to the
+  image of the extension with `riscv_unaryReg_getVar?_of_strictlyDominates` (the operand's defining
+  ext op strictly dominates `op` by transitivity through the inner op). The obligation then collapses
+  to the width-generic `Reg` equalities in `Proofs.lean` (`zextw_and_left`/`_right`, `zextw_or`, …),
+  which encode exactly why one guarded operand suffices for `and` under a zero-extension but both are
+  needed for `or`/`xor` and every sign-extension. -/
+
+/-- If the `definedByExt` guard fires for `v`, recover the defining `riscv.<ext>` op and its match. -/
+private theorem definedByExt_of_eq_true {ext : Riscv} {v : ValuePtr} {ctx : IRContext OpCode}
+    (h : definedByExt ext v ctx = true) :
+    ∃ d eops eprops, getDefiningOp v ctx = some d ∧
+      matchOp d ctx (.riscv ext) 1 = some (eops, eprops) := by
+  unfold definedByExt at h
+  cases hd : getDefiningOp v ctx with
+  | none => simp [hd] at h
+  | some d =>
+    cases hm : matchOp d ctx (.riscv ext) 1 with
+    | none => simp [hd, hm] at h
+    | some p =>
+      obtain ⟨eops, eprops⟩ := p
+      exact ⟨d, eops, eprops, rfl, hm⟩
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness for `drop_ext_of_bitwise_local`, generic over the extension `ext` (with data
+    action `fext`), the bitwise op `dst` (with data action `fdst`), and the `oneOperandSuffices`
+    flag. The data obligation `fext (fdst r₁ r₂) = fdst r₁ r₂` is supplied per guard scenario:
+    `hDataL`/`hDataR` cover a single guarded operand (only sound when `oneOperandSuffices`), and
+    `hDataBoth` covers both operands guarded (used when both are required). Each is guarded by the
+    flag value so that the vacuous scenario is discharged trivially at instantiation. -/
+theorem drop_ext_of_bitwise_local_preservesSemantics {ext dst : Riscv} {oneOperandSuffices : Bool}
+    {fext : Data.RISCV.Reg → Data.RISCV.Reg}
+    {fdst : Data.RISCV.Reg → Data.RISCV.Reg → Data.RISCV.Reg}
+    (hPureExt : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .riscv ext → opp.Pure c)
+    (hSemExt : ∀ (props : HasDialectOpInfo.propertiesOf ext) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' ext props rt ops bo mem = some (.ok res) →
+        ∃ r, ops = #[.reg r] ∧ res = (#[.reg (fext r)], mem, none))
+    (hPureDst : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .riscv dst → opp.Pure c)
+    (hSemDst : ∀ (props : HasDialectOpInfo.propertiesOf dst) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' dst props rt ops bo mem = some (.ok res) →
+        ∃ r₁ r₂, ops = #[.reg r₁, .reg r₂] ∧ res = (#[.reg (fdst r₁ r₂)], mem, none))
+    (hDataL : oneOperandSuffices = true →
+        ∀ (a r₂ : Data.RISCV.Reg), fext (fdst (fext a) r₂) = fdst (fext a) r₂)
+    (hDataR : oneOperandSuffices = true →
+        ∀ (r₁ b : Data.RISCV.Reg), fext (fdst r₁ (fext b)) = fdst r₁ (fext b))
+    (hDataBoth : oneOperandSuffices = false →
+        ∀ (a b : Data.RISCV.Reg), fext (fdst (fext a) (fext b)) = fdst (fext a) (fext b))
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local ext dst oneOperandSuffices)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local ext dst oneOperandSuffices)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local ext dst oneOperandSuffices)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local ext dst oneOperandSuffices)} :
+    LocalRewritePattern.PreservesSemantics
+      (drop_ext_of_bitwise_local ext dst oneOperandSuffices) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, drop_ext_of_bitwise_local]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp only [pure] at hpattern
+  -- Peel the outer `matchOp`.
+  have hMatchSome : (matchOp op ctx.raw (.riscv ext) 1).isSome := by
+    cases hM : matchOp op ctx.raw (.riscv ext) 1 with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨operands, oProps⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Peel `getDefiningOp`.
+  have hDefSome : (getDefiningOp operands[0]! ctx.raw).isSome := by
+    cases hD : getDefiningOp operands[0]! ctx.raw with
+    | some y => rfl
+    | none => rw [hD] at hpattern; simp at hpattern
+  obtain ⟨innerOp, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+  rw [hDef] at hpattern
+  simp only [] at hpattern
+  -- Peel the inner `matchOp`.
+  have hInnerMatchSome : (matchOp innerOp ctx.raw (.riscv dst) 2).isSome := by
+    cases hIM : matchOp innerOp ctx.raw (.riscv dst) 2 with
+    | some y => rfl
+    | none => rw [hIM] at hpattern; simp at hpattern
+  obtain ⟨⟨innerOperands, iProps⟩, hInnerMatch⟩ := Option.isSome_iff_exists.mp hInnerMatchSome
+  rw [hInnerMatch] at hpattern
+  simp only [] at hpattern
+  -- The guard must hold, else the pattern would have returned `(ctx, none)`.
+  have hguard : (if oneOperandSuffices
+      then definedByExt ext innerOperands[0]! ctx.raw || definedByExt ext innerOperands[1]! ctx.raw
+      else definedByExt ext innerOperands[0]! ctx.raw && definedByExt ext innerOperands[1]! ctx.raw)
+      = true := by
+    rcases Decidable.em ((if oneOperandSuffices
+        then definedByExt ext innerOperands[0]! ctx.raw || definedByExt ext innerOperands[1]! ctx.raw
+        else definedByExt ext innerOperands[0]! ctx.raw && definedByExt ext innerOperands[1]! ctx.raw)
+        = true) with hg | hg
+    · exact hg
+    · rw [Bool.not_eq_true] at hg; rw [hg] at hpattern; simp at hpattern
+  rw [hguard] at hpattern
+  simp only [Bool.not_true, Bool.false_eq_true, if_false] at hpattern
+  obtain ⟨hOpType, hNumOperands, hNumResults, hOperandsEq, -⟩ := matchOp_implies hMatch
+  have hOperands : op.getOperands! ctx.raw = #[operands[0]!] := by
+    have hsz : operands.size = 1 := by
+      rw [hOperandsEq, OperationPtr.getOperands!.size_eq_getNumOperands!, hNumOperands]
+    rw [← hOperandsEq]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  obtain ⟨rfl, rfl, rfl⟩ : ctx = newCtx ∧ newOps = #[] ∧ newValues = #[operands[0]!] := by
+    simp at hpattern; grind
+  -- Unfold the outer op's interpretation.
+  obtain ⟨v, hOuterSrcVal, hMem, hResVal, hCf⟩ :=
+    matchRiscvUnaryReg_interpretOp_unfold (rop := ext) (f := fext) opInBounds hOpType hNumResults
+      hOperands hSemExt hinterp
+  subst hCf
+  have hDomOuter : (operands[0]!).dominatesIp (InsertPoint.before op) ctx := by
+    grind [WfIRContext.Dom.operand_dominates_op]
+  have hOuterNotOp : ¬ operands[0]! ∈ op.getResults! ctx.raw := by
+    grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+  -- Recover the inner bitwise op's operands and its value `fdst r₁ r₂`.
+  obtain ⟨r₁, r₂, hr1, hr2, hBaseVal, hIn0, hIn1, hMem0, hMem1, hInnerSDom⟩ :=
+    riscv_binaryReg_getVar?_of_EquationLemmaAt (rop := dst) (f := fdst) ctxDom ctxVerif opInBounds
+      stateWf hPureDst hSemDst hDef hInnerMatch (by simp [hOperands])
+  obtain rfl : v = fdst r₁ r₂ := by
+    have := hOuterSrcVal.symm.trans hBaseVal; simpa using this
+  -- The dropped `fext` is a no-op on `fdst r₁ r₂` under the guard.
+  have heq : fext (fdst r₁ r₂) = fdst r₁ r₂ := by
+    -- Recover an operand's value as the image of `fext` from its `definedByExt` guard.
+    have recover : ∀ {idx : Nat} (base : ValuePtr) (rbase : Data.RISCV.Reg),
+        base = innerOperands[idx]! →
+        state.variables.getVar? base = some (RuntimeValue.reg rbase) →
+        base.InBounds ctx.raw → base ∈ innerOp.getOperands! ctx.raw →
+        definedByExt ext base ctx.raw = true →
+        ∃ a, rbase = fext a := by
+      intro idx base rbase _hidx hbaseVal hbaseIn hbaseMem hguardBase
+      obtain ⟨defOp, eops, eprops, hDefGet, hDefMatch⟩ := definedByExt_of_eq_true hguardBase
+      have hDefRes : defOp.getNumResults! ctx.raw = 1 := (matchOp_implies hDefMatch).2.2.1
+      have hDefines : base.getDefiningOp! ctx.raw = some defOp :=
+        getDefiningOp!_of_getDefiningOp hDefGet hbaseIn hDefRes
+      have hDefSDom : defOp.strictlyDominates op ctx :=
+        OperationPtr.strictlyDominates_trans
+          (OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hDefines hbaseMem)
+          hInnerSDom
+      obtain ⟨a, hva⟩ := riscv_unaryReg_getVar?_of_strictlyDominates (rop := ext) (f := fext)
+        opInBounds stateWf hPureExt hSemExt hDefGet hDefMatch hbaseIn hDefSDom
+      refine ⟨a, ?_⟩
+      have := hbaseVal.symm.trans hva; simpa using this
+    rcases Decidable.em (oneOperandSuffices = true) with hone | hone
+    · rw [hone] at hguard; simp only [if_true, Bool.or_eq_true] at hguard
+      rcases hguard with hlg | hrg
+      · obtain ⟨a, rfl⟩ := recover innerOperands[0]! r₁ rfl hr1 hIn0 hMem0 hlg
+        exact hDataL hone a r₂
+      · obtain ⟨b, rfl⟩ := recover innerOperands[1]! r₂ rfl hr2 hIn1 hMem1 hrg
+        exact hDataR hone r₁ b
+    · rw [Bool.not_eq_true] at hone
+      rw [hone] at hguard; simp only [Bool.false_eq_true, if_false, Bool.and_eq_true] at hguard
+      obtain ⟨hlg, hrg⟩ := hguard
+      obtain ⟨a, rfl⟩ := recover innerOperands[0]! r₁ rfl hr1 hIn0 hMem0 hlg
+      obtain ⟨b, rfl⟩ := recover innerOperands[1]! r₂ rfl hr2 hIn1 hMem1 hrg
+      exact hDataBoth hone a b
+  -- `sourceValues` is the single dropped result value `.reg (fext (fdst r₁ r₂))`.
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hResVal] at hsourceValues
+  subst sourceValues
+  -- Read the forwarded operand's value in the target state (register refinement is equality).
+  have hOuterTgt :=
+    LocalRewritePattern.exists_refined_reg_getVar? valueRefinement state'Dom (by grind)
+      hOuterSrcVal hDomOuter hDomOuter hOuterNotOp
+  refine ⟨state', by
+    simp [interpretOpList, liftM, monadLift, MonadLift.monadLift, Interp, pure], by grind, ?_⟩
+  refine ⟨#[RuntimeValue.reg (fdst r₁ r₂)], by simp [hOuterTgt, Option.bind, Option.map], ?_⟩
+  exact RuntimeValue.arrayIsRefinedBy_singleton.mpr heq
+
+/-! Per-opcode characterisations of the `riscv` unary-extension and binary-bitwise interpreters,
+    plus the 14 instantiations of `drop_ext_of_bitwise_local_preservesSemantics`. -/
+
+private theorem char_zextw : ∀ (props : HasDialectOpInfo.propertiesOf Riscv.zextw) (rt : Array TypeAttr)
+    (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+    (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+    Riscv.interpretOp' Riscv.zextw props rt ops bo mem = some (.ok res) →
+    ∃ r, ops = #[.reg r] ∧ res = (#[.reg (Data.RISCV.zextw r)], mem, none) := by
+  intro _ _ _ _ _ _ h
+  simp only [Riscv.interpretOp', pure, Interp] at h
+  split at h
+  · rename_i r heq
+    exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+  · exact absurd h (by simp)
+
+private theorem char_sextw : ∀ (props : HasDialectOpInfo.propertiesOf Riscv.sextw) (rt : Array TypeAttr)
+    (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+    (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+    Riscv.interpretOp' Riscv.sextw props rt ops bo mem = some (.ok res) →
+    ∃ r, ops = #[.reg r] ∧ res = (#[.reg (Data.RISCV.sextw r)], mem, none) := by
+  intro _ _ _ _ _ _ h
+  simp only [Riscv.interpretOp', pure, Interp] at h
+  split at h
+  · rename_i r heq
+    exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+  · exact absurd h (by simp)
+
+private theorem char_zextb : ∀ (props : HasDialectOpInfo.propertiesOf Riscv.zextb) (rt : Array TypeAttr)
+    (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+    (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+    Riscv.interpretOp' Riscv.zextb props rt ops bo mem = some (.ok res) →
+    ∃ r, ops = #[.reg r] ∧ res = (#[.reg (Data.RISCV.zextb r)], mem, none) := by
+  intro _ _ _ _ _ _ h
+  simp only [Riscv.interpretOp', pure, Interp] at h
+  split at h
+  · rename_i r heq
+    exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+  · exact absurd h (by simp)
+
+private theorem char_zexth : ∀ (props : HasDialectOpInfo.propertiesOf Riscv.zexth) (rt : Array TypeAttr)
+    (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+    (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+    Riscv.interpretOp' Riscv.zexth props rt ops bo mem = some (.ok res) →
+    ∃ r, ops = #[.reg r] ∧ res = (#[.reg (Data.RISCV.zexth r)], mem, none) := by
+  intro _ _ _ _ _ _ h
+  simp only [Riscv.interpretOp', pure, Interp] at h
+  split at h
+  · rename_i r heq
+    exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+  · exact absurd h (by simp)
+
+private theorem char_sextb : ∀ (props : HasDialectOpInfo.propertiesOf Riscv.sextb) (rt : Array TypeAttr)
+    (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+    (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+    Riscv.interpretOp' Riscv.sextb props rt ops bo mem = some (.ok res) →
+    ∃ r, ops = #[.reg r] ∧ res = (#[.reg (Data.RISCV.sextb r)], mem, none) := by
+  intro _ _ _ _ _ _ h
+  simp only [Riscv.interpretOp', pure, Interp] at h
+  split at h
+  · rename_i r heq
+    exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+  · exact absurd h (by simp)
+
+private theorem char_sexth : ∀ (props : HasDialectOpInfo.propertiesOf Riscv.sexth) (rt : Array TypeAttr)
+    (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+    (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+    Riscv.interpretOp' Riscv.sexth props rt ops bo mem = some (.ok res) →
+    ∃ r, ops = #[.reg r] ∧ res = (#[.reg (Data.RISCV.sexth r)], mem, none) := by
+  intro _ _ _ _ _ _ h
+  simp only [Riscv.interpretOp', pure, Interp] at h
+  split at h
+  · rename_i r heq
+    exact ⟨r, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+  · exact absurd h (by simp)
+
+private theorem char_and : ∀ (props : HasDialectOpInfo.propertiesOf Riscv.and) (rt : Array TypeAttr)
+    (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+    (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+    Riscv.interpretOp' Riscv.and props rt ops bo mem = some (.ok res) →
+    ∃ r₁ r₂, ops = #[.reg r₁, .reg r₂] ∧ res = (#[.reg (Data.RISCV.and r₂ r₁)], mem, none) := by
+  intro _ _ _ _ _ _ h
+  simp only [Riscv.interpretOp', pure, Interp] at h
+  split at h
+  · rename_i op1 op2 heq
+    exact ⟨op1, op2, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+  · exact absurd h (by simp)
+
+private theorem char_or : ∀ (props : HasDialectOpInfo.propertiesOf Riscv.or) (rt : Array TypeAttr)
+    (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+    (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+    Riscv.interpretOp' Riscv.or props rt ops bo mem = some (.ok res) →
+    ∃ r₁ r₂, ops = #[.reg r₁, .reg r₂] ∧ res = (#[.reg (Data.RISCV.or r₂ r₁)], mem, none) := by
+  intro _ _ _ _ _ _ h
+  simp only [Riscv.interpretOp', pure, Interp] at h
+  split at h
+  · rename_i op1 op2 heq
+    exact ⟨op1, op2, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+  · exact absurd h (by simp)
+
+private theorem char_xor : ∀ (props : HasDialectOpInfo.propertiesOf Riscv.xor) (rt : Array TypeAttr)
+    (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+    (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+    Riscv.interpretOp' Riscv.xor props rt ops bo mem = some (.ok res) →
+    ∃ r₁ r₂, ops = #[.reg r₁, .reg r₂] ∧ res = (#[.reg (Data.RISCV.xor r₂ r₁)], mem, none) := by
+  intro _ _ _ _ _ _ h
+  simp only [Riscv.interpretOp', pure, Interp] at h
+  split at h
+  · rename_i op1 op2 heq
+    exact ⟨op1, op2, Array.toList_inj.mp heq, by injection h with h; injection h with h; exact h.symm⟩
+  · exact absurd h (by simp)
+
+theorem zextw_and_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .zextw .and true)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .zextw .and true)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .zextw .and true)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .zextw .and true)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .zextw .and true) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.zextw) (fdst := fun r₁ r₂ => Data.RISCV.and r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_zextw hType) char_zextw
+    (fun hType => OperationPtr.Pure.riscv_and hType) char_and
+    (fun _ a r₂ => Data.RISCV.zextw_and_right (a := r₂) (b := a))
+    (fun _ r₁ b => Data.RISCV.zextw_and_left (a := b) (b := r₁))
+    (fun h => absurd h (by decide))
+
+theorem zextw_or_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .zextw .or false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .zextw .or false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .zextw .or false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .zextw .or false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .zextw .or false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.zextw) (fdst := fun r₁ r₂ => Data.RISCV.or r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_zextw hType) char_zextw
+    (fun hType => OperationPtr.Pure.riscv_or hType) char_or
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.zextw_or (a := b) (b := a))
+
+theorem zextw_xor_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .zextw .xor false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .zextw .xor false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .zextw .xor false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .zextw .xor false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .zextw .xor false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.zextw) (fdst := fun r₁ r₂ => Data.RISCV.xor r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_zextw hType) char_zextw
+    (fun hType => OperationPtr.Pure.riscv_xor hType) char_xor
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.zextw_xor (a := b) (b := a))
+
+theorem sextw_and_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .sextw .and false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .sextw .and false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .sextw .and false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .sextw .and false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .sextw .and false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.sextw) (fdst := fun r₁ r₂ => Data.RISCV.and r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_sextw hType) char_sextw
+    (fun hType => OperationPtr.Pure.riscv_and hType) char_and
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.sextw_and (a := b) (b := a))
+
+theorem sextw_or_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .sextw .or false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .sextw .or false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .sextw .or false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .sextw .or false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .sextw .or false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.sextw) (fdst := fun r₁ r₂ => Data.RISCV.or r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_sextw hType) char_sextw
+    (fun hType => OperationPtr.Pure.riscv_or hType) char_or
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.sextw_or (a := b) (b := a))
+
+theorem sextw_xor_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .sextw .xor false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .sextw .xor false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .sextw .xor false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .sextw .xor false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .sextw .xor false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.sextw) (fdst := fun r₁ r₂ => Data.RISCV.xor r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_sextw hType) char_sextw
+    (fun hType => OperationPtr.Pure.riscv_xor hType) char_xor
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.sextw_xor (a := b) (b := a))
+
+theorem zextb_and_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .zextb .and true)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .zextb .and true)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .zextb .and true)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .zextb .and true)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .zextb .and true) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.zextb) (fdst := fun r₁ r₂ => Data.RISCV.and r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_zextb hType) char_zextb
+    (fun hType => OperationPtr.Pure.riscv_and hType) char_and
+    (fun _ a r₂ => Data.RISCV.zextb_and_right (a := r₂) (b := a))
+    (fun _ r₁ b => Data.RISCV.zextb_and_left (a := b) (b := r₁))
+    (fun h => absurd h (by decide))
+
+theorem zextb_or_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .zextb .or false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .zextb .or false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .zextb .or false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .zextb .or false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .zextb .or false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.zextb) (fdst := fun r₁ r₂ => Data.RISCV.or r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_zextb hType) char_zextb
+    (fun hType => OperationPtr.Pure.riscv_or hType) char_or
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.zextb_or (a := b) (b := a))
+
+theorem zextb_xor_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .zextb .xor false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .zextb .xor false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .zextb .xor false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .zextb .xor false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .zextb .xor false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.zextb) (fdst := fun r₁ r₂ => Data.RISCV.xor r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_zextb hType) char_zextb
+    (fun hType => OperationPtr.Pure.riscv_xor hType) char_xor
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.zextb_xor (a := b) (b := a))
+
+theorem zexth_and_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .zexth .and true)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .zexth .and true)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .zexth .and true)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .zexth .and true)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .zexth .and true) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.zexth) (fdst := fun r₁ r₂ => Data.RISCV.and r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_zexth hType) char_zexth
+    (fun hType => OperationPtr.Pure.riscv_and hType) char_and
+    (fun _ a r₂ => Data.RISCV.zexth_and_right (a := r₂) (b := a))
+    (fun _ r₁ b => Data.RISCV.zexth_and_left (a := b) (b := r₁))
+    (fun h => absurd h (by decide))
+
+theorem zexth_or_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .zexth .or false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .zexth .or false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .zexth .or false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .zexth .or false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .zexth .or false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.zexth) (fdst := fun r₁ r₂ => Data.RISCV.or r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_zexth hType) char_zexth
+    (fun hType => OperationPtr.Pure.riscv_or hType) char_or
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.zexth_or (a := b) (b := a))
+
+theorem zexth_xor_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .zexth .xor false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .zexth .xor false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .zexth .xor false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .zexth .xor false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .zexth .xor false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.zexth) (fdst := fun r₁ r₂ => Data.RISCV.xor r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_zexth hType) char_zexth
+    (fun hType => OperationPtr.Pure.riscv_xor hType) char_xor
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.zexth_xor (a := b) (b := a))
+
+theorem sextb_and_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .sextb .and false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .sextb .and false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .sextb .and false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .sextb .and false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .sextb .and false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.sextb) (fdst := fun r₁ r₂ => Data.RISCV.and r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_sextb hType) char_sextb
+    (fun hType => OperationPtr.Pure.riscv_and hType) char_and
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.sextb_and (a := b) (b := a))
+
+theorem sextb_or_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .sextb .or false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .sextb .or false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .sextb .or false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .sextb .or false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .sextb .or false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.sextb) (fdst := fun r₁ r₂ => Data.RISCV.or r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_sextb hType) char_sextb
+    (fun hType => OperationPtr.Pure.riscv_or hType) char_or
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.sextb_or (a := b) (b := a))
+
+theorem sextb_xor_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .sextb .xor false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .sextb .xor false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .sextb .xor false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .sextb .xor false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .sextb .xor false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.sextb) (fdst := fun r₁ r₂ => Data.RISCV.xor r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_sextb hType) char_sextb
+    (fun hType => OperationPtr.Pure.riscv_xor hType) char_xor
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.sextb_xor (a := b) (b := a))
+
+theorem sexth_and_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .sexth .and false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .sexth .and false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .sexth .and false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .sexth .and false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .sexth .and false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.sexth) (fdst := fun r₁ r₂ => Data.RISCV.and r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_sexth hType) char_sexth
+    (fun hType => OperationPtr.Pure.riscv_and hType) char_and
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.sexth_and (a := b) (b := a))
+
+theorem sexth_or_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .sexth .or false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .sexth .or false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .sexth .or false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .sexth .or false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .sexth .or false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.sexth) (fdst := fun r₁ r₂ => Data.RISCV.or r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_sexth hType) char_sexth
+    (fun hType => OperationPtr.Pure.riscv_or hType) char_or
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.sexth_or (a := b) (b := a))
+
+theorem sexth_xor_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (drop_ext_of_bitwise_local .sexth .xor false)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_ext_of_bitwise_local .sexth .xor false)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_ext_of_bitwise_local .sexth .xor false)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_ext_of_bitwise_local .sexth .xor false)} :
+    LocalRewritePattern.PreservesSemantics (drop_ext_of_bitwise_local .sexth .xor false) h h₂ h₃ h₄ :=
+  drop_ext_of_bitwise_local_preservesSemantics
+    (fext := Data.RISCV.sexth) (fdst := fun r₁ r₂ => Data.RISCV.xor r₂ r₁)
+    (fun hType => OperationPtr.Pure.riscv_sexth hType) char_sexth
+    (fun hType => OperationPtr.Pure.riscv_xor hType) char_xor
+    (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
+    (fun _ a b => Data.RISCV.sexth_xor (a := b) (b := a))
+
 end Veir.RISCV

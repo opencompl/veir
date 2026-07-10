@@ -1383,6 +1383,13 @@ private def stripDefiningExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpC
     | none => (val, false)
     | some (operands, _) => (operands[0]!, true)
 
+/-- Guard used by `drop_ext_of_bitwise_local`: is `val` defined by a `riscv.<ext>` op? This is the
+    `Bool` component of `stripDefiningExt`, phrased directly so the correctness proof can recover the
+    defining `riscv.<ext>` op (and hence that `val`'s runtime register value is in the image of the
+    extension) when it is `true`. See `definedByExt_eq_true_iff`. -/
+def definedByExt (ext : Riscv) (val : ValuePtr) (ctx : IRContext OpCode) : Bool :=
+  (do let d ← getDefiningOp val ctx; (matchOp d ctx (.riscv ext) 1).map Prod.fst).isSome
+
 set_option warn.sorry false in
 /-- Drop `riscv.<ext>` operands (`ext` = `zextw`/`sextw`) feeding a binary op
     whose semantics use only operand bits 31:0. For these consumers the high 32
@@ -1475,7 +1482,6 @@ def drop_sextw_srliw := drop_ext_unary_imm_low_word .sextw .srliw
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
 def drop_sextw_zextw := drop_ext_unary_imm_low_word .sextw .zextw
 
-set_option warn.sorry false in
 /-- Drop a `riscv.<ext>` wrapping the result of a bitwise op (`and`/`or`/`xor`)
     when its operands already establish the extension's high-bit pattern (bits
     63:32 all clear for `zextw`; all equal to bit 31 for `sextw`). Bitwise ops act
@@ -1493,41 +1499,46 @@ set_option warn.sorry false in
     there. When only one operand is guarded we still keep the inner op (and its
     unguarded operand) untouched; only the outer `<ext>` is dropped.
 
+    As a `LocalRewritePattern`: no operations are created; `op`'s single result is
+    forwarded to `inner` (the result of the inner bitwise op). The inner-op match
+    plus the `stripDefiningExt` guards are what the correctness proof uses to learn
+    that the inner op's operands already carry the extension's high-bit pattern, so
+    the outer `<ext>` is redundant. See `drop_ext_of_bitwise_local_preservesSemantics`.
+
     LLVM: `AND`/`OR`/`XOR` are the "lower word of output depends only on lower
     word of input" cases of `hasAllNBitUsers`, which recurse into their own
     users; combined with the known high bits of the operands this lets
     `SimplifyDemandedBits` / sext.w removal drop the outer extension.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L317-L321 -/
-private def drop_ext_of_bitwise (ext dst : Riscv) (oneOperandSuffices : Bool)
-    (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (operands, _) := matchOp op rewriter.ctx (.riscv ext) 1 | return rewriter
+def drop_ext_of_bitwise_local (ext dst : Riscv) (oneOperandSuffices : Bool)
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, _) := matchOp op ctx (.riscv ext) 1 | return (ctx, none)
   let inner := operands[0]!
-  let some innerOp := getDefiningOp inner rewriter.ctx | return rewriter
-  let some (innerOperands, _) := matchOp innerOp rewriter.ctx (.riscv dst) 2 | return rewriter
-  let (_, lhsGuarded) := stripDefiningExt ext innerOperands[0]! rewriter.ctx
-  let (_, rhsGuarded) := stripDefiningExt ext innerOperands[1]! rewriter.ctx
+  let some innerOp := getDefiningOp inner ctx | return (ctx, none)
+  let some (innerOperands, _) := matchOp innerOp ctx (.riscv dst) 2 | return (ctx, none)
+  let lhsGuarded := definedByExt ext innerOperands[0]! ctx
+  let rhsGuarded := definedByExt ext innerOperands[1]! ctx
   let guarded := if oneOperandSuffices then lhsGuarded || rhsGuarded else lhsGuarded && rhsGuarded
-  if !guarded then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) inner sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+  if !guarded then return (ctx, none)
+  some (ctx, some (#[], #[inner]))
 
 /-- `riscv.zextw (riscv.and a b) -> riscv.and a b` when *at least one* of `a`, `b`
     is `riscv.zextw`-guarded: `and` forces a result bit to zero whenever either
     operand's bit is zero, so one guarded operand already clears bits 63:32.
     LLVM: `AND` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L317 -/
-def zextw_and := drop_ext_of_bitwise .zextw .and true
+def zextw_and := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .zextw .and true)
 
 /-- `riscv.zextw (riscv.or (riscv.zextw a) (riscv.zextw b)) -> riscv.or (riscv.zextw a) (riscv.zextw b)`.
     LLVM: `OR` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L319 -/
-def zextw_or := drop_ext_of_bitwise .zextw .or false
+def zextw_or := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .zextw .or false)
 
 /-- `riscv.zextw (riscv.xor (riscv.zextw a) (riscv.zextw b)) -> riscv.xor (riscv.zextw a) (riscv.zextw b)`.
     LLVM: `XOR` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L321 -/
-def zextw_xor := drop_ext_of_bitwise .zextw .xor false
+def zextw_xor := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .zextw .xor false)
 
 /-- Sext mirror of `zextw_and`: `riscv.sextw (riscv.and (riscv.sextw a) (riscv.sextw b))
     -> riscv.and (riscv.sextw a) (riscv.sextw b)`. Both operands are required here
@@ -1535,15 +1546,15 @@ def zextw_xor := drop_ext_of_bitwise .zextw .xor false
     31, which a single guarded operand can't force. LLVM: `AND` case of
     `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L317 -/
-def sextw_and := drop_ext_of_bitwise .sextw .and false
+def sextw_and := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sextw .and false)
 
 /-- Sext mirror of `zextw_or`. LLVM: `OR` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L319 -/
-def sextw_or := drop_ext_of_bitwise .sextw .or false
+def sextw_or := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sextw .or false)
 
 /-- Sext mirror of `zextw_xor`. LLVM: `XOR` case of `hasAllNBitUsers`.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L321 -/
-def sextw_xor := drop_ext_of_bitwise .sextw .xor false
+def sextw_xor := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sextw .xor false)
 
 /-! Byte- and half-word mirrors of the `zextw`/`sextw` bitwise combines. The
     `drop_ext_of_bitwise` reasoning is width-agnostic: for any extension that
@@ -1552,18 +1563,18 @@ def sextw_xor := drop_ext_of_bitwise .sextw .xor false
     operands all carry that pattern produces a result that carries it too, so the
     outer extension is redundant. As with `zextw_and`, `and` under a
     *zero*-extension needs only one guarded operand; every other case needs both. -/
-def zextb_and := drop_ext_of_bitwise .zextb .and true
-def zextb_or := drop_ext_of_bitwise .zextb .or false
-def zextb_xor := drop_ext_of_bitwise .zextb .xor false
-def zexth_and := drop_ext_of_bitwise .zexth .and true
-def zexth_or := drop_ext_of_bitwise .zexth .or false
-def zexth_xor := drop_ext_of_bitwise .zexth .xor false
-def sextb_and := drop_ext_of_bitwise .sextb .and false
-def sextb_or := drop_ext_of_bitwise .sextb .or false
-def sextb_xor := drop_ext_of_bitwise .sextb .xor false
-def sexth_and := drop_ext_of_bitwise .sexth .and false
-def sexth_or := drop_ext_of_bitwise .sexth .or false
-def sexth_xor := drop_ext_of_bitwise .sexth .xor false
+def zextb_and := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .zextb .and true)
+def zextb_or := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .zextb .or false)
+def zextb_xor := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .zextb .xor false)
+def zexth_and := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .zexth .and true)
+def zexth_or := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .zexth .or false)
+def zexth_xor := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .zexth .xor false)
+def sextb_and := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sextb .and false)
+def sextb_or := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sextb .or false)
+def sextb_xor := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sextb .xor false)
+def sexth_and := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sexth .and false)
+def sexth_or := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sexth .or false)
+def sexth_xor := RewritePattern.fromLocalRewrite (drop_ext_of_bitwise_local .sexth .xor false)
 
 /-- Match a `riscv.<store>` (`sw`/`sh`/`sb`), returning `(addr, val, properties)`.
     These stores have no results, so they can't go through `matchOp` (which
