@@ -36,7 +36,10 @@ import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
     graph-lemma recovery of a defining op used by `sub_add_reg`. The two negated `sub_add_reg`
     combines (`x - (y + x) → 0 - y`, `x - (x + y) → 0 - y`) create *two* operations — a fresh
     `llvm.mlir.constant 0` (replayed with `interpretOp_llvm_constant_forward`) and the `sub` — so
-    they are the two-op-creating exemplar.
+    they are the two-op-creating exemplar. The six `redundant_binop_in_equality` combines
+    (`(binop X Y) cmp X → Y cmp 0`, `binop ∈ {add,sub,xor}`, `cmp ∈ {eq,ne}`) reuse that two-op
+    tail (constant `0` + emitted `icmp`) and recover the defining binop's value with a *generic*
+    graph lemma `matchBinop_getVar?_of_EquationLemmaAt` parameterized over the binop opcode.
 
   As in the instruction-selection proofs, the four `Return*` well-formedness predicates of
   the pattern are taken as hypotheses rather than discharged here.
@@ -1962,5 +1965,430 @@ theorem sub_add_reg_x_sub_x_add_y_local_preservesSemantics
   subAddRegNegLocal_preservesSemantics
     (fun hw a0v a1v as au ss su => by
       simpa using Data.LLVM.Int.sub_add_reg_x_sub_x_add_y (x := a0v) (y := a1v) hw)
+
+/-! ### redundant_binop_in_equality
+
+  `(binop X Y) cmp X → Y cmp 0` for `binop ∈ {add, sub, xor}`, `cmp ∈ {eq, ne}`. `op` is the
+  `icmp`, whose left operand is the result of a defining `binop`; recover that value with a generic
+  Layer-3 graph lemma parameterized over the binop opcode, then create a `constant 0` and an `icmp`.
+-/
+
+set_option maxHeartbeats 1000000 in
+/-- Generic version of `matchAdd_getVar?_of_EquationLemmaAt`, parameterized over the binop opcode
+    `srcOp`, its data-level function `srcFn`, and the matcher/verifier/purity facts. Recovers the
+    runtime value of a defining binop (`add`/`sub`/`xor`) reached through an operand of `op`. -/
+private theorem matchBinop_getVar?_of_EquationLemmaAt {srcOp : Llvm}
+    {srcFn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → propertiesOf (.llvm srcOp) →
+      Data.LLVM.Int bw}
+    {match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr)}
+    (hMatchImplies : ∀ {opp : OperationPtr} {c : IRContext OpCode} {l r},
+        match? opp c = some (l, r) →
+        opp.getOpType! c = .llvm srcOp ∧ opp.getNumResults! c = 1 ∧ opp.getOperands! c = #[l, r])
+    (hVerified : ∀ {c : WfIRContext OpCode} {opp : OperationPtr} {oib : opp.InBounds c.raw},
+        opp.Verified c oib → opp.getOpType! c.raw = .llvm srcOp → opp.IsVerifiedIntegerBinop c)
+    (hPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .llvm srcOp → opp.Pure c)
+    (hSemSrc : ∀ (bw : Nat) (a b : Data.LLVM.Int bw) (props : propertiesOf (.llvm srcOp))
+        (rt : Array TypeAttr) (bo : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' srcOp props rt #[.int bw a, .int bw b] bo mem
+          = some (.ok (#[.int bw (srcFn a b props)], mem, none)))
+    {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) (ctxVerif : ctx.Verified)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    {base x y : ValuePtr} {binOp : OperationPtr} {intType : IntegerType}
+    (hDef : getDefiningOp base ctx.raw = some binOp)
+    (hMatch : match? binOp ctx.raw = some (x, y))
+    (hOperand : base ∈ op.getOperands! ctx.raw)
+    (hBaseType : (base.getType! ctx.raw).val = Attribute.integerType intType) :
+    ∃ (xv yv : Data.LLVM.Int intType.bitwidth) (props : propertiesOf (.llvm srcOp)),
+      state.variables.getVar? x = some (RuntimeValue.int intType.bitwidth xv) ∧
+      state.variables.getVar? y = some (RuntimeValue.int intType.bitwidth yv) ∧
+      state.variables.getVar? base = some (RuntimeValue.int intType.bitwidth (srcFn xv yv props)) ∧
+      (x.getType! ctx.raw).val = Attribute.integerType intType ∧
+      (y.getType! ctx.raw).val = Attribute.integerType intType ∧
+      x.dominatesIp (InsertPoint.before op) ctx ∧ y.dominatesIp (InsertPoint.before op) ctx ∧
+      x.InBounds ctx.raw ∧ y.InBounds ctx.raw ∧
+      x ∉ op.getResults! ctx.raw ∧ y ∉ op.getResults! ctx.raw := by
+  obtain ⟨hBinType, hBinNumResults, hBinOperands⟩ := hMatchImplies hMatch
+  obtain ⟨basePtr, rfl⟩ : ∃ p, base = ValuePtr.opResult p := by
+    cases base with
+    | opResult p => exact ⟨p, rfl⟩
+    | _ => simp [getDefiningOp] at hDef
+  have hBinOpEq : basePtr.op = binOp := by simp [getDefiningOp] at hDef; grind
+  subst hBinOpEq
+  have hBaseIn : (ValuePtr.opResult basePtr).InBounds ctx.raw := by grind
+  have hBinOpIn : basePtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hIdx : basePtr.index < basePtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hBaseEq : basePtr = basePtr.op.getResult 0 := by
+    have hidx : basePtr.index = 0 := by omega
+    cases basePtr
+    simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]
+    exact ⟨trivial, hidx⟩
+  have hBinVerified : basePtr.op.Verified ctx hBinOpIn := by grind
+  obtain ⟨-, -, -, -, binIntType, hBinResType, hBinOperand0Type, hBinOperand1Type⟩ :=
+    hVerified hBinVerified hBinType
+  have hBaseTypeEq : (ValuePtr.opResult basePtr).getType! ctx.raw
+      = ((basePtr.op.getResult 0).get! ctx.raw).type := by rw [hBaseEq]; rfl
+  have hIntTypeEq : intType = binIntType := by
+    rw [hBaseTypeEq, hBinResType] at hBaseType; grind
+  subst hIntTypeEq
+  have hxIdxEq : x = (basePtr.op.getOperands! ctx.raw)[0]! := by rw [hBinOperands]; rfl
+  have hyIdxEq : y = (basePtr.op.getOperands! ctx.raw)[1]! := by rw [hBinOperands]; rfl
+  have hBinOperand0 : basePtr.op.getOperand! ctx.raw 0 = x := by
+    rw [hxIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hBinOperand1 : basePtr.op.getOperand! ctx.raw 1 = y := by
+    rw [hyIdxEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hxType : (x.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hBinOperand0, hBinOperand0Type]
+  have hyType : (y.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hBinOperand1, hBinOperand1Type]
+  have hBinDefines : (ValuePtr.opResult basePtr).getDefiningOp! ctx.raw = some basePtr.op := by
+    have hOwner := (ctx.wellFormed.operations basePtr.op hBinOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hBinSDom : basePtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom
+      hBinDefines hOperand
+  have hBinDomIp : basePtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hBinPure : basePtr.op.Pure ctx.raw := hPure hBinType
+  obtain ⟨cfB, hInterpBin⟩ := stateWf basePtr.op hBinOpIn hBinPure hBinDomIp
+  obtain ⟨xv, yv, hxVal, hyVal, -, hBinResVal, -⟩ :=
+    matchBinaryOp_interpretOp_unfold (srcOp := srcOp) (srcFn := srcFn)
+      (props := basePtr.op.getProperties! ctx.raw (.llvm srcOp))
+      hBinOpIn hBinType hBinNumResults hBinOperands rfl
+      (by intro bw a b props resultTypes blockOperands mem res h
+          rw [hSemSrc bw a b props resultTypes blockOperands mem] at h
+          injection h with h; injection h with h; exact h.symm)
+      hInterpBin hxType hyType
+  refine ⟨xv, yv, basePtr.op.getProperties! ctx.raw (.llvm srcOp), hxVal, hyVal, ?_,
+    hxType, hyType, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hBaseEq, hBinResVal]; rfl
+  · exact ValuePtr.dominatesIp_before_of_strictlyDominates
+      (ctxDom.operand_dominates_op hBinOpIn (by grind [OperationPtr.getOperands!])) hBinSDom
+  · exact ValuePtr.dominatesIp_before_of_strictlyDominates
+      (ctxDom.operand_dominates_op hBinOpIn (by grind [OperationPtr.getOperands!])) hBinSDom
+  · grind [OperationPtr.getOperands!]
+  · grind [OperationPtr.getOperands!]
+  · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hBinSDom) x
+      (by grind [OperationPtr.getOperands!])
+  · exact IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hBinSDom) y
+      (by grind [OperationPtr.getOperands!])
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness proof for the six `redundant_binop_in_equality` combines. Parameterized over
+    the inner binop's opcode `srcOp`/function `srcFn`/matcher-verifier-purity facts, the predicate
+    `pred`, and the data-refinement lemma `hRefine` (`icmp (srcFn x y props) x pred ⊒
+    icmp y (constant 0) pred`). -/
+theorem redundantBinopInEqualityLocal_preservesSemantics {srcOp : Llvm}
+    {srcFn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → propertiesOf (.llvm srcOp) →
+      Data.LLVM.Int bw}
+    {match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr)}
+    {pred : Data.LLVM.IntPred}
+    (hMatchImplies : ∀ {opp : OperationPtr} {c : IRContext OpCode} {l r},
+        match? opp c = some (l, r) →
+        opp.getOpType! c = .llvm srcOp ∧ opp.getNumResults! c = 1 ∧ opp.getOperands! c = #[l, r])
+    (hVerified : ∀ {c : WfIRContext OpCode} {opp : OperationPtr} {oib : opp.InBounds c.raw},
+        opp.Verified c oib → opp.getOpType! c.raw = .llvm srcOp → opp.IsVerifiedIntegerBinop c)
+    (hPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .llvm srcOp → opp.Pure c)
+    (hSemSrc : ∀ (bw : Nat) (a b : Data.LLVM.Int bw) (props : propertiesOf (.llvm srcOp))
+        (rt : Array TypeAttr) (bo : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' srcOp props rt #[.int bw a, .int bw b] bo mem
+          = some (.ok (#[.int bw (srcFn a b props)], mem, none)))
+    (hRefine : ∀ {w : Nat}, (w = 64 ∨ w = 32) → ∀ (x y : Data.LLVM.Int w)
+        (props : propertiesOf (.llvm srcOp)),
+        Data.LLVM.Int.icmp (srcFn x y props) x pred
+          ⊒ Data.LLVM.Int.icmp y (Data.LLVM.Int.constant w 0) pred)
+    {h : LocalRewritePattern.ReturnOps (redundantBinopInEqualityLocal match? pred)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (redundantBinopInEqualityLocal match? pred)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (redundantBinopInEqualityLocal match? pred)}
+    {h₄ : LocalRewritePattern.ReturnValues (redundantBinopInEqualityLocal match? pred)} :
+    LocalRewritePattern.PreservesSemantics (redundantBinopInEqualityLocal match? pred) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, redundantBinopInEqualityLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel `matchIcmp`.
+  have hMatchSome : (matchIcmp op ctx.raw).isSome := by
+    cases hM : matchIcmp op ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨lhsV, xval, ip⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  obtain ⟨hOpType, hNumResults, hOperands, hProps⟩ := matchIcmp_implies hMatch
+  have hResultsEq : ∀ (hin : op.InBounds ctx.raw),
+      op.getResults ctx.raw hin = #[ValuePtr.opResult (op.getResult 0)] := by
+    intro hin; grind
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Predicate guard.
+  have hPred : ip.predicate = pred := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hPred] at hpattern
+  -- Verifier facts for the `icmp`: the two operands share a type, result is `i1`.
+  have opVerif : op.Verified ctx opInBounds := by grind
+  obtain ⟨-, -, -, -, ⟨i1ty, hI1Ty, hI1Bw⟩, hOperandTypesEq⟩ :=
+    OperationPtr.Verified.llvm_icmp opVerif hOpType
+  have hLhsEq : lhsV = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  have hXvalEq : xval = (op.getOperands! ctx.raw)[1]! := by rw [hOperands]; rfl
+  have hOperand0 : op.getOperand! ctx.raw 0 = lhsV := by
+    rw [hLhsEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = xval := by
+    rw [hXvalEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  -- Peel the defining binop and the `x != xval` guard.
+  have hDefSome : (getDefiningOp lhsV ctx.raw).isSome := by
+    cases hM : getDefiningOp lhsV ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨binOp, hDef⟩ := Option.isSome_iff_exists.mp hDefSome
+  rw [hDef] at hpattern
+  simp only [] at hpattern
+  have hBinSome : (match? binOp ctx.raw).isSome := by
+    cases hM : match? binOp ctx.raw with
+    | some z => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨x, y⟩, hBinMatch⟩ := Option.isSome_iff_exists.mp hBinSome
+  rw [hBinMatch] at hpattern
+  simp only [] at hpattern
+  have hXEq : x = xval := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hXEq] at hpattern
+  -- The comparison-operand type is `lhsV`'s (the binop result's) type; pin it via the binop's
+  -- verifier.
+  obtain ⟨binType, hBinTypeVal⟩ :
+      ∃ t, (lhsV.getType! ctx.raw).val = Attribute.integerType t := by
+    obtain ⟨hBinOpType, hBinNRes, -⟩ := hMatchImplies hBinMatch
+    obtain ⟨bp, rfl⟩ : ∃ p, lhsV = ValuePtr.opResult p := by
+      cases lhsV with
+      | opResult p => exact ⟨p, rfl⟩
+      | _ => simp [getDefiningOp] at hDef
+    have hBinOpEq : bp.op = binOp := by simp [getDefiningOp] at hDef; grind
+    subst hBinOpEq
+    have hBinOpIn : bp.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+    have hV : bp.op.Verified ctx hBinOpIn := by grind
+    obtain ⟨-, -, -, -, t, hRT, -, -⟩ := hVerified hV hBinOpType
+    have hIdx : bp.index < bp.op.getNumResults! ctx.raw := by
+      grind [OpResultPtr.inBounds_OperationPtr_getNumResults!, OpResultPtr.InBounds]
+    have hBpEq : bp = bp.op.getResult 0 := by
+      have hidx : bp.index = 0 := by omega
+      cases bp; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+    refine ⟨t, ?_⟩
+    have : (ValuePtr.opResult bp).getType! ctx.raw = ((bp.op.getResult 0).get! ctx.raw).type := by
+      rw [hBpEq]; rfl
+    rw [this, hRT]
+  -- Recover the binop's runtime value and operands' facts.
+  obtain ⟨xv, yv, bProps, hxVal, hyVal, hLhsVal, hxType, hyType, hDomX, hDomY, hxIn, hyIn,
+      xNotOp, yNotOp⟩ :=
+    matchBinop_getVar?_of_EquationLemmaAt hMatchImplies hVerified hPure hSemSrc ctxDom ctxVerif
+      opInBounds stateWf hDef hBinMatch (by rw [hOperands]; simp) hBinTypeVal
+  -- Comparison-operand types agree, so `xval`'s type is `binType` too.
+  have hXvalType : (xval.getType! ctx.raw).val = Attribute.integerType binType := by
+    rw [← hOperand1, ← hOperandTypesEq, hOperand0, hBinTypeVal]
+  -- Width guard on `y`'s type (= `binType`).
+  rw [hyType] at hpattern
+  simp only [] at hpattern
+  split at hpattern
+  case isTrue => simp at hpattern
+  rename_i hWidthRaw
+  have hWidth : binType.bitwidth = 64 ∨ binType.bitwidth = 32 := by omega
+  -- Unfold the matched `icmp`.
+  obtain ⟨lv, xvv, hlvVal, hxvvVal, hMem, hRes, hCf⟩ :=
+    matchIcmp_interpretOp_unfold opInBounds hOpType hNumResults hOperands hProps hinterp
+      hBinTypeVal hXvalType
+  subst hCf
+  -- Pin `lv = srcFn xv yv bProps` and `xvv = xv` (from `x = xval`).
+  obtain rfl : lv = srcFn xv yv bProps := by
+    have := hlvVal.symm.trans hLhsVal; simpa using this
+  obtain rfl : xv = xvv := by
+    have := (hXEq ▸ hxVal).symm.trans hxvvVal; simpa using this
+  -- Rewrite the icmp result's predicate `ip.predicate` to `pred` in `hRes`.
+  rw [hPred] at hRes
+  -- Source value.
+  rw [hResultsEq] at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  -- Peel the two creations: the constant, then the `icmp`.
+  peelOpCreation! hpattern ctx₁ c0Op hC0 hDomY hDomY₁
+  peelOpCreation! hpattern ctx₂ icmpOp hIcmp hDomY₁ hDomY₂
+  cleanupHpattern hpattern
+  -- Structural facts for the constant.
+  have hC0Type : c0Op.getOpType! ctx₂.raw = .llvm .mlir__constant := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hC0 (operation := c0Op),
+      OperationPtr.getOpType!_WfRewriter_createOp hIcmp (operation := c0Op)]
+  have hC0Operands : c0Op.getOperands! ctx₂.raw = #[] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hC0 (operation := c0Op),
+      OperationPtr.getOperands!_WfRewriter_createOp hIcmp (operation := c0Op)]
+  have hC0NeIcmp : c0Op ≠ icmpOp := by clear hpattern state'Wf state'Dom valueRefinement; grind
+  have hC0Props : (c0Op.getProperties! ctx₂.raw (.llvm .mlir__constant)).value
+      = .integer ⟨0, binType⟩ := by
+    have h1 := OperationPtr.getProperties!_WfRewriter_createOp hC0 (operation := c0Op)
+      (opType := OpCode.llvm Llvm.mlir__constant)
+    rw [if_pos rfl] at h1
+    rw [OperationPtr.getProperties!_WfRewriter_createOp_ne hIcmp hC0NeIcmp, h1]
+  -- The constant's and icmp's result-type facts.
+  have hYTypeAttr : y.getType! ctx.raw
+      = (⟨Attribute.integerType binType, hyType ▸ (y.getType! ctx.raw).2⟩ : TypeAttr) :=
+    Subtype.ext hyType
+  have hC0ResTypes : c0Op.getResultTypes! ctx₂.raw
+      = #[(⟨Attribute.integerType binType, hyType ▸ (y.getType! ctx.raw).2⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hC0 (operation := c0Op)
+    rw [if_pos rfl] at hT
+    have hT2 := OperationPtr.getResultTypes!_WfRewriter_createOp hIcmp (operation := c0Op)
+    rw [if_neg (by clear hpattern state'Wf state'Dom valueRefinement; grind)] at hT2
+    rw [hT2, hT]
+    exact congrArg (fun t => #[t]) hYTypeAttr
+  -- Structural facts for the icmp.
+  have hIcmpType : icmpOp.getOpType! ctx₂.raw = .llvm .icmp := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hIcmp (operation := icmpOp)]
+  have hIcmpOperands : icmpOp.getOperands! ctx₂.raw = #[y, ValuePtr.opResult (c0Op.getResult 0)] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hIcmp (operation := icmpOp)]
+  have hIcmpProps : icmpOp.getProperties! ctx₂.raw (.llvm .icmp) = IcmpProperties.mk pred := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hIcmp (operation := icmpOp)]
+  -- The icmp's result type is `op`'s result type (`i1`).
+  have hOpResTypeAttr : ((op.getResult 0).get! ctx.raw).type
+      = (⟨Attribute.integerType i1ty, by grind⟩ : TypeAttr) := by
+    have hrt : ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType i1ty := hI1Ty
+    exact Subtype.ext hrt
+  have hGetTypeEq₁ : (ValuePtr.opResult (op.getResult 0)).getType! ctx₁.raw
+      = (⟨Attribute.integerType i1ty, by grind⟩ : TypeAttr) := by
+    rw [ValuePtr.getType!_opResult]
+    grind [ValuePtr.getType!_WfRewriter_createOp hC0 (value := ValuePtr.opResult (op.getResult 0)),
+      OperationPtr.getResult]
+  have hIcmpResTypes : icmpOp.getResultTypes! ctx₂.raw
+      = #[(⟨Attribute.integerType i1ty, by grind⟩ : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hIcmp (operation := icmpOp)
+    rw [if_pos rfl] at hT
+    rw [hT]
+    exact congrArg (fun t => #[t]) hGetTypeEq₁
+  -- Read the refined `y` in the target state.
+  obtain ⟨yt, hYVal', hyRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom hyIn hyVal
+      hDomY hDomY₂ yNotOp
+  -- Replay the constant, then the `icmp`.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, hFrame₁⟩ :=
+    interpretOp_llvm_constant_forward (state := state') (inBounds := by grind)
+      hC0Type hC0Props hC0Operands hC0ResTypes
+  have hYVal₁ : s₁.variables.getVar? y = some (RuntimeValue.int binType.bitwidth yt) := by
+    rw [hFrame₁ y (ValuePtr.not_mem_getResults!_of_inBounds_of_not_inBounds hyIn
+      (WfRewriter.createOp_new_not_inBounds c0Op hC0))]
+    exact hYVal'
+  obtain ⟨s₂, hI₂, hMem₂, hRes₂, -⟩ :=
+    interpretOp_llvm_icmp_forward (state := s₁) (inBounds := by grind)
+      (i1t := i1ty) (f := fun a b => Data.LLVM.Int.icmp a b pred) hI1Bw
+      (by intro resultTypes blockOperands mem
+          simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+      hIcmpType hIcmpProps hIcmpOperands hIcmpResTypes hYVal₁ hRes₁
+  refine ⟨s₂, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, hI₂, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.int 1 (Data.LLVM.Int.icmp yt (Data.LLVM.Int.constant binType.bitwidth 0)
+      pred)],
+    by simp [hRes₂, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  -- Assemble: `icmp (srcFn xv yv bProps) xv pred ⊒ icmp yv 0 pred ⊒ icmp yt 0 pred`.
+  simp only [Data.LLVM.Int.cast_self]
+  exact isRefinedBy_trans (hRefine hWidth xv yv bProps)
+    (Data.LLVM.Int.icmp_mono yv (Data.LLVM.Int.constant binType.bitwidth 0) yt
+      (Data.LLVM.Int.constant binType.bitwidth 0) pred hyRef (isRefinedBy_refl _))
+
+/-- `hMatchImplies` for a `matchBinopNoProps m` adapter, derived from the underlying matcher's
+    `_implies` fact. -/
+private theorem matchBinopNoProps_implies {llvmOp : Llvm}
+    {m : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × propertiesOf (.llvm llvmOp))}
+    (hm : ∀ {opp : OperationPtr} {c : IRContext OpCode} {l r p}, m opp c = some (l, r, p) →
+        opp.getOpType! c = .llvm llvmOp ∧ opp.getNumResults! c = 1 ∧
+          opp.getOperands! c = #[l, r] ∧ p = opp.getProperties! c (.llvm llvmOp))
+    {opp : OperationPtr} {c : IRContext OpCode} {l r}
+    (hM : matchBinopNoProps m opp c = some (l, r)) :
+    opp.getOpType! c = .llvm llvmOp ∧ opp.getNumResults! c = 1 ∧ opp.getOperands! c = #[l, r] := by
+  simp only [matchBinopNoProps, bind, Option.bind] at hM
+  split at hM
+  · simp at hM
+  · rename_i p hp
+    obtain ⟨hl, hr⟩ : p.1 = l ∧ p.2.1 = r := by simpa using hM
+    subst hl; subst hr
+    obtain ⟨h1, h2, h3, -⟩ := hm hp
+    exact ⟨h1, h2, h3⟩
+
+theorem redundant_binop_in_equality_XPlusYEqX_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (redundantBinopInEqualityLocal (matchBinopNoProps matchAdd) .eq) h h₂ h₃ h₄ :=
+  redundantBinopInEqualityLocal_preservesSemantics
+    (srcOp := .add)
+    (srcFn := fun a b p => Data.LLVM.Int.add a b p.nsw p.nuw)
+    (matchBinopNoProps_implies matchAdd_implies)
+    OperationPtr.Verified.llvm_add
+    OperationPtr.Pure.llvm_add
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun hw _ _ _ => Data.LLVM.Int.redundant_binop_in_equality_XPlusYEqX hw)
+
+theorem redundant_binop_in_equality_XPlusYNeX_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (redundantBinopInEqualityLocal (matchBinopNoProps matchAdd) .ne) h h₂ h₃ h₄ :=
+  redundantBinopInEqualityLocal_preservesSemantics
+    (srcOp := .add)
+    (srcFn := fun a b p => Data.LLVM.Int.add a b p.nsw p.nuw)
+    (matchBinopNoProps_implies matchAdd_implies)
+    OperationPtr.Verified.llvm_add
+    OperationPtr.Pure.llvm_add
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun hw _ _ _ => Data.LLVM.Int.redundant_binop_in_equality_XPlusYNeX hw)
+
+theorem redundant_binop_in_equality_XMinusYEqX_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (redundantBinopInEqualityLocal (matchBinopNoProps matchSub) .eq) h h₂ h₃ h₄ :=
+  redundantBinopInEqualityLocal_preservesSemantics
+    (srcOp := .sub)
+    (srcFn := fun a b p => Data.LLVM.Int.sub a b p.nsw p.nuw)
+    (matchBinopNoProps_implies matchSub_implies)
+    OperationPtr.Verified.llvm_sub
+    OperationPtr.Pure.llvm_sub
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun hw _ _ _ => Data.LLVM.Int.redundant_binop_in_equality_XMinusYEqX hw)
+
+theorem redundant_binop_in_equality_XMinusYNeX_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (redundantBinopInEqualityLocal (matchBinopNoProps matchSub) .ne) h h₂ h₃ h₄ :=
+  redundantBinopInEqualityLocal_preservesSemantics
+    (srcOp := .sub)
+    (srcFn := fun a b p => Data.LLVM.Int.sub a b p.nsw p.nuw)
+    (matchBinopNoProps_implies matchSub_implies)
+    OperationPtr.Verified.llvm_sub
+    OperationPtr.Pure.llvm_sub
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun hw _ _ _ => Data.LLVM.Int.redundant_binop_in_equality_XMinusYNeX hw)
+
+theorem redundant_binop_in_equality_XXorYEqX_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (redundantBinopInEqualityLocal (matchBinopNoProps matchXor) .eq) h h₂ h₃ h₄ :=
+  redundantBinopInEqualityLocal_preservesSemantics
+    (srcOp := .xor)
+    (srcFn := fun a b _ => Data.LLVM.Int.xor a b)
+    (matchBinopNoProps_implies matchXor_implies)
+    OperationPtr.Verified.llvm_xor
+    OperationPtr.Pure.llvm_xor
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun hw _ _ _ => Data.LLVM.Int.redundant_binop_in_equality_XXorYEqX hw)
+
+theorem redundant_binop_in_equality_XXorYNeX_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (redundantBinopInEqualityLocal (matchBinopNoProps matchXor) .ne) h h₂ h₃ h₄ :=
+  redundantBinopInEqualityLocal_preservesSemantics
+    (srcOp := .xor)
+    (srcFn := fun a b _ => Data.LLVM.Int.xor a b)
+    (matchBinopNoProps_implies matchXor_implies)
+    OperationPtr.Verified.llvm_xor
+    OperationPtr.Pure.llvm_xor
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun hw _ _ _ => Data.LLVM.Int.redundant_binop_in_equality_XXorYNeX hw)
 
 end Veir.RISCV

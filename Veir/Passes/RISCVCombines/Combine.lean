@@ -733,101 +733,70 @@ def add_shift_commute (rewriter: PatternRewriter OpCode) (op: OperationPtr)
   ((X op Y) cmp X) → (Y cmp 0)  for op ∈ {+, -, ^}, cmp ∈ {==, !=}.
 -/
 
-set_option warn.sorry false in
+/-- The shared shape of the six `redundant_binop_in_equality` combines: match
+    `icmp (binop X Y) X pred` with `pred ∈ {eq, ne}`, where the left comparison operand is the
+    result of a defining `binop` (`add`/`sub`/`xor`, matched by `match?`) whose first operand is
+    the right comparison operand `X`, and emit `icmp Y 0 pred`. The `binop`'s flags are dropped.
+
+    The `.integerType`/bitwidth guard on the comparison-operand type is what the correctness proof
+    needs to reach the `veir_bv_decide` data lemmas, so the rewrite is restricted to `i32`/`i64`.
+    Its shared correctness proof is `redundantBinopInEqualityLocal_preservesSemantics`. -/
+def redundantBinopInEqualityLocal
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr))
+    (pred : Data.LLVM.IntPred) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhsV, xval, ip) := matchIcmp op ctx | return (ctx, none)
+  if ip.predicate != pred then return (ctx, none)
+  let some dBinop := getDefiningOp lhsV ctx | return (ctx, none)
+  let some (x, y) := match? dBinop ctx | return (ctx, none)
+  if x != xval then return (ctx, none)
+  let .integerType yty := (y.getType! ctx.raw).val | return (ctx, none)
+  if yty.bitwidth ≠ 64 ∧ yty.bitwidth ≠ 32 then return (ctx, none)
+  let (ctx, c0) ← WfRewriter.createOp! ctx (.llvm .mlir__constant)
+    #[y.getType! ctx.raw] #[] #[] #[]
+    (LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 yty))) none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.llvm .icmp)
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[y, c0.getResult 0] #[] #[]
+    (IcmpProperties.mk pred) none
+  some (ctx, some (#[c0, newOp], #[newOp.getResult 0]))
+
+/-- Adapter dropping a binary matcher's properties, for use as `redundantBinopInEqualityLocal`'s
+    `match?` argument. -/
+def matchBinopNoProps {llvmOp : Llvm}
+    (m : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × propertiesOf (.llvm llvmOp)))
+    (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × ValuePtr) := do
+  let (x, y, _) ← m op ctx
+  some (x, y)
+
 def redundant_binop_in_equality_XPlusYEqX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
-  let .eq := ip.predicate | return rewriter
-  let some dAdd := getDefiningOp lhsV rewriter.ctx | return rewriter
-  let some (x, y, _ap) := matchAdd dAdd rewriter.ctx | return rewriter
-  if x != xval then return rewriter
-  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
-  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
-    #[] #[] z (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
-    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (redundantBinopInEqualityLocal (matchBinopNoProps matchAdd) .eq) rewriter op opInBounds
 
-set_option warn.sorry false in
 def redundant_binop_in_equality_XPlusYNeX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
-  let .ne := ip.predicate | return rewriter
-  let some dAdd := getDefiningOp lhsV rewriter.ctx | return rewriter
-  let some (x, y, _ap) := matchAdd dAdd rewriter.ctx | return rewriter
-  if x != xval then return rewriter
-  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
-  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
-    #[] #[] z (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
-    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (redundantBinopInEqualityLocal (matchBinopNoProps matchAdd) .ne) rewriter op opInBounds
 
-set_option warn.sorry false in
 def redundant_binop_in_equality_XMinusYEqX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
-  let .eq := ip.predicate | return rewriter
-  let some dSub := getDefiningOp lhsV rewriter.ctx | return rewriter
-  let some (x, y, _sp) := matchSub dSub rewriter.ctx | return rewriter
-  if x != xval then return rewriter
-  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
-  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
-    #[] #[] z (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
-    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (redundantBinopInEqualityLocal (matchBinopNoProps matchSub) .eq) rewriter op opInBounds
 
-set_option warn.sorry false in
 def redundant_binop_in_equality_XMinusYNeX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
-  let .ne := ip.predicate | return rewriter
-  let some dSub := getDefiningOp lhsV rewriter.ctx | return rewriter
-  let some (x, y, _sp) := matchSub dSub rewriter.ctx | return rewriter
-  if x != xval then return rewriter
-  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
-  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
-    #[] #[] z (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
-    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (redundantBinopInEqualityLocal (matchBinopNoProps matchSub) .ne) rewriter op opInBounds
 
-set_option warn.sorry false in
 def redundant_binop_in_equality_XXorYEqX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
-  let .eq := ip.predicate | return rewriter
-  let some dXor := getDefiningOp lhsV rewriter.ctx | return rewriter
-  let some (x, y, _xp) := matchXor dXor rewriter.ctx | return rewriter
-  if x != xval then return rewriter
-  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
-  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
-    #[] #[] z (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
-    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (redundantBinopInEqualityLocal (matchBinopNoProps matchXor) .eq) rewriter op opInBounds
 
-set_option warn.sorry false in
 def redundant_binop_in_equality_XXorYNeX (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (lhsV, xval, ip) := matchIcmp op rewriter.ctx | return rewriter
-  let .ne := ip.predicate | return rewriter
-  let some dXor := getDefiningOp lhsV rewriter.ctx | return rewriter
-  let some (x, y, _xp) := matchXor dXor rewriter.ctx | return rewriter
-  if x != xval then return rewriter
-  let .integerType yty := (y.getType! rewriter.ctx.raw).val | return rewriter
-  let z := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (0) yty))
-  let (rewriter, c0) ← rewriter.createOp (.llvm .mlir__constant) #[y.getType! rewriter.ctx.raw] #[]
-    #[] #[] z (some $ .before op) sorry sorry sorry sorry
-  let (rewriter, newOp) ← rewriter.createOp (.llvm .icmp) #[(op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw] #[y, (c0.getResult 0)]
-    #[] #[] ip (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite
+    (redundantBinopInEqualityLocal (matchBinopNoProps matchXor) .ne) rewriter op opInBounds
 
 /-! ### match_selects -/
 

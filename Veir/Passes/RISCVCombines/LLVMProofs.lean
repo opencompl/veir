@@ -334,35 +334,36 @@ theorem add_shift_commute {as au ns nu ss su : Bool} {a b c : Int 64} :
   flags are dropped, so they stay free.
 -/
 
-/-- `(X + Y) == X → Y == 0`. -/
-theorem redundant_binop_in_equality_XPlusYEqX {s u : Bool} {x y : Int 64} :
-    icmp (add x y s u) x .eq ⊒ icmp y (constant 64 0) .eq := by
-  veir_bv_decide
+/-- `(X + Y) == X → Y == 0`. Stated at both widths the guarded pattern admits, since the
+    graph-level proof needs `i32` too. -/
+theorem redundant_binop_in_equality_XPlusYEqX {w : Nat} (hw : w = 64 ∨ w = 32)
+    {s u : Bool} {x y : Int w} : icmp (add x y s u) x .eq ⊒ icmp y (constant w 0) .eq := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X + Y) != X → Y != 0`. -/
-theorem redundant_binop_in_equality_XPlusYNeX {s u : Bool} {x y : Int 64} :
-    icmp (add x y s u) x .ne ⊒ icmp y (constant 64 0) .ne := by
-  veir_bv_decide
+theorem redundant_binop_in_equality_XPlusYNeX {w : Nat} (hw : w = 64 ∨ w = 32)
+    {s u : Bool} {x y : Int w} : icmp (add x y s u) x .ne ⊒ icmp y (constant w 0) .ne := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X - Y) == X → Y == 0`. -/
-theorem redundant_binop_in_equality_XMinusYEqX {s u : Bool} {x y : Int 64} :
-    icmp (sub x y s u) x .eq ⊒ icmp y (constant 64 0) .eq := by
-  veir_bv_decide
+theorem redundant_binop_in_equality_XMinusYEqX {w : Nat} (hw : w = 64 ∨ w = 32)
+    {s u : Bool} {x y : Int w} : icmp (sub x y s u) x .eq ⊒ icmp y (constant w 0) .eq := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X - Y) != X → Y != 0`. -/
-theorem redundant_binop_in_equality_XMinusYNeX {s u : Bool} {x y : Int 64} :
-    icmp (sub x y s u) x .ne ⊒ icmp y (constant 64 0) .ne := by
-  veir_bv_decide
+theorem redundant_binop_in_equality_XMinusYNeX {w : Nat} (hw : w = 64 ∨ w = 32)
+    {s u : Bool} {x y : Int w} : icmp (sub x y s u) x .ne ⊒ icmp y (constant w 0) .ne := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X ^ Y) == X → Y == 0`. -/
-theorem redundant_binop_in_equality_XXorYEqX {x y : Int 64} :
-    icmp (xor x y) x .eq ⊒ icmp y (constant 64 0) .eq := by
-  veir_bv_decide
+theorem redundant_binop_in_equality_XXorYEqX {w : Nat} (hw : w = 64 ∨ w = 32)
+    {x y : Int w} : icmp (xor x y) x .eq ⊒ icmp y (constant w 0) .eq := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-- `(X ^ Y) != X → Y != 0`. -/
-theorem redundant_binop_in_equality_XXorYNeX {x y : Int 64} :
-    icmp (xor x y) x .ne ⊒ icmp y (constant 64 0) .ne := by
-  veir_bv_decide
+theorem redundant_binop_in_equality_XXorYNeX {w : Nat} (hw : w = 64 ∨ w = 32)
+    {x y : Int w} : icmp (xor x y) x .ne ⊒ icmp y (constant w 0) .ne := by
+  rcases hw with rfl | rfl <;> veir_bv_decide
 
 /-! ### match_selects -/
 
