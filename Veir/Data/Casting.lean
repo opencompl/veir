@@ -54,6 +54,11 @@ theorem val_toReg {w : Nat} {i : Veir.Data.LLVM.Int w} :
   · simp [Veir.Data.LLVM.Int.isPoison]
   · simp [veir_bv_normalize]
 
+@[simp, grind =]
+theorem toReg_toInt_64 {r : Veir.Data.RISCV.Reg} :
+    LLVM.Int.toReg (RISCV.Reg.toInt r 64) = r := by
+  simp [LLVM.Int.toReg, RISCV.Reg.toInt]
+
 /--
   Cast `LLVM.Byte` to `RISCV.Reg`.
 -/

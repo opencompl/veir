@@ -1415,6 +1415,18 @@ theorem OperationPtr.Verified.llvm_intr__sadd__sat {op : OperationPtr} {opInBoun
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
     simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
 
+theorem OperationPtr.Verified.llvm_intr__ssub__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__ssub__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__sshl__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__sshl__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
 theorem OperationPtr.Verified.llvm_intr__ushl__sat {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .llvm .intr__ushl__sat) :
@@ -1463,6 +1475,16 @@ private theorem OperationPtr.verifyIntegerUnop_ok_of_Verified {op : OperationPtr
   cases hb : op.verifyIntegerUnop ctx opInBounds with
   | ok ty => exact ⟨ty, rfl⟩
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/-- Structural facts from the verifier for a verified `llvm.intr.bitreverse`. Its verifier arm is
+    the shared `verifyIntegerUnop >>= pure` shape, so it reduces like `ctlz`/`cttz`/`ctpop`. -/
+theorem OperationPtr.Verified.llvm_intr__bitreverse {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__bitreverse) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp only [verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
 
 /-- Structural facts from the verifier for a verified `llvm.intr.ctlz`. -/
 theorem OperationPtr.Verified.llvm_intr__ctlz {op : OperationPtr} {opInBounds}

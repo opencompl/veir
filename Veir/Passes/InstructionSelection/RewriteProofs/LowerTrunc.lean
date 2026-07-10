@@ -51,22 +51,6 @@ theorem trunc_isRefinedBy_toByte {opBw resBw : Nat}
   rcases hop with rfl | rfl | rfl | rfl <;> rcases hres with rfl | rfl | rfl | rfl <;>
     (revert h; simp only [RISCV.Reg.toByte, LLVM.Byte.toReg]; veir_bv_decide)
 
-/-- An `.int` runtime value pins its declared type to a matching `integerType`. -/
-theorem conforms_int_type {bw : Nat} {x : Data.LLVM.Int bw} {ty : TypeAttr}
-    (h : RuntimeValue.Conforms (.int bw x) ty) : ty.val = Attribute.integerType ⟨bw⟩ := by
-  rcases ty with ⟨tyval, hIsTy⟩
-  cases tyval with
-  | integerType it => cases it; simp_all [RuntimeValue.Conforms]
-  | _ => simp_all [RuntimeValue.Conforms]
-
-/-- A `.byte` runtime value pins its declared type to a matching `byteType`. -/
-theorem conforms_byte_type {bw : Nat} {x : Data.LLVM.Byte bw} {ty : TypeAttr}
-    (h : RuntimeValue.Conforms (.byte bw x) ty) : ty.val = Attribute.byteType ⟨bw⟩ := by
-  rcases ty with ⟨tyval, hIsTy⟩
-  cases tyval with
-  | byteType it => cases it; simp_all [RuntimeValue.Conforms]
-  | _ => simp_all [RuntimeValue.Conforms]
-
 set_option maxHeartbeats 1000000 in
 theorem trunc_local_preservesSemantics
     {h : LocalRewritePattern.ReturnOps trunc_local}

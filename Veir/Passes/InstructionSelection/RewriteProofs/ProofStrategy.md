@@ -38,12 +38,37 @@ structural proof is done **once per combinator**. Currently:
 - `lowerBinaryWLocal match? op64 op32 props64 props32` — the two-operand analogue: match a
   binary LLVM integer op on `i64`/`i32`, emit `castToRegLocal` for each operand → `op64`/`op32`
   applied to the two cast results (in `#[lhs, rhs]` order) → `replaceWithRegLocal`. Instances:
-  `add`, `sub`, `mul`, `sdiv`, `udiv`, `srem`, `urem`, `xor`, `shl`, `lshr` (ops without a `W`
+  `add`, `sub`, `mul`, `sdiv`, `udiv`, `srem`, `urem`, `xor` (ops without a `W`
   variant, like `xor`, pass the same opcode twice). Its shared correctness proof is
-  `lowerBinaryWLocal_preservesSemantics` (`RewriteProofs/LowerBinaryW.lean`), instantiated so
-  far for `add`, `sub`, `mul`, `xor`. The div/rem instances cannot use the current proof: their
-  LLVM interpretation has UB branches (division by zero, `intMin / -1`), so they do not satisfy
-  the total-success `hSemSrc` hypothesis and need a combinator proof variant that propagates UB.
+  `lowerBinaryWLocal_preservesSemantics` (`RewriteProofs/LowerBinaryW.lean`), instantiated for all
+  of them. The div/rem instances need the *conditional* (UB-aware) form of `hSemSrc`: their LLVM
+  interpretation has UB branches (division by zero, `intMin / -1`), so a successful source
+  interpretation is what rules those branches out.
+- `lowerByteBinaryWLocal match? op64 op32 props64 props32` — the *shift* cousin of
+  `lowerBinaryWLocal`, whose shifted operand (operand 0) may have integer **or** byte type.
+  Instances: `shl` (`sll`/`sllw`), `lshr` (`srl`/`srlw`). Its shared correctness proof is
+  `lowerByteBinaryWLocal_preservesSemantics` (`RewriteProofs/LowerByteBinaryW.lean`). The emitted
+  4-op chain is identical to `lowerBinaryWLocal`'s; the two differences both come from `llvm.shl`/
+  `llvm.lshr` verifying via `verifyLLVMShift` rather than `verifyIntegerBinop`, which yields only
+  the weak `IsVerifiedLLVMShift` (`Verifier.lean`):
+  * the width guard reads `getIntByteTypeBitwidth` of operand 0, so the proof branches on whether
+    that type is an `integerType` or a `byteType` (four branches in all, with the width branch).
+    The byte branches run through the `LowerTrunc` byte layer (`interpretOp_castToReg_byte_forward`
+    / `interpretOp_castBack_byte_forward`, `exists_refined_byte_getVar?`).
+  * the *shift amount* (operand 1) is only pinned to be *some* integer. Its width agreeing with
+    operand 0's is a **dynamic** fact, read out of the successful source interpretation by
+    `matchShiftOp_interpretOp_unfold` (integer operand 0, from `LowerSelectBinopImm.lean`) or the
+    new `matchShiftOp_byteLhs_interpretOp_unfold` (byte operand 0), then `subst`ed. Note `subst`
+    eliminates the *pattern's* width variable in favour of the verifier's, not the other way round.
+
+  The eight data lemmas are the shift-refinement core: the RISC-V op masks the shift amount to its
+  low 5/6 bits while the LLVM shift is poison for `y ≥ w`, so refinement is trivial exactly where
+  the source is poison and `veir_bv_decide` closes the rest. The byte lemmas need
+  `Data.LLVM.Byte.shl_eq` (`Data/LLVM/Byte/Lemmas.lean`): unlike `Byte.lshr`, `Byte.shl` is defined
+  as an `Id.run do` block, which `bv_decide` cannot see through, so it is restated as a
+  `@[veir_bv_normalize]` conditional chain. Dropping the byte's per-bit poison mask on the way into
+  a register is sound: `Byte.toReg` keeps `b.val`, whose poisoned bits are zero by the `Byte`
+  invariant, and the target's result mask is `0`, which refines any source mask.
 - `lowerBinaryRegLocal match? rop props` — the width-agnostic cousin of `lowerBinaryWLocal`: match
   a binary LLVM integer op whose *result* type is `i64`/`i32`, emit `castToRegLocal` for each
   operand → a *single* `riscv` op `rop` (the same instruction at both bitwidths — no `W` variant,
@@ -109,6 +134,85 @@ structural proof is done **once per combinator**. Currently:
   `createOp_new_not_inBounds`), `clear` the in-bounds hypotheses (they break `grind` by
   non-monotonicity), and pass the in-bounds witnesses explicitly to the forward lemmas — after which
   bare `grind` closes each structural fact by e-matching without touching `hpattern`.
+- `fshlGeneral_local` / `fshrGeneral_local` (`RISCV64.lean`) — the *general* (distinct-operand)
+  funnel shifts on `i64`/`i32`, mirroring LLVM's `expandFunnelShift`:
+  `fshl x y z = (x << z) | ((y >> 1) >> ~z)` and `fshr x y z = ((x << 1) << ~z) | (y >> z)`.
+  Nine-op chains: three `castToRegLocal`s (all three operands) → `xori _, -1` (the inverse shift
+  amount; the hardware masks it modulo the width) → an immediate pre-shift (`srli`/`srliw 1` on `y`
+  for `fshl`, `slli`/`slliw 1` on `x` for `fshr`) → two variable shifts (`W`-suffixed on `i32`) →
+  `riscv.or` → `replaceWithRegLocal`. Proven standalone (`RewriteProofs/LowerFshGeneral.lean`),
+  reusing `matchTernaryOp_interpretOp_unfold` from `LowerRotate` (no `a = b` collapse — all three
+  operands stay distinct). As the deepest *linear* chains proven (nine creations), they do **not**
+  use the per-fact `grind`-seeding of `LowerSelect` (seven creations, near the E-matching limit):
+  instead every creation is peeled with the plain `peelOpCreation` + `createOp!_none_some` (no
+  per-step dominance side goals), the `LowerIcmp` `CtxExtends` bundles are composed once
+  (`E₁…E₉`, suffix compositions `Fᵢ : ctxᵢ → ctx₉`), and each op's structural facts transport by a
+  single `rw [Fᵢ.opType/operands/resultTypes/properties …]; grind` — operand dominance transports
+  once at the end via `Ectx.dominates` rather than once per creation. Frame-clause freshness is
+  discharged uniformly by `not_mem_getResults!_of_inBounds_of_not_inBounds` at the interfering
+  op's creation base, with the value's in-bounds witness lifted by `Eᵢ.valueInBounds` and the
+  first-result witness by the new `opResult_getResult_inBounds_of_createOp` (the inline `grind`
+  equivalent dies in the large context). The four data lemmas restate
+  `fshlGeneral_refinement`/… (`InstructionSelection/Proofs.lean`) with *refined* operands and in
+  the interpreter's exact operand order (`RISCV.op op2 op1`, so the final `or` takes `shy` first);
+  all four close by `revert h₁ h₂ h₃; veir_bv_decide`.
+- `icmpCastExtLocal` + the five `icmpEmit*Local` arms (`RISCV64.lean`) — `llvm.icmp` on
+  `i64`/`i32`/`i8`. Every arm shares a prologue (cast both operands into registers, plus a
+  `riscv.sextw`/`sextb` on each for the narrow widths) and an epilogue (cast the `i1` result back);
+  only the comparison sequence differs, and there are five of them: a single reg-reg compare
+  (`slt`/`sgt`/`ult`/`ugt`), a compare followed by an immediate op (`sle`/`sge`/`ule`/`uge`, and
+  the generic `eq` as `xor` then `sltiu _ 1`), `seqz` and `snez` (the compare-against-zero
+  peepholes), and `xor` then `snez` (the generic `ne`). Proven in `RewriteProofs/LowerIcmp.lean`.
+
+  This is the first proof to factor a *prologue* rather than a whole pattern, which needs one new
+  idea. The forward-interpretation lemmas need the prologue's ops' structural facts in the arm's
+  *final* context, which is only reachable through the arm's own creations — so the prologue cannot
+  simply be proven against its own context. `CtxExtends op ctx ctx'` bundles everything a chain of
+  `WfRewriter.createOp`s preserves (in-bounds, opcode, operands, result types, value types, and
+  dominance of `before op`), is closed under composition (`CtxExtends.trans`) and is produced by one
+  creation (`CtxExtends.of_createOp`). `icmpCastExtLocal_run` then takes the extension `ctxP → F` as
+  a *hypothesis*, so each arm discharges it from its own creations and replays the shared prologue
+  through `interpretOpList_append`. Without this the twelve predicate arms × three widths would be
+  36 separate op-chain proofs.
+
+  Two smaller notes. The operand swap (`slt lhs rhs` vs `slt rhs lhs`) is kept symbolic rather than
+  split on: obtain `⟨u, v, huv⟩ : ∃ u v, (if swap then (b, a) else (a, b)) = (u, v)` before peeling,
+  and recover the two registers' values with a `cases swap` inside a single `have`. And the `ext`
+  argument is an `Option IcmpExtOp` (opcode bundled with its `propertiesOf … = Unit` proof) rather
+  than an `Option Riscv` plus a separate dependent proof argument, so `rcases ext` is clean.
+- `bitreverse_local` (`RISCV64.lean`) — `llvm.intr.bitreverse` on `i64`/`i32`: `castToRegLocal` →
+  three SWAR bit-swap stages (`bitreverseStageLocal`, each emitting `li`/`and`/`slli`/`srli`/
+  `and`/`or`) → `riscv.rev8` (→ `riscv.srli 32` for `i32`) → `replaceWithRegLocal` — 21/22 ops,
+  the longest chain proven. Proven bespoke (`RewriteProofs/LowerBitreverse.lean`) but *factored*:
+  instead of a monolithic 21-creation peel (hundreds of pairwise distinctness transports), the
+  repeated 6-op stage is proven once against an arbitrary final context à la the `LowerIcmp`
+  prologue — `bitreverseStageLocal_extends` (its creations only extend the context) and
+  `bitreverseStageLocal_run` (symbolic execution given the `CtxExtends` witness to the final
+  context), which the main proof instantiates three times and composes through
+  `interpretOpList_append`. This motivated adding the `properties` field to `CtxExtends` (the
+  stage's `li`/`slli`/`srli` immediates must survive to the final context). The data lemmas'
+  `BitVec.reverse` is outside `bv_decide`'s vocabulary (width-recursive); at the concrete widths
+  `simp only [BitVec.reverse, BitVec.concat, BitVec.truncate_eq_setWidth]` unfolds it (simp's
+  Nat-literal offset matching peels `64 = 63+1` all the way down) into a bitblastable form, after
+  which `bv_decide` closes the three-stage SWAR identity.
+- `ssubSat_local` / `sshlSat_local` (`RISCV64.lean`) — `llvm.intr.ssub.sat`/`sshl.sat` on `i64`:
+  LLVM's RV64+Zicond signed-saturation sequences (wrapped op + overflow test + `(sign) ^ INT_MIN`/
+  `INT_MAX` endpoint + the branchless `or (czeronez wrapped ov) (czeroeqz sat ov)` select from
+  `signedSatSelectLocal`), fourteen/thirteen ops. Proven standalone
+  (`RewriteProofs/LowerSsubSat.lean` / `LowerSshlSat.lean`) as the siblings of `saddSat_local`
+  (`LowerSaddSat.lean`), but in the *linear* proof style: every creation is peeled with the plain
+  `peelOpCreation` + `createOp!_none_some` (no per-step dominance side goals), the `LowerIcmp`
+  `CtxExtends` bundles are composed once (`E₁…E₁₄`, suffix compositions `Fᵢ : ctxᵢ → final`), each
+  op's structural facts transport by a single `rw [Fᵢ.opType/operands/resultTypes/properties …];
+  grind`, operand dominance transports once at the end via `Ectx.dominates`, and every frame-clause
+  freshness condition is discharged by `not_mem_getResults!_of_inBounds_of_not_inBounds` at the
+  interfering op's creation base (value in-bounds lifted by `Eᵢ.valueInBounds`, first-result
+  witness by `opResult_getResult_inBounds_of_createOp`) — avoiding `LowerSaddSat`'s quadratic
+  in-bounds/distinctness bookkeeping (these files are ~½ its length at the same chain depth). The
+  nested `signedSatSelectLocal` block peels as in `LowerSaddSat`: one extra existential is opened
+  by hand and two `cleanupHpattern`s (inner block, then `hFinal`) discharge the return equations.
+  The single data lemma per op states the whole select tree in the interpreter's operand order
+  (`RISCV.op op2 op1`) and closes by `revert h₁ h₂; veir_bv_decide`.
 - `lowerBinopNotLocal match? dst props` (`RISCV64Sdag.lean`) — match a two-operand LLVM integer
   op on `i64` one of whose operands is a `not` (`xor _, -1`, via `matchNot`, on either side),
   then emit `castToRegLocal` ×2 → binary reg-reg `dst` → `replaceWithRegLocal`. Its shared
@@ -123,7 +227,7 @@ structural proof is done **once per combinator**. Currently:
   *zero*-extended). Standalone proof `ashr_local_preservesSemantics`
   (`RewriteProofs/LowerAshr.lean`); it verifies via `verifyIntegerBinop` (so `Verified.llvm_ashr`
   gives `IsVerifiedIntegerBinop` — both operands and the result share `intType`, no width-derivation
-  needed) and its interpreter arm is `.int`-only, so — unlike `shl`/`lshr`, which moved to the
+  needed) and its interpreter arm is `.int`-only, so — unlike `shl`/`lshr`, which use the
   byte-aware `lowerByteBinaryWLocal` — there is no byte case. Three width branches: `i32`/`i64` are
   4-op chains (like `LowerBinaryW`), `i8` is a 5-op chain threading an extra
   `interpretOp_riscv_unaryReg_forward` step for the `sextb` (like `LowerSignedMinMax`'s `sextw`), with
@@ -550,12 +654,18 @@ per lowering as above.
 | `RewriteProofs/LowerUnaryW.lean` | `matchUnaryOp_interpretOp_unfold`, `lowerUnaryWLocal_preservesSemantics`, and per-lowering Layer-0 lemmas + instantiations | two data lemmas + one instantiation (unary); new file per new *shape* |
 | `RewriteProofs/LowerBinaryW.lean` | `lowerBinaryWLocal_preservesSemantics`, and per-lowering Layer-0 lemmas + instantiations (`add`, `sub`, `mul`, `xor`) | two data lemmas + one instantiation (binary) |
 | `RewriteProofs/LowerBinaryReg.lean` | `lowerBinaryRegLocal_preservesSemantics` (width-agnostic single-op binary) + per-lowering Layer-0 lemmas + instantiations (`umax`, `umin`) | two data lemmas + one instantiation (binary, single op) |
+| `RewriteProofs/LowerByteBinaryW.lean` | `matchShiftOp_byteLhs_interpretOp_unfold` (byte-operand shift source unfold) + `lowerByteBinaryWLocal_preservesSemantics` (shift combinator: integer-or-byte operand 0, shift-amount width recovered dynamically, `W`-variant bitwidth branch) + four int/byte × 64/32 data lemmas per op + instantiations (`shl`, `lshr`) + `#guard_msgs` axiom pins | four data lemmas + two `hSemSrc` lemmas + one instantiation |
 | `RewriteProofs/LowerBitwiseReg.lean` | `lowerBitwiseRegLocal_preservesSemantics` (bitwise single-op binary over `i64`/`i32`/`i8`/`i1`; one width-generic refinement lemma, no bitwidth branch) + instantiations (`and`, `or`) | one width-generic data lemma + one instantiation |
 | `RewriteProofs/LowerSignedMinMax.lean` | `lowerSignedMinMaxLocal_preservesSemantics` (signed min/max; `i64` = 4 ops, `i32` = 6 ops with two extra `riscv.sextw`) + `_64`/`_32` data lemmas + instantiations (`smax`, `smin`) | two data lemmas + one instantiation |
+| `RewriteProofs/LowerIcmp.lean` | `CtxExtends` (context-extension bundle) + `icmpCastExtLocal_extends`/`_run` (shared prologue, proven once against an arbitrary final context) + one `icmpEmit*Local_sound` per comparison sequence (5) + `IcmpData` (the twelve data-level refinements at one width) + `icmpData_of_bitwidth` + `icmp_local_preservesSemantics` (twelve-arm dispatch) | twelve data lemmas per new width |
+| `RewriteProofs/LowerSsubSat.lean` | `ssubSat_local_preservesSemantics` (fourteen-op RV64+Zicond signed saturating-sub chain, `CtxExtends`-transported linear proof) + `ssubSat_isRefinedBy_toInt` + `opResult_getResult_inBounds_of_createOp` (first-result in-bounds helper, shared with `LowerSshlSat`) + `#guard_msgs` axiom pin | — (one-off; template for long linear chains) |
+| `RewriteProofs/LowerSshlSat.lean` | `sshlSat_local_preservesSemantics` (thirteen-op RV64+Zicond signed saturating-shl chain, same style) + `sshlSat_isRefinedBy_toInt` + `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerRotate.lean` | `matchTernaryOp_interpretOp_unfold` (ternary source unfold) + `lowerRotateLocal_preservesSemantics` (rotate; ternary source with `a = b`, result-type guard, `W`-variant bitwidth branch) + `_64`/`_32` data lemmas + instantiations (`fshl`, `fshr`) | two data lemmas + one instantiation |
 | `RewriteProofs/LowerRoriw.lean` | `roriwLike_preservesSemantics` (constant word-rotate combinator: `fshl`/`fshr a a (const)` on `i32` → `riscv.roriw` with the normalized/negated 5-bit amount; ternary source with `a = b`, immediate-emit single-cast tail, constant amount pinned via the graph lemma) + instantiations (`roriw`/`roliw`), the `ofInt_5_rotr_mod`/`ofInt_5_rotl_mod` mod-32 immediate bridges + `roriw`/`roliw_isRefinedBy` data lemmas + `#guard_msgs` axiom pins | — (one-off pair) |
 | `RewriteProofs/LowerFshConst.lean` | `fshConstLike_preservesSemantics` (GlobalISel constant word-rotate combinator: `fshl`/`fshr a a (const)` on `i64`/`i32` → `riscv.rori`/`roriw` with the normalized/negated 5-/6-bit amount; ternary `a = b`, constant amount pinned via the graph lemma, immediate-emit single-cast head with a bitwidth branch over the emitted rotate op) + instantiations (`fshrConst`/`fshlConst`), `ofInt_{5,6}_rot{r,l}` mod bridges + `fsh{r,l}_{roriw_32,rori_64}` data lemmas + `#guard_msgs` axiom pins | — (one-off pair) |
+| `RewriteProofs/LowerFshGeneral.lean` | `fshlGeneral_local_preservesSemantics` / `fshrGeneral_local_preservesSemantics` (general distinct-operand funnel shifts, `expandFunnelShift` shape; nine-op chains with a `W`-variant bitwidth branch, transported via the `LowerIcmp` `CtxExtends` bundles) + `opResult_getResult_inBounds_of_createOp` + four `fsh{l,r}General_isRefinedBy_toInt_{64,32}` data lemmas + `#guard_msgs` axiom pins | — (one-off pair; template for long linear chains) |
 | `RewriteProofs/LowerBinopNot.lean` | `lowerBinopNotLocal_preservesSemantics` (the DAG-matching template proof), per-lowering Layer-0 lemmas + instantiations (`andn`/`orn`/`xnor`), `#guard_msgs` axiom pins | two data lemmas + one instantiation (binop-with-not) |
+| `RewriteProofs/LowerBitreverse.lean` | `bitreverse_local_preservesSemantics` (standalone `i64`/`i32` bitreverse; 21/22-op chain factored through the reusable stage lemmas `bitreverseStageLocal_extends`/`_inBounds`/`_run`), `bitreverseStageReg` + the two SWAR data lemmas (concrete-width `BitVec.reverse` unfolding), `#guard_msgs` axiom pin | — (one-off; template for factoring any repeated emitted segment) |
 | `RewriteProofs/LowerSlliuw.lean` | `slliuw_local_preservesSemantics` (`shl (zext i32→i64 x) const` → `riscv.slliuw x const`; a two-level DAG match, outer `shl` via `matchShiftOp`, inner `zext` via a graph lemma) + `zext_getVar?_of_EquationLemmaAt` (the `zext`-defining-op graph lemma, unary/width-crossing, via `matchExtOp_interpretOp_unfold`) + `Pure.llvm_zext` + `slliuw_isRefinedBy` data lemma + `#guard_msgs` axiom pin | — (one-off) |
 | `RewriteProofs/LowerBexti.lean` | `bexti_local_preservesSemantics` (`and (lshr x n) 1` → `riscv.bexti x n`, single-bit extract; a two-level DAG match) + `lshrConst_getVar?_of_EquationLemmaAt` (the `lshr`-defining-op graph lemma, `matchNot`-style but the inner op verifies as `LLVMShift` so the width equality is recovered dynamically via `matchShiftOp_interpretOp_unfold`) + `Pure.llvm_lshr` + `bexti_isRefinedBy` data lemma + `#guard_msgs` axiom pin | — (one-off; the graph lemma also serves `slliuw`) |
 | `RewriteProofs/LowerSelectCzero.lean` | `selectCzeroeqz_local_preservesSemantics` / `selectCzeronez_local_preservesSemantics` (branchless `llvm.select c t 0`/`select c 0 f` → `riscv.czeroeqz`/`czeronez`: `i1` cond + value cast, constant-zero operand dropped via `matchConstantZero`; width-generic, no bitwidth branch) + `matchSelectOp_interpretOp_unfold` (mixed-width ternary unfold, `i1` cond) + `czeroeqz`/`czeronez_isRefinedBy` data lemmas + `#guard_msgs` axiom pins | — (one-off pair) |

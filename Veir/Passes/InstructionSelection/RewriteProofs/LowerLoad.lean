@@ -179,33 +179,6 @@ theorem llvmLoad_i8_bridge (mem : MemoryState) (addr : UInt64) (hz : ¬ addr.toN
 ## Forward interpretation lemmas for `load`
 -/
 
-/-- Pointer-cast forward lemma: a `builtin.unrealized_conversion_cast` with a single pointer
-operand `.addr a` and a `!riscv.reg` result binds the result to `.reg ⟨ofNat 64 a.toNat⟩` (the
-address bits), leaving memory and every non-result variable unchanged. -/
-theorem interpretOp_castAddrToReg_forward
-    {ctx : WfIRContext OpCode} {castOp : OperationPtr} {state : InterpreterState ctx}
-    {inBounds : castOp.InBounds ctx.raw} {v : ValuePtr} {rt : RegisterType} {hIsTy}
-    {a : UInt64}
-    (hType : castOp.getOpType! ctx.raw = .builtin .unrealized_conversion_cast)
-    (hOperands : castOp.getOperands! ctx.raw = #[v])
-    (hResTypes : castOp.getResultTypes! ctx.raw = #[⟨.registerType rt, hIsTy⟩])
-    (hVal : state.variables.getVar? v = some (.addr a)) :
-    ∃ state', interpretOp castOp state inBounds = some (.ok (state', none)) ∧
-      state'.memory = state.memory ∧
-      state'.variables.getVar? (ValuePtr.opResult (castOp.getResult 0))
-        = some (.reg ⟨BitVec.ofNat 64 a.toNat⟩) ∧
-      (∀ v', v' ∉ castOp.getResults! ctx.raw →
-        state'.variables.getVar? v' = state.variables.getVar? v') := by
-  obtain ⟨state', hI, hMem, hVar⟩ :=
-    interpretOp_forward (op := castOp) (state := state) (inBounds := inBounds)
-      (vals := #[.addr a]) (results := #[.reg ⟨BitVec.ofNat 64 a.toNat⟩]) (mem' := state.memory)
-      (by simp [VariableState.getOperandValues, hOperands, hVal])
-      (by simp only [OperationPtr.interpret]
-          rw [hType]
-          simp [hResTypes, interpretOp', pure, Interp])
-      (by simp [RuntimeValue.ArrayConforms, hResTypes, RuntimeValue.Conforms])
-  grind
-
 /-- RISC-V load forward lemma: a `riscv.ld`/`lw`/`lb` op whose interpretation on the current memory
 loads `bits` and leaves memory unchanged (hypothesis `hSem`, supplied by a memory bridge) binds the
 result to `.reg (.mk bits)`, leaving memory and every non-result variable unchanged. -/
@@ -308,31 +281,6 @@ theorem matchLoad_interpretOp_unfold {ctx : WfIRContext OpCode}
         rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumResults]; omega) hSet]
         simp
   next heq => simp [Interp] at hInterp'
-
-/-- Read a refined *pointer* operand in a `PreservesSemantics` proof (the address analogue of
-`LocalRewritePattern.exists_refined_int_getVar?`): since an address refines only the identical
-address, the target state holds the same `.addr a`. -/
-theorem LocalRewritePattern.exists_refined_addr_getVar?
-    {ctx : WfIRContext OpCode}
-    {ipIn : ip.InBounds ctx.raw}
-    {pattern : LocalRewritePattern OpCode}
-    {hpattern : pattern ctx op = some (newCtx, some (newOps, newValues))}
-    {hreturn : pattern.ReturnValuesInBounds} {hreturn₂ : pattern.ReturnValues}
-    {hreturn₃ : pattern.ReturnCtxChanges}
-    {state : InterpreterState ctx} {state' : InterpreterState newCtx} {a : UInt64}
-    (valueRefinement : state.variables.isRefinedByAt state'.variables
-      (LocalRewritePattern.mapping hpattern hreturn hreturn₂ hreturn₃) (.at ip) (.at ip) ipIn ipIn')
-    (state'Dom : state'.DefinesDominating ip ipIn')
-    (vIn : v.InBounds ctx.raw)
-    (hxVal : state.variables.getVar? v = some (RuntimeValue.addr a))
-    (hDomCtx : v.dominatesIp ip ctx) (hDom' : v.dominatesIp ip newCtx)
-    (hNotRes : v ∉ op.getResults! ctx.raw) :
-    state'.variables.getVar? v = some (RuntimeValue.addr a) := by
-  have ⟨tv, hTv⟩ := InterpreterState.DefinesDominating.exists_getVar_of_dominatesIp state'Dom
-      (hreturn₃.valuePtr_inBounds hpattern vIn) hDom'
-  have hRef : RuntimeValue.addr a ⊒ tv := by
-    grind [LocalRewritePattern.mapping, valueRefinement v]
-  grind [RuntimeValue.addr_of_isRefinedBy hRef]
 
 /-- Execute the three-op target chain `[pcastOp, ldOp, castOp]` (pointer cast → RISC-V load →
 cast-back) and assemble the simulation triple, given the structural facts about the created ops, the

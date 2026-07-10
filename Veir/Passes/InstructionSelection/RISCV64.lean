@@ -460,7 +460,8 @@ def ashr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite ashr_local rewriter op opInBounds
 
-/--
+/-! ### `llvm.icmp` lowering
+
     llvm.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
     llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
     llvm.icmp slt lhs rhs -> riscv.slt lhs rhs
@@ -471,153 +472,159 @@ def ashr (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     llvm.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
     llvm.icmp ugt lhs rhs -> riscv.sltu rhs lhs
     llvm.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
+
+  Every arm shares the same prologue (`icmpCastExtLocal`: cast both operands into registers, and
+  sign-extend them when they are narrower than a register) and the same epilogue (cast the `i1`
+  result back). Only the comparison sequence in between differs, and the five shapes it can take are
+  the `icmpEmit*Local` combinators below, each of which is proven correct once in
+  `RewriteProofs/LowerIcmp.lean`. -/
+
+/-- The `i1` constant `1`, the immediate shared by the `sltiu`/`xori` arms. -/
+def icmpOneImm : RISCVImmediateProperties :=
+  RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
+
+/-- The immediate `0`, materialized by the `li` feeding the `sltu` of the `≠` arms. -/
+def icmpZeroImm : RISCVImmediateProperties :=
+  RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
+
+/-- A `riscv` sign-extension instruction usable as an `icmp` prologue: an opcode with no
+    properties (`riscv.sextw`, `riscv.sextb`). Bundling the opcode with the proof keeps the
+    prologue's `ext` argument non-dependent, so proofs can case on it directly. -/
+structure IcmpExtOp where
+  /-- The sign-extension opcode. -/
+  op : Riscv
+  /-- The opcode takes no properties. -/
+  hprops : Riscv.propertiesOf op = Unit
+
+/--
+  Shared prologue of every `llvm.icmp` arm: cast both operands into registers and, when `ext` is
+  `some e`, sign-extend each register with `e` (`riscv.sextw` for `i32`, `riscv.sextb` for `i8`).
+  `castToRegLocal` zero-extends into the register, so without the fixup a negative narrow operand
+  would look positive to the 64-bit signed comparison; sign-extension also preserves the unsigned
+  order, so the unsigned comparisons stay correct too.
+
+  Returns the created operations along with the two registers to compare.
 -/
+def icmpCastExtLocal (ctx : WfIRContext OpCode) (lhs rhs : ValuePtr) (ext : Option IcmpExtOp) :
+    Option (WfIRContext OpCode × Array OperationPtr × ValuePtr × ValuePtr) := do
+  let (ctx, lcastOp) ← castToRegLocal ctx lhs
+  let (ctx, rcastOp) ← castToRegLocal ctx rhs
+  match ext with
+  | none => some (ctx, #[lcastOp, rcastOp], lcastOp.getResult 0, rcastOp.getResult 0)
+  | some e =>
+    let props : Riscv.propertiesOf e.op := cast e.hprops.symm ()
+    let (ctx, lsOp) ← WfRewriter.createOp! ctx (.riscv e.op) #[RegisterType.mk]
+      #[lcastOp.getResult 0] #[] #[] props none
+    let (ctx, rsOp) ← WfRewriter.createOp! ctx (.riscv e.op) #[RegisterType.mk]
+      #[rcastOp.getResult 0] #[] #[] props none
+    some (ctx, #[lcastOp, rcastOp, lsOp, rsOp], lsOp.getResult 0, rsOp.getResult 0)
+
+/-- `icmp` arm emitting a single register-register comparison `rop` (`slt`/`sltu`), whose operands
+    are the two comparison registers, swapped when `swap` is set: `slt`/`sgt`/`ult`/`ugt`. -/
+def icmpEmitCmpLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs : ValuePtr)
+    (ext : Option IcmpExtOp)
+    (rop : Riscv) (hrop : Riscv.propertiesOf rop = Unit) (swap : Bool) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let (ctx, pre, a, b) ← icmpCastExtLocal ctx lhs rhs ext
+  let (u, v) := if swap then (b, a) else (a, b)
+  let (ctx, cmpOp) ← WfRewriter.createOp! ctx (.riscv rop) #[RegisterType.mk] #[u, v]
+    #[] #[] (cast hrop.symm ()) none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (cmpOp.getResult 0)
+  some (ctx, some (pre ++ #[cmpOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- `icmp` arm emitting a register-register comparison `rop` followed by the immediate op `ropImm`
+    applied to its result with the immediate `1`: `sle`/`sge`/`ule`/`uge` (`slt`/`sltu` then
+    `xori _ 1`) and the generic `eq` (`xor` then `sltiu _ 1`). -/
+def icmpEmitCmpImmLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs : ValuePtr)
+    (ext : Option IcmpExtOp)
+    (rop : Riscv) (hrop : Riscv.propertiesOf rop = Unit) (swap : Bool)
+    (ropImm : Riscv) (hropImm : Riscv.propertiesOf ropImm = RISCVImmediateProperties) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let (ctx, pre, a, b) ← icmpCastExtLocal ctx lhs rhs ext
+  let (u, v) := if swap then (b, a) else (a, b)
+  let (ctx, cmpOp) ← WfRewriter.createOp! ctx (.riscv rop) #[RegisterType.mk] #[u, v]
+    #[] #[] (cast hrop.symm ()) none
+  let (ctx, immOp) ← WfRewriter.createOp! ctx (.riscv ropImm) #[RegisterType.mk]
+    #[cmpOp.getResult 0] #[] #[] (cast hropImm.symm icmpOneImm) none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (immOp.getResult 0)
+  some (ctx, some (pre ++ #[cmpOp, immOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- `icmp` arm emitting `sltiu a 1` (`seqz`) on the left comparison register: the `eq`-against-zero
+    peephole. -/
+def icmpEmitSeqzLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs : ValuePtr)
+    (ext : Option IcmpExtOp) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let (ctx, pre, a, _) ← icmpCastExtLocal ctx lhs rhs ext
+  let (ctx, immOp) ← WfRewriter.createOp! ctx (.riscv .sltiu) #[RegisterType.mk] #[a]
+    #[] #[] icmpOneImm none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (immOp.getResult 0)
+  some (ctx, some (pre ++ #[immOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- `icmp` arm emitting `sltu 0 a` (`snez`) on the left comparison register: the `ne`-against-zero
+    peephole. The `riscv.li 0` becomes `x0` under `riscv-combine` (see `li_zero_to_x0`). -/
+def icmpEmitSnezLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs : ValuePtr)
+    (ext : Option IcmpExtOp) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let (ctx, pre, a, _) ← icmpCastExtLocal ctx lhs rhs ext
+  let (ctx, liOp) ← WfRewriter.createOp! ctx (.riscv .li) #[RegisterType.mk] #[]
+    #[] #[] icmpZeroImm none
+  let (ctx, cmpOp) ← WfRewriter.createOp! ctx (.riscv .sltu) #[RegisterType.mk]
+    #[liOp.getResult 0, a] #[] #[] () none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (cmpOp.getResult 0)
+  some (ctx, some (pre ++ #[liOp, cmpOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- `icmp` arm emitting `sltu 0 (xor b a)` (`snez` of the difference): the generic `ne`. -/
+def icmpEmitXorSnezLocal (ctx : WfIRContext OpCode) (op : OperationPtr) (lhs rhs : ValuePtr)
+    (ext : Option IcmpExtOp) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let (ctx, pre, a, b) ← icmpCastExtLocal ctx lhs rhs ext
+  let (ctx, xorOp) ← WfRewriter.createOp! ctx (.riscv .xor) #[RegisterType.mk] #[b, a]
+    #[] #[] () none
+  let (ctx, liOp) ← WfRewriter.createOp! ctx (.riscv .li) #[RegisterType.mk] #[]
+    #[] #[] icmpZeroImm none
+  let (ctx, cmpOp) ← WfRewriter.createOp! ctx (.riscv .sltu) #[RegisterType.mk]
+    #[liOp.getResult 0, xorOp.getResult 0] #[] #[] () none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (cmpOp.getResult 0)
+  some (ctx, some (pre ++ #[xorOp, liOp, cmpOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- The sign-extension instruction needed to compare two `bw`-wide operands in a register, if any. -/
+def icmpExtOf (bw : Nat) : Option IcmpExtOp :=
+  if bw = 32 then some ⟨.sextw, rfl⟩ else if bw = 8 then some ⟨.sextb, rfl⟩ else none
+
+/-- llvm.icmp -> riscv comparison sequence (see the arms above). -/
 def icmp_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (lhs, rhs, property) := matchIcmp op ctx | return (ctx, none)
-  /- support `i64` and `i32` -/
+  /- support `i64`, `i32` and `i8` -/
   let .integerType ltype := (lhs.getType! ctx.raw).val | return (ctx, none)
   if ltype.bitwidth ≠ 64 ∧ ltype.bitwidth ≠ 32 ∧ ltype.bitwidth ≠ 8 then return (ctx, none)
   let .integerType rtype := (rhs.getType! ctx.raw).val | return (ctx, none)
   if rtype.bitwidth ≠ 64 ∧ rtype.bitwidth ≠ 32 ∧ rtype.bitwidth ≠ 8 then return (ctx, none)
-  /- Casting is necessary regardless of the predicate. -/
-  let (ctx, lcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[lhs]
-      #[] #[] () none
-  let (ctx, rcastOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[RegisterType.mk] #[rhs]
-      #[] #[] () none
-  /- For i32, sign-extend operands so both signed and unsigned comparisons work correctly.
-     Zero-extended i32 negatives look positive in 64-bit signed arithmetic without this. -/
-  let (ctx, extOps, lCmpReg, rCmpReg) ←
-    if ltype.bitwidth = 32 then do
-      let (ctx, ls) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[lcastOp.getResult 0]
-          #[] #[] () none
-      let (ctx, rs) ← WfRewriter.createOp! ctx (.riscv .sextw) #[RegisterType.mk] #[rcastOp.getResult 0]
-          #[] #[] () none
-      pure (ctx, #[ls, rs], ls.getResult 0, rs.getResult 0)
-    else if ltype.bitwidth = 8 then do
-      let (ctx, ls) ← WfRewriter.createOp! ctx (.riscv .sextb) #[RegisterType.mk] #[lcastOp.getResult 0]
-          #[] #[] () none
-      let (ctx, rs) ← WfRewriter.createOp! ctx (.riscv .sextb) #[RegisterType.mk] #[rcastOp.getResult 0]
-          #[] #[] () none
-      pure (ctx, #[ls, rs], ls.getResult 0, rs.getResult 0)
-    else
-      pure (ctx, #[], lcastOp.getResult 0, rcastOp.getResult 0)
-  /- Casting back result for type consistency is always necessary. -/
-  let type := ((op.getResult 0).get! ctx.raw).type
-  let .integerType _ := type.val | return (ctx, none)
-  /- Match depending on the predicate and build correct lowering. -/
-  let (ctx, predOps, retOp) ← match property.predicate with
-    | .eq =>
-      /- Peephole: when the rhs is a constant 0, `a == 0` lowers directly to
-         `riscv.sltiu a 1` (seqz) with no xor. Otherwise fall back to the generic
-         `riscv.sltiu (riscv.xor lhs rhs) 1` idiom. Canonicalization runs before
-         isel and moves the constant to the rhs, so we only check that side.
-         LLVM: `Pat<(riscv_seteq GPR:$rs1), (SLTIU GPR:$rs1, 1)>` (`selectSETEQ`
-         normalizes `a == 0` to the zero-compare form first).
-         https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1649 -/
-      let zeroCmpReg :=
-        if (matchConstantZero rhs ctx).isSome then some lCmpReg
-        else none
-      match zeroCmpReg with
-      | some cmpReg =>
-        /- llvm.icmp eq a 0  -> riscv.sltiu a 1 (seqz) -/
-        let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-        let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .sltiu) #[RegisterType.mk] #[cmpReg]
-          #[] #[] c1 none
-        pure (ctx, #[retOp], retOp)
-      | none =>
-        /- llvm.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1 -/
-        let (ctx, xorOp) ← WfRewriter.createOp! ctx (.riscv .xor) #[RegisterType.mk] #[rCmpReg, lCmpReg]
-          #[] #[] () none
-        let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-        let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .sltiu) #[RegisterType.mk] #[xorOp.getResult 0]
-          #[] #[] c1 none
-        pure (ctx, #[xorOp, retOp], retOp)
-    | .ne =>
-      /- Peephole: when the rhs is a constant 0, `a != 0` lowers directly to
-         `riscv.sltu 0 a` (snez) with no xor. Otherwise fall back to the generic
-         `riscv.sltu 0 (riscv.xor lhs rhs)` idiom. Canonicalization runs before
-         isel and moves the constant to the rhs, so we only check that side.
-         The `riscv.li 0` feeding `sltu` becomes `x0` under `riscv-combine` (see
-         `li_zero_to_x0`), matching LLVM's `SLTU X0, rs1`.
-         LLVM: `Pat<(riscv_setne GPR:$rs1), (SLTU (XLenVT X0), GPR:$rs1)>`.
-         https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1650 -/
-      let zeroCmpReg :=
-        if (matchConstantZero rhs ctx).isSome then some lCmpReg
-        else none
-      let c0 := RISCVImmediateProperties.mk (IntegerAttr.mk 0 (IntegerType.mk 64))
-      match zeroCmpReg with
-      | some cmpReg =>
-        /- llvm.icmp ne a 0  -> riscv.sltu 0 a (snez) -/
-        let (ctx, liOp) ← WfRewriter.createOp! ctx (.riscv .li) #[RegisterType.mk] #[]
-          #[] #[] c0 none
-        let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .sltu) #[RegisterType.mk] #[liOp.getResult 0, cmpReg]
-          #[] #[] () none
-        pure (ctx, #[liOp, retOp], retOp)
-      | none =>
-        /- llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs) -/
-        let (ctx, xorOp) ← WfRewriter.createOp! ctx (.riscv .xor) #[RegisterType.mk] #[rCmpReg, lCmpReg]
-          #[] #[] () none
-        let (ctx, liOp) ← WfRewriter.createOp! ctx (.riscv .li) #[RegisterType.mk] #[]
-          #[] #[] c0 none
-        let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .sltu) #[RegisterType.mk] #[liOp.getResult 0, xorOp.getResult 0]
-          #[] #[] () none
-        pure (ctx, #[xorOp, liOp, retOp], retOp)
-    | .slt =>
-      /- llvm.icmp slt lhs rhs -> riscv.slt lhs rhs  -/
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .slt) #[RegisterType.mk] #[lCmpReg, rCmpReg]
-        #[] #[] () none
-      pure (ctx, #[retOp], retOp)
-    | .sle =>
-      /- llvm.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1 -/
-      let (ctx, sltOp) ← WfRewriter.createOp! ctx (.riscv .slt) #[RegisterType.mk] #[rCmpReg, lCmpReg]
-        #[] #[] () none
-      let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .xori) #[RegisterType.mk] #[sltOp.getResult 0]
-        #[] #[] c1 none
-      pure (ctx, #[sltOp, retOp], retOp)
-    | .sgt =>
-      /- llvm.icmp sgt lhs rhs -> riscv.slt rhs lhs -/
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .slt) #[RegisterType.mk] #[rCmpReg, lCmpReg]
-        #[] #[] () none
-      pure (ctx, #[retOp], retOp)
-    | .sge =>
-      /- llvm.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1 -/
-      let (ctx, sltOp) ← WfRewriter.createOp! ctx (.riscv .slt) #[RegisterType.mk] #[lCmpReg, rCmpReg]
-        #[] #[] () none
-      let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .xori) #[RegisterType.mk] #[sltOp.getResult 0]
-        #[] #[] c1 none
-      pure (ctx, #[sltOp, retOp], retOp)
-    | .ult =>
-      /- llvm.icmp ult lhs rhs -> riscv.sltu lhs rhs -/
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .sltu) #[RegisterType.mk] #[lCmpReg, rCmpReg]
-        #[] #[] () none
-      pure (ctx, #[retOp], retOp)
-    | .ule =>
-      /- llvm.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1 -/
-      let (ctx, sltuOp) ← WfRewriter.createOp! ctx (.riscv .sltu) #[RegisterType.mk] #[rCmpReg, lCmpReg]
-        #[] #[] () none
-      let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .xori) #[RegisterType.mk] #[sltuOp.getResult 0]
-        #[] #[] c1 none
-      pure (ctx, #[sltuOp, retOp], retOp)
-    | .ugt =>
-      /- llvm.icmp ugt lhs rhs -> riscv.sltu rhs lhs -/
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .sltu) #[RegisterType.mk] #[rCmpReg, lCmpReg]
-        #[] #[] () none
-      pure (ctx, #[retOp], retOp)
-    | .uge =>
-      /- llvm.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1 -/
-      let (ctx, sltuOp) ← WfRewriter.createOp! ctx (.riscv .sltu) #[RegisterType.mk] #[lCmpReg, rCmpReg]
-        #[] #[] () none
-      let c1 := RISCVImmediateProperties.mk (IntegerAttr.mk 1 (IntegerType.mk 64))
-      let (ctx, retOp) ← WfRewriter.createOp! ctx (.riscv .xori) #[RegisterType.mk] #[sltuOp.getResult 0]
-        #[] #[] c1 none
-      pure (ctx, #[sltuOp, retOp], retOp)
-  let (ctx, castEqOp) ← WfRewriter.createOp! ctx (.builtin .unrealized_conversion_cast) #[type] #[retOp.getResult 0]
-        #[] #[] () none
-  some (ctx, some (#[lcastOp, rcastOp] ++ extOps ++ predOps ++ #[castEqOp], #[castEqOp.getResult 0]))
+  /- The result is cast back for type consistency, so it must be an integer type. -/
+  let .integerType _ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  let ext := icmpExtOf ltype.bitwidth
+  /- Peephole for `eq`/`ne`: when the rhs is a constant `0`, the `xor` is unnecessary and the
+     comparison is against the left register directly (`seqz`/`snez`). Canonicalization runs before
+     isel and moves the constant to the rhs, so we only check that side.
+     LLVM: `Pat<(riscv_seteq GPR:$rs1), (SLTIU GPR:$rs1, 1)>` and
+     `Pat<(riscv_setne GPR:$rs1), (SLTU (XLenVT X0), GPR:$rs1)>`.
+     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1649 -/
+  let rhsIsZero := (matchConstantZero rhs ctx).isSome
+  match property.predicate with
+  | .eq =>
+    if rhsIsZero then icmpEmitSeqzLocal ctx op lhs rhs ext
+    else icmpEmitCmpImmLocal ctx op lhs rhs ext .xor rfl true .sltiu rfl
+  | .ne =>
+    if rhsIsZero then icmpEmitSnezLocal ctx op lhs rhs ext
+    else icmpEmitXorSnezLocal ctx op lhs rhs ext
+  | .slt => icmpEmitCmpLocal ctx op lhs rhs ext .slt rfl false
+  | .sgt => icmpEmitCmpLocal ctx op lhs rhs ext .slt rfl true
+  | .ult => icmpEmitCmpLocal ctx op lhs rhs ext .sltu rfl false
+  | .ugt => icmpEmitCmpLocal ctx op lhs rhs ext .sltu rfl true
+  | .sge => icmpEmitCmpImmLocal ctx op lhs rhs ext .slt rfl false .xori rfl
+  | .sle => icmpEmitCmpImmLocal ctx op lhs rhs ext .slt rfl true .xori rfl
+  | .uge => icmpEmitCmpImmLocal ctx op lhs rhs ext .sltu rfl false .xori rfl
+  | .ule => icmpEmitCmpImmLocal ctx op lhs rhs ext .sltu rfl true .xori rfl
 
 /-- llvm.icmp -> riscv comparison sequence (see `icmp_local`). -/
 def icmp (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -804,9 +811,16 @@ def checkBitcastType (t : TypeAttr) : Bool :=
   | .byteType _ => true
   | _ => false
 
+/-- Is this a `byte -> ptr` bitcast? -/
+def isBitcastByteToPtr (opType resType : TypeAttr) : Bool :=
+  match opType.val, resType.val with
+  | .byteType _, .llvmPointerType _ => true
+  | _, _ => false
+
 /--
   llvm.bitcast t1 %x to t2 -> builtin_unrealized_conversion_cast
   Integers, bytes, and pointers are all lowered to !riscv.reg, making this basically a no-op.
+  The `byte -> ptr` case is excluded.
 -/
 def bitcast_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -814,6 +828,7 @@ def bitcast_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let opType := operand.getType! ctx.raw
   let resType := ((op.getResult 0).get! ctx.raw).type
   if ¬ checkBitcastType opType ∨ ¬ checkBitcastType resType then return (ctx, none)
+  if isBitcastByteToPtr opType resType then return (ctx, none)
   let some opBw := Attribute.bitwidthOfType opType | return (ctx, none)
   let some resBw := Attribute.bitwidthOfType resType | return (ctx, none)
   if opBw ∉ [8, 16, 32, 64] ∨ resBw ∉ [8, 16, 32, 64] then return (ctx, none)
@@ -936,7 +951,12 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
         #[] #[] () none
       pure (ctx, #[addOp], addOp)
     | _ =>
-      if scale &&& (scale - 1) == 0 then
+      /- `0 < scale` excludes zero-sized element types (`i0`, `!llvm.array<0 x _>`), for which
+         `scale &&& (scale - 1) == 0` also holds but `Nat.log2 0 = 0` would emit `idx << 0`, i.e.
+         `ptr + idx` rather than `ptr`. `Nat.log2 scale < 64` excludes element sizes of `2^64` and
+         beyond, whose shift amount does not fit the 6-bit immediate. Both fall through to the
+         `li`/`mul` form below, which truncates modulo `2^64` exactly as the source does. -/
+      if 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64 then
         /- scale is a power of two: ptr + (idx << log2 scale) -/
         let k := RISCVImmediateProperties.mk (IntegerAttr.mk (Nat.log2 scale) (IntegerType.mk 64))
         let (ctx, slliOp) ← WfRewriter.createOp! ctx (.riscv .slli) #[RegisterType.mk] #[iReg]
