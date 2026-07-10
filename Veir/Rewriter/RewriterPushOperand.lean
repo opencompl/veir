@@ -165,7 +165,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
     have hareaAFT : Buffed.Operation.Offsets.afterInt op ctx.spec
         = Buffed.Operation.Offsets.regionsInt op ctx.spec + ((op.get! ctx.spec).capRegions * 8 : Nat) := by rfl
     have hareaRES : Buffed.Operation.Offsets.resultsInt op ctx.spec
-        = -(((op.get! ctx.spec).capResults * 32 : Nat) : Int) := by
+        = -(((op.get! ctx.spec).capResults * 40 : Nat) : Int) := by
       simp only [Buffed.Operation.Offsets.resultsInt, Buffed.Operation.Sizes.resultsNat]
       grind
     have hareaOPP : Buffed.Operation.Offsets.operandsInt opPtr.spec ctx.spec
@@ -415,17 +415,17 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
             have hbackM : (OpOperandPtrPtr.valueFirstUse valuePtr.spec).toM (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))
                 = valuePtr.impl + Buffed.ValueImpl.Offsets.firstUse := by
               simp only [Veir.OpOperandPtrPtr.toM, Veir.OpOperandPtrPtr.toFlat, hvflatP]
-              have h2 : (valuePtr.impl + Buffed.ValueImpl.Offsets.firstUse).toNat = UInt64.toNat valuePtr.impl + 8 := by
+              have h2 : (valuePtr.impl + Buffed.ValueImpl.Offsets.firstUse).toNat = UInt64.toNat valuePtr.impl + 16 := by
                 rw [UInt64.uint64_add_int64_toNat_lt] <;>
                   (clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt hro8 hro4;
                    (try clear hnMeq hnflat); (try clear hslot hnum);
-                   grind [show Buffed.ValueImpl.Offsets.firstUse.toInt = 8 from rfl,
-                     show Buffed.ValueImpl.Offsets.afterInt = 16 from rfl])
+                   grind [show Buffed.ValueImpl.Offsets.firstUse.toInt = 16 from rfl,
+                     show Buffed.ValueImpl.Offsets.afterInt = 24 from rfl])
               clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt hro8 hro4
               (try clear hnMeq hnflat); (try clear hslot hnum)
               grind [Nat.toUInt64_eq, UInt64.toNat_ofNat',
-                show Buffed.ValueImpl.Offsets.firstUse.toInt = 8 from rfl,
-                show Buffed.ValueImpl.Offsets.afterInt = 16 from rfl]
+                show Buffed.ValueImpl.Offsets.firstUse.toInt = 16 from rfl,
+                show Buffed.ValueImpl.Offsets.afterInt = 24 from rfl]
             simp only [Sim.OpOperandPtrPtr.Sim]
             (try dsimp only)
             exact hbackM
@@ -547,11 +547,11 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
           simp only [TopLevelPtr.range, hr, OperationPtr.rangeInt, Buffed.Operation.rangeInt,
             add_nat_range_def, IsIncludedIN] at hio
           grind [ExArray.range_lower, ExArray.range_upper]
-        have hresflat : ((res.toFlat ctx.spec : Nat) : Int) = op.toFlat + Buffed.Operation.Offsets.resultsInt op ctx.spec + ((res.index * 32 : Nat) : Int) := by
+        have hresflat : ((res.toFlat ctx.spec : Nat) : Int) = op.toFlat + Buffed.Operation.Offsets.resultsInt op ctx.spec + ((res.index * 40 : Nat) : Int) := by
           rw [OpResultPtr.toFlat_ideal ctx.sim.repr res hresib]
-          simp only [OpResultPtr.toFlatNat, heq, show Buffed.OpResult.sizeNat = 32 from rfl]
+          simp only [OpResultPtr.toFlatNat, heq, show Buffed.OpResult.sizeNat = 40 from rfl]
           omega
-        have hres : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 32 →
+        have hres : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 40 →
             (Rewriter.setOperand opPtr.impl ctx.buf idx hnum hslot valuePtr.impl).mem.read64! (res.toM ctx.spec + off) = ctx.buf.mem.read64! (res.toM ctx.spec + off) := by
           intro off n hn h32
           apply hread
@@ -577,28 +577,28 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
             grind [layout_grind]
         constructor
         · have := this.kind
-          simp only [Buffed.ValueImplMPtr.readType!, ValuePtr.toM_opResult, hresmeq, hresget] at this ⊢
+          simp only [Buffed.OpResultMPtr.readKind!, hresmeq, hresget] at this ⊢
           rw [hres0]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt
           grind [layout_grind, Rewriter.pushOperand]
         · have := this.typee
           simp only [Buffed.OpResultMPtr.readType!, hattr, hresmeq] at this ⊢
-          rw [hres0]
+          rw [hres Buffed.ValueImpl.Offsets.type 8 (by decide) (by decide)]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt
           grind [layout_grind, Rewriter.pushOperand]
         · have := this.firstUse
           simp only [Buffed.OpResultMPtr.readFirstUse!, hresmeq, hresget] at this ⊢
-          rw [hres Buffed.ValueImpl.Offsets.firstUse 8 (by decide) (by decide)]
+          rw [hres Buffed.ValueImpl.Offsets.firstUse 16 (by decide) (by decide)]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt
           grind [layout_grind, Rewriter.pushOperand]
         · have := this.index
           simp only [Buffed.OpResultMPtr.readIndex!, hresmeq, hresget] at this ⊢
-          rw [hres Buffed.OpResult.Offsets.index 16 (by decide) (by decide)]
+          rw [hres Buffed.OpResult.Offsets.index 24 (by decide) (by decide)]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt
           grind [layout_grind, Rewriter.pushOperand]
         · have := this.owner
           simp only [Buffed.OpResultMPtr.readOwner!, hresmeq, hresget] at this ⊢
-          rw [hres Buffed.OpResult.Offsets.owner 24 (by decide) (by decide)]
+          rw [hres Buffed.OpResult.Offsets.owner 32 (by decide) (by decide)]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt
           grind [layout_grind, Rewriter.pushOperand]
   · -- encoding_block
@@ -612,7 +612,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
     have hdd := ctx.sim.disjoint_allocs (.block blk) (.operation opPtr.spec) (by grind) (by grind) (by simp)
     have hbri := ctx.sim.repr.blocks_indices blk (by grind)
     have hareaBLK : Buffed.Block.Offsets.afterInt blk ctx.spec
-        = 56 + (((blk.get! ctx.spec).capArguments * 32 : Nat) : Int) := by rfl
+        = 56 + (((blk.get! ctx.spec).capArguments * 40 : Nat) : Int) := by rfl
     have hblkM : (UInt64.toNat blk.toM : Int) = blk.toFlat := by
       simp only [BlockPtr.toM]
       grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', BlockPtr.toFlat, layout_grind]
@@ -683,12 +683,12 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
         have hargM : (UInt64.toNat arg.toM : Int) = arg.toFlat := by
           simp only [BlockArgumentPtr.toM]
           grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', BlockArgumentPtr.toFlat]
-        have hargflat : ((arg.toFlat : Nat) : Int) = blk.toFlat + 56 + ((arg.index * 32 : Nat) : Int) := by
+        have hargflat : ((arg.toFlat : Nat) : Int) = blk.toFlat + 56 + ((arg.index * 40 : Nat) : Int) := by
           rw [BlockArgumentPtr.toFlat_ideal]
-          simp only [BlockArgumentPtr.toFlatNat, heq, show Buffed.BlockArgument.sizeNat = 32 from rfl,
+          simp only [BlockArgumentPtr.toFlatNat, heq, show Buffed.BlockArgument.sizeNat = 40 from rfl,
             show Buffed.Block.Offsets.argumentsInt = 56 from rfl]
           omega
-        have harg : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 32 →
+        have harg : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 40 →
             (Rewriter.setOperand opPtr.impl ctx.buf idx hnum hslot valuePtr.impl).mem.read64! (arg.toM + off) = ctx.buf.mem.read64! (arg.toM + off) := by
           intro off n hn h32
           apply hread
@@ -706,28 +706,28 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
           grind [layout_grind]
         constructor
         · have := this.kind
-          simp only [Buffed.ValueImplMPtr.readType!, ValuePtr.toM_blockArgument] at this ⊢
+          simp only [Buffed.BlockArgumentMPtr.readKind!] at this ⊢
           rw [harg0]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt; (try clear hslot hnum)
           grind [layout_grind, Rewriter.pushOperand]
         · have := this.type
           simp only [Buffed.BlockArgumentMPtr.readType!, hattr, hargget] at this ⊢
-          rw [harg0]
+          rw [harg Buffed.ValueImpl.Offsets.type 8 (by decide) (by decide)]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt; (try clear hslot hnum)
           grind [layout_grind, Rewriter.pushOperand]
         · have := this.firstUse
           simp only [Buffed.BlockArgumentMPtr.readFirstUse!, hargget] at this ⊢
-          rw [harg Buffed.ValueImpl.Offsets.firstUse 8 (by decide) (by decide)]
+          rw [harg Buffed.ValueImpl.Offsets.firstUse 16 (by decide) (by decide)]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt; (try clear hslot hnum)
           grind [layout_grind, Rewriter.pushOperand]
         · have := this.index
           simp only [Buffed.BlockArgumentMPtr.readIndex!, hargget] at this ⊢
-          rw [harg Buffed.BlockArgument.Offsets.index 16 (by decide) (by decide)]
+          rw [harg Buffed.BlockArgument.Offsets.index 24 (by decide) (by decide)]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt; (try clear hslot hnum)
           grind [layout_grind, Rewriter.pushOperand]
         · have := this.owner
           simp only [Buffed.BlockArgumentMPtr.readOwner!, hargget] at this ⊢
-          rw [harg Buffed.BlockArgument.Offsets.owner 24 (by decide) (by decide)]
+          rw [harg Buffed.BlockArgument.Offsets.owner 32 (by decide) (by decide)]
           clear hread hread32 hattr ek hoff hslotaddr husz hincl hmul hidxlt; (try clear hslot hnum)
           grind [layout_grind, Rewriter.pushOperand]
   · -- encoding_region
