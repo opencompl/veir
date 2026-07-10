@@ -1,6 +1,3 @@
-
-
-
 import Veir.Prelude
 import Veir.IR.Basic
 import Veir.Rewriter.Basic
@@ -13,6 +10,67 @@ set_option maxHeartbeats 100000000
 set_option warn.sorry false
 
 namespace Program
+
+structure Xoshiro256PP where
+  s0 : UInt64
+  s1 : UInt64
+  s2 : UInt64
+  s3 : UInt64
+
+namespace Xoshiro256PP
+
+@[always_inline]
+def rol64 (x : UInt64) (k : UInt64) :=
+  (x <<< k) ||| (x >>> (64 - k))
+
+@[always_inline]
+def step (self : Xoshiro256PP) : Xoshiro256PP × UInt64:=
+  let (s0, s1, s2, s3) := (self.s0, self.s1, self.s2, self.s3)
+
+  let result := rol64 (s0 + s3) 23 + s0
+  let t := s1 <<< 17
+
+  let s2 := s2 ^^^ s0
+  let s3 := s3 ^^^ s1
+  let s1 := s1 ^^^ s2
+  let s0 := s0 ^^^ s3
+
+  let s2 := s2 ^^^ t
+  let s3 := rol64 s3 45
+
+  ({ s0, s1, s2, s3 }, result)
+
+@[always_inline]
+def new (seed : Nat := 42) : Xoshiro256PP :=
+  let state := {
+    s0 := 0xa88f8a3be644a802,
+    s1 := 0x7f9ce0f5c6c0e39e,
+    s2 := 0x9fecbfa76b135110,
+    s3 := 0x6bcf817f7dd191dc ^^^ seed.toUInt64
+  }
+
+  step state |>.fst
+
+@[always_inline]
+def randU64 (rng : Xoshiro256PP) : Xoshiro256PP × UInt64 :=
+  rng.step
+
+@[always_inline]
+def randNat63 (rng : Xoshiro256PP) : Xoshiro256PP × Nat :=
+  let (rng, val) := rng.randU64
+  (rng, (val &&& 0x7FFF_FFFF_FFFF_FFFF).toNat)
+
+@[always_inline]
+def randBool (rng : Xoshiro256PP) (pc : Nat := 50) : Xoshiro256PP × Bool :=
+  let (rng, val) := rng.randNat63
+  (rng, val % 100 < pc)
+
+@[always_inline]
+def randIdx {α : Type} (rng : Xoshiro256PP) (arr : Array α) : Xoshiro256PP × Option α :=
+  let (rng, val) := rng.randNat63
+  (rng, arr[val % arr.size]?)
+
+end Xoshiro256PP
 
 buffed (def_lemma := false)
 def emptySim : Option (Sim.IRContext OpCode × Sim.OperationPtr × InsertPoint) := do
@@ -64,6 +122,83 @@ def constFoldTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (o
   let accVal : Sim.ValuePtr := ⟨accResultPtr.impl, accResultPtr.spec⟩
 
   constFoldTreeGo size ctx insertPoint opcode prop pc inc accVal
+
+buffed (def_lemma := false)
+def addZeroTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTree ctx ip (.arith .addi) () size pc 42 0
+
+buffed (def_lemma := false)
+def addOneTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTree ctx ip (.arith .addi) () size pc 42 1
+
+buffed (def_lemma := false)
+def mulTwoTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTree ctx ip (.arith .muli) () size pc 42 2
+
+buffed (def_lemma := false)
+def constFoldTreeSparseGoSim (ctx : Sim.IRContext OpCode) (rng : Xoshiro256PP) (insertPoint : InsertPoint) (opcode : OpCode)
+    (prop : propertiesOf opcode) (size pc : Nat) (inc : Int) (constants runningTotals : Array Buffed.ValueImplMPtr) : Option (Sim.IRContext OpCode) := do
+  if runningTotals.size ≥ size then
+    let back := runningTotals.back!
+    let (ctx, op) ← Rewriter.createOp ctx (.test .test) #[] #[⟨back, default⟩] #[] #[] () insertPoint sorry sorry sorry sorry sorry sorry
+    ctx
+  else
+    let (rng, const) := rng.randBool 20
+
+    if const then
+      let incAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk inc (IntegerType.mk 32))]
+      let (ctx, op) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry sorry
+      let ctx ← op.setAttributes ctx incAttr sorry
+      let constResultPtr := op.getResultPtr ctx 0 sorry
+      let constants := constants.push constResultPtr.impl
+      constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
+
+    else
+      let (rng, lhs) := rng.randIdx runningTotals
+      if let some lhs := lhs then
+        let (rng, rhs) := rng.randIdx constants
+        if let some rhs := rhs then
+          let (rng, b) := rng.randBool pc
+          let ⟨thisOp, thisProp⟩ : (op : OpCode) × propertiesOf op := if b then ⟨opcode, prop⟩ else ⟨.arith .andi, ()⟩
+
+          let (ctx, op) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[⟨lhs, default⟩, ⟨rhs, default⟩] #[] #[] thisProp insertPoint sorry sorry sorry sorry sorry sorry
+          let result := op.getResultPtr ctx 0 sorry
+          let runningTotals := runningTotals.push result.impl
+          constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
+        else
+          constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
+      else
+        constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
+
+partial_fixpoint
+
+-- Create a program that looks like constFoldTree but with randomly selected constants as rhs and
+-- randomly selected previous ops as lhs
+buffed (def_lemma := false)
+def constFoldTreeSparseSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
+    (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
+  let rootAttr := DictionaryAttr.fromArray #[("value".toByteArray, IntegerAttr.mk root (IntegerType.mk 32))]
+  let (ctx, root) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let ctx ← root.setAttributes ctx rootAttr sorry
+  let  rootResult := root.getResultPtr ctx 0 sorry
+
+  let runningTotals := #[rootResult.impl]
+  let constants := #[]
+  let rng := .new
+
+  constFoldTreeSparseGo ctx rng insertPoint opcode prop size pc inc constants runningTotals
+
+buffed (def_lemma := false)
+def addZeroTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTreeSparse ctx ip (.arith .addi) () size pc 42 0
+
+buffed (def_lemma := false)
+def addOneTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTreeSparse ctx ip (.arith .addi) () size pc 42 1
+
+buffed (def_lemma := false)
+def mulTwoTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+  constFoldTreeSparse ctx ip (.arith .muli) () size pc 42 2
 
 end Program
 
@@ -138,14 +273,14 @@ def rewriteForwardsAddIConstFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp :
     rewriteForwardsAddIConstFoldingGoSim ctx next
 partial_fixpoint
 
-buffed (inline := false) (def_lemma := false)
+buffed (def_lemma := false)
 def rewriteForwardsAddIConstFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   let region := topOp.getRegionPtr! ctx 0
   let block ← (region.getFirstBlock! ctx).toOption
   let maybeOp := (block.getFirstOp! ctx)
   rewriteForwardsAddIConstFoldingGo ctx maybeOp
 
--- buffed (def_lemma := false)
+buffed (def_lemma := false)
 def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpType ctx sorry ≠ .arith .addi then
     return ctx
@@ -154,7 +289,7 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
   let rhsValuePtr := op.getOperandPtr ctx 1 sorry
   let rhsValue := rhsValuePtr.getValue ctx sorry
   -- Unsafe...
-  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, sorry⟩
+  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec.asOpResultPtr⟩
   let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
 
   if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
@@ -171,7 +306,7 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
   let lhsValue := lhsValuePtr.getValue ctx sorry
 
   let oldValuePtr := op.getResultPtr ctx 0 sorry
-  let oldValue : Sim.ValuePtr := ⟨oldValuePtr.impl, sorry⟩
+  let oldValue : Sim.ValuePtr := ⟨oldValuePtr.impl, default⟩
   let ctx ← Rewriter.replaceValue? ctx oldValue lhsValue sorry sorry
 
   let ctx ← Rewriter.eraseOp ctx op sorry sorry sorry sorry
@@ -181,7 +316,24 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
 
   return ctx
 
--- buffed (def_lemma := false)
+buffed (def_lemma := false)
+def rewriteForwardsAddIZeroFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
+  match maybeOp.toOption with
+  | none => ctx
+  | some op =>
+    let next := op.getNextOp ctx sorry
+    let ctx ← addIZeroFolding ctx op
+    rewriteForwardsAddIZeroFoldingGoSim ctx next
+partial_fixpoint
+
+buffed (def_lemma := false)
+def rewriteForwardsAddIZeroFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+  let region := topOp.getRegionPtr! ctx 0
+  let block ← (region.getFirstBlock! ctx).toOption
+  let maybeOp := (block.getFirstOp! ctx)
+  rewriteForwardsAddIZeroFoldingGo ctx maybeOp
+
+buffed (def_lemma := false)
 def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpType ctx sorry ≠ .arith .muli then
     return ctx
@@ -190,7 +342,7 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
   let rhsValuePtr := op.getOperandPtr ctx 1 sorry
   let rhsValue := rhsValuePtr.getValue ctx sorry
   -- Unsafe...
-  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, sorry⟩
+  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec.asOpResultPtr⟩
   let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
 
   if rhsOpPtr.getOpType ctx sorry ≠ .arith .constant then
@@ -207,13 +359,30 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
   let lhsValue := lhsValuePtr.getValue ctx sorry
 
   let insertPoint := InsertPoint.before ⟨op.impl.toNat⟩
-  let (ctx, newOp) ← Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[lhsValue, lhsValue] #[] #[] () insertPoint sorry sorry sorry sorry sorry
+  let (ctx, newOp) ← Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[⟨lhsValue.impl, default⟩, ⟨lhsValue.impl, default⟩] #[] #[] () insertPoint sorry sorry sorry sorry sorry
   let ctx ← Rewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
 
   if (rhsOpResultPtr.getFirstUse ctx sorry).toOption.isNone then
     return Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry
 
   return ctx
+
+buffed (def_lemma := false)
+def rewriteForwardsMulITwoReduceGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
+  match maybeOp.toOption with
+  | none => ctx
+  | some op =>
+    let next := op.getNextOp ctx sorry
+    let ctx ← mulITwoReduce ctx op
+    rewriteForwardsMulITwoReduceGoSim ctx next
+partial_fixpoint
+
+buffed (def_lemma := false)
+def rewriteForwardsMulITwoReduceSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+  let region := topOp.getRegionPtr! ctx 0
+  let block ← (region.getFirstBlock! ctx).toOption
+  let maybeOp := (block.getFirstOp! ctx)
+  rewriteForwardsMulITwoReduceGo ctx maybeOp
 
 end Custom
 
@@ -316,24 +485,71 @@ def blockLengthSim (ctx : Sim.IRContext OpCode) (block : Sim.BlockPtr) : UInt64 
   let first := block.getFirstOp ctx (by sorry) |>.toOption.get sorry
   blockLength.loop ctx first 0
 
--- set_option trace.Compiler.reduceArity2 true in
-def main : IO Unit := do
-  let ctx := Program.empty
-  IO.println "Created empty"
-  match ctx with
-  | none => return
-  | some (ctx, topOp, ip) =>
-    let res := Program.constFoldTree ctx ip (.arith .addi) () 300_000 100 42 1
-    match res with
-    | none => return -- IO.println "err"
-    | some ctx =>
-      -- IO.println "Constructed"
-      let startTime ← IO.monoNanosNow
-      if let some ctx := Custom.rewriteForwardsAddIConstFolding ctx topOp then
-        let endTime ← IO.monoNanosNow
-        IO.println s!"ok: {ctx.buf.size}"
-        let time := (endTime - startTime).toFloat / 1_000_000_000
-        IO.println s!"time : {time} s"
+@[always_inline]
+def ignoreSpec (ctx : Option (Sim.IRContext OpCode)) : Option (Sim.IRContext OpCode) := do
+  let ctx ← ctx
+  return ⟨ctx.buf, default, sorry⟩
+
+@[always_inline]
+def time {α : Type} (name: String) (f: Unit → IO α) : IO α := do
+  let startTime ← IO.monoNanosNow
+  let res ← f ()
+  let endTime ← IO.monoNanosNow
+  let elapsedTime := endTime - startTime
+  IO.println s!"{name} time (s): {elapsedTime.toFloat / 1000000000}"
+  return res
+
+@[always_inline]
+def run (size pc : Nat)
+    (create : Sim.IRContext OpCode → InsertPoint → Nat → Nat → Option (Sim.IRContext OpCode))
+    (rewrite : Sim.IRContext OpCode → Sim.OperationPtr → Option (Sim.IRContext OpCode)) :
+    OptionT IO Unit := do
+  let some (ctx, topOp, ip) := Program.empty | return
+  let ctx ← time "create" (fun () => return ignoreSpec (create ctx ip size pc))
+  let ctx ← time "rewrite" (fun () => return ignoreSpec (rewrite ctx topOp))
+  let _ctx := ctx
+
+def runBenchmark (benchmark : String) (n pc : Nat) : OptionT IO Unit :=
+  open Program in
+  open Custom in
+
+  match benchmark with
+  | "add-fold-forwards" =>        run n pc addOneTree        rewriteForwardsAddIConstFolding
+  | "add-zero-forwards" =>        run n pc addZeroTree       rewriteForwardsAddIZeroFolding
+  | "mul-two-forwards" =>         run n pc mulTwoTree        rewriteForwardsMulITwoReduce
+
+  | "add-fold-forwards-sparse" => run n pc addOneTreeSparse  rewriteForwardsAddIConstFolding
+  | "add-zero-forwards-sparse" => run n pc addZeroTreeSparse rewriteForwardsAddIZeroFolding
+  | "mul-two-forwards-sparse" =>  run n pc mulTwoTreeSparse  rewriteForwardsMulITwoReduce
+
+  | _ => panic! "Unsupported benchmark"
+
+def count := 50_000
+
+def getCountFrom (c : Option String) :=
+  match c with
+  | none => count
+  | some s =>
+    match s.toNat? with
+    | none => count
+    | some n => n
+
+def getPCFrom (c : Option String) :=
+  match c with
+  | none => 100
+  | some s =>
+    match s.toNat? with
+    | none => 100
+    | some n => n
+
+def main (args : List String) : IO Unit := do
+  IO.println s!"Benchmark ({args})"
+  let count := getCountFrom args[1]?
+  if let some bench := args[0]? then
+    let _ ← runBenchmark bench count (getPCFrom args[2]?)
+  else
+    IO.eprintln "Please provide a benchmark name"
+    IO.Process.exit 2
 
   -- let N := 10_000_000
   -- let startTime ← IO.monoNanosNow
