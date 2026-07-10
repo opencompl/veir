@@ -9,6 +9,7 @@ import Veir.Passes.InstructionSelection.RewriteProofs.LowerBexti
 import Veir.Passes.InstructionSelection.RewriteProofs.LowerSlti
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonForwardInterpret
 import Veir.Passes.InstructionSelection.RewriteProofs.CommonTactics
+import Veir.Passes.InstructionSelection.RewriteProofs.LowerRotate
 
 /-!
   Graph-level semantics preservation for the LLVM-dialect combines.
@@ -9763,5 +9764,168 @@ theorem SubUminSub_local_preservesSemantics
     (fun _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
     (fun x₁ x₂ y₁ y₂ h₁ h₂ => Data.LLVM.Int.umax_mono x₁ x₂ y₁ y₂ h₁ h₂)
     (fun hw av ins inu ons onu => by subst hw; exact Data.LLVM.Int.SubUminSub_rw)
+
+/-! ### funnel_shift_{left,right}_zero :  `fshl x y 0 → x` ,  `fshr x y 0 → y`
+
+  Both keep a data operand of a funnel shift whose amount matched the constant `0`, creating no
+  operations. Shared combinator proof `funnelShiftZeroLocal_preservesSemantics`, mirroring
+  `binopZeroLeftLocal_preservesSemantics` but on a *ternary* source op: the source is unfolded with
+  `matchTernaryOp_interpretOp_unfold`, verified via `IsVerifiedIntegerTernop`, and the matched
+  constant sits on operand 2 (the shift amount). The kept operand (`a` for `fshl`, `b` for `fshr`,
+  selected by `keepFirst`) is a dominating, non-result operand, so its refinement transports through
+  the `interpretOpList [] state'` no-op to close the simulation. The data core is
+  `fshl_zero_amt`/`fshr_zero_amt`. -/
+set_option maxHeartbeats 1000000 in
+theorem funnelShiftZeroLocal_preservesSemantics {srcOp : Llvm}
+    {match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × ValuePtr)}
+    {keepFirst : Bool}
+    {srcFn : ∀ {bw : Nat}, Data.LLVM.Int bw → Data.LLVM.Int bw → Data.LLVM.Int bw →
+      Data.LLVM.Int bw}
+    (hMatchImplies : ∀ {op : OperationPtr} {ctx : IRContext OpCode} {a b amt},
+        match? op ctx = some (a, b, amt) →
+        op.getOpType! ctx = .llvm srcOp ∧
+        op.getNumResults! ctx = 1 ∧
+        op.getOperands! ctx = #[a, b, amt])
+    (hVerified : ∀ {ctx : WfIRContext OpCode} {op : OperationPtr}
+        {opInBounds : op.InBounds ctx.raw},
+        op.Verified ctx opInBounds → op.getOpType! ctx.raw = .llvm srcOp →
+        op.IsVerifiedIntegerTernop ctx)
+    (hSemSrc : ∀ (bw : Nat) (x y z : Data.LLVM.Int bw) (props : propertiesOf (.llvm srcOp))
+        (resultTypes : Array TypeAttr) (blockOperands : Array BlockPtr) (mem : MemoryState),
+        Llvm.interpretOp' srcOp props resultTypes #[.int bw x, .int bw y, .int bw z] blockOperands mem
+          = some (.ok (#[.int bw (srcFn x y z)], mem, none)))
+    (hRefine : ∀ {bw : Nat} (x y : Data.LLVM.Int bw),
+        srcFn x y (Data.LLVM.Int.constant bw 0) ⊒ (bif keepFirst then x else y))
+    {h : LocalRewritePattern.ReturnOps (funnelShiftZeroLocal match? keepFirst)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (funnelShiftZeroLocal match? keepFirst)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (funnelShiftZeroLocal match? keepFirst)}
+    {h₄ : LocalRewritePattern.ReturnValues (funnelShiftZeroLocal match? keepFirst)} :
+    LocalRewritePattern.PreservesSemantics (funnelShiftZeroLocal match? keepFirst) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, funnelShiftZeroLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp [liftM, monadLift, MonadLift.monadLift] at hinterp
+  simp [pure] at hpattern
+  -- Peel the ternary match.
+  have hMatchSome : (match? op ctx.raw).isSome := by
+    cases hM : match? op ctx.raw with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨a, b, amt⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  have ⟨hOpType, hNumResults, hOperands⟩ := hMatchImplies hMatch
+  -- Result-type guard: the result must be an integer.
+  obtain ⟨intTypeRes, hResTypeRes⟩ :
+      ∃ intType, ((op.getResult 0).get! ctx.raw).type.val = Attribute.integerType intType := by
+    cases hr : ((op.getResult 0).get! ctx.raw).type.val with
+    | integerType t => exact ⟨t, rfl⟩
+    | _ => rw [hr] at hpattern; simp at hpattern
+  rw [hResTypeRes] at hpattern
+  simp only [] at hpattern
+  -- Constant match on the shift amount `amt`.
+  have hCstSome : (matchConstantIntVal amt ctx.raw).isSome := by
+    cases hM : matchConstantIntVal amt ctx.raw with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨cst, hCstMatch⟩ := Option.isSome_iff_exists.mp hCstSome
+  rw [hCstMatch] at hpattern
+  simp only [] at hpattern
+  -- The `value = 0` guard (the initial `simp` swapped the negated `if`).
+  have hVal0 : cst.value = 0 := by
+    split at hpattern
+    · assumption
+    · simp at hpattern
+  rw [if_pos hVal0] at hpattern
+  -- Structural facts from the verifier.
+  have opVerif : op.Verified ctx opInBounds := by grind
+  have ⟨hNRes, hNOper, hNSucc, hNReg, intType, hResType, hOp0Type, hOp1Type, hOp2Type⟩ :=
+    hVerified opVerif hOpType
+  have hOperand0 : op.getOperand! ctx.raw 0 = a := by
+    rw [show a = (op.getOperands! ctx.raw)[0]! from by rw [hOperands]; rfl]
+    grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand1 : op.getOperand! ctx.raw 1 = b := by
+    rw [show b = (op.getOperands! ctx.raw)[1]! from by rw [hOperands]; rfl]
+    grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOperand2 : op.getOperand! ctx.raw 2 = amt := by
+    rw [show amt = (op.getOperands! ctx.raw)[2]! from by rw [hOperands]; rfl]
+    grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hAType : (a.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hOperand0, hOp0Type]
+  have hBType : (b.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hOperand1, hOp1Type]
+  have hAmtType : (amt.getType! ctx.raw).val = Attribute.integerType intType := by
+    rw [← hOperand2, hOp2Type]
+  -- Unfold the source interpretation: exposes `a`, `b`, `amt`'s values and `srcFn xa xb xc`.
+  obtain ⟨xa, xb, xc, haVal, hbVal, hcVal, hMem, hRes, hCf⟩ :=
+    matchTernaryOp_interpretOp_unfold opInBounds hOpType hNumResults hOperands hSemSrc
+      hinterp hAType hBType hAmtType
+  subst hCf
+  -- Pin the shift amount's runtime value to `constant _ 0`.
+  have hamtVal := matchConstantIntVal_getVar?_of_EquationLemmaAt ctxDom ctxVerif opInBounds
+    stateWf hCstMatch (by rw [hOperands]; simp) hAmtType
+  have hxcEq : xc = Data.LLVM.Int.constant intType.bitwidth cst.value := by
+    have := hcVal.symm.trans hamtVal; simpa using this
+  rw [hVal0] at hxcEq
+  subst hxcEq
+  -- The kept operand `K = bif keepFirst then a else b` is an operand of `op`.
+  have hKeptMem : (bif keepFirst then a else b) ∈ op.getOperands! ctx.raw := by
+    rw [hOperands]; cases keepFirst <;> simp
+  have hDomKept : (bif keepFirst then a else b).dominatesIp (InsertPoint.before op) ctx :=
+    ctxDom.operand_dominates_op opInBounds hKeptMem
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hRes] at hsourceValues
+  subst sourceValues
+  have kNotOp : ¬ (bif keepFirst then a else b) ∈ op.getResults! ctx.raw := by
+    grind [IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom (op₁ := op)]
+  -- Nothing is created: `newCtx = ctx`, `newOps = #[]`, `newValues = #[K]`.
+  obtain ⟨rfl, rfl, rfl⟩ :
+      newCtx = ctx ∧ newOps = #[] ∧ newValues = #[bif keepFirst then a else b] := by
+    simp only [Option.some.injEq, Prod.mk.injEq] at hpattern; grind
+  -- The kept operand's runtime value in the source state.
+  have hKeptVal : state.variables.getVar? (bif keepFirst then a else b)
+      = some (RuntimeValue.int intType.bitwidth (bif keepFirst then xa else xb)) := by
+    cases keepFirst <;> simp [haVal, hbVal]
+  obtain ⟨kt, hKVal', hktRef⟩ :=
+    LocalRewritePattern.exists_refined_int_getVar? valueRefinement state'Dom (by grind) hKeptVal
+      hDomKept hDomKept kNotOp
+  refine ⟨state', by
+    simp [interpretOpList, liftM, monadLift, MonadLift.monadLift, Interp, pure], by grind, ?_⟩
+  refine ⟨#[RuntimeValue.int intType.bitwidth kt], by simp [hKVal', Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ⟨rfl, ?_⟩
+  refine isRefinedBy_trans ?_ hktRef
+  have := hRefine (bw := intType.bitwidth) xa xb
+  cases keepFirst <;> simpa using this
+
+theorem funnel_shift_left_zero_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps funnel_shift_left_zero_local}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges funnel_shift_left_zero_local}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds funnel_shift_left_zero_local}
+    {h₄ : LocalRewritePattern.ReturnValues funnel_shift_left_zero_local} :
+    LocalRewritePattern.PreservesSemantics funnel_shift_left_zero_local h h₂ h₃ h₄ :=
+  funnelShiftZeroLocal_preservesSemantics (srcOp := .intr__fshl)
+    (match? := matchFshl) (keepFirst := true)
+    (srcFn := fun x y z => Data.LLVM.Int.fshl x y z)
+    matchFshl_implies
+    OperationPtr.Verified.llvm_intr__fshl
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun x y => Data.LLVM.Int.fshl_zero_amt (x := x) (y := y))
+
+theorem funnel_shift_right_zero_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps funnel_shift_right_zero_local}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges funnel_shift_right_zero_local}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds funnel_shift_right_zero_local}
+    {h₄ : LocalRewritePattern.ReturnValues funnel_shift_right_zero_local} :
+    LocalRewritePattern.PreservesSemantics funnel_shift_right_zero_local h h₂ h₃ h₄ :=
+  funnelShiftZeroLocal_preservesSemantics (srcOp := .intr__fshr)
+    (match? := matchFshr) (keepFirst := false)
+    (srcFn := fun x y z => Data.LLVM.Int.fshr x y z)
+    matchFshr_implies
+    OperationPtr.Verified.llvm_intr__fshr
+    (fun _ _ _ _ _ _ _ => by simp [Llvm.interpretOp', Data.LLVM.Int.cast_self, pure, Interp])
+    (fun x y => Data.LLVM.Int.fshr_zero_amt (x := x) (y := y))
 
 end Veir.RISCV

@@ -652,4 +652,33 @@ theorem SubUminSub_rw {ins inu ons onu : Bool} {a : Int 64} :
       ⊒ umax a (sub (constant 64 0) a false false) := by
   veir_bv_decide
 
+/-! ### funnel_shift_{left,right}_zero :  `fshl x y 0 → x` ,  `fshr x y 0 → y`
+
+  A funnel shift by a zero amount returns its kept half: `fshl a b 0` keeps the high operand `a`,
+  `fshr a b 0` keeps the low operand `b`. The dropped operand only adds poison to the source
+  (`fshl`/`fshr` are poison if *any* operand is poison), and `poison ⊒ v`, so the obligation is a
+  refinement, not an equality. Both are *width-generic*: the shift amount `0 % w = 0` makes the
+  internal shift the identity, so the `w+w`-bit concatenation `a ++ b` is projected directly to its
+  high half (`extractLsb' w w = a`) or low half (`setWidth w = b`) with no bitwidth guard. -/
+
+/-- `fshl x y 0 → x`. -/
+theorem fshl_zero_amt {w : Nat} {x y : Int w} :
+    fshl x y (constant w 0) ⊒ x := by
+  rw [isRefinedBy_iff]
+  refine ⟨fun h => by grind, fun hp hx => ?_⟩
+  rw [getValue_fshl, getValue_constant]
+  simp only [BitVec.ofInt_ofNat, BitVec.zero_umod, BitVec.shiftLeft_zero',
+    BitVec.extractLsb'_append_eq_left]
+
+/-- `fshr x y 0 → y`. -/
+theorem fshr_zero_amt {w : Nat} {x y : Int w} :
+    fshr x y (constant w 0) ⊒ y := by
+  rw [isRefinedBy_iff]
+  refine ⟨fun h => by grind, fun hp hy => ?_⟩
+  rw [getValue_fshr, getValue_constant]
+  simp only [BitVec.ofInt_ofNat, BitVec.zero_umod, BitVec.truncate_eq_setWidth]
+  rw [show ((x.getValue ++ y.getValue) >>> (0#w : BitVec w)) = x.getValue ++ y.getValue by
+    simp]
+  rw [BitVec.setWidth_append_eq_right]
+
 end Veir.Data.LLVM.Int

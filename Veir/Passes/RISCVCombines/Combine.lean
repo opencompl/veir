@@ -2051,23 +2051,41 @@ def lshr_of_trunc_of_lshr (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 
 /-! ### funnel_shift_{right,left}_zero :  fshr x, y, 0 → y ,  fshl x, y, 0 → x -/
 
-set_option warn.sorry false in
-def funnel_shift_right_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (_x, y, amt) := matchFshr op rewriter.ctx | return rewriter
-  let some c := matchConstantIntVal amt rewriter.ctx | return rewriter
-  if c.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) y sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+/-- Shared shape of `funnel_shift_left_zero`/`funnel_shift_right_zero`: match a funnel shift
+    `fsh a b amt` (via `match?`) whose shift amount `amt` is a constant `0` and whose result is an
+    integer, and replace the result with the *kept* operand — `a` (the high half) for `fshl`, `b`
+    (the low half) for `fshr`, selected by `keepFirst` — creating no operations. Sound because a
+    funnel shift by zero returns its kept half, up to the *other* operand's poison (which only makes
+    the source more poison, and `poison ⊒ v`). Width-generic: no bitwidth guard is needed. Its
+    shared correctness proof is `funnelShiftZeroLocal_preservesSemantics`. -/
+def funnelShiftZeroLocal
+    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × ValuePtr))
+    (keepFirst : Bool)
+    (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (a, b, amt) := match? op ctx | return (ctx, none)
+  let .integerType _ := ((op.getResult 0).get! ctx.raw).type.val | return (ctx, none)
+  let some cst := matchConstantIntVal amt ctx | return (ctx, none)
+  if cst.value ≠ 0 then return (ctx, none)
+  some (ctx, some (#[], #[bif keepFirst then a else b]))
 
-set_option warn.sorry false in
+/-- `fshr x, y, 0 → y`, as a `LocalRewritePattern`, keeping the low operand `y`. -/
+def funnel_shift_right_zero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  funnelShiftZeroLocal matchFshr false ctx op
+
+/-- `fshl x, y, 0 → x`, as a `LocalRewritePattern`, keeping the high operand `x`. -/
+def funnel_shift_left_zero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
+  funnelShiftZeroLocal matchFshl true ctx op
+
+def funnel_shift_right_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite funnel_shift_right_zero_local rewriter op opInBounds
+
 def funnel_shift_left_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (x, _y, amt) := matchFshl op rewriter.ctx | return rewriter
-  let some c := matchConstantIntVal amt rewriter.ctx | return rewriter
-  if c.value ≠ 0 then return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) x sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite funnel_shift_left_zero_local rewriter op opInBounds
 
 /-! ### canonicalize_icmp :  (icmp pred C, x) → (icmp swappedPred x, C)
 
