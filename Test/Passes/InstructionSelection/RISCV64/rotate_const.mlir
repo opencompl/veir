@@ -34,4 +34,22 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
+    // i32: fshr(a, a, 5) is rotate-right by 5 -> roriw a, 5
+    "func.func"()  <{function_type = (i32) -> ()}> ({
+    ^bb0(%a: i32):
+        %c = "llvm.mlir.constant"() <{ "value" = 5 : i32 }> : () -> i32
+        %r = "llvm.intr.fshr"(%a, %a, %c) : (i32, i32, i32) -> i32
+        // CHECK: %{{.*}} = "riscv.roriw"(%{{.*}}) <{"value" = 5 : i64}> : (!riscv.reg) -> !riscv.reg
+        "func.return"() : () -> ()
+    }) : () -> ()
+
+    // i32: fshl(a, a, 5) is rotate-left by 5 == rotate-right by 27 -> roriw a, 27
+    "func.func"()  <{function_type = (i32) -> ()}> ({
+    ^bb0(%a: i32):
+        %c = "llvm.mlir.constant"() <{ "value" = 5 : i32 }> : () -> i32
+        %l = "llvm.intr.fshl"(%a, %a, %c) : (i32, i32, i32) -> i32
+        // CHECK: %{{.*}} = "riscv.roriw"(%{{.*}}) <{"value" = 27 : i64}> : (!riscv.reg) -> !riscv.reg
+        "func.return"() : () -> ()
+    }) : () -> ()
+
 }) : () -> ()

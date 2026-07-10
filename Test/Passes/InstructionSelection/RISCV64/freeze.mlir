@@ -8,7 +8,8 @@
         // CHECK:           ^{{.*}}([[B:.*]] : i64, [[C:.*]] : i32):
         // CHECK-NEXT:      %[[H:.*]] = "builtin.unrealized_conversion_cast"([[B]]) : (i64) -> !riscv.reg
         // CHECK-NEXT:      %[[I:.*]] = "builtin.unrealized_conversion_cast"(%[[H]]) : (!riscv.reg) -> i64
-        // CHECK-NEXT:      %[[L:.*]] = "llvm.freeze"([[C]]) : (i32) -> i32
+        // CHECK-NEXT:      %[[J:.*]] = "builtin.unrealized_conversion_cast"([[C]]) : (i32) -> !riscv.reg
+        // CHECK-NEXT:      %[[K:.*]] = "builtin.unrealized_conversion_cast"(%[[J]]) : (!riscv.reg) -> i32
         
         "func.return"() : () -> ()
     }) : () -> ()

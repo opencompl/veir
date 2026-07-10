@@ -17,28 +17,25 @@ namespace Veir
 
 /-! ## Unrealized Conversion Casts -/
 
-set_option warn.sorry false in
 /-- Emit `unrealized_conversion_cast v : !mod_arith.int<q:iN> → iN`. -/
 def castToStorage (rewriter : PatternRewriter OpCode) (v : ValuePtr) (ip : InsertPoint) :
     Option (PatternRewriter OpCode × ValuePtr) := do
   let .modArithType mt := (v.getType! rewriter.ctx.raw).val
     | none
   let storageType : TypeAttr := mt.modulus.type
-  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast)
-    #[storageType] #[v] #[] #[] () (some ip) sorry (by simp) (by simp) sorry
+  let (rewriter, castOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast)
+    #[storageType] #[v] #[] #[] () (some ip)
   return (rewriter, (castOp.getResult 0 : ValuePtr))
 
-set_option warn.sorry false in
 /-- Emit `unrealized_conversion_cast x : iN → ty`, where `ty` is a `mod_arith` type. -/
 def castToModArith (rewriter : PatternRewriter OpCode) (x : ValuePtr) (ty : ModArithType)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
-  let (rewriter, castOp) ← rewriter.createOp (.builtin .unrealized_conversion_cast)
-    #[ty] #[x] #[] #[] () (some ip) sorry (by simp) (by simp) sorry
+  let (rewriter, castOp) ← rewriter.createOp! (.builtin .unrealized_conversion_cast)
+    #[ty] #[x] #[] #[] () (some ip)
   return (rewriter, (castOp.getResult 0 : ValuePtr))
 
 /-! ## Unpack / Pack ModArithType -/
 
-set_option warn.sorry false in
 /--
   Unpack a `!mod_arith.int<q:iN>` value `v` into the IntegerType `intermediateType`
 -/
@@ -48,13 +45,12 @@ def unpackValue (rewriter : PatternRewriter OpCode) (v : ValuePtr) (intermediate
   let .integerType storageType := (stored.getType! rewriter.ctx.raw).val
     | none
   if intermediateType.bitwidth > storageType.bitwidth then
-    let (rewriter, ext) ← rewriter.createOp (.arith .extui)
-      #[intermediateType] #[stored] #[] #[] { nneg := false } (some ip) sorry (by simp) (by simp) sorry
+    let (rewriter, ext) ← rewriter.createOp! (.arith .extui)
+      #[intermediateType] #[stored] #[] #[] { nneg := false } (some ip)
     return (rewriter, (ext.getResult 0 : ValuePtr))
   else
     return (rewriter, stored)
 
-set_option warn.sorry false in
 /--
   Pack an IntegerType value `v` of IntegerType `intermediateType` into a value of `!mod_arith.int<q:iN>` type `ty`.
 -/
@@ -64,9 +60,9 @@ def packValue (rewriter : PatternRewriter OpCode) (v : ValuePtr) (ty : ModArithT
     | none
   let storageType := ty.modulus.type
   if intermediateType.bitwidth > storageType.bitwidth then
-    let (rewriter, narrowed) ← rewriter.createOp (.arith .trunci)
+    let (rewriter, narrowed) ← rewriter.createOp! (.arith .trunci)
       #[storageType] #[v] #[] #[] { attr := { nsw := false, nuw := true } }
-      (some ip) sorry (by simp) (by simp) sorry
+      (some ip)
     castToModArith rewriter (narrowed.getResult 0 : ValuePtr) ty ip
   else
     castToModArith rewriter (v : ValuePtr) ty ip
@@ -74,24 +70,22 @@ def packValue (rewriter : PatternRewriter OpCode) (v : ValuePtr) (ty : ModArithT
 
 /-! ## Arith Helpers -/
 
-set_option warn.sorry false in
 /-- Emit `arith.constant c : i<width>`. Requires `c` to fit into width (unsigned) -/
 def emitArithConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let ty : TypeAttr := IntegerType.mk width
   let props : ArithConstantProperties := { value := IntegerAttr.mk c (IntegerType.mk width) }
-  let (rewriter, c) ← rewriter.createOp (.arith .constant)
-    #[ty] #[] #[] #[] props (some ip) sorry (by simp) (by simp) sorry
+  let (rewriter, c) ← rewriter.createOp! (.arith .constant)
+    #[ty] #[] #[] #[] props (some ip)
   return (rewriter, (c.getResult 0 : ValuePtr))
 
-set_option warn.sorry false in
 /-- Emit a binary Arith op `arithOp` on `a` and `b` -/
 def emitArithBinOp (rewriter : PatternRewriter OpCode) (arithOp : Arith)
     (props : propertiesOf (.arith arithOp)) (a b : ValuePtr) (ip : InsertPoint) :
     Option (PatternRewriter OpCode × ValuePtr) := do
   let ty := a.getType! rewriter.ctx.raw
-  let (rewriter, r) ← rewriter.createOp (.arith arithOp)
-    #[ty] #[a, b] #[] #[] props (some ip) sorry (by simp) (by simp) sorry
+  let (rewriter, r) ← rewriter.createOp! (.arith arithOp)
+    #[ty] #[a, b] #[] #[] props (some ip)
   return (rewriter, (r.getResult 0 : ValuePtr))
 
 

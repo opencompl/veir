@@ -10,7 +10,7 @@
   "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
     %base = "riscv.li"() <{ "value" = 124 : i64 }> : () -> !riscv.reg
     %word = "riscv.li"() <{ "value" = 9476278954835737980 : i64 }> : () -> !riscv.reg
-    "riscv.sd"(%base, %word) <{ "value" = 0 : i64 }> : (!riscv.reg, !riscv.reg) -> ()
+    "riscv.sd"(%word, %base) <{ "value" = 0 : i64 }> : (!riscv.reg, !riscv.reg) -> ()
 
     %b0 = "riscv.lb"(%base) <{ "value" = 0 : i64 }> : (!riscv.reg) -> !riscv.reg
     %b1 = "riscv.lb"(%base) <{ "value" = 1 : i64 }> : (!riscv.reg) -> !riscv.reg

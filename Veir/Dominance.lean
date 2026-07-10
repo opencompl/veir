@@ -101,6 +101,21 @@ axiom OperationPtr.dominatesIp_before :
 grind_pattern OperationPtr.dominatesIp_before => op₁.dominatesIp (.before op₂) ctx
 
 /--
+Strict dominance between operations is transitive.
+-/
+axiom OperationPtr.strictlyDominates_trans {op₃ : OperationPtr} :
+  op₁.strictlyDominates op₂ ctx → op₂.strictlyDominates op₃ ctx →
+  op₁.strictlyDominates op₃ ctx
+
+/--
+A value dominating the program point before an operation `op₁` also dominates the program
+point before any operation `op₂` strictly dominated by `op₁`.
+-/
+axiom ValuePtr.dominatesIp_before_of_strictlyDominates {value : ValuePtr} :
+  value.dominatesIp (InsertPoint.before op₁) ctx → op₁.strictlyDominates op₂ ctx →
+  value.dominatesIp (InsertPoint.before op₂) ctx
+
+/--
 If an operation `op₁` dominates an operation `op₂`, it dominates the operation after `op₂`,
 if it exists.
 -/

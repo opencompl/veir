@@ -62,4 +62,30 @@
         // CHECK-NEXT: [[E:%.*]] = "builtin.unrealized_conversion_cast"([[D]]) : (!riscv.reg) -> i1
         "func.return"() : () -> ()
     }) : () -> ()
+    "func.func"()  <{function_type = (i32, i32) -> ()}> ({
+    ^bb0(%a: i32, %b: i32):
+        %r_0 = "llvm.icmp"(%a, %b) <{predicate = 0 : i64}> : (i32, i32) -> i1
+        // CHECK:      [[A:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
+        // CHECK-NEXT: [[B:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
+        // CHECK-NEXT: [[C:%.*]] = "riscv.sextw"([[A]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: [[D:%.*]] = "riscv.sextw"([[B]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: [[E:%.*]] = "riscv.xor"([[D]], [[C]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: [[F:%.*]] = "riscv.sltiu"([[E]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: [[G:%.*]] = "builtin.unrealized_conversion_cast"([[F]]) : (!riscv.reg) -> i1
+        %r_2 = "llvm.icmp"(%a, %b) <{"predicate" = 2 : i64}> : (i32, i32) -> i1
+        // CHECK-NEXT: [[A:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
+        // CHECK-NEXT: [[B:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
+        // CHECK-NEXT: [[C:%.*]] = "riscv.sextw"([[A]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: [[D:%.*]] = "riscv.sextw"([[B]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: [[E:%.*]] = "riscv.slt"([[C]], [[D]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: [[F:%.*]] = "builtin.unrealized_conversion_cast"([[E]]) : (!riscv.reg) -> i1
+        %r_6 = "llvm.icmp"(%a, %b) <{"predicate" = 6 : i64}> : (i32, i32) -> i1
+        // CHECK-NEXT: [[A:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
+        // CHECK-NEXT: [[B:%.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
+        // CHECK-NEXT: [[C:%.*]] = "riscv.sextw"([[A]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: [[D:%.*]] = "riscv.sextw"([[B]]) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: [[E:%.*]] = "riscv.sltu"([[C]], [[D]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: [[F:%.*]] = "builtin.unrealized_conversion_cast"([[E]]) : (!riscv.reg) -> i1
+        "func.return"() : () -> ()
+    }) : () -> ()
 }) : () -> ()

@@ -16,7 +16,6 @@ def isConstOperand (ctx : IRContext OpCode) (v : ValuePtr) : Bool :=
   | some defOp => (defOp.getOpType! ctx).isConstantLike
   | none => false
 
-set_option warn.sorry false in
 def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let opType := op.getOpType! rewriter.ctx.raw
@@ -28,9 +27,9 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
   if reordered == operands then return rewriter
   let resultTypes := op.getResultTypes! rewriter.ctx.raw
   let properties := op.getProperties! rewriter.ctx.raw opType
-  let (rewriter, newOp) ← rewriter.createOp opType resultTypes reordered
-    #[] #[] properties (some $ .before op) sorry sorry sorry sorry
-  rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
+  let (rewriter, newOp) ← rewriter.createOp! opType resultTypes reordered
+    #[] #[] properties (some $ .before op)
+  return rewriter.replaceOp! op newOp
 
 /-! ## Pass implementation -/
 
