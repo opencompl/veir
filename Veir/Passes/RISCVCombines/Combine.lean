@@ -1252,7 +1252,6 @@ def mul_left_to_zero (rewriter: PatternRewriter OpCode) (op: OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (binopZeroLeftLocal matchMul) rewriter op opInBounds
 
-set_option warn.sorry false in
 /-- `srlDst (width - 1) (sraDst _ x) -> srlDst (width - 1) x`, where `(srlDst,
     sraDst)` is `(riscv.srli, riscv.srai)` at `width = 64` and `(riscv.srliw,
     riscv.sraiw)` at `width = 32`: an arithmetic right shift never changes the top
@@ -1264,27 +1263,28 @@ set_option warn.sorry false in
     itself -- is what shortens `sdiv x, 2`'s codegen relative to the general
     `sdiv x, 2^k` sequence: the correction shift's amount `W - k` only happens to
     coincide with `W - 1` when `k = 1`.
-    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L11628-L11633 -/
-def srl_sra_signbitGen (srlDst : Riscv) (hSrl : Riscv.propertiesOf srlDst = RISCVImmediateProperties)
-    (sraDst : Riscv) (width : Nat) (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (operands, outerImm) := matchOp op rewriter.ctx (.riscv srlDst) 1 | return rewriter
-  if (cast hSrl outerImm : RISCVImmediateProperties).value.value ≠ (width : Int) - 1 then
-    return rewriter
-  let some sraOp := getDefiningOp operands[0]! rewriter.ctx | return rewriter
-  let some (sraOperands, _) := matchOp sraOp rewriter.ctx (.riscv sraDst) 1 | return rewriter
-  let (rewriter, newOp) ← rewriter.createOp! (.riscv srlDst) #[RegisterType.mk] #[sraOperands[0]!]
-      #[] #[] outerImm (some $ .before op)
-  let rewriter := rewriter.replaceValue (op.getResult 0) (newOp.getResult 0) sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
 
-def srl_sra_signbit := srl_sra_signbitGen .srli rfl .srai 64
+    As a `LocalRewritePattern`: it creates one fresh `srlDst (width - 1) x` op and
+    forwards `op`'s result to it. See `srl_sra_signbitLocal_preservesSemantics`.
+    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L11628-L11633 -/
+def srl_sra_signbitLocal (srlDst : Riscv) (hSrl : Riscv.propertiesOf srlDst = RISCVImmediateProperties)
+    (sraDst : Riscv) (width : Nat) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, outerImm) := matchOp op ctx (.riscv srlDst) 1 | return (ctx, none)
+  if (cast hSrl outerImm : RISCVImmediateProperties).value.value ≠ (width : Int) - 1 then
+    return (ctx, none)
+  let some sraOp := getDefiningOp operands[0]! ctx | return (ctx, none)
+  let some (sraOperands, _) := matchOp sraOp ctx (.riscv sraDst) 1 | return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx (.riscv srlDst) #[RegisterType.mk] #[sraOperands[0]!]
+      #[] #[] outerImm none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def srl_sra_signbit := RewritePattern.fromLocalRewrite (srl_sra_signbitLocal .srli rfl .srai 64)
 
 /-- `i32` analogue of `srl_sra_signbit`: `riscv.srliw 31 (riscv.sraiw _ x) ->
     riscv.srliw 31 x`. -/
-def srlw_sraw_signbit := srl_sra_signbitGen .srliw rfl .sraiw 32
+def srlw_sraw_signbit := RewritePattern.fromLocalRewrite (srl_sra_signbitLocal .srliw rfl .sraiw 32)
 
-set_option warn.sorry false in
 /-- Drop `riscv.srli 63 (riscv.slli 63 X)` when `X` is defined by a comparison
     op that's already guaranteed to produce exactly 0 or 1 (bits 63:1 clear).
     `slli 63` isolates bit 0 of `X` into bit 63, and `srli 63` moves it back
@@ -1292,49 +1292,50 @@ set_option warn.sorry false in
     shifts (and the `X` they wrap) can be replaced by `X` itself. We don't need
     `X`'s properties here (unlike `srl_sra_signbitGen`, which reads the inner
     op's shift amount), so no `propertiesOf`/`cast` dance is needed to support
-    a generic inner opcode.
+    a generic inner opcode. No operation is created: `op`'s result is forwarded
+    to `X` (the operand of the inner `slli`). See
+    `drop_slli_srli_boolLocal_preservesSemantics`.
 
     LLVM: the comparison ops all produce a `ZeroOrOneBooleanContent` boolean
     (declared in the `RISCVTargetLowering` constructor), so the generic
     DAGCombiner folds the `(srl (shl X, XLen-1), XLen-1)` round trip away through
     known/demanded bits -- there is no RISC-V-specific peephole for it.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelLowering.cpp#L919 -/
-private def drop_slli_srli_boolGen (boolDst : Riscv) (arity : Nat)
-    (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
-  let some (operands, outerImm) := matchOp op rewriter.ctx (.riscv .srli) 1 | return rewriter
-  if outerImm.value.value ≠ 63 then return rewriter
-  let some slliOp := getDefiningOp operands[0]! rewriter.ctx | return rewriter
-  let some (slliOperands, innerImm) := matchOp slliOp rewriter.ctx (.riscv .slli) 1 | return rewriter
-  if innerImm.value.value ≠ 63 then return rewriter
-  let some boolOp := getDefiningOp slliOperands[0]! rewriter.ctx | return rewriter
-  let some (_, _) := matchOp boolOp rewriter.ctx (.riscv boolDst) arity | return rewriter
-  let rewriter := rewriter.replaceValue (op.getResult 0) slliOperands[0]! sorry sorry sorry
-  rewriter.eraseOp op sorry sorry sorry
+def drop_slli_srli_boolLocal (boolDst : Riscv) (arity : Nat) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, outerImm) := matchOp op ctx (.riscv .srli) 1 | return (ctx, none)
+  if outerImm.value.value ≠ 63 then return (ctx, none)
+  let some slliOp := getDefiningOp operands[0]! ctx | return (ctx, none)
+  let some (slliOperands, innerImm) := matchOp slliOp ctx (.riscv .slli) 1 | return (ctx, none)
+  if innerImm.value.value ≠ 63 then return (ctx, none)
+  let some boolOp := getDefiningOp slliOperands[0]! ctx | return (ctx, none)
+  let some (_, _) := matchOp boolOp ctx (.riscv boolDst) arity | return (ctx, none)
+  some (ctx, some (#[], #[slliOperands[0]!]))
 
 /-- `riscv.slt` produces exactly 0 or 1. -/
-def drop_slli_srli_slt := drop_slli_srli_boolGen .slt 2
+def drop_slli_srli_slt := RewritePattern.fromLocalRewrite (drop_slli_srli_boolLocal .slt 2)
 
 /-- `riscv.sltu` produces exactly 0 or 1. -/
-def drop_slli_srli_sltu := drop_slli_srli_boolGen .sltu 2
+def drop_slli_srli_sltu := RewritePattern.fromLocalRewrite (drop_slli_srli_boolLocal .sltu 2)
 
 /-- `riscv.slti` produces exactly 0 or 1. -/
-def drop_slli_srli_slti := drop_slli_srli_boolGen .slti 1
+def drop_slli_srli_slti := RewritePattern.fromLocalRewrite (drop_slli_srli_boolLocal .slti 1)
 
 /-- `riscv.sltiu` produces exactly 0 or 1. -/
-def drop_slli_srli_sltiu := drop_slli_srli_boolGen .sltiu 1
+def drop_slli_srli_sltiu := RewritePattern.fromLocalRewrite (drop_slli_srli_boolLocal .sltiu 1)
 
 /-- `riscv.seqz` produces exactly 0 or 1. -/
-def drop_slli_srli_seqz := drop_slli_srli_boolGen .seqz 1
+def drop_slli_srli_seqz := RewritePattern.fromLocalRewrite (drop_slli_srli_boolLocal .seqz 1)
 
 /-- `riscv.snez` produces exactly 0 or 1. -/
-def drop_slli_srli_snez := drop_slli_srli_boolGen .snez 1
+def drop_slli_srli_snez := RewritePattern.fromLocalRewrite (drop_slli_srli_boolLocal .snez 1)
 
 /-- `riscv.sltz` produces exactly 0 or 1. -/
-def drop_slli_srli_sltz := drop_slli_srli_boolGen .sltz 1
+def drop_slli_srli_sltz := RewritePattern.fromLocalRewrite (drop_slli_srli_boolLocal .sltz 1)
 
 /-- `riscv.sgtz` produces exactly 0 or 1. -/
-def drop_slli_srli_sgtz := drop_slli_srli_boolGen .sgtz 1
+def drop_slli_srli_sgtz := RewritePattern.fromLocalRewrite (drop_slli_srli_boolLocal .sgtz 1)
 
 /-- `riscv.<ext> (riscv.<ext> x) -> riscv.<ext> x` for an idempotent width extension `ext`: the
     inner op already establishes the high-bit pattern (bits 63:32 clear, or a copy of the sign bit)

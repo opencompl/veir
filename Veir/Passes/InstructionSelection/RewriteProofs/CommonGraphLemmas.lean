@@ -1057,4 +1057,317 @@ theorem riscv_unaryReg_getVar?_of_strictlyDominates {rop : Riscv}
       hInnerNumResults hInnerSingleton hSem hInterpInner
   exact ⟨r, by rw [hbaseEq]; exact hResVal⟩
 
+/-- Packaged strict-dominance fact from a syntactic `getDefiningOp` match: if `val` is matched as
+    defined by `defOp` and used as an operand of an in-bounds `useOp`, then `defOp` strictly
+    dominates `useOp`. Bundles the `getDefiningOp → getDefiningOp!` bridge (via `result_owner`) that
+    a multi-level combine needs to chain dominance through an intermediate op. -/
+theorem strictlyDominates_of_getDefiningOp_of_mem_getOperands {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom) {val : ValuePtr} {defOp useOp : OperationPtr}
+    (hUseIn : useOp.InBounds ctx.raw)
+    (hDef : getDefiningOp val ctx.raw = some defOp)
+    (hMem : val ∈ useOp.getOperands! ctx.raw) :
+    defOp.strictlyDominates useOp ctx := by
+  obtain ⟨p, rfl, rfl⟩ := getDefiningOp_implies hDef
+  have hFib : ctx.raw.FieldsInBounds := ctx.wellFormed.inBounds
+  have hValIn : (ValuePtr.opResult p).InBounds ctx.raw :=
+    OperationPtr.getOperands!_inBounds hFib hUseIn hMem
+  have hValIn' := (ValuePtr.inBounds_opResult p ctx.raw).mp hValIn
+  have hOpIn : p.op.InBounds ctx.raw := by
+    unfold OpResultPtr.InBounds at hValIn'; obtain ⟨hh, -⟩ := hValIn'; exact hh
+  have hIdx : p.index < p.op.getNumResults! ctx.raw :=
+    OpResultPtr.inBounds_OperationPtr_getNumResults! p ctx.raw hValIn'
+  have hpeq : p = p.op.getResult p.index := by cases p; rfl
+  have hDefines : (ValuePtr.opResult p).getDefiningOp! ctx.raw = some p.op := by
+    have hOwner := (ctx.wellFormed.operations p.op hOpIn).result_owner p.index (by grind)
+    rw [ValuePtr.getDefiningOp!_opResult, ← hpeq] at *
+    grind
+  exact OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hDefines hMem
+
+/-! ## Immediate-form register-dialect graph machinery
+
+  The immediate-carrying unary reg ops (`slli`/`srli`/`srai`/…) have a result that depends on the
+  op's *properties* (the shift amount), so their semantics cannot be captured by a props-independent
+  `f` as in `matchRiscvUnaryReg_interpretOp_unfold`. These variants pin the properties to the op's
+  own `getProperties!`, leaving the result function `f` (which folds the immediate in) abstract in
+  the caller. -/
+
+/-- Immediate-form analogue of `matchRiscvUnaryReg_interpretOp_unfold`: the op's result depends on
+    its properties, so `hSem` is stated at the op's *own* `getProperties!` rather than universally.
+    Reads the single register operand `r` and stores `.reg (f r)` in the result. -/
+theorem matchRiscvUnaryRegImm_interpretOp_unfold {rop : Riscv} {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {operand : ValuePtr} {f : Data.RISCV.Reg → Data.RISCV.Reg}
+    {state newState : InterpreterState ctx} {cf} (opInBounds : op.InBounds ctx.raw)
+    (hOpType : op.getOpType! ctx.raw = .riscv rop)
+    (hNumResults : op.getNumResults! ctx.raw = 1)
+    (hOperands : op.getOperands! ctx.raw = #[operand])
+    (hSem : ∀ (rt : Array TypeAttr) (ops : Array RuntimeValue) (bo : Array BlockPtr)
+        (mem : MemoryState) (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' rop (op.getProperties! ctx.raw (.riscv rop)) rt ops bo mem
+          = some (.ok res) →
+        ∃ r, ops = #[.reg r] ∧ res = (#[.reg (f r)], mem, none))
+    (hinterp : interpretOp op state opInBounds = some (.ok (newState, cf))) :
+    ∃ r, state.variables.getVar? operand = some (RuntimeValue.reg r) ∧
+      state.memory = newState.memory ∧
+      newState.variables.getVar? (op.getResult 0) = some (RuntimeValue.reg (f r)) ∧
+      cf = none := by
+  have hNumOperands : op.getNumOperands! ctx.raw = 1 := by
+    simp [← OperationPtr.getOperands!.size_eq_getNumOperands!, hOperands]
+  have hOperandEq : operand = (op.getOperands! ctx.raw)[0]! := by rw [hOperands]; rfl
+  obtain ⟨operandValues, _, _, _, hOperandValues, _⟩ := interpretOp_some_iff.mp hinterp
+  simp only [VariableState.getOperandValues] at hOperandValues
+  have hsize : 0 < (op.getOperands! ctx.raw).size := by
+    rw [OperationPtr.getOperands!.size_eq_getNumOperands!]; omega
+  obtain ⟨val, hval⟩ :=
+    Array.exists_mapM_option_eq_some_iff.mp ⟨operandValues, hOperandValues⟩ 0 hsize
+  have hgetVar : state.variables.getVar? operand = some val := by
+    rw [hOperandEq, show (op.getOperands! ctx.raw)[0]! = (op.getOperands! ctx.raw)[0] from by grind]
+    exact hval
+  have hOperand0 : op.getOperand! ctx.raw 0 = operand := by
+    rw [hOperandEq]; grind [OperationPtr.getOperand!, OperationPtr.getOperands!]
+  have hOpVals : state.variables.getOperandValues op = some #[val] := by
+    rw [VariableState.getOperandValues_eq_some_iff]
+    refine ⟨by simp [hNumOperands], fun i hi => ?_⟩
+    rw [hNumOperands] at hi
+    obtain rfl : i = 0 := by omega
+    simpa [hOperand0] using hgetVar
+  rw [interpretOp_some_iff] at hinterp
+  obtain ⟨operandValues', resValues, mem', varState', hOV, hInterp', hSet, hNew⟩ := hinterp
+  rw [hOpVals, Option.some.injEq] at hOV
+  subst hOV
+  simp only [OperationPtr.interpret] at hInterp'
+  rw [hOpType] at hInterp'
+  simp only [interpretOp'] at hInterp'
+  obtain ⟨r, hopsEq, hresEq⟩ := hSem _ _ _ _ _ hInterp'
+  obtain rfl : val = RuntimeValue.reg r := by simpa using hopsEq
+  obtain ⟨rfl, rfl, rfl⟩ : resValues = #[RuntimeValue.reg (f r)] ∧
+      mem' = state.memory ∧ cf = none := by
+    simpa using hresEq
+  subst hNew
+  refine ⟨r, hgetVar, rfl, ?_, rfl⟩
+  rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumResults]; omega) hSet]
+  simp
+
+set_option maxHeartbeats 1000000 in
+/-- Immediate-form graph lemma exposing *both* the operand and the result bindings of a matched
+    defining op `innerOp` (opcode `rop`, single reg operand). In a source state satisfying
+    `EquationLemmaAt` before `op` (with `base` an operand of `op` defined by `innerOp`), the
+    operand `iOperands[0]!` holds `.reg r` and `base` holds `.reg (f r)`. Exposing the operand
+    binding is what lets a three-level combine (`srli`/`slli`/bool) thread the innermost register
+    value up through the `slli`. -/
+theorem riscv_unaryRegImm_getVarBoth_of_EquationLemmaAt {rop : Riscv}
+    {f : Data.RISCV.Reg → Data.RISCV.Reg} {ctx : WfIRContext OpCode}
+    (ctxDom : ctx.Dom)
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    (hPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .riscv rop → opp.Pure c)
+    {base : ValuePtr} {innerOp : OperationPtr} {iOperands : Array ValuePtr}
+    {iProps : propertiesOf (.riscv rop)}
+    (hDef : getDefiningOp base ctx.raw = some innerOp)
+    (hMatch : matchOp innerOp ctx.raw (.riscv rop) 1 = some (iOperands, iProps))
+    (hSem : ∀ (rt : Array TypeAttr) (ops : Array RuntimeValue) (bo : Array BlockPtr)
+        (mem : MemoryState) (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' rop (innerOp.getProperties! ctx.raw (.riscv rop)) rt ops bo mem
+          = some (.ok res) →
+        ∃ r, ops = #[.reg r] ∧ res = (#[.reg (f r)], mem, none))
+    (hOperand : base ∈ op.getOperands! ctx.raw) :
+    ∃ r : Data.RISCV.Reg, state.variables.getVar? iOperands[0]! = some (RuntimeValue.reg r) ∧
+      state.variables.getVar? base = some (RuntimeValue.reg (f r)) := by
+  obtain ⟨basePtr, rfl, rfl⟩ := getDefiningOp_implies hDef
+  obtain ⟨hInnerType, hInnerNumOperands, hInnerNumResults, hInnerOperandsEq, -⟩ :=
+    matchOp_implies hMatch
+  have hInnerSingleton : basePtr.op.getOperands! ctx.raw
+      = #[(basePtr.op.getOperands! ctx.raw)[0]!] := by
+    have hsz : (basePtr.op.getOperands! ctx.raw).size = 1 := by
+      rw [OperationPtr.getOperands!.size_eq_getNumOperands!, hInnerNumOperands]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  have hBaseIn : (ValuePtr.opResult basePtr).InBounds ctx.raw := by grind
+  have hInnerOpIn : basePtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hbaseIdx : basePtr.index < basePtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hbaseEq : basePtr = basePtr.op.getResult 0 := by
+    have hidx : basePtr.index = 0 := by omega
+    cases basePtr; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+  have hInnerDefines : (ValuePtr.opResult basePtr).getDefiningOp! ctx.raw = some basePtr.op := by
+    have hOwner := (ctx.wellFormed.operations basePtr.op hInnerOpIn).result_owner 0 (by grind)
+    grind [ValuePtr.getDefiningOp!]
+  have hInnerSDom : basePtr.op.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_of_getDefiningOp!_of_mem_getOperands! ctxDom hInnerDefines hOperand
+  have hInnerDomIp : basePtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hInnerPure : basePtr.op.Pure ctx.raw := hPure hInnerType
+  obtain ⟨cfI, hInterpInner⟩ := stateWf basePtr.op hInnerOpIn hInnerPure hInnerDomIp
+  obtain ⟨r, hOperandVal, -, hResVal, -⟩ :=
+    matchRiscvUnaryRegImm_interpretOp_unfold (rop := rop) (f := f) hInnerOpIn hInnerType
+      hInnerNumResults hInnerSingleton hSem hInterpInner
+  refine ⟨r, ?_, by rw [hbaseEq]; exact hResVal⟩
+  have : iOperands[0]! = (basePtr.op.getOperands! ctx.raw)[0]! := by rw [hInnerOperandsEq]
+  rw [this]; exact hOperandVal
+
+/-- Generic-arity result unfold: any successful `interpretOp` of a `riscv` op `rop` whose
+    interpretation always returns a single register result satisfying predicate `P` (with memory and
+    control flow untouched) binds that op's result to such a register. Unlike
+    `matchRiscvUnaryReg_interpretOp_unfold` this makes *no* assumption on the operand count, so it
+    covers the boolean-producing ops of any arity (`slt`, `seqz`, …). -/
+theorem riscv_result_interpretOp_unfold {rop : Riscv} {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {P : Data.RISCV.Reg → Prop}
+    {state newState : InterpreterState ctx} {cf} (opInBounds : op.InBounds ctx.raw)
+    (hOpType : op.getOpType! ctx.raw = .riscv rop)
+    (hNumResults : op.getNumResults! ctx.raw = 1)
+    (hSem : ∀ (props : HasDialectOpInfo.propertiesOf rop) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' rop props rt ops bo mem = some (.ok res) →
+        ∃ r, res = (#[.reg r], mem, none) ∧ P r)
+    (hinterp : interpretOp op state opInBounds = some (.ok (newState, cf))) :
+    ∃ r, newState.variables.getVar? (op.getResult 0) = some (RuntimeValue.reg r) ∧ P r ∧
+      state.memory = newState.memory ∧ cf = none := by
+  rw [interpretOp_some_iff] at hinterp
+  obtain ⟨operandValues, resValues, mem', varState', hOV, hInterp', hSet, hNew⟩ := hinterp
+  simp only [OperationPtr.interpret] at hInterp'
+  rw [hOpType] at hInterp'
+  simp only [interpretOp'] at hInterp'
+  obtain ⟨r, hresEq, hP⟩ := hSem _ _ _ _ _ _ hInterp'
+  obtain ⟨rfl, rfl, rfl⟩ : resValues = #[RuntimeValue.reg r] ∧ mem' = state.memory ∧ cf = none := by
+    simpa using hresEq
+  subst hNew
+  refine ⟨r, ?_, hP, rfl, rfl⟩
+  rw [VariableState.getVar?_getResult_of_setResultValues? (by rw [hNumResults]; omega) hSet]
+  simp
+
+set_option maxHeartbeats 1000000 in
+/-- Boolean-op graph lemma: for a value `base` defined by a `riscv` op `rop` (any arity) whose
+    interpretation always yields a single register satisfying `P`, in a source state satisfying
+    `EquationLemmaAt` before `op` (with `base` an operand of `op`), `base`'s runtime value is
+    `.reg r` for some `r` with `P r`. Used to learn that the operand feeding the `slli`/`srli`
+    round trip is a boolean in `{0, 1}`. -/
+theorem riscv_bool_getVar?_of_EquationLemmaAt {rop : Riscv} {P : Data.RISCV.Reg → Prop}
+    {ctx : WfIRContext OpCode}
+    {op : OperationPtr} (opInBounds : op.InBounds ctx.raw)
+    {state : InterpreterState ctx}
+    (stateWf : state.EquationLemmaAt (InsertPoint.before op) (by grind))
+    (hPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .riscv rop → opp.Pure c)
+    (hSem : ∀ (props : HasDialectOpInfo.propertiesOf rop) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' rop props rt ops bo mem = some (.ok res) →
+        ∃ r, res = (#[.reg r], mem, none) ∧ P r)
+    {base : ValuePtr} {innerOp : OperationPtr} {arity : Nat} {iOperands : Array ValuePtr}
+    {iProps : propertiesOf (.riscv rop)}
+    (hBaseIn : base.InBounds ctx.raw)
+    (hDef : getDefiningOp base ctx.raw = some innerOp)
+    (hMatch : matchOp innerOp ctx.raw (.riscv rop) arity = some (iOperands, iProps))
+    (hDefSDom : innerOp.strictlyDominates op ctx) :
+    ∃ r : Data.RISCV.Reg, state.variables.getVar? base = some (RuntimeValue.reg r) ∧ P r := by
+  obtain ⟨basePtr, rfl, rfl⟩ := getDefiningOp_implies hDef
+  obtain ⟨hInnerType, -, hInnerNumResults, -, -⟩ := matchOp_implies hMatch
+  have hInnerOpIn : basePtr.op.InBounds ctx.raw := by grind [OpResultPtr.InBounds]
+  have hbaseIdx : basePtr.index < basePtr.op.getNumResults! ctx.raw := by
+    grind [OpResultPtr.inBounds_OperationPtr_getNumResults!]
+  have hbaseEq : basePtr = basePtr.op.getResult 0 := by
+    have hidx : basePtr.index = 0 := by omega
+    cases basePtr; simp only [OperationPtr.getResult, OpResultPtr.mk.injEq]; exact ⟨trivial, hidx⟩
+  have hInnerDomIp : basePtr.op.dominatesIp (InsertPoint.before op) ctx := by grind
+  have hInnerPure : basePtr.op.Pure ctx.raw := hPure hInnerType
+  obtain ⟨cfI, hInterpInner⟩ := stateWf basePtr.op hInnerOpIn hInnerPure hInnerDomIp
+  obtain ⟨r, hResVal, hP, -, -⟩ :=
+    riscv_result_interpretOp_unfold (rop := rop) (P := P) hInnerOpIn hInnerType
+      hInnerNumResults hSem hInterpInner
+  exact ⟨r, by rw [hbaseEq]; exact hResVal, hP⟩
+
+/-! ## Purity of the immediate and boolean register ops -/
+
+/-- `riscv.slli` is pure. -/
+theorem OperationPtr.Pure.riscv_slli {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .slli) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `riscv.srai` is pure. -/
+theorem OperationPtr.Pure.riscv_srai {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .srai) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `riscv.sraiw` is pure. -/
+theorem OperationPtr.Pure.riscv_sraiw {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .sraiw) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `riscv.slt` is pure. -/
+theorem OperationPtr.Pure.riscv_slt {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .slt) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `riscv.sltu` is pure. -/
+theorem OperationPtr.Pure.riscv_sltu {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .sltu) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `riscv.slti` is pure. -/
+theorem OperationPtr.Pure.riscv_slti {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .slti) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `riscv.sltiu` is pure. -/
+theorem OperationPtr.Pure.riscv_sltiu {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .sltiu) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `riscv.seqz` is pure. -/
+theorem OperationPtr.Pure.riscv_seqz {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .seqz) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `riscv.snez` is pure. -/
+theorem OperationPtr.Pure.riscv_snez {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .snez) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `riscv.sltz` is pure. -/
+theorem OperationPtr.Pure.riscv_sltz {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .sltz) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
+/-- `riscv.sgtz` is pure. -/
+theorem OperationPtr.Pure.riscv_sgtz {op : OperationPtr} {ctx : IRContext OpCode}
+    (hType : op.getOpType! ctx = .riscv .sgtz) : op.Pure ctx := by
+  unfold OperationPtr.Pure; rw [hType]; intro operands memory₁ memory₂
+  simp only [interpretOp', Riscv.interpretOp']
+  repeat' split
+  all_goals first | rfl | simp [Interp.map, Option.map, UBOr.map, pure, bind, Option.bind]
+
 end Veir

@@ -552,4 +552,55 @@ theorem li_ofInt_zero_eq_x0 : Data.RISCV.li (BitVec.ofInt 64 0) = ⟨0⟩ := by
   simp only [Data.RISCV.li, Reg.mk.injEq]
   bv_decide
 
+/-! ## `drop_slli_srli_boolGen`: generic register-level facts.
+
+    The combinator proof of the `drop_slli_srli_*` family (which drops the
+    `slli 63; srli 63` round trip over a boolean-producing op) is phrased over an
+    abstract register value `r` known only to lie in `{0, 1}`; it needs the single
+    generic identity `srli 63 (slli 63 r) = r` (valid exactly because `r`'s bit 0
+    is its whole value) and, per instantiation, the fact that the specific boolean
+    op really does produce a value in `{0, 1}`. -/
+
+/-- Generic form of the `drop_slli_srli_*` register identity: for any register `r`
+    whose value is `0` or `1`, `slli 63` moves bit 0 up to bit 63 and `srli 63`
+    moves it straight back down, clearing everything else -- so the round trip is
+    the identity. -/
+theorem drop_slli_srli_of_bit {r : Reg} (h : r.val = 0#64 ∨ r.val = 1#64) :
+    RISCV.srli 63 (RISCV.slli 63 r) = r := by
+  rcases h with h | h <;> veir_bv_decide
+
+/-- `riscv.slt` produces a value in `{0, 1}`. -/
+theorem slt_bit {a b : Reg} : (RISCV.slt a b).val = 0#64 ∨ (RISCV.slt a b).val = 1#64 := by
+  veir_bv_decide
+
+/-- `riscv.sltu` produces a value in `{0, 1}`. -/
+theorem sltu_bit {a b : Reg} : (RISCV.sltu a b).val = 0#64 ∨ (RISCV.sltu a b).val = 1#64 := by
+  veir_bv_decide
+
+/-- `riscv.slti` produces a value in `{0, 1}`. -/
+theorem slti_bit {imm : BitVec 12} {r : Reg} :
+    (RISCV.slti imm r).val = 0#64 ∨ (RISCV.slti imm r).val = 1#64 := by
+  veir_bv_decide
+
+/-- `riscv.sltiu` produces a value in `{0, 1}`. -/
+theorem sltiu_bit {imm : BitVec 12} {r : Reg} :
+    (RISCV.sltiu imm r).val = 0#64 ∨ (RISCV.sltiu imm r).val = 1#64 := by
+  veir_bv_decide
+
+/-- `riscv.seqz` produces a value in `{0, 1}`. -/
+theorem seqz_bit {r : Reg} : (RISCV.seqz r).val = 0#64 ∨ (RISCV.seqz r).val = 1#64 := by
+  veir_bv_decide
+
+/-- `riscv.snez` produces a value in `{0, 1}`. -/
+theorem snez_bit {r : Reg} : (RISCV.snez r).val = 0#64 ∨ (RISCV.snez r).val = 1#64 := by
+  veir_bv_decide
+
+/-- `riscv.sltz` produces a value in `{0, 1}`. -/
+theorem sltz_bit {r : Reg} : (RISCV.sltz r).val = 0#64 ∨ (RISCV.sltz r).val = 1#64 := by
+  veir_bv_decide
+
+/-- `riscv.sgtz` produces a value in `{0, 1}`. -/
+theorem sgtz_bit {r : Reg} : (RISCV.sgtz r).val = 0#64 ∨ (RISCV.sgtz r).val = 1#64 := by
+  veir_bv_decide
+
 end Veir.Data.RISCV

@@ -12693,4 +12693,668 @@ theorem sexth_xor_local_preservesSemantics
     (fun h => absurd h (by decide)) (fun h => absurd h (by decide))
     (fun _ a b => Data.RISCV.sexth_xor (a := b) (b := a))
 
+/-! ## `drop_slli_srli_*`:  `srli 63 (slli 63 b) -> b` when `b` is a boolean op
+
+  `op` is a `riscv.srli 63` whose operand is defined by a `riscv.slli 63`, whose operand `b` is in
+  turn defined by a boolean-producing `riscv` op (`slt`/`sltu`/…) that returns exactly `0` or `1`.
+  The `slli 63; srli 63` round trip isolates bit 0 of `b` and moves it straight back, so for such a
+  `b` it is the identity: no operation is created, `op`'s result is forwarded to `b`. This is a
+  three-level register-DAG walk (`srli -> slli -> bool`); the "bool op returns 0/1" fact is threaded
+  as the `hBoolSem` hypothesis and discharged per instantiation. -/
+
+set_option maxHeartbeats 1000000 in
+/-- Shared correctness for the `drop_slli_srli_*` family, generic over the boolean opcode `boolDst`
+    (of arity `arity`) whose interpretation always yields a single register in `{0, 1}` (`hBoolSem`)
+    and is pure (`hBoolPure`). -/
+theorem drop_slli_srli_boolLocal_preservesSemantics {boolDst : Riscv} {arity : Nat}
+    (hBoolPure : ∀ {opp : OperationPtr} {c : IRContext OpCode},
+        opp.getOpType! c = .riscv boolDst → opp.Pure c)
+    (hBoolSem : ∀ (props : HasDialectOpInfo.propertiesOf boolDst) (rt : Array TypeAttr)
+        (ops : Array RuntimeValue) (bo : Array BlockPtr) (mem : MemoryState)
+        (res : Array RuntimeValue × MemoryState × Option ControlFlowAction),
+        Riscv.interpretOp' boolDst props rt ops bo mem = some (.ok res) →
+        ∃ r, res = (#[.reg r], mem, none) ∧ (r.val = 0#64 ∨ r.val = 1#64))
+    {h : LocalRewritePattern.ReturnOps (drop_slli_srli_boolLocal boolDst arity)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (drop_slli_srli_boolLocal boolDst arity)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (drop_slli_srli_boolLocal boolDst arity)}
+    {h₄ : LocalRewritePattern.ReturnValues (drop_slli_srli_boolLocal boolDst arity)} :
+    LocalRewritePattern.PreservesSemantics (drop_slli_srli_boolLocal boolDst arity) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, drop_slli_srli_boolLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp only [pure] at hpattern
+  -- Peel the outer `matchOp op (.riscv .srli) 1`.
+  have hMatchSome : (matchOp op ctx.raw (.riscv .srli) 1).isSome := by
+    cases hM : matchOp op ctx.raw (.riscv .srli) 1 with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨operands, outerImm⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Outer immediate guard: `outerImm.value.value = 63`.
+  have hOuterNe : ¬ (outerImm.value.value ≠ 63) := by
+    split at hpattern
+    · simp at hpattern
+    · assumption
+  rw [if_neg hOuterNe] at hpattern
+  have hOuterVal : outerImm.value.value = 63 := Decidable.not_not.mp hOuterNe
+  -- Peel `getDefiningOp operands[0]!`.
+  have hDefSlliSome : (getDefiningOp operands[0]! ctx.raw).isSome := by
+    cases hD : getDefiningOp operands[0]! ctx.raw with
+    | some y => rfl
+    | none => rw [hD] at hpattern; simp at hpattern
+  obtain ⟨slliOp, hDefSlli⟩ := Option.isSome_iff_exists.mp hDefSlliSome
+  rw [hDefSlli] at hpattern
+  simp only [] at hpattern
+  -- Peel `matchOp slliOp (.riscv .slli) 1`.
+  have hSlliMatchSome : (matchOp slliOp ctx.raw (.riscv .slli) 1).isSome := by
+    cases hM : matchOp slliOp ctx.raw (.riscv .slli) 1 with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨slliOperands, innerImm⟩, hSlliMatch⟩ := Option.isSome_iff_exists.mp hSlliMatchSome
+  rw [hSlliMatch] at hpattern
+  simp only [] at hpattern
+  -- Inner immediate guard: `innerImm.value.value = 63`.
+  have hInnerNe : ¬ (innerImm.value.value ≠ 63) := by
+    split at hpattern
+    · simp at hpattern
+    · assumption
+  rw [if_neg hInnerNe] at hpattern
+  have hInnerVal : innerImm.value.value = 63 := Decidable.not_not.mp hInnerNe
+  -- Peel `getDefiningOp slliOperands[0]!`.
+  have hDefBoolSome : (getDefiningOp slliOperands[0]! ctx.raw).isSome := by
+    cases hD : getDefiningOp slliOperands[0]! ctx.raw with
+    | some y => rfl
+    | none => rw [hD] at hpattern; simp at hpattern
+  obtain ⟨boolOp, hDefBool⟩ := Option.isSome_iff_exists.mp hDefBoolSome
+  rw [hDefBool] at hpattern
+  simp only [] at hpattern
+  -- Peel `matchOp boolOp (.riscv boolDst) arity`.
+  have hBoolMatchSome : (matchOp boolOp ctx.raw (.riscv boolDst) arity).isSome := by
+    cases hM : matchOp boolOp ctx.raw (.riscv boolDst) arity with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨boolOperands, boolProps⟩, hBoolMatch⟩ := Option.isSome_iff_exists.mp hBoolMatchSome
+  rw [hBoolMatch] at hpattern
+  simp only [] at hpattern
+  -- Read off the pattern outputs: nothing is created; the result forwards to `slliOperands[0]!`.
+  obtain ⟨rfl, rfl, rfl⟩ : ctx = newCtx ∧ newOps = #[] ∧ newValues = #[slliOperands[0]!] := by
+    simp at hpattern; grind
+  -- Structural facts.
+  obtain ⟨hOpType, hNumOperands, hNumResults, hOperandsEq, hOpProps⟩ := matchOp_implies hMatch
+  have hOperands : op.getOperands! ctx.raw = #[operands[0]!] := by
+    have hsz : operands.size = 1 := by
+      rw [hOperandsEq, OperationPtr.getOperands!.size_eq_getNumOperands!, hNumOperands]
+    rw [← hOperandsEq]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  have hOp0Mem : operands[0]! ∈ op.getOperands! ctx.raw := by rw [hOperands]; simp
+  obtain ⟨hSlliType, hSlliNumOperands, hSlliNumResults, hSlliOperandsEq, hSlliProps⟩ :=
+    matchOp_implies hSlliMatch
+  have hSlliOperands : slliOp.getOperands! ctx.raw = #[slliOperands[0]!] := by
+    have hsz : slliOperands.size = 1 := by
+      rw [hSlliOperandsEq, OperationPtr.getOperands!.size_eq_getNumOperands!, hSlliNumOperands]
+    rw [← hSlliOperandsEq]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  have hSlliOpMem : slliOperands[0]! ∈ slliOp.getOperands! ctx.raw := by rw [hSlliOperands]; simp
+  have hFib : ctx.raw.FieldsInBounds := ctx.wellFormed.inBounds
+  have hOp0In : operands[0]!.InBounds ctx.raw :=
+    OperationPtr.getOperands!_inBounds hFib opInBounds hOp0Mem
+  -- Dominance chain: `slliOp` and `boolOp` both strictly dominate `op`.
+  have hSlliSDom : slliOp.strictlyDominates op ctx :=
+    strictlyDominates_of_getDefiningOp_of_mem_getOperands ctxDom opInBounds hDefSlli hOp0Mem
+  obtain ⟨slliPtr, hSlliPtrEq, hSlliOpEq⟩ := getDefiningOp_implies hDefSlli
+  have hSlliOpIn : slliOp.InBounds ctx.raw := by
+    rw [hSlliOpEq]
+    have hh := (ValuePtr.inBounds_opResult slliPtr ctx.raw).mp (hSlliPtrEq ▸ hOp0In)
+    unfold OpResultPtr.InBounds at hh; obtain ⟨hh, -⟩ := hh; exact hh
+  have hBoolBaseIn : slliOperands[0]!.InBounds ctx.raw :=
+    OperationPtr.getOperands!_inBounds hFib hSlliOpIn hSlliOpMem
+  have hBoolSDomSlli : boolOp.strictlyDominates slliOp ctx :=
+    strictlyDominates_of_getDefiningOp_of_mem_getOperands ctxDom hSlliOpIn hDefBool hSlliOpMem
+  have hBoolSDom : boolOp.strictlyDominates op ctx :=
+    OperationPtr.strictlyDominates_trans hBoolSDomSlli hSlliSDom
+  -- Unfold the outer `srli`'s interpretation.
+  obtain ⟨s, hOp0Val, hMemOuter, hOpResVal, hCfOuter⟩ :=
+    matchRiscvUnaryRegImm_interpretOp_unfold (rop := .srli)
+      (f := fun s => Data.RISCV.srli
+        (BitVec.ofInt 6 (op.getProperties! ctx.raw (.riscv .srli)).value.value) s)
+      opInBounds hOpType hNumResults hOperands
+      (by intro rt ops bo mem res hh
+          simp only [Riscv.interpretOp', pure, Interp] at hh
+          split at hh
+          · rename_i op1 heq
+            refine ⟨op1, Array.toList_inj.mp heq, ?_⟩
+            injection hh with e1; injection e1 with e1; exact e1.symm
+          · exact absurd hh (by simp))
+      hinterp
+  subst hCfOuter
+  -- Pin `operands[0]!` to `slli 63 t` and expose the boolean operand `t`.
+  obtain ⟨t, hSlliOpVal, hSlliResVal⟩ :=
+    riscv_unaryRegImm_getVarBoth_of_EquationLemmaAt (rop := .slli)
+      (f := fun t => Data.RISCV.slli
+        (BitVec.ofInt 6 (slliOp.getProperties! ctx.raw (.riscv .slli)).value.value) t)
+      ctxDom opInBounds stateWf (fun hT => OperationPtr.Pure.riscv_slli hT)
+      hDefSlli hSlliMatch
+      (by intro rt ops bo mem res hh
+          simp only [Riscv.interpretOp', pure, Interp] at hh
+          split at hh
+          · rename_i op1 heq
+            refine ⟨op1, Array.toList_inj.mp heq, ?_⟩
+            injection hh with e1; injection e1 with e1; exact e1.symm
+          · exact absurd hh (by simp))
+      hOp0Mem
+  -- Pin the boolean operand `slliOperands[0]!` to a register in `{0, 1}`.
+  obtain ⟨rb, hBoolVal, hBit⟩ :=
+    riscv_bool_getVar?_of_EquationLemmaAt (rop := boolDst)
+      (P := fun r => r.val = 0#64 ∨ r.val = 1#64)
+      opInBounds stateWf hBoolPure hBoolSem hBoolBaseIn hDefBool hBoolMatch hBoolSDom
+  -- Collapse the chain: `s = slli 63 t`, `t = rb ∈ {0, 1}`.
+  have hs : s = Data.RISCV.slli
+      (BitVec.ofInt 6 (slliOp.getProperties! ctx.raw (.riscv .slli)).value.value) t := by
+    have := hOp0Val.symm.trans hSlliResVal; simpa using this
+  have ht : t = rb := by have := hSlliOpVal.symm.trans hBoolVal; simpa using this
+  have hTBit : t.val = 0#64 ∨ t.val = 1#64 := ht ▸ hBit
+  -- The two immediates really are `63`.
+  have hXo : (op.getProperties! ctx.raw (.riscv .srli)).value.value = 63 := by
+    rw [← hOpProps]; exact hOuterVal
+  have hXi : (slliOp.getProperties! ctx.raw (.riscv .slli)).value.value = 63 := by
+    rw [← hSlliProps]; exact hInnerVal
+  -- Source value.
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hOpResVal] at hsourceValues
+  subst sourceValues
+  -- Target dominance / freshness of the forwarded value.
+  have hTgtDomSlli : slliOperands[0]!.dominatesIp (InsertPoint.before slliOp) ctx :=
+    ctxDom.operand_dominates_op hSlliOpIn hSlliOpMem
+  have hTgtDom : slliOperands[0]!.dominatesIp (InsertPoint.before op) ctx :=
+    ValuePtr.dominatesIp_before_of_strictlyDominates hTgtDomSlli hSlliSDom
+  have hTgtNotOp : slliOperands[0]! ∉ op.getResults! ctx.raw :=
+    IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hSlliSDom) slliOperands[0]! hSlliOpMem
+  have hTgtVal :=
+    LocalRewritePattern.exists_refined_reg_getVar? valueRefinement state'Dom hBoolBaseIn
+      hSlliOpVal hTgtDom hTgtDom hTgtNotOp
+  refine ⟨state', by
+    simp [interpretOpList, liftM, monadLift, MonadLift.monadLift, Interp, pure], by grind, ?_⟩
+  refine ⟨#[RuntimeValue.reg t], by simp [hTgtVal, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ?_
+  -- `.reg (srli 63 (slli 63 t)) ⊒ .reg t`  ⟺  `srli 63 (slli 63 t) = t`.
+  simp only [hs, hXo, hXi]
+  have h63 : BitVec.ofInt 6 (63 : Int) = (63 : BitVec 6) := by decide
+  rw [h63]
+  exact Data.RISCV.drop_slli_srli_of_bit hTBit
+
+/-- `riscv.slt` produces exactly `0` or `1`. -/
+theorem drop_slli_srli_slt_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (drop_slli_srli_boolLocal .slt 2) h h₂ h₃ h₄ :=
+  drop_slli_srli_boolLocal_preservesSemantics
+    (fun hType => OperationPtr.Pure.riscv_slt hType)
+    (fun _ _ _ _ _ _ hh => by
+      simp only [Riscv.interpretOp', pure, Interp] at hh
+      split at hh
+      · rename_i op1 op2 heq
+        injection hh with e1; injection e1 with e1
+        exact ⟨Data.RISCV.slt op2 op1, e1.symm, Data.RISCV.slt_bit⟩
+      · exact absurd hh (by simp))
+
+/-- `riscv.sltu` produces exactly `0` or `1`. -/
+theorem drop_slli_srli_sltu_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (drop_slli_srli_boolLocal .sltu 2) h h₂ h₃ h₄ :=
+  drop_slli_srli_boolLocal_preservesSemantics
+    (fun hType => OperationPtr.Pure.riscv_sltu hType)
+    (fun _ _ _ _ _ _ hh => by
+      simp only [Riscv.interpretOp', pure, Interp] at hh
+      split at hh
+      · rename_i op1 op2 heq
+        injection hh with e1; injection e1 with e1
+        exact ⟨Data.RISCV.sltu op2 op1, e1.symm, Data.RISCV.sltu_bit⟩
+      · exact absurd hh (by simp))
+
+/-- `riscv.slti` produces exactly `0` or `1`. -/
+theorem drop_slli_srli_slti_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (drop_slli_srli_boolLocal .slti 1) h h₂ h₃ h₄ :=
+  drop_slli_srli_boolLocal_preservesSemantics
+    (fun hType => OperationPtr.Pure.riscv_slti hType)
+    (fun props _ _ _ _ _ hh => by
+      simp only [Riscv.interpretOp', pure, Interp] at hh
+      split at hh
+      · rename_i op1 heq
+        injection hh with e1; injection e1 with e1
+        exact ⟨Data.RISCV.slti (BitVec.ofInt 12 props.value.value) op1, e1.symm, Data.RISCV.slti_bit⟩
+      · exact absurd hh (by simp))
+
+/-- `riscv.sltiu` produces exactly `0` or `1`. -/
+theorem drop_slli_srli_sltiu_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (drop_slli_srli_boolLocal .sltiu 1) h h₂ h₃ h₄ :=
+  drop_slli_srli_boolLocal_preservesSemantics
+    (fun hType => OperationPtr.Pure.riscv_sltiu hType)
+    (fun props _ _ _ _ _ hh => by
+      simp only [Riscv.interpretOp', pure, Interp] at hh
+      split at hh
+      · rename_i op1 heq
+        injection hh with e1; injection e1 with e1
+        exact ⟨Data.RISCV.sltiu (BitVec.ofInt 12 props.value.value) op1, e1.symm,
+          Data.RISCV.sltiu_bit⟩
+      · exact absurd hh (by simp))
+
+/-- `riscv.seqz` produces exactly `0` or `1`. -/
+theorem drop_slli_srli_seqz_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (drop_slli_srli_boolLocal .seqz 1) h h₂ h₃ h₄ :=
+  drop_slli_srli_boolLocal_preservesSemantics
+    (fun hType => OperationPtr.Pure.riscv_seqz hType)
+    (fun _ _ _ _ _ _ hh => by
+      simp only [Riscv.interpretOp', pure, Interp] at hh
+      split at hh
+      · rename_i op1 heq
+        injection hh with e1; injection e1 with e1
+        exact ⟨Data.RISCV.seqz op1, e1.symm, Data.RISCV.seqz_bit⟩
+      · exact absurd hh (by simp))
+
+/-- `riscv.snez` produces exactly `0` or `1`. -/
+theorem drop_slli_srli_snez_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (drop_slli_srli_boolLocal .snez 1) h h₂ h₃ h₄ :=
+  drop_slli_srli_boolLocal_preservesSemantics
+    (fun hType => OperationPtr.Pure.riscv_snez hType)
+    (fun _ _ _ _ _ _ hh => by
+      simp only [Riscv.interpretOp', pure, Interp] at hh
+      split at hh
+      · rename_i op1 heq
+        injection hh with e1; injection e1 with e1
+        exact ⟨Data.RISCV.snez op1, e1.symm, Data.RISCV.snez_bit⟩
+      · exact absurd hh (by simp))
+
+/-- `riscv.sltz` produces exactly `0` or `1`. -/
+theorem drop_slli_srli_sltz_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (drop_slli_srli_boolLocal .sltz 1) h h₂ h₃ h₄ :=
+  drop_slli_srli_boolLocal_preservesSemantics
+    (fun hType => OperationPtr.Pure.riscv_sltz hType)
+    (fun _ _ _ _ _ _ hh => by
+      simp only [Riscv.interpretOp', pure, Interp] at hh
+      split at hh
+      · rename_i op1 heq
+        injection hh with e1; injection e1 with e1
+        exact ⟨Data.RISCV.sltz op1, e1.symm, Data.RISCV.sltz_bit⟩
+      · exact absurd hh (by simp))
+
+/-- `riscv.sgtz` produces exactly `0` or `1`. -/
+theorem drop_slli_srli_sgtz_local_preservesSemantics
+    {h h₂ h₃ h₄} : LocalRewritePattern.PreservesSemantics
+      (drop_slli_srli_boolLocal .sgtz 1) h h₂ h₃ h₄ :=
+  drop_slli_srli_boolLocal_preservesSemantics
+    (fun hType => OperationPtr.Pure.riscv_sgtz hType)
+    (fun _ _ _ _ _ _ hh => by
+      simp only [Riscv.interpretOp', pure, Interp] at hh
+      split at hh
+      · rename_i op1 heq
+        injection hh with e1; injection e1 with e1
+        exact ⟨Data.RISCV.sgtz op1, e1.symm, Data.RISCV.sgtz_bit⟩
+      · exact absurd hh (by simp))
+
+/-! ## `srl_sra_signbit` / `srlw_sraw_signbit`:  `srl (width-1) (sra _ x) -> srl (width-1) x`
+
+  `op` is a `riscv.<srl> (width-1)` whose operand is defined by a `riscv.<sra>`; a fresh
+  `riscv.<srl> (width-1) x` is created over the `sra`'s own source `x` and `op`'s result forwards to
+  it. The shift-by-`width-1` keeps only the sign bit, which the earlier arithmetic shift already
+  preserves, so the `sra` is redundant. Proven per instantiation (`srli`/`srai` at 64, `srliw`/
+  `sraiw` at 32); a generic combinator is blocked by the `cast hSrl` on the immediate properties,
+  which collapses to the identity only once `srlDst` is concrete. -/
+
+set_option maxHeartbeats 1000000 in
+/-- `riscv.srli 63 (riscv.srai _ x) -> riscv.srli 63 x`. -/
+theorem srl_sra_signbit_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (srl_sra_signbitLocal .srli rfl .srai 64)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (srl_sra_signbitLocal .srli rfl .srai 64)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (srl_sra_signbitLocal .srli rfl .srai 64)}
+    {h₄ : LocalRewritePattern.ReturnValues (srl_sra_signbitLocal .srli rfl .srai 64)} :
+    LocalRewritePattern.PreservesSemantics (srl_sra_signbitLocal .srli rfl .srai 64) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, srl_sra_signbitLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp only [pure] at hpattern
+  -- Peel the outer `matchOp op (.riscv .srli) 1`.
+  have hMatchSome : (matchOp op ctx.raw (.riscv .srli) 1).isSome := by
+    cases hM : matchOp op ctx.raw (.riscv .srli) 1 with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨operands, outerImm⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Immediate guard: `outerImm.value.value = 63` (the `cast rfl` is the identity here).
+  split at hpattern
+  · simp at hpattern
+  rename_i hGuard
+  have hOuterVal : outerImm.value.value = 63 := by
+    have hh := Decidable.not_not.mp hGuard
+    have hh2 : outerImm.value.value = (64 : Int) - 1 := hh
+    omega
+  -- Peel `getDefiningOp operands[0]!`.
+  have hDefSraSome : (getDefiningOp operands[0]! ctx.raw).isSome := by
+    cases hD : getDefiningOp operands[0]! ctx.raw with
+    | some y => rfl
+    | none => rw [hD] at hpattern; simp at hpattern
+  obtain ⟨sraOp, hDefSra⟩ := Option.isSome_iff_exists.mp hDefSraSome
+  rw [hDefSra] at hpattern
+  simp only [] at hpattern
+  -- Peel `matchOp sraOp (.riscv .srai) 1`.
+  have hSraMatchSome : (matchOp sraOp ctx.raw (.riscv .srai) 1).isSome := by
+    cases hM : matchOp sraOp ctx.raw (.riscv .srai) 1 with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨sraOperands, sraProps⟩, hSraMatch⟩ := Option.isSome_iff_exists.mp hSraMatchSome
+  rw [hSraMatch] at hpattern
+  simp only [] at hpattern
+  -- Structural facts for `op`.
+  obtain ⟨hOpType, hNumOperands, hNumResults, hOperandsEq, hOpProps⟩ := matchOp_implies hMatch
+  have hOperands : op.getOperands! ctx.raw = #[operands[0]!] := by
+    have hsz : operands.size = 1 := by
+      rw [hOperandsEq, OperationPtr.getOperands!.size_eq_getNumOperands!, hNumOperands]
+    rw [← hOperandsEq]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  have hOp0Mem : operands[0]! ∈ op.getOperands! ctx.raw := by rw [hOperands]; simp
+  obtain ⟨hSraType, hSraNumOperands, hSraNumResults, hSraOperandsEq, hSraProps⟩ :=
+    matchOp_implies hSraMatch
+  have hSraOperands : sraOp.getOperands! ctx.raw = #[sraOperands[0]!] := by
+    have hsz : sraOperands.size = 1 := by
+      rw [hSraOperandsEq, OperationPtr.getOperands!.size_eq_getNumOperands!, hSraNumOperands]
+    rw [← hSraOperandsEq]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  have hSraOpMem : sraOperands[0]! ∈ sraOp.getOperands! ctx.raw := by rw [hSraOperands]; simp
+  have hFib : ctx.raw.FieldsInBounds := ctx.wellFormed.inBounds
+  have hOp0In : operands[0]!.InBounds ctx.raw :=
+    OperationPtr.getOperands!_inBounds hFib opInBounds hOp0Mem
+  -- Dominance: `sraOp` strictly dominates `op`; `sraOperands[0]!` dominates before `op`.
+  have hSraSDom : sraOp.strictlyDominates op ctx :=
+    strictlyDominates_of_getDefiningOp_of_mem_getOperands ctxDom opInBounds hDefSra hOp0Mem
+  obtain ⟨sraPtr, hSraPtrEq, hSraOpEq⟩ := getDefiningOp_implies hDefSra
+  have hSraOpIn : sraOp.InBounds ctx.raw := by
+    rw [hSraOpEq]
+    have hh := (ValuePtr.inBounds_opResult sraPtr ctx.raw).mp (hSraPtrEq ▸ hOp0In)
+    unfold OpResultPtr.InBounds at hh; obtain ⟨hh, -⟩ := hh; exact hh
+  have hxIn : sraOperands[0]!.InBounds ctx.raw :=
+    OperationPtr.getOperands!_inBounds hFib hSraOpIn hSraOpMem
+  have hDomXSra : sraOperands[0]!.dominatesIp (InsertPoint.before sraOp) ctx :=
+    ctxDom.operand_dominates_op hSraOpIn hSraOpMem
+  have hDomX : sraOperands[0]!.dominatesIp (InsertPoint.before op) ctx :=
+    ValuePtr.dominatesIp_before_of_strictlyDominates hDomXSra hSraSDom
+  have xNotOp : sraOperands[0]! ∉ op.getResults! ctx.raw :=
+    IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hSraSDom) sraOperands[0]! hSraOpMem
+  -- Unfold the outer `srli`'s interpretation.
+  obtain ⟨sv, hOp0Val, hMemOuter, hOpResVal, hCfOuter⟩ :=
+    matchRiscvUnaryRegImm_interpretOp_unfold (rop := .srli)
+      (f := fun sv => Data.RISCV.srli
+        (BitVec.ofInt 6 (op.getProperties! ctx.raw (.riscv .srli)).value.value) sv)
+      opInBounds hOpType hNumResults hOperands
+      (by intro rt ops bo mem res hh
+          simp only [Riscv.interpretOp', pure, Interp] at hh
+          split at hh
+          · rename_i op1 heq
+            refine ⟨op1, Array.toList_inj.mp heq, ?_⟩
+            injection hh with e1; injection e1 with e1; exact e1.symm
+          · exact absurd hh (by simp))
+      hinterp
+  subst hCfOuter
+  -- Pin `operands[0]!` to `srai k xv` and expose the `srai`'s source `xv`.
+  obtain ⟨xv, hSraOpVal, hSraResVal⟩ :=
+    riscv_unaryRegImm_getVarBoth_of_EquationLemmaAt (rop := .srai)
+      (f := fun xv => Data.RISCV.srai
+        (BitVec.ofInt 6 (sraOp.getProperties! ctx.raw (.riscv .srai)).value.value) xv)
+      ctxDom opInBounds stateWf (fun hT => OperationPtr.Pure.riscv_srai hT)
+      hDefSra hSraMatch
+      (by intro rt ops bo mem res hh
+          simp only [Riscv.interpretOp', pure, Interp] at hh
+          split at hh
+          · rename_i op1 heq
+            refine ⟨op1, Array.toList_inj.mp heq, ?_⟩
+            injection hh with e1; injection e1 with e1; exact e1.symm
+          · exact absurd hh (by simp))
+      hOp0Mem
+  -- `sv = srai k xv`.
+  have hsv : sv = Data.RISCV.srai
+      (BitVec.ofInt 6 (sraOp.getProperties! ctx.raw (.riscv .srai)).value.value) xv := by
+    have := hOp0Val.symm.trans hSraResVal; simpa using this
+  -- The outer immediate is `63`.
+  have hXo : (op.getProperties! ctx.raw (.riscv .srli)).value.value = 63 := by
+    rw [← hOpProps]; exact hOuterVal
+  -- Source value.
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hOpResVal] at hsourceValues
+  subst sourceValues
+  -- Peel the single `srli` creation.
+  simp only [bind, Option.bind_eq_some_iff] at hpattern
+  peelOpCreation! hpattern ctx₁ newOp hNew hDomX hDomX₁
+  cleanupHpattern hpattern
+  have hNewType : newOp.getOpType! ctx₁.raw = .riscv .srli := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewOperands : newOp.getOperands! ctx₁.raw = #[sraOperands[0]!] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewProps : newOp.getProperties! ctx₁.raw (.riscv .srli) = outerImm := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewResTypes : newOp.getResultTypes! ctx₁.raw
+      = #[(RegisterType.mk : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hNew (operation := newOp)
+    rw [if_pos rfl] at hT
+    exact hT
+  -- Read the refined `sraOperands[0]!` in the target state.
+  have hXVal' :=
+    LocalRewritePattern.exists_refined_reg_getVar? valueRefinement state'Dom hxIn
+      hSraOpVal hDomX hDomX₁ xNotOp
+  -- Replay the created `srli` forward.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, -⟩ :=
+    interpretOp_riscv_unaryReg_imm_forward (state := state') (inBounds := by grind)
+      (rt := RegisterType.mk none) (props := outerImm)
+      (res := Data.RISCV.srli (BitVec.ofInt 6 outerImm.value.value) xv)
+      (by intro resultTypes blockOperands mem
+          simp [Riscv.interpretOp', pure, Interp])
+      hNewType hNewProps hNewOperands hNewResTypes hXVal'
+  refine ⟨s₁, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.reg (Data.RISCV.srli (BitVec.ofInt 6 outerImm.value.value) xv)],
+    by simp [hRes₁, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ?_
+  -- `.reg (srli 63 (srai k xv)) ⊒ .reg (srli 63 xv)`  ⟺  `srli 63 (srai k xv) = srli 63 xv`.
+  have h63 : BitVec.ofInt 6 (63 : Int) = (63 : BitVec 6) := by decide
+  simp only [hsv, hXo, hOpProps, h63]
+  exact Data.RISCV.srl_sra_signbit
+
+set_option maxHeartbeats 1000000 in
+/-- `i32` analogue: `riscv.srliw 31 (riscv.sraiw _ x) -> riscv.srliw 31 x`. The `srliw`/`sraiw` ops
+    read only bits 31:0 (via `extractLsb'`/`extractLsb`) and sign-extend; the shift-by-31 keeps only
+    bit 31 (the 32-bit sign bit), which the `sraiw` preserves. -/
+theorem srlw_sraw_signbit_local_preservesSemantics
+    {h : LocalRewritePattern.ReturnOps (srl_sra_signbitLocal .srliw rfl .sraiw 32)}
+    {h₂ : LocalRewritePattern.ReturnCtxChanges (srl_sra_signbitLocal .srliw rfl .sraiw 32)}
+    {h₃ : LocalRewritePattern.ReturnValuesInBounds (srl_sra_signbitLocal .srliw rfl .sraiw 32)}
+    {h₄ : LocalRewritePattern.ReturnValues (srl_sra_signbitLocal .srliw rfl .sraiw 32)} :
+    LocalRewritePattern.PreservesSemantics (srl_sra_signbitLocal .srliw rfl .sraiw 32) h h₂ h₃ h₄ := by
+  simp only [LocalRewritePattern.PreservesSemantics, srl_sra_signbitLocal]
+  intro ctx ctxDom ctxVerif op opInBounds newCtx newOps newValues hpattern state stateWf
+    newState cf hinterp
+  rintro sourceValues hsourceValues state' state'Wf state'Dom ⟨memoryRefinement, valueRefinement⟩
+  simp only [pure] at hpattern
+  -- Peel the outer `matchOp op (.riscv .srliw) 1`.
+  have hMatchSome : (matchOp op ctx.raw (.riscv .srliw) 1).isSome := by
+    cases hM : matchOp op ctx.raw (.riscv .srliw) 1 with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨operands, outerImm⟩, hMatch⟩ := Option.isSome_iff_exists.mp hMatchSome
+  rw [hMatch] at hpattern
+  simp only [] at hpattern
+  -- Immediate guard: `outerImm.value.value = 31` (the `cast rfl` is the identity here).
+  split at hpattern
+  · simp at hpattern
+  rename_i hGuard
+  have hOuterVal : outerImm.value.value = 31 := by
+    have hh := Decidable.not_not.mp hGuard
+    have hh2 : outerImm.value.value = (32 : Int) - 1 := hh
+    omega
+  -- Peel `getDefiningOp operands[0]!`.
+  have hDefSraSome : (getDefiningOp operands[0]! ctx.raw).isSome := by
+    cases hD : getDefiningOp operands[0]! ctx.raw with
+    | some y => rfl
+    | none => rw [hD] at hpattern; simp at hpattern
+  obtain ⟨sraOp, hDefSra⟩ := Option.isSome_iff_exists.mp hDefSraSome
+  rw [hDefSra] at hpattern
+  simp only [] at hpattern
+  -- Peel `matchOp sraOp (.riscv .sraiw) 1`.
+  have hSraMatchSome : (matchOp sraOp ctx.raw (.riscv .sraiw) 1).isSome := by
+    cases hM : matchOp sraOp ctx.raw (.riscv .sraiw) 1 with
+    | some y => rfl
+    | none => rw [hM] at hpattern; simp at hpattern
+  obtain ⟨⟨sraOperands, sraProps⟩, hSraMatch⟩ := Option.isSome_iff_exists.mp hSraMatchSome
+  rw [hSraMatch] at hpattern
+  simp only [] at hpattern
+  -- Structural facts for `op`.
+  obtain ⟨hOpType, hNumOperands, hNumResults, hOperandsEq, hOpProps⟩ := matchOp_implies hMatch
+  have hOperands : op.getOperands! ctx.raw = #[operands[0]!] := by
+    have hsz : operands.size = 1 := by
+      rw [hOperandsEq, OperationPtr.getOperands!.size_eq_getNumOperands!, hNumOperands]
+    rw [← hOperandsEq]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  have hOp0Mem : operands[0]! ∈ op.getOperands! ctx.raw := by rw [hOperands]; simp
+  obtain ⟨hSraType, hSraNumOperands, hSraNumResults, hSraOperandsEq, hSraProps⟩ :=
+    matchOp_implies hSraMatch
+  have hSraOperands : sraOp.getOperands! ctx.raw = #[sraOperands[0]!] := by
+    have hsz : sraOperands.size = 1 := by
+      rw [hSraOperandsEq, OperationPtr.getOperands!.size_eq_getNumOperands!, hSraNumOperands]
+    rw [← hSraOperandsEq]
+    apply Array.ext
+    · simp [hsz]
+    · intro i h1 h2
+      obtain rfl : i = 0 := by omega
+      simp [getElem!_pos, hsz]
+  have hSraOpMem : sraOperands[0]! ∈ sraOp.getOperands! ctx.raw := by rw [hSraOperands]; simp
+  have hFib : ctx.raw.FieldsInBounds := ctx.wellFormed.inBounds
+  have hOp0In : operands[0]!.InBounds ctx.raw :=
+    OperationPtr.getOperands!_inBounds hFib opInBounds hOp0Mem
+  -- Dominance: `sraOp` strictly dominates `op`; `sraOperands[0]!` dominates before `op`.
+  have hSraSDom : sraOp.strictlyDominates op ctx :=
+    strictlyDominates_of_getDefiningOp_of_mem_getOperands ctxDom opInBounds hDefSra hOp0Mem
+  obtain ⟨sraPtr, hSraPtrEq, hSraOpEq⟩ := getDefiningOp_implies hDefSra
+  have hSraOpIn : sraOp.InBounds ctx.raw := by
+    rw [hSraOpEq]
+    have hh := (ValuePtr.inBounds_opResult sraPtr ctx.raw).mp (hSraPtrEq ▸ hOp0In)
+    unfold OpResultPtr.InBounds at hh; obtain ⟨hh, -⟩ := hh; exact hh
+  have hxIn : sraOperands[0]!.InBounds ctx.raw :=
+    OperationPtr.getOperands!_inBounds hFib hSraOpIn hSraOpMem
+  have hDomXSra : sraOperands[0]!.dominatesIp (InsertPoint.before sraOp) ctx :=
+    ctxDom.operand_dominates_op hSraOpIn hSraOpMem
+  have hDomX : sraOperands[0]!.dominatesIp (InsertPoint.before op) ctx :=
+    ValuePtr.dominatesIp_before_of_strictlyDominates hDomXSra hSraSDom
+  have xNotOp : sraOperands[0]! ∉ op.getResults! ctx.raw :=
+    IRContext.Dom.value_not_in_results_of_forall_in_operands_of_dominates ctxDom
+      (OperationPtr.dominates_of_strictlyDominates hSraSDom) sraOperands[0]! hSraOpMem
+  -- Unfold the outer `srliw`'s interpretation.
+  obtain ⟨sv, hOp0Val, hMemOuter, hOpResVal, hCfOuter⟩ :=
+    matchRiscvUnaryRegImm_interpretOp_unfold (rop := .srliw)
+      (f := fun sv => Data.RISCV.srliw
+        (BitVec.ofInt 5 (op.getProperties! ctx.raw (.riscv .srliw)).value.value) sv)
+      opInBounds hOpType hNumResults hOperands
+      (by intro rt ops bo mem res hh
+          simp only [Riscv.interpretOp', pure, Interp] at hh
+          split at hh
+          · rename_i op1 heq
+            refine ⟨op1, Array.toList_inj.mp heq, ?_⟩
+            injection hh with e1; injection e1 with e1; exact e1.symm
+          · exact absurd hh (by simp))
+      hinterp
+  subst hCfOuter
+  -- Pin `operands[0]!` to `sraiw k xv` and expose the `sraiw`'s source `xv`.
+  obtain ⟨xv, hSraOpVal, hSraResVal⟩ :=
+    riscv_unaryRegImm_getVarBoth_of_EquationLemmaAt (rop := .sraiw)
+      (f := fun xv => Data.RISCV.sraiw
+        (BitVec.ofInt 5 (sraOp.getProperties! ctx.raw (.riscv .sraiw)).value.value) xv)
+      ctxDom opInBounds stateWf (fun hT => OperationPtr.Pure.riscv_sraiw hT)
+      hDefSra hSraMatch
+      (by intro rt ops bo mem res hh
+          simp only [Riscv.interpretOp', pure, Interp] at hh
+          split at hh
+          · rename_i op1 heq
+            refine ⟨op1, Array.toList_inj.mp heq, ?_⟩
+            injection hh with e1; injection e1 with e1; exact e1.symm
+          · exact absurd hh (by simp))
+      hOp0Mem
+  -- `sv = sraiw k xv`.
+  have hsv : sv = Data.RISCV.sraiw
+      (BitVec.ofInt 5 (sraOp.getProperties! ctx.raw (.riscv .sraiw)).value.value) xv := by
+    have := hOp0Val.symm.trans hSraResVal; simpa using this
+  -- The outer immediate is `31`.
+  have hXo : (op.getProperties! ctx.raw (.riscv .srliw)).value.value = 31 := by
+    rw [← hOpProps]; exact hOuterVal
+  -- Source value.
+  rw [show op.getResults ctx.raw (by grind) = #[ValuePtr.opResult (op.getResult 0)] from by grind]
+    at hsourceValues
+  simp at hsourceValues
+  simp [hOpResVal] at hsourceValues
+  subst sourceValues
+  -- Peel the single `srliw` creation.
+  simp only [bind, Option.bind_eq_some_iff] at hpattern
+  peelOpCreation! hpattern ctx₁ newOp hNew hDomX hDomX₁
+  cleanupHpattern hpattern
+  have hNewType : newOp.getOpType! ctx₁.raw = .riscv .srliw := by
+    grind [OperationPtr.getOpType!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewOperands : newOp.getOperands! ctx₁.raw = #[sraOperands[0]!] := by
+    grind [OperationPtr.getOperands!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewProps : newOp.getProperties! ctx₁.raw (.riscv .srliw) = outerImm := by
+    grind [OperationPtr.getProperties!_WfRewriter_createOp hNew (operation := newOp)]
+  have hNewResTypes : newOp.getResultTypes! ctx₁.raw
+      = #[(RegisterType.mk : TypeAttr)] := by
+    have hT := OperationPtr.getResultTypes!_WfRewriter_createOp hNew (operation := newOp)
+    rw [if_pos rfl] at hT
+    exact hT
+  -- Read the refined `sraOperands[0]!` in the target state.
+  have hXVal' :=
+    LocalRewritePattern.exists_refined_reg_getVar? valueRefinement state'Dom hxIn
+      hSraOpVal hDomX hDomX₁ xNotOp
+  -- Replay the created `srliw` forward.
+  obtain ⟨s₁, hI₁, hMem₁, hRes₁, -⟩ :=
+    interpretOp_riscv_unaryReg_imm_forward (state := state') (inBounds := by grind)
+      (rt := RegisterType.mk none) (props := outerImm)
+      (res := Data.RISCV.srliw (BitVec.ofInt 5 outerImm.value.value) xv)
+      (by intro resultTypes blockOperands mem
+          simp [Riscv.interpretOp', pure, Interp])
+      hNewType hNewProps hNewOperands hNewResTypes hXVal'
+  refine ⟨s₁, ?_, by grind, ?_⟩
+  · simp [interpretOpList_cons, hI₁, liftM, monadLift, MonadLift.monadLift, Interp]
+  refine ⟨#[RuntimeValue.reg (Data.RISCV.srliw (BitVec.ofInt 5 outerImm.value.value) xv)],
+    by simp [hRes₁, Option.bind, Option.map], ?_⟩
+  refine RuntimeValue.arrayIsRefinedBy_singleton.mpr ?_
+  -- `.reg (srliw 31 (sraiw k xv)) ⊒ .reg (srliw 31 xv)`  ⟺  `srliw 31 (sraiw k xv) = srliw 31 xv`.
+  have h31 : BitVec.ofInt 5 (31 : Int) = (31 : BitVec 5) := by decide
+  simp only [hsv, hXo, hOpProps, h31]
+  exact Data.RISCV.srlw_sraw_signbit
+
 end Veir.RISCV
