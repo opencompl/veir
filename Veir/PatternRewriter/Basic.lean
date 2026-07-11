@@ -197,6 +197,18 @@ def insertOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertP
     worklist := rewriter.worklist.push op,
   }
 
+/--
+Insert an operation at a given location, panicking if the operation or the insertion point is out
+of bounds, or if the insertion point does not have a parent block.
+-/
+def insertOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr) (ip : InsertPoint)
+    : PatternRewriter OpInfo :=
+  { rewriter with
+    ctx := WfRewriter.insertOp! rewriter.ctx op ip,
+    hasDoneAction := true,
+    worklist := rewriter.worklist.push op,
+  }
+
 def eraseOp (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     (opRegions : op.getNumRegions! rewriter.ctx.raw = 0 := by grind)
     (opUses : !op.hasUses! rewriter.ctx.raw := by grind)
@@ -269,6 +281,19 @@ def replaceValue (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
   let ctx := WfRewriter.replaceValue rewriter.ctx oldVal newVal
   { rewriter with ctx, hasDoneAction := true}
 
+/--
+Replace all uses of a value by another value, panicking if the two values are equal, or if either
+value is out of bounds.
+-/
+def replaceValue! (rewriter: PatternRewriter OpInfo) (oldVal newVal: ValuePtr)
+    : PatternRewriter OpInfo :=
+  if oldIn : oldVal.InBounds rewriter.ctx.raw then
+    let rewriter := rewriter.addUsersInWorklist oldVal oldIn
+    let ctx := WfRewriter.replaceValue! rewriter.ctx oldVal newVal
+    { rewriter with ctx, hasDoneAction := true }
+  else
+    panic! "PatternRewriter.replaceValue! failed: old value is out of bounds"
+
 def createBlock (rewriter: PatternRewriter OpInfo)
     (argTypes: Array TypeAttr)
     (insertPoint : Option BlockInsertPoint)
@@ -300,9 +325,8 @@ abbrev RewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
 abbrev LocalRewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
   WfIRContext OpInfo → OperationPtr → Option (WfIRContext OpInfo × Option (Array OperationPtr × Array ValuePtr))
 
-set_option warn.sorry false in
 def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : RewritePattern OpInfo :=
-  fun rewriter op opInBounds => do
+  fun rewriter op _opInBounds => do
     match pattern rewriter.ctx op with
     -- error while applying pattern
     | none => none
@@ -312,16 +336,12 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
     | some (newCtx, some (newOps, newRes)) =>
       let mut rewriter := { rewriter with ctx := newCtx, hasDoneAction := true }
       for newOp in newOps do
-        rewriter ← rewriter.insertOp newOp (InsertPoint.before op) (by sorry) (by sorry)
+        rewriter := rewriter.insertOp! newOp (InsertPoint.before op)
       for (res, i) in newRes.zipIdx do
-        rewriter ← rewriter.replaceValue (op.getResult i) res (by sorry) (by sorry) (by sorry)
-      let mut operands : Array ValuePtr := #[]
-      for i in 0...op.getNumOperands rewriter.ctx.raw (by sorry) do
-        operands := operands.push (op.getOperand! rewriter.ctx.raw i)
-      rewriter ← rewriter.eraseOp op (by sorry) (by sorry) (by sorry)
-      return rewriter
+        rewriter := rewriter.replaceValue! (op.getResult i) res
+      -- All results of `op` have been replaced above, so `op` is dead and can be erased.
+      return rewriter.eraseOp! op
 
-set_option warn.sorry false in
 /--
   Greedy pattern application: transforms a list of patterns into a single pattern that applies
   them repeatedly in order.
