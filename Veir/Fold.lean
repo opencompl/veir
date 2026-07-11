@@ -440,4 +440,21 @@ def PatternRewriter.createOrFoldOp! (rewriter : PatternRewriter OpCode) (opType 
       #[] #[] properties (some insertionPoint)
     return (rewriter, newOp.getResults! rewriter.ctx.raw)
 
+/--
+  Create or fold an operation, replace `oldOp` with the resulting values, and
+  erase `oldOp`. The result counts must agree; folding itself remains restricted
+  to single-result operations, while the no-fold path supports multiple results.
+-/
+def PatternRewriter.createOrFoldAndReplaceOp! (rewriter : PatternRewriter OpCode)
+    (oldOp : OperationPtr) (opType : OpCode) (resultTypes : Array TypeAttr)
+    (operands : Array ValuePtr) (properties : HasOpInfo.propertiesOf opType)
+    (insertionPoint : InsertPoint) : Option (PatternRewriter OpCode) := do
+  let (rewriter, newValues) ←
+    rewriter.createOrFoldOp! opType resultTypes operands properties insertionPoint
+  guard (oldOp.getNumResults! rewriter.ctx.raw == newValues.size)
+  let mut rewriter := rewriter
+  for h : i in 0...newValues.size do
+    rewriter := rewriter.replaceValue! (oldOp.getResult i) newValues[i]
+  return rewriter.eraseOp! oldOp
+
 end Veir
