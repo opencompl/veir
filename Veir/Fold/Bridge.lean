@@ -86,30 +86,43 @@ theorem OpCode.foldEligibleSemantics_of_isFoldEvaluable {opCode : OpCode}
   | riscv rop => exact OpCode.foldEligibleSemantics_riscv rop hElig
   | _ => simp [OpCode.isFoldEvaluable] at hElig
 
-/-! ## Every fold decision concerns a fold-evaluable opcode -/
+/-- `mod_arith` is uninterpreted (`interpretOp'` and `foldEvaluate` are both `none`),
+    so it has fold-eligible semantics vacuously. The semantic anchor for `mod_arith`
+    folds is the `mod-arith-to-arith` lowering. -/
+theorem OpCode.foldEligibleSemantics_mod_arith (mop : Mod_Arith) :
+    OpCode.FoldEligibleSemantics (.mod_arith mop) := by
+  intro props resultTypes operands successors mem
+  cases mop <;> rfl
+
+/-! ## Every fold decision concerns an opcode with fold-eligible semantics -/
 
 /-- The fold tables and the all-constant evaluation branch only answer for
-    fold-evaluable opcodes. -/
-theorem OpCode.foldsTo_isFoldEvaluable {opCode : OpCode}
-    {props : HasOpInfo.propertiesOf opCode}
+    opcodes with fold-eligible semantics. -/
+theorem OpCode.foldsTo_foldEligibleSemantics {opCode : OpCode}
+    {props : HasOpInfo.propertiesOf opCode} {resultTypes : Array TypeAttr}
     {knownOperands : Array (Option RuntimeValue)} {outcome : FoldOutcome}
-    (hFold : OpCode.foldsTo opCode props knownOperands = some outcome) :
-    opCode.isFoldEvaluable := by
+    (hFold : OpCode.foldsTo opCode props resultTypes knownOperands = some outcome) :
+    opCode.FoldEligibleSemantics := by
   unfold OpCode.foldsTo at hFold
   split at hFold
-  · grind
+  · exact OpCode.foldEligibleSemantics_of_isFoldEvaluable (by grind)
   · cases opCode with
-    | arith aop => rfl
-    | llvm lop => cases lop <;> simp_all [Llvm.foldsTo, OpCode.isFoldEvaluable]
-    | riscv rop => cases rop <;> simp_all [Riscv.foldsTo, OpCode.isFoldEvaluable]
+    | arith aop => exact OpCode.foldEligibleSemantics_arith aop
+    | llvm lop =>
+      exact OpCode.foldEligibleSemantics_llvm lop
+        (by cases lop <;> simp_all [Llvm.foldsTo, OpCode.isFoldEvaluable])
+    | riscv rop =>
+      exact OpCode.foldEligibleSemantics_riscv rop
+        (by cases rop <;> simp_all [Riscv.foldsTo, OpCode.isFoldEvaluable])
+    | mod_arith mop => exact OpCode.foldEligibleSemantics_mod_arith mop
     | _ => simp at hFold
 
-/-- Every non-`noFold` decision concerns a fold-evaluable opcode. -/
-theorem foldDecision_isFoldEvaluable {opCode : OpCode}
+/-- Every non-`noFold` decision concerns an opcode with fold-eligible semantics. -/
+theorem foldDecision_foldEligibleSemantics {opCode : OpCode}
     {props : HasOpInfo.propertiesOf opCode} {resultTypes : Array TypeAttr}
     {knownOperands : Array (Option RuntimeValue)}
     (hDecision : foldDecision opCode props resultTypes knownOperands ≠ .noFold) :
-    opCode.isFoldEvaluable := by
+    opCode.FoldEligibleSemantics := by
   unfold foldDecision at hDecision
   split at hDecision
   · exact absurd rfl hDecision
@@ -117,16 +130,15 @@ theorem foldDecision_isFoldEvaluable {opCode : OpCode}
     · exact absurd rfl hDecision
     · split at hDecision
       case h_1 hFold => exact absurd rfl hDecision
-      case h_2 j hFold => exact OpCode.foldsTo_isFoldEvaluable hFold
-      case h_3 rv hFold => exact OpCode.foldsTo_isFoldEvaluable hFold
-      case h_4 hFold => exact OpCode.foldsTo_isFoldEvaluable hFold
+      case h_2 j hFold => exact OpCode.foldsTo_foldEligibleSemantics hFold
+      case h_3 rv hFold => exact OpCode.foldsTo_foldEligibleSemantics hFold
+      case h_4 hFold => exact OpCode.foldsTo_foldEligibleSemantics hFold
 
 /-! ## The `interpretOp`-level bridges -/
 
-/-- A fold-evaluable operation is pure. -/
-theorem OperationPtr.Pure.of_isFoldEvaluable {op : OperationPtr} {ctx : IRContext OpCode}
-    (hElig : (op.getOpType! ctx).isFoldEvaluable) : op.Pure ctx := by
-  have hSem := OpCode.foldEligibleSemantics_of_isFoldEvaluable hElig
+/-- An operation with fold-eligible semantics is pure. -/
+theorem OperationPtr.Pure.of_foldEligibleSemantics {op : OperationPtr} {ctx : IRContext OpCode}
+    (hSem : (op.getOpType! ctx).FoldEligibleSemantics) : op.Pure ctx := by
   unfold OperationPtr.Pure
   intro operands memory₁ memory₂
   rw [hSem, hSem]
@@ -136,7 +148,7 @@ theorem OperationPtr.Pure.of_isFoldEvaluable {op : OperationPtr} {ctx : IRContex
   | some result => cases result <;> rfl
 
 /--
-  Successful interpretation of a fold-evaluable operation: the operands were fetched from
+  Successful interpretation of an operation with fold-eligible semantics: the operands were fetched from
   the state, `foldEvaluate` on them succeeds with the operation's result values, no control
   flow is produced, and memory is unchanged. This upgrades `FoldDecision.Refines` (stated
   against `foldEvaluate`) to a statement about what actually runs.
@@ -144,7 +156,7 @@ theorem OperationPtr.Pure.of_isFoldEvaluable {op : OperationPtr} {ctx : IRContex
 theorem interpretOp_ok_foldEvaluate {ctx : WfIRContext OpCode}
     {op : OperationPtr} {inBounds : op.InBounds ctx.raw}
     {state newState : InterpreterState ctx} {cf}
-    (hElig : (op.getOpType! ctx.raw).isFoldEvaluable)
+    (hSem : (op.getOpType! ctx.raw).FoldEligibleSemantics)
     (hinterp : interpretOp op state inBounds = some (.ok (newState, cf))) :
     ∃ actualOperands resValues,
       state.variables.getOperandValues op = some actualOperands ∧
@@ -154,7 +166,6 @@ theorem interpretOp_ok_foldEvaluate {ctx : WfIRContext OpCode}
       cf = none ∧
       newState.memory = state.memory ∧
       state.variables.setResultValues? op resValues = some newState.variables := by
-  have hSem := OpCode.foldEligibleSemantics_of_isFoldEvaluable hElig
   rw [interpretOp_some_iff] at hinterp
   obtain ⟨operandValues, resValues, mem', varState', hOV, hInterp', hSet, hNew⟩ := hinterp
   refine ⟨operandValues, resValues, hOV, ?_⟩
@@ -182,20 +193,19 @@ theorem interpretOp_ok_foldEvaluate {ctx : WfIRContext OpCode}
       exact ⟨rfl, rfl, rfl, hSet⟩
 
 /--
-  A fold-evaluable operation triggers UB exactly when `foldEvaluate` reports UB on its
+  An operation with fold-eligible semantics triggers UB exactly when `foldEvaluate` reports UB on its
   fetched operand values.
 -/
 theorem interpretOp_ub_foldEvaluate {ctx : WfIRContext OpCode}
     {op : OperationPtr} {inBounds : op.InBounds ctx.raw}
     {state : InterpreterState ctx}
-    (hElig : (op.getOpType! ctx.raw).isFoldEvaluable)
+    (hSem : (op.getOpType! ctx.raw).FoldEligibleSemantics)
     (hinterp : interpretOp op state inBounds = some .ub) :
     ∃ actualOperands,
       state.variables.getOperandValues op = some actualOperands ∧
       foldEvaluate (op.getOpType! ctx.raw)
         (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
         (op.getResultTypes! ctx.raw) actualOperands = some .ub := by
-  have hSem := OpCode.foldEligibleSemantics_of_isFoldEvaluable hElig
   rw [interpretOp_ub_iff] at hinterp
   obtain ⟨operandValues, hOV, hInterp'⟩ := hinterp
   refine ⟨operandValues, hOV, ?_⟩

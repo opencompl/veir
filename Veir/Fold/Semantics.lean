@@ -241,8 +241,9 @@ theorem FoldDecision.noFold_refines (opCode : OpCode)
 
 theorem OpCode.foldsTo_evaluate_allSome (opCode : OpCode)
     (properties : HasOpInfo.propertiesOf opCode)
+    (resultTypes : Array TypeAttr)
     (knownOperands : Array (Option RuntimeValue))
-    (hFold : OpCode.foldsTo opCode properties knownOperands = some .evaluate) :
+    (hFold : OpCode.foldsTo opCode properties resultTypes knownOperands = some .evaluate) :
     knownOperands.all (·.isSome) := by
   unfold OpCode.foldsTo at hFold
   split at hFold
@@ -260,13 +261,17 @@ theorem OpCode.foldsTo_evaluate_allSome (opCode : OpCode)
       cases op <;> simp [Riscv.foldsTo] at hFold
       all_goals split at hFold <;> simp_all
       all_goals try (split at hFold <;> simp_all)
+    | mod_arith op =>
+      cases op <;> simp [Mod_Arith.foldsTo, Option.bind] at hFold
+      all_goals split at hFold <;> simp_all
+      all_goals try (split at hFold <;> simp_all)
     | _ => contradiction
 
 theorem FoldDecision.partial_refines (opCode : OpCode)
     (properties : HasOpInfo.propertiesOf opCode)
     (knownOperands : Array (Option RuntimeValue)) (outcome : FoldOutcome)
     (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
-    (hFold : OpCode.foldsTo opCode properties knownOperands = some outcome)
+    (hFold : OpCode.foldsTo opCode properties resultTypes knownOperands = some outcome)
     (hNotEvaluate : outcome ≠ .evaluate)
     (hSound : FoldOutcome.Refines outcome opCode properties resultTypes actualOperands) :
     FoldDecision.Refines (foldDecision opCode properties resultTypes knownOperands)
@@ -290,11 +295,11 @@ theorem FoldDecision.evaluate_refines (opCode : OpCode)
     (properties : HasOpInfo.propertiesOf opCode)
     (knownOperands : Array (Option RuntimeValue))
     (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
-    (hFold : OpCode.foldsTo opCode properties knownOperands = some .evaluate)
+    (hFold : OpCode.foldsTo opCode properties resultTypes knownOperands = some .evaluate)
     (hAgree : ConstOperands.Agree knownOperands actualOperands) :
     FoldDecision.Refines (foldDecision opCode properties resultTypes knownOperands)
       opCode properties resultTypes actualOperands := by
-  have hAll := OpCode.foldsTo_evaluate_allSome opCode properties knownOperands hFold
+  have hAll := OpCode.foldsTo_evaluate_allSome opCode properties resultTypes knownOperands hFold
   have hActual := hAgree.actual_eq_knownValues hAll
   unfold foldDecision
   split
@@ -332,11 +337,11 @@ theorem FoldDecision.refines_of_foldsTo_refines (opCode : OpCode)
     (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
     (hAgree : ConstOperands.Agree knownOperands actualOperands)
     (hSound : ∀ outcome,
-      OpCode.foldsTo opCode properties knownOperands = some outcome →
+      OpCode.foldsTo opCode properties resultTypes knownOperands = some outcome →
       FoldOutcome.Refines outcome opCode properties resultTypes actualOperands) :
     FoldDecision.Refines (foldDecision opCode properties resultTypes knownOperands)
       opCode properties resultTypes actualOperands := by
-  cases hFold : OpCode.foldsTo opCode properties knownOperands with
+  cases hFold : OpCode.foldsTo opCode properties resultTypes knownOperands with
   | none =>
     unfold foldDecision
     split
@@ -643,7 +648,7 @@ theorem Arith.foldsTo_refines (op : Arith)
     (properties : HasDialectOpInfo.propertiesOf op)
     (knownOperands : Array (Option RuntimeValue)) (outcome : FoldOutcome)
     (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
-    (hFold : Arith.foldsTo op properties knownOperands = some outcome)
+    (hFold : Arith.foldsTo op properties resultTypes knownOperands = some outcome)
     (hAgree : ConstOperands.Agree knownOperands actualOperands) :
     FoldOutcome.Refines outcome (.arith op) properties resultTypes actualOperands := by
   cases op <;> simp only [Arith.foldsTo] at hFold
@@ -743,7 +748,7 @@ theorem OpCode.foldsTo_arith_refines (op : Arith)
     (properties : HasDialectOpInfo.propertiesOf op)
     (knownOperands : Array (Option RuntimeValue)) (outcome : FoldOutcome)
     (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
-    (hFold : OpCode.foldsTo (.arith op) properties knownOperands = some outcome)
+    (hFold : OpCode.foldsTo (.arith op) properties resultTypes knownOperands = some outcome)
     (hAgree : ConstOperands.Agree knownOperands actualOperands) :
     FoldOutcome.Refines outcome (.arith op) properties resultTypes actualOperands := by
   unfold OpCode.foldsTo at hFold
@@ -850,7 +855,7 @@ theorem Llvm.foldsTo_refines (op : Llvm)
     (properties : HasDialectOpInfo.propertiesOf op)
     (knownOperands : Array (Option RuntimeValue)) (outcome : FoldOutcome)
     (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
-    (hFold : Llvm.foldsTo op properties knownOperands = some outcome)
+    (hFold : Llvm.foldsTo op properties resultTypes knownOperands = some outcome)
     (hAgree : ConstOperands.Agree knownOperands actualOperands) :
     FoldOutcome.Refines outcome (.llvm op) properties resultTypes actualOperands := by
   cases op <;> simp only [Llvm.foldsTo] at hFold
@@ -949,7 +954,7 @@ theorem OpCode.foldsTo_llvm_refines (op : Llvm)
     (properties : HasDialectOpInfo.propertiesOf op)
     (knownOperands : Array (Option RuntimeValue)) (outcome : FoldOutcome)
     (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
-    (hFold : OpCode.foldsTo (.llvm op) properties knownOperands = some outcome)
+    (hFold : OpCode.foldsTo (.llvm op) properties resultTypes knownOperands = some outcome)
     (hAgree : ConstOperands.Agree knownOperands actualOperands) :
     FoldOutcome.Refines outcome (.llvm op) properties resultTypes actualOperands := by
   unfold OpCode.foldsTo at hFold
@@ -1130,7 +1135,7 @@ theorem Riscv.foldsTo_refines (op : Riscv)
     (properties : HasDialectOpInfo.propertiesOf op)
     (knownOperands : Array (Option RuntimeValue)) (outcome : FoldOutcome)
     (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
-    (hFold : Riscv.foldsTo op properties knownOperands = some outcome)
+    (hFold : Riscv.foldsTo op properties resultTypes knownOperands = some outcome)
     (hAgree : ConstOperands.Agree knownOperands actualOperands) :
     FoldOutcome.Refines outcome (.riscv op) properties resultTypes actualOperands := by
   cases op <;> simp only [Riscv.foldsTo] at hFold
@@ -1258,7 +1263,7 @@ theorem OpCode.foldsTo_riscv_refines (op : Riscv)
     (properties : HasDialectOpInfo.propertiesOf op)
     (knownOperands : Array (Option RuntimeValue)) (outcome : FoldOutcome)
     (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
-    (hFold : OpCode.foldsTo (.riscv op) properties knownOperands = some outcome)
+    (hFold : OpCode.foldsTo (.riscv op) properties resultTypes knownOperands = some outcome)
     (hAgree : ConstOperands.Agree knownOperands actualOperands) :
     FoldOutcome.Refines outcome (.riscv op) properties resultTypes actualOperands := by
   unfold OpCode.foldsTo at hFold
@@ -1277,7 +1282,7 @@ theorem Riscv.foldDecision_partial_refines (op : Riscv)
     (properties : HasDialectOpInfo.propertiesOf op)
     (knownOperands : Array (Option RuntimeValue)) (outcome : FoldOutcome)
     (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
-    (hFold : OpCode.foldsTo (.riscv op) properties knownOperands = some outcome)
+    (hFold : OpCode.foldsTo (.riscv op) properties resultTypes knownOperands = some outcome)
     (hNotEvaluate : outcome ≠ .evaluate)
     (hAgree : ConstOperands.Agree knownOperands actualOperands) :
     FoldDecision.Refines
@@ -1303,6 +1308,30 @@ theorem Riscv.foldDecision_refines (op : Riscv)
   exact OpCode.foldsTo_riscv_refines op properties knownOperands outcome resultTypes
     actualOperands hFold hAgree
 
+/--
+  `mod_arith` is uninterpreted, so `foldEvaluate` never succeeds on it and any fold
+  decision for it is (vacuously) sound at the `foldEvaluate` level. The semantic
+  anchor for `mod_arith` folds is the `mod-arith-to-arith` lowering.
+-/
+theorem foldEvaluate_mod_arith (op : Mod_Arith)
+    (properties : HasOpInfo.propertiesOf (OpCode.mod_arith op))
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) :
+    foldEvaluate (OpCode.mod_arith op) properties resultTypes operands = none := by
+  cases op <;> rfl
+
+theorem Mod_Arith.foldDecision_refines (op : Mod_Arith)
+    (properties : HasDialectOpInfo.propertiesOf op)
+    (knownOperands : Array (Option RuntimeValue))
+    (resultTypes : Array TypeAttr) (actualOperands : Array RuntimeValue)
+    (hAgree : ConstOperands.Agree knownOperands actualOperands) :
+    FoldDecision.Refines
+      (foldDecision (.mod_arith op) properties resultTypes knownOperands)
+      (.mod_arith op) properties resultTypes actualOperands := by
+  apply FoldDecision.refines_of_foldsTo_refines (.mod_arith op) properties knownOperands
+    resultTypes actualOperands hAgree
+  intro outcome hFold
+  simp [FoldOutcome.Refines, foldEvaluate_mod_arith, Interp.isRefinedBy]
+
 /-- Every fold decision produced by the executable dispatcher is sound. -/
 theorem OpCode.foldDecision_refines (opCode : OpCode)
     (properties : HasOpInfo.propertiesOf opCode)
@@ -1321,7 +1350,10 @@ theorem OpCode.foldDecision_refines (opCode : OpCode)
   | riscv op =>
     exact Riscv.foldDecision_refines op properties knownOperands resultTypes
       actualOperands hAgree
-  | builtin | func | mod_arith | rv64 | test | hw | comb | datapath
+  | mod_arith op =>
+    exact Mod_Arith.foldDecision_refines op properties knownOperands resultTypes
+      actualOperands hAgree
+  | builtin | func | rv64 | test | hw | comb | datapath
   | riscv_stack | riscv_cf | cf =>
     apply FoldDecision.refines_of_foldsTo_refines _ properties knownOperands
       resultTypes actualOperands hAgree

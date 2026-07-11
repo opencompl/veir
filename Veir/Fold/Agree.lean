@@ -300,7 +300,25 @@ theorem ValuePtr.constantValue_getVar?_of_EquationLemmaAt {ctx : WfIRContext OpC
       rw [hvEq]
       exact hVal
     case h_2 => simp at hConst
-  case h_5 => simp at hConst
+  case h_5 hType =>
+    -- mod_arith.constant: the dialect is uninterpreted, so no state satisfying
+    -- the SSA invariant can exist at a point dominated by it — the hypotheses
+    -- are contradictory.
+    exfalso
+    have hDefIn : defOp.InBounds ctx.raw := by grind
+    have hPure : defOp.Pure ctx.raw := by
+      unfold OperationPtr.Pure
+      rw [hType]
+      intro operands memory₁ memory₂
+      rfl
+    obtain ⟨cf, hInterpC⟩ := stateWf defOp hDefIn hPure hDomIp
+    rw [interpretOp_some_iff] at hInterpC
+    obtain ⟨operandValues, resValues, mem', varState', -, hInterp', -, -⟩ := hInterpC
+    simp only [OperationPtr.interpret] at hInterp'
+    rw [hType] at hInterp'
+    simp only [interpretOp'] at hInterp'
+    exact nomatch hInterp'
+  case h_6 => simp at hConst
 
 /-! ## The packaged agreement theorem -/
 

@@ -445,6 +445,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .arith .constant
   | .llvm .mlir__constant
   | .llvm .mlir__poison
+  | .mod_arith .constant
   | .riscv .li => true
   | _ => false
 
@@ -467,5 +468,6 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | .riscv .add | .riscv .and | .riscv .or | .riscv .xor | .riscv .xnor
   | .riscv .mul | .riscv .mulh | .riscv .mulhu
   | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
-  | .riscv .addw | .riscv .mulw => true
+  | .riscv .addw | .riscv .mulw
+  | .mod_arith .add | .mod_arith .mul => true
   | _ => false

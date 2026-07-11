@@ -78,6 +78,18 @@ def ValuePtr.constantValue (val : ValuePtr) (ctx : IRContext OpCode) : Option Ru
     let .registerType _ := (val.getType! ctx).val | none
     let properties := defOp.getProperties! ctx (.riscv .li)
     return .reg (Data.RISCV.li (BitVec.ofInt 64 properties.value.value))
+  | .mod_arith .constant =>
+    -- `mod_arith` has no runtime representation (it is lowered before
+    -- interpretation); constants are recovered as their canonical residue in
+    -- `[0, q)`, stored in the modulus' storage type. Note that the verifier
+    -- only checks that the value fits the storage type, so the reduction here
+    -- also canonicalizes non-canonical constants.
+    let .modArithType mt := (val.getType! ctx).val | none
+    let q := mt.modulus.value
+    if q ≤ 0 then none else
+    let properties := defOp.getProperties! ctx (.mod_arith .constant)
+    return .int mt.modulus.type.bitwidth
+      (.val (BitVec.ofNat mt.modulus.type.bitwidth (properties.value.value % q).toNat))
   | _ => none
 
 /--
@@ -113,7 +125,8 @@ def OpCode.isFoldEvaluable : OpCode → Bool
   poison).
 -/
 def Arith.foldsTo (op : Arith) (_properties : HasDialectOpInfo.propertiesOf op)
-    (constOperands : Array (Option RuntimeValue)) : Option FoldOutcome :=
+    (_resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
+    Option FoldOutcome :=
   match op with
   | .addi =>
     match constOperands.toList with
@@ -189,7 +202,8 @@ def Arith.foldsTo (op : Arith) (_properties : HasDialectOpInfo.propertiesOf op)
   See `Arith.foldsTo`.
 -/
 def Llvm.foldsTo (op : Llvm) (_properties : HasDialectOpInfo.propertiesOf op)
-    (constOperands : Array (Option RuntimeValue)) : Option FoldOutcome :=
+    (_resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
+    Option FoldOutcome :=
   match op with
   | .add =>
     match constOperands.toList with
@@ -272,7 +286,8 @@ def Llvm.foldsTo (op : Llvm) (_properties : HasDialectOpInfo.propertiesOf op)
   ...) fold on their properties instead of an operand.
 -/
 def Riscv.foldsTo (op : Riscv) (properties : HasDialectOpInfo.propertiesOf op)
-    (constOperands : Array (Option RuntimeValue)) : Option FoldOutcome :=
+    (_resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
+    Option FoldOutcome :=
   match op with
   | .add => match constOperands.toList with
     | [_, some (.reg c)] => if c.val = 0 then some (.operand 0) else none
@@ -339,25 +354,84 @@ def Riscv.foldsTo (op : Riscv) (properties : HasDialectOpInfo.propertiesOf op)
     | _ => none
   | _ => none
 
+/-- The modulus `q` (as a positive `Nat`) and storage bitwidth of a single
+    `!mod_arith.int` result type. -/
+def modArithModulus (resultTypes : Array TypeAttr) : Option (Nat × Nat) :=
+  match resultTypes.toList with
+  | [resType] =>
+    match resType.val with
+    | .modArithType mt =>
+      let q := mt.modulus.value.toNat
+      if q = 0 then none else some (q, mt.modulus.type.bitwidth)
+    | _ => none
+  | _ => none
+
 /--
-  Query whether an operation folds, given the values of its constant-defined
-  operands (`constOperands[i] = some rv` iff operand `i` is defined by a
-  constant-like operation with value `rv`).
+  Fold table for `mod_arith` operations. See `Arith.foldsTo`.
+
+  `mod_arith` is not interpreted (it is lowered to `arith` before
+  interpretation), so the all-constant case cannot go through `.evaluate`;
+  instead it is computed here, modulo the modulus `q` recovered from the
+  result type. Constant operands are canonical residues in `[0, q)` (see
+  `ValuePtr.constantValue`), and the arithmetic is performed on `Nat` so it
+  cannot overflow the storage type. The `x + 0`, `x - 0`, and `x * 1`
+  identities rely on the dialect invariant that runtime `mod_arith` values are
+  canonical residues (the same assumption the `mod-arith-to-arith` lowering
+  makes).
+-/
+def Mod_Arith.foldsTo (op : Mod_Arith) (_properties : HasDialectOpInfo.propertiesOf op)
+    (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
+    Option FoldOutcome :=
+  match op with
+  | .add =>
+    match constOperands.toList with
+    | [some (.int _ (.val a)), some (.int _ (.val b))] => do
+      let (q, bw) ← modArithModulus resultTypes
+      some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat + b.toNat) % q)))))
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .sub =>
+    match constOperands.toList with
+    | [some (.int _ (.val a)), some (.int _ (.val b))] => do
+      let (q, bw) ← modArithModulus resultTypes
+      some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat + q - b.toNat) % q)))))
+    | [_, some (.int _ (.val c))] => if c = 0 then some (.operand 0) else none
+    | _ => none
+  | .mul =>
+    match constOperands.toList with
+    | [some (.int _ (.val a)), some (.int _ (.val b))] => do
+      let (q, bw) ← modArithModulus resultTypes
+      some (.constant (.int bw (.val (BitVec.ofNat bw ((a.toNat * b.toNat) % q)))))
+    | [_, some (.int bw (.val c))] =>
+      if c = 0 then some (.constant (.int bw (.val 0)))
+      else if c = 1 then some (.operand 0)
+      else none
+    | _ => none
+  | .constant => none
+
+/--
+  Query whether an operation folds, given its result types and the values of
+  its constant-defined operands (`constOperands[i] = some rv` iff operand `i`
+  is defined by a constant-like operation with value `rv`).
 
   When every operand is a known constant and the opcode is evaluable, the
   answer is always `.evaluate` — no per-opcode logic is involved. Otherwise
-  the per-dialect fold tables are consulted for identities.
+  the per-dialect fold tables are consulted for identities (and, for the
+  uninterpreted `mod_arith` dialect, for all-constant folds computed in the
+  table itself).
 -/
 def OpCode.foldsTo (opCode : OpCode) (properties : HasOpInfo.propertiesOf opCode)
-    (constOperands : Array (Option RuntimeValue)) : Option FoldOutcome :=
+    (resultTypes : Array TypeAttr) (constOperands : Array (Option RuntimeValue)) :
+    Option FoldOutcome :=
   if opCode.isFoldEvaluable && !constOperands.isEmpty
       && constOperands.all (·.isSome) then
     some .evaluate
   else
     match opCode with
-    | .arith op => Arith.foldsTo op properties constOperands
-    | .llvm op => Llvm.foldsTo op properties constOperands
-    | .riscv op => Riscv.foldsTo op properties constOperands
+    | .arith op => Arith.foldsTo op properties resultTypes constOperands
+    | .llvm op => Llvm.foldsTo op properties resultTypes constOperands
+    | .riscv op => Riscv.foldsTo op properties resultTypes constOperands
+    | .mod_arith op => Mod_Arith.foldsTo op properties resultTypes constOperands
     | _ => none
 
 /--
@@ -393,6 +467,15 @@ def PatternRewriter.materializeConstant! (rewriter : PatternRewriter OpCode)
       let properties : LLVMConstantProperties :=
         { value := .integer (IntegerAttr.mk v.toInt (IntegerType.mk bw)) }
       rewriter.createOp! (.llvm .mlir__constant) #[resType] #[] #[] #[] properties (some ip)
+    | .mod_arith _ =>
+      -- `v` is a canonical residue in `[0, q)`, stored with the modulus'
+      -- storage type (read off the `!mod_arith.int` result type).
+      match resType.val with
+      | .modArithType mt =>
+        let properties : ModArithConstantProperties :=
+          { value := IntegerAttr.mk v.toNat mt.modulus.type }
+        rewriter.createOp! (.mod_arith .constant) #[resType] #[] #[] #[] properties (some ip)
+      | _ => none
     | _ =>
       let properties : ArithConstantProperties :=
         { value := IntegerAttr.mk v.toInt (IntegerType.mk bw) }
@@ -446,7 +529,7 @@ def foldDecision (opType : OpCode) (properties : HasOpInfo.propertiesOf opType)
     : FoldDecision :=
   if opType.isConstantLike then .noFold else
   if resultTypes.size ≠ 1 then .noFold else
-  match OpCode.foldsTo opType properties constOperands with
+  match OpCode.foldsTo opType properties resultTypes constOperands with
   | none => .noFold
   | some (.operand j) => .useOperand j
   | some (.constant rv) => .useConstant rv
