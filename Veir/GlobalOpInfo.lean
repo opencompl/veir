@@ -444,6 +444,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   match opCode with
   | .arith .constant
   | .llvm .mlir__constant
+  | .llvm .mlir__poison
   | .riscv .li => true
   | _ => false
 
